@@ -1703,7 +1703,7 @@
       // lectures se rejoignent dès la première validation, `chronologie`
       // devenant vraie : une séance saisie dans l'app s'affiche pareil à la
       // saisie et au détail.
-      if (bloc.superset && (bloc.chronologie || o.entrelacer)) {
+      if (bloc.superset && !o.parExercice && (bloc.chronologie || o.entrelacer)) {
         // ⚠️ §2.5 CORRIGÉ LE 13/09 — LES CHAUFFES S'ENTRELACENT AUSSI.
         //
         // « Juste avant la première série de travail de son exercice » avait été
@@ -1769,7 +1769,11 @@
   // `construireBlocs` recopie la ligne entière (`Object.assign`). Ce sont eux
   // qui rebranchent chaque rangée affichée sur sa série réelle, l'affichage
   // étant entrelacé alors que le modèle reste rangé par exercice.
-  function blocsDeSeance(seance, exercices) {
+  // 233 — SANS `o.entrelacer`, un superset de la séance en cours se range PAR EXERCICE (une carte par exercice, validation dans
+  // n'importe quel ordre, comme Hevy) : ni A1/B1/A2/B2 ni tour imposé. Les tours restent comptés (`toursComplets` lit `tour`, pas
+  // l'ordre). L'éditeur de routine, lui, passe `{ entrelacer: true }` : une routine prescrit l'enchaînement.
+  function blocsDeSeance(seance, exercices, opt) {
+    var entrelace = !!(opt && opt.entrelacer);
     var rang = 0;
     var plat = [];
     ((seance && seance.exercices) || []).forEach(function (exo, iExo) {
@@ -1783,7 +1787,7 @@
         }));
       });
     });
-    var blocs = construireBlocs(plat, exercices, { entrelacer: true });
+    var blocs = construireBlocs(plat, exercices, entrelace ? { entrelacer: true } : { parExercice: true });
     // L'indice de l'exercice remonte sur la légende, avec ses deux réglages :
     // c'est la légende qui porte la note, le repos cible et le « + Série » de
     // chaque branche du superset — un réglage par exercice, jamais par bloc.

@@ -103,12 +103,12 @@ describe('l’entrelacement (§2.3)', () => {
   test('superset à 2 exercices, tours complets → A1, B1, A2, B2, A3, B3', () => {
     const c = rendre(seanceDe([['dc', 3, 1], ['ec', 3, 1]]));
     expect(c.querySelectorAll('.bloc-seance')).toHaveLength(1);
-    expect(etiquettes(c, 0)).toEqual(['A1', 'B1', 'A2', 'B2', 'A3', 'B3']);
+    expect(etiquettes(c, 0)).toEqual(['A1', 'A2', 'A3', 'B1', 'B2', 'B3']);
   });
 
   test('superset à 3 exercices → A1, B1, C1, A2, B2, C2', () => {
     const c = rendre(seanceDe([['dc', 2, 1], ['ec', 2, 1], ['pd', 2, 1]]));
-    expect(etiquettes(c, 0)).toEqual(['A1', 'B1', 'C1', 'A2', 'B2', 'C2']);
+    expect(etiquettes(c, 0)).toEqual(['A1', 'A2', 'B1', 'B2', 'C1', 'C2']);
   });
 
   test('le nom de chaque exercice n’apparaît QU’UNE FOIS, dans la légende', () => {
@@ -123,14 +123,14 @@ describe('l’entrelacement (§2.3)', () => {
   test('séries inégales : le tour 3 est A3, B3 — aucun C3 fantôme', () => {
     const c = rendre(seanceDe([['dc', 3, 1], ['ec', 3, 1], ['pd', 2, 1]]));
     expect(etiquettes(c, 0)).toEqual(
-      ['A1', 'B1', 'C1', 'A2', 'B2', 'C2', 'A3', 'B3']);
+      ['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'C1', 'C2']);
   });
 
   test('deux supersets distincts font deux blocs, chacun reparti à A', () => {
     const c = rendre(seanceDe([['dc', 2, 1], ['ec', 2, 1], ['pd', 2, 2], ['pl', 2, 2]]));
     expect(c.querySelectorAll('.bloc-seance')).toHaveLength(2);
-    expect(etiquettes(c, 0)).toEqual(['A1', 'B1', 'A2', 'B2']);
-    expect(etiquettes(c, 1)).toEqual(['A1', 'B1', 'A2', 'B2']);
+    expect(etiquettes(c, 0)).toEqual(['A1', 'A2', 'B1', 'B2']);
+    expect(etiquettes(c, 1)).toEqual(['A1', 'A2', 'B1', 'B2']);
   });
 });
 
@@ -146,7 +146,7 @@ describe('le bloc d’un seul exercice (§2.1)', () => {
 
   test('et il cohabite avec un superset sans lui emprunter ses lettres', () => {
     const c = rendre(seanceDe([['dc', 2, 1], ['ec', 2, 1], ['cu', 2, null]]));
-    expect(etiquettes(c, 0)).toEqual(['A1', 'B1', 'A2', 'B2']);
+    expect(etiquettes(c, 0)).toEqual(['A1', 'A2', 'B1', 'B2']);
     expect(etiquettes(c, 1)).toEqual(['1', '2']);
   });
 
@@ -173,7 +173,7 @@ describe('l’échauffement (§2.5)', () => {
     s = Seance.changerType(s, 2, 0, 'echauffement');
     const c = rendre(s);
     expect(etiquettes(c, 0)).toEqual(
-      ['C', 'A1', 'B1', 'C1', 'A2', 'B2', 'C2']);
+      ['A1', 'A2', 'B1', 'B2', 'C', 'C1', 'C2']);
   });
 
   // ⚠️ TEST RETOURNÉ AU CHANTIER 28, APRÈS ESSAI SUR DEVICE (§2.5 précisé).
@@ -236,7 +236,7 @@ describe('l’éclairage porte sur le tour (§2.6 et §2.7)', () => {
     s = valider(s, 0, 0); s = valider(s, 1, 0); s = valider(s, 2, 0);
     const c = rendre(s);
     // A1, B1, C1 allumées ; le reste éteint.
-    expect(allumees(c, 0)).toEqual([true, true, true, false, false, false, false, false]);
+    expect(allumees(c, 0)).toEqual([true, false, false, true, false, false, true, false]);
     expect(Seance.tourAtteint(s, 1)).toBe(1);
   });
 
@@ -278,7 +278,7 @@ describe('l’éclairage porte sur le tour (§2.6 et §2.7)', () => {
     let s = seanceDe([['dc', 2, 1], ['ec', 2, 1]]);
     s = valider(s, 0, 1); s = valider(s, 1, 1);        // le tour 2, sans le 1
     expect(Seance.tourAtteint(s, 1)).toBe(0);
-    expect(allumees(rendre(s), 0)).toEqual([false, false, true, true]);
+    expect(allumees(rendre(s), 0)).toEqual([false, true, false, true]);
   });
 
   test('hors superset, l’éclairage dégénère en éclairage de ligne', () => {
@@ -307,15 +307,15 @@ describe('un superset peut mélanger les mesures (§3 ter)', () => {
     const c = rendre(seanceDe([['dc', 2, 1], ['pl', 2, 1]]));
     const grilles = Array.from(c.querySelectorAll('.bloc-seance')[0].querySelectorAll('.serie'))
       .map((r) => Array.from(r.classList).filter((x) => x.startsWith('g-'))[0]);
-    expect(grilles).toEqual(['g-charge_reps', 'g-temps', 'g-charge_reps', 'g-temps']);
+    expect(grilles).toEqual(['g-charge_reps', 'g-charge_reps', 'g-temps', 'g-temps']);
   });
 
   test('et l’en-tête de colonnes se TAIT plutôt que de mentir sur la moitié des lignes', () => {
     const mixte = rendre(seanceDe([['dc', 2, 1], ['pl', 2, 1]]));
-    expect(mixte.querySelectorAll('.cols-seance')).toHaveLength(0);
-    // Homogène, il reste : il dit vrai pour toutes les lignes.
+    // 233 — une carte par exercice : chaque carte a SON en-tête, qui dit vrai pour ses seules lignes.
+    expect(mixte.querySelectorAll('.cols-seance')).toHaveLength(2);
     const homogene = rendre(seanceDe([['dc', 2, 1], ['ec', 2, 1]]));
-    expect(homogene.querySelectorAll('.cols-seance')).toHaveLength(1);
+    expect(homogene.querySelectorAll('.cols-seance')).toHaveLength(2);
   });
 
   test('le type de mesure est rappelé sous CHAQUE nom de la légende', () => {
@@ -366,14 +366,17 @@ describe('la saisie et le détail de séance disent la même chose', () => {
     const detail = Modele.construireBlocs(Seance.lignes(s), CATALOGUE)
       .map((b) => b.series.map((x) => x.etiquette));
 
-    expect(saisie).toEqual([['A1', 'B1', 'C1', 'A2', 'B2', 'C2', 'A3', 'B3'], ['1', '2']]);
-    expect(detail).toEqual(saisie);
+    // 233 — la saisie range par exercice, le détail relit les tours : MÊMES étiquettes, ordre propre à chaque écran.
+    expect(saisie).toEqual([['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'C1', 'C2'], ['1', '2']]);
+    expect(detail.map((l) => l.slice().sort())).toEqual(saisie.map((l) => l.slice().sort()));
   });
 
-  test('une séance NON validée s’entrelace quand même à la saisie, pas au détail', () => {
+  test('une séance NON validée se range par exercice à la saisie (233), et le détail n’invente aucun ordre', () => {
     const s = seanceDe([['dc', 2, 1], ['ec', 2, 1]]);
-    // La saisie force l'entrelacement : la routine prescrit l'enchaînement.
-    expect(blocs(s)[0].series.map((x) => x.etiquette)).toEqual(['A1', 'B1', 'A2', 'B2']);
+    // 233 — la saisie ne force plus l'entrelacement : une carte par exercice, validation dans l'ordre qu'on veut.
+    expect(blocs(s)[0].series.map((x) => x.etiquette)).toEqual(['A1', 'A2', 'B1', 'B2']);
+    // L'éditeur de routine, lui, l'entrelace (une routine prescrit l'enchaînement).
+    expect(Modele.blocsDeSeance(s, CATALOGUE, { entrelacer: true })[0].series.map((x) => x.etiquette)).toEqual(['A1', 'B1', 'A2', 'B2']);
     // Le détail, lui, ne l'invente pas sur des lignes sans chronologie — c'est
     // la garde du corpus importé, que Hevy a aplati.
     const plates = [

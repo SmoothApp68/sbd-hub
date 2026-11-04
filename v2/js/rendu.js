@@ -3005,7 +3005,136 @@
     legende.insertBefore(el('div', 'constat-suite', constat.suite), ligne.nextSibling);
   }
 
+  // ══ 233 — DÉPLACER UN EXERCICE : L'APPUI LONG SUR SON NOM, OU LA POIGNÉE ⠿ ═══════════════════════════════════
+  //
+  // Une seule liaison par conteneur (les rendus remplacent les cartes, jamais le conteneur). Le geste prend la CARTE de l'exercice
+  // (`.carte-ss` d'un superset, sinon son bloc) et la fait suivre le doigt ; au lâcher, la place se lit sur les cartes sœurs
+  // (celles du même superset, ou les blocs de la séance) et `vue.surDeplacerExercice(iExo, iCible, apres)` écrit l'ordre — par le
+  // chemin de la séance (`THSeance.deplacerExercice`). Aucun calcul du coach ici. L'appui long s'annule au moindre mouvement
+  // (12 px, comme le glissement latéral) ; le clic qui suit un déplacement est avalé (le nom est un lien vers la page).
+  var DUREE_APPUI_EXO = 450, SEUIL_APPUI_EXO = 12;
+  function brancherDeplacementExercice(cible) {
+    if (cible._deplacementBranche) return;
+    cible._deplacementBranche = true;
+    var minuteur = null, x0 = 0, y0 = 0, cand = null, pris = null, depart = 0, soeurs = [], visee = null, derniereFin = 0;
+
+    function candidat(e) {
+      var h = e.target.closest && e.target.closest('.poignee-exo, .nom-exo');
+      if (!h || !cible.contains(h)) return null;
+      return candidatDe(h.closest('.legende-exo'), h.classList.contains('poignee-exo'));
+    }
+    function candidatDe(entree, immediat) {
+      if (!entree || !entree.hasAttribute('data-iexo')) return null;
+      var carte = entree.closest('.carte-ss') || entree.closest('.bloc-seance');
+      if (!carte || carte.classList.contains('replie')) return null;
+      var enSuperset = carte.classList.contains('carte-ss');
+      var parent = carte.parentNode;
+      var freres = Array.prototype.slice.call(enSuperset
+        ? parent.querySelectorAll('.carte-ss') : cible.querySelectorAll('.bloc-seance:not(.replie)'))
+        .filter(function (n) { return enSuperset ? n.parentNode === parent : n.parentNode === cible; });
+      return { iExo: Number(entree.getAttribute('data-iexo')), carte: carte, freres: freres, immediat: immediat };
+    }
+    function annulerMinuteur() { if (minuteur) { clearTimeout(minuteur); minuteur = null; } }
+    function prendre(e) {
+      if (!cand || typeof (cible._vueDepl || {}).surDeplacerExercice !== 'function') return;
+      pris = cand.carte; soeurs = cand.freres; visee = null;
+      pris.classList.add('pris-exo');
+      // Les cartes se réduisent à leur nom pendant le geste (comme le mode Modifier) : trois cartes tiennent alors dans l'écran, et le
+      // glissement n'a pas à franchir 900 px. La carte prise se recentre sous le doigt.
+      cible.classList.add('en-deplacement');
+      var rp = pris.getBoundingClientRect();
+      depart = rp.top + rp.height / 2;
+      pris.style.transform = 'translateY(' + (e.clientY - depart) + 'px)';
+      // Le suivi se fait sur le DOCUMENT : un rendu de la séance pendant le geste remplace les cartes (la prise n'est plus dans la
+      // page) et le lâcher doit quand même arriver.
+      doc.addEventListener('pointermove', suivre, true);
+      doc.addEventListener('pointerup', fin, true);
+      doc.addEventListener('pointercancel', annulerFin, true);
+    }
+    function suivre(e) {
+      if (!pris) return;
+      e.preventDefault();
+      pris.style.transform = 'translateY(' + (e.clientY - depart) + 'px)';
+      viser(e.clientY);
+    }
+    function fin() { if (pris) lacher(false); }
+    function annulerFin() { if (pris) lacher(true); }
+    function marquer(n, qui) {
+      ['cible-avant', 'cible-apres'].forEach(function (c) { n.classList.remove(c); });
+      if (qui) n.classList.add(qui);
+    }
+    function viser(y) {
+      visee = null;
+      soeurs.forEach(function (n) { marquer(n, null); });
+      for (var i = 0; i < soeurs.length; i++) {
+        if (soeurs[i] === pris) continue;
+        var r = soeurs[i].getBoundingClientRect();
+        if (y < r.top + r.height / 2) { visee = { n: soeurs[i], apres: false }; break; }
+        visee = { n: soeurs[i], apres: true };
+      }
+      if (visee) marquer(visee.n, visee.apres ? 'cible-apres' : 'cible-avant');
+    }
+    function indicesDe(n) {
+      var l = n.classList.contains('carte-ss') ? n.getAttribute('data-iexo') : (n.getAttribute('data-iexos') || '');
+      return String(l).split(',').filter(function (v) { return v !== ''; }).map(Number);
+    }
+    function lacher(annule) {
+      annulerMinuteur();
+      var c = cand, v = visee, p = pris;
+      doc.removeEventListener('pointermove', suivre, true);
+      doc.removeEventListener('pointerup', fin, true);
+      doc.removeEventListener('pointercancel', annulerFin, true);
+      cible.classList.remove('en-deplacement');
+      cand = null; pris = null; visee = null;
+      soeurs.forEach(function (n) { marquer(n, null); });
+      soeurs = [];
+      if (!p) return;
+      p.classList.remove('pris-exo');
+      cible.classList.remove('en-deplacement');
+      p.style.transform = '';
+      derniereFin = Date.now();
+      if (annule || !v || !c) return;
+      var idx = indicesDe(v.n);
+      if (!idx.length) return;
+      var vue = cible._vueDepl;
+      if (vue && typeof vue.surDeplacerExercice === 'function') vue.surDeplacerExercice(c.iExo, v.apres ? idx[idx.length - 1] : idx[0], v.apres);
+    }
+
+    cible.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      if (pris) return;
+      var c = candidat(e);
+      if (!c) return;
+      cand = c; x0 = e.clientX; y0 = e.clientY;
+      annulerMinuteur();
+      if (c.immediat) { prendre(e); e.preventDefault(); return; }
+      minuteur = setTimeout(function () {
+        minuteur = null;
+        // La séance a pu être redessinée pendant l'appui : on reprend la carte VIVANTE de cet exercice.
+        var vivante = cible.querySelector('.legende-exo[data-iexo="' + c.iExo + '"]');
+        var recu = vivante ? candidatDe(vivante, false) : null;
+        if (!recu) { cand = null; return; }
+        cand = recu;
+        prendre(e);
+      }, DUREE_APPUI_EXO);
+    });
+    cible.addEventListener('pointermove', function (e) {
+      if (pris) { e.preventDefault(); pris.style.transform = 'translateY(' + (e.clientY - depart) + 'px)'; viser(e.clientY); return; }
+      if (minuteur === null) return;
+      if (Math.abs(e.clientX - x0) > SEUIL_APPUI_EXO || Math.abs(e.clientY - y0) > SEUIL_APPUI_EXO) { annulerMinuteur(); cand = null; }
+    });
+    cible.addEventListener('pointerup', function () { if (pris) lacher(false); else { annulerMinuteur(); cand = null; } });
+    cible.addEventListener('pointercancel', function () { if (pris) lacher(true); else { annulerMinuteur(); cand = null; } });
+    // Pendant le glissement, la page ne défile pas ; le clic qui suit le lâcher n'ouvre pas la page de l'exercice.
+    cible.addEventListener('touchmove', function (e) { if (pris && e.cancelable) e.preventDefault(); }, { passive: false });
+    cible.addEventListener('click', function (e) {
+      if (Date.now() - derniereFin < 400) { e.preventDefault(); e.stopPropagation(); }
+    }, true);
+  }
+
   function rendreBlocsSeance(cible, seance, vue) {
+    cible._vueDepl = vue;
+    if (!vue.programme) brancherDeplacementExercice(cible);
     vider(cible);
     var blocs = vue.blocs || [];
     if (!blocs.length) {
@@ -3185,6 +3314,8 @@
 
   function rendreBlocSaisie(bloc, iBloc, vue) {
     var noeud = el('div', 'bloc-seance' + (bloc.superset ? ' superset' : ''));
+    // 233 — les exercices du bloc, pour le glissement d'un exercice (cible = ce bloc, ou une de ses cartes).
+    noeud.setAttribute('data-iexos', bloc.exercices.map(function (x) { return x._iExo; }).join(','));
     var gabarits = bloc.exercices.map(function (x) { return gabaritDe(vue, x.slug); });
 
     noeud.appendChild(teteDeBloc(bloc, iBloc, gabarits, vue));
@@ -3200,7 +3331,26 @@
     // à mesures mélangées, une seule ligne d'en-têtes mentirait sur la moitié
     // des rangées. On la tait plutôt que de nommer KG au-dessus d'une durée ; le
     // type de mesure reste écrit sous chaque nom, dans la légende.
-    var memeGabarit = gabaritsHomogenes(gabarits);
+    // 233 — LE SUPERSET À LA HEVY : en séance, les exercices d'un même groupe ne s'entrelacent plus. Chacun a sa CARTE (sa
+    // légende, ses colonnes, ses séries, son « + Série »), à la suite des autres, reliées par une barre de la teinte (CSS) ; la
+    // validation se fait dans n'importe quel ordre. Les blocs arrivent déjà rangés par exercice (`Modele.blocsDeSeance`).
+    var cartes = bloc.superset && !vue.programme;
+    var carteDe = {};
+    if (cartes) {
+      noeud.classList.add('en-cartes');
+      var legendes = Array.prototype.slice.call(noeud.querySelectorAll('.legende-exo'));
+      bloc.exercices.forEach(function (x, i) {
+        var carte = el('div', 'carte-ss');
+        carte.setAttribute('data-iexo', String(x._iExo));
+        if (legendes[i]) { legendes[i].parentNode.removeChild(legendes[i]); carte.appendChild(legendes[i]); }
+        carte.appendChild(enTetesColonnes(gabarits[i], false, null,
+          bloc.series.some(function (q) { return q._iExo === x._iExo && q.faite; }), null));
+        carteDe[x._iExo] = carte;
+        noeud.appendChild(carte);
+      });
+    }
+    var hoteDe = function (s) { return cartes && carteDe[s._iExo] ? carteDe[s._iExo] : noeud; };
+    var memeGabarit = !cartes && gabaritsHomogenes(gabarits);
     // §7 quindecies.3 (52-1) — dans l'éditeur, la colonne de charge dit ce
     // qu'elle est : « DÉPART » sur un exercice jamais fait, absente sinon. Des
     // exercices qui ne s'accordent pas là-dessus taisent l'en-tête, comme des
@@ -3224,6 +3374,7 @@
 
     var proposees = {};
     bloc.series.forEach(function (s) {
+      var hote = hoteDe(s);
       // MOTEUR §9.15.2 (49-U10) — la proposition de chauffes, au-dessus de la
       // première série de l'exercice : une ligne à accepter, jamais des séries
       // insérées d'office.
@@ -3237,25 +3388,25 @@
         // §9.20 — la carte de reprise d'abord : elle ne se pose qu'après une
         // séance douloureuse, et c'est elle qui décide comment l'exercice reprend.
         var pr = typeof vue.propositionReprise === 'function' ? vue.propositionReprise(s._iExo) : null;
-        if (pr) noeud.appendChild(propositionDeReprise(pr, s._iExo, vue));
+        if (pr) hote.appendChild(propositionDeReprise(pr, s._iExo, vue));
         var pl = typeof vue.propositionLest === 'function' ? vue.propositionLest(s._iExo) : null;
-        if (pl) noeud.appendChild(propositionDeLest(pl, s._iExo, vue));
+        if (pl) hote.appendChild(propositionDeLest(pl, s._iExo, vue));
         // MOTEUR §9.17 bis (127) — la carte « marche suivante » : la place et le composant de la carte du lest (le
         // plan ne pose jamais les deux sur un exercice).
         var pm = typeof vue.propositionMarche === 'function' ? vue.propositionMarche(s._iExo) : null;
-        if (pm) noeud.appendChild(propositionDeMarche(pm, s._iExo, vue));
+        if (pm) hote.appendChild(propositionDeMarche(pm, s._iExo, vue));
         var ps = typeof vue.propositionSchema === 'function' ? vue.propositionSchema(s._iExo) : null;
-        if (ps) noeud.appendChild(propositionDeSchema(ps, s._iExo, vue));
+        if (ps) hote.appendChild(propositionDeSchema(ps, s._iExo, vue));
         var pc = typeof vue.propositionChauffes === 'function' ? vue.propositionChauffes(s._iExo) : null;
         // 200-5 — la chauffe se replie sur une ligne : « Chauffe · 4 séries › » ; « Ajouter » et « Non merci » à l'ouverture.
-        if (pc) noeud.appendChild(ligneRepliee('lr-chauffes', 'Chauffe \u00b7 ' + pc.lignes.length + ' s\u00e9rie' + (pc.lignes.length > 1 ? 's' : '') + '\u00a0\u203a',
+        if (pc) hote.appendChild(ligneRepliee('lr-chauffes', 'Chauffe \u00b7 ' + pc.lignes.length + ' s\u00e9rie' + (pc.lignes.length > 1 ? 's' : '') + '\u00a0\u203a',
           propositionDeChauffes(pc, s._iExo, vue)));
         // 193-6 (MOTEUR §9.30) — « Dernière série au max ? » : une fois par exercice, du plan ; trois gestes.
         var pa = typeof vue.propositionAuMax === 'function' ? vue.propositionAuMax(s._iExo) : null;
-        if (pa) noeud.appendChild(propositionDAuMax(pa, s._iExo, vue));
+        if (pa) hote.appendChild(propositionDAuMax(pa, s._iExo, vue));
         // 193-4 (MOTEUR §9.32) — la semaine de test : la barre testée aujourd'hui, ou la note d'un accessoire.
         var pt = typeof vue.semaineDeTest === 'function' ? vue.semaineDeTest(s._iExo) : null;
-        if (pt) { var ct = carteDeTest(pt, s._iExo, vue); if (ct) noeud.appendChild(ct); }
+        if (pt) { var ct = carteDeTest(pt, s._iExo, vue); if (ct) hote.appendChild(ct); }
       }
       // §9.14 (49-R2) — LA RÉACTION PARLE DANS LA GRILLE, au-dessus de la
       // ligne qu'elle concerne (ECRAN §3.2, maquette variante A). Une ligne de
@@ -3266,10 +3417,10 @@
       // MOTEUR §9.15.3 (94) — une dégressive que le coach ne peut pas remplir :
       // la phrase dit pourquoi, et deux gestes, lus sur le plan.
       if (info && info.message && info.message.gestes && typeof vue.surDegressiveVide === 'function') {
-        noeud.appendChild(propositionDeDegressiveVide(info.message, s._iExo, s._iSerie, vue));
-      } else if (info && info.message) noeud.appendChild(phraseDeReaction(info.message, s.debutTour));
+        hote.appendChild(propositionDeDegressiveVide(info.message, s._iExo, s._iSerie, vue));
+      } else if (info && info.message) hote.appendChild(phraseDeReaction(info.message, s.debutTour));
       var rangee = rangeeDeSerie(bloc, s, complets, vue, info);
-      noeud.appendChild(rangee);
+      hote.appendChild(rangee);
       // 185 — LA QUESTION DE VRAISEMBLANCE, sous la série, avant qu'elle soit écrite (ou, pour un record énorme, après) : une
       // ligne et ses boutons, jamais une fenêtre. Lue sur l'app (`vue.questionSaisie`), la règle n'est pas ici.
       var qs = !vue.programme && typeof vue.questionSaisie === 'function' ? vue.questionSaisie(s._iExo, s._iSerie) : null;
@@ -3278,18 +3429,18 @@
           var douteux = rangee.querySelector('[data-champ="' + qs.champ + '"]');
           if (douteux && qs.mode !== 'record') douteux.classList.add('doute');
         }
-        noeud.appendChild(questionDeSaisie(qs, s._iExo, s._iSerie, vue.surQuestion));
+        hote.appendChild(questionDeSaisie(qs, s._iExo, s._iSerie, vue.surQuestion));
       }
       // 149 (MOTEUR §9.17 ter) — UNE FIGURE EN SECONDES : l'étiquette de la ligne (« max », « après ton max ») et, la tenue
       // max validée, la phrase du coach sous elle. Lues sur le plan (`info`), jamais recomposées.
-      if (info && info.etiquette) noeud.appendChild(el('div', 'fig-eti', info.etiquette));
-      if (info && info.apres) noeud.appendChild(phraseDeReaction({ type: 'figure', phrase: info.apres }, false));
+      if (info && info.etiquette) hote.appendChild(el('div', 'fig-eti', info.etiquette));
+      if (info && info.apres) hote.appendChild(phraseDeReaction({ type: 'figure', phrase: info.apres }, false));
       // ECRAN §3 ter.5 (prompt 131, maquette mesures-cardio écran 1) — LE D+, SUR SA PROPRE LIGNE,
       // SOUS LA SÉRIE : une troisième colonne ne tient pas à 360 px à côté d'une durée en horloge.
       // Facultatif, sans chiffre gris ; jamais dans l'éditeur de routine.
       if (!vue.programme) {
         (gabaritDe(vue, s.exercise_slug).dessous || []).forEach(function (nom) {
-          noeud.appendChild(ligneEnPlus(s, nom, vue));
+          hote.appendChild(ligneEnPlus(s, nom, vue));
         });
       }
       // MOTEUR §9.23 (55-1) — LA MÉDAILLE, SOUS LA RANGÉE de la série qui bat
@@ -3303,10 +3454,14 @@
       // 154 (MOTEUR §9.26) — L'EFFORT VISÉ : sous la dernière série de travail, les puces « Il t'en restait combien ? » ;
       // une fois la réponse donnée, la phrase du coach. Lu sur le plan (`vue.effortVise`), jamais décidé ici.
       var ef = !vue.programme && typeof vue.effortVise === 'function' ? vue.effortVise(s._iExo, s._iSerie) : null;
-      if (ef) noeud.appendChild(effortViseDeSerie(ef));
+      if (ef) hote.appendChild(effortViseDeSerie(ef));
     });
 
-    noeud.appendChild(boutonsAjoutSerie(bloc, vue));
+    if (cartes) {
+      bloc.exercices.forEach(function (x) {
+        carteDe[x._iExo].appendChild(boutonsAjoutSerie({ exercices: [x] }, vue));
+      });
+    } else noeud.appendChild(boutonsAjoutSerie(bloc, vue));
     return noeud;
   }
 
@@ -3414,6 +3569,14 @@
         nom.appendChild(el('span', 'nom-exo', x.nom));
       }
       ligne.appendChild(nom);
+      // 233 — LA POIGNÉE ⠿ (cible de 44 px) : la saisir fait glisser l'exercice entier ; l'appui long sur le nom fait de même.
+      // Aucun geste ici (le glissement est branché sur le conteneur, `brancherDeplacementExercice`) : `aria-hidden`, le menu ⋯
+      // (Monter / Descendre) est le chemin accessible.
+      if (!vue.programme && !enCoursDeSelection(vue) && typeof vue.surDeplacerExercice === 'function' && x._iExo !== undefined && x._iExo !== null) {
+        var pe = el('span', 'poignee-exo', '\u283f');
+        pe.setAttribute('aria-hidden', 'true');
+        ligne.appendChild(pe);
+      }
       // §3.8 — L'ÉTIQUETTE DE ZONE, à côté du nom. Elle dit dans quelle zone le
       // moteur fait travailler, et elle n'est JAMAIS jaune : le jaune est la
       // seule voix du moteur (§7 bis.4), l'étiquette n'en est qu'un repère.
@@ -4356,6 +4519,46 @@
     return true;
   }
 
+  // 233 — LE CHRONO DE TENUE. Un exercice mesuré au temps (hors cardio/sport : le choix est de l'app, `vue.tenueDe`) : « ▶ Chrono »
+  // démarre un chrono qui compte ; à la durée visée la cloche et la vibration (app) ; il continue tant qu'on tient ; « Stop » écrit
+  // la durée dans la série (jamais validée d'office), « Annuler » n'écrit rien. L'écran ne calcule rien : `info` =
+  // `{ actif, secondes, cible }`, et le compteur se met à jour par `majTenue` sans redessiner la séance.
+  function chronoDeTenue(info, vue, iExo, iSerie) {
+    var n = el('div', 'tenue' + (info.actif ? ' en-cours' : ''));
+    n.setAttribute('data-tenue', '1');
+    if (!info.actif) {
+      var go = el('button', 'tenue-go', '\u25b6\u00a0Chrono');
+      go.type = 'button';
+      go.setAttribute('aria-label', 'Démarrer le chrono de tenue' + (info.cible ? ', visée ' + info.cible + ' secondes' : ''));
+      go.addEventListener('click', function () { vue.surTenueDemarrer(iExo, iSerie); });
+      n.appendChild(go);
+      if (info.cible) n.appendChild(el('span', 'tenue-vise num', 'visée\u00a0' + mmss(info.cible)));
+      return n;
+    }
+    var t = el('span', 'tenue-t num' + (info.cible && info.secondes >= info.cible ? ' atteinte' : ''), mmss(info.secondes));
+    t.setAttribute('data-tenue-t', '1');
+    n.appendChild(t);
+    if (info.cible) n.appendChild(el('span', 'tenue-vise num', '/\u00a0' + mmss(info.cible)));
+    var stop = el('button', 'tenue-stop principal', 'Stop');
+    stop.type = 'button';
+    stop.setAttribute('aria-label', 'Arrêter et écrire la durée');
+    stop.addEventListener('click', function () { vue.surTenueStop(); });
+    n.appendChild(stop);
+    var ann = el('button', 'tenue-annuler discret', 'Annuler');
+    ann.type = 'button';
+    ann.addEventListener('click', function () { vue.surTenueAnnuler(); });
+    n.appendChild(ann);
+    return n;
+  }
+  // Le tic du chrono : met à jour le compteur sans redessiner. Rend `true` si un chrono de tenue est affiché.
+  function majTenue(racineEcran, secondes, cible) {
+    var t = racineEcran && racineEcran.querySelector ? racineEcran.querySelector('[data-tenue-t]') : null;
+    if (!t) return false;
+    t.textContent = mmss(secondes);
+    t.classList.toggle('atteinte', !!cible && secondes >= cible);
+    return true;
+  }
+
   function rangeeDeSerie(bloc, s, complets, vue, reaction) {
     var iExo = s._iExo, iSerie = s._iSerie;
     var g = gabaritDe(vue, s.exercise_slug);
@@ -4534,6 +4737,9 @@
     }
 
     ligne.appendChild(rangee);
+    // 233 — LE CHRONO DE TENUE, sous la rangée d'une série à tenir (planche, gainage, isométrie) : ▶ démarre, Stop écrit la durée.
+    var info233 = !vue.programme && typeof vue.tenueDe === 'function' ? vue.tenueDe(iExo, iSerie) : null;
+    if (info233) ligne.appendChild(chronoDeTenue(info233, vue, iExo, iSerie));
     // 152 — le mot d'une série `echec` : « à l'échec » (ambre) à 1 rep et plus, « manquée » à 0.
     // 200-4 — « 5+ · garde 1 » à la place d'« Au max » quand la consigne garde N reps (lu sur le plan).
     var motLigne = s.motEchec, ea = motLigne && !vue.programme && typeof vue.etiquetteAuMax === 'function' && /(^|· )Au max$|au max$/.test(motLigne) ? vue.etiquetteAuMax(iExo, iSerie) : null;
@@ -5211,6 +5417,11 @@
     entreeMenu(menu, 'Grouper en superset…', {
       surClic: vue.surGrouper, desactive: !vue.peutGrouper });
     entreeMenu(menu, 'Ajouter un exercice après', { surClic: vue.surAjouterApres });
+    // 233 — le repli ACCESSIBLE du glissement : un cran, au doigt ou au clavier (cible de 44 px, `entreeMenu`).
+    if (vue.surMonter !== undefined) {
+      entreeMenu(menu, 'Monter', { classe: 'menu-monter', surClic: vue.surMonter, desactive: !vue.surMonter });
+      entreeMenu(menu, 'Descendre', { classe: 'menu-descendre', surClic: vue.surDescendre, desactive: !vue.surDescendre });
+    }
     // ⚠️ « MONTER » ET « DESCENDRE » SONT PARTIS (§7 vicies.1, ch. 46). Deux
     // entrées qui bougeaient d'un cran chacune, quand réordonner n'est presque
     // jamais un geste isolé : quand on touche à l'ordre, on bouge plusieurs
@@ -5365,6 +5576,11 @@
     // §5.8 — sortir agit sur UN exercice, jamais sur le bloc entier, et il se
     // pose JUSTE APRÈS son bloc d'origine : il ne remonte pas en fin de séance.
     entreeMenu(menu, 'Sortir du superset', { surClic: vue.surDegrouper });
+    // 233 — monter / descendre d'un cran DANS le superset (l'exercice entier ; grisé au bord).
+    if (vue.surMonter !== undefined) {
+      entreeMenu(menu, 'Monter', { classe: 'menu-monter', surClic: vue.surMonter, desactive: !vue.surMonter });
+      entreeMenu(menu, 'Descendre', { classe: 'menu-descendre', surClic: vue.surDescendre, desactive: !vue.surDescendre });
+    }
     entreeMenu(menu, 'Voir la progression',
       { surClic: vue.surProgression, desactive: !vue.surProgression });
     cible.appendChild(menu);
@@ -9831,6 +10047,7 @@
     majDureeBandeau: majDureeBandeau,
     majEnvoiBandeau: majEnvoiBandeau,
     libelleDuree: libelleDuree,
+    majTenue: majTenue,
     rendreBlocsSeance: rendreBlocsSeance, carteDeMobilite: carteDeMobilite,
     majConstat: majConstat,
     demanderReps: demanderReps,
@@ -9919,6 +10136,7 @@
     rendreFinsDeCycleSaisie: rendreFinsDeCycleSaisie,
     rendreEscalier: rendreEscalier,
     brancherReorganisation: brancherReorganisation,
+    brancherDeplacementExercice: brancherDeplacementExercice,
     rendrePiedReorganisation: rendrePiedReorganisation,
     rendreListeRoutines: rendreListeRoutines,
     rendreProchaineSeance: rendreProchaineSeance,

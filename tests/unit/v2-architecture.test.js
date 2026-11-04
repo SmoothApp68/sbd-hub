@@ -1972,6 +1972,10 @@ const NOTIONS = [
   { notion: 'la définition d’un mot du coach (la feuille d’une puce)', pr: '201-U1',
     module: 'moteur.js', fonction: 'motDuLexique', lecteurs: ['app.js'],
     raison: 'les puces de la séance ouvrent la définition de leur mot : la même entrée du lexique que l’écran Profil.' },
+  { notion: 'le repos réel d’un exercice (l’écart entre deux séries validées du même exercice)', pr: 'correctif 04/11/2026',
+    module: 'moteur.js', fonction: 'reposReelHabituel', lecteurs: ['faits.js'],
+    raison: '233 — le repos n’est pas la valeur du minuteur : en superset, 90 s réglées font ~3 min. Une seule arithmétique, lue par ' +
+      'la règle du repos long (188-2) via `faits.reposReelsDe`, et par la réaction « repos réel court » (236).' },
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────

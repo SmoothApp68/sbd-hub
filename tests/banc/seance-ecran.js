@@ -5154,7 +5154,7 @@ const SETS_IMPORTES = [
   // Annuler n'écrit rien.
   const avantAnnuler_233 = (await champDuree_233(0)).v;
   await ligneP_233(0).locator('.tenue-go').click();
-  await attendre(1300);
+  await attendre(1300);   // temps réel : le chrono de tenue compte
   if (process.env.BANC_CAPTURES_233) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_233, 'chrono-en-cours.png') });   // temps réel : le chrono de tenue compte
   ok('▶ démarre un chrono qui compte (Stop et Annuler apparaissent)',
     (await compter('.tenue-t')) === 1 && (await compter('.tenue-stop')) === 1 && (await compter('.tenue-annuler')) === 1 && /^0:0[1-2]$/.test(await texte('.tenue-t')), await texte('.tenue-t'));

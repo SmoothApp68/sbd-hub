@@ -16708,6 +16708,7 @@
 
   function ouvrirReponseProfil(cle) {
     if (cle === 'priorites') return ouvrirPrioritesProfil();
+    if (cle === 'entretien') return ouvrirEntretienProfil();
     var objectif = cle === 'objectif';
     // 60-2c — « Moins en ce moment » DEMANDE COMBIEN. Le toucher ne ferme pas la feuille : il ouvre
     // juste dessous les quatre durées (`Profil.pucesDeMoins`, la fonction de l'écran 7 du
@@ -16748,6 +16749,28 @@
                                      : { temps_reponse: 'moins' });
         } : null,
         surEffacer: null,
+        surAnnuler: fermerVoile
+      });
+    };
+    ouvrirFeuilleProfil();
+  }
+
+  // 225 — « Objectifs en entretien » : la même feuille à cocher que les priorités (trois au plus). Le brouillon est celui de la
+  // feuille, rien ne part avant « Valider ». Le principal et ce qu'il couvre déjà n'y sont pas proposés (`Profil.optionsEntretien`).
+  function ouvrirEntretienProfil() {
+    var liste = Profil.objectifsDe(profil);
+    var redessiner = function () { feuilleProfil($('feuille-contenu')); };
+    feuilleProfil = function (cible) {
+      Rendu.rendreFeuilleChoixMultiple(cible, {
+        titre: 'Objectifs en entretien',
+        aide: Profil.AIDE_ENTRETIEN,
+        groupes: [{ titre: 'Je garde aussi', options: Profil.optionsEntretien(profil) }],
+        valeurs: liste,
+        max: Profil.ENTRETIEN_MAX,
+        aucune: { libelle: 'Aucun', actif: liste.length === 0 },
+        surBasculer: function (c) { liste = Profil.basculerEntretien(liste, c, profil && profil.objectif); redessiner(); },
+        surAucune: function () { liste = []; redessiner(); },
+        surValider: function () { fermerVoile(); ecrireReponse({ objectifs_entretien: liste }); },
         surAnnuler: fermerVoile
       });
     };

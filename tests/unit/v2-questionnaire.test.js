@@ -58,7 +58,7 @@ describe('60-2a — les LISTES sont celles de la base (relevées par Claude.ai l
   });
 
   test('un libellé par valeur : ceux du questionnaire sont ceux du Profil', () => {
-    expect(Profil.OBJECTIFS.map((o) => o.libelle)).toEqual(['Force', 'Muscle', 'Les deux', 'Forme et santé', 'Calisthénie']);
+    expect(Profil.OBJECTIFS.map((o) => o.libelle)).toEqual(['Force', 'Muscle', 'Force et muscle', 'Forme et santé', 'Calisthénie']);
     expect(Profil.HISTORIQUES.map((o) => o.libelle)).toEqual([
       'Oui, dans une autre app', 'Oui, mais je ne l’ai pas noté', 'Non, je débute']);
   });
@@ -472,7 +472,7 @@ describe('60-2a — les réponses de départ sont ce qui est DÉJÀ en base', ()
     expect(rep.programme).toBeNull();
     delete rep.programme;
     expect(rep).toEqual({
-      historique: 'import', anciennete: '3_a_5_ans', depuis: '3_a_5_ans', notees: 'import', seances: 5, duree: 90, sexe: 'homme', annee: 1997,
+      entretien: [], historique: 'import', anciennete: '3_a_5_ans', depuis: '3_a_5_ans', notees: 'import', seances: 5, duree: 90, sexe: 'homme', annee: 1997,
       taille: 182, poids: 98, objectif: 'force', phase: 'seche', priorites: ['squat_barre'], temps: 'max',
       materiel: 'salle_complete', halteresMax: null, halteresPas: null, plusPetitDisque: null, disquesAbsents: null, barreKg: null, barreTraction: null,
       dep_tractions: null, dep_pompes: null, dep_dips: null, dep_pistol: null,
@@ -664,7 +664,7 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
 
   test('ton but : objectif, puis la phase avec « Je compte comme maintien » ; il faut les DEUX', () => {
     const v = vue('but');
-    expect(blocs(v, 'puces')[0].options.map((o) => o.libelle)).toEqual(['Force', 'Muscle', 'Les deux', 'Forme et santé', 'Calisthénie']);
+    expect(blocs(v, 'puces')[0].options.map((o) => o.libelle)).toEqual(['Force', 'Muscle', 'Force et muscle', 'Forme et santé', 'Calisthénie']);
     const phases = blocs(v, 'options')[0];
     expect(phases.titre).toBe('Et en ce moment, côté alimentation ?');
     expect(phases.options.map((o) => [o.libelle, o.sous || null])).toEqual([

@@ -5636,6 +5636,71 @@
     }
   }
 
+  // ══ 233 — LE CHRONO DE TENUE ═════════════════════════════════════════════════════════════════════════════════════
+  //
+  // Une série d'un exercice mesuré au temps (planche, gainage, isométrie : mesure `temps`, hors cardio/sport) : « ▶ Chrono »
+  // démarre un chrono qui compte ; à la durée visée (le gris de la ligne, `duree_cible_s` de la routine ou la dernière fois), la
+  // cloche de fin de repos (`sonnerCloche`, 235 — la sourdine la coupe) et la vibration (`signalerEcheance`) ; il CONTINUE tant
+  // qu'on tient. « Stop » écrit la durée dans la série (jamais validée d'office : la case ✓ reste le geste de la personne),
+  // « Annuler » n'écrit rien. Le temps se lit sur l'horloge (`Date.now()`), jamais sur le nombre de tics : écran allumé, un tic
+  // en retard ne fausse rien. Aucune promesse en arrière-plan, aucun `await` : un minuteur (`setInterval`) et un geste.
+  var tenue = null;             // { iExo, iSerie, debut (ms), cible (s | null), sonne }
+  var minuteurTenue = null;
+  function secondesDeTenue() { return tenue ? Math.max(0, Math.floor((Date.now() - tenue.debut) / 1000)) : 0; }
+  function tenuePossible(iExo) {
+    var exo = seance && seance.exercices ? seance.exercices[iExo] : null;
+    if (!exo) return false;
+    var fiche = Modele.indexerExercices(local.exercices)[exo.exercise_slug];
+    if (!fiche || fiche.mesure !== 'temps') return false;
+    return fiche.nature ? fiche.nature !== 'cardio' : !Modele.estExerciceSortie(fiche);
+  }
+  function arreterMinuteurTenue() {
+    if (minuteurTenue) { clearInterval(minuteurTenue); minuteurTenue = null; }
+  }
+  function tenueDe(iExo, iSerie) {
+    if (!tenuePossible(iExo)) return null;
+    var serie = seance.exercices[iExo].series[iSerie];
+    if (!serie || partEnBase(serie)) return null;                 // une série déjà validée n'a plus besoin de chrono
+    var actif = !!tenue && tenue.iExo === iExo && tenue.iSerie === iSerie;
+    var cible = actif ? tenue.cible : fantomeDe(iExo, iSerie).duree_s;
+    return { actif: actif, secondes: actif ? secondesDeTenue() : 0, cible: cible > 0 ? cible : null };
+  }
+  function partEnBase(serie) { return Seance.partEnBase ? Seance.partEnBase(serie) : !!serie.validee_a; }
+  function battreTenue() {
+    if (!tenue) return arreterMinuteurTenue();
+    var serie = seance && seance.exercices && seance.exercices[tenue.iExo] ? seance.exercices[tenue.iExo].series[tenue.iSerie] : null;
+    // La série a disparu ou vient d'être validée à la main : le chrono n'a plus d'objet, il s'éteint sans rien écrire.
+    if (!serie || partEnBase(serie) || !$('blocs-seance')) { tenue = null; arreterMinuteurTenue(); return; }
+    var s = secondesDeTenue();
+    Rendu.majTenue($('blocs-seance'), s, tenue.cible);
+    if (tenue.cible && !tenue.sonne && s >= tenue.cible) { tenue.sonne = true; signalerEcheance(); }
+  }
+  function demarrerTenue(iExo, iSerie) {
+    if (!tenuePossible(iExo)) return;
+    arreterMinuteurTenue();
+    var cible = fantomeDe(iExo, iSerie).duree_s;
+    tenue = { iExo: iExo, iSerie: iSerie, debut: Date.now(), cible: cible > 0 ? cible : null, sonne: false };
+    reveillerAudio();                                              // le geste de l'utilisateur autorise le son à la cible
+    minuteurTenue = setInterval(battreTenue, 250);
+    rendreSeance();
+  }
+  function annulerTenue() {
+    tenue = null; arreterMinuteurTenue();
+    rendreSeance();
+  }
+  async function arreterTenue() {
+    if (!tenue) return;
+    var t = tenue, s = secondesDeTenue();
+    tenue = null; arreterMinuteurTenue();
+    // Moins d'une seconde : rien à écrire (un double toucher). Sinon la durée entre dans la série comme si elle était tapée.
+    if (s >= 1) {
+      seance = Seance.modifierSerie(seance, t.iExo, t.iSerie, { duree: s });
+      rafraichirConstats();
+      await apresGeste();
+      await observerSerie(t.iExo, t.iSerie);
+    } else rendreSeance();
+  }
+
   function contexteAudio() {
     if (audio) return audio;
     var C = racine.AudioContext || racine.webkitAudioContext;
@@ -9698,6 +9763,11 @@
         await observerSerie(i, j);
       },
       surValider: validerSerieSansRebond,
+      // 233 — le chrono de tenue : `tenueDe` dit si la série en a un (et où il en est) ; les trois gestes sont ci-dessus.
+      tenueDe: tenueDe,
+      surTenueDemarrer: demarrerTenue,
+      surTenueStop: function () { arreterTenue().catch(function (e) { console.warn('Tenue non écrite :', texteErreur(e)); }); },
+      surTenueAnnuler: annulerTenue,
       // 185 — la question de vraisemblance, sous la série : lue ici, répondue par `repondreQuestionDeSaisie`.
       questionSaisie: questionSurLigne,
       surQuestion: repondreQuestionDeSaisie,

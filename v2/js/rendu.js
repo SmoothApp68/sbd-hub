@@ -4486,6 +4486,46 @@
     return true;
   }
 
+  // 233 — LE CHRONO DE TENUE. Un exercice mesuré au temps (hors cardio/sport : le choix est de l'app, `vue.tenueDe`) : « ▶ Chrono »
+  // démarre un chrono qui compte ; à la durée visée la cloche et la vibration (app) ; il continue tant qu'on tient ; « Stop » écrit
+  // la durée dans la série (jamais validée d'office), « Annuler » n'écrit rien. L'écran ne calcule rien : `info` =
+  // `{ actif, secondes, cible }`, et le compteur se met à jour par `majTenue` sans redessiner la séance.
+  function chronoDeTenue(info, vue, iExo, iSerie) {
+    var n = el('div', 'tenue' + (info.actif ? ' en-cours' : ''));
+    n.setAttribute('data-tenue', '1');
+    if (!info.actif) {
+      var go = el('button', 'tenue-go', '\u25b6\u00a0Chrono');
+      go.type = 'button';
+      go.setAttribute('aria-label', 'Démarrer le chrono de tenue' + (info.cible ? ', visée ' + info.cible + ' secondes' : ''));
+      go.addEventListener('click', function () { vue.surTenueDemarrer(iExo, iSerie); });
+      n.appendChild(go);
+      if (info.cible) n.appendChild(el('span', 'tenue-vise num', 'visée\u00a0' + mmss(info.cible)));
+      return n;
+    }
+    var t = el('span', 'tenue-t num' + (info.cible && info.secondes >= info.cible ? ' atteinte' : ''), mmss(info.secondes));
+    t.setAttribute('data-tenue-t', '1');
+    n.appendChild(t);
+    if (info.cible) n.appendChild(el('span', 'tenue-vise num', '/\u00a0' + mmss(info.cible)));
+    var stop = el('button', 'tenue-stop principal', 'Stop');
+    stop.type = 'button';
+    stop.setAttribute('aria-label', 'Arrêter et écrire la durée');
+    stop.addEventListener('click', function () { vue.surTenueStop(); });
+    n.appendChild(stop);
+    var ann = el('button', 'tenue-annuler discret', 'Annuler');
+    ann.type = 'button';
+    ann.addEventListener('click', function () { vue.surTenueAnnuler(); });
+    n.appendChild(ann);
+    return n;
+  }
+  // Le tic du chrono : met à jour le compteur sans redessiner. Rend `true` si un chrono de tenue est affiché.
+  function majTenue(racineEcran, secondes, cible) {
+    var t = racineEcran && racineEcran.querySelector ? racineEcran.querySelector('[data-tenue-t]') : null;
+    if (!t) return false;
+    t.textContent = mmss(secondes);
+    t.classList.toggle('atteinte', !!cible && secondes >= cible);
+    return true;
+  }
+
   function rangeeDeSerie(bloc, s, complets, vue, reaction) {
     var iExo = s._iExo, iSerie = s._iSerie;
     var g = gabaritDe(vue, s.exercise_slug);
@@ -4664,6 +4704,9 @@
     }
 
     ligne.appendChild(rangee);
+    // 233 — LE CHRONO DE TENUE, sous la rangée d'une série à tenir (planche, gainage, isométrie) : ▶ démarre, Stop écrit la durée.
+    var info233 = !vue.programme && typeof vue.tenueDe === 'function' ? vue.tenueDe(iExo, iSerie) : null;
+    if (info233) ligne.appendChild(chronoDeTenue(info233, vue, iExo, iSerie));
     // 152 — le mot d'une série `echec` : « à l'échec » (ambre) à 1 rep et plus, « manquée » à 0.
     // 200-4 — « 5+ · garde 1 » à la place d'« Au max » quand la consigne garde N reps (lu sur le plan).
     var motLigne = s.motEchec, ea = motLigne && !vue.programme && typeof vue.etiquetteAuMax === 'function' && /(^|· )Au max$|au max$/.test(motLigne) ? vue.etiquetteAuMax(iExo, iSerie) : null;
@@ -9971,6 +10014,7 @@
     majDureeBandeau: majDureeBandeau,
     majEnvoiBandeau: majEnvoiBandeau,
     libelleDuree: libelleDuree,
+    majTenue: majTenue,
     rendreBlocsSeance: rendreBlocsSeance, carteDeMobilite: carteDeMobilite,
     majConstat: majConstat,
     demanderReps: demanderReps,

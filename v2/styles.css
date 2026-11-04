@@ -1342,6 +1342,14 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .carte-ss + .carte-ss{margin-top:var(--e3);padding-top:var(--e3);border-top:1px solid var(--trait)}
 .superset-t{font-size:12px;font-weight:700;color:var(--texte-3);letter-spacing:.06em;
   text-transform:uppercase;padding-bottom:var(--e2)}
+/* 233 — LE CHRONO DE TENUE : une ligne sous la série (▶ Chrono · visée 0:45), puis le compteur, Stop et Annuler. Cibles de 44 px. */
+.tenue{display:flex;align-items:center;gap:var(--e2);flex-wrap:wrap;padding:2px var(--e3) var(--e2)}
+.tenue button{min-height:44px;min-width:44px;padding:0 var(--e3);border-radius:var(--r-bouton);font-family:inherit;font-size:15px}
+.tenue-go{border:1px solid var(--trait);background:transparent;color:var(--texte)}
+.tenue-vise{color:var(--texte-3);font-size:14px}
+.tenue-t{font-size:32px;font-weight:700;line-height:1;font-family:"Barlow Condensed",inherit;color:var(--texte)}
+.tenue-t.atteinte{color:var(--teinte)}
+.tenue-annuler{border:none;background:transparent;color:var(--texte-3)}
 /* La légende : le nom n'apparaît QU'UNE FOIS par exercice (§2.3), et c'est ce
    qui règle la largeur à 360 px. Les entrées se séparent par un filet plutôt
    que par un écart — l'écart les ferait passer pour des blocs distincts. */

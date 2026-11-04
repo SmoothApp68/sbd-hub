@@ -1292,6 +1292,17 @@
     return avecSerie(seance, iExo, iSerie, { type_serie: type });
   }
 
+  // 234 — LE TYPE ENREGISTRÉ SUIT LE PLAN : en bloc Hypertrophie à grosse série (MOTEUR §19.2), le plan lit les séries de travail suivant la
+  // première comme des RECULS (`Moteur.seriesEnGrosseEtReculs`), mais la séance les ouvre `travail` (la routine ne porte pas le type). Une
+  // série NON VALIDÉE de type `travail` que le plan porte `recul` s'écrit `recul`, juste avant sa validation ; une série déjà validée ou
+  // importée (`partEnBase`), une chauffe, une dégressive ou un échec ne sont jamais réécrits. Aucune décision ici : `typePlan` vient du plan.
+  function typerSelonLePlan(seance, iExo, iSerie, typePlan) {
+    var exo = seance && seance.exercices ? seance.exercices[iExo] : null;
+    var s = exo && exo.series ? exo.series[iSerie] : null;
+    if (typePlan !== 'recul' || !s || partEnBase(s) || s.validee_a || (s.type_serie || 'travail') !== 'travail') return seance;
+    return changerType(seance, iExo, iSerie, 'recul');
+  }
+
   // ⚠️ RPE et ressenti sont EXCLUSIFS, et c'est un choix.
   //
   // Les deux mesurent la même chose — la proximité de l'échec — dans deux
@@ -3253,6 +3264,7 @@
     retirerSerie: retirerSerie,
     modifierSerie: modifierSerie,
     changerType: changerType,
+    typerSelonLePlan: typerSelonLePlan,
     marquerHorsCalcul: marquerHorsCalcul,
     definirAuMax: definirAuMax,
     poserAuMaxReserve: poserAuMaxReserve,

@@ -9,7 +9,7 @@
 // (MutationObserver puis requestAnimationFrame). TROIS passages, chacun sur une page neuve ; on retient la MÉDIANE.
 //
 // PLAFONDS = la mesure du 03/11/2026 (relevé ci-dessous) × 2, arrondie : la marge est pour la machine de la CI,
-// plus lente et plus bruitée que celle-ci. EXCEPTION : « valider » est à ×1,6 (2 400 et non 3 000) — la mutation qui remet le calcul
+// plus lente et plus bruitée que celle-ci. EXCEPTION : « valider » est à ×1,5 (2 200 et non 3 000) — la mutation qui remet le calcul
 // des entrées avant le mémo (231) ne coûte que ×1,8 une fois les autres corrections du 229 en place ; à ×2 elle passerait. Ils ne bougent que par un geste conscient, dans une PR qui le justifie.
 //
 // Rien n'est attendu à délai fixe : on attend l'ÉTAT (la page calme, le rendu du geste). Un seul « délai » : `calme`,
@@ -31,10 +31,10 @@ const RALENTI = 4;
 // RELEVÉ du 03/11/2026 (médiane de 3 passages, ms, processeur ×4, 627 séances) et PLAFONDS = relevé × 2, arrondis.
 //   geste                                          relevé   plafond
 //   démarrer une séance                             275       600
-//   valider une série (moyenne de 4)               1500      2400   (avant 229 : 8 000 à 12 000)
+//   valider une série (moyenne de 4)               1500      2200   (avant 229 : 8 000 à 12 000)
 //   passer à l'exercice suivant (sa 1re série)     2550      5000
 //   ouvrir la fiche d'un exercice                  2250      4500
-const PLAFONDS_MS = { demarrer: 600, valider: 2400, suivant: 5000, fiche: 4500 };
+const PLAFONDS_MS = { demarrer: 600, valider: 2200, suivant: 5000, fiche: 4500 };
 const GESTES = [
   ['demarrer', 'démarrer une séance (routine de 6 exercices)'],
   ['valider', 'valider une série (moyenne de 4)'],

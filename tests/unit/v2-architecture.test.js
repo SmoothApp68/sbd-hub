@@ -503,6 +503,10 @@ const AUTORISATIONS = {
 // dernière, le rend complet (les sept PR y figurent, un test le vérifie) et
 // bloquant (chaque test ci-dessous exige zéro faute).
 const NOTIONS = [
+  { notion: 'le repos réel d’un exercice (l’écart entre deux séries validées du même exercice)', pr: 'correctif 04/11/2026',
+    module: 'moteur.js', fonction: 'reposReelHabituel', lecteurs: ['faits.js'],
+    raison: '233 — le repos n’est pas la valeur du minuteur : en superset, 90 s réglées font ~3 min. Une seule arithmétique, lue par ' +
+      'la règle du repos long (188-2) via `faits.reposReelsDe`, et par la réaction « repos réel court » (236).' },
   { notion: 'la feuille « Pourquoi » (ses paragraphes)', pr: 'PR 1',
     module: 'moteur.js', fonction: 'pourquoiConsigne', lecteurs: ['plan.js'],
     raison: 'le plan la rédige sur la consigne qu’il applique (figée, allégée, repli, série de ' +

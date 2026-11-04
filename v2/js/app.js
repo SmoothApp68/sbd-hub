@@ -7236,6 +7236,16 @@
     return sortie;
   }
 
+  // 233 — le repos RÉEL de chaque exercice de la séance (`faits.reposReelsDe` : l'écart entre deux séries validées du même exercice).
+  function reposReelsDeLaSeance(exos) {
+    var sortie = {}, c = corpus();
+    (exos || []).forEach(function (x) {
+      var slug = x && x.exercise_slug;
+      if (slug && !Object.prototype.hasOwnProperty.call(sortie, slug)) sortie[slug] = faits.reposReelsDe(c, slug, Moteur.SEANCES_DE_CHUTE).habituel;
+    });
+    return sortie;
+  }
+
   // 193-1 (MOTEUR §9.28) — LES RECULS DE CHAQUE EXERCICE de la séance qui en porte : la dernière séance de l'exercice qui avait des
   // reculs (`Seance.precedentAReculs`) et la cible de reps de CETTE séance — celle des reculs de sa routine (`routine_id`) quand
   // elle est chargée et les porte encore, sinon `null` (le plan prend alors celle d'aujourd'hui : une approximation, la routine a pu
@@ -7417,6 +7427,7 @@
       // 188-2 (I76) — les chutes de reps de chaque exercice de la séance (les 3 dernières séances, un fait de `faits.js`) : le plan
       // décide de la ligne du repos, il ne relit pas l'historique.
       chutesDeReps: chutesDeRepsDeLaSeance(exos),
+      reposReels: reposReelsDeLaSeance(exos),
       paris: (local.predictions || []).filter(function (l) {
         return l && l.fondement && l.fondement.seance === seance.id;
       }),

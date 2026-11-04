@@ -26501,6 +26501,9 @@ const SETS_IMPORTES = [
     const sessionsAvant = base.sessions, setsAvant = base.sets, predictionsAvant = base.predictions, zonesAvant = base.zones;
     const catalogueAvant = CATALOGUE.length, routinesAvant = ROUTINES.length;
     const rendreBlocs174 = await retirerBlocsDeLAppareil();
+    // La phase du profil est une prémisse : « maintien » (laissée par 7 G octies) rend l'escalier muet sur le curl ; ce banc part d'un profil sans phase.
+    const phaseAvant174 = base.profiles && base.profiles[0] ? { phase: base.profiles[0].phase, depuis: base.profiles[0].phase_depuis } : null;
+    if (phaseAvant174) { base.profiles[0].phase_depuis = null; base.profiles[0].phase = null; }
     ['a', 'b', 'c'].forEach((k) => CATALOGUE.push({ slug: 'cr174-' + k, nom: 'Exercice CR174 ' + k.toUpperCase() + ' (Barre)',
       mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['pectoraux'], muscles_secondaires: [] }));
     CATALOGUE.push({ slug: 'curl-cr174', nom: 'Curl CR174 (Poulie)', mesure: 'charge_reps', charge: 'externe',
@@ -26661,6 +26664,7 @@ const SETS_IMPORTES = [
     base.predictions = predictionsAvant;
     base.zones = zonesAvant.filter((l) => String(l.exercise_slug).indexOf('cr174') < 0);
     rendreBlocs174();
+    if (phaseAvant174) { base.profiles[0].phase = phaseAvant174.phase; base.profiles[0].phase_depuis = phaseAvant174.depuis; }
     await aller('/saisie');
     ok('[CR174] aucun refus du faux serveur, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,

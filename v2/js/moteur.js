@@ -11322,6 +11322,263 @@
     return null;
   }
 
+  // ══ 236 (MOTEUR §9.39) — LE COACH EN TEMPS RÉEL APRÈS UN RATÉ ═══════════════════════════════════════════════════════
+  //
+  // UNE SEULE FONCTION DE DÉCISION : `reactionAuRate(contexte)`, pure, sous la garde. `contexte.niveau` : `serie` (défaut : la
+  // réaction sous la série validée), `exercice` (après 2 séries sous la cible), `seance` (la « forme du jour »), `paris` (deux
+  // séances de suite où le pari d'un exercice n'a pas tenu). Le plan la LIT (`x.rate`, `plan.formeDuJour`, `x.parisRates`) et
+  // rédige sous capture (`phraseDeRate`, I26) ; l'écran dessine. Rien n'est écrit dans une série : « Prendre X kg » est un geste
+  // (`sessions.gestes`), la saisie fait foi. Les seuils sont des conventions, dites comme telles, à recaler sur la mesure (`gestes`).
+  var RATE_REPOS_PART = 0.75;           // un repos réel de moins de 75 % du repos cible est « court »
+  var RATE_REPOS_DEFAUT_S = 120;        // le repos cible, quand l'exercice n'en dit pas
+  var RATE_PLUS_REPOS_S = 60;           // « +1 min »
+  var RATE_IGNOREES_MAX = 2;            // deux propositions ignorées sur un exercice : le coach se tait jusqu'à sa fin
+  var RATE_SOUS_ZONE_FRANC = 2;         // Me pousser : la charge ne baisse qu'à la 2e série sous la zone
+  var RATE_FORME_FLANCHENT = 2;         // la forme du jour : 2 exercices qui flanchent…
+  var RATE_FORME_SUR = 3;               // … sur les 3 derniers
+  var RATE_PARIS_A_LA_SUITE = 2;        // deux séances de suite où le pari n'a pas tenu
+  var RATE_PAS_PAR_DEFAUT = { barre: 2.5, machine: 2.5, machine_smith: 2.5, poulie: 2.5, haltere: 1 };
+
+  function rateReglage(r) { return r === 'prudent' || r === 'franc' ? r : 'normal'; }
+  // Le contexte où le coach ne dit rien du tout (Entretenir, décharge, test, calage, « J'ai mal », 1re fois, figure).
+  function rateRaisonDeSilence(c) {
+    if (c.entretien) return 'entretien';
+    if (c.decharge) return 'decharge';
+    if (c.semaineDeTest) return 'test';
+    if (c.calage || c.debutant) return 'calage';
+    if (c.douleur) return 'douleur';
+    if (c.premiereFois) return 'premiere_fois';
+    if (c.figure) return 'figure';
+    return null;
+  }
+  // La plus haute charge, au pas du matériel, STRICTEMENT sous `kg` ; `null` si rien de plus léger n'existe.
+  function rateSousLeCran(kg, pas) {
+    var p = nombre(pas);
+    if (p === null || p <= 0) return null;
+    var v = Math.floor(kg / p + 1e-9) * p;
+    if (v >= kg - 1e-9) v -= p;
+    v = auCentieme(v);
+    return v > 0 ? v : null;
+  }
+  function rateFourchette(bas, haut) {
+    var b = Math.max(1, Math.round(bas)), h = Math.max(b, Math.round(haut));
+    return [b, h];
+  }
+
+  function reactionDeSerie(c) {
+    var silence = function (cas, raison) { return { niveau: 'serie', cas: cas, silence: true, raison: raison }; };
+    var raison = rateRaisonDeSilence(c);
+    if (raison) return silence(null, raison);
+    var role = c.role || 'travail';
+    if (role !== 'travail' && role !== 'recul' && role !== 'grosse') {
+      if (role === 'au_max') return silence('K', 'au_max');
+      if (role === 'haut' || role === 'test') return silence('I', 'pas_encore');
+      return silence(null, 'hors_travail');
+    }
+    var faites = nombre(c.reps), vise = nombre(c.vise), bas = nombre(c.bas);
+    if (faites === null || vise === null || bas === null) return silence(null, 'sans_chiffres');
+    if (c.derniere) return silence('J', 'derniere');
+    if ((nombre(c.ignorees) || 0) >= RATE_IGNOREES_MAX) return silence(null, 'ignorees');
+    var ecart = vise - faites;
+    var reg = rateReglage(c.reglage), obj = c.objectif || null;
+    var reserve = nombre(c.reserve);
+    var sortie = { niveau: 'serie', silence: false, role: role, faites: faites, visees: vise, reglage: reg };
+    if (ecart <= 0) {
+      if (c.apres === true) return Object.assign(sortie, { cas: 'R', fait: true });
+      if (-ecart >= SEUIL_REACTION) return silence('N', 'depasse');
+      if (ecart === 0 && reserve === 0) {
+        // M — pile sur la cible, sans rien en réserve : la suite le sait.
+        return Object.assign(sortie, { cas: 'M', charge: { action: 'garde', kg: nombre(c.charge) }, garde: 1,
+          fourchette: rateFourchette(faites - 1, faites), leviers: [], recale: false });
+      }
+      return silence(ecart < 0 ? 'O' : null, ecart < 0 ? 'depasse_peu' : 'tenue');
+    }
+    var charge = nombre(c.charge);
+    var corps = c.corps === true || charge === null || charge <= 0;
+    var echec = reserve === 0;                                   // L : l'échec franc, avant la cible
+    var protege = obj === 'force' || (obj === 'les_deux' && c.barre === true);
+    var plusTot = obj === 'muscle' || (obj === 'les_deux' && c.barre !== true);
+    var sous = faites < bas || (plusTot && faites <= bas);
+    var sousAvant = nombre(c.sousZoneAvant) || 0;
+    var garde = reg === 'prudent' || obj === 'forme' ? 2 : 1;
+    // G — la grosse série d'un bloc : ses reculs se recalent sur le max du jour (193-5), la charge ne change pas.
+    if (role === 'grosse') {
+      var mg = nombre(c.maxDuJour);
+      if (mg === null) mg = maxDuJour(charge, faites, reserve === null ? 0 : reserve);
+      return Object.assign(sortie, { cas: 'G', charge: { action: 'garde', kg: charge }, garde: garde,
+        fourchette: rateFourchette(faites - 1, Math.min(vise, faites + 1)), leviers: [], recale: false,
+        maxDuJour: mg === null ? null : Math.round(mg), recalculeReculs: true, pasDAuMax: echec });
+    }
+    var lettre, baisse = false;
+    if (corps) {
+      lettre = 'E';
+    } else if (echec) {
+      lettre = 'L'; baisse = true;
+    } else if (sous) {
+      lettre = 'D';
+      if (reg === 'franc' && sousAvant + 1 < RATE_SOUS_ZONE_FRANC) baisse = false;
+      else baisse = true;
+      // Force protège la charge : la grosse série (le haut du bloc) ne baisse presque jamais, hors Prudent.
+      if (protege && reg !== 'prudent' && obj !== 'forme' && sousAvant < 1 && c.rang === 0) baisse = false;
+    } else {
+      lettre = ecart === 1 ? (c.reposCourt === true || reposCourtDe(c) ? 'A' : 'B') : 'C';
+    }
+    var prudent = reg === 'prudent' || obj === 'forme';
+    var pas = nombre(c.pas);
+    if (pas === null || pas <= 0) pas = RATE_PAS_PAR_DEFAUT[c.materiel] || 2.5;
+    var kgBaisse = null, fourchette;
+    if (baisse && !corps) {
+      var marge = reserve === null ? 0 : reserve;
+      var max = maxDuJour(charge, faites, marge);
+      var pct = max === null ? null : pctDuMax(bas + 2, garde);
+      var brut = max !== null && pct !== null ? max * pct / 100 : charge * 0.925;
+      kgBaisse = rateSousLeCran(Math.min(brut, charge), pas);
+      if (kgBaisse === null) baisse = false;                     // rien de plus léger au pas du matériel : on garde
+    }
+    if (baisse) fourchette = rateFourchette(bas, bas + 2);
+    else if (lettre === 'E') fourchette = rateFourchette(faites - 1, faites);
+    else fourchette = rateFourchette(faites - 1, Math.min(vise, faites + 1));
+    var leviers = [];
+    var menage = c.zoneAMenager === true || c.douleurHier === true;
+    var tient = !baisse && !corps;
+    if (tient && (lettre === 'A' || lettre === 'C' || lettre === 'D') && c.peuDeTemps !== true) leviers.push('repos');
+    // Me pousser et la force : on protège la charge par le repos, puis par le rest-pause ou la dégressive ; jamais en Prudent,
+    // jamais sur une zone à ménager.
+    if (tient && !prudent && !menage && (reg === 'franc' || protege) && (sous || ecart >= 2 || echec)) {
+      if (c.isolation === true && c.peutDegressive === true) leviers.push('degressive');
+      else if (c.peutRestPause === true) leviers.push('rest_pause');
+      else if (c.peutDegressive === true) leviers.push('degressive');
+    }
+    if (baisse) leviers.push('prendre');
+    if (corps && (sous || echec || lettre === 'E')) {
+      leviers.push(c.marcheDessous ? 'marche_dessous' : 'elastique');
+      if (c.negatives === true) leviers.push('negatives');
+    }
+    // F — la 1re série ratée recale toutes les suivantes d'un coup ; sans chauffe validée, une série d'approche d'abord.
+    var premiere = c.rang === 0 && role === 'travail';
+    var approche = premiere && c.chauffeValidee !== true && !corps;
+    if (approche) leviers.push('approche');
+    return Object.assign(sortie, {
+      cas: role === 'recul' ? 'H' : lettre, base: lettre,
+      charge: baisse ? { action: 'baisse', kg: kgBaisse } : { action: 'garde', kg: charge },
+      garde: garde, fourchette: fourchette, leviers: leviers, recale: premiere,
+      approche: approche, pasDAuMax: echec, plusUneMinute: leviers.indexOf('repos') >= 0,
+      seche: c.seche === true, rappelMal: menage || obj === 'forme',
+      autreSalle: c.autreSalle === true
+    });
+  }
+  // Le repos réel est « court » : moins de 75 % du repos cible (ou de 120 s sans cible). `null` : on ne sait pas.
+  function reposCourtDe(c) {
+    var reel = nombre(c.reposReel);
+    if (reel === null) return false;
+    var cible = nombre(c.reposCible);
+    if (cible === null || cible <= 0) cible = RATE_REPOS_DEFAUT_S;
+    return reel < cible * RATE_REPOS_PART;
+  }
+
+  // Niveau 2 — après 2 séries sous la cible, la suivante vise ce qui vient d'être fait (charge inchangée).
+  function reactionDExercice(c) {
+    var silence = function (raison) { return { niveau: 'exercice', cas: 'X', silence: true, raison: raison }; };
+    var raison = rateRaisonDeSilence(c);
+    if (raison) return silence(raison);
+    if ((nombre(c.ignorees) || 0) >= RATE_IGNOREES_MAX) return silence('ignorees');
+    var f = (c.faites || []).filter(function (s) { return s && nombre(s.reps) !== null && nombre(s.vise) !== null; });
+    if (f.length < 2) return silence('pas_assez');
+    var a = f[f.length - 2], b = f[f.length - 1];
+    if (!(nombre(a.reps) < nombre(a.vise) && nombre(b.reps) < nombre(b.vise))) return silence('tenu');
+    if (!(nombre(c.restantes) >= 1)) return silence('derniere');
+    var dernier = nombre(b.reps);
+    var reg = rateReglage(c.reglage);
+    return { niveau: 'exercice', cas: 'X', silence: false, avant: nombre(a.reps), faites: dernier, vise: dernier,
+             charge: { action: 'garde', kg: nombre(c.charge) }, garde: reg === 'prudent' || c.objectif === 'forme' ? 2 : 1,
+             fourchette: rateFourchette(dernier - 1, dernier + 1), leviers: [], recale: true };
+  }
+
+  // Niveau 3 — la « forme du jour » : 2 exercices sur les 3 derniers flanchent. Une carte, UNE fois par séance.
+  function formeDuJour(c) {
+    var silence = function (raison) { return { niveau: 'seance', cas: 'S', silence: true, raison: raison }; };
+    var raison = rateRaisonDeSilence(c);
+    if (raison) return silence(raison);
+    if (c.reponse === 'garde' || c.reponse === 'ajuste' || c.dejaPosee === true) return silence('deja');
+    if (!(nombre(c.restants) >= 1)) return silence('fin');
+    var eligibles = (c.exercices || []).filter(function (x) { return x && x.premiere !== true && x.calage !== true; });
+    var derniers = eligibles.slice(-RATE_FORME_SUR);
+    var flanchent = derniers.filter(function (x) { return x.flanche === true; });
+    if (flanchent.length < RATE_FORME_FLANCHENT) return silence('assez_bien');
+    return { niveau: 'seance', cas: 'S', silence: false, n: flanchent.length, sur: derniers.length,
+             exercices: flanchent.map(function (x) { return x.slug; }),
+             baisses: derniers.filter(function (x) { return x.chargeBaissee === true; }).map(function (x) { return x.nom || x.slug; }),
+             effet: { seriesEnMoins: 1, pasDAuMax: true }, boutons: ['ajuste', 'garde'] };
+  }
+
+  // Entre les séances — deux séances de suite où le pari d'un exercice n'a pas tenu : « un cran dessous » ou « je retente ».
+  function parisRates(c) {
+    var silence = function (raison) { return { niveau: 'paris', cas: 'P', silence: true, raison: raison }; };
+    var raison = rateRaisonDeSilence(c);
+    if (raison) return silence(raison);
+    if (c.reponse === 'cran' || c.reponse === 'retente' || c.dejaPropose === true) return silence('deja');
+    var n = nombre(c.n);
+    if (n === null || n < RATE_PARIS_A_LA_SUITE) return silence('tenu');
+    var ch = nombre(c.charge), reps = nombre(c.reps);
+    if (ch === null || reps === null) return silence('sans_chiffres');
+    var dessous = rateSousLeCran(ch, nombre(c.pas) || RATE_PAS_PAR_DEFAUT[c.materiel] || 2.5);
+    if (dessous === null) return silence('rien_dessous');
+    return { niveau: 'paris', cas: 'P', silence: false, n: n, palier: { charge: ch, reps: reps },
+             cran: { charge: dessous, reps: reps }, boutons: ['cran', 'retente'] };
+  }
+
+  function reactionAuRate(c) {
+    var x = c && typeof c === 'object' ? c : {};
+    if (x.niveau === 'exercice') return reactionDExercice(x);
+    if (x.niveau === 'seance') return formeDuJour(x);
+    if (x.niveau === 'paris') return parisRates(x);
+    return reactionDeSerie(x);
+  }
+
+  // ── Les mots (voix du coach, I26) : un fait, jamais un bravo. Chaque chiffre est cité (`regle|rate.*`). ─────────────────
+  var RATE_NOMS_DE_LEVIER = { repos: '+1 min', rest_pause: 'Rest-pause', degressive: 'Dégressive', approche: 'Série d’approche',
+    elastique: 'Avec un élastique', negatives: 'En négatives', marche_dessous: 'Marche d’en dessous' };
+  function rateReps(v) { return nombreFr(v, regle('rate.reps')); }
+  function rateGarde(v) { return nombreFr(v, regle('rate.garde')); }
+  function rateEntre(f) { return 'entre ' + rateReps(f[0]) + ' et ' + rateReps(f[1]); }
+  function phraseDeRate(d) {
+    if (!d || d.silence) return null;
+    if (d.niveau === 'seance') {
+      var t = 'Tes séries sont sous la cible sur ' + nombreFr(d.n, regle('rate.reps')) + ' des ' + nombreFr(d.sur, regle('rate.reps')) + ' derniers exercices';
+      if (d.baisses && d.baisses.length) t += ', et tu as baissé la charge sur ' + d.baisses.join(' et ');
+      return t + '. Pour la fin de séance ?';
+    }
+    if (d.niveau === 'paris') {
+      return 'Ton pari n’a pas tenu ' + nombreFr(d.n, regle('rate.reps')) + ' séances de suite. Un cran dessous : ' +
+        chargeFois(d.cran.charge, d.cran.reps, regle('rate.charge')) + ', ou tu retentes ?';
+    }
+    if (d.niveau === 'exercice') {
+      return rateReps(d.avant) + ' puis ' + rateReps(d.faites) + ', sous la cible. La suite vise ' + rateReps(d.vise) +
+        ', garde ' + rateGarde(d.garde) + ', ' + rateEntre(d.fourchette) + '.';
+    }
+    if (d.cas === 'R') return rateReps(d.faites) + ' cette fois.';
+    if (d.cas === 'G') {
+      return d.maxDuJour === null || d.maxDuJour === undefined
+        ? rateReps(d.faites) + ' au lieu de ' + rateReps(d.visees) + '. Tes reculs se recalent sur cette série.'
+        : 'Ta grosse série dit ≈ ' + enKg(d.maxDuJour, regle('rate.charge')) + ' : tes reculs se recalent dessus.';
+    }
+    var s = d.cas === 'M' ? 'Pile sur la cible, sans marge.' : rateReps(d.faites) + ' au lieu de ' + rateReps(d.visees) + '.';
+    s += d.charge.action === 'baisse' ? ' On passe à ' + enKg(d.charge.kg, regle('rate.charge')) : ' Même charge';
+    s += ', garde ' + rateGarde(d.garde) + ', ' + rateEntre(d.fourchette) + '.';
+    if (d.pasDAuMax) s += ' Pas d’« Au max » sur cet exercice aujourd’hui.';
+    if (d.seche) s += ' En sèche, c’est attendu.';
+    if (d.rappelMal) s += ' Si ça tire, « J’ai mal » est dans le menu.';
+    if (d.autreSalle) s += ' Autre salle que d’habitude.';
+    return s;
+  }
+  // Le libellé d'un bouton de la réaction : « +1 min », « Prendre 80 kg », « Rest-pause »…
+  function boutonDeRate(cle, d) {
+    if (cle === 'prendre') return 'Prendre ' + enKg(d.charge.kg, regle('rate.charge'));
+    return RATE_NOMS_DE_LEVIER[cle] || cle;
+  }
+  var RATE_BOUTONS_FORME = { ajuste: 'Ajuster la fin à ma forme du jour', garde: 'Garder le plan' };
+  var RATE_BOUTONS_PARIS = { cran: 'Un cran dessous', retente: 'Je retente' };
+
   var api = {
     // 197 (§9.36) — forme et santé.
     FORME_RENFORCEMENT_CIBLE: FORME_RENFORCEMENT_CIBLE, FORME_CARDIO_CIBLE_MIN: FORME_CARDIO_CIBLE_MIN, FORME_INTENSE_FACTEUR: FORME_INTENSE_FACTEUR, CARDIO_RPE_INTENSE: CARDIO_RPE_INTENSE,
@@ -11566,6 +11823,19 @@
     maxDuJour: maxDuJour,
     reculAuMax: reculAuMax,
     auMaxDe: auMaxDe,
+    // 236 (§9.39) — le coach en temps réel après un raté : UNE fonction de décision, ses mots, ses constantes
+    reactionAuRate: reactionAuRate,
+    phraseDeRate: phraseDeRate,
+    boutonDeRate: boutonDeRate,
+    RATE_BOUTONS_FORME: RATE_BOUTONS_FORME,
+    RATE_BOUTONS_PARIS: RATE_BOUTONS_PARIS,
+    RATE_IGNOREES_MAX: RATE_IGNOREES_MAX,
+    RATE_PLUS_REPOS_S: RATE_PLUS_REPOS_S,
+    RATE_REPOS_PART: RATE_REPOS_PART,
+    RATE_SOUS_ZONE_FRANC: RATE_SOUS_ZONE_FRANC,
+    RATE_FORME_FLANCHENT: RATE_FORME_FLANCHENT,
+    RATE_FORME_SUR: RATE_FORME_SUR,
+    RATE_PARIS_A_LA_SUITE: RATE_PARIS_A_LA_SUITE,
     echecRecentDeBarre: echecRecentDeBarre,
     pourquoiAuMaxEchecRecent: pourquoiAuMaxEchecRecent,
     AU_MAX_RESERVE_PAR_DEFAUT: AU_MAX_RESERVE_PAR_DEFAUT,

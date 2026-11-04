@@ -1703,7 +1703,7 @@
       // lectures se rejoignent dès la première validation, `chronologie`
       // devenant vraie : une séance saisie dans l'app s'affiche pareil à la
       // saisie et au détail.
-      if (bloc.superset && (bloc.chronologie || o.entrelacer)) {
+      if (bloc.superset && !o.parExercice && (bloc.chronologie || o.entrelacer)) {
         // ⚠️ §2.5 CORRIGÉ LE 13/09 — LES CHAUFFES S'ENTRELACENT AUSSI.
         //
         // « Juste avant la première série de travail de son exercice » avait été
@@ -1769,7 +1769,11 @@
   // `construireBlocs` recopie la ligne entière (`Object.assign`). Ce sont eux
   // qui rebranchent chaque rangée affichée sur sa série réelle, l'affichage
   // étant entrelacé alors que le modèle reste rangé par exercice.
-  function blocsDeSeance(seance, exercices) {
+  // 233 — SANS `o.entrelacer`, un superset de la séance en cours se range PAR EXERCICE (une carte par exercice, validation dans
+  // n'importe quel ordre, comme Hevy) : ni A1/B1/A2/B2 ni tour imposé. Les tours restent comptés (`toursComplets` lit `tour`, pas
+  // l'ordre). L'éditeur de routine, lui, passe `{ entrelacer: true }` : une routine prescrit l'enchaînement.
+  function blocsDeSeance(seance, exercices, opt) {
+    var entrelace = !!(opt && opt.entrelacer);
     var rang = 0;
     var plat = [];
     ((seance && seance.exercices) || []).forEach(function (exo, iExo) {
@@ -1783,7 +1787,7 @@
         }));
       });
     });
-    var blocs = construireBlocs(plat, exercices, { entrelacer: true });
+    var blocs = construireBlocs(plat, exercices, entrelace ? { entrelacer: true } : { parExercice: true });
     // L'indice de l'exercice remonte sur la légende, avec ses deux réglages :
     // c'est la légende qui porte la note, le repos cible et le « + Série » de
     // chaque branche du superset — un réglage par exercice, jamais par bloc.
@@ -2235,7 +2239,14 @@
     });
     var vues = {};
     faites.forEach(function (f) { vues[f.reps] = true; });
-    return Object.keys(vues).map(Number).sort(function (a, b) { return a - b; }).map(function (n) {
+    var rangs = Object.keys(vues).map(Number).sort(function (a, b) { return a - b; });
+    // 232 — `auMoins` : la première ligne à N reps ou plus suffit (celle de `auMoinsDe`) ; les lignes d'avant et d'après ne se calculent pas.
+    if (options && typeof options.auMoins === 'number') {
+      var premier = null;
+      for (var q = 0; q < rangs.length; q++) if (rangs[q] >= options.auMoins) { premier = rangs[q]; break; }
+      rangs = premier === null ? [] : [premier];
+    }
+    return rangs.map(function (n) {
       var best = null;
       faites.forEach(function (f) {
         if (f.reps < n) return;
@@ -2430,12 +2441,25 @@
     };
     // Les séances antérieures qui ont fait cet exercice — toute la vie (la
     // durée, la distance) et dans la fenêtre du matériel (les charges).
-    var passees = (historique || []).filter(function (h) {
-      var t = instantRecord(h && h.debut);
-      return t !== null && t < t0 && siennes(h.series).length > 0;
-    });
-    var plancher = M.plancherDuMateriel(o.equipement, se.debut);
-    var fenetre = passees.filter(function (h) { return plancher === null || instantRecord(h.debut) >= plancher; });
+    // 232 — CE QUI NE DÉPEND QUE DES SÉANCES D'AVANT SE LIT UNE FOIS PAR SÉANCE ET PAR EXERCICE : les séries d'une même séance
+    // se comparent aux mêmes séances passées. `o.partage` est un objet que l'appelant crée pour UNE séance (faits.js,
+    // `recordsCalcules`) et jette ensuite ; sans lui, tout se calcule comme avant.
+    var partage = o.partage || null;
+    var base = partage && partage[slug] && partage[slug].hist === historique && partage[slug].debut === se.debut ? partage[slug] : null;
+    if (!base) {
+      var passeesB = (historique || []).filter(function (h) {
+        var t = instantRecord(h && h.debut);
+        return t !== null && t < t0 && siennes(h.series).length > 0;
+      });
+      var plancherB = M.plancherDuMateriel(o.equipement, se.debut);
+      base = { hist: historique, debut: se.debut, passees: passeesB, plancher: plancherB,
+               fenetre: passeesB.filter(function (h) { return plancherB === null || instantRecord(h.debut) >= plancherB; }),
+               fait0: null, volumes: {} };
+      if (partage) partage[slug] = base;
+    }
+    var passees = base.passees;
+    var plancher = base.plancher;
+    var fenetre = base.fenetre;
     var avant = siennes(series.slice(0, indice));
     var dater = function (seances) {
       var out = [];
@@ -2450,16 +2474,26 @@
     var r = valeurNumerique(s, 'reps');
     var c = chargeDeRecord(s, corps);
     if (fenetre.length && r !== null && r > 0 && c !== null) {
-      var faites = [];
-      dater(fenetre).forEach(function (x) {
-        var rx = valeurNumerique(x.s, 'reps');
-        var cx = chargeDeRecord(x.s, corps);
-        if (rx !== null && rx > 0 && cx !== null) faites.push({ reps: rx, charge: cx, date: x.date });
+      if (base.fait0 === null) {
+        base.fait0 = [];
+        fenetre.forEach(function (h) {
+          siennes(h.series).forEach(function (x) {
+            var rx = valeurNumerique(x, 'reps');
+            var cx = chargeDeRecord(x, corps);
+            if (rx !== null && rx > 0 && cx !== null) base.fait0.push({ reps: rx, charge: cx, date: h.debut });
+          });
+        });
+      }
+      var faites = base.fait0.slice();
+      avant.forEach(function (x) {
+        var rx = valeurNumerique(x, 'reps');
+        var cx = chargeDeRecord(x, corps);
+        if (rx !== null && rx > 0 && cx !== null) faites.push({ reps: rx, charge: cx, date: se.debut });
       });
-      var cumulee = tableCumulee(faites.map(function (f) {
+      // 232 — SEULE LA LIGNE « AU MOINS r REPS » de la table cumulée se calcule (`options.auMoins`) : c'est la seule que lit `auMoinsDe`.
+      var T = auMoinsDe(tableCumulee(faites.map(function (f) {
         return { charge_kg: f.charge, reps: f.reps, _date: f.date };
-      }), function (x) { return x._date; });
-      var T = auMoinsDe(cumulee, r);
+      }), function (x) { return x._date; }, { auMoins: r }), r);
       if (T === null || c > T.charge + EPS_RECORD) {
         var meme = plusGrand(faites.filter(function (f) { return Math.abs(f.charge - c) <= EPS_RECORD; })
           .map(function (f) { return { v: f.reps, date: f.date }; }));
@@ -2499,7 +2533,8 @@
         };
         var cumulAvant = volumeDe(avant);
         var cumul = cumulAvant + volumeDe([s]);
-        var plusGros = plusGrand(fenetre.map(function (h) { return { v: volumeDe(siennes(h.series)), date: h.debut }; }));
+        if (!base.volumes[unite]) base.volumes[unite] = fenetre.map(function (h) { return { v: volumeDe(siennes(h.series)), date: h.debut }; });
+        var plusGros = plusGrand(base.volumes[unite]);
         if (plusGros !== null && cumul > plusGros.v + EPS_RECORD && cumulAvant <= plusGros.v + EPS_RECORD) {
           out.push({ type: 'volume_seance', valeur: cumul, ancien: plusGros.v, ancien_le: plusGros.date, unite: unite });
         }

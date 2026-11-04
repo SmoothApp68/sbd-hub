@@ -840,6 +840,19 @@
       normaliserGroupes(avecExercices(seance, bouger(seance.exercices, idx, ou))));
   }
 
+  // 233 — DÉPLACER UN EXERCICE, L'EXERCICE ENTIER (ses séries, sa note, son groupe de superset le suivent) : il se pose AVANT ou
+  // APRÈS l'exercice `iCible`, dans le même chemin que le bloc (`deplacerVers` : groupes renumérotés, rangs d'origine oubliés).
+  // Sans `iCible` valide, ou sur lui-même, la séance est rendue INCHANGÉE. Le coach suit l'exercice (son slug, ses séries), pas
+  // sa position : rien ici ne touche à une série.
+  function deplacerExercice(seance, iExo, iCible, apres) {
+    var n = ((seance && seance.exercices) || []).length;
+    if (typeof iExo !== 'number' || typeof iCible !== 'number' || iExo === iCible ||
+        iExo < 0 || iCible < 0 || iExo >= n || iCible >= n) return seance;
+    var ou = apres ? iCible + 1 : iCible;
+    if (ou === iExo || ou === iExo + 1) return seance;           // déjà à cette place
+    return deplacerVers(seance, [iExo], ou);
+  }
+
   // ⚠️ RÉORDONNER EN UNE FOIS (§7 vicies, chantier 46). Le mode Réorganiser
   // bouge PLUSIEURS blocs avant d'enregistrer : rejouer une suite de
   // `deplacerVers` reviendrait à recalculer des indices qui ont bougé entre
@@ -3279,6 +3292,7 @@
     reprendre: reprendre,
     refaire: refaire,
     deplacerVers: deplacerVers,
+    deplacerExercice: deplacerExercice,
     reordonnerBlocs: reordonnerBlocs,
     grouperBlocs: grouperBlocs,
     degrouperExercice: degrouperExercice,

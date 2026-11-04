@@ -390,10 +390,11 @@
     // courbe n'a pas besoin des ~28 séries de la séance). Même règle, même fonction : un seul câblage.
     function recordsCalcules(c, se, slugSeul) {
       var index = c.catalogue(), out = [];
+      var partage = {};   // 232 — ce que les séries d'une même séance ont en commun (les séances d'avant), lu une fois
       se.series.forEach(function (x, k) {
         if (!x || !Modele.estTravail(x)) return;
         if (slugSeul !== null && x.exercise_slug !== slugSeul) return;
-        var r = Modele.recordsBattus(seancesDuSlug(c, x.exercise_slug), se, k, optionsDesRecords(c, x.exercise_slug));
+        var r = Modele.recordsBattus(seancesDuSlug(c, x.exercise_slug), se, k, Object.assign({ partage: partage }, optionsDesRecords(c, x.exercise_slug)));
         if (!r.length) return;
         var nom = Modele.nomCourt(index[x.exercise_slug] ? index[x.exercise_slug].nom : x.exercise_slug);
         // 58-2 — `serieId` : le journal écrit une ligne par série et par type.
@@ -1137,6 +1138,22 @@
         sortie.push(Math.round((Number(s1.reps) - Number(s3.reps)) / Number(s1.reps) * 10000) / 10000);
       }
       return sortie;
+    }
+
+    // 233 (MOTEUR §9.27 ter) — LE REPOS RÉEL d'un exercice : pour ses `n` dernières séances qui ont au moins deux séries de travail
+    // VALIDÉES (`validee_a`), le temps qui sépare deux séries du MÊME exercice (la médiane de la séance), puis l'habituel (la médiane
+    // de ces séances). Pas la valeur du minuteur : dans un superset, 90 s de minuteur peuvent faire ~3 min réelles. Une seule
+    // fonction (`Moteur.reposReel`, l'arithmétique) ; ce fait ne fait que ranger les séries par séance. Rend
+    // `{ parSeance, habituel }` (`habituel` nul sans mesure : une série importée n'a pas de `validee_a`, on ne devine pas).
+    function reposReelsDe(c, slug, n) {
+      var datees = seancesDuPlusRecent(c.seances);
+      var parSeance = [];
+      for (var i = 0; i < datees.length && parSeance.length < n; i++) {
+        var lignes = (c.seriesDe(datees[i].id) || []).filter(function (x) { return x && x.exercise_slug === slug; });
+        if (lignes.filter(function (x) { return !!x.validee_a; }).length < 2) continue;
+        parSeance.push(Modele.trierParRang(lignes));
+      }
+      return Moteur.reposReelHabituel(parSeance);
     }
 
     // ── Les habitudes (66C, QUESTIONNAIRE-COACH-V2 §5 quater.2) ──
@@ -2260,6 +2277,7 @@
       programmeDeduit: programmeDeduit,
       historiqueDesExercices: historiqueDesExercices,
       chutesDeReps: chutesDeReps,
+      reposReelsDe: reposReelsDe,
       habitudes: habitudes,
       derniereSeance: derniereSeance,
       seancesDesRoutines: seancesDesRoutines,

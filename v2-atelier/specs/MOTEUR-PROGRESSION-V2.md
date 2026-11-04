@@ -1737,6 +1737,20 @@ Même mécanique que §9.27 (`THEquilibres`, réglage habitude/cartes/silence, `
 
 > **Delta du 02/11/2026 (220, §9.27) — le bonhomme des muscles vit sur « Volume par muscle ».** Le bonhomme (218, `rendu.rendreBonhomme`) n'est plus dans « Ta semaine et tes équilibres » (« Ton parcours », trois niveaux sous Progression) : il est en haut de la page « Volume par muscle » (Progression), sous la barre de semaine, et **suit la semaine affichée**, semaines précédentes comprises. Sa source est `faits.semaineDe(…).muscles` (`Semaine.volumeParMuscle` → la somme unique `Semaine.sommeDesSeries`), **la même que le relevé par zones** de la page ; le fait `muscleDesSeptJours` (sept jours glissants) est supprimé. Un seul endroit : plus de carte dans `rendreEquilibres`. Le sexe du dessin reste une préférence d'appareil.
 
+### 9.27 ter Le repos réel — décidé le 04/11/2026 (chantier 233)
+
+> **Delta de §9.27 bis.** Le repos d'un exercice est **le temps entre deux séries de travail validées du MÊME exercice** (`validee_a`), pas la
+> valeur du minuteur (`repos_cible_s`) ni `repos_s` (l'écart à la validation précédente, tout exercice confondu). Dans un superset de
+> minuteur à 90 s, A2 vient ~3 min après A1 : c'est ce repos-là que le corps a eu.
+>
+> - **Une seule fonction** : `THMoteur.reposReel(series)` (la médiane des écarts d'une séance, chauffes et dégressives écartées, écart > 1 h =
+>   interruption, sans `validee_a` = pas de mesure → `null`, on ne devine pas) et `THMoteur.reposReelHabituel(parSeance)` (la médiane des
+>   séances) ; le fait `faits.reposReelsDe(c, slug, n)` range les séries par séance (les `n` dernières qui ont au moins deux séries validées).
+> - **Lecteurs** : la ligne du repos long (188-2, `reposDuPlan` → `Moteur.reposAConseiller`, seuil inchangé : 90 s) lit le repos RÉEL
+>   (`entrees.reposReels[slug]`) ; en superset à 90 s de minuteur la règle ne se déclenche plus. La réaction « repos réel court » du coach
+>   temps réel (236) lit la même fonction. La fatigue (§14.11) ne lit aucun repos aujourd'hui : si elle en lit un, c'est celui-ci.
+> - Aucune règle nouvelle ; I76 inchangé (son `reposS` est désormais le réel).
+
 ### 9.28 La série de recul — décidé le 31/10/2026 (chantier 193-1) (I78)
 
 **Un type de série de plus : `recul`** (`sets.type_serie`, `routine_sets.type_serie`, migration v2_120). Une série plus légère que la grosse série du jour, faite après elle, au repos de l'exercice. Une seule lecture, `THModele.estRecul` (sur le modèle de `estTest`) ; `typeLu` rend `'recul'`. **Une série de recul reste du travail** pour tout ce qui compte ce qui a été fait (`estTravail` : volume, records, e1RM, jeu) et **n'est jamais** ce qui décide d'une charge ou d'un palier. « Non, ne compte pas » (`hors_calcul`) l'emporte, comme partout. Aucun mappage d'import (Hevy) ne produit un recul : un type inconnu n'est jamais deviné.

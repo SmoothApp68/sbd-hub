@@ -3021,7 +3021,9 @@
     function candidat(e) {
       var h = e.target.closest && e.target.closest('.poignee-exo, .nom-exo');
       if (!h || !cible.contains(h)) return null;
-      var entree = h.closest('.legende-exo');
+      return candidatDe(h.closest('.legende-exo'), h.classList.contains('poignee-exo'));
+    }
+    function candidatDe(entree, immediat) {
       if (!entree || !entree.hasAttribute('data-iexo')) return null;
       var carte = entree.closest('.carte-ss') || entree.closest('.bloc-seance');
       if (!carte || carte.classList.contains('replie')) return null;
@@ -3030,7 +3032,7 @@
       var freres = Array.prototype.slice.call(enSuperset
         ? parent.querySelectorAll('.carte-ss') : cible.querySelectorAll('.bloc-seance:not(.replie)'))
         .filter(function (n) { return enSuperset ? n.parentNode === parent : n.parentNode === cible; });
-      return { iExo: Number(entree.getAttribute('data-iexo')), carte: carte, freres: freres, immediat: h.classList.contains('poignee-exo') };
+      return { iExo: Number(entree.getAttribute('data-iexo')), carte: carte, freres: freres, immediat: immediat };
     }
     function annulerMinuteur() { if (minuteur) { clearTimeout(minuteur); minuteur = null; } }
     function prendre(e) {
@@ -3106,7 +3108,15 @@
       cand = c; x0 = e.clientX; y0 = e.clientY;
       annulerMinuteur();
       if (c.immediat) { prendre(e); e.preventDefault(); return; }
-      minuteur = setTimeout(function () { minuteur = null; prendre(e); }, DUREE_APPUI_EXO);
+      minuteur = setTimeout(function () {
+        minuteur = null;
+        // La séance a pu être redessinée pendant l'appui : on reprend la carte VIVANTE de cet exercice.
+        var vivante = cible.querySelector('.legende-exo[data-iexo="' + c.iExo + '"]');
+        var recu = vivante ? candidatDe(vivante, false) : null;
+        if (!recu) { cand = null; return; }
+        cand = recu;
+        prendre(e);
+      }, DUREE_APPUI_EXO);
     });
     cible.addEventListener('pointermove', function (e) {
       if (pris) { e.preventDefault(); pris.style.transform = 'translateY(' + (e.clientY - depart) + 'px)'; viser(e.clientY); return; }

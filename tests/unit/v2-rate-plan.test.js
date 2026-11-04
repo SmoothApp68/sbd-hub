@@ -202,3 +202,20 @@ describe('236 — séance ajustée à la forme du jour : neutre pour la suite', 
     expect(app).toMatch(/g\.geste === 'forme_ajustee'/);
   });
 });
+
+// ── Un pari est toujours la ligne affichée (RJ du banc) : la ligne validée garde la visée et le pari qu'elle affichait avant sa validation ──
+describe('236 — la ligne validée garde la visée et le pari affichés juste avant', () => {
+  const ligne = (p, n) => p.exercices[0].lignes[n];
+  test('⚠️ DISCRIMINANT — tractions 7, 7 : la 3e ligne vise moins que 8 avant comme après sa validation, et son pari la dit', () => {
+    const avant = plan({ tractions: [[0, 7], [0, 7]] });
+    const apres = plan({ tractions: [[0, 7], [0, 7], [0, 6]] });
+    const lA = ligne(avant.p, 2), lB = ligne(apres.p, 2);
+    expect(lA.validee).toBeFalsy();
+    expect(lB.validee).toBe(true);
+    expect(lB.vise).toBe(lA.vise);
+    expect(lA.vise).toBeLessThan(8);
+    expect(apres.p.exercices[0].paris[2].valeur_predite).toBe(avant.p.exercices[0].paris[2].valeur_predite);
+    propre(avant.p, avant.e); propre(apres.p, apres.e);
+  });
+});
+

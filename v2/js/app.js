@@ -9637,7 +9637,7 @@
     if (j < 0) return null;
     var m = r.message;
     var sortie = { message: null, proposee: false, fourchette: null };
-    if (m && m.position === j && !(r.rate && r.rate.remplaceMessage && m.type === 'a_fond_suite')) {
+    if (m && m.position === j) {
       sortie.message = { type: m.type, phrase: m.phrase };
     }
     var p = r.reaction.plan[j];

@@ -568,6 +568,11 @@ const NOTIONS = [
     par: ['consigneDe'],
     raison: 'décision du 02/10/2026 : l’allègement s’applique une fois, sur la routine de ' +
       'l’exercice remplacé ; figer la routine aux lignes déjà allégées allégeait deux fois.' },
+  { notion: 'la charge d’un exercice aux haltères (la paire, les deux ensemble)', pr: 'correctif 05/11/2026',
+    module: 'modele.js', fonction: 'chargeEstLaPaire', lecteurs: ['bilans.js'],
+    par: ['avecAideDeLUnite'], parAilleurs: { 'bilans.js': ['bilanDeLaPeriode'] },
+    raison: 'décision d’Aurélien du 05/11/2026 : tous les comptes tapent le total des deux haltères ; bilans, image de l’année ' +
+      '(« 2 × moitié »), aide sous le champ de charge et questions de vraisemblance lisent la même unité, jamais « par haltère ».' },
   { notion: 'la dernière séance d’un exercice (la meilleure série du jour)', pr: 'PR 5',
     module: 'modele.js', fonction: 'meilleureSerieDe', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['derniereSeanceDe'] },

@@ -136,7 +136,7 @@
       nomsRec = rs.map(function (r) { return r.nom; });
       if (rs.length) {
         out.push({ cle: 'records', d: 8400, lab: 'Nouvelles charges max',
-                   lignes: rs.slice(0, 3).map(function (r) { return { n: r.nom, v: (r.haltere ? '2 × ' : '') + kg(r.charge) }; }),
+                   lignes: rs.slice(0, 3).map(function (r) { return { n: r.nom, v: r.haltere ? '2 × ' + kg(r.charge / 2) : kg(r.charge) }; }),
                    txt: [g(nRec + ' record' + (nRec > 1 ? 's' : '') + ' de charge'), ' ' + p.ce + '.'] });
       }
     } else {

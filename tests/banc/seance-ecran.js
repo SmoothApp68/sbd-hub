@@ -2513,7 +2513,7 @@ const SETS_IMPORTES = [
     const genre = q.getAttribute('data-genre');
     if (genre === 'zero') return false;
     const bs = Array.from(q.querySelectorAll('button'));
-    const b = genre === 'double_halteres' ? bs[bs.length - 1] : bs.filter((x) => /^Oui/.test(x.textContent))[0] || (genre === 'reps_haut' || genre === 'reps_bas' ? bs[bs.length - 1] : null);
+    const b = bs.filter((x) => /^Oui/.test(x.textContent))[0] || (genre === 'reps_haut' || genre === 'reps_bas' ? bs[bs.length - 1] : null);
     if (b) b.click();
     return !!b;
   }, i).catch(() => false);
@@ -27761,17 +27761,18 @@ const SETS_IMPORTES = [
     ok('[SV185] cas 5 — la série reste VISIBLE sur l’écran, à part : la mention « hors calcul »',
       /hors calcul/.test(await page.evaluate(() => document.querySelectorAll('.ligne-serie')[2].textContent)), '');
 
-    // ── CAS 2. LES HALTÈRES : UNE PAIRE OU LES DEUX ? ──────────────────────────────────────────────────────────
+    // ── CAS 2. LES HALTÈRES : LA CHARGE EST LA PAIRE (245) ──────────────────────────────────────────────────────────
     await serie185(3, 44, 10)(); await valider185(3);
     const q2 = await question185(3);
-    ok('[SV185] cas 2 — 44 kg aux haltères (habitude 22) : « par haltère, ou les deux ensemble ? », deux boutons, rien d’écrit',
-      !!q2 && q2.genre === 'double_halteres' && sp185(q2.texte) === '44 kg : par haltère, ou les deux ensemble ?' &&
-        nb185(q2.boutons.map((b) => b.t)) === nb185(['22 par haltère', '44 par haltère']) && q2.boutons[0].principal &&
-        monte185('sv185-dev').length === 0, nb185(q2));
-    await toucher185(3, '22 par haltère');
-    ok('[SV185] cas 2 — « 22 par haltère » corrige la charge SUR PLACE : la série part à 22 kg × 10',
-      monte185('sv185-dev').length === 1 && Number(monte185('sv185-dev')[0].charge_kg) === 22 && monte185('sv185-dev')[0].reps === 10 &&
-        (await question185(3)) === null, nb185(monte185('sv185-dev').map((s) => [s.charge_kg, s.reps])));
+    ok('[SV185] cas 2 (245) — 44 kg aux haltères (habitude 22) : la charge EST la paire, donc la question « hausse », plus « par haltère » ; rien d’écrit',
+      !!q2 && q2.genre === 'hausse' && sp185(q2.texte) === '44 kg ? Ton meilleur ici : 22 kg.' &&
+        nb185(q2.boutons.map((b) => b.t)) === nb185(['Oui, 44', 'Corriger']) && monte185('sv185-dev').length === 0, nb185(q2));
+    await taper185(3, 'charge_kg', 22);
+    ok('[SV185] cas 2 — retaper 22 retire la question', (await question185(3)) === null, nb185(await question185(3)));
+    await valider185(3); await ecrite185('sv185-dev', 1);
+    ok('[SV185] cas 2 — la série part à 22 kg × 10',
+      monte185('sv185-dev').length === 1 && Number(monte185('sv185-dev')[0].charge_kg) === 22 && monte185('sv185-dev')[0].reps === 10,
+      nb185(monte185('sv185-dev').map((s) => [s.charge_kg, s.reps])));
     // Des reps décimales ou négatives : refusées sur place, sans question, rien d’écrit.
     await taper185(4, 'charge_kg', 22); await taper185(4, 'reps', '6,5');
     const qr = await question185(4);

@@ -650,3 +650,6 @@ l'écran (les valeurs restent en base, aucune n'est lue). Les quatre phrases qui
   habileté, se propose ensuite par l'échelle). Dips 0 → négatifs ; 1-14 → dips ; 15 et plus → lestés. Pistol non → squat bulgare ; oui → pistol.
   Inconnu : tractions négatives + rowing inversé, pompes aux genoux, dips négatifs, squat bulgare.
 
+
+
+**Ma salle — 05/11/2026 (245).** « Ajuster Ma salle » n'écrit plus les haltères (`ma_salle.halteres`, lu par personne depuis 163 ; rien n'est effacé en base). La note devient : « Aux haltères, tu notes le poids des deux ensemble. »

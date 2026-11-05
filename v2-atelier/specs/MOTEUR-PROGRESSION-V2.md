@@ -2029,6 +2029,8 @@ Sur une **barre** (squat, couché, militaire — `familleDeBarre`), la consigne 
 
 ### 10.1 Règle
 
+> **Aux haltères, la charge notée est la PAIRE, les deux ensemble (05/11/2026, 245)** — ce que tous les comptes tapent depuis toujours. Aucune conversion en base ; aucun lecteur ne double ni ne divise (sauf l'image de l'année, qui l'écrit « 2 × moitié »). Dégressive : voir §9.15.3. Une seule notion, `Modele.chargeEstLaPaire`.
+
 > **L'app ne demande jamais de combien monter. Elle déduit le pas de la salle depuis les charges déjà utilisées sur cet exercice.**
 
 Méthode : trier les charges distinctes du top set sur les 24 derniers mois, calculer les écarts consécutifs, retenir **le plus petit écart qui revient au moins 3 fois**. Un écart isolé est du bruit, pas un pas de salle.

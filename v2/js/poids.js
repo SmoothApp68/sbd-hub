@@ -264,7 +264,7 @@
     var jourSemaine = (d.getDay() + 6) % 7;                   // lundi = 0
     return Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate() - jourSemaine) / 864e5);
   }
-  function tendance(lignes, aujourdhui) {
+  function tendanceDuPoids(lignes, aujourdhui) {
     var liste = normaliser(lignes);
     var ref = aujourdhui instanceof Date ? aujourdhui : (depuisJour(aujourdhui) || new Date());
     if (isNaN(ref.getTime())) return null;
@@ -393,7 +393,7 @@
     rapportAuPoids: rapportAuPoids,
     poidsALaDate: poidsALaDate,
     poidsAutourDe: poidsAutourDe,
-    tendance: tendance,
+    tendanceDuPoids: tendanceDuPoids,
     phraseDeTendance: phraseDeTendance,
     noteDeTendance: noteDeTendance,
     JOURS_ENCADRE: JOURS_ENCADRE,

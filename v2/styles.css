@@ -2293,6 +2293,9 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   background:var(--panneau-2);color:var(--texte);border:1px solid var(--trait);border-radius:var(--r-petit);
   font:var(--police-champ)/1.35 ui-monospace,monospace;resize:vertical}
 .imp-bouton{display:block;width:100%;margin-top:10px}
+/* 246 — l'aperçu des mesures : des faits en clair (pas la teinte discrète) et deux cibles de 44 px. */
+.imp-mesure{color:var(--texte-2);font-size:13px;line-height:1.5;margin:6px 0}
+.imp-importer,.imp-annuler{min-height:44px}
 .imp-ok{color:var(--texte-2);font-size:14px;margin-top:10px;line-height:1.4}
 .imp-erreur{color:var(--texte)}
 .imp-periode{margin-bottom:var(--e2)}

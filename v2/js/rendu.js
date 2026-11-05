@@ -2139,7 +2139,7 @@
     phase.appendChild(el('div', null, vue.phase));
     if (vue.noteDePhase) phase.appendChild(el('p', 'pc-note', vue.noteDePhase));   // 189 : « Tes séries reviennent à ta routine. »
     // 246 : la tendance existe → sa phrase (`THPoids.phraseDeTendance`, lue par l'app) ; sinon les deux invitations.
-    phase.appendChild(el('p', 'pc-note', vue.pesees.tendance ? vue.pesees.tendance : vue.pesees.assez
+    phase.appendChild(el('p', 'pc-note', vue.pesees.phraseTendance ? vue.pesees.phraseTendance : vue.pesees.assez
       ? vue.pesees.nombre + ' pesées en huit semaines.'
       : 'Pas assez de pesées : ' + vue.pesees.nombre + ' en huit semaines. Une par semaine suffit.'));
     cible.appendChild(phase);
@@ -8705,6 +8705,14 @@
       var phrase = [vue.fin.detail, vue.fin.suite].filter(Boolean).join(' ');
       if (phrase) cible.appendChild(el('p', 'imp-ok', phrase));
       cible.appendChild(bouton(vue.libelleFin || 'Voir l\u2019historique', 'discret imp-bouton', vue.surHistorique));
+      return cible;
+    }
+    // 246 — l'aperçu des MESURES (pesées) : des faits, deux boutons. Chaque phrase se pose par `textContent`.
+    if (vue.etape === 'mesures') {
+      cible.appendChild(el('h2', 'titre-vue', vue.titre));
+      vue.phrases.forEach(function (t) { cible.appendChild(el('p', 'imp-aide imp-mesure', t)); });
+      cible.appendChild(bouton(vue.bouton.libelle, 'principal imp-bouton imp-importer', vue.surImporter, vue.bouton.actif));
+      cible.appendChild(bouton('Annuler', 'discret imp-bouton imp-annuler', vue.surAnnuler));
       return cible;
     }
     if (vue.etape === 'apercu') {

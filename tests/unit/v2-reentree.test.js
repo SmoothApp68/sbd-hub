@@ -46,7 +46,8 @@ function bac() {
     renduPour: null, ouvrirRecuperationSiDue: () => {},
     CLE_CONSIGNES: 'consignes', CLE_BROUILLON: 'brouillon-routine',
     // 71 — le récap de fin de séance est protégé comme les écrans d'édition.
-    vues: { detail: vue, routine: vue, seance: vue, questionnaire: vue, recap: vue },
+    // 244 — la vue du groupe aussi (`ecranTenu`, la garde unique de fin d'entrée).
+    vues: { detail: vue, routine: vue, seance: vue, questionnaire: vue, recap: vue, groupe: vue },
     Seance: { verifierColonnes: () => {} },
     Routeur: { analyser: () => ({ vue: 'liste', params: {} }), interditAvecSession: () => false, estVueDuJeu: () => false,
                RACINE: 'liste', PROFIL: 'profil' },
@@ -79,7 +80,7 @@ function bac() {
     lireLiensALOuverture: () => {}, rejeuDemande: null, ouvrirRejeu: () => {}, apresSynchroAnnee: () => {}
   };
   vm.createContext(ctx);
-  ['idDeSession', 'entrer', 'reentrer', 'entrerVraiment', 'chargerCache',
+  ['idDeSession', 'entrer', 'reentrer', 'entrerVraiment', 'ecranTenu', 'chargerCache',
    'chargerSeanceLocale', 'chargerBrouillonLocal']
     .forEach((n) => vm.runInContext(extraire(n), ctx));
   const session = (id, jeton) => ({ user: { id }, access_token: jeton || 'j' });
@@ -147,6 +148,19 @@ describe('la ré-entrée du même utilisateur', () => {
     b.ctx.vues.recap = { hidden: false };
     const rendus = b.journal.rendus;
     await b.entrer(b.session('u1'));
+    expect(b.journal.rendus).toBe(rendus);
+  });
+
+  test('⚠️ 244 — la vue du groupe ouverte (sans route) n’est remplacée ni par la ré-entrée ni par la fin d’une entrée complète', async () => {
+    const b = bac();
+    await b.entrer(b.session('u1'));
+    b.ctx.vues.groupe = { hidden: false };
+    const rendus = b.journal.rendus;
+    await b.entrer(b.session('u1'));
+    expect(b.journal.rendus).toBe(rendus);
+    // Entrée complète (un autre compte ; ici sans séance en cache, son premier écran n'est pas un `rendreRoute`) :
+    // la fin de la synchronisation ne repeint pas non plus.
+    await b.entrer(b.session('u2'));
     expect(b.journal.rendus).toBe(rendus);
   });
 });

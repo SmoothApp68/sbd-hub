@@ -20317,6 +20317,28 @@ const SETS_IMPORTES = [
         fauxSocial.groupeDe('u-jordan') === G3 && !fauxSocial.finiLe(G3) && !!placeG4 && placeG4.session_id === maSeance4 &&
         !!maSeance4 && maSeance4 !== maSeance3 && JSON.stringify(h1.pastilles) === JSON.stringify(['lea', 'banc']),
       JSON.stringify([h0, h1, placeG3, placeG4, maSeance3, maSeance4]));
+    // 244 — LA FIN DE L'ENTRÉE NE REPREND JAMAIS LA MAIN SUR LA VUE DU GROUPE (l'intermittent « ← Retour » 30 s du
+    // séquentiel, diagnostic GROUPE-2026-11-05). La lecture du journal des records (la dernière lecture de la
+    // synchronisation de l'entrée) est retenue : l'app rechargée sur la séance, j'ouvre « Inviter » ; la lecture répond,
+    // l'entrée finit (« À jour ») — la vue du groupe reste, « ← Retour » se touche. Sans la garde : `rendreRoute('/saisie')`.
+    base.lentesServies = [];
+    base.lenteurRecords = 5000;
+    await aller('/saisie');
+    await attendreQue(async () => (await compter('#groupe-seance #groupe-inviter')) === 1);
+    await page.click('#groupe-seance #groupe-inviter');
+    await attendreQue(async () => page.evaluate(() => !document.getElementById('vue-groupe').hidden));
+    const groupeOuvertA = Date.now();
+    await attendreQue(async () => base.lentesServies.length > 0);
+    await attendreQue(async () => page.evaluate(() => document.getElementById('etat-sync').classList.contains('a-jour')));
+    await reseauCalme();
+    const finEntree = await page.evaluate(() => ({ groupe: !document.getElementById('vue-groupe').hidden,
+      seance: !document.getElementById('vue-seance').hidden, sync: document.getElementById('etat-sync').textContent }));
+    ok('[groupe 244] prémisse — la dernière lecture de la synchronisation de l’entrée a répondu APRÈS l’ouverture de la vue du groupe',
+      base.lentesServies.length === 1 && base.lentesServies[0] > groupeOuvertA, JSON.stringify({ groupeOuvertA, servies: base.lentesServies }));
+    ok('[groupe 244] DISCRIMINANT — la fin de l’entrée (« À jour ») ne remplace pas la vue du groupe ouverte pendant la synchronisation',
+      finEntree.groupe && !finEntree.seance, JSON.stringify(finEntree));
+    if (finEntree.groupe) await page.click('#btn-retour-groupe');
+    await attendreQue(async () => page.evaluate(() => !document.getElementById('vue-seance').hidden));
     // jordan NE ROUVRE JAMAIS l'app : sa dernière série a 50 min — il compte comme terminé ; le geste suivant finit G3.
     S.sets.filter((t) => t.session_id === SJ2).forEach((t) => { t.validee_a = iso(ilYa(50 * 60000)); });
     await relire(async () => !!(S.groupes.filter((g) => g.id === G3)[0] || {}).fini_le);

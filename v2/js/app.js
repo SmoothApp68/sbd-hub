@@ -15652,14 +15652,20 @@
     rendreEtatSync();
     // 155 — les routines aussi, avant de redessiner.
     await relireRoutinesAuRetour();
-    // Comme à la fin de l'entrée complète : une synchronisation de fond ne
-    // reprend jamais la main sur un écran en cours d'édition — le questionnaire
-    // compris (60-2a) : il perdrait l'écran où l'on en est.
-    // 71 — le récap de fin de séance aussi : « Terminer » pendant une synchronisation l'ouvrait, et la fin de la
-    // synchronisation le remplaçait par la saisie.
-    if (!vues.detail.hidden || !vues.routine.hidden || !vues.seance.hidden || !vues.questionnaire.hidden ||
-        !vues.recap.hidden) return;
+    // Comme à la fin de l'entrée complète (`ecranTenu`).
+    if (ecranTenu()) return;
     rendreRoute(Routeur.analyser(racine.location.pathname));
+  }
+
+  // UNE SYNCHRONISATION DE FOND NE REPREND JAMAIS LA MAIN : la garde de la fin d'une entrée (`entrerVraiment`,
+  // `reentrer`), une seule. L'utilisateur est parti ailleurs pendant la synchro ; re-rendre la route écraserait son
+  // écran — sur l'éditeur de routine, le brouillon qu'il remplit ; le questionnaire (60-2a), l'écran où l'on en est ;
+  // 71 — le récap de fin de séance (« Terminer » pendant une synchronisation l'ouvrait, la fin le remplaçait par la saisie).
+  // 244 — la vue du groupe aussi (plein écran, SANS route) : « Inviter » ou le récap du groupe ouverts pendant la fin
+  // de la première synchronisation, `rendreRoute('/saisie')` la remplaçait par la séance, « ← Retour » compris.
+  function ecranTenu() {
+    return !vues.detail.hidden || !vues.routine.hidden || !vues.seance.hidden || !vues.questionnaire.hidden ||
+      !vues.recap.hidden || !vues.groupe.hidden;
   }
 
   async function entrerVraiment(session) {
@@ -15786,13 +15792,8 @@
     if (rejeuDemande) ouvrirRejeu();
     // 95 — « Ton année » : `?bilan=AAAA` hors production, sinon l'annonce de janvier (une fois).
     apresSynchroAnnee(userId, profilLu);
-    // L'utilisateur est parti ailleurs pendant la synchro. Re-rendre écraserait
-    // son écran — et, sur l'éditeur de routine, le brouillon qu'il est en train
-    // de remplir. Une synchronisation de fond ne reprend jamais la main.
-    // 71 — le récap de fin de séance aussi : « Terminer » pendant une synchronisation l'ouvrait, et la fin de la
-    // synchronisation le remplaçait par la saisie.
-    if (!vues.detail.hidden || !vues.routine.hidden || !vues.seance.hidden || !vues.questionnaire.hidden ||
-        !vues.recap.hidden) return;
+    // Une synchronisation de fond ne reprend jamais la main (`ecranTenu`).
+    if (ecranTenu()) return;
     rendreRoute(Routeur.analyser(racine.location.pathname));
   }
 

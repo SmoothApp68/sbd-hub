@@ -618,8 +618,10 @@ describe('60-2a — le routage d’entrée et la vue', () => {
     expect(entree).toMatch(/ouvrirQuestionnaireSiDu\(\)/);
     expect(entree).not.toMatch(/doitOuvrirProfil/);
     expect(entree.indexOf('ouvrirQuestionnaireSiDu()')).toBeLessThan(entree.indexOf('rendreRoute(routeInitiale)'));
-    expect(entree).toMatch(/!vues\.questionnaire\.hidden/);
-    expect(extraire('reentrer')).toMatch(/!vues\.questionnaire\.hidden/);
+    // 244 — une seule garde de fin d'entrée (`ecranTenu`), lue par les deux entrées.
+    expect(entree).toMatch(/if \(ecranTenu\(\)\) return;\s*rendreRoute/);
+    expect(extraire('reentrer')).toMatch(/if \(ecranTenu\(\)\) return;\s*rendreRoute/);
+    expect(extraire('ecranTenu')).toMatch(/!vues\.questionnaire\.hidden/);
   });
 
   test('« Quitter » efface la clé « déjà vu ici » (le préfixe `th-v2`), un retour de connexion le remontre une fois', () => {

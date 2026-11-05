@@ -31,5 +31,18 @@
   "unitaires": [
    "tests/unit/v2-social-hors-ligne.test.js"
   ]
+ },
+ {
+  "nom": "244-groupe-garde-retiree",
+  "fichier": "v2/js/app.js",
+  "ancien": "      !vues.recap.hidden || !vues.groupe.hidden;",
+  "nouveau": "      !vues.recap.hidden;",
+  "banc": "seance",
+  "sections": [
+   "groupe"
+  ],
+  "unitaires": [
+   "tests/unit/v2-reentree.test.js"
+  ]
  }
 ]

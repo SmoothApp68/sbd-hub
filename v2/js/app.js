@@ -15605,7 +15605,7 @@
         if (series[j] && series[j].id && ids[series[j].id]) await observerSerieDe(s, i, j, true);
       }
     }
-    await observerObjectifs({ retirer: true, idSeance: s.id }).catch(function (err) { console.warn('Observation des objectifs :', texteErreur(err)); });
+    await observerObjectifs({ retirer: ids, idSeance: s.id }).catch(function (err) { console.warn('Observation des objectifs :', texteErreur(err)); });
   }
 
   async function enregistrerEdition() {
@@ -16979,9 +16979,10 @@
   // séance de la série (`depend`). Jamais retirée ici : une série effacée vide l'observation en base
   // (`sets_efface_observation`) ; une autre série qui atteint l'objectif la reprend.
   async function observerObjectifs(options) {
-    // 245 (D-P2) — `retirer` (l'enregistrement d'une Édition seulement) : un objectif qui n'est plus atteint par aucune série
-    // vide son observation (le pari ne bouge jamais). Hors Édition, l'observation n'est jamais retirée ici.
-    var retirer = !!(options && options.retirer);
+    // 245 (D-P2) — `retirer` (l'enregistrement d'une Édition seulement) : `{ idDeSerie: true }` des séries que la correction change.
+    // Un objectif qui n'est plus atteint vide son observation SEULEMENT si la série qui l'observait (`set_observe`) en fait partie
+    // (le pari ne bouge jamais) ; un pari observé sur une autre série garde son observation. Hors Édition, jamais retirée ici.
+    var retirer = options && options.retirer && typeof options.retirer === 'object' ? options.retirer : null;
     var paris = local.parisObjectif || [];
     if (!paris.length) return;
     var parSlug = {}, maj = {};
@@ -16991,7 +16992,7 @@
       var seances = parSlug[slug] || (parSlug[slug] = seancesPourObjectif(faits.seancesDeLExercice(corpus(), slug)));
       var obs = Objectif.observationDe(p, seances);
       if (!obs.set_observe) {
-        if (retirer && (p.set_observe || (p.valeur_observee !== null && p.valeur_observee !== undefined))) {
+        if (retirer && p.set_observe && retirer[p.set_observe]) {
           maj[p.id] = { ligne: Object.assign({}, p, { valeur_observee: null, observee_a: null, set_observe: null }),
                         seance: options.idSeance || null };
         }

@@ -67,7 +67,10 @@ jobs:
         if: always()
         with:
           name: banc-complet
-          path: banc-complet.txt
+          path: |
+            banc-complet.txt
+            /tmp/tout-*
+          if-no-files-found: ignore
           retention-days: 7
 
   banc-sequentiel:
@@ -120,4 +123,6 @@ jobs:
           path: |
             banc-sequentiel.txt
             seq.json
+            /tmp/banc-groupe-*/journal.txt
+          if-no-files-found: ignore
           retention-days: 7

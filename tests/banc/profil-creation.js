@@ -2030,18 +2030,20 @@ function ok(nom, cond, detail) {
       const ctx = await contexte(nav, bd, { captcha });
       const page = await ctx.newPage();
       await ouvrirEntree(page);
-      const dit = await attendreQue(page, async () => /n'a pas pu se charger/.test(await messageEntree(page)), 10000);
-      ok('DISCRIMINANT — « La vérification anti-robot n\'a pas pu se charger. Vérifie ta connexion, puis réessaie. »',
-        dit && (await messageEntree(page)) === 'La vérification anti-robot n\'a pas pu se charger. Vérifie ta connexion, puis réessaie.', await messageEntree(page));
+      // L'écran peut s'ouvrir deux fois de suite (la session est lue, puis l'écran d'entrée se rend) : chaque contrôle
+      // attend SON état plutôt que de lire une seule fois entre deux rendus.
+      const PHRASE_SCRIPT = 'La vérification anti-robot n\'a pas pu se charger. Vérifie ta connexion, puis réessaie.';
       const reessayer = () => page.evaluate(() => { const b = document.querySelector('#btn-captcha-reessayer'); return !b.hidden && b.offsetParent !== null; });
-      ok('le bouton « Réessayer » est visible', await reessayer());
+      ok('DISCRIMINANT — « La vérification anti-robot n\'a pas pu se charger. Vérifie ta connexion, puis réessaie. »',
+        await attendreQue(page, async () => (await messageEntree(page)) === PHRASE_SCRIPT, 10000), await messageEntree(page));
+      ok('le bouton « Réessayer » est visible', await attendreQue(page, reessayer, 10000));
       await remplirConnexion(page);
       await page.click('#btn-connexion');
       const libere = await attendreQue(page, () => page.evaluate(() => {
         const b = document.querySelector('#btn-connexion'); return b.textContent === 'Se connecter' && !b.disabled; }), 12000);
       ok('DISCRIMINANT — le bouton principal n’est pas resté sur « Connexion… » (jamais un bouton qui tourne sans fin)', libere);
       ok('aucun appel d’authentification n’est parti sans jeton', bd.captchaVu.length === 0, JSON.stringify(bd.captchaVu));
-      ok('la phrase reste dite', /n'a pas pu se charger/.test(await messageEntree(page)));
+      ok('la phrase reste dite', await attendreQue(page, async () => (await messageEntree(page)) === PHRASE_SCRIPT, 5000));
       // le réseau revient : « Réessayer »
       captcha.script = 'ok';
       await page.click('#btn-captcha-reessayer');

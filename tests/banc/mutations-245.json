@@ -81,6 +81,16 @@
   ]
  },
  {
+  "nom": "245-10-retirer-large-vide-toute-observation",
+  "fichier": "v2/js/app.js",
+  "ancien": "        if (retirer && p.set_observe && retirer[p.set_observe]) {",
+  "nouveau": "        if (retirer) {",
+  "banc": "seance",
+  "sections": [
+   "edition-245"
+  ]
+ },
+ {
   "nom": "245-9-baisse-haltere-seuil-de-10-kg",
   "fichier": "v2/js/faits.js",
   "ancien": "ref - charge > (haltere ? HAUSSE_ABSOLUE_HALTERE_KG : BAISSE_ABSOLUE_KG) + EPSILON) {",

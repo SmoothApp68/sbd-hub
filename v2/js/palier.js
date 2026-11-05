@@ -369,7 +369,7 @@
     var palierProvisoire = calculerPalier(travail);
     var indexPalier = travail.length;
     if (uneAide) {
-      // 245 — aucune frontière de chauffe par les 75 % : depuis une aide, aucune série n'est une chauffe probable (la ligne 398 l'écarte).
+      // 245 — aucune frontière de chauffe par les 75 % : depuis une aide, aucune série n'est une chauffe probable (la condition `!uneAide` l'écarte).
       indexPalier = 0;
     } else if (palierProvisoire !== null) {
       for (var i = 0; i < travail.length; i++) {

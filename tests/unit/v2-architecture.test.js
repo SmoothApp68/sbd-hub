@@ -3588,3 +3588,10 @@ describe('architecture — la voix des écrans : ni « palier », ni « bravo »
     expect(fautesDeVoix([{ nom: 'index.html', src: '<p class="note">Bravo, tu as fini.</p>' }])).toHaveLength(1);
   });
 });
+
+describe('architecture — 245 : la garde de développement vérifie le vrai catalogue (I133)', () => {
+  test('app.js appelle garde.signaler(Modele.verifierI133(…) sur le catalogue indexé', () => {
+    const src = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
+    expect(src).toContain("garde.signaler(Modele.verifierI133(catalogueMemo.index,");
+  });
+});

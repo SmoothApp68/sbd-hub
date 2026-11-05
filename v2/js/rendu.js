@@ -2387,6 +2387,16 @@
     cible.appendChild(cadre);
   }
 
+  // 246 — la tendance du poids : une ligne de texte secondaire sous la courbe + sa note. Rien sans phrase. Aucune
+  // couleur, aucune flèche, aucun calcul ici (`THPoids.tendance`).
+  function rendreTendancePoids(cible, phrase, note) {
+    if (!cible) return;
+    vider(cible);
+    if (!phrase) return;
+    cible.appendChild(el('p', 'pesees-tendance', phrase));
+    if (note) cible.appendChild(el('p', 'pesees-total', note));
+  }
+
   function rendreListePesees(cible, pesees, total) {
     if (!cible) return;
     vider(cible);
@@ -10236,6 +10246,7 @@
     rendreRadar: rendreRadar,
     rendreCartesPeriode: rendreCartesPeriode,
     rendreCourbePoids: rendreCourbePoids,
+    rendreTendancePoids: rendreTendancePoids,
     rendreListePesees: rendreListePesees,
     jour: jour,
     signe: signe,
@@ -10373,6 +10384,7 @@
     rendreRadar: rendreRadar,
     rendreCartesPeriode: rendreCartesPeriode,
     rendreCourbePoids: rendreCourbePoids,
+    rendreTendancePoids: rendreTendancePoids,
     rendreListePesees: rendreListePesees,
     jour: jour,
     signe: signe,

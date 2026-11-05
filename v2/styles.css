@@ -619,6 +619,7 @@ button.bloc-exo:active{background:var(--panneau-2)}
 .pesee-d{flex:1;min-width:0;font-size:12px;line-height:1.4;color:var(--texte-3)}
 .pesee-p{font-size:14px;font-weight:600;line-height:1.4}
 .pesee-e{min-width:46px;text-align:right;font-size:12px;line-height:1.4;color:var(--texte-3)}
+.pesees-tendance{font-size:13px;line-height:1.5;color:var(--texte-2);padding:var(--e2) var(--e1) 0}
 .pesees-total{font-size:12px;line-height:1.5;color:var(--texte-3);padding:var(--e2) var(--e1) 0}
 
 /* ══ SAISIE — LA BIBLIOTHÈQUE DE ROUTINES (chantier 21) ══════════════════════

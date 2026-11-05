@@ -13808,6 +13808,9 @@
     });
     Rendu.rendreCourbePoids($('courbe-poids'), Poids.courbe(fenetre, 300, 104));
     Rendu.rendreListePesees($('liste-pesees'), Poids.dernieres(fenetre, 12), fenetre.length);
+    // 246 : la tendance se calcule sur TOUTES les pesées, pas sur la période choisie ; sans tendance, rien.
+    var t = Poids.tendance(local.pesees, new Date());
+    Rendu.rendreTendancePoids($('tendance-poids'), Poids.phraseDeTendance(t), Poids.noteDeTendance(t));
   }
 
   // ── Fenêtre d'un muscle ──────────────────────────────────────────────────

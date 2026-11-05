@@ -65,8 +65,8 @@ générateur), jamais déduit de `routine_sets.reps_visees`. RLS inchangé (la p
 | `v2_131` (la note de la dernière fois, 242, appliquée le 04/11/2026) | **`profiles.notes_exercices`** jsonb NOT NULL DEFAULT `'{}'` : `{ slug: { texte, a } }` (la note de l'exercice modifiée par la personne, épinglée) ou `{ slug: { masquee: <id de la série>, a } }` (« Ne plus afficher » : désigne la série dont la note ne se montre plus). Lue et écrite par la file (`poserProfil`), colonne facultative (`COLONNES_FACULTATIVES`), jamais lue par le coach. · **`sets.unilateral`** boolean NOT NULL DEFAULT false : posée par v2_131, **inutilisée, à retirer** (décision du 05/11/2026 : un exercice fait d'un côté est sa variante du catalogue) ; l'app ne la lit ni ne l'écrit. |
 | `v2_126` (le muscle étiré, 196, 31/10/2026) | **`exercises.accent_allonge`** boolean NOT NULL DEFAULT false : l'exercice charge le muscle étiré (23 exercices marqués). Lu par `donnees.js` (`tousLesExercices`, `false` si la colonne manque), le générateur et l'échange d'exercice (préférence à égalité). Aucune autre colonne : le rest-pause n'est pas stocké (dégressives à charge égale, lues par `Modele.restPauseDe`). Appliquée par Claude.ai avant la PR 196 |
 
-**Reste noté** : `pseudo_libre` ouverte à `anon` (voulu) ; 79 fonctions SECURITY DEFINER, `search_path` fixé pour toutes ; seule `pseudo_libre` est ouverte à `anon` (voulu) ; pas de FK
-`groupe_recaps.groupe_id` (abandonnée) ni `objectifs.pari_id` (à reprendre) ; « Leaked password protection » (tableau
+**Reste noté** : 79 fonctions SECURITY DEFINER, `search_path` fixé pour toutes ; seule `pseudo_libre` est ouverte à `anon` (voulu) ; pas de FK
+`groupe_recaps.groupe_id` (abandonnée ; `objectifs.pari_id` posée par v2_135) ; « Leaked password protection » (tableau
 de bord) ; les six colonnes `profiles.visibility_*` du v1 ; **on ne renomme jamais une donnée de l'app depuis la base**
 (23/10, « Recompo » : l'app ne relit pas une routine ou un dossier modifiés côté serveur).
 
@@ -81,9 +81,8 @@ de bord) ; les six colonnes `profiles.visibility_*` du v1 ; **on ne renomme jama
 | `v2_099` (échelle) | **`exercises.echelle`** (text, `^[a-z_]{1,40}$`) et **`echelle_rang`** (smallint 1-20 ; contrainte `exercises_echelle_ok` : les deux vides ensemble ; index partiel `exercises_echelle_idx`) — 36 exercices, 6 échelles (tractions, tractions_supination, dips_torse, dips_triceps, pompes, muscle_up) ; **`exercises.barre_charge_fixe`** (boolean NOT NULL, défaut false ; `exercises_barre_charge_fixe_ok` : seulement si `equipement = 'barre'` ; 21 exercices) — à ne pas confondre avec `barre_fixe` du générateur (la barre de traction) ; `profiles_ma_salle_ok` accepte deux clés de plus, **`elastiques`** (liste de 10 au plus, du plus fort au plus léger, `{nom, kg?}`, contrainte séparée `profiles_ma_salle_elastiques_ok`) et **`elastiques_par_nom`** (boolean) ; **`profiles.marche_reponses`** (jsonb, par exercice de départ `{r: oui|non, le, aide?}`, `profiles_marche_reponses_ok`) |
 | `v2_100` (sécurité) | `EXECUTE` retiré à PUBLIC, anon et authenticated sur les fonctions de déclencheur `abonnements_avant_ajout`, `abonnements_avant_modif`, `blocages_apres_ajout` (un déclencheur se déclenche sans ce droit) ; les 7 règles de `abonnements`, `blocages`, `reactions_seance` passent de `public` à **`authenticated`** ; `reactions_ajout` et `reactions_guilde` fusionnées en une règle d'ajout : `user_id = auth.uid() AND (social_peut_reagir(session_id) OR guilde_peut_reagir(session_id))` |
 
-**Reste noté** : `pseudo_libre` ouverte à `anon` (voulu : le pseudo se vérifie avant le compte) ; 79 fonctions SECURITY
-DEFINER, `search_path` fixé pour toutes ; seule `pseudo_libre` est ouverte à `anon` (voulu) ; pas de clé étrangère `groupe_recaps.groupe_id` ni
-`objectifs.pari_id` ; pas d'index sur `sets.exercise_slug` ; « Leaked password protection » (tableau de bord).
+**Reste noté** : 79 fonctions SECURITY DEFINER, `search_path` fixé pour toutes ; seule `pseudo_libre` est ouverte à `anon`
+(voulu : le pseudo se vérifie avant le compte) ; pas de clé étrangère `groupe_recaps.groupe_id` (abandonnée ; `objectifs.pari_id` posée par v2_135) ; pas d'index sur `sets.exercise_slug` ; « Leaked password protection » (tableau de bord).
 
 ## Depuis le 17/10 — migrations `v2_091` à `v2_097` (régénéré depuis la base par Claude.ai le 17/10/2026, 13 h)
 

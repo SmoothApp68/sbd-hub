@@ -28815,7 +28815,7 @@ const SETS_IMPORTES = [
     await jusqua(async () => pariDe245().valeur_observee === 5 && !!pariDe245().set_observe, 10000, 'pariObserveED245');
     ok('[ED245] prémisse — la série faite à la charge proposée observe le pari de consigne (5 reps) : ' + charge245 + ' kg',
       pariDe245().valeur_observee === 5 && pariDe245().fondement.charge === charge245, nb245([charge245, pariDe245().valeur_observee, pariDe245().fondement]));
-    await saisirSerie(1, charge245, 5);   // une 2e série qui atteint aussi l'objectif : il reste observé sur la 1re (set_observe)
+    await saisirSerie(1, charge245 - 10, 5);   // une 2e série plus légère : elle n'atteint pas l'objectif 70 × 5
     await attendre(800);
     await terminer();
     await jusqua(async () => obj245().valeur_observee !== null && !!obj245().set_observe, 10000, 'objectifObserveED245');
@@ -28828,19 +28828,6 @@ const SETS_IMPORTES = [
     await editer245(async () => {});
     ok('[ED245] une Édition qui ne change rien n’écrit aucune observation, et le pari est intact',
       nbObs245() === avant1 && pariDe245().valeur_observee === 5 && pariDe245().valeur_predite === predit245, nb245([nbObs245() - avant1, pariDe245().valeur_observee]));
-
-    // (1 bis) une série qui N'EST PAS celle qui observe l'objectif : la corriger garde l'observation du pari d'objectif.
-    const obsAvant1b = nb245([obj245().set_observe, obj245().valeur_observee, obj245().observee_a]);
-    const serieObs245 = obj245().set_observe;
-    await editer245(async () => {
-      const champs = await champsDe(1, 'reps');
-      await champs[0].fill('3');
-      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
-    });
-    await attendre(1500);
-    ok('[ED245] DISCRIMINANT — corriger une série qui n’est PAS celle qui observe l’objectif en garde l’observation (série, valeur, date)',
-      !!serieObs245 && nb245([obj245().set_observe, obj245().valeur_observee, obj245().observee_a]) === obsAvant1b && obj245().valeur_observee !== null,
-      nb245([obsAvant1b, obj245()]));
 
     // (2) 5 reps → 3.
     await editer245(async () => {
@@ -28901,6 +28888,25 @@ const SETS_IMPORTES = [
     await jusqua(async () => horsDe245().hors_calcul === false, 10000, 'recompteED245');
     ok('[ED245] DISCRIMINANT D-S3 — « Non, ne compte pas » puis la charge corrigée (' + chargeAvant245 + ' → ' + (Number(chargeAvant245) + 5) + ') : la série recompte (hors_calcul = false en base)',
       horsDe245().hors_calcul === false && Number(horsDe245().charge_kg) === Number(chargeAvant245) + 5, nb245([horsDe245().hors_calcul, horsDe245().charge_kg]));
+    // (6) D-P2 — une série qui N'EST PAS celle qui observait le pari d'objectif : la corriger GARDE son observation. Une correction faite
+    // ailleurs (l'observation pointe la 2e série, qui ne remplit plus l'objectif) : seule la série corrigée (la 1re) compte pour `retirer`.
+    {
+      const mes245 = () => base.sets.filter((x) => x.exercise_slug === 'ed245-sq' && x.session_id.indexOf('ed245-h') < 0).sort((x, y) => x.rang - y.rang);
+      const serie2 = mes245()[1];
+      const o = obj245();
+      o.set_observe = serie2.id; o.valeur_observee = 5; o.observee_a = new Date().toISOString();
+      await page.reload();
+      await attendre(2500);
+      await aller('/saisie');
+      await editer245(async () => {
+        const champs = await champsDe(0, 'charge_kg');
+        await champs[0].fill(String(Number(horsDe245().charge_kg) + 5));
+        await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+      });
+      await attendre(1500);
+      ok('[ED245] DISCRIMINANT D-P2 — corriger une série qui n’est PAS celle qui observe l’objectif en GARDE l’observation (série, valeur)',
+        obj245().set_observe === serie2.id && obj245().valeur_observee === 5, nb245(obj245()));
+    }
     ok('[ED245] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
       nb245([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));

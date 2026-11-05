@@ -1969,7 +1969,8 @@
             ]);
           }
         }
-        // Une baisse : plus de 35 % ET plus de 10 kg sous la consigne du jour (à défaut, la série d'avant) ; jamais pour
+        // Une baisse : plus de 35 % ET plus de 10 kg (aux haltères : plus de 4 kg, la MÊME constante que la hausse — la paire ; borne stricte)
+        // sous la consigne du jour (à défaut, la série d'avant) ; jamais pour
         // une chauffe ni une dégressive, qui descendent exprès.
         if (type !== 'echauffement' && type !== 'degressive') {
           var ref = nombreOuNul(c.chargeVisee), origine = 'consigne';
@@ -1978,7 +1979,7 @@
             ref = derniere ? Number(derniere.charge_kg) : null;
             origine = 'avant';
           }
-          if (ref !== null && ref > 0 && charge < ref * (1 - BAISSE_RELATIVE) - EPSILON && ref - charge > BAISSE_ABSOLUE_KG + EPSILON) {
+          if (ref !== null && ref > 0 && charge < ref * (1 - BAISSE_RELATIVE) - EPSILON && ref - charge > (haltere ? HAUSSE_ABSOLUE_HALTERE_KG : BAISSE_ABSOLUE_KG) + EPSILON) {
             return question('baisse', Modele.charge(charge) + ' ? ' + (origine === 'consigne' ? 'Ta consigne : ' : 'Ta série d’avant : ') +
               Modele.charge(ref) + '.', [bouton('Oui, ' + Modele.nombreTexte(charge), 'garder', true), bouton('Corriger', 'corriger')]);
           }

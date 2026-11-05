@@ -11,7 +11,7 @@
 //   2. quelle salle pour quel exercice : l'EZ par son nom, la droite, la barre lourde exclue, les haltères en paire ;
 //   3. le moteur : le curl EZ à 30 kg qui devrait monter → on monte en reps, jamais 32,5 ; la réaction se tait ;
 //      les haltères arrondis aux charges déclarées ; la barre chargée de disques n'est pas concernée ;
-//   4. le plan : la dégressive à barre fixe (« Prends la barre de 20 kg. »), les chauffes, I46 ;
+//   4. le plan : la dégressive à barre fixe (« Prends la barre de 25 kg. »), les chauffes, I46 ;
 //   5. sans déclaration, rien ne change ;
 //   6. la colonne absente en base (v2_088 pas lancée) : le profil se lit et s'écrit ;
 //   7. à la plus lourde de la salle (décidé le 16/10/2026) : les reps jusqu'au haut de la zone (15 sur une isolation),
@@ -375,13 +375,13 @@ describe('§10 bis — dans le plan : la grille, la dégressive à barre fixe, l
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
   });
 
-  test('DISCRIMINANT — la dégressive à barre fixe : « Prends la barre de 20 kg. » (et non « Enlève … de chaque côté »)', () => {
+  test('DISCRIMINANT — la dégressive à barre fixe : « Prends la barre de 25 kg. » (et non « Enlève … de chaque côté »)', () => {
     const se = seanceDe('curl_biceps_barre_ez', 2, null, true);
     const e = entrees(se, 'curl_biceps_barre_ez', avec());
     const p = T.planDeSeance(e);
     const d = p.exercices[0].degressive;
-    expect(d.charge).toBe(20);
-    expect(d.phrase).toBe('Prends la barre de 20' + NB + 'kg. Sans repos, jusqu\'à l\'échec. Vise 5 à 7.');
+    expect(d.charge).toBe(25);   // 245 : la barre la plus proche de la cible (−22,5 % de 30 = 23,25 → 25)
+    expect(d.phrase).toBe('Prends la barre de 25' + NB + 'kg. Sans repos, jusqu\'à l\'échec. Vise 5 à 7.');
     expect(d.repos).toBe(0);
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
     // Prémisse : sans salle, la règle de la barre (un disque de chaque côté).
@@ -394,7 +394,7 @@ describe('§10 bis — dans le plan : la grille, la dégressive à barre fixe, l
     let se = seanceDe('curl_biceps_barre_ez', 1, null, true);
     se = valider(se, 0, 25, 12);
     const p = T.planDeSeance(entrees(se, 'curl_biceps_barre_ez', null));
-    expect(p.exercices[0].degressive.phrase).toBe('Prends la barre de 15' + NB + 'kg. Sans repos, jusqu\'à l\'échec. Vise 5 à 7.');
+    expect(p.exercices[0].degressive.phrase).toBe('Prends la barre de 20' + NB + 'kg. Sans repos, jusqu\'à l\'échec. Vise 5 à 7.');
   });
 
   test('les chauffes de la routine : des barres que la salle a, sous la référence', () => {

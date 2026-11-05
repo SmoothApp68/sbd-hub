@@ -333,6 +333,10 @@
     var series = trier(seriesBrutes);
     var roles = new Map();
     var mesure = (options && options.mesure) || null;
+    // 245 (A12, MOTEUR §4.1) — UNE AIDE (`exercises.charge = 'assistance'`) se note en négatif : « −30 kg » est plus facile que
+    // « −20 kg ». Le seuil relatif de 75 % compare des charges et n'a aucun sens à l'envers (la série de travail elle-même passait
+    // en `chauffe_probable`). Sur une aide, seules les étiquettes font une chauffe, comme au poids du corps.
+    var uneAide = !!(options && options.charge === 'assistance');
 
     // ⚠️ LA MESURE TRANCHE AVANT TOUT LE RESTE, et elle doit donc être DONNÉE.
     // La déduire des séries — « aucune ne porte de charge » — confondrait une
@@ -364,7 +368,10 @@
     // Il ne sert qu'à situer la frontière de chauffe. Il ne sort pas d'ici.
     var palierProvisoire = calculerPalier(travail);
     var indexPalier = travail.length;
-    if (palierProvisoire !== null) {
+    if (uneAide) {
+      // 245 — aucune frontière de chauffe par les 75 % : depuis une aide, aucune série n'est une chauffe probable (la condition `!uneAide` l'écarte).
+      indexPalier = 0;
+    } else if (palierProvisoire !== null) {
       for (var i = 0; i < travail.length; i++) {
         if (nombre(travail[i].charge_kg) === palierProvisoire) { indexPalier = i; break; }
       }
@@ -383,7 +390,7 @@
     // série au palier. Les deux conditions comptent : une série légère APRÈS le
     // palier est une descente de fin, pas une chauffe.
     travail.forEach(function (s, k) {
-      if (k < indexPalier && nombre(s.charge_kg) <= SEUIL_CHAUFFE_PROBABLE * plusLourde) {
+      if (!uneAide && k < indexPalier && nombre(s.charge_kg) <= SEUIL_CHAUFFE_PROBABLE * plusLourde) {
         roles.set(s, 'chauffe_probable');
       }
     });
@@ -577,6 +584,19 @@
       if (reps === null || r > reps) reps = r;
     });
     return { charge: charge, reps: reps };
+  }
+
+  // 245 (I131, CLAUDE.md §4 ter) — sur un exercice dont la charge est `assistance`, `analyser` ne rend aucune série au rôle
+  // `chauffe_probable` (MOTEUR §4.1). Le plan ne porte pas les rôles du palier : l'invariant se vérifie ICI, sur le modèle d'I87
+  // dans `faits`, et rend la liste des erreurs (vide si tenu).
+  function verifierI131(seriesBrutes, etatExercice, options) {
+    var o = Object.assign({}, options || {}, { charge: 'assistance' });
+    var r = analyser(seriesBrutes, etatExercice, o);
+    var erreurs = [];
+    (r.series || []).forEach(function (d, i) {
+      if (d.role === 'chauffe_probable') erreurs.push('I131 — une aide ne classe aucune chauffe probable : série ' + (i + 1));
+    });
+    return erreurs;
   }
 
   function sortie(series, roles, palier, erreur, votantes) {
@@ -790,6 +810,7 @@
     etatsExercices: etatsExercices,
     seriesHorsChauffe: seriesHorsChauffe,
     analyser: analyser,
+    verifierI131: verifierI131,
     analyserPoidsDuCorps: analyserPoidsDuCorps,
     meilleureSerie: meilleureSerie,
     cranEffort: cranEffort,

@@ -216,6 +216,23 @@
       }).filter(Boolean);
     }
 
+    // 245 (F3, MOTEUR §9.35) — LE PREMIER ESSAI RATÉ À ZÉRO, DEPUIS UNE AIDE : l'exercice est une marche sans aide d'une échelle
+    // (`index[slug].echelle`), la personne y est venue d'une marche ASSISTÉE de la même échelle déjà faite, il n'a été fait qu'UNE
+    // fois et toutes ses séries (hors chauffes) sont à 0 rep. Un fait : la décision (la marche d'en dessous) est celle du plan.
+    // La séance en cours n'y est pas (le cache). Sans `index` du catalogue, la notion d'aide est inconnue : faux.
+    function premierEssaiRate(c, slug, index) {
+      var x = index && slug ? index[slug] : null;
+      var depuisUneAide = !!x && x.charge !== 'assistance' && typeof x.echelle === 'string' && x.echelle &&
+        Object.keys(index).some(function (t) {
+          return index[t].echelle === x.echelle && index[t].charge === 'assistance' && seancesDeLExercice(c, t).length > 0;
+        });
+      if (!depuisUneAide) return false;
+      var g = seancesDeLExercice(c, slug);
+      if (g.length !== 1) return false;
+      var travail = g[0].series.filter(function (y) { return y && y.type_serie !== 'echauffement'; });
+      return travail.length > 0 && travail.every(function (y) { return Number(y.reps) === 0; });
+    }
+
     // 206 — LES POINTS D'UN EXERCICE, pour sa courbe : un point par séance, du plus ancien au plus récent.
     //   · charge_reps → le MAX ESTIMÉ (Epley, `Moteur.unRMEpley`, celui des records) de la meilleure série de travail
     //     de 1 à 10 reps (au-delà l'estimation se trompe trop, Reynolds 2006) ; une série notée par nom ou sans charge n'y est pas ;
@@ -1177,7 +1194,7 @@
       var sortie = [];
       for (var i = 0; i < datees.length && sortie.length < n; i++) {
         var travail = Modele.trierParRang((c.seriesDe(datees[i].id) || []).filter(function (x) {
-          return x && x.exercise_slug === slug && Modele.estTravail(x) && x.hors_calcul !== true && Number(x.reps) > 0;
+          return x && x.exercise_slug === slug && Modele.estTravail(x) && !Modele.estHorsCalcul(x) && Number(x.reps) > 0;
         }));
         if (travail.length < 3) continue;
         travail = travail.map(function (x, k) { return { x: x, k: k }; }).sort(function (a, b) {
@@ -1834,14 +1851,13 @@
     //               confirmations : { genre : n }      — les « Oui » déjà donnés sur CET exercice (apprentissage)
     //             }
     var SEUIL_SEANCES_VRAISEMBLANCE = 3;     // avant 3 séances de l'exercice : seulement l'absurde
-    var HAUSSE_RELATIVE = 0.15, HAUSSE_ABSOLUE_KG = 10, HAUSSE_ABSOLUE_HALTERE_KG = 4;
-    var DOUBLE_HALTERES_MIN = 1.8, DOUBLE_HALTERES_MAX = 2.2;
+    var HAUSSE_RELATIVE = 0.15, HAUSSE_ABSOLUE_KG = 10, HAUSSE_ABSOLUE_HALTERE_KG = 4;   // 245 : 4 kg sur la PAIRE (réglé sur les vraies saisies, qui sont des paires)
     var BAISSE_RELATIVE = 0.35, BAISSE_ABSOLUE_KG = 10;
     var REPS_PLAFOND_CIBLE = 2.5, REPS_MOITIE = 0.5;
     var RECORD_ECART_RELATIF = 0.20;          // la question du record : plus de 20 % au-dessus du meilleur
     var CONFIRMATIONS_POUR_APPRENDRE = 2;     // deux « Oui » au même genre sur le même exercice : on ne le demande plus
     var EPSILON = 1e-9;                       // 100 × 1,15 vaut 114,99999… : une borne PILE n'est pas dépassée
-    var GENRES_DE_QUESTION = ['hausse', 'double_halteres', 'baisse', 'zero', 'reps_haut', 'reps_bas'];
+    var GENRES_DE_QUESTION = ['hausse', 'baisse', 'zero', 'reps_haut', 'reps_bas'];
 
     function nombreOuNul(v) {
       if (v === null || v === undefined || v === '') return null;
@@ -1863,14 +1879,23 @@
     }
     // Le meilleur de l'exercice : la plus lourde charge de travail de l'historique ET des séries déjà validées du jour
     // (une charge confirmée plus tôt dans la séance n'est plus une surprise).
-    function meilleurDeLExercice(historique, deLaSeance) {
+    // 245 (D-Q1) — `recordLourd` : la charge la plus lourde du PÉRIMÈTRE DE LA MÉDAILLE (`Modele.recordsDeLExercice(...).lourde` : douze
+    // mois pour un matériel de salle, hors barres comprises), quand l'appelant la donne ; la question « hausse » et celle du record
+    // parlent alors du même meilleur que la médaille, plus d'un meilleur « de toute la vie » que la médaille ne montre pas.
+    function meilleurDeLExercice(historique, deLaSeance, recordLourd) {
       var meilleur = null;
-      (historique || []).forEach(function (g) {
-        seriesDeReference(g && g.series).forEach(function (x) {
-          var kg = Number(x.charge_kg);
-          if (meilleur === null || kg > meilleur) meilleur = kg;
+      // `null` (périmètre de la médaille vide : rien de récent, ou que des barres hors périmètre) : on revient au meilleur de
+      // toute la vie, pour ne pas taire une saisie démesurée faute de médaille (245, D-Q1).
+      if (recordLourd !== undefined && recordLourd !== null && recordLourd > 0) {
+        meilleur = Number(recordLourd);
+      } else {
+        (historique || []).forEach(function (g) {
+          seriesDeReference(g && g.series).forEach(function (x) {
+            var kg = Number(x.charge_kg);
+            if (meilleur === null || kg > meilleur) meilleur = kg;
+          });
         });
-      });
+      }
       seriesDeReference(deLaSeance).forEach(function (x) {
         var kg = Number(x.charge_kg);
         if (meilleur === null || kg > meilleur) meilleur = kg;
@@ -1928,27 +1953,13 @@
       if (!aSesHabitudes) return null;
 
       var haltere = s.equipement === 'haltere';
-      var meilleur = meilleurDeLExercice(historique, c.seance);
+      var meilleur = meilleurDeLExercice(historique, c.seance, c.recordLourd);
       var habitude = habitudeDeLExercice(historique);
 
       if (charge !== null && charge > 0) {
-        // Les haltères à environ deux fois l'habitude : le total tapé à la place de la charge par haltère.
-        if (haltere && type !== 'echauffement' && type !== 'test') {
-          var refs = [habitude, meilleur].filter(function (r) { return r !== null && r > 0; });
-          var estDouble = refs.some(function (r) {
-            var q = charge / r;
-            return q >= DOUBLE_HALTERES_MIN - EPSILON && q <= DOUBLE_HALTERES_MAX + EPSILON && charge - r > HAUSSE_ABSOLUE_HALTERE_KG + EPSILON;
-          });
-          if (estDouble) {
-            var moitie = Math.round(charge / 2 * 100) / 100;
-            // Appris : on ne redemande pas, et la hausse ci-dessous dirait la même chose.
-            return question('double_halteres', Modele.charge(charge) + ' : par haltère, ou les deux ensemble ?', [
-              bouton(Modele.nombreTexte(moitie) + ' par haltère', 'charge', true, moitie),
-              bouton(Modele.nombreTexte(charge) + ' par haltère', 'garder')
-            ]);
-          }
-        }
-        // Une charge très au-dessus du meilleur : plus de 15 % ET plus de 10 kg (4 kg par haltère).
+        // 245 — AUX HALTÈRES, LA CHARGE EST LA PAIRE (les deux ensemble) : c'est ce que tout le monde tape. Plus de question « par
+        // haltère ou les deux ? » (elle poussait vers l'autre unité) ; la hausse ci-dessous, et la baisse d'un poids d'UN haltère, suffisent.
+        // Une charge très au-dessus du meilleur : plus de 15 % ET plus de 10 kg (4 kg sur la paire pour les haltères).
         if (meilleur !== null && type !== 'echauffement' && type !== 'test') {   // 186 — un test déclaré se sait au-dessus du meilleur
           var seuilAbsolu = haltere ? HAUSSE_ABSOLUE_HALTERE_KG : HAUSSE_ABSOLUE_KG;
           if (charge > meilleur * (1 + HAUSSE_RELATIVE) + EPSILON && charge - meilleur > seuilAbsolu + EPSILON) {
@@ -1958,7 +1969,8 @@
             ]);
           }
         }
-        // Une baisse : plus de 35 % ET plus de 10 kg sous la consigne du jour (à défaut, la série d'avant) ; jamais pour
+        // Une baisse : plus de 35 % ET plus de 10 kg (aux haltères : plus de 4 kg, la MÊME constante que la hausse — la paire ; borne stricte)
+        // sous la consigne du jour (à défaut, la série d'avant) ; jamais pour
         // une chauffe ni une dégressive, qui descendent exprès.
         if (type !== 'echauffement' && type !== 'degressive') {
           var ref = nombreOuNul(c.chargeVisee), origine = 'consigne';
@@ -1967,7 +1979,7 @@
             ref = derniere ? Number(derniere.charge_kg) : null;
             origine = 'avant';
           }
-          if (ref !== null && ref > 0 && charge < ref * (1 - BAISSE_RELATIVE) - EPSILON && ref - charge > BAISSE_ABSOLUE_KG + EPSILON) {
+          if (ref !== null && ref > 0 && charge < ref * (1 - BAISSE_RELATIVE) - EPSILON && ref - charge > (haltere ? HAUSSE_ABSOLUE_HALTERE_KG : BAISSE_ABSOLUE_KG) + EPSILON) {
             return question('baisse', Modele.charge(charge) + ' ? ' + (origine === 'consigne' ? 'Ta consigne : ' : 'Ta série d’avant : ') +
               Modele.charge(ref) + '.', [bouton('Oui, ' + Modele.nombreTexte(charge), 'garder', true), bouton('Corriger', 'corriger')]);
           }
@@ -2005,7 +2017,7 @@
       if (!Modele.estTravail({ type_serie: s.type, reps: reps })) return null;
       var historique = c.historique || [];
       if (seancesFaites(historique) < SEUIL_SEANCES_VRAISEMBLANCE) return null;
-      var meilleur = meilleurDeLExercice(historique, c.seance);
+      var meilleur = meilleurDeLExercice(historique, c.seance, c.recordLourd);
       if (meilleur === null) return null;
       var haltere = s.equipement === 'haltere';
       if (!(charge > meilleur * (1 + RECORD_ECART_RELATIF) + EPSILON && charge - meilleur > (haltere ? HAUSSE_ABSOLUE_HALTERE_KG : HAUSSE_ABSOLUE_KG) + EPSILON)) return null;
@@ -2134,7 +2146,7 @@
         var jr = jourDeLaSeance(s.debut);
         if (!jr || jr < plancher || jr >= J) return;
         (c.seriesDe(s.id) || []).forEach(function (x) {
-          if (!x || !x.exercise_slug || x.hors_calcul === true) return;
+          if (!x || !x.exercise_slug || Modele.estHorsCalcul(x)) return;
           var echec = Modele.reserveDemandee(x) === 0 || Modele.estAEchec(x) || racine.THPalier.reserveDeSerie(x) === 0;
           if (!echec) return;
           var fam = G.familleDeBarre(x.exercise_slug, cat);
@@ -2159,7 +2171,7 @@
         var jr = s && s.debut ? jourDeLaSeance(s.debut) : null;
         if (!jr || jr < lundi || jr > J) return;
         (c.seriesDe(s.id) || []).forEach(function (x) {
-          if (!x || !x.exercise_slug || !Modele.estTravail(x) || x.hors_calcul === true) return;
+          if (!x || !x.exercise_slug || !Modele.estTravail(x) || Modele.estHorsCalcul(x)) return;
           var z = Moteur.zoneDeMobilite(x.exercise_slug), d = Number(x.duree_s);
           if (!z || !(d > 0)) return;
           sortie[z] = (sortie[z] || 0) + d * Moteur.coteDeMobilite(x.exercise_slug) / 60;
@@ -2244,7 +2256,7 @@
         if (Semaine.estSeanceDeMusculation(series, index)) jours[jr] = true;
         series.forEach(function (x) {
           var f = x && index[x.exercise_slug], d = Number(x && x.duree_s);
-          if (!f || f.nature !== 'cardio' || !Modele.estTravail(x) || x.hors_calcul === true || !(d > 0)) return;
+          if (!f || f.nature !== 'cardio' || !Modele.estTravail(x) || Modele.estHorsCalcul(x) || !(d > 0)) return;
           var intense = Number(x.rpe) >= Moteur.CARDIO_RPE_INTENSE;
           min += d / 60; eq += d / 60 * (intense ? Moteur.FORME_INTENSE_FACTEUR : 1);
           if (intense) intenses += d / 60;
@@ -2274,7 +2286,7 @@
         if (!jr || jr < debut || jr >= fin) return;
         (c.seriesDe(s.id) || []).forEach(function (x) {
           var f = x && index[x.exercise_slug], d = Number(x && x.duree_s);
-          if (!f || f.nature !== 'cardio' || !Modele.estTravail(x) || x.hors_calcul === true || !(d > 0)) return;
+          if (!f || f.nature !== 'cardio' || !Modele.estTravail(x) || Modele.estHorsCalcul(x) || !(d > 0)) return;
           var o = parJour[jr] || (parJour[jr] = { s: 0, intense: false });
           o.s += d;
           if (Number(x.rpe) >= Moteur.CARDIO_RPE_INTENSE) o.intense = true;
@@ -2345,6 +2357,7 @@
       noteDeLaDerniereFois: noteDeLaDerniereFois,
       noteDeLExercice: noteDeLExercice,
       pointsDeLExercice: pointsDeLExercice,
+      premierEssaiRate: premierEssaiRate,
       exercicesDeProgression: exercicesDeProgression,
       ceQuiAProgresse: ceQuiAProgresse,
       recordsDeLaSeance: recordsDeLaSeance,

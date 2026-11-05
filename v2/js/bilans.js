@@ -31,6 +31,7 @@
 
   function Mo() { return racine.THModele; }
   function Se() { return racine.THSemaine; }
+  function Po() { return racine.THPoids; }
   function Bi() { return racine.THBilan; }
   function Pa() { return racine.THParcours; }
 
@@ -43,8 +44,7 @@
   var ZONES_DE_REPS = [{ cle: 'force', jusqua: 5 }, { cle: 'mix', jusqua: 8 }, { cle: 'muscle', jusqua: Infinity }];
   // La comparaison : moins de 2 mois de données, aucune ; moins de 12, début contre fin de la période.
   var MOIS_MIN = 2, MOIS_PLEIN = 12;
-  // Le poids du jour : deux pesées qui encadrent la perf, à 60 j au plus chacune ; sinon la plus proche à 45 j, « ≈ ».
-  var JOURS_ENCADRE = 60, JOURS_PROCHE = 45;
+  // Le poids du jour (BILANS-V1) : `THPoids.poidsAutourDe` (246, rangé dans `poids.js` : 60 j / 45 j), lu à l'appel.
   // L'équivalence : un éléphant d'Afrique pèse 6 t.
   var ELEPHANT_KG = 6000;
   // La saison et le mois : moins de 3 semaines de données dans la période, les faits seulement (décision du 14/10).
@@ -180,29 +180,6 @@
     return ent;
   }
 
-  // ── Le poids du jour (BILANS-V1) ─────────────────────────────────────────
-  // `pesees` : `[{ jour, poids }]`. Rend `{ poids, approx }` ou `null`.
-  function poidsDuJour(pesees, jour) {
-    var n = numero(jour);
-    if (n === null) return null;
-    var avant = null, apres = null, proche = null;
-    (pesees || []).forEach(function (p) {
-      var k = numero(p && p.jour), v = nombre(p && p.poids);
-      if (k === null || v === null || v <= 0) return;
-      var d = k - n;
-      if (d <= 0 && -d <= JOURS_ENCADRE && (!avant || k > avant.k)) avant = { k: k, v: v };
-      if (d >= 0 && d <= JOURS_ENCADRE && (!apres || k < apres.k)) apres = { k: k, v: v };
-      if (Math.abs(d) <= JOURS_PROCHE && (!proche || Math.abs(d) < Math.abs(proche.k - n) ||
-          (Math.abs(d) === Math.abs(proche.k - n) && k < proche.k))) proche = { k: k, v: v };
-    });
-    if (avant && apres) {
-      var v = avant.k === apres.k ? avant.v : avant.v + (apres.v - avant.v) * (n - avant.k) / (apres.k - avant.k);
-      return { poids: v, approx: false };
-    }
-    if (proche) return { poids: proche.v, approx: true };
-    return null;
-  }
-
   // ── La comparaison : avec quoi, et sur quelles fenêtres ──────────────────
   // `moisDeDonnees` : les mois civils qui ont au moins une série de travail, de la première séance à la fin de la
   // période. Moins de 2 : aucune comparaison. 12 ou plus, et la période précédente a des séries : contre elle. Sinon,
@@ -277,9 +254,9 @@
         if (!best || q > best.q + 1e-12) best = { q: q, reps: r };
       });
       if (best.q <= 1) return;
-      var fois = fiche.equipement === 'haltere' ? 2 : 1;   // haltères : le poids des deux
-      gains.push({ slug: slug, nom: nomDe(slug), reps: best.reps, de: o.A[best.reps] * fois / 100,
-                   a: o.B[best.reps] * fois / 100, q: best.q, h: eg.h, n: eg.communs.length });
+      // 245 — aux haltères la charge notée EST la paire (MOTEUR §10.1) : aucun doublement.
+      gains.push({ slug: slug, nom: nomDe(slug), reps: best.reps, de: o.A[best.reps] / 100,
+                   a: o.B[best.reps] / 100, q: best.q, h: eg.h, n: eg.communs.length });
     });
     gains.sort(function (x, y) { return y.q - x.q || (x.slug < y.slug ? -1 : 1); });
     return { compares: compares, progressent: progressent, gains: gains };
@@ -449,7 +426,7 @@
       if (!an) return;
       var vie = lourdeDe(slug, function (j) { return j < periode.debut; });
       var avant = avec ? lourdeDe(slug, function (j) { return dans(j, cmp.avant); }) : null;
-      var pdc = poidsDuJour(e.pesees, an.jour);
+      var pdc = Po().poidsAutourDe(e.pesees, an.jour);
       lignes.push({ slug: slug, nom: nomDe(slug), charge: an.charge, jour: an.jour,
                     avant: avant ? avant.charge : null,
                     vie: !!vie && an.charge > vie.charge,
@@ -468,7 +445,7 @@
 
     // Les records (98) : les NOUVELLES CHARGES MAX de la période — un exercice dont la charge la plus lourde de la
     // période (série de travail, au moins 1 rep) dépasse tout ce qui précède la période. Sans avant, pas de record.
-    // Les plus lourdes d'abord ; haltères : la charge d'une main (l'écran l'écrit « 2 × »).
+    // Les plus lourdes d'abord ; haltères : la paire (l'image de l'année l'écrit « 2 × moitié »).
     //
     // ⚠️ 136 (audit du 16/10/2026, F5) — UN SEUL PÉRIMÈTRE DE RECORD : « ce qui précède » se lit dans la fenêtre de la
     // MÉDAILLE (MOTEUR §9.23 : 12 mois avant la série pour une machine, une poulie, des haltères, une Smith ; toute la
@@ -491,7 +468,7 @@
       var av = ic ? avantDe(slug, ic.jour) : null;
       if (!ic || !av || ic.charge <= av.charge) return;
       recs.push({ slug: slug, nom: nomDe(slug), charge: ic.charge, avant: av.charge, jour: ic.jour,
-                  haltere: !!(index[slug] && index[slug].equipement === 'haltere') });
+                  haltere: Mo().chargeEstLaPaire(index[slug] || null) });
     });
     recs.sort(function (a, b) { return b.charge - a.charge || (a.slug < b.slug ? -1 : 1); });
     sortie.records = recs;
@@ -551,12 +528,9 @@
     nomDeSaison: nomDeSaison,
     SAISONS: SAISONS,
     SEMAINES_MIN: SEMAINES_MIN,
-    poidsDuJour: poidsDuJour,
     comparaisonDe: comparaisonDe,
     get BARRES() { return barres(); },
-    ZONES_DE_REPS: ZONES_DE_REPS,
-    JOURS_ENCADRE: JOURS_ENCADRE,
-    JOURS_PROCHE: JOURS_PROCHE
+    ZONES_DE_REPS: ZONES_DE_REPS
   };
   racine.THBilans = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

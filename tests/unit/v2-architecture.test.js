@@ -568,6 +568,11 @@ const NOTIONS = [
     par: ['consigneDe'],
     raison: 'décision du 02/10/2026 : l’allègement s’applique une fois, sur la routine de ' +
       'l’exercice remplacé ; figer la routine aux lignes déjà allégées allégeait deux fois.' },
+  { notion: 'la charge d’un exercice aux haltères (la paire, les deux ensemble)', pr: 'correctif 05/11/2026',
+    module: 'modele.js', fonction: 'chargeEstLaPaire', lecteurs: ['bilans.js'],
+    par: ['avecAideDeLUnite'], parAilleurs: { 'bilans.js': ['bilanDeLaPeriode'] },
+    raison: 'décision d’Aurélien du 05/11/2026 : tous les comptes tapent le total des deux haltères ; bilans, image de l’année ' +
+      '(« 2 × moitié »), aide sous le champ de charge et questions de vraisemblance lisent la même unité, jamais « par haltère ».' },
   { notion: 'la dernière séance d’un exercice (la meilleure série du jour)', pr: 'PR 5',
     module: 'modele.js', fonction: 'meilleureSerieDe', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['derniereSeanceDe'] },
@@ -600,6 +605,14 @@ const NOTIONS = [
       'compte les séries de travail que prévoit une routine (`deraille.js`). 113 : le pari au plafond de la salle s’observe ' +
       'sur les séries de travail des séances de l’exercice (`moteur.js`, `observationPlafond`). 109 : l’objectif ne lit que des séries de ' +
       'travail (ses records, la série qui l’atteint, `objectif.js`).' },
+  { notion: 'la série « Non, ne compte pas » (la marque hors_calcul)', pr: 'correctif 05/11/2026',
+    module: 'modele.js', fonction: 'estHorsCalcul', lecteurs: ['faits.js', 'seance.js', 'app.js', 'plan.js'],
+    motif: /Modele\s*\.\s*estHorsCalcul\s*\(/g,
+    interditAilleurs: { motif: /(?:\(|&&|\|\||!)\s*[\w.]+\.hors_calcul\s*===\s*true/,
+      sauf: { 'palier.js': 'module feuille chargé avant le modèle : `roleDuTag` lit la marque directement pour qu\'elle prime sur tout type (185), sans dépendre de `THModele`' },
+      raison: 'une lecture directe de `hors_calcul === true` : passer par `Modele.estHorsCalcul` (D-S1, 245)' },
+    raison: '185 : une série marquée « Non, ne compte pas » reste en base mais sort de tout calcul ; 245 (D-S1) : quatre lectures directes ' +
+      'dans `faits.js` (bilans de reps, cardio) recopiaient la définition — une seule lecture, ici.' },
   { notion: 'le compte des séries de travail (la règle du volume)', pr: 'PR 6',
     module: 'semaine.js', fonction: 'compteSeriesTravail', lecteurs: ['modele.js', 'seance.js', 'profil.js', 'routines.js', 'app.js', 'bilan.js', 'faits.js', 'bilans.js'],
     parAilleurs: { 'modele.js': ['resumerSeance', 'construireBlocs'], 'seance.js': ['compter'], 'bilan.js': ['bilanDuMois'],
@@ -637,7 +650,7 @@ const NOTIONS = [
     raison: 'le travail, les dégressives et les échecs : le compte du Python qui a produit le §5.1. ' +
       'Une autre notion que `estTravail` ; elle portait un nom (`trav`) qui la faisait passer pour elle.' },
   { notion: 'le formateur des nombres et des dates (un seul)', pr: 'PR 7',
-    module: 'modele.js', fonction: 'nombreSigne', lecteurs: ['rendu.js', 'app.js', 'profil.js', 'questionnaire.js', 'bilan.js'],
+    module: 'modele.js', fonction: 'nombreSigne', lecteurs: ['rendu.js', 'app.js', 'profil.js', 'questionnaire.js', 'bilan.js', 'poids.js'],
     motif: /\.\s*nombreSigne\s*\(/g,
     interditAilleurs: {
       // 124 (audit du 16/10/2026, 06 #15) — et les jours comme les mois : une liste de jours (« lundi », « mardi » ;
@@ -1060,7 +1073,7 @@ const NOTIONS = [
       'le plan et l’écran (en-tête, étiquette, constat) le décident par la même règle.' },
   { notion: 'les paris d’une occurrence (un exercice deux fois, sans paris mélangés)', pr: 'correctif 04/10/2026',
     module: 'seance.js', fonction: 'parisDeLOccurrence', lecteurs: ['plan.js', 'app.js'],
-    parAilleurs: { 'plan.js': ['planDeSeance', 'verifierPlan'], 'app.js': ['dejaNote', 'observerSerie'] },
+    parAilleurs: { 'plan.js': ['planDeSeance', 'verifierPlan'], 'app.js': ['dejaNote', 'observerSerieDe'] },
     raison: 'prérequis d’« adapter » : le plan, I7, « déjà noté » et l’observation lisaient les paris par ' +
       '(séance, exercice) — la seconde occurrence se serait figée sur les paris de la première.' }
 ,
@@ -1084,6 +1097,11 @@ const NOTIONS = [
     raison: 'la consigne, la suite, « Dernière séance » et la page d’exercice lisent le même historique ' +
       'd’un exercice ; un second assemblage dans l’écran pourrait en oublier une séance. 132 : la consigne et la ' +
       'suite le lisent par `groupesDuMoteur` (en charges virtuelles pour un exercice noté par nom, MOTEUR §10 ter).' },
+  { notion: 'le premier essai d’un exercice raté à 0 rep (245, F3 : la marche d’en dessous tout de suite)', pr: '245-U6',
+    module: 'faits.js', fonction: 'premierEssaiRate', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['escalierDesEntrees'] },
+    raison: 'MOTEUR §9.35 : un fait (une seule séance, toutes ses séries à 0 rep) ; la décision, la carte « marche d’en dessous », est celle ' +
+      'de `planDeSeance` (`marcheDuDessous`) ; l’écran ne fait que donner le fait au plan.' },
   { notion: 'les points d’un exercice, un par séance (le max estimé, les reps ou les secondes), pour ses courbes', pr: '206-U1',
     module: 'faits.js', fonction: 'pointsDeLExercice', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['rendreExercice', 'sommaireExercices'] },
@@ -1112,10 +1130,11 @@ const NOTIONS = [
     parAilleurs: { 'app.js': ['rendreProgression'] },
     raison: 'MOTEUR §9.23 : « Le dernier » du bloc Records est un fait, assemblé une fois.' },
   { notion: 'l’historique d’un exercice pendant la séance (sans la séance en cours)', pr: '58-U1',
-    module: 'faits.js', fonction: 'historiqueDesRecords', lecteurs: [],
+    module: 'faits.js', fonction: 'historiqueDesRecords', lecteurs: ['app.js'],
     par: ['recordsDeLaSerie'],
     raison: 'MOTEUR §9.23 : la médaille compare une série à l’historique sans la séance en cours, ' +
-      'lu une fois par exercice et par état.' },
+      'lu une fois par exercice et par état. 245 (D-Q1) : les questions de vraisemblance (`contexteDeVraisemblance`, app.js) le lisent par le même mémo, ' +
+      'au lieu de recalculer l’historique à chaque validation.' },
   { notion: 'la séance en cours telle que les records la lisent (ses séries validées)', pr: '58-U1',
     module: 'faits.js', fonction: 'seanceDesRecords', lecteurs: [],
     par: ['recordsDeLaSerie', 'recordsDuJour'],
@@ -1442,10 +1461,10 @@ const NOTIONS = [
     parAilleurs: { 'faits.js': ['bilanDePeriode'] },
     raison: 'BILANS-V1 (95) : un seul moteur, la période en paramètre (année, saison, mois) ; seul le module des faits ' +
       'l’appelle, sur l’entrée qu’il assemble — l’écran « Ton année » met en mots, il ne recompte rien.' },
-  { notion: 'le poids du jour d’une perf (deux pesées à 60 j, sinon la plus proche à 45 j avec « ≈ »)', pr: '95-U1',
-    module: 'bilans.js', fonction: 'poidsDuJour', lecteurs: [],
-    par: ['bilanDeLaPeriode'],
-    raison: 'BILANS-V1 (95) : « rapporté à ton poids de corps ce jour-là » — une seule règle d’estimation.' },
+  { notion: 'le poids du jour d’une perf (deux pesées à 60 j, sinon la plus proche à 45 j avec « ≈ »)', pr: '246-U2',
+    module: 'poids.js', fonction: 'poidsAutourDe', lecteurs: ['bilans.js'],
+    raison: 'BILANS-V1 (95) puis 246 : la SEULE interpolation, pour le bilan (un bilan regarde en arrière) ; tout autre ' +
+      'lecteur du poids à une date lit `poidsALaDate`.' },
   { notion: 'la comparaison d’un bilan (contre la période d’avant, début contre fin, ou aucune)', pr: '95-U1',
     module: 'bilans.js', fonction: 'comparaisonDe', lecteurs: [],
     par: ['bilanDeLaPeriode'],
@@ -1993,6 +2012,24 @@ const NOTIONS = [
   { notion: 'la note affichée d’un exercice (épinglée, de la dernière fois, ou masquée)', pr: '242-U1',
     module: 'faits.js', fonction: 'noteDeLExercice', lecteurs: ['app.js'],
     raison: 'l’écran lit `profiles.notes_exercices` et le fait de la dernière fois par UNE fonction : la note épinglée prime, « Ne plus afficher » masque la série désignée.' },
+  { notion: 'le poids à une date (la dernière pesée ≤ ce jour, d’au plus N jours, jamais interpolée)', pr: '246-U1',
+    module: 'poids.js', fonction: 'poidsALaDate', lecteurs: ['app.js'],
+    par: ['rapportAuPoids'],
+    raison: '246 : un seul « poids à une date » — le rapport au poids (14 j) et le score publié (90 j) le lisent ; ' +
+      'plus aucune lecture ad hoc de « la dernière pesée » pour un calcul.' },
+  { notion: 'la tendance du poids (moindres carrés sur 4 à 12 semaines à ≥ 2 pesées) et sa phrase', pr: '246-U3',
+    module: 'poids.js', fonction: 'tendanceDuPoids', lecteurs: ['app.js'],
+    raison: '246 : une seule tendance, sur toutes les pesées ; l’écran Poids et la note de la sèche la LISENT, ' +
+      'aucun écran ne la calcule. Elle ne sort jamais de l’appareil.' },
+  { notion: 'la phrase de la tendance du poids (un fait, ni jugement ni invitation)', pr: '246-U3',
+    module: 'poids.js', fonction: 'phraseDeTendance', lecteurs: ['app.js'],
+    raison: '246 : la seule phrase de la tendance ; « Pas de sens net » quand les pesées ne distinguent pas la pente du bruit.' },
+  // 247 — le captcha : une notion de l'authentification, pas un fichier de plus (SHELL du service worker intact).
+  { notion: 'le captcha Turnstile (clé de site, script, widget, jeton à usage unique)', pr: 'correctif 05/11/2026',
+    module: 'auth.js', fonction: 'fabriquerCaptcha', lecteurs: ['app.js'],
+    motif: /\b(?:THAuth|Auth)\s*\.\s*captcha\b/g,
+    raison: '247 — `Auth.captcha` (actif, monter, jeton, réinitialiser, phrase) est lu par `auth.js` et `app.js` seulement : le script tiers ne se ' +
+      'charge qu’à l’ouverture de l’écran d’entrée, le rendu et les autres écrans ne le nomment pas.' },
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────
@@ -2389,6 +2426,12 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
     expect(fautes).toEqual([]);
   });
 
+  test('246 · plus aucune lecture ad hoc de « la dernière pesée » pour un calcul, hors de poids.js', () => {
+    const fautes = FICHIERS.filter((f) => f.nom !== 'poids.js' && /pesees\[\s*pesees\.length\s*-\s*1\s*\]/.test(nettoyer(f.src, false)))
+      .map((f) => f.nom);
+    expect(fautes).toEqual([]);
+  });
+
   test('⚠️ dans son module, chaque fonction qui la dit passe par sa source', () => {
     const fautes = [];
     NOTIONS.filter((n) => n.par).forEach((n) => {
@@ -2537,7 +2580,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/periode.js');
     require('../../v2/js/parcours.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(52);   // 242 : + noteDeLaDerniereFois, noteDeLExercice
+    expect(FAITS.length).toBe(53);   // 242 : + noteDeLaDerniereFois, noteDeLExercice ; 245-6 : + premierEssaiRate
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 
@@ -2808,8 +2851,12 @@ describe('architecture — le journal des records : un seul écrivain (58-2)', (
       const code = nettoyer(f.src, false);
       const n = (code.match(/\bAJOUTER\b/g) || []).length;
       if (!n) return;
-      const corps = f.nom === 'app.js' ? corpsDe(code, 'poserJournal') : null;
-      const dedans = corps ? (corps.match(/\bAJOUTER\b/g) || []).length : 0;
+      // 246 — `AJOUTER` sert aussi, hors du journal, à l'import des mesures de Hevy (un ajout seul de pesées) : il se pose
+      // dans `poserPeseesImportees` et se lit dans `executer` (la branche `Attente.PESEES`). Nulle part ailleurs.
+      const dedans = f.nom !== 'app.js' ? 0 : ['poserJournal', 'poserPeseesImportees', 'executer'].reduce((t, nom) => {
+        const corps = corpsDe(code, nom);
+        return t + (corps ? (corps.match(/\bAJOUTER\b/g) || []).length : 0);
+      }, 0);
       if (dedans !== n) fautes.push(f.nom + ' pose une entrée du journal hors de poserJournal');
     });
     expect(fautes).toEqual([]);
@@ -2910,58 +2957,78 @@ describe('architecture — la pesée : un seul écrivain (60-2a)', () => {
   const ECRITURE_PESEES = /from\(\s*(['"])body_weight_log\1\s*\)[\s\S]{0,120}?\.\s*(insert|upsert|update|delete)\s*\(/g;
   const compter = (texte, re) => (texte.match(new RegExp(re.source, 'g')) || []).length;
 
-  test('⚠️ en base, `body_weight_log` ne s’écrit que dans `enregistrerPesee` (donnees.js)', () => {
+  // 246 — DEUX écrivains de `body_weight_log`, conscients : `enregistrerPesee` (la pesée SAISIE : un upsert qui
+  // FUSIONNE, une pesée se corrige) et `ajouterPesees` (l'import des mesures de Hevy : un AJOUT SEUL, `ignoreDuplicates`
+  // — l'import ne remplace jamais une pesée). Une troisième fonction qui écrit la table fait échouer la garde.
+  const ECRIVAINS = ['enregistrerPesee', 'ajouterPesees'];
+
+  test('⚠️ en base, `body_weight_log` ne s’écrit que dans `enregistrerPesee` et `ajouterPesees` (donnees.js)', () => {
     const fautes = [];
     FICHIERS.forEach((f) => {
       const code = nettoyer(f.src, true);
       const n = compter(code, ECRITURE_PESEES);
       if (f.nom !== 'donnees.js') { if (n) fautes.push(f.nom + ' écrit `body_weight_log` (' + n + ')'); return; }
-      const corps = corpsDe(code, 'enregistrerPesee');
-      if (!corps) { fautes.push('enregistrerPesee absente de donnees.js'); return; }
-      if (compter(corps, ECRITURE_PESEES) !== 1 || n !== 1) {
-        fautes.push('donnees.js : ' + n + ' écriture(s) de `body_weight_log`, dont ' + compter(corps, ECRITURE_PESEES) + ' dans enregistrerPesee');
-      }
+      let dedans = 0;
+      ECRIVAINS.forEach((nom) => {
+        const corps = corpsDe(code, nom);
+        if (!corps) { fautes.push(nom + ' absente de donnees.js'); return; }
+        if (compter(corps, ECRITURE_PESEES) !== 1) fautes.push(nom + ' : ' + compter(corps, ECRITURE_PESEES) + ' écriture(s) au lieu d’une');
+        dedans += compter(corps, ECRITURE_PESEES);
+      });
+      if (n !== dedans) fautes.push('donnees.js : ' + n + ' écriture(s) de `body_weight_log`, dont ' + dedans + ' dans les deux écrivains');
     });
     expect(fautes).toEqual([]);
   });
 
-  test('⚠️ et c’est un upsert qui FUSIONNE sur (user_id, date) — jamais un ajout qui ignore les doublons', () => {
-    const corps = corpsDe(nettoyer(parNom['donnees.js'].src, true), 'enregistrerPesee');
+  test('⚠️ `enregistrerPesee` FUSIONNE sur (user_id, date) ; `ajouterPesees` AJOUTE SEUL (`ignoreDuplicates: true`)', () => {
+    const code = nettoyer(parNom['donnees.js'].src, true);
+    const corps = corpsDe(code, 'enregistrerPesee');
     expect(corps).toMatch(/onConflict:\s*'user_id,date'/);
     expect(corps).not.toMatch(/ignoreDuplicates/);
+    const ajout = corpsDe(code, 'ajouterPesees');
+    expect(ajout).toMatch(/onConflict:\s*'user_id,date'/);
+    expect(ajout).toMatch(/ignoreDuplicates:\s*true/);
   });
 
-  test('⚠️ `enregistrerPesee` n’est appelée que par la vidange (`executer`, app.js)', () => {
+  test('⚠️ `enregistrerPesee` et `ajouterPesees` ne sont appelées que par la vidange (`executer`, app.js)', () => {
     const fautes = [];
-    FICHIERS.forEach((f) => {
-      if (f.nom === 'donnees.js') return;
-      const a = appels(f.src, { fn: 'enregistrerPesee' });
-      if (!a.length) return;
-      if (f.nom !== 'app.js') { fautes.push(f.nom + ' appelle enregistrerPesee'); return; }
-      const corps = corpsDe(nettoyer(f.src, false), 'executer');
-      const dedans = corps ? (corps.match(/\.\s*enregistrerPesee\s*\(/g) || []).length : 0;
-      if (dedans !== a.length) fautes.push('app.js appelle enregistrerPesee hors d’executer');
+    ECRIVAINS.forEach((nom) => {
+      FICHIERS.forEach((f) => {
+        if (f.nom === 'donnees.js') return;
+        const a = appels(f.src, { fn: nom });
+        if (!a.length) return;
+        if (f.nom !== 'app.js') { fautes.push(f.nom + ' appelle ' + nom); return; }
+        const corps = corpsDe(nettoyer(f.src, false), 'executer');
+        const dedans = corps ? (corps.match(new RegExp('\\.\\s*' + nom + '\\s*\\(', 'g')) || []).length : 0;
+        if (dedans !== a.length) fautes.push('app.js appelle ' + nom + ' hors d’executer');
+      });
+      expect([nom, appels(parNom['app.js'].src, { fn: nom }).length]).toEqual([nom, 1]);
     });
     expect(fautes).toEqual([]);
-    expect(appels(parNom['app.js'].src, { fn: 'enregistrerPesee' }).length).toBe(1);
   });
 
-  test('⚠️ une entrée de la file pour une pesée ne se pose que par `poserPesee` (app.js)', () => {
+  test('⚠️ une entrée de la file pour une pesée ne se pose que par `poserPesee` ou `poserPeseesImportees` (app.js)', () => {
     const fautes = [];
     FICHIERS.forEach((f) => {
       if (f.nom === 'attente.js') return;
       const code = nettoyer(f.src, false);
-      // `Attente.PESEES` se lit aussi à l'exécution (`executer`) et à la
-      // synchronisation (`protegees`) : ce qui est interdit, c'est de POSER
-      // une entrée de cette table ailleurs que dans `poserPesee`.
+      // `Attente.PESEES` se lit aussi à l'exécution (`executer`) et à la synchronisation (`protegees`) : ce qui est
+      // interdit, c'est de POSER une entrée de cette table ailleurs que dans les deux poseurs.
       const poses = (code.match(/table:\s*Attente\.PESEES\b/g) || []).length;
       if (!poses) return;
-      const corps = f.nom === 'app.js' ? corpsDe(code, 'poserPesee') : null;
-      const dedans = corps ? (corps.match(/table:\s*Attente\.PESEES\b/g) || []).length : 0;
-      if (dedans !== poses) fautes.push(f.nom + ' pose une entrée de pesée hors de poserPesee');
+      let dedans = 0;
+      if (f.nom === 'app.js') {
+        ['poserPesee', 'poserPeseesImportees'].forEach((nom) => {
+          const corps = corpsDe(code, nom);
+          dedans += corps ? (corps.match(/table:\s*Attente\.PESEES\b/g) || []).length : 0;
+        });
+      }
+      if (dedans !== poses) fautes.push(f.nom + ' pose une entrée de pesée hors des deux poseurs');
     });
     expect(fautes).toEqual([]);
-    expect(corpsDe(nettoyer(parNom['app.js'].src, false), 'poserPesee')).toMatch(/table:\s*Attente\.PESEES\b/);
+    const code = nettoyer(parNom['app.js'].src, false);
+    expect(corpsDe(code, 'poserPesee')).toMatch(/table:\s*Attente\.PESEES\b/);
+    expect(corpsDe(code, 'poserPeseesImportees')).toMatch(/op:\s*Attente\.AJOUTER\b/);
   });
 
   test('la garde se lit vraiment : un second écrivain se voit, une lecture non', () => {
@@ -3077,6 +3144,7 @@ const REGISTRE_ECRITURES = [
   { fn: 'observerPrediction', chemin: 'file' },
   { fn: 'ajouterRecords', chemin: 'file' },
   { fn: 'enregistrerPesee', chemin: 'file' },
+  { fn: 'ajouterPesees', chemin: 'file' },   // 246 — l'import des mesures de Hevy : un ajout seul, par la file (`executer`)
   { fn: 'enregistrerAlias', chemin: 'file' },
   { fn: 'enregistrerChoixDeSemaine', chemin: 'file' },
   // 107 (SOCIAL-V1 §8) — les gestes sociaux : `executer` → `executerGesteSocial`, dans l'ordre ; un geste qui annule le précédent le remplace (l'état final seul part).
@@ -3567,5 +3635,12 @@ describe('architecture — la voix des écrans : ni « palier », ni « bravo »
     expect(f("var t = '−20 à 25 %, sans repos, jusqu’à l’échec.'; var u = 'Envoi en échec — ';")).toEqual([]);
     expect(f("['zone', 'palier', 'etat'].forEach(f);")).toEqual([]);   // des clés, pas une phrase
     expect(fautesDeVoix([{ nom: 'index.html', src: '<p class="note">Bravo, tu as fini.</p>' }])).toHaveLength(1);
+  });
+});
+
+describe('architecture — 245 : la garde de développement vérifie le vrai catalogue (I133)', () => {
+  test('app.js appelle garde.signaler(Modele.verifierI133(…) sur le catalogue indexé', () => {
+    const src = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
+    expect(src).toContain("garde.signaler(Modele.verifierI133(catalogueMemo.index,");
   });
 });

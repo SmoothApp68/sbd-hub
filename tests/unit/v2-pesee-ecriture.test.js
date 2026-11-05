@@ -203,6 +203,21 @@ describe('148 — la garde commune des gestes en vol (diagnostic 146)', () => {
     expect(vm.runInContext('protegeesEtEnVol("autre")', ctx)).toEqual({});
   });
 
+  test('246 : un LOT de pesées importées pas encore envoyé reste protégé ; une synchronisation à réponse périmée ne l\u2019efface pas', () => {
+    const ctx = bac();
+    ctx.attente = [{ table: Attente.PESEES, op: Attente.AJOUTER, id: 'pesees-import-2025-10-01-2',
+      donnees: [{ user_id: 'u', date: '2025-10-01', poids_kg: 90, source: 'import_hevy' }, { user_id: 'u', date: '2025-10-03', poids_kg: 88, source: 'import_hevy' }] }];
+    const protegees = vm.runInContext('protegeesEtEnVol("body_weight_log")', ctx);
+    expect(protegees).toMatchObject({ 'pesee-2025-10-01': true, 'pesee-2025-10-03': true });   // + l'id de l'entrée elle-même (Attente.protegees)
+    const locales246 = [{ id: 'pesee-2025-10-01', date: '2025-10-01', poids_kg: 90, source: 'import_hevy' },
+      { id: 'pesee-2025-10-03', date: '2025-10-03', poids_kg: 88, source: 'import_hevy' }];
+    const reponse = [{ id: 'u9', date: '2025-09-20', poids_kg: 85 }];   // le serveur ne les a pas encore
+    expect(Poids.fondreEnAttente(reponse, locales246, protegees).map((x) => x.id).sort()).toEqual(['pesee-2025-10-01', 'pesee-2025-10-03', 'u9']);
+    expect(Poids.fondreEnAttente(reponse, locales246, {}).map((x) => x.id)).toEqual(['u9']);   // témoin : sans la protection, elles disparaissent
+    ctx.attente = [];   // le lot est parti : plus de protection (l'envoi lui-même est prouvé par le banc poids-246)
+    expect(vm.runInContext('protegeesEtEnVol("body_weight_log")', ctx)).toEqual({});
+  });
+
   test('le début de `synchroniser` remet la note à zéro, AVANT ses lectures', () => {
     const src = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
     const debut = src.slice(src.indexOf('async function synchroniser()'));

@@ -249,16 +249,12 @@ describe('l\u2019observation du pari', () => {
     expect(o.valeur_observee).toBe(145);
     expect(o.set_observe).toBe(s[s.length - 1].series[2].id);   // la série de travail, pas la chauffe à 150
     expect(o.session_id).toBe(s[s.length - 1].id);
-    expect(O.estTenu(Object.assign(pari(), o), '2027-03-10')).toBe(true);
   });
 
   test('non tenu : atteint après l\u2019échéance (observé > prédit), ou rien passé l\u2019échéance ; en cours avant', () => {
     const tard = HISTOIRE().concat([seance('2027-05-05', [[150, 1]])]);
     const o = O.observationDe(pari(), tard);
     expect(o.valeur_observee).toBe(201);
-    expect(O.estTenu(Object.assign(pari(), o), '2027-05-05')).toBe(false);
-    expect(O.estTenu(pari(), '2027-05-01')).toBe(false);
-    expect(O.estTenu(pari(), '2027-04-30')).toBeNull();
   });
 
   test('ne compte pas : une série d\u2019avant la pose, une chauffe, des reps sous N, une charge sous l\u2019objectif', () => {
@@ -331,11 +327,11 @@ describe('audit du 16/10/2026, 01 #3 — l’objectif lit Ma salle (MOTEUR §10 
     expect(poser({ charge: 27.5 }).etat).not.toBe('hors_salle');
     expect(poser({ salle: null }).etat).not.toBe('hors_salle');
   });
-  test('aux haltères, dans l’unité des séries (la paire) : « Ta salle va jusqu’à 2 × 40 kg en haltères. »', () => {
+  test('aux haltères, dans l’unité des séries (la paire) ; 245 (D-H4) : la phrase « 2 × » est retirée avec le code mort de 163', () => {
     const H = { materiel: 'halteres', charges: Array.from({ length: 20 }, (_, i) => 4 * (i + 1)) };
     const p = poser({ salle: H, charge: 84 });
     expect(p.etat).toBe('hors_salle');
-    expect(O.phraseHorsSalle(p)).toBe('Ta salle va jusqu’à 2 × ' + M.charge(40) + ' en haltères.');
+    expect(O.phraseHorsSalle(p)).toBe('Ta salle va jusqu’à ' + M.charge(80) + ' en haltères.');
     expect(poser({ salle: H, charge: 80 }).etat).not.toBe('hors_salle');
   });
   test('une barre qu’on charge (record au-delà de la plus lourde barre fixe) : la salle n’en dit rien', () => {

@@ -5923,7 +5923,7 @@
   function cleDuContrat(groupes, etat, mesure, options) {
     var o = options || {};
     try {
-      return JSON.stringify([mesure, o.reglage, o.equipement, o.correction, o.salle, etat, prudent, debutantEnCours, prudenceEffective(debutantEnCours, prudenceEnCours), groupes],
+      return JSON.stringify([mesure, o.reglage, o.equipement, o.charge, o.correction, o.salle, etat, prudent, debutantEnCours, prudenceEffective(debutantEnCours, prudenceEnCours), groupes],
         function (k, v) { return v === undefined ? '\u0000u' : v; });
     } catch (e) { return null; }
   }
@@ -5936,10 +5936,10 @@
       // 185 (v2_116) — UNE SÉRIE « NON, NE COMPTE PAS » N'ENTRE PAS DANS LE CONTRAT : ni le palier, ni le niveau, ni les crans voisins
       // (`chargesDe`), ni le fondement d'une consigne, ni le compteur ne la voient. La séance qui la porte garde sa date (une
       // présence pour le rythme). Elle reste au journal et au détail : seul le calcul l'ignore.
-      var series = ((g && g.series) || []).filter(function (x) { return !(x && x.hors_calcul === true); });
+      var series = ((g && g.series) || []).filter(function (x) { return !Modele().estHorsCalcul(x); });
       var r = mesure === 'reps'
         ? Palier().analyserPoidsDuCorps(series)
-        : Palier().analyser(series, etat, { mesure: mesure, cran: pasMaxDuMateriel(options && options.equipement) });
+        : Palier().analyser(series, etat, { mesure: mesure, charge: options && options.charge, cran: pasMaxDuMateriel(options && options.equipement) });
       var se = seanceDuContrat(g && g.seance ? g.seance.debut : null, r);
       // §9.10 (53-1) — la fin de la séance, si elle en a une (la zone choisie
       // pendant la séance est la sienne). Absente, la clé n'existe pas.
@@ -8370,6 +8370,16 @@
       oui: ouiMarche(nom), non: NON_MARCHE
     };
   }
+  // 245 (F3, MOTEUR §9.35) — LA MÊME CARTE, au premier essai sans aide raté à 0 : un fait (« Pas une rep sans aide, au premier essai. » : un fait, aucun nombre à sourcer), la
+  // marche d'en dessous, « Ajouter <nom> » / « Pas maintenant ». Aucun compte de séances : une seule suffit, c'est tout le sens.
+  function carteDessousPremierEssai(nom) {
+    if (!nom) return null;
+    return {
+      type: MARCHE_DESSOUS, nom: nom, premierEssai: true,
+      phrase: 'Pas une rep sans aide, au premier essai.',
+      oui: ouiMarche(nom), non: NON_MARCHE
+    };
+  }
   // Le détail s'écrit hors de la capture de la phrase (comme `detailAlleger`) : il n'est pas une phrase vérifiée par I26.
   function detailDessous(nom) {
     return 'La marche d\'en dessous : ' + nom + '. Je te propose d\'en faire ' + nombreFr(SERIES_MARCHE, regle('constante')) +
@@ -8602,8 +8612,7 @@
     var s = remplacant.salle;
     var m = s ? maxDeLaSalle(s) : null;
     if (m === null) return nom + DEUX_POINTS + 'aucune limite déclarée dans ta salle.';
-    var t = s.materiel === 'halteres'
-      ? '2' + INSECABLE + '×' + INSECABLE + Modele().charge(m / 2) : Modele().charge(m);
+    var t = Modele().charge(m);   // 245 (D-H4) — la branche « haltères » est retirée (163 : Ma salle ne garde que les élastiques)
     return nom + DEUX_POINTS + 'ta salle va jusqu\'à ' + t + '.';
   }
 
@@ -9341,7 +9350,7 @@
   function chargesDeTravailDe(groupes, etat, options) {
     var o = options || {};
     var seances = contratDe(groupes, etat, 'charge_reps',
-      { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null, salle: o.salle || null });
+      { reglage: o.reglage, equipement: o.equipement, charge: o.charge || null, correction: o.correction || null, salle: o.salle || null });
     return chargesDeTravail(seances.map(vueDeSeance)).filter(function (x) {
       return x.palier !== null && x.niveau !== null && instant(x.debut) !== null;
     }).map(function (x) { return { date: x.debut, palier: x.palier, niveau: x.niveau }; });
@@ -9683,7 +9692,7 @@
     var zp = zoneParCle(o.zonePlan) ? o.zonePlan : null;
     if (zp !== null && o.mesure === 'charge_reps') {
       var base = sansLesAllegees(contratDe(groupes, etat, o.mesure,
-        { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null, salle: o.salle || null }),
+        { reglage: o.reglage, equipement: o.equipement, charge: o.charge || null, correction: o.correction || null, salle: o.salle || null }),
         o.periodesAllegees);
       var sh = sousHistoireDeZone(groupes, base, avant, zp, o.zonesDeRoutine || null);
       groupes = sh.groupes;
@@ -9695,7 +9704,7 @@
       if (sh.mode === 'premiere') plan.zoneAvant = sh.zoneAvant;
     }
     var seances = sansLesAllegees(contratDe(groupes, etat, o.mesure,
-      { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null, salle: o.salle || null }),
+      { reglage: o.reglage, equipement: o.equipement, charge: o.charge || null, correction: o.correction || null, salle: o.salle || null }),
       o.periodesAllegees);
     // 186 — les séances qui ont REÇU une consigne (un pari) portent la marque : le plafond des reps de l'habitude (`repsPlafonnees`)
     // ne vaut que pour elles. Sans liste (les historiques qui n'en ont jamais reçu), rien n'est plafonné.
@@ -9864,7 +9873,7 @@
     return frereQuiProgresse({ verdicts: verdicts }, candidats.map(function (f) {
       var o = f.options;
       var seances = contratDe(f.groupes, f.etat, o.mesure,
-        { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null, salle: o.salle || null });
+        { reglage: o.reglage, equipement: o.equipement, charge: o.charge || null, correction: o.correction || null, salle: o.salle || null });
       return { id: f.slug, nom: f.nom, verdicts: rejeuDuCompteur(seances, f.groupes, avant, o, true).complet.verdicts };
     }), avant);
   }
@@ -9959,7 +9968,7 @@
     // ou rien (« il te manque une rep pour tester… » ne se dit pas au-delà).
     var contrat = P === null || P === undefined || P === 0 ? null
       : contratDe(tous, etat, o.mesure,
-          { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null, salle: o.salle || null });
+          { reglage: o.reglage, equipement: o.equipement, charge: o.charge || null, correction: o.correction || null, salle: o.salle || null });
     var salleDuCran = P > 0 ? salleEnVigueur(o.salle || null, P) : null;
     var cran = contrat === null ? null : voisineSalleComprise(contrat, apres, P, o.equipement, 1, salleDuCran);
     // 163 — le cran suivant jamais fait se dit « ≈ » (« Il te manque une rep pour tester ≈ 45 kg »).
@@ -10390,6 +10399,26 @@
     paires.sort(function (a, b) { return a - b; });
     return paires.length ? paires[0] : null;
   }
+  // 245 (C2, MOTEUR §9.15.3) — HORS BARRE, LA DÉGRESSIVE EST LA CHARGE DISPONIBLE LA PLUS PROCHE DE LA BAISSE VISÉE, dans la
+  // MÊME fenêtre que la barre (−15 % à −30 % de la dernière série), vers le bas à égalité, toujours sous la dernière série.
+  // Elle prenait le cran « juste sous » la cible : 2 × 10 = 20 kg, cible 15,5, donnait 14 (−30 %) au lieu de 16 (−20 %). Une seule
+  // fonction de choix, pour la salle déclarée et le cran générique. Rien dans la fenêtre : `charge: null` (« Trop léger… »).
+  // `disponibles` : les charges que le matériel fait (la salle) ; `null` + `cran` : les multiples du cran.
+  function degressiveLaPlusProche(der, baisse, disponibles, cran) {
+    var cible = auCentieme(der * (1 - baisse));
+    var bas = der * (1 - BAISSE_MAX_BARRE) - 1e-9, haut = der * (1 - BAISSE_MIN_BARRE) + 1e-9;
+    var liste = disponibles;
+    if (!liste) {
+      liste = [];
+      for (var k = Math.max(1, Math.ceil(bas / cran - 1e-9)); k * cran <= haut; k++) liste.push(auCentieme(k * cran));
+    }
+    var dans = liste.filter(function (v) { return v > 0 && v >= bas && v <= haut && v < der && !memeCharge(v, der); });
+    dans.sort(function (a, b) {
+      var da = Math.abs(a - cible), db = Math.abs(b - cible);
+      return Math.abs(da - db) > 1e-9 ? da - db : a - b;
+    });
+    return { charge: dans.length ? dans[0] : null, cible: cible, bas: bas, haut: haut, dans: dans.slice().sort(function (a, b) { return a - b; }) };
+  }
   // 151 — `rang` : 1 (défaut) la première baisse ; 2 la seconde (−20 % de la charge de la première, passée en
   // `derniere_serie`, « Vise 4 à 6 ») ; 3 et plus jamais remplie. `lourde` : une barre lourde (une seule baisse) ;
   // `reps_premiere` : les reps de la première baisse si elle est faite (sous 4, la chaîne s'arrête).
@@ -10409,13 +10438,18 @@
     var cran = nombre(e.cran);
     if (cran === null || cran <= 0) cran = CRAN_PAR_DEFAUT;
     // §10 bis (108) — LA SALLE DÉCLARÉE : la même baisse (−22,5 %), au cran
-    // inférieur que la salle fait — une barre fixe, une paire d'haltères. À la
+    // plus proche que la salle fait (245) — une barre fixe, une paire d'haltères. À la
     // barre fixe, on change de barre : « Prends la barre de 20 kg. »
     var salle = e.salle ? salleEnVigueur(e.salle, der) : null;
     if (salle) return degressiveDeLaSalle(salle, der, nombre(e.reps_travail), seconde);
-    // Au cran INFÉRIEUR : jamais au-dessus des −22,5 %.
-    var charge = auCentieme(Math.floor(der * (1 - baisse) / cran + 1e-9) * cran);
     var barre = estBarre(e.equipement);
+    var charge = null, choix = null;
+    if (!barre) {
+      // 245 (C2) — la charge disponible la plus proche de la cible, dans la fenêtre de la barre.
+      choix = degressiveLaPlusProche(der, baisse, null, cran);
+      if (choix.charge === null) return degressiveVide('Trop léger pour une dégressive.');
+      charge = choix.charge;
+    }
     // 94 (Claude.ai, 15/10/2026) — À LA BARRE, ON ENLÈVE DES DISQUES : un seul
     // disque standard de chaque côté, le plus proche de −22,5 %, entre −15 % et
     // −30 % ; sinon la plus petite combinaison de deux disques dans la fenêtre.
@@ -10441,7 +10475,7 @@
       };
     }
     return {
-      charge: charge, vise: vise, repos: 0,
+      charge: charge, vise: vise, repos: 0, choix: choix,
       phrase: debutPhrase + ' : ' + Modele().charge(charge, undefined, regle('degressive')) +
         ', sans repos, jusqu\'à l\'échec. ' + visee
     };
@@ -10460,19 +10494,17 @@
   // §10 bis (108) — la dégressive dans la salle déclarée : la charge qu'elle
   // fait juste sous −22,5 %, toujours sous la dernière série de travail.
   function degressiveDeLaSalle(salle, der, reps, seconde) {
-    var cible = auCentieme(der * (1 - (seconde ? BAISSE_SECONDE : BAISSE_DEGRESSIVE)));
-    var sous = chargesDeLaSalle(salle).filter(function (v) {
-      return (v < cible || memeCharge(v, cible)) && v < der && !memeCharge(v, der);
-    });
-    if (!sous.length) return degressiveVide('Trop léger pour une dégressive.');
-    var charge = sous[sous.length - 1];
+    // 245 (C2) — la charge que la salle fait la plus proche de la baisse visée, dans la fenêtre ; sinon rien.
+    var choix = degressiveLaPlusProche(der, seconde ? BAISSE_SECONDE : BAISSE_DEGRESSIVE, chargesDeLaSalle(salle), null);
+    if (choix.charge === null) return degressiveVide('Trop léger pour une dégressive.');
+    var charge = choix.charge;
     var vise = seconde ? VISEE_SECONDE.slice() : viseeDegressive(reps);
     var suite = 'Sans repos, jusqu\'à l\'échec. ' + phraseViseeDegressive(vise);
     if (SALLE_BARRES.indexOf(salle.materiel) >= 0) {
-      return { charge: charge, vise: vise, repos: 0, barreFixe: true,
+      return { charge: charge, vise: vise, repos: 0, barreFixe: true, choix: choix,
                phrase: 'Prends la barre de ' + Modele().charge(charge, undefined, regle('degressive')) + '. ' + suite };
     }
-    return { charge: charge, vise: vise, repos: 0,
+    return { charge: charge, vise: vise, repos: 0, choix: choix,
              phrase: (seconde ? 'Deuxième baisse' : 'Dégressive') + ' : ' + Modele().charge(charge, undefined, regle('degressive')) +
                ', sans repos, jusqu\'à l\'échec. ' + phraseViseeDegressive(vise) };
   }
@@ -11636,7 +11668,7 @@
   var RATE_FORME_FLANCHENT = 2;         // la forme du jour : 2 exercices qui flanchent…
   var RATE_FORME_SUR = 3;               // … sur les 3 derniers
   var RATE_PARIS_A_LA_SUITE = 2;        // deux séances de suite où le pari n'a pas tenu
-  var RATE_PAS_PAR_DEFAUT = { barre: 2.5, machine: 2.5, machine_smith: 2.5, poulie: 2.5, haltere: 1 };
+  var RATE_PAS_PAR_DEFAUT = { barre: 2.5, machine: 2.5, machine_smith: 2.5, poulie: 2.5, haltere: 2 };   // 245 (D-H5) — haltères : la PAIRE, +1 kg par main, aligné sur REPLI_MATERIEL.haltere.pas
 
   function rateReglage(r) { return r === 'prudent' || r === 'franc' ? r : 'normal'; }
   // Le contexte où le coach ne dit rien du tout (Entretenir, décharge, test, calage, « J'ai mal », 1re fois, figure).
@@ -12085,6 +12117,7 @@
     MARCHE_LEVIERS: MARCHE_LEVIERS,
     MARCHE_DESSOUS: MARCHE_DESSOUS,
     carteDessous: carteDessous,
+    carteDessousPremierEssai: carteDessousPremierEssai,
     detailDessous: detailDessous,
     LEVIER_REMPLACEMENT: LEVIER_REMPLACEMENT,
     LEVIER_TEMPO: LEVIER_TEMPO,
@@ -12195,6 +12228,7 @@
     REPRISE_COURTE: REPRISE_COURTE,
     REPRISE_LONGUE: REPRISE_LONGUE,
     REPLI_MATERIEL: REPLI_MATERIEL,
+    degressiveLaPlusProche: degressiveLaPlusProche,
     pasDeLaBarre: pasDeLaBarre,
     brancherPlusPetitDisque: brancherPlusPetitDisque,
     DISQUES_STANDARD: DISQUES_STANDARD, DISQUES_ABSENTS_DEFAUT: DISQUES_ABSENTS_DEFAUT, BARRES_PROPOSEES: BARRES_PROPOSEES,

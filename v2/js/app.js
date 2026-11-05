@@ -810,6 +810,27 @@
                   donnees: { user_id: idUtilisateur(), date: pesee.date, poids_kg: pesee.poids_kg, source: 'app' } });
   }
 
+  // 246 — LES PESÉES IMPORTÉES de Hevy : un AJOUT SEUL, pour les jours ABSENTS de l'appareil (`source: 'import_hevy'`).
+  // Un jour déjà pesé garde sa valeur : ni dans le local, ni dans la ligne envoyée. Une seule écriture de la file.
+  async function poserPeseesImportees(pesees) {
+    var presents = {};
+    (local.pesees || []).forEach(function (l) { if (l && l.date) presents[String(l.date).slice(0, 10)] = true; });
+    var neuves = (pesees || []).filter(function (p) { return p && !presents[p.date]; });
+    if (!neuves.length) return 0;
+    var lignes = neuves.map(function (p) {
+      return { id: 'pesee-' + p.date, date: p.date, poids_kg: p.poids_kg, source: 'import_hevy' };
+    });
+    local.pesees = (local.pesees || []).concat(lignes);
+    await Cache.ecrireLot('pesees', lignes).catch(function () {});
+    var uid = idUtilisateur();
+    // UNE entrée de la file pour tout le lot (un seul envoi, un seul refus possible, visible comme les autres).
+    await poserPaquet([{ table: Attente.PESEES, op: Attente.AJOUTER, id: 'pesees-import-' + neuves[0].date + '-' + neuves.length,
+                         donnees: neuves.map(function (p) {
+                           return { user_id: uid, date: p.date, poids_kg: p.poids_kg, source: 'import_hevy' };
+                         }) }]);
+    return neuves.length;
+  }
+
   async function poserMode(slug, mode) {
     var id = uuid();
     var ligne = {
@@ -1506,6 +1527,8 @@
   // ⚠️ L'ÉCRAN LIT LE PARCOURS, IL NE LE REFAIT PAS : `faits.parcoursDe` (le module des faits, qui l'assemble et le
   // mémorise) rend les verdicts, les rapports, le levier et la phrase. Ce que l'écran ajoute ne décide rien : les
   // libellés des priorités, la phase du profil et le nombre de pesées des huit dernières semaines. Rien n'est écrit.
+  // 246 : PESEES_SUFFISANTES n'est pas une seconde tendance — il décide seulement entre deux phrases d'invitation
+  // (quand `Poids.tendance` n'existe pas).
   var JOURS_DES_PESEES = 56, PESEES_SUFFISANTES = 4;
   // ⚠️ LE PROFIL ARRIVE APRÈS L'ÉCRAN (trouvé par le banc [P75]). « Ton parcours » lit le sexe (les repères) et les
   // priorités (le levier) : affiché avec le profil du cache (ou sans), la phrase perdait son rapport. On retient ce
@@ -1816,7 +1839,8 @@
       nomsCourts: Parcours.NOM_COURT,
       priorites: Profil.prioritesDe(profil).filter(function (c) { return libelles[c]; }).map(function (c) { return libelles[c]; }),
       phase: Profil.phraseRappelDePhase(profil) || Profil.LIBELLE_PHASE_VIDE,
-      pesees: { nombre: pesees, assez: pesees >= PESEES_SUFFISANTES },
+      pesees: { nombre: pesees, assez: pesees >= PESEES_SUFFISANTES,
+                phraseTendance: Poids.phraseDeTendance(Poids.tendanceDuPoids(local.pesees, new Date())) },
       // 188-1 — « Ta semaine et tes équilibres », en tête.
       equilibres: vueDesEquilibres(),
       // 197 — « Ta semaine » en Forme et santé (renforcement, cardio modéré), cachable.
@@ -2745,8 +2769,8 @@
     var moi = userId();
     if (!moi || !profil) return false;
     var index = Modele.indexerExercices(local.exercices);
-    // La dernière pesée datée, telle quelle (`resume` l'arrondit au dixième, pour l'affichage).
-    var pesees = Poids.normaliser(local.pesees || []), pesee = pesees.length ? pesees[pesees.length - 1] : null;
+    // 246 : la pesée d'au plus 90 jours (`Poids.poidsALaDate`) ; plus ancienne, aucun score n'est publié.
+    var pesee = Poids.poidsALaDate(local.pesees || [], new Date(), { jours: 90 });
     var douze = Social.bornesDouzeMois(new Date());
     var scores = baseExigeLaCharge ? null :
       Social.scoresAPublier(Social.meilleuresCharges(faits.seriesComptees(corpus(), douze.de, douze.a, null)),
@@ -4013,6 +4037,14 @@
   function protegeesEtEnVol(table) {
     var res = Object.assign({}, Attente.protegees(attente, table));
     Object.keys(gestesEnVol[table] || {}).forEach(function (id) { res[id] = true; });
+    // 246 — l'entrée d'un LOT de pesées protège chacun de ses jours (`pesee-<date>`), pas seulement son identifiant.
+    if (table === Attente.PESEES) {
+      attente.forEach(function (e) {
+        if (e && e.table === table && e.op !== Attente.SUPPRIMER && Array.isArray(e.donnees)) {
+          e.donnees.forEach(function (d) { if (d && d.date) res['pesee-' + d.date] = true; });
+        }
+      });
+    }
     return res;
   }
 
@@ -4208,7 +4240,10 @@
     // FUSIONNE. ⚠️ SANS CETTE BRANCHE, une entrée `body_weight_log` serait vidée
     // par le dernier `return` sans rien écrire — la perte silencieuse que la
     // file existe pour empêcher.
-    if (op.table === Attente.PESEES) return Donnees.enregistrerPesee(op.donnees);
+    // 246 — l'import des mesures de Hevy : un AJOUT SEUL (`ajouterPesees`), jamais une fusion.
+    if (op.table === Attente.PESEES) {
+      return op.op === Attente.AJOUTER ? Donnees.ajouterPesees(Array.isArray(op.donnees) ? op.donnees : [op.donnees]) : Donnees.enregistrerPesee(op.donnees);
+    }
     // 69 — le rattachement d'un nom importé : un `upsert` sur (user_id,
     // alias_norme) qui FUSIONNE. Sans cette branche, l'entrée serait vidée par
     // le dernier `return` sans rien écrire.
@@ -5858,7 +5893,7 @@
   var CLE_REPONSES_SAISIE = 'reponsesSaisie';
   var reponsesDeSaisie = {};                       // { 'slug|genre' : nombre de « Oui » }
   var questionsDeSaisie = { seance: null, liste: {} };   // 'iExo:iSerie' -> { mode, q, champ }
-  var CHAMP_DE_LA_QUESTION = { hausse: 'charge_kg', double_halteres: 'charge_kg', baisse: 'charge_kg', zero: 'reps',
+  var CHAMP_DE_LA_QUESTION = { hausse: 'charge_kg', baisse: 'charge_kg', zero: 'reps',
     reps_haut: 'reps', reps_bas: 'reps', reps_invalides: 'reps', record: 'charge_kg' };
 
   // Une question tient à UNE série, par son identifiant : les indices bougent (série ajoutée, supprimée), pas l'identifiant.
@@ -5907,14 +5942,19 @@
     var exo = seance.exercices[iExo];
     var slug = exo.exercise_slug;
     var debut = String(seance.debut || '');
-    var historique = faits.seancesDeLExercice(corpus(), slug).filter(function (g) {
-      return g.seance.id !== seance.id && String(g.seance.debut || '') < debut;
-    }).map(function (g) { return { series: g.series }; });
+    // Lu par le mémo des records (`historiqueDesRecords`, hors séance en cours) : un seul calcul par validation.
+    var passees = faits.historiqueDesRecords(corpus(), seance, slug).filter(function (g) { return String(g.debut || '') < debut; });
+    var historique = passees.map(function (g) { return { series: g.series }; });
     var duJour = (exo.series || []).filter(function (x, k) { return k !== iSerie && Seance.partEnBase(x); });
     var ligne = (planDeLExercice(iExo) || { lignes: [] }).lignes[iSerie];
     var charge = ligne && ligne.role !== 'hors' ? Number(ligne.charge) : NaN;
     var cible = ligne ? Number(ligne.vise) : NaN;
+    // 245 (D-Q1) — le meilleur de la question « hausse » et de celle du record est celui de la médaille (`recordsDeLExercice().lourde`,
+    // douze mois hors barres compris), pas la plus lourde charge de toute la vie : `null` si le périmètre n'en a pas.
+    var def = catalogueIndexe()[slug] || null;
+    var lourde = Modele.recordsDeLExercice(passees, seance.debut, Modele.optionsDeRecord(def)).lourde;
     return { historique: historique, seance: duJour, confirmations: confirmationsDe(slug),
+             recordLourd: lourde && lourde.charge > 0 ? lourde.charge : null,
              chargeVisee: isFinite(charge) && ligne.charge !== null ? charge : null,
              cible: isFinite(cible) && ligne && ligne.vise !== null ? cible : null };
   }
@@ -6664,9 +6704,15 @@
   // 195 — l'objectif qui ouvre les marches d'habileté : celui, gelé, de la séance ; hors séance (la page d'exercice, la semaine),
   // celui du profil. Un `calisthenie` seulement : toute autre valeur laisse la règle d'avant.
   function objectifDeLEchelle() { return seance ? objectifDeLaSeance() : Profil.objectifDe(profil); }
+  // 245 (F3, I133) — une marche du motif triceps (le diamant, la prise serrée) ne se propose pas quand le COUDE est à ménager ; aucune
+  // autre zone n'écarte de marche (décidé le 05/11/2026) : la notion de zone du générateur, lue par `Modele.marcheSuivante`
+  // (`ecartee`), jamais une liste de slugs ici.
+  function marcheEcarteeParLaZone(slug) {
+    return Generateur.zonesQuiEcartentLaMarche(slug, profil && profil.zones_a_menager).length > 0;
+  }
   function marcheAProposer(index, slug) {
     // 175 — « Pas de lest » (le profil, ou la réponse de l'exercice) : la variante sans matériel devient la marche.
-    var m = Modele.marcheSuivante(index, slug, { lestRefuse: lestReponseDeLExercice(slug) === 'non', objectif: objectifDeLEchelle() });
+    var m = Modele.marcheSuivante(index, slug, { lestRefuse: lestReponseDeLExercice(slug) === 'non', objectif: objectifDeLEchelle(), ecartee: marcheEcarteeParLaZone });
     if (!m || !m.proposable) return null;
     // 190 — Ma salle dit « pas de barre de traction » : une marche qui en demande une (la stricte, l'archer, le muscle-up…) ne se
     // propose pas ; les marches qui n'en demandent pas restent.
@@ -6796,6 +6842,8 @@
       mesure: g.inconnue ? null : (estSalleElastique(salleX) ? 'charge_reps' : g.mesure),
       // §9.17 — le matériel EFFECTIF : une charge ajoutée est du lest (cran 2,5).
       equipement: Moteur.equipementEffectif(exo),
+      // 245 (A12) — le type de charge du catalogue : sur une aide (`assistance`), la règle des 75 % ne classe aucune série.
+      charge: exo ? exo.charge || null : null,
       // §9.17 — l'intention de l'EXERCICE : celle du profil, puis son mode
       // (`modes_exercice`). Une seule valeur ; le moteur ne sait pas d'où elle vient.
       intention: intentionDeLExercice(slug),
@@ -6817,7 +6865,7 @@
       libre: libreDuLeste ? function () {
         var px = index[libreDuLeste], pg = Modele.gabaritDe(px);
         return { groupes: faits.seancesDeLExercice(corpus(), libreDuLeste), etat: etatsExercices[libreDuLeste],
-                 options: { mesure: pg.inconnue ? null : pg.mesure, equipement: Moteur.equipementEffectif(px),
+                 options: { mesure: pg.inconnue ? null : pg.mesure, equipement: Moteur.equipementEffectif(px), charge: px ? px.charge || null : null,
                             reglage: Profil.rythmeDe(profil), correction: zoneDe(libreDuLeste) } };
       } : null,
       reglage: Profil.rythmeDe(profil),
@@ -7347,6 +7395,12 @@
   function catalogueIndexe() {
     if (!catalogueMemo || catalogueMemo.source !== local.exercices) {
       catalogueMemo = { source: local.exercices, index: Modele.indexerExercices(local.exercices || []) };
+      // 245 (I133) — la garde de développement vérifie le VRAI catalogue, une fois par chargement : aucune marche d'une autre mesure,
+      // aucune marche écartée par le coude (le pire cas : la zone à ménager la plus restrictive). En production, `signaler` ne fait rien.
+      if (typeof garde !== 'undefined' && garde && garde.active) {
+        var coude = function (slug) { return Generateur.zonesQuiEcartentLaMarche(slug, ['coude']).length > 0; };
+        garde.signaler(Modele.verifierI133(catalogueMemo.index, { ecartee: coude }), { invariant: 'I133' });
+      }
     }
     return catalogueMemo.index;
   }
@@ -7939,15 +7993,22 @@
     // 180 (A-F-02, D4) — LA MARCHE D'EN DESSOUS d'un exercice au poids du corps qui continue en reps : le catalogue la lit
     // (`Modele.marcheDEnDessous`, le rang juste en dessous de l'échelle), jamais une marche déjà dans la séance. Le plan décide.
     var dessous = {};
+    var premierEssai = {};
     var presentsD = seance ? (seance.exercices || []).map(function (x) { return x && x.exercise_slug; }) : [];
     Object.keys(cs).forEach(function (s) {
       var k = cs[s] && cs[s].consigne;
-      if (!k || k.etat !== 'etirement_reps' || Number(k.palier) !== 0) return;
+      // 245 (F3, MOTEUR §9.35) — DEPUIS UNE AIDE, 0 REP STRICTE AU PREMIER ESSAI : la marche d'en dessous tout de suite. Les faits :
+      // `faits.premierEssaiRate` (le fait entier : une marche sans aide, venue d'une aide, faite une fois à 0 rep). Le plan décide.
+      var rate = faits.premierEssaiRate(corpus(), s, index);
+      if (!rate && (!k || k.etat !== 'etirement_reps' || Number(k.palier) !== 0)) return;
       var mD = Modele.marcheDEnDessous(index, s);
-      if (mD && presentsD.indexOf(mD.slug) < 0) dessous[s] = { slug: mD.slug, nom: Modele.nommer(index, mD.slug) };
+      if (mD && presentsD.indexOf(mD.slug) < 0) {
+        dessous[s] = { slug: mD.slug, nom: Modele.nommer(index, mD.slug) };
+        if (rate) premierEssai[s] = true;
+      }
     });
     return { cartes: cartes, compteurs: compteurs, noms: noms, seriesRoutine: seriesRoutine, marches: marches,
-             degressivesRoutine: degressivesRoutine, remplacants: remplacantsDesEntrees(cs, index), dessous: dessous,
+             degressivesRoutine: degressivesRoutine, remplacants: remplacantsDesEntrees(cs, index), dessous: dessous, premierEssai: premierEssai,
              // 189 (MOTEUR §14.11) — la baisse générale (lue À LA DEMANDE : le plan la demande si une carte est possible), la
              // « série de moins » en cours et les priorités de la séance, que cette réponse ne touche jamais.
              baisse: function (jourDemande) { return entreeDeLaFatigue(jourDemande || Moteur.jourCivil(seance && seance.debut)); },
@@ -8447,7 +8508,8 @@
     var entree = faits.entreeFatigue(corpus(), {
       jour: jour, periodesAllegees: allegees, zones: zonesLues(),
       nom: function (slug) { return Modele.nommer(index, slug); },
-      pesees: (local.pesees || []).map(function (x) { return { date: x.date, poids: x.poids_kg !== undefined ? x.poids_kg : x.poids }; })
+      // 245 (D-W1) — la pesée se lit par `Poids.normaliser` (la seule lecture : une ligne sans date ni poids fini est écartée)
+      pesees: Poids.normaliser(local.pesees || []).map(function (x) { return { date: Moteur.jourCivil(x.date), poids: x.poids }; })
     });
     memoFatigue = { cle: cle, seances: local.seances, series: local.series, zones: local.zones, pesees: local.pesees,
                     catalogue: local.exercices, entree: entree };
@@ -9418,15 +9480,23 @@
   // pour que la clé étrangère de `set_observe` trouve sa ligne.
   async function observerSerie(iExo, iSerie) {
     if (!seance || enEdition()) return;
-    var exo = (seance.exercices || [])[iExo];
+    return observerSerieDe(seance, iExo, iSerie, false);
+  }
+
+  // 245 (C8, MOTEUR §9.11) — LE CORPS D'`observerSerie`, pour la séance `s` : en séance (`edition` faux) il est appelé par
+  // `observerSerie` tel qu'avant ; à l'enregistrement d'une ÉDITION (`enregistrerCorrection`), il REFAIT l'observation des paris
+  // de la série corrigée — le PARI ne bouge jamais (immuable), seule son observation suit la série. Sans plan de coach (une
+  // Édition est muette), le rang est inconnu : seuls les paris que CETTE série observait se relisent (`parisAObserver`, rang nul).
+  async function observerSerieDe(s, iExo, iSerie, edition) {
+    var exo = (s.exercices || [])[iExo];
     if (!exo) return;
     var serie = (exo.series || [])[iSerie];
     if (!serie) return;
     // §9.14 (49-R2) — le rang se lit sur la RÉACTION, le seul lecteur de la
     // consigne ; la consigne mémorisée à l'ouverture n'est plus relue ici.
-    var r = reactionDe(iExo);
-    if (!r) return;
-    var j = r.indices.indexOf(iSerie);
+    var r = s === seance ? reactionDe(iExo) : null;
+    if (!r && !edition) return;
+    var j = r ? r.indices.indexOf(iSerie) : -1;
     var rang = j < 0 ? null : r.rangs[j];
     // 193-1 — le rang d'un recul est « r1 », « r2 »… (son ordre parmi les reculs de l'exercice), jamais un rang de la couverture.
     if (Modele.estRecul(serie)) {
@@ -9450,11 +9520,11 @@
     // vers `id = null` — deux paris du même rang, et aucun en base.
     // Prérequis d'« adapter » — et LES PARIS DE CETTE OCCURRENCE seulement : la
     // seconde occurrence d'un exercice n'observe pas ceux de la première.
-    var paris = Seance.parisDeLOccurrence(local.predictions || [], seance, iExo).filter(function (l) {
+    var paris = Seance.parisDeLOccurrence(local.predictions || [], s, iExo).filter(function (l) {
       return !!l.id;
     });
     var aLire = Seance.parisAObserver(paris, serie, rang, exo.series);
-    for (var p = 0; p < aLire.length; p++) await observerPari(aLire[p], serie, exo.series);
+    for (var p = 0; p < aLire.length; p++) await observerPari(aLire[p], serie, exo.series, s.id, edition);
   }
 
   // §9.11 (49-8) — UNE SÉRIE SUPPRIMÉE EMPORTE SON OBSERVATION. En base, le
@@ -9506,11 +9576,23 @@
       maj.push(m);
       return m;
     });
+    // 245 (D-P2) — les paris d'OBJECTIF qui s'observaient sur ces séries se vident aussi (la base le fait : `sets_efface_observation`).
+    local.parisObjectif = (local.parisObjectif || []).map(function (l) {
+      if (!l || !l.set_observe || !ids[l.set_observe]) return l;
+      var m = Object.assign({}, l, { set_observe: null, valeur_observee: null, observee_a: null });
+      avant.push(l);
+      maj.push(m);
+      return m;
+    });
     return { avant: avant, maj: maj };
   }
 
   async function ecrireObservationsVidees(maj) {
-    if (maj.length) await Cache.ecrireLot('predictions', maj).catch(function () {});
+    var objectif = {};
+    (local.parisObjectif || []).forEach(function (l) { if (l && l.id) objectif[l.id] = true; });
+    var deSeance = maj.filter(function (l) { return !objectif[l.id]; });
+    if (deSeance.length !== maj.length) await Cache.ecrireBrouillon(CLE_PARIS_OBJECTIF, local.parisObjectif).catch(function () {});
+    if (deSeance.length) await Cache.ecrireLot('predictions', deSeance).catch(function () {});
     // La base le fait déjà (le déclencheur) ; l'entrée qui partirait encore
     // avec l'ancienne observation est remplacée par la vraie, vide — sinon
     // elle attendrait pour toujours une série qui ne reviendra pas.
@@ -9688,9 +9770,9 @@
   // §9.11 (27/09/2026) — L'OBSERVATION PART PAR SA PROPRE ENTRÉE, EN FIN DE
   // FILE : derrière son pari (même identifiant, posé avant elle) et derrière
   // les séries qu'elle désigne (`poserSeries` passe avant). Voir `attente.js`.
-  async function poserObservation(ligne) {
+  async function poserObservation(ligne, idSeance) {
     await poser({ table: Attente.OBSERVATIONS, op: Attente.OBSERVER, id: ligne.id,
-                  depend: seance.id, alaFin: true,
+                  depend: idSeance || seance.id, alaFin: true,
                   donnees: donneesObservation(ligne) });
   }
 
@@ -9728,7 +9810,7 @@
     if (maj) await Cache.ecrireLot('predictions', [maj]).catch(function () {});
   }
 
-  async function observerPari(ligne, serie, series) {
+  async function observerPari(ligne, serie, series, idSeance, edition) {
     // La garde, au plus près de l'écriture : une ligne observée sur une AUTRE
     // série, encore en base, n'est jamais réécrite par celle-ci.
     if (!Seance.peutObserver(ligne, serie, series)) return;
@@ -9739,6 +9821,9 @@
       enBase: enBase, id: serie.id, charge: serie.charge_kg,
       reps: enBase && serie.reps !== undefined ? serie.reps : null
     });
+    // 245 (C8) — en Édition, une série corrigée qui ne remplit plus le pari le VIDE (valeur et série : comme le déclencheur
+    // `sets_efface_observation`) ; en séance, « autre chose tenté » garde la série reliée.
+    if (edition && vue.valeur_observee === null) vue = { set_observe: null, valeur_observee: null };
     var etaitSienne = ligne.set_observe && serie.id && ligne.set_observe === serie.id;
     // Ni reliée maintenant, ni reliée par cette série avant : rien à dire.
     if (vue.set_observe === null && !etaitSienne) return;
@@ -9766,7 +9851,7 @@
       return l && l.id === maj.id ? maj : l;
     });
     await Cache.ecrireLot('predictions', [maj]).catch(function () {});
-    await poserObservation(maj);
+    await poserObservation(maj, idSeance);
   }
 
   // ── §9.14 (49-R2) — LA RÉACTION SÉRIE PAR SÉRIE, BRANCHÉE ────────────────
@@ -11497,6 +11582,16 @@
       // 196 (MOTEUR §9.33) — « Rest-pause » : sur une isolation ou une machine, jamais une barre ni un soulevé ; hors semaine
       // allégée, hors zone à ménager ; une série de travail avec sa charge, pas déjà prolongée.
       restPause: restPauseDeLaFeuille(feuille.iExo, feuille.iSerie),
+      // 245 (D-S3) — « Compter cette série » : retire « Non, ne compte pas » (un geste, comme les autres) et refait l'observation.
+      horsCalcul: { actif: Modele.estHorsCalcul(serie) },
+      surCompter: async function () {
+        var i = feuille.iExo, j = feuille.iSerie;
+        seance = Seance.marquerHorsCalcul(seance, i, j, false);
+        seance = Seance.noterGeste(seance, { geste: 'serie_comptee', slug: exo.exercise_slug });
+        fermerVoile();
+        await apresGeste();
+        await observerSerie(i, j);
+      },
       surRestPause: function () {
         seance = Seance.ajouterRestPause(seance, feuille.iExo, feuille.iSerie, uuid);
         fermerVoile();
@@ -13748,6 +13843,9 @@
     });
     Rendu.rendreCourbePoids($('courbe-poids'), Poids.courbe(fenetre, 300, 104));
     Rendu.rendreListePesees($('liste-pesees'), Poids.dernieres(fenetre, 12), fenetre.length);
+    // 246 : la tendance se calcule sur TOUTES les pesées, pas sur la période choisie ; sans tendance, rien.
+    var t = Poids.tendanceDuPoids(local.pesees, new Date());
+    Rendu.rendreTendancePoids($('tendance-poids'), Poids.phraseDeTendance(t), Poids.noteDeTendance(t));
   }
 
   // ── Fenêtre d'un muscle ──────────────────────────────────────────────────
@@ -14172,7 +14270,7 @@
     // La phrase se tait en carnet (le profil) ; en Entretenir (l'exercice de départ), `phraseDe` le sait.
     var phraseDe = function (e) { return actifs[e.depart] === false ? null : Moteur.phraseDeLaSuivante(Object.assign({}, e, { reglage: Profil.rythmeDe(profil) })); };
     return Modele.vueEchelle(index, slug, faites, zonesHaut, !Moteur.coachSeTait(profil && profil.intention), phraseDe,
-      { lestRefuse: lestReponseDe() === 'non', objectif: objectifDeLEchelle() });
+      { lestRefuse: lestReponseDe() === 'non', objectif: objectifDeLEchelle(), ecartee: marcheEcarteeParLaZone });
   }
 
   // 145 (ECRAN-SAISIE §7 quater.7, maquette `maquette-semaine-echelles-v1.html`, validée le 23/10/2026) — « TES ÉCHELLES
@@ -14237,7 +14335,7 @@
                                                          texte: meilleurTexte(n.ancienne.slug, n.ancienne.series) } } : null };
     });
     var cartes = Modele.vueEchellesDeLaSemaine(index, items, {
-      lestRefuse: lestReponseDe() === 'non', objectif: objectifDeLEchelle(),
+      lestRefuse: lestReponseDe() === 'non', objectif: objectifDeLEchelle(), ecartee: marcheEcarteeParLaZone,
       faites: faites, zonesHaut: zonesHaut, coachActif: !Moteur.coachSeTait(profil && profil.intention),
       phraseDe: function (e) { return actifs[e.depart] === false ? null : Moteur.phraseDeLaSuivante(Object.assign({}, e, { court: true, reglage: Profil.rythmeDe(profil) })); },
       rondsDe: function (slug, e) {
@@ -15527,6 +15625,26 @@
     await poserSeance(false, s);
     await ecrireJournalDeSeance(s, seriesAvant);
     adopterLocalement(s);
+    await reobserverLesParisCorriges(s, seriesAvant);
+  }
+
+  // 245 (C8 / D-P1, D-P2 ; MOTEUR §9.11) — UNE CORRECTION REFAIT L'OBSERVATION, JAMAIS LE PARI. Pour chaque série que la
+  // correction change sur un champ qui compte (`Sync.seriesQuiEffacent`, la liste des records), les paris de consigne qui
+  // l'observaient sont réobservés sur la série corrigée (tenu, raté, ou observation vidée si elle ne remplit plus le pari), et
+  // les paris d'objectif suivent (observation vidée seulement si l'objectif n'est plus atteint ET que la série qui l'observait, `set_observe`, fait partie des séries changées). Ne tourne qu'à l'enregistrement d'une
+  // Édition : la validation d'une série en séance ne passe pas ici. Une correction qui ne change que la note : rien.
+  async function reobserverLesParisCorriges(s, avant) {
+    var changees = Sync.seriesQuiEffacent(avant, Seance.lignes(s));
+    if (!changees.length) return;
+    var ids = {};
+    changees.forEach(function (id) { ids[id] = true; });
+    for (var i = 0; i < (s.exercices || []).length; i++) {
+      var series = (s.exercices[i] && s.exercices[i].series) || [];
+      for (var j = 0; j < series.length; j++) {
+        if (series[j] && series[j].id && ids[series[j].id]) await observerSerieDe(s, i, j, true);
+      }
+    }
+    await observerObjectifs({ retirer: ids, idSeance: s.id }).catch(function (err) { console.warn('Observation des objectifs :', texteErreur(err)); });
   }
 
   async function enregistrerEdition() {
@@ -16899,7 +17017,11 @@
   // jours réellement mis, rattachés à cette série (`set_observe`), même après l'échéance. Elle part derrière la
   // séance de la série (`depend`). Jamais retirée ici : une série effacée vide l'observation en base
   // (`sets_efface_observation`) ; une autre série qui atteint l'objectif la reprend.
-  async function observerObjectifs() {
+  async function observerObjectifs(options) {
+    // 245 (D-P2) — `retirer` (l'enregistrement d'une Édition seulement) : `{ idDeSerie: true }` des séries que la correction change.
+    // Un objectif qui n'est plus atteint vide son observation SEULEMENT si la série qui l'observait (`set_observe`) en fait partie
+    // (le pari ne bouge jamais) ; un pari observé sur une autre série garde son observation. Hors Édition, jamais retirée ici.
+    var retirer = options && options.retirer && typeof options.retirer === 'object' ? options.retirer : null;
     var paris = local.parisObjectif || [];
     if (!paris.length) return;
     var parSlug = {}, maj = {};
@@ -16908,7 +17030,13 @@
       if (!slug) return;
       var seances = parSlug[slug] || (parSlug[slug] = seancesPourObjectif(faits.seancesDeLExercice(corpus(), slug)));
       var obs = Objectif.observationDe(p, seances);
-      if (!obs.set_observe) return;
+      if (!obs.set_observe) {
+        if (retirer && p.set_observe && retirer[p.set_observe]) {
+          maj[p.id] = { ligne: Object.assign({}, p, { valeur_observee: null, observee_a: null, set_observe: null }),
+                        seance: options.idSeance || null };
+        }
+        return;
+      }
       if (p.set_observe === obs.set_observe && Number(p.valeur_observee) === obs.valeur_observee) return;
       maj[p.id] = { ligne: Object.assign({}, p, { valeur_observee: obs.valeur_observee, observee_a: new Date().toISOString(),
                                                   set_observe: obs.set_observe }), seance: obs.session_id };
@@ -18150,16 +18278,59 @@
     rendreImportEcran();
   }
 
+  // 246 — l'aperçu des mesures : ce qui est trouvé, ce qui est déjà là (gardé tel quel), ce qui est écarté.
+  function lireMesuresHevy(texte) {
+    var imp = importHevy, M = Import.MESSAGES;
+    var lue = Import.lireMesuresCsv(texte, new Date());
+    if (lue.raison) {
+      imp.erreur = lue.raison === 'unite' ? M.mesuresUnite : lue.raison === 'vide' ? M.mesuresVide
+        : lue.raison === 'longueur' ? M.mesuresLongueur
+        : lue.raison === 'date' ? (lue.enAnglais ? M.fichierAnglais : M.mesuresDate) : M.mesuresEntete;
+      return rendreImportEcran();
+    }
+    imp.mesures = Import.apercuDesMesures(lue, local.pesees);
+    if (!imp.mesures.trouvees) { imp.mesures = null; imp.erreur = M.mesuresRien; return rendreImportEcran(); }
+    imp.etape = 'mesures';
+    rendreImportEcran();
+  }
+
+  async function importerMesuresHevy() {
+    var imp = importHevy;
+    if (!imp || imp.etape !== 'mesures' || !imp.mesures) return;
+    // Les jours déjà pesés sont retirés une seconde fois, sur l'état d'AUJOURD'HUI (`poserPeseesImportees`).
+    var n = await poserPeseesImportees(imp.mesures.aImporter);
+    if (importHevy !== imp) return;
+    imp.etape = 'fini';
+    imp.resultat = null;
+    imp.mesuresFin = { titre: n + (n > 1 ? ' pesées importées.' : ' pesée importée.'),
+      suite: n ? (n > 1 ? 'Elles figurent sur la courbe de ton poids.' : 'Elle figure sur la courbe de ton poids.') : null };
+    if (ecranCourant === 'import') rendreImportEcran();
+  }
+
   async function lireFichierHevy() {
     var champ = $('fichier-hevy');
     var f = champ && champ.files && champ.files[0];
     if (!f || !importHevy) return;
+    // 246 — l'EN-TÊTE seul est lu d'abord (4 Ko) : il décide si c'est un CSV de mesures. La limite de 2 Mo ne vaut
+    // que pour les mesures ; un CSV de séances n'a aucune limite de taille (comme avant).
+    var tete = null;
+    try { tete = await f.slice(0, 4096).text(); } catch (e) { tete = null; }
+    if (tete === null) {
+      importHevy.erreur = Import.MESSAGES.fichier;
+      return rendreImportEcran();
+    }
+    var mesures = Import.estUnCsvDeMesures(tete);
+    if (mesures && f.size > Import.MESURES_OCTETS_MAX) {
+      importHevy.erreur = Import.MESSAGES.mesuresLongueur;
+      return rendreImportEcran();
+    }
     var texte = null;
     try { texte = await f.text(); } catch (e) { texte = null; }
     if (texte === null) {
       importHevy.erreur = Import.MESSAGES.fichier;
       return rendreImportEcran();
     }
+    if (mesures) return lireMesuresHevy(texte);
     return lireImport('csv', texte);
   }
 
@@ -18387,6 +18558,15 @@
     if (imp.etape === 'en_cours') {
       v.progression = { fait: imp.progression.fait, total: imp.progression.total,
         texte: imp.progression.fait + ' séances sur ' + imp.progression.total };
+    } else if (imp.etape === 'mesures') {
+      var ph = Import.phrasesDesMesures(imp.mesures);
+      v.titre = ph[0];
+      v.phrases = ph.slice(1);
+      v.bouton = { libelle: Import.libelleDImporterPesees(imp.mesures.aImporter.length), actif: imp.mesures.aImporter.length > 0 };
+      v.surImporter = function () { importerMesuresHevy().catch(function (e) { console.warn('Import :', texteErreur(e)); }); };
+      v.surAnnuler = function () { importHevy = importNeuf(); rendreImportEcran(); };
+    } else if (imp.etape === 'fini' && imp.mesuresFin) {
+      v.fin = { titre: imp.mesuresFin.titre, detail: null, suite: imp.mesuresFin.suite, connexion: null };
     } else if (imp.etape === 'fini') {
       v.fin = Import.phrasesDeFin(imp.resultat);
       v.fin.connexion = imp.resultat.arret ? M.connexion : null;
@@ -18491,8 +18671,40 @@
       aideMdp: $('aide-mdp'), bouton: $('btn-connexion'),
       bascule: $('btn-bascule-entree'), basculeAvant: $('entree-bascule-avant'),
       champEmail: $('champ-email'), champMdp: $('champ-mdp'), message: $('erreur-connexion'),
-      age15: $('env-age15'), conditions: $('entree-conditions'), surMentions: ouvrirMentions
+      age15: $('env-age15'), conditions: $('entree-conditions'), surMentions: ouvrirMentions,
+      captcha: $('captcha-zone'), captchaActif: Auth.captcha.actif()
     };
+  }
+
+  // 247 — LE CAPTCHA : l'écran monte le widget À L'OUVERTURE (le jeton est prêt au clic), demande le jeton avant
+  // l'appel, le réinitialise après CHAQUE tentative. Clé de site vide : `actif()` est faux, rien de tout cela ne part.
+  function horsLigne() { return !!(racine.navigator && racine.navigator.onLine === false); }
+
+  function direCaptcha(err) {
+    var phrase = Auth.captcha.phrase(err);
+    if (!phrase) return false;
+    var m = $('erreur-connexion');
+    m.className = 'erreur';
+    m.textContent = phrase;
+    $('btn-captcha-reessayer').hidden = !Auth.captcha.estScript(err);
+    return true;
+  }
+
+  function montrerCaptcha() {
+    if (!Auth.captcha.actif()) return Promise.resolve();
+    $('btn-captcha-reessayer').hidden = true;
+    return Auth.captcha.monter($('captcha-conteneur')).catch(function (err) {
+      // Hors ligne, la connexion était déjà impossible : le message actuel reste (rien n'est ajouté).
+      if (!horsLigne()) direCaptcha(err);
+    });
+  }
+
+  // Le jeton d'une tentative (null si le captcha est inactif ou si l'appareil est hors ligne : l'appel dira lui-même
+  // « Pas de réseau. »). Remonte l'erreur de captcha, dite par l'appelant.
+  async function jetonCaptcha() {
+    if (!Auth.captcha.actif() || horsLigne()) return null;
+    await Auth.captcha.monter($('captcha-conteneur'));
+    return Auth.captcha.jeton();
   }
 
   // ⚠️ REMISE À ZÉRO À CHAQUE OUVERTURE. Sans elle, l'ancienne erreur et
@@ -18513,6 +18725,7 @@
     Rendu.rendreEntree(c);
     rendreEncartInstaller();   // 138 : iPhone, hors de l'app
     majBoutonEntree();
+    montrerCaptcha();   // 247
   }
 
   function etatEntree() {
@@ -18567,7 +18780,9 @@
     erreur.className = 'erreur';
     bouton.disabled = true;
     bouton.textContent = inscription ? 'Création…' : 'Connexion…';
+    var entre = false;
     try {
+      var jeton = await jetonCaptcha();   // 247
       if (inscription) {
         var etat = etatEntree();
         // ⚠️ RETENU AVANT L'APPEL. `onAuthStateChange` peut partir AVANT que
@@ -18577,7 +18792,8 @@
         // 59-4 — le lien de confirmation (s'il y en a un) revient sur CETTE app.
         // 60-3b — le pseudo (normalisé) part AVEC le compte, dans ses données : le lien de confirmation
         // s'ouvre souvent dans une autre page, où `pseudoAInscrire` n'existe plus.
-        var r = await Auth.inscrire(etat.email, etat.mdp, racine.location.origin + '/', pseudoAInscrire);
+        var r = await Auth.inscrire(etat.email, etat.mdp, racine.location.origin + '/', pseudoAInscrire, jeton);
+        entre = !!(r && r.session);
         // 70 — sans session, TOUJOURS la même phrase (adresse neuve ou déjà inscrite :
         // Supabase ne le dit pas, et on ne le dirait pas), et « Mot de passe oublié ? »
         // juste dessous — c'est la seule issue d'une adresse déjà inscrite.
@@ -18594,12 +18810,15 @@
         // Une connexion n'inscrit personne : un pseudo resté en mémoire (une création échouée, un autre
         // compte) ne doit pas partir dans la ligne d'un compte qui n'en a pas encore.
         pseudoAInscrire = null;
-        await Auth.connecter($('champ-email').value.trim(), $('champ-mdp').value);
+        await Auth.connecter($('champ-email').value.trim(), $('champ-mdp').value, jeton);
+        entre = true;
       }
     } catch (err) {
       pseudoAInscrire = null;
-      erreur.textContent = texteErreur(err);
+      if (!direCaptcha(err)) erreur.textContent = texteErreur(err);
     } finally {
+      // 247 — un jeton ne sert qu'une fois : après CHAQUE tentative, réussie ou non. Entré, le widget part.
+      if (Auth.captcha.actif()) { Auth.captcha.reinitialiser(); if (entre) Auth.captcha.demonter(); }
       bouton.textContent = inscription ? 'Créer mon compte' : 'Se connecter';
       majBoutonEntree();
     }
@@ -18612,8 +18831,16 @@
       erreur.textContent = 'Saisis d’abord ton e-mail.';
       return;
     }
-    try { await Auth.reinitialiser(email, racine.location.origin + '/profil'); }
-    catch (err) { erreur.className = 'erreur'; erreur.textContent = texteErreur(err); return; }
+    try {
+      var jeton = await jetonCaptcha();   // 247
+      await Auth.reinitialiser(email, racine.location.origin + '/profil', jeton);
+    }
+    catch (err) {
+      erreur.className = 'erreur';
+      if (!direCaptcha(err)) erreur.textContent = texteErreur(err);
+      return;
+    }
+    finally { if (Auth.captcha.actif()) Auth.captcha.reinitialiser(); }
     // La même phrase que l'adresse existe ou non : dire « ce compte n'existe
     // pas » révélerait qui est inscrit à qui demande.
     erreur.className = 'erreur ok';
@@ -18823,6 +19050,11 @@
       rendreEntree(vers);
     });
     $('btn-oubli').addEventListener('click', demanderReinitialisation);
+    // 247 — « Réessayer » : le script du captcha n'avait pas pu se charger.
+    $('btn-captcha-reessayer').addEventListener('click', function () {
+      $('erreur-connexion').textContent = '';
+      montrerCaptcha();
+    });
     $('champ-pseudo').addEventListener('input', surFrappePseudo);
     ['champ-email', 'champ-mdp'].forEach(function (id) {
       $(id).addEventListener('input', majBoutonEntree);

@@ -1,0 +1,5 @@
+[
+ {"nom": "247-jeton-pas-transmis-a-la-connexion", "fichier": "v2/js/auth.js", "ancien": "    if (captchaToken) identifiants.options = { captchaToken: captchaToken };   // 247\n", "nouveau": "", "banc": "profil-creation", "unitaires": ["tests/unit/v2-captcha.test.js"]},
+ {"nom": "247-script-charge-au-demarrage", "fichier": "v2/js/app.js", "ancien": "    // 247 — « Réessayer » : le script du captcha n'avait pas pu se charger.\n", "nouveau": "    Auth.captcha.charger();\n    // 247 — « Réessayer » : le script du captcha n'avait pas pu se charger.\n", "banc": "profil-creation", "unitaires": ["tests/unit/v2-captcha.test.js"]},
+ {"nom": "247-pas-de-reinitialisation-apres-tentative", "fichier": "v2/js/app.js", "ancien": "{ Auth.captcha.reinitialiser(); if (entre) Auth.captcha.demonter(); }", "nouveau": "{ if (entre) Auth.captcha.demonter(); }", "banc": "profil-creation", "unitaires": ["tests/unit/v2-captcha.test.js"]}
+]

@@ -121,7 +121,12 @@ function neuveBase() {
     // `refusColonne` compte ces refus.
     sansBilansAnnonces: false, sansMaSalle: false, refusColonne: 0,
     // 123 — la base AVANT v2_095 : `profiles_ma_salle_ok` n'accepte que `{ max, pas }` pour les haltères (v2_088).
-    avantV2095: false
+    avantV2095: false,
+    // 247 — LE CAPTCHA. `captchaExige` : le projet a activé la protection (un jeton à usage UNIQUE sur la connexion,
+    // l'inscription et la réinitialisation, sinon `captcha_failed`) ; `captchaRefuse` : même un jeton frais est refusé
+    // (périmé côté Cloudflare) ; `captchaVu` : { chemin, jeton } pour chaque appel d'authentification, exigé ou non ;
+    // `cloudflareVus` : combien de fois le script de Cloudflare a été demandé ; `recuperations` : les e-mails de /recover.
+    captchaExige: false, captchaRefuse: false, captchaVu: [], captchaUtilises: new Set(), cloudflareVus: 0, recuperations: []
   };
 }
 
@@ -168,6 +173,18 @@ function salleConforme(v, avantV2095) {
     h.pas <= 10 && h.pas <= h.max && Math.floor(h.max * 2) === h.max * 2 && Math.floor(h.pas * 2) === h.pas * 2;
 }
 
+// 247 — le script que le faux Cloudflare sert à la place de `api.js` : l'interface de `window.turnstile` que l'app
+// utilise (render / reset / remove), et un compteur lisible depuis le banc (`window.__ts`).
+const FAUX_TURNSTILE = `(function () {
+  var ts = window.__ts = { rendus: 0, resets: 0, retraits: 0, n: 0, pret: null, options: null };
+  function donner() { ts.n++; ts.pret = 'faux-jeton-' + ts.n; ts.options.callback(ts.pret); }
+  window.turnstile = {
+    render: function (c, o) { ts.rendus++; ts.options = o; c.setAttribute('data-faux-widget', String(ts.rendus)); setTimeout(donner, 0); /* le pas d’un rappel asynchrone, comme le vrai widget */ return 'w' + ts.rendus; },
+    reset: function () { ts.resets++; ts.pret = null; setTimeout(donner, 0); /* le pas d’un rappel asynchrone */ },
+    remove: function () { ts.retraits++; }
+  };
+})();`;
+
 async function contexte(nav, bd, o) {
   const opt = o || {};
   // 138 — `agent` : l'agent du navigateur (l'iPhone se simule par l'agent et `maxTouchPoints`, jamais autrement) ;
@@ -181,6 +198,21 @@ async function contexte(nav, bd, o) {
     sessionStorage.setItem('__graine', '1');
     if (s) localStorage.setItem('th-v2-auth', s);
   }, opt.stockage ? JSON.stringify(opt.stockage) : null);
+  // 247 — LE FAUX CLOUDFLARE. `opt.captcha` : { cle, script } — `cle` est posée dans `config.js` servi (le dépôt
+  // l'a VIDE) ; `script` ('ok' | 'echec') se lit à chaque requête, donc se change en cours de scénario. Le faux widget
+  // appelle `callback('faux-jeton-N')` aussitôt monté, et un nouveau jeton après chaque `reset`. Rien ne part vers le
+  // vrai Cloudflare : la garde réseau coupe ce que ce banc ne prend pas.
+  const cap = opt.captcha || {};
+  if (cap.cle) {
+    const config = require('fs').readFileSync(path.join(R, 'v2/js/config.js'), 'utf8')
+      .replace(/TURNSTILE_SITE_KEY\s*:\s*'[^']*'/, "TURNSTILE_SITE_KEY: '" + cap.cle + "'");
+    await ctx.route(/\/js\/config\.js(\?.*)?$/, (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: config }));
+  }
+  await ctx.route(/challenges\.cloudflare\.com/, (route) => {
+    bd.cloudflareVus++;
+    if ((cap.script || 'ok') === 'echec') return route.abort('failed');
+    return route.fulfill({ status: 200, contentType: 'application/javascript', body: FAUX_TURNSTILE });
+  });
   // 135 — chaque requête est comptée en vol jusqu'à sa réponse (`calme`). Sauf celles que le banc fait PENDRE
   // exprès (`userPend`, `rpcPend`) : elles ne répondent jamais, et le calme se mesure sans elles.
   await ctx.route(/supabase\.co/, async (route) => {
@@ -205,6 +237,26 @@ async function contexte(nav, bd, o) {
     }
 
     // ── L'authentification ────────────────────────────────────────────────
+    // 247 — la protection anti-robot du projet : un jeton à usage unique dans `gotrue_meta_security.captcha_token`.
+    const captchaRefuse = () => {
+      if (req.method() !== 'POST' || (chemin === '/auth/v1/token' && url.searchParams.get('grant_type') !== 'password') ||
+          ['/auth/v1/signup', '/auth/v1/token', '/auth/v1/recover'].indexOf(chemin) < 0) return null;
+      let jeton = null;
+      try { jeton = (JSON.parse(req.postData() || '{}').gotrue_meta_security || {}).captcha_token || null; } catch (e) { jeton = null; }
+      bd.captchaVu.push({ chemin, jeton });
+      if (!bd.captchaExige) return null;
+      if (!jeton || bd.captchaRefuse || bd.captchaUtilises.has(jeton)) {
+        return json({ code: 400, error_code: 'captcha_failed', msg: 'captcha verification process failed' }, 400);
+      }
+      bd.captchaUtilises.add(jeton);
+      return null;
+    };
+    const refusCaptcha = captchaRefuse();
+    if (refusCaptcha) return refusCaptcha;
+    if (chemin === '/auth/v1/recover' && req.method() === 'POST') {
+      bd.recuperations.push(JSON.parse(req.postData() || '{}').email);
+      return json({});
+    }
     if (chemin === '/auth/v1/signup' && req.method() === 'POST') {
       bd.inscrits++;
       const id = B;      // le seul compte qui s'inscrit au banc
@@ -1874,6 +1926,165 @@ function ok(nom, cond, detail) {
         bd.refusColonne <= 4, String(bd.refusColonne));
       ok('aucune écriture refusée par la « RLS »', bd.refus.length === 0, JSON.stringify(bd.refus));
       ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+      await ctx.close();
+    }
+
+    // ══ 247. LE CAPTCHA TURNSTILE (faux Cloudflare, faux Supabase qui exige un jeton à usage unique) ═════════
+    const pretCaptcha = (page) => attendreQue(page, () => page.evaluate(() => !!(window.__ts && window.__ts.pret)), 10000);
+    const messageEntree = (page) => page.evaluate(() => document.querySelector('#erreur-connexion').textContent);
+    const ouvrirEntree = async (page) => {
+      await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+      await attendreQue(page, () => page.evaluate(() => { const v = document.querySelector('#vue-connexion'); return !!v && !v.hidden; }), 15000);
+    };
+    const remplirConnexion = async (page) => {
+      await page.fill('#champ-email', 'a@banc.test');
+      await page.fill('#champ-mdp', 'motdepasse123');
+    };
+    const entre = (page) => attendreQue(page, () => page.evaluate(() => {
+      try { return !!JSON.parse(localStorage.getItem('th-v2-auth')).user; } catch (e) { return false; } }), 10000);
+
+    console.log('\n══ 247-A. clé de site VIDE : rien ne change (aucun script, aucun widget, aucun jeton) ══');
+    {
+      const bd = neuveBase();
+      const ctx = await contexte(nav, bd, {});
+      const page = await ctx.newPage();
+      const erreurs = [];
+      page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
+      await ouvrirEntree(page);
+      await remplirConnexion(page);
+      const zone = await page.evaluate(() => { const z = document.querySelector('#captcha-zone'); return !!z && !z.hidden; });
+      await page.click('#btn-connexion');
+      ok('la connexion passe', await entre(page));
+      ok('DISCRIMINANT — le script de Cloudflare n’est JAMAIS demandé', bd.cloudflareVus === 0, String(bd.cloudflareVus));
+      ok('la zone du captcha reste cachée', zone === false);
+      ok('l’appel d’authentification ne porte AUCUN jeton', bd.captchaVu.length > 0 && bd.captchaVu.every((v) => v.jeton === null), JSON.stringify(bd.captchaVu));
+      ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+      await ctx.close();
+    }
+
+    console.log('\n══ 247-B. clé posée, le projet exige le jeton : mot de passe oublié, inscription, connexion — un jeton chacun ══');
+    {
+      const bd = neuveBase();
+      bd.captchaExige = true;
+      bd.confirmationEmail = true;
+      const ctx = await contexte(nav, bd, { captcha: { cle: 'cle-de-banc', script: 'ok' } });
+      const page = await ctx.newPage();
+      const erreurs = [];
+      page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
+      await ouvrirEntree(page);
+      ok('le widget est monté DÈS L’OUVERTURE de l’écran (avant tout geste)', await pretCaptcha(page));
+      const montage = await page.evaluate(() => ({ zone: !document.querySelector('#captcha-zone').hidden,
+        aria: document.querySelector('#captcha-conteneur').getAttribute('aria-label'), o: window.__ts.options && {
+          sitekey: window.__ts.options.sitekey, appearance: window.__ts.options.appearance, language: window.__ts.options.language } }));
+      ok('la zone est là, libellée « Vérification anti-robot », en mode interaction-only', montage.zone && montage.aria === 'Vérification anti-robot' &&
+        montage.o.appearance === 'interaction-only' && montage.o.language === 'fr' && montage.o.sitekey === 'cle-de-banc', JSON.stringify(montage));
+      ok('le script de Cloudflare est demandé UNE fois', bd.cloudflareVus === 1, String(bd.cloudflareVus));
+
+      // 1. mot de passe oublié
+      await page.fill('#champ-email', 'a@banc.test');
+      await page.click('#btn-oubli');
+      await attendreQue(page, () => bd.recuperations.length > 0, 10000);
+      const vuR = bd.captchaVu.filter((v) => v.chemin === '/auth/v1/recover');
+      ok('DISCRIMINANT — « Mot de passe oublié ? » transmet le jeton (le projet l’accepte, le lien part)',
+        bd.recuperations.length === 1 && vuR.length === 1 && vuR[0].jeton === 'faux-jeton-1', JSON.stringify(bd.captchaVu));
+      ok('le message dit que le lien est parti', await attendreQue(page, async () => /le lien vient de partir/.test(await messageEntree(page)), 8000), await messageEntree(page));
+
+      // 2. inscription (jeton NEUF : le premier est consommé)
+      await page.click('#btn-bascule-entree');
+      await versInscription(page);
+      await pretCaptcha(page);
+      await page.fill('#champ-pseudo', 'banc_captcha');
+      await page.fill('#champ-email', 'b@banc.test');
+      await page.fill('#champ-mdp', 'motdepasse123');
+      await page.check('#champ-age15');
+      await attendreQue(page, () => page.evaluate(() => !document.querySelector('#btn-connexion').disabled), 5000);
+      await page.click('#btn-connexion');
+      await attendreQue(page, () => bd.inscriptions.length > 0, 10000);
+      const vuI = bd.captchaVu.filter((v) => v.chemin === '/auth/v1/signup');
+      ok('DISCRIMINANT — l’inscription transmet le jeton (le projet l’accepte), et ce n’est PAS le premier',
+        bd.inscriptions.length === 1 && vuI.length === 1 && vuI[0].jeton && vuI[0].jeton !== 'faux-jeton-1', JSON.stringify(bd.captchaVu));
+
+      // 3. connexion (encore un jeton neuf)
+      await page.click('#btn-bascule-entree');
+      await attendreQue(page, () => page.evaluate(() => document.querySelector('#env-pseudo').hidden), 5000);
+      await pretCaptcha(page);
+      await remplirConnexion(page);
+      await attendreQue(page, () => page.evaluate(() => window.__ts.resets >= 2 && !!window.__ts.pret), 10000);
+      await page.click('#btn-connexion');
+      ok('DISCRIMINANT — la connexion transmet le jeton : la session s’ouvre', await entre(page));
+      const jetons = bd.captchaVu.map((v) => v.jeton);
+      ok('trois appels, trois jetons DIFFÉRENTS (un jeton ne sert qu’une fois : réinitialisé après chaque tentative)',
+        jetons.length === 3 && new Set(jetons).size === 3 && jetons.every(Boolean), JSON.stringify(bd.captchaVu));
+      const compteurs = await page.evaluate(() => ({ resets: window.__ts.resets, retraits: window.__ts.retraits }));
+      ok('le widget a été remis à zéro après chaque tentative, et retiré une fois entré', compteurs.resets >= 3 && compteurs.retraits >= 1, JSON.stringify(compteurs));
+      ok('le script n’a pas été redemandé', bd.cloudflareVus === 1, String(bd.cloudflareVus));
+      ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+      await ctx.close();
+    }
+
+    console.log('\n══ 247-C. le script de Cloudflare ne se charge pas : la phrase, « Réessayer », jamais un bouton qui tourne ══');
+    {
+      const bd = neuveBase();
+      bd.captchaExige = true;
+      const captcha = { cle: 'cle-de-banc', script: 'echec' };
+      const ctx = await contexte(nav, bd, { captcha });
+      const page = await ctx.newPage();
+      await ouvrirEntree(page);
+      // L'écran peut s'ouvrir deux fois de suite (la session est lue, puis l'écran d'entrée se rend) : chaque contrôle
+      // attend SON état plutôt que de lire une seule fois entre deux rendus.
+      const PHRASE_SCRIPT = 'La vérification anti-robot n\'a pas pu se charger. Vérifie ta connexion, puis réessaie.';
+      const reessayer = () => page.evaluate(() => { const b = document.querySelector('#btn-captcha-reessayer'); return !b.hidden && b.offsetParent !== null; });
+      ok('DISCRIMINANT — « La vérification anti-robot n\'a pas pu se charger. Vérifie ta connexion, puis réessaie. »',
+        await attendreQue(page, async () => (await messageEntree(page)) === PHRASE_SCRIPT, 10000), await messageEntree(page));
+      ok('le bouton « Réessayer » est visible', await attendreQue(page, reessayer, 10000));
+      await remplirConnexion(page);
+      await page.click('#btn-connexion');
+      const libere = await attendreQue(page, () => page.evaluate(() => {
+        const b = document.querySelector('#btn-connexion'); return b.textContent === 'Se connecter' && !b.disabled; }), 12000);
+      ok('DISCRIMINANT — le bouton principal n’est pas resté sur « Connexion… » (jamais un bouton qui tourne sans fin)', libere);
+      ok('aucun appel d’authentification n’est parti sans jeton', bd.captchaVu.length === 0, JSON.stringify(bd.captchaVu));
+      ok('la phrase reste dite', await attendreQue(page, async () => (await messageEntree(page)) === PHRASE_SCRIPT, 5000));
+      // le réseau revient : « Réessayer »
+      captcha.script = 'ok';
+      await page.click('#btn-captcha-reessayer');
+      ok('« Réessayer » recharge le script et monte le widget', await pretCaptcha(page));
+      ok('la phrase et le bouton « Réessayer » disparaissent', (await messageEntree(page)) === '' && !(await reessayer()), await messageEntree(page));
+      await page.click('#btn-connexion');
+      ok('puis la connexion passe', await entre(page));
+      await ctx.close();
+    }
+
+    console.log('\n══ 247-D. le projet refuse le jeton (périmé) : « La vérification a expiré. Réessaie. », le widget se réinitialise ══');
+    {
+      const bd = neuveBase();
+      bd.captchaExige = true;
+      bd.captchaRefuse = true;
+      const ctx = await contexte(nav, bd, { captcha: { cle: 'cle-de-banc', script: 'ok' } });
+      const page = await ctx.newPage();
+      await ouvrirEntree(page);
+      await pretCaptcha(page);
+      await remplirConnexion(page);
+      await page.click('#btn-connexion');
+      const dit = await attendreQue(page, async () => (await messageEntree(page)) === 'La vérification a expiré. Réessaie.', 10000);
+      ok('DISCRIMINANT — la phrase de l’expiration remplace le message brut de Supabase', dit, await messageEntree(page));
+      const etat = await page.evaluate(() => ({ resets: window.__ts.resets, bouton: document.querySelector('#btn-connexion').textContent,
+        actif: !document.querySelector('#btn-connexion').disabled, session: !!localStorage.getItem('th-v2-auth') }));
+      ok('DISCRIMINANT — le widget a été réinitialisé après la tentative refusée', etat.resets >= 1, JSON.stringify(etat));
+      ok('le bouton est libre et personne n’est connecté', etat.bouton === 'Se connecter' && etat.actif && !etat.session, JSON.stringify(etat));
+      await ctx.close();
+    }
+
+    console.log('\n══ 247-E. une personne CONNECTÉE n’appelle jamais Cloudflare (vitesse d’ouverture, garde-fou 231) ══');
+    {
+      const bd = neuveBase();
+      bd.captchaExige = true;
+      const ctx = await contexte(nav, bd, { stockage: sessionDe(A), captcha: { cle: 'cle-de-banc', script: 'ok' } });
+      const page = await ctx.newPage();
+      await page.goto(BASE + '/profil', { waitUntil: 'domcontentloaded' });
+      const surProfil = await attendreQue(page, () => page.evaluate(() => !!document.querySelector('#btn-deconnexion')), 15000);
+      await calme(page, bd);
+      ok('prémisse — A est connecté, son profil s’affiche', surProfil);
+      ok('DISCRIMINANT — le script de Cloudflare n’est pas demandé au démarrage de l’app', bd.cloudflareVus === 0, String(bd.cloudflareVus));
       await ctx.close();
     }
   } finally {

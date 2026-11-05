@@ -47,7 +47,7 @@
     arriere: ['tirage_vers_visage', 'oiseau_haltere'],
     curl: ['curl_biceps_barre_ez', 'curl_biceps_haltere', 'curl_marteau_haltere'],
     triceps: ['extension_triceps_poulie_haute', 'extension_des_triceps_au_dessus_de_la_tete_cable',
-              'extension_triceps_haltere', 'pompes_diamant'],
+              'extension_triceps_haltere', 'pompes_diamant', 'pompes_prise_serree'],
     ecarte: ['ecarte_machine', 'ecartes_poulie', 'ecarte_haltere'],
     // 197 (MOTEUR §9.36) — LES MOTIFS DE « FORME ET SANTÉ » : le geste d'abord, le matériel léger d'abord (haltère, poids du corps).
     forme_jambes: ['squat_goblet_haltere', 'squat_goblet_kettlebell', 'squat_poids_du_corps', 'fente_arriere_haltere', 'fente_arriere'],
@@ -849,6 +849,16 @@
     var motifs = Object.keys(MOTIFS).filter(function (m) { return contient(MOTIFS[m], slug); });
     return liste(menager).filter(function (z) {
       return possede(CHARGE_ZONE, z) && motifs.some(function (m) { return contient(CHARGE_ZONE[z], m); });
+    });
+  }
+
+  // 245 (F3, I133, décidé le 05/11/2026) — LES ZONES QUI ÉCARTENT UNE MARCHE D'ÉCHELLE : seulement le COUDE, et seulement pour le motif
+  // triceps (le diamant, la prise serrée). Aucune autre zone n'écarte de marche (dos à ménager : les tractions assistées restent
+  // proposées). Élargissement aux autres zones : non validé, noté pour plus tard (05/11).
+  var ECARTE_LA_MARCHE = { coude: ['triceps'] };
+  function zonesQuiEcartentLaMarche(slug, menager) {
+    return liste(menager).filter(function (z) {
+      return possede(ECARTE_LA_MARCHE, z) && ECARTE_LA_MARCHE[z].some(function (m) { return possede(MOTIFS, m) && contient(MOTIFS[m], slug); });
     });
   }
 
@@ -2011,6 +2021,7 @@
     pourquoi: pourquoi,
     mentionsDeLigne: mentionsDeLigne,
     zonesQueChargeLExercice: zonesQueChargeLExercice,
+    zonesQuiEcartentLaMarche: zonesQuiEcartentLaMarche,
     placerLesJambesLourdes: placerLesJambesLourdes, phrasesHybrides: phrasesHybrides, NOMS_DES_JOURS: NOMS_DES_JOURS,
     phrasesDeLApercu: phrasesDeLApercu,
     exemptsDuRaccourci: exemptsDuRaccourci,

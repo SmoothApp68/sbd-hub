@@ -184,9 +184,9 @@ describe('§10 bis (113) — le moteur : au plafond, la marche du déclenchement
     expect(M.remplacantAuPlafond(remplacants({ haltere: { deja: true } }), 30)).toBeNull();
   });
 
-  test('le détail du remplacement : « Curl Biceps (Haltère) : ta salle va jusqu’à 2 × 40 kg. » ; non déclaré, aucune limite', () => {
+  test('le détail du remplacement : « Curl Biceps (Haltère) : ta salle va jusqu’à 80 kg. » (245 : plus de « 2 × ») ; non déclaré, aucune limite', () => {
     expect(M.detailRemplacement({ slug: 'curl_biceps_haltere', nom: 'Curl Biceps (Haltère)', salle: salleDe('curl_biceps_haltere') }))
-      .toBe('Curl Biceps (Haltère)' + NB + ': ta salle va jusqu\'à 2' + NB + '×' + NB + '40' + NB + 'kg.');
+      .toBe('Curl Biceps (Haltère)' + NB + ': ta salle va jusqu\'à 80' + NB + 'kg.');
     expect(M.detailRemplacement({ slug: 'curl_poulie', nom: 'Curl à la poulie', salle: null }))
       .toBe('Curl à la poulie' + NB + ': aucune limite déclarée dans ta salle.');
   });

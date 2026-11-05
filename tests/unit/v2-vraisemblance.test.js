@@ -93,21 +93,24 @@ describe('185 — les haltères', () => {
   test('4 kg ou moins : rien, même au-delà de 15 % (meilleur 10, 14 kg)', () => {
     expect(v({ charge: 14, reps: 10, equipement: 'haltere' }, { historique: histo(10) })).toBeNull();
   });
-  test('le double de l’habitude : « par haltère, ou les deux ensemble ? »', () => {
-    const q = v({ charge: 44, reps: 10, equipement: 'haltere' }, { historique: H });
-    expect(q.genre).toBe('double_halteres');
-    expect(plat(q.texte)).toBe('44 kg : par haltère, ou les deux ensemble ?');
-    expect(q.boutons.map((b) => b.texte)).toEqual(['22 par haltère', '44 par haltère']);
-    expect(q.boutons[0]).toMatchObject({ action: 'charge', valeur: 22, principal: true });
-    expect(q.boutons[1].action).toBe('garder');
+  test('245 — la charge aux haltères est la PAIRE : plus de question « par haltère ou les deux ? », la hausse suffit', () => {
+    expect(Faits.GENRES_DE_QUESTION).not.toContain('double_halteres');
+    ['36', '44', '45', '34'].forEach((c) => {
+      const q = v({ charge: Number(c), reps: 10, equipement: 'haltere' }, { historique: [seance(20, 8)].concat(histo(20, 3)) });
+      expect(q.genre).toBe('hausse');
+    });
+    expect(plat(v({ charge: 44, reps: 10, equipement: 'haltere' }, { historique: H }).texte)).toBe('44 kg ? Ton meilleur ici : 22 kg.');
   });
-  test('de 1,8 à 2,2 fois l’habitude, et pas au-delà', () => {
-    const hab = histo(20);   // dernière séance : 15 (l'habitude), meilleur 20
-    expect(v({ charge: 36, reps: 10, equipement: 'haltere' }, { historique: [seance(20, 8)] .concat(histo(20, 3)) }).genre).toBe('double_halteres');   // 1,8 × 20
-    expect(v({ charge: 44, reps: 10, equipement: 'haltere' }, { historique: [seance(20, 8)].concat(histo(20, 3)) }).genre).toBe('double_halteres');   // 2,2 × 20
-    expect(v({ charge: 45, reps: 10, equipement: 'haltere' }, { historique: [seance(20, 8)].concat(histo(20, 3)) }).genre).toBe('hausse');
-    expect(v({ charge: 34, reps: 10, equipement: 'haltere' }, { historique: [seance(20, 8)].concat(histo(20, 3)) }).genre).toBe('hausse');
-    expect(hab.length).toBe(4);
+  test('245 — la hausse sur la paire : 8 kg au-dessus du meilleur et plus de 15 % → la question', () => {
+    expect(v({ charge: 30, reps: 10, equipement: 'haltere' }, { historique: H }).genre).toBe('hausse');   // 22 -> 30
+  });
+  test('245 — le poids d’UN haltère tapé après des paires est une BAISSE de moitié : la question « baisse » l’attrape', () => {
+    // la consigne du jour : la paire de 40 ; tapé 20 (un haltère) → -50 % et 20 kg sous la consigne.
+    const q = v({ charge: 20, reps: 10, equipement: 'haltere' }, { historique: histo(40), chargeVisee: 40 });
+    expect(q && q.genre).toBe('baisse');
+    // la série d'avant dans la séance sert de repère quand il n'y a pas de consigne
+    const q2 = v({ charge: 20, reps: 10, equipement: 'haltere' }, { historique: histo(40), seance: [serie(40, 10)] });
+    expect(q2 && q2.genre).toBe('baisse');
   });
   test('à la barre, le double n’est pas une question de haltères : c’est une hausse', () => {
     expect(v({ charge: 44, reps: 10, equipement: 'barre' }, { historique: H }).genre).toBe('hausse');
@@ -136,6 +139,22 @@ describe('185 — la baisse : plus de 35 % ET plus de 10 kg sous la consigne du 
     const q = v({ charge: 50, reps: 5, equipement: 'barre' }, { historique: H, seance: [serie(100, 5)] });
     expect(q.genre).toBe('baisse');
     expect(plat(q.texte)).toBe('50 kg ? Ta série d’avant : 100 kg.');
+  });
+});
+
+describe('245 — la baisse aux haltères : le seuil absolu est celui de la hausse (4 kg sur la paire), le −35 % relatif inchangé', () => {
+  const bas = (kg, ref) => v({ charge: kg, reps: 8, equipement: 'haltere' }, { historique: histo(ref), chargeVisee: ref });
+  test('DISCRIMINANT — 20 saisi 10 et 16 saisi 8 : la question « baisse »', () => {
+    expect(bas(10, 20).genre).toBe('baisse');
+    expect(bas(8, 16).genre).toBe('baisse');
+    expect(plat(bas(10, 20).texte)).toBe('10 kg ? Ta consigne : 20 kg.');
+  });
+  test('12 → 10 (−17 %, sous le relatif) et 8 → 4 (exactement 4 kg : borne stricte) : rien', () => {
+    expect(bas(10, 12)).toBeNull();
+    expect(bas(4, 8)).toBeNull();
+  });
+  test('ailleurs qu’aux haltères, le seuil reste 10 kg (une machine : 20 → 10 est exactement 10 kg, rien)', () => {
+    expect(v({ charge: 10, reps: 8, equipement: 'machine' }, { historique: histo(20), chargeVisee: 20 })).toBeNull();
   });
 });
 
@@ -200,7 +219,6 @@ describe('185 — l’apprentissage : deux « Oui » au même genre sur le même
   test('chaque genre appris se tait', () => {
     const cas = {
       hausse: [{ charge: 152, reps: 5, equipement: 'barre' }, { historique: H }],
-      double_halteres: [{ charge: 44, reps: 10, equipement: 'haltere' }, { historique: histo(22) }],
       baisse: [{ charge: 40, reps: 5, equipement: 'barre' }, { historique: H, chargeVisee: 100 }],
       zero: [{ charge: 100, reps: 0, equipement: 'barre' }, { historique: H }],
       reps_haut: [{ charge: 100, reps: 100, equipement: 'barre' }, { historique: H, cible: 8 }],
@@ -241,5 +259,28 @@ describe('185 — la question du record (cas 5)', () => {
   test('NBSP : le formateur unique des charges', () => {
     expect(q(200).texte).toContain('200' + NBSP + 'kg');
     expect(Modele.charge(200)).toContain(NBSP);
+  });
+});
+
+describe('245 (D-Q1) — le meilleur est celui de la médaille (recordLourd), pas celui de toute la vie', () => {
+  const H = histo(200);   // un 200 kg d'il y a longtemps, toujours dans l'historique
+  test('DISCRIMINANT — sans recordLourd (avant) : 140 kg est sous le meilleur de toute la vie, aucune question', () => {
+    expect(v({ charge: 140, reps: 5, equipement: 'barre' }, { historique: H })).toBeNull();
+  });
+  test('DISCRIMINANT — recordLourd à 100 kg (périmètre de la médaille) : 140 kg est une hausse, la question dit 100 kg', () => {
+    const q = v({ charge: 140, reps: 5, equipement: 'barre' }, { historique: H, recordLourd: 100 });
+    expect(q.genre).toBe('hausse');
+    expect(plat(q.texte)).toBe('140 kg ? Ton meilleur ici : 100 kg.');
+  });
+  test('le record : 140 kg × 5 est +40 % sur le record de la médaille, la question vient', () => {
+    const r = Faits.questionDuRecord({ charge: 140, reps: 5, equipement: 'barre' }, { historique: H, recordLourd: 100 });
+    expect(r && r.genre).toBe('record');
+  });
+  test('recordLourd nul (périmètre vide) : retour au meilleur de toute la vie — 220 au lieu de 22 POSE la question, 140 sous le 200 non', () => {
+    expect(v({ charge: 220, reps: 5, equipement: 'barre' }, { historique: histo(22), recordLourd: null }).genre).toBe('hausse');
+    expect(v({ charge: 140, reps: 5, equipement: 'barre' }, { historique: H, recordLourd: null })).toBeNull();
+  });
+  test('les séries validées du jour comptent toujours (une charge confirmée plus tôt n’est plus une surprise)', () => {
+    expect(v({ charge: 140, reps: 5, equipement: 'barre' }, { historique: H, recordLourd: 100, seance: [serie(140, 5)] })).toBeNull();
   });
 });

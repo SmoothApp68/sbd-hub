@@ -7,6 +7,17 @@ Dernière migration appliquée : **`v2_125`** (la calisthénie, 195) ; avant ell
 **Volumétrie (24/10, 2 h 30)** : 1 288 séances · 29 673 séries · 860 exercices (848 actifs) · 961 alias
 (`exercise_alias`) · 361 prédictions · 3 647 records · 9 profils · 36 règles d'accès.
 
+## Le 05/11/2026 — `v2_132`, `v2_135`, `v2_136` (appliquées par Claude.ai)
+
+| Migration | Ce qu'elle fait |
+|---|---|
+| `v2_132` (05/11) | Un exercice ajouté au catalogue : **`rowing_convergent_un_bras_machine`** (« Rowing Convergent Un Bras (Machine) »), parent `tirage_machine_convergente`. |
+| `v2_135` (05/11) | Clé étrangère **`objectifs_pari_id_fkey`** : `objectifs.pari_id` → `predictions.id`, `ON DELETE SET NULL`, et l'index **`objectifs_pari_id_idx`**. |
+| `v2_136` (05/11) | `EXECUTE` retiré à `PUBLIC`, `anon` et `authenticated` sur `social_bloque`, `social_suit`, `social_mutuel`, `guilde_de`, `guilde_commune` et `guilde_semaine_lancee` : des fonctions internes, appelées seulement par d'autres fonctions `SECURITY DEFINER` ; aucune règle RLS ni vue ne les cite (vérifié). |
+
+**Le parc de fonctions** : 79 fonctions `SECURITY DEFINER`, `search_path` fixé pour toutes ; seule `pseudo_libre` est ouverte à `anon` (voulu).
+Pas encore appliquées, donc pas décrites ici : le retrait de `sets.unilateral` (`v2_133`) et les échelles (`v2_134`).
+
 ## Le 31/10/2026 — `v2_125` (la calisthénie, 195)
 
 **`v2_125_calisthenie`** (appliquée par Claude.ai avant la PR) : `profiles_objectif_ok` accepte une cinquième valeur, **`calisthenie`** ; **`profiles.depart_calisthenie jsonb NULL`** (`{tractions, pompes, dips, pistol, le}` ; NULL = « je ne sais pas » ; écrite par la file du profil) ; deux exercices ajoutés, **`pompes_pike`** et **`pompes_pike_surelevees`** (`push_v`, `pousser_vertical`, `nature = force`, `mouvement` NULL : pas de « frère » du développé militaire) ; quatre échelles posées (15 marches, la clé est le slug du rang 1, nom affiché de la carte) : `squat_poids_du_corps` (squat PDC, squat bulgare PDC, pistol, pistol lesté), `pont_fessier` (pont, une jambe, soulevé une jambe, nordique assisté élastique, nordique), `rowing_inverse` (rowing inversé, pieds surélevés), `pompes_pike` (pike, pike surélevées, équilibre mur, équilibre libre). **Aucun changement de `nature`** : pistol, pistol lesté et les deux pompes en équilibre restent des habiletés ; le code les propose seulement en objectif `calisthenie` (`Modele.marcheSuivante`, option `objectif`).
@@ -46,7 +57,7 @@ générateur), jamais déduit de `routine_sets.reps_visees`. RLS inchangé (la p
 | `v2_114` (groupe seul, 177, 28/10/2026) | **`groupe_liberer`** : quelqu'un qui est SEUL dans son groupe peut en partir (créer ou rejoindre un autre) même séance en cours ; son groupe vide se fige et disparaît. Avec un autre membre actif, `groupe_deja_dans_un` reste. Appliquée par Claude.ai ; aucune table ni colonne ajoutée |
 | `v2_116` (saisie vérifiée, 185, 29/10/2026) | **`sets.hors_calcul`** boolean NOT NULL DEFAULT false : « série gardée au journal, mais exclue des records, des crans et du moteur ». Posée par la réponse « Non, ne compte pas » à la question de vraisemblance (ECRAN-SAISIE, « La question de vraisemblance ») ; lue ET écrite par l'app (`COLONNES_SET`, `lignes()`, toujours envoyée, `false` compris). Appliquée par Claude.ai avant la PR 185 |
 | `v2_117` (cran et dépassement, 186, 29/10/2026) | **`sets_type_serie_ok`** accepte un cinquième type, **`test`** (`travail` · `echauffement` · `degressive` · `echec` · `test`) : la « Série de test » du menu ⋯ de la série. Aucune colonne nouvelle ; `routine_sets.type_serie` ne change pas. |
-| `v2_118` (ta semaine et tes équilibres, 188-1, 29/10/2026) | **`sessions.gestes`** jsonb NOT NULL DEFAULT `'[]'` (CHECK tableau) : `[{geste, slug, vers?, n?, retires?}]`, `geste` ∈ `raccourci` · `machine_prise` · `remplacement` · `ajout_serie` · `retrait`, écrit par l'app à l'enregistrement de la séance (`COLONNES_SEANCE`, toujours envoyé). **`profiles.cartes_semaine`** jsonb NOT NULL DEFAULT `'{}'` (CHECK objet) : `{cle: {r: 'oui'\|'non', le: 'AAAA-MM-JJ', refus: n}}`, colonne FACULTATIVE à la lecture (`COLONNES_FACULTATIVES`), écrite par la file du profil. Appliquée par Claude.ai avant la PR 188-1 |
+| `v2_118` (ta semaine et tes équilibres, 188-1, 29/10/2026) | **`sessions.gestes`** jsonb NOT NULL DEFAULT `'[]'` (CHECK tableau) : `[{geste, slug, vers?, n?, retires?}]`, `geste` ∈ `raccourci` · `machine_prise` · `remplacement` · `ajout_serie` · `retrait` · `serie_comptee` (245), écrit par l'app à l'enregistrement de la séance (`COLONNES_SEANCE`, toujours envoyé). **`profiles.cartes_semaine`** jsonb NOT NULL DEFAULT `'{}'` (CHECK objet) : `{cle: {r: 'oui'\|'non', le: 'AAAA-MM-JJ', refus: n}}`, colonne FACULTATIVE à la lecture (`COLONNES_FACULTATIVES`), écrite par la file du profil. Appliquée par Claude.ai avant la PR 188-1 |
 | `v2_124` (la mobilité, 194-1, 31/10/2026) | **`profiles.zones_raides`** text[] NULL, CHECK sur chevilles · hanches · ischios · quadriceps · epaules · haut_du_dos ; `NULL` = pas répondu, `{}` = aucune. Lue et écrite par l'app (colonne facultative), jamais par une règle autre que `Moteur.blocDeMobilite`. |
 | `v2_119` (Ma salle : le plus petit disque et la barre de traction, 190, 30/10/2026) | `profiles.ma_salle` accepte deux clés de plus (liste blanche de `profiles_ma_salle_ok` élargie ; contrainte séparée `profiles_ma_salle_equipement_ok`) : **`plus_petit_disque`** — le plus petit disque de la salle, en kg **par côté**, de 0,25 à 5 au pas de 0,25, `null` ou absent = inconnu ; **`barre_traction`** — booléen, absent = inconnu. L'app lit le disque pour le cran de la barre (2 × le disque, `THMoteur.pasDeLaBarre`) et la barre de traction pour le générateur, les échanges et les marches d'échelle (`THProfil.demandeUneBarreDeTraction`). « Je ne sais pas » écrit `null` / retire la clé (jamais `false`, jamais 0). Appliquée par Claude.ai avant la PR 190 |
 | `v2_120` (la série de recul, 193-1, 30/10/2026) | **`sets_type_serie_ok`** et **`routine_sets_type_ok`** acceptent un sixième type, **`recul`** (`travail` · `echauffement` · `degressive` · `echec` · `test` · `recul` pour `sets` ; `routine_sets` n'accepte pas `test`). Une série plus légère que la grosse série du jour, au repos normal : déclarée par la personne (routine, menu ⋯), jamais déduite ; une série de travail pour le volume et les records, jamais le palier. Aucune colonne nouvelle. |
@@ -54,8 +65,8 @@ générateur), jamais déduit de `routine_sets.reps_visees`. RLS inchangé (la p
 | `v2_131` (la note de la dernière fois, 242, appliquée le 04/11/2026) | **`profiles.notes_exercices`** jsonb NOT NULL DEFAULT `'{}'` : `{ slug: { texte, a } }` (la note de l'exercice modifiée par la personne, épinglée) ou `{ slug: { masquee: <id de la série>, a } }` (« Ne plus afficher » : désigne la série dont la note ne se montre plus). Lue et écrite par la file (`poserProfil`), colonne facultative (`COLONNES_FACULTATIVES`), jamais lue par le coach. · **`sets.unilateral`** boolean NOT NULL DEFAULT false : posée par v2_131, **inutilisée, à retirer** (décision du 05/11/2026 : un exercice fait d'un côté est sa variante du catalogue) ; l'app ne la lit ni ne l'écrit. |
 | `v2_126` (le muscle étiré, 196, 31/10/2026) | **`exercises.accent_allonge`** boolean NOT NULL DEFAULT false : l'exercice charge le muscle étiré (23 exercices marqués). Lu par `donnees.js` (`tousLesExercices`, `false` si la colonne manque), le générateur et l'échange d'exercice (préférence à égalité). Aucune autre colonne : le rest-pause n'est pas stocké (dégressives à charge égale, lues par `Modele.restPauseDe`). Appliquée par Claude.ai avant la PR 196 |
 
-**Reste noté** : `pseudo_libre` ouverte à `anon` (voulu) ; 57 fonctions SECURITY DEFINER (l'API sociale) ; pas de FK
-`groupe_recaps.groupe_id` (abandonnée) ni `objectifs.pari_id` (à reprendre) ; « Leaked password protection » (tableau
+**Reste noté** : 79 fonctions SECURITY DEFINER, `search_path` fixé pour toutes ; seule `pseudo_libre` est ouverte à `anon` (voulu) ; pas de FK
+`groupe_recaps.groupe_id` (abandonnée ; `objectifs.pari_id` posée par v2_135) ; « Leaked password protection » (tableau
 de bord) ; les six colonnes `profiles.visibility_*` du v1 ; **on ne renomme jamais une donnée de l'app depuis la base**
 (23/10, « Recompo » : l'app ne relit pas une routine ou un dossier modifiés côté serveur).
 
@@ -70,9 +81,8 @@ de bord) ; les six colonnes `profiles.visibility_*` du v1 ; **on ne renomme jama
 | `v2_099` (échelle) | **`exercises.echelle`** (text, `^[a-z_]{1,40}$`) et **`echelle_rang`** (smallint 1-20 ; contrainte `exercises_echelle_ok` : les deux vides ensemble ; index partiel `exercises_echelle_idx`) — 36 exercices, 6 échelles (tractions, tractions_supination, dips_torse, dips_triceps, pompes, muscle_up) ; **`exercises.barre_charge_fixe`** (boolean NOT NULL, défaut false ; `exercises_barre_charge_fixe_ok` : seulement si `equipement = 'barre'` ; 21 exercices) — à ne pas confondre avec `barre_fixe` du générateur (la barre de traction) ; `profiles_ma_salle_ok` accepte deux clés de plus, **`elastiques`** (liste de 10 au plus, du plus fort au plus léger, `{nom, kg?}`, contrainte séparée `profiles_ma_salle_elastiques_ok`) et **`elastiques_par_nom`** (boolean) ; **`profiles.marche_reponses`** (jsonb, par exercice de départ `{r: oui|non, le, aide?}`, `profiles_marche_reponses_ok`) |
 | `v2_100` (sécurité) | `EXECUTE` retiré à PUBLIC, anon et authenticated sur les fonctions de déclencheur `abonnements_avant_ajout`, `abonnements_avant_modif`, `blocages_apres_ajout` (un déclencheur se déclenche sans ce droit) ; les 7 règles de `abonnements`, `blocages`, `reactions_seance` passent de `public` à **`authenticated`** ; `reactions_ajout` et `reactions_guilde` fusionnées en une règle d'ajout : `user_id = auth.uid() AND (social_peut_reagir(session_id) OR guilde_peut_reagir(session_id))` |
 
-**Reste noté** : `pseudo_libre` ouverte à `anon` (voulu : le pseudo se vérifie avant le compte) ; 57 fonctions SECURITY
-DEFINER appelables par les comptes connectés (l'API sociale) ; pas de clé étrangère `groupe_recaps.groupe_id` ni
-`objectifs.pari_id` ; pas d'index sur `sets.exercise_slug` ; « Leaked password protection » (tableau de bord).
+**Reste noté** : 79 fonctions SECURITY DEFINER, `search_path` fixé pour toutes ; seule `pseudo_libre` est ouverte à `anon`
+(voulu : le pseudo se vérifie avant le compte) ; pas de clé étrangère `groupe_recaps.groupe_id` (abandonnée ; `objectifs.pari_id` posée par v2_135) ; pas d'index sur `sets.exercise_slug` ; « Leaked password protection » (tableau de bord).
 
 ## Depuis le 17/10 — migrations `v2_091` à `v2_097` (régénéré depuis la base par Claude.ai le 17/10/2026, 13 h)
 
@@ -555,7 +565,7 @@ collision, plutôt que de les renuméroter en place.
 | `au_max_reserve` | smallint | **`v2_123`** (193-6) — réserve DEMANDÉE à cette série : 0 (jusqu'à l'échec) à 3 (en gardant 3 reps) ; NULL = pas « Au max ». Écrite à la validation depuis la ligne du plan |
 | `repos_s` | integer | **`v2_040`** — repos RÉEL avant cette série, 0 à 3600 s, mesuré à partir de la validation de la série précédente. NULL sur les séries importées : l'export Hevy ne porte pas le repos |
 | `douleur`, `occurrence` | | voir « Colonnes ajoutées » |
-| `hors_calcul` | boolean | **`v2_116`** (185) — NOT NULL, défaut `false`. `true` : la série reste au journal et au détail de la séance, et n'entre ni dans les records, ni dans le palier, le niveau et les crans voisins, ni dans les paris et le jeu |
+| `hors_calcul` | boolean | **`v2_116`** (185) — NOT NULL, défaut `false`. `true` : la série reste au journal et au détail de la séance, et n'entre ni dans les records, ni dans le palier, le niveau et les crans voisins, ni dans les paris et le jeu. **245 (D-S3)** : la marque se RETIRE — changer la charge ou les reps d'une série marquée la remet à `false` ; le menu ⋯ offre « Compter cette série » (geste `serie_comptee`). **D-S2** : `hors_calcul` est un champ de `CHAMPS_DU_RECORD` (une bascule retire les lignes du journal des records, comme un changement de charge ; le déclencheur `sets_efface_records` côté base est à Claude.ai) |
 | `unilateral` | boolean | **`v2_131`** (242) — NOT NULL, défaut `false`. **Posée, inutilisée, à retirer** (décision du 05/11/2026) : l'app ne la lit ni ne l'écrit |
 
 ## `exercises` — 237 lignes
@@ -573,6 +583,8 @@ collision, plutôt que de les renuméroter en place.
 | `muscles_stabilisateurs` | text[] NOT NULL DEFAULT `'{}'` | **pondération 0,25** (`v2_069`, REGLE-VOLUME §1 bis) |
 | `coef_pdc`, `masse_depart_kg`, `masse_depart_reglable` | | poids de corps et masse machine |
 | `compte_tonnage` | boolean NOT NULL | `false` par défaut |
+
+> **245 (D-C1, 05/11/2026) — les fonctions sociales comptent les séries par `serie_de_travail(type, reps, hors_calcul)`**, le miroir en base d'`estTravail` (`THModele.estTravail` : ni chauffe, ni dégressive, ni tentative à 0 rep, ni série « Non, ne compte pas »). Le filtre `coalesce(type_serie,'travail') = 'travail'` de `migrations-proposees/v2_082_groupe.sql` est périmé : la base fait foi (le fichier le dit en commentaire).
 | `equipement` | text | signature de parc, pas de lieu |
 | `actif` | boolean NOT NULL | |
 | `proprietaire` | uuid | NULL = catalogue partagé ; sinon exercice personnel, effacé avec le compte |
@@ -601,6 +613,8 @@ collision, plutôt que de les renuméroter en place.
 `user_exercise_model` (59, un seul calcul du 23/08, **append-only par doctrine**) ·
 `records`, `blocs`, `modes_exercice` : voir leurs sections · `sbd_profiles` (4) et `workout_sessions` (891)
 (**archive v1, en lecture seule depuis `v2_064`**).
+
+`body_weight_log` (246) : `UNIQUE (user_id, date)` (`body_weight_log_une_par_jour`), `CHECK 20 < poids_kg < 400`, `source` texte libre (`app`, `import_hevy`, …). **`masse_grasse_pct` n'est PAS remplie** (minimisation : l'import des mesures de Hevy ne lit que le poids, aucun écran ne la montre). Deux écrivains seulement : `enregistrerPesee` (la pesée saisie, un upsert qui fusionne) et `ajouterPesees` (l'import, un ajout seul, `ignoreDuplicates`).
 
 ---
 

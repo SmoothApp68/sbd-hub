@@ -150,19 +150,6 @@
     return r;
   }
 
-  // 187 (A3) — les haltères de Ma salle, quand ils tiennent en UNE tranche (« jusqu'à 40 kg, de 2 en 2 ») ; plusieurs
-  // tranches se règlent dans le Profil, et le questionnaire n'y touche pas.
-  function halteresDe(profil) {
-    var salle = Profil().salleDe(profil), h = salle && salle.halteres;
-    if (!h) return { max: null, pas: null };
-    if (Array.isArray(h)) return h.length === 1 ? { max: h[0].jusqua, pas: h[0].pas } : { max: null, pas: null };
-    return { max: h.max, pas: h.pas };
-  }
-  function salleASeulesTranches(profil) {
-    var h = Profil().salleDe(profil), x = h && h.halteres;
-    return !!(x && Array.isArray(x) && x.length > 1);
-  }
-
   function departDe(p, k) {
     var d = Profil().departCalisthenieValide(p && p.depart_calisthenie);
     return d && d[k] !== undefined ? d[k] : null;
@@ -191,8 +178,6 @@
       priorites: Array.isArray(p.priorites) ? p.priorites.slice() : null,
       temps: nul(p.temps_reponse),
       materiel: nul(p.materiel),
-      halteresMax: halteresDe(p).max,
-      halteresPas: halteresDe(p).pas,
       // 190 — le plus petit disque (kg par côté) et la barre de traction (`true`, `false`), `null` : pas dit / « Je ne sais pas ».
       // 205 — la salle telle que déclarée (l'ancien disque, les disques absents, la barre) : le brouillon du Profil, jamais une copie.
       plusPetitDisque: Profil().brouillonSalle(p).plus_petit_disque,
@@ -323,9 +308,7 @@
   // `NULL`. Rend `undefined` quand rien ne change (rien à écrire), sinon la salle à écrire (un objet, ou `null`).
   function salleAEcrire(r, profil) {
     var P = Profil(), b = P.brouillonSalle(profil);
-    if (r.halteresMax > 0 && r.halteresPas > 0 && !salleASeulesTranches(profil)) {
-      b.halteres = [{ jusqua: r.halteresMax, pas: r.halteresPas, pasChoisi: true }];
-    }
+    // 245 (D-H3) — `ma_salle.halteres` n'est plus ÉCRIT (personne ne le lit depuis 163) ; ce qui est déjà en base n'est pas effacé.
     var m = materielDe(r);
     b.plus_petit_disque = m.plus_petit_disque;
     b.disques_absents = m.disques_absents;
@@ -357,7 +340,7 @@
   // réponse que l'écran connaît, et rien d'autre — un geste qui vise une clé
   // inconnue est sans effet.
   var CHOIX = ['depuis', 'notees', 'seances', 'duree', 'dureeMoins', 'sexe', 'objectif', 'phase',
-               'temps', 'materiel', 'programme', 'coach', 'halteresMax', 'halteresPas', 'salleOuverte', 'dep_pistol'];
+               'temps', 'materiel', 'programme', 'coach', 'salleOuverte', 'dep_pistol'];
 
   function appliquerChoix(rep, cle, valeur) {
     var r = Object.assign({}, rep);
@@ -613,17 +596,8 @@
   // ── 187 (A3) — « Où tu t'entraînes ? » ────────────────────────────────────────
   // Chaque salle avec sa sous-ligne, reprise du Profil (`MATERIELS`). « Ajuster Ma salle », replié, donne les crans
   // des haltères, le plus petit disque et la barre de traction (190, v2_119 : `profiles.ma_salle`, écrit par `Profil.champsSalle`).
-  var PUCES_HALTERES_MAX = [10, 20, 30, 40, 50, 60];
-  var PUCES_HALTERES_PAS = [1, 2, 2.5, 5];
-  function pucesDe(valeurs, unite) {
-    return valeurs.map(function (v) { return { cle: v, libelle: Modele().nombreSigne(v) + (unite ? INSECABLE + unite : '') }; });
-  }
   function phraseDeLaSalle(rep) {
     var dit = [];
-    if (rep.halteresMax > 0 && rep.halteresPas > 0) {
-      dit.push('Haltères jusqu’à ' + en(rep.halteresMax, 'kg') + ', de ' + Modele().nombreSigne(rep.halteresPas) + ' en ' +
-               Modele().nombreSigne(rep.halteresPas));
-    }
     // 190 — ce qui est réglé, tel quel (le même résumé que le Profil).
     var materiel = Profil().resumeSalle({ ma_salle: materielDe(rep) });
     if (materiel) dit.push(materiel);
@@ -638,12 +612,8 @@
   }
   function ecranSalle(etat) {
     var rep = etat.rep;
-    var plusieurs = salleASeulesTranches(etat.profil);
-    var ajuster = plusieurs
-      ? [{ type: 'note', texte: 'Tes haltères ont plusieurs séries de tranches : ils se règlent dans Profil, Ma salle.' }]
-      : [{ type: 'puces', cle: 'halteresMax', titre: 'Haltères jusqu’à', valeur: rep.halteresMax, options: pucesDe(PUCES_HALTERES_MAX, 'kg') },
-         { type: 'puces', cle: 'halteresPas', titre: 'De combien en combien', valeur: rep.halteresPas, options: pucesDe(PUCES_HALTERES_PAS, 'kg') }];
-    ajuster.push({ type: 'note', texte: 'Je note la charge des haltères par haltère.' });
+    var ajuster = [];
+    ajuster.push({ type: 'note', texte: 'Aux haltères, tu notes le poids des deux ensemble.' });
     // 190 — le plus petit disque et la barre de traction : les lignes de `Profil.lignesMateriel`, comme dans « Ma salle ».
     Profil().lignesMateriel(materielDe(rep)).forEach(function (l) {
       ajuster.push({ type: 'puces', cle: l.cle, titre: l.titre, valeur: l.valeur, multiple: l.multiple, valeurs: l.valeurs, absence: l.absence, options: l.options });

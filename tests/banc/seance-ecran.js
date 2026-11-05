@@ -1394,8 +1394,10 @@ const SETS_IMPORTES = [
       const prefer = req.headers()['prefer'] || '';
       const conflit = url.searchParams.get('on_conflict');
       const fusionner = conflit === 'user_id,date' && /resolution=merge-duplicates/.test(prefer);
+      // 246 — l'AJOUT SEUL de l'import des mesures : `ON CONFLICT (user_id, date) DO NOTHING` (le jour déjà pesé est ignoré, sans erreur).
+      const ignorer = conflit === 'user_id,date' && /resolution=ignore-duplicates/.test(prefer);
       const lignes = Array.isArray(corps) ? corps : [corps];
-      base.ecrituresPesees.push({ n: lignes.length, fusionner, conflit, lignes: lignes.map((x) => Object.assign({}, x)) });
+      base.ecrituresPesees.push({ n: lignes.length, fusionner, ignorer, conflit, lignes: lignes.map((x) => Object.assign({}, x)) });
       for (const l of lignes) {
         const inconnue = Object.keys(l).filter((k) => COLONNES_PESEES.indexOf(k) < 0)[0];
         if (inconnue) return json(refus('PGRST204', 'body_weight_log : colonne inconnue « ' + inconnue + ' »'), 400);
@@ -1406,6 +1408,7 @@ const SETS_IMPORTES = [
       }
       for (const l of lignes) {
         const i = base.pesees.findIndex((x) => x.user_id === l.user_id && x.date === l.date);
+        if (i >= 0 && ignorer) continue;
         if (i >= 0 && !fusionner) return json(refus('23505', 'duplicate key value violates unique constraint "body_weight_log_user_id_date_key"'), 409);
         if (i >= 0) base.pesees[i] = Object.assign({}, base.pesees[i], l);
         else base.pesees.push(Object.assign({ id: '00000000-0000-4000-8060-' + String(++base.graineDesPesees).padStart(12, '0'),
@@ -2513,7 +2516,7 @@ const SETS_IMPORTES = [
     const genre = q.getAttribute('data-genre');
     if (genre === 'zero') return false;
     const bs = Array.from(q.querySelectorAll('button'));
-    const b = genre === 'double_halteres' ? bs[bs.length - 1] : bs.filter((x) => /^Oui/.test(x.textContent))[0] || (genre === 'reps_haut' || genre === 'reps_bas' ? bs[bs.length - 1] : null);
+    const b = bs.filter((x) => /^Oui/.test(x.textContent))[0] || (genre === 'reps_haut' || genre === 'reps_bas' ? bs[bs.length - 1] : null);
     if (b) b.click();
     return !!b;
   }, i).catch(() => false);
@@ -27761,17 +27764,18 @@ const SETS_IMPORTES = [
     ok('[SV185] cas 5 — la série reste VISIBLE sur l’écran, à part : la mention « hors calcul »',
       /hors calcul/.test(await page.evaluate(() => document.querySelectorAll('.ligne-serie')[2].textContent)), '');
 
-    // ── CAS 2. LES HALTÈRES : UNE PAIRE OU LES DEUX ? ──────────────────────────────────────────────────────────
+    // ── CAS 2. LES HALTÈRES : LA CHARGE EST LA PAIRE (245) ──────────────────────────────────────────────────────────
     await serie185(3, 44, 10)(); await valider185(3);
     const q2 = await question185(3);
-    ok('[SV185] cas 2 — 44 kg aux haltères (habitude 22) : « par haltère, ou les deux ensemble ? », deux boutons, rien d’écrit',
-      !!q2 && q2.genre === 'double_halteres' && sp185(q2.texte) === '44 kg : par haltère, ou les deux ensemble ?' &&
-        nb185(q2.boutons.map((b) => b.t)) === nb185(['22 par haltère', '44 par haltère']) && q2.boutons[0].principal &&
-        monte185('sv185-dev').length === 0, nb185(q2));
-    await toucher185(3, '22 par haltère');
-    ok('[SV185] cas 2 — « 22 par haltère » corrige la charge SUR PLACE : la série part à 22 kg × 10',
-      monte185('sv185-dev').length === 1 && Number(monte185('sv185-dev')[0].charge_kg) === 22 && monte185('sv185-dev')[0].reps === 10 &&
-        (await question185(3)) === null, nb185(monte185('sv185-dev').map((s) => [s.charge_kg, s.reps])));
+    ok('[SV185] cas 2 (245) — 44 kg aux haltères (habitude 22) : la charge EST la paire, donc la question « hausse », plus « par haltère » ; rien d’écrit',
+      !!q2 && q2.genre === 'hausse' && sp185(q2.texte) === '44 kg ? Ton meilleur ici : 22 kg.' &&
+        nb185(q2.boutons.map((b) => b.t)) === nb185(['Oui, 44', 'Corriger']) && monte185('sv185-dev').length === 0, nb185(q2));
+    await taper185(3, 'charge_kg', 22);
+    ok('[SV185] cas 2 — retaper 22 retire la question', (await question185(3)) === null, nb185(await question185(3)));
+    await valider185(3); await ecrite185('sv185-dev', 1);
+    ok('[SV185] cas 2 — la série part à 22 kg × 10',
+      monte185('sv185-dev').length === 1 && Number(monte185('sv185-dev')[0].charge_kg) === 22 && monte185('sv185-dev')[0].reps === 10,
+      nb185(monte185('sv185-dev').map((s) => [s.charge_kg, s.reps])));
     // Des reps décimales ou négatives : refusées sur place, sans question, rien d’écrit.
     await taper185(4, 'charge_kg', 22); await taper185(4, 'reps', '6,5');
     const qr = await question185(4);
@@ -28748,6 +28752,269 @@ const SETS_IMPORTES = [
     routinesAvant242.forEach((r) => ROUTINES.push(r));
     base.profiles[0] = profilAvant242;
     rendreLesBlocs242();
+    await aller('/saisie');
+  }
+
+  console.log('\n══ edition-245. UNE CORRECTION REFAIT L’OBSERVATION, JAMAIS LE PARI (245, C8, MOTEUR §9.11 ; D-P1, D-P2) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : un squat fait trois fois, une routine « 3 × 5 » et un objectif 70 × 5 posé avant la séance. On joue la séance POUR DE
+  // BON (le pari de la série est écrit par l'app, observé « 5 » ; l'objectif s'observe sur la même série), on la termine, puis on la rouvre en Édition :
+  // (1) sans rien changer, aucune observation n'est réécrite ; (2) 5 reps corrigées en 3 → l'observation du pari de consigne passe à 3 (le pari ne bouge
+  // pas) et celle de l'objectif se vide ; (3) la charge corrigée → l'observation du pari de consigne se vide.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const nbCatAvant = CATALOGUE.length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, paris245Avant = base.predictions, objectifsAvant245 = base.objectifs;
+    const routinesAvant245 = ROUTINES.splice(0, ROUTINES.length);
+    base.sessions = []; base.sets = []; base.predictions = []; base.objectifs = [];
+    const profilAvant245 = Object.assign({}, base.profiles[0]);
+    base.profiles[0] = Object.assign({}, PROFIL_BANC, { rythme_progression: 'normal', intention: 'progresser', phase: 'maintien', phase_depuis: null,
+      cartes_semaine: null, priorites: null, jours_vises: null, notes_exercices: {} });
+    const rendreLesBlocs245 = await retirerBlocsDeLAppareil();
+    const t245 = Date.now();
+    const nb245 = (x) => JSON.stringify(x === undefined ? null : x);
+    CATALOGUE.push({ slug: 'ed245-sq', nom: 'Squat ED245 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+      muscles_primaires: ['quadriceps', 'fessiers'], muscles_secondaires: ['adducteurs'], muscles_stabilisateurs: ['bas_du_dos'], schema_mouvement: 'accroupir' });
+    [34, 27, 20].forEach((j, n) => {
+      const id = 'ed245-h' + j;
+      const debut = ilYa(j * 86400000, t245).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'ED245 — ' + id, debut, fin: finDe(debut, t245).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: 'r-ed245', source: 'app', created_at: debut, gestes: [] });
+      [1, 2, 3].forEach((r) => base.sets.push({ id: id + '-s' + r, session_id: id, user_id: 'u-banc', exercise_slug: 'ed245-sq', charge_kg: 70, reps: 5,
+        duree_s: null, distance_m: null, denivele_m: null, etages: null, elastique: null, type_serie: 'travail', rang: r, groupe_superset: null,
+        validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null, douleur: false,
+        occurrence: null, hors_calcul: false }));
+    });
+    ROUTINES.push({ id: 'r-ed245', nom: 'Squat ED245', note: null, archivee_a: null, created_at: '2026-01-05T10:00:00.000Z', updated_at: '2026-01-05T10:00:00.000Z',
+      routine_exercises: [{ id: 're-ed245-0', routine_id: 'r-ed245', exercise_slug: 'ed245-sq', rang: 0, zone: 'mix', repos_cible_s: 90, groupe_superset: null, note: null,
+        routine_sets: [1, 2, 3].map((i) => ({ id: 'pr-ed245-' + i, rang: i, type_serie: 'travail', reps_visees: 5, charge_cible_kg: null,
+          duree_cible_s: null, distance_cible_m: null })) }] });
+    const pose245 = ilYa(10 * 86400000, t245).toISOString();
+    const OBJ245 = '00000000-0000-5000-8245-000000000002';
+    base.predictions.push({ id: OBJ245, user_id: 'u-banc', module: 'objectif', module_version: 1, emise_a: pose245, exercise_slug: null,
+      grandeur: 'jours', horizon_jours: 30, valeur_predite: 30, borne_basse: null, borne_haute: null,
+      fondement: { exercice: 'ed245-sq', charge: 70, reps: 5, pose_le: pose245, echeance: '2027-01-01', record: 65, reference: 65 },
+      valeur_observee: null, observee_a: null, set_observe: null, created_at: pose245 });
+    base.objectifs.push({ user_id: 'u-banc', exercise_slug: 'ed245-sq', charge_kg: 70, reps: 5, pose_le: pose245, depart_kg: 65,
+      projection: 'date', echeance: '2027-01-01', pari_id: OBJ245 });
+    const pariDe245 = () => base.predictions.filter((l) => l.module === 'moteur.consigne' && l.exercise_slug === 'ed245-sq' && l.fondement.rang === 1)[0] || {};
+    const obj245 = () => base.predictions.find((l) => l.id === OBJ245);
+    const nbObs245 = () => base.journal.filter((j) => j.op === 'observation').length;
+    const editer245 = async (gestes) => {
+      await ouvrirMenuDe('Squat ED245');
+      await entree('Modifier');
+      await attendreQue(() => page.evaluate(() => !document.getElementById('vue-seance').hidden), 15000, 'editionOuverteED245');
+      await gestes();
+      await enregistrer();
+      await reseauCalme();
+    };
+
+    await aller('/saisie');
+    await demarrerRoutine('Squat ED245');
+    const charge245 = 70;   // la charge de travail des trois séances d'avant : celle que la ligne propose (le pari le dit : fondement.charge)
+    await saisirSerie(0, charge245, 5);
+    await jusqua(async () => pariDe245().valeur_observee === 5 && !!pariDe245().set_observe, 10000, 'pariObserveED245');
+    ok('[ED245] prémisse — la série faite à la charge proposée observe le pari de consigne (5 reps) : ' + charge245 + ' kg',
+      pariDe245().valeur_observee === 5 && pariDe245().fondement.charge === charge245, nb245([charge245, pariDe245().valeur_observee, pariDe245().fondement]));
+    await saisirSerie(1, charge245 - 10, 5);   // une 2e série plus légère : elle n'atteint pas l'objectif 70 × 5
+    await reseauCalme();
+    await terminer();
+    await jusqua(async () => obj245().valeur_observee !== null && !!obj245().set_observe, 10000, 'objectifObserveED245');
+    ok('[ED245] prémisse — l’objectif 70 × 5 s’observe sur la série (au terminer)', obj245().set_observe === pariDe245().set_observe, nb245([obj245().set_observe, pariDe245().set_observe]));
+    const predit245 = pariDe245().valeur_predite;
+    await reseauCalme();
+
+    // (1) rien de changé : aucune observation réécrite.
+    const avant1 = nbObs245();
+    await editer245(async () => {});
+    ok('[ED245] une Édition qui ne change rien n’écrit aucune observation, et le pari est intact',
+      nbObs245() === avant1 && pariDe245().valeur_observee === 5 && pariDe245().valeur_predite === predit245, nb245([nbObs245() - avant1, pariDe245().valeur_observee]));
+
+    // (2) 5 reps → 3.
+    await editer245(async () => {
+      const champs = await champsDe(0, 'reps');
+      await champs[0].fill('3');
+      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    });
+    await jusqua(async () => pariDe245().valeur_observee === 3, 10000, 'observeeCorrigeeED245');
+    ok('[ED245] DISCRIMINANT — ' + charge245 + ' × 5 corrigé en ' + charge245 + ' × 3 : l’observation du pari passe à 3 (il n’est plus « tenu » à 5), le pari ne bouge pas',
+      pariDe245().valeur_observee === 3 && !!pariDe245().set_observe && pariDe245().valeur_predite === predit245 && pariDe245().fondement.charge === charge245,
+      nb245([pariDe245().valeur_observee, pariDe245().valeur_predite, base.sets.filter((x) => x.exercise_slug === 'ed245-sq' && x.session_id.indexOf('ed245-h') < 0).map((x) => [x.charge_kg, x.reps])]));
+    await jusqua(async () => obj245().valeur_observee === null, 10000, 'objectifVideED245');
+    ok('[ED245] DISCRIMINANT — l’objectif 70 × 5 n’est plus atteint par la série corrigée : l’observation de son pari se vide (le pari reste)',
+      obj245().valeur_observee === null && obj245().set_observe === null && obj245().observee_a === null && obj245().valeur_predite === 30, nb245(obj245()));
+
+    // (3) la charge corrigée : le pari de la charge d'origine ne s'observe plus.
+    await editer245(async () => {
+      const champs = await champsDe(0, 'charge_kg');
+      await champs[0].fill(String(charge245 - 10));
+      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    });
+    await jusqua(async () => pariDe245().set_observe === null, 10000, 'observationVideeED245');
+    ok('[ED245] ' + charge245 + ' corrigé en ' + (charge245 - 10) + ' : l’observation du pari se vide (valeur et série), le pari reste',
+      pariDe245().set_observe === null && pariDe245().valeur_observee === null && pariDe245().observee_a === null && pariDe245().valeur_predite === predit245, nb245(pariDe245()));
+    // (4) D-S3 — une série « Non, ne compte pas » : son menu ⋯ offre « Compter cette série », qui retire la marque (et seulement elle).
+    base.sets.filter((x) => x.exercise_slug === 'ed245-sq' && x.session_id.indexOf('ed245-h') < 0).forEach((x) => { x.hors_calcul = true; });
+    const horsDe245 = () => base.sets.filter((x) => x.exercise_slug === 'ed245-sq' && x.session_id.indexOf('ed245-h') < 0)[0] || {};
+    let boutonCompter245 = null, boutonAbsent245 = null;
+    await editer245(async () => {
+      await page.evaluate(() => document.querySelectorAll('.ligne-serie')[0].querySelector('.no-serie').click());
+      await feuilleOuverte('.feuille-menu button');
+      boutonCompter245 = await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+        .some((b) => /^Compter cette série/.test(b.textContent)));
+      await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+        .find((b) => /^Compter cette série/.test(b.textContent)).click());
+      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    });
+    await jusqua(async () => horsDe245().hors_calcul === false, 10000, 'compterED245');
+    ok('[ED245] D-S3 — le menu ⋯ d’une série hors calcul offre « Compter cette série » ; le toucher remet hors_calcul à false en base',
+      boutonCompter245 === true && horsDe245().hors_calcul === false, nb245([boutonCompter245, horsDe245().hors_calcul]));
+    await editer245(async () => {
+      await page.evaluate(() => document.querySelectorAll('.ligne-serie')[0].querySelector('.no-serie').click());
+      await feuilleOuverte('.feuille-menu button');
+      boutonAbsent245 = await page.evaluate(() => !Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+        .some((b) => /^Compter cette série/.test(b.textContent)));
+      await page.click('#btn-fermer-feuille'); await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    });
+    ok('[ED245] D-S3 — une série qui compte n’offre pas « Compter cette série »', boutonAbsent245 === true, nb245(boutonAbsent245));
+    // (5) D-S3, le chemin « Non » : une série marquée « Non, ne compte pas » dont on CORRIGE la charge recompte (la réponse parlait de la
+    // série telle qu'elle était). Une correction qui ne change que la note la laisserait hors calcul : seule une vraie charge change la marque.
+    base.sets.filter((x) => x.exercise_slug === 'ed245-sq' && x.session_id.indexOf('ed245-h') < 0).forEach((x) => { x.hors_calcul = true; });
+    const chargeAvant245 = horsDe245().charge_kg;
+    await editer245(async () => {
+      const champs = await champsDe(0, 'charge_kg');
+      await champs[0].fill(String(Number(chargeAvant245) + 5));
+      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    });
+    await jusqua(async () => horsDe245().hors_calcul === false, 10000, 'recompteED245');
+    ok('[ED245] DISCRIMINANT D-S3 — « Non, ne compte pas » puis la charge corrigée (' + chargeAvant245 + ' → ' + (Number(chargeAvant245) + 5) + ') : la série recompte (hors_calcul = false en base)',
+      horsDe245().hors_calcul === false && Number(horsDe245().charge_kg) === Number(chargeAvant245) + 5, nb245([horsDe245().hors_calcul, horsDe245().charge_kg]));
+    // (6) D-P2 — une série qui N'EST PAS celle qui observait le pari d'objectif : la corriger GARDE son observation. Une correction faite
+    // ailleurs (l'observation pointe la 2e série, qui ne remplit plus l'objectif) : seule la série corrigée (la 1re) compte pour `retirer`.
+    {
+      const mes245 = () => base.sets.filter((x) => x.exercise_slug === 'ed245-sq' && x.session_id.indexOf('ed245-h') < 0).sort((x, y) => x.rang - y.rang);
+      const serie2 = mes245()[1];
+      const o = obj245();
+      o.set_observe = serie2.id; o.valeur_observee = 5; o.observee_a = new Date().toISOString();
+      await page.reload();
+      await reseauCalme();
+      await aller('/saisie');
+      await editer245(async () => {
+        const champs = await champsDe(0, 'charge_kg');
+        await champs[0].fill(String(Number(horsDe245().charge_kg) + 5));
+        await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+      });
+      await reseauCalme();
+      ok('[ED245] DISCRIMINANT D-P2 — corriger une série qui n’est PAS celle qui observe l’objectif en GARDE l’observation (série, valeur)',
+        obj245().set_observe === serie2.id && obj245().valeur_observee === 5, nb245(obj245()));
+    }
+    ok('[ED245] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      nb245([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    base.predictions = paris245Avant;
+    base.objectifs = objectifsAvant245;
+    CATALOGUE.length = nbCatAvant;
+    ROUTINES.length = 0;
+    routinesAvant245.forEach((r) => ROUTINES.push(r));
+    base.profiles[0] = profilAvant245;
+    rendreLesBlocs245();
+    await aller('/saisie');
+  }
+
+  console.log('\n══ poids-246. LA TENDANCE DU POIDS ET LES MESURES DE HEVY (246, ECRAN-PROFIL) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : (a) UNE SEULE pesée → l'écran Poids n'a AUCUNE ligne de plus qu'avant (ni tendance, ni invitation) ;
+  // (b) deux pesées par semaine depuis six semaines, −0,4 kg par semaine → UNE ligne, la phrase attendue, et sa note ; (c) un CSV de mesures
+  // dont un jour est DÉJÀ pesé (source app, 70 kg) → l'aperçu dit les chiffres, ce jour garde sa valeur (aperçu ET ligne envoyée), les autres arrivent.
+  {
+    const erreurs246 = erreurs.length;
+    const refus246 = base.journal.filter((j) => j.op === 'refus').length;
+    const violations246 = gardeBanc.violations;
+    const peseesAvant246 = base.pesees;
+    const sp246 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const nb246 = (x) => JSON.stringify(x === undefined ? null : x);
+    const synchroLibre246 = () => page.evaluate(() => { const e = document.getElementById('etat-sync');
+      return !!e && (e.textContent || '').trim() !== '' && !e.classList.contains('sync'); }).catch(() => false);
+    const rafraichir246 = async () => { await jusqua(synchroLibre246, 60000); await page.evaluate(() => document.getElementById('btn-rafraichir').click());
+      await jusqua(synchroLibre246, 60000); };
+    // Six semaines civiles COMPLÈTES derrière la semaine en cours (lundi → dimanche, comme `tendanceDuPoids`), deux pesées chacune :
+    // le lundi et le mercredi. `mercrediEcoule(k)` (decor-dates.js) porte l'ancre : aucun jour de la semaine lu dans le banc (banc-dates).
+    const jour246 = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    const jours246 = { semaines: [], hier: jour246(ilYa(86400000)) };
+    for (let k = 5; k >= 0; k--) {
+      const mer = mercrediEcoule(k);
+      jours246.semaines.push(jour246(new Date(mer.getFullYear(), mer.getMonth(), mer.getDate() - 2)), jour246(mer));
+    }
+    const ecranPoids246 = () => page.evaluate(() => ({
+      tendance: (document.getElementById('tendance-poids') || {}).textContent || '',
+      note: ((document.querySelector('#tendance-poids .pesees-total') || {}).textContent || ''),
+      lignes: document.querySelectorAll('#tendance-poids > *').length,
+      liste: document.querySelectorAll('#liste-pesees .pesee-l').length,
+      courbe: !!document.querySelector('#courbe-poids svg') }));
+
+    // (a) une seule pesée : rien de plus.
+    base.pesees = [{ id: '00000000-0000-4000-8246-000000000001', user_id: 'u-banc', date: jours246.hier, poids_kg: 82, source: 'manuel' }];
+    await aller('/profil');
+    await rafraichir246();
+    await aller('/progression/poids');
+    const a246 = await ecranPoids246();
+    ok('[P246] (a) une seule pesée : l’écran Poids n’a AUCUNE ligne de plus (ni tendance, ni invitation, ni compteur)',
+      a246.lignes === 0 && sp246(a246.tendance) === '' && a246.liste === 1, nb246(a246));
+
+    // (b) deux pesées par semaine depuis six semaines.
+    const nj246 = (iso) => { const m = iso.split('-'); return Date.UTC(+m[0], +m[1] - 1, +m[2]) / 864e5; };
+    const j0 = nj246(jours246.semaines[0]);
+    base.pesees = jours246.semaines.map((j, i) => ({ id: '00000000-0000-4000-8246-0000000001' + String(10 + i), user_id: 'u-banc', date: j,
+      poids_kg: Math.round((90 - 0.4 * (nj246(j) - j0) / 7) * 100) / 100, source: 'manuel' }));
+    await aller('/profil');
+    await rafraichir246();
+    await aller('/progression/poids');
+    const b246 = await ecranPoids246();
+    ok('[P246] (b) deux pesées par semaine depuis six semaines : UNE ligne, la phrase attendue',
+      b246.lignes === 2 && sp246((await page.evaluate(() => (document.querySelector('#tendance-poids .pesees-tendance') || {}).textContent)))
+        === '−0,4 kg par semaine en moyenne, sur les 6 dernières semaines.', nb246(b246));
+    ok('[P246] (b) …et sa note : « Calculée sur tes 12 pesées de ces 6 semaines. »', sp246(b246.note) === 'Calculée sur tes 12 pesées de ces 6 semaines.', nb246(b246));
+    await page.click('#periodes-poids button:first-child');
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const b2246 = await ecranPoids246();
+    ok('[P246] (b) la tendance se calcule sur TOUTES les pesées : la période « 3 mois » ne la change pas', sp246(b2246.tendance) === sp246(b246.tendance), nb246([b246, b2246]));
+
+    // (c) l'import des mesures : un jour déjà pesé garde sa valeur.
+    base.pesees = [{ id: '00000000-0000-4000-8246-000000000200', user_id: 'u-banc', date: '2025-10-02', poids_kg: 70, source: 'app' }];
+    await aller('/profil');
+    await rafraichir246();
+    const ecr246 = base.ecrituresPesees.length;
+    await aller('/profil/import');
+    const csv246 = ['date,weight_kg,fat_percent,neck_cm', '"1 oct. 2025, 07:30",90,18.2,40', '"2 oct. 2025, 07:30",89,,', '"3 oct. 2025, 07:30",88,,',
+      '"4 oct. 2025, 07:30",500,,'].join('\n');
+    await page.setInputFiles('#fichier-hevy', { name: 'mesures.csv', mimeType: 'text/csv', buffer: Buffer.from(csv246, 'utf8') });
+    await jusqua(async () => /pesées trouvées/.test(await page.evaluate(() => (document.querySelector('#import-hevy h2') || {}).textContent || '')), 6000);
+    const c246 = await page.evaluate(() => ({ titre: document.querySelector('#import-hevy h2').textContent,
+      phrases: Array.from(document.querySelectorAll('#import-hevy .imp-mesure')).map((n) => n.textContent),
+      boutons: Array.from(document.querySelectorAll('#import-hevy button')).map((n) => [n.textContent, Math.round(n.getBoundingClientRect().height)]) }));
+    ok('[P246] (c) l’aperçu dit les chiffres : trouvées, période, jour déjà pesé gardé tel quel, valeur écartée, « Seul le poids est importé. »',
+      sp246(c246.titre) === '3 pesées trouvées · du 1 oct. 2025 au 3 oct. 2025' && nb246(c246.phrases.map(sp246)) === nb246([
+        '1 jour déjà pesé dans TrainHub : ta pesée est gardée telle quelle.', '1 ligne écartée : valeur hors des bornes, ou date illisible ou hors période.', 'Seul le poids est importé.']), nb246(c246));
+    ok('[P246] (c) deux boutons « Importer 2 pesées » / « Annuler », de 44 px au moins',
+      c246.boutons.some((b) => sp246(b[0]) === 'Importer 2 pesées' && b[1] >= 44) && c246.boutons.some((b) => sp246(b[0]) === 'Annuler' && b[1] >= 44), nb246(c246.boutons));
+    ok('[P246] (c) rien n’est écrit avant le clic', base.ecrituresPesees.length === ecr246, nb246(base.ecrituresPesees.slice(ecr246)));
+    await page.click('#import-hevy .imp-importer');
+    await jusqua(async () => base.pesees.length >= 3, 20000);
+    const envoyees246 = base.ecrituresPesees.slice(ecr246);
+    ok('[P246] (c) DISCRIMINANT — les jours absents arrivent (source import_hevy) ; le jour déjà pesé garde sa valeur (70 kg, source app)',
+      base.pesees.length === 3 && base.pesees.find((x) => x.date === '2025-10-02').poids_kg === 70 && base.pesees.find((x) => x.date === '2025-10-02').source === 'app' &&
+      base.pesees.find((x) => x.date === '2025-10-01').poids_kg === 90 && base.pesees.find((x) => x.date === '2025-10-01').source === 'import_hevy' &&
+      base.pesees.find((x) => x.date === '2025-10-03').poids_kg === 88, nb246(base.pesees));
+    ok('[P246] (c) …la ligne envoyée du jour déjà pesé n’existe pas, et chaque envoi est un AJOUT SEUL (ignore-duplicates), sans masse grasse',
+      envoyees246.length > 0 && envoyees246.every((e) => e.ignorer && !e.fusionner && e.lignes.every((l) => l.date !== '2025-10-02' && l.fat_percent === undefined && l.masse_grasse_pct === undefined)), nb246(envoyees246));
+    ok('[P246] (c) aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refus246 && gardeBanc.violations === violations246 && erreurs.length === erreurs246,
+      nb246([base.journal.filter((j) => j.op === 'refus').slice(refus246), gardeBanc.liste.slice(-2), erreurs.slice(erreurs246)]));
+    base.pesees = peseesAvant246;
     await aller('/saisie');
   }
 

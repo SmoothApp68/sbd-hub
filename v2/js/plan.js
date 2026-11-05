@@ -734,6 +734,9 @@
     // que le coach ne peut pas remplir porte ses deux gestes (« En faire une
     // série normale », « La retirer »), tant qu'elle n'est pas faite.
     if (d.enleve !== undefined) sortie.degressive.enleve = d.enleve;
+    // 245 (I132) — hors barre : la cible et les charges disponibles de la fenêtre, pour que l'invariant vérifie le choix.
+    // Non énumérable : le plan garde sa forme (les comparaisons, les copies JSON) ; l'invariant le lit sur le plan vivant.
+    if (d.choix) Object.defineProperty(sortie.degressive, 'choix', { value: d.choix, enumerable: false });
     // §10 bis (108) — à la barre fixe, on change de barre (« Prends la barre de 20 kg. »).
     if (d.barreFixe) sortie.degressive.barreFixe = true;
     if (d.gestes && !deg.validee) sortie.degressive.gestes = d.gestes.slice();
@@ -773,6 +776,7 @@
                    charge: dk.charge, repos: ligne.degressive.repos, phrase: dk.phrase,
                    premiereReps: repsPremiere, lourde: !!materiel.lourde };
       if (dk.enleve !== undefined) item.enleve = dk.enleve;
+      if (dk.choix) Object.defineProperty(item, 'choix', { value: dk.choix, enumerable: false });
       if (dk.barreFixe) item.barreFixe = true;
       if (dk.gestes && !ligne.validee) item.gestes = dk.gestes.slice();
       item.citations = citK;
@@ -1643,7 +1647,7 @@
     // barre au-dessus » citerait alors une cible qu'aucune ligne n'affiche (I26) : on la tait, et le plan le dit (`approcheeSansLigne`,
     // relu par I61). Tant qu'un segment de l'en-tête porte la charge approchée, rien ne change.
     var porteuse = !!(entete && Array.isArray(entete.segments) && entete.segments.some(function (sg) { return sg && sg.approchee === true; }));
-    var horsCalculDuExo = !!(exo && Array.isArray(exo.series) && exo.series.some(function (sx) { return sx && sx.hors_calcul === true; }));
+    var horsCalculDuExo = !!(exo && Array.isArray(exo.series) && exo.series.some(function (sx) { return racine.THModele.estHorsCalcul(sx); }));
     var approcheeSansLigne = !!(consigne && consigne.fondement && consigne.fondement.approchee === true) && !porteuse && horsCalculDuExo;
     if (!approcheeSansLigne && consigne && consigne.fondement && consigne.fondement.approchee === true) {
       var capAp = V.capturer(function () { return M.phraseApprochee(materiel ? materiel.equipement : null, consigne); });
@@ -3326,8 +3330,26 @@
     var M = Moteur();
     var k = c.consigne;
     var E = e.escalier;
+    var d0 = E && E.dessous && Object.prototype.hasOwnProperty.call(E.dessous, slug) ? E.dessous[slug] : null;
+    // 245 (F3) — DEPUIS UNE AIDE, 0 REP STRICTE AU PREMIER ESSAI : la marche d'en dessous TOUT DE SUITE, sans attendre quatre séances.
+    // Une fois (une marche déjà proposée pour cet exercice, répondue ou non, ne revient pas) ; les faits viennent de l'app.
+    if (d0 && d0.slug && d0.nom && E.premierEssai && E.premierEssai[slug] === true) {
+      var vue = marches.filter(function (x) { return x && x.exercice === slug && x.marche === M.MARCHE_DESSOUS; });
+      var ici = vue.filter(function (x) { return x.seance === seance.id; })[0];
+      if (vue.length && !ici) return null;
+      var p = { marche: M.MARCHE_DESSOUS, n: 1, compteur: 0, declenchement: true, zone: null, premierEssai: true,
+                dessous: { slug: d0.slug, nom: d0.nom } };
+      if (ici) { p.reponse = ici.reponse; return p; }
+      var capP = Voix().capturer(function () { return M.carteDessousPremierEssai(d0.nom); });
+      if (!capP.texte) return null;
+      p.carte = capP.texte;
+      retenirCitationsDeCarte(p.carte, capP.citations);
+      p.carte.cible = d0.slug;
+      p.carte.detail = M.detailDessous(d0.nom);
+      return p;
+    }
     if (!k || k.etat !== 'etirement_reps' || Number(k.palier) !== 0 || !c.compteur || !c.compteur.meilleur) return null;
-    var d = E && E.dessous && Object.prototype.hasOwnProperty.call(E.dessous, slug) ? E.dessous[slug] : null;
+    var d = d0;
     if (!d || !d.slug || !d.nom) return null;
     var cpt = c.compteur.compteur;
     if (typeof cpt !== 'number' || cpt < M.PAS_ESCALIER) return null;
@@ -6587,6 +6609,19 @@
         else if (x.silenceChauffes.annuler !== 'Annuler') erreurs.push('I130' + nom + ' : la mise en silence des chauffes sans « Annuler »');
       }
       if (x.silenceChauffes && etatSilence !== true) erreurs.push('I130' + nom + ' : la phrase du silence des chauffes sans geste de mise en silence');
+      // I132 (245, MOTEUR §9.15.3) — une dégressive proposée hors barre est la charge disponible la plus proche de sa cible dans la fenêtre :
+      // aucune autre charge disponible de la fenêtre n'en est plus proche (à égalité, la plus basse), et elle est dans la fenêtre.
+      [x.degressive].concat(x.degressivesPlus || []).forEach(function (dg) {
+        if (!dg || !dg.choix || dg.charge === null || dg.charge === undefined) return;
+        var ch = dg.choix, dist = Math.abs(dg.charge - ch.cible);
+        if (ch.dans.indexOf(dg.charge) < 0) erreurs.push('I132' + nom + ' : une dégressive (' + dg.charge + ') hors de la fenêtre de la baisse');
+        ch.dans.forEach(function (c) {
+          var dc = Math.abs(c - ch.cible);
+          if (dc < dist - 1e-9 || (Math.abs(dc - dist) <= 1e-9 && c < dg.charge - 1e-9)) {
+            erreurs.push('I132' + nom + ' : une dégressive à ' + dg.charge + ' alors que ' + c + ' est plus près de la cible ' + ch.cible);
+          }
+        });
+      });
     });
   }
 
@@ -6914,7 +6949,7 @@
     ((plan && plan.exercices) || []).forEach(function (x, i) {
       var series = exos[i] && exos[i].series ? exos[i].series : [];
       series.forEach(function (s, j) {
-        if (!s || s.hors_calcul !== true) return;
+        if (!racine.THModele.estHorsCalcul(s)) return;
         var nom = 'I70 — exercice ' + i + ' (' + (x && x.slug) + '), série ' + j + ' hors calcul : ';
         var l = x && x.lignes ? x.lignes[j] : null;
         if (l && l.role !== 'hors') erreurs.push(nom + 'sa ligne n’est pas « hors » (rôle ' + l.role + ')');
@@ -6924,7 +6959,7 @@
         var kg = nombre(s.charge_kg), rp = nombre(s.reps);
         if (x && Array.isArray(x.faites) && kg !== null && x.faites.some(function (f) {
           return f && nombre(f.charge_kg) === kg && nombre(f.reps) === rp && (series.every(function (t, k) {
-            return k === j || !t || t.hors_calcul === true || !(nombre(t.charge_kg) === kg && nombre(t.reps) === rp);
+            return k === j || !t || racine.THModele.estHorsCalcul(t) || !(nombre(t.charge_kg) === kg && nombre(t.reps) === rp);
           }));
         })) erreurs.push(nom + 'sa charge est comptée parmi les séries faites');
       });
@@ -7047,9 +7082,14 @@
       if (!m || m.marche !== M.MARCHE_DESSOUS) return;
       var nom = 'I70 — exercice ' + i + ' (' + x.slug + ') : ';
       var k = x.consigne || {};
-      if (k.etat !== 'etirement_reps' || Number(k.palier) !== 0) erreurs.push(nom + 'la marche d’en dessous hors d’un exercice au poids du corps');
-      if (typeof m.compteur !== 'number' || m.compteur < M.PAS_ESCALIER) erreurs.push(nom + 'la marche d’en dessous avant ' + M.PAS_ESCALIER + ' séances sans progrès');
-      if (m.declenchement === true && !M.estDeclenchement(m.compteur)) erreurs.push(nom + 'déclenchée à ' + m.compteur + ', pas un multiple de ' + M.PAS_ESCALIER);
+      if (m.premierEssai !== true && (k.etat !== 'etirement_reps' || Number(k.palier) !== 0)) erreurs.push(nom + 'la marche d’en dessous hors d’un exercice au poids du corps');
+      // 245 (F3) — le premier essai sans aide raté à 0 est l'autre porte : compteur à 0, déclenchée d'emblée (la carte le dit).
+      if (m.premierEssai === true) {
+        if (m.compteur !== 0 || m.declenchement !== true) erreurs.push(nom + 'le premier essai raté déclenche à compteur 0');
+      } else {
+        if (typeof m.compteur !== 'number' || m.compteur < M.PAS_ESCALIER) erreurs.push(nom + 'la marche d’en dessous avant ' + M.PAS_ESCALIER + ' séances sans progrès');
+        if (m.declenchement === true && !M.estDeclenchement(m.compteur)) erreurs.push(nom + 'déclenchée à ' + m.compteur + ', pas un multiple de ' + M.PAS_ESCALIER);
+      }
       if (!m.dessous || !m.dessous.slug) erreurs.push(nom + 'la marche d’en dessous sans exercice du dessous');
       else if (m.carte && m.carte.cible !== m.dessous.slug) erreurs.push(nom + 'la carte cible ' + m.carte.cible + ', pas ' + m.dessous.slug);
       if (m.carte && /réserve|échec/i.test(String(m.carte.phrase))) erreurs.push(nom + 'la carte parle de réserve ou d’échec : jamais un motif');

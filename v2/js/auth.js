@@ -143,12 +143,16 @@
   // profil le reprend (ECRAN-PROFIL §3.1). L'appelant le donne DÉJÀ NORMALISÉ
   // (`Profil.normaliserPseudo`, une seule fonction) ; vide, il n'est pas déposé. `emailRedirectTo`
   // est inchangé.
-  async function inscrire(email, motDePasse, retour, pseudo) {
+  //
+  // 247 — `captchaToken` : le jeton Turnstile, quand le captcha est actif ; sans jeton (clé de site vide), AUCUNE
+  // option vide n'est envoyée : l'appel est identique à celui d'avant.
+  async function inscrire(email, motDePasse, retour, pseudo, captchaToken) {
     var options = {};
     if (retour) options.emailRedirectTo = retour;
     if (typeof pseudo === 'string' && pseudo) options.data = { pseudo: pseudo };
+    if (captchaToken) options.captchaToken = captchaToken;
     var r = await client().auth.signUp({ email: email, password: motDePasse,
-      options: options.emailRedirectTo || options.data ? options : undefined });
+      options: options.emailRedirectTo || options.data || options.captchaToken ? options : undefined });
     if (r.error) throw r.error;
     return { session: (r.data && r.data.session) || null, user: (r.data && r.data.user) || null };
   }
@@ -157,8 +161,11 @@
   // récupération ouverte : c'est le profil, et sa ligne « Mot de passe », qui
   // terminent le geste. Pas d'écran de plus pour une étape qu'un écran existant
   // sait déjà faire.
-  async function reinitialiser(email, retour) {
-    var r = await client().auth.resetPasswordForEmail(email, retour ? { redirectTo: retour } : undefined);
+  async function reinitialiser(email, retour, captchaToken) {
+    var options = {};
+    if (retour) options.redirectTo = retour;
+    if (captchaToken) options.captchaToken = captchaToken;   // 247
+    var r = await client().auth.resetPasswordForEmail(email, retour || captchaToken ? options : undefined);
     if (r && r.error) throw r.error;
   }
 
@@ -168,8 +175,10 @@
     if (r.error) throw r.error;
   }
 
-  async function connecter(email, motDePasse) {
-    var r = await client().auth.signInWithPassword({ email: email, password: motDePasse });
+  async function connecter(email, motDePasse, captchaToken) {
+    var identifiants = { email: email, password: motDePasse };
+    if (captchaToken) identifiants.options = { captchaToken: captchaToken };   // 247
+    var r = await client().auth.signInWithPassword(identifiants);
     if (r.error) throw r.error;
     return r.data.session;
   }
@@ -227,7 +236,164 @@
     return r && r.session ? null : PHRASE_INSCRIPTION;
   }
 
+
+  // ── 247 — LE CAPTCHA (Cloudflare Turnstile) : une notion de l'authentification ───────────────────────
+  //
+  // Dans `auth.js` et pas dans un fichier à lui : un nouveau `js/*.js` entrerait dans `SHELL` du service worker
+  // (et la PR exigerait les vérifications de CLAUDE.md §4 bis sur téléphone). Pur de toute logique d'écran :
+  // l'écran monte le widget, demande le jeton, le réinitialise ; il ne décide rien.
+  //
+  // ⚠️ ORDRE DE MISE EN SERVICE. Une fois la protection activée chez Supabase, les TROIS appels (connexion,
+  // inscription, réinitialisation) exigent un jeton. La clé de site (`THConfig.TURNSTILE_SITE_KEY`) est VIDE tant
+  // que l'app n'est pas prête : `actif()` est faux, aucun script n'est chargé, aucun widget n'est monté, et les
+  // appels sont IDENTIQUES à ceux d'avant.
+  //
+  // Le script de Cloudflare se charge à l'OUVERTURE de l'écran d'entrée seulement (`monter`), jamais au démarrage
+  // de l'app (garde-fou de vitesse 231), jamais pour une personne connectée. Il n'est pas dans `SHELL` : le
+  // service worker ne traite que sa propre origine (`url.origin !== self.location.origin` → return).
+  //
+  // Aucun `await` sans issue : le chargement du script et l'attente du jeton ont chacun leur plafond (10 s) et
+  // leur phrase.
+  var URL_TURNSTILE = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+  var DELAI_SCRIPT_MS = 10000;
+  var DELAI_JETON_MS = 10000;
+  var PHRASE_CAPTCHA_SCRIPT = 'La vérification anti-robot n\'a pas pu se charger. Vérifie ta connexion, puis réessaie.';
+  var PHRASE_CAPTCHA_EXPIREE = 'La vérification a expiré. Réessaie.';
+
+  function fabriquerCaptcha() {
+    var chargement = null;      // la promesse du chargement du script, tant qu'il est en vol
+    var idWidget = null;        // l'identifiant rendu par `turnstile.render`
+    var monteDans = null;       // le conteneur du widget monté
+    var jetonCourant = null;
+    var echec = null;
+    var attentes = [];
+
+    function cle() {
+      var c = racine.THConfig && racine.THConfig.TURNSTILE_SITE_KEY;
+      return typeof c === 'string' ? c.trim() : '';
+    }
+    function actif() { return cle() !== ''; }
+    function erreur(code) {
+      var e = new Error(code === 'script' ? PHRASE_CAPTCHA_SCRIPT : PHRASE_CAPTCHA_EXPIREE);
+      e.captcha = code;
+      return e;
+    }
+    function moteurPret() { return !!(racine.turnstile && typeof racine.turnstile.render === 'function'); }
+
+    // Charge le script UNE fois (jamais deux balises en vol) ; un échec (hors ligne, bloqué, plafond) retire la
+    // balise pour que « Réessayer » puisse recommencer.
+    function charger() {
+      if (!actif()) return Promise.resolve(false);
+      if (moteurPret()) return Promise.resolve(true);
+      if (chargement) return chargement;
+      chargement = new Promise(function (ok, ko) {
+        var doc = racine.document;
+        if (!doc || !doc.createElement) { chargement = null; ko(erreur('script')); return; }
+        var balise = doc.createElement('script');
+        var fini = false;
+        var minuteur = racine.setTimeout(function () { fin(false); }, DELAI_SCRIPT_MS);
+        function fin(bon) {
+          if (fini) return;
+          fini = true;
+          racine.clearTimeout(minuteur);
+          if (bon) { chargement = null; ok(true); return; }
+          chargement = null;
+          if (balise.parentNode) balise.parentNode.removeChild(balise);
+          ko(erreur('script'));
+        }
+        balise.src = URL_TURNSTILE;
+        balise.async = true;
+        balise.defer = true;
+        balise.onload = function () { fin(moteurPret()); };
+        balise.onerror = function () { fin(false); };
+        (doc.head || doc.documentElement).appendChild(balise);
+      });
+      return chargement;
+    }
+
+    function servir() {
+      var liste = attentes;
+      attentes = [];
+      liste.forEach(function (a) {
+        racine.clearTimeout(a.minuteur);
+        if (jetonCourant) a.ok(jetonCourant); else a.ko(echec || erreur('refus'));
+      });
+    }
+
+    // Monte le widget dès l'ouverture de l'écran : le jeton est en général prêt quand la personne touche le bouton.
+    // « interaction-only » : invisible dans le cas courant, ne se montre que s'il faut un geste.
+    function monter(conteneur) {
+      return charger().then(function (charge) {
+        if (!charge || !conteneur) return null;
+        if (idWidget !== null && monteDans === conteneur) return idWidget;   // déjà monté : le jeton en cours reste valable
+        demonter();
+        monteDans = conteneur;
+        idWidget = racine.turnstile.render(conteneur, {
+          sitekey: cle(),
+          appearance: 'interaction-only',
+          theme: 'dark',
+          language: 'fr',
+          callback: function (jeton) { jetonCourant = jeton; echec = null; servir(); },
+          'error-callback': function () { jetonCourant = null; echec = erreur('refus'); servir(); },
+          'expired-callback': function () { jetonCourant = null; }
+        });
+        return idWidget;
+      });
+    }
+
+    // Le jeton, ou une erreur dite : jamais une attente sans fin.
+    function jeton() {
+      if (!actif()) return Promise.resolve(null);
+      if (jetonCourant) return Promise.resolve(jetonCourant);
+      if (echec) return Promise.reject(echec);
+      if (idWidget === null && !chargement) return Promise.reject(erreur('script'));
+      return new Promise(function (ok, ko) {
+        var a = { ok: ok, ko: ko };
+        a.minuteur = racine.setTimeout(function () {
+          attentes = attentes.filter(function (x) { return x !== a; });
+          ko(erreur(idWidget === null ? 'script' : 'delai'));
+        }, DELAI_JETON_MS);
+        attentes.push(a);
+      });
+    }
+
+    // Un jeton ne sert qu'UNE fois : après CHAQUE tentative, réussie ou non.
+    function reinitialiser() {
+      jetonCourant = null;
+      echec = null;
+      if (idWidget !== null && moteurPret() && typeof racine.turnstile.reset === 'function') {
+        try { racine.turnstile.reset(idWidget); } catch (e) { /* widget déjà retiré */ }
+      }
+    }
+
+    function demonter() {
+      if (idWidget !== null && moteurPret() && typeof racine.turnstile.remove === 'function') {
+        try { racine.turnstile.remove(idWidget); } catch (e) { /* déjà retiré */ }
+      }
+      idWidget = null;
+      monteDans = null;
+      jetonCourant = null;
+      echec = null;
+    }
+
+    // La phrase d'une erreur de captcha, ou null si l'erreur n'en est pas une. Le refus de Supabase
+    // (`captcha verification process failed`) vaut « expiré » : un jeton refusé ou trop vieux.
+    function phrase(e) {
+      if (!e) return null;
+      if (e.captcha === 'script') return PHRASE_CAPTCHA_SCRIPT;
+      if (e.captcha) return PHRASE_CAPTCHA_EXPIREE;
+      if (e.code === 'captcha_failed' || /captcha/i.test(String(e.message || ''))) return PHRASE_CAPTCHA_EXPIREE;
+      return null;
+    }
+    function estScript(e) { return !!e && e.captcha === 'script'; }
+
+    return { actif: actif, charger: charger, monter: monter, jeton: jeton, reinitialiser: reinitialiser,
+             demonter: demonter, phrase: phrase, estScript: estScript };
+  }
+  var captcha = fabriquerCaptcha();
+
   racine.THAuth = {
+    captcha: captcha,
     sessionPersistee: sessionPersistee,
     sessionCourante: sessionCourante,
     connecter: connecter,

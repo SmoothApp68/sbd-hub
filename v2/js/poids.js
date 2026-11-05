@@ -186,18 +186,141 @@
   // calendrier) ; au centième. `null` sinon — sans charge, sans pesée, ou
   // pesée trop vieille : l'écran dit alors « Pèse-toi pour voir ce rapport. »
   var RAPPORT_JOURS = 14;
+
+  // 246 — LE SEUL « POIDS À UNE DATE » : la DERNIÈRE pesée dont le jour civil est ≤ `jour`, et d'au plus
+  // `opt.jours` jours (14 par défaut : `ecart >= jours` → `null`). Jamais interpolée, jamais une pesée postérieure.
+  // Tout calcul qui a besoin « du poids de ce jour-là » lit cette fonction ; l'AFFICHAGE daté (`resume`) est une
+  // autre chose. Écart en jours civils (Date.UTC des composantes locales : pas de décalage d'heure).
+  function poidsALaDate(lignes, jour, opt) {
+    var jours = opt && Number(opt.jours) > 0 ? Number(opt.jours) : RAPPORT_JOURS;
+    var liste = normaliser(lignes);
+    var j = jour instanceof Date ? jour : (depuisJour(jour) || new Date(jour));
+    if (!(j instanceof Date) || isNaN(j.getTime())) return null;
+    var u = Date.UTC(j.getFullYear(), j.getMonth(), j.getDate());
+    for (var i = liste.length - 1; i >= 0; i--) {
+      var p = liste[i];
+      var ecart = Math.round((u - Date.UTC(p.date.getFullYear(), p.date.getMonth(), p.date.getDate())) / 86400000);
+      if (ecart < 0) continue;
+      if (ecart >= jours) return null;
+      return { poids: p.poids, date: p.date };
+    }
+    return null;
+  }
+
   function rapportAuPoids(charge, lignes, jour) {
     var c = Number(charge);
     if (charge === null || charge === undefined || !isFinite(c) || c <= 0) return null;
-    var liste = normaliser(lignes);
-    if (!liste.length) return null;
-    var p = liste[liste.length - 1];
-    var j = jour instanceof Date ? jour : (depuisJour(jour) || new Date(jour));
-    if (!(j instanceof Date) || isNaN(j.getTime())) return null;
-    var ecart = Math.round((Date.UTC(j.getFullYear(), j.getMonth(), j.getDate()) -
-      Date.UTC(p.date.getFullYear(), p.date.getMonth(), p.date.getDate())) / 86400000);
-    if (ecart < 0 || ecart >= RAPPORT_JOURS) return null;
+    var p = poidsALaDate(lignes, jour, { jours: RAPPORT_JOURS });
+    if (!p) return null;
     return { rapport: Math.round(c / p.poids * 100) / 100, pesee: { date: p.date, poids: p.poids } };
+  }
+
+  // 246 — LA SEULE INTERPOLATION, pour le bilan (« Ton année » : un bilan regarde en arrière, décision d'Aurélien du
+  // 05/11/2026). Tout autre lecteur du poids à une date lit `poidsALaDate`. Déplacée de `bilans.js` (95, BILANS-V1)
+  // sans changer de code ni de contrat. `pesees` : `[{ jour, poids }]` ; rend `{ poids, approx }` ou `null` : deux
+  // pesées qui encadrent le jour, à 60 j au plus chacune (interpolées) ; sinon la plus proche à 45 j, « ≈ ».
+  var JOURS_ENCADRE = 60, JOURS_PROCHE = 45;
+  var RE_JOUR_STRICT = /^(\d{4})-(\d{2})-(\d{2})$/;
+  function numeroDeJour(j) {
+    var m = RE_JOUR_STRICT.exec(String(j || ''));
+    return m ? Math.round(Date.UTC(+m[1], +m[2] - 1, +m[3]) / 864e5) : null;
+  }
+  function nombreFini(v) {
+    if (v === null || v === undefined || v === '') return null;
+    var n = Number(v);
+    return isFinite(n) ? n : null;
+  }
+  function poidsAutourDe(pesees, jour) {
+    var n = numeroDeJour(jour);
+    if (n === null) return null;
+    var avant = null, apres = null, proche = null;
+    (pesees || []).forEach(function (p) {
+      var k = numeroDeJour(p && p.jour), v = nombreFini(p && p.poids);
+      if (k === null || v === null || v <= 0) return;
+      var d = k - n;
+      if (d <= 0 && -d <= JOURS_ENCADRE && (!avant || k > avant.k)) avant = { k: k, v: v };
+      if (d >= 0 && d <= JOURS_ENCADRE && (!apres || k < apres.k)) apres = { k: k, v: v };
+      if (Math.abs(d) <= JOURS_PROCHE && (!proche || Math.abs(d) < Math.abs(proche.k - n) ||
+          (Math.abs(d) === Math.abs(proche.k - n) && k < proche.k))) proche = { k: k, v: v };
+    });
+    if (avant && apres) {
+      var v = avant.k === apres.k ? avant.v : avant.v + (apres.v - avant.v) * (n - avant.k) / (apres.k - avant.k);
+      return { poids: v, approx: false };
+    }
+    if (proche) return { poids: proche.v, approx: true };
+    return null;
+  }
+
+  // ── 246 · LA TENDANCE (un fait, dit une fois) ───────────────────────────────
+  //
+  // Semaines civiles LUNDI-DIMANCHE, jour local (le même jour que `normaliser`). On remonte depuis la semaine en
+  // cours — qui ne compte que si elle a déjà ≥ 2 pesées, sinon on part de la dernière semaine complète — tant que
+  // chaque semaine a ≥ 2 pesées : au moins 4 semaines, au plus 12, sinon `null` (aucun point inventé). La pente est
+  // celle des MOINDRES CARRÉS sur toutes les pesées de ces semaines (x = jours depuis la première, y = kg), en
+  // kg par semaine ; `erreur` est l'erreur-type de cette pente (s / √Σ(x − x̄)², n − 2 degrés, × 7) : avec ±1 kg de
+  // bruit d'un matin à l'autre, 8 pesées sur 4 semaines ne donnent la pente qu'à ±0,3 kg/semaine près.
+  var TENDANCE_MIN = 4, TENDANCE_MAX = 12, PESEES_PAR_SEMAINE = 2;
+  function numeroDeLundi(d) {
+    var jourSemaine = (d.getDay() + 6) % 7;                   // lundi = 0
+    return Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate() - jourSemaine) / 864e5);
+  }
+  function tendanceDuPoids(lignes, aujourdhui) {
+    var liste = normaliser(lignes);
+    var ref = aujourdhui instanceof Date ? aujourdhui : (depuisJour(aujourdhui) || new Date());
+    if (isNaN(ref.getTime())) return null;
+    var courante = numeroDeLundi(ref);
+    var parSemaine = {};
+    liste.forEach(function (p) {
+      var w = (numeroDeLundi(p.date) - courante) / 7;           // 0 = cette semaine, −1 = la précédente…
+      if (w > 0) return;                                         // une pesée datée d'après aujourd'hui n'entre pas
+      (parSemaine[w] = parSemaine[w] || []).push(p);
+    });
+    var depart = (parSemaine[0] || []).length >= PESEES_PAR_SEMAINE ? 0 : -1;
+    var n = 0;
+    while (n < TENDANCE_MAX && (parSemaine[depart - n] || []).length >= PESEES_PAR_SEMAINE) n++;
+    if (n < TENDANCE_MIN) return null;
+    var pts = [];
+    for (var i = n - 1; i >= 0; i--) pts = pts.concat(parSemaine[depart - i]);
+    pts.sort(function (a, b) { return a.date - b.date; });
+    var u0 = Date.UTC(pts[0].date.getFullYear(), pts[0].date.getMonth(), pts[0].date.getDate());
+    var xs = pts.map(function (p) {
+      return Math.round((Date.UTC(p.date.getFullYear(), p.date.getMonth(), p.date.getDate()) - u0) / 864e5);
+    });
+    var m = pts.length, mx = 0, my = 0;
+    xs.forEach(function (x, k) { mx += x; my += pts[k].poids; });
+    mx /= m; my /= m;
+    var sxx = 0, sxy = 0;
+    xs.forEach(function (x, k) { sxx += (x - mx) * (x - mx); sxy += (x - mx) * (pts[k].poids - my); });
+    if (!(sxx > 0)) return null;
+    var pente = sxy / sxx, ssr = 0;
+    xs.forEach(function (x, k) {
+      var r = pts[k].poids - (my + pente * (x - mx));
+      ssr += r * r;
+    });
+    var s = m > 2 ? Math.sqrt(ssr / (m - 2)) : 0;
+    return { kgParSemaine: pente * 7, erreur: s / Math.sqrt(sxx) * 7, semaines: n, pesees: m };
+  }
+
+  // La seule phrase de la tendance. Un sens n'est dit que si |pente| ≥ 0,1 ET |pente| ≥ 2 × erreur ; « Stable » si la
+  // pente est petite ET bien mesurée ; sinon « Pas de sens net ». Un fait : ni jugement, ni invitation.
+  function kgFr(v) {
+    var M = racine.THModele;
+    return M.nombreSigne(M.nombreFixe(v, 1));
+  }
+  function phraseDeTendance(t) {
+    if (!t) return null;
+    var a = Math.abs(t.kgParSemaine), e = Number(t.erreur) || 0, E = 1e-9;
+    var fin = ' sur les ' + t.semaines + ' dernières semaines.';
+    if (a >= 0.1 - E && a >= 2 * e - E) {
+      return (t.kgParSemaine > 0 ? '+' : '') + kgFr(t.kgParSemaine) + ' kg par semaine en moyenne,' + fin;
+    }
+    if (a < 0.1 && 2 * e < 0.2) return 'Stable' + fin;
+    return 'Pas de sens net' + fin;
+  }
+  // La petite ligne de dessous : de quoi est faite la tendance.
+  function noteDeTendance(t) {
+    if (!t) return null;
+    return 'Calculée sur tes ' + t.pesees + ' pesées de ces ' + t.semaines + ' semaines.';
   }
 
   // ── La pesée qu'on ÉCRIT (60-2a, QUESTIONNAIRE-COACH-V2 §3, écran « Toi ») ──
@@ -268,6 +391,13 @@
   var api = {
     RAPPORT_JOURS: RAPPORT_JOURS,
     rapportAuPoids: rapportAuPoids,
+    poidsALaDate: poidsALaDate,
+    poidsAutourDe: poidsAutourDe,
+    tendanceDuPoids: tendanceDuPoids,
+    phraseDeTendance: phraseDeTendance,
+    noteDeTendance: noteDeTendance,
+    JOURS_ENCADRE: JOURS_ENCADRE,
+    JOURS_PROCHE: JOURS_PROCHE,
     MARGE: MARGE,
     PERIODES: PERIODES,
     PERIODE_DEFAUT: PERIODE_DEFAUT,

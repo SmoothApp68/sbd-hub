@@ -386,19 +386,12 @@ describe('60-2a — ce que chaque écran ÉCRIT', () => {
     expect(ecrit('anciennete', apres, { anciennete: 'moins_1_an', historique_declare: 'debutant' }).champs)
       .toEqual({ anciennete: '3_a_5_ans', historique_declare: 'non_note' });
   });
-  test('187 (A3) — « Où tu t’entraînes ? » → matériel ; « Ajuster Ma salle » → les haltères de ma_salle, par la fonction du Profil', () => {
+  test('187 (A3) / 245 (D-H3) — « Où tu t’entraînes ? » → matériel ; « Ajuster Ma salle » n’écrit plus les haltères', () => {
     expect(ecrit('salle', { materiel: 'salle_basique' }).champs).toEqual({ materiel: 'salle_basique' });
-    const r = ecrit('salle', { materiel: 'salle_basique', halteresMax: 40, halteresPas: 2 }).champs;
-    expect(r).toEqual({ materiel: 'salle_basique', ma_salle: { barres_ez: [], barres_droites: [], halteres: { max: 40, pas: 2 } } });
-    // Rien d'inchangé n'est écrit, et les barres déjà déclarées ne sont pas touchées.
-    expect(ecrit('salle', { materiel: 'salle_basique', halteresMax: 40, halteresPas: 2 },
-      { materiel: 'salle_basique', ma_salle: { barres_ez: [], barres_droites: [], halteres: { max: 40, pas: 2 } } }).champs).toEqual({});
-    const avecBarres = ecrit('salle', { halteresMax: 30, halteresPas: 2.5 },
-      { ma_salle: { barres_ez: [10], barres_droites: [15], halteres: null } }).champs;
-    expect(avecBarres.ma_salle).toEqual({ barres_ez: [10], barres_droites: [15], halteres: { max: 30, pas: 2.5 } });
-    // Des haltères à plusieurs paliers (Profil) ne sont pas réécrits par le questionnaire.
-    expect(ecrit('salle', { halteresMax: 30, halteresPas: 2 },
-      { ma_salle: { barres_ez: [], barres_droites: [], halteres: [{ jusqua: 20, pas: 1 }, { jusqua: 40, pas: 2 }] } }).champs).toEqual({});
+    // Des haltères déjà en base ne sont ni effacés ni réécrits ; une réponse `halteresMax` est ignorée.
+    const avec = { ma_salle: { barres_ez: [10], barres_droites: [15], halteres: { max: 40, pas: 2 } } };
+    expect(ecrit('salle', { halteresMax: 30, halteresPas: 2.5 }, avec).champs).toEqual({});
+    expect(ecrit('salle', { materiel: 'salle_basique', halteresMax: 40, halteresPas: 2 }).champs).toEqual({ materiel: 'salle_basique' });
   });
   test('187 (A4) — « Une zone à ménager ? » → zones_a_menager (vide = NULL, rien d’inchangé)', () => {
     expect(ecrit('zone', { menager: ['genou', 'dos'] }).champs).toEqual({ zones_a_menager: ['dos', 'genou'] });
@@ -474,7 +467,7 @@ describe('60-2a — les réponses de départ sont ce qui est DÉJÀ en base', ()
     expect(rep).toEqual({
       entretien: [], historique: 'import', anciennete: '3_a_5_ans', depuis: '3_a_5_ans', notees: 'import', seances: 5, duree: 90, sexe: 'homme', annee: 1997,
       taille: 182, poids: 98, objectif: 'force', phase: 'seche', priorites: ['squat_barre'], temps: 'max',
-      materiel: 'salle_complete', halteresMax: null, halteresPas: null, plusPetitDisque: null, disquesAbsents: null, barreKg: null, barreTraction: null,
+      materiel: 'salle_complete', plusPetitDisque: null, disquesAbsents: null, barreKg: null, barreTraction: null,
       dep_tractions: null, dep_pompes: null, dep_dips: null, dep_pistol: null,
       menager: [], raides: null, coach: 'franc' });
   });
@@ -580,23 +573,12 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
     const ouvert = blocs(vue('salle', { rep: Q.appliquerChoix(Q.reponsesInitiales({}, {}), 'salleOuverte', true) }), 'replie')[0];
     expect(ouvert.ouvert).toBe(true);
     // 190 — + le plus petit disque et la barre de traction (les lignes de `Profil.lignesMateriel`), chacune avec sa phrase.
-    expect(ouvert.blocs.filter((b) => b.type === 'puces').map((b) => b.cle)).toEqual(['halteresMax', 'halteresPas', 'disques', 'barre_kg', 'barre_traction']);
-    expect(ouvert.blocs.filter((b) => b.type === 'note').map((b) => b.texte)).toEqual(['Je note la charge des haltères par haltère.',
+    expect(ouvert.blocs.filter((b) => b.type === 'puces').map((b) => b.cle)).toEqual(['disques', 'barre_kg', 'barre_traction']);
+    expect(ouvert.blocs.filter((b) => b.type === 'note').map((b) => b.texte)).toEqual(['Aux haltères, tu notes le poids des deux ensemble.',
       Profil.lignesMateriel({})[0].aide, Profil.lignesMateriel({})[1].aide, Profil.lignesMateriel({})[2].aide]);
     // La phrase repliée dit ce qui est réglé.
-    const rep = Object.assign(Q.reponsesInitiales({}, {}), { halteresMax: 40, halteresPas: 2 });
-    expect(sp(blocs(vue('salle', { rep }), 'replie')[0].resume)).toBe('Haltères jusqu’à 40 kg, de 2 en 2.');
     expect(sp(blocs(vue('salle'), 'replie')[0].resume)).toBe('Rien de réglé : je pars de disques de 1,25 kg.');
     expect(vue('salle').bouton.actif).toBe(true);
-  });
-  test('187 (A3) — les haltères d’un profil se relisent (une tranche) ; plusieurs paliers : le questionnaire n’y touche pas', () => {
-    const une = Q.reponsesInitiales({ ma_salle: { barres_ez: [], barres_droites: [], halteres: { max: 40, pas: 2 } } }, {});
-    expect([une.halteresMax, une.halteresPas]).toEqual([40, 2]);
-    const deux = Q.reponsesInitiales({ ma_salle: { barres_ez: [], barres_droites: [], halteres: [{ jusqua: 20, pas: 1 }, { jusqua: 40, pas: 2 }] } }, {});
-    expect([deux.halteresMax, deux.halteresPas]).toEqual([null, null]);
-    const profil = { ma_salle: { barres_ez: [], barres_droites: [], halteres: [{ jusqua: 20, pas: 1 }, { jusqua: 40, pas: 2 }] } };
-    const note = blocs(vue('salle', { profil, rep: Q.appliquerChoix(deux, 'salleOuverte', true) }), 'replie')[0].blocs;
-    expect(note.map((b) => b.type)).toEqual(['note', 'note', 'puces', 'note', 'puces', 'note', 'puces', 'note']);   // + 190 : disque, barre ; 205 : disques, poids de la barre, barre de traction
   });
   test('187 (A4) — « Une zone à ménager ? » : cinq zones et « Aucune », posée à tout le monde', () => {
     const v = vue('zone');

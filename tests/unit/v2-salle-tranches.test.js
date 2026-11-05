@@ -141,12 +141,12 @@ describe('123 — le coach lit les tranches (§10 bis)', () => {
     expect(c.ligne.charge).toBe(20);
   });
 
-  test('⚠️ DISCRIMINANT — la dégressive à 2 × 24 : 2 × 18 (−22,5 % = 37,2, au cran inférieur que la salle fait ; 2 × 20 = −17 % n’est pas une baisse de 20 à 25 %)', () => {
+  test('⚠️ DISCRIMINANT — la dégressive à 2 × 24 : 2 × 18 (−22,5 % = 37,2, la charge que la salle fait la plus proche, 245)', () => {
     const d = M.degressiveDe({ equipement: 'haltere', derniere_serie: 48, reps_travail: 12, salle: salleDe(SALLE_AUREL) });
     expect(d.charge).toBe(36);
     expect(d.phrase).toBe('Dégressive : 36' + NB + 'kg, sans repos, jusqu\'à l\'échec. Vise 5 à 7.');
-    // Sous 10 kg, les crans de 1 kg : 2 × 9 = 18 → −22,5 % = 13,95 → 2 × 6 = 12 (14 serait au-dessus de la cible).
-    expect(M.degressiveDe({ equipement: 'haltere', derniere_serie: 18, reps_travail: 12, salle: salleDe(SALLE_AUREL) }).charge).toBe(12);
+    // Sous 10 kg, les crans de 1 kg : 2 × 9 = 18 → −22,5 % = 13,95 → 2 × 7 = 14 (245 : le plus proche ; 12 serait −33 %).
+    expect(M.degressiveDe({ equipement: 'haltere', derniere_serie: 18, reps_travail: 12, salle: salleDe(SALLE_AUREL) }).charge).toBe(14);
   });
 
   test('dans le plan : la ligne dégressive aux haltères prend 2 × 18 après 2 × 24, et le plan passe ses invariants (I46)', () => {
@@ -173,7 +173,7 @@ describe('123 — le coach lit les tranches (§10 bis)', () => {
       options: global.THModele.optionsDeRecord({ mesure: 'charge_reps', charge: 'externe', equipement: 'haltere' }), salle: s });
     const p = poser(84);
     expect(p.etat).toBe('hors_salle');
-    expect(Obj.phraseHorsSalle(p)).toBe('Ta salle va jusqu’à 2' + NB + '×' + NB + global.THModele.charge(40) + ' en haltères.');
+    expect(Obj.phraseHorsSalle(p)).toBe('Ta salle va jusqu’à ' + global.THModele.charge(80) + ' en haltères.');
     expect(poser(80).etat).not.toBe('hors_salle');
     expect(poser(22).etat).not.toBe('hors_salle');
   });

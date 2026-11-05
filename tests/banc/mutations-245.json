@@ -1,0 +1,103 @@
+[
+ {
+  "nom": "245-1-aide-reclasse-en-chauffe",
+  "fichier": "v2/js/palier.js",
+  "ancien": "    var uneAide = !!(options && options.charge === 'assistance');",
+  "nouveau": "    var uneAide = false;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-aide-sans-chauffe.test.js"
+  ]
+ },
+ {
+  "nom": "245-2-halteres-doublement-revient",
+  "fichier": "v2/js/bilans.js",
+  "ancien": "de: o.A[best.reps] / 100,",
+  "nouveau": "de: o.A[best.reps] * 2 / 100,",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-bilans.test.js",
+   "tests/unit/v2-haltere-paire.test.js"
+  ]
+ },
+ {
+  "nom": "245-3-degressive-prend-le-haut-de-la-fenetre",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "      return Math.abs(da - db) > 1e-9 ? da - db : a - b;",
+  "nouveau": "      return b - a;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-degressive-plus-proche.test.js"
+  ]
+ },
+ {
+  "nom": "245-4-edition-sans-observation",
+  "fichier": "v2/js/app.js",
+  "ancien": "    if (!r && !edition) return;",
+  "nouveau": "    if (!r) return;",
+  "banc": "seance",
+  "sections": [
+   "edition-245"
+  ]
+ },
+ {
+  "nom": "245-5-correction-garde-la-marque",
+  "fichier": "v2/js/seance.js",
+  "ancien": "('reps' in c && c.reps !== avant.reps))) c.hors_calcul = false;",
+  "nouveau": "('reps' in c && c.reps !== avant.reps))) c.hors_calcul = true;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-hors-calcul.test.js"
+  ]
+ },
+ {
+  "nom": "245-6-marche-de-mesure-differente",
+  "fichier": "v2/js/modele.js",
+  "ancien": "return x.echelle_rang < e.echelle_rang && memeMesure(x, e); });",
+  "nouveau": "return x.echelle_rang < e.echelle_rang; });",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-f3-echelle-pompes.test.js"
+  ]
+ },
+ {
+  "nom": "245-7-marche-suivante-sans-filtre-de-mesure",
+  "fichier": "v2/js/modele.js",
+  "ancien": ".filter(function (x) { return memeMesure(x, e); });   // 245 (F3) : jamais une marche d'une autre mesure",
+  "nouveau": ";   // 245 (F3) : jamais une marche d'une autre mesure",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-f3-echelle-pompes.test.js"
+  ]
+ },
+ {
+  "nom": "245-8-premier-essai-sans-aide-venue",
+  "fichier": "v2/js/faits.js",
+  "ancien": "      if (!depuisUneAide) return false;\n      var g = seancesDeLExercice(c, slug);",
+  "nouveau": "      var g = seancesDeLExercice(c, slug);",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-f3-echelle-pompes.test.js"
+  ]
+ },
+ {
+  "nom": "245-10-retirer-large-vide-toute-observation",
+  "fichier": "v2/js/app.js",
+  "ancien": "        if (retirer && p.set_observe && retirer[p.set_observe]) {",
+  "nouveau": "        if (retirer) {",
+  "banc": "seance",
+  "sections": [
+   "edition-245"
+  ]
+ },
+ {
+  "nom": "245-9-baisse-haltere-seuil-de-10-kg",
+  "fichier": "v2/js/faits.js",
+  "ancien": "ref - charge > (haltere ? HAUSSE_ABSOLUE_HALTERE_KG : BAISSE_ABSOLUE_KG) + EPSILON) {",
+  "nouveau": "ref - charge > BAISSE_ABSOLUE_KG + EPSILON) {",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-vraisemblance.test.js"
+  ]
+ }
+]

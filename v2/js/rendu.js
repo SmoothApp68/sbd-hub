@@ -2138,7 +2138,8 @@
     var phase = el('div', 'carte-mois pc-phase');
     phase.appendChild(el('div', null, vue.phase));
     if (vue.noteDePhase) phase.appendChild(el('p', 'pc-note', vue.noteDePhase));   // 189 : « Tes séries reviennent à ta routine. »
-    phase.appendChild(el('p', 'pc-note', vue.pesees.assez
+    // 246 : la tendance existe → sa phrase (`THPoids.phraseDeTendance`, lue par l'app) ; sinon les deux invitations.
+    phase.appendChild(el('p', 'pc-note', vue.pesees.phraseTendance ? vue.pesees.phraseTendance : vue.pesees.assez
       ? vue.pesees.nombre + ' pesées en huit semaines.'
       : 'Pas assez de pesées : ' + vue.pesees.nombre + ' en huit semaines. Une par semaine suffit.'));
     cible.appendChild(phase);
@@ -2385,6 +2386,16 @@
     axe.appendChild(el('span', null, jour(courbe.fin, -1)));
     cadre.appendChild(axe);
     cible.appendChild(cadre);
+  }
+
+  // 246 — la tendance du poids : une ligne de texte secondaire sous la courbe + sa note. Rien sans phrase. Aucune
+  // couleur, aucune flèche, aucun calcul ici (`THPoids.tendance`).
+  function rendreTendancePoids(cible, phrase, note) {
+    if (!cible) return;
+    vider(cible);
+    if (!phrase) return;
+    cible.appendChild(el('p', 'pesees-tendance', phrase));
+    if (note) cible.appendChild(el('p', 'pesees-total', note));
   }
 
   function rendreListePesees(cible, pesees, total) {
@@ -3527,7 +3538,7 @@
   // pour toutes les rangées ; sinon elle se tait (204 : et le libellé de mesure revient sous chaque nom).
   function gabaritsHomogenes(gabarits) {
     return gabarits.every(function (g) {
-      return g.mesure === gabarits[0].mesure && (g.nature || null) === (gabarits[0].nature || null) &&
+      return g.mesure === gabarits[0].mesure && (g.nature || null) === (gabarits[0].nature || null) && (g.aide || null) === (gabarits[0].aide || null) &&
         colonnesDe(g).join() === colonnesDe(gabarits[0]).join();
     });
   }
@@ -3974,6 +3985,13 @@
       entetes.appendChild(bRepos);
     } else {
       entetes.appendChild(el('span', 'centre', ''));
+    }
+    // 245 — l'unité des haltères, une ligne sous les en-têtes (12 px, couleur secondaire) : « kg, les deux haltères ».
+    if (g.aide) {
+      var enSemble = doc.createDocumentFragment();
+      enSemble.appendChild(entetes);
+      enSemble.appendChild(el('div', 'aide-unite', g.aide));
+      return enSemble;
     }
     return entetes;
   }
@@ -5084,6 +5102,17 @@
         bAu.addEventListener('click', function () { vue.surAuMax(!vue.auMax.actif); });
         menuAu.appendChild(bAu);
         cible.appendChild(menuAu);
+      }
+
+      // 245 (D-S3) — une série que tu as sortie du calcul (« Non, ne compte pas ») peut y rentrer : la réponse se retire.
+      if (vue.horsCalcul && vue.horsCalcul.actif && !vue.programme) {
+        var menuHc = el('div', 'feuille-menu');
+        var bHc = el('button', '', 'Compter cette série');
+        bHc.appendChild(el('small', 'aide-type', 'Elle reprend sa place dans tes records, tes paris et ton niveau.'));
+        bHc.type = 'button';
+        bHc.addEventListener('click', function () { vue.surCompter(); });
+        menuHc.appendChild(bHc);
+        cible.appendChild(menuHc);
       }
 
       // 196 (MOTEUR §9.33) — « Rest-pause » : deux mini-séries à la même charge, une seule série de travail.
@@ -8678,6 +8707,14 @@
       cible.appendChild(bouton(vue.libelleFin || 'Voir l\u2019historique', 'discret imp-bouton', vue.surHistorique));
       return cible;
     }
+    // 246 — l'aperçu des MESURES (pesées) : des faits, deux boutons. Chaque phrase se pose par `textContent`.
+    if (vue.etape === 'mesures') {
+      cible.appendChild(el('h2', 'titre-vue', vue.titre));
+      vue.phrases.forEach(function (t) { cible.appendChild(el('p', 'imp-aide imp-mesure', t)); });
+      cible.appendChild(bouton(vue.bouton.libelle, 'principal imp-bouton imp-importer', vue.surImporter, vue.bouton.actif));
+      cible.appendChild(bouton('Annuler', 'discret imp-bouton imp-annuler', vue.surAnnuler));
+      return cible;
+    }
     if (vue.etape === 'apercu') {
       cible.appendChild(el('h2', 'titre-vue', vue.titre));
       if (vue.periode) cible.appendChild(el('p', 'imp-aide imp-periode', vue.periode));
@@ -8827,6 +8864,8 @@
         vue.conditions.appendChild(doc.createTextNode('.'));
       }
     }
+    // 247 — la zone du captcha n'existe que si la clé de site est posée (l'app le dit ; le rendu ne décide rien).
+    if (vue.captcha) vue.captcha.hidden = !vue.captchaActif;
     if (vue.bouton) vue.bouton.textContent = inscription ? 'Créer mon compte' : 'Se connecter';
     if (vue.bascule) vue.bascule.textContent = inscription ? 'Se connecter' : 'Créer un compte';
     if (vue.basculeAvant) {
@@ -10218,6 +10257,7 @@
     rendreRadar: rendreRadar,
     rendreCartesPeriode: rendreCartesPeriode,
     rendreCourbePoids: rendreCourbePoids,
+    rendreTendancePoids: rendreTendancePoids,
     rendreListePesees: rendreListePesees,
     jour: jour,
     signe: signe,
@@ -10355,6 +10395,7 @@
     rendreRadar: rendreRadar,
     rendreCartesPeriode: rendreCartesPeriode,
     rendreCourbePoids: rendreCourbePoids,
+    rendreTendancePoids: rendreTendancePoids,
     rendreListePesees: rendreListePesees,
     jour: jour,
     signe: signe,

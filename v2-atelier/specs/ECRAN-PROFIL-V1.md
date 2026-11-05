@@ -327,6 +327,36 @@ deviner un nom « au plus près » (le v1 le faisait : une erreur fausserait les
 que rien ne le montre) ; remplacer une séance du même jour et du même titre (le v1 le faisait) ; les pesées de Hevy
 (un autre fichier, plus tard).
 
+### 2.4 septies Le poids : la tendance dite comme un fait, les mesures de Hevy — décidé le 05/11/2026 (prompt 246)
+
+> Maquette validée le 05/11 : `maquette-poids-tendance-v1` (écrans A, B, C). Conception et tours de table :
+> `CONCEPTION-L5-POIDS-2026-11-05`, `TOURS-246-2026-11-05`.
+
+- **Un seul « poids à une date »** : `Poids.poidsALaDate(lignes, jour, { jours })` — la DERNIÈRE pesée dont le jour civil
+  est ≤ `jour`, d'au plus `jours` jours (14 par défaut), jamais interpolée, jamais une pesée postérieure. Le rapport au
+  poids (14 j) et le score DOTS publié (**90 jours, sinon aucun score**) le lisent ; plus aucune lecture ad hoc de « la
+  dernière pesée » pour un calcul. `Poids.resume` (l'affichage daté) est une autre chose.
+- **La tendance** (`Poids.tendanceDuPoids`, `Poids.phraseDeTendance`, `Poids.noteDeTendance`) : semaines civiles
+  lundi-dimanche ; on remonte depuis la semaine en cours (qui ne compte qu'avec ≥ 2 pesées) tant que chaque semaine a
+  ≥ 2 pesées, **de 4 à 12 semaines**, sinon rien. Pente des moindres carrés sur toutes les pesées retenues (aucun point
+  inventé), en kg par semaine, avec son **erreur-type**. Un sens n'est dit que si |pente| ≥ 0,1 ET |pente| ≥ 2 erreurs ;
+  « Stable » seulement si la pente est petite ET bien mesurée ; sinon **« Pas de sens net sur les N dernières
+  semaines. »** (un fait, sans invitation). Jamais un chiffre plus précis que les pesées ne le permettent.
+  L'erreur-type suppose des résidus indépendants ; les cycles d'eau la sous-estiment : le seuil absolu de 0,1 kg/semaine
+  sert de garde.
+- **L'écran Poids** : une ligne sous la courbe (« −0,4 kg par semaine en moyenne, sur les 6 dernières semaines. ») et
+  « Calculée sur tes N pesées de ces K semaines. », calculées sur TOUTES les pesées, pas sur la période choisie. Sans
+  tendance : rien du tout (ni invitation, ni « pas assez », ni compteur). Aucune couleur, aucune flèche ; la tendance ne
+  sort jamais de l'appareil. La note du parcours en sèche lit la même phrase ; sans tendance, ses deux invitations
+  restent (« N pesées en huit semaines. » / « Pas assez de pesées… »), le seuil de 4 pesées en 8 semaines ne décidant que
+  de la phrase d'invitation.
+- **Les mesures de Hevy** (`ImportHevy.lireMesuresCsv`) : le CSV `date`, `weight_kg` (la masse grasse et les tours sont
+  ignorés : **seul le poids est importé**). Le jour est le texte de la date ; un en-tête inconnu ne lit rien ; `weight_lbs`
+  est refusé avec sa raison ; bornes 20 < kg < 400, ni future, ni avant 1990 ; une seule pesée par jour (la plus tôt) ;
+  2 Mo et 5 000 lignes au plus. L'aperçu retire les jours déjà pesés (toute source : ils gardent leur valeur) AVANT
+  l'écriture, qui est un **ajout seul** (`Donnees.ajouterPesees`, `ignoreDuplicates`, par la file). **Un import ne remplace
+  jamais une pesée.**
+
 ### 2.4 ter Le niveau MESURÉ — retiré du profil le 18/09/2026
 
 **Piste explorée puis abandonnée.** Hevy affiche un « Strength Level » qui compare la meilleure

@@ -619,6 +619,7 @@ button.bloc-exo:active{background:var(--panneau-2)}
 .pesee-d{flex:1;min-width:0;font-size:12px;line-height:1.4;color:var(--texte-3)}
 .pesee-p{font-size:14px;font-weight:600;line-height:1.4}
 .pesee-e{min-width:46px;text-align:right;font-size:12px;line-height:1.4;color:var(--texte-3)}
+.pesees-tendance{font-size:13px;line-height:1.5;color:var(--texte-2);padding:var(--e2) var(--e1) 0}
 .pesees-total{font-size:12px;line-height:1.5;color:var(--texte-3);padding:var(--e2) var(--e1) 0}
 
 /* ══ SAISIE — LA BIBLIOTHÈQUE DE ROUTINES (chantier 21) ══════════════════════
@@ -951,6 +952,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:12px;font-weig
   display:inline-flex;align-items:center;justify-content:center;padding:0}
 #vue-seance .legende-haut .nom-exo.lien{min-height:44px;display:inline-flex;align-items:center;text-align:left}
 #vue-seance .legende-haut .exo-seance{align-items:center}
+.aide-unite{padding:0 var(--e3) var(--e1);font-size:12px;color:var(--texte-2)}
 .cols-seance .repos-entete{justify-self:end;white-space:nowrap;min-width:40px;height:40px;margin:-8px 0 -8px;padding:0 2px;
   background:none;border:none;border-radius:var(--r-petit);color:var(--texte-2);font-size:12px;font-weight:600;letter-spacing:0}
 .cols-seance .repos-entete:active{color:var(--texte)}
@@ -2291,6 +2293,9 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   background:var(--panneau-2);color:var(--texte);border:1px solid var(--trait);border-radius:var(--r-petit);
   font:var(--police-champ)/1.35 ui-monospace,monospace;resize:vertical}
 .imp-bouton{display:block;width:100%;margin-top:10px}
+/* 246 — l'aperçu des mesures : des faits en clair (pas la teinte discrète) et deux cibles de 44 px. */
+.imp-mesure{color:var(--texte-2);font-size:13px;line-height:1.5;margin:6px 0}
+.imp-importer,.imp-annuler{min-height:44px}
 .imp-ok{color:var(--texte-2);font-size:14px;margin-top:10px;line-height:1.4}
 .imp-erreur{color:var(--texte)}
 .imp-periode{margin-bottom:var(--e2)}
@@ -2984,6 +2989,8 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .entree-age15{display:flex;align-items:center;gap:10px;min-height:44px;font-size:14px;color:var(--texte-2)}
 .entree-age15 input{width:22px;height:22px;flex:none}
 .entree-conditions{margin:var(--e3,12px) 0 0;font-size:12px;line-height:1.5;color:var(--texte-3);text-align:center}
+.entree-captcha{display:flex;flex-direction:column;align-items:center;gap:var(--e2,8px);margin-top:var(--e2,8px);max-width:100%;overflow:hidden}
+.entree-captcha-reessayer{min-height:44px;min-width:44px;padding:0 var(--e4,16px);background:none;border:1px solid var(--trait);border-radius:10px;font:inherit;color:var(--texte-2);cursor:pointer}
 .entree-lien{background:none;border:none;padding:0;font:inherit;color:var(--texte-2);text-decoration:underline;cursor:pointer}
 .mentions-page{display:grid;gap:12px;margin-bottom:12px}
 .mentions-bloc b{display:block;font-size:13px;color:var(--texte);margin-bottom:2px}

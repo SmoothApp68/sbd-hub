@@ -13,6 +13,7 @@ require('../../v2/js/palier.js');
 require('../../v2/js/moteur.js');   // 136 (F5) — la fenêtre de la médaille (`plancherDuMateriel`), comme dans index.html
 require('../../v2/js/bilan.js');
 require('../../v2/js/parcours.js');
+require('../../v2/js/poids.js');   // 246 — `Bilans` lit `THPoids.poidsAutourDe`, comme dans index.html
 const Bilans = require('../../v2/js/bilans.js');
 const Annee = require('../../v2/js/annee.js');
 
@@ -129,5 +130,20 @@ describe('97 — l’écran des heures et des jours à la salle', () => {
   test('sans aucune fin : les jours seuls ; peu d’heures : pas d’équivalence', () => {
     expect(avec({ jours: 12, minutes: 0 }).find((x) => x.cle === 'salle').chiffre).toMatchObject({ v: 12, unite: 'jours' });
     expect(texte(avec({ jours: 20, minutes: 30 * 60 }).find((x) => x.cle === 'salle').txt)).toBe('sur 20 jours.');
+  });
+});
+
+describe('245 — aux haltères la charge notée est la PAIRE : l’image de l’année l’écrit « 2 × moitié »', () => {
+  const s = semaines('2025-01-02', '2025-12-25', () => [['curl_halteres', 60, 8], ['squat_barre', 120, 5]])
+    .concat(semaines('2026-01-01', '2026-12-24', () => [['curl_halteres', 80, 8], ['squat_barre', 130, 5]]));
+  const b = bilan(s);
+  const e = Annee.ecrans({ bilan: Object.assign({}, b, { periode: Object.assign({}, b.periode, { type: 'saison', ce: 'cette saison' }), records: [
+    { slug: 'curl_halteres', nom: 'Curl (Haltère)', charge: 80, avant: 60, jour: '2026-03-05', haltere: true },
+    { slug: 'squat_barre', nom: 'Squat (Barre)', charge: 130, avant: 120, jour: '2026-03-05', haltere: false }] }), qui: 'aurel_br', jeu: null });
+  test('un record à 80 (la paire) se dit « 2 × 40 kg » ; une barre garde sa charge', () => {
+    const recs = e.find((x) => x.cle === 'records');
+    const lignes = (recs ? recs.lignes : []).map((l) => l.v);
+    expect(lignes.map((l) => l.replace(/\u00a0/g, ' '))).toEqual(expect.arrayContaining(['2 × 40 kg', '130 kg']));
+    expect(tout(e)).not.toMatch(/2 × 80/);
   });
 });

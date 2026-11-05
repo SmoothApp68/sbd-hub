@@ -1009,16 +1009,23 @@
   // colonne), `dessous` (les champs sous la série) et la légende complétée (« DURÉE ·
   // ÉTAGES »). `programme` (l'éditeur de routine) : aucun champ en plus — `routine_sets`
   // n'a pas de colonne pour eux.
+  // 245 — AUX HALTÈRES, la charge est la PAIRE (MOTEUR §10.1) : une ligne d'aide sous le champ de charge le dit (jamais sur une barre).
+  var AIDE_DES_HALTERES = 'kg, les deux haltères';
+  // 245 — UNE SEULE NOTION : la charge d'un exercice aux haltères (`equipement = haltere`) est la PAIRE, les deux ensemble.
+  function chargeEstLaPaire(exo) { return !!exo && exo.equipement === 'haltere'; }
+  function avecAideDeLUnite(g, exo) {
+    return chargeEstLaPaire(exo) && g.mesure === 'charge_reps' ? Object.assign({}, g, { aide: AIDE_DES_HALTERES }) : g;
+  }
   function grilleDe(exo, programme) {
     var g = gabaritDe(exo);
     var plus = programme ? [] : champsDeSerie(exo).slice(g.champs.length);
     var colonnes = g.champs.concat(plus.filter(function (n) { return CHAMPS_MESURE[n].place === 'colonne'; }));
     var dessous = plus.filter(function (n) { return CHAMPS_MESURE[n].place === 'dessous'; });
-    if (!plus.length) return Object.assign({}, g, { colonnes: g.champs, dessous: [] });
-    return Object.assign({}, g, {
+    if (!plus.length) return avecAideDeLUnite(Object.assign({}, g, { colonnes: g.champs, dessous: [] }), exo);
+    return avecAideDeLUnite(Object.assign({}, g, {
       colonnes: colonnes, dessous: dessous,
       libelle: g.libelle ? [g.libelle].concat(plus.map(function (n) { return CHAMPS_MESURE[n].libelle; })).join(' \u00b7 ') : g.libelle
-    });
+    }), exo);
   }
 
   function champDeMesure(nom) {
@@ -1226,6 +1233,13 @@
     return Object.keys(index || {}).map(function (s) { return index[s]; })
       .filter(function (x) { return echelleDe(x) === echelle; });
   }
+  // 245 (F3, MOTEUR §9.17 bis, I133) — LA MESURE D'UNE MARCHE : des secondes (`temps`), ou des reps (`reps`, `charge_reps`, tout le
+  // reste). Une carte ne propose JAMAIS une marche d'une autre mesure que l'exercice en cours : une tenue (le soutien aux barres
+  // parallèles, au rang 1 des dips) n'est pas « la marche d'en dessous » d'une série de reps. Elle reste visible dans « Ton échelle ».
+  // Aucun slug : la colonne `mesure` du catalogue.
+  function memeMesure(a, b) {
+    return !!a && !!b && ((a.mesure === 'temps') === (b.mesure === 'temps'));
+  }
 
   // 149 (v2_108, MOTEUR §9.17 ter) — UNE ÉCHELLE DE FIGURES : une échelle dont TOUTES les marches sont en secondes
   // (`mesure = 'temps'` : front lever, back lever, planche, L-sit, équilibre, drapeau). Elle se lit sur le catalogue,
@@ -1247,7 +1261,7 @@
     var e = index && slug ? index[slug] : null;
     var E = echelleDe(e);
     if (E === null) return null;
-    var moins = marchesDe(index, E).filter(function (x) { return x.echelle_rang < e.echelle_rang; });
+    var moins = marchesDe(index, E).filter(function (x) { return x.echelle_rang < e.echelle_rang && memeMesure(x, e); });
     if (!moins.length) return null;
     var r = Math.max.apply(null, moins.map(function (x) { return x.echelle_rang; }));
     return moins.filter(function (x) { return x.echelle_rang === r; }).sort(parSlug)[0] || null;
@@ -1285,11 +1299,23 @@
   // porte `variante` (son slug) : la carte du lest propose les deux. Une fois le lest refusé (`o.lestRefuse`, la réponse
   // « Pas de lest »), la variante devient la marche suivante, proposable : la carte « marche suivante » la propose seule.
   function marcheSuivante(index, slug, o) {
+    var m = marcheSuivanteBrute(index, slug, o);
+    // 245 (F3, I133) — UNE ZONE À MÉNAGER ÉCARTE LA MARCHE : `o.ecartee(slug)` dit qu'un exercice charge une zone que la personne ménage
+    // (la notion du générateur, `zonesQuiEcartentLaMarche` : seul le coude, motif triceps — le diamant ; aucune autre zone n'écarte de marche). Le filtre est posé ici, une seule fois,
+    // sur toute sortie (la variante sans lest comprise) ; une marche écartée n'est pas remplacée par la suivante : on ne saute pas un rang.
+    if (m && o && typeof o.ecartee === 'function') {
+      var cible = m.cible.filter(function (x) { return !o.ecartee(x); });
+      if (!cible.length) return null;
+      if (cible.length < m.cible.length) m = Object.assign({}, m, { cible: cible });
+    }
+    return m;
+  }
+  function marcheSuivanteBrute(index, slug, o) {
     var e = index && slug ? index[slug] : null;
     var E = echelleDe(e);
     if (E === null) return null;
-    var marches = marchesDe(index, E);
-    var stricte = echelleDe(index[E]) === E ? index[E] : null;
+    var marches = marchesDe(index, E).filter(function (x) { return memeMesure(x, e); });   // 245 (F3) : jamais une marche d'une autre mesure
+    var stricte = echelleDe(index[E]) === E && memeMesure(index[E], e) ? index[E] : null;
     var cible, type;
     if (e.charge === 'assistance' && stricte && stricte.echelle_rang > e.echelle_rang) {
       cible = [stricte]; type = 'sans_aide';
@@ -1320,6 +1346,27 @@
     var force = estEchelleDeFigures(index, E) || calisthenie ? cible : cible.filter(estDeForce);
     if (!force.length) return { type: 'habilete', cible: cible.map(function (x) { return x.slug; }), proposable: false };
     return { type: type, cible: force.map(function (x) { return x.slug; }), proposable: type !== 'lest' };
+  }
+
+  // I133 (245, F3, MOTEUR §9.17 bis) — AUCUNE CARTE NE PROPOSE UNE MARCHE D'UNE AUTRE MESURE QUE L'EXERCICE EN COURS, ni une marche qui
+  // charge une zone à ménager. Vérifié sur tout le catalogue : pour chaque exercice d'échelle, la marche suivante (et celle d'en
+  // dessous) a la même mesure, et `ecartee` n'en laisse passer aucune écartée. Rend la liste des erreurs (vide = tenu).
+  function verifierI133(index, o) {
+    var erreurs = [];
+    var ecartee = o && typeof o.ecartee === 'function' ? o.ecartee : null;
+    Object.keys(index || {}).forEach(function (slug) {
+      var e = index[slug];
+      if (echelleDe(e) === null) return;
+      var opt = Object.assign({}, o || {});
+      var m = marcheSuivante(index, slug, opt);
+      (m && m.cible || []).forEach(function (c) {
+        if (!memeMesure(index[c], e)) erreurs.push('I133 — ' + slug + ' (' + e.mesure + ') : la marche suivante ' + c + ' est mesurée en ' + index[c].mesure);
+        if (ecartee && ecartee(c)) erreurs.push('I133 — ' + slug + ' : la marche suivante ' + c + ' charge une zone à ménager');
+      });
+      var d = marcheDEnDessous(index, slug);
+      if (d && !memeMesure(d, e)) erreurs.push('I133 — ' + slug + ' (' + e.mesure + ') : la marche d’en dessous ' + d.slug + ' est mesurée en ' + d.mesure);
+    });
+    return erreurs;
   }
 
   // LE DÉPART d'une échelle : l'exercice de ta marche (`tienne`, le plus haut rang fait) fait le plus récemment, puis le
@@ -1395,7 +1442,7 @@
   //     (l'échelle travaillée le plus récemment d'abord) ; `semaine` / `avant` : le meilleur de la semaine / de la semaine
   //     d'avant (texte, ou `null`), `reps` : les reps des séries de travail de la semaine, dans l'ordre ; `nouvelle` :
   //     `{ slug, ancienne: { nom, texte } }` quand la marche vient d'être franchie ;
-  //   · `o` : `{ faites, zonesHaut, coachActif, phraseDe, rondsDe }` — `faites` : comme `vueEchelle` (les exercices de
+  //   · `o` : `{ faites, zonesHaut, coachActif, phraseDe, rondsDe, lestRefuse, objectif, ecartee }` — `faites` : comme `vueEchelle` (les exercices de
   //     l'échelle faits, avec `derniere`) ; `phraseDe(e)` la phrase COURTE du coach ; `rondsDe(slug, e)` les deux ronds.
   // Sans coach (« Juste un carnet »), ni phrase, ni ronds, ni reps de la condition. Rend, par échelle :
   // `{ echelle, nom, marche: { slug, nom }, fait: { slug, nom, meilleur, avant } | null, nouvelle: { avant } | null,
@@ -1423,7 +1470,7 @@
       var ligne = it.nouvelle && ex[it.nouvelle.slug] && ex[it.nouvelle.slug].semaine ? it.nouvelle.slug
         : ex[depart.slug] && ex[depart.slug].semaine ? depart.slug
         : travailles.sort(function (a, b) { return index[b].echelle_rang - index[a].echelle_rang || parSlug(index[a], index[b]); })[0] || null;
-      var m = marcheSuivante(index, depart.slug, { lestRefuse: opt.lestRefuse === true, objectif: opt.objectif });
+      var m = marcheSuivante(index, depart.slug, { lestRefuse: opt.lestRefuse === true, objectif: opt.objectif, ecartee: opt.ecartee });
       var suite = null;
       if (opt.coachActif === true && m) {
         var haut = opt.zonesHaut && Object.prototype.hasOwnProperty.call(opt.zonesHaut, depart.slug) ? opt.zonesHaut[depart.slug] : null;
@@ -1995,7 +2042,7 @@
       // ⚠️ LA MESURE EST DONNÉE AU MOTEUR, pas devinée par lui. Sans elle, il ne
       // distingue pas une planche — qui n'aura jamais de palier — d'un développé
       // couché dont les kilos n'ont pas été saisis ce jour-là.
-      var r = palier.analyser(parExo[slug] || [], (etats || {})[slug], { mesure: g.mesure });
+      var r = palier.analyser(parExo[slug] || [], (etats || {})[slug], { mesure: g.mesure, charge: index[slug] ? index[slug].charge : null });
       // Une meilleure série absente ne s'invente pas.
       e.charge = r.meilleure ? r.meilleure.charge : null;
       e.reps = r.meilleure ? r.meilleure.reps : null;
@@ -2889,6 +2936,8 @@
     GABARITS: GABARITS,
     CHAMPS_MESURE: CHAMPS_MESURE,
     gabaritDe: gabaritDe,
+    AIDE_DES_HALTERES: AIDE_DES_HALTERES,
+    chargeEstLaPaire: chargeEstLaPaire,
     natureDeCharge: natureDeCharge,
     PHRASE_POIDS_DU_CORPS: PHRASE_POIDS_DU_CORPS,
     ENTETES_DE_CHARGE: ENTETES_DE_CHARGE,
@@ -2994,6 +3043,8 @@
     // MOTEUR §9.17 bis (127) — l'échelle des variantes.
     echelleDe: echelleDe,
     marcheSuivante: marcheSuivante,
+    memeMesure: memeMesure,
+    verifierI133: verifierI133,
     marchesTriees: marchesTriees,
     rangDeLEchelle: rangDeLEchelle,
     estEchelleDeFigures: estEchelleDeFigures,

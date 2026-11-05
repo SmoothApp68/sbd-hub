@@ -248,6 +248,14 @@ describe('89 — le score DOTS, à poids de corps égal', () => {
     expect(Social.scoresAPublier({ 'squat-barre': 100 }, null, 'homme', () => true, 0)).toBeNull();
     expect(Social.scoresAPublier({ 'squat-barre': 100 }, 80, 'non_precise', () => true, 0)).toBeNull();
   });
+  test('246 — pesée de plus de 90 jours : aucun score publié, jamais un score à poids nul', () => {
+    const Poids = require('../../v2/js/poids.js');
+    const vieille = Poids.poidsALaDate([{ date: '2026-01-01', poids_kg: 80 }], new Date(2026, 5, 1), { jours: 90 });
+    expect(vieille).toBeNull();
+    expect(Social.scoresAPublier({ 'squat-barre': 100 }, vieille ? vieille.poids : null, 'homme', () => true, 0)).toBeNull();
+    const recente = Poids.poidsALaDate([{ date: '2026-05-01', poids_kg: 80 }], new Date(2026, 5, 1), { jours: 90 });
+    expect(Social.scoresAPublier({ 'squat-barre': 100 }, recente.poids, 'homme', () => true, 0)).not.toBeNull();
+  });
   test('114 — ce qui part : le score sur le poids FLOUTÉ, par exercice à la barre — ni le poids, ni la charge', () => {
     // 96,75 kg + décalage 0 → 100 ; + décalage −2 → 94,75 → 90.
     const s = Social.scoresAPublier({ 'squat-barre': 145, 'curl-haltere': 20 }, 96.75, 'homme', (k) => k === 'squat-barre', 0);

@@ -666,6 +666,100 @@
     return s.exercices.reduce(function (n, e) { return n + (slugDuNom(index, e.nom) ? e.series.length : 0); }, 0);
   }
 
+  // ══ 246 — LES MESURES DE HEVY (le CSV des pesées) ══════════════════════════════════════════════════════════════
+  //
+  // En-tête attendu (source tierce, À CONFIRMER sur un vrai fichier) : `date`, `weight_kg`, puis `fat_percent` et des
+  // `*_cm` IGNORÉS — seul le poids est importé (minimisation : `masse_grasse_pct` n'est jamais remplie par ce lot).
+  // Même analyseur CSV (`lignesCsv`) et même lecteur de date (`dateCsv`, ses mois, son refus `enAnglais`) que les
+  // séances. LE JOUR EST LE TEXTE DE LA DATE (« 23 oct. 2023 » → 2023-10-23), jamais repassé par un `Date` en UTC.
+  // Un en-tête inconnu : rien n'est lu (un nom n'est jamais deviné) ; `weight_lbs` seul : refusé avec sa raison.
+  // Rien n'est réexporté ; l'écran ne pose une cellule que par `textContent`.
+  var MESURES_OCTETS_MAX = 2 * 1024 * 1024, MESURES_LIGNES_MAX = 5000, MESURES_DEPUIS = '1990-01-01';
+  function jourDeLaPersonne(d) {
+    var ref = d instanceof Date ? d : new Date();
+    return ref.getFullYear() + '-' + deux(ref.getMonth() + 1) + '-' + deux(ref.getDate());
+  }
+  function enteteDeMesures(texte) {
+    var premiere = String(texte || '').replace(/^\uFEFF/, '').split(/\r\n|\n|\r/)[0];
+    var brutes = lignesCsv(premiere);
+    return brutes.length ? brutes[0].map(function (c) { return String(c).trim().toLowerCase(); }) : [];
+  }
+  // Un CSV de mesures : une colonne `date`, un poids (`weight_kg`, ou `weight_lbs` qui sera refusé avec sa raison) et
+  // aucune colonne de séance. Tout autre fichier garde le chemin des séances, inchangé.
+  function estUnCsvDeMesures(texte) {
+    var e = enteteDeMesures(texte);
+    return e.indexOf('date') >= 0 && (e.indexOf('weight_kg') >= 0 || e.indexOf('weight_lbs') >= 0) &&
+      e.indexOf('exercise_title') < 0 && e.indexOf('start_time') < 0;
+  }
+  function lireMesuresCsv(texte, aujourdhui) {
+    var sortie = { pesees: [], ecartees: 0, raison: null };
+    var brutes = lignesCsv(String(texte || '').replace(/^\uFEFF/, ''));
+    if (brutes.length < 2) { sortie.raison = 'vide'; return sortie; }
+    var entete = brutes[0].map(function (c) { return String(c).trim().toLowerCase(); });
+    var iD = entete.indexOf('date'), iW = entete.indexOf('weight_kg');
+    if (iW < 0) { sortie.raison = entete.indexOf('weight_lbs') >= 0 ? 'unite' : 'entete'; return sortie; }
+    if (iD < 0) { sortie.raison = 'entete'; return sortie; }
+    var lignes = brutes.slice(1);
+    if (lignes.length > MESURES_LIGNES_MAX) { sortie.raison = 'longueur'; return sortie; }
+    var P = racine.THPoids;
+    var min = P ? P.POIDS_MIN : 20, max = P ? P.POIDS_MAX : 400;
+    var auj = jourDeLaPersonne(aujourdhui);
+    var parJour = {}, illisibles = 0, anglais = false;
+    lignes.forEach(function (v) {
+      var local, kg;
+      try { local = dateCsv(v[iD]); }
+      catch (e) { illisibles++; if (e && e.enAnglais) anglais = true; sortie.ecartees++; return; }
+      var jour = local.slice(0, 10), heure = local.slice(11, 16);
+      // Un jour qui n'existe pas au calendrier (2024-02-31) : aller-retour par `THPoids.depuisJour`.
+      if (P && !P.depuisJour(jour)) { sortie.ecartees++; return; }
+      try { kg = nombreLu(vide(v[iW])); } catch (e) { sortie.ecartees++; return; }
+      if (!(kg > min && kg < max) || jour > auj || jour < MESURES_DEPUIS) { sortie.ecartees++; return; }
+      var deja = parJour[jour];
+      if (!deja || heure < deja.heure) parJour[jour] = { date: jour, poids_kg: kg, heure: heure };
+    });
+    if (illisibles === lignes.length) { sortie.raison = 'date'; if (anglais) sortie.enAnglais = true; return sortie; }
+    sortie.pesees = Object.keys(parJour).sort().map(function (j) {
+      return { date: parJour[j].date, poids_kg: parJour[j].poids_kg };
+    });
+    return sortie;
+  }
+
+  // L'aperçu des mesures : les jours DÉJÀ PESÉS dans TrainHub (`dejaPesees`, toutes sources) sont retirés AVANT
+  // l'écriture — ils gardent leur valeur. `{ aImporter, dejaLa, ecartees, du, au, trouvees }`.
+  function apercuDesMesures(lecture, dejaPesees) {
+    var jours = {};
+    (dejaPesees || []).forEach(function (l) { if (l && l.date) jours[String(l.date).slice(0, 10)] = true; });
+    var toutes = (lecture && lecture.pesees) || [];
+    var aImporter = toutes.filter(function (p) { return !jours[p.date]; });
+    return {
+      trouvees: toutes.length, aImporter: aImporter, dejaLa: toutes.length - aImporter.length,
+      ecartees: (lecture && lecture.ecartees) || 0,
+      du: toutes.length ? toutes[0].date : null, au: toutes.length ? toutes[toutes.length - 1].date : null
+    };
+  }
+  function jourCourt(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+    return m ? Number(m[3]) + ' ' + Mo().MOIS_COURTS[Number(m[2]) - 1] + ' ' + m[1] : '';
+  }
+  // Les phrases de l'écran, au mot près de la maquette (écran C).
+  function phrasesDesMesures(a) {
+    var out = [];
+    out.push(a.trouvees + (a.trouvees > 1 ? ' pesées trouvées' : ' pesée trouvée') +
+      (a.du ? ' \u00b7 du ' + jourCourt(a.du) + ' au ' + jourCourt(a.au) : ''));
+    if (a.dejaLa) {
+      out.push(a.dejaLa + (a.dejaLa > 1 ? ' jours déjà pesés' : ' jour déjà pesé') + ' dans TrainHub : ' +
+        (a.dejaLa > 1 ? 'tes pesées sont gardées telles quelles.' : 'ta pesée est gardée telle quelle.'));
+    }
+    if (a.ecartees) {
+      out.push(a.ecartees + (a.ecartees > 1 ? ' lignes écartées : valeur hors des bornes, ou date illisible ou hors période.' : ' ligne écartée : valeur hors des bornes, ou date illisible ou hors période.'));
+    }
+    out.push('Seul le poids est importé.');
+    return out;
+  }
+  function libelleDImporterPesees(n) {
+    return n ? 'Importer ' + n + (n > 1 ? ' pesées' : ' pesée') : 'Importer';
+  }
+
   // ── Les mots de l'écran (au mot près, K1 et la maquette) ─────────────────
   function lireLocal(local) {
     var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(local || ''));
@@ -740,6 +834,13 @@
     // 118 (audit du 16/10, 03 #12) — un Hevy réglé en anglais : ce n'est pas « pas un export ».
     fichierAnglais: 'Export en anglais : change la langue de Hevy en français et réexporte.',
     texteAnglais: 'Texte en anglais : change la langue de Hevy en français et copie-le de nouveau.',
+    // 246 — le CSV des mesures (pesées) : refus dits, jamais devinés.
+    mesuresEntete: 'Ce fichier n’est pas un export de mesures Hevy.',
+    mesuresUnite: 'Les mesures en livres ne sont pas lues : exporte-les en kilos.',
+    mesuresVide: 'Ce fichier ne contient aucune pesée.',
+    mesuresDate: 'Je ne lis pas les dates de ce fichier.',
+    mesuresLongueur: 'Fichier trop long.',
+    mesuresRien: 'Aucune pesée à importer dans ce fichier.',
     connexion: 'L’import demande une connexion.',
     attend: 'Le bouton attend que chaque exercice soit rattaché ou laissé de côté.',
     souvenir: 'Je m’en souviendrai pour tes prochains imports.'
@@ -754,6 +855,9 @@
     norme: norme,
     lireTexte: lireTexte,
     lireCsv: lireCsv,
+    lireMesuresCsv: lireMesuresCsv, estUnCsvDeMesures: estUnCsvDeMesures, apercuDesMesures: apercuDesMesures,
+    phrasesDesMesures: phrasesDesMesures, libelleDImporterPesees: libelleDImporterPesees,
+    MESURES_OCTETS_MAX: MESURES_OCTETS_MAX, MESURES_LIGNES_MAX: MESURES_LIGNES_MAX,
     lignesCsv: lignesCsv,
     versUTC: versUTC,
     fuseauDuTelephone: fuseauDuTelephone,

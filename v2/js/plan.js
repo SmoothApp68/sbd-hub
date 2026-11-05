@@ -734,6 +734,9 @@
     // que le coach ne peut pas remplir porte ses deux gestes (« En faire une
     // série normale », « La retirer »), tant qu'elle n'est pas faite.
     if (d.enleve !== undefined) sortie.degressive.enleve = d.enleve;
+    // 245 (I132) — hors barre : la cible et les charges disponibles de la fenêtre, pour que l'invariant vérifie le choix.
+    // Non énumérable : le plan garde sa forme (les comparaisons, les copies JSON) ; l'invariant le lit sur le plan vivant.
+    if (d.choix) Object.defineProperty(sortie.degressive, 'choix', { value: d.choix, enumerable: false });
     // §10 bis (108) — à la barre fixe, on change de barre (« Prends la barre de 20 kg. »).
     if (d.barreFixe) sortie.degressive.barreFixe = true;
     if (d.gestes && !deg.validee) sortie.degressive.gestes = d.gestes.slice();
@@ -773,6 +776,7 @@
                    charge: dk.charge, repos: ligne.degressive.repos, phrase: dk.phrase,
                    premiereReps: repsPremiere, lourde: !!materiel.lourde };
       if (dk.enleve !== undefined) item.enleve = dk.enleve;
+      if (dk.choix) Object.defineProperty(item, 'choix', { value: dk.choix, enumerable: false });
       if (dk.barreFixe) item.barreFixe = true;
       if (dk.gestes && !ligne.validee) item.gestes = dk.gestes.slice();
       item.citations = citK;
@@ -6587,6 +6591,19 @@
         else if (x.silenceChauffes.annuler !== 'Annuler') erreurs.push('I130' + nom + ' : la mise en silence des chauffes sans « Annuler »');
       }
       if (x.silenceChauffes && etatSilence !== true) erreurs.push('I130' + nom + ' : la phrase du silence des chauffes sans geste de mise en silence');
+      // I132 (245, MOTEUR §9.15.3) — une dégressive proposée hors barre est la charge disponible la plus proche de sa cible dans la fenêtre :
+      // aucune autre charge disponible de la fenêtre n'en est plus proche (à égalité, la plus basse), et elle est dans la fenêtre.
+      [x.degressive].concat(x.degressivesPlus || []).forEach(function (dg) {
+        if (!dg || !dg.choix || dg.charge === null || dg.charge === undefined) return;
+        var ch = dg.choix, dist = Math.abs(dg.charge - ch.cible);
+        if (ch.dans.indexOf(dg.charge) < 0) erreurs.push('I132' + nom + ' : une dégressive (' + dg.charge + ') hors de la fenêtre de la baisse');
+        ch.dans.forEach(function (c) {
+          var dc = Math.abs(c - ch.cible);
+          if (dc < dist - 1e-9 || (Math.abs(dc - dist) <= 1e-9 && c < dg.charge - 1e-9)) {
+            erreurs.push('I132' + nom + ' : une dégressive à ' + dg.charge + ' alors que ' + c + ' est plus près de la cible ' + ch.cible);
+          }
+        });
+      });
     });
   }
 

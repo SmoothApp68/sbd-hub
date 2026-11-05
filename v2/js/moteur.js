@@ -10389,6 +10389,26 @@
     paires.sort(function (a, b) { return a - b; });
     return paires.length ? paires[0] : null;
   }
+  // 245 (C2, MOTEUR §9.15.3) — HORS BARRE, LA DÉGRESSIVE EST LA CHARGE DISPONIBLE LA PLUS PROCHE DE LA BAISSE VISÉE, dans la
+  // MÊME fenêtre que la barre (−15 % à −30 % de la dernière série), vers le bas à égalité, toujours sous la dernière série.
+  // Elle prenait le cran « juste sous » la cible : 2 × 10 = 20 kg, cible 15,5, donnait 14 (−30 %) au lieu de 16 (−20 %). Une seule
+  // fonction de choix, pour la salle déclarée et le cran générique. Rien dans la fenêtre : `charge: null` (« Trop léger… »).
+  // `disponibles` : les charges que le matériel fait (la salle) ; `null` + `cran` : les multiples du cran.
+  function degressiveLaPlusProche(der, baisse, disponibles, cran) {
+    var cible = auCentieme(der * (1 - baisse));
+    var bas = der * (1 - BAISSE_MAX_BARRE) - 1e-9, haut = der * (1 - BAISSE_MIN_BARRE) + 1e-9;
+    var liste = disponibles;
+    if (!liste) {
+      liste = [];
+      for (var k = Math.max(1, Math.ceil(bas / cran - 1e-9)); k * cran <= haut; k++) liste.push(auCentieme(k * cran));
+    }
+    var dans = liste.filter(function (v) { return v > 0 && v >= bas && v <= haut && v < der && !memeCharge(v, der); });
+    dans.sort(function (a, b) {
+      var da = Math.abs(a - cible), db = Math.abs(b - cible);
+      return Math.abs(da - db) > 1e-9 ? da - db : a - b;
+    });
+    return { charge: dans.length ? dans[0] : null, cible: cible, bas: bas, haut: haut, dans: dans.slice().sort(function (a, b) { return a - b; }) };
+  }
   // 151 — `rang` : 1 (défaut) la première baisse ; 2 la seconde (−20 % de la charge de la première, passée en
   // `derniere_serie`, « Vise 4 à 6 ») ; 3 et plus jamais remplie. `lourde` : une barre lourde (une seule baisse) ;
   // `reps_premiere` : les reps de la première baisse si elle est faite (sous 4, la chaîne s'arrête).
@@ -10408,13 +10428,18 @@
     var cran = nombre(e.cran);
     if (cran === null || cran <= 0) cran = CRAN_PAR_DEFAUT;
     // §10 bis (108) — LA SALLE DÉCLARÉE : la même baisse (−22,5 %), au cran
-    // inférieur que la salle fait — une barre fixe, une paire d'haltères. À la
+    // plus proche que la salle fait (245) — une barre fixe, une paire d'haltères. À la
     // barre fixe, on change de barre : « Prends la barre de 20 kg. »
     var salle = e.salle ? salleEnVigueur(e.salle, der) : null;
     if (salle) return degressiveDeLaSalle(salle, der, nombre(e.reps_travail), seconde);
-    // Au cran INFÉRIEUR : jamais au-dessus des −22,5 %.
-    var charge = auCentieme(Math.floor(der * (1 - baisse) / cran + 1e-9) * cran);
     var barre = estBarre(e.equipement);
+    var charge = null, choix = null;
+    if (!barre) {
+      // 245 (C2) — la charge disponible la plus proche de la cible, dans la fenêtre de la barre.
+      choix = degressiveLaPlusProche(der, baisse, null, cran);
+      if (choix.charge === null) return degressiveVide('Trop léger pour une dégressive.');
+      charge = choix.charge;
+    }
     // 94 (Claude.ai, 15/10/2026) — À LA BARRE, ON ENLÈVE DES DISQUES : un seul
     // disque standard de chaque côté, le plus proche de −22,5 %, entre −15 % et
     // −30 % ; sinon la plus petite combinaison de deux disques dans la fenêtre.
@@ -10440,7 +10465,7 @@
       };
     }
     return {
-      charge: charge, vise: vise, repos: 0,
+      charge: charge, vise: vise, repos: 0, choix: choix,
       phrase: debutPhrase + ' : ' + Modele().charge(charge, undefined, regle('degressive')) +
         ', sans repos, jusqu\'à l\'échec. ' + visee
     };
@@ -10459,19 +10484,17 @@
   // §10 bis (108) — la dégressive dans la salle déclarée : la charge qu'elle
   // fait juste sous −22,5 %, toujours sous la dernière série de travail.
   function degressiveDeLaSalle(salle, der, reps, seconde) {
-    var cible = auCentieme(der * (1 - (seconde ? BAISSE_SECONDE : BAISSE_DEGRESSIVE)));
-    var sous = chargesDeLaSalle(salle).filter(function (v) {
-      return (v < cible || memeCharge(v, cible)) && v < der && !memeCharge(v, der);
-    });
-    if (!sous.length) return degressiveVide('Trop léger pour une dégressive.');
-    var charge = sous[sous.length - 1];
+    // 245 (C2) — la charge que la salle fait la plus proche de la baisse visée, dans la fenêtre ; sinon rien.
+    var choix = degressiveLaPlusProche(der, seconde ? BAISSE_SECONDE : BAISSE_DEGRESSIVE, chargesDeLaSalle(salle), null);
+    if (choix.charge === null) return degressiveVide('Trop léger pour une dégressive.');
+    var charge = choix.charge;
     var vise = seconde ? VISEE_SECONDE.slice() : viseeDegressive(reps);
     var suite = 'Sans repos, jusqu\'à l\'échec. ' + phraseViseeDegressive(vise);
     if (SALLE_BARRES.indexOf(salle.materiel) >= 0) {
-      return { charge: charge, vise: vise, repos: 0, barreFixe: true,
+      return { charge: charge, vise: vise, repos: 0, barreFixe: true, choix: choix,
                phrase: 'Prends la barre de ' + Modele().charge(charge, undefined, regle('degressive')) + '. ' + suite };
     }
-    return { charge: charge, vise: vise, repos: 0,
+    return { charge: charge, vise: vise, repos: 0, choix: choix,
              phrase: (seconde ? 'Deuxième baisse' : 'Dégressive') + ' : ' + Modele().charge(charge, undefined, regle('degressive')) +
                ', sans repos, jusqu\'à l\'échec. ' + phraseViseeDegressive(vise) };
   }
@@ -12194,6 +12217,7 @@
     REPRISE_COURTE: REPRISE_COURTE,
     REPRISE_LONGUE: REPRISE_LONGUE,
     REPLI_MATERIEL: REPLI_MATERIEL,
+    degressiveLaPlusProche: degressiveLaPlusProche,
     pasDeLaBarre: pasDeLaBarre,
     brancherPlusPetitDisque: brancherPlusPetitDisque,
     DISQUES_STANDARD: DISQUES_STANDARD, DISQUES_ABSENTS_DEFAUT: DISQUES_ABSENTS_DEFAUT, BARRES_PROPOSEES: BARRES_PROPOSEES,

@@ -37,9 +37,9 @@ describe('151 — la seconde baisse, au moteur', () => {
     expect(b.phrase).toBe('Deuxième baisse : 17,5' + NB + 'kg, sans repos, jusqu\'à l\'échec. Vise 4 à 6.');
   });
 
-  test('DISCRIMINANT — −20 % et non −22,5 % : 45 → 35 (et non 32,5)', () => {
-    expect(second(45).charge).toBe(35);
-    expect(M.degressiveDe({ equipement: 'poulie', derniere_serie: 45, reps_travail: 15 }).charge).toBe(32.5);
+  test('DISCRIMINANT — −20 % et non −22,5 % : 40 → 32,5 à la seconde (et 30 à la première) — 245 : le cran le plus proche', () => {
+    expect(second(40).charge).toBe(32.5);
+    expect(M.degressiveDe({ equipement: 'poulie', derniere_serie: 40, reps_travail: 15 }).charge).toBe(30);
   });
 
   test('haltères de la salle : la paire au cran inférieur (2 × 18 → 2 × 14)', () => {
@@ -52,13 +52,13 @@ describe('151 — la seconde baisse, au moteur', () => {
     expect(b.phrase).toBe('Deuxième baisse : 28' + NB + 'kg, sans repos, jusqu\'à l\'échec. Vise 4 à 6.');
   });
 
-  test('barre fixe déclarée : la barre du cran inférieur (30 → 20 → 15 ; −20 % de 20 = 16)', () => {
+  test('barre fixe déclarée : la barre la plus proche (30 → 25 → 20 ; 245)', () => {
     const salle = { materiel: 'barre_ez', charges: [10, 15, 20, 25, 30] };
     const a = M.degressiveDe({ equipement: 'barre', derniere_serie: 30, reps_travail: 12, salle });
-    expect(a.charge).toBe(20);
-    const b = M.degressiveDe({ rang: 2, equipement: 'barre', derniere_serie: 20, reps_travail: 12, salle });
-    expect(b.charge).toBe(15);
-    expect(b.phrase).toBe('Prends la barre de 15' + NB + 'kg. Sans repos, jusqu\'à l\'échec. Vise 4 à 6.');
+    expect(a.charge).toBe(25);
+    const b = M.degressiveDe({ rang: 2, equipement: 'barre', derniere_serie: 25, reps_travail: 12, salle });
+    expect(b.charge).toBe(20);
+    expect(b.phrase).toBe('Prends la barre de 20' + NB + 'kg. Sans repos, jusqu\'à l\'échec. Vise 4 à 6.');
   });
 
   test('la chaîne s\'arrête sous 4 reps (le nombre réel) ; à 4, la seconde est remplie', () => {

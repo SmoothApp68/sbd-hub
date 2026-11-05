@@ -46,7 +46,10 @@ function bac() {
     renduPour: null, ouvrirRecuperationSiDue: () => {},
     CLE_CONSIGNES: 'consignes', CLE_BROUILLON: 'brouillon-routine',
     // 71 — le récap de fin de séance est protégé comme les écrans d'édition.
-    vues: { detail: vue, routine: vue, seance: vue, questionnaire: vue, recap: vue },
+    // 244 — la vue du groupe aussi (`ecranTenu`, la garde unique de fin d'entrée).
+    vues: { detail: vue, routine: vue, seance: vue, questionnaire: vue, recap: vue, groupe: vue, ami: vue },
+    // 244 — le profil d'une personne, une fois lu.
+    social: { ami: null },
     Seance: { verifierColonnes: () => {} },
     Routeur: { analyser: () => ({ vue: 'liste', params: {} }), interditAvecSession: () => false, estVueDuJeu: () => false,
                RACINE: 'liste', PROFIL: 'profil' },
@@ -79,7 +82,7 @@ function bac() {
     lireLiensALOuverture: () => {}, rejeuDemande: null, ouvrirRejeu: () => {}, apresSynchroAnnee: () => {}
   };
   vm.createContext(ctx);
-  ['idDeSession', 'entrer', 'reentrer', 'entrerVraiment', 'chargerCache',
+  ['idDeSession', 'entrer', 'reentrer', 'entrerVraiment', 'ecranTenu', 'chargerCache',
    'chargerSeanceLocale', 'chargerBrouillonLocal']
     .forEach((n) => vm.runInContext(extraire(n), ctx));
   const session = (id, jeton) => ({ user: { id }, access_token: jeton || 'j' });
@@ -149,6 +152,35 @@ describe('la ré-entrée du même utilisateur', () => {
     await b.entrer(b.session('u1'));
     expect(b.journal.rendus).toBe(rendus);
   });
+
+  test('⚠️ 244 — la vue du groupe ouverte (sans route) n’est remplacée ni par la ré-entrée ni par la fin d’une entrée complète', async () => {
+    const b = bac();
+    await b.entrer(b.session('u1'));
+    b.ctx.vues.groupe = { hidden: false };
+    const rendus = b.journal.rendus;
+    await b.entrer(b.session('u1'));
+    expect(b.journal.rendus).toBe(rendus);
+    // Entrée complète (un autre compte ; ici sans séance en cache, son premier écran n'est pas un `rendreRoute`) :
+    // la fin de la synchronisation ne repeint pas non plus.
+    await b.entrer(b.session('u2'));
+    expect(b.journal.rendus).toBe(rendus);
+  });
+
+  test('⚠️ 244 — le profil d’une personne, LU, n’est pas recréé par la fin d’une entrée ; pas encore lu, il est relu', async () => {
+    const b = bac();
+    await b.entrer(b.session('u1'));
+    b.ctx.vues.ami = { hidden: false };
+    const rendus = b.journal.rendus;
+    // En chargement (ou en erreur) : la fin de l'entrée le relit, comme avant.
+    b.ctx.social.ami = { etat: 'charge', pseudo: 'jordan' };
+    await b.entrer(b.session('u1'));
+    expect(b.journal.rendus).toBe(rendus + 1);
+    // Lu (« Se comparer » ouvert, une phrase de refus vue) : ni la ré-entrée ni la fin d'une entrée complète ne le recréent.
+    b.ctx.social.ami = { etat: 'ok', pseudo: 'jordan', sous: 'exercice', compare: true };
+    await b.entrer(b.session('u1'));
+    await b.entrer(b.session('u2'));
+    expect(b.journal.rendus).toBe(rendus + 1);
+  });
 });
 
 describe('ce qui reste une entrée complète', () => {
@@ -184,5 +216,15 @@ describe('ce qui reste une entrée complète', () => {
     const p2 = b.entrer(b.session('u1'));
     expect(p2).toBe(p1);
     await p1;
+  });
+});
+
+// 244 (relecture) — la clé du banc `THApp.entreeEnCours` n'existe que sous la garde de développement : en production,
+// la surface exposée de `THApp` ne change pas.
+describe('244 — entreeEnCours, seulement sous la garde', () => {
+  test('la seule pose de THApp.entreeEnCours est précédée de « if (garde.active) »', () => {
+    const poses = APP.split('\n').filter((l) => /THApp\.entreeEnCours\s*=/.test(l));
+    expect(poses).toHaveLength(1);
+    expect(poses[0]).toMatch(/^\s*if \(garde\.active\) racine\.THApp\.entreeEnCours\s*=/);
   });
 });

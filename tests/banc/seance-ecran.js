@@ -1007,6 +1007,12 @@ const SETS_IMPORTES = [
       if (base.ecrituresSocialesLentes) await pause(base.ecrituresSocialesLentes);
       return route.abort('failed');
     }
+    // 244 — LA RÉPONSE PERDUE : l'écriture sociale PASSE au serveur, mais la réponse ne revient jamais (l'app est rechargée
+    // ou tuée pendant le vol). Au rejeu, la base trouve la ligne déjà ainsi faite.
+    if (base.reponseSocialePerdue && req.method() !== 'GET' && table === 'abonnements') {
+      fauxSocial.gerer(req.method(), url, corps);
+      return route.abort('failed');
+    }
     // 87 — le social : ses tables et ses fonctions, au faux serveur du social.
     const sociale = fauxSocial.gerer(req.method(), url, corps);
     if (sociale) {
@@ -2196,7 +2202,12 @@ const SETS_IMPORTES = [
   //   · la page est chargée (`readyState === 'complete'`) et une vue de `main` est affichée ;
   //   · l'état de synchronisation (`#etat-sync`) a un libellé, et ce n'est pas « Synchronisation… »
   //     (`code: 'sync'`) — sauf si le réseau est muet depuis longtemps (`CALME_LONG_MS`) ;
-  //   · le faux serveur n'a plus aucune requête en vol depuis `CALME_MS`.
+  //   · le faux serveur n'a plus aucune requête en vol depuis `CALME_MS` ;
+  //   · 244 — L'ENTRÉE DE L'APP EST FINIE (`THApp.entreeEnCours()`, hors production seulement). Sa queue (écritures
+  //     du cache, second `rendreRoute`) ne fait aucune requête : au séquentiel (gros cache), elle dépassait le calme
+  //     du réseau, et le banc rechargeait au milieu de l'écriture du catalogue (F67 : l'éditeur restait en slugs) ou
+  //     agissait avant le second rendu. Sans la clé (`?garde=0`), on garde les trois faits d'avant ; de même quand le
+  //     faux serveur refuse tout (`base.reseau = false`) : l'entrée attend le réseau, elle ne finira pas dans la fenêtre.
   // Plancher `ALLER_MIN_MS` (l'app démarre ses lectures après le chargement), plafond
   // `ALLER_MAX_MS` : au plafond, on rend la main comme avant (le contrôle qui suit dira ce
   // qu'il voit) et on le compte — le total s'affiche en fin de banc.
@@ -2223,10 +2234,11 @@ const SETS_IMPORTES = [
           return {
             charge: document.readyState === 'complete',
             vue: Array.from(document.querySelectorAll('main > section')).some((x) => !x.hidden),
-            sync: sync ? ((sync.textContent || '').trim() !== '' && !sync.classList.contains('sync')) : true
+            sync: sync ? ((sync.textContent || '').trim() !== '' && !sync.classList.contains('sync')) : true,
+            entree: !!(window.THApp && window.THApp.entreeEnCours && window.THApp.entreeEnCours())
           };
         }).catch(() => null);
-        if (e && e.charge && e.vue && (e.sync || calme >= CALME_LONG_MS)) break;
+        if (e && e.charge && e.vue && (!e.entree || base.reseau === false) && (e.sync || calme >= CALME_LONG_MS)) break;
       }
       if (ecoule >= ALLER_MAX_MS) { statAller.plafond++; break; }
       await pause(100);
@@ -18972,6 +18984,29 @@ const SETS_IMPORTES = [
       !/Bientôt/.test(await texte('#social-ami')), JSON.stringify(c1));
     await mesurer('profil mutuel');
 
+    // ── C bis (244). « ACCEPTER » REJOUÉ : la demande est acceptée côté base, la réponse est perdue, l'app est rechargée ;
+    // au rejeu, le déclencheur refuse accepte → accepte (« modification refusée ») : c'est FAIT, pas un refus.
+    const journalAvant244 = S.journal.length;
+    lien('u-lea', 'u-banc').statut = 'demande';
+    await aller('/jeu/fil');
+    await attendreQue(async () => (await fil()).demandes.length > 0);
+    base.reponseSocialePerdue = true;
+    await page.click('#social-fil .s-demande .s-accepter');
+    await attendreQue(async () => lien('u-lea', 'u-banc').statut === 'accepte');   // la base l'a reçu ; la réponse, jamais
+    await aller('/jeu/fil');                                                         // rechargé : la réponse est coupée (abort), la file garde le geste
+    base.reponseSocialePerdue = false;
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await fileVide('social');
+    await sansChargement('#social-fil');
+    const rejeu = await page.evaluate(() => ({ refus: (document.querySelector('#social-fil .s-refus') || {}).textContent || '',
+      fil: document.querySelector('#social-fil').textContent }));
+    ok('[social 244] DISCRIMINANT — « Accepter » rejoué après un rechargement (la base refuse accepte → accepte) : aucune phrase de refus, la demande est acceptée',
+      lien('u-lea', 'u-banc').statut === 'accepte' && !/pas pu se faire/.test(rejeu.fil) && rejeu.refus === '', JSON.stringify(rejeu));
+    // Le refus du déclencheur est attendu ici (c'est le chemin visé) : on prouve qu'il a eu lieu, puis on l'ôte du journal.
+    const refusVoulus = S.journal.slice(journalAvant244).filter((j) => j.op === 'refus' && /modification refusée/.test(j.message));
+    ok('[social 244] la fixture déclenche le chemin : la base a bien refusé le rejeu (accepte → accepte)', refusVoulus.length >= 1, JSON.stringify(refusVoulus));
+    for (let k = S.journal.length - 1; k >= journalAvant244; k--) if (refusVoulus.indexOf(S.journal[k]) >= 0) S.journal.splice(k, 1);
+
     // ── D. RÉAGIR ; le nombre de réactions : l'auteur seulement.
     await aller('/jeu/fil');
     await attendreQue(async () => (await fil()).cartes.length > 0);
@@ -19207,9 +19242,13 @@ const SETS_IMPORTES = [
       await texte('#social-fil'));
     ok('[social 107] H1 — DISCRIMINANT — « Compte privé » coupé hors ligne, l’app rechargée : au retour du réseau, le profil en base est public',
       await attendreQue(async () => base.profiles[0].compte_prive === false), JSON.stringify(base.profiles[0].compte_prive));
+    // 244 — UNE seule lecture, après le chargement du fil : trois lectures une à une tombaient pendant une relecture.
+    await sansChargement('#social-fil');
+    const h1f = await page.evaluate(() => { const f = document.querySelector('#social-fil');
+      const q = (x) => (f.querySelector(x) || {}).textContent || '';
+      return { attente: q('.s-attente'), reag: q('.s-carte .s-reag'), demandes: f.querySelectorAll('.s-demande').length, fil: f.textContent }; });
     ok('[social 107] H1 — après le retour : l’écran ne dit plus « en attente », et montre l’état réel (« Tu as réagi », aucune demande)',
-      !(await sAttente('#social-fil')) && (await texte('#social-fil .s-carte .s-reag')) === '🔥 Tu as réagi' &&
-        (await compter('#social-fil .s-demande')) === 0, await texte('#social-fil'));
+      !h1f.attente && h1f.reag === '🔥 Tu as réagi' && h1f.demandes === 0, h1f.fil);
 
     // ── H2. DEUX GESTES CONTRAIRES, UN RECHARGEMENT ENTRE LES DEUX.
     base.ecrituresSocialesCoupees = true;
@@ -19454,6 +19493,29 @@ const SETS_IMPORTES = [
     await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     ok('[social-2] le retour d’une sous-page ramène à son profil (« ← jordan » → /a/jordan, « ← Fil »)',
       (await chemin()) === '/a/jordan' && (await lire()).retour === '← Retour', await chemin());
+    // 244 — LA FIN DE L'ENTRÉE NE RECRÉE PAS LE PROFIL D'UNE PERSONNE DÉJÀ LU (l'intermittent « Se comparer » du
+    // séquentiel : `moiCourbe: 0`, `btnExo: true` ; diagnostic GROUPE-2026-11-05, « Suite »). La lecture du journal des
+    // records (la dernière lecture de la synchronisation de l'entrée) est retenue : l'app rechargée sur son exercice,
+    // j'ouvre « Se comparer » ; la lecture répond, l'entrée finit (« À jour ») — la comparaison reste. Sans la garde :
+    // `rendreRoute` → `rendreAmi` recrée l'écran, la comparaison se referme.
+    base.lentesServies = [];
+    base.lenteurRecords = 9000;
+    await aller('/a/jordan/exercice/squat-barre');
+    await attendreQue(async () => !!(await lire()).charge);
+    await page.click('#social-comparer-exo');
+    await attendreQue(async () => (await lire()).moiCourbe > 0);
+    const compareOuvertA = Date.now();
+    await attendreQue(async () => base.lentesServies.length > 0);
+    await attendreQue(async () => page.evaluate(() => document.getElementById('etat-sync').classList.contains('a-jour')));
+    await reseauCalme();
+    const c2 = await lire();
+    ok('[social-2 244] prémisse — la dernière lecture de la synchronisation de l’entrée a répondu APRÈS l’ouverture de « Se comparer »',
+      base.lentesServies.length === 1 && base.lentesServies[0] > compareOuvertA, JSON.stringify({ compareOuvertA, servies: base.lentesServies }));
+    ok('[social-2 244] DISCRIMINANT — la fin de l’entrée (« À jour ») ne referme pas « Se comparer » ouvert pendant la synchronisation',
+      c2.moiCourbe === 1 && !c2.btnExo && (await chemin()) === '/a/jordan/exercice/squat-barre', JSON.stringify(c2));
+    await page.click('#btn-retour-ami');
+    await attendreQue(async () => (await lire()).exos.length > 0);
+    await reseauCalme();
 
     // ── D. SE COMPARER SUR LA PÉRIODE.
     await page.click('#social-comparer');
@@ -20284,6 +20346,28 @@ const SETS_IMPORTES = [
         fauxSocial.groupeDe('u-jordan') === G3 && !fauxSocial.finiLe(G3) && !!placeG4 && placeG4.session_id === maSeance4 &&
         !!maSeance4 && maSeance4 !== maSeance3 && JSON.stringify(h1.pastilles) === JSON.stringify(['lea', 'banc']),
       JSON.stringify([h0, h1, placeG3, placeG4, maSeance3, maSeance4]));
+    // 244 — LA FIN DE L'ENTRÉE NE REPREND JAMAIS LA MAIN SUR LA VUE DU GROUPE (l'intermittent « ← Retour » 30 s du
+    // séquentiel, diagnostic GROUPE-2026-11-05). La lecture du journal des records (la dernière lecture de la
+    // synchronisation de l'entrée) est retenue : l'app rechargée sur la séance, j'ouvre « Inviter » ; la lecture répond,
+    // l'entrée finit (« À jour ») — la vue du groupe reste, « ← Retour » se touche. Sans la garde : `rendreRoute('/saisie')`.
+    base.lentesServies = [];
+    base.lenteurRecords = 5000;
+    await aller('/saisie');
+    await attendreQue(async () => (await compter('#groupe-seance #groupe-inviter')) === 1);
+    await page.click('#groupe-seance #groupe-inviter');
+    await attendreQue(async () => page.evaluate(() => !document.getElementById('vue-groupe').hidden));
+    const groupeOuvertA = Date.now();
+    await attendreQue(async () => base.lentesServies.length > 0);
+    await attendreQue(async () => page.evaluate(() => document.getElementById('etat-sync').classList.contains('a-jour')));
+    await reseauCalme();
+    const finEntree = await page.evaluate(() => ({ groupe: !document.getElementById('vue-groupe').hidden,
+      seance: !document.getElementById('vue-seance').hidden, sync: document.getElementById('etat-sync').textContent }));
+    ok('[groupe 244] prémisse — la dernière lecture de la synchronisation de l’entrée a répondu APRÈS l’ouverture de la vue du groupe',
+      base.lentesServies.length === 1 && base.lentesServies[0] > groupeOuvertA, JSON.stringify({ groupeOuvertA, servies: base.lentesServies }));
+    ok('[groupe 244] DISCRIMINANT — la fin de l’entrée (« À jour ») ne remplace pas la vue du groupe ouverte pendant la synchronisation',
+      finEntree.groupe && !finEntree.seance, JSON.stringify(finEntree));
+    if (finEntree.groupe) await page.click('#btn-retour-groupe');
+    await attendreQue(async () => page.evaluate(() => !document.getElementById('vue-seance').hidden));
     // jordan NE ROUVRE JAMAIS l'app : sa dernière série a 50 min — il compte comme terminé ; le geste suivant finit G3.
     S.sets.filter((t) => t.session_id === SJ2).forEach((t) => { t.validee_a = iso(ilYa(50 * 60000)); });
     await relire(async () => !!(S.groupes.filter((g) => g.id === G3)[0] || {}).fini_le);
@@ -22200,6 +22284,8 @@ const SETS_IMPORTES = [
       const l = b && b.querySelector('.bloc-ligne');
       return !!l && l.textContent.replace(/\s+/g, ' ').trim() === P; }, PHRASE, { timeout: 15000 })
       .catch(() => console.log('   (plafond de 15 s atteint : la phrase du parcours n’est jamais apparue)'));
+    // 244 — le démarrage de l'app pose `scores_guilde` (les nombres du décor ont changé) : attendre que la file se vide AVANT la photo (patron R71 g).
+    await jusqua(async () => (await page.evaluate(() => window.THCache.lireAttente())).length === 0, 15000);
     const ecrituresAvant = ecritures(), fileAvant = await file();
     const blocs = await page.evaluate(() => Array.from(document.querySelectorAll('#sommaire .bloc-som')).map((b) => ({
       quoi: b.querySelector('.bloc-quoi').textContent, ligne: (b.querySelector('.bloc-ligne') || {}).textContent || null })));
@@ -22260,6 +22346,11 @@ const SETS_IMPORTES = [
       JSON.stringify(epaules));
 
     // ── D. RIEN N'EST ÉCRIT : deux affichages (le sommaire, la page, puis un rechargement de la page).
+    // 244 — le sommaire est redessiné APRÈS la photo : « rien n'est écrit » couvre le sommaire ET la page.
+    await aller('/progression');
+    await page.waitForFunction((P) => { const b = document.querySelector('#sommaire .bloc-parcours');
+      const l = b && b.querySelector('.bloc-ligne');
+      return !!l && l.textContent.replace(/\s+/g, ' ').trim() === P; }, PHRASE, { timeout: 15000 }).catch(() => {});
     await aller('/progression/parcours');
     const phraseRecharge = await page.evaluate(() => (document.querySelector('#parcours .pc-phrase') || {}).textContent);
     const fileApres = await file();
@@ -28132,7 +28223,9 @@ const SETS_IMPORTES = [
       carte1882.lignes.length > 0 && carte1882.lignes.some((l) => /Curl EQ1882|Extension EQ1882/.test(l)) &&
         !carte1882.lignes.some((l) => /Latérales EQ1882|Oiseau EQ1882|Développé EQ1882/.test(l)), nb1882(carte1882));
     ok('[EQ1882] …et jamais sous 2 séries', carte1882.lignes.every((l) => !/→ [01] séries?/.test(l)), nb1882(carte1882.lignes));
-    await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button')).filter((b) => /^Garder la séance|^Annuler/.test(b.textContent))[0].click());
+    // 244 — fermer la carte SANS démarrer : « Garder la séance » démarre la séance complète.
+    await page.click('#btn-fermer-feuille');
+    await feuilleFermee();
     base.profiles[0].priorites = null;
 
     // ── D. LA LIGNE DU REPOS : un gros mouvement qui stagne, reps −33 % de la série 1 à la 3, repos réglé à 75 s.

@@ -90,7 +90,7 @@ describe('`entrer` : une entrée en vol n’absorbe que la session de SON compte
       vidanger: () => {}, lireLiensALOuverture: () => {}, rejeuDemande: null, ouvrirRejeu: () => {}, apresSynchroAnnee: () => {}
     };
     vm.createContext(ctx);
-    ['idDeSession', 'entrer', 'reentrer', 'entrerVraiment', 'chargerCache', 'chargerSeanceLocale', 'chargerBrouillonLocal']
+    ['idDeSession', 'entrer', 'reentrer', 'entrerVraiment', 'ecranTenu', 'chargerCache', 'chargerSeanceLocale', 'chargerBrouillonLocal']
       .forEach((n) => vm.runInContext(extraire(n), ctx));
     return { ctx, journal,
       // La synchronisation en vol se libère quand elle a commencé (l'entrée enchaîne plusieurs `await`).

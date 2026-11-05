@@ -1,0 +1,61 @@
+[
+ {
+  "nom": "244-p75-sommaire-ecrit-au-rendu",
+  "fichier": "v2/js/app.js",
+  "ancien": "    profilDuParcours = cleDuParcoursDuProfil(profil);\n    Rendu.rendreSommaire(",
+  "nouveau": "    profilDuParcours = cleDuParcoursDuProfil(profil); poserProfil({ bilans_annonces: (profil && profil.bilans_annonces) || [] }); \n    Rendu.rendreSommaire(",
+  "banc": "seance",
+  "sections": [
+   "parcours"
+  ]
+ },
+ {
+  "nom": "244-p75-parcours-ecrit-au-rendu",
+  "fichier": "v2/js/app.js",
+  "ancien": "    profilDuParcours = cleDuParcoursDuProfil(profil);\n    var libelles = {};",
+  "nouveau": "    profilDuParcours = cleDuParcoursDuProfil(profil); poserProfil({ bilans_annonces: (profil && profil.bilans_annonces) || [] }); \n    var libelles = {};",
+  "banc": "seance",
+  "sections": [
+   "parcours"
+  ]
+ },
+ {
+  "nom": "244-accepter-rejoue-en-refus",
+  "fichier": "v2/js/social.js",
+  "ancien": "var cle = g === GESTES.GUILDE ? d.fn : g, re = DEJA_FAIT_AU_REJEU[cle];\n    if (re && (rejoue || FAIT_MEME_AU_PREMIER_ENVOI[cle]) && re.test(texte)) return 'fait';",
+  "nouveau": "var cle = g === GESTES.GUILDE ? d.fn : g, re = DEJA_FAIT_AU_REJEU[cle];\n    if (re && cle !== GESTES.ACCEPTER && (rejoue || FAIT_MEME_AU_PREMIER_ENVOI[cle]) && re.test(texte)) return 'fait';",
+  "banc": "seance",
+  "sections": [
+   "social"
+  ],
+  "unitaires": [
+   "tests/unit/v2-social-hors-ligne.test.js"
+  ]
+ },
+ {
+  "nom": "244-groupe-garde-retiree",
+  "fichier": "v2/js/app.js",
+  "ancien": "      !vues.recap.hidden || !vues.groupe.hidden || (!vues.ami.hidden",
+  "nouveau": "      !vues.recap.hidden || (!vues.ami.hidden",
+  "banc": "seance",
+  "sections": [
+   "groupe"
+  ],
+  "unitaires": [
+   "tests/unit/v2-reentree.test.js"
+  ]
+ },
+ {
+  "nom": "244-ami-garde-retiree",
+  "fichier": "v2/js/app.js",
+  "ancien": " || (!vues.ami.hidden && !!social.ami && social.ami.etat === 'ok');",
+  "nouveau": ";",
+  "banc": "seance",
+  "sections": [
+   "social-2"
+  ],
+  "unitaires": [
+   "tests/unit/v2-reentree.test.js"
+  ]
+ }
+]

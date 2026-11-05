@@ -59,6 +59,15 @@ describe('245 F3 (c) — une tenue n’est jamais proposée à un exercice en re
     expect(Mo.marcheSuivante(fig, 'a').cible).toEqual(['b']);
     expect(Mo.marcheDEnDessous(fig, 'b').slug).toBe('a');
   });
+  test('I133 — sur un index SANS marche assistée, le soutien (une tenue) n’est ni suivant ni « en dessous » des dips', () => {
+    const sans = Object.assign({}, INDEX); delete sans.dips_assistes;
+    expect(Mo.verifierI133(sans, { ecartee: coude })).toEqual([]);
+    expect(Mo.marcheDEnDessous(sans, 'dips_torse')).toBeNull();
+    // une tenue au-dessus d'une marche en reps : jamais la suivante
+    const haut = { a: ex('a', 1, { echelle: 'e' }), t: ex('t', 2, { echelle: 'e', mesure: 'temps' }) };
+    expect(Mo.marcheSuivante(haut, 'a')).toBeNull();
+    expect(Mo.verifierI133(haut)).toEqual([]);
+  });
   test('I133 attrape une marche de mesure différente', () => {
     const forge = Object.assign({}, INDEX, { dips_torse: ex('dips_torse', 2, { echelle: 'dips_torse', mesure: 'temps' }) });
     // la stricte en secondes, ses voisins en reps : la fonction ne les croise plus ; l'index forgé reste cohérent.

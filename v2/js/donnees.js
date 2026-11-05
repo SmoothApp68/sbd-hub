@@ -965,7 +965,10 @@
     // 225 (`v2_129`) — les objectifs en entretien. FACULTATIVE : absente, le profil se lit sans elle.
     'objectifs_entretien, ' +
     // 242 (`v2_131`) — les notes d'exercice épinglées ou retirées (`{ slug: { texte | masquee, a } }`). FACULTATIVE : absente, le profil se lit sans elle.
-    'notes_exercices';
+    'notes_exercices, ' +
+    // 250 (`v2_137`, L9) — « Lire mes notes » : l'accord (timestamptz, NULL = pas d'accord ou retiré) et la question posée (la même, qui ne
+    // revient jamais après « Non merci »). FACULTATIVES : absentes, la fonction est simplement inactive.
+    'notes_ia_accord_a, notes_ia_question_a';
 
   // ⚠️ 104 — UNE COLONNE FACULTATIVE NE CASSE JAMAIS LE PROFIL (le défaut de #418). Nommer une colonne que la base
   // n'a pas encore (migration pas lancée) fait échouer la lecture ENTIÈRE (`42703`, « column … does not exist ») et
@@ -973,7 +976,7 @@
   // Une colonne de cette liste n'est qu'un confort (l'appareil garde sa propre mémoire) : si la base dit qu'elle
   // n'existe pas, elle quitte la lecture et l'écriture POUR LA SESSION, et la même requête repart une fois sans elle.
   // La migration lancée, le prochain démarrage la reprend. Une colonne obligatoire n'entre JAMAIS ici.
-  var COLONNES_FACULTATIVES = ['bilans_annonces', 'ma_salle', 'marche_reponses', 'assistant_accord_a', 'cartes_semaine', 'zones_raides', 'depart_calisthenie', 'objectifs_entretien', 'notes_exercices'];
+  var COLONNES_FACULTATIVES = ['bilans_annonces', 'ma_salle', 'marche_reponses', 'assistant_accord_a', 'cartes_semaine', 'zones_raides', 'depart_calisthenie', 'objectifs_entretien', 'notes_exercices', 'notes_ia_accord_a', 'notes_ia_question_a'];
   var facultativesAbsentes = {};
   function colonnesProfil() {
     return COLONNES_PROFIL.split(', ').filter(function (c) { return !facultativesAbsentes[c]; }).join(', ');

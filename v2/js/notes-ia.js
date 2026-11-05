@@ -596,7 +596,7 @@
   var api = {
     candidates: candidates, douleurProposable: douleurProposable, partieDuCorps: partieDuCorps, corps: corps, exercicesEnvoyes: exercicesEnvoyes,
     retenir: retenir, effortDe: effortDe, phrase: phrase, libelle: libelle, apres: apres, ligne: ligne, lire: lire, designees: designees,
-    retrouver: retrouver, nettoyer: nettoyer, parleDUnTiers: parleDUnTiers, notesDeLExercice: notesDeLExercice, seriesFaites: seriesFaites,
+    seulementTravail: seulementTravail, retrouver: retrouver, nettoyer: nettoyer, parleDUnTiers: parleDUnTiers, notesDeLExercice: notesDeLExercice, seriesFaites: seriesFaites,
     TEXTES: TEXTES, GENRES: GENRES, NOMBRES_EN_MOTS: NOMBRES_EN_MOTS,
     MOTIF_TIERS: MOTIF_TIERS, MOTIF_SANTE_INCIDENTE: MOTIF_SANTE_INCIDENTE, MOTIF_CANDIDAT: MOTIF_CANDIDAT, MOTIF_INJECTION: MOTIF_INJECTION,
     MAX_NOTES: MAX_NOTES, MAX_EXERCICES: MAX_EXERCICES, MAX_SIGNES: MAX_SIGNES, MAX_CITATION: MAX_CITATION, MAX_PROPOSITIONS: MAX_PROPOSITIONS

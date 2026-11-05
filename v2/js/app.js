@@ -23,6 +23,7 @@
   var Profil = racine.THProfil, Moteur = racine.THMoteur, Plan = racine.THPlan;
   // 160 — « Demander au coach » : le contexte d'une ligne, les garde-fous locaux, l'appel (la conversation vit en mémoire).
   var Assistant = racine.THAssistant;
+  var NotesIA = racine.THNotesIA;   // 250 — « Lire mes notes » (L9)
   var Questionnaire = racine.THQuestionnaire;
   var Import = racine.THImportHevy;
   var Export = racine.THExport;
@@ -5077,6 +5078,8 @@
     // 71 — LE RÉCAP, UNE FOIS, JUSTE APRÈS « TERMINER » (ECRAN-SAISIE §7 septies.4 bis). Il vit en mémoire
     // seulement : ni l'abandon, ni l'Édition, ni un rechargement ne le rouvrent.
     ouvrirRecap(finie, jeuDuRecap);
+    // 250 (L9) — le coach peut PROPOSER de ranger une note ; le récap est déjà ouvert, rien ne l'attend (jamais une activité, un import, une Édition).
+    lancerNotesIA(finie);
   }
 
   // ══ 225 — « AJOUTER UNE ACTIVITÉ » (MOTEUR §9.40) ═════════════════════════════════════════════════════════════════
@@ -5137,7 +5140,7 @@
   var gardeRecap = null;
   function ouvrirRecap(finie, jeu) {
     oublierRecap();
-    recap = { seance: finie, jeu: jeu || null };
+    recap = { seance: finie, jeu: jeu || null, nia: null };
     // Le retour d'Android ferme le récap, comme « Fermer » — tant qu'il est l'écran affiché. Un autre écran
     // posé par-dessus (un onglet, un rechargement) le laisse derrière : rien ne le rouvre.
     gardeRecap = function () { return recap && ecranCourant === 'recap' ? { raison: 'recap', afficher: fermerRecap } : null; };
@@ -5145,6 +5148,7 @@
     rendreRecap();
   }
   function oublierRecap() {
+    abandonnerLectureNotes();
     recap = null;
     if (gardeRecap) { retirerGarde(gardeRecap); gardeRecap = null; }
   }
@@ -5189,8 +5193,318 @@
       jeu: recap.jeu,
       surFermer: fermerRecap,
       surVoir: voirLaSeanceDuRecap,
-      surPartager: partagerLeRecap
+      surPartager: partagerLeRecap,
+      accord: vueAccordNotes(),
+      notes: vueNotesIA()
     });
+  }
+
+  // ══ 250 (L9) — « LIRE MES NOTES » : À LA FIN DE LA SÉANCE, LE COACH PROPOSE DE RANGER UNE NOTE ═════════════════════════════════
+  //
+  // Le récap vient APRÈS `terminerSeance` : la séance est écrite, `seance = null`. Une proposition acceptée passe donc par le chemin de
+  // « Ce qui manque à tes séances » (131) : `connaitre` → `Seance.reprendre` → le geste pur de `seance.js` → `Seance.noterGeste` →
+  // `enregistrerCorrection` → `oublierConnues`. Aucun second chemin d'écriture ; le réglage passe par la note de l'exercice de 242.
+  // Tout ce qui se calcule vit dans `notes-ia.js` (pur) ; ici, seulement le câblage, la file des gestes et l'annulation. Fermer le récap,
+  // ou ne rien toucher, n'écrit RIEN. L'interrupteur `THConfig.NOTES_IA_OUVERTE` est la mise en service (éteint : rien n'existe).
+  var notesIA = { lues: {}, ctrl: null, file: Promise.resolve() };
+
+  function notesIAOuvertes() { return !!(racine.THConfig && racine.THConfig.NOTES_IA_OUVERTE === true && NotesIA); }
+  // La colonne existe en base (une colonne absente : la fonction est simplement inactive).
+  function notesIAPossibles() { return notesIAOuvertes() && !!profil && profil.notes_ia_accord_a !== undefined; }
+
+  function contexteNotesIA() {
+    var index = catalogueIndexe();
+    return { nom: function (slug) { return Modele.nommer(index, slug); }, consignes: consignesDeLExercice, noteEcrite: faits.estUneNote, pseudos: [] };
+  }
+  function etatNotesIA() {
+    return Object.assign(contexteNotesIA(), { noteExistante: function (slug) {
+      var e = entreeDeNote(slug);
+      return e && typeof e.texte === 'string' && e.texte.trim() !== '' ? e.texte : null;
+    } });
+  }
+
+  // La lecture part SANS qu'on l'attende ; le récap est déjà là. Aucun indicateur d'attente, aucun message d'erreur, jamais.
+  function lancerNotesIA(finie) {
+    if (!notesIAPossibles() || !recap || recap.seance.id !== finie.id || notesIA.lues[finie.id]) return;
+    var accord = !!profil.notes_ia_accord_a;
+    // Refusé, ou accord retiré : la question ne revient jamais, aucune note n'est lue.
+    if (!accord && profil.notes_ia_question_a) return;
+    if (racine.navigator && racine.navigator.onLine === false) return;
+    var c = NotesIA.candidates(finie, contexteNotesIA());
+    if (!c.envoyer.length && !c.douleurs.length) return;
+    recap.nia = { c: c, accord: !accord, plus: false, liste: [], etat: {}, faits: {} };
+    if (!accord) return rendreRecap();
+    lireNotesIA(finie, c);
+  }
+
+  function abandonnerLectureNotes() {
+    if (notesIA.ctrl) { try { notesIA.ctrl.abort(); } catch (e) { /* déjà finie */ } }
+    notesIA.ctrl = null;
+  }
+
+  function lireNotesIA(finie, c) {
+    var id = finie.id;
+    notesIA.lues[id] = true;
+    var afficher = function (res) {
+      if (!recap || recap.seance.id !== id || ecranCourant !== 'recap' || !recap.nia || !notesIAPossibles() || !profil.notes_ia_accord_a) return;
+      recap.nia.liste = NotesIA.retenir(res, finie, c.envoyer, c.douleurs, etatNotesIA());
+      rendreRecap();
+    };
+    var corps = NotesIA.corps(finie, c.envoyer, contexteNotesIA());
+    if (!corps.notes.length) return afficher({ propositions: [] });   // seulement des douleurs, repérées ici : aucun appel
+    var ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+    abandonnerLectureNotes();
+    notesIA.ctrl = ctrl;
+    var cfg = racine.THConfig;
+    Promise.resolve(racine.THClient.obtenir().auth.getSession()).then(function (r) {
+      var jeton = r && r.data && r.data.session ? r.data.session.access_token : (sessionActive && sessionActive.access_token);
+      return NotesIA.lire({ url: cfg.URL, cle: cfg.CLE_PUBLISHABLE, jeton: jeton, corps: corps, signal: ctrl ? ctrl.signal : undefined });
+    }).catch(function () { return { propositions: [] }; }).then(function (res) {
+      if (ctrl && ctrl.signal.aborted) return;
+      if (notesIA.ctrl === ctrl) notesIA.ctrl = null;
+      afficher(res);
+    });
+  }
+
+  // L'accord a été écrit PAR LA FILE : s'il y attend encore le réseau, la fonction lirait `null` en base (403) — pas de lecture pour cette séance.
+  function accordEnFile() {
+    return !!profilAEnvoyer && Object.prototype.hasOwnProperty.call(Profil.champsEnAttente(profilAEnvoyer, profil), 'notes_ia_accord_a');
+  }
+
+  // « Oui, vas-y » : l'accord ET la question posée, puis la lecture (après la promesse de `poserProfil`).
+  async function accorderNotesIA() {
+    var r = recap;
+    if (!r || !r.nia || !r.nia.accord || !notesIAPossibles()) return;
+    var finie = r.seance, c = r.nia.c, id = finie.id;
+    r.nia.accord = false;
+    rendreRecap();
+    var maintenant = new Date().toISOString();
+    await poserProfil({ notes_ia_accord_a: maintenant, notes_ia_question_a: maintenant });
+    if (accordEnFile() || !recap || recap.seance.id !== id || recap.nia !== r.nia) return;
+    lireNotesIA(finie, c);
+  }
+  // « Non merci » : la question ne revient jamais (sur aucun appareil) ; l'écran se ferme, rien d'autre.
+  async function refuserAccordNotesIA() {
+    var r = recap;
+    if (!r || !r.nia || !r.nia.accord) return;
+    recap.nia = null;
+    rendreRecap();
+    await poserProfil({ notes_ia_question_a: new Date().toISOString() });
+  }
+
+  function vueAccordNotes() {
+    var n = recap && recap.nia;
+    if (!n || !n.accord) return null;
+    var T = NotesIA.TEXTES;
+    return { titre: T.accordTitre, lignes: T.accord, plus: T.plus, plusTexte: T.plusTexte, plusOuvert: n.plus, oui: T.oui, non: T.non,
+      surPlus: function (ouvert) { n.plus = ouvert; }, surOui: accorderNotesIA, surNon: refuserAccordNotesIA };
+  }
+
+  function faitesDe(iExo) {
+    var exo = recap && recap.seance.exercices[iExo];
+    var sortie = [];
+    ((exo && exo.series) || []).forEach(function (x, j) { if (x && x.validee_a) sortie.push(j); });
+    return { faites: sortie };
+  }
+  function vueNotesIA() {
+    var n = recap && recap.nia;
+    if (!n || !n.liste.length) return null;
+    var T = NotesIA.TEXTES;
+    var visibles = n.liste.filter(function (p) { return n.etat[p.cle] !== 'refuse'; });
+    if (!visibles.length) return null;
+    return { titre: T.titre, lignes: visibles.map(function (p) {
+      return Object.assign(NotesIA.ligne(p, faitesDe(p.iExo)), {
+        etat: n.etat[p.cle] === 'fait' ? 'fait' : 'propose', annuler: T.annuler,
+        surOui: function () { accepterNoteIA(p.cle); }, surNon: function () { refuserNoteIA(p.cle); }, surAnnuler: function () { annulerNoteIA(p.cle); }
+      });
+    }) };
+  }
+  // Seul le bloc se redessine (le récap, son défilement et son focus restent où ils sont) ; `cle` : la ligne dont « Annuler » prend le focus.
+  function redessinerNotesIA(cleFocus) {
+    var corps = $('recap-corps');
+    var zone = corps && corps.querySelector('.recap-notes');
+    if (!zone) return rendreRecap();
+    Rendu.rendreNotesDuRecap(zone, vueNotesIA());
+    if (cleFocus) {
+      var b = zone.querySelector('.nia-ligne[data-cle="' + cleFocus + '"] .nia-annuler');
+      if (b && b.focus) b.focus();
+    }
+  }
+
+  // Les gestes se font un par un (comme `manque.enCours`) : une correction lit la séance, la change, l'écrit.
+  function enFileNotesIA(f) {
+    notesIA.file = notesIA.file.then(f, f).catch(function (e) { console.warn('Lire mes notes :', texteErreur(e)); });
+    return notesIA.file;
+  }
+
+  // La correction d'une séance TERMINÉE sans l'ouvrir : le chemin de `enregistrerManque`. `fn(s)` rend la séance changée, ou `null` (rien à
+  // écrire). Rend la séance écrite, ou `null` (séance pas encore complète, ou rien de changé).
+  async function corrigerPourNotesIA(id, fn) {
+    if (seance) return null;
+    var ligne = local.seances.filter(function (x) { return x.id === id; })[0] || null;
+    var series = seriesDe(id);
+    // La garde de l'Édition (chantier 47) : une séance dont les séries n'ont pas fini d'arriver ne se corrige pas.
+    if (!ligne || Seance.seriesIncompletes(series)) return null;
+    connaitre(id, series.map(function (x) { return x.id; }));
+    var s = Seance.reprendre(ligne, Modele.construireBlocs(series, local.exercices));
+    var apres = fn(s);
+    if (!apres) { await oublierConnues(id); return null; }
+    await enregistrerCorrection(apres);
+    await oublierConnues(id);
+    return apres;
+  }
+  function placeDeSerie(s, serieId) {
+    for (var i = 0; i < s.exercices.length; i++) {
+      var ser = s.exercices[i].series || [];
+      for (var j = 0; j < ser.length; j++) if (ser[j] && ser[j].id === serieId) return [i, j];
+    }
+    return null;
+  }
+  function placeDeLExercice(s, p) {
+    for (var i = 0; i < s.exercices.length; i++) {
+      if ((s.exercices[i].series || []).some(function (x) { return x && x.id === p.repere; })) return i;
+    }
+    return -1;
+  }
+
+  function accepterNoteIA(cle) {
+    return enFileNotesIA(async function () {
+      var r = recap, n = r && r.nia;
+      var p = n && n.liste.filter(function (x) { return x.cle === cle; })[0];
+      if (!p || n.etat[cle]) return;
+      var id = r.seance.id;
+      var geste = { geste: 'note_prise', slug: p.slug, genre: p.genre };
+      var fait = { appliquees: [] };
+      var ecrite = null;
+      if (p.genre === 'reglage') {
+        // la note de l'exercice (242), par la file du profil ; l'ancienne entrée est gardée pour « Annuler »
+        var avant = entreeDeNote(p.slug);
+        fait.avant = avant === null ? null : JSON.parse(JSON.stringify(avant));
+        await poserNoteExercice(p.slug, { texte: p.valeur, a: new Date().toISOString() });
+        ecrite = await corrigerPourNotesIA(id, function (s) { return Seance.noterGeste(s, geste); });
+        n.etat[cle] = 'fait'; n.faits[cle] = fait;
+        return redessinerNotesIA(cle);
+      }
+      ecrite = await corrigerPourNotesIA(id, function (s) {
+        if (p.genre === 'effort') {
+          // un champ vide seulement : les séries visées qui n'ont toujours ni RPE ni réserve
+          p.serieIds.forEach(function (sid) {
+            var pos = placeDeSerie(s, sid);
+            if (!pos) return;
+            var x = s.exercices[pos[0]].series[pos[1]];
+            if (!NotesIA.seulementTravail(x) || (x.rpe !== null && x.rpe !== undefined) || x.ressenti) return;
+            s = Seance.definirEffort(s, pos[0], pos[1], { ressenti: p.valeur });
+            fait.appliquees.push(sid);
+          });
+        } else if (p.genre === 'type_serie') {
+          p.serieIds.forEach(function (sid) {
+            var pos = placeDeSerie(s, sid);
+            if (!pos || !NotesIA.seulementTravail(s.exercices[pos[0]].series[pos[1]])) return;
+            s = Seance.changerType(s, pos[0], pos[1], p.valeur);
+            fait.appliquees.push(sid);
+          });
+        } else {
+          var i = placeDeLExercice(s, p);
+          if (i < 0 || Seance.occurrenceDouloureuse(s.exercices[i])) return null;
+          s = Seance.marquerDouleur(s, i);
+          fait.appliquees.push(p.repere);
+        }
+        if (!fait.appliquees.length) return null;
+        return Seance.noterGeste(s, geste);
+      });
+      // Rien d'écrit (séance pas encore complète, ou le champ n'était plus vide) : la ligne reste, sans message.
+      if (!ecrite) return;
+      fait.valeur = p.valeur;
+      n.etat[cle] = 'fait'; n.faits[cle] = fait;
+      redessinerNotesIA(cle);
+    });
+  }
+
+  function refuserNoteIA(cle) {
+    return enFileNotesIA(async function () {
+      var r = recap, n = r && r.nia;
+      var p = n && n.liste.filter(function (x) { return x.cle === cle; })[0];
+      if (!p || n.etat[cle]) return;
+      n.etat[cle] = 'refuse';
+      redessinerNotesIA();
+      await corrigerPourNotesIA(r.seance.id, function (s) { return Seance.noterGeste(s, { geste: 'note_refusee', slug: p.slug, genre: p.genre }); });
+    });
+  }
+
+  // « Annuler » défait le SEUL champ de son geste, sur une reprise fraîche, par le même chemin ; jamais un instantané (accepter A, puis B,
+  // puis annuler A ne défait pas B). Une valeur que la personne a changée depuis n'est pas touchée.
+  function annulerNoteIA(cle) {
+    return enFileNotesIA(async function () {
+      var r = recap, n = r && r.nia;
+      var p = n && n.liste.filter(function (x) { return x.cle === cle; })[0];
+      var f = n && n.faits[cle];
+      if (!p || !f || n.etat[cle] !== 'fait') return;
+      var geste = { geste: 'note_annulee', slug: p.slug, genre: p.genre };
+      if (p.genre === 'reglage') {
+        await poserNoteExercice(p.slug, f.avant);
+        await corrigerPourNotesIA(r.seance.id, function (s) { return Seance.noterGeste(s, geste); });
+      } else {
+        var ecrite = await corrigerPourNotesIA(r.seance.id, function (s) {
+          if (p.genre === 'effort') {
+            f.appliquees.forEach(function (sid) {
+              var pos = placeDeSerie(s, sid);
+              var x = pos && s.exercices[pos[0]].series[pos[1]];
+              if (x && x.ressenti === f.valeur && (x.rpe === null || x.rpe === undefined)) s = Seance.definirEffort(s, pos[0], pos[1], {});
+            });
+          } else if (p.genre === 'type_serie') {
+            f.appliquees.forEach(function (sid) {
+              var pos = placeDeSerie(s, sid);
+              var x = pos && s.exercices[pos[0]].series[pos[1]];
+              if (x && x.type_serie === f.valeur) s = Seance.changerType(s, pos[0], pos[1], 'travail');
+            });
+          } else {
+            var i = placeDeLExercice(s, p);
+            if (i >= 0) s = Seance.retirerDouleur(s, i);
+          }
+          return Seance.noterGeste(s, geste);
+        });
+        if (!ecrite) return;
+      }
+      delete n.etat[cle];
+      delete n.faits[cle];
+      redessinerNotesIA();
+    });
+  }
+
+  // ── Le réglage : Profil › Mon coach › « Lire mes notes » ─────────────────────────────────────────────────────────────────────────
+  function ouvrirCePartNotesIA() {
+    Rendu.rendreFeuilleConfirmer($('feuille-contenu'), {
+      titre: NotesIA.TEXTES.reglagePart, aide: NotesIA.TEXTES.plusTexte, libelle: 'Compris',
+      surConfirmer: fermerVoile, surAnnuler: fermerVoile
+    });
+    ouvrirVoile($('feuille-seance'));
+  }
+  // Couper : un toucher, aucune confirmation, effet immédiat (une lecture en vol est abandonnée). Allumer : l'accord s'ouvre dans une feuille
+  // (mêmes mots que sur le récap) ; « Oui, vas-y » seul pose l'accord.
+  function basculerNotesIA() {
+    if (!notesIAPossibles()) return;
+    if (profil.notes_ia_accord_a) {
+      abandonnerLectureNotes();
+      if (recap && recap.nia) { recap.nia.liste = []; recap.nia.accord = false; }
+      return ecrireProfil({ notes_ia_accord_a: null });
+    }
+    var T = NotesIA.TEXTES;
+    var cible = $('feuille-contenu');
+    cible.textContent = '';
+    var ouvert = false;
+    Rendu.rendreAccordNotes(cible, { titre: T.accordTitre, lignes: T.accord, plus: T.plus, plusTexte: T.plusTexte, plusOuvert: ouvert, oui: T.oui, non: T.non,
+      surPlus: function (o) { ouvert = o; },
+      surOui: function () { var maintenant = new Date().toISOString(); fermerVoile(); ecrireProfil({ notes_ia_accord_a: maintenant, notes_ia_question_a: maintenant }); },
+      surNon: fermerVoile });
+    ouvrirVoile($('feuille-seance'));
+  }
+  function sectionNotesIA() {
+    if (!notesIAPossibles()) return null;
+    var T = NotesIA.TEXTES;
+    return { titre: 'NOTES', lignes: [
+      { libelle: T.reglage, sous: T.reglageAide, sansValeur: true, interrupteur: { actif: !!profil.notes_ia_accord_a, surBascule: basculerNotesIA } },
+      { libelle: T.reglagePart, sansValeur: true, surChoix: ouvrirCePartNotesIA }
+    ] };
   }
 
   // Verse la séance terminée dans le cache de lecture, pour qu'elle s'affiche
@@ -9729,12 +10043,17 @@
     var n = profil && profil.notes_exercices;
     return n && typeof n === 'object' && !Array.isArray(n) && n[slug] ? n[slug] : null;
   }
-  async function ecrireNoteExercice(slug, entree) {
+  // 250 — l'écriture seule (par la file du profil), SANS redessiner la séance : « Lire mes notes » (le réglage accepté sur le récap, la
+  // séance étant déjà terminée) écrit par ce même chemin. `profil` est à jour avant le 1er await.
+  function poserNoteExercice(slug, entree) {
     brouillonDeNote = null;
     if (entree && typeof entree.texte === 'string') entree.texte = entree.texte.slice(0, 500);
     var toutes = Object.assign({}, (profil && profil.notes_exercices) || {});
     if (entree === null || entree === undefined) delete toutes[slug]; else toutes[slug] = entree;
-    var promesse = poserProfil({ notes_exercices: toutes });   // `profil` est à jour avant le 1er await
+    return poserProfil({ notes_exercices: toutes });
+  }
+  async function ecrireNoteExercice(slug, entree) {
+    var promesse = poserNoteExercice(slug, entree);   // `profil` est à jour avant le 1er await
     rendreSeance();
     await promesse;
   }
@@ -17857,6 +18176,8 @@
           // 60-2a — « TON BUT » (le but d'entraînement, les priorités) : les réponses du questionnaire, une ligne à la fois.
           Profil.sectionBut(p, ouvrirReponseProfil),
           // ⚠️ « TA SEMAINE », ET PLUS « RYTHME VISÉ » (ECRAN-PROFIL §2.4, renommé le 19/09) : « rythme » désigne le réglage de progression.
+          // 250 — « Lire mes notes » : l'interrupteur (absent tant que la mise en service est éteinte ou que la colonne n'existe pas).
+          sectionNotesIA(),
           { titre: 'TA SEMAINE', lignes: [
             { libelle: 'Séances par semaine', valeur: p.seances_par_semaine || null,
               surChoix: function () { ouvrirRythmeProfil('seances_par_semaine'); } },

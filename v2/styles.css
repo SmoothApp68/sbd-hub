@@ -3090,3 +3090,24 @@ button[id^="btn-retour"]{padding:0 14px;font-size:14px}
 .carte-veille .pc-ajouter,.carte-veille .pc-refuser,.proposition-veille button{min-height:44px}
 /* 237 — « Annuler » (chauffes ajoutées d’elles-mêmes) : un seul geste, à 44 px. */
 .proposition-exercice.chauffes-auto button{min-height:44px}
+
+/* 250 (L9) — « Lire mes notes » : l'accord et le bloc « Dans tes notes » du récap. Même liseré (ambre) pour toutes les lignes, la douleur comprise. */
+.recap-accord,.recap-notes{margin:0 0 14px}
+.nia-accord{background:var(--panneau-2);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.nia-titre{font-size:17px;font-weight:600;margin:0}
+.nia-liste{margin:0;padding-left:18px;color:var(--texte-2);font-size:14px}
+.nia-liste li{margin-bottom:4px}
+.nia-liste b{color:var(--texte);font-weight:600}
+.nia-lien{align-self:flex-start;background:none;border:0;padding:0;min-height:32px;font:inherit;font-size:13px;color:var(--texte-2);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.nia-plus{margin:0;color:var(--texte-2);font-size:13px}
+.nia-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.nia-btn{min-height:44px;border-radius:8px;border:1px solid var(--trait);background:var(--panneau);color:var(--texte);font:inherit;font-size:14px;cursor:pointer}
+.nia-bloc-titre{font-size:13px;color:var(--texte-3);margin:0 0 6px}
+.nia-ligne{display:flex;align-items:center;gap:8px;background:var(--panneau-2);border-left:3px solid var(--accent);border-radius:8px;padding:6px 6px 6px 11px;margin-bottom:6px}
+.nia-txt{flex:1;min-width:0;font-size:15px}
+.nia-cite{display:block;color:var(--texte);overflow-wrap:anywhere}
+.nia-q{display:block;color:var(--texte-2)}
+.nia-rond{flex:none;width:44px;height:44px;border-radius:50%;border:1px solid var(--trait);background:var(--panneau);color:var(--texte);font-size:18px;cursor:pointer}
+.nia-ok{color:var(--accent)}
+.nia-fait{flex:1;font-size:14px;color:var(--texte-2)}
+.nia-annuler{min-height:44px;padding:0 10px;background:none;border:0;font:inherit;font-size:14px;color:var(--accent);cursor:pointer}

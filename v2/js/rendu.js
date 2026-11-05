@@ -6524,6 +6524,18 @@
     cible.appendChild(tuiles);
     if (r.phraseVolume) cible.appendChild(el('p', 'recap-comp', r.phraseVolume));
 
+    // 250 (L9) — « LIRE MES NOTES » : l'accord (une seule fois), puis le bloc « Dans tes notes ». Ce rendu ne calcule rien et n'écrit rien :
+    // `vue.accord` et `vue.notes` viennent de `app.js`, les phrases de `notes-ia.js`. Absents, il n'y a RIEN (ni titre, ni bloc vide).
+    if (vue.accord) {
+      var zoneAccord = el('div', 'recap-accord');
+      rendreAccordNotes(zoneAccord, vue.accord);
+      cible.appendChild(zoneAccord);
+    }
+    var zoneNotes = el('div', 'recap-notes');
+    zoneNotes.setAttribute('aria-live', 'polite');
+    rendreNotesDuRecap(zoneNotes, vue.notes);
+    cible.appendChild(zoneNotes);
+
     var groupe = function (texte, classe) {
       var g = el('div', 'recap-groupe' + (classe ? ' ' + classe : ''));
       g.appendChild(el('i', 'recap-point'));
@@ -6626,6 +6638,85 @@
       });
       cible.appendChild(pa);
     }
+    return cible;
+  }
+
+  // 250 — L'ACCORD « LIRE MES NOTES » (maquette notes-ia v4, écran A) : le même bloc sur le récap et dans la feuille du Profil.
+  //   vue = { titre, lignes: [[texte, gras, texte…]], plus, plusTexte, plusOuvert, oui, non, surPlus, surOui, surNon }
+  // Deux boutons de MÊME poids (`nia-btn`), rien de présélectionné.
+  function rendreAccordNotes(cible, vue) {
+    var b = el('div', 'nia-accord');
+    b.appendChild(el('p', 'nia-titre', vue.titre));
+    var ul = el('ul', 'nia-liste');
+    (vue.lignes || []).forEach(function (parts) {
+      var li = el('li');
+      parts.forEach(function (t, i) { li.appendChild(i % 2 ? el('b', null, t) : doc.createTextNode(t)); });
+      ul.appendChild(li);
+    });
+    b.appendChild(ul);
+    var plus = el('button', 'nia-lien', vue.plus);
+    plus.type = 'button';
+    plus.setAttribute('aria-expanded', vue.plusOuvert ? 'true' : 'false');
+    var texte = el('p', 'nia-plus', vue.plusTexte);
+    texte.hidden = !vue.plusOuvert;
+    plus.addEventListener('click', function () {
+      texte.hidden = !texte.hidden;
+      plus.setAttribute('aria-expanded', texte.hidden ? 'false' : 'true');
+      if (vue.surPlus) vue.surPlus(!texte.hidden);
+    });
+    b.appendChild(plus);
+    b.appendChild(texte);
+    var deux = el('div', 'nia-btns');
+    var oui = el('button', 'nia-btn', vue.oui);
+    oui.type = 'button';
+    oui.addEventListener('click', vue.surOui);
+    var non = el('button', 'nia-btn', vue.non);
+    non.type = 'button';
+    non.addEventListener('click', vue.surNon);
+    deux.appendChild(oui);
+    deux.appendChild(non);
+    b.appendChild(deux);
+    cible.appendChild(b);
+    return b;
+  }
+
+  // 250 — LE BLOC « DANS TES NOTES » : une ligne par proposition (ses mots d'abord, la proposition dessous, ✓ et ✕ ronds de 44 px, rien de
+  // présélectionné), même liseré pour toutes. `vue` = { titre, lignes: [{ cle, cite, propose, accepter, refuser, fait, etat, annuler,
+  // surOui, surNon, surAnnuler }] } ; absent ou sans ligne : rien du tout. Redessiné seul par `app.js` après un geste.
+  function rendreNotesDuRecap(cible, vue) {
+    if (!cible) return;
+    vider(cible);
+    var lignes = vue && vue.lignes ? vue.lignes : [];
+    if (!lignes.length) { cible.hidden = true; return cible; }
+    cible.hidden = false;
+    cible.appendChild(el('div', 'nia-bloc-titre', vue.titre));
+    lignes.forEach(function (l) {
+      var n = el('div', 'nia-ligne');
+      n.dataset.cle = l.cle;
+      if (l.etat === 'fait') {
+        n.appendChild(el('span', 'nia-fait', l.fait));
+        var an = el('button', 'nia-annuler', l.annuler);
+        an.type = 'button';
+        an.addEventListener('click', l.surAnnuler);
+        n.appendChild(an);
+      } else {
+        var t = el('div', 'nia-txt');
+        t.appendChild(el('span', 'nia-cite', l.cite));
+        t.appendChild(el('span', 'nia-q', l.propose));
+        n.appendChild(t);
+        var ok = el('button', 'nia-rond nia-ok', '\u2713');
+        ok.type = 'button';
+        ok.setAttribute('aria-label', l.accepter);
+        ok.addEventListener('click', l.surOui);
+        var no = el('button', 'nia-rond', '\u2715');
+        no.type = 'button';
+        no.setAttribute('aria-label', l.refuser);
+        no.addEventListener('click', l.surNon);
+        n.appendChild(ok);
+        n.appendChild(no);
+      }
+      cible.appendChild(n);
+    });
     return cible;
   }
 
@@ -7692,6 +7783,23 @@
   // profil neuf, et le moteur travaille avec ce qu'il a.
 
   function ligneProfil(l) {
+    // 250 — une ligne INTERRUPTEUR (« Lire mes notes ») : un vrai `switch`, le modèle de « Activer le jeu » ; un toucher, aucune confirmation.
+    if (l.interrupteur) {
+      var sw = el('button', 'p-ligne j-interrupteur' + (l.interrupteur.actif ? ' on' : ''));
+      sw.type = 'button';
+      sw.setAttribute('role', 'switch');
+      sw.setAttribute('aria-checked', l.interrupteur.actif ? 'true' : 'false');
+      sw.setAttribute('aria-label', l.libelle);
+      var libSw = el('span', 'p-lib', l.libelle);
+      if (l.sous) libSw.appendChild(el('small', '', l.sous));
+      sw.appendChild(libSw);
+      var cur = el('span', 'j-curseur');
+      cur.setAttribute('aria-hidden', 'true');
+      cur.appendChild(el('i'));
+      sw.appendChild(cur);
+      sw.addEventListener('click', l.interrupteur.surBascule);
+      return sw;
+    }
     var cliquable = typeof l.surChoix === 'function';
     var n = el(cliquable ? 'button' : 'div', 'p-ligne');
     if (cliquable) { n.type = 'button'; n.addEventListener('click', l.surChoix); }
@@ -10335,6 +10443,8 @@
     rendreFeuilleFin: rendreFeuilleFin,
     rendreFeuilleDuree: rendreFeuilleDuree,
     rendreRecap: rendreRecap,
+    rendreAccordNotes: rendreAccordNotes,
+    rendreNotesDuRecap: rendreNotesDuRecap,
     // 64B — le jeu (JEU-V1 §9).
     rendreJeuAccueil: rendreJeuAccueil,
     // 87 — le social, étage 1.

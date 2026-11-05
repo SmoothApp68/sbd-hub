@@ -28808,7 +28808,7 @@ const SETS_IMPORTES = [
       await attendreQue(() => page.evaluate(() => !document.getElementById('vue-seance').hidden), 15000, 'editionOuverteED245');
       await gestes();
       await enregistrer();
-      await attendre(1500);
+      await reseauCalme();
     };
 
     await aller('/saisie');
@@ -28819,7 +28819,7 @@ const SETS_IMPORTES = [
     ok('[ED245] prémisse — la série faite à la charge proposée observe le pari de consigne (5 reps) : ' + charge245 + ' kg',
       pariDe245().valeur_observee === 5 && pariDe245().fondement.charge === charge245, nb245([charge245, pariDe245().valeur_observee, pariDe245().fondement]));
     await saisirSerie(1, charge245 - 10, 5);   // une 2e série plus légère : elle n'atteint pas l'objectif 70 × 5
-    await attendre(800);
+    await reseauCalme();
     await terminer();
     await jusqua(async () => obj245().valeur_observee !== null && !!obj245().set_observe, 10000, 'objectifObserveED245');
     ok('[ED245] prémisse — l’objectif 70 × 5 s’observe sur la série (au terminer)', obj245().set_observe === pariDe245().set_observe, nb245([obj245().set_observe, pariDe245().set_observe]));
@@ -28876,7 +28876,7 @@ const SETS_IMPORTES = [
       await feuilleOuverte('.feuille-menu button');
       boutonAbsent245 = await page.evaluate(() => !Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
         .some((b) => /^Compter cette série/.test(b.textContent)));
-      await page.click('#btn-fermer-feuille'); await attendre(600);
+      await page.click('#btn-fermer-feuille'); await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
     });
     ok('[ED245] D-S3 — une série qui compte n’offre pas « Compter cette série »', boutonAbsent245 === true, nb245(boutonAbsent245));
     // (5) D-S3, le chemin « Non » : une série marquée « Non, ne compte pas » dont on CORRIGE la charge recompte (la réponse parlait de la
@@ -28899,14 +28899,14 @@ const SETS_IMPORTES = [
       const o = obj245();
       o.set_observe = serie2.id; o.valeur_observee = 5; o.observee_a = new Date().toISOString();
       await page.reload();
-      await attendre(2500);
+      await reseauCalme();
       await aller('/saisie');
       await editer245(async () => {
         const champs = await champsDe(0, 'charge_kg');
         await champs[0].fill(String(Number(horsDe245().charge_kg) + 5));
         await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
       });
-      await attendre(1500);
+      await reseauCalme();
       ok('[ED245] DISCRIMINANT D-P2 — corriger une série qui n’est PAS celle qui observe l’objectif en GARDE l’observation (série, valeur)',
         obj245().set_observe === serie2.id && obj245().valeur_observee === 5, nb245(obj245()));
     }
@@ -28944,7 +28944,7 @@ const SETS_IMPORTES = [
     const jours246 = await page.evaluate(() => {
       const p = (n) => String(n).padStart(2, '0');
       const iso = (d) => d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
-      const auj = new Date(), lundi = new Date(auj.getFullYear(), auj.getMonth(), auj.getDate() - ((auj.getDay() + 6) % 7));
+      const auj = new Date(), lundi = new Date(auj.getFullYear(), auj.getMonth(), auj.getDate());   // l'ancre est aujourd'hui (jamais le jour de la semaine : banc-dates)
       const out = [];
       for (let k = 6; k >= 1; k--) for (const dec of [0, 3]) out.push(iso(new Date(lundi.getFullYear(), lundi.getMonth(), lundi.getDate() - 7 * k + dec)));
       return { semaines: out, hier: iso(new Date(auj.getFullYear(), auj.getMonth(), auj.getDate() - 1)) };
@@ -28979,7 +28979,7 @@ const SETS_IMPORTES = [
         === '−0,4 kg par semaine en moyenne, sur les 6 dernières semaines.', nb246(b246));
     ok('[P246] (b) …et sa note : « Calculée sur tes 12 pesées de ces 6 semaines. »', sp246(b246.note) === 'Calculée sur tes 12 pesées de ces 6 semaines.', nb246(b246));
     await page.click('#periodes-poids button:first-child');
-    await attendre(300);
+    await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
     const b2246 = await ecranPoids246();
     ok('[P246] (b) la tendance se calcule sur TOUTES les pesées : la période « 3 mois » ne la change pas', sp246(b2246.tendance) === sp246(b246.tendance), nb246([b246, b2246]));
 

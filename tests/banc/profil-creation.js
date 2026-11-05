@@ -179,8 +179,8 @@ const FAUX_TURNSTILE = `(function () {
   var ts = window.__ts = { rendus: 0, resets: 0, retraits: 0, n: 0, pret: null, options: null };
   function donner() { ts.n++; ts.pret = 'faux-jeton-' + ts.n; ts.options.callback(ts.pret); }
   window.turnstile = {
-    render: function (c, o) { ts.rendus++; ts.options = o; c.setAttribute('data-faux-widget', String(ts.rendus)); setTimeout(donner, 0); return 'w' + ts.rendus; },
-    reset: function () { ts.resets++; ts.pret = null; setTimeout(donner, 0); },
+    render: function (c, o) { ts.rendus++; ts.options = o; c.setAttribute('data-faux-widget', String(ts.rendus)); setTimeout(donner, 0); /* le pas d’un rappel asynchrone, comme le vrai widget */ return 'w' + ts.rendus; },
+    reset: function () { ts.resets++; ts.pret = null; setTimeout(donner, 0); /* le pas d’un rappel asynchrone */ },
     remove: function () { ts.retraits++; }
   };
 })();`;

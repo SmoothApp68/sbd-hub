@@ -12,6 +12,7 @@ const JS = path.join(__dirname, '../../v2/js');
 
 // Les formateurs de jour qui subsistent, comptés par fichier, chacun avec sa raison.
 const RESTE = {
+  'importhevy.js': { n: 1, raison: '246 : `jourDeLaPersonne` (le « aujourd’hui » d’un CSV de mesures) — module d’import qui tourne sans le moteur (testé seul, comme `semaine.js`).' },
   'jeu.js': { n: 1, raison: '64A : le jeu ne nomme jamais le moteur (garde d’architecture) ; il garde sa clé de semaine locale, identique à `jourCivil`.' },
   'moteur.js': { n: 1, raison: 'LA définition : `jourCivil`.' },
   'calendrier.js': { n: 2, raison: 'clés de cellule internes à la grille (mois de 0 à 11, sans zéro) : jamais un jour civil échangé avec un autre module.' },

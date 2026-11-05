@@ -13,6 +13,7 @@ require('../../v2/js/palier.js');
 require('../../v2/js/moteur.js');   // 136 (F5) — la fenêtre de la médaille (`plancherDuMateriel`), comme dans index.html
 require('../../v2/js/bilan.js');
 require('../../v2/js/parcours.js');
+require('../../v2/js/poids.js');   // 246 — `Bilans` lit `THPoids.poidsAutourDe`, comme dans index.html
 const Bilans = require('../../v2/js/bilans.js');
 const Annee = require('../../v2/js/annee.js');
 

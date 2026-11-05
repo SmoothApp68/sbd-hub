@@ -553,6 +553,7 @@ describe('`soumettreEntree` : le pseudo est posé AVANT l’inscription, et une 
       etatEntree: () => ({ pseudo: 'Test 0710', email: 'b@banc.test', mdp: 'motdepasse123' }),
       majBoutonEntree: () => {},
       texteErreur: (e) => String(e && e.message || e),
+      direCaptcha: () => false, jetonCaptcha: async () => null,   // 247 — captcha désactivé
       Profil,
       Auth: {
         // Ce que `pseudoAInscrire` valait AU MOMENT de l'appel : c'est l'ordre qui compte.
@@ -562,6 +563,7 @@ describe('`soumettreEntree` : le pseudo est posé AVANT l’inscription, et une 
           return opt.sansSession ? { session: null, user: { id: 'B' } } : { session: { user: { id: 'B' } } };
         },
         phraseInscription,
+        captcha: { actif: () => false },   // 247 — captcha désactivé (clé de site vide) : `soumettreEntree` le lit avant d'appeler Auth
         connecter: async () => { appels.push(['connecter', ctx.pseudoAInscrire]); }
       }
     };

@@ -1993,6 +1993,12 @@ const NOTIONS = [
   { notion: 'la note affichée d’un exercice (épinglée, de la dernière fois, ou masquée)', pr: '242-U1',
     module: 'faits.js', fonction: 'noteDeLExercice', lecteurs: ['app.js'],
     raison: 'l’écran lit `profiles.notes_exercices` et le fait de la dernière fois par UNE fonction : la note épinglée prime, « Ne plus afficher » masque la série désignée.' },
+  // 247 — le captcha : une notion de l'authentification, pas un fichier de plus (SHELL du service worker intact).
+  { notion: 'le captcha Turnstile (clé de site, script, widget, jeton à usage unique)', pr: 'correctif 05/11/2026',
+    module: 'auth.js', fonction: 'fabriquerCaptcha', lecteurs: ['app.js'],
+    motif: /\b(?:THAuth|Auth)\s*\.\s*captcha\b/g,
+    raison: '247 — `Auth.captcha` (actif, monter, jeton, réinitialiser, phrase) est lu par `auth.js` et `app.js` seulement : le script tiers ne se ' +
+      'charge qu’à l’ouverture de l’écran d’entrée, le rendu et les autres écrans ne le nomment pas.' },
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────

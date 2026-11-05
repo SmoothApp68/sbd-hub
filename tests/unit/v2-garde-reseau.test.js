@@ -117,6 +117,13 @@ describe('59-4 — la garde réseau elle-même', () => {
     expect(Garde.versSupabase('pas une url')).toBe(false);
   });
 
+  test('247 — elle coupe aussi le script de Cloudflare Turnstile, et seulement cet hôte-là', async () => {
+    expect(Garde.versCloudflare('https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit')).toBe(true);
+    expect(Garde.versCloudflare('https://sbd-hub.pages.dev/index.html')).toBe(false);
+    expect(Garde.versCloudflare('https://challenges.cloudflare.com.evil.test/')).toBe(false);
+    expect(Garde.versCloudflare('pas une url')).toBe(false);
+  });
+
   // Un contexte de papier : il retient ses intercepteurs dans l'ordre.
   function contexte() {
     const ctx = { routes: [], sockets: [], ferme: false };
@@ -126,6 +133,18 @@ describe('59-4 — la garde réseau elle-même', () => {
     ctx.close = async () => { ctx.ferme = true; };
     return ctx;
   }
+
+  test('247 — le filet de contexte coupe et note une requête vers challenges.cloudflare.com', async () => {
+    const ctx = await Garde.garderContexte(contexte());
+    expect(ctx.routes[0].motif('https://challenges.cloudflare.com/turnstile/v0/api.js')).toBe(true);
+    expect(ctx.routes[0].motif('https://' + Garde.HOTE + '/auth/v1/token')).toBe(true);
+    expect(ctx.routes[0].motif('http://127.0.0.1:8080/js/app.js')).toBe(false);
+    const coupees = [];
+    const req = { method: () => 'GET', url: () => 'https://challenges.cloudflare.com/turnstile/v0/api.js' };
+    await ctx.routes[0].f({ request: () => req, abort: async (r) => coupees.push(r) });
+    expect(coupees).toEqual(['blockedbyclient']);
+    expect(Garde.fuites()).toEqual(['GET https://challenges.cloudflare.com/turnstile/v0/api.js']);
+  });
 
   test('⚠️ une requête que le banc n’a pas prise en charge est coupée, et notée avec son URL', async () => {
     const ctx = await Garde.garderContexte(contexte());
@@ -149,7 +168,7 @@ describe('59-4 — la garde réseau elle-même', () => {
     expect(ctx.routes.length).toBe(1);
     // Playwright essaie le plus récent d'abord : celui du banc, posé ensuite.
     await ctx.route(/supabase\.co/, () => {});
-    expect(ctx.routes[0].motif).toBe(Garde.versSupabase);
+    expect(ctx.routes[0].motif).toBe(Garde.aCouper);
   });
 
   test('`lancer` garde chaque contexte — y compris celui de `newPage`', async () => {

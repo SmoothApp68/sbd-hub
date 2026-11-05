@@ -28941,14 +28941,14 @@ const SETS_IMPORTES = [
       return !!e && (e.textContent || '').trim() !== '' && !e.classList.contains('sync'); }).catch(() => false);
     const rafraichir246 = async () => { await jusqua(synchroLibre246, 60000); await page.evaluate(() => document.getElementById('btn-rafraichir').click());
       await jusqua(synchroLibre246, 60000); };
-    const jours246 = await page.evaluate(() => {
-      const p = (n) => String(n).padStart(2, '0');
-      const iso = (d) => d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
-      const auj = new Date(), lundi = new Date(auj.getFullYear(), auj.getMonth(), auj.getDate());   // l'ancre est aujourd'hui (jamais le jour de la semaine : banc-dates)
-      const out = [];
-      for (let k = 6; k >= 1; k--) for (const dec of [0, 3]) out.push(iso(new Date(lundi.getFullYear(), lundi.getMonth(), lundi.getDate() - 7 * k + dec)));
-      return { semaines: out, hier: iso(new Date(auj.getFullYear(), auj.getMonth(), auj.getDate() - 1)) };
-    });
+    // Six semaines civiles COMPLÈTES derrière la semaine en cours (lundi → dimanche, comme `tendanceDuPoids`), deux pesées chacune :
+    // le lundi et le mercredi. `mercrediEcoule(k)` (decor-dates.js) porte l'ancre : aucun jour de la semaine lu dans le banc (banc-dates).
+    const jour246 = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    const jours246 = { semaines: [], hier: jour246(ilYa(86400000)) };
+    for (let k = 5; k >= 0; k--) {
+      const mer = mercrediEcoule(k);
+      jours246.semaines.push(jour246(new Date(mer.getFullYear(), mer.getMonth(), mer.getDate() - 2)), jour246(mer));
+    }
     const ecranPoids246 = () => page.evaluate(() => ({
       tendance: (document.getElementById('tendance-poids') || {}).textContent || '',
       note: ((document.querySelector('#tendance-poids .pesees-total') || {}).textContent || ''),

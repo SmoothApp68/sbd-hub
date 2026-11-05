@@ -142,6 +142,22 @@ describe('185 — la baisse : plus de 35 % ET plus de 10 kg sous la consigne du 
   });
 });
 
+describe('245 — la baisse aux haltères : le seuil absolu est celui de la hausse (4 kg sur la paire), le −35 % relatif inchangé', () => {
+  const bas = (kg, ref) => v({ charge: kg, reps: 8, equipement: 'haltere' }, { historique: histo(ref), chargeVisee: ref });
+  test('DISCRIMINANT — 20 saisi 10 et 16 saisi 8 : la question « baisse »', () => {
+    expect(bas(10, 20).genre).toBe('baisse');
+    expect(bas(8, 16).genre).toBe('baisse');
+    expect(plat(bas(10, 20).texte)).toBe('10 kg ? Ta consigne : 20 kg.');
+  });
+  test('12 → 10 (−17 %, sous le relatif) et 8 → 4 (exactement 4 kg : borne stricte) : rien', () => {
+    expect(bas(10, 12)).toBeNull();
+    expect(bas(4, 8)).toBeNull();
+  });
+  test('ailleurs qu’aux haltères, le seuil reste 10 kg (une machine : 20 → 10 est exactement 10 kg, rien)', () => {
+    expect(v({ charge: 10, reps: 8, equipement: 'machine' }, { historique: histo(20), chargeVisee: 20 })).toBeNull();
+  });
+});
+
 describe('185 — les reps', () => {
   const H = histo(30);
   test('0 rep : la question de la maquette, avec ses trois boutons', () => {

@@ -1130,10 +1130,11 @@ const NOTIONS = [
     parAilleurs: { 'app.js': ['rendreProgression'] },
     raison: 'MOTEUR §9.23 : « Le dernier » du bloc Records est un fait, assemblé une fois.' },
   { notion: 'l’historique d’un exercice pendant la séance (sans la séance en cours)', pr: '58-U1',
-    module: 'faits.js', fonction: 'historiqueDesRecords', lecteurs: [],
+    module: 'faits.js', fonction: 'historiqueDesRecords', lecteurs: ['app.js'],
     par: ['recordsDeLaSerie'],
     raison: 'MOTEUR §9.23 : la médaille compare une série à l’historique sans la séance en cours, ' +
-      'lu une fois par exercice et par état.' },
+      'lu une fois par exercice et par état. 245 (D-Q1) : les questions de vraisemblance (`contexteDeVraisemblance`, app.js) le lisent par le même mémo, ' +
+      'au lieu de recalculer l’historique à chaque validation.' },
   { notion: 'la séance en cours telle que les records la lisent (ses séries validées)', pr: '58-U1',
     module: 'faits.js', fonction: 'seanceDesRecords', lecteurs: [],
     par: ['recordsDeLaSerie', 'recordsDuJour'],

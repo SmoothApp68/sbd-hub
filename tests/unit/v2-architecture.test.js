@@ -2023,7 +2023,13 @@ const NOTIONS = [
       'aucun écran ne la calcule. Elle ne sort jamais de l’appareil.' },
   { notion: 'la phrase de la tendance du poids (un fait, ni jugement ni invitation)', pr: '246-U3',
     module: 'poids.js', fonction: 'phraseDeTendance', lecteurs: ['app.js'],
-    raison: '246 : la seule phrase de la tendance ; « Pas de sens net » quand les pesées ne distinguent pas la pente du bruit.' }
+    raison: '246 : la seule phrase de la tendance ; « Pas de sens net » quand les pesées ne distinguent pas la pente du bruit.' },
+  // 247 — le captcha : une notion de l'authentification, pas un fichier de plus (SHELL du service worker intact).
+  { notion: 'le captcha Turnstile (clé de site, script, widget, jeton à usage unique)', pr: 'correctif 05/11/2026',
+    module: 'auth.js', fonction: 'fabriquerCaptcha', lecteurs: ['app.js'],
+    motif: /\b(?:THAuth|Auth)\s*\.\s*captcha\b/g,
+    raison: '247 — `Auth.captcha` (actif, monter, jeton, réinitialiser, phrase) est lu par `auth.js` et `app.js` seulement : le script tiers ne se ' +
+      'charge qu’à l’ouverture de l’écran d’entrée, le rendu et les autres écrans ne le nomment pas.' },
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────

@@ -50,12 +50,23 @@ function versSupabase(url) {
   return h === 'supabase.co' || /\.supabase\.co$/.test(h) || (!!HOTE && h === HOTE);
 }
 
+// 247 — LE CAPTCHA. L'app charge le script de Cloudflare Turnstile (`challenges.cloudflare.com`) quand sa clé de
+// site est posée : un banc qui le laisserait partir parlerait à un tiers réel (et à la protection anti-robot de
+// Cloudflare), exactement comme un banc qui parlerait à la vraie base. Même filet, même règle : le banc sert un FAUX
+// widget (`page.route`) ; ce qu'il n'a pas pris en charge est coupé, noté et fait échouer le banc.
+function versCloudflare(url) {
+  let h;
+  try { h = new URL(String(url)).hostname; } catch (e) { return false; }
+  return h === 'challenges.cloudflare.com';
+}
+const aCouper = (url) => versSupabase(url) || versCloudflare(url);
+
 const vues = [];
 function signaler(quoi, url) {
   const ligne = quoi + ' ' + url;
   if (vues.indexOf(ligne) >= 0) return;
   vues.push(ligne);
-  console.error('❌ [garde réseau] requête vers la vraie base, non prise en charge par le banc : ' + ligne);
+  console.error('❌ [garde réseau] requête vers la vraie base (ou vers Cloudflare Turnstile), non prise en charge par le banc : ' + ligne);
 }
 
 function fuites() { return vues.slice(); }
@@ -63,7 +74,7 @@ function fuites() { return vues.slice(); }
 async function garderContexte(ctx) {
   if (ctx.__gardeReseau) return ctx;
   ctx.__gardeReseau = true;
-  await ctx.route(versSupabase, (route) => {
+  await ctx.route(aCouper, (route) => {
     signaler(route.request().method(), route.request().url());
     return route.abort('blockedbyclient');
   });
@@ -105,4 +116,4 @@ async function lancer(chromium, options) {
   return nav;
 }
 
-module.exports = { lancer, garderContexte, versSupabase, fuites, HOTE };
+module.exports = { lancer, garderContexte, versSupabase, versCloudflare, aCouper, fuites, HOTE };

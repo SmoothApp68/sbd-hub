@@ -3259,6 +3259,8 @@ Toutes ont été commises par l'assistant et rattrapées par l'utilisateur, jama
 **Faux.** **93 séries** portent un RPE : 6,0 ×2 · 7,0 ×8 · 7,5 ×8 · 8,0 ×17 · 8,5 ×22 · 9,0 ×12 · 9,5 ×7 · 10,0 ×17.
 *Conséquence :* c'est peu, mais ce n'est pas rien, et c'est concentré près de l'échec — donc exploitable pour amorcer le calage (§17).
 
+*Mise à jour du 05/11/2026 (243, source : relevé de Claude.ai du 05/11 sur la base, 306 séries sur 29 338 ; code : `importhevy.js` ~329 et ~632) : le RPE de Hevy **EST importé** dans `sets.rpe` (306 séries sur 29 338 aujourd'hui, 0 < rpe ≤ 10, contrainte `sets_rpe_ok`). `ressenti` est une autre notion (l'effort en réserve saisi dans l'app) et reste distinct : le complément du 25/08 ci-dessous, « n'ont jamais atteint la base », est périmé pour `rpe`.*
+
 **Complément du 25/08/2026 — ces 93 valeurs n'ont jamais atteint la base.** Vérification faite : la colonne `ressenti` est vide sur les **16 704 séries**. L'export contient bien la colonne `rpe`, l'import ne la transporte pas.
 
 Ce n'est **pas un bug à corriger** : le code v1 est abandonné et l'import CSV est une fonctionnalité v2 qui n'existe pas encore. C'est donc une **exigence de spécification**, à faire figurer dans le prompt de construction de l'import, faute de quoi le trou sera recreusé à neuf :
@@ -3306,7 +3308,7 @@ L'erreur passe de 1,00 rep si on ne garde que les séries ≤ 8 reps à 2,00 si 
 | Seuils 35 / 60 % de la montée en charge (§5.2) | choix produit, à revoir sur données multi-utilisateurs |
 | Pesée à jour | dernière le 18/03/2026, tout le reste est un report |
 | Exercices en durée et cardio | colonnes différentes à prévoir |
-| Progression entre exercices (prise serrée → diamant) | distincte du champ `parent`, non traitée |
+| Progression entre exercices (prise serrée → diamant) | distincte du champ `parent`, non traitée. *Mise à jour du 05/11/2026 (243, source : §9.17 bis, 127 et 175) : traitée pour les mouvements au poids du corps par l'échelle des variantes (§9.17 bis) ; reste ouverte hors de ces échelles* |
 | Recalcul des seuils v1.1 sur le fichier reconstruit | paliers et incréments portaient sur un fichier amputé de 12 % |
 
 | Stagnation sous consigne (§12.2 bis, §12.8) | **tranchée le 25/09/2026** : niveau validé, par zone, séances suivies seulement, seuil fixe et mots personnels |

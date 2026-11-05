@@ -366,6 +366,7 @@ null », à traiter d'un coup pour les quatre mesures.
 Aussi par v2_101 : Squat Sauté Lesté (Haltère) et Squat Cosaque (Kettlebell) en `charge_reps` / `absolue` ; Woodchop
 (Médecine-Ball) en `absolue`. **Notés pour plus tard** : l'inclinaison du tapis, Pincé de Disques en charge × durée,
 un record de D+ ou d'étages.
+*Mise à jour du 05/11/2026 (243, source : chantier 153, `modele.js` ~2545 et ~2706) : le record de D+ et d'étages est fait au 153 — « Record de D+ : 920 m. », « Record d'étages : 72. » ; il ne reste « pour plus tard » que l'inclinaison du tapis et Pincé de Disques.*
 
 **La saisie** (écrans 1 à 3) :
 - **le D+** se tape sur sa propre ligne, sous la série (« Dénivelé + (facultatif) », en mètres) : une troisième
@@ -385,6 +386,7 @@ distance de la randonnée d'avant sur celle du jour.
 **L'affichage** : distance, puis durée, puis D+ ou étages (« 13,2 km · 3 h 25 · D+ 920 m », « 20 min · 72
 étages »), par le formateur unique (§3 ter). Une valeur absente ne s'affiche jamais, ni à zéro. Les records ne
 changent pas (la plus longue durée, la plus longue distance).
+*Mise à jour du 05/11/2026 (243, source : 153) : « les records ne changent pas » est périmé pour le D+ et les étages, qui ont leur médaille depuis le 153 (voir ci-dessus). Une durée de 0 s est une valeur et s'écrit « 0 s » (243, `aValeur`).*
 
 **Ce qui manque à tes séances** (écran 5). Une carte à l'accueil de Saisie, hors séance ouverte, tant qu'il reste
 quelque chose à compléter :
@@ -3051,6 +3053,7 @@ Couché - (Haltère) » et « developpe couche haltere » sont le même texte.
 abréviations comme « DC », les anciens noms d'avant v2_098). Les noms alternatifs vivent dans le cache local avec le
 catalogue : la recherche marche **hors ligne**. Les rattachements personnels (`alias_exercice`) ne sont pas cherchés
 (noté pour plus tard).
+*Mise à jour du 05/11/2026 (243, source : `app.js` ~18375, 126) : la liste « Mes exercices » appelle la même `Routines.chercher` avec `alias: local.alias` — elle cherche donc aussi les noms alternatifs du catalogue, comme le sélecteur ; aucune recherche ne lit `alias_exercice`.*
 
 **Ce qui est trouvé.** Un exercice est trouvé si **tous les mots tapés**, dans n'importe quel ordre, se trouvent dans
 **un même texte** (le nom, ou un seul de ses noms alternatifs). Un mot tapé se trouve s'il est **le début d'un mot** du
@@ -3396,6 +3399,7 @@ l'écran Saisie — c'est ce qu'on voit une fois arrivé là). L'explication la 
 **coquille antérieure au 47**, où `history.back()` atterrissait précisément sur `/saisie`. La
 correction ci-dessus ne dépend d'aucune de ces deux lectures : elle rend la destination
 **indépendante de l'historique**.
+*Mise à jour du 05/11/2026 (243, source : `app.js` ~18799-18800) : câblé — `btn-retour` appelle `afficherSemaine(null, true)` (destination nommée, en remplaçant), `btn-retour-exercice` appelle `remonter(afficherSemaine)`. Reste **à confirmer au téléphone**, sur un appareil, que « ← Séances » ramène à la liste par tous les chemins.*
 
 ⚠️ **Et une mesure du chantier 47 était vide** : le banc de séance réutilise une seule page, dont
 `history.length` sature à **50** (plafond de Chrome). L'assertion « la profondeur n'a pas

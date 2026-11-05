@@ -667,7 +667,7 @@
   }
   var PART = {
     charge: function (s) { return aValeur(s.charge_kg) ? chargeDuJournal(s.charge_kg) : ''; },
-    // 243 — une durée de 0 s est une valeur (import, ancienne saisie) : « 0 s », jamais vide.
+    // 243 — une durée de 0 s est une valeur (un cache ou une file d'avant) : « 0 s », jamais vide.
     duree: function (s) { return aValeur(s.duree_s) ? formatDuree(s.duree_s) : ''; },
     distance: function (s) { return s.distance_m ? formatDistance(s.distance_m) : ''; },
     // ECRAN §3 ter.5 (prompt 131) — les champs en plus. Une valeur absente ne s'affiche

@@ -348,6 +348,7 @@ Escalade suivent leur `nature` dans le catalogue.*
 `formatMesure` et `resumerSeance` testent `if (serie.duree_s)` — un test de vérité, pas de
 nullité. Une série à 0 s existe en base et devient muette au détail. Même famille que « 0 comme
 null », à traiter d'un coup pour les quatre mesures.
+*Corrigé le 05/11/2026 (243, `aValeur`) pour la durée ; la distance, le D+ et les étages gardent un test de vérité, sans effet puisque la base refuse 0.*
 
 #### 3 ter.5 Les champs en plus, exercice par exercice — décidé le 21/10/2026 (prompt 131)
 

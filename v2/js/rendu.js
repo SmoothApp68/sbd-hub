@@ -7923,14 +7923,7 @@
       n.setAttribute('aria-pressed', on ? 'true' : 'false');
       n.appendChild(el('span', 'q-opt-t', o.libelle));
       if (o.sous) n.appendChild(el('span', 'q-sous', o.sous));
-      // 187 — une réponse annoncée mais pas encore faite : grisée, inerte, avec sa pastille.
-      if (o.desactive) {
-        n.disabled = true;
-        n.classList.add('desactive');
-        n.setAttribute('aria-disabled', 'true');
-        if (o.pastille) n.appendChild(el('span', 'q-pastille', o.pastille));
-      }
-      n.addEventListener('click', function () { if (!o.desactive) a.surChoix(b.cle, o.cle); });
+      n.addEventListener('click', function () { a.surChoix(b.cle, o.cle); });
       g.appendChild(n);
       // Une réponse qui DEMANDE combien (60-2c, « Moins en ce moment ») : ses puces s'ouvrent
       // JUSTE DESSOUS, dans la même colonne, avec leur question.

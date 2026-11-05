@@ -41,9 +41,9 @@
   {
    "motif": "\\bcrans?\\b",
    "drapeaux": "i",
-   "regle": "VOIX-V1 principe 3 « jamais cran » — CONTREDIT par MOTEUR §20.2 règle 7 et ~35 gabarits ; décision à prendre (B-fil-voix-ecrans.md, finding « cran »)",
+   "regle": "VOIX-V1 principe 3 — « cran » ADOPTÉ le 28/10/2026 (D2, MOTEUR §20.2 règle 7) : admis partout, compté, jamais signalé (MOTIF_ADMIS)",
    "gravite": "basse",
-   "sauf": "à COMPTER, pas à signaler un par un : tant que la décision n'est pas prise, 'cran' est l'usage du produit",
+   "sauf": "admis partout, compté, jamais signalé (MOTIF_ADMIS)",
    "exemple_reel": "moteur.js:1327 « cran.vers »",
    "occurrences_litteraux_v2": 48
   },

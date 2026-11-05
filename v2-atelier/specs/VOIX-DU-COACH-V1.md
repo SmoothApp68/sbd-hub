@@ -52,7 +52,6 @@ sûre : regarde la feuille Pourquoi. »
 
 ## Ce qui reste à faire
 
-*Réécrit au présent le 05/11/2026 (243) : la refonte du plan unique est faite.* Les phrases du coach sortent toutes de `planDeSeance`
-(`v2/js/plan.js`) et du formateur de `modele.js` ; la garde `tests/unit/v2-voix.test.js` (règles de `fixtures/voix-regles-181.json`)
-les vérifie sur des plans générés. Ce qui reste : tenir cette garde à jour quand un principe change (ci-dessus, « cran » est adopté
-mais la fixture le compte encore comme motif à signaler), et valider avec Aurélien toute phrase nouvelle avant le code.
+*Réécrit au présent le 05/11/2026 (243) : la refonte du plan unique est faite.* La garde `tests/unit/v2-voix.test.js` (règles de
+`fixtures/voix-regles-181.json`) balaie les phrases produites (fichiers de cas et plans générés). Ce qui reste : tenir cette garde
+à jour quand un principe change, et valider avec Aurélien toute phrase nouvelle avant le code.

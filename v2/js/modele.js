@@ -667,7 +667,8 @@
   }
   var PART = {
     charge: function (s) { return aValeur(s.charge_kg) ? chargeDuJournal(s.charge_kg) : ''; },
-    duree: function (s) { return s.duree_s ? formatDuree(s.duree_s) : ''; },
+    // 243 — une durée de 0 s est une valeur (import, ancienne saisie) : « 0 s », jamais vide.
+    duree: function (s) { return aValeur(s.duree_s) ? formatDuree(s.duree_s) : ''; },
     distance: function (s) { return s.distance_m ? formatDistance(s.distance_m) : ''; },
     // ECRAN §3 ter.5 (prompt 131) — les champs en plus. Une valeur absente ne s'affiche
     // jamais, ni à zéro (jamais « D+ 0 m »).
@@ -702,7 +703,7 @@
   // La mesure qu'une série porte, lue sur ses COLONNES (« chaque mesure ne remplit que ses colonnes », mesuré sur
   // 28 103 séries) : ce qu'on affiche est ce qui a été fait, même sans catalogue.
   function mesureDesColonnes(s) {
-    var c = aValeur(s.charge_kg), r = aValeur(s.reps), d = !!s.duree_s, m = !!s.distance_m;
+    var c = aValeur(s.charge_kg), r = aValeur(s.reps), d = aValeur(s.duree_s), m = !!s.distance_m;
     // Prompt 131 — un D+ ou des étages seuls se disent avec la durée (`temps`).
     var plus = !!s.denivele_m || !!s.etages;
     if (r) return c ? 'charge_reps' : 'reps';
@@ -809,7 +810,7 @@
   // ⚠️ JAMAIS 0 : une durée, une distance à 0 ne se valident pas — le 0 s'affichait
   // « — » (audit 130 n°9). Hors borne, la valeur n'est PAS écrite (`null`) : la case
   // obligatoire reste vide, donc rouge au ✓.
-  var MAX_DISTANCE_M = 400000;                 // 400 km
+  var MAX_DISTANCE_M = 300000;                 // 300 km (243, décidé le 05/11/2026 ; 400 km avant)
   var BORNES_DES_COLONNES = {
     duree_s:    { min: 1, max: MAX_DUREE_S },
     distance_m: { min: 1, max: MAX_DISTANCE_M },
@@ -2804,7 +2805,7 @@
     var sortie = listeSeries.length > 0;
 
     listeSeries.forEach(function (s) {
-      if (s.duree_s) dureeTotale += Number(s.duree_s) || 0;
+      if (aValeur(s.duree_s)) dureeTotale += Number(s.duree_s) || 0;   // 243 — le prédicat UN : 0 s est une valeur
       if (s.distance_m) distanceTotale += Number(s.distance_m) || 0;
       if (!estExerciceSortie(index[s.exercise_slug])) sortie = false;
     });

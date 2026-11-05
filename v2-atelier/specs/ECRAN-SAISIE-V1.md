@@ -258,6 +258,12 @@ Affichage : mètres sous 1 000, kilomètres au-delà — déjà en place depuis 
 > Relevé au chantier 25 : **la distance n'a aucune borne** — ni pavé, ni compteur de chiffres,
 > ni contrainte en base ; seul le négatif est rejeté. C'est par ce chemin qu'une valeur
 > aberrante entre, et un plafond de durée seul ne le ferme pas.
+>
+> *Mis à jour le 05/11/2026 (243, décision d'Aurélien au tour de table) :* la distance a une borne, **`MAX_DISTANCE_M` = 300 000 m
+> (300 km)**, posée à côté de `MAX_DUREE_S` dans `modele.js` et appliquée par la même table (`BORNES_DES_COLONNES`), donc par la
+> saisie (`modifierSerie`) et par la réparation de la file (`bornerLigne`). Elle était de 400 km depuis le 21/10 (131). Au-dessous
+> de la borne, une distance douteuse n'est pas l'affaire de cette borne : la saisie vérifiée (185) ne pose aujourd'hui **aucune**
+> question sur une distance ou une durée (`faits.vraisemblanceDeLaSerie` ne lit que reps, charge, type) ; aucune seconde règle n'est écrite.
 
 #### 3 ter.2 ter Tranché à l'implémentation — chantier 25
 
@@ -367,7 +373,7 @@ un record de D+ ou d'étages.
 - **les étages** prennent la colonne de la distance : Escaliers = durée · étages ; les étages tels que la machine les
   affiche, jamais convertis en mètres ;
 - **jamais obligatoires** ; jamais recopiés d'une séance à l'autre (pas de chiffre gris) ;
-- **les bornes** (décidées le 21/10/2026) : la distance au plus 400 km, le D+ au plus 10 000 m, les étages au plus
+- **les bornes** (décidées le 21/10/2026) : la distance au plus 300 km (400 km jusqu’au 05/11/2026, 243), le D+ au plus 10 000 m, les étages au plus
   2 000 ; **jamais 0** — une durée, une distance, un D+ ou des étages à 0 ne se valident pas (un 0 s'affichait « — »,
   audit 130).
 

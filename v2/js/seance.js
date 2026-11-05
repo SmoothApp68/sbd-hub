@@ -1218,7 +1218,7 @@
     return r === null ? null : plafonne(Math.round(r), REPS_MAX_SERIE);
   }
   // Prompt 131 (audit 130 n°8, n°9) — les bornes des mesures vivent dans UNE table
-  // (`THModele.BORNES_DES_COLONNES`) : jamais 0 ; la distance au plus 400 km. Hors
+  // (`THModele.BORNES_DES_COLONNES`) : jamais 0 ; la distance au plus 300 km. Hors
   // borne, la valeur n'est pas écrite (`null`). La durée garde son plafond d'avant
   // (le pavé ne produit jamais plus de 9:59:59) ; son 0 devient `null`.
   function dureeBornee(v) { return racine.THModele.borneDeColonne('duree_s', entierOuNul(v, 1, dureeMax())); }

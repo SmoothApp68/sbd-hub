@@ -755,7 +755,7 @@ const SETS_IMPORTES = [
     // dans le JSON et devient `22P02`, code DÉFINITIF. Un banc qui accepte
     // n'importe quel entier ne peut pas voir ce défaut-là.
     // 131 (v2_101) — le D+ et les étages : des entiers, bornés comme dans l'app (jamais 0 ; D+ ≤ 10 000 m,
-    // étages ≤ 2 000 ; la distance ≤ 400 km). Une app plus permissive bloquerait la file (23514, définitif).
+    // étages ≤ 2 000 ; la distance ≤ 300 km). Une app plus permissive bloquerait la file (23514, définitif).
     if (l.denivele_m !== null && l.denivele_m !== undefined && !(l.denivele_m >= 1 && l.denivele_m <= 10000)) {
       return refus('23514', 'sets_denivele_borne');
     }

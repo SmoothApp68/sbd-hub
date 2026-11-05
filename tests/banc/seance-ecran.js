@@ -28588,6 +28588,14 @@ const SETS_IMPORTES = [
     await page.click('.note-derniere-annuler');
     ok('[NU242] « Annuler » rend la note telle qu’elle était, sans rien écrire', sp242((await note242()).texte) === '« genou gauche tire »' && Object.keys(profilNotes242()).length === 0, nb242(await note242()));
     await page.click('.note-derniere-modifier');
+    // 242 (relecture) — le texte en cours d'édition survit à un redessin de la séance (une série validée) : le champ reste ouvert, le texte aussi.
+    await page.fill('.note-derniere-champ', 'brouillon en cours');
+    ok('[NU242] le champ de la note borne le texte à 500 signes (maxlength)', await page.evaluate(() => document.querySelector('.note-derniere-champ').maxLength === 500));
+    const dep242 = await departGeste(0);
+    await page.evaluate(() => document.querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie').click());
+    await serieMontee(0, dep242, true);
+    const e242 = await page.evaluate(() => { const c = document.querySelector('.note-derniere-champ'); return c ? c.value : null; });
+    ok('[NU242] DISCRIMINANT — un redessin de la séance (série validée) garde le champ ouvert et le texte tapé', e242 === 'brouillon en cours', nb242(e242));
     await page.fill('.note-derniere-champ', 'serrer les omoplates');
     await page.click('.note-derniere-garder');
     await attendreQue(() => Promise.resolve((profilNotes242()['nu242-sq'] || {}).texte === 'serrer les omoplates'), 15000, 'garderNU242');
@@ -28612,6 +28620,29 @@ const SETS_IMPORTES = [
     await attendreQue(() => Promise.resolve((profilNotes242()['nu242-sq'] || {}).texte === 'serrer les omoplates'), 15000, 'annulerMasqueEcritNU242');
     ok('[NU242] « Annuler » remet la note et l’entrée d’avant', sp242((await note242()).texte) === 'serrer les omoplates', nb242([await note242(), profilNotes242()]));
 
+    // Modifier → champ vidé → Garder : la note est retirée comme « Ne plus afficher » ({ masquee, a }), et n'est plus affichée.
+    await page.click('.note-derniere-modifier');
+    await page.fill('.note-derniere-champ', '');
+    await page.click('.note-derniere-garder');
+    await attendreQue(() => note242().then((n) => !n), 15000, 'videeNU242');
+    await attendreQue(() => Promise.resolve(!!(profilNotes242()['nu242-sq'] || {}).masquee), 15000, 'videeEcriteNU242');
+    const f242 = profilNotes242()['nu242-sq'];
+    ok('[NU242] champ vidé puis « Garder » : notes_exercices[slug] vaut { masquee, a } (pas de texte) et la note n’est plus affichée',
+      !!f242 && f242.masquee === 'nu242-1-s1' && !!f242.a && f242.texte === undefined && Object.keys(f242).sort().join() === 'a,masquee', nb242(f242));
+    await abandonner();
+    // La consigne de la routine n'est PAS une note (câblage `consignesDeLExercice`) : la séance la plus récente porte, sur deux séries, la vraie note
+    // (rang 1) puis la consigne de la routine (rang 2, la dernière par rang). Sans le câblage c'est la consigne qui s'afficherait.
+    base.profiles[0].notes_exercices = {};
+    const nSeance242 = base.sets.find((t) => t.id === 'nu242-1-s1');
+    nSeance242.note = 'vraie note du soir';
+    base.sets.push(Object.assign({}, nSeance242, { id: 'nu242-1-s2', rang: 2, note: 'consigne de la routine' }));
+    ROUTINES.find((r) => r.id === 'r-nu242').routine_exercises[0].note = 'consigne de la routine';
+    await aller('/saisie');
+    await demarrerRoutine('Squat NU242');
+    await attendreQue(() => note242().then((n) => !!n), 15000, 'noteVraieNU242');
+    const g242 = await note242();
+    ok('[NU242] DISCRIMINANT — la consigne de la routine n’est pas une note : c’est la vraie note qui s’affiche, pas la consigne (dernière par rang)',
+      !!g242 && sp242(g242.texte) === '« vraie note du soir »', nb242(g242));
     await abandonner();
     ok('[NU242] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,

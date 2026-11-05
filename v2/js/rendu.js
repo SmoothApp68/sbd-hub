@@ -4993,7 +4993,7 @@
       var bm = el('button', 'discret note-derniere-modifier', 'Modifier');
       bm.type = 'button';
       bm.setAttribute('aria-label', 'Modifier la note de ' + x.nom);
-      bm.addEventListener('click', editer);
+      bm.addEventListener('click', function () { editer(); });
       var bn = el('button', 'discret note-derniere-masquer', 'Ne plus afficher');
       bn.type = 'button';
       bn.setAttribute('aria-label', 'Ne plus afficher la note de ' + x.nom);
@@ -5002,13 +5002,19 @@
       gestes.appendChild(bn);
       boite.appendChild(gestes);
     }
-    function editer() {
+    function editer(depart) {
       vider(boite);
       boite.appendChild(el('p', 'note-derniere-t', 'Ta note pour cet exercice'));
       var champ = doc.createElement('textarea');
       champ.rows = 3;
+      champ.maxLength = 500;
       champ.className = 'note-derniere-champ';
-      champ.value = note.texte;
+      champ.value = typeof depart === 'string' ? depart : note.texte;
+      // Le brouillon vit dans l'état de l'app : un redessin de la séance (une série validée ailleurs) le retrouve.
+      if (typeof vue.surBrouillonNote === 'function') {
+        vue.surBrouillonNote(x.slug, champ.value);
+        champ.addEventListener('input', function () { vue.surBrouillonNote(x.slug, champ.value); });
+      }
       champ.setAttribute('aria-label', 'Note de ' + x.nom);
       boite.appendChild(champ);
       var gestes = el('div', 'note-derniere-gestes');
@@ -5017,13 +5023,15 @@
       bg.addEventListener('click', function () { vue.surNoteGardee(x.slug, champ.value); });
       var ba = el('button', 'discret note-derniere-annuler', 'Annuler');
       ba.type = 'button';
-      ba.addEventListener('click', montrer);
+      ba.addEventListener('click', function () { if (typeof vue.surBrouillonNote === 'function') vue.surBrouillonNote(x.slug, null); montrer(); });
       gestes.appendChild(bg);
       gestes.appendChild(ba);
       boite.appendChild(gestes);
       champ.focus();
+      try { champ.setSelectionRange(champ.value.length, champ.value.length); } catch (e) { /* sans effet */ }
     }
-    montrer();
+    var brouillon = typeof vue.brouillonNote === 'function' ? vue.brouillonNote(x.slug) : null;
+    if (typeof brouillon === 'string') editer(brouillon); else montrer();
     return boite;
   }
 

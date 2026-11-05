@@ -9628,6 +9628,7 @@
   // Le fait vient de `faits.js` (`noteDeLaDerniereFois` / `noteDeLExercice`), l'écran le lit et ne décide rien. Ce qui s'écrit vit dans
   // `profiles.notes_exercices`, par la file (`poserProfil`) et nulle part ailleurs : `{ slug: { texte, a } }` (la note modifiée, épinglée) ou
   // `{ slug: { masquee: <id de la série>, a } }` (« Ne plus afficher »). Les séries passées gardent leur note d'origine. Aucun lecteur du coach.
+  var brouillonDeNote = null;   // { slug, seanceId, texte } — le texte en cours d'édition ; il survit aux redessins, jamais écrit avant « Garder »
   var noteRetiree = null;   // { slug, avant, minuteur } — « Note retirée de cet exercice. · Annuler »
   function consignesDeLExercice(slug) {
     var sortie = [];
@@ -9647,6 +9648,8 @@
     return n && typeof n === 'object' && !Array.isArray(n) && n[slug] ? n[slug] : null;
   }
   async function ecrireNoteExercice(slug, entree) {
+    brouillonDeNote = null;
+    if (entree && typeof entree.texte === 'string') entree.texte = entree.texte.slice(0, 500);
     var toutes = Object.assign({}, (profil && profil.notes_exercices) || {});
     if (entree === null || entree === undefined) delete toutes[slug]; else toutes[slug] = entree;
     var promesse = poserProfil({ notes_exercices: toutes });   // `profil` est à jour avant le 1er await
@@ -10121,6 +10124,8 @@
       surNote: function (i) { ouvrirFeuille('note', i, null); },
       // 242 — la note de l'exercice sous son nom (épinglée, ou celle de la dernière fois) ; « Modifier » / « Garder » / « Ne plus afficher ».
       noteSousLeNom: noteSousLeNom,
+      brouillonNote: function (slug) { return brouillonDeNote && brouillonDeNote.slug === slug && seance && brouillonDeNote.seanceId === seance.id ? brouillonDeNote.texte : null; },
+      surBrouillonNote: function (slug, texte) { brouillonDeNote = texte === null ? null : { slug: slug, seanceId: seance ? seance.id : null, texte: texte }; },
       surNoteGardee: function (slug, texte) { garderNoteExercice(slug, texte).catch(function (e) { console.warn('Note d’exercice :', texteErreur(e)); }); },
       surNoteRetiree: function (slug) { retirerNoteExercice(slug).catch(function (e) { console.warn('Note d’exercice :', texteErreur(e)); }); },
       surRepos: function (i) { ouvrirFeuille('repos', i, null); },

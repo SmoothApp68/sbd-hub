@@ -113,3 +113,12 @@ describe('profiles.notes_exercices', () => {
     expect(src).toMatch(/COLONNES_FACULTATIVES = \[[^\]]*'notes_exercices'/);
   });
 });
+
+describe('Modele.jourCourtDeNote', () => {
+  test('même année : « 28 oct. » ; autre année : « 28 oct. 2025 »', () => {
+    const an = new Date().getFullYear();
+    expect(Modele.jourCourtDeNote(an + '-10-28')).toBe('28 oct.');
+    expect(Modele.jourCourtDeNote((an - 1) + '-10-28')).toBe('28 oct. ' + (an - 1));
+    expect(Modele.jourCourtDeNote('')).toBe('');
+  });
+});

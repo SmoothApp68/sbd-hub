@@ -1278,7 +1278,7 @@
     // 245 (D-S3) — « Non, ne compte pas » parle de CETTE série telle qu'elle était : si la charge ou les reps changent vraiment, la
     // réponse ne tient plus (une faute de frappe corrigée est de nouveau une série qui compte). Le menu ⋯ la rend aussi à la main.
     var avant = seance && seance.exercices && seance.exercices[iExo] && seance.exercices[iExo].series ? seance.exercices[iExo].series[iSerie] : null;
-    if (avant && avant.hors_calcul === true &&
+    if (avant && Modele.estHorsCalcul(avant) &&
         (('charge_kg' in c && c.charge_kg !== avant.charge_kg) || ('reps' in c && c.reps !== avant.reps))) c.hors_calcul = false;
     return avecSerie(seance, iExo, iSerie, c);
   }

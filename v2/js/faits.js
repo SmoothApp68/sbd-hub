@@ -2137,7 +2137,7 @@
         var jr = jourDeLaSeance(s.debut);
         if (!jr || jr < plancher || jr >= J) return;
         (c.seriesDe(s.id) || []).forEach(function (x) {
-          if (!x || !x.exercise_slug || x.hors_calcul === true) return;
+          if (!x || !x.exercise_slug || Modele.estHorsCalcul(x)) return;
           var echec = Modele.reserveDemandee(x) === 0 || Modele.estAEchec(x) || racine.THPalier.reserveDeSerie(x) === 0;
           if (!echec) return;
           var fam = G.familleDeBarre(x.exercise_slug, cat);
@@ -2162,7 +2162,7 @@
         var jr = s && s.debut ? jourDeLaSeance(s.debut) : null;
         if (!jr || jr < lundi || jr > J) return;
         (c.seriesDe(s.id) || []).forEach(function (x) {
-          if (!x || !x.exercise_slug || !Modele.estTravail(x) || x.hors_calcul === true) return;
+          if (!x || !x.exercise_slug || !Modele.estTravail(x) || Modele.estHorsCalcul(x)) return;
           var z = Moteur.zoneDeMobilite(x.exercise_slug), d = Number(x.duree_s);
           if (!z || !(d > 0)) return;
           sortie[z] = (sortie[z] || 0) + d * Moteur.coteDeMobilite(x.exercise_slug) / 60;
@@ -2247,7 +2247,7 @@
         if (Semaine.estSeanceDeMusculation(series, index)) jours[jr] = true;
         series.forEach(function (x) {
           var f = x && index[x.exercise_slug], d = Number(x && x.duree_s);
-          if (!f || f.nature !== 'cardio' || !Modele.estTravail(x) || x.hors_calcul === true || !(d > 0)) return;
+          if (!f || f.nature !== 'cardio' || !Modele.estTravail(x) || Modele.estHorsCalcul(x) || !(d > 0)) return;
           var intense = Number(x.rpe) >= Moteur.CARDIO_RPE_INTENSE;
           min += d / 60; eq += d / 60 * (intense ? Moteur.FORME_INTENSE_FACTEUR : 1);
           if (intense) intenses += d / 60;
@@ -2277,7 +2277,7 @@
         if (!jr || jr < debut || jr >= fin) return;
         (c.seriesDe(s.id) || []).forEach(function (x) {
           var f = x && index[x.exercise_slug], d = Number(x && x.duree_s);
-          if (!f || f.nature !== 'cardio' || !Modele.estTravail(x) || x.hors_calcul === true || !(d > 0)) return;
+          if (!f || f.nature !== 'cardio' || !Modele.estTravail(x) || Modele.estHorsCalcul(x) || !(d > 0)) return;
           var o = parJour[jr] || (parJour[jr] = { s: 0, intense: false });
           o.s += d;
           if (Number(x.rpe) >= Moteur.CARDIO_RPE_INTENSE) o.intense = true;

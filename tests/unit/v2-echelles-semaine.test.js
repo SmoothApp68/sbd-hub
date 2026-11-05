@@ -166,6 +166,11 @@ describe('145 — la vue `vueEchellesDeLaSemaine`', () => {
     expect(v[0].ouvre).toBe('tractions');
   });
 
+  test('245 — DISCRIMINANT : `ecartee` écarte la marche suivante comme « Ton échelle » et la carte (une seule notion)', () => {
+    const v = Modele.vueEchellesDeLaSemaine(INDEX, items, opt({ ecartee: () => true }));
+    expect(v[0].suite).toBeNull();
+  });
+
   test('condition tenue : pas de reps en clair', () => {
     const v = Modele.vueEchellesDeLaSemaine(INDEX, items, opt({ rondsDe: () => [true, true] }));
     expect(v[0].suite.ronds).toEqual([true, true]);

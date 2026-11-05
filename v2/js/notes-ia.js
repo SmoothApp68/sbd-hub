@@ -51,6 +51,7 @@
     for (var i = 0; i < s.length; i++) {
       var n = s.charAt(i).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[\u2019\u2018\x60\u00b4]/g, "'");
       if (/^\s+$/.test(n)) {
+        if (/^\s*[,.:;]/.test(s.slice(i))) continue;   // « curl : » = « curl: » (le téléphone nettoie ainsi avant l'envoi)
         if (norm.length && norm.charAt(norm.length - 1) === ' ') continue;
         n = ' ';
       }

@@ -1,0 +1,5 @@
+[
+ {"nom":"246-tendance-sans-seuil-deux-pesees","fichier":"v2/js/poids.js","ancien":"while (n < TENDANCE_MAX && (parSemaine[depart - n] || []).length >= PESEES_PAR_SEMAINE) n++;","nouveau":"while (n < TENDANCE_MAX && (parSemaine[depart - n] || []).length >= 1) n++;","banc":"aucun","unitaires":["tests/unit/v2-poids.test.js"]},
+ {"nom":"246-poidsALaDate-accepte-une-pesee-posterieure","fichier":"v2/js/poids.js","ancien":"      if (ecart < 0) continue;\n","nouveau":"","banc":"aucun","unitaires":["tests/unit/v2-poids.test.js"]},
+ {"nom":"246-ajouterPesees-fusionne","fichier":"v2/js/donnees.js","ancien":"upsert(lignes, { onConflict: 'user_id,date', ignoreDuplicates: true });","nouveau":"upsert(lignes, { onConflict: 'user_id,date' });","banc":"aucun","unitaires":["tests/unit/v2-mesures-hevy.test.js"]}
+]

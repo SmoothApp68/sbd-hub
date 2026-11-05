@@ -1388,8 +1388,10 @@ const SETS_IMPORTES = [
       const prefer = req.headers()['prefer'] || '';
       const conflit = url.searchParams.get('on_conflict');
       const fusionner = conflit === 'user_id,date' && /resolution=merge-duplicates/.test(prefer);
+      // 246 — l'AJOUT SEUL de l'import des mesures : `ON CONFLICT (user_id, date) DO NOTHING` (le jour déjà pesé est ignoré, sans erreur).
+      const ignorer = conflit === 'user_id,date' && /resolution=ignore-duplicates/.test(prefer);
       const lignes = Array.isArray(corps) ? corps : [corps];
-      base.ecrituresPesees.push({ n: lignes.length, fusionner, conflit, lignes: lignes.map((x) => Object.assign({}, x)) });
+      base.ecrituresPesees.push({ n: lignes.length, fusionner, ignorer, conflit, lignes: lignes.map((x) => Object.assign({}, x)) });
       for (const l of lignes) {
         const inconnue = Object.keys(l).filter((k) => COLONNES_PESEES.indexOf(k) < 0)[0];
         if (inconnue) return json(refus('PGRST204', 'body_weight_log : colonne inconnue « ' + inconnue + ' »'), 400);
@@ -1400,6 +1402,7 @@ const SETS_IMPORTES = [
       }
       for (const l of lignes) {
         const i = base.pesees.findIndex((x) => x.user_id === l.user_id && x.date === l.date);
+        if (i >= 0 && ignorer) continue;
         if (i >= 0 && !fusionner) return json(refus('23505', 'duplicate key value violates unique constraint "body_weight_log_user_id_date_key"'), 409);
         if (i >= 0) base.pesees[i] = Object.assign({}, base.pesees[i], l);
         else base.pesees.push(Object.assign({ id: '00000000-0000-4000-8060-' + String(++base.graineDesPesees).padStart(12, '0'),
@@ -28655,6 +28658,100 @@ const SETS_IMPORTES = [
     routinesAvant242.forEach((r) => ROUTINES.push(r));
     base.profiles[0] = profilAvant242;
     rendreLesBlocs242();
+    await aller('/saisie');
+  }
+
+
+  console.log('\n══ poids-246. LA TENDANCE DU POIDS ET LES MESURES DE HEVY (246, ECRAN-PROFIL) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : (a) UNE SEULE pesée → l'écran Poids n'a AUCUNE ligne de plus qu'avant (ni tendance, ni invitation) ;
+  // (b) deux pesées par semaine depuis six semaines, −0,4 kg par semaine → UNE ligne, la phrase attendue, et sa note ; (c) un CSV de mesures
+  // dont un jour est DÉJÀ pesé (source app, 70 kg) → l'aperçu dit les chiffres, ce jour garde sa valeur (aperçu ET ligne envoyée), les autres arrivent.
+  {
+    const erreurs246 = erreurs.length;
+    const refus246 = base.journal.filter((j) => j.op === 'refus').length;
+    const violations246 = gardeBanc.violations;
+    const peseesAvant246 = base.pesees;
+    const sp246 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const nb246 = (x) => JSON.stringify(x === undefined ? null : x);
+    const synchroLibre246 = () => page.evaluate(() => { const e = document.getElementById('etat-sync');
+      return !!e && (e.textContent || '').trim() !== '' && !e.classList.contains('sync'); }).catch(() => false);
+    const rafraichir246 = async () => { await jusqua(synchroLibre246, 60000); await page.evaluate(() => document.getElementById('btn-rafraichir').click());
+      await jusqua(synchroLibre246, 60000); };
+    const jours246 = await page.evaluate(() => {
+      const p = (n) => String(n).padStart(2, '0');
+      const iso = (d) => d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+      const auj = new Date(), lundi = new Date(auj.getFullYear(), auj.getMonth(), auj.getDate() - ((auj.getDay() + 6) % 7));
+      const out = [];
+      for (let k = 6; k >= 1; k--) for (const dec of [0, 3]) out.push(iso(new Date(lundi.getFullYear(), lundi.getMonth(), lundi.getDate() - 7 * k + dec)));
+      return { semaines: out, hier: iso(new Date(auj.getFullYear(), auj.getMonth(), auj.getDate() - 1)) };
+    });
+    const ecranPoids246 = () => page.evaluate(() => ({
+      tendance: (document.getElementById('tendance-poids') || {}).textContent || '',
+      note: ((document.querySelector('#tendance-poids .pesees-total') || {}).textContent || ''),
+      lignes: document.querySelectorAll('#tendance-poids > *').length,
+      liste: document.querySelectorAll('#liste-pesees .pesee-l').length,
+      courbe: !!document.querySelector('#courbe-poids svg') }));
+
+    // (a) une seule pesée : rien de plus.
+    base.pesees = [{ id: '00000000-0000-4000-8246-000000000001', user_id: 'u-banc', date: jours246.hier, poids_kg: 82, source: 'manuel' }];
+    await aller('/profil');
+    await rafraichir246();
+    await aller('/progression/poids');
+    const a246 = await ecranPoids246();
+    ok('[P246] (a) une seule pesée : l’écran Poids n’a AUCUNE ligne de plus (ni tendance, ni invitation, ni compteur)',
+      a246.lignes === 0 && sp246(a246.tendance) === '' && a246.liste === 1, nb246(a246));
+
+    // (b) deux pesées par semaine depuis six semaines.
+    const nj246 = (iso) => { const m = iso.split('-'); return Date.UTC(+m[0], +m[1] - 1, +m[2]) / 864e5; };
+    const j0 = nj246(jours246.semaines[0]);
+    base.pesees = jours246.semaines.map((j, i) => ({ id: '00000000-0000-4000-8246-0000000001' + String(10 + i), user_id: 'u-banc', date: j,
+      poids_kg: Math.round((90 - 0.4 * (nj246(j) - j0) / 7) * 100) / 100, source: 'manuel' }));
+    await aller('/profil');
+    await rafraichir246();
+    await aller('/progression/poids');
+    const b246 = await ecranPoids246();
+    ok('[P246] (b) deux pesées par semaine depuis six semaines : UNE ligne, la phrase attendue',
+      b246.lignes === 2 && sp246((await page.evaluate(() => (document.querySelector('#tendance-poids .pesees-tendance') || {}).textContent)))
+        === '−0,4 kg par semaine en moyenne, sur les 6 dernières semaines.', nb246(b246));
+    ok('[P246] (b) …et sa note : « Calculée sur tes 12 pesées de ces 6 semaines. »', sp246(b246.note) === 'Calculée sur tes 12 pesées de ces 6 semaines.', nb246(b246));
+    await page.click('#periodes-poids button:first-child');
+    await attendre(300);
+    const b2246 = await ecranPoids246();
+    ok('[P246] (b) la tendance se calcule sur TOUTES les pesées : la période « 3 mois » ne la change pas', sp246(b2246.tendance) === sp246(b246.tendance), nb246([b246, b2246]));
+
+    // (c) l'import des mesures : un jour déjà pesé garde sa valeur.
+    base.pesees = [{ id: '00000000-0000-4000-8246-000000000200', user_id: 'u-banc', date: '2025-10-02', poids_kg: 70, source: 'app' }];
+    await aller('/profil');
+    await rafraichir246();
+    const ecr246 = base.ecrituresPesees.length;
+    await aller('/profil/import');
+    const csv246 = ['date,weight_kg,fat_percent,neck_cm', '"1 oct. 2025, 07:30",90,18.2,40', '"2 oct. 2025, 07:30",89,,', '"3 oct. 2025, 07:30",88,,',
+      '"4 oct. 2025, 07:30",500,,'].join('\n');
+    await page.setInputFiles('#fichier-hevy', { name: 'mesures.csv', mimeType: 'text/csv', buffer: Buffer.from(csv246, 'utf8') });
+    await jusqua(async () => /pesées trouvées/.test(await page.evaluate(() => (document.querySelector('#import-hevy h2') || {}).textContent || '')), 6000);
+    const c246 = await page.evaluate(() => ({ titre: document.querySelector('#import-hevy h2').textContent,
+      phrases: Array.from(document.querySelectorAll('#import-hevy .imp-mesure')).map((n) => n.textContent),
+      boutons: Array.from(document.querySelectorAll('#import-hevy button')).map((n) => [n.textContent, Math.round(n.getBoundingClientRect().height)]) }));
+    ok('[P246] (c) l’aperçu dit les chiffres : trouvées, période, jour déjà pesé gardé tel quel, valeur écartée, « Seul le poids est importé. »',
+      sp246(c246.titre) === '3 pesées trouvées · du 1 oct. 2025 au 3 oct. 2025' && nb246(c246.phrases.map(sp246)) === nb246([
+        '1 jour déjà pesé dans TrainHub : ta pesée est gardée telle quelle.', '1 valeur hors des bornes : écartée.', 'Seul le poids est importé.']), nb246(c246));
+    ok('[P246] (c) deux boutons « Importer 2 pesées » / « Annuler », de 44 px au moins',
+      c246.boutons.some((b) => sp246(b[0]) === 'Importer 2 pesées' && b[1] >= 44) && c246.boutons.some((b) => sp246(b[0]) === 'Annuler' && b[1] >= 44), nb246(c246.boutons));
+    ok('[P246] (c) rien n’est écrit avant le clic', base.ecrituresPesees.length === ecr246, nb246(base.ecrituresPesees.slice(ecr246)));
+    await page.click('#import-hevy .imp-importer');
+    await jusqua(async () => base.pesees.length >= 3, 20000);
+    const envoyees246 = base.ecrituresPesees.slice(ecr246);
+    ok('[P246] (c) DISCRIMINANT — les jours absents arrivent (source import_hevy) ; le jour déjà pesé garde sa valeur (70 kg, source app)',
+      base.pesees.length === 3 && base.pesees.find((x) => x.date === '2025-10-02').poids_kg === 70 && base.pesees.find((x) => x.date === '2025-10-02').source === 'app' &&
+      base.pesees.find((x) => x.date === '2025-10-01').poids_kg === 90 && base.pesees.find((x) => x.date === '2025-10-01').source === 'import_hevy' &&
+      base.pesees.find((x) => x.date === '2025-10-03').poids_kg === 88, nb246(base.pesees));
+    ok('[P246] (c) …la ligne envoyée du jour déjà pesé n’existe pas, et chaque envoi est un AJOUT SEUL (ignore-duplicates), sans masse grasse',
+      envoyees246.length > 0 && envoyees246.every((e) => e.ignorer && !e.fusionner && e.lignes.every((l) => l.date !== '2025-10-02' && l.fat_percent === undefined && l.masse_grasse_pct === undefined)), nb246(envoyees246));
+    ok('[P246] (c) aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refus246 && gardeBanc.violations === violations246 && erreurs.length === erreurs246,
+      nb246([base.journal.filter((j) => j.op === 'refus').slice(refus246), gardeBanc.liste.slice(-2), erreurs.slice(erreurs246)]));
+    base.pesees = peseesAvant246;
     await aller('/saisie');
   }
 

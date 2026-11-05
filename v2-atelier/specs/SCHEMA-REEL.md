@@ -602,6 +602,8 @@ collision, plutôt que de les renuméroter en place.
 `records`, `blocs`, `modes_exercice` : voir leurs sections · `sbd_profiles` (4) et `workout_sessions` (891)
 (**archive v1, en lecture seule depuis `v2_064`**).
 
+`body_weight_log` (246) : `UNIQUE (user_id, date)` (`body_weight_log_une_par_jour`), `CHECK 20 < poids_kg < 400`, `source` texte libre (`app`, `import_hevy`, …). **`masse_grasse_pct` n'est PAS remplie** (minimisation : l'import des mesures de Hevy ne lit que le poids, aucun écran ne la montre). Deux écrivains seulement : `enregistrerPesee` (la pesée saisie, un upsert qui fusionne) et `ajouterPesees` (l'import, un ajout seul, `ignoreDuplicates`).
+
 ---
 
 ## RLS

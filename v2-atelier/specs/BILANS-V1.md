@@ -85,7 +85,8 @@ calculés en temps, il ne faut pas mettre les reps ».
 
 | Quoi | Où |
 |---|---|
-| Le moteur, pur, la période en paramètre | `v2/js/bilans.js` — `bilanDeLaPeriode`, `periodeDeLAnnee`, `periodeDuMois` (prête, sans écran), `poidsDuJour`, `comparaisonDe` |
+| Le moteur, pur, la période en paramètre | `v2/js/bilans.js` — `bilanDeLaPeriode`, `periodeDeLAnnee`, `periodeDuMois` (prête, sans écran), `comparaisonDe` |
+| Le poids du jour d'une perf (246) | `v2/js/poids.js` — `Poids.poidsAutourDe(pesees, jour)` (ex-`poidsDuJour`, même code, même contrat `{ poids, approx }`) : **la SEULE interpolation**, pour le bilan (un bilan regarde en arrière) ; tout autre lecteur lit `Poids.poidsALaDate` |
 | L'entrée, le bilan mémorisé, les faits du jeu bornés | `v2/js/faits.js` — `entreeDuBilan`, `bilanDePeriode`, `faitsDuJeuDeLaPeriode` |
 | Les heures et les jours à la salle (97), pour toute période | `v2/js/faits.js` — `tempsALaSalle`, passé dans l'entrée (`salle`) ; le moteur le rend (`bilan.salle`) |
 | L'écran (mots, défilement, pause, `ajuste()`, partage en image, annonce) | `v2/js/annee.js` |

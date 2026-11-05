@@ -30,7 +30,12 @@
     if (contactAffichable()) mentions.push({ titre: 'Contact', texte: CONTACT });
     mentions.push(
       { titre: 'Hébergement de l’app', texte: 'Cloudflare, Inc. (Cloudflare Pages).' },
-      { titre: 'Base de données', texte: 'Supabase, région UE (Irlande, eu-west-1).' }
+      { titre: 'Base de données', texte: 'Supabase, région UE (Irlande, eu-west-1).' },
+      // 247 — sous-traitant de la vérification anti-robot (connexion, inscription, mot de passe oublié). Phrase courte,
+      // sans promesse non relue : la page de Cloudflare sur Turnstile est https://www.cloudflare.com/turnstile-privacy-policy/
+      // (non relue en séance : accès web refusé ; Aurélien relit ce qu'elle dit avant d'ajouter un engagement, par exemple
+      // sur les cookies). Base légale annoncée : intérêt légitime, la sécurité du service.
+      { titre: 'Vérification anti-robot', texte: 'Cloudflare Turnstile, à la connexion, à l’inscription et à la réinitialisation du mot de passe. Cloudflare traite alors des données techniques de ton navigateur pour distinguer une personne d’un robot (sécurité du service, intérêt légitime). Détails : cloudflare.com/turnstile-privacy-policy.' }
     );
     return [
       { cle: 'mentions', titre: 'Mentions légales', blocs: mentions },

@@ -271,6 +271,9 @@ BEGIN
 END $f$;
 
 -- Le récap du « combat », membre par membre : TOUT ce que chacun a fait dans SA séance (même avant d'avoir rejoint).
+--   ⚠️ 245 (D-C1, 05/11/2026) — COMMENTAIRE PÉRIMÉ SUR UN POINT : ce fichier propose `type_serie = 'travail'` ; la base EN SERVICE filtre par
+--   `serie_de_travail(type, reps, hors_calcul)`, le miroir d'`estTravail` (une série « Non, ne compte pas » et une tentative à 0 rep n'y
+--   sont pas du travail). Le SQL ci-dessous n'est pas touché : la base fait foi, ce fichier garde l'histoire de la proposition.
 --   tonnage_kg : `Bilan.volumeKg` (séries de travail, charge > 0, reps > 0, au centième) ;
 --   series     : ses séries de travail ;
 --   records    : les séries médaillées du journal des records (une par série, la règle du fil et du récap) ;

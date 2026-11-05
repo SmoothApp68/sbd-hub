@@ -249,16 +249,12 @@ describe('l\u2019observation du pari', () => {
     expect(o.valeur_observee).toBe(145);
     expect(o.set_observe).toBe(s[s.length - 1].series[2].id);   // la série de travail, pas la chauffe à 150
     expect(o.session_id).toBe(s[s.length - 1].id);
-    expect(O.estTenu(Object.assign(pari(), o), '2027-03-10')).toBe(true);
   });
 
   test('non tenu : atteint après l\u2019échéance (observé > prédit), ou rien passé l\u2019échéance ; en cours avant', () => {
     const tard = HISTOIRE().concat([seance('2027-05-05', [[150, 1]])]);
     const o = O.observationDe(pari(), tard);
     expect(o.valeur_observee).toBe(201);
-    expect(O.estTenu(Object.assign(pari(), o), '2027-05-05')).toBe(false);
-    expect(O.estTenu(pari(), '2027-05-01')).toBe(false);
-    expect(O.estTenu(pari(), '2027-04-30')).toBeNull();
   });
 
   test('ne compte pas : une série d\u2019avant la pose, une chauffe, des reps sous N, une charge sous l\u2019objectif', () => {

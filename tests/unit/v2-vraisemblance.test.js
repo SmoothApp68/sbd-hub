@@ -245,3 +245,25 @@ describe('185 — la question du record (cas 5)', () => {
     expect(Modele.charge(200)).toContain(NBSP);
   });
 });
+
+describe('245 (D-Q1) — le meilleur est celui de la médaille (recordLourd), pas celui de toute la vie', () => {
+  const H = histo(200);   // un 200 kg d'il y a longtemps, toujours dans l'historique
+  test('DISCRIMINANT — sans recordLourd (avant) : 140 kg est sous le meilleur de toute la vie, aucune question', () => {
+    expect(v({ charge: 140, reps: 5, equipement: 'barre' }, { historique: H })).toBeNull();
+  });
+  test('DISCRIMINANT — recordLourd à 100 kg (périmètre de la médaille) : 140 kg est une hausse, la question dit 100 kg', () => {
+    const q = v({ charge: 140, reps: 5, equipement: 'barre' }, { historique: H, recordLourd: 100 });
+    expect(q.genre).toBe('hausse');
+    expect(plat(q.texte)).toBe('140 kg ? Ton meilleur ici : 100 kg.');
+  });
+  test('le record : 140 kg × 5 est +40 % sur le record de la médaille, la question vient', () => {
+    const r = Faits.questionDuRecord({ charge: 140, reps: 5, equipement: 'barre' }, { historique: H, recordLourd: 100 });
+    expect(r && r.genre).toBe('record');
+  });
+  test('recordLourd nul (rien dans le périmètre) : pas de meilleur, pas de question', () => {
+    expect(v({ charge: 140, reps: 5, equipement: 'barre' }, { historique: H, recordLourd: null })).toBeNull();
+  });
+  test('les séries validées du jour comptent toujours (une charge confirmée plus tôt n’est plus une surprise)', () => {
+    expect(v({ charge: 140, reps: 5, equipement: 'barre' }, { historique: H, recordLourd: 100, seance: [serie(140, 5)] })).toBeNull();
+  });
+});

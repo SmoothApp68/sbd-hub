@@ -3311,7 +3311,9 @@ Ne se tranche pas sur l'historique : 93 séries avec effort renseigné, c'est tr
 
 L'erreur passe de 1,00 rep si on ne garde que les séries ≤ 8 reps à 2,00 si on va jusqu'à 15. Couper à 8 est cohérent avec le référentiel, mais **écarte 36 % des séries d'isolation en poulie**, qui se travaillent rarement sous 8 reps.
 
-**Ce qu'il faut mesurer :** si un domaine élargi par famille d'exercices (8 reps sur les barres, 12 sur l'isolation) fait moins d'erreur globale qu'un domaine unique. Non tranché — et le trou de couverture de l'isolation reste entier tant que ça n'est pas fait.
+**Tranché le 05/11/2026 (245, C3) :** le domaine du modèle est élargi PAR FAMILLE — **12 reps pour l'isolation** (non polyarticulaire, la même notion que `plafondALaSalle`), **8 reps pour le reste** ; **15 seulement quand le carnet comptera 50 réserves notées dans la tranche 13-15** (l'estimation de la réserve se dégrade au-delà de ~12 reps : Halperin, SportRxiv). *Pas de constante dans le code aujourd'hui* : la recherche (`grep reserve` dans `moteur.js` et `plan.js`) ne trouve aucune borne de reps sur la question « Il t'en restait combien ? » — seul `FATIGUE_REPS_MAX = 12` existe, et c'est une autre notion (la fatigue sur plusieurs semaines, §14.11). C3 est donc une décision de spec : le jour où une borne s'écrit, ce sera UNE constante par famille.
+
+**Le meilleur des questions de saisie (245, D-Q1) :** la question « hausse » et la question du record lisent `Modele.recordsDeLExercice(...).lourde` (le même périmètre que la médaille : douze mois pour un matériel de salle, hors barres comprises), plus `meilleurDeLExercice` sur toute la vie — la médaille et la question disent le même meilleur.
 
 ### 22.3 Autres points ouverts
 

@@ -3651,3 +3651,51 @@ describe('architecture — 245 : la garde de développement vérifie le vrai cat
     expect(src).toContain("garde.signaler(Modele.verifierI133(catalogueMemo.index,");
   });
 });
+
+describe('architecture — 250 : « Lire mes notes » ne décide rien et n’écrit que par les chemins existants', () => {
+  const lire = (f) => fs.readFileSync(path.join(__dirname, '../../v2/js', f), 'utf8');
+  const sansCommentaires = (src) => src.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
+
+  test('notes-ia.js ne contient ni poser, ni executer, ni THDonnees, ni Cache. (un module pur : il lit, il ne range rien)', () => {
+    const src = sansCommentaires(lire('notes-ia.js'));
+    expect(src).not.toMatch(/\bposer[A-Z]\w*\(|\bposer\(|\bexecuter\(|THDonnees|\bCache\.|THCache|THAttente|localStorage|sessionStorage/);
+  });
+
+  test('notes-ia.js ne lit ni ne copie le texte d’une douleur dans le corps envoyé : la douleur ne passe que par `candidates().douleurs`', () => {
+    const src = sansCommentaires(lire('notes-ia.js'));
+    // `corps()` ne reçoit que `envoyer` (jamais `douleurs`)
+    expect(src).toMatch(/function corps\(finie, envoyer, contexte\)/);
+    const corpsSrc = src.slice(src.indexOf('function corps('), src.indexOf('function corps(') + 1400);
+    expect(corpsSrc).not.toMatch(/douleurs?/);
+  });
+
+  test('`notes_ia_accord_a` et `notes_ia_question_a` ne s’écrivent que par `poserProfil` ou `ecrireProfil` (la file du profil), jamais ailleurs', () => {
+    const fichiers = fs.readdirSync(path.join(__dirname, '../../v2/js')).filter((f) => /\.js$/.test(f));
+    const fautes = [];
+    fichiers.forEach((f) => {
+      if (f === 'profil.js' || f === 'donnees.js') return;   // la liste blanche des colonnes et leur validation
+      sansCommentaires(lire(f)).split('\n').forEach((l, k) => {
+        if (!/notes_ia_(accord|question)_a\s*:/.test(l)) return;
+        if (!/\b(?:poserProfil|ecrireProfil)\(\{/.test(l)) fautes.push(f + ':' + (k + 1) + ' ' + l.trim().slice(0, 120));
+      });
+    });
+    expect(fautes).toEqual([]);
+  });
+
+  test('`Seance.retirerDouleur` n’est lue que par app.js', () => {
+    const fichiers = fs.readdirSync(path.join(__dirname, '../../v2/js')).filter((f) => /\.js$/.test(f));
+    const lecteurs = fichiers.filter((f) => f !== 'seance.js' && /retirerDouleur\(/.test(sansCommentaires(lire(f))));
+    expect(lecteurs).toEqual(['app.js']);
+  });
+
+  test('l’interrupteur de mise en service est éteint dans le dépôt (une PR d’une ligne l’allume, après les 60 cas joués par Claude.ai)', () => {
+    expect(require('../../v2/js/config.js').NOTES_IA_OUVERTE).toBe(false);
+  });
+
+  test('app.js ne lit rien des notes sans passer par `notesIAPossibles` : l’appel de lecture est gardé par l’accord', () => {
+    const src = lire('app.js');
+    const a = src.indexOf('function lancerNotesIA(');
+    const bloc = src.slice(a, a + 1500);
+    expect(bloc).toMatch(/notesIAPossibles\(\)/);
+  });
+});

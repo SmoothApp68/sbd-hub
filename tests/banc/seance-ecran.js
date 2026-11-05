@@ -635,6 +635,9 @@ const SETS_IMPORTES = [
     profiles: [Object.assign({}, PROFIL_BANC)],
     // 160 — la fonction « Demander au coach » du faux serveur : les appels reçus, le mode, le reste du jour, la réponse.
     assistant: { appels: [], mode: 'ok', reste: 10, reponse: 'Je teste le cran au-dessus de ta charge de travail.' },
+    // 250 — LA FONCTION « LIRE MES NOTES » : chaque appel est gardé ; `reponse(corps)` rend les propositions du faux modèle.
+    notesIA: { appels: [], mode: 'ok', reponse: (corps) => (corps.notes || []).filter((n) => /rpe\s*9/i.test(n.texte)).map((n) => ({
+      note: n.id, genre: 'effort', extrait: 'rpe 9', series: 'derniere', rpe: 9, reserve: null, type: null, exercice: null })) },
     zones: [],
     modes: [],
     // 99 (v2_085) — `semaine_choix` : le choix fait pour une séance manquée.
@@ -996,6 +999,15 @@ const SETS_IMPORTES = [
       if (a.mode === 'panne') return json({ erreur: 'indisponible' }, 503);
       a.reste = Math.max(0, a.reste - 1);
       return json({ reponse: a.reponse, reste: a.reste });
+    }
+    // 250 — LA FONCTION « LIRE MES NOTES » (jamais la vraie : la garde réseau le vérifie). `mode` : 'ok', 'panne' (503), 'accord' (403).
+    if (url.pathname === '/functions/v1/lire-notes') {
+      const a = base.notesIA;
+      if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, body: '' });
+      a.appels.push({ corps: corps, auth: req.headers()['authorization'] || '' });
+      if (a.mode === 'panne') return json({ erreur: 'indisponible' }, 503);
+      if (a.mode === 'accord') return json({ erreur: 'accord' }, 403);
+      return json({ propositions: a.reponse(corps) });
     }
     // 107 — LES ÉCRITURES SOCIALES COUPÉES, LES LECTURES PASSENT : la configuration qui permet un SECOND geste après un
     // rechargement (le profil se relit), pendant que le premier attend toujours dans la file. Les fonctions de guilde qui
@@ -27298,6 +27310,213 @@ const SETS_IMPORTES = [
     A160.appels.length = 0; A160.mode = 'ok'; A160.reste = 10;
     await aller('/saisie');
     ok('[DC160] aucun refus du faux serveur, la garde (C6) n’a rien signalé, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
+  }
+
+  console.log('\n══ notes-ia. « LIRE MES NOTES » : L’ACCORD, LE BLOC DU RÉCAP, ✓ / ✕ / ANNULER, LA DOULEUR QUI NE PART PAS, LA PANNE, L’INTERRUPTEUR (250, ECRAN-SAISIE §7 septies.4 ter) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : deux exercices, une note « rpe 9 sur la dernière » sur le premier et « mal au coude » sur le second.
+  // Le faux serveur GARDE chaque appel de `lire-notes` : « sans accord, rien ne part » et « une douleur ne part jamais » se prouvent
+  // par le compte d'appels et le corps reçu, jamais par ce que la page affiche. L'interrupteur `THConfig.NOTES_IA_OUVERTE` est posé
+  // par le banc (éteint dans le dépôt).
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, catalogueAvant = CATALOGUE.length;
+    const routinesAvant = ROUTINES.length;
+    CATALOGUE.push({ slug: 'ni250-a', nom: 'Squat NI250 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+      muscles_primaires: ['quadriceps'], muscles_secondaires: [] });
+    CATALOGUE.push({ slug: 'ni250-b', nom: 'Curl NI250 (Haltères)', mesure: 'charge_reps', charge: 'externe', equipement: 'halteres',
+      muscles_primaires: ['biceps'], muscles_secondaires: [] });
+    base.sessions = [];
+    base.sets = [];
+    ROUTINES.push({ id: 'r-ni250', nom: 'Notes NI250', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [
+        { id: 'r-ni250-a', routine_id: 'r-ni250', exercise_slug: 'ni250-a', rang: 0, routine_sets: progr(3, 5), repos_cible_s: 90, groupe_superset: null, note: null },
+        { id: 'r-ni250-b', routine_id: 'r-ni250', exercise_slug: 'ni250-b', rang: 1, routine_sets: progr(3, 10), repos_cible_s: 90, groupe_superset: null, note: null }] });
+    const N250 = base.notesIA;
+    N250.appels.length = 0; N250.mode = 'ok';
+    base.profiles[0].notes_ia_accord_a = null;
+    base.profiles[0].notes_ia_question_a = null;
+    const sp250 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const flag250 = (v) => page.evaluate((x) => { window.THConfig.NOTES_IA_OUVERTE = x; }, v);
+    const recapVisible250 = () => page.evaluate(() => !document.getElementById('vue-recap').hidden);
+    const lignes250 = () => page.evaluate(() => Array.from(document.querySelectorAll('#recap-corps .nia-ligne')).map((n) => ({
+      cle: n.dataset.cle, texte: n.textContent, fait: !!n.querySelector('.nia-annuler') })));
+    // les séries de la DERNIÈRE séance du faux serveur (les séances d'avant restent dans la base du banc)
+    const setsDe250 = (slug) => {
+      const derniere = base.sessions.slice().sort((a, b) => String(a.debut).localeCompare(String(b.debut))).pop();
+      return base.sets.filter((x) => x.exercise_slug === slug && derniere && x.session_id === derniere.id).sort((a, b) => a.rang - b.rang);
+    };
+    // La note d'un exercice se pose depuis son « ⋯ » : « Ajouter une note ».
+    const noterExo250 = async (iBloc, texte) => {
+      await page.evaluate((k) => document.querySelectorAll('.bloc-seance')[k].querySelector('.menu-pts[aria-label="Actions du bloc"]').click(), iBloc);
+      await page.waitForSelector('#feuille-contenu .menu-note', { timeout: 5000 });
+      await page.click('#feuille-contenu .menu-note');
+      await page.waitForSelector('#feuille-contenu textarea', { timeout: 5000 });
+      await taperFeuille('textarea', texte);
+      await fermerFeuille();
+    };
+    // Une séance complète : trois séries de chaque exercice, les deux notes, « Terminer », le récap ouvert.
+    const seance250 = async () => {
+      await aller('/saisie');
+      await flag250(true);
+      await demarrerRoutine('Notes NI250');
+      await jusqua(() => page.evaluate(() => document.querySelectorAll('.bloc-seance .ligne-serie').length >= 6), 8000);
+      for (let i = 0; i < 3; i++) await saisirSerie(i, 100, 5);
+      for (let i = 3; i < 6; i++) await saisirSerie(i, 20, 10);
+      await noterExo250(0, 'rpe 9 sur la dernière');
+      await noterExo250(1, 'mal au coude');
+      await page.click('#bandeau-seance .bandeau-fin');
+      await attendre(700);
+      await page.click('#feuille-contenu .principal');
+      await terminerQuandMeme();
+      await jusqua(recapVisible250, 8000);
+      await attendre(600);
+    };
+    const quitterRecap250 = async () => {
+      await fermerRecapBanc();
+      await aller('/saisie');
+    };
+    await aller('/saisie');
+    await garderRecap(true);
+
+    // A. L'INTERRUPTEUR ÉTEINT (le réglage du dépôt) : ni écran A, ni bloc, ni appel — même avec les colonnes présentes.
+    await aller('/saisie');
+    await flag250(false);
+    await demarrerRoutine('Notes NI250');
+    await jusqua(() => page.evaluate(() => document.querySelectorAll('.bloc-seance .ligne-serie').length >= 6), 8000);
+    for (let i = 0; i < 3; i++) await saisirSerie(i, 100, 5);
+    await noterExo250(0, 'rpe 9 sur la dernière');
+    await page.click('#bandeau-seance .bandeau-fin');
+    await attendre(700);
+    await page.click('#feuille-contenu .principal');
+    await terminerQuandMeme();
+    await jusqua(recapVisible250, 8000);
+    await attendre(800);
+    ok('[NI250] DISCRIMINANT — interrupteur éteint : ni écran « Je peux lire tes notes ? », ni bloc « Dans tes notes », zéro appel',
+      await page.evaluate(() => !document.querySelector('#recap-corps .nia-accord') && !document.querySelector('#recap-corps .nia-bloc-titre')) &&
+        N250.appels.length === 0, String(N250.appels.length));
+    await quitterRecap250();
+
+    // B. L'ÉCRAN A : une fois, « Non merci » ne revient jamais ; rien ne part.
+    await seance250();
+    const accord250 = sp250(await page.evaluate(() => (document.querySelector('#recap-corps .nia-accord') || {}).textContent || ''));
+    ok('[NI250] DISCRIMINANT — sans accord : l’écran A « Je peux lire tes notes ? » (Anthropic, États-Unis, « ça reste sur ton téléphone »), deux boutons, zéro appel',
+      /Je peux lire tes notes \?/.test(accord250) && /Anthropic, aux États-Unis/.test(accord250) && /ça reste sur ton téléphone/.test(accord250) &&
+        await page.evaluate(() => document.querySelectorAll('#recap-corps .nia-btn').length === 2) && N250.appels.length === 0, accord250.slice(0, 200));
+    await page.evaluate(() => document.querySelectorAll('#recap-corps .nia-btn')[1].click());
+    await jusqua(() => !!base.profiles[0].notes_ia_question_a, 8000);
+    await attendre(500);
+    ok('[NI250] « Non merci » écrit seulement la question posée (par le profil), aucun accord, aucun appel, l’écran A s’en va',
+      !!base.profiles[0].notes_ia_question_a && !base.profiles[0].notes_ia_accord_a && N250.appels.length === 0 &&
+        await page.evaluate(() => !document.querySelector('#recap-corps .nia-accord')),
+      JSON.stringify([base.profiles[0].notes_ia_question_a, base.profiles[0].notes_ia_accord_a, N250.appels.length]));
+    await quitterRecap250();
+
+    // C. LA QUESTION NE REVIENT JAMAIS : une nouvelle séance, sans accord — silence complet (N1).
+    await seance250();
+    await attendre(800);
+    ok('[NI250] DISCRIMINANT — la question est posée : la séance suivante n’affiche ni écran A ni bloc, et rien n’est lu ni envoyé (N1)',
+      await page.evaluate(() => !document.querySelector('#recap-corps .nia-accord') && !document.querySelector('#recap-corps .nia-bloc-titre')) &&
+        N250.appels.length === 0, String(N250.appels.length));
+    await quitterRecap250();
+
+    // D. « OUI » : l'accord s'écrit par le profil, UNE lecture, un corps sans identifiant ni douleur, le bloc dans l'ordre.
+    base.profiles[0].notes_ia_question_a = null;
+    const journalAvantD = base.journal.length;
+    await seance250();
+    await page.evaluate(() => document.querySelectorAll('#recap-corps .nia-btn')[0].click());
+    await jusqua(() => N250.appels.length === 1 && !!base.profiles[0].notes_ia_accord_a, 10000);
+    await jusqua(async () => (await lignes250()).length >= 2, 8000);
+    const corps250 = (N250.appels[0] || {}).corps || {};
+    const envoye250 = JSON.stringify(corps250);
+    ok('[NI250] « Oui, vas-y » écrit `notes_ia_accord_a` par le profil (une date) et lance UNE lecture avec le jeton de session',
+      !isNaN(Date.parse(base.profiles[0].notes_ia_accord_a)) && N250.appels.length === 1 && /^Bearer /.test(N250.appels[0].auth) &&
+        base.journal.slice(journalAvantD).some((j) => j.op === 'profil' && j.champs && j.champs.notes_ia_accord_a),
+      JSON.stringify([base.profiles[0].notes_ia_accord_a, N250.appels.length]));
+    ok('[NI250] DISCRIMINANT — le corps envoyé : la note du squat y est, SANS slug, id de séance, date, ni la douleur (« coude » ne part jamais)',
+      Object.keys(corps250).sort().join() === 'exercices,notes' && /rpe 9 sur la derni/.test(envoye250) &&
+        !/ni250-|u-banc|sess|\d{4}-\d{2}-\d{2}|coude/i.test(envoye250), envoye250.slice(0, 400));
+    const l250 = await lignes250();
+    ok('[NI250] le bloc : deux lignes, l’effort d’abord, la douleur EN DERNIER, les phrases fixes',
+      l250.length === 2 && l250[0].cle === 'effort:0' && l250[1].cle === 'douleur:1' &&
+        /Ta note dit « rpe 9 »/.test(sp250(l250[0].texte)) && /Squat ni250, dernière série, 1 en réserve\./.test(sp250(l250[0].texte)) &&
+        /douleur au coude/.test(sp250(l250[1].texte)), JSON.stringify(l250));
+
+    // E. N4 : rien n'est écrit sans ✓ ; ✓ écrit l'effort de la seule dernière série ; Annuler le défait ; ✕ n'écrit rien.
+    ok('[NI250] N4 — sans ✓, aucune série n’a d’effort : rien n’a été écrit',
+      setsDe250('ni250-a').every((x) => !x.ressenti && (x.rpe === null || x.rpe === undefined)), JSON.stringify(setsDe250('ni250-a').map((x) => [x.rang, x.ressenti, x.rpe])));
+    await page.click('#recap-corps .nia-ligne[data-cle="effort:0"] .nia-ok');
+    await jusqua(() => setsDe250('ni250-a').some((x) => x.ressenti === 'reste_1'), 10000);
+    await attendre(500);
+    const apresOk250 = setsDe250('ni250-a');
+    ok('[NI250] ✓ sur l’effort : « reste_1 » sur la DERNIÈRE série seulement ; la ligne dit « 1 en réserve noté. » avec Annuler',
+      apresOk250.length === 3 && apresOk250[2].ressenti === 'reste_1' && !apresOk250[0].ressenti && !apresOk250[1].ressenti &&
+        /1 en réserve noté\./.test(sp250((await lignes250())[0].texte)) && (await lignes250())[0].fait, JSON.stringify(apresOk250.map((x) => x.ressenti)));
+    await page.click('#recap-corps .nia-ligne[data-cle="effort:0"] .nia-annuler');
+    await jusqua(() => setsDe250('ni250-a').every((x) => !x.ressenti), 10000);
+    ok('[NI250] N11 — Annuler remet CE champ à vide (la série redevient sans effort), la ligne redevient une proposition',
+      setsDe250('ni250-a').every((x) => !x.ressenti) && !(await lignes250())[0].fait, JSON.stringify(setsDe250('ni250-a').map((x) => x.ressenti)));
+    await page.click('#recap-corps .nia-ligne[data-cle="effort:0"] .nia-rond:not(.nia-ok)');
+    await attendre(800);
+    ok('[NI250] ✕ n’écrit rien : aucune série n’a d’effort, la ligne s’en va',
+      setsDe250('ni250-a').every((x) => !x.ressenti) && !(await lignes250()).some((x) => x.cle === 'effort:0'), JSON.stringify(await lignes250()));
+
+    // F. LA DOULEUR : ✓ la marque sur les séries de l'exercice, Annuler la retire (N11), les gestes ne portent pas de texte (N12).
+    await page.click('#recap-corps .nia-ligne[data-cle="douleur:1"] .nia-ok');
+    await jusqua(() => setsDe250('ni250-b').some((x) => x.douleur === true), 10000);
+    ok('[NI250] ✓ sur la douleur : les séries du curl sont marquées « douleur », celles du squat non',
+      setsDe250('ni250-b').every((x) => x.douleur === true) && setsDe250('ni250-a').every((x) => x.douleur !== true),
+      JSON.stringify([setsDe250('ni250-b').map((x) => x.douleur), setsDe250('ni250-a').map((x) => x.douleur)]));
+    await page.click('#recap-corps .nia-ligne[data-cle="douleur:1"] .nia-annuler');
+    await jusqua(() => setsDe250('ni250-b').every((x) => x.douleur !== true), 10000);
+    ok('[NI250] Annuler la douleur la retire (et seulement elle)', setsDe250('ni250-b').every((x) => x.douleur !== true),
+      JSON.stringify(setsDe250('ni250-b').map((x) => x.douleur)));
+    const gestes250 = JSON.stringify(base.sessions.map((x) => x.gestes || null));
+    ok('[NI250] N12 — les gestes de la séance (`sessions.gestes`) ne portent aucun texte de note',
+      !/rpe 9|coude|dernière série/i.test(gestes250), gestes250.slice(0, 300));
+    ok('[NI250] une seule lecture pour toute la séance (N10) : le compte d’appels n’a pas bougé après les gestes', N250.appels.length === 1, String(N250.appels.length));
+    await quitterRecap250();
+
+    // G. LA PANNE (503) : le récap d'aujourd'hui, sans ligne ni message (N9).
+    N250.mode = 'panne';
+    const appelsAvantG = N250.appels.length;
+    await seance250();
+    await jusqua(() => N250.appels.length > appelsAvantG, 10000);
+    await attendre(1200);
+    ok('[NI250] DISCRIMINANT — panne du service (N9) : un appel tenté, aucune ligne de l’IA, aucun message ; seule la douleur, qui est locale, reste proposée',
+      N250.appels.length === appelsAvantG + 1 && JSON.stringify((await lignes250()).map((x) => x.cle)) === '["douleur:1"]' &&
+        await page.evaluate(() => !document.querySelector('#recap-corps .nia-accord') &&
+          !/indisponible|service|erreur/i.test((document.querySelector('#recap-corps .recap-notes') || {}).textContent || '')),
+      JSON.stringify([N250.appels.length, await lignes250()]));
+    await quitterRecap250();
+    N250.mode = 'ok';
+
+    // H. L'ACCORD RETIRÉ (N1) : plus aucun appel, plus aucun bloc.
+    base.profiles[0].notes_ia_accord_a = null;
+    const appelsAvantH = N250.appels.length;
+    await aller('/saisie');
+    await seance250();
+    await attendre(1000);
+    ok('[NI250] DISCRIMINANT — accord retiré : zéro appel de plus, aucun bloc (N1)',
+      N250.appels.length === appelsAvantH && await page.evaluate(() => !document.querySelector('#recap-corps .nia-ligne')), String(N250.appels.length));
+    await quitterRecap250();
+
+    // LA REMISE EN ÉTAT.
+    await flag250(false);
+    await garderRecap(false);
+    base.sessions = sessionsAvant; base.sets = setsAvant;
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
+    delete base.profiles[0].notes_ia_accord_a;
+    delete base.profiles[0].notes_ia_question_a;
+    N250.appels.length = 0; N250.mode = 'ok';
+    await aller('/saisie');
+    ok('[NI250] aucun refus du faux serveur, la garde (C6) n’a rien signalé, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
   }

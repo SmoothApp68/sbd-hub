@@ -1008,7 +1008,7 @@ const SETS_IMPORTES = [
       if (a.mode === 'panne') return json({ erreur: 'indisponible' }, 503);
       if (a.mode === 'accord') return json({ erreur: 'accord' }, 403);
       // 'pend' : la fonction ne répond pas (le délai de l'app, 15 s, l'abandonne) ; `liberer()` relâche la requête restée en vol.
-      if (a.mode === 'pend') { await new Promise((r) => { a.liberer = r; setTimeout(r, 30000); }); return route.abort('failed').catch(() => {}); }
+      if (a.mode === 'pend') { await new Promise((r) => { a.liberer = r; }); return route.abort('failed').catch(() => {}); }
       return json({ propositions: a.reponse(corps) });
     }
     // 107 — LES ÉCRITURES SOCIALES COUPÉES, LES LECTURES PASSENT : la configuration qui permet un SECOND geste après un

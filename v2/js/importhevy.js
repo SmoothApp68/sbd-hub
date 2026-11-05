@@ -742,8 +742,7 @@
     texteAnglais: 'Texte en anglais : change la langue de Hevy en français et copie-le de nouveau.',
     connexion: 'L’import demande une connexion.',
     attend: 'Le bouton attend que chaque exercice soit rattaché ou laissé de côté.',
-    souvenir: 'Je m’en souviendrai pour tes prochains imports.',
-    nePasImporter: 'Ne pas importer cet exercice'
+    souvenir: 'Je m’en souviendrai pour tes prochains imports.'
   };
 
   // Le titre de la feuille de rattachement : « « Good Morning (Barre) » chez Hevy, c'est… ».

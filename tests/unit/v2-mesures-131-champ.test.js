@@ -25,11 +25,12 @@ test('taper 4001 km : le dernier chiffre n’entre pas, la série garde 400', ()
     surAjoutSerie: () => {}, surSupprimerSerie: () => {}, surMenuBloc: () => {}, surMenuExercice: () => {}
   });
   const input = cible.querySelector('[data-champ="distance_km"] input');
-  ['4', '40', '400', '4001'].forEach((v) => { input.value = v; input.dispatchEvent(new Event('input')); });
-  expect(input.value).toBe('400');
-  expect(ecrits.map((e) => e[1])).toEqual(['4', '40', '400']);
-  input.value = '400,1'; input.dispatchEvent(new Event('input'));
-  expect(input.value).toBe('400');
+  // Borne à 300 km depuis 243 (05/11/2026, `MAX_DISTANCE_M`) : la frappe s'arrête au plafond.
+  ['3', '30', '300', '3001'].forEach((v) => { input.value = v; input.dispatchEvent(new Event('input')); });
+  expect(input.value).toBe('300');
+  expect(ecrits.map((e) => e[1])).toEqual(['3', '30', '300']);
+  input.value = '300,1'; input.dispatchEvent(new Event('input'));
+  expect(input.value).toBe('300');
   input.value = '39,5'; input.dispatchEvent(new Event('input'));
   expect(ecrits[ecrits.length - 1]).toEqual(['distance_km', '39,5']);
 });

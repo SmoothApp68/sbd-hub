@@ -1,5 +1,7 @@
 # ÉTAT DES LIEUX — 18 septembre 2026
 
+> **INSTANTANÉ HISTORIQUE (marqué le 04/11/2026, 243) : ne pas lire comme un état.** Ce relevé date du 18/09 ; beaucoup de ses « manques » ont été comblés depuis (bandeau de séance câblé, fatigue et repos livrés, générateur livré…). Il garde la trace de ce qui a été trouvé ce jour-là ; pour l'état courant, lire `claude/ETAT-DU-PROJET` (côté projet), les specs à jour et le code.
+
 > Relevé **en lecture seule** pendant le chantier 46, écran par écran, en réponse à son §4 :
 > *« parcours l'app et dis ce qui est branché et ce qui ne l'est pas ».*
 >

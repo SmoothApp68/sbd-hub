@@ -1255,7 +1255,7 @@ Quand l'exercice a une ligne **dégressive** (routine ou saisie) **et qu'il n'es
 
 **Gelée pour la séance.** Changer de phase en pleine séance ne change rien à la séance en cours (ni la consigne, ni les paris suivants) : la nouvelle phase vaut à partir de la séance suivante, comme une correction de zone qui ne touche pas une série déjà validée. **Hors ligne**, la dernière phase connue s'applique.
 
-**Ce qui n'existe pas encore** : le compteur de stagnation (§12, qui ne lit la phase **que pour ses mots**) et l'escalier (§14, qui la lit pour sa première marche en zone muscle) lisent la phase dès qu'ils sont câblés ; d'ici là, la phase ne change **que le fondement des paris**. **Le rappel de phase — câblé le 08/10/2026 (60-2b).** Quand une phase est déclarée (`profiles.phase` non vide) et que sa dernière confirmation — `phase_confirmee_le`, sinon `phase_depuis` — date de **42 jours ou plus**, un bandeau sur l'accueil de Saisie, hors séance ouverte et hors « Juste un carnet » : « Sèche depuis le 28 sept. » (la phase, puis la date de `phase_depuis` par le formateur `quand`) ; en gris, « Ta phase règle la série de plus et entre dans chaque pari du coach. » ; boutons « **C'est toujours ça** » (écrit `phase_confirmee_le = maintenant`) et « **Changer** » (ouvre la feuille de la phase du profil ; toute réponse y écrit aussi `phase_confirmee_le`). **Pas de question** (§20.2). Sans phase déclarée, pas de rappel : le maintien par défaut n'a rien à confirmer. Pourquoi 6 semaines : la plupart des phases durent de 8 à 16 semaines ; un rappel plus fréquent deviendrait du bruit.
+**Ce qui était à venir (livré au chantier 49, noté le 04/11/2026)** : le compteur de stagnation (§12, qui ne lit la phase **que pour ses mots**) et l'escalier (§14, qui la lit pour sa première marche en zone muscle) lisent la phase ; ils sont câblés. Le texte d'origine disait : « d'ici là, la phase ne change **que le fondement des paris** ». **Le rappel de phase — câblé le 08/10/2026 (60-2b).** Quand une phase est déclarée (`profiles.phase` non vide) et que sa dernière confirmation — `phase_confirmee_le`, sinon `phase_depuis` — date de **42 jours ou plus**, un bandeau sur l'accueil de Saisie, hors séance ouverte et hors « Juste un carnet » : « Sèche depuis le 28 sept. » (la phase, puis la date de `phase_depuis` par le formateur `quand`) ; en gris, « Ta phase règle la série de plus et entre dans chaque pari du coach. » ; boutons « **C'est toujours ça** » (écrit `phase_confirmee_le = maintenant`) et « **Changer** » (ouvre la feuille de la phase du profil ; toute réponse y écrit aussi `phase_confirmee_le`). **Pas de question** (§20.2). Sans phase déclarée, pas de rappel : le maintien par défaut n'a rien à confirmer. Pourquoi 6 semaines : la plupart des phases durent de 8 à 16 semaines ; un rappel plus fréquent deviendrait du bruit.
 
 **Invariant I18** : chaque pari posé porte dans son fondement la phase gelée de sa séance (`prise_de_masse`, `maintien` ou `seche`), la même pour tous les paris d'une séance.
 
@@ -1714,6 +1714,8 @@ Deux « Pas maintenant » de suite doublent le silence. Ordre : jours > temps > 
 **Placement.** Tête de « Ton parcours » (section « Ta semaine et tes équilibres » ; l'ancienne « Tes équilibres » reste dessous) et une ligne sous la barre de la semaine de l'écran Séances. Le rendu est pur ; rien ne s'applique sans un geste.
 
 **Amendement 224 (02/11/2026) — l'ajout par une carte.** Constat réel : trois « oui » ont ajouté des exercices en fin de séance, après le cardio, dans une routine de l'autre côté (un développé militaire dans une séance de jambes), sans reps. Désormais une seule fonction décide de l'ajout, lue par la carte ET par l'écriture : (1) la routine travaille déjà le même côté/la même famille ; à égalité, la plus fréquentée ; aucune routine du bon côté → pas de proposition « ajouter » ; (2) la place : après le dernier exercice de la même famille, sinon avant les finitions (cardio, exercices au temps, gainage), jamais après un cardio final ; (3) 2 séries de travail (convention « commencer petit », pratique de coachs), reps reprises des dernières séries de travail de l'exercice (sinon de sa zone), jamais une ligne sans reps, la charge au moteur ; (4) la carte dit la place exacte avant le geste (« Ajouter X, 2 × 10, à « R », après Y. »), le « Fait : » dit la même chose, l'annulation reste.
+
+> **Note du 04/11/2026 (243).** `Equilibres.clesAPerimer` (périmer les autres cartes quand une proposition « refait le programme » est acceptée) n'était câblée nulle part : non câblée, retirée le 04/11 ; à reprendre si une proposition refait le programme.
 
 ### 9.27 bis Ta semaine : les jours, le temps, la fréquence, l'ordre, les repos — décidé le 30/10/2026 (chantier 188-2)
 
@@ -3174,6 +3176,8 @@ une force se compare à soi-même, un équilibre à un rapport de pratiquants (p
 
 ### 20.1 Hors périmètre de ce document
 
+> *Mise à jour du 04/11/2026 (243) : le générateur de programmes est livré (chantiers 60-4 et 193-2) ; ce qui suit est le texte d'origine, au futur. Les deux contraintes restent vraies.*
+
 La **fabrication de programmes** — variantes lourdes à pause ou à arrêt, rattrapage de points faibles, rotation planifiée — est un chantier distinct. Deux contraintes déjà fixées pour lui :
 
 1. Un programme fabriqué par l'app sort de la **littérature**, jamais de l'historique de l'utilisateur (cadrage §3.1).
@@ -3255,6 +3259,8 @@ Toutes ont été commises par l'assistant et rattrapées par l'utilisateur, jama
 **Faux.** **93 séries** portent un RPE : 6,0 ×2 · 7,0 ×8 · 7,5 ×8 · 8,0 ×17 · 8,5 ×22 · 9,0 ×12 · 9,5 ×7 · 10,0 ×17.
 *Conséquence :* c'est peu, mais ce n'est pas rien, et c'est concentré près de l'échec — donc exploitable pour amorcer le calage (§17).
 
+*Mise à jour du 05/11/2026 (243, source : relevé de Claude.ai du 05/11 sur la base, 306 séries sur 29 338 ; code : `importhevy.js` ~329 et ~632) : le RPE de Hevy **EST importé** dans `sets.rpe` (306 séries sur 29 338 aujourd'hui, 0 < rpe ≤ 10, contrainte `sets_rpe_ok`). `ressenti` est une autre notion (l'effort en réserve saisi dans l'app) et reste distinct : le complément du 25/08 ci-dessous, « n'ont jamais atteint la base », est périmé pour `rpe`.*
+
 **Complément du 25/08/2026 — ces 93 valeurs n'ont jamais atteint la base.** Vérification faite : la colonne `ressenti` est vide sur les **16 704 séries**. L'export contient bien la colonne `rpe`, l'import ne la transporte pas.
 
 Ce n'est **pas un bug à corriger** : le code v1 est abandonné et l'import CSV est une fonctionnalité v2 qui n'existe pas encore. C'est donc une **exigence de spécification**, à faire figurer dans le prompt de construction de l'import, faute de quoi le trou sera recreusé à neuf :
@@ -3302,7 +3308,7 @@ L'erreur passe de 1,00 rep si on ne garde que les séries ≤ 8 reps à 2,00 si 
 | Seuils 35 / 60 % de la montée en charge (§5.2) | choix produit, à revoir sur données multi-utilisateurs |
 | Pesée à jour | dernière le 18/03/2026, tout le reste est un report |
 | Exercices en durée et cardio | colonnes différentes à prévoir |
-| Progression entre exercices (prise serrée → diamant) | distincte du champ `parent`, non traitée |
+| Progression entre exercices (prise serrée → diamant) | distincte du champ `parent`, non traitée. *Mise à jour du 05/11/2026 (243, source : §9.17 bis, 127 et 175) : traitée pour les mouvements au poids du corps par l'échelle des variantes (§9.17 bis) ; reste ouverte hors de ces échelles* |
 | Recalcul des seuils v1.1 sur le fichier reconstruit | paliers et incréments portaient sur un fichier amputé de 12 % |
 
 | Stagnation sous consigne (§12.2 bis, §12.8) | **tranchée le 25/09/2026** : niveau validé, par zone, séances suivies seulement, seuil fixe et mots personnels |
@@ -3437,7 +3443,7 @@ Mesures : `mesure_escalier49.py`, `mesure_escalier49_contexte.py`, `mesure_escal
 - Pelland J.C. et al. (2025). *Sports Medicine*. DOI 10.1007/s40279-025-02344-w — volume, rendements décroissants
 - Remmert J. et al. (2025). *SportRxiv* — volume par séance
 - Grgic J. et al. (2020). *Sports Medicine – Open* 6:31 — fidélité test-retest du 1RM
-- Zourdos M.C. et al. (2016). *Nutr Hosp* 33(2):437-443 — variabilité quotidienne du 1RM. *(28/10/2026, audit C-F10 : la notice trouvée sous cette référence s'intitule « Efficacy of daily one-repetition maximum training in well-trained powerlifters and weightlifters: a case series » ; l'intitulé ci-dessus est à revérifier.)*
+- Zourdos M.C., Klemp A., Dolan C. et al. (2016). *J Strength Cond Res* 30(1):267-275 — « Novel resistance training-specific rating of perceived exertion scale measuring repetitions in reserve » (DOI 10.1519/JSC.0000000000001049) — la justesse du ressenti près de l'échec. *(Corrigé le 04/11/2026, 243 : l'ancienne ligne citait *Nutr Hosp* 33(2):437-443, qui est une autre notice, « Efficacy of daily one-repetition maximum training in well-trained powerlifters and weightlifters: a case series » ; l'intitulé a été vérifié par recherche web.)*
 - Nuzzo J.L. et al. (2023). *Sports Medicine*. PMID 37792272 — reps/%1RM
 - Coleman M. et al. (2024). *PeerJ* 12:e16777 — deload d'une semaine
 

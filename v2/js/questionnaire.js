@@ -130,7 +130,7 @@
 
   // 187 (A1, A2) — UNE question d'ancienneté : « Je commence » (`historique_declare = debutant`,
   // `anciennete = moins_1_an`) ou une fourchette d'`anciennete`. Une question de plus : les séances sont-elles notées
-  // quelque part ? « Hevy ou Strong » = `import`, « Non » = `non_note` ; « Dans mes notes » n'est pas encore une réponse.
+  // quelque part ? « Hevy ou Strong » = `import`, « Non » = `non_note`. (« Dans mes notes » retiré le 05/11/2026, 243.)
   var COMMENCE = 'commence', NOTEES_IMPORT = 'import', NOTEES_NON = 'non';
   function depuisDe(p) {
     if (p.historique_declare === 'debutant') return COMMENCE;
@@ -374,7 +374,7 @@
         if (!(typeof r.duree === 'number' && r.duree >= DUREE_PLUS_MIN)) r.duree = null;
       } else { r.duree = valeur; r.dureePlus = false; }
     } else if (cle === 'notees' && valeur !== NOTEES_IMPORT && valeur !== NOTEES_NON) {
-      // 187 — « Dans mes notes » est annoncé (« Bientôt »), ce n'est pas encore une réponse : sans effet.
+      // 243 — seules deux réponses existent (« Hevy ou Strong », « Non ») ; toute autre valeur est sans effet.
       return r;
     } else if (cle === 'disques' || cle === 'barre_kg' || cle === 'barre_traction') {
       // 190 — les deux lignes de Ma salle : le geste du Profil (`poserReglageMateriel`), sur les réponses en cours.
@@ -526,8 +526,7 @@
   }
 
   var SOUS_NOTEES = {
-    import: 'J’importe ton fichier ici : je connaîtrai tes charges dès la première séance.',
-    notes: 'Bientôt : colle tes notes, je te propose les séances à valider une par une.'
+    import: 'J’importe ton fichier ici : je connaîtrai tes charges dès la première séance.'
   };
   var DEPUIS = [
     { cle: COMMENCE, libelle: 'Je commence' },
@@ -590,7 +589,6 @@
       blocs.push({ type: 'options', cle: 'notees', titre: 'Tes séances sont notées quelque part ?', valeur: rep.notees,
         options: [
           { cle: NOTEES_IMPORT, libelle: 'Oui, dans Hevy ou Strong', sous: SOUS_NOTEES.import },
-          { cle: 'notes', libelle: 'Dans mes notes', sous: SOUS_NOTEES.notes, desactive: true, pastille: 'Bientôt' },
           { cle: NOTEES_NON, libelle: 'Non' }
         ] });
     }

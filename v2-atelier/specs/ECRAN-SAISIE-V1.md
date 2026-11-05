@@ -258,6 +258,12 @@ Affichage : mètres sous 1 000, kilomètres au-delà — déjà en place depuis 
 > Relevé au chantier 25 : **la distance n'a aucune borne** — ni pavé, ni compteur de chiffres,
 > ni contrainte en base ; seul le négatif est rejeté. C'est par ce chemin qu'une valeur
 > aberrante entre, et un plafond de durée seul ne le ferme pas.
+>
+> *Mis à jour le 05/11/2026 (243, décision d'Aurélien au tour de table) :* la distance a une borne, **`MAX_DISTANCE_M` = 300 000 m
+> (300 km)**, posée à côté de `MAX_DUREE_S` dans `modele.js` et appliquée par la même table (`BORNES_DES_COLONNES`), donc par la
+> saisie (`modifierSerie`) et par la réparation de la file (`bornerLigne`). Elle était de 400 km depuis le 21/10 (131). Au-dessous
+> de la borne, une distance douteuse n'est pas l'affaire de cette borne : la saisie vérifiée (185) ne pose aujourd'hui **aucune**
+> question sur une distance ou une durée (`faits.vraisemblanceDeLaSerie` ne lit que reps, charge, type) ; aucune seconde règle n'est écrite.
 
 #### 3 ter.2 ter Tranché à l'implémentation — chantier 25
 
@@ -333,15 +339,16 @@ l'app promet qu'il ne quitte jamais le téléphone (SOCIAL §1, « Jamais »). H
 ajoutée. Le tonnage n'est pas un indicateur de progression. Rien ne change dans le code.*
 
 **Une séance de gainage seul est classée « sortie »** *(trouvé au chantier 24 ; **tranché le 21/10/2026**, audit 130 #11, décision d'Aurélien : **une sortie, et le cardio du jeu, ce sont seulement les exercices de nature `cardio` du catalogue** — course, vélo, randonnée, sports, corde à sauter… ; les étirements et la mobilité, le gainage et les figures tenues restent des séances ordinaires, avec leurs exercices. Sans `nature` connue, l'ancienne règle s'applique. *Précisé le 22/10/2026 (133)* : la sortie se lit au jeu (minutes de cardio), au résumé d'une séance et dans « les autres activités » des faits ; **le générateur et les habitudes ne la lisent pas** — ils lisent `Semaine.porteDuVolume`, ce qui ne change rien pour eux (un étirement n'y est ni une isolation ni une série de musculation). Une séance d'étirements seuls se résume par ses exercices et sa durée, jamais « 0 série ».)*.
-`estExerciceSortie` retient `charge = 'aucune'` **et** `mesure ∈ {temps, distance_temps}` : une
-séance qui ne contiendrait que des planches est résumée en durée, comme une randonnée, et perd
-son aperçu d'exercices. Le correctif toucherait aussi Pilates et Escalade, qui sont bien des
-sorties — à trancher avec la page d'exercice, pas ici.
+*Mise à jour du 04/11/2026 (243) : réglé au chantier 133. La sortie est la **nature `cardio`** du catalogue
+(`estExerciceSortie`, `v2/js/modele.js`) ; l'ancienne règle (`charge = 'aucune'` **et** `mesure ∈ {temps, distance_temps}`)
+ne s'applique plus que sans `nature` connue. Une séance de planches seules n'est donc plus une sortie. Pilates et
+Escalade suivent leur `nature` dans le catalogue.*
 
 **Une durée de zéro seconde disparaît de l'affichage** *(trouvé au chantier 25, non corrigé)*.
 `formatMesure` et `resumerSeance` testent `if (serie.duree_s)` — un test de vérité, pas de
 nullité. Une série à 0 s existe en base et devient muette au détail. Même famille que « 0 comme
 null », à traiter d'un coup pour les quatre mesures.
+*Corrigé le 05/11/2026 (243, `aValeur`) pour la durée ; la distance, le D+ et les étages gardent un test de vérité, sans effet puisque la base refuse 0.*
 
 #### 3 ter.5 Les champs en plus, exercice par exercice — décidé le 21/10/2026 (prompt 131)
 
@@ -360,6 +367,7 @@ null », à traiter d'un coup pour les quatre mesures.
 Aussi par v2_101 : Squat Sauté Lesté (Haltère) et Squat Cosaque (Kettlebell) en `charge_reps` / `absolue` ; Woodchop
 (Médecine-Ball) en `absolue`. **Notés pour plus tard** : l'inclinaison du tapis, Pincé de Disques en charge × durée,
 un record de D+ ou d'étages.
+*Mise à jour du 05/11/2026 (243, source : chantier 153, `modele.js` ~2545 et ~2706) : le record de D+ et d'étages est fait au 153 — « Record de D+ : 920 m. », « Record d'étages : 72. » ; il ne reste « pour plus tard » que l'inclinaison du tapis et Pincé de Disques.*
 
 **La saisie** (écrans 1 à 3) :
 - **le D+** se tape sur sa propre ligne, sous la série (« Dénivelé + (facultatif) », en mètres) : une troisième
@@ -367,7 +375,7 @@ un record de D+ ou d'étages.
 - **les étages** prennent la colonne de la distance : Escaliers = durée · étages ; les étages tels que la machine les
   affiche, jamais convertis en mètres ;
 - **jamais obligatoires** ; jamais recopiés d'une séance à l'autre (pas de chiffre gris) ;
-- **les bornes** (décidées le 21/10/2026) : la distance au plus 400 km, le D+ au plus 10 000 m, les étages au plus
+- **les bornes** (décidées le 21/10/2026) : la distance au plus 300 km (400 km jusqu’au 05/11/2026, 243), le D+ au plus 10 000 m, les étages au plus
   2 000 ; **jamais 0** — une durée, une distance, un D+ ou des étages à 0 ne se valident pas (un 0 s'affichait « — »,
   audit 130).
 
@@ -379,6 +387,7 @@ distance de la randonnée d'avant sur celle du jour.
 **L'affichage** : distance, puis durée, puis D+ ou étages (« 13,2 km · 3 h 25 · D+ 920 m », « 20 min · 72
 étages »), par le formateur unique (§3 ter). Une valeur absente ne s'affiche jamais, ni à zéro. Les records ne
 changent pas (la plus longue durée, la plus longue distance).
+*Mise à jour du 05/11/2026 (243, source : 153) : « les records ne changent pas » est périmé pour le D+ et les étages, qui ont leur médaille depuis le 153 (voir ci-dessus). Une durée de 0 s est une valeur et s'écrit « 0 s » (243, `aValeur`).*
 
 **Ce qui manque à tes séances** (écran 5). Une carte à l'accueil de Saisie, hors séance ouverte, tant qu'il reste
 quelque chose à compléter :
@@ -1166,7 +1175,11 @@ semaine courante et disparaît quand on y revient. Il est **aussi** dans le pied
 vertical. Même famille de geste que le glissement des blocs, qui a coûté un chantier entier.
 **À tester sur device tôt, pas à la fin.**
 
-### 7 bis.12 Piste écartée — la silhouette anatomique
+### 7 bis.12 Piste écartée — la silhouette anatomique *(reprise au chantier 218 : voir ci-dessous)*
+
+> **Note du 04/11/2026 (243).** Reprise et livrée au chantier 218 : le bonhomme des muscles (`v2/js/silhouettes.js`, tracés MIT ©
+> ELABBASSI Hicham, en haut de « Volume par muscle », CLAUDE.md §4 ter). La condition posée ci-dessous (« un vrai dessin », une
+> bibliothèque) a été remplie ; le texte reste pour la trace du rejet de l'essai à main levée.
 
 Une silhouette face/dos teintée selon le volume a été essayée et **rejetée**. L'idée est
 bonne dans son principe — dix-huit chiffres deviennent une image, et c'est la langue du
@@ -2076,8 +2089,12 @@ jamais les charges. Même règle qu'une routine — le moteur décide des charge
 
 ---
 
-## 7 nonies. Le bandeau de séance en cours — décidé, COMPOSANT ÉCRIT, non branché
+## 7 nonies. Le bandeau de séance en cours — décidé, câblé (chantier 45)
 
+> 🔧 **Mise à jour du 04/11/2026 (243).** Le bandeau est câblé : `Rendu.rendreBandeauReprise` est appelé par `app.js` pour la
+> séance en cours et pour le brouillon de routine. Le texte ci-dessous est l'état du 17/09 (« emplacement toujours non
+> tranché » y est périmé) ; le code fait foi.
+>
 > 🔧 **Mise à jour du 17/09/2026 (chantier 45).** Le composant existe :
 > `Rendu.rendreBandeauReprise`, écrit pour le brouillon de routine (§7 octodecies.3) et
 > **conçu pour servir aux deux**. Ce qui varie est donné par l'appelant — le quoi, le sujet,
@@ -3037,6 +3054,7 @@ Couché - (Haltère) » et « developpe couche haltere » sont le même texte.
 abréviations comme « DC », les anciens noms d'avant v2_098). Les noms alternatifs vivent dans le cache local avec le
 catalogue : la recherche marche **hors ligne**. Les rattachements personnels (`alias_exercice`) ne sont pas cherchés
 (noté pour plus tard).
+*Mise à jour du 05/11/2026 (243, source : `app.js` ~18375, 126) : la liste « Mes exercices » appelle la même `Routines.chercher` avec `alias: local.alias` — elle cherche donc aussi les noms alternatifs du catalogue, comme le sélecteur ; aucune recherche ne lit `alias_exercice`.*
 
 **Ce qui est trouvé.** Un exercice est trouvé si **tous les mots tapés**, dans n'importe quel ordre, se trouvent dans
 **un même texte** (le nom, ou un seul de ses noms alternatifs). Un mot tapé se trouve s'il est **le début d'un mot** du
@@ -3266,6 +3284,10 @@ maladie que ce chantier soigne par ailleurs.
 > propose des charges en mode Progresser » — est une **copie de spec validée**
 > (`ECRAN-PROFIL-V1` §2.3) qui définit le sens d'un réglage. Elle se retouche avec sa
 > spec, pas dans un chantier de défauts.
+>
+> *À revoir avec la voix (04/11/2026, 243) : le profil affiche aujourd'hui « Je propose des charges » (`profil.js`) ; la note
+> citée ici date d'avant. La règle de voix (MOTEUR §20.2 : « le moteur » n'apparaît dans aucune phrase) reste à confronter à ce
+> texte avec sa spec `ECRAN-PROFIL-V1` §2.3. Signalé seulement : aucun texte affiché n'a été changé.*
 
 ### 7 duovicies.4 « ← Séances » empilait au lieu de remonter
 
@@ -3378,6 +3400,7 @@ l'écran Saisie — c'est ce qu'on voit une fois arrivé là). L'explication la 
 **coquille antérieure au 47**, où `history.back()` atterrissait précisément sur `/saisie`. La
 correction ci-dessus ne dépend d'aucune de ces deux lectures : elle rend la destination
 **indépendante de l'historique**.
+*Mise à jour du 05/11/2026 (243, source : `app.js` ~18799-18800) : câblé — `btn-retour` appelle `afficherSemaine(null, true)` (destination nommée, en remplaçant), `btn-retour-exercice` appelle `remonter(afficherSemaine)`. Reste **à confirmer au téléphone**, sur un appareil, que « ← Séances » ramène à la liste par tous les chemins.*
 
 ⚠️ **Et une mesure du chantier 47 était vide** : le banc de séance réutilise une seule page, dont
 `history.length` sature à **50** (plafond de Chrome). L'assertion « la profondeur n'a pas
@@ -3556,8 +3579,12 @@ chantier 49, et devenu franchement trompeur ici puisqu'il n'y a plus de grand no
 
 ## 8. Reste ouvert
 
-- **Écran de fin de séance** : titre, note, photo, salle.
-- **Ajouter une quatrième série** en cours de séance — non prévu par la maquette.
+> *04/11/2026 (243) : ce qui est barré est fait (le numéro du chantier ou le nom de la fonction dit où) ; le reste n'a pas
+> été re-vérifié et garde son statut d'origine.*
+
+- ~~**Écran de fin de séance** : titre, note, photo, salle.~~ *Fait : §7 septies.4 et 4 bis (récap, chantier 71).*
+- ~~**Ajouter une quatrième série** en cours de séance — non prévu par la maquette.~~ *Fait : le bouton « + Série » par branche
+  (`boutonsAjoutSerie`, `rendu.js`).*
 - **Réchauffement tardif** (au tour 3 après une longue pause) : aucune place
   prévue. Jugé acceptable, se saisit comme une série normale.
 - **Fin de bloc** : quand le dernier tour est validé, plus rien n'est éclairé. Il
@@ -3574,6 +3601,9 @@ chantier 49, et devenu franchement trompeur ici puisqu'il n'y a plus de grand no
 ---
 
 ## 9. Migration de la session précédente à reporter
+
+> *04/11/2026 (243) : périmé. `v2_036_sessions_salle` est consignée dans `SCHEMA-REEL.md`, qui fait foi ; la section reste pour la
+> trace.*
 
 `v2_036_sessions_salle` — appliquée et vérifiée, **pas encore consignée dans
 `SCHEMA-V2_2.md`**. Ajoute à `sessions` : `salle` text (contraintes 1-60

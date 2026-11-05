@@ -15,6 +15,8 @@ const SCRIPTS = ['modele', 'semaine', 'palier', 'profil', 'moteur', 'rendu'].map
 // Le même navigateur que les bancs (CHROME_BIN, sinon le chemin de la machine) ; absent, la mesure ne se joue pas ici (les bancs de GitHub l'ont).
 const CHROME = process.env.CHROME_BIN || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const AVEC = fs.existsSync(CHROME);
+// 243 : le saut sans Chrome s'annonce (une fois), il ne se tait plus. Sauté dans test.yml (sans Chrome), joué dans bancs.yml (CHROME_BIN).
+if (!AVEC) console.warn('173 (mise en page de Progression) : SAUTÉ — aucun Chrome à ' + CHROME + ' (définir CHROME_BIN). Sur GitHub, il doit tourner.');
 const decrire = AVEC ? describe.each : describe.skip.each;
 let nav;
 beforeAll(async () => { if (AVEC) nav = await Garde.lancer(chromium, { executablePath: CHROME, args: ['--no-sandbox'] }); }, 60000);

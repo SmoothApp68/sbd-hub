@@ -21,11 +21,13 @@ function charger(source) {
   FICHIERS.forEach((nom) => vm.runInContext(source(nom), bac, { filename: nom + '.js' }));
   return bac;
 }
-let ANCIEN = null, NOUVEAU = null, ANCIEN_DISPO = true;
+let ANCIEN = null, NOUVEAU = null, ERREUR_ANCIEN = null, ERREUR_NOUVEAU = null;
 try {
   ANCIEN = charger(lireAncien);
+} catch (e) { ERREUR_ANCIEN = e; }
+try {
   NOUVEAU = charger((nom) => fs.readFileSync(path.join(RACINE, 'v2/js', nom + '.js'), 'utf8'));
-} catch (e) { ANCIEN_DISPO = false; }   // pas d'historique git (copie sans .git) : le test ne dit rien
+} catch (e) { ERREUR_NOUVEAU = e; }   // 243 : plus de saut silencieux — voir le beforeAll ci-dessous
 
 let x = 232; const alea = () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; };
 const JOUR = 86400000;
@@ -72,7 +74,17 @@ function corpusDe(ctx, h) {
 const copie = (v) => JSON.parse(JSON.stringify(v));
 const dire = (v) => JSON.stringify(v);
 
-(ANCIEN_DISPO ? describe : describe.skip)('232 — la fiche d’un exercice : le même résultat, plus vite', () => {
+// 243 (inventaire du 04/11) : ce test comparait, sans bruit, à RIEN quand le commit d'avant (AVANT_232) manquait — une copie sans .git, ou
+// le checkout superficiel de GitHub (profondeur 1, avant que les workflows ne demandent l'historique entier). Il échoue maintenant,
+// bruyamment, et dit comment le réparer : jamais un `describe.skip` qui laisse croire que la comparaison a eu lieu.
+describe('232 — la fiche d’un exercice : le même résultat, plus vite', () => {
+  beforeAll(() => {
+    if (ERREUR_NOUVEAU) throw new Error('232 : le code actuel (v2/js) ne se charge pas. Cause : ' + ERREUR_NOUVEAU.message);
+    if (ERREUR_ANCIEN) {
+      throw new Error('232 : le code d\u2019avant (commit ' + AVANT_232 + ') est illisible, la comparaison ne peut pas avoir lieu. ' +
+        'Il faut l\u2019historique git complet (`git fetch --unshallow`, ou `fetch-depth: 0` au checkout). Cause : ' + ERREUR_ANCIEN.message);
+    }
+  });
   test('60 historiques tirés : le contrat, la consigne et les charges de travail sont ceux d’avant, sur chaque préfixe', () => {
     let consignes = 0, paliers = 0, sansPalier = 0;
     for (let essai = 0; essai < 60; essai++) {

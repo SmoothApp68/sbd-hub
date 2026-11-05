@@ -36,13 +36,14 @@ describe('audit 130 n°5 — une série en distance seule se montre', () => {
 });
 
 // ── #8 et #9 — les bornes (ECRAN §3 ter.5, décidées le 21/10/2026) ─────────────
-describe('audit 130 n°8 et n°9 — les bornes : jamais 0, la distance au plus 400 km', () => {
+describe('audit 130 n°8 et n°9 — les bornes : jamais 0, la distance au plus 300 km', () => {
   const seance = () => ({ exercices: [{ exercise_slug: 'course', series: [SERIE({})] }] });
   const apres = (champs) => Seance.modifierSerie(seance(), 0, 0, champs).exercices[0].series[0];
-  test('400 km passent ; 400,1 km ne s’écrivent pas', () => {
-    expect(apres({ distance_km: '400' }).distance_m).toBe(400000);
-    expect(apres({ distance_km: '400,1' }).distance_m).toBeNull();
-    expect(apres({ distance_m: 400001 }).distance_m).toBeNull();
+  test('300 km passent ; 300,1 km ne s’écrivent pas (243 : 400 km avant)', () => {
+    expect(Modele.MAX_DISTANCE_M).toBe(300000);
+    expect(apres({ distance_km: '300' }).distance_m).toBe(300000);
+    expect(apres({ distance_km: '300,1' }).distance_m).toBeNull();
+    expect(apres({ distance_m: 300001 }).distance_m).toBeNull();
   });
   test('⚠️ 0 ne s’écrit jamais : ni une durée, ni une distance', () => {
     expect(apres({ distance_km: '0' }).distance_m).toBeNull();
@@ -62,9 +63,12 @@ describe('audit 130 n°8 et n°9 — les bornes : jamais 0, la distance au plus 
     expect(r.change).toBe(true);
     expect(r.ligne.distance_m).toBeNull();
     expect(Seance.bornerLigne({ duree_s: 1800, distance_m: 5000 }).change).toBe(false);
+    // 243 : la borne de la réparation est la même, 300 km.
+    expect(Seance.bornerLigne({ duree_s: 1800, distance_m: 350000 }).ligne.distance_m).toBeNull();
+    expect(Seance.bornerLigne({ duree_s: 1800, distance_m: 300000 }).change).toBe(false);
   });
   test('le champ de saisie : la borne en kilomètres, rien pour la charge', () => {
-    expect(Modele.maxDeSaisie('distance_km')).toBe(400);
+    expect(Modele.maxDeSaisie('distance_km')).toBe(300);
     expect(Modele.maxDeSaisie('charge_kg')).toBeNull();
   });
 });
@@ -199,5 +203,15 @@ describe('131 — la feuille « Terminer » : la première donnée facultative r
     const s = seance([['randonnee', [S('randonnee', { duree_s: 11400, distance_m: 13200, denivele_m: 920 })]],
       ['escaliers', [S('escaliers', { duree_s: 1200, etages: 72 })]]]);
     expect(Seance.donneeFacultativeVide(s, CAT)).toBeNull();
+  });
+});
+
+// ── 243 — une durée de 0 s est une valeur (le prédicat `aValeur`, pas un second test de nullité) ─────────────
+describe('243 — une durée de 0 s s’affiche « 0 s » et compte comme une valeur', () => {
+  test('le journal dit « 0 s », jamais « — » ; une durée absente reste absente', () => {
+    expect(Modele.formatMesure(SERIE({ duree_s: 0 }))).toBe('0 s');
+    expect(Modele.formatMesure(SERIE({ distance_m: 5000, duree_s: 0 }))).toBe('5 km · 0 s');
+    expect(Modele.formatMesure(SERIE({ duree_s: null }))).toBe('—');
+    expect(Modele.formatMesure(SERIE({ duree_s: 1800 }))).toBe('30 min');
   });
 });

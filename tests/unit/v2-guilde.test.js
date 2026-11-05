@@ -142,7 +142,6 @@ describe('90 — social.js : les règles de la guilde', () => {
     expect(Routeur.construire('guilde', {})).toBe('/jeu/guilde');
     expect(Routeur.ongletDe('guilde')).toBe('jeu');
     expect(Routeur.estVueDuJeu('guilde')).toBe(false);
-    expect(Routeur.estVueSociale('guilde')).toBe(true);
   });
 });
 

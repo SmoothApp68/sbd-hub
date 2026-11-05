@@ -4,7 +4,6 @@
 > **Fichier vivant — tiens-le à jour quand une convention ou une valeur du code change.**
 > Fusion de l'ancien « Contexte Complet TrainHub » (détail algos/données/historique) et de la constitution
 > « SBD Hub » (état v349). En cas de conflit : **le code est la source de vérité, pas ce fichier.**
-> Les valeurs marquées `[À VÉRIFIER]` n'ont pas été confirmées par grep — re-grep avant de t'y fier.
 
 ---
 
@@ -180,6 +179,7 @@ trappe `/__sw-off` pendrait avec lui.
   `Semaine.volumeParMuscle` → la somme unique `Semaine.sommeDesSeries`). Épaules = 3 deltoïdes, Dos = haut du dos + grand dorsal, abducteurs
   sans tracé (liste seulement) ; une teinte (`--teinte`), aucun seuil ; le sexe du dessin est une préférence d'appareil (`th-silhouette`).
 
+- **`app.js` ne se découpe pas** (diagnostic H1, 04/11/2026) ; toute nouvelle grosse fonctionnalité naît dans son propre module pur (`faits.js`, `equilibres.js`), `app.js` câble.
 - **Le module des faits** (58-1) : l'assemblage des faits (séances et séries, records d'une séance,
   d'un mois, du jour, le dernier record, la semaine affichée, les exercices faits) vit dans
   `v2/js/faits.js`, avec ses mémos ; les écrans — et le jeu — le **lisent**, aucun autre fichier ne

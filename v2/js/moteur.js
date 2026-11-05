@@ -3,10 +3,10 @@
 // Il applique MOTEUR-PROGRESSION-V2 §8.2 (le format) · §9.1.2 (l'habitude et
 // les cinq zones) · §9.2 (le niveau validé) · §9.12 (ne jamais lire l'avenir).
 //
-// Ce module ne PRESCRIT encore rien : il range. Il dit dans quelle zone un
-// exercice se travaille et à quel niveau son palier est tenu ; c'est le
-// chantier suivant qui en tirera une consigne. Aucun appelant dans l'app à ce
-// commit, et c'est voulu.
+// Ce module ne tranche rien tout seul : il range et il calcule. Il dit dans
+// quelle zone un exercice se travaille, à quel niveau son palier est tenu et
+// quelle consigne en sort ; la seule décision d'une séance se prend dans
+// `planDeSeance` (plan.js), qui lit ce module.
 //
 // Module PUR : aucune dépendance au DOM, au réseau, au cache, au catalogue.
 // UNE seule dépendance, `THPalier`, pour `repsComptees` et `repsPrudentes` —

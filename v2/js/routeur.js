@@ -378,7 +378,6 @@
     estVueDuJeu: function (vue) { return vue === JEU || !!SOUS_JEU[vue]; },
     // 87 — les vues sociales : ouvertes jeu allumé ou éteint.
     FIL: FIL, AMIS: AMIS, AMI: AMI, GUILDE: GUILDE, SOUS_SOCIAL: SOUS_SOCIAL,
-    estVueSociale: function (vue) { return !!SOUS_SOCIAL[vue] || vue === AMI; },
     versDate: versDate,
     depuisDate: depuisDate,
     analyser: analyser,

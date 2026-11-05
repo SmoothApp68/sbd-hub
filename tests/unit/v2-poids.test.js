@@ -254,60 +254,60 @@ describe('tendance — des semaines lundi-dimanche, chacune à ≥ 2 pesées, 4 
   const serie = (ks, n, f) => ks.reduce((a, k) => a.concat(semaine(k, n, f)), []);
 
   test('P1 — 4 semaines × 2 pesées : oui', () => {
-    expect(Poids.tendance(serie([1, 2, 3, 4], 2, lin(-0.5)), AUJ).semaines).toBe(4);
+    expect(Poids.tendanceDuPoids(serie([1, 2, 3, 4], 2, lin(-0.5)), AUJ).semaines).toBe(4);
   });
   test('P1 — 3 semaines × 2, puis une à 1 : null', () => {
-    expect(Poids.tendance(serie([1, 2, 3], 2, lin(-0.5)).concat(semaine(4, 1, lin(-0.5))), AUJ)).toBeNull();
+    expect(Poids.tendanceDuPoids(serie([1, 2, 3], 2, lin(-0.5)).concat(semaine(4, 1, lin(-0.5))), AUJ)).toBeNull();
   });
   test('P1 — 7 pesées sur 4 semaines dont une semaine à 1 : null', () => {
-    expect(Poids.tendance(serie([1, 2, 4], 2, lin(-0.5)).concat(semaine(3, 1, lin(-0.5))), AUJ)).toBeNull();
+    expect(Poids.tendanceDuPoids(serie([1, 2, 4], 2, lin(-0.5)).concat(semaine(3, 1, lin(-0.5))), AUJ)).toBeNull();
   });
   test('P1 — la semaine en cours à 1 pesée est ignorée ; à 2 pesées elle compte', () => {
     const base = serie([1, 2, 3, 4], 2, lin(-0.5));
-    expect(Poids.tendance(base.concat(semaine(0, 1, lin(-0.5))), AUJ).semaines).toBe(4);
-    expect(Poids.tendance(base.concat(semaine(0, 2, lin(-0.5))).filter((p) => p.date <= AUJ || true), new Date(2026, 10, 15, 22, 0)).semaines).toBe(5);
+    expect(Poids.tendanceDuPoids(base.concat(semaine(0, 1, lin(-0.5))), AUJ).semaines).toBe(4);
+    expect(Poids.tendanceDuPoids(base.concat(semaine(0, 2, lin(-0.5))).filter((p) => p.date <= AUJ || true), new Date(2026, 10, 15, 22, 0)).semaines).toBe(5);
   });
   test('P1 — plafond de 12 semaines', () => {
     const ks = []; for (let k = 1; k <= 20; k++) ks.push(k);
-    const t = Poids.tendance(serie(ks, 2, lin(-0.5)), AUJ);
+    const t = Poids.tendanceDuPoids(serie(ks, 2, lin(-0.5)), AUJ);
     expect(t.semaines).toBe(12);
     expect(t.pesees).toBe(24);
   });
   test('moins de 4 semaines, aucune pesée : null', () => {
-    expect(Poids.tendance(serie([1, 2, 3], 2, lin(0)), AUJ)).toBeNull();
-    expect(Poids.tendance([], AUJ)).toBeNull();
+    expect(Poids.tendanceDuPoids(serie([1, 2, 3], 2, lin(0)), AUJ)).toBeNull();
+    expect(Poids.tendanceDuPoids([], AUJ)).toBeNull();
   });
   test('pente exacte sur une série linéaire connue : −0,5 kg/7 j → « −0,5 kg par semaine… »', () => {
-    const t = Poids.tendance(serie([1, 2, 3, 4, 5, 6], 2, lin(-0.5)), AUJ);
+    const t = Poids.tendanceDuPoids(serie([1, 2, 3, 4, 5, 6], 2, lin(-0.5)), AUJ);
     expect(t.kgParSemaine).toBeCloseTo(-0.5, 6);
     expect(t.erreur).toBeCloseTo(0, 6);
     expect(Poids.phraseDeTendance(t)).toBe('−0,5 kg par semaine en moyenne, sur les 6 dernières semaines.');
     expect(Poids.noteDeTendance(t)).toBe('Calculée sur tes 12 pesées de ces 6 semaines.');
   });
   test('une montée : signe « + »', () => {
-    expect(Poids.phraseDeTendance(Poids.tendance(serie([1, 2, 3, 4, 5], 2, lin(0.3)), AUJ)))
+    expect(Poids.phraseDeTendance(Poids.tendanceDuPoids(serie([1, 2, 3, 4, 5], 2, lin(0.3)), AUJ)))
       .toBe('+0,3 kg par semaine en moyenne, sur les 5 dernières semaines.');
   });
   test('série très bruitée (±1,5 kg alterné, 8 pesées, pente vraie −0,2) : « Pas de sens net »', () => {
     let i = 0;
     const f = (d) => lin(-0.2)(d) + (i++ % 2 ? 1.5 : -1.5);
-    const t = Poids.tendance(serie([1, 2, 3, 4], 2, f), AUJ);
+    const t = Poids.tendanceDuPoids(serie([1, 2, 3, 4], 2, f), AUJ);
     expect(t.pesees).toBe(8);
     expect(Poids.phraseDeTendance(t)).toBe('Pas de sens net sur les 4 dernières semaines.');
   });
   test('série plate peu bruitée : « Stable »', () => {
     let i = 0;
     const f = () => 90 + (i++ % 2 ? 0.05 : -0.05);
-    expect(Poids.phraseDeTendance(Poids.tendance(serie([1, 2, 3, 4], 2, f), AUJ))).toBe('Stable sur les 4 dernières semaines.');
+    expect(Poids.phraseDeTendance(Poids.tendanceDuPoids(serie([1, 2, 3, 4], 2, f), AUJ))).toBe('Stable sur les 4 dernières semaines.');
   });
   test('P4 — aucune des phrases ne juge ni n’invite', () => {
     const MOTS = /\b(bien|bravo|trop|objectif|idéal|pèse-toi|pense à|continue|attention)\b/i;
     let i = 0;
     const phrases = [
-      Poids.phraseDeTendance(Poids.tendance(serie([1, 2, 3, 4], 2, lin(-0.5)), AUJ)),
-      Poids.phraseDeTendance(Poids.tendance(serie([1, 2, 3, 4], 2, lin(0.4)), AUJ)),
-      Poids.phraseDeTendance(Poids.tendance(serie([1, 2, 3, 4], 2, () => 90), AUJ)),
-      Poids.phraseDeTendance(Poids.tendance(serie([1, 2, 3, 4], 2, (d) => 90 + (i++ % 2 ? 1.5 : -1.5)), AUJ)),
+      Poids.phraseDeTendance(Poids.tendanceDuPoids(serie([1, 2, 3, 4], 2, lin(-0.5)), AUJ)),
+      Poids.phraseDeTendance(Poids.tendanceDuPoids(serie([1, 2, 3, 4], 2, lin(0.4)), AUJ)),
+      Poids.phraseDeTendance(Poids.tendanceDuPoids(serie([1, 2, 3, 4], 2, () => 90), AUJ)),
+      Poids.phraseDeTendance(Poids.tendanceDuPoids(serie([1, 2, 3, 4], 2, (d) => 90 + (i++ % 2 ? 1.5 : -1.5)), AUJ)),
       Poids.noteDeTendance({ pesees: 8, semaines: 4 })
     ];
     phrases.forEach((p) => { expect(typeof p).toBe('string'); expect(p).not.toMatch(MOTS); });

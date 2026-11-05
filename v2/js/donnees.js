@@ -824,6 +824,15 @@
     if (r.error) throw r.error;
   }
 
+  // 246 — LE SECOND ÉCRIVAIN de `body_weight_log`, pour l'IMPORT des mesures de Hevy : un AJOUT SEUL. Un jour déjà
+  // pesé (n'importe quelle source) garde sa valeur : `ignoreDuplicates` pose `ON CONFLICT (user_id, date) DO NOTHING`
+  // (`body_weight_log_une_par_jour`), jamais un upsert qui fusionne — l'import ne remplace jamais une pesée.
+  async function ajouterPesees(lignes) {
+    if (!lignes || !lignes.length) return;
+    var r = await client().from('body_weight_log').upsert(lignes, { onConflict: 'user_id,date', ignoreDuplicates: true });
+    if (r.error) throw r.error;
+  }
+
   // ══ LES NOMS D'EXERCICES IMPORTÉS (69, ECRAN-PROFIL §2.4 quater) ══════════
   //
   // Colonnes RELEVÉES AU SCHÉMA (information_schema.columns, 11/10/2026), pas
@@ -1262,6 +1271,7 @@
     tousLesExercices: tousLesExercices,
     toutesLesPesees: toutesLesPesees,
     enregistrerPesee: enregistrerPesee,
+    ajouterPesees: ajouterPesees,
     mesChoixDeSemaine: mesChoixDeSemaine,
     mesObjectifs: mesObjectifs,
     enregistrerObjectif: enregistrerObjectif,

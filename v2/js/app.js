@@ -810,6 +810,26 @@
                   donnees: { user_id: idUtilisateur(), date: pesee.date, poids_kg: pesee.poids_kg, source: 'app' } });
   }
 
+  // 246 — LES PESÉES IMPORTÉES de Hevy : un AJOUT SEUL, pour les jours ABSENTS de l'appareil (`source: 'import_hevy'`).
+  // Un jour déjà pesé garde sa valeur : ni dans le local, ni dans la ligne envoyée. Une seule écriture de la file.
+  async function poserPeseesImportees(pesees) {
+    var presents = {};
+    (local.pesees || []).forEach(function (l) { if (l && l.date) presents[String(l.date).slice(0, 10)] = true; });
+    var neuves = (pesees || []).filter(function (p) { return p && !presents[p.date]; });
+    if (!neuves.length) return 0;
+    var lignes = neuves.map(function (p) {
+      return { id: 'pesee-' + p.date, date: p.date, poids_kg: p.poids_kg, source: 'import_hevy' };
+    });
+    local.pesees = (local.pesees || []).concat(lignes);
+    await Cache.ecrireLot('pesees', lignes).catch(function () {});
+    var uid = idUtilisateur();
+    await poserPaquet(neuves.map(function (p) {
+      return { table: Attente.PESEES, op: Attente.AJOUTER, id: 'pesee-' + p.date,
+               donnees: { user_id: uid, date: p.date, poids_kg: p.poids_kg, source: 'import_hevy' } };
+    }));
+    return neuves.length;
+  }
+
   async function poserMode(slug, mode) {
     var id = uuid();
     var ligne = {
@@ -1819,7 +1839,7 @@
       priorites: Profil.prioritesDe(profil).filter(function (c) { return libelles[c]; }).map(function (c) { return libelles[c]; }),
       phase: Profil.phraseRappelDePhase(profil) || Profil.LIBELLE_PHASE_VIDE,
       pesees: { nombre: pesees, assez: pesees >= PESEES_SUFFISANTES,
-                tendance: Poids.phraseDeTendance(Poids.tendance(local.pesees, new Date())) },
+                phraseTendance: Poids.phraseDeTendance(Poids.tendanceDuPoids(local.pesees, new Date())) },
       // 188-1 — « Ta semaine et tes équilibres », en tête.
       equilibres: vueDesEquilibres(),
       // 197 — « Ta semaine » en Forme et santé (renforcement, cardio modéré), cachable.
@@ -4211,7 +4231,10 @@
     // FUSIONNE. ⚠️ SANS CETTE BRANCHE, une entrée `body_weight_log` serait vidée
     // par le dernier `return` sans rien écrire — la perte silencieuse que la
     // file existe pour empêcher.
-    if (op.table === Attente.PESEES) return Donnees.enregistrerPesee(op.donnees);
+    // 246 — l'import des mesures de Hevy : un AJOUT SEUL (`ajouterPesees`), jamais une fusion.
+    if (op.table === Attente.PESEES) {
+      return op.op === Attente.AJOUTER ? Donnees.ajouterPesees([op.donnees]) : Donnees.enregistrerPesee(op.donnees);
+    }
     // 69 — le rattachement d'un nom importé : un `upsert` sur (user_id,
     // alias_norme) qui FUSIONNE. Sans cette branche, l'entrée serait vidée par
     // le dernier `return` sans rien écrire.
@@ -13752,7 +13775,7 @@
     Rendu.rendreCourbePoids($('courbe-poids'), Poids.courbe(fenetre, 300, 104));
     Rendu.rendreListePesees($('liste-pesees'), Poids.dernieres(fenetre, 12), fenetre.length);
     // 246 : la tendance se calcule sur TOUTES les pesées, pas sur la période choisie ; sans tendance, rien.
-    var t = Poids.tendance(local.pesees, new Date());
+    var t = Poids.tendanceDuPoids(local.pesees, new Date());
     Rendu.rendreTendancePoids($('tendance-poids'), Poids.phraseDeTendance(t), Poids.noteDeTendance(t));
   }
 
@@ -18152,16 +18175,52 @@
     rendreImportEcran();
   }
 
+  // 246 — l'aperçu des mesures : ce qui est trouvé, ce qui est déjà là (gardé tel quel), ce qui est écarté.
+  function lireMesuresHevy(texte) {
+    var imp = importHevy, M = Import.MESSAGES;
+    var lue = Import.lireMesuresCsv(texte, new Date());
+    if (lue.raison) {
+      imp.erreur = lue.raison === 'unite' ? M.mesuresUnite : lue.raison === 'vide' ? M.mesuresVide
+        : lue.raison === 'longueur' ? M.mesuresLongueur
+        : lue.raison === 'date' ? (lue.enAnglais ? M.fichierAnglais : M.mesuresDate) : M.mesuresEntete;
+      return rendreImportEcran();
+    }
+    imp.mesures = Import.apercuDesMesures(lue, local.pesees);
+    if (!imp.mesures.trouvees) { imp.mesures = null; imp.erreur = M.mesuresRien; return rendreImportEcran(); }
+    imp.etape = 'mesures';
+    rendreImportEcran();
+  }
+
+  async function importerMesuresHevy() {
+    var imp = importHevy;
+    if (!imp || imp.etape !== 'mesures' || !imp.mesures) return;
+    // Les jours déjà pesés sont retirés une seconde fois, sur l'état d'AUJOURD'HUI (`poserPeseesImportees`).
+    var n = await poserPeseesImportees(imp.mesures.aImporter);
+    if (importHevy !== imp) return;
+    imp.etape = 'fini';
+    imp.resultat = null;
+    imp.mesuresFin = { titre: n + (n > 1 ? ' pesées importées.' : ' pesée importée.'),
+      suite: n ? 'Elles figurent sur la courbe de ton poids.' : null };
+    if (ecranCourant === 'import') rendreImportEcran();
+  }
+
   async function lireFichierHevy() {
     var champ = $('fichier-hevy');
     var f = champ && champ.files && champ.files[0];
     if (!f || !importHevy) return;
+    // 246 — la taille du FICHIER est vérifiée AVANT de le lire.
+    if (f.size > Import.MESURES_OCTETS_MAX) {
+      importHevy.erreur = Import.MESSAGES.mesuresLongueur;
+      return rendreImportEcran();
+    }
     var texte = null;
     try { texte = await f.text(); } catch (e) { texte = null; }
     if (texte === null) {
       importHevy.erreur = Import.MESSAGES.fichier;
       return rendreImportEcran();
     }
+    // 246 — un CSV de MESURES (une colonne `date`, aucune colonne de séance) prend son propre chemin.
+    if (Import.estUnCsvDeMesures(texte)) return lireMesuresHevy(texte);
     return lireImport('csv', texte);
   }
 
@@ -18389,6 +18448,15 @@
     if (imp.etape === 'en_cours') {
       v.progression = { fait: imp.progression.fait, total: imp.progression.total,
         texte: imp.progression.fait + ' séances sur ' + imp.progression.total };
+    } else if (imp.etape === 'mesures') {
+      var ph = Import.phrasesDesMesures(imp.mesures);
+      v.titre = ph[0];
+      v.phrases = ph.slice(1);
+      v.bouton = { libelle: Import.libelleDImporterPesees(imp.mesures.aImporter.length), actif: imp.mesures.aImporter.length > 0 };
+      v.surImporter = function () { importerMesuresHevy().catch(function (e) { console.warn('Import :', texteErreur(e)); }); };
+      v.surAnnuler = function () { importHevy = importNeuf(); rendreImportEcran(); };
+    } else if (imp.etape === 'fini' && imp.mesuresFin) {
+      v.fin = { titre: imp.mesuresFin.titre, detail: null, suite: imp.mesuresFin.suite, connexion: null };
     } else if (imp.etape === 'fini') {
       v.fin = Import.phrasesDeFin(imp.resultat);
       v.fin.connexion = imp.resultat.arret ? M.connexion : null;

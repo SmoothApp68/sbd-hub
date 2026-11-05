@@ -28,21 +28,21 @@ const note = (pesees) => {
 
 describe('246 — la note de pesées de la phase', () => {
   test('une tendance : sa phrase, et plus « N pesées en huit semaines. »', () => {
-    const n = note({ nombre: 9, assez: true, tendance: '−0,4 kg par semaine en moyenne, sur les 6 dernières semaines.' });
+    const n = note({ nombre: 9, assez: true, phraseTendance: '−0,4 kg par semaine en moyenne, sur les 6 dernières semaines.' });
     expect(n).toEqual(['−0,4 kg par semaine en moyenne, sur les 6 dernières semaines.']);
   });
   test('pas de tendance, assez de pesées : « N pesées en huit semaines. » (inchangé)', () => {
-    expect(note({ nombre: 5, assez: true, tendance: null })).toEqual(['5 pesées en huit semaines.']);
+    expect(note({ nombre: 5, assez: true, phraseTendance: null })).toEqual(['5 pesées en huit semaines.']);
   });
   test('pas assez de pesées : l’invitation reste (décision d’Aurélien)', () => {
-    expect(note({ nombre: 2, assez: false, tendance: null }))
+    expect(note({ nombre: 2, assez: false, phraseTendance: null }))
       .toEqual(['Pas assez de pesées : 2 en huit semaines. Une par semaine suffit.']);
   });
-  test('la vue lit `Poids.tendance` dans app.js ; rendu.js ne la calcule pas', () => {
+  test('la vue lit `Poids.tendanceDuPoids` dans app.js ; rendu.js ne la calcule pas', () => {
     const rendu = fs.readFileSync(path.join(__dirname, '../../v2/js/rendu.js'), 'utf8');
     const app = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
-    expect(rendu).not.toMatch(/\.tendance\(|moindres/);
-    expect(app).toMatch(/pesees: \{ nombre: pesees, assez: pesees >= PESEES_SUFFISANTES,\s*tendance: Poids\.phraseDeTendance\(Poids\.tendance\(/);
+    expect(rendu).not.toMatch(/tendanceDuPoids|moindres/);
+    expect(app).toMatch(/pesees: \{ nombre: pesees, assez: pesees >= PESEES_SUFFISANTES,\s*phraseTendance: Poids\.phraseDeTendance\(Poids\.tendanceDuPoids\(/);
     expect(app).toMatch(/PESEES_SUFFISANTES n'est pas une seconde tendance/);
   });
 });

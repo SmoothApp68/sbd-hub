@@ -637,7 +637,7 @@ const NOTIONS = [
     raison: 'le travail, les dégressives et les échecs : le compte du Python qui a produit le §5.1. ' +
       'Une autre notion que `estTravail` ; elle portait un nom (`trav`) qui la faisait passer pour elle.' },
   { notion: 'le formateur des nombres et des dates (un seul)', pr: 'PR 7',
-    module: 'modele.js', fonction: 'nombreSigne', lecteurs: ['rendu.js', 'app.js', 'profil.js', 'questionnaire.js', 'bilan.js'],
+    module: 'modele.js', fonction: 'nombreSigne', lecteurs: ['rendu.js', 'app.js', 'profil.js', 'questionnaire.js', 'bilan.js', 'poids.js'],
     motif: /\.\s*nombreSigne\s*\(/g,
     interditAilleurs: {
       // 124 (audit du 16/10/2026, 06 #15) — et les jours comme les mois : une liste de jours (« lundi », « mardi » ;
@@ -1999,7 +1999,7 @@ const NOTIONS = [
     raison: '246 : un seul « poids à une date » — le rapport au poids (14 j) et le score publié (90 j) le lisent ; ' +
       'plus aucune lecture ad hoc de « la dernière pesée » pour un calcul.' },
   { notion: 'la tendance du poids (moindres carrés sur 4 à 12 semaines à ≥ 2 pesées) et sa phrase', pr: '246-U3',
-    module: 'poids.js', fonction: 'tendance', lecteurs: ['app.js'],
+    module: 'poids.js', fonction: 'tendanceDuPoids', lecteurs: ['app.js'],
     raison: '246 : une seule tendance, sur toutes les pesées ; l’écran Poids et la note de la sèche la LISENT, ' +
       'aucun écran ne la calcule. Elle ne sort jamais de l’appareil.' },
   { notion: 'la phrase de la tendance du poids (un fait, ni jugement ni invitation)', pr: '246-U3',
@@ -2826,8 +2826,12 @@ describe('architecture — le journal des records : un seul écrivain (58-2)', (
       const code = nettoyer(f.src, false);
       const n = (code.match(/\bAJOUTER\b/g) || []).length;
       if (!n) return;
-      const corps = f.nom === 'app.js' ? corpsDe(code, 'poserJournal') : null;
-      const dedans = corps ? (corps.match(/\bAJOUTER\b/g) || []).length : 0;
+      // 246 — `AJOUTER` sert aussi, hors du journal, à l'import des mesures de Hevy (un ajout seul de pesées) : il se pose
+      // dans `poserPeseesImportees` et se lit dans `executer` (la branche `Attente.PESEES`). Nulle part ailleurs.
+      const dedans = f.nom !== 'app.js' ? 0 : ['poserJournal', 'poserPeseesImportees', 'executer'].reduce((t, nom) => {
+        const corps = corpsDe(code, nom);
+        return t + (corps ? (corps.match(/\bAJOUTER\b/g) || []).length : 0);
+      }, 0);
       if (dedans !== n) fautes.push(f.nom + ' pose une entrée du journal hors de poserJournal');
     });
     expect(fautes).toEqual([]);
@@ -2928,58 +2932,78 @@ describe('architecture — la pesée : un seul écrivain (60-2a)', () => {
   const ECRITURE_PESEES = /from\(\s*(['"])body_weight_log\1\s*\)[\s\S]{0,120}?\.\s*(insert|upsert|update|delete)\s*\(/g;
   const compter = (texte, re) => (texte.match(new RegExp(re.source, 'g')) || []).length;
 
-  test('⚠️ en base, `body_weight_log` ne s’écrit que dans `enregistrerPesee` (donnees.js)', () => {
+  // 246 — DEUX écrivains de `body_weight_log`, conscients : `enregistrerPesee` (la pesée SAISIE : un upsert qui
+  // FUSIONNE, une pesée se corrige) et `ajouterPesees` (l'import des mesures de Hevy : un AJOUT SEUL, `ignoreDuplicates`
+  // — l'import ne remplace jamais une pesée). Une troisième fonction qui écrit la table fait échouer la garde.
+  const ECRIVAINS = ['enregistrerPesee', 'ajouterPesees'];
+
+  test('⚠️ en base, `body_weight_log` ne s’écrit que dans `enregistrerPesee` et `ajouterPesees` (donnees.js)', () => {
     const fautes = [];
     FICHIERS.forEach((f) => {
       const code = nettoyer(f.src, true);
       const n = compter(code, ECRITURE_PESEES);
       if (f.nom !== 'donnees.js') { if (n) fautes.push(f.nom + ' écrit `body_weight_log` (' + n + ')'); return; }
-      const corps = corpsDe(code, 'enregistrerPesee');
-      if (!corps) { fautes.push('enregistrerPesee absente de donnees.js'); return; }
-      if (compter(corps, ECRITURE_PESEES) !== 1 || n !== 1) {
-        fautes.push('donnees.js : ' + n + ' écriture(s) de `body_weight_log`, dont ' + compter(corps, ECRITURE_PESEES) + ' dans enregistrerPesee');
-      }
+      let dedans = 0;
+      ECRIVAINS.forEach((nom) => {
+        const corps = corpsDe(code, nom);
+        if (!corps) { fautes.push(nom + ' absente de donnees.js'); return; }
+        if (compter(corps, ECRITURE_PESEES) !== 1) fautes.push(nom + ' : ' + compter(corps, ECRITURE_PESEES) + ' écriture(s) au lieu d’une');
+        dedans += compter(corps, ECRITURE_PESEES);
+      });
+      if (n !== dedans) fautes.push('donnees.js : ' + n + ' écriture(s) de `body_weight_log`, dont ' + dedans + ' dans les deux écrivains');
     });
     expect(fautes).toEqual([]);
   });
 
-  test('⚠️ et c’est un upsert qui FUSIONNE sur (user_id, date) — jamais un ajout qui ignore les doublons', () => {
-    const corps = corpsDe(nettoyer(parNom['donnees.js'].src, true), 'enregistrerPesee');
+  test('⚠️ `enregistrerPesee` FUSIONNE sur (user_id, date) ; `ajouterPesees` AJOUTE SEUL (`ignoreDuplicates: true`)', () => {
+    const code = nettoyer(parNom['donnees.js'].src, true);
+    const corps = corpsDe(code, 'enregistrerPesee');
     expect(corps).toMatch(/onConflict:\s*'user_id,date'/);
     expect(corps).not.toMatch(/ignoreDuplicates/);
+    const ajout = corpsDe(code, 'ajouterPesees');
+    expect(ajout).toMatch(/onConflict:\s*'user_id,date'/);
+    expect(ajout).toMatch(/ignoreDuplicates:\s*true/);
   });
 
-  test('⚠️ `enregistrerPesee` n’est appelée que par la vidange (`executer`, app.js)', () => {
+  test('⚠️ `enregistrerPesee` et `ajouterPesees` ne sont appelées que par la vidange (`executer`, app.js)', () => {
     const fautes = [];
-    FICHIERS.forEach((f) => {
-      if (f.nom === 'donnees.js') return;
-      const a = appels(f.src, { fn: 'enregistrerPesee' });
-      if (!a.length) return;
-      if (f.nom !== 'app.js') { fautes.push(f.nom + ' appelle enregistrerPesee'); return; }
-      const corps = corpsDe(nettoyer(f.src, false), 'executer');
-      const dedans = corps ? (corps.match(/\.\s*enregistrerPesee\s*\(/g) || []).length : 0;
-      if (dedans !== a.length) fautes.push('app.js appelle enregistrerPesee hors d’executer');
+    ECRIVAINS.forEach((nom) => {
+      FICHIERS.forEach((f) => {
+        if (f.nom === 'donnees.js') return;
+        const a = appels(f.src, { fn: nom });
+        if (!a.length) return;
+        if (f.nom !== 'app.js') { fautes.push(f.nom + ' appelle ' + nom); return; }
+        const corps = corpsDe(nettoyer(f.src, false), 'executer');
+        const dedans = corps ? (corps.match(new RegExp('\\.\\s*' + nom + '\\s*\\(', 'g')) || []).length : 0;
+        if (dedans !== a.length) fautes.push('app.js appelle ' + nom + ' hors d’executer');
+      });
+      expect([nom, appels(parNom['app.js'].src, { fn: nom }).length]).toEqual([nom, 1]);
     });
     expect(fautes).toEqual([]);
-    expect(appels(parNom['app.js'].src, { fn: 'enregistrerPesee' }).length).toBe(1);
   });
 
-  test('⚠️ une entrée de la file pour une pesée ne se pose que par `poserPesee` (app.js)', () => {
+  test('⚠️ une entrée de la file pour une pesée ne se pose que par `poserPesee` ou `poserPeseesImportees` (app.js)', () => {
     const fautes = [];
     FICHIERS.forEach((f) => {
       if (f.nom === 'attente.js') return;
       const code = nettoyer(f.src, false);
-      // `Attente.PESEES` se lit aussi à l'exécution (`executer`) et à la
-      // synchronisation (`protegees`) : ce qui est interdit, c'est de POSER
-      // une entrée de cette table ailleurs que dans `poserPesee`.
+      // `Attente.PESEES` se lit aussi à l'exécution (`executer`) et à la synchronisation (`protegees`) : ce qui est
+      // interdit, c'est de POSER une entrée de cette table ailleurs que dans les deux poseurs.
       const poses = (code.match(/table:\s*Attente\.PESEES\b/g) || []).length;
       if (!poses) return;
-      const corps = f.nom === 'app.js' ? corpsDe(code, 'poserPesee') : null;
-      const dedans = corps ? (corps.match(/table:\s*Attente\.PESEES\b/g) || []).length : 0;
-      if (dedans !== poses) fautes.push(f.nom + ' pose une entrée de pesée hors de poserPesee');
+      let dedans = 0;
+      if (f.nom === 'app.js') {
+        ['poserPesee', 'poserPeseesImportees'].forEach((nom) => {
+          const corps = corpsDe(code, nom);
+          dedans += corps ? (corps.match(/table:\s*Attente\.PESEES\b/g) || []).length : 0;
+        });
+      }
+      if (dedans !== poses) fautes.push(f.nom + ' pose une entrée de pesée hors des deux poseurs');
     });
     expect(fautes).toEqual([]);
-    expect(corpsDe(nettoyer(parNom['app.js'].src, false), 'poserPesee')).toMatch(/table:\s*Attente\.PESEES\b/);
+    const code = nettoyer(parNom['app.js'].src, false);
+    expect(corpsDe(code, 'poserPesee')).toMatch(/table:\s*Attente\.PESEES\b/);
+    expect(corpsDe(code, 'poserPeseesImportees')).toMatch(/op:\s*Attente\.AJOUTER\b/);
   });
 
   test('la garde se lit vraiment : un second écrivain se voit, une lecture non', () => {
@@ -3095,6 +3119,7 @@ const REGISTRE_ECRITURES = [
   { fn: 'observerPrediction', chemin: 'file' },
   { fn: 'ajouterRecords', chemin: 'file' },
   { fn: 'enregistrerPesee', chemin: 'file' },
+  { fn: 'ajouterPesees', chemin: 'file' },   // 246 — l'import des mesures de Hevy : un ajout seul, par la file (`executer`)
   { fn: 'enregistrerAlias', chemin: 'file' },
   { fn: 'enregistrerChoixDeSemaine', chemin: 'file' },
   // 107 (SOCIAL-V1 §8) — les gestes sociaux : `executer` → `executerGesteSocial`, dans l'ordre ; un geste qui annule le précédent le remplace (l'état final seul part).

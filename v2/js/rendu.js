@@ -8864,6 +8864,8 @@
         vue.conditions.appendChild(doc.createTextNode('.'));
       }
     }
+    // 247 — la zone du captcha n'existe que si la clé de site est posée (l'app le dit ; le rendu ne décide rien).
+    if (vue.captcha) vue.captcha.hidden = !vue.captchaActif;
     if (vue.bouton) vue.bouton.textContent = inscription ? 'Créer mon compte' : 'Se connecter';
     if (vue.bascule) vue.bascule.textContent = inscription ? 'Se connecter' : 'Créer un compte';
     if (vue.basculeAvant) {

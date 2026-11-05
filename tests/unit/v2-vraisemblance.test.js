@@ -260,7 +260,8 @@ describe('245 (D-Q1) — le meilleur est celui de la médaille (recordLourd), pa
     const r = Faits.questionDuRecord({ charge: 140, reps: 5, equipement: 'barre' }, { historique: H, recordLourd: 100 });
     expect(r && r.genre).toBe('record');
   });
-  test('recordLourd nul (rien dans le périmètre) : pas de meilleur, pas de question', () => {
+  test('recordLourd nul (périmètre vide) : retour au meilleur de toute la vie — 220 au lieu de 22 POSE la question, 140 sous le 200 non', () => {
+    expect(v({ charge: 220, reps: 5, equipement: 'barre' }, { historique: histo(22), recordLourd: null }).genre).toBe('hausse');
     expect(v({ charge: 140, reps: 5, equipement: 'barre' }, { historique: H, recordLourd: null })).toBeNull();
   });
   test('les séries validées du jour comptent toujours (une charge confirmée plus tôt n’est plus une surprise)', () => {

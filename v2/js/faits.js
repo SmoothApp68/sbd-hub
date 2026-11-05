@@ -1876,8 +1876,10 @@
     // parlent alors du même meilleur que la médaille, plus d'un meilleur « de toute la vie » que la médaille ne montre pas.
     function meilleurDeLExercice(historique, deLaSeance, recordLourd) {
       var meilleur = null;
-      if (recordLourd !== undefined) {
-        meilleur = recordLourd !== null && recordLourd > 0 ? Number(recordLourd) : null;
+      // `null` (périmètre de la médaille vide : rien de récent, ou que des barres hors périmètre) : on revient au meilleur de
+      // toute la vie, pour ne pas taire une saisie démesurée faute de médaille (245, D-Q1).
+      if (recordLourd !== undefined && recordLourd !== null && recordLourd > 0) {
+        meilleur = Number(recordLourd);
       } else {
         (historique || []).forEach(function (g) {
           seriesDeReference(g && g.series).forEach(function (x) {

@@ -7,6 +7,17 @@ Dernière migration appliquée : **`v2_125`** (la calisthénie, 195) ; avant ell
 **Volumétrie (24/10, 2 h 30)** : 1 288 séances · 29 673 séries · 860 exercices (848 actifs) · 961 alias
 (`exercise_alias`) · 361 prédictions · 3 647 records · 9 profils · 36 règles d'accès.
 
+## Le 05/11/2026 — `v2_132`, `v2_135`, `v2_136` (appliquées par Claude.ai)
+
+| Migration | Ce qu'elle fait |
+|---|---|
+| `v2_132` (05/11) | Un exercice ajouté au catalogue : **`rowing_convergent_un_bras_machine`** (« Rowing Convergent Un Bras (Machine) »), parent `tirage_machine_convergente`. |
+| `v2_135` (05/11) | Clé étrangère **`objectifs_pari_id_fkey`** : `objectifs.pari_id` → `predictions.id`, `ON DELETE SET NULL`, et l'index **`objectifs_pari_id_idx`**. |
+| `v2_136` (05/11) | `EXECUTE` retiré à `PUBLIC`, `anon` et `authenticated` sur `social_bloque`, `social_suit`, `social_mutuel`, `guilde_de`, `guilde_commune` et `guilde_semaine_lancee` : des fonctions internes, appelées seulement par d'autres fonctions `SECURITY DEFINER` ; aucune règle RLS ni vue ne les cite (vérifié). |
+
+**Le parc de fonctions** : 79 fonctions `SECURITY DEFINER`, `search_path` fixé pour toutes ; seule `pseudo_libre` est ouverte à `anon` (voulu).
+Pas encore appliquées, donc pas décrites ici : le retrait de `sets.unilateral` (`v2_133`) et les échelles (`v2_134`).
+
 ## Le 31/10/2026 — `v2_125` (la calisthénie, 195)
 
 **`v2_125_calisthenie`** (appliquée par Claude.ai avant la PR) : `profiles_objectif_ok` accepte une cinquième valeur, **`calisthenie`** ; **`profiles.depart_calisthenie jsonb NULL`** (`{tractions, pompes, dips, pistol, le}` ; NULL = « je ne sais pas » ; écrite par la file du profil) ; deux exercices ajoutés, **`pompes_pike`** et **`pompes_pike_surelevees`** (`push_v`, `pousser_vertical`, `nature = force`, `mouvement` NULL : pas de « frère » du développé militaire) ; quatre échelles posées (15 marches, la clé est le slug du rang 1, nom affiché de la carte) : `squat_poids_du_corps` (squat PDC, squat bulgare PDC, pistol, pistol lesté), `pont_fessier` (pont, une jambe, soulevé une jambe, nordique assisté élastique, nordique), `rowing_inverse` (rowing inversé, pieds surélevés), `pompes_pike` (pike, pike surélevées, équilibre mur, équilibre libre). **Aucun changement de `nature`** : pistol, pistol lesté et les deux pompes en équilibre restent des habiletés ; le code les propose seulement en objectif `calisthenie` (`Modele.marcheSuivante`, option `objectif`).
@@ -54,7 +65,7 @@ générateur), jamais déduit de `routine_sets.reps_visees`. RLS inchangé (la p
 | `v2_131` (la note de la dernière fois, 242, appliquée le 04/11/2026) | **`profiles.notes_exercices`** jsonb NOT NULL DEFAULT `'{}'` : `{ slug: { texte, a } }` (la note de l'exercice modifiée par la personne, épinglée) ou `{ slug: { masquee: <id de la série>, a } }` (« Ne plus afficher » : désigne la série dont la note ne se montre plus). Lue et écrite par la file (`poserProfil`), colonne facultative (`COLONNES_FACULTATIVES`), jamais lue par le coach. · **`sets.unilateral`** boolean NOT NULL DEFAULT false : posée par v2_131, **inutilisée, à retirer** (décision du 05/11/2026 : un exercice fait d'un côté est sa variante du catalogue) ; l'app ne la lit ni ne l'écrit. |
 | `v2_126` (le muscle étiré, 196, 31/10/2026) | **`exercises.accent_allonge`** boolean NOT NULL DEFAULT false : l'exercice charge le muscle étiré (23 exercices marqués). Lu par `donnees.js` (`tousLesExercices`, `false` si la colonne manque), le générateur et l'échange d'exercice (préférence à égalité). Aucune autre colonne : le rest-pause n'est pas stocké (dégressives à charge égale, lues par `Modele.restPauseDe`). Appliquée par Claude.ai avant la PR 196 |
 
-**Reste noté** : `pseudo_libre` ouverte à `anon` (voulu) ; 57 fonctions SECURITY DEFINER (l'API sociale) ; pas de FK
+**Reste noté** : `pseudo_libre` ouverte à `anon` (voulu) ; 79 fonctions SECURITY DEFINER, `search_path` fixé pour toutes ; seule `pseudo_libre` est ouverte à `anon` (voulu) ; pas de FK
 `groupe_recaps.groupe_id` (abandonnée) ni `objectifs.pari_id` (à reprendre) ; « Leaked password protection » (tableau
 de bord) ; les six colonnes `profiles.visibility_*` du v1 ; **on ne renomme jamais une donnée de l'app depuis la base**
 (23/10, « Recompo » : l'app ne relit pas une routine ou un dossier modifiés côté serveur).
@@ -70,8 +81,8 @@ de bord) ; les six colonnes `profiles.visibility_*` du v1 ; **on ne renomme jama
 | `v2_099` (échelle) | **`exercises.echelle`** (text, `^[a-z_]{1,40}$`) et **`echelle_rang`** (smallint 1-20 ; contrainte `exercises_echelle_ok` : les deux vides ensemble ; index partiel `exercises_echelle_idx`) — 36 exercices, 6 échelles (tractions, tractions_supination, dips_torse, dips_triceps, pompes, muscle_up) ; **`exercises.barre_charge_fixe`** (boolean NOT NULL, défaut false ; `exercises_barre_charge_fixe_ok` : seulement si `equipement = 'barre'` ; 21 exercices) — à ne pas confondre avec `barre_fixe` du générateur (la barre de traction) ; `profiles_ma_salle_ok` accepte deux clés de plus, **`elastiques`** (liste de 10 au plus, du plus fort au plus léger, `{nom, kg?}`, contrainte séparée `profiles_ma_salle_elastiques_ok`) et **`elastiques_par_nom`** (boolean) ; **`profiles.marche_reponses`** (jsonb, par exercice de départ `{r: oui|non, le, aide?}`, `profiles_marche_reponses_ok`) |
 | `v2_100` (sécurité) | `EXECUTE` retiré à PUBLIC, anon et authenticated sur les fonctions de déclencheur `abonnements_avant_ajout`, `abonnements_avant_modif`, `blocages_apres_ajout` (un déclencheur se déclenche sans ce droit) ; les 7 règles de `abonnements`, `blocages`, `reactions_seance` passent de `public` à **`authenticated`** ; `reactions_ajout` et `reactions_guilde` fusionnées en une règle d'ajout : `user_id = auth.uid() AND (social_peut_reagir(session_id) OR guilde_peut_reagir(session_id))` |
 
-**Reste noté** : `pseudo_libre` ouverte à `anon` (voulu : le pseudo se vérifie avant le compte) ; 57 fonctions SECURITY
-DEFINER appelables par les comptes connectés (l'API sociale) ; pas de clé étrangère `groupe_recaps.groupe_id` ni
+**Reste noté** : `pseudo_libre` ouverte à `anon` (voulu : le pseudo se vérifie avant le compte) ; 79 fonctions SECURITY
+DEFINER, `search_path` fixé pour toutes ; seule `pseudo_libre` est ouverte à `anon` (voulu) ; pas de clé étrangère `groupe_recaps.groupe_id` ni
 `objectifs.pari_id` ; pas d'index sur `sets.exercise_slug` ; « Leaked password protection » (tableau de bord).
 
 ## Depuis le 17/10 — migrations `v2_091` à `v2_097` (régénéré depuis la base par Claude.ai le 17/10/2026, 13 h)

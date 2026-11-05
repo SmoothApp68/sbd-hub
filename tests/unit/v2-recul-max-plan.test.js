@@ -221,3 +221,33 @@ describe('251 D3 — le recul validé porte la visée du bloc', () => {
     expect(apres.exercices[0].series.map((s) => s.reps_visees)).toEqual([4, 6, 6]);
   });
 });
+
+
+// 251 (D2 bis) — la grosse série d'un bloc, ratée : cas G (les reculs se recalent), jamais le silence « pas encore » du cas I.
+describe('251 D2 — la grosse série ratée', () => {
+  const COUCHE = 'developpe_couche_barre';
+  test('⚠️ DISCRIMINANT — grosse série en ligne de test (155 × 3 après 152,5 × 5) faite à 155 × 2 : cas G', () => {
+    let k = 0; const id = () => 'g-s' + (++k);
+    let se = S.creer({ id: 'S', userId: 'u', idSerie: id });
+    se = S.ajouterExercice(se, COUCHE, id, { series: 3 });
+    se.exercices[0].series.forEach((s) => { s.reps_visees = 5; });
+    se = S.modifierSerie(se, 0, 0, { charge_kg: 155, reps: 2 });
+    se = S.valider(se, 0, 0, new Date(Date.UTC(2026, 9, 31, 10, 0, 0)));
+    const e = {
+      seance: { id: 'S', debut: '2026-10-31T10:00:00Z', edition: false, exercices: se.exercices },
+      consignes: { [COUCHE]: { consigne: { etat: 'test_propose', zone: 'lourd', palier: 152.5, n: 5, ligne: { charge: 152.5, vise: 5 }, haut: { charge: 155, vise: 3, k: 1 } },
+        contexte: { cran: 155, haut: { charge: 155, vise: 3, k: 1 } }, pas: 2.5 } },
+      reglage: 'normal', paris: [], objectif: 'les_deux',
+      programme: { blocs: [{ id: 'b1', dossier: 'Haut', zone: 'hypertrophie', debut: '2026-10-26', semaines: 4, decharge: true,
+        exercices: [COUCHE], statut: 'en_cours', grosse_serie: true }], lignes: [], objectif: 'les_deux', familles: { [COUCHE]: COUCHE } },
+      catalogue: { [COUCHE]: { equipement: 'barre', mesure: 'charge_reps', pas: 2.5 } }
+    };
+    const p = T.planDeSeance(e);
+    const x = p.exercices[0];
+    expect(x.reculs).toBeTruthy();
+    expect(x.rate).toBeTruthy();
+    expect(x.rate.cas).toBe('G');
+    expect(x.rate.cas).not.toBe('I');
+    propre(p, e);
+  });
+});

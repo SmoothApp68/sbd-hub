@@ -154,7 +154,8 @@
     var consigne = M.consigneFigee(consigneDonnee);
     var pdc = estPoidsDuCorps(consigne);
     var liste = series || [];
-    var couverture = S.couvertureSeance(liste, consigne, figees || {}, o.rangsReserves || null);
+    // 251 (D2) — `o.sansTest` : la porte du cran est fermée ; la source des rôles (`couvertureSeance`) ne pose plus de test.
+    var couverture = S.couvertureSeance(liste, consigne, figees || {}, o.rangsReserves || null, { sansTest: o.sansTest === true });
     var indices = [], rangs = [], roles = [], couvertes = [];
     couverture.forEach(function (x, i) {
       if (!x) return;
@@ -1364,7 +1365,72 @@
                       pari: pari !== null } };
   }
 
-  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase, allegee, seriesRoutine, marche, routinePlus, fini, precedent, objectif, allege, moins, reculPrec, auMaxFaits) {
+  // ── 251 (D2, MOTEUR §9.39) — LA PORTE DU CRAN, côté plan ───────────────────────────────────────────────────────────────────
+  // Les faits que lit `Moteur.porteDuCran` : la zone, le cran (la ligne haute), les séries de travail validées du jour SOUS le cran (un test pris
+  // au cran, ou une ligne du coach au-dessus, ne ferme rien : la porte a déjà servi), leur réserve notée. Rend le résultat du moteur enrichi de ses
+  // faits (zone, cran, travail, série fermante), ou `null` si la porte est ouverte ou ne peut pas se lire.
+  function porteDeLExercice(series, consigne, ctx) {
+    var M = Moteur(), S = Seance(), P = Palier(), T = racine.THModele;
+    var zone = M.zoneParCle(consigne.zone);
+    var cran = { charge: nombre(consigne.haut.charge), vise: nombre(consigne.haut.vise) };
+    if (!zone || cran.charge === null || cran.charge <= 0) return null;
+    var vise = nombre(consigne.ligne.vise), lues = [];
+    (series || []).forEach(function (s, i) {
+      if (!S.partEnBase(s) || !T.estTravail(s) || T.estRecul(s)) return;
+      var ch = nombre(s.charge_kg);
+      if (ch === null || ch <= 0 || ch >= cran.charge || memeChargeOuVides(ch, cran.charge)) return;
+      lues.push({ iSerie: i, charge: ch, reps: nombre(s.reps), vise: vise, reserve: P.reserveDeSerie(s) });
+    });
+    var r = M.decisionDeLaPorte({ zone: { bas: zone.bas, haut: zone.haut }, cran: cran, travail: chargeDeTravail(consigne), series: lues,
+      formeAjustee: ctx.formeAjustee === true, tente: ctx.tente === true });
+    if (!r.fermee) return null;
+    var f = lues.filter(function (q) { return q.iSerie === r.serie; })[0] || null;
+    return Object.assign(r, { zone: { bas: zone.bas, haut: zone.haut }, cran: cran, travail: chargeDeTravail(consigne),
+      serieFermante: f ? { charge: f.charge, reps: f.reps } : null });
+  }
+  // Les mots de la porte, sous capture (I26) : la phrase sous la série (`ou: 'porte'`, jamais `'rate'` : I115 compte une seule réaction par
+  // exercice), le bouton, et la phrase du « Pourquoi » (`pourquoi.porte`).
+  function porteDit(porte, V, dire, pourquoi) {
+    var M = Moteur();
+    var d = { raison: porte.raison, tente: porte.tente, cran: porte.cran, serie: porte.serieFermante, force: porte.force,
+              repsAuCran: porte.repsAuCran, zone: porte.zone };
+    var capP = V.capturer(function () { return M.phraseDeLaPorte(d); });
+    var capQ = V.capturer(function () { return M.pourquoiDeLaPorte(d); });
+    var out = { fermee: true, tente: porte.tente, raison: porte.raison, iSerie: porte.serie, cran: porte.cran, travail: porte.travail,
+      serie: porte.serieFermante, force: porte.force, repsAuCran: porte.repsAuCran, zone: porte.zone,
+      phrase: capP.texte, bouton: porte.tente ? null : M.boutonDeLaPorte(d), annuler: porte.tente ? M.boutonDeLaPorte(d) : null };
+    dire('porte', capP.texte, capP.citations);
+    if (pourquoi && capQ.texte) {
+      pourquoi.porte = capQ.texte;
+      dire('pourquoi.porte', capQ.texte, capQ.citations);
+    }
+    return out;
+  }
+  // Le geste « Tenter … quand même » (`cran_tente`) de CET exercice, non suivi d'« Annuler » (`cran_tente_annule`) : UNE lecture, sur le modèle de
+  // `chauffesAutoDe`.
+  function cranTenteDe(gestes, slug) {
+    var tente = false;
+    (Array.isArray(gestes) ? gestes : []).forEach(function (g) {
+      if (!g || g.slug !== slug) return;
+      if (g.geste === 'cran_tente') tente = true;
+      else if (g.geste === 'cran_tente_annule') tente = false;
+    });
+    return tente;
+  }
+  // « Ajuster la fin à ma forme du jour » a été pris sur cet exercice ou sur un exercice qui le précède dans la séance (l'ordre de la séance : un fait
+  // stable, qui ne dépend pas de « commencé »).
+  function formeAjusteeAvant(seance, iExo) {
+    var exos = (seance && seance.exercices) || [], tete = -1;
+    (Array.isArray(seance && seance.gestes) ? seance.gestes : []).forEach(function (g) {
+      if (!g || g.geste !== 'forme_ajustee') return;
+      for (var j = 0; j < exos.length; j++) {
+        if (exos[j] && exos[j].exercise_slug === g.slug) { if (tete < 0 || j < tete) tete = j; break; }
+      }
+    });
+    return tete >= 0 && iExo >= tete;
+  }
+
+  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase, allegee, seriesRoutine, marche, routinePlus, fini, precedent, objectif, allege, moins, reculPrec, auMaxFaits, porteCtx) {
     var S = Seance(), M = Moteur();
     var series = (exo && exo.series) || [];
     var c = consigneDuSlug && consigneDuSlug.consigne ? consigneDuSlug : null;
@@ -1432,7 +1498,12 @@
     // Sans compteur (une consigne figée avant 49-U13), rien ne s'écrit : un 0
     // inventé se lirait comme un progrès (mémoire et observation, §14.4).
     var compteurOuverture = c.compteur && typeof c.compteur.compteur === 'number' ? c.compteur.compteur : undefined;
+    // 251 (D2) — LA PORTE DU CRAN : lue AVANT les lignes (elle décide si la couverture pose un test). `porteCtx` est `null` dans les contextes
+    // où le coach se tait (Édition, Entretenir, « J'ai mal », semaine allégée, semaine de test, repli) ; sans `ligne` ET `haut`, elle se tait aussi.
+    var porte = porteCtx && consigne.haut && consigne.ligne && !consigne.allegee && !consigne.repli && consigne.etat !== 'silence'
+      ? porteDeLExercice(series, consigne, porteCtx) : null;
     var r = planDesLignes(series, consigne, c.contexte || null, figees, {
+      sansTest: !!(porte && porte.fermee && !porte.tente),
       slug: base.slug, seance: seanceId === undefined ? null : seanceId,
       reglage: reglage === undefined ? null : reglage, phase: phase, objectif: objectif,
       compteur: compteurOuverture, allegee: !!consigne.allegee,
@@ -1642,6 +1713,9 @@
     if (marche && marche.carte) dire('escalier.carte', marche.carte.phrase, citationsDeCarte(marche.carte));
     au.phrases.forEach(function (q) { dire(q.ou, q.texte, q.citations); });
 
+    // 251 (D2) — la porte du cran, dite : sous la série qui l'a fermée (la phrase et son geste), et au « Pourquoi ».
+    var porteX = porte && porte.fermee ? porteDit(porte, V, dire, pourquoi) : null;
+
     // 163 (MOTEUR §10.2 bis) — UNE CHARGE JAMAIS FAITE SE DIT APPROCHÉE : le plan porte la phrase (par matériel) ;
     // l'écran la lit sous la ligne, il ne la rédige pas. I61 relit le fondement, les charges marquées et la phrase.
     var approchee = null;
@@ -1651,7 +1725,10 @@
     // relu par I61). Tant qu'un segment de l'en-tête porte la charge approchée, rien ne change.
     var porteuse = !!(entete && Array.isArray(entete.segments) && entete.segments.some(function (sg) { return sg && sg.approchee === true; }));
     var horsCalculDuExo = !!(exo && Array.isArray(exo.series) && exo.series.some(function (sx) { return racine.THModele.estHorsCalcul(sx); }));
-    var approcheeSansLigne = !!(consigne && consigne.fondement && consigne.fondement.approchee === true) && !porteuse && horsCalculDuExo;
+    // 251 (D2) — de même, la porte fermée retire la ligne de test : « ≈ 110 kg : vise la barre au-dessus » citerait une cible qu'aucune ligne n'affiche (I26).
+    var testRetire = !!(porte && porte.fermee && !porte.tente && consigne && consigne.haut && consigne.haut.approchee === true &&
+                        !(consigne.ligne && consigne.ligne.approchee === true));
+    var approcheeSansLigne = !!(consigne && consigne.fondement && consigne.fondement.approchee === true) && !porteuse && (horsCalculDuExo || testRetire);
     if (!approcheeSansLigne && consigne && consigne.fondement && consigne.fondement.approchee === true) {
       var capAp = V.capturer(function () { return M.phraseApprochee(materiel ? materiel.equipement : null, consigne); });
       approchee = { materiel: materiel ? materiel.equipement || null : null, phrase: capAp.texte };
@@ -1713,6 +1790,8 @@
       reculs: rec.reculs,
       // 193-6 — la dernière série « Au max » (réserve demandée, consigne, constat) et la carte qui la propose, ou `null` : I83 à I87 les relisent.
       auMax: au.auMax, propositionAuMax: au.proposition,
+      // 251 (D2) — la porte du cran fermée (`{ fermee, tente, raison, iSerie, cran, travail, serie, force, repsAuCran, zone, phrase, bouton, annuler }`), ou `null`.
+      porteDuCran: porteX,
       phrases: phrases
     };
   }
@@ -2243,7 +2322,10 @@
           objectif, Object.prototype.hasOwnProperty.call(alleges, slug) ? alleges[slug] : null,
           coachee && Object.prototype.hasOwnProperty.call(moins, slug) ? moins[slug] : null,
           e.reculs && Object.prototype.hasOwnProperty.call(e.reculs, slug) ? e.reculs[slug] : null,
-          auMaxFaitsDe(e, seance, exos, i, coachee, douloureuse, intentionX, !!esc.allegee || !!jourDeTest, consignes));
+          auMaxFaitsDe(e, seance, exos, i, coachee, douloureuse, intentionX, !!esc.allegee || !!jourDeTest, consignes),
+          // 251 (D2) — la porte du cran (ses gestes), sauf là où le coach se tait. (Un 22e argument : aucun objet d'options existant ne porte ces faits.)
+          coachee && c && !douloureuse && intentionX !== 'entretien' && !seance.edition && !esc.allegee && !jourDeTest
+            ? { tente: cranTenteDe(seance.gestes, slug), formeAjustee: formeAjusteeAvant(seance, i) } : null);
         x.blocHypertrophie = stBloc ? { zone: stBloc.zone, grosse: stBloc.grosse === true,
           reculs: stBloc.grosse ? (exo.series || []).filter(function (q) { return racine.THModele.typeDe(q) === 'recul'; }).length : 0 } : null;
         x.semaineDeTest = semaineDeTestDExercice(jourDeTest, e, seance, exos, i, x,
@@ -2635,7 +2717,7 @@
   // validée, `x.carteParis` : « un cran dessous »), puis pour la séance (`plan.formeDuJour` et `x.carteForme`). Il rédige sous capture
   // (I26) et pose, sur les lignes qui restent, la fourchette (jamais la charge : la charge ne change que par « Prendre X kg »,
   // un geste de `sessions.gestes`). L'écran lit ; il ne calcule rien. Rien n'est écrit dans une série.
-  var GESTES_DU_COACH = /^(rate_|forme_|paris_)/;
+  var GESTES_DU_COACH = /^(rate_|forme_|paris_|cran_)/;
   function gestesDuCoach(seance) {
     return (Array.isArray(seance && seance.gestes) ? seance.gestes : []).filter(function (g) { return g && typeof g.geste === 'string' && GESTES_DU_COACH.test(g.geste); });
   }
@@ -2735,6 +2817,14 @@
     var prises = function (iSerie) {
       return gs.filter(function (g) { return g.geste === 'rate_prise' && g.slug === x.slug && g.rang === iSerie; });
     };
+    // 251 (D2) — « sous la zone » pour le niveau 2 : la série est classée D ou L par le niveau 1 (`Moteur.rateSousLaZone`, la même notion que la porte du
+    // cran et que `reactionDeSerie`) ; sous la zone, le niveau 1 garde la parole et ses leviers, le niveau 2 reste pour « sous la cible, DANS la zone ».
+    var classeDOuL = function (l) {
+      var s = series[l.iSerie] || {}, reps = nombre(s.reps), vise = nombre(l.vise);
+      var lu = M.rateSousLaZone({ reps: reps, bas: zone.bas, objectif: cx.objectif, barre: cx.barre, reserve: P.reserveDeSerie(s), charge: nombre(s.charge_kg) });
+      // Au poids du corps, le niveau 1 classe E (jamais D ni L, `reactionDeSerie`) : le niveau 2 y garde la parole (les tractions 7, 7 de 236).
+      return reps !== null && vise !== null && reps < vise && !lu.corps && (lu.sous || lu.echec);
+    };
     var ignorees = 0, sousAvant = 0, apres = false, dernier = null, etapes = [];
     faites.forEach(function (l, n) {
       var ignoreesAvant = ignorees;
@@ -2742,14 +2832,17 @@
       var reps = nombre(s.reps), ch = nombre(s.charge_kg);
       var rang = travail.indexOf(l);
       var role = (ch !== null && nombre(l.charge) !== null && Math.abs(ch - nombre(l.charge)) > 1e-9) ? 'autre_charge'
-        : l.type === 'recul' ? 'recul' : (l.auMax || s.au_max === true) ? 'au_max' : l.role === 'test' ? 'test'
-        : (x.reculs && travail[0] && l.iSerie === travail[0].iSerie) ? 'grosse' : 'travail';
+        : l.type === 'recul' ? 'recul' : (l.auMax || s.au_max === true) ? 'au_max'
+        // 251 (D2 bis) — la grosse série d'un bloc se teste AVANT le test : portée en ligne de test (155 × 3 après 152,5 × 5) et ratée, elle recale les
+        // reculs (cas G, « Ta grosse série dit ≈ X kg »), elle ne se tait plus (cas I, « pas encore »).
+        : (x.reculs && travail[0] && l.iSerie === travail[0].iSerie) ? 'grosse' : l.role === 'test' ? 'test' : 'travail';
       // Le repos réel : LA fonction de 233 (`Moteur.reposReel`, l'écart entre deux séries validées du même exercice), lue sur cette série et
       // la précédente validée de l'exercice — au superset, c'est le tour. Pas de calcul local, pas de `repos_s` : une notion, une fonction.
       var precedente = n > 0 && faites[n - 1] ? series[faites[n - 1].iSerie] : null;
       var reposReel = precedente ? M.reposReel([precedente, s]) : null;
       var ctx = Object.assign({}, cx, { niveau: 'serie', role: role, charge: ch, reps: reps, vise: nombre(l.vise), bas: zone.bas, haut: zone.haut,
-        rang: rang, derniere: rang === travail.length - 1, reserve: P.reserveDeSerie(s), reposReel: reposReel, reposCible: reposCible,
+        // 251 (D2 bis) : la grosse série n'est jamais la dernière — ses reculs (hors couverture) suivent ; sans cela le cas J la taisait avant le G.
+        rang: rang, derniere: rang === travail.length - 1 && role !== 'grosse', reserve: P.reserveDeSerie(s), reposReel: reposReel, reposCible: reposCible,
         sousZoneAvant: sousAvant, ignorees: ignorees, apres: apres, chauffeValidee: chauffeValidee,
         corps: ch === null || ch <= 0 });
       var d = M.reactionAuRate(ctx);
@@ -2767,7 +2860,7 @@
         var d2n = M.reactionAuRate(Object.assign({}, cx, { niveau: 'exercice', charge: ch, ignorees: ignoreesAvant,
           faites: prefixe.filter(function (q) { return q.type === 'travail'; }).map(function (q) { return { reps: nombre((series[q.iSerie] || {}).reps), vise: nombre(q.vise) }; }),
           restantes: travail.length - 1 - rang }));
-        if (!d2n.silence) dn = d2n;
+        if (!d2n.silence && !classeDOuL(l)) dn = d2n;
       }
       etapes.push({ l: l, d: dn, rang: rang });
     });
@@ -2780,7 +2873,7 @@
       faites: faites.filter(function (l) { return l.type === 'travail'; }).map(function (l) {
         return { reps: nombre((series[l.iSerie] || {}).reps), vise: nombre(l.vise) };
       }), restantes: travail.filter(function (l) { return !l.validee; }).length }));
-    if (!d2.silence && dernier.l.type === 'travail' && !autreCharge) d = d2;
+    if (!d2.silence && dernier.l.type === 'travail' && !autreCharge && !classeDOuL(dernier.l)) d = d2;
     if (!x.message) {
       etapes.slice(0, -1).forEach(function (st) {
         var dd = st.d;
@@ -2790,6 +2883,8 @@
         var cib = dd.recale === true || prend ? apresLui : apresLui.slice(0, 1);
         cib.forEach(function (t) {
           if (!t.validee) return;
+          // 251 (D2, 3h) — jamais la visée ni la fourchette d'un raté sur une ligne de TEST (§9.13 bis : « ne jamais poser une proposition sur un test »).
+          if (t.role === 'test') return;
           // La réaction de l'écran (§9.14) garde la ligne qu'elle a posée : elle parlait déjà, cette règle se taisait.
           var idx = Array.isArray(x.indices) ? x.indices : (x.reaction && x.reaction.indices) || null;
           var jr = idx ? idx.indexOf(t.iSerie) : t.iSerie;
@@ -2836,6 +2931,7 @@
         : restantes.slice(0, 1);
       var vise = d.niveau === 'exercice' ? d.vise : d.fourchette[1];
       cibles.forEach(function (t) {
+        if (t.role === 'test') return;                    // 251 (D2, 3h) : la ligne de test garde sa charge, sa visée et son pari de test
         poserSurLaLigne(x, t, { vise: vise, fourchette: d.fourchette, charge: prend ? d.charge.kg : undefined });
       });
     }
@@ -4198,7 +4294,9 @@
       var k5 = x.consigne.haut ? (nombre(x.consigne.haut.k) || 0) : 0;
       var figes5 = init.filter(function (q) { return q && q.figee && q.role === 'haut'; }).length;
       var libres5 = couvertes.filter(function (l) { return init[l.position] && !init[l.position].figee && !l.ajoutee; });
-      var attendus5 = Math.min(Math.max(0, k5 - figes5), libres5.length);
+      // 251 (D2) — la porte du cran fermée (et non tentée) : plus aucun test attendu sur les lignes libres (la couverture ne le pose plus).
+      var porte5 = !!(x.porteDuCran && x.porteDuCran.fermee && !x.porteDuCran.tente);
+      var attendus5 = porte5 ? 0 : Math.min(Math.max(0, k5 - figes5), libres5.length);
       var restants5 = libres5.filter(function (l) { return init[l.position].role === 'haut'; }).length;
       if (restants5 !== attendus5) {
         err('I5', restants5 + ' test(s) restant(s), ' + attendus5 + ' attendu(s) (k = ' + k5 + ', ' + figes5 + ' figé(s))');
@@ -5452,7 +5550,9 @@
                           // 193-6 — la réserve demandée de la ligne et de la carte.
                           'regle|au_max.reserve': true,
                           // 236 — les chiffres de la réaction après un raté (reps, garde, charges) : plusieurs faits distincts par clé.
-                          'regle|rate.reps': true, 'regle|rate.garde': true, 'regle|rate.charge': true };
+                          'regle|rate.reps': true, 'regle|rate.garde': true, 'regle|rate.charge': true,
+                          // 251 — la porte du cran : les reps de la série fermante, du cran et de la table (plusieurs faits sous une clé).
+                          'regle|porte.reps': true };
 
   function texteDuChiffre(v) {
     return v === null || v === undefined ? String(v) : (typeof v === 'number' ? Voix().nombre(v) || String(v) : String(v));
@@ -5727,6 +5827,14 @@
       'rate.reps': chiffresDuRate(x).reps.length ? { valeurs: chiffresDuRate(x).reps } : null,
       'rate.garde': chiffresDuRate(x).garde.length ? { valeurs: chiffresDuRate(x).garde } : null,
       'rate.charge': chiffresDuRate(x).charge.length ? { charge: undefined, valeurs: chiffresDuRate(x).charge } : null,
+      // 251 — la porte du cran : le cran (charge), la série qui a fermé la porte (charge), la force du jour (charge), les reps (série, cran, table), la zone.
+      'porte.cran': x.porteDuCran && x.porteDuCran.cran ? { charge: x.porteDuCran.cran.charge } : null,
+      'porte.travail': x.porteDuCran && x.porteDuCran.serie ? { charge: x.porteDuCran.serie.charge } : null,
+      'porte.force': x.porteDuCran && x.porteDuCran.force !== null && x.porteDuCran.force !== undefined ? { charge: x.porteDuCran.force } : null,
+      'porte.reps': x.porteDuCran ? { valeurs: [x.porteDuCran.serie ? x.porteDuCran.serie.reps : null, x.porteDuCran.cran ? x.porteDuCran.cran.vise : null,
+        x.porteDuCran.repsAuCran].filter(function (v) { return nombre(v) !== null; }) } : null,
+      'porte.bas': x.porteDuCran && x.porteDuCran.zone ? { valeur: x.porteDuCran.zone.bas } : null,
+      'porte.haut': x.porteDuCran && x.porteDuCran.zone ? { valeur: x.porteDuCran.zone.haut } : null,
       'au_max.reps': x.auMax && x.auMax.constat ? { valeur: x.auMax.constat.reps } : null,
       'au_max.charge': x.auMax && x.auMax.constat ? { charge: x.auMax.constat.charge } : null,
       'au_max.ecart': x.auMax && x.auMax.constat && x.auMax.constat.prevu !== null ? { valeur: Math.abs(x.auMax.constat.reps - x.auMax.constat.prevu) } : null,

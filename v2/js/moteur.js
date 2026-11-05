@@ -11670,6 +11670,21 @@
 
   function rateReglage(r) { return r === 'prudent' || r === 'franc' ? r : 'normal'; }
   // Le contexte où le coach ne dit rien du tout (Entretenir, décharge, test, calage, « J'ai mal », 1re fois, figure).
+  // 251 (D2, MOTEUR §9.39) — « SOUS LA ZONE » : UNE notion, lue trois fois — le niveau 1 (`reactionDeSerie`, le cas D et le cas L), le niveau 2
+  // (`reactionDExercice` du plan : il ne masque pas le niveau 1 sous la zone) et la porte du cran (`decisionDeLaPorte`). Pure.
+  //   · `sousZone` : reps < bas de la zone, au sens strict ;
+  //   · `sous`     : le classement du niveau 1 — `sousZone`, ou reps ≤ bas quand l'objectif protège le volume (`plusTot` : Muscle, ou Les deux hors barre) ;
+  //   · `echec`    : réserve notée 0 (RPE 10 compris, `Palier.reserveDeSerie`) — l'appelant y ajoute « avant la cible » ;
+  //   · `corps`    : au poids du corps (pas de charge).
+  function rateSousLaZone(c) {
+    var x = c || {};
+    var faites = nombre(x.reps), bas = nombre(x.bas), obj = x.objectif || null;
+    var plusTot = obj === 'muscle' || (obj === 'les_deux' && x.barre !== true);
+    var sousZone = faites !== null && bas !== null && faites < bas;
+    var sous = sousZone || (faites !== null && bas !== null && plusTot && faites <= bas);
+    var charge = nombre(x.charge);
+    return { sousZone: sousZone, sous: sous, echec: nombre(x.reserve) === 0, corps: x.corps === true || charge === null || charge <= 0 };
+  }
   function rateRaisonDeSilence(c) {
     if (c.entretien) return 'entretien';
     if (c.decharge) return 'decharge';
@@ -11723,11 +11738,11 @@
       return silence(ecart < 0 ? 'O' : null, ecart < 0 ? 'depasse_peu' : 'tenue');
     }
     var charge = nombre(c.charge);
-    var corps = c.corps === true || charge === null || charge <= 0;
-    var echec = reserve === 0;                                   // L : l'échec franc, avant la cible
     var protege = obj === 'force' || (obj === 'les_deux' && c.barre === true);
-    var plusTot = obj === 'muscle' || (obj === 'les_deux' && c.barre !== true);
-    var sous = faites < bas || (plusTot && faites <= bas);
+    var zoneLue = rateSousLaZone({ reps: faites, bas: bas, objectif: obj, barre: c.barre, reserve: reserve, charge: charge, corps: c.corps });   // 251 : la notion partagée
+    var corps = zoneLue.corps;
+    var echec = zoneLue.echec;                                   // L : l'échec franc, avant la cible
+    var sous = zoneLue.sous;
     var sousAvant = nombre(c.sousZoneAvant) || 0;
     var garde = reg === 'prudent' || obj === 'forme' ? 2 : 1;
     // G — la grosse série d'un bloc : ses reculs se recalent sur le max du jour (193-5), la charge ne change pas.
@@ -11919,6 +11934,66 @@
   function boutonDeRate(cle, d) {
     if (cle === 'prendre') return 'Prendre ' + enKg(d.charge.kg, regle('rate.charge'));
     return RATE_NOMS_DE_LEVIER[cle] || cle;
+  }
+  // ── 251 (D2, MOTEUR §9.39) — LA PORTE DU CRAN ──────────────────────────────────────────────────────────────────────────────
+  //
+  // Un cran de test se mérite dans la séance : une série de travail du jour ratée SOUS LA ZONE (ou allée jusqu'à l'échec avant la cible) le retire ;
+  // « Ajuster la fin à ma forme du jour » aussi. Elle ne se ferme JAMAIS sur la table du max du jour (107,5 × 3 en zone 3-5 la laisse ouverte) : la
+  // force du jour et les reps au cran ne servent qu'à rédiger le « Pourquoi ». Une porte fermée n'est pas un test raté. Pure : `plan.js` la lit.
+  //   c = { zone: { bas, haut }, cran: { charge, vise }, travail, series: [{ iSerie, charge, reps, vise, reserve }], formeAjustee, tente }
+  //   → { fermee, tente, serie, raison: 'sous_la_zone' | 'echec' | 'forme' | null, force, repsAuCran }
+  function decisionDeLaPorte(c) {
+    var x = c || {};
+    var zone = x.zone || {}, cran = x.cran || {};
+    var fermante = null, raison = null;
+    (x.series || []).forEach(function (s) {
+      if (fermante !== null || !s) return;
+      var reps = nombre(s.reps), vise = nombre(s.vise);
+      var lu = rateSousLaZone({ reps: reps, bas: zone.bas, reserve: s.reserve, charge: s.charge });
+      if (lu.sousZone) { fermante = s; raison = 'sous_la_zone'; }
+      else if (lu.echec && reps !== null && vise !== null && reps < vise) { fermante = s; raison = 'echec'; }
+    });
+    if (fermante === null && x.formeAjustee === true) raison = 'forme';
+    var fermee = fermante !== null || raison === 'forme';
+    var max = fermante !== null ? maxDuJour(fermante.charge, fermante.reps, nombre(fermante.reserve) === null ? 0 : nombre(fermante.reserve)) : null;
+    var force = max === null ? null : Math.round(max);
+    var repsAuCran = max === null || nombre(cran.charge) === null ? null : prevoirRepsAuMax(cran.charge, max, 0);
+    return { fermee: fermee, tente: fermee && raison !== 'forme' && x.tente === true, serie: fermante !== null ? fermante.iSerie : null,
+             raison: fermee ? raison : null, force: force, repsAuCran: repsAuCran };
+  }
+  // Les mots de la porte (voix du coach, chaque chiffre cité, I26). `d` : { raison, tente, cran: { charge, vise }, serie: { charge, reps },
+  // force, repsAuCran, zone: { bas, haut } }. « revient » et pas « remis » : en français, « remis » se lit aussi « reporté ».
+  function porteKg(v, cle) { return enKg(v, regle(cle)); }
+  function porteReps(v) { return nombreFr(v, regle('porte.reps')); }
+  function porteFois(kg, cleKg, reps) { return porteKg(kg, cleKg) + INSECABLE + '\u00d7' + INSECABLE + porteReps(reps); }
+  function phraseDeLaPorte(d) {
+    if (!d || d.raison === 'forme' || !d.cran) return null;
+    if (d.tente) return 'Le test à ' + porteKg(d.cran.charge, 'porte.cran') + ' revient.';
+    return 'Pas de test à ' + porteKg(d.cran.charge, 'porte.cran') + ' aujourd’hui : ta série est ' +
+      (d.raison === 'echec' ? 'allée jusqu’à l’échec.' : 'sous ta zone.');
+  }
+  function boutonDeLaPorte(d) {
+    if (!d || d.raison === 'forme' || !d.cran) return null;
+    return d.tente ? 'Annuler' : 'Tenter ' + porteKg(d.cran.charge, 'porte.cran') + ' quand même';
+  }
+  function pourquoiDeLaPorte(d) {
+    if (!d || !d.cran) return null;
+    if (d.raison === 'forme') return 'Tu as ajusté la fin de séance à ta forme du jour : pas de test aujourd’hui.';
+    if (!d.serie) return null;
+    var attend = ' : le test à ' + porteFois(d.cran.charge, 'porte.cran', d.cran.vise) + ' attend une autre séance.';
+    var t = 'Ta série à ' + porteFois(d.serie.charge, 'porte.travail', d.serie.reps);
+    if (d.raison === 'echec') {
+      t += ' est allée jusqu’à l’échec' + attend;
+    } else {
+      var z = d.zone || {};
+      t += ' est sous ta zone (' + nombreFr(z.bas, regle('porte.bas')) + ' à ' + nombreFr(z.haut, regle('porte.haut')) + ' reps)' + attend;
+    }
+    var vise = nombre(d.cran.vise), r = nombre(d.repsAuCran);
+    if (nombre(d.force) !== null && r !== null && vise !== null && r < vise) {
+      t += ' Ta force du jour, d’environ ' + porteKg(d.force, 'porte.force') + ', donne environ ' + porteReps(r) + (r > 1 ? ' reps' : ' rep') +
+        ' à ' + porteKg(d.cran.charge, 'porte.cran') + '.';
+    }
+    return t;
   }
   var RATE_BOUTONS_FORME = { ajuste: 'Ajuster la fin à ma forme du jour', garde: 'Garder le plan' };
   var RATE_BOUTONS_PARIS = { cran: 'Un cran dessous', retente: 'Je retente' };
@@ -12183,6 +12258,9 @@
     reactionAuRate: reactionAuRate,
     phraseDeRate: phraseDeRate,
     boutonDeRate: boutonDeRate,
+    // 251 — la porte du cran (une décision, ses mots) et la notion « sous la zone » partagée.
+    rateSousLaZone: rateSousLaZone, decisionDeLaPorte: decisionDeLaPorte,
+    phraseDeLaPorte: phraseDeLaPorte, boutonDeLaPorte: boutonDeLaPorte, pourquoiDeLaPorte: pourquoiDeLaPorte,
     RATE_BOUTONS_FORME: RATE_BOUTONS_FORME,
     RATE_BOUTONS_PARIS: RATE_BOUTONS_PARIS,
     RATE_IGNOREES_MAX: RATE_IGNOREES_MAX,

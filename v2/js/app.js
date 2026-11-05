@@ -9328,6 +9328,21 @@
     }
     await apresGeste();
   }
+  // 251 (D2, MOTEUR §9.39) — LA PORTE DU CRAN : « Tenter 110 kg quand même » / « Annuler ». Le plan décide (`x.porteDuCran`) ; ici, seulement le geste,
+  // écrit par `Seance.noterGeste` (`cran_tente`, `cran_tente_annule`), jamais dans une série.
+  async function repondrePorte(iExo, cle) {
+    if (!seance || enEdition() || reponseEnCours) return;
+    var x = planDeLExercice(iExo);
+    var p = x && x.porteDuCran;
+    if (!p || p.iSerie === null || p.iSerie === undefined) return;
+    reponseEnCours = true;
+    try {
+      seance = Seance.noterGeste(seance, { geste: cle === 'tenter' ? 'cran_tente' : 'cran_tente_annule', slug: x.slug, rang: p.iSerie });
+    } finally {
+      reponseEnCours = false;
+    }
+    await apresGeste();
+  }
   async function repondreForme(iExo, cle) {
     if (!seance || enEdition() || reponseEnCours) return;
     var x = planDeLExercice(iExo);
@@ -10670,6 +10685,13 @@
         return x && x.rate && x.rate.iSerie === j ? x.rate : null;
       },
       surRate: function (i, j, cle) { return repondreRate(i, j, cle); },
+      // 251 — la porte du cran, sous la série qui l'a fermée : la phrase et le geste viennent du plan.
+      porte: function (i, j) {
+        if (enEdition()) return null;
+        var x = planDeLExercice(i);
+        return x && x.porteDuCran && x.porteDuCran.iSerie === j && x.porteDuCran.phrase ? x.porteDuCran : null;
+      },
+      surPorte: function (i, cle) { return repondrePorte(i, cle); },
       carteForme: function (i) {
         if (enEdition()) return null;
         var x = planDeLExercice(i);

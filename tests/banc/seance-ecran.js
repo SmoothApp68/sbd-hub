@@ -28847,11 +28847,11 @@ const SETS_IMPORTES = [
     await attendreQue(() => lire236().then((p) => !!p.rate), 15000, 'rateRT236');
     const apres236 = await lire236();
     const dom236 = await page.evaluate(() => {
-      const n = document.querySelector('.rate-reaction');
+      const n = document.querySelector('.rate-reaction:not(.rate-porte)');
       if (!n) return null;
       return { role: n.getAttribute('role'), live: n.getAttribute('aria-live'), texte: n.querySelector('.rate-phrase') ? n.querySelector('.rate-phrase').textContent : '',
                boutons: Array.from(n.querySelectorAll('button')).map((b) => ({ cle: b.getAttribute('data-cle'), h: Math.round(b.getBoundingClientRect().height) })),
-               nb: document.querySelectorAll('.rate-reaction').length };
+               nb: document.querySelectorAll('.rate-reaction:not(.rate-porte)').length };
     });
     ok('[RT236] DISCRIMINANT — 5 au lieu de 10, sous la zone : une phrase sous la série, qui propose la baisse au max du jour',
       !!apres236.rate && apres236.rate.charge && apres236.rate.charge.action === 'baisse' && apres236.rate.charge.kg < 20 &&
@@ -28860,8 +28860,11 @@ const SETS_IMPORTES = [
       !!dom236 && dom236.nb === 1 && dom236.role === 'status' && dom236.live === 'polite' && sp236(dom236.texte) === sp236(apres236.rate.phrase), nb236(dom236));
     ok('[RT236] les gestes tiennent au doigt (44 px), « Prendre X kg » en fait partie',
       !!dom236 && dom236.boutons.length > 0 && dom236.boutons.every((b) => b.h >= 44) && dom236.boutons.some((b) => b.cle === 'prendre'), nb236(dom236 && dom236.boutons));
-    ok('[RT236] I116 — la charge ne baisse pas sans geste : les lignes qui restent gardent leur charge',
-      apres236.charges.slice(1).every((c, i) => c === avant236.charges[i + 1]) && (await placeholders236()).slice(1).every((v, i) => String(v).replace(/\s/g, '') === String(avant236.charges[i + 1])), nb236([apres236.charges, await placeholders236()]));
+    // 251 — I116 amendé : la charge ne baisse jamais SOUS la charge de travail sans geste ; une ligne de test que la porte du cran retire
+    // (série sous la zone) repasse à la charge de travail (20 kg), c'est tout.
+    ok('[RT236] I116 — la charge ne baisse pas sans geste : les lignes qui restent gardent leur charge (ou, pour un test retiré par la porte, la charge de travail)',
+      apres236.charges.slice(1).every((c, i) => c === avant236.charges[i + 1] || c === 20) && apres236.charges.every((c) => c >= 20) &&
+      (await placeholders236()).slice(1).every((v, i) => { const t = String(v).replace(/\s/g, ''); return t === String(avant236.charges[i + 1]) || t === '20'; }), nb236([apres236.charges, avant236.charges, await placeholders236()]));
     const kg236 = apres236.rate.charge.kg;
     await page.click('.rate-reaction button[data-cle="prendre"]');
     await attendreQue(() => lire236().then((p) => p.rate && p.rate.pris.indexOf('prendre') >= 0), 15000, 'priseRT236');
@@ -28883,6 +28886,142 @@ const SETS_IMPORTES = [
     routinesAvant236.forEach((r) => ROUTINES.push(r));
     base.profiles[0] = profilAvant236;
     rendreLesBlocs236();
+    await aller('/saisie');
+  }
+
+  console.log('\n══ porte-251. LA PORTE DU CRAN : UN CRAN DE TEST SE MÉRITE DANS LA SÉANCE ; « TENTER… » LE REND, « ANNULER » LE REPREND (251, MOTEUR §9.39, I134 à I139) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : un couché à la barre, six séances à 107,5 × 5 × 3 (le cran de test est 110 × 3, en 3e ligne), une routine
+  // « 3 × 5 » en zone Lourd (3-5), objectif Muscle (le niveau 1 propose sa baisse dès la 1re série). La 1re série est validée à 107,5 × 2 (SOUS la
+  // zone) : la 3e ligne redescend à 107,5, la phrase de la porte et son bouton sortent, l'en-tête ne promet plus « Si ça passe ». « Tenter 110 kg quand
+  // même » rend la ligne de test ; « Annuler » la reprend. En Franc, la 2e série à 107,5 × 2 garde le niveau 1 (« Prendre 92,5 kg »). TÉMOIN : un 2e
+  // exercice fait à 107,5 × 4 (dans la zone) garde sa ligne de test à 110. Sans la règle, la 3e ligne reste à 110 et aucune phrase ne sort.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const nbCatAvant = CATALOGUE.length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, paris251Avant = base.predictions;
+    const routinesAvant251 = ROUTINES.splice(0, ROUTINES.length);
+    base.sessions = []; base.sets = []; base.predictions = [];
+    const rendreLesBlocs251 = await retirerBlocsDeLAppareil();
+    const t251 = Date.now();
+    const nb251 = (x) => JSON.stringify(x === undefined ? null : x);
+    const sp251 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const SLUGS251 = ['pt251-couche', 'pt251-militaire'];
+    SLUGS251.forEach((slug, k) => CATALOGUE.push({ slug, nom: k === 0 ? 'Couché PT251 (Barre)' : 'Militaire PT251 (Barre)', mesure: 'charge_reps', charge: 'externe',
+      equipement: 'barre', muscles_primaires: ['pectoraux'], muscles_secondaires: ['triceps'], muscles_stabilisateurs: [], schema_mouvement: 'pousser' }));
+    const profilAvant251 = Object.assign({}, base.profiles[0]);
+    const profil251 = (reglage) => Object.assign({}, PROFIL_BANC, { rythme_progression: reglage, intention: 'progresser', phase: 'maintien', phase_depuis: null,
+      cartes_semaine: null, priorites: null, jours_vises: null, objectif: 'muscle', ma_salle: { plus_petit_disque: 1.25 } });
+    base.profiles[0] = profil251('normal');
+    const ligne251 = (slug, id, rang, debut) => ({ id, session_id: id.replace(/-\d-s\d+$/, ''), user_id: 'u-banc', exercise_slug: slug,
+      charge_kg: 107.5, reps: 5, duree_s: null, distance_m: null, denivele_m: null, etages: null, elastique: null,
+      type_serie: 'travail', rang, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null,
+      note: null, source: 'app', created_at: debut, modifie_a: null, douleur: false, occurrence: null, hors_calcul: false });
+    for (let w = 1; w <= 6; w++) {
+      const id = 'pt251-' + w;
+      const debut = ilYa((7 * w + 1) * 86400000, t251).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'PT251 — ' + id, debut, fin: finDe(debut, t251).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: 'r-pt251', source: 'app', created_at: debut, gestes: [] });
+      SLUGS251.forEach((slug, k) => { for (let r = 1; r <= 3; r++) base.sets.push(ligne251(slug, id + '-' + k + '-s' + r, r + 3 * k, debut)); });
+    }
+    ROUTINES.push({ id: 'r-pt251', nom: 'Couché PT251', note: null, archivee_a: null, created_at: '2026-01-05T10:00:00.000Z',
+      updated_at: '2026-01-05T10:00:00.000Z', routine_exercises: SLUGS251.map((slug, k) => ({ id: 're-pt251-' + k, routine_id: 'r-pt251', exercise_slug: slug, rang: k,
+        zone: 'lourd', repos_cible_s: 180, groupe_superset: null, note: null,
+        routine_sets: [1, 2, 3].map((i) => ({ id: 'pr-pt251-' + k + '-' + i, rang: i, type_serie: 'travail', reps_visees: 5, charge_cible_kg: null,
+          duree_cible_s: null, distance_cible_m: null })) })) });
+    const lire251 = (k) => page.evaluate((sl) => {
+      const x = window.THPlan.dernier.plan.exercices.filter((q) => q.slug === sl)[0];
+      const q = x.porteDuCran;
+      return { etat: x.consigne ? x.consigne.etat : null, roles: x.lignes.map((l) => l.role), charges: x.lignes.map((l) => l.charge), vises: x.lignes.map((l) => l.vise),
+               haut: x.consigne && x.consigne.haut ? x.consigne.haut.charge : null,
+               jaune: x.entete && x.entete.jaune ? x.entete.jaune.join(' ') : '',
+               porte: q ? { fermee: q.fermee, tente: q.tente, iSerie: q.iSerie, phrase: q.phrase, bouton: q.bouton, annuler: q.annuler } : null,
+               rate: x.rate ? { cas: x.rate.cas, phrase: x.rate.phrase, boutons: x.rate.boutons.map((b) => b.cle) } : null };
+    }, SLUGS251[k]);
+    const planPret251 = () => attendreQue(() => page.evaluate((sl) => !!(window.THPlan && window.THPlan.dernier && window.THPlan.dernier.plan &&
+      window.THPlan.dernier.plan.exercices.some((x) => x.slug === sl && x.consigne)), SLUGS251[0]), 15000, 'planPT251');
+    const domPorte251 = () => page.evaluate(() => {
+      const n = document.querySelector('.rate-porte');
+      if (!n) return null;
+      return { texte: n.querySelector('.rate-phrase') ? n.querySelector('.rate-phrase').textContent : '', etat: n.getAttribute('data-porte'),
+               bouton: n.querySelector('button') ? { cle: n.querySelector('button').getAttribute('data-cle'), texte: n.querySelector('button').textContent,
+                 h: Math.round(n.querySelector('button').getBoundingClientRect().height) } : null };
+    });
+    const placeholders251 = () => page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).map((l) => {
+      const i = l.querySelector('input'); return i ? (i.value || i.placeholder || '') : null; }));
+    await aller('/saisie');
+    await demarrerRoutine('Couché PT251');
+    await planPret251();
+    const avant251 = await lire251(0);
+    ok('[PT251] préalable — le cran est réel : 3e ligne de rôle test à 110 kg, l’en-tête promet « Si ça passe », aucune porte',
+      avant251.haut === 110 && avant251.roles[2] === 'test' && avant251.charges[2] === 110 && /Si ça passe/.test(avant251.jaune) && avant251.porte === null, nb251(avant251));
+    // ── 1. la 1re série à 107,5 × 2 : sous la zone.
+    await saisirSerie(0, 107.5, 2);
+    await attendreQue(() => lire251(0).then((p) => !!p.porte), 15000, 'portePT251');
+    const ferme251 = await lire251(0);
+    const dom251 = await domPorte251();
+    ok('[PT251] DISCRIMINANT — 107,5 × 2 sous la zone 3-5 : la 3e ligne redescend à 107,5 (rôle ligne), plus aucune ligne de test',
+      ferme251.charges[2] === 107.5 && ferme251.roles[2] === 'ligne' && ferme251.roles.indexOf('test') < 0, nb251(ferme251));
+    ok('[PT251] la phrase de la porte et son bouton sont à l’écran, sous la 1re série, le bouton tient au doigt (44 px)',
+      !!dom251 && sp251(dom251.texte) === 'Pas de test à 110 kg aujourd’hui : ta série est sous ta zone.' && !!dom251.bouton &&
+      sp251(dom251.bouton.texte) === 'Tenter 110 kg quand même' && dom251.bouton.h >= 44 && dom251.etat === 'fermee', nb251(dom251));
+    ok('[PT251] l’en-tête ne promet plus « Si ça passe »', !/Si ça passe/.test(ferme251.jaune), nb251(ferme251.jaune));
+    ok('[PT251] la 3e ligne montre 107,5 à l’écran', String((await placeholders251())[2]).replace(/\s/g, '').replace(',', '.') === '107.5', nb251(await placeholders251()));
+    // ── 2. « Tenter 110 kg quand même ».
+    await page.click('.rate-porte button[data-cle="tenter"]');
+    await attendreQue(() => lire251(0).then((p) => p.porte && p.porte.tente === true), 15000, 'tenterPT251');
+    const tente251 = await lire251(0);
+    const domT251 = await domPorte251();
+    ok('[PT251] « Tenter 110 kg quand même » : la ligne de test revient à 110 kg × 3, avec « Annuler »',
+      tente251.roles[2] === 'test' && tente251.charges[2] === 110 && tente251.vises[2] === 3 && !!domT251 && sp251(domT251.texte) === 'Le test à 110 kg revient.' &&
+      !!domT251.bouton && sp251(domT251.bouton.texte) === 'Annuler', nb251([tente251, domT251]));
+    // ── 3. « Annuler ».
+    await page.click('.rate-porte button[data-cle="annuler"]');
+    await attendreQue(() => lire251(0).then((p) => p.porte && p.porte.tente === false), 15000, 'annulerPT251');
+    const annule251 = await lire251(0);
+    ok('[PT251] « Annuler » : la 3e ligne repart à 107,5 kg', annule251.charges[2] === 107.5 && annule251.roles[2] === 'ligne', nb251(annule251));
+    const geste251 = await page.evaluate(async () => { const c = await window.THCache.lireBrouillon('seance');
+      const b = c && (c.seance || c); return b && b.gestes ? b.gestes.map((g) => g.geste) : null; });
+    ok('[PT251] les deux gestes sont notés sur la séance (cran_tente, cran_tente_annule)',
+      Array.isArray(geste251) && geste251.indexOf('cran_tente') >= 0 && geste251.indexOf('cran_tente_annule') >= 0, nb251(geste251));
+    ok('[PT251] aucun pari « haut » n’est écrit pour cette séance (la file des séries est vide de tout cran de test)',
+      !base.predictions.some((q) => q.fondement && q.fondement.role === 'haut' && q.exercise_slug === SLUGS251[0]), nb251(base.predictions.map((q) => q.fondement && q.fondement.role)));
+    ok('[PT251] la garde de l’app (I134 à I139, I26) n’a rien vu', gardeBanc.violations === violationsAvant, nb251(gardeBanc.liste.slice(-2)));
+    await abandonner();
+    // ── 4. Franc : la 2e série à 107,5 × 2 garde le niveau 1 (« Prendre 92,5 kg »).
+    base.profiles[0] = profil251('franc');
+    await aller('/saisie');
+    await demarrerRoutine('Couché PT251');
+    await planPret251();
+    await saisirSerie(0, 107.5, 2);
+    await saisirSerie(1, 107.5, 2);
+    await attendreQue(() => lire251(0).then((p) => !!p.rate), 15000, 'francPT251');
+    const franc251 = await lire251(0);
+    ok('[PT251] Franc, 107,5 × 2 puis 107,5 × 2 : le niveau 1 garde la parole — « Prendre 92,5 kg » est proposé',
+      !!franc251.rate && franc251.rate.boutons.indexOf('prendre') >= 0 && /92,5 kg/.test(sp251(franc251.rate.phrase)), nb251(franc251));
+    const prendre251 = await page.evaluate(() => Array.from(document.querySelectorAll('.rate-reaction button')).some((b) => /Prendre 92,5[\s\u00a0\u202f]kg/.test(b.textContent)));
+    ok('[PT251] le bouton « Prendre 92,5 kg » est visible à l’écran', prendre251 === true, nb251(prendre251));
+    // ── TÉMOIN : le 2e exercice, dans la zone (107,5 × 4), garde sa ligne de test à 110.
+    await saisirSerie(3, 107.5, 4);
+    await attendreQue(() => lire251(1).then((p) => p.charges.length > 0), 15000, 'temoinPT251');
+    const temoin251 = await lire251(1);
+    ok('[PT251] TÉMOIN — le 2e exercice à 107,5 × 4 (dans la zone) : sa ligne de test reste à 110 kg, aucune porte',
+      temoin251.porte === null && temoin251.roles[2] === 'test' && temoin251.charges[2] === 110, nb251(temoin251));
+    ok('[PT251] la garde de l’app n’a rien vu (Franc, témoin)', gardeBanc.violations === violationsAvant, nb251(gardeBanc.liste.slice(-2)));
+    await abandonner();
+    ok('[PT251] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      nb251([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    base.predictions = paris251Avant;
+    CATALOGUE.length = nbCatAvant;
+    ROUTINES.length = 0;
+    routinesAvant251.forEach((r) => ROUTINES.push(r));
+    base.profiles[0] = profilAvant251;
+    rendreLesBlocs251();
     await aller('/saisie');
   }
 

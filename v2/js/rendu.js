@@ -3474,6 +3474,9 @@
       // 236 (MOTEUR §9.39) — la réaction du coach sous la série validée (une phrase, des gestes d'un toucher), lue sur le plan.
       var rt = !vue.programme && typeof vue.rate === 'function' ? vue.rate(s._iExo, s._iSerie) : null;
       if (rt) hote.appendChild(reactionDeRate(rt, s._iExo, s._iSerie, vue));
+      // 251 (D2) — la porte du cran, sous la série qui l'a fermée, après la réaction : la phrase et son geste viennent du plan, rien n'est calculé ici.
+      var pp = !vue.programme && typeof vue.porte === 'function' ? vue.porte(s._iExo, s._iSerie) : null;
+      if (pp) hote.appendChild(dessinerLaPorte(pp, s._iExo, s._iSerie, vue));
       // 185 — LA QUESTION DE VRAISEMBLANCE, sous la série, avant qu'elle soit écrite (ou, pour un record énorme, après) : une
       // ligne et ses boutons, jamais une fenêtre. Lue sur l'app (`vue.questionSaisie`), la règle n'est pas ici.
       var qs = !vue.programme && typeof vue.questionSaisie === 'function' ? vue.questionSaisie(s._iExo, s._iSerie) : null;
@@ -4061,6 +4064,28 @@
         bt.addEventListener('click', function () { vue.surRate(iExo, iSerie, b.cle); });
         rang.appendChild(bt);
       });
+      n.appendChild(rang);
+    }
+    return n;
+  }
+  // 251 (D2) — LA PORTE DU CRAN, sous la série : la phrase du plan, un geste d'un toucher (« Tenter 110 kg quand même », puis « Annuler »), sur sa propre
+  // rangée. Même classe et même `role="status"` que la réaction : c'est la même voix. Le texte du bouton est complet (lecteur d'écran, pas d'icône).
+  function dessinerLaPorte(pt, iExo, iSerie, vue) {
+    var n = el('div', 'rate-reaction rate-porte');
+    n.setAttribute('role', 'status');
+    n.setAttribute('aria-live', 'polite');
+    n.setAttribute('data-iexo', String(iExo));
+    n.setAttribute('data-iserie', String(iSerie));
+    n.setAttribute('data-porte', pt.tente ? 'tente' : 'fermee');
+    n.appendChild(el('p', 'rate-phrase', pt.phrase));
+    var texte = pt.tente ? pt.annuler : pt.bouton;
+    if (texte) {
+      var rang = el('div', 'rate-boutons');
+      var bt = el('button', 'rate-bouton', texte);
+      bt.type = 'button';
+      bt.setAttribute('data-cle', pt.tente ? 'annuler' : 'tenter');
+      bt.addEventListener('click', function () { vue.surPorte(iExo, pt.tente ? 'annuler' : 'tenter'); });
+      rang.appendChild(bt);
       n.appendChild(rang);
     }
     return n;
@@ -5258,6 +5283,8 @@
     if (p.frere) cible.appendChild(el('p', 'pq-p', p.frere));
     // 188-2 — le repos d'un gros mouvement qui stagne : une ligne, jamais une carte.
     if (p.repos) cible.appendChild(el('p', 'pq-p', p.repos));
+    // 251 (D2) — la porte du cran : pourquoi le test n'est pas là aujourd'hui (une ligne, avec ta force du jour quand la table répond).
+    if (p.porte) cible.appendChild(el('p', 'pq-p pq-porte', p.porte));
     // 193-1 — comment les séries de recul suivent la grosse série (du plan).
     if (p.reculPhrase) cible.appendChild(el('p', 'pq-p pq-recul-phrase', p.reculPhrase));   // 200-7
     if (p.recul) cible.appendChild(el('p', 'pq-p', p.recul));

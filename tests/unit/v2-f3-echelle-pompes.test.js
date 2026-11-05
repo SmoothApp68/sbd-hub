@@ -92,10 +92,18 @@ describe('245 F3 (c) — une tenue n’est jamais proposée à un exercice en re
     expect(Mo.marcheSuivante(haut, 'a')).toBeNull();
     expect(Mo.verifierI133(haut)).toEqual([]);
   });
-  test('I133 attrape une marche de mesure différente', () => {
-    const forge = Object.assign({}, INDEX, { dips_torse: ex('dips_torse', 2, { echelle: 'dips_torse', mesure: 'temps' }) });
-    // la stricte en secondes, ses voisins en reps : la fonction ne les croise plus ; l'index forgé reste cohérent.
-    expect(Mo.verifierI133(forge)).toEqual([]);
+  test('DISCRIMINANT — I133 FAIT ÉCHOUER un catalogue incohérent : une entrée dont la clé et le slug divergent, le slug désignant une tenue', () => {
+    // La clé 'dips_x' porte une entrée en reps (le filtre de mesure la laisse passer), mais son `slug` désigne 'soutien_x',
+    // que le catalogue mesure en secondes : I133 relit chaque cible par son slug, indépendamment du filtre de `marcheSuivante`.
+    const forge = {
+      dips_torse: ex('dips_torse', 2, { echelle: 'dips_torse' }),
+      dips_x: ex('soutien_x', 3, { echelle: 'dips_torse' }),
+      soutien_x: ex('soutien_x', 3, { echelle: 'autre', mesure: 'temps' })
+    };
+    const erreurs = Mo.verifierI133(forge);
+    expect(erreurs.length).toBeGreaterThan(0);
+    expect(erreurs[0]).toMatch(/^I133 — dips_torse \(reps\) : la marche suivante soutien_x est mesurée en temps/);
+    expect(Mo.verifierI133(INDEX, { ecartee: coude })).toEqual([]);
     expect(Mo.memeMesure(INDEX.dips_torse, INDEX.soutien_barres_paralleles)).toBe(false);
   });
 });

@@ -59,5 +59,15 @@
   "unitaires": [
    "tests/unit/v2-f3-echelle-pompes.test.js"
   ]
+ },
+ {
+  "nom": "245-7-marche-suivante-sans-filtre-de-mesure",
+  "fichier": "v2/js/modele.js",
+  "ancien": ".filter(function (x) { return memeMesure(x, e); });   // 245 (F3) : jamais une marche d'une autre mesure",
+  "nouveau": ";   // 245 (F3) : jamais une marche d'une autre mesure",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-f3-echelle-pompes.test.js"
+  ]
  }
 ]

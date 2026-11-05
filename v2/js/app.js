@@ -7360,6 +7360,12 @@
   function catalogueIndexe() {
     if (!catalogueMemo || catalogueMemo.source !== local.exercices) {
       catalogueMemo = { source: local.exercices, index: Modele.indexerExercices(local.exercices || []) };
+      // 245 (I133) — la garde de développement vérifie le VRAI catalogue, une fois par chargement : aucune marche d'une autre mesure,
+      // aucune marche écartée par le coude (le pire cas : la zone à ménager la plus restrictive). En production, `signaler` ne fait rien.
+      if (typeof garde !== 'undefined' && garde && garde.active) {
+        var coude = function (slug) { return Generateur.zonesQuiEcartentLaMarche(slug, ['coude']).length > 0; };
+        garde.signaler(Modele.verifierI133(catalogueMemo.index, { ecartee: coude }), { invariant: 'I133' });
+      }
     }
     return catalogueMemo.index;
   }

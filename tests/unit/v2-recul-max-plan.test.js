@@ -249,5 +249,16 @@ describe('251 D2 — la grosse série ratée', () => {
     expect(x.rate.cas).toBe('G');
     expect(x.rate.cas).not.toBe('I');
     propre(p, e);
+    // I139 — le même plan forgé en cas I est refusé ; I135 — des reculs qui ne visent pas la visée du premier recul non validé
+    const clone = (o) => JSON.parse(JSON.stringify(o));
+    const faux = clone(p);
+    faux.exercices[0].rate.cas = 'I';
+    expect(T.verifierPlan(faux, e).erreurs.filter((m) => m.indexOf('I139') === 0)).toHaveLength(1);
+    const f2 = clone(p);
+    f2.exercices[0].reculs.vise += 2;
+    expect(T.verifierPlan(f2, e).erreurs.filter((m) => m.indexOf('I135') === 0).length).toBeGreaterThan(0);
+    const f3 = clone(p);
+    { const l = f3.exercices[0].lignes.filter((q) => q.type === 'recul').pop(); if (l.recul) l.recul.vise += 1; else l.vise += 1; }
+    expect(T.verifierPlan(f3, e).erreurs.filter((m) => m.indexOf('I135') === 0).length).toBeGreaterThan(0);
   });
 });

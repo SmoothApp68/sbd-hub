@@ -612,3 +612,99 @@ describe('251 D2 — la porte du cran', () => {
     expect(x2.porteDuCran.bouton).toBeNull();
   });
 });
+
+
+// ══ 251 — LES INVARIANTS I134 À I139, un plan forgé cassé chacun ═══════════════════════════════════════════════════════════════════════
+describe('251 — invariants I134 à I139 (plans forgés)', () => {
+  const clone = (o) => JSON.parse(JSON.stringify(o));
+  const erreurs = (p, e) => T.verifierPlan(p, e).erreurs.concat(T.verifierPhrases(p)).map(String);
+  const a = (p, e, code) => erreurs(p, e).filter((m) => m.indexOf(code) === 0);
+  const ferme = () => planH({ couche: [[107.5, 2]] }, MUSCLE);
+
+  test('témoin — les plans vrais (porte fermée, tentée, ouverte, carte de forme) ne lèvent aucun I134 à I139', () => {
+    [ferme(), planH({}), planH({ couche: [[107.5, 2]] }, { gestes: [{ geste: 'cran_tente', slug: 'couche', rang: 0 }], objectif: 'muscle' }),
+      planH(FAITS_D1), planH({ couche: [[107.5, 2]] }, { entrees: { debutant: true } })].forEach((r) => {
+      expect(erreurs(r.p, r.e).filter((m) => /^I13[4-9]|^I116/.test(m))).toEqual([]);
+    });
+  });
+
+  test('I134 — la carte de la forme du jour cite un exercice « baissé » sans série validée sous sa charge de travail', () => {
+    const r = planH(FAITS_D1);
+    const p = clone(r.p);
+    const cf = p.exercices[3].carteForme;
+    expect(cf).toBeTruthy();
+    cf.baisses = ['couche'];                                   // le couché n'a pas baissé : son cran de test n'a simplement pas été pris
+    expect(a(p, r.e, 'I134')).toHaveLength(1);
+    cf.baisses = [];
+    expect(a(p, r.e, 'I134')).toEqual([]);
+  });
+
+  test('I136 — porte fermée : une ligne de test, une ligne plus lourde que la charge de travail, une porte sans série qui la ferme, la forme sans geste', () => {
+    const r = ferme();
+    expect(a(r.p, r.e, 'I136')).toEqual([]);
+    let p = clone(r.p);
+    p.exercices[0].lignes[2].role = 'test';
+    expect(a(p, r.e, 'I136').join(' ')).toMatch(/est un test alors que la porte est fermée/);
+    p = clone(r.p);
+    p.exercices[0].lignes[2].charge = 110;
+    expect(a(p, r.e, 'I136').join(' ')).toMatch(/dépasse la charge de travail/);
+    p = clone(r.p);
+    p.exercices[0].lignes[2].charge = 110; p.exercices[0].lignes[2].source = 'coach';       // le coach peut proposer plus lourd
+    expect(a(p, r.e, 'I136')).toEqual([]);
+    const e = clone(r.e);
+    e.seance.exercices[0].series[0].reps = 4;                                                // la série qui « ferme » est dans la zone
+    expect(a(r.p, e, 'I136').join(' ')).toMatch(/pas sous la zone/);
+    p = clone(r.p);
+    p.exercices[0].porteDuCran.raison = 'forme'; p.exercices[0].porteDuCran.phrase = null; p.exercices[0].porteDuCran.bouton = null;
+    expect(a(p, r.e, 'I136').join(' ')).toMatch(/forme sans geste/);
+    const rf = planH({}, { gestes: [{ geste: 'forme_ajustee', slug: 'couche' }] });
+    expect(a(rf.p, rf.e, 'I136').concat(a(rf.p, rf.e, 'I138'))).toEqual([]);
+  });
+
+  test('I137 — le niveau 2 parle après une série classée D ou L', () => {
+    const r = ferme();
+    expect(r.p.exercices[0].rate.niveau).toBe('serie');
+    const p = clone(r.p);
+    p.exercices[0].rate.niveau = 'exercice';
+    expect(a(p, r.e, 'I137')).toHaveLength(1);
+    const ok = planH({ couche: [[107.5, 4], [107.5, 4]] });                                   // 4, 4 dans la zone : le niveau 2 est à sa place
+    expect(ok.p.exercices[0].rate.niveau).toBe('exercice');
+    expect(a(ok.p, ok.e, 'I137')).toEqual([]);
+  });
+
+  test('I138 — la voix de la porte : phrase altérée, bouton absent, phrase sans porte, porte dans un contexte muet, « Annuler » manquant', () => {
+    const r = ferme();
+    let p = clone(r.p);
+    p.exercices[0].porteDuCran.phrase = 'Pas de test aujourd’hui.';
+    expect(a(p, r.e, 'I138').join(' ')).toMatch(/n’est pas la phrase écrite/);
+    p = clone(r.p);
+    p.exercices[0].porteDuCran.bouton = null;
+    expect(a(p, r.e, 'I138').join(' ')).toMatch(/sans son bouton/);
+    p = clone(r.p);
+    p.exercices[0].porteDuCran = null;
+    expect(a(p, r.e, 'I138').join(' ')).toMatch(/sans porte fermée/);
+    p = clone(r.p);
+    p.intention = 'entretien';
+    expect(a(p, r.e, 'I138').join(' ')).toMatch(/où le coach se tait/);
+    const t = planH({ couche: [[107.5, 2]] }, { gestes: [{ geste: 'cran_tente', slug: 'couche', rang: 0 }], objectif: 'muscle' });
+    p = clone(t.p);
+    p.exercices[0].porteDuCran.annuler = null;
+    expect(a(p, t.e, 'I138').join(' ')).toMatch(/sans « Annuler »/);
+  });
+
+  test('I116 amendé — une ligne abaissée par la porte ne porte aucune charge de réaction ; une ligne sous la charge de travail sans geste est refusée', () => {
+    const r = ferme();
+    r.p.exercices[0].lignes.filter((l) => !l.validee).forEach((l) => { expect(l.rate && l.rate.charge).toBeUndefined(); });
+    expect(a(r.p, r.e, 'I116')).toEqual([]);
+    const p = clone(r.p);
+    p.exercices[0].lignes[2].charge = 100;
+    expect(a(p, r.e, 'I116').join(' ')).toMatch(/sous la charge de travail sans geste/);
+  });
+
+  test('I118 amendé — la porte parle même au calage et au débutant', () => {
+    const r = planH({ couche: [[107.5, 2]] }, { entrees: { debutant: true } });
+    expect(r.p.exercices[0].porteDuCran).toBeTruthy();
+    expect(a(r.p, r.e, 'I118')).toEqual([]);
+    expect(a(r.p, r.e, 'I138')).toEqual([]);
+  });
+});

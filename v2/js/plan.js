@@ -6091,6 +6091,7 @@
     verifierZoneMenagee(plan, entrees, erreurs);
     verifierBlocHypertrophie(plan, erreurs);
     verifierRate(plan, entrees, erreurs);
+    verifierPorte(plan, entrees, erreurs);
     verifierRestPause(plan, erreurs);
     verifierBaisseAttendue(plan, erreurs);
     verifierEffortVise(plan, entrees, erreurs);
@@ -6331,6 +6332,128 @@
     var rep = gestes.some(function (g) { return g && (g.geste === 'forme_gardee' || g.geste === 'forme_ajustee'); });
     if (rep && cartes > 0) erreurs.push('I117 — la carte de la forme du jour revient après une réponse');
     if (rep && plan && plan.formeDuJour && plan.formeDuJour.carte) erreurs.push('I117 — la forme du jour porte une carte après une réponse');
+  }
+
+  // I134 à I139 (251, MOTEUR §9.39, la recette du coach) — LA PORTE DU CRAN, LE NIVEAU 2 SOUS LA ZONE, LA BAISSE CONTRE LA CHARGE DE TRAVAIL, LA
+  // GROSSE SÉRIE RATÉE. Lus sur le plan et sur la séance : le plan ne dit rien que la séance ne prouve.
+  //   I134  la carte de la forme du jour ne cite un exercice dans `baisses` que s'il a une série de travail validée sous min(ligne, travail)
+  //   I135  dans un bloc à grosse série, `x.reculs.vise` est la visée du premier recul non validé (le premier si tous le sont) ; tous visent pareil
+  //   I136  porte fermée et non tentée : aucune ligne `test` non validée, aucune ligne non validée plus lourde que la charge de travail (sauf coach, élan) ;
+  //         aucune porte fermée sans série validée sous la zone (ou allée à l'échec), ni sans geste `forme_ajustee` pour la raison forme
+  //   I137  `x.rate.niveau === 'exercice'` jamais quand la dernière série de travail validée est classée D ou L
+  //   I138  la voix de la porte : la phrase et le bouton sous la 1re série qui ferme ; « Le test à … revient. » et « Annuler » ; rien dans les contextes muets
+  //   I139  sous la première série de travail d'un exercice à reculs, le coach parle en cas G, jamais I
+  function verifierPorte(plan, entrees, erreurs) {
+    var xs = (plan && plan.exercices) || [];
+    var exos = entrees && entrees.seance && Array.isArray(entrees.seance.exercices) ? entrees.seance.exercices : [];
+    var gestes = entrees && entrees.seance && Array.isArray(entrees.seance.gestes) ? entrees.seance.gestes : [];
+    var M = Moteur(), P = Palier(), T = racine.THModele;
+    var sp = function (t) { return String(t === null || t === undefined ? '' : t).replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim(); };
+    var travailLu = function (l) { return (l.type === 'travail' || l.type === 'recul') && l.role !== 'hors'; };
+    var catalogue = (entrees && entrees.catalogue) || {};
+    // I134
+    xs.forEach(function (x, i) {
+      var cf = x && x.carteForme;
+      if (!cf || !Array.isArray(cf.baisses)) return;
+      cf.baisses.forEach(function (nom) {
+        var cible = xs.filter(function (q) { var c = catalogue[q.slug]; return ((c && c.nom) || q.slug) === nom; })[0];
+        var ou = ' — exercice ' + i + ' (' + (x && x.slug) + ') : ';
+        if (!cible || !cible.consigne) { erreurs.push('I134' + ou + 'la carte cite « ' + nom + ' » dans ses baisses, un exercice que le plan ne porte pas'); return; }
+        var ligne = nombre(cible.consigne.ligne && cible.consigne.ligne.charge), travail = chargeDeTravail(cible.consigne);
+        var seuil = ligne !== null && travail !== null ? Math.min(ligne, travail) : (ligne !== null ? ligne : travail);
+        var iExo = cible.iExo !== undefined ? cible.iExo : xs.indexOf(cible);
+        var series = (exos[iExo] && exos[iExo].series) || [];
+        var sous = seuil !== null && series.some(function (sr) {
+          var c = nombre(sr.charge_kg);
+          return T.estTravail(sr) && !T.estRecul(sr) && sr.validee_a && c !== null && c > 0 && c < seuil - 1e-9;
+        });
+        if (!sous) erreurs.push('I134' + ou + 'la carte cite « ' + nom + ' » comme baissé sans série de travail validée sous ' + seuil + ' kg');
+      });
+    });
+    xs.forEach(function (x, i) {
+      if (!x) return;
+      var nom = ' — exercice ' + i + ' (' + x.slug + ') : ';
+      var lignes = x.lignes || [];
+      // I135
+      if (x.reculs) {
+        var visee = function (l) { return nombre(l.recul && l.recul.vise !== undefined ? l.recul.vise : l.vise); };
+        var rec = lignes.filter(function (l) { return l.type === 'recul'; });
+        var porteurs = rec.filter(function (l) { return !l.validee && visee(l) !== null; });
+        var attendu = porteurs.length ? visee(porteurs[0]) : (rec.length ? visee(rec[0]) : null);
+        if (nombre(x.reculs.vise) !== null && attendu !== null && nombre(x.reculs.vise) !== attendu) {
+          erreurs.push('I135' + nom + 'les reculs visent ' + x.reculs.vise + ' reps, la ligne du premier recul non validé en vise ' + attendu);
+        }
+        var visees = porteurs.map(visee);
+        if (visees.some(function (v) { return v !== visees[0]; })) erreurs.push('I135' + nom + 'des reculs qui ne visent pas les mêmes reps (' + visees.join(', ') + ')');
+      }
+      // I139
+      var travail = lignes.filter(travailLu);
+      var premiere = travail[0] || null;
+      if (x.reculs && x.rate && premiere && x.rate.iSerie === premiere.iSerie && (x.rate.cas === 'I' || x.rate.cas === 'J')) {
+        erreurs.push('I139' + nom + 'le coach parle sous la grosse série en cas ' + x.rate.cas + ' (« pas encore » / « dernière ») : c’est le cas G, qui recale les reculs');
+      }
+      // I137
+      var dernierFait = travail.filter(function (l) { return l.validee; }).pop() || null;
+      if (x.rate && x.rate.niveau === 'exercice' && dernierFait && x.consigne) {
+        var zone = M.zoneParCle(x.consigne.zone), sr = ((exos[i] && exos[i].series) || [])[dernierFait.iSerie] || {};
+        var ch = nombre(sr.charge_kg), rp = nombre(sr.reps), vi = nombre(dernierFait.vise);
+        if (zone && rp !== null && vi !== null && ch !== null && ch > 0 && rp < vi) {
+          var cat = catalogue[x.slug] || {};
+          var lu = M.rateSousLaZone({ reps: rp, bas: zone.bas, objectif: entrees.objectif || null, barre: cat.equipement === 'barre', reserve: P.reserveDeSerie(sr), charge: ch });
+          if (lu.sous || lu.echec) erreurs.push('I137' + nom + 'le niveau 2 parle après une série classée ' + (lu.echec ? 'L' : 'D') + ' (le niveau 1 garde la parole)');
+        }
+      }
+      // I136, I138
+      var q = x.porteDuCran || null;
+      var portePhrases = (x.phrases || []).filter(function (p) { return p.ou === 'porte'; });
+      var muet = plan.intention === 'entretien' || x.intention === 'entretien' || x.mode === 'entretien' || !!plan.allegee || (x.consigne && x.consigne.allegee) ||
+        !!plan.semaineDeTest || !!x.semaineDeTest || !!x.douleur || plan.edition === true;
+      if (!q) {
+        if (portePhrases.length) erreurs.push('I138' + nom + 'la phrase de la porte sans porte fermée');
+        return;
+      }
+      if (muet) erreurs.push('I138' + nom + 'une porte du cran dans un contexte où le coach se tait');
+      var travailKg = x.consigne ? chargeDeTravail(x.consigne) : null;
+      if (!q.tente) {
+        lignes.forEach(function (l) {
+          if (l.validee || l.figee || !travailLu(l) && l.role !== 'test') return;
+          if (l.role === 'test') erreurs.push('I136' + nom + 'la ligne ' + l.iSerie + ' est un test alors que la porte est fermée');
+          else if (travailKg !== null && nombre(l.charge) !== null && nombre(l.charge) > travailKg + 1e-9 && l.source !== 'coach' && l.source !== 'elan') {
+            erreurs.push('I136' + nom + 'la ligne ' + l.iSerie + ' à ' + l.charge + ' kg dépasse la charge de travail (' + travailKg + ' kg) porte fermée');
+          }
+          if (l.role !== 'test' && travailKg !== null && nombre(l.charge) !== null && nombre(l.charge) < travailKg - 1e-9 && l.source === 'consigne' && l.rate && l.rate.charge === undefined &&
+              !gestes.some(function (g) { return g && g.geste === 'rate_prise' && g.slug === x.slug; })) {
+            erreurs.push('I116' + nom + 'la ligne ' + l.iSerie + ' est sous la charge de travail sans geste');
+          }
+        });
+      }
+      if (q.raison === 'forme') {
+        if (!gestes.some(function (g) { return g && g.geste === 'forme_ajustee'; })) erreurs.push('I136' + nom + 'une porte fermée pour la forme sans geste « forme_ajustee »');
+        if (q.phrase !== null || q.bouton !== null || portePhrases.some(function (p) { return p.texte && sp(p.texte) === sp(q.phrase); }) && q.phrase) {
+          erreurs.push('I138' + nom + 'la porte fermée pour la forme parle sous une série (seul le Pourquoi la dit)');
+        }
+      } else {
+        var sr2 = q.iSerie !== null && q.iSerie !== undefined ? ((exos[i] && exos[i].series) || [])[q.iSerie] : null;
+        var zone2 = x.consigne ? M.zoneParCle(x.consigne.zone) : null;
+        if (!sr2 || !sr2.validee_a) erreurs.push('I136' + nom + 'une porte fermée sans série validée qui la ferme');
+        else {
+          var rep2 = nombre(sr2.reps), ch2 = nombre(sr2.charge_kg), cran2 = q.cran ? nombre(q.cran.charge) : null;
+          if (ch2 === null || cran2 === null || !(ch2 < cran2)) erreurs.push('I136' + nom + 'la série qui ferme n’est pas sous le cran');
+          if (q.raison === 'sous_la_zone' && zone2 && !(rep2 !== null && rep2 < zone2.bas)) erreurs.push('I136' + nom + 'la porte se ferme sur ' + rep2 + ' reps, pas sous la zone');
+          if (q.raison === 'echec' && P.reserveDeSerie(sr2) !== 0) erreurs.push('I136' + nom + 'la porte se ferme sur un échec que la série ne note pas');
+        }
+        // I138 — la phrase et le bouton, sous la PREMIÈRE série qui ferme.
+        var attendu0 = /^Pas de test à .+ kg aujourd’hui : ta série est (sous ta zone|allée jusqu’à l’échec)\.$/;
+        if (!q.tente) {
+          if (!attendu0.test(sp(q.phrase))) erreurs.push('I138' + nom + 'la phrase de la porte fermée n’est pas la phrase écrite (« ' + sp(q.phrase) + ' »)');
+          if (!q.bouton || !/^Tenter .+ kg quand même$/.test(sp(q.bouton))) erreurs.push('I138' + nom + 'la porte fermée sans son bouton « Tenter … quand même »');
+        } else {
+          if (!/^Le test à .+ kg revient\.$/.test(sp(q.phrase))) erreurs.push('I138' + nom + 'la porte tentée ne dit pas « Le test à … revient. »');
+          if (sp(q.annuler) !== 'Annuler') erreurs.push('I138' + nom + 'la porte tentée sans « Annuler »');
+        }
+        if (portePhrases.length !== 1) erreurs.push('I138' + nom + portePhrases.length + ' phrases de porte (une seule, sous la série qui ferme)');
+      }
+    });
   }
 
   // I114 (221, MOTEUR §19.2) — LE BLOC HYPERTROPHIE, lu sur le plan : le soulevé reste en Mix (jamais 8-10) ; en grosse série gardée, la

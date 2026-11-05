@@ -215,6 +215,42 @@
     return { rapport: Math.round(c / p.poids * 100) / 100, pesee: { date: p.date, poids: p.poids } };
   }
 
+  // 246 — LA SEULE INTERPOLATION, pour le bilan (« Ton année » : un bilan regarde en arrière, décision d'Aurélien du
+  // 05/11/2026). Tout autre lecteur du poids à une date lit `poidsALaDate`. Déplacée de `bilans.js` (95, BILANS-V1)
+  // sans changer de code ni de contrat. `pesees` : `[{ jour, poids }]` ; rend `{ poids, approx }` ou `null` : deux
+  // pesées qui encadrent le jour, à 60 j au plus chacune (interpolées) ; sinon la plus proche à 45 j, « ≈ ».
+  var JOURS_ENCADRE = 60, JOURS_PROCHE = 45;
+  var RE_JOUR_STRICT = /^(\d{4})-(\d{2})-(\d{2})$/;
+  function numeroDeJour(j) {
+    var m = RE_JOUR_STRICT.exec(String(j || ''));
+    return m ? Math.round(Date.UTC(+m[1], +m[2] - 1, +m[3]) / 864e5) : null;
+  }
+  function nombreFini(v) {
+    if (v === null || v === undefined || v === '') return null;
+    var n = Number(v);
+    return isFinite(n) ? n : null;
+  }
+  function poidsAutourDe(pesees, jour) {
+    var n = numeroDeJour(jour);
+    if (n === null) return null;
+    var avant = null, apres = null, proche = null;
+    (pesees || []).forEach(function (p) {
+      var k = numeroDeJour(p && p.jour), v = nombreFini(p && p.poids);
+      if (k === null || v === null || v <= 0) return;
+      var d = k - n;
+      if (d <= 0 && -d <= JOURS_ENCADRE && (!avant || k > avant.k)) avant = { k: k, v: v };
+      if (d >= 0 && d <= JOURS_ENCADRE && (!apres || k < apres.k)) apres = { k: k, v: v };
+      if (Math.abs(d) <= JOURS_PROCHE && (!proche || Math.abs(d) < Math.abs(proche.k - n) ||
+          (Math.abs(d) === Math.abs(proche.k - n) && k < proche.k))) proche = { k: k, v: v };
+    });
+    if (avant && apres) {
+      var v = avant.k === apres.k ? avant.v : avant.v + (apres.v - avant.v) * (n - avant.k) / (apres.k - avant.k);
+      return { poids: v, approx: false };
+    }
+    if (proche) return { poids: proche.v, approx: true };
+    return null;
+  }
+
   // ── La pesée qu'on ÉCRIT (60-2a, QUESTIONNAIRE-COACH-V2 §3, écran « Toi ») ──
   //
   // Jusqu'ici une pesée ne se LISAIT que (Hevy, l'import) ; le questionnaire en
@@ -284,6 +320,9 @@
     RAPPORT_JOURS: RAPPORT_JOURS,
     rapportAuPoids: rapportAuPoids,
     poidsALaDate: poidsALaDate,
+    poidsAutourDe: poidsAutourDe,
+    JOURS_ENCADRE: JOURS_ENCADRE,
+    JOURS_PROCHE: JOURS_PROCHE,
     MARGE: MARGE,
     PERIODES: PERIODES,
     PERIODE_DEFAUT: PERIODE_DEFAUT,

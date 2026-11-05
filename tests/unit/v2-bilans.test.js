@@ -15,7 +15,7 @@ require('../../v2/js/palier.js');
 require('../../v2/js/moteur.js');
 require('../../v2/js/seance.js');
 require('../../v2/js/periode.js');
-require('../../v2/js/poids.js');
+const Poids = require('../../v2/js/poids.js');
 const Parcours = require('../../v2/js/parcours.js');
 const Bilans = require('../../v2/js/bilans.js');
 const Faits = require('../../v2/js/faits.js');
@@ -150,19 +150,19 @@ describe('95 — moins de 2 mois de données : les faits seulement', () => {
 
 describe('95 — le poids du jour', () => {
   test('deux pesées qui encadrent la perf (60 j au plus de chaque côté) : interpolées, sans « ≈ »', () => {
-    expect(Bilans.poidsDuJour([{ jour: '2026-05-01', poids: 100 }, { jour: '2026-06-30', poids: 94 }], '2026-05-31'))
+    expect(Poids.poidsAutourDe([{ jour: '2026-05-01', poids: 100 }, { jour: '2026-06-30', poids: 94 }], '2026-05-31'))
       .toEqual({ poids: 97, approx: false });
   });
   test('la pesée du jour même', () => {
-    expect(Bilans.poidsDuJour([{ jour: '2026-05-31', poids: 98 }], '2026-05-31')).toEqual({ poids: 98, approx: false });
+    expect(Poids.poidsAutourDe([{ jour: '2026-05-31', poids: 98 }], '2026-05-31')).toEqual({ poids: 98, approx: false });
   });
   test('⚠️ une pesée à plus de 60 j n’encadre pas : la plus proche à 45 j au plus, avec « ≈ »', () => {
-    expect(Bilans.poidsDuJour([{ jour: '2026-03-01', poids: 90 }, { jour: '2026-06-20', poids: 96 }], '2026-06-01'))
+    expect(Poids.poidsAutourDe([{ jour: '2026-03-01', poids: 90 }, { jour: '2026-06-20', poids: 96 }], '2026-06-01'))
       .toEqual({ poids: 96, approx: true });
   });
   test('rien à 45 j ni de pesées encadrantes : pas de %', () => {
-    expect(Bilans.poidsDuJour([{ jour: '2026-03-01', poids: 90 }, { jour: '2026-09-20', poids: 96 }], '2026-06-01')).toBeNull();
-    expect(Bilans.poidsDuJour([], '2026-06-01')).toBeNull();
+    expect(Poids.poidsAutourDe([{ jour: '2026-03-01', poids: 90 }, { jour: '2026-09-20', poids: 96 }], '2026-06-01')).toBeNull();
+    expect(Poids.poidsAutourDe([], '2026-06-01')).toBeNull();
   });
   test('dans le bilan : le % du jour de la perf', () => {
     const b = bilan(PLEINE, { pesees: [{ jour: '2026-05-01', poids: 100 }, { jour: '2026-06-01', poids: 100 }] });

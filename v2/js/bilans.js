@@ -31,6 +31,7 @@
 
   function Mo() { return racine.THModele; }
   function Se() { return racine.THSemaine; }
+  function Po() { return racine.THPoids; }
   function Bi() { return racine.THBilan; }
   function Pa() { return racine.THParcours; }
 
@@ -43,8 +44,7 @@
   var ZONES_DE_REPS = [{ cle: 'force', jusqua: 5 }, { cle: 'mix', jusqua: 8 }, { cle: 'muscle', jusqua: Infinity }];
   // La comparaison : moins de 2 mois de données, aucune ; moins de 12, début contre fin de la période.
   var MOIS_MIN = 2, MOIS_PLEIN = 12;
-  // Le poids du jour : deux pesées qui encadrent la perf, à 60 j au plus chacune ; sinon la plus proche à 45 j, « ≈ ».
-  var JOURS_ENCADRE = 60, JOURS_PROCHE = 45;
+  // Le poids du jour (BILANS-V1) : `THPoids.poidsAutourDe` (246, rangé dans `poids.js` : 60 j / 45 j), lu à l'appel.
   // L'équivalence : un éléphant d'Afrique pèse 6 t.
   var ELEPHANT_KG = 6000;
   // La saison et le mois : moins de 3 semaines de données dans la période, les faits seulement (décision du 14/10).
@@ -178,29 +178,6 @@
       .sort(function (a, b) { return b.r - a.r || a.i - b.i; })
       .slice(0, reste).forEach(function (x) { ent[x.i]++; });
     return ent;
-  }
-
-  // ── Le poids du jour (BILANS-V1) ─────────────────────────────────────────
-  // `pesees` : `[{ jour, poids }]`. Rend `{ poids, approx }` ou `null`.
-  function poidsDuJour(pesees, jour) {
-    var n = numero(jour);
-    if (n === null) return null;
-    var avant = null, apres = null, proche = null;
-    (pesees || []).forEach(function (p) {
-      var k = numero(p && p.jour), v = nombre(p && p.poids);
-      if (k === null || v === null || v <= 0) return;
-      var d = k - n;
-      if (d <= 0 && -d <= JOURS_ENCADRE && (!avant || k > avant.k)) avant = { k: k, v: v };
-      if (d >= 0 && d <= JOURS_ENCADRE && (!apres || k < apres.k)) apres = { k: k, v: v };
-      if (Math.abs(d) <= JOURS_PROCHE && (!proche || Math.abs(d) < Math.abs(proche.k - n) ||
-          (Math.abs(d) === Math.abs(proche.k - n) && k < proche.k))) proche = { k: k, v: v };
-    });
-    if (avant && apres) {
-      var v = avant.k === apres.k ? avant.v : avant.v + (apres.v - avant.v) * (n - avant.k) / (apres.k - avant.k);
-      return { poids: v, approx: false };
-    }
-    if (proche) return { poids: proche.v, approx: true };
-    return null;
   }
 
   // ── La comparaison : avec quoi, et sur quelles fenêtres ──────────────────
@@ -449,7 +426,7 @@
       if (!an) return;
       var vie = lourdeDe(slug, function (j) { return j < periode.debut; });
       var avant = avec ? lourdeDe(slug, function (j) { return dans(j, cmp.avant); }) : null;
-      var pdc = poidsDuJour(e.pesees, an.jour);
+      var pdc = Po().poidsAutourDe(e.pesees, an.jour);
       lignes.push({ slug: slug, nom: nomDe(slug), charge: an.charge, jour: an.jour,
                     avant: avant ? avant.charge : null,
                     vie: !!vie && an.charge > vie.charge,
@@ -551,12 +528,9 @@
     nomDeSaison: nomDeSaison,
     SAISONS: SAISONS,
     SEMAINES_MIN: SEMAINES_MIN,
-    poidsDuJour: poidsDuJour,
     comparaisonDe: comparaisonDe,
     get BARRES() { return barres(); },
-    ZONES_DE_REPS: ZONES_DE_REPS,
-    JOURS_ENCADRE: JOURS_ENCADRE,
-    JOURS_PROCHE: JOURS_PROCHE
+    ZONES_DE_REPS: ZONES_DE_REPS
   };
   racine.THBilans = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

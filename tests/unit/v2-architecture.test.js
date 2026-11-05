@@ -1992,7 +1992,7 @@ const NOTIONS = [
     raison: 'l’écran de séance montre la note de la dernière fois sous le nom de l’exercice ; le fait vit dans `faits.js`, aucune règle du coach ne le lit.' },
   { notion: 'la note affichée d’un exercice (épinglée, de la dernière fois, ou masquée)', pr: '242-U1',
     module: 'faits.js', fonction: 'noteDeLExercice', lecteurs: ['app.js'],
-    raison: 'l’écran lit `profiles.notes_exercices` et le fait de la dernière fois par UNE fonction : la note épinglée prime, « Ne plus afficher » masque la série désignée.' },,
+    raison: 'l’écran lit `profiles.notes_exercices` et le fait de la dernière fois par UNE fonction : la note épinglée prime, « Ne plus afficher » masque la série désignée.' },
   { notion: 'le poids à une date (la dernière pesée ≤ ce jour, d’au plus N jours, jamais interpolée)', pr: '246-U1',
     module: 'poids.js', fonction: 'poidsALaDate', lecteurs: ['app.js'],
     par: ['rapportAuPoids'],

@@ -27371,11 +27371,17 @@ const SETS_IMPORTES = [
       await noterExo250(0, 'rpe 9 sur la dernière');
       await noterExo250(1, 'mal au coude');
       await page.click('#bandeau-seance .bandeau-fin');
-      await attendre(700);
+      await page.waitForSelector('#feuille-contenu .principal', { timeout: 8000 });
       await page.click('#feuille-contenu .principal');
       await terminerQuandMeme();
       await jusqua(recapVisible250, 8000);
-      await attendre(600);
+      await recapPose250();
+    };
+    // Le récap est posé (son titre est là) ET le réseau est calme : plus aucune requête en vol, aucune depuis 400 ms — c'est l'ÉTAT qui
+    // dit qu'un « silence » est un silence (pas un délai).
+    const recapPose250 = async () => {
+      await jusqua(() => page.evaluate(() => !!document.querySelector('#recap-corps .recap-titre')), 8000);
+      await jusqua(() => reseauBanc.enVol === 0 && Date.now() - reseauBanc.dernier >= 400 * RALENTI, 8000);
     };
     const quitterRecap250 = async () => {
       await fermerRecapBanc();
@@ -27392,11 +27398,11 @@ const SETS_IMPORTES = [
     for (let i = 0; i < 3; i++) await saisirSerie(i, 100, 5);
     await noterExo250(0, 'rpe 9 sur la dernière');
     await page.click('#bandeau-seance .bandeau-fin');
-    await attendre(700);
+    await page.waitForSelector('#feuille-contenu .principal', { timeout: 8000 });
     await page.click('#feuille-contenu .principal');
     await terminerQuandMeme();
     await jusqua(recapVisible250, 8000);
-    await attendre(800);
+    await recapPose250();
     ok('[NI250] DISCRIMINANT — interrupteur éteint : ni écran « Je peux lire tes notes ? », ni bloc « Dans tes notes », zéro appel',
       await page.evaluate(() => !document.querySelector('#recap-corps .nia-accord') && !document.querySelector('#recap-corps .nia-bloc-titre')) &&
         N250.appels.length === 0, String(N250.appels.length));
@@ -27410,7 +27416,7 @@ const SETS_IMPORTES = [
         await page.evaluate(() => document.querySelectorAll('#recap-corps .nia-btn').length === 2) && N250.appels.length === 0, accord250.slice(0, 200));
     await page.evaluate(() => document.querySelectorAll('#recap-corps .nia-btn')[1].click());
     await jusqua(() => !!base.profiles[0].notes_ia_question_a, 8000);
-    await attendre(500);
+    await jusqua(() => page.evaluate(() => !document.querySelector('#recap-corps .nia-accord')), 8000);
     ok('[NI250] « Non merci » écrit seulement la question posée (par le profil), aucun accord, aucun appel, l’écran A s’en va',
       !!base.profiles[0].notes_ia_question_a && !base.profiles[0].notes_ia_accord_a && N250.appels.length === 0 &&
         await page.evaluate(() => !document.querySelector('#recap-corps .nia-accord')),
@@ -27419,7 +27425,6 @@ const SETS_IMPORTES = [
 
     // C. LA QUESTION NE REVIENT JAMAIS : une nouvelle séance, sans accord — silence complet (N1).
     await seance250();
-    await attendre(800);
     ok('[NI250] DISCRIMINANT — la question est posée : la séance suivante n’affiche ni écran A ni bloc, et rien n’est lu ni envoyé (N1)',
       await page.evaluate(() => !document.querySelector('#recap-corps .nia-accord') && !document.querySelector('#recap-corps .nia-bloc-titre')) &&
         N250.appels.length === 0, String(N250.appels.length));
@@ -27452,7 +27457,7 @@ const SETS_IMPORTES = [
       setsDe250('ni250-a').every((x) => !x.ressenti && (x.rpe === null || x.rpe === undefined)), JSON.stringify(setsDe250('ni250-a').map((x) => [x.rang, x.ressenti, x.rpe])));
     await page.click('#recap-corps .nia-ligne[data-cle="effort:0"] .nia-ok');
     await jusqua(() => setsDe250('ni250-a').some((x) => x.ressenti === 'reste_1'), 10000);
-    await attendre(500);
+    await jusqua(async () => !!((await lignes250())[0] || {}).fait, 8000);
     const apresOk250 = setsDe250('ni250-a');
     ok('[NI250] ✓ sur l’effort : « reste_1 » sur la DERNIÈRE série seulement ; la ligne dit « 1 en réserve noté. » avec Annuler',
       apresOk250.length === 3 && apresOk250[2].ressenti === 'reste_1' && !apresOk250[0].ressenti && !apresOk250[1].ressenti &&
@@ -27462,7 +27467,7 @@ const SETS_IMPORTES = [
     ok('[NI250] N11 — Annuler remet CE champ à vide (la série redevient sans effort), la ligne redevient une proposition',
       setsDe250('ni250-a').every((x) => !x.ressenti) && !(await lignes250())[0].fait, JSON.stringify(setsDe250('ni250-a').map((x) => x.ressenti)));
     await page.click('#recap-corps .nia-ligne[data-cle="effort:0"] .nia-rond:not(.nia-ok)');
-    await attendre(800);
+    await jusqua(async () => !(await lignes250()).some((x) => x.cle === 'effort:0'), 8000);
     ok('[NI250] ✕ n’écrit rien : aucune série n’a d’effort, la ligne s’en va',
       setsDe250('ni250-a').every((x) => !x.ressenti) && !(await lignes250()).some((x) => x.cle === 'effort:0'), JSON.stringify(await lignes250()));
 
@@ -27487,7 +27492,7 @@ const SETS_IMPORTES = [
     const appelsAvantG = N250.appels.length;
     await seance250();
     await jusqua(() => N250.appels.length > appelsAvantG, 10000);
-    await attendre(1200);
+    await recapPose250();
     ok('[NI250] DISCRIMINANT — panne du service (N9) : un appel tenté, aucune ligne de l’IA, aucun message ; seule la douleur, qui est locale, reste proposée',
       N250.appels.length === appelsAvantG + 1 && JSON.stringify((await lignes250()).map((x) => x.cle)) === '["douleur:1"]' &&
         await page.evaluate(() => !document.querySelector('#recap-corps .nia-accord') &&
@@ -27501,7 +27506,6 @@ const SETS_IMPORTES = [
     const appelsAvantH = N250.appels.length;
     await aller('/saisie');
     await seance250();
-    await attendre(1000);
     ok('[NI250] DISCRIMINANT — accord retiré : zéro appel de plus, aucun bloc (N1)',
       N250.appels.length === appelsAvantH && await page.evaluate(() => !document.querySelector('#recap-corps .nia-ligne')), String(N250.appels.length));
     await quitterRecap250();

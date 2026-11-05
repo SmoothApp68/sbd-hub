@@ -1506,6 +1506,8 @@
   // ⚠️ L'ÉCRAN LIT LE PARCOURS, IL NE LE REFAIT PAS : `faits.parcoursDe` (le module des faits, qui l'assemble et le
   // mémorise) rend les verdicts, les rapports, le levier et la phrase. Ce que l'écran ajoute ne décide rien : les
   // libellés des priorités, la phase du profil et le nombre de pesées des huit dernières semaines. Rien n'est écrit.
+  // 246 : PESEES_SUFFISANTES n'est pas une seconde tendance — il décide seulement entre deux phrases d'invitation
+  // (quand `Poids.tendance` n'existe pas).
   var JOURS_DES_PESEES = 56, PESEES_SUFFISANTES = 4;
   // ⚠️ LE PROFIL ARRIVE APRÈS L'ÉCRAN (trouvé par le banc [P75]). « Ton parcours » lit le sexe (les repères) et les
   // priorités (le levier) : affiché avec le profil du cache (ou sans), la phrase perdait son rapport. On retient ce
@@ -1816,7 +1818,8 @@
       nomsCourts: Parcours.NOM_COURT,
       priorites: Profil.prioritesDe(profil).filter(function (c) { return libelles[c]; }).map(function (c) { return libelles[c]; }),
       phase: Profil.phraseRappelDePhase(profil) || Profil.LIBELLE_PHASE_VIDE,
-      pesees: { nombre: pesees, assez: pesees >= PESEES_SUFFISANTES },
+      pesees: { nombre: pesees, assez: pesees >= PESEES_SUFFISANTES,
+                tendance: Poids.phraseDeTendance(Poids.tendance(local.pesees, new Date())) },
       // 188-1 — « Ta semaine et tes équilibres », en tête.
       equilibres: vueDesEquilibres(),
       // 197 — « Ta semaine » en Forme et santé (renforcement, cardio modéré), cachable.

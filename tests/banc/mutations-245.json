@@ -21,7 +21,7 @@
   ]
  },
  {
-  "nom": "245-3-degressive-cran-juste-sous",
+  "nom": "245-3-degressive-prend-le-haut-de-la-fenetre",
   "fichier": "v2/js/moteur.js",
   "ancien": "      return Math.abs(da - db) > 1e-9 ? da - db : a - b;",
   "nouveau": "      return b - a;",

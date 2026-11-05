@@ -2206,7 +2206,8 @@ const SETS_IMPORTES = [
   //   · 244 — L'ENTRÉE DE L'APP EST FINIE (`THApp.entreeEnCours()`, hors production seulement). Sa queue (écritures
   //     du cache, second `rendreRoute`) ne fait aucune requête : au séquentiel (gros cache), elle dépassait le calme
   //     du réseau, et le banc rechargeait au milieu de l'écriture du catalogue (F67 : l'éditeur restait en slugs) ou
-  //     agissait avant le second rendu. Sans la clé (`?garde=0`), on garde les trois faits d'avant.
+  //     agissait avant le second rendu. Sans la clé (`?garde=0`), on garde les trois faits d'avant ; de même quand le
+  //     faux serveur refuse tout (`base.reseau = false`) : l'entrée attend le réseau, elle ne finira pas dans la fenêtre.
   // Plancher `ALLER_MIN_MS` (l'app démarre ses lectures après le chargement), plafond
   // `ALLER_MAX_MS` : au plafond, on rend la main comme avant (le contrôle qui suit dira ce
   // qu'il voit) et on le compte — le total s'affiche en fin de banc.
@@ -2237,7 +2238,7 @@ const SETS_IMPORTES = [
             entree: !!(window.THApp && window.THApp.entreeEnCours && window.THApp.entreeEnCours())
           };
         }).catch(() => null);
-        if (e && e.charge && e.vue && !e.entree && (e.sync || calme >= CALME_LONG_MS)) break;
+        if (e && e.charge && e.vue && (!e.entree || base.reseau === false) && (e.sync || calme >= CALME_LONG_MS)) break;
       }
       if (ecoule >= ALLER_MAX_MS) { statAller.plafond++; break; }
       await pause(100);

@@ -1047,6 +1047,9 @@
       if (d.fn === 'guilde_repondre' && !a.p_rejoindre && /guilde_sans_invitation/.test(texte)) return 'fait';
       if (rejoue && DEJA_FAIT_AU_REJEU[d.fn] && DEJA_FAIT_AU_REJEU[d.fn].test(texte)) return 'fait';
     }
+    // 244 — « accepter » rejoué : la demande est déjà acceptée, le déclencheur (v2_078) refuse accepte → accepte par
+    // « modification refusée ». Une demande retirée entre-temps donne 0 ligne, sans erreur : ce message est donc « déjà fait ».
+    if (rejoue && g === GESTES.ACCEPTER && /modification refusée/.test(texte)) return 'fait';
     return 'refus';
   }
 

@@ -1007,6 +1007,12 @@ const SETS_IMPORTES = [
       if (base.ecrituresSocialesLentes) await pause(base.ecrituresSocialesLentes);
       return route.abort('failed');
     }
+    // 244 — LA RÉPONSE PERDUE : l'écriture sociale PASSE au serveur, mais la réponse ne revient jamais (l'app est rechargée
+    // ou tuée pendant le vol). Au rejeu, la base trouve la ligne déjà ainsi faite.
+    if (base.reponseSocialePerdue && req.method() !== 'GET' && table === 'abonnements') {
+      fauxSocial.gerer(req.method(), url, corps);
+      return route.abort('failed');
+    }
     // 87 — le social : ses tables et ses fonctions, au faux serveur du social.
     const sociale = fauxSocial.gerer(req.method(), url, corps);
     if (sociale) {
@@ -18971,6 +18977,29 @@ const SETS_IMPORTES = [
     ok('[social] 121 — mutuel : plus de « Inviter dans un groupe · Bientôt »', c1.inviter === false && c1.inviterSous === null &&
       !/Bientôt/.test(await texte('#social-ami')), JSON.stringify(c1));
     await mesurer('profil mutuel');
+
+    // ── C bis (244). « ACCEPTER » REJOUÉ : la demande est acceptée côté base, la réponse est perdue, l'app est rechargée ;
+    // au rejeu, le déclencheur refuse accepte → accepte (« modification refusée ») : c'est FAIT, pas un refus.
+    const journalAvant244 = S.journal.length;
+    lien('u-lea', 'u-banc').statut = 'demande';
+    await aller('/jeu/fil');
+    await attendreQue(async () => (await fil()).demandes.length > 0);
+    base.reponseSocialePerdue = true;
+    await page.click('#social-fil .s-demande .s-accepter');
+    await attendreQue(async () => lien('u-lea', 'u-banc').statut === 'accepte');   // la base l'a reçu ; la réponse, jamais
+    await aller('/jeu/fil');                                                         // rechargé PENDANT le vol
+    base.reponseSocialePerdue = false;
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await fileVide('social');
+    await sansChargement('#social-fil');
+    const rejeu = await page.evaluate(() => ({ refus: (document.querySelector('#social-fil .s-refus') || {}).textContent || '',
+      fil: document.querySelector('#social-fil').textContent }));
+    ok('[social 244] DISCRIMINANT — « Accepter » rejoué après un rechargement (la base refuse accepte → accepte) : aucune phrase de refus, la demande est acceptée',
+      lien('u-lea', 'u-banc').statut === 'accepte' && !/pas pu se faire/.test(rejeu.fil) && rejeu.refus === '', JSON.stringify(rejeu));
+    // Le refus du déclencheur est VOULU ici (c'est le chemin visé) : on prouve qu'il a eu lieu, puis on l'ôte du journal.
+    const refusVoulus = S.journal.slice(journalAvant244).filter((j) => j.op === 'refus' && /modification refusée/.test(j.message));
+    ok('[social 244] la fixture déclenche le chemin : la base a bien refusé le rejeu (accepte → accepte)', refusVoulus.length >= 1, JSON.stringify(refusVoulus));
+    for (let k = S.journal.length - 1; k >= journalAvant244; k--) if (refusVoulus.indexOf(S.journal[k]) >= 0) S.journal.splice(k, 1);
 
     // ── D. RÉAGIR ; le nombre de réactions : l'auteur seulement.
     await aller('/jeu/fil');

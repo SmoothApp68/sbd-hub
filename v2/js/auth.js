@@ -143,12 +143,16 @@
   // profil le reprend (ECRAN-PROFIL §3.1). L'appelant le donne DÉJÀ NORMALISÉ
   // (`Profil.normaliserPseudo`, une seule fonction) ; vide, il n'est pas déposé. `emailRedirectTo`
   // est inchangé.
-  async function inscrire(email, motDePasse, retour, pseudo) {
+  //
+  // 247 — `captchaToken` : le jeton Turnstile, quand le captcha est actif ; sans jeton (clé de site vide), AUCUNE
+  // option vide n'est envoyée : l'appel est identique à celui d'avant.
+  async function inscrire(email, motDePasse, retour, pseudo, captchaToken) {
     var options = {};
     if (retour) options.emailRedirectTo = retour;
     if (typeof pseudo === 'string' && pseudo) options.data = { pseudo: pseudo };
+    if (captchaToken) options.captchaToken = captchaToken;
     var r = await client().auth.signUp({ email: email, password: motDePasse,
-      options: options.emailRedirectTo || options.data ? options : undefined });
+      options: options.emailRedirectTo || options.data || options.captchaToken ? options : undefined });
     if (r.error) throw r.error;
     return { session: (r.data && r.data.session) || null, user: (r.data && r.data.user) || null };
   }
@@ -157,8 +161,11 @@
   // récupération ouverte : c'est le profil, et sa ligne « Mot de passe », qui
   // terminent le geste. Pas d'écran de plus pour une étape qu'un écran existant
   // sait déjà faire.
-  async function reinitialiser(email, retour) {
-    var r = await client().auth.resetPasswordForEmail(email, retour ? { redirectTo: retour } : undefined);
+  async function reinitialiser(email, retour, captchaToken) {
+    var options = {};
+    if (retour) options.redirectTo = retour;
+    if (captchaToken) options.captchaToken = captchaToken;   // 247
+    var r = await client().auth.resetPasswordForEmail(email, retour || captchaToken ? options : undefined);
     if (r && r.error) throw r.error;
   }
 
@@ -168,8 +175,10 @@
     if (r.error) throw r.error;
   }
 
-  async function connecter(email, motDePasse) {
-    var r = await client().auth.signInWithPassword({ email: email, password: motDePasse });
+  async function connecter(email, motDePasse, captchaToken) {
+    var identifiants = { email: email, password: motDePasse };
+    if (captchaToken) identifiants.options = { captchaToken: captchaToken };   // 247
+    var r = await client().auth.signInWithPassword(identifiants);
     if (r.error) throw r.error;
     return r.data.session;
   }
@@ -316,7 +325,7 @@
     function monter(conteneur) {
       return charger().then(function (charge) {
         if (!charge || !conteneur) return null;
-        if (idWidget !== null && monteDans === conteneur) { reinitialiser(); return idWidget; }
+        if (idWidget !== null && monteDans === conteneur) return idWidget;   // déjà monté : le jeton en cours reste valable
         demonter();
         monteDans = conteneur;
         idWidget = racine.turnstile.render(conteneur, {

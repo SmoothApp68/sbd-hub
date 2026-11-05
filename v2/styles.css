@@ -2984,6 +2984,8 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .entree-age15{display:flex;align-items:center;gap:10px;min-height:44px;font-size:14px;color:var(--texte-2)}
 .entree-age15 input{width:22px;height:22px;flex:none}
 .entree-conditions{margin:var(--e3,12px) 0 0;font-size:12px;line-height:1.5;color:var(--texte-3);text-align:center}
+.entree-captcha{display:flex;flex-direction:column;align-items:center;gap:var(--e2,8px);margin-top:var(--e2,8px);max-width:100%;overflow:hidden}
+.entree-captcha-reessayer{min-height:44px;min-width:44px;padding:0 var(--e4,16px);background:none;border:1px solid var(--bordure,currentColor);border-radius:10px;font:inherit;color:var(--texte-2);cursor:pointer}
 .entree-lien{background:none;border:none;padding:0;font:inherit;color:var(--texte-2);text-decoration:underline;cursor:pointer}
 .mentions-page{display:grid;gap:12px;margin-bottom:12px}
 .mentions-bloc b{display:block;font-size:13px;color:var(--texte);margin-bottom:2px}

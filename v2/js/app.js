@@ -18487,8 +18487,40 @@
       aideMdp: $('aide-mdp'), bouton: $('btn-connexion'),
       bascule: $('btn-bascule-entree'), basculeAvant: $('entree-bascule-avant'),
       champEmail: $('champ-email'), champMdp: $('champ-mdp'), message: $('erreur-connexion'),
-      age15: $('env-age15'), conditions: $('entree-conditions'), surMentions: ouvrirMentions
+      age15: $('env-age15'), conditions: $('entree-conditions'), surMentions: ouvrirMentions,
+      captcha: $('captcha-zone'), captchaActif: Auth.captcha.actif()
     };
+  }
+
+  // 247 — LE CAPTCHA : l'écran monte le widget À L'OUVERTURE (le jeton est prêt au clic), demande le jeton avant
+  // l'appel, le réinitialise après CHAQUE tentative. Clé de site vide : `actif()` est faux, rien de tout cela ne part.
+  function horsLigne() { return !!(racine.navigator && racine.navigator.onLine === false); }
+
+  function direCaptcha(err) {
+    var phrase = Auth.captcha.phrase(err);
+    if (!phrase) return false;
+    var m = $('erreur-connexion');
+    m.className = 'erreur';
+    m.textContent = phrase;
+    $('btn-captcha-reessayer').hidden = !Auth.captcha.estScript(err);
+    return true;
+  }
+
+  function montrerCaptcha() {
+    if (!Auth.captcha.actif()) return Promise.resolve();
+    $('btn-captcha-reessayer').hidden = true;
+    return Auth.captcha.monter($('captcha-conteneur')).catch(function (err) {
+      // Hors ligne, la connexion était déjà impossible : le message actuel reste (rien n'est ajouté).
+      if (!horsLigne()) direCaptcha(err);
+    });
+  }
+
+  // Le jeton d'une tentative (null si le captcha est inactif ou si l'appareil est hors ligne : l'appel dira lui-même
+  // « Pas de réseau. »). Remonte l'erreur de captcha, dite par l'appelant.
+  async function jetonCaptcha() {
+    if (!Auth.captcha.actif() || horsLigne()) return null;
+    await Auth.captcha.monter($('captcha-conteneur'));
+    return Auth.captcha.jeton();
   }
 
   // ⚠️ REMISE À ZÉRO À CHAQUE OUVERTURE. Sans elle, l'ancienne erreur et
@@ -18509,6 +18541,7 @@
     Rendu.rendreEntree(c);
     rendreEncartInstaller();   // 138 : iPhone, hors de l'app
     majBoutonEntree();
+    montrerCaptcha();   // 247
   }
 
   function etatEntree() {
@@ -18563,7 +18596,9 @@
     erreur.className = 'erreur';
     bouton.disabled = true;
     bouton.textContent = inscription ? 'Création…' : 'Connexion…';
+    var entre = false;
     try {
+      var jeton = await jetonCaptcha();   // 247
       if (inscription) {
         var etat = etatEntree();
         // ⚠️ RETENU AVANT L'APPEL. `onAuthStateChange` peut partir AVANT que
@@ -18573,7 +18608,8 @@
         // 59-4 — le lien de confirmation (s'il y en a un) revient sur CETTE app.
         // 60-3b — le pseudo (normalisé) part AVEC le compte, dans ses données : le lien de confirmation
         // s'ouvre souvent dans une autre page, où `pseudoAInscrire` n'existe plus.
-        var r = await Auth.inscrire(etat.email, etat.mdp, racine.location.origin + '/', pseudoAInscrire);
+        var r = await Auth.inscrire(etat.email, etat.mdp, racine.location.origin + '/', pseudoAInscrire, jeton);
+        entre = !!(r && r.session);
         // 70 — sans session, TOUJOURS la même phrase (adresse neuve ou déjà inscrite :
         // Supabase ne le dit pas, et on ne le dirait pas), et « Mot de passe oublié ? »
         // juste dessous — c'est la seule issue d'une adresse déjà inscrite.
@@ -18590,12 +18626,15 @@
         // Une connexion n'inscrit personne : un pseudo resté en mémoire (une création échouée, un autre
         // compte) ne doit pas partir dans la ligne d'un compte qui n'en a pas encore.
         pseudoAInscrire = null;
-        await Auth.connecter($('champ-email').value.trim(), $('champ-mdp').value);
+        await Auth.connecter($('champ-email').value.trim(), $('champ-mdp').value, jeton);
+        entre = true;
       }
     } catch (err) {
       pseudoAInscrire = null;
-      erreur.textContent = texteErreur(err);
+      if (!direCaptcha(err)) erreur.textContent = texteErreur(err);
     } finally {
+      // 247 — un jeton ne sert qu'une fois : après CHAQUE tentative, réussie ou non. Entré, le widget part.
+      if (Auth.captcha.actif()) { Auth.captcha.reinitialiser(); if (entre) Auth.captcha.demonter(); }
       bouton.textContent = inscription ? 'Créer mon compte' : 'Se connecter';
       majBoutonEntree();
     }
@@ -18608,8 +18647,16 @@
       erreur.textContent = 'Saisis d’abord ton e-mail.';
       return;
     }
-    try { await Auth.reinitialiser(email, racine.location.origin + '/profil'); }
-    catch (err) { erreur.className = 'erreur'; erreur.textContent = texteErreur(err); return; }
+    try {
+      var jeton = await jetonCaptcha();   // 247
+      await Auth.reinitialiser(email, racine.location.origin + '/profil', jeton);
+    }
+    catch (err) {
+      erreur.className = 'erreur';
+      if (!direCaptcha(err)) erreur.textContent = texteErreur(err);
+      return;
+    }
+    finally { if (Auth.captcha.actif()) Auth.captcha.reinitialiser(); }
     // La même phrase que l'adresse existe ou non : dire « ce compte n'existe
     // pas » révélerait qui est inscrit à qui demande.
     erreur.className = 'erreur ok';
@@ -18819,6 +18866,11 @@
       rendreEntree(vers);
     });
     $('btn-oubli').addEventListener('click', demanderReinitialisation);
+    // 247 — « Réessayer » : le script du captcha n'avait pas pu se charger.
+    $('btn-captcha-reessayer').addEventListener('click', function () {
+      $('erreur-connexion').textContent = '';
+      montrerCaptcha();
+    });
     $('champ-pseudo').addEventListener('input', surFrappePseudo);
     ['champ-email', 'champ-mdp'].forEach(function (id) {
       $(id).addEventListener('input', majBoutonEntree);

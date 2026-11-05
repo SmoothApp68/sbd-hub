@@ -342,6 +342,8 @@ que rien ne le montre) ; remplacer une séance du même jour et du même titre (
   inventé), en kg par semaine, avec son **erreur-type**. Un sens n'est dit que si |pente| ≥ 0,1 ET |pente| ≥ 2 erreurs ;
   « Stable » seulement si la pente est petite ET bien mesurée ; sinon **« Pas de sens net sur les N dernières
   semaines. »** (un fait, sans invitation). Jamais un chiffre plus précis que les pesées ne le permettent.
+  L'erreur-type suppose des résidus indépendants ; les cycles d'eau la sous-estiment : le seuil absolu de 0,1 kg/semaine
+  sert de garde.
 - **L'écran Poids** : une ligne sous la courbe (« −0,4 kg par semaine en moyenne, sur les 6 dernières semaines. ») et
   « Calculée sur tes N pesées de ces K semaines. », calculées sur TOUTES les pesées, pas sur la période choisie. Sans
   tendance : rien du tout (ni invitation, ni « pas assez », ni compteur). Aucune couleur, aucune flèche ; la tendance ne

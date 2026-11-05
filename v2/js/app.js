@@ -5214,7 +5214,11 @@
 
   function contexteNotesIA() {
     var index = catalogueIndexe();
-    return { nom: function (slug) { return Modele.nommer(index, slug); }, consignes: consignesDeLExercice, noteEcrite: faits.estUneNote, pseudos: [] };
+    // Les pseudos de ceux que je suis ou qui me suivent, quand la mémoire sociale les tient (elle ne se charge qu'en visitant le social) :
+    // au mieux. Un @pseudo, lui, est TOUJOURS couvert (la note n'est jamais envoyée).
+    var liens = social.liens, pseudos = [];
+    if (liens) (liens.abonnes || []).concat(liens.abonnements || []).forEach(function (l) { if (l && l.pseudo) pseudos.push(l.pseudo); });
+    return { nom: function (slug) { return Modele.nommer(index, slug); }, consignes: consignesDeLExercice, noteEcrite: faits.estUneNote, pseudos: pseudos };
   }
   function etatNotesIA() {
     return Object.assign(contexteNotesIA(), { noteExistante: function (slug) {
@@ -5339,12 +5343,17 @@
 
   // La correction d'une séance TERMINÉE sans l'ouvrir : le chemin de `enregistrerManque`. `fn(s)` rend la séance changée, ou `null` (rien à
   // écrire). Rend la séance écrite, ou `null` (séance pas encore complète, ou rien de changé).
+  // La séance terminée peut-elle être corrigée maintenant ? (pas de séance en cours ; la garde de l'Édition, chantier 47 : une séance dont
+  // les séries n'ont pas fini d'arriver ne se corrige pas.) Lue AVANT d'écrire la note d'un réglage : sinon ni note ni « fait ».
+  function seanceCorrigeableNotesIA(id) {
+    if (seance) return false;
+    var ligne = local.seances.filter(function (x) { return x.id === id; })[0] || null;
+    return !!ligne && !Seance.seriesIncompletes(seriesDe(id));
+  }
   async function corrigerPourNotesIA(id, fn) {
-    if (seance) return null;
+    if (!seanceCorrigeableNotesIA(id)) return null;
     var ligne = local.seances.filter(function (x) { return x.id === id; })[0] || null;
     var series = seriesDe(id);
-    // La garde de l'Édition (chantier 47) : une séance dont les séries n'ont pas fini d'arriver ne se corrige pas.
-    if (!ligne || Seance.seriesIncompletes(series)) return null;
     connaitre(id, series.map(function (x) { return x.id; }));
     var s = Seance.reprendre(ligne, Modele.construireBlocs(series, local.exercices));
     var apres = fn(s);
@@ -5377,6 +5386,7 @@
       var fait = { appliquees: [] };
       var ecrite = null;
       if (p.genre === 'reglage') {
+        if (!seanceCorrigeableNotesIA(id)) return;   // ni note, ni « fait » : la séance n'est pas corrigeable maintenant
         // la note de l'exercice (242), par la file du profil ; l'ancienne entrée est gardée pour « Annuler »
         var avant = entreeDeNote(p.slug);
         fait.avant = avant === null ? null : JSON.parse(JSON.stringify(avant));

@@ -157,7 +157,7 @@ Deno.serve(async (req: Request) => {
   // 5. Le quota du jour (partagé avec demander-coach) : le reste, ou −1.
   const { data: reste, error: eq } = await service.rpc('assistant_prendre_question', { p_user: userId, p_max: MAX_PAR_JOUR });
   if (eq) { console.warn('lire-notes', 'quota_indisponible'); return rendre(VIDE, 503); }
-  if (reste === -1) return rendre(VIDE);
+  if (reste === -1) return rendre({ propositions: [], quota: 'epuise' });   // non sensible : le runner des 60 cas s'arrête au lieu de fausser son verdict
 
   // 6. Le modèle.
   const cle = Deno.env.get('ANTHROPIC_API_KEY') ?? '';
@@ -175,9 +175,9 @@ Deno.serve(async (req: Request) => {
         output_config: { format: { type: 'json_schema', schema: SCHEMA } },
       }),
     });
-    clearTimeout(minuteur);
-    if (!r.ok) throw new Error('modele');
-    sortie = K.sortieDeLaReponse(await r.json());
+    if (!r.ok) { clearTimeout(minuteur); throw new Error('modele'); }
+    // le délai couvre AUSSI la lecture du corps de la réponse
+    try { sortie = K.sortieDeLaReponse(await r.json()); } finally { clearTimeout(minuteur); }
   } catch (_e) {
     console.warn('lire-notes', 'modele_indisponible');
     return rendre(VIDE);

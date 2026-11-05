@@ -553,8 +553,8 @@
     plus: 'En savoir plus ›',
     plusTexte: 'Ce qui part : seulement le texte des notes qui contiennent un mot d’entraînement (coupé à 500 signes, sans lien, sans @pseudo ni date), ' +
       'le nom de l’exercice et les chiffres de ses séries. Un prénom écrit dans une note part tel quel. Une note peut parler de ta santé ; ' +
-      'une douleur, elle, ne part jamais. Rien n’est gardé chez TrainHub. Anthropic les efface sous 30 jours (jusqu’à 2 ans si un contrôle de ' +
-      'sécurité les signale) et ne s’en sert jamais pour entraîner ses modèles. Pour couper : Profil › Mon coach › Lire mes notes.',
+      'une douleur, elle, ne part jamais. Rien n’est gardé chez TrainHub. Anthropic ne s’en sert jamais pour entraîner ses modèles. ' +
+      'Anthropic les efface sous 30 jours (jusqu’à 2 ans si un contrôle de sécurité les signale). Pour couper : Profil › Mon coach › Lire mes notes.',
     oui: 'Oui, vas-y',
     non: 'Non merci',
     reglage: 'Lire mes notes',

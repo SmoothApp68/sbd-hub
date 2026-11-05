@@ -34,6 +34,27 @@ describe('212 — pages légales', () => {
   });
 });
 
+describe('250 — « Lire mes notes » n’est décrite qu’une fois ouverte', () => {
+  const config = require('../../v2/js/config.js');
+  const avant = config.NOTES_IA_OUVERTE;
+  afterEach(() => { config.NOTES_IA_OUVERTE = avant; });
+  test('interrupteur éteint : ni le bloc de l’IA, ni « Lire mes notes », ni son chemin de retrait ; la ligne « Où » reste exacte (Demander au coach)', () => {
+    config.NOTES_IA_OUVERTE = false;
+    const t = JSON.stringify(M.page('confidentialite'));
+    expect(t).not.toMatch(/Lire mes notes|L’IA :|Profil › Mon coach/);
+    expect(t).toMatch(/Dans l’Union européenne \(Irlande\), sauf la question que tu poses à « Demander au coach »/);
+  });
+  test('interrupteur allumé : le bloc de l’IA (ce qui part, à qui, combien de temps, jamais pour entraîner, base) et le retrait', () => {
+    config.NOTES_IA_OUVERTE = true;
+    const blocs = M.page('confidentialite').blocs;
+    const titres = blocs.map((b) => b.titre);
+    expect(titres.slice(titres.indexOf('Où'), titres.indexOf('Où') + 6)).toEqual(['Où', 'L’IA : ce qui part', 'L’IA : à qui', 'L’IA : combien de temps', 'L’IA : jamais pour entraîner', 'L’IA : sur quelle base']);
+    const t = JSON.stringify(blocs);
+    expect(t).toMatch(/Profil › Mon coach › Lire mes notes/);
+    expect(t).toMatch(/sous 30 jours, et jusqu’à 2 ans/);
+  });
+});
+
 describe('212 — inscription', () => {
   const OK = { pseudo: 'jordan_c', email: 'j@x.fr', mdp: 'motdepasse123', pseudoPris: false, age15: true };
   test('la case bloque l’inscription', () => {

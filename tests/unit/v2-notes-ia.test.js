@@ -306,6 +306,12 @@ describe('250 · les phrases (fixes)', () => {
     N.TEXTES.accord.forEach((l) => phrases.push(l.join('')));
     phrases.forEach((t) => motifs.forEach((m) => { if (m.test(t)) throw new Error('voix : « ' + t + ' » déclenche ' + m); }));
   });
+  test('« En savoir plus » : la phrase des 30 jours est une phrase à elle, séparée de celle sur l’entraînement', () => {
+    expect(N.TEXTES.plusTexte).toContain('Anthropic ne s’en sert jamais pour entraîner ses modèles. Anthropic les efface sous 30 jours (jusqu’à 2 ans si un contrôle de sécurité les signale). ');
+    expect(N.TEXTES.accordTitre).toBe('Je peux lire tes notes ?');
+    expect([N.TEXTES.oui, N.TEXTES.non]).toEqual(['Oui, vas-y', 'Non merci']);
+    expect(N.TEXTES.accord.length).toBe(4);
+  });
   test('jamais un mot interdit', () => {
     const textes = [N.TEXTES.accordTitre].concat(N.TEXTES.accord.map((l) => l.join('')), [N.TEXTES.plusTexte, N.TEXTES.reglageAide]);
     textes.forEach((t) => expect(t).not.toMatch(/bravo|J.ai corrigé|Tu as mal/));

@@ -254,6 +254,16 @@ describe('250 · index.ts : rien n\'est gardé, rien n\'est journalisé', () => 
   test('schéma sans variante, sans maxItems, sans minimum', () => {
     expect(code).not.toMatch(/variante|frere|maxItems|minimum|maximum/);
   });
+  test('quota épuisé : la fonction le dit (`quota: \'epuise\'`, non sensible) ; le runner des 60 cas s\'arrête (code 3) ; le délai couvre la lecture du corps', () => {
+    expect(code).toMatch(/if \(reste === -1\) return rendre\(\{ propositions: \[\], quota: 'epuise' \}\)/);
+    const runner = fs.readFileSync(path.join(__dirname, '../../v2-atelier/banc/notes-ia/jouer.js'), 'utf8');
+    expect(runner).toMatch(/quota: j\.quota === 'epuise'/);
+    expect(runner).toMatch(/if \(rep\.quota\)[\s\S]{0,400}process\.exit\(3\)/);
+    const i = code.indexOf('await r.json()');
+    expect(i).toBeGreaterThan(0);
+    expect(code.indexOf('clearTimeout(minuteur)', i)).toBeGreaterThan(i);
+    expect(code.slice(code.lastIndexOf('const r = await fetch', i), i)).not.toMatch(/clearTimeout\(minuteur\);\s*\n\s*if \(!r\.ok\) throw/);
+  });
   test('l\'identifiant du modèle est à relire au déploiement', () => {
     expect(src).toMatch(/À RELIRE AU DÉPLOIEMENT/);
   });

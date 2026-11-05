@@ -10,6 +10,9 @@
 //
 // Les cas sont ceux de tests/unit/fixtures/notes-ia-cas.json (écrits pour le test, aucune donnée personnelle). Le script refuse de
 // tourner si `CI` est posé (il appelle le vrai modèle : jamais en intégration continue), et n'écrit rien sur la base.
+// ⚠️ QUOTA : la fonction partage le quota de « Demander au coach » (10 appels par jour et par compte) ; 60 cas en consomment davantage
+// (un appel par cas dont une note part). Il faut donc un compte de test dont le quota est remis à zéro AVANT et, si besoin, EN COURS de
+// route (Claude.ai le fait) ; le script s'arrête avec le code 3 et un message clair dès que la fonction répond `quota: 'epuise'`.
 // Verdict (le critère de la conception) : moins d'une fausse proposition sur 20 montrées ; ZÉRO proposition sur un cas qui n'en attend
 // aucune quand la note parle d'un tiers, d'une injection ou d'un simple « ok ». Code de retour 1 si le verdict est « non ».
 'use strict';
@@ -54,7 +57,7 @@ async function appeler(url, jeton, corps) {
   const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + jeton, apikey: jeton }, body: JSON.stringify(corps) });
   if (!r.ok) return { statut: r.status, propositions: null };
   const j = await r.json();
-  return { statut: r.status, propositions: Array.isArray(j.propositions) ? j.propositions : null };
+  return { statut: r.status, propositions: Array.isArray(j.propositions) ? j.propositions : null, quota: j.quota === 'epuise' };
 }
 
 (async () => {
@@ -77,6 +80,9 @@ async function appeler(url, jeton, corps) {
     if (!envoye) { lignes.push({ id: c.id, envoye: false, ok: !ideal.length }); continue; }
     let rep;
     try { rep = await appeler(url, jeton, corps); } catch (e) { rep = { statut: 0, propositions: null }; }
+    // Le quota PARTAGÉ avec « Demander au coach » (10 par jour et par compte) est épuisé : la fonction rend alors 200 et une liste vide,
+    // indiscernable d'un « rien à proposer » sans ce champ. On s'ARRÊTE : continuer fausserait le verdict.
+    if (rep.quota) { console.error('ARRÊT au cas ' + c.id + ' : le quota du compte de test est épuisé (200 + quota: epuise). Claude.ai remet le quota à zéro (table assistant_quota, ligne du compte), puis on relance. Aucun verdict.'); process.exit(3); }
     if (rep.propositions === null) { erreurs++; lignes.push({ id: c.id, envoye: true, erreur: rep.statut }); continue; }
     // Ce que le téléphone montrerait : `retenir` revérifie tout contre la note locale.
     const vues = N.retenir({ propositions: rep.propositions }, f, r.envoyer, [], Object.assign({}, ctx, { noteExistante: () => c.noteActuelle || null }));

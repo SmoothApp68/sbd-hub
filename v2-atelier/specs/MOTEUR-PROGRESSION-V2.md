@@ -960,6 +960,8 @@ Aujourd'hui, la phase se **déduit** de l'historique. Le futur chantier programm
 
 ### 9.11 Ce que le moteur écrit dans `predictions` — décidé le 19/09/2026
 
+> **Une correction refait l'observation, jamais le pari — 05/11/2026 (245, C8 ; D-P1, D-P2).** Le pari (`valeur_predite`, `fondement`) est immuable. À l'enregistrement d'une **Édition**, pour chaque série que `Sync.seriesQuiEffacent` désigne (un champ qui compte a changé) : les paris de consigne qui l'observaient sont **réobservés** par le chemin d'`observerSerie` (`observerSerieDe`, sans la sortie « en Édition ») ; si la série ne remplit plus le pari, l'observation se **vide** (`valeur_observee`, `observee_a` et `set_observe` à `null`, comme le déclencheur `sets_efface_observation`) ; les paris d'**objectif** suivent (`observerObjectifs` retire l'observation d'un objectif qu'aucune série n'atteint plus). Une correction qui ne change que la note ne réécrit rien. Ce chemin ne tourne qu'à l'enregistrement d'une Édition : la validation d'une série en séance ne gagne rien.
+
 > **Une ligne par série de travail proposée** — corrigé le 20/09/2026 (48c). `set_observe` ne désigne qu'une seule série : une prédiction en désigne une aussi. Depuis le 26/09/2026 (§9.13), une ligne s'écrit **pour chaque série de travail validée** que la consigne couvre, avec son rang : une séance de trois séries en écrit trois, une séance de deux en écrit deux. **Une série validée puis supprimée** vide l'observation de son pari (le trigger `sets_efface_observation` le fait en base) ; le pari reste, non observé : le coach a bien parié au moment de la validation, et un pari non observé ne ment pas (tranché le 26/09/2026, #322).
 
 | Champ | Contenu |

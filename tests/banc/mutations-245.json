@@ -79,5 +79,15 @@
   "unitaires": [
    "tests/unit/v2-f3-echelle-pompes.test.js"
   ]
+ },
+ {
+  "nom": "245-9-baisse-haltere-seuil-de-10-kg",
+  "fichier": "v2/js/faits.js",
+  "ancien": "ref - charge > (haltere ? HAUSSE_ABSOLUE_HALTERE_KG : BAISSE_ABSOLUE_KG) + EPSILON) {",
+  "nouveau": "ref - charge > BAISSE_ABSOLUE_KG + EPSILON) {",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-vraisemblance.test.js"
+  ]
  }
 ]

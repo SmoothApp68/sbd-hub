@@ -19138,6 +19138,12 @@
   // Exposé pour l'écran de saisie à venir : une vue déclare ici qu'elle refuse
   // la sortie, et fournit sa propre question. Rien ne s'en sert encore.
   racine.THApp = { ajouterGarde: ajouterGarde, retirerGarde: retirerGarde, journal: etatDuJournal };
+  // 244 — LE BANC SAIT QUAND L'ENTRÉE EST FINIE, hors production seulement (là où la garde du coach est active :
+  // `localhost`, une prévisualisation, `?garde=1`). Son « écran posé » mesurait le calme du RÉSEAU ; or la queue de
+  // l'entrée (écritures du cache, second `rendreRoute`) ne fait aucune requête : le banc rechargeait au milieu d'une
+  // écriture du catalogue (F67), ou agissait avant le second rendu. Une lecture, sans effet ; en production, la clé
+  // n'existe pas : la surface exposée ne change pas.
+  if (garde.active) racine.THApp.entreeEnCours = function () { return !!entreeEnCours; };
 
   if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', demarrer);
   else demarrer();

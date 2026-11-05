@@ -2202,7 +2202,11 @@ const SETS_IMPORTES = [
   //   · la page est chargée (`readyState === 'complete'`) et une vue de `main` est affichée ;
   //   · l'état de synchronisation (`#etat-sync`) a un libellé, et ce n'est pas « Synchronisation… »
   //     (`code: 'sync'`) — sauf si le réseau est muet depuis longtemps (`CALME_LONG_MS`) ;
-  //   · le faux serveur n'a plus aucune requête en vol depuis `CALME_MS`.
+  //   · le faux serveur n'a plus aucune requête en vol depuis `CALME_MS` ;
+  //   · 244 — L'ENTRÉE DE L'APP EST FINIE (`THApp.entreeEnCours()`, hors production seulement). Sa queue (écritures
+  //     du cache, second `rendreRoute`) ne fait aucune requête : au séquentiel (gros cache), elle dépassait le calme
+  //     du réseau, et le banc rechargeait au milieu de l'écriture du catalogue (F67 : l'éditeur restait en slugs) ou
+  //     agissait avant le second rendu. Sans la clé (`?garde=0`), on garde les trois faits d'avant.
   // Plancher `ALLER_MIN_MS` (l'app démarre ses lectures après le chargement), plafond
   // `ALLER_MAX_MS` : au plafond, on rend la main comme avant (le contrôle qui suit dira ce
   // qu'il voit) et on le compte — le total s'affiche en fin de banc.
@@ -2229,10 +2233,11 @@ const SETS_IMPORTES = [
           return {
             charge: document.readyState === 'complete',
             vue: Array.from(document.querySelectorAll('main > section')).some((x) => !x.hidden),
-            sync: sync ? ((sync.textContent || '').trim() !== '' && !sync.classList.contains('sync')) : true
+            sync: sync ? ((sync.textContent || '').trim() !== '' && !sync.classList.contains('sync')) : true,
+            entree: !!(window.THApp && window.THApp.entreeEnCours && window.THApp.entreeEnCours())
           };
         }).catch(() => null);
-        if (e && e.charge && e.vue && (e.sync || calme >= CALME_LONG_MS)) break;
+        if (e && e.charge && e.vue && !e.entree && (e.sync || calme >= CALME_LONG_MS)) break;
       }
       if (ecoule >= ALLER_MAX_MS) { statAller.plafond++; break; }
       await pause(100);

@@ -18996,7 +18996,7 @@ const SETS_IMPORTES = [
       fil: document.querySelector('#social-fil').textContent }));
     ok('[social 244] DISCRIMINANT — « Accepter » rejoué après un rechargement (la base refuse accepte → accepte) : aucune phrase de refus, la demande est acceptée',
       lien('u-lea', 'u-banc').statut === 'accepte' && !/pas pu se faire/.test(rejeu.fil) && rejeu.refus === '', JSON.stringify(rejeu));
-    // Le refus du déclencheur est VOULU ici (c'est le chemin visé) : on prouve qu'il a eu lieu, puis on l'ôte du journal.
+    // Le refus du déclencheur est attendu ici (c'est le chemin visé) : on prouve qu'il a eu lieu, puis on l'ôte du journal.
     const refusVoulus = S.journal.slice(journalAvant244).filter((j) => j.op === 'refus' && /modification refusée/.test(j.message));
     ok('[social 244] la fixture déclenche le chemin : la base a bien refusé le rejeu (accepte → accepte)', refusVoulus.length >= 1, JSON.stringify(refusVoulus));
     for (let k = S.journal.length - 1; k >= journalAvant244; k--) if (refusVoulus.indexOf(S.journal[k]) >= 0) S.journal.splice(k, 1);

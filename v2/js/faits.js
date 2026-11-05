@@ -373,6 +373,57 @@
       return out.reverse();
     }
 
+    // ── 242 — LA NOTE DE LA DERNIÈRE FOIS (ECRAN-SAISIE, maquette-note-derniere-fois-v1) ──────────────────────────────────────────────
+    //
+    // Un fait, jamais une décision du coach : `planDeSeance` n'en tire rien. Les mots de la personne ne sont jamais réécrits (le texte rendu est
+    // celui de la série, seulement rogné aux bords).
+    //   · `noteDeLaDerniereFois(c, slug, consigne)` (`consigne` : un texte ou une liste de textes ; `sauf` : la séance ouverte, qui n'est jamais « la dernière fois ») : la dernière note écrite sur cet exercice lors de la dernière séance TERMINÉE où il a été
+    //     fait (au moins une série de travail), Hevy compris. Une note sur une série, ou la note d'exercice (l'app la projette sur chaque série :
+    //     `Seance.noteDeSerie`). Plusieurs notes dans la séance : la dernière (par rang). EXCLUE : une note identique, espaces normalisés, à la
+    //     consigne de la routine de cet exercice (`routine_exercises.note`, projetée elle aussi sur les séries) — ce n'est pas ce que la
+    //     personne a écrit. Rend `{ texte, serieId, jour }` ou `null`. Une séance sans note ne remonte pas plus loin : c'est la dernière FOIS.
+    //   · `noteDeLExercice(fait, notes, slug)` : ce que l'écran montre, depuis ce fait et `profiles.notes_exercices` — la note épinglée (modifiée
+    //     par la personne) prime, sans date ; sinon la note de la dernière fois, sauf si « Ne plus afficher » désigne la série qui la porte.
+    //     Rend `{ mode: 'epinglee' | 'derniere', texte, jour, serieId }` ou `null`.
+    function espacesNormalises(t) { return String(t === null || t === undefined ? '' : t).replace(/\s+/g, ' ').trim(); }
+    var memoNotes = { cle: null, parClef: {} };
+    function noteDeLaDerniereFois(c, slug, consigne, sauf) {
+      if (!slug) return null;
+      var cle = (c.seances || []).length + '|' + (c.series || []).length;
+      if (memoNotes.cle !== cle || memoNotes.seances !== c.seances || memoNotes.series !== c.series) memoNotes = { cle: cle, seances: c.seances, series: c.series, parClef: {} };
+      var consignes = (Array.isArray(consigne) ? consigne : [consigne]).map(espacesNormalises).filter(function (t) { return t !== ''; });
+      var clef = slug + '\u0001' + consignes.join('\u0002') + '\u0003' + (sauf || '');
+      if (Object.prototype.hasOwnProperty.call(memoNotes.parClef, clef)) return memoNotes.parClef[clef];
+      var sortie = null;
+      for (var i = 0; i < (c.seances || []).length; i++) {
+        var se = c.seances[i];
+        if (!se || se.statut === 'en_cours' || (sauf && se.id === sauf)) continue;
+        var siennes = (c.seriesDe(se.id) || []).filter(function (x) { return x && x.exercise_slug === slug; });
+        if (!siennes.some(function (x) { return Modele.estTravail(x); })) continue;
+        // La dernière séance où l'exercice a été fait : la note est dans celle-ci, ou nulle part.
+        var notees = Modele.trierParRang(siennes).filter(function (x) {
+          var t = espacesNormalises(x.note);
+          return t !== '' && consignes.indexOf(t) < 0;
+        });
+        if (notees.length) {
+          var d = notees[notees.length - 1];
+          sortie = { texte: String(d.note).trim(), serieId: d.id === undefined ? null : d.id, jour: se.debut ? jourDeLaSeance(se.debut) : null };
+        }
+        break;
+      }
+      memoNotes.parClef[clef] = sortie;
+      return sortie;
+    }
+    function noteDeLExercice(fait, notes, slug) {
+      var n = notes && typeof notes === 'object' && !Array.isArray(notes) && slug ? notes[slug] : null;
+      if (n && typeof n === 'object' && typeof n.texte === 'string' && n.texte.trim() !== '') {
+        return { mode: 'epinglee', texte: n.texte.trim(), jour: null, serieId: null };
+      }
+      if (!fait) return null;
+      if (n && typeof n === 'object' && n.masquee !== undefined && n.masquee !== null && n.masquee === fait.serieId) return null;
+      return { mode: 'derniere', texte: fait.texte, jour: fait.jour, serieId: fait.serieId };
+    }
+
     // ── Les records (MOTEUR §9.23, 55-1) ────────────────────────────────────
     //
     // Les séries médaillées d'une séance PASSÉE : chacune comparée aux séances
@@ -2291,6 +2342,8 @@
       seancesDuSlug: seancesDuSlug,
       seancesDeLExercice: seancesDeLExercice,
       tenuesDeLExercice: tenuesDeLExercice,
+      noteDeLaDerniereFois: noteDeLaDerniereFois,
+      noteDeLExercice: noteDeLExercice,
       pointsDeLExercice: pointsDeLExercice,
       exercicesDeProgression: exercicesDeProgression,
       ceQuiAProgresse: ceQuiAProgresse,

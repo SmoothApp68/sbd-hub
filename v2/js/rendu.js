@@ -3668,6 +3668,13 @@
         entree.appendChild(notePosee);
       }
 
+      // 242 (maquette-note-derniere-fois-v1) — LA NOTE DE L'EXERCICE, entre son nom et ses séries : la note épinglée de la personne, ou celle
+      // de la dernière fois. Les mots sont les siens, jamais réécrits. Rien en mode programme (une routine n'observe rien).
+      if (!vue.programme && typeof vue.noteSousLeNom === 'function') {
+        var nsn = vue.noteSousLeNom(x.slug);
+        if (nsn) entree.appendChild(blocNoteDExercice(x, nsn, vue));
+      }
+
       // Le type de mesure est rappelé sous le nom : sans lui, une ligne à deux
       // colonnes au milieu de lignes à trois désoriente. Tu par prudence quand
       // la mesure est inconnue — on ne nomme pas ce qu'on ne sait pas.
@@ -4969,6 +4976,63 @@
     b.title = titre;
     b.addEventListener('click', surClic);
     return b;
+  }
+
+  // 242 — le bloc de la note d'un exercice : écran A (la note, « Modifier » · « Ne plus afficher »), écran B (le champ, « Garder » · « Annuler »).
+  // L'édition vit dans le noeud : « Annuler » rend la note telle qu'elle était, rien n'est écrit avant « Garder ».
+  function blocNoteDExercice(x, note, vue) {
+    var boite = el('div', 'note-derniere');
+    boite.setAttribute('data-slug', x.slug);
+    function montrer() {
+      vider(boite);
+      var titre = note.mode === 'epinglee' ? 'Ta note pour cet exercice'
+        : 'Ta note du ' + M().jourCourtDeNote(note.jour);
+      boite.appendChild(el('p', 'note-derniere-t', titre));
+      boite.appendChild(el('p', 'note-derniere-texte', note.mode === 'epinglee' ? note.texte : '\u00ab\u00a0' + note.texte + '\u00a0\u00bb'));
+      var gestes = el('div', 'note-derniere-gestes');
+      var bm = el('button', 'discret note-derniere-modifier', 'Modifier');
+      bm.type = 'button';
+      bm.setAttribute('aria-label', 'Modifier la note de ' + x.nom);
+      bm.addEventListener('click', function () { editer(); });
+      var bn = el('button', 'discret note-derniere-masquer', 'Ne plus afficher');
+      bn.type = 'button';
+      bn.setAttribute('aria-label', 'Ne plus afficher la note de ' + x.nom);
+      bn.addEventListener('click', function () { vue.surNoteRetiree(x.slug); });
+      gestes.appendChild(bm);
+      gestes.appendChild(bn);
+      boite.appendChild(gestes);
+    }
+    function editer(depart) {
+      vider(boite);
+      boite.appendChild(el('p', 'note-derniere-t', 'Ta note pour cet exercice'));
+      var champ = doc.createElement('textarea');
+      champ.rows = 3;
+      champ.maxLength = 500;
+      champ.className = 'note-derniere-champ';
+      champ.value = typeof depart === 'string' ? depart : note.texte;
+      // Le brouillon vit dans l'état de l'app : un redessin de la séance (une série validée ailleurs) le retrouve.
+      if (typeof vue.surBrouillonNote === 'function') {
+        vue.surBrouillonNote(x.slug, champ.value);
+        champ.addEventListener('input', function () { vue.surBrouillonNote(x.slug, champ.value); });
+      }
+      champ.setAttribute('aria-label', 'Note de ' + x.nom);
+      boite.appendChild(champ);
+      var gestes = el('div', 'note-derniere-gestes');
+      var bg = el('button', 'principal note-derniere-garder', 'Garder');
+      bg.type = 'button';
+      bg.addEventListener('click', function () { vue.surNoteGardee(x.slug, champ.value); });
+      var ba = el('button', 'discret note-derniere-annuler', 'Annuler');
+      ba.type = 'button';
+      ba.addEventListener('click', function () { if (typeof vue.surBrouillonNote === 'function') vue.surBrouillonNote(x.slug, null); montrer(); });
+      gestes.appendChild(bg);
+      gestes.appendChild(ba);
+      boite.appendChild(gestes);
+      champ.focus();
+      try { champ.setSelectionRange(champ.value.length, champ.value.length); } catch (e) { /* sans effet */ }
+    }
+    var brouillon = typeof vue.brouillonNote === 'function' ? vue.brouillonNote(x.slug) : null;
+    if (typeof brouillon === 'string') editer(brouillon); else montrer();
+    return boite;
   }
 
   // ── Les feuilles ────────────────────────────────────────────────────────

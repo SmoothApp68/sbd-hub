@@ -9609,6 +9609,8 @@
   function oublierSuppressionDifferee() {
     if (suppressionDifferee) clearTimeout(suppressionDifferee.minuteur);
     suppressionDifferee = null;
+    if (noteRetiree) clearTimeout(noteRetiree.minuteur);
+    noteRetiree = null;
     rendreToastAnnuler();
   }
 
@@ -9616,8 +9618,71 @@
     var noeud = $('toast-seance');
     if (!noeud) return;
     Rendu.rendreToastAnnuler(noeud, suppressionDifferee
-      ? { texte: 'Série supprimée', libelle: 'Annuler', surAnnuler: annulerSuppression } : null);
+      ? { texte: 'Série supprimée', libelle: 'Annuler', surAnnuler: annulerSuppression }
+      : (noteRetiree ? { texte: 'Note retirée de cet exercice.', libelle: 'Annuler', surAnnuler: annulerNoteRetiree } : null));
     mesurerBarres();
+  }
+
+  // ── 242 — LA NOTE DE L'EXERCICE SOUS SON NOM (ECRAN-SAISIE, maquette-note-derniere-fois-v1) ───────────────────────────────────────
+  //
+  // Le fait vient de `faits.js` (`noteDeLaDerniereFois` / `noteDeLExercice`), l'écran le lit et ne décide rien. Ce qui s'écrit vit dans
+  // `profiles.notes_exercices`, par la file (`poserProfil`) et nulle part ailleurs : `{ slug: { texte, a } }` (la note modifiée, épinglée) ou
+  // `{ slug: { masquee: <id de la série>, a } }` (« Ne plus afficher »). Les séries passées gardent leur note d'origine. Aucun lecteur du coach.
+  var brouillonDeNote = null;   // { slug, seanceId, texte } — le texte en cours d'édition ; il survit aux redessins, jamais écrit avant « Garder »
+  var noteRetiree = null;   // { slug, avant, minuteur } — « Note retirée de cet exercice. · Annuler »
+  function consignesDeLExercice(slug) {
+    var sortie = [];
+    (routines || []).forEach(function (r) {
+      ((r && r.exercices) || []).forEach(function (e) { if (e && e.exercise_slug === slug && e.note) sortie.push(e.note); });
+    });
+    return sortie;
+  }
+  function faitDeLaNote(slug) {
+    return faits.noteDeLaDerniereFois(corpus(), slug, consignesDeLExercice(slug), seance ? seance.id : null);
+  }
+  function noteSousLeNom(slug) {
+    return faits.noteDeLExercice(faitDeLaNote(slug), profil && profil.notes_exercices, slug);
+  }
+  function entreeDeNote(slug) {
+    var n = profil && profil.notes_exercices;
+    return n && typeof n === 'object' && !Array.isArray(n) && n[slug] ? n[slug] : null;
+  }
+  async function ecrireNoteExercice(slug, entree) {
+    brouillonDeNote = null;
+    if (entree && typeof entree.texte === 'string') entree.texte = entree.texte.slice(0, 500);
+    var toutes = Object.assign({}, (profil && profil.notes_exercices) || {});
+    if (entree === null || entree === undefined) delete toutes[slug]; else toutes[slug] = entree;
+    var promesse = poserProfil({ notes_exercices: toutes });   // `profil` est à jour avant le 1er await
+    rendreSeance();
+    await promesse;
+  }
+  // « Garder » : la note modifiée s'épingle ; vidée, elle est retirée (comme « Ne plus afficher »).
+  async function garderNoteExercice(slug, texte) {
+    var t = String(texte === null || texte === undefined ? '' : texte).trim();
+    if (t === '') return retirerNoteExercice(slug);
+    await ecrireNoteExercice(slug, { texte: t, a: new Date().toISOString() });
+  }
+  async function retirerNoteExercice(slug) {
+    var fait = faitDeLaNote(slug);
+    var avant = entreeDeNote(slug);
+    if (noteRetiree) clearTimeout(noteRetiree.minuteur);
+    var p = { slug: slug, avant: avant === null ? null : JSON.parse(JSON.stringify(avant)), minuteur: null };
+    noteRetiree = p;
+    p.minuteur = setTimeout(function () {
+      if (noteRetiree !== p) return;
+      noteRetiree = null;
+      rendreToastAnnuler();
+    }, DELAI_ANNULER_MS);
+    rendreToastAnnuler();   // le toast se montre tout de suite : l'écriture part par la file, elle ne le retarde pas
+    await ecrireNoteExercice(slug, fait && fait.serieId !== null ? { masquee: fait.serieId, a: new Date().toISOString() } : null);
+  }
+  async function annulerNoteRetiree() {
+    var p = noteRetiree;
+    if (!p) return;
+    noteRetiree = null;
+    clearTimeout(p.minuteur);
+    rendreToastAnnuler();
+    await ecrireNoteExercice(p.slug, p.avant);
   }
 
   // §9.11 (27/09/2026) — L'OBSERVATION PART PAR SA PROPRE ENTRÉE, EN FIN DE
@@ -10057,6 +10122,12 @@
       surEffort: function (i, j) { ouvrirFeuille('effort', i, j); },
       // Les deux réglages de l'exercice, sous son nom (§7 septies.1 et .2).
       surNote: function (i) { ouvrirFeuille('note', i, null); },
+      // 242 — la note de l'exercice sous son nom (épinglée, ou celle de la dernière fois) ; « Modifier » / « Garder » / « Ne plus afficher ».
+      noteSousLeNom: noteSousLeNom,
+      brouillonNote: function (slug) { return brouillonDeNote && brouillonDeNote.slug === slug && seance && brouillonDeNote.seanceId === seance.id ? brouillonDeNote.texte : null; },
+      surBrouillonNote: function (slug, texte) { brouillonDeNote = texte === null ? null : { slug: slug, seanceId: seance ? seance.id : null, texte: texte }; },
+      surNoteGardee: function (slug, texte) { garderNoteExercice(slug, texte).catch(function (e) { console.warn('Note d’exercice :', texteErreur(e)); }); },
+      surNoteRetiree: function (slug) { retirerNoteExercice(slug).catch(function (e) { console.warn('Note d’exercice :', texteErreur(e)); }); },
       surRepos: function (i) { ouvrirFeuille('repos', i, null); },
       surAjoutSerie: async function (i) {
         // 188-1 — « + Série » à la main, un geste de la séance (`sessions.gestes`) ; la série du coach n'en est pas un.

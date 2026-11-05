@@ -771,6 +771,8 @@ Avec **une seule série au palier**, le niveau est son nombre de reps compté ; 
 - **Une tentative manquée compte dans la stagnation si sa charge est au plus la charge de travail** (elle bloque le gain de niveau et de test de la séance, pas la montée de palier) ; **au-dessus**, le palier l'ignore, comme avant. « Oui, manquée » l'écrit par le chemin `echec` à 0 rep existant.
 - **Une série `sets.hors_calcul = true`** (« Non, ne compte pas », v2_116) n'est pas du travail (`estTravail`) : ni palier (rôle `hors_calcul`), ni niveau, ni crans voisins (`chargeVoisine`), ni fondement, ni records, ni paris, ni jeu. Elle reste au journal et au détail. **I70** : aucune entrée du plan ne la compte (ligne `hors`, ni faite, ni pari, hors des `indices`).
 
+- **Un exercice fait d'un côté = sa variante du catalogue (« … Un Bras », « Fente bulgare »), jamais une case** (décision d'Aurélien du 05/11/2026, chantier 242) : chaque variante a son max, ses records et ses paris ; aucune série ne porte de marque « unilatéral », et `sets.unilateral` (v2_131) n'est lue ni écrite.
+
 ### 9.2 bis La chute de fin de séance — décidé le 30/09/2026 (chantier 49)
 
 > **Une dernière série qui s'effondre après des séries stables ne dit rien du niveau ; elle dit que la fatigue est arrivée. Elle ne tire pas le niveau vers le bas, et la séance suivante ne teste rien de plus lourd.**

@@ -1,0 +1,5 @@
+[
+ {"nom":"242-consigne-non-exclue","fichier":"v2/js/faits.js","ancien":"return t !== '' && consignes.indexOf(t) < 0;","nouveau":"return t !== '';","banc":"aucun","unitaires":["tests/unit/v2-note-242.test.js"]},
+ {"nom":"242-ne-plus-afficher-sans-effet","fichier":"v2/js/app.js","ancien":"    await ecrireNoteExercice(slug, fait && fait.serieId !== null ? { masquee: fait.serieId, a: new Date().toISOString() } : null);\n  }","nouveau":"    await Promise.resolve(fait);\n  }","banc":"seance","sections":["note-242"],"unitaires":["tests/unit/v2-note-242.test.js"]},
+ {"nom":"242-note-epinglee-non-prioritaire","fichier":"v2/js/faits.js","ancien":"if (n && typeof n === 'object' && typeof n.texte === 'string' && n.texte.trim() !== '') {","nouveau":"if (!fait && n && typeof n === 'object' && typeof n.texte === 'string' && n.texte.trim() !== '') {","banc":"seance","sections":["note-242"],"unitaires":["tests/unit/v2-note-242.test.js"]}
+]

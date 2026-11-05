@@ -21944,6 +21944,9 @@ const SETS_IMPORTES = [
     await attendre(1500);
     await garderRecap(true);
     await poserEspion();
+    // Le point du « Pourquoi ? » (211) suppose un appareil neuf : le navigateur du groupe est partagé, une section antérieure
+    // (qui a ouvert un « Pourquoi ») a déjà posé la préférence locale. On la remet à zéro ici, comme le fait un appareil neuf.
+    await page.evaluate(() => { try { localStorage.removeItem('th-v2-pourquoi-ouvert'); } catch (e) { /* rien */ } });
     await demarrerRoutine('Dos R71 ×4');
     await attendre(900);
     // 211 — ce compte n'a aucun pari : la consigne dit « Mon premier pari : … » UNE fois (la phrase du plan), et le « Pourquoi ? »
@@ -28527,6 +28530,131 @@ const SETS_IMPORTES = [
     routinesAvant237.forEach((r) => ROUTINES.push(r));
     base.profiles[0] = profilAvant237;
     rendreLesBlocs237();
+    await aller('/saisie');
+  }
+
+  console.log('\n══ note-242. LA NOTE DE LA DERNIÈRE FOIS (MODIFIER, GARDER, NE PLUS AFFICHER, ANNULER) (242, ECRAN-SAISIE) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : un squat à la barre, six séances à 100 kg × 5 dont la plus récente porte une note de série (« genou gauche
+  // tire ») et une plus ancienne une autre ; une routine « 3 × 5 » SANS consigne. La note de la dernière fois s'affiche sous le nom ; « Modifier »
+  // puis « Garder » l'épingle (profiles.notes_exercices, par la file) et elle revient à la séance suivante ; « Ne plus afficher » la retire avec un
+  // toast « Annuler ».
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const nbCatAvant = CATALOGUE.length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, paris242Avant = base.predictions;
+    const routinesAvant242 = ROUTINES.splice(0, ROUTINES.length);
+    base.sessions = []; base.sets = []; base.predictions = [];
+    const rendreLesBlocs242 = await retirerBlocsDeLAppareil();
+    const t242 = Date.now();
+    const nb242 = (x) => JSON.stringify(x === undefined ? null : x);
+    const sp242 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    CATALOGUE.push({ slug: 'nu242-sq', nom: 'Squat NU242 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+      muscles_primaires: ['quadriceps', 'fessiers'], muscles_secondaires: ['adducteurs', 'bas_du_dos'], schema_mouvement: 'accroupir' });
+    const profilAvant242 = Object.assign({}, base.profiles[0]);
+    base.profiles[0] = Object.assign({}, PROFIL_BANC, { rythme_progression: 'normal', intention: 'progresser', phase: 'maintien', phase_depuis: null,
+      cartes_semaine: null, priorites: null, jours_vises: null, notes_exercices: {} });
+    for (let w = 1; w <= 6; w++) {
+      const id = 'nu242-' + w;
+      const debut = ilYa((7 * w + 1) * 86400000, t242).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'NU242 — ' + id, debut, fin: finDe(debut, t242).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: 'r-nu242', source: 'app', created_at: debut, gestes: [] });
+      base.sets.push({ id: id + '-s1', session_id: id, user_id: 'u-banc', exercise_slug: 'nu242-sq', charge_kg: 100, reps: 5, duree_s: null,
+        distance_m: null, denivele_m: null, etages: null, elastique: null, type_serie: 'travail', rang: 1, groupe_superset: null, validee_a: debut,
+        rpe: null, ressenti: null, repos_s: null, note: w === 1 ? 'genou gauche tire' : (w === 2 ? 'ancienne note' : null), source: 'app',
+        created_at: debut, modifie_a: null, douleur: false, occurrence: null, hors_calcul: false });
+    }
+    const sets242 = [1, 2, 3].map((i) => ({ id: 'pr-nu242-' + i, rang: i, type_serie: 'travail', reps_visees: 5, charge_cible_kg: null,
+      duree_cible_s: null, distance_cible_m: null }));
+    ROUTINES.push({ id: 'r-nu242', nom: 'Squat NU242', note: null, archivee_a: null, created_at: '2026-01-05T10:00:00.000Z',
+      updated_at: '2026-01-05T10:00:00.000Z', routine_exercises: [{ id: 're-nu242-0', routine_id: 'r-nu242', exercise_slug: 'nu242-sq', rang: 0,
+        zone: 'mix', routine_sets: sets242, repos_cible_s: 180, groupe_superset: null, note: null }] });
+    const note242 = () => page.evaluate(() => { const n = document.querySelector('.note-derniere');
+      return n ? { t: (n.querySelector('.note-derniere-t') || {}).textContent, texte: (n.querySelector('.note-derniere-texte') || {}).textContent || null,
+        champ: !!n.querySelector('textarea') } : null; });
+    const profilNotes242 = () => (base.profiles[0] && base.profiles[0].notes_exercices) || {};
+
+    await aller('/saisie');
+    await demarrerRoutine('Squat NU242');
+    await attendreQue(() => note242().then((n) => !!n), 15000, 'noteAfficheeNU242');
+    const a242 = await note242();
+    ok('[NU242] DISCRIMINANT — la note de la dernière fois s’affiche sous le nom : « Ta note du … » + « genou gauche tire » (la plus récente, pas l’ancienne)',
+      !!a242 && /^Ta note du \d{1,2} .+/.test(sp242(a242.t)) && sp242(a242.texte) === '« genou gauche tire »', nb242(a242));
+    await page.click('.note-derniere-modifier');
+    const b242 = await note242();
+    ok('[NU242] « Modifier » ouvre le champ (écran B), rien n’est encore écrit', !!b242 && b242.champ && Object.keys(profilNotes242()).length === 0, nb242([b242, profilNotes242()]));
+    await page.click('.note-derniere-annuler');
+    ok('[NU242] « Annuler » rend la note telle qu’elle était, sans rien écrire', sp242((await note242()).texte) === '« genou gauche tire »' && Object.keys(profilNotes242()).length === 0, nb242(await note242()));
+    await page.click('.note-derniere-modifier');
+    // 242 (relecture) — le texte en cours d'édition survit à un redessin de la séance (une série validée) : le champ reste ouvert, le texte aussi.
+    await page.fill('.note-derniere-champ', 'brouillon en cours');
+    ok('[NU242] le champ de la note borne le texte à 500 signes (maxlength)', await page.evaluate(() => document.querySelector('.note-derniere-champ').maxLength === 500));
+    const dep242 = await departGeste(0);
+    await page.evaluate(() => document.querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie').click());
+    await serieMontee(0, dep242, true);
+    const e242 = await page.evaluate(() => { const c = document.querySelector('.note-derniere-champ'); return c ? c.value : null; });
+    ok('[NU242] DISCRIMINANT — un redessin de la séance (série validée) garde le champ ouvert et le texte tapé', e242 === 'brouillon en cours', nb242(e242));
+    await page.fill('.note-derniere-champ', 'serrer les omoplates');
+    await page.click('.note-derniere-garder');
+    await attendreQue(() => Promise.resolve((profilNotes242()['nu242-sq'] || {}).texte === 'serrer les omoplates'), 15000, 'garderNU242');
+    const c242 = await note242();
+    ok('[NU242] « Garder » épingle la note par la file (profiles.notes_exercices) : « Ta note pour cet exercice », sans date',
+      sp242(c242.t) === 'Ta note pour cet exercice' && sp242(c242.texte) === 'serrer les omoplates' && !!profilNotes242()['nu242-sq'].a, nb242([c242, profilNotes242()]));
+    await abandonner();
+    await aller('/saisie');
+    await demarrerRoutine('Squat NU242');
+    await attendreQue(() => note242().then((n) => !!n), 15000, 'noteRevientNU242');
+    const d242 = await note242();
+    ok('[NU242] à la séance suivante, la note épinglée revient (elle prime sur celle de la dernière fois)',
+      sp242(d242.t) === 'Ta note pour cet exercice' && sp242(d242.texte) === 'serrer les omoplates', nb242(d242));
+    await page.click('.note-derniere-masquer');
+    await attendreQue(() => note242().then((n) => !n), 15000, 'masquerNU242');
+    const toast242 = await page.evaluate(() => { const t = document.getElementById('toast-seance'); return t && !t.hidden ? t.textContent : null; });
+    ok('[NU242] « Ne plus afficher » retire la note et dit « Note retirée de cet exercice. » avec « Annuler »', /Note retirée de cet exercice\./.test(sp242(toast242)) && /Annuler/.test(sp242(toast242)), nb242(toast242));
+    await attendreQue(() => Promise.resolve(!!(profilNotes242()['nu242-sq'] || {}).masquee), 15000, 'masqueeNU242');
+    ok('[NU242] …et l’écrit : { masquee: <id de la série> }, plus de texte', profilNotes242()['nu242-sq'].masquee === 'nu242-1-s1' && profilNotes242()['nu242-sq'].texte === undefined, nb242(profilNotes242()));
+    await page.click('#toast-seance .toast-b');
+    await attendreQue(() => note242().then((n) => !!n), 15000, 'annulerMasqueNU242');
+    await attendreQue(() => Promise.resolve((profilNotes242()['nu242-sq'] || {}).texte === 'serrer les omoplates'), 15000, 'annulerMasqueEcritNU242');
+    ok('[NU242] « Annuler » remet la note et l’entrée d’avant', sp242((await note242()).texte) === 'serrer les omoplates', nb242([await note242(), profilNotes242()]));
+
+    // Modifier → champ vidé → Garder : la note est retirée comme « Ne plus afficher » ({ masquee, a }), et n'est plus affichée.
+    await page.click('.note-derniere-modifier');
+    await page.fill('.note-derniere-champ', '');
+    await page.click('.note-derniere-garder');
+    await attendreQue(() => note242().then((n) => !n), 15000, 'videeNU242');
+    await attendreQue(() => Promise.resolve(!!(profilNotes242()['nu242-sq'] || {}).masquee), 15000, 'videeEcriteNU242');
+    const f242 = profilNotes242()['nu242-sq'];
+    ok('[NU242] champ vidé puis « Garder » : notes_exercices[slug] vaut { masquee, a } (pas de texte) et la note n’est plus affichée',
+      !!f242 && f242.masquee === 'nu242-1-s1' && !!f242.a && f242.texte === undefined && Object.keys(f242).sort().join() === 'a,masquee', nb242(f242));
+    await abandonner();
+    // La consigne de la routine n'est PAS une note (câblage `consignesDeLExercice`) : la séance la plus récente porte, sur deux séries, la vraie note
+    // (rang 1) puis la consigne de la routine (rang 2, la dernière par rang). Sans le câblage c'est la consigne qui s'afficherait.
+    base.profiles[0].notes_exercices = {};
+    const nSeance242 = base.sets.find((t) => t.id === 'nu242-1-s1');
+    nSeance242.note = 'vraie note du soir';
+    base.sets.push(Object.assign({}, nSeance242, { id: 'nu242-1-s2', rang: 2, note: 'consigne de la routine' }));
+    ROUTINES.find((r) => r.id === 'r-nu242').routine_exercises[0].note = 'consigne de la routine';
+    await aller('/saisie');
+    await demarrerRoutine('Squat NU242');
+    await attendreQue(() => note242().then((n) => !!n), 15000, 'noteVraieNU242');
+    const g242 = await note242();
+    ok('[NU242] DISCRIMINANT — la consigne de la routine n’est pas une note : c’est la vraie note qui s’affiche, pas la consigne (dernière par rang)',
+      !!g242 && sp242(g242.texte) === '« vraie note du soir »', nb242(g242));
+    await abandonner();
+    ok('[NU242] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      nb242([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    base.predictions = paris242Avant;
+    CATALOGUE.length = nbCatAvant;
+    ROUTINES.length = 0;
+    routinesAvant242.forEach((r) => ROUTINES.push(r));
+    base.profiles[0] = profilAvant242;
+    rendreLesBlocs242();
     await aller('/saisie');
   }
 

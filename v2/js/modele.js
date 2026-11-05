@@ -501,6 +501,13 @@
     declarer(cite, { date: jour }, t);
     return t;
   }
+  // 242 — « 28 oct. » ; l'année s'ajoute seulement si ce n'est pas l'année courante (« 28 oct. 2025 »). La date de la note de la dernière fois.
+  function jourCourtDeNote(jour) {
+    var t = jourCourt(jour);
+    if (!t) return '';
+    var an = Number(String(jour).slice(0, 4));
+    return an !== new Date().getFullYear() ? t + ' ' + an : t;
+  }
   // « lundi 12 oct. » : le jour civil avec son nom (§9.22, le badge d'un bloc
   // pas encore commencé), déclaré comme une date.
   function jourNomme(jour, cite) {
@@ -2948,6 +2955,7 @@
     dateLongue: dateLongue,
     jourMois: jourMois,
     jourCourt: jourCourt,
+    jourCourtDeNote: jourCourtDeNote,
     jourNomme: jourNomme,
     serieFaite: serieFaite,
     moisAnnee: moisAnnee,

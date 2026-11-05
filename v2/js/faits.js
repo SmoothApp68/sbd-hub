@@ -1834,14 +1834,13 @@
     //               confirmations : { genre : n }      — les « Oui » déjà donnés sur CET exercice (apprentissage)
     //             }
     var SEUIL_SEANCES_VRAISEMBLANCE = 3;     // avant 3 séances de l'exercice : seulement l'absurde
-    var HAUSSE_RELATIVE = 0.15, HAUSSE_ABSOLUE_KG = 10, HAUSSE_ABSOLUE_HALTERE_KG = 4;
-    var DOUBLE_HALTERES_MIN = 1.8, DOUBLE_HALTERES_MAX = 2.2;
+    var HAUSSE_RELATIVE = 0.15, HAUSSE_ABSOLUE_KG = 10, HAUSSE_ABSOLUE_HALTERE_KG = 4;   // 245 : 4 kg sur la PAIRE (réglé sur les vraies saisies, qui sont des paires)
     var BAISSE_RELATIVE = 0.35, BAISSE_ABSOLUE_KG = 10;
     var REPS_PLAFOND_CIBLE = 2.5, REPS_MOITIE = 0.5;
     var RECORD_ECART_RELATIF = 0.20;          // la question du record : plus de 20 % au-dessus du meilleur
     var CONFIRMATIONS_POUR_APPRENDRE = 2;     // deux « Oui » au même genre sur le même exercice : on ne le demande plus
     var EPSILON = 1e-9;                       // 100 × 1,15 vaut 114,99999… : une borne PILE n'est pas dépassée
-    var GENRES_DE_QUESTION = ['hausse', 'double_halteres', 'baisse', 'zero', 'reps_haut', 'reps_bas'];
+    var GENRES_DE_QUESTION = ['hausse', 'baisse', 'zero', 'reps_haut', 'reps_bas'];
 
     function nombreOuNul(v) {
       if (v === null || v === undefined || v === '') return null;
@@ -1932,23 +1931,9 @@
       var habitude = habitudeDeLExercice(historique);
 
       if (charge !== null && charge > 0) {
-        // Les haltères à environ deux fois l'habitude : le total tapé à la place de la charge par haltère.
-        if (haltere && type !== 'echauffement' && type !== 'test') {
-          var refs = [habitude, meilleur].filter(function (r) { return r !== null && r > 0; });
-          var estDouble = refs.some(function (r) {
-            var q = charge / r;
-            return q >= DOUBLE_HALTERES_MIN - EPSILON && q <= DOUBLE_HALTERES_MAX + EPSILON && charge - r > HAUSSE_ABSOLUE_HALTERE_KG + EPSILON;
-          });
-          if (estDouble) {
-            var moitie = Math.round(charge / 2 * 100) / 100;
-            // Appris : on ne redemande pas, et la hausse ci-dessous dirait la même chose.
-            return question('double_halteres', Modele.charge(charge) + ' : par haltère, ou les deux ensemble ?', [
-              bouton(Modele.nombreTexte(moitie) + ' par haltère', 'charge', true, moitie),
-              bouton(Modele.nombreTexte(charge) + ' par haltère', 'garder')
-            ]);
-          }
-        }
-        // Une charge très au-dessus du meilleur : plus de 15 % ET plus de 10 kg (4 kg par haltère).
+        // 245 — AUX HALTÈRES, LA CHARGE EST LA PAIRE (les deux ensemble) : c'est ce que tout le monde tape. Plus de question « par
+        // haltère ou les deux ? » (elle poussait vers l'autre unité) ; la hausse ci-dessous, et la baisse d'un poids d'UN haltère, suffisent.
+        // Une charge très au-dessus du meilleur : plus de 15 % ET plus de 10 kg (4 kg sur la paire pour les haltères).
         if (meilleur !== null && type !== 'echauffement' && type !== 'test') {   // 186 — un test déclaré se sait au-dessus du meilleur
           var seuilAbsolu = haltere ? HAUSSE_ABSOLUE_HALTERE_KG : HAUSSE_ABSOLUE_KG;
           if (charge > meilleur * (1 + HAUSSE_RELATIVE) + EPSILON && charge - meilleur > seuilAbsolu + EPSILON) {

@@ -8602,8 +8602,7 @@
     var s = remplacant.salle;
     var m = s ? maxDeLaSalle(s) : null;
     if (m === null) return nom + DEUX_POINTS + 'aucune limite déclarée dans ta salle.';
-    var t = s.materiel === 'halteres'
-      ? '2' + INSECABLE + '×' + INSECABLE + Modele().charge(m / 2) : Modele().charge(m);
+    var t = Modele().charge(m);   // 245 (D-H4) — la branche « haltères » est retirée (163 : Ma salle ne garde que les élastiques)
     return nom + DEUX_POINTS + 'ta salle va jusqu\'à ' + t + '.';
   }
 
@@ -11636,7 +11635,7 @@
   var RATE_FORME_FLANCHENT = 2;         // la forme du jour : 2 exercices qui flanchent…
   var RATE_FORME_SUR = 3;               // … sur les 3 derniers
   var RATE_PARIS_A_LA_SUITE = 2;        // deux séances de suite où le pari n'a pas tenu
-  var RATE_PAS_PAR_DEFAUT = { barre: 2.5, machine: 2.5, machine_smith: 2.5, poulie: 2.5, haltere: 1 };
+  var RATE_PAS_PAR_DEFAUT = { barre: 2.5, machine: 2.5, machine_smith: 2.5, poulie: 2.5, haltere: 2 };   // 245 (D-H5) — haltères : la PAIRE, +1 kg par main, aligné sur REPLI_MATERIEL.haltere.pas
 
   function rateReglage(r) { return r === 'prudent' || r === 'franc' ? r : 'normal'; }
   // Le contexte où le coach ne dit rien du tout (Entretenir, décharge, test, calage, « J'ai mal », 1re fois, figure).

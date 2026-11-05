@@ -103,8 +103,8 @@ describe('95 — l’année pleine (2026 contre 2025)', () => {
     expect(couche).toMatchObject({ charge: 100, avant: 100, vie: false });
     expect(b.barres.total).toEqual({ charge: 140 + 100 + 170, avant: 120 + 100 + 160, ecart: 30 });
   });
-  test('ce qui a le plus avancé : les haltères en poids total des deux', () => {
-    expect(b.avance.tete).toMatchObject({ slug: 'developpe_couche_halteres', reps: 6, de: 80, a: 100 });
+  test('ce qui a le plus avancé : les haltères, la charge notée est déjà la paire (245 : aucun doublement)', () => {
+    expect(b.avance.tete).toMatchObject({ slug: 'developpe_couche_halteres', reps: 6, de: 40, a: 50 });
     expect(b.avance.suivants[0]).toMatchObject({ slug: 'squat_barre', reps: 3, de: 120, a: 140 });
     // Le soulevé et le militaire n'ont qu'un nombre de reps : pas comparables à reps égales.
     expect(b.avance.compares).toBe(3);

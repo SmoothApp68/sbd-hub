@@ -138,11 +138,12 @@
   }
   var NOM_DU_MATERIEL = { barre_ez: 'en barre EZ', barre_droite: 'en barre droite', halteres: 'en haltères' };
   // Le refus d'un objectif au-delà de la salle, avec le fait : « Ta salle va jusqu'à 30 kg en barre EZ. »,
-  // « Ta salle va jusqu'à 2 × 40 kg en haltères. » (les haltères se déclarent par haltère, §10 bis).
+  // (les haltères ne sont plus lus dans Ma salle depuis 163).
   function phraseHorsSalle(pr) {
     if (!pr || pr.etat !== 'hors_salle') return null;
     var M = Modele();
-    var t = pr.salle === 'halteres' ? '2\u00a0×\u00a0' + M.charge(pr.max / 2) : M.charge(pr.max);
+    // 245 (D-H4) — la branche « haltères » (2 × moitié) est retirée : « Ma salle » ne garde que les élastiques depuis 163.
+    var t = M.charge(pr.max);
     return 'Ta salle va jusqu\u2019à ' + t + ' ' + (NOM_DU_MATERIEL[pr.salle] || '') + '.';
   }
 

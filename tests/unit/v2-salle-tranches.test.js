@@ -173,7 +173,7 @@ describe('123 — le coach lit les tranches (§10 bis)', () => {
       options: global.THModele.optionsDeRecord({ mesure: 'charge_reps', charge: 'externe', equipement: 'haltere' }), salle: s });
     const p = poser(84);
     expect(p.etat).toBe('hors_salle');
-    expect(Obj.phraseHorsSalle(p)).toBe('Ta salle va jusqu’à 2' + NB + '×' + NB + global.THModele.charge(40) + ' en haltères.');
+    expect(Obj.phraseHorsSalle(p)).toBe('Ta salle va jusqu’à ' + global.THModele.charge(80) + ' en haltères.');
     expect(poser(80).etat).not.toBe('hors_salle');
     expect(poser(22).etat).not.toBe('hors_salle');
   });

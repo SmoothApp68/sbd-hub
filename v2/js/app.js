@@ -5858,7 +5858,7 @@
   var CLE_REPONSES_SAISIE = 'reponsesSaisie';
   var reponsesDeSaisie = {};                       // { 'slug|genre' : nombre de « Oui » }
   var questionsDeSaisie = { seance: null, liste: {} };   // 'iExo:iSerie' -> { mode, q, champ }
-  var CHAMP_DE_LA_QUESTION = { hausse: 'charge_kg', double_halteres: 'charge_kg', baisse: 'charge_kg', zero: 'reps',
+  var CHAMP_DE_LA_QUESTION = { hausse: 'charge_kg', baisse: 'charge_kg', zero: 'reps',
     reps_haut: 'reps', reps_bas: 'reps', reps_invalides: 'reps', record: 'charge_kg' };
 
   // Une question tient à UNE série, par son identifiant : les indices bougent (série ajoutée, supprimée), pas l'identifiant.

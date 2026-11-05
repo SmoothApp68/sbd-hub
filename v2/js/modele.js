@@ -1009,16 +1009,23 @@
   // colonne), `dessous` (les champs sous la série) et la légende complétée (« DURÉE ·
   // ÉTAGES »). `programme` (l'éditeur de routine) : aucun champ en plus — `routine_sets`
   // n'a pas de colonne pour eux.
+  // 245 — AUX HALTÈRES, la charge est la PAIRE (MOTEUR §10.1) : une ligne d'aide sous le champ de charge le dit (jamais sur une barre).
+  var AIDE_DES_HALTERES = 'kg, les deux haltères';
+  // 245 — UNE SEULE NOTION : la charge d'un exercice aux haltères (`equipement = haltere`) est la PAIRE, les deux ensemble.
+  function chargeEstLaPaire(exo) { return !!exo && exo.equipement === 'haltere'; }
+  function avecAideDeLUnite(g, exo) {
+    return chargeEstLaPaire(exo) && g.mesure === 'charge_reps' ? Object.assign({}, g, { aide: AIDE_DES_HALTERES }) : g;
+  }
   function grilleDe(exo, programme) {
     var g = gabaritDe(exo);
     var plus = programme ? [] : champsDeSerie(exo).slice(g.champs.length);
     var colonnes = g.champs.concat(plus.filter(function (n) { return CHAMPS_MESURE[n].place === 'colonne'; }));
     var dessous = plus.filter(function (n) { return CHAMPS_MESURE[n].place === 'dessous'; });
-    if (!plus.length) return Object.assign({}, g, { colonnes: g.champs, dessous: [] });
-    return Object.assign({}, g, {
+    if (!plus.length) return avecAideDeLUnite(Object.assign({}, g, { colonnes: g.champs, dessous: [] }), exo);
+    return avecAideDeLUnite(Object.assign({}, g, {
       colonnes: colonnes, dessous: dessous,
       libelle: g.libelle ? [g.libelle].concat(plus.map(function (n) { return CHAMPS_MESURE[n].libelle; })).join(' \u00b7 ') : g.libelle
-    });
+    }), exo);
   }
 
   function champDeMesure(nom) {
@@ -2889,6 +2896,8 @@
     GABARITS: GABARITS,
     CHAMPS_MESURE: CHAMPS_MESURE,
     gabaritDe: gabaritDe,
+    AIDE_DES_HALTERES: AIDE_DES_HALTERES,
+    chargeEstLaPaire: chargeEstLaPaire,
     natureDeCharge: natureDeCharge,
     PHRASE_POIDS_DU_CORPS: PHRASE_POIDS_DU_CORPS,
     ENTETES_DE_CHARGE: ENTETES_DE_CHARGE,

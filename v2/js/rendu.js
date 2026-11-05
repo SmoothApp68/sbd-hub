@@ -3527,7 +3527,7 @@
   // pour toutes les rangées ; sinon elle se tait (204 : et le libellé de mesure revient sous chaque nom).
   function gabaritsHomogenes(gabarits) {
     return gabarits.every(function (g) {
-      return g.mesure === gabarits[0].mesure && (g.nature || null) === (gabarits[0].nature || null) &&
+      return g.mesure === gabarits[0].mesure && (g.nature || null) === (gabarits[0].nature || null) && (g.aide || null) === (gabarits[0].aide || null) &&
         colonnesDe(g).join() === colonnesDe(gabarits[0]).join();
     });
   }
@@ -3974,6 +3974,13 @@
       entetes.appendChild(bRepos);
     } else {
       entetes.appendChild(el('span', 'centre', ''));
+    }
+    // 245 — l'unité des haltères, une ligne sous les en-têtes (12 px, couleur secondaire) : « kg, les deux haltères ».
+    if (g.aide) {
+      var enSemble = doc.createDocumentFragment();
+      enSemble.appendChild(entetes);
+      enSemble.appendChild(el('div', 'aide-unite', g.aide));
+      return enSemble;
     }
     return entetes;
   }

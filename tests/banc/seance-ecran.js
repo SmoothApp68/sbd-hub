@@ -28752,6 +28752,119 @@ const SETS_IMPORTES = [
     await aller('/saisie');
   }
 
+  console.log('\n══ edition-245. UNE CORRECTION REFAIT L’OBSERVATION, JAMAIS LE PARI (245, C8, MOTEUR §9.11 ; D-P1, D-P2) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : un squat fait trois fois, une routine « 3 × 5 » et un objectif 70 × 5 posé avant la séance. On joue la séance POUR DE
+  // BON (le pari de la série est écrit par l'app, observé « 5 » ; l'objectif s'observe sur la même série), on la termine, puis on la rouvre en Édition :
+  // (1) sans rien changer, aucune observation n'est réécrite ; (2) 5 reps corrigées en 3 → l'observation du pari de consigne passe à 3 (le pari ne bouge
+  // pas) et celle de l'objectif se vide ; (3) la charge corrigée → l'observation du pari de consigne se vide.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const nbCatAvant = CATALOGUE.length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, paris245Avant = base.predictions, objectifsAvant245 = base.objectifs;
+    const routinesAvant245 = ROUTINES.splice(0, ROUTINES.length);
+    base.sessions = []; base.sets = []; base.predictions = []; base.objectifs = [];
+    const profilAvant245 = Object.assign({}, base.profiles[0]);
+    base.profiles[0] = Object.assign({}, PROFIL_BANC, { rythme_progression: 'normal', intention: 'progresser', phase: 'maintien', phase_depuis: null,
+      cartes_semaine: null, priorites: null, jours_vises: null, notes_exercices: {} });
+    const rendreLesBlocs245 = await retirerBlocsDeLAppareil();
+    const t245 = Date.now();
+    const nb245 = (x) => JSON.stringify(x === undefined ? null : x);
+    CATALOGUE.push({ slug: 'ed245-sq', nom: 'Squat ED245 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+      muscles_primaires: ['quadriceps', 'fessiers'], muscles_secondaires: ['adducteurs'], muscles_stabilisateurs: ['bas_du_dos'], schema_mouvement: 'accroupir' });
+    [34, 27, 20].forEach((j, n) => {
+      const id = 'ed245-h' + j;
+      const debut = ilYa(j * 86400000, t245).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'ED245 — ' + id, debut, fin: finDe(debut, t245).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: 'r-ed245', source: 'app', created_at: debut, gestes: [] });
+      [1, 2, 3].forEach((r) => base.sets.push({ id: id + '-s' + r, session_id: id, user_id: 'u-banc', exercise_slug: 'ed245-sq', charge_kg: 70, reps: 5,
+        duree_s: null, distance_m: null, denivele_m: null, etages: null, elastique: null, type_serie: 'travail', rang: r, groupe_superset: null,
+        validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null, douleur: false,
+        occurrence: null, hors_calcul: false }));
+    });
+    ROUTINES.push({ id: 'r-ed245', nom: 'Squat ED245', note: null, archivee_a: null, created_at: '2026-01-05T10:00:00.000Z', updated_at: '2026-01-05T10:00:00.000Z',
+      routine_exercises: [{ id: 're-ed245-0', routine_id: 'r-ed245', exercise_slug: 'ed245-sq', rang: 0, zone: 'mix', repos_cible_s: 90, groupe_superset: null, note: null,
+        routine_sets: [1, 2, 3].map((i) => ({ id: 'pr-ed245-' + i, rang: i, type_serie: 'travail', reps_visees: 5, charge_cible_kg: null,
+          duree_cible_s: null, distance_cible_m: null })) }] });
+    const pose245 = ilYa(10 * 86400000, t245).toISOString();
+    const OBJ245 = '00000000-0000-5000-8245-000000000002';
+    base.predictions.push({ id: OBJ245, user_id: 'u-banc', module: 'objectif', module_version: 1, emise_a: pose245, exercise_slug: null,
+      grandeur: 'jours', horizon_jours: 30, valeur_predite: 30, borne_basse: null, borne_haute: null,
+      fondement: { exercice: 'ed245-sq', charge: 70, reps: 5, pose_le: pose245, echeance: '2027-01-01', record: 65, reference: 65 },
+      valeur_observee: null, observee_a: null, set_observe: null, created_at: pose245 });
+    base.objectifs.push({ user_id: 'u-banc', exercise_slug: 'ed245-sq', charge_kg: 70, reps: 5, pose_le: pose245, depart_kg: 65,
+      projection: 'date', echeance: '2027-01-01', pari_id: OBJ245 });
+    const pariDe245 = () => base.predictions.filter((l) => l.module === 'moteur.consigne' && l.exercise_slug === 'ed245-sq' && l.fondement.rang === 1)[0] || {};
+    const obj245 = () => base.predictions.find((l) => l.id === OBJ245);
+    const nbObs245 = () => base.journal.filter((j) => j.op === 'observation').length;
+    const editer245 = async (gestes) => {
+      await ouvrirMenuDe('Squat ED245');
+      await entree('Modifier');
+      await attendreQue(() => page.evaluate(() => !document.getElementById('vue-seance').hidden), 15000, 'editionOuverteED245');
+      await gestes();
+      await enregistrer();
+      await attendre(1500);
+    };
+
+    await aller('/saisie');
+    await demarrerRoutine('Squat ED245');
+    const charge245 = 70;   // la charge de travail des trois séances d'avant : celle que la ligne propose (le pari le dit : fondement.charge)
+    await saisirSerie(0, charge245, 5);
+    await jusqua(async () => pariDe245().valeur_observee === 5 && !!pariDe245().set_observe, 10000, 'pariObserveED245');
+    ok('[ED245] prémisse — la série faite à la charge proposée observe le pari de consigne (5 reps) : ' + charge245 + ' kg',
+      pariDe245().valeur_observee === 5 && pariDe245().fondement.charge === charge245, nb245([charge245, pariDe245().valeur_observee, pariDe245().fondement]));
+    await terminer();
+    await jusqua(async () => obj245().valeur_observee !== null && !!obj245().set_observe, 10000, 'objectifObserveED245');
+    ok('[ED245] prémisse — l’objectif 70 × 5 s’observe sur la série (au terminer)', obj245().set_observe === pariDe245().set_observe, nb245([obj245().set_observe, pariDe245().set_observe]));
+    const predit245 = pariDe245().valeur_predite;
+    await reseauCalme();
+
+    // (1) rien de changé : aucune observation réécrite.
+    const avant1 = nbObs245();
+    await editer245(async () => {});
+    ok('[ED245] une Édition qui ne change rien n’écrit aucune observation, et le pari est intact',
+      nbObs245() === avant1 && pariDe245().valeur_observee === 5 && pariDe245().valeur_predite === predit245, nb245([nbObs245() - avant1, pariDe245().valeur_observee]));
+
+    // (2) 5 reps → 3.
+    await editer245(async () => {
+      const champs = await champsDe(0, 'reps');
+      await champs[0].fill('3');
+      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    });
+    await jusqua(async () => pariDe245().valeur_observee === 3, 10000, 'observeeCorrigeeED245');
+    ok('[ED245] DISCRIMINANT — ' + charge245 + ' × 5 corrigé en ' + charge245 + ' × 3 : l’observation du pari passe à 3 (il n’est plus « tenu » à 5), le pari ne bouge pas',
+      pariDe245().valeur_observee === 3 && !!pariDe245().set_observe && pariDe245().valeur_predite === predit245 && pariDe245().fondement.charge === charge245,
+      nb245([pariDe245().valeur_observee, pariDe245().valeur_predite, base.sets.filter((x) => x.exercise_slug === 'ed245-sq' && x.session_id.indexOf('ed245-h') < 0).map((x) => [x.charge_kg, x.reps])]));
+    await jusqua(async () => obj245().valeur_observee === null, 10000, 'objectifVideED245');
+    ok('[ED245] DISCRIMINANT — l’objectif 70 × 5 n’est plus atteint par la série corrigée : l’observation de son pari se vide (le pari reste)',
+      obj245().valeur_observee === null && obj245().set_observe === null && obj245().observee_a === null && obj245().valeur_predite === 30, nb245(obj245()));
+
+    // (3) la charge corrigée : le pari de la charge d'origine ne s'observe plus.
+    await editer245(async () => {
+      const champs = await champsDe(0, 'charge_kg');
+      await champs[0].fill(String(charge245 - 10));
+      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    });
+    await jusqua(async () => pariDe245().set_observe === null, 10000, 'observationVideeED245');
+    ok('[ED245] ' + charge245 + ' corrigé en ' + (charge245 - 10) + ' : l’observation du pari se vide (valeur et série), le pari reste',
+      pariDe245().set_observe === null && pariDe245().valeur_observee === null && pariDe245().observee_a === null && pariDe245().valeur_predite === predit245, nb245(pariDe245()));
+    ok('[ED245] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      nb245([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    base.predictions = paris245Avant;
+    base.objectifs = objectifsAvant245;
+    CATALOGUE.length = nbCatAvant;
+    ROUTINES.length = 0;
+    routinesAvant245.forEach((r) => ROUTINES.push(r));
+    base.profiles[0] = profilAvant245;
+    rendreLesBlocs245();
+    await aller('/saisie');
+  }
+
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');
   // Le compte vit dans `garde-compte.js` : le lanceur parallèle refait les
   // mêmes contrôles sur le compte fusionné de ses groupes.

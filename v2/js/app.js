@@ -9420,15 +9420,23 @@
   // pour que la clé étrangère de `set_observe` trouve sa ligne.
   async function observerSerie(iExo, iSerie) {
     if (!seance || enEdition()) return;
-    var exo = (seance.exercices || [])[iExo];
+    return observerSerieDe(seance, iExo, iSerie, false);
+  }
+
+  // 245 (C8, MOTEUR §9.11) — LE CORPS D'`observerSerie`, pour la séance `s` : en séance (`edition` faux) il est appelé par
+  // `observerSerie` tel qu'avant ; à l'enregistrement d'une ÉDITION (`enregistrerCorrection`), il REFAIT l'observation des paris
+  // de la série corrigée — le PARI ne bouge jamais (immuable), seule son observation suit la série. Sans plan de coach (une
+  // Édition est muette), le rang est inconnu : seuls les paris que CETTE série observait se relisent (`parisAObserver`, rang nul).
+  async function observerSerieDe(s, iExo, iSerie, edition) {
+    var exo = (s.exercices || [])[iExo];
     if (!exo) return;
     var serie = (exo.series || [])[iSerie];
     if (!serie) return;
     // §9.14 (49-R2) — le rang se lit sur la RÉACTION, le seul lecteur de la
     // consigne ; la consigne mémorisée à l'ouverture n'est plus relue ici.
-    var r = reactionDe(iExo);
-    if (!r) return;
-    var j = r.indices.indexOf(iSerie);
+    var r = s === seance ? reactionDe(iExo) : null;
+    if (!r && !edition) return;
+    var j = r ? r.indices.indexOf(iSerie) : -1;
     var rang = j < 0 ? null : r.rangs[j];
     // 193-1 — le rang d'un recul est « r1 », « r2 »… (son ordre parmi les reculs de l'exercice), jamais un rang de la couverture.
     if (Modele.estRecul(serie)) {
@@ -9452,11 +9460,11 @@
     // vers `id = null` — deux paris du même rang, et aucun en base.
     // Prérequis d'« adapter » — et LES PARIS DE CETTE OCCURRENCE seulement : la
     // seconde occurrence d'un exercice n'observe pas ceux de la première.
-    var paris = Seance.parisDeLOccurrence(local.predictions || [], seance, iExo).filter(function (l) {
+    var paris = Seance.parisDeLOccurrence(local.predictions || [], s, iExo).filter(function (l) {
       return !!l.id;
     });
     var aLire = Seance.parisAObserver(paris, serie, rang, exo.series);
-    for (var p = 0; p < aLire.length; p++) await observerPari(aLire[p], serie, exo.series);
+    for (var p = 0; p < aLire.length; p++) await observerPari(aLire[p], serie, exo.series, s.id, edition);
   }
 
   // §9.11 (49-8) — UNE SÉRIE SUPPRIMÉE EMPORTE SON OBSERVATION. En base, le
@@ -9508,11 +9516,23 @@
       maj.push(m);
       return m;
     });
+    // 245 (D-P2) — les paris d'OBJECTIF qui s'observaient sur ces séries se vident aussi (la base le fait : `sets_efface_observation`).
+    local.parisObjectif = (local.parisObjectif || []).map(function (l) {
+      if (!l || !l.set_observe || !ids[l.set_observe]) return l;
+      var m = Object.assign({}, l, { set_observe: null, valeur_observee: null, observee_a: null });
+      avant.push(l);
+      maj.push(m);
+      return m;
+    });
     return { avant: avant, maj: maj };
   }
 
   async function ecrireObservationsVidees(maj) {
-    if (maj.length) await Cache.ecrireLot('predictions', maj).catch(function () {});
+    var objectif = {};
+    (local.parisObjectif || []).forEach(function (l) { if (l && l.id) objectif[l.id] = true; });
+    var deSeance = maj.filter(function (l) { return !objectif[l.id]; });
+    if (deSeance.length !== maj.length) await Cache.ecrireBrouillon(CLE_PARIS_OBJECTIF, local.parisObjectif).catch(function () {});
+    if (deSeance.length) await Cache.ecrireLot('predictions', deSeance).catch(function () {});
     // La base le fait déjà (le déclencheur) ; l'entrée qui partirait encore
     // avec l'ancienne observation est remplacée par la vraie, vide — sinon
     // elle attendrait pour toujours une série qui ne reviendra pas.
@@ -9690,9 +9710,9 @@
   // §9.11 (27/09/2026) — L'OBSERVATION PART PAR SA PROPRE ENTRÉE, EN FIN DE
   // FILE : derrière son pari (même identifiant, posé avant elle) et derrière
   // les séries qu'elle désigne (`poserSeries` passe avant). Voir `attente.js`.
-  async function poserObservation(ligne) {
+  async function poserObservation(ligne, idSeance) {
     await poser({ table: Attente.OBSERVATIONS, op: Attente.OBSERVER, id: ligne.id,
-                  depend: seance.id, alaFin: true,
+                  depend: idSeance || seance.id, alaFin: true,
                   donnees: donneesObservation(ligne) });
   }
 
@@ -9730,7 +9750,7 @@
     if (maj) await Cache.ecrireLot('predictions', [maj]).catch(function () {});
   }
 
-  async function observerPari(ligne, serie, series) {
+  async function observerPari(ligne, serie, series, idSeance, edition) {
     // La garde, au plus près de l'écriture : une ligne observée sur une AUTRE
     // série, encore en base, n'est jamais réécrite par celle-ci.
     if (!Seance.peutObserver(ligne, serie, series)) return;
@@ -9741,6 +9761,9 @@
       enBase: enBase, id: serie.id, charge: serie.charge_kg,
       reps: enBase && serie.reps !== undefined ? serie.reps : null
     });
+    // 245 (C8) — en Édition, une série corrigée qui ne remplit plus le pari le VIDE (valeur et série : comme le déclencheur
+    // `sets_efface_observation`) ; en séance, « autre chose tenté » garde la série reliée.
+    if (edition && vue.valeur_observee === null) vue = { set_observe: null, valeur_observee: null };
     var etaitSienne = ligne.set_observe && serie.id && ligne.set_observe === serie.id;
     // Ni reliée maintenant, ni reliée par cette série avant : rien à dire.
     if (vue.set_observe === null && !etaitSienne) return;
@@ -9768,7 +9791,7 @@
       return l && l.id === maj.id ? maj : l;
     });
     await Cache.ecrireLot('predictions', [maj]).catch(function () {});
-    await poserObservation(maj);
+    await poserObservation(maj, idSeance);
   }
 
   // ── §9.14 (49-R2) — LA RÉACTION SÉRIE PAR SÉRIE, BRANCHÉE ────────────────
@@ -15529,6 +15552,26 @@
     await poserSeance(false, s);
     await ecrireJournalDeSeance(s, seriesAvant);
     adopterLocalement(s);
+    await reobserverLesParisCorriges(s, seriesAvant);
+  }
+
+  // 245 (C8 / D-P1, D-P2 ; MOTEUR §9.11) — UNE CORRECTION REFAIT L'OBSERVATION, JAMAIS LE PARI. Pour chaque série que la
+  // correction change sur un champ qui compte (`Sync.seriesQuiEffacent`, la liste des records), les paris de consigne qui
+  // l'observaient sont réobservés sur la série corrigée (tenu, raté, ou observation vidée si elle ne remplit plus le pari), et
+  // les paris d'objectif suivent (observation vide si l'objectif n'est plus atteint). Ne tourne qu'à l'enregistrement d'une
+  // Édition : la validation d'une série en séance ne passe pas ici. Une correction qui ne change que la note : rien.
+  async function reobserverLesParisCorriges(s, avant) {
+    var changees = Sync.seriesQuiEffacent(avant, Seance.lignes(s));
+    if (!changees.length) return;
+    var ids = {};
+    changees.forEach(function (id) { ids[id] = true; });
+    for (var i = 0; i < (s.exercices || []).length; i++) {
+      var series = (s.exercices[i] && s.exercices[i].series) || [];
+      for (var j = 0; j < series.length; j++) {
+        if (series[j] && series[j].id && ids[series[j].id]) await observerSerieDe(s, i, j, true);
+      }
+    }
+    await observerObjectifs({ retirer: true, idSeance: s.id }).catch(function (err) { console.warn('Observation des objectifs :', texteErreur(err)); });
   }
 
   async function enregistrerEdition() {
@@ -16901,7 +16944,10 @@
   // jours réellement mis, rattachés à cette série (`set_observe`), même après l'échéance. Elle part derrière la
   // séance de la série (`depend`). Jamais retirée ici : une série effacée vide l'observation en base
   // (`sets_efface_observation`) ; une autre série qui atteint l'objectif la reprend.
-  async function observerObjectifs() {
+  async function observerObjectifs(options) {
+    // 245 (D-P2) — `retirer` (l'enregistrement d'une Édition seulement) : un objectif qui n'est plus atteint par aucune série
+    // vide son observation (le pari ne bouge jamais). Hors Édition, l'observation n'est jamais retirée ici.
+    var retirer = !!(options && options.retirer);
     var paris = local.parisObjectif || [];
     if (!paris.length) return;
     var parSlug = {}, maj = {};
@@ -16910,7 +16956,13 @@
       if (!slug) return;
       var seances = parSlug[slug] || (parSlug[slug] = seancesPourObjectif(faits.seancesDeLExercice(corpus(), slug)));
       var obs = Objectif.observationDe(p, seances);
-      if (!obs.set_observe) return;
+      if (!obs.set_observe) {
+        if (retirer && (p.set_observe || (p.valeur_observee !== null && p.valeur_observee !== undefined))) {
+          maj[p.id] = { ligne: Object.assign({}, p, { valeur_observee: null, observee_a: null, set_observe: null }),
+                        seance: options.idSeance || null };
+        }
+        return;
+      }
       if (p.set_observe === obs.set_observe && Number(p.valeur_observee) === obs.valeur_observee) return;
       maj[p.id] = { ligne: Object.assign({}, p, { valeur_observee: obs.valeur_observee, observee_a: new Date().toISOString(),
                                                   set_observe: obs.set_observe }), seance: obs.session_id };

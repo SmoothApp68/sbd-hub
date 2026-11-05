@@ -27,6 +27,11 @@ describe('lireMesuresCsv — le lecteur', () => {
     expect(r.pesees.map((p) => p.date)).toEqual(['2024-03-04', '2026-11-05']);
     expect(r.ecartees).toBe(5);
   });
+  test('un jour qui n’existe pas au calendrier (31 février, 99 mars) : écarté et compté', () => {
+    const r = I.lireMesuresCsv(csv('"31 févr. 2024, 08:00",80,,', '"99 mars 2024, 08:00",80,,', '"29 févr. 2024, 08:00",81,,', '"29 févr. 2023, 08:00",82,,'), AUJ);
+    expect(r.pesees.map((p) => p.date)).toEqual(['2024-02-29']);
+    expect(r.ecartees).toBe(3);
+  });
   test('un en-tête inconnu : rien n’est lu (jamais deviné) ; weight_lbs seul : refusé avec sa raison', () => {
     expect(I.lireMesuresCsv('jour,poids\n"23 oct. 2023, 00:00",80', AUJ)).toEqual({ pesees: [], ecartees: 0, raison: 'entete' });
     expect(I.lireMesuresCsv('date,weight_lbs\n"23 oct. 2023, 00:00",180', AUJ)).toEqual({ pesees: [], ecartees: 0, raison: 'unite' });
@@ -66,7 +71,7 @@ describe('apercuDesMesures — les jours déjà pesés gardent leur valeur', () 
     expect(I.phrasesDesMesures(a)).toEqual([
       '3 pesées trouvées · du 1 oct. 2025 au 3 oct. 2025',
       '1 jour déjà pesé dans TrainHub : ta pesée est gardée telle quelle.',
-      '1 valeur hors des bornes : écartée.',
+      '1 ligne écartée : valeur hors des bornes, ou date illisible ou hors période.',
       'Seul le poids est importé.'
     ]);
     expect(I.libelleDImporterPesees(a.aImporter.length)).toBe('Importer 2 pesées');
@@ -84,5 +89,60 @@ describe('ajouterPesees — un AJOUT SEUL', () => {
     await Donnees.ajouterPesees([]);
     expect(appels).toHaveLength(1);
     delete globalThis.THClient;
+  });
+});
+
+describe('lireFichierHevy — la limite de 2 Mo ne vaut que pour les mesures', () => {
+  const fs = require('fs'), path = require('path'), vm = require('vm');
+  const APP = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
+  const corps = APP.match(/^  (?:async )?function lireFichierHevy\b[\s\S]*?^  }/m)[0];
+  function fichier(entete, taille) {
+    const texte = entete + '\n' + 'x'.repeat(taille);
+    return { size: texte.length, slice: (a, b) => ({ text: async () => texte.slice(a, b) }), text: async () => texte };
+  }
+  async function jouer(f) {
+    const j = { mesures: 0, seances: 0 };
+    const ctx = { importHevy: {}, $: () => ({ files: [f] }), Import: I, rendreImportEcran: () => {},
+      lireMesuresHevy: () => { j.mesures++; }, lireImport: () => { j.seances++; } };
+    vm.createContext(ctx);
+    vm.runInContext(corps + '\nthis.lireFichierHevy = lireFichierHevy;', ctx);
+    await ctx.lireFichierHevy();
+    return { j, erreur: ctx.importHevy.erreur };
+  }
+  test('un CSV de séances de plus de 2 Mo passe encore (chemin des séances)', async () => {
+    const r = await jouer(fichier('title,start_time,end_time,exercise_title,set_index,weight_kg', I.MESURES_OCTETS_MAX + 10));
+    expect(r.j).toEqual({ mesures: 0, seances: 1 });
+    expect(r.erreur).toBeUndefined();
+  });
+  test('un CSV de mesures de plus de 2 Mo est refusé ; en dessous, il est lu', async () => {
+    const trop = await jouer(fichier('date,weight_kg', I.MESURES_OCTETS_MAX + 10));
+    expect(trop.j).toEqual({ mesures: 0, seances: 0 });
+    expect(trop.erreur).toBe(I.MESSAGES.mesuresLongueur);
+    const ok = await jouer(fichier('date,weight_kg', 100));
+    expect(ok.j).toEqual({ mesures: 1, seances: 0 });
+  });
+});
+
+describe('poserPeseesImportees — un seul lot', () => {
+  const fs = require('fs'), path = require('path'), vm = require('vm');
+  const APP = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
+  const corps = APP.match(/^  (?:async )?function poserPeseesImportees\b[\s\S]*?^  }/m)[0];
+  test('1 000 pesées → une entrée de file, puis UNE requête au faux client', async () => {
+    const attente = [];
+    const ctx = { local: { pesees: [] }, Cache: { ecrireLot: async () => {} }, idUtilisateur: () => 'u',
+      Attente: { PESEES: 'body_weight_log', AJOUTER: 'ajouter' }, poserPaquet: async (ops) => { ops.forEach((o) => attente.push(o)); } };
+    vm.createContext(ctx);
+    vm.runInContext(corps + '\nthis.f = poserPeseesImportees;', ctx);
+    const pesees = []; for (let i = 0; i < 1000; i++) pesees.push({ date: new Date(Date.UTC(2020, 0, 1 + i)).toISOString().slice(0, 10), poids_kg: 80 });
+    expect(await ctx.f(pesees)).toBe(1000);
+    expect(attente).toHaveLength(1);
+    expect(attente[0].donnees).toHaveLength(1000);
+    const appels = [];
+    globalThis.THClient = { obtenir: () => ({ from: () => ({ upsert: (l, o) => { appels.push({ l, o }); return Promise.resolve({ error: null }); } }) }) };
+    await Donnees.ajouterPesees(attente[0].donnees);
+    delete globalThis.THClient;
+    expect(appels).toHaveLength(1);
+    expect(appels[0].l).toHaveLength(1000);
+    expect(appels[0].o.ignoreDuplicates).toBe(true);
   });
 });

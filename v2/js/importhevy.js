@@ -680,7 +680,8 @@
     return ref.getFullYear() + '-' + deux(ref.getMonth() + 1) + '-' + deux(ref.getDate());
   }
   function enteteDeMesures(texte) {
-    var brutes = lignesCsv(String(texte || '').replace(/^\uFEFF/, ''));
+    var premiere = String(texte || '').replace(/^\uFEFF/, '').split(/\r\n|\n|\r/)[0];
+    var brutes = lignesCsv(premiere);
     return brutes.length ? brutes[0].map(function (c) { return String(c).trim().toLowerCase(); }) : [];
   }
   // Un CSV de mesures : une colonne `date`, un poids (`weight_kg`, ou `weight_lbs` qui sera refusé avec sa raison) et
@@ -709,6 +710,8 @@
       try { local = dateCsv(v[iD]); }
       catch (e) { illisibles++; if (e && e.enAnglais) anglais = true; sortie.ecartees++; return; }
       var jour = local.slice(0, 10), heure = local.slice(11, 16);
+      // Un jour qui n'existe pas au calendrier (2024-02-31) : aller-retour par `THPoids.depuisJour`.
+      if (P && !P.depuisJour(jour)) { sortie.ecartees++; return; }
       try { kg = nombreLu(vide(v[iW])); } catch (e) { sortie.ecartees++; return; }
       if (!(kg > min && kg < max) || jour > auj || jour < MESURES_DEPUIS) { sortie.ecartees++; return; }
       var deja = parJour[jour];
@@ -748,7 +751,7 @@
         (a.dejaLa > 1 ? 'tes pesées sont gardées telles quelles.' : 'ta pesée est gardée telle quelle.'));
     }
     if (a.ecartees) {
-      out.push(a.ecartees + (a.ecartees > 1 ? ' valeurs hors des bornes : écartées.' : ' valeur hors des bornes : écartée.'));
+      out.push(a.ecartees + (a.ecartees > 1 ? ' lignes écartées : valeur hors des bornes, ou date illisible ou hors période.' : ' ligne écartée : valeur hors des bornes, ou date illisible ou hors période.'));
     }
     out.push('Seul le poids est importé.');
     return out;

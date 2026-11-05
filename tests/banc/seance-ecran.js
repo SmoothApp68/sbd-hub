@@ -28735,7 +28735,7 @@ const SETS_IMPORTES = [
       boutons: Array.from(document.querySelectorAll('#import-hevy button')).map((n) => [n.textContent, Math.round(n.getBoundingClientRect().height)]) }));
     ok('[P246] (c) l’aperçu dit les chiffres : trouvées, période, jour déjà pesé gardé tel quel, valeur écartée, « Seul le poids est importé. »',
       sp246(c246.titre) === '3 pesées trouvées · du 1 oct. 2025 au 3 oct. 2025' && nb246(c246.phrases.map(sp246)) === nb246([
-        '1 jour déjà pesé dans TrainHub : ta pesée est gardée telle quelle.', '1 valeur hors des bornes : écartée.', 'Seul le poids est importé.']), nb246(c246));
+        '1 jour déjà pesé dans TrainHub : ta pesée est gardée telle quelle.', '1 ligne écartée : valeur hors des bornes, ou date illisible ou hors période.', 'Seul le poids est importé.']), nb246(c246));
     ok('[P246] (c) deux boutons « Importer 2 pesées » / « Annuler », de 44 px au moins',
       c246.boutons.some((b) => sp246(b[0]) === 'Importer 2 pesées' && b[1] >= 44) && c246.boutons.some((b) => sp246(b[0]) === 'Annuler' && b[1] >= 44), nb246(c246.boutons));
     ok('[P246] (c) rien n’est écrit avant le clic', base.ecrituresPesees.length === ecr246, nb246(base.ecrituresPesees.slice(ecr246)));

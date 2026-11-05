@@ -2,8 +2,8 @@
  {
   "nom": "245-1-aide-reclasse-en-chauffe",
   "fichier": "v2/js/palier.js",
-  "ancien": "    if (uneAide) {",
-  "nouveau": "    if (false) {",
+  "ancien": "    var uneAide = !!(options && options.charge === 'assistance');",
+  "nouveau": "    var uneAide = false;",
   "banc": "aucun",
   "unitaires": [
    "tests/unit/v2-aide-sans-chauffe.test.js"

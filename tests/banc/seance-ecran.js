@@ -19207,9 +19207,13 @@ const SETS_IMPORTES = [
       await texte('#social-fil'));
     ok('[social 107] H1 — DISCRIMINANT — « Compte privé » coupé hors ligne, l’app rechargée : au retour du réseau, le profil en base est public',
       await attendreQue(async () => base.profiles[0].compte_prive === false), JSON.stringify(base.profiles[0].compte_prive));
+    // 244 — UNE seule lecture, après le chargement du fil : trois lectures une à une tombaient pendant une relecture.
+    await sansChargement('#social-fil');
+    const h1f = await page.evaluate(() => { const f = document.querySelector('#social-fil');
+      const q = (x) => (f.querySelector(x) || {}).textContent || '';
+      return { attente: q('.s-attente'), reag: q('.s-carte .s-reag'), demandes: f.querySelectorAll('.s-demande').length, fil: f.textContent }; });
     ok('[social 107] H1 — après le retour : l’écran ne dit plus « en attente », et montre l’état réel (« Tu as réagi », aucune demande)',
-      !(await sAttente('#social-fil')) && (await texte('#social-fil .s-carte .s-reag')) === '🔥 Tu as réagi' &&
-        (await compter('#social-fil .s-demande')) === 0, await texte('#social-fil'));
+      !h1f.attente && h1f.reag === '🔥 Tu as réagi' && h1f.demandes === 0, h1f.fil);
 
     // ── H2. DEUX GESTES CONTRAIRES, UN RECHARGEMENT ENTRE LES DEUX.
     base.ecrituresSocialesCoupees = true;
@@ -22200,6 +22204,8 @@ const SETS_IMPORTES = [
       const l = b && b.querySelector('.bloc-ligne');
       return !!l && l.textContent.replace(/\s+/g, ' ').trim() === P; }, PHRASE, { timeout: 15000 })
       .catch(() => console.log('   (plafond de 15 s atteint : la phrase du parcours n’est jamais apparue)'));
+    // 244 — le démarrage de l'app pose `scores_guilde` (les nombres du décor ont changé) : attendre que la file se vide AVANT la photo (patron R71 g).
+    await jusqua(async () => (await page.evaluate(() => window.THCache.lireAttente())).length === 0, 15000);
     const ecrituresAvant = ecritures(), fileAvant = await file();
     const blocs = await page.evaluate(() => Array.from(document.querySelectorAll('#sommaire .bloc-som')).map((b) => ({
       quoi: b.querySelector('.bloc-quoi').textContent, ligne: (b.querySelector('.bloc-ligne') || {}).textContent || null })));
@@ -28132,7 +28138,9 @@ const SETS_IMPORTES = [
       carte1882.lignes.length > 0 && carte1882.lignes.some((l) => /Curl EQ1882|Extension EQ1882/.test(l)) &&
         !carte1882.lignes.some((l) => /Latérales EQ1882|Oiseau EQ1882|Développé EQ1882/.test(l)), nb1882(carte1882));
     ok('[EQ1882] …et jamais sous 2 séries', carte1882.lignes.every((l) => !/→ [01] séries?/.test(l)), nb1882(carte1882.lignes));
-    await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button')).filter((b) => /^Garder la séance|^Annuler/.test(b.textContent))[0].click());
+    // 244 — fermer la carte SANS démarrer : « Garder la séance » démarre la séance complète.
+    await page.click('#btn-fermer-feuille');
+    await feuilleFermee();
     base.profiles[0].priorites = null;
 
     // ── D. LA LIGNE DU REPOS : un gros mouvement qui stagne, reps −33 % de la série 1 à la 3, repos réglé à 75 s.

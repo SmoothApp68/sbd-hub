@@ -1,0 +1,25 @@
+[
+ {
+  "nom": "244-p75-sans-attente-de-file",
+  "fichier": "tests/banc/seance-ecran.js",
+  "ancien": "    await jusqua(async () => (await page.evaluate(() => window.THCache.lireAttente())).length === 0, 15000);\n    const ecrituresAvant = ecritures(), fileAvant = await file();",
+  "nouveau": "    await page.evaluate(async () => { await window.THCache.ecrireAttente([{ cle: 'sets:p75-mut', seq: 1, table: 'sets', op: 'remplacer', id: 'p75-mut', donnees: [], version: 1, essais: 0, creation: false, posee_a: null }]); window.dispatchEvent(new Event('online')); });\n    const ecrituresAvant = ecritures(), fileAvant = await file();",
+  "banc": "seance",
+  "sections": [
+   "parcours"
+  ]
+ },
+ {
+  "nom": "244-accepter-rejoue-en-refus",
+  "fichier": "v2/js/social.js",
+  "ancien": "if (rejoue && g === GESTES.ACCEPTER && /modification refusée/.test(texte)) return 'fait';",
+  "nouveau": "if (false && rejoue && g === GESTES.ACCEPTER && /modification refusée/.test(texte)) return 'fait';",
+  "banc": "seance",
+  "sections": [
+   "social"
+  ],
+  "unitaires": [
+   "tests/unit/v2-social-hors-ligne.test.js"
+  ]
+ }
+]

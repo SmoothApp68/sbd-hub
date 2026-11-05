@@ -69,5 +69,15 @@
   "unitaires": [
    "tests/unit/v2-f3-echelle-pompes.test.js"
   ]
+ },
+ {
+  "nom": "245-8-premier-essai-sans-aide-venue",
+  "fichier": "v2/js/faits.js",
+  "ancien": "      if (!depuisUneAide) return false;\n      var g = seancesDeLExercice(c, slug);",
+  "nouveau": "      var g = seancesDeLExercice(c, slug);",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-f3-echelle-pompes.test.js"
+  ]
  }
 ]

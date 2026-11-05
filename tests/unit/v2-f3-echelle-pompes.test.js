@@ -15,6 +15,10 @@ const G = require('../../v2/js/generateur.js');
 const M = require('../../v2/js/moteur.js');
 const T = require('../../v2/js/plan.js');
 const S = require('../../v2/js/seance.js');
+require('../../v2/js/periode.js');
+require('../../v2/js/semaine.js');
+require('../../v2/js/bilan.js');
+const Faits = require('../../v2/js/faits.js').creer();
 
 const esp = (x) => String(x || '').replace(/[  ]/g, ' ');
 const ex = (slug, rang, extra) => Object.assign({ slug, nom: slug, echelle: 'pompes', echelle_rang: rang, mesure: 'reps', charge: 'aucune', nature: 'force' }, extra || {});
@@ -149,4 +153,46 @@ describe('245 F3 (b) — depuis une aide, 0 rep stricte au premier essai : la ma
     const deja = [{ exercice: SLUG, marche: M.MARCHE_DESSOUS, seance: 'AUTRE', reponse: 'refusee', jour: '2026-10-18' }];
     expect(planDe(true, deja).x.escalier).toBeFalsy();
   });
+
+  describe('le câblage : `faits.premierEssaiRate` lit le corpus et le catalogue, le plan en tire la carte', () => {
+  const IDX = {
+    tractions_assistees: ex('tractions_assistees', 1, { echelle: 'tractions', charge: 'assistance' }),
+    tractions: ex('tractions', 2, { echelle: 'tractions' }),
+    rowing: ex('rowing', 1, { echelle: 'rowing' })
+  };
+  // Un corpus minimal : les séances (rangées de la plus récente à la plus ancienne) et leurs séries.
+  const corpus = (fait) => {
+    const seances = Object.keys(fait).map((id, i) => ({ id, debut: '2026-10-' + String(10 + i).padStart(2, '0') + 'T18:00:00+00:00' })).reverse();
+    return { seances, series: [], seriesDe: (id) => fait[id] || [] };
+  };
+  const serie = (slug, reps, type) => ({ exercise_slug: slug, reps, charge_kg: 0, type_serie: type || 'travail' });
+
+  test('DISCRIMINANT — une marche assistée faite, les tractions faites une fois à 0 rep : le fait est vrai', () => {
+    const c = corpus({ A: [serie('tractions_assistees', 8)], B: [serie('tractions', 0), serie('tractions', 0)] });
+    expect(Faits.premierEssaiRate(c, 'tractions', IDX)).toBe(true);
+  });
+  test('DISCRIMINANT — jamais venu d’une aide (aucune marche assistée faite) : faux', () => {
+    expect(Faits.premierEssaiRate(corpus({ B: [serie('tractions', 0)] }), 'tractions', IDX)).toBe(false);
+  });
+  test('faits une deuxième fois, ou une rep : faux ; une chauffe ne compte pas', () => {
+    const aide = [serie('tractions_assistees', 8)];
+    expect(Faits.premierEssaiRate(corpus({ A: aide, B: [serie('tractions', 0)], C: [serie('tractions', 0)] }), 'tractions', IDX)).toBe(false);
+    expect(Faits.premierEssaiRate(corpus({ A: aide, B: [serie('tractions', 1)] }), 'tractions', IDX)).toBe(false);
+    expect(Faits.premierEssaiRate(corpus({ A: aide, B: [serie('tractions', 5, 'echauffement'), serie('tractions', 0)] }), 'tractions', IDX)).toBe(true);
+  });
+  test('l’aide elle-même, un exercice sans échelle, ou sans catalogue : faux', () => {
+    const c = corpus({ A: [serie('tractions_assistees', 0)] });
+    expect(Faits.premierEssaiRate(c, 'tractions_assistees', IDX)).toBe(false);
+    expect(Faits.premierEssaiRate(corpus({ A: [serie('rowing', 0)] }), 'rowing', Object.assign({}, IDX, { rowing: { slug: 'rowing' } }))).toBe(false);
+    expect(Faits.premierEssaiRate(corpus({ A: [serie('tractions_assistees', 8)], B: [serie('tractions', 0)] }), 'tractions')).toBe(false);
+  });
+  test('DE BOUT EN BOUT — le fait des faits devient, dans le plan, la carte de la marche d’en dessous', () => {
+    const c = corpus({ A: [serie('tractions_assistees', 8)], B: [serie('tractions', 0)] });
+    const fait = Faits.premierEssaiRate(c, 'tractions', IDX);
+    expect(fait).toBe(true);
+    expect(esp(planDe(fait).x.escalier.carte.phrase)).toBe('Pas une rep sans aide, au premier essai.');
+    const rien = Faits.premierEssaiRate(corpus({ B: [serie('tractions', 0)] }), 'tractions', IDX);
+    expect(planDe(rien).x.escalier).toBeFalsy();
+  });
+});
 });

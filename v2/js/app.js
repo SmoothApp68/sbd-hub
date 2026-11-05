@@ -823,10 +823,11 @@
     local.pesees = (local.pesees || []).concat(lignes);
     await Cache.ecrireLot('pesees', lignes).catch(function () {});
     var uid = idUtilisateur();
-    await poserPaquet(neuves.map(function (p) {
-      return { table: Attente.PESEES, op: Attente.AJOUTER, id: 'pesee-' + p.date,
-               donnees: { user_id: uid, date: p.date, poids_kg: p.poids_kg, source: 'import_hevy' } };
-    }));
+    // UNE entrée de la file pour tout le lot (un seul envoi, un seul refus possible, visible comme les autres).
+    await poserPaquet([{ table: Attente.PESEES, op: Attente.AJOUTER, id: 'pesees-import-' + neuves[0].date + '-' + neuves.length,
+                         donnees: neuves.map(function (p) {
+                           return { user_id: uid, date: p.date, poids_kg: p.poids_kg, source: 'import_hevy' };
+                         }) }]);
     return neuves.length;
   }
 
@@ -4036,6 +4037,14 @@
   function protegeesEtEnVol(table) {
     var res = Object.assign({}, Attente.protegees(attente, table));
     Object.keys(gestesEnVol[table] || {}).forEach(function (id) { res[id] = true; });
+    // 246 — l'entrée d'un LOT de pesées protège chacun de ses jours (`pesee-<date>`), pas seulement son identifiant.
+    if (table === Attente.PESEES) {
+      attente.forEach(function (e) {
+        if (e && e.table === table && e.op !== Attente.SUPPRIMER && Array.isArray(e.donnees)) {
+          e.donnees.forEach(function (d) { if (d && d.date) res['pesee-' + d.date] = true; });
+        }
+      });
+    }
     return res;
   }
 
@@ -4233,7 +4242,7 @@
     // file existe pour empêcher.
     // 246 — l'import des mesures de Hevy : un AJOUT SEUL (`ajouterPesees`), jamais une fusion.
     if (op.table === Attente.PESEES) {
-      return op.op === Attente.AJOUTER ? Donnees.ajouterPesees([op.donnees]) : Donnees.enregistrerPesee(op.donnees);
+      return op.op === Attente.AJOUTER ? Donnees.ajouterPesees(Array.isArray(op.donnees) ? op.donnees : [op.donnees]) : Donnees.enregistrerPesee(op.donnees);
     }
     // 69 — le rattachement d'un nom importé : un `upsert` sur (user_id,
     // alias_norme) qui FUSIONNE. Sans cette branche, l'entrée serait vidée par
@@ -18294,7 +18303,7 @@
     imp.etape = 'fini';
     imp.resultat = null;
     imp.mesuresFin = { titre: n + (n > 1 ? ' pesées importées.' : ' pesée importée.'),
-      suite: n ? 'Elles figurent sur la courbe de ton poids.' : null };
+      suite: n ? (n > 1 ? 'Elles figurent sur la courbe de ton poids.' : 'Elle figure sur la courbe de ton poids.') : null };
     if (ecranCourant === 'import') rendreImportEcran();
   }
 
@@ -18302,8 +18311,16 @@
     var champ = $('fichier-hevy');
     var f = champ && champ.files && champ.files[0];
     if (!f || !importHevy) return;
-    // 246 — la taille du FICHIER est vérifiée AVANT de le lire.
-    if (f.size > Import.MESURES_OCTETS_MAX) {
+    // 246 — l'EN-TÊTE seul est lu d'abord (4 Ko) : il décide si c'est un CSV de mesures. La limite de 2 Mo ne vaut
+    // que pour les mesures ; un CSV de séances n'a aucune limite de taille (comme avant).
+    var tete = null;
+    try { tete = await f.slice(0, 4096).text(); } catch (e) { tete = null; }
+    if (tete === null) {
+      importHevy.erreur = Import.MESSAGES.fichier;
+      return rendreImportEcran();
+    }
+    var mesures = Import.estUnCsvDeMesures(tete);
+    if (mesures && f.size > Import.MESURES_OCTETS_MAX) {
       importHevy.erreur = Import.MESSAGES.mesuresLongueur;
       return rendreImportEcran();
     }
@@ -18313,8 +18330,7 @@
       importHevy.erreur = Import.MESSAGES.fichier;
       return rendreImportEcran();
     }
-    // 246 — un CSV de MESURES (une colonne `date`, aucune colonne de séance) prend son propre chemin.
-    if (Import.estUnCsvDeMesures(texte)) return lireMesuresHevy(texte);
+    if (mesures) return lireMesuresHevy(texte);
     return lireImport('csv', texte);
   }
 

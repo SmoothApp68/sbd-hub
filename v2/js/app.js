@@ -2745,8 +2745,8 @@
     var moi = userId();
     if (!moi || !profil) return false;
     var index = Modele.indexerExercices(local.exercices);
-    // La dernière pesée datée, telle quelle (`resume` l'arrondit au dixième, pour l'affichage).
-    var pesees = Poids.normaliser(local.pesees || []), pesee = pesees.length ? pesees[pesees.length - 1] : null;
+    // 246 : la pesée d'au plus 90 jours (`Poids.poidsALaDate`) ; plus ancienne, aucun score n'est publié.
+    var pesee = Poids.poidsALaDate(local.pesees || [], new Date(), { jours: 90 });
     var douze = Social.bornesDouzeMois(new Date());
     var scores = baseExigeLaCharge ? null :
       Social.scoresAPublier(Social.meilleuresCharges(faits.seriesComptees(corpus(), douze.de, douze.a, null)),

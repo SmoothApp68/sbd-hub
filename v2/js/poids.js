@@ -186,17 +186,32 @@
   // calendrier) ; au centième. `null` sinon — sans charge, sans pesée, ou
   // pesée trop vieille : l'écran dit alors « Pèse-toi pour voir ce rapport. »
   var RAPPORT_JOURS = 14;
+
+  // 246 — LE SEUL « POIDS À UNE DATE » : la DERNIÈRE pesée dont le jour civil est ≤ `jour`, et d'au plus
+  // `opt.jours` jours (14 par défaut : `ecart >= jours` → `null`). Jamais interpolée, jamais une pesée postérieure.
+  // Tout calcul qui a besoin « du poids de ce jour-là » lit cette fonction ; l'AFFICHAGE daté (`resume`) est une
+  // autre chose. Écart en jours civils (Date.UTC des composantes locales : pas de décalage d'heure).
+  function poidsALaDate(lignes, jour, opt) {
+    var jours = opt && Number(opt.jours) > 0 ? Number(opt.jours) : RAPPORT_JOURS;
+    var liste = normaliser(lignes);
+    var j = jour instanceof Date ? jour : (depuisJour(jour) || new Date(jour));
+    if (!(j instanceof Date) || isNaN(j.getTime())) return null;
+    var u = Date.UTC(j.getFullYear(), j.getMonth(), j.getDate());
+    for (var i = liste.length - 1; i >= 0; i--) {
+      var p = liste[i];
+      var ecart = Math.round((u - Date.UTC(p.date.getFullYear(), p.date.getMonth(), p.date.getDate())) / 86400000);
+      if (ecart < 0) continue;
+      if (ecart >= jours) return null;
+      return { poids: p.poids, date: p.date };
+    }
+    return null;
+  }
+
   function rapportAuPoids(charge, lignes, jour) {
     var c = Number(charge);
     if (charge === null || charge === undefined || !isFinite(c) || c <= 0) return null;
-    var liste = normaliser(lignes);
-    if (!liste.length) return null;
-    var p = liste[liste.length - 1];
-    var j = jour instanceof Date ? jour : (depuisJour(jour) || new Date(jour));
-    if (!(j instanceof Date) || isNaN(j.getTime())) return null;
-    var ecart = Math.round((Date.UTC(j.getFullYear(), j.getMonth(), j.getDate()) -
-      Date.UTC(p.date.getFullYear(), p.date.getMonth(), p.date.getDate())) / 86400000);
-    if (ecart < 0 || ecart >= RAPPORT_JOURS) return null;
+    var p = poidsALaDate(lignes, jour, { jours: RAPPORT_JOURS });
+    if (!p) return null;
     return { rapport: Math.round(c / p.poids * 100) / 100, pesee: { date: p.date, poids: p.poids } };
   }
 
@@ -268,6 +283,7 @@
   var api = {
     RAPPORT_JOURS: RAPPORT_JOURS,
     rapportAuPoids: rapportAuPoids,
+    poidsALaDate: poidsALaDate,
     MARGE: MARGE,
     PERIODES: PERIODES,
     PERIODE_DEFAUT: PERIODE_DEFAUT,

@@ -1065,7 +1065,7 @@ const NOTIONS = [
       'le plan et l’écran (en-tête, étiquette, constat) le décident par la même règle.' },
   { notion: 'les paris d’une occurrence (un exercice deux fois, sans paris mélangés)', pr: 'correctif 04/10/2026',
     module: 'seance.js', fonction: 'parisDeLOccurrence', lecteurs: ['plan.js', 'app.js'],
-    parAilleurs: { 'plan.js': ['planDeSeance', 'verifierPlan'], 'app.js': ['dejaNote', 'observerSerie'] },
+    parAilleurs: { 'plan.js': ['planDeSeance', 'verifierPlan'], 'app.js': ['dejaNote', 'observerSerieDe'] },
     raison: 'prérequis d’« adapter » : le plan, I7, « déjà noté » et l’observation lisaient les paris par ' +
       '(séance, exercice) — la seconde occurrence se serait figée sur les paris de la première.' }
 ,

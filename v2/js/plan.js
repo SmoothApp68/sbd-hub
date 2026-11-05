@@ -1647,7 +1647,7 @@
     // barre au-dessus » citerait alors une cible qu'aucune ligne n'affiche (I26) : on la tait, et le plan le dit (`approcheeSansLigne`,
     // relu par I61). Tant qu'un segment de l'en-tête porte la charge approchée, rien ne change.
     var porteuse = !!(entete && Array.isArray(entete.segments) && entete.segments.some(function (sg) { return sg && sg.approchee === true; }));
-    var horsCalculDuExo = !!(exo && Array.isArray(exo.series) && exo.series.some(function (sx) { return sx && sx.hors_calcul === true; }));
+    var horsCalculDuExo = !!(exo && Array.isArray(exo.series) && exo.series.some(function (sx) { return racine.THModele.estHorsCalcul(sx); }));
     var approcheeSansLigne = !!(consigne && consigne.fondement && consigne.fondement.approchee === true) && !porteuse && horsCalculDuExo;
     if (!approcheeSansLigne && consigne && consigne.fondement && consigne.fondement.approchee === true) {
       var capAp = V.capturer(function () { return M.phraseApprochee(materiel ? materiel.equipement : null, consigne); });
@@ -6931,7 +6931,7 @@
     ((plan && plan.exercices) || []).forEach(function (x, i) {
       var series = exos[i] && exos[i].series ? exos[i].series : [];
       series.forEach(function (s, j) {
-        if (!s || s.hors_calcul !== true) return;
+        if (!racine.THModele.estHorsCalcul(s)) return;
         var nom = 'I70 — exercice ' + i + ' (' + (x && x.slug) + '), série ' + j + ' hors calcul : ';
         var l = x && x.lignes ? x.lignes[j] : null;
         if (l && l.role !== 'hors') erreurs.push(nom + 'sa ligne n’est pas « hors » (rôle ' + l.role + ')');
@@ -6941,7 +6941,7 @@
         var kg = nombre(s.charge_kg), rp = nombre(s.reps);
         if (x && Array.isArray(x.faites) && kg !== null && x.faites.some(function (f) {
           return f && nombre(f.charge_kg) === kg && nombre(f.reps) === rp && (series.every(function (t, k) {
-            return k === j || !t || t.hors_calcul === true || !(nombre(t.charge_kg) === kg && nombre(t.reps) === rp);
+            return k === j || !t || racine.THModele.estHorsCalcul(t) || !(nombre(t.charge_kg) === kg && nombre(t.reps) === rp);
           }));
         })) erreurs.push(nom + 'sa charge est comptée parmi les séries faites');
       });

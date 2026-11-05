@@ -28850,6 +28850,30 @@ const SETS_IMPORTES = [
     await jusqua(async () => pariDe245().set_observe === null, 10000, 'observationVideeED245');
     ok('[ED245] ' + charge245 + ' corrigé en ' + (charge245 - 10) + ' : l’observation du pari se vide (valeur et série), le pari reste',
       pariDe245().set_observe === null && pariDe245().valeur_observee === null && pariDe245().observee_a === null && pariDe245().valeur_predite === predit245, nb245(pariDe245()));
+    // (4) D-S3 — une série « Non, ne compte pas » : son menu ⋯ offre « Compter cette série », qui retire la marque (et seulement elle).
+    base.sets.filter((x) => x.exercise_slug === 'ed245-sq' && x.session_id.indexOf('ed245-h') < 0).forEach((x) => { x.hors_calcul = true; });
+    const horsDe245 = () => base.sets.filter((x) => x.exercise_slug === 'ed245-sq' && x.session_id.indexOf('ed245-h') < 0)[0] || {};
+    let boutonCompter245 = null, boutonAbsent245 = null;
+    await editer245(async () => {
+      await page.evaluate(() => document.querySelectorAll('.ligne-serie')[0].querySelector('.no-serie').click());
+      await feuilleOuverte('.feuille-menu button');
+      boutonCompter245 = await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+        .some((b) => /^Compter cette série/.test(b.textContent)));
+      await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+        .find((b) => /^Compter cette série/.test(b.textContent)).click());
+      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    });
+    await jusqua(async () => horsDe245().hors_calcul === false, 10000, 'compterED245');
+    ok('[ED245] D-S3 — le menu ⋯ d’une série hors calcul offre « Compter cette série » ; le toucher remet hors_calcul à false en base',
+      boutonCompter245 === true && horsDe245().hors_calcul === false, nb245([boutonCompter245, horsDe245().hors_calcul]));
+    await editer245(async () => {
+      await page.evaluate(() => document.querySelectorAll('.ligne-serie')[0].querySelector('.no-serie').click());
+      await feuilleOuverte('.feuille-menu button');
+      boutonAbsent245 = await page.evaluate(() => !Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
+        .some((b) => /^Compter cette série/.test(b.textContent)));
+      await page.click('#btn-fermer-feuille'); await attendre(600);
+    });
+    ok('[ED245] D-S3 — une série qui compte n’offre pas « Compter cette série »', boutonAbsent245 === true, nb245(boutonAbsent245));
     ok('[ED245] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
       nb245([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));

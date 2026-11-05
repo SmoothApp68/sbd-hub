@@ -11522,6 +11522,16 @@
       // 196 (MOTEUR §9.33) — « Rest-pause » : sur une isolation ou une machine, jamais une barre ni un soulevé ; hors semaine
       // allégée, hors zone à ménager ; une série de travail avec sa charge, pas déjà prolongée.
       restPause: restPauseDeLaFeuille(feuille.iExo, feuille.iSerie),
+      // 245 (D-S3) — « Compter cette série » : retire « Non, ne compte pas » (un geste, comme les autres) et refait l'observation.
+      horsCalcul: { actif: Modele.estHorsCalcul(serie) },
+      surCompter: async function () {
+        var i = feuille.iExo, j = feuille.iSerie;
+        seance = Seance.marquerHorsCalcul(seance, i, j, false);
+        seance = Seance.noterGeste(seance, { geste: 'serie_comptee', slug: exo.exercise_slug });
+        fermerVoile();
+        await apresGeste();
+        await observerSerie(i, j);
+      },
       surRestPause: function () {
         seance = Seance.ajouterRestPause(seance, feuille.iExo, feuille.iSerie, uuid);
         fermerVoile();

@@ -197,3 +197,24 @@ describe('185 — la tentative manquée et la stagnation (MOTEUR §9.2)', () => 
     expect(c.compteur).toBe(0);
   });
 });
+
+describe('245 (D-S3) — « Non, ne compte pas » se retire', () => {
+  const seance = (extra) => ({ id: 'S', exercices: [{ exercise_slug: 'sq', series: [Object.assign({ id: 's1', charge_kg: 200, reps: 5, type_serie: 'travail', hors_calcul: true }, extra || {})] }] });
+  const marque = (se) => se.exercices[0].series[0].hors_calcul;
+  test('corriger la charge ou les reps remet la série dans le calcul', () => {
+    expect(marque(S.modifierSerie(seance(), 0, 0, { charge_kg: 100 }))).toBe(false);
+    expect(marque(S.modifierSerie(seance(), 0, 0, { reps: 8 }))).toBe(false);
+  });
+  test('une valeur inchangée, ou un autre champ, garde la marque', () => {
+    expect(marque(S.modifierSerie(seance(), 0, 0, { charge_kg: 200 }))).toBe(true);
+    expect(marque(S.modifierSerie(seance(), 0, 0, { reps: 5 }))).toBe(true);
+    expect(marque(S.modifierSerie(seance(), 0, 0, { elastique: 'rouge' }))).toBe(true);
+  });
+  test('« Compter cette série » : marquerHorsCalcul(false) puis le geste serie_comptee, au même format que les autres', () => {
+    let se = S.marquerHorsCalcul(seance(), 0, 0, false);
+    expect(marque(se)).toBe(false);
+    se = S.noterGeste(se, { geste: 'serie_comptee', slug: 'sq' });
+    expect(se.gestes).toEqual([{ geste: 'serie_comptee', slug: 'sq' }]);
+    expect(S.noterGeste(seance(), { geste: 'serie_comptee' }).gestes).toBeUndefined();
+  });
+});

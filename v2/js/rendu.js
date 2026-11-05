@@ -5093,6 +5093,17 @@
         cible.appendChild(menuAu);
       }
 
+      // 245 (D-S3) — une série que tu as sortie du calcul (« Non, ne compte pas ») peut y rentrer : la réponse se retire.
+      if (vue.horsCalcul && vue.horsCalcul.actif && !vue.programme) {
+        var menuHc = el('div', 'feuille-menu');
+        var bHc = el('button', '', 'Compter cette série');
+        bHc.appendChild(el('small', 'aide-type', 'Elle reprend sa place dans tes records, tes paris et ton niveau.'));
+        bHc.type = 'button';
+        bHc.addEventListener('click', function () { vue.surCompter(); });
+        menuHc.appendChild(bHc);
+        cible.appendChild(menuHc);
+      }
+
       // 196 (MOTEUR §9.33) — « Rest-pause » : deux mini-séries à la même charge, une seule série de travail.
       if (vue.restPause && vue.restPause.possible) {
         var menuRp = el('div', 'feuille-menu');

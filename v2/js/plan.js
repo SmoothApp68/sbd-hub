@@ -972,8 +972,11 @@
       var v = nombre((liste[l.iSerie] || {}).reps_visees);
       return v === null || v < 1 ? null : v;
     };
+    // 251 (D3, défense) — les reps du jour se lisent sur le premier recul NON validé qui a une visée (celle du bloc, posée par le plan) ;
+    // si tous sont validés, sur le premier. Un recul validé avant le correctif porte peut-être la visée de la routine (un faux 5).
     var aujourdhui = null;
-    rec.forEach(function (l) { if (aujourdhui === null) aujourdhui = viseDe(l); });
+    rec.forEach(function (l) { if (aujourdhui === null && !l.validee) aujourdhui = viseDe(l); });
+    if (aujourdhui === null) rec.forEach(function (l) { if (aujourdhui === null) aujourdhui = viseDe(l); });
     // 193-5 — l'écart de la 193-1 ne se lit que sur une séance dont les reculs avaient les mêmes reps que la grosse série ; la
     // correction du max du jour, sur les séances dont les reculs en avaient plus (`prec.historique` : les séances à reculs, la plus
     // récente d'abord ; sans lui, `prec` seule).

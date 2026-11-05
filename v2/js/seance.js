@@ -1324,11 +1324,19 @@
   // série NON VALIDÉE de type `travail` que le plan porte `recul` s'écrit `recul`, juste avant sa validation ; une série déjà validée ou
   // importée (`partEnBase`), une chauffe, une dégressive ou un échec ne sont jamais réécrits. Aucune décision ici : `typePlan` vient du plan.
   var NON_TRAVAIL = ['echauffement', 'degressive', 'echec', 'test', 'recul'];
-  function typerSelonLePlan(seance, iExo, iSerie, typePlan) {
+  //
+  // 251 (D3) — LE RECUL PORTE LA VISÉE DU BLOC : la série `travail` de la routine porte les reps de la routine (5) ; le plan la lit recul
+  // à la visée du bloc (8, `seriesEnGrosseEtReculs`). Réécrite `recul`, elle s'écrit AUSSI avec cette visée (`viseePlan`, celle que le plan
+  // affiche sur la ligne) : sinon la base reçoit un faux `reps_visees = 5`, et le recul suivant remonte (le plan lisait la visée du jour sur le
+  // premier recul). Sans visée entière ≥ 1, `reps_visees` n'est pas touchée.
+  function typerSelonLePlan(seance, iExo, iSerie, typePlan, viseePlan) {
     var exo = seance && seance.exercices ? seance.exercices[iExo] : null;
     var s = exo && exo.series ? exo.series[iSerie] : null;
     if (typePlan !== 'recul' || !s || partEnBase(s) || s.validee_a || NON_TRAVAIL.indexOf(racine.THModele.typeDe(s)) >= 0) return seance;
-    return changerType(seance, iExo, iSerie, 'recul');
+    var v = Number(viseePlan);
+    var patch = { type_serie: 'recul' };
+    if (viseePlan !== null && viseePlan !== undefined && viseePlan !== '' && Number.isInteger(v) && v >= 1) patch.reps_visees = v;
+    return avecSerie(seance, iExo, iSerie, patch);
   }
 
   // ⚠️ RPE et ressenti sont EXCLUSIFS, et c'est un choix.

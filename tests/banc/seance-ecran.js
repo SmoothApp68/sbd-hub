@@ -15132,7 +15132,9 @@ const SETS_IMPORTES = [
     ROUTINES.push({ id: '00000000-0000-4000-8221-0000000000a1', nom: 'Squat U221', note: null, archivee_a: null, rang: null, dossier: 'Squat U221',
       created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
       routine_exercises: [{ id: '00000000-0000-4000-8221-0000000000e1', routine_id: '00000000-0000-4000-8221-0000000000a1', exercise_slug: 'squat_barre',
-        rang: 0, routine_sets: progr(4, 8), repos_cible_s: 120, groupe_superset: null, note: null }] });
+        // 251 (D3) — LES REPS DE LA ROUTINE (5) DIFFÈRENT DE CELLES DU BLOC (8) : sinon le recul écrit gardait « par hasard » les bonnes reps
+        // (avant, `progr(4, 8)` : le contrôle ne discriminait pas). Le contrôle [221] ne lit que les types et la zone.
+        rang: 0, routine_sets: progr(4, 5), repos_cible_s: 120, groupe_superset: null, note: null }] });
     base.profiles[0].objectif = 'les_deux';
     await aller('/saisie');
     await demarrerRoutine('Squat U221');
@@ -15151,8 +15153,17 @@ const SETS_IMPORTES = [
       JSON.stringify(sq));
     // ── 234 — LE TYPE ENREGISTRÉ : une série validée que le plan porte comme recul s'écrit `recul` en base (la grosse série reste `travail`).
     const setsAvant234 = base.sets.length;
+    // 251 (D3) — la charge que l'écran propose au 2e recul, lue AVANT puis APRÈS la validation du 1er recul : elle ne bouge pas (74 % du max du jour).
+    const chargeDuRecul251 = () => page.evaluate(() => {
+      const x = window.THPlan.dernier.plan.exercices.filter((q) => q.slug === 'squat_barre')[0];
+      const l = x && x.lignes[2];
+      return l && l.fantome ? l.fantome.charge : null;
+    });
+    let avant251 = null, apres251 = null;
     for (let r = 0; r < 3; r++) {
       await casesSiVides(await ligneDuBloc(0, r), 140, 8);
+      if (r === 1) avant251 = await chargeDuRecul251();
+      if (r === 2) apres251 = await chargeDuRecul251();
       const cochee234 = () => page.evaluate((k) => { const l = document.querySelectorAll('.bloc-seance')[0].querySelectorAll('.ligne-serie')[k]; return l ? !!l.querySelector('.ok-serie.cochee') : null; }, r);
       const dep234 = await departGeste();
       await page.evaluate((k) => { document.querySelectorAll('.bloc-seance')[0].querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie').click(); }, r);
@@ -15163,6 +15174,17 @@ const SETS_IMPORTES = [
     const types234 = base.sets.slice(setsAvant234).filter((x) => x.exercise_slug === 'squat_barre').map((x) => x.type_serie);
     ok('[234] DISCRIMINANT — le squat en bloc Hypertrophie : grosse série `travail`, puis deux reculs enregistrés `recul`',
       JSON.stringify(types234) === JSON.stringify(['travail', 'recul', 'recul']), JSON.stringify(types234) + ' ' + JSON.stringify(base.sets.slice(setsAvant234).map((x) => [x.exercise_slug, x.type_serie, x.rang])) + ' ' + base.sets.length + '/' + setsAvant234);
+    // 251 (D3) — DISCRIMINANT : les deux reculs écrits portent la visée du bloc (8), pas celle de la routine (5). `reps_visees` est une
+    // INTENTION (aucune colonne dans `sets`, `COLONNES_SET`) : elle se lit dans la séance de l'appareil, que le plan relit ensuite.
+    const vises251 = await page.evaluate(async () => {
+      const b = await window.THCache.lireBrouillon('seance');
+      const ex = b && (b.exercices || []).filter((e) => e.exercise_slug === 'squat_barre')[0];
+      return ex ? ex.series.filter((q) => q.type_serie === 'recul').map((q) => q.reps_visees) : null;
+    }).catch(() => null);
+    ok('[251] DISCRIMINANT — routine 3 × 5, bloc × 8 : les deux reculs enregistrés portent `reps_visees` 8 (jamais le 5 de la routine)',
+      JSON.stringify(vises251) === JSON.stringify([8, 8]), JSON.stringify(vises251));
+    ok('[251] DISCRIMINANT — la charge proposée au 2e recul ne bouge pas après la validation du 1er (pas de remontée à 81 %)',
+      avant251 !== null && avant251 === apres251, avant251 + ' → ' + apres251);
     await abandonner();
     base.blocs.length = nBlocsAvant; base.zones.length = nZonesAvant; base.sessions.length = nSessAvant; base.sets.length = nSetsAvant;
     ROUTINES.splice(ROUTINES.findIndex((r) => r.nom === 'Squat U221'), 1);
@@ -28735,6 +28757,23 @@ const SETS_IMPORTES = [
     const phApres = await placeholders193();
     ok('[RM193] …et l’écran montre la nouvelle charge sur les lignes de recul', String(phApres[1]).replace(/\s/g, '') === String(apres193.charge).replace('.', ','),
       nb193([phApres, apres193.charge]));
+    // 251 (D3) — le 1er recul VALIDÉ à la charge affichée : le 2e recul ne bouge pas, et le recul écrit garde sa visée de 8. ⚠️ TÉMOIN, non
+    // discriminant pour D3 : cette routine porte DÉJÀ des `recul` × 8 (la visée écrite est celle de la routine, bonne). Le contrôle discriminant
+    // (routine 3 × 5 `travail`, bloc × 8) est dans `cycles` (234). `reps_visees` est une intention : aucune colonne `sets`, elle se lit sur l'appareil.
+    await saisirSerie(1, apres193.charge, 8);
+    await attendreQue(() => page.evaluate(() => {
+      const x = window.THPlan.dernier.plan.exercices.filter((q) => q.slug === 'rm193-sq')[0];
+      return !!x.lignes[1].validee;
+    }), 15000, 'recul1RM193');
+    const apres251 = await lirePlan193();
+    const vises251 = await page.evaluate(async () => {
+      const b = await window.THCache.lireBrouillon('seance');
+      const ex = b && (b.exercices || []).filter((e) => e.exercise_slug === 'rm193-sq')[0];
+      return ex ? ex.series.filter((q) => q.type_serie === 'recul').map((q) => q.reps_visees) : null;
+    }).catch(() => null);
+    ok('[RM193][251] TÉMOIN — après la validation du 1er recul, la charge du 2e recul n’a pas bougé et le recul écrit garde `reps_visees` 8',
+      apres251.fantomes[1] === apres193.fantomes[1] && apres251.charge === apres193.charge && JSON.stringify(vises251) === JSON.stringify([8, 8]),
+      nb193([apres193.fantomes, apres251.fantomes, vises251]));
     ok('[RM193] la garde de l’app (I78, I82, I26) n’a rien vu', gardeBanc.violations === violationsAvant, nb193(gardeBanc.liste.slice(-2)));
     await abandonner();
     ok('[RM193] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',

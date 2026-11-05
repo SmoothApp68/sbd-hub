@@ -19499,7 +19499,7 @@ const SETS_IMPORTES = [
     // j'ouvre « Se comparer » ; la lecture répond, l'entrée finit (« À jour ») — la comparaison reste. Sans la garde :
     // `rendreRoute` → `rendreAmi` recrée l'écran, la comparaison se referme.
     base.lentesServies = [];
-    base.lenteurRecords = 6000;
+    base.lenteurRecords = 9000;
     await aller('/a/jordan/exercice/squat-barre');
     await attendreQue(async () => !!(await lire()).charge);
     await page.click('#social-comparer-exo');

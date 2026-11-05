@@ -218,3 +218,13 @@ describe('ce qui reste une entrée complète', () => {
     await p1;
   });
 });
+
+// 244 (relecture) — la clé du banc `THApp.entreeEnCours` n'existe que sous la garde de développement : en production,
+// la surface exposée de `THApp` ne change pas.
+describe('244 — entreeEnCours, seulement sous la garde', () => {
+  test('la seule pose de THApp.entreeEnCours est précédée de « if (garde.active) »', () => {
+    const poses = APP.split('\n').filter((l) => /THApp\.entreeEnCours\s*=/.test(l));
+    expect(poses).toHaveLength(1);
+    expect(poses[0]).toMatch(/^\s*if \(garde\.active\) racine\.THApp\.entreeEnCours\s*=/);
+  });
+});

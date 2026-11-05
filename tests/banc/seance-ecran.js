@@ -2673,6 +2673,51 @@ const SETS_IMPORTES = [
     await calmeApres(depart, 0);   // la lecture des séances en cours, la séance posée en base : le réseau s'est tu
   };
 
+  // ── 249 — LES AIDES DU BANC DE REJEU DES FILS (sections `fils-*`) ──────────
+  // Deux lectures de suite égales : l'écran posé, pas son passage (aucun délai fixe).
+  const lireStable = async (fn, nom) => {
+    let avant = null, v = null;
+    await jusqua(async () => { v = await fn(); const s = JSON.stringify(v); const r = v !== null && s === avant; avant = s; return r; }, 10000, nom);
+    return v;
+  };
+  // Une frappe : la page a traité l'évènement (deux images), comme `taper185`.
+  const deuxImages = () => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  // L'ORACLE DU JOURNAL : le journal vidé (serveur ET appareil), l'app le remplit à nouveau depuis l'historique — la seule
+  // recomputation honnête, celle de l'app elle-même (aucun record calculé par le banc). Le remplissage ne part que sur un
+  // journal du serveur VIDE : tout le journal du compte part ; la section qui l'appelle rend le sien à la fin (l'appareil se
+  // resynchronise : le compte diffère, `synchroniserJournal` relit tout). Rend vrai si le remplissage est allé au bout.
+  const rejouerJournal = async () => {
+    await aller('/');
+    base.records.length = 0;
+    await page.evaluate(async () => {
+      await THCache.ecrireMeta('journalRecords', null);
+      await THCache.ecrireMeta('curseurRecords', null);
+      await THCache.remplacerTout('records', []);
+    });
+    await aller('/');
+    return attendreQue(async () => {
+      const e = await page.evaluate(() => window.THApp && THApp.journal ? THApp.journal() : null).catch(() => null);
+      return !!(e && e.remplissage && e.remplissage.fin) && (await lireFile()) === 0 &&
+        ((await page.evaluate(() => THCache.lireMeta('journalRecords')).catch(() => null)) || {}).etat === 'rempli';
+    }, 30000, 'rejouerJournal');
+  };
+  // L'ÉDITION d'une séance passée (identifiant UUID : la route du détail n'en reconnaît pas d'autre) : le détail, « Modifier ».
+  const ouvrirEdition = async (id) => {
+    await aller('/seance/' + id);
+    await jusqua(() => page.evaluate(() => Array.from(document.querySelectorAll('#vue-detail .detail-gestes button'))
+      .some((b) => /^Modifier$/.test(b.textContent))).catch(() => false), 10000, 'ouvrirEdition · le détail');
+    await page.evaluate(() => Array.from(document.querySelectorAll('#vue-detail .detail-gestes button'))
+      .filter((b) => /^Modifier$/.test(b.textContent))[0].click());
+    await jusqua(() => page.evaluate(() => { const v = document.getElementById('vue-seance');
+      return !!v && !v.hidden && document.querySelectorAll('#vue-seance .ligne-serie').length > 0; }).catch(() => false), 10000, 'ouvrirEdition · la séance');
+  };
+  // « Terminé » : la séance quitte l'écran, et la file s'est vidée (séries, journal, observations partis).
+  const fermerEdition = async () => {
+    await page.click('#bandeau-seance .bandeau-fin');
+    await seanceSortie();
+    await fileVide(null, 10000, 'fermerEdition · file vide');
+  };
+
   // ── LA FIN DU BANC ──────────────────────────────────────────────────────
   // Une fonction, et pas des lignes en fin de fichier : le découpeur de
   // sections (`seance-sections.js`) la garde telle quelle, quelles que soient
@@ -29401,12 +29446,6 @@ const SETS_IMPORTES = [
       String(jP.getDate()).padStart(2, '0'), poids_kg: 90, source: 'manuel' });
 
     // ── Les lecteurs ──
-    // Deux lectures de suite égales : l'écran posé, pas son passage (aucun délai fixe).
-    const lireStable = async (fn, nom) => {
-      let avant = null, v = null;
-      await jusqua(async () => { v = await fn(); const s = JSON.stringify(v); const r = v !== null && s === avant; avant = s; return r; }, 10000, nom);
-      return v;
-    };
     const recordProgression = async () => {
       await aller('/exercice/' + S);
       return lireStable(() => page.evaluate(() => {
@@ -29430,39 +29469,13 @@ const SETS_IMPORTES = [
     const journalPose = (nom) => jusqua(async () => (await fileVideJ()) &&
       JSON.stringify(cleDe(await lignesAppareil())) === JSON.stringify(cleDe(lignesServeur())), 15000, nom);
     const scorePublie = () => (fauxSocial.etat.scores.filter((f) => f.user_id === 'u-banc' && f.exercise_slug === S)[0] || {}).score;
-    // L'ORACLE : le journal vidé (serveur ET appareil), l'app le remplit à nouveau depuis l'historique. Le remplissage ne
-    // part que sur un journal du serveur VIDE : tout le journal du compte part (la section le rend à la fin).
-    const rejouerJournal = async () => {
-      await aller('/');
-      base.records.length = 0;
-      await page.evaluate(async () => {
-        await THCache.ecrireMeta('journalRecords', null);
-        await THCache.ecrireMeta('curseurRecords', null);
-        await THCache.remplacerTout('records', []);
-      });
-      await aller('/');
-      const fini = await attendreQue(async () => {
-        const e = await page.evaluate(() => window.THApp && THApp.journal ? THApp.journal() : null).catch(() => null);
-        return !!(e && e.remplissage && e.remplissage.fin) && (await fileVideJ()) &&
-          ((await page.evaluate(() => THCache.lireMeta('journalRecords')).catch(() => null)) || {}).etat === 'rempli';
-      }, 30000, 'rejeuJournal249');
-      await journalPose('rejeuJournalPose249');
-      return fini;
-    };
     // L'ÉDITION d'une séance passée : le détail, « Modifier », la charge de la série 1, « Terminé ».
     const editerCharge = async (id, kg) => {
-      await aller('/seance/' + id);
-      await jusqua(() => page.evaluate(() => Array.from(document.querySelectorAll('#vue-detail .detail-gestes button'))
-        .some((b) => /^Modifier$/.test(b.textContent))).catch(() => false), 10000, 'detailModifier249');
-      await page.evaluate(() => Array.from(document.querySelectorAll('#vue-detail .detail-gestes button'))
-        .filter((b) => /^Modifier$/.test(b.textContent))[0].click());
-      await jusqua(() => page.evaluate(() => { const v = document.getElementById('vue-seance');
-        return !!v && !v.hidden && document.querySelectorAll('#vue-seance .ligne-serie').length > 0; }).catch(() => false), 10000, 'editionOuverte249');
+      await ouvrirEdition(id);
       await page.locator('.ligne-serie').nth(0).locator('[data-champ="charge_kg"] input').fill(String(kg));
       // Une frappe : la page a traité l'évènement (deux images), comme `taper185` — l'Édition n'écrit pas de brouillon.
-      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
-      await page.click('#bandeau-seance .bandeau-fin');
-      await seanceSortie();
+      await deuxImages();
+      await fermerEdition();
       await enBase(() => Number((base.sets.filter((x) => x.id === id + '-s1')[0] || {}).charge_kg) === kg, 10000, 'editionEnBase249');
       await journalPose('editionJournal249');
     };
@@ -29481,6 +29494,7 @@ const SETS_IMPORTES = [
 
     // ── 0. L'ÉTAT DE DÉPART : le journal rejoué sur le décor, le score publié une fois (le social ouvert).
     const rejeu0 = await rejouerJournal();
+    await journalPose('rejeu0FR249');
     const prog0 = await recordProgression();
     const j0 = lignesServeur(), m0 = chargeMax(j0);
     ok('[FR249] prémisse — le départ est cohérent : journal rejoué (serveur = appareil), Progression 150 kg × 5 = le plus lourd du journal (150, séance 1)',
@@ -29512,6 +29526,7 @@ const SETS_IMPORTES = [
 
     // ── 2. L'ORACLE : le journal rejoué sur le même historique. La Progression ne bouge pas ; le journal et le jeu, si.
     const rejeu2 = await rejouerJournal();
+    await journalPose('rejeu2FR249');
     const prog2 = await recordProgression();
     const j2 = lignesServeur(), m2 = chargeMax(j2);
     ok('[FR249] prémisse — l’oracle : rejoué sur le même historique, le journal porte 112,5 (séance 3) et 110 (séance 2) ; la Progression n’a pas bougé',
@@ -29530,6 +29545,7 @@ const SETS_IMPORTES = [
     okDefaut('D-R1', '[FR249] suppression d’une séance antérieure — le journal porte le record que la Progression montre : charge_max 111 (séance 4)',
       !!m3 && m3.valeur === 111 && m3.set_id === ids[4] + '-s1', 'Progression ' + prog3 + ' · journal : la plus lourde = ' + nb(m3));
     const rejeu3 = await rejouerJournal();
+    await journalPose('rejeu3FR249');
     const m3b = chargeMax(lignesServeur());
     ok('[FR249] prémisse — l’oracle, après la suppression : rejoué, le journal porte bien 111 (séance 4)',
       rejeu3 && !!m3b && m3b.valeur === 111 && m3b.set_id === ids[4] + '-s1', nb(m3b));
@@ -29566,7 +29582,7 @@ const SETS_IMPORTES = [
     const t249 = Date.now(), nbCat = CATALOGUE.length;
     const sessionsAvant = base.sessions.length;
     const routinesAvant = ROUTINES.length;
-    const nb = (x) => JSON.stringify(x === undefined ? null : x).replace(/[  ]/g, ' ');
+    const nb = (x) => JSON.stringify(x === undefined ? null : x).replace(/[\u00a0\u202f]/g, ' ');
     const P = 'fp249-dev', Q = 'fp249-sq';
     CATALOGUE.push({ slug: P, nom: 'Développé FP249 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
       muscles_primaires: ['pectoraux'], muscles_secondaires: [] });
@@ -29592,21 +29608,6 @@ const SETS_IMPORTES = [
     const enCours = () => (base.sessions.filter((x) => x.statut === 'en_cours' && x.user_id === 'u-banc')[0] || {}).id;
     const pariDe = (setId) => base.predictions.filter((l) => l.set_observe === setId || (l.fondement && l.fondement.set === setId))[0] || null;
     const parisDeLaSeance = (sid) => base.predictions.filter((l) => l.fondement && l.fondement.seance === sid && l.exercise_slug === P);
-    const ouvrirEdition = async (id) => {
-      await aller('/seance/' + id);
-      await jusqua(() => page.evaluate(() => Array.from(document.querySelectorAll('#vue-detail .detail-gestes button'))
-        .some((b) => /^Modifier$/.test(b.textContent))).catch(() => false), 10000, 'detailModifierFP249');
-      await page.evaluate(() => Array.from(document.querySelectorAll('#vue-detail .detail-gestes button'))
-        .filter((b) => /^Modifier$/.test(b.textContent))[0].click());
-      await jusqua(() => page.evaluate(() => { const v = document.getElementById('vue-seance');
-        return !!v && !v.hidden && document.querySelectorAll('#vue-seance .ligne-serie').length > 0; }).catch(() => false), 10000, 'editionOuverteFP249');
-    };
-    const deuxImages = () => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
-    const fermerEdition = async () => {
-      await page.click('#bandeau-seance .bandeau-fin');
-      await seanceSortie();
-      await fileVide(null, 10000, 'fileVideFP249');
-    };
     // La question de saisie sous la rangée `i`, et ses boutons.
     const questionSous = (i) => page.evaluate((k) => {
       const l = document.querySelectorAll('.ligne-serie')[k];
@@ -29718,6 +29719,131 @@ const SETS_IMPORTES = [
     base.records = base.records.filter((x) => miennes.indexOf(x.session_id) < 0);
     base.predictions = base.predictions.filter((x) => !(x.fondement && miennes.indexOf(x.fondement.seance) >= 0));
     ROUTINES.length = routinesAvant;
+    CATALOGUE.length = nbCat;
+    await aller('/saisie');
+  }
+
+  console.log('\n══ fils-volume. LES FILS DU VOLUME ET DE LA CHARGE AUX HALTÈRES : BONHOMME, IMAGE DU MOIS, CARTE DE SÉANCE ; PAGE, JOURNAL, MOIS, SAISON (249, audit 238 D-H2) ══');
+  //
+  // LE BANC DE REJEU DES FILS (249), suite.
+  //   A. LE VOLUME (la carte le dit sain, contrôles NORMAUX) : une séance d'AUJOURD'HUI (dans la semaine affichée ET le mois
+  //      en cours, à toute date), six séries de pectoraux ; l'Édition retire une série → le bonhomme (`/progression/volume`),
+  //      l'image du mois (« Sur N séries de travail ce mois-ci ») et la carte de la séance perdent chacun exactement 1.
+  //      Comparés en DELTA : les autres sections du groupe ont pu poser des séries cette semaine.
+  //   B. D-H2 : un développé aux haltères, record 40 kg × 5 au milieu de la SAISON ÉCOULÉE (dans les 12 mois) → la page
+  //      d'exercice, le journal (rejoué), l'image du mois et l'image de la saison disent-ils la même charge ?
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const t249 = Date.now(), nbCat = CATALOGUE.length;
+    const recordsAvant = base.records.slice();
+    const nb = (x) => JSON.stringify(x === undefined ? null : x).replace(/[  ]/g, ' ');
+    const sp = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const V = 'fv249-pec', H = 'fv249-hal';
+    CATALOGUE.push({ slug: V, nom: 'Couché FV249 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+      muscles_primaires: ['pectoraux'], muscles_secondaires: [] });
+    CATALOGUE.push({ slug: H, nom: 'Développé FH249 (Haltère)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere',
+      muscles_primaires: ['epaules'], muscles_secondaires: [] });
+    const ids = [];
+    const poser = (n, debut, slug, lignes) => {
+      const id = '00000000-0000-4000-8249-' + String(300 + n).padStart(12, '0');
+      ids.push(id);
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Fils FV249 ' + n, debut, fin: finDe(debut, t249).toISOString(), statut: 'terminee',
+        note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut, gestes: [] });
+      lignes.forEach(([kg, reps], k) => base.sets.push({ id: id + '-s' + (k + 1), session_id: id, user_id: 'u-banc', exercise_slug: slug,
+        charge_kg: kg, reps, duree_s: null, distance_m: null, denivele_m: null, etages: null, elastique: null, type_serie: 'travail',
+        rang: k + 1, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app',
+        created_at: debut, modifie_a: null, douleur: false, occurrence: null, hors_calcul: false }));
+      return id;
+    };
+    // A — aujourd'hui, dans la journée en cours (comme `decor-dates.js`) : même semaine et même mois à toute heure.
+    const aujourdhui = new Date(Math.min(Math.max(t249 - 3600000, debutDeJournee(t249) + 1), t249 - 1)).toISOString();
+    const idV = poser(0, aujourdhui, V, [[80, 8], [80, 8], [80, 8], [80, 8], [80, 8], [80, 8]]);
+    // B — la saison écoulée (saisons météorologiques, comme la section « saison-mois »), son mois du milieu, le 15.
+    const ici = new Date(t249), m = ici.getMonth() + 1, a = ici.getFullYear();
+    const saisonIci = m === 12 ? [a, 'hiver'] : (m <= 2 ? [a - 1, 'hiver'] : [a, m <= 5 ? 'printemps' : (m <= 8 ? 'ete' : 'automne')]);
+    const AVANT = { hiver: 'automne', printemps: 'hiver', ete: 'printemps', automne: 'ete' };
+    const anS = saisonIci[1] === 'printemps' ? saisonIci[0] - 1 : saisonIci[0], nomS = AVANT[saisonIci[1]];
+    const SAISON = anS + '-' + nomS;
+    const MILIEU = { hiver: [anS + 1, 0], printemps: [anS, 3], ete: [anS, 6], automne: [anS, 9] }[nomS];
+    const jourH = (d) => new Date(MILIEU[0], MILIEU[1], d, 18, 0, 0).toISOString();
+    const MOIS = MILIEU[0] + '-' + String(MILIEU[1] + 1).padStart(2, '0');
+    // Le passé, dans la saison d'AVANT (l'image de la saison ne dit un record que contre ce qui précède la période), à
+    // moins de 12 mois (la fenêtre de la médaille aux haltères).
+    const avantS = (d) => new Date(MILIEU[0], MILIEU[1] - 3, d, 18, 0, 0).toISOString();
+    poser(1, avantS(1), H, [[36, 5], [36, 5]]);
+    poser(2, avantS(8), H, [[36, 5], [36, 5]]);
+    const idH = poser(3, jourH(15), H, [[40, 5], [36, 5]]);
+
+    const ouvrirBilan = async (cle) => {
+      await aller('/progression?bilan=' + cle);
+      await jusqua(() => page.evaluate(() => { const h = document.getElementById('annee'); return !!h && !h.hidden && !!h.dataset.ecran; })
+        .catch(() => false), 15000, 'ouvrirBilan ' + cle);
+      return lireStable(() => page.evaluate(() => Array.from(document.querySelectorAll('#annee .s')).map((x) => ({ cle: x.dataset.cle,
+        texte: x.textContent.replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim() }))), 'bilan ' + cle);
+    };
+    const lireVolume = async () => {
+      await aller('/progression/volume');
+      const bh = await lireStable(() => page.evaluate(() => {
+        const li = Array.from(document.querySelectorAll('#vue-volume .bonhomme .bh-liste li'))
+          .filter((x) => /^Pectoraux/.test((x.querySelector('.n') || {}).textContent || ''))[0];
+        return li ? Number(li.querySelector('b').textContent.replace(/[  \s]/g, '').replace(',', '.')) : null; }), 'bonhommeFV249');
+      const ecrans = await ouvrirBilan(new Date(t249).getFullYear() + '-' + String(new Date(t249).getMonth() + 1).padStart(2, '0'));
+      const mu = (ecrans || []).filter((e) => e.cle === 'muscle')[0];
+      const mois = mu ? Number(((/Sur ([\d  ]+) séries? de travail/.exec(mu.texte) || [])[1] || '').replace(/\D/g, '')) : null;
+      await aller('/');
+      const carte = await lireStable(() => page.evaluate(() => Array.from(document.querySelectorAll('button.seance'))
+        .filter((c) => /Fils FV249 0/.test(c.textContent)).map((c) => (c.querySelector('.seance-meta') || {}).textContent).filter(Boolean)[0] || null), 'carteFV249');
+      return { bonhomme: bh, mois: mois, carte: sp(carte) };
+    };
+
+    // ── A. LE VOLUME.
+    const v0 = await lireVolume();
+    ok('[FV249] prémisse — les trois lecteurs comptent la séance d’aujourd’hui : bonhomme ≥ 6 pectoraux, mois ≥ 6 séries, carte « 6 séries de travail »',
+      v0.bonhomme >= 6 && v0.mois >= 6 && / 6 séries de travail$/.test(v0.carte), nb(v0));
+    await ouvrirEdition(idV);
+    await toucher(0, '.no-serie');
+    await page.click('#feuille-contenu .feuille-menu button.danger');
+    await jusqua(() => page.evaluate(() => document.querySelectorAll('#vue-seance .ligne-serie').length === 5).catch(() => false), 6000, 'serieRetireeFV249');
+    await fermerEdition();
+    await enBase(() => base.sets.filter((x) => x.session_id === idV).length === 5, 10000, 'retraitEnBaseFV249');
+    const v1 = await lireVolume();
+    ok('[FV249] prémisse — l’Édition a retiré une série en base (6 → 5)', base.sets.filter((x) => x.session_id === idV).length === 5,
+      nb(base.sets.filter((x) => x.session_id === idV).length));
+    ok('[FV249] DISCRIMINANT — une série retirée dans l’Édition : le bonhomme, l’image du mois et la carte de la séance perdent chacun exactement 1',
+      v0.bonhomme - v1.bonhomme === 1 && v0.mois - v1.mois === 1 && / 5 séries de travail$/.test(v1.carte), nb({ avant: v0, apres: v1 }));
+
+    // ── B. D-H2 — UN RECORD AUX HALTÈRES, QUATRE LECTEURS.
+    const rejeu = await rejouerJournal();
+    const ligneJ = base.records.filter((r) => r.exercise_slug === H && r.type === 'charge_max')
+      .reduce((mx, r) => (!mx || Number(r.valeur) > Number(mx.valeur) ? r : mx), null);
+    await aller('/exercice/' + H);
+    const pageH = await lireStable(() => page.evaluate(() => {
+      const l = Array.from(document.querySelectorAll('#page-exercice .exo-records .exo-li'))
+        .filter((x) => /^Charge la plus lourde/.test((x.querySelector('.exo-li-k') || {}).textContent || ''))[0];
+      return l ? l.querySelector('.exo-li-v').textContent.replace(/[  ]/g, ' ').trim() : null; }), 'pageFH249');
+    const recDe = (ecrans) => ((ecrans || []).filter((e) => e.cle === 'records')[0] || {}).texte || '';
+    const moisH = recDe(await ouvrirBilan(MOIS));
+    const saisonH = recDe(await ouvrirBilan(SAISON));
+    // La charge que chaque lecteur écrit à côté du nom de l'exercice (« 40 kg × 5 », « 2 × 40 kg »).
+    // (Les images écrivent le nom court, « Développé fh249 », sans le matériel.)
+    const apresNom = (t) => { const r = /Développé fh249(?: \(Haltère\))?/i.exec(t); return r ? t.slice(r.index + r[0].length).trim().slice(0, 16) : null; };
+    ok('[FV249] prémisse — le record de 40 kg est lu partout : journal rejoué (charge_max 40, séance du 15), page « 40 kg × 5 », image du mois et image de la saison nomment l’exercice',
+      rejeu && !!ligneJ && Number(ligneJ.valeur) === 40 && ligneJ.session_id === idH && pageH === '40 kg × 5' &&
+        apresNom(moisH) !== null && apresNom(saisonH) !== null, nb([!!ligneJ && ligneJ.valeur, pageH, apresNom(moisH), apresNom(saisonH), MOIS, SAISON, moisH.slice(0, 200), saisonH.slice(0, 200)]));
+    okDefaut('D-H2', '[FV249] le record aux haltères se dit avec la même charge sur la page (40 kg), au journal (40), à l’image du mois et à l’image de la saison',
+      /^40 kg/.test(apresNom(moisH) || '') && /^40 kg/.test(apresNom(saisonH) || ''),
+      'page « ' + pageH + ' » · journal ' + nb(ligneJ && ligneJ.valeur) + ' · mois « ' + apresNom(moisH) + ' » · saison « ' + apresNom(saisonH) + ' »');
+
+    ok('[FV249] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      nb([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
+    recapDesDefauts();
+    base.sessions = base.sessions.filter((x) => ids.indexOf(x.id) < 0);
+    base.sets = base.sets.filter((x) => ids.indexOf(x.session_id) < 0);
+    base.records.length = 0;
+    recordsAvant.forEach((r) => base.records.push(r));
     CATALOGUE.length = nbCat;
     await aller('/saisie');
   }

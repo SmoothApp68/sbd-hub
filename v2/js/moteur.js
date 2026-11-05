@@ -8370,6 +8370,16 @@
       oui: ouiMarche(nom), non: NON_MARCHE
     };
   }
+  // 245 (F3, MOTEUR §9.35) — LA MÊME CARTE, au premier essai sans aide raté à 0 : un fait (« Pas une rep sans aide, au premier essai. » : un fait, aucun nombre à sourcer), la
+  // marche d'en dessous, « Ajouter <nom> » / « Pas maintenant ». Aucun compte de séances : une seule suffit, c'est tout le sens.
+  function carteDessousPremierEssai(nom) {
+    if (!nom) return null;
+    return {
+      type: MARCHE_DESSOUS, nom: nom, premierEssai: true,
+      phrase: 'Pas une rep sans aide, au premier essai.',
+      oui: ouiMarche(nom), non: NON_MARCHE
+    };
+  }
   // Le détail s'écrit hors de la capture de la phrase (comme `detailAlleger`) : il n'est pas une phrase vérifiée par I26.
   function detailDessous(nom) {
     return 'La marche d\'en dessous : ' + nom + '. Je te propose d\'en faire ' + nombreFr(SERIES_MARCHE, regle('constante')) +
@@ -12107,6 +12117,7 @@
     MARCHE_LEVIERS: MARCHE_LEVIERS,
     MARCHE_DESSOUS: MARCHE_DESSOUS,
     carteDessous: carteDessous,
+    carteDessousPremierEssai: carteDessousPremierEssai,
     detailDessous: detailDessous,
     LEVIER_REMPLACEMENT: LEVIER_REMPLACEMENT,
     LEVIER_TEMPO: LEVIER_TEMPO,

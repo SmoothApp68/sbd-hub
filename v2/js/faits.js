@@ -216,6 +216,15 @@
       }).filter(Boolean);
     }
 
+    // 245 (F3, MOTEUR §9.35) — LE PREMIER ESSAI RATÉ À ZÉRO : l'exercice n'a été fait qu'UNE fois et toutes ses séries (hors chauffes)
+    // sont à 0 rep. Un fait : la décision (la marche d'en dessous) est celle du plan. La séance en cours n'y est pas (le cache).
+    function premierEssaiRate(c, slug) {
+      var g = seancesDeLExercice(c, slug);
+      if (g.length !== 1) return false;
+      var travail = g[0].series.filter(function (x) { return x && x.type_serie !== 'echauffement'; });
+      return travail.length > 0 && travail.every(function (x) { return Number(x.reps) === 0; });
+    }
+
     // 206 — LES POINTS D'UN EXERCICE, pour sa courbe : un point par séance, du plus ancien au plus récent.
     //   · charge_reps → le MAX ESTIMÉ (Epley, `Moteur.unRMEpley`, celui des records) de la meilleure série de travail
     //     de 1 à 10 reps (au-delà l'estimation se trompe trop, Reynolds 2006) ; une série notée par nom ou sans charge n'y est pas ;
@@ -2330,6 +2339,7 @@
       noteDeLaDerniereFois: noteDeLaDerniereFois,
       noteDeLExercice: noteDeLExercice,
       pointsDeLExercice: pointsDeLExercice,
+      premierEssaiRate: premierEssaiRate,
       exercicesDeProgression: exercicesDeProgression,
       ceQuiAProgresse: ceQuiAProgresse,
       recordsDeLaSeance: recordsDeLaSeance,

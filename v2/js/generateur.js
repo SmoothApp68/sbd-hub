@@ -47,7 +47,7 @@
     arriere: ['tirage_vers_visage', 'oiseau_haltere'],
     curl: ['curl_biceps_barre_ez', 'curl_biceps_haltere', 'curl_marteau_haltere'],
     triceps: ['extension_triceps_poulie_haute', 'extension_des_triceps_au_dessus_de_la_tete_cable',
-              'extension_triceps_haltere', 'pompes_diamant'],
+              'extension_triceps_haltere', 'pompes_diamant', 'pompes_prise_serree'],
     ecarte: ['ecarte_machine', 'ecartes_poulie', 'ecarte_haltere'],
     // 197 (MOTEUR §9.36) — LES MOTIFS DE « FORME ET SANTÉ » : le geste d'abord, le matériel léger d'abord (haltère, poids du corps).
     forme_jambes: ['squat_goblet_haltere', 'squat_goblet_kettlebell', 'squat_poids_du_corps', 'fente_arriere_haltere', 'fente_arriere'],

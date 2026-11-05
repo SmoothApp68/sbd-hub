@@ -1461,10 +1461,10 @@ const NOTIONS = [
     parAilleurs: { 'faits.js': ['bilanDePeriode'] },
     raison: 'BILANS-V1 (95) : un seul moteur, la période en paramètre (année, saison, mois) ; seul le module des faits ' +
       'l’appelle, sur l’entrée qu’il assemble — l’écran « Ton année » met en mots, il ne recompte rien.' },
-  { notion: 'le poids du jour d’une perf (deux pesées à 60 j, sinon la plus proche à 45 j avec « ≈ »)', pr: '95-U1',
-    module: 'bilans.js', fonction: 'poidsDuJour', lecteurs: [],
-    par: ['bilanDeLaPeriode'],
-    raison: 'BILANS-V1 (95) : « rapporté à ton poids de corps ce jour-là » — une seule règle d’estimation.' },
+  { notion: 'le poids du jour d’une perf (deux pesées à 60 j, sinon la plus proche à 45 j avec « ≈ »)', pr: '246-U2',
+    module: 'poids.js', fonction: 'poidsAutourDe', lecteurs: ['bilans.js'],
+    raison: 'BILANS-V1 (95) puis 246 : la SEULE interpolation, pour le bilan (un bilan regarde en arrière) ; tout autre ' +
+      'lecteur du poids à une date lit `poidsALaDate`.' },
   { notion: 'la comparaison d’un bilan (contre la période d’avant, début contre fin, ou aucune)', pr: '95-U1',
     module: 'bilans.js', fonction: 'comparaisonDe', lecteurs: [],
     par: ['bilanDeLaPeriode'],

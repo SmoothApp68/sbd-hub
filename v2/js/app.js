@@ -7963,13 +7963,8 @@
     Object.keys(cs).forEach(function (s) {
       var k = cs[s] && cs[s].consigne;
       // 245 (F3, MOTEUR §9.35) — DEPUIS UNE AIDE, 0 REP STRICTE AU PREMIER ESSAI : la marche d'en dessous tout de suite. Les faits :
-      // l'exercice est une marche sans aide d'une échelle, n'a été fait qu'une fois (à 0 rep), et la personne y est venue d'une marche
-      // assistée de la même échelle déjà faite. Le plan décide (`marcheDuDessous`).
-      var x = index[s];
-      var depuisUneAide = !!x && x.charge !== 'assistance' && typeof x.echelle === 'string' && x.echelle &&
-        Object.keys(index).some(function (t) { return index[t].echelle === x.echelle && index[t].charge === 'assistance' &&
-          faits.seancesDeLExercice(corpus(), t).length > 0; });
-      var rate = depuisUneAide && faits.premierEssaiRate(corpus(), s);
+      // `faits.premierEssaiRate` (le fait entier : une marche sans aide, venue d'une aide, faite une fois à 0 rep). Le plan décide.
+      var rate = faits.premierEssaiRate(corpus(), s, index);
       if (!rate && (!k || k.etat !== 'etirement_reps' || Number(k.palier) !== 0)) return;
       var mD = Modele.marcheDEnDessous(index, s);
       if (mD && presentsD.indexOf(mD.slug) < 0) {

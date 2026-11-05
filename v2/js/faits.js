@@ -216,13 +216,21 @@
       }).filter(Boolean);
     }
 
-    // 245 (F3, MOTEUR §9.35) — LE PREMIER ESSAI RATÉ À ZÉRO : l'exercice n'a été fait qu'UNE fois et toutes ses séries (hors chauffes)
-    // sont à 0 rep. Un fait : la décision (la marche d'en dessous) est celle du plan. La séance en cours n'y est pas (le cache).
-    function premierEssaiRate(c, slug) {
+    // 245 (F3, MOTEUR §9.35) — LE PREMIER ESSAI RATÉ À ZÉRO, DEPUIS UNE AIDE : l'exercice est une marche sans aide d'une échelle
+    // (`index[slug].echelle`), la personne y est venue d'une marche ASSISTÉE de la même échelle déjà faite, il n'a été fait qu'UNE
+    // fois et toutes ses séries (hors chauffes) sont à 0 rep. Un fait : la décision (la marche d'en dessous) est celle du plan.
+    // La séance en cours n'y est pas (le cache). Sans `index` du catalogue, la notion d'aide est inconnue : faux.
+    function premierEssaiRate(c, slug, index) {
+      var x = index && slug ? index[slug] : null;
+      var depuisUneAide = !!x && x.charge !== 'assistance' && typeof x.echelle === 'string' && x.echelle &&
+        Object.keys(index).some(function (t) {
+          return index[t].echelle === x.echelle && index[t].charge === 'assistance' && seancesDeLExercice(c, t).length > 0;
+        });
+      if (!depuisUneAide) return false;
       var g = seancesDeLExercice(c, slug);
       if (g.length !== 1) return false;
-      var travail = g[0].series.filter(function (x) { return x && x.type_serie !== 'echauffement'; });
-      return travail.length > 0 && travail.every(function (x) { return Number(x.reps) === 0; });
+      var travail = g[0].series.filter(function (y) { return y && y.type_serie !== 'echauffement'; });
+      return travail.length > 0 && travail.every(function (y) { return Number(y.reps) === 0; });
     }
 
     // 206 — LES POINTS D'UN EXERCICE, pour sa courbe : un point par séance, du plus ancien au plus récent.

@@ -414,11 +414,12 @@ describe('107 — ce que devient un envoi qui échoue (`issueDuGeste`)', () => {
       expect(Social.issueDuGeste(d(G.SABONNER), { code, message: 'x' }, false)).toBe('refus');
     });
   });
-  test('244 — « accepter » rejoué, refusé par « modification refusée » (accepte → accepte) : fait ; hors rejeu ou autre geste : refus', () => {
+  test('244 — « accepter » refusé par « modification refusée » (accepte → accepte) : fait, même au premier envoi ; autre geste : refus', () => {
     const e = { code: 'P0001', message: 'modification refusée' };
     expect(Social.issueDuGeste(d(G.ACCEPTER), e, true)).toBe('fait');
-    expect(Social.issueDuGeste(d(G.ACCEPTER), e, false)).toBe('refus');
+    expect(Social.issueDuGeste(d(G.ACCEPTER), e, false)).toBe('fait');
     expect(Social.issueDuGeste(d(G.SABONNER), e, true)).toBe('refus');
+    expect(Social.issueDuGeste(d(G.SABONNER), e, false)).toBe('refus');
     expect(Social.issueDuGeste(d(G.ACCEPTER), { code: 'P0001', message: 'autre' }, true)).toBe('refus');
   });
   test('refuser une invitation déjà partie : fait ; les « déjà fait » de la guilde ne valent qu’au rejeu', () => {

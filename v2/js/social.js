@@ -1037,6 +1037,11 @@
     guilde_retirer_membre: /guilde_pas_admin/,
     guilde_transmettre: /guilde_pas_admin/
   };
+  // 244 — « accepter » : le déclencheur `abonnements_avant_modif` (v2_078) ne lève « modification refusée » que si la
+  // demande est DÉJÀ acceptée (accepte → accepte) : c'est fait, dès le premier envoi (une demande retirée donne 0 ligne, sans erreur).
+  DEJA_FAIT_AU_REJEU[GESTES.ACCEPTER] = /modification refusée/;
+  var FAIT_MEME_AU_PREMIER_ENVOI = {};
+  FAIT_MEME_AU_PREMIER_ENVOI[GESTES.ACCEPTER] = true;
   function issueDuGeste(d, erreur, rejoue) {
     if (erreurPassagere(erreur)) return 'reessayer';
     var code = String(erreur.code), texte = String(erreur.message || '') + ' ' + String(erreur.details || '');
@@ -1045,11 +1050,9 @@
     if (g === GESTES.GUILDE) {
       var a = d.args || {};
       if (d.fn === 'guilde_repondre' && !a.p_rejoindre && /guilde_sans_invitation/.test(texte)) return 'fait';
-      if (rejoue && DEJA_FAIT_AU_REJEU[d.fn] && DEJA_FAIT_AU_REJEU[d.fn].test(texte)) return 'fait';
     }
-    // 244 — « accepter » rejoué : la demande est déjà acceptée, le déclencheur (v2_078) refuse accepte → accepte par
-    // « modification refusée ». Une demande retirée entre-temps donne 0 ligne, sans erreur : ce message est donc « déjà fait ».
-    if (rejoue && g === GESTES.ACCEPTER && /modification refusée/.test(texte)) return 'fait';
+    var cle = g === GESTES.GUILDE ? d.fn : g, re = DEJA_FAIT_AU_REJEU[cle];
+    if (re && (rejoue || FAIT_MEME_AU_PREMIER_ENVOI[cle]) && re.test(texte)) return 'fait';
     return 'refus';
   }
 

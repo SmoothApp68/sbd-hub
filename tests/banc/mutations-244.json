@@ -1,9 +1,19 @@
 [
  {
-  "nom": "244-p75-sans-attente-de-file",
-  "fichier": "tests/banc/seance-ecran.js",
-  "ancien": "    await jusqua(async () => (await page.evaluate(() => window.THCache.lireAttente())).length === 0, 15000);\n    const ecrituresAvant = ecritures(), fileAvant = await file();",
-  "nouveau": "    await page.evaluate(async () => { await window.THCache.ecrireAttente([{ cle: 'sets:p75-mut', seq: 1, table: 'sets', op: 'remplacer', id: 'p75-mut', donnees: [], version: 1, essais: 0, creation: false, posee_a: null }]); window.dispatchEvent(new Event('online')); });\n    const ecrituresAvant = ecritures(), fileAvant = await file();",
+  "nom": "244-p75-sommaire-ecrit-au-rendu",
+  "fichier": "v2/js/app.js",
+  "ancien": "    profilDuParcours = cleDuParcoursDuProfil(profil);\n    Rendu.rendreSommaire(",
+  "nouveau": "    profilDuParcours = cleDuParcoursDuProfil(profil); poserProfil({ bilans_annonces: (profil && profil.bilans_annonces) || [] }); \n    Rendu.rendreSommaire(",
+  "banc": "seance",
+  "sections": [
+   "parcours"
+  ]
+ },
+ {
+  "nom": "244-p75-parcours-ecrit-au-rendu",
+  "fichier": "v2/js/app.js",
+  "ancien": "    profilDuParcours = cleDuParcoursDuProfil(profil);\n    var libelles = {};",
+  "nouveau": "    profilDuParcours = cleDuParcoursDuProfil(profil); poserProfil({ bilans_annonces: (profil && profil.bilans_annonces) || [] }); \n    var libelles = {};",
   "banc": "seance",
   "sections": [
    "parcours"
@@ -12,8 +22,8 @@
  {
   "nom": "244-accepter-rejoue-en-refus",
   "fichier": "v2/js/social.js",
-  "ancien": "if (rejoue && g === GESTES.ACCEPTER && /modification refusée/.test(texte)) return 'fait';",
-  "nouveau": "if (false && rejoue && g === GESTES.ACCEPTER && /modification refusée/.test(texte)) return 'fait';",
+  "ancien": "var cle = g === GESTES.GUILDE ? d.fn : g, re = DEJA_FAIT_AU_REJEU[cle];\n    if (re && (rejoue || FAIT_MEME_AU_PREMIER_ENVOI[cle]) && re.test(texte)) return 'fait';",
+  "nouveau": "var cle = g === GESTES.GUILDE ? d.fn : g, re = DEJA_FAIT_AU_REJEU[cle];\n    if (re && cle !== GESTES.ACCEPTER && (rejoue || FAIT_MEME_AU_PREMIER_ENVOI[cle]) && re.test(texte)) return 'fait';",
   "banc": "seance",
   "sections": [
    "social"

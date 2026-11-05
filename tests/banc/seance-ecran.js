@@ -18987,7 +18987,7 @@ const SETS_IMPORTES = [
     base.reponseSocialePerdue = true;
     await page.click('#social-fil .s-demande .s-accepter');
     await attendreQue(async () => lien('u-lea', 'u-banc').statut === 'accepte');   // la base l'a reçu ; la réponse, jamais
-    await aller('/jeu/fil');                                                         // rechargé PENDANT le vol
+    await aller('/jeu/fil');                                                         // rechargé : la réponse est coupée (abort), la file garde le geste
     base.reponseSocialePerdue = false;
     await page.evaluate(() => window.dispatchEvent(new Event('online')));
     await fileVide('social');
@@ -22295,6 +22295,11 @@ const SETS_IMPORTES = [
       JSON.stringify(epaules));
 
     // ── D. RIEN N'EST ÉCRIT : deux affichages (le sommaire, la page, puis un rechargement de la page).
+    // 244 — le sommaire est redessiné APRÈS la photo : « rien n'est écrit » couvre le sommaire ET la page.
+    await aller('/progression');
+    await page.waitForFunction((P) => { const b = document.querySelector('#sommaire .bloc-parcours');
+      const l = b && b.querySelector('.bloc-ligne');
+      return !!l && l.textContent.replace(/\s+/g, ' ').trim() === P; }, PHRASE, { timeout: 15000 }).catch(() => {});
     await aller('/progression/parcours');
     const phraseRecharge = await page.evaluate(() => (document.querySelector('#parcours .pc-phrase') || {}).textContent);
     const fileApres = await file();

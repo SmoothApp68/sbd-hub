@@ -1948,6 +1948,8 @@ Sur une **barre** (squat, couché, militaire — `familleDeBarre`), la consigne 
   séance (tête fraîche, en secondes : `duree_cible_s`, jamais `reps`). Chaque exercice est la marche de la personne sur son échelle (la plus haute déjà faite,
   sinon la marche de départ du questionnaire). Sans barre de traction, le coach dit : « Pour progresser en tirage, il te faut une barre ou des anneaux. »
 
+> **246 — trois notions du poids, distinctes.** `poidsDeFatigue` (198) reste une autre notion : médianes de deux fenêtres pour la baisse attendue en sèche ; il ne lit PAS `Poids.tendanceDuPoids`. `Poids.poidsALaDate` est le seul « poids à une date » pour un calcul (rapport au poids, score publié) ; `Poids.poidsAutourDe` est l'interpolation du bilan seul.
+
 ### 9.36 Forme et santé — décidé le 31/10/2026 (chantier 197) (I110 à I112)
 
 *Delta daté du 31/10/2026. Maquette : `maquette-forme-sante-hybride-v1`. Recherche : OMS 2020, ANSES, ACSM 2026. Aucune colonne nouvelle.*

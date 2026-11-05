@@ -1442,7 +1442,7 @@
   //     (l'échelle travaillée le plus récemment d'abord) ; `semaine` / `avant` : le meilleur de la semaine / de la semaine
   //     d'avant (texte, ou `null`), `reps` : les reps des séries de travail de la semaine, dans l'ordre ; `nouvelle` :
   //     `{ slug, ancienne: { nom, texte } }` quand la marche vient d'être franchie ;
-  //   · `o` : `{ faites, zonesHaut, coachActif, phraseDe, rondsDe }` — `faites` : comme `vueEchelle` (les exercices de
+  //   · `o` : `{ faites, zonesHaut, coachActif, phraseDe, rondsDe, lestRefuse, objectif, ecartee }` — `faites` : comme `vueEchelle` (les exercices de
   //     l'échelle faits, avec `derniere`) ; `phraseDe(e)` la phrase COURTE du coach ; `rondsDe(slug, e)` les deux ronds.
   // Sans coach (« Juste un carnet »), ni phrase, ni ronds, ni reps de la condition. Rend, par échelle :
   // `{ echelle, nom, marche: { slug, nom }, fait: { slug, nom, meilleur, avant } | null, nouvelle: { avant } | null,
@@ -1470,7 +1470,7 @@
       var ligne = it.nouvelle && ex[it.nouvelle.slug] && ex[it.nouvelle.slug].semaine ? it.nouvelle.slug
         : ex[depart.slug] && ex[depart.slug].semaine ? depart.slug
         : travailles.sort(function (a, b) { return index[b].echelle_rang - index[a].echelle_rang || parSlug(index[a], index[b]); })[0] || null;
-      var m = marcheSuivante(index, depart.slug, { lestRefuse: opt.lestRefuse === true, objectif: opt.objectif });
+      var m = marcheSuivante(index, depart.slug, { lestRefuse: opt.lestRefuse === true, objectif: opt.objectif, ecartee: opt.ecartee });
       var suite = null;
       if (opt.coachActif === true && m) {
         var haut = opt.zonesHaut && Object.prototype.hasOwnProperty.call(opt.zonesHaut, depart.slug) ? opt.zonesHaut[depart.slug] : null;

@@ -5907,9 +5907,9 @@
     var exo = seance.exercices[iExo];
     var slug = exo.exercise_slug;
     var debut = String(seance.debut || '');
-    var historique = faits.seancesDeLExercice(corpus(), slug).filter(function (g) {
-      return g.seance.id !== seance.id && String(g.seance.debut || '') < debut;
-    }).map(function (g) { return { series: g.series }; });
+    // Lu par le mémo des records (`historiqueDesRecords`, hors séance en cours) : un seul calcul par validation.
+    var passees = faits.historiqueDesRecords(corpus(), seance, slug).filter(function (g) { return String(g.debut || '') < debut; });
+    var historique = passees.map(function (g) { return { series: g.series }; });
     var duJour = (exo.series || []).filter(function (x, k) { return k !== iSerie && Seance.partEnBase(x); });
     var ligne = (planDeLExercice(iExo) || { lignes: [] }).lignes[iSerie];
     var charge = ligne && ligne.role !== 'hors' ? Number(ligne.charge) : NaN;
@@ -5917,10 +5917,7 @@
     // 245 (D-Q1) — le meilleur de la question « hausse » et de celle du record est celui de la médaille (`recordsDeLExercice().lourde`,
     // douze mois hors barres compris), pas la plus lourde charge de toute la vie : `null` si le périmètre n'en a pas.
     var def = catalogueIndexe()[slug] || null;
-    var lourde = Modele.recordsDeLExercice(faits.seancesDeLExercice(corpus(), slug).filter(function (g) {
-      return g.seance.id !== seance.id && String(g.seance.debut || '') < debut;
-    }).map(function (g) { return { id: g.seance.id, debut: g.seance.debut, series: g.series }; }),
-    seance.debut, Modele.optionsDeRecord(def)).lourde;
+    var lourde = Modele.recordsDeLExercice(passees, seance.debut, Modele.optionsDeRecord(def)).lourde;
     return { historique: historique, seance: duJour, confirmations: confirmationsDe(slug),
              recordLourd: lourde && lourde.charge > 0 ? lourde.charge : null,
              chargeVisee: isFinite(charge) && ligne.charge !== null ? charge : null,

@@ -1301,7 +1301,7 @@
   function marcheSuivante(index, slug, o) {
     var m = marcheSuivanteBrute(index, slug, o);
     // 245 (F3, I133) — UNE ZONE À MÉNAGER ÉCARTE LA MARCHE : `o.ecartee(slug)` dit qu'un exercice charge une zone que la personne ménage
-    // (la notion de zone du générateur, `zonesQueChargeLExercice` : le diamant charge le coude). Le filtre est posé ici, une seule fois,
+    // (la notion du générateur, `zonesQuiEcartentLaMarche` : seul le coude, motif triceps — le diamant ; aucune autre zone n'écarte de marche). Le filtre est posé ici, une seule fois,
     // sur toute sortie (la variante sans lest comprise) ; une marche écartée n'est pas remplacée par la suivante : on ne saute pas un rang.
     if (m && o && typeof o.ecartee === 'function') {
       var cible = m.cible.filter(function (x) { return !o.ecartee(x); });

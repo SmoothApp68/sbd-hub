@@ -6669,10 +6669,11 @@
   // 195 — l'objectif qui ouvre les marches d'habileté : celui, gelé, de la séance ; hors séance (la page d'exercice, la semaine),
   // celui du profil. Un `calisthenie` seulement : toute autre valeur laisse la règle d'avant.
   function objectifDeLEchelle() { return seance ? objectifDeLaSeance() : Profil.objectifDe(profil); }
-  // 245 (F3, I133) — une marche qui charge une zone à ménager (le diamant, le coude) ne se propose pas : la notion de zone du générateur,
-  // lue par `Modele.marcheSuivante` (`ecartee`), jamais une liste de slugs ici.
+  // 245 (F3, I133) — une marche du motif triceps (le diamant, la prise serrée) ne se propose pas quand le COUDE est à ménager ; aucune
+  // autre zone n'écarte de marche (décidé le 05/11/2026) : la notion de zone du générateur, lue par `Modele.marcheSuivante`
+  // (`ecartee`), jamais une liste de slugs ici.
   function marcheEcarteeParLaZone(slug) {
-    return Generateur.zonesQueChargeLExercice(slug, profil && profil.zones_a_menager).length > 0;
+    return Generateur.zonesQuiEcartentLaMarche(slug, profil && profil.zones_a_menager).length > 0;
   }
   function marcheAProposer(index, slug) {
     // 175 — « Pas de lest » (le profil, ou la réponse de l'exercice) : la variante sans matériel devient la marche.

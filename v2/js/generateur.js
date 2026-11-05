@@ -852,6 +852,16 @@
     });
   }
 
+  // 245 (F3, I133, décidé le 05/11/2026) — LES ZONES QUI ÉCARTENT UNE MARCHE D'ÉCHELLE : seulement le COUDE, et seulement pour le motif
+  // triceps (le diamant, la prise serrée). Aucune autre zone n'écarte de marche (dos à ménager : les tractions assistées restent
+  // proposées). Élargissement aux autres zones : non validé, noté pour plus tard (05/11).
+  var ECARTE_LA_MARCHE = { coude: ['triceps'] };
+  function zonesQuiEcartentLaMarche(slug, menager) {
+    return liste(menager).filter(function (z) {
+      return possede(ECARTE_LA_MARCHE, z) && ECARTE_LA_MARCHE[z].some(function (m) { return possede(MOTIFS, m) && contient(MOTIFS[m], slug); });
+    });
+  }
+
   // Sous un exercice : « sans série lourde · ton genou », « demande une barre fixe ». Une liste (parfois les deux).
   function mentionsDeLigne(l, entree) {
     var e = entree || {}, m = [];
@@ -2011,6 +2021,7 @@
     pourquoi: pourquoi,
     mentionsDeLigne: mentionsDeLigne,
     zonesQueChargeLExercice: zonesQueChargeLExercice,
+    zonesQuiEcartentLaMarche: zonesQuiEcartentLaMarche,
     placerLesJambesLourdes: placerLesJambesLourdes, phrasesHybrides: phrasesHybrides, NOMS_DES_JOURS: NOMS_DES_JOURS,
     phrasesDeLApercu: phrasesDeLApercu,
     exemptsDuRaccourci: exemptsDuRaccourci,

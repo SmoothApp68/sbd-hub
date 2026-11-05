@@ -11,6 +11,7 @@ global.self = global;
 const Mo = require('../../v2/js/modele.js');
 require('../../v2/js/profil.js');
 require('../../v2/js/palier.js');
+const G = require('../../v2/js/generateur.js');
 const M = require('../../v2/js/moteur.js');
 const T = require('../../v2/js/plan.js');
 const S = require('../../v2/js/seance.js');
@@ -42,6 +43,29 @@ describe('245 F3 (a) — prise serrée et diamant dans l’échelle des pompes',
   });
   test('I133 : sur tout l’index, aucune marche écartée ni d’une autre mesure', () => {
     expect(Mo.verifierI133(INDEX, { ecartee: coude })).toEqual([]);
+  });
+});
+
+describe('245 F3 (a) — seul le COUDE écarte une marche, et seulement le motif triceps (05/11/2026)', () => {
+  const ecartee = (zones) => (slug) => G.zonesQuiEcartentLaMarche(slug, zones).length > 0;
+  test('DISCRIMINANT — coude à ménager : le diamant et la prise serrée sont écartés', () => {
+    expect(ecartee(['coude'])('pompes_diamant')).toBe(true);
+    expect(ecartee(['coude'])('pompes_prise_serree')).toBe(true);
+    expect(Mo.marcheSuivante(INDEX, 'pompes_declinees', { ecartee: ecartee(['coude']) })).toBeNull();
+  });
+  test('DISCRIMINANT — dos à ménager : les tractions assistées restent proposées (aucune autre zone n’écarte de marche)', () => {
+    const idx = {
+      tractions_assistees: ex('tractions_assistees', 1, { echelle: 'tractions', charge: 'assistance' }),
+      tractions: ex('tractions', 2, { echelle: 'tractions' })
+    };
+    ['dos', 'epaule', 'genou', 'hanche'].forEach((z) => {
+      expect(ecartee([z])('tractions')).toBe(false);
+      expect(ecartee([z])('pompes_diamant')).toBe(false);
+      expect(Mo.marcheSuivante(idx, 'tractions_assistees', { ecartee: ecartee([z]) }).cible).toEqual(['tractions']);
+    });
+  });
+  test('coude à ménager : un exercice hors du motif triceps (un curl) n’écarte pas de marche', () => {
+    expect(ecartee(['coude'])('pompes')).toBe(false);
   });
 });
 

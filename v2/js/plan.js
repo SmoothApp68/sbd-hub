@@ -3330,8 +3330,26 @@
     var M = Moteur();
     var k = c.consigne;
     var E = e.escalier;
+    var d0 = E && E.dessous && Object.prototype.hasOwnProperty.call(E.dessous, slug) ? E.dessous[slug] : null;
+    // 245 (F3) — DEPUIS UNE AIDE, 0 REP STRICTE AU PREMIER ESSAI : la marche d'en dessous TOUT DE SUITE, sans attendre quatre séances.
+    // Une fois (une marche déjà proposée pour cet exercice, répondue ou non, ne revient pas) ; les faits viennent de l'app.
+    if (d0 && d0.slug && d0.nom && E.premierEssai && E.premierEssai[slug] === true) {
+      var vue = marches.filter(function (x) { return x && x.exercice === slug && x.marche === M.MARCHE_DESSOUS; });
+      var ici = vue.filter(function (x) { return x.seance === seance.id; })[0];
+      if (vue.length && !ici) return null;
+      var p = { marche: M.MARCHE_DESSOUS, n: 1, compteur: 0, declenchement: true, zone: null, premierEssai: true,
+                dessous: { slug: d0.slug, nom: d0.nom } };
+      if (ici) { p.reponse = ici.reponse; return p; }
+      var capP = Voix().capturer(function () { return M.carteDessousPremierEssai(d0.nom); });
+      if (!capP.texte) return null;
+      p.carte = capP.texte;
+      retenirCitationsDeCarte(p.carte, capP.citations);
+      p.carte.cible = d0.slug;
+      p.carte.detail = M.detailDessous(d0.nom);
+      return p;
+    }
     if (!k || k.etat !== 'etirement_reps' || Number(k.palier) !== 0 || !c.compteur || !c.compteur.meilleur) return null;
-    var d = E && E.dessous && Object.prototype.hasOwnProperty.call(E.dessous, slug) ? E.dessous[slug] : null;
+    var d = d0;
     if (!d || !d.slug || !d.nom) return null;
     var cpt = c.compteur.compteur;
     if (typeof cpt !== 'number' || cpt < M.PAS_ESCALIER) return null;
@@ -7064,9 +7082,14 @@
       if (!m || m.marche !== M.MARCHE_DESSOUS) return;
       var nom = 'I70 — exercice ' + i + ' (' + x.slug + ') : ';
       var k = x.consigne || {};
-      if (k.etat !== 'etirement_reps' || Number(k.palier) !== 0) erreurs.push(nom + 'la marche d’en dessous hors d’un exercice au poids du corps');
-      if (typeof m.compteur !== 'number' || m.compteur < M.PAS_ESCALIER) erreurs.push(nom + 'la marche d’en dessous avant ' + M.PAS_ESCALIER + ' séances sans progrès');
-      if (m.declenchement === true && !M.estDeclenchement(m.compteur)) erreurs.push(nom + 'déclenchée à ' + m.compteur + ', pas un multiple de ' + M.PAS_ESCALIER);
+      if (m.premierEssai !== true && (k.etat !== 'etirement_reps' || Number(k.palier) !== 0)) erreurs.push(nom + 'la marche d’en dessous hors d’un exercice au poids du corps');
+      // 245 (F3) — le premier essai sans aide raté à 0 est l'autre porte : compteur à 0, déclenchée d'emblée (la carte le dit).
+      if (m.premierEssai === true) {
+        if (m.compteur !== 0 || m.declenchement !== true) erreurs.push(nom + 'le premier essai raté déclenche à compteur 0');
+      } else {
+        if (typeof m.compteur !== 'number' || m.compteur < M.PAS_ESCALIER) erreurs.push(nom + 'la marche d’en dessous avant ' + M.PAS_ESCALIER + ' séances sans progrès');
+        if (m.declenchement === true && !M.estDeclenchement(m.compteur)) erreurs.push(nom + 'déclenchée à ' + m.compteur + ', pas un multiple de ' + M.PAS_ESCALIER);
+      }
       if (!m.dessous || !m.dessous.slug) erreurs.push(nom + 'la marche d’en dessous sans exercice du dessous');
       else if (m.carte && m.carte.cible !== m.dessous.slug) erreurs.push(nom + 'la carte cible ' + m.carte.cible + ', pas ' + m.dessous.slug);
       if (m.carte && /réserve|échec/i.test(String(m.carte.phrase))) erreurs.push(nom + 'la carte parle de réserve ou d’échec : jamais un motif');

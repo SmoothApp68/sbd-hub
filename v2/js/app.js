@@ -6664,9 +6664,14 @@
   // 195 — l'objectif qui ouvre les marches d'habileté : celui, gelé, de la séance ; hors séance (la page d'exercice, la semaine),
   // celui du profil. Un `calisthenie` seulement : toute autre valeur laisse la règle d'avant.
   function objectifDeLEchelle() { return seance ? objectifDeLaSeance() : Profil.objectifDe(profil); }
+  // 245 (F3, I133) — une marche qui charge une zone à ménager (le diamant, le coude) ne se propose pas : la notion de zone du générateur,
+  // lue par `Modele.marcheSuivante` (`ecartee`), jamais une liste de slugs ici.
+  function marcheEcarteeParLaZone(slug) {
+    return Generateur.zonesQueChargeLExercice(slug, profil && profil.zones_a_menager).length > 0;
+  }
   function marcheAProposer(index, slug) {
     // 175 — « Pas de lest » (le profil, ou la réponse de l'exercice) : la variante sans matériel devient la marche.
-    var m = Modele.marcheSuivante(index, slug, { lestRefuse: lestReponseDeLExercice(slug) === 'non', objectif: objectifDeLEchelle() });
+    var m = Modele.marcheSuivante(index, slug, { lestRefuse: lestReponseDeLExercice(slug) === 'non', objectif: objectifDeLEchelle(), ecartee: marcheEcarteeParLaZone });
     if (!m || !m.proposable) return null;
     // 190 — Ma salle dit « pas de barre de traction » : une marche qui en demande une (la stricte, l'archer, le muscle-up…) ne se
     // propose pas ; les marches qui n'en demandent pas restent.
@@ -7941,15 +7946,27 @@
     // 180 (A-F-02, D4) — LA MARCHE D'EN DESSOUS d'un exercice au poids du corps qui continue en reps : le catalogue la lit
     // (`Modele.marcheDEnDessous`, le rang juste en dessous de l'échelle), jamais une marche déjà dans la séance. Le plan décide.
     var dessous = {};
+    var premierEssai = {};
     var presentsD = seance ? (seance.exercices || []).map(function (x) { return x && x.exercise_slug; }) : [];
     Object.keys(cs).forEach(function (s) {
       var k = cs[s] && cs[s].consigne;
-      if (!k || k.etat !== 'etirement_reps' || Number(k.palier) !== 0) return;
+      // 245 (F3, MOTEUR §9.35) — DEPUIS UNE AIDE, 0 REP STRICTE AU PREMIER ESSAI : la marche d'en dessous tout de suite. Les faits :
+      // l'exercice est une marche sans aide d'une échelle, n'a été fait qu'une fois (à 0 rep), et la personne y est venue d'une marche
+      // assistée de la même échelle déjà faite. Le plan décide (`marcheDuDessous`).
+      var x = index[s];
+      var depuisUneAide = !!x && x.charge !== 'assistance' && typeof x.echelle === 'string' && x.echelle &&
+        Object.keys(index).some(function (t) { return index[t].echelle === x.echelle && index[t].charge === 'assistance' &&
+          faits.seancesDeLExercice(corpus(), t).length > 0; });
+      var rate = depuisUneAide && faits.premierEssaiRate(corpus(), s);
+      if (!rate && (!k || k.etat !== 'etirement_reps' || Number(k.palier) !== 0)) return;
       var mD = Modele.marcheDEnDessous(index, s);
-      if (mD && presentsD.indexOf(mD.slug) < 0) dessous[s] = { slug: mD.slug, nom: Modele.nommer(index, mD.slug) };
+      if (mD && presentsD.indexOf(mD.slug) < 0) {
+        dessous[s] = { slug: mD.slug, nom: Modele.nommer(index, mD.slug) };
+        if (rate) premierEssai[s] = true;
+      }
     });
     return { cartes: cartes, compteurs: compteurs, noms: noms, seriesRoutine: seriesRoutine, marches: marches,
-             degressivesRoutine: degressivesRoutine, remplacants: remplacantsDesEntrees(cs, index), dessous: dessous,
+             degressivesRoutine: degressivesRoutine, remplacants: remplacantsDesEntrees(cs, index), dessous: dessous, premierEssai: premierEssai,
              // 189 (MOTEUR §14.11) — la baisse générale (lue À LA DEMANDE : le plan la demande si une carte est possible), la
              // « série de moins » en cours et les priorités de la séance, que cette réponse ne touche jamais.
              baisse: function (jourDemande) { return entreeDeLaFatigue(jourDemande || Moteur.jourCivil(seance && seance.debut)); },
@@ -14207,7 +14224,7 @@
     // La phrase se tait en carnet (le profil) ; en Entretenir (l'exercice de départ), `phraseDe` le sait.
     var phraseDe = function (e) { return actifs[e.depart] === false ? null : Moteur.phraseDeLaSuivante(Object.assign({}, e, { reglage: Profil.rythmeDe(profil) })); };
     return Modele.vueEchelle(index, slug, faites, zonesHaut, !Moteur.coachSeTait(profil && profil.intention), phraseDe,
-      { lestRefuse: lestReponseDe() === 'non', objectif: objectifDeLEchelle() });
+      { lestRefuse: lestReponseDe() === 'non', objectif: objectifDeLEchelle(), ecartee: marcheEcarteeParLaZone });
   }
 
   // 145 (ECRAN-SAISIE §7 quater.7, maquette `maquette-semaine-echelles-v1.html`, validée le 23/10/2026) — « TES ÉCHELLES

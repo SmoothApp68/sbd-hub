@@ -1233,6 +1233,13 @@
     return Object.keys(index || {}).map(function (s) { return index[s]; })
       .filter(function (x) { return echelleDe(x) === echelle; });
   }
+  // 245 (F3, MOTEUR §9.17 bis, I133) — LA MESURE D'UNE MARCHE : des secondes (`temps`), ou des reps (`reps`, `charge_reps`, tout le
+  // reste). Une carte ne propose JAMAIS une marche d'une autre mesure que l'exercice en cours : une tenue (le soutien aux barres
+  // parallèles, au rang 1 des dips) n'est pas « la marche d'en dessous » d'une série de reps. Elle reste visible dans « Ton échelle ».
+  // Aucun slug : la colonne `mesure` du catalogue.
+  function memeMesure(a, b) {
+    return !!a && !!b && ((a.mesure === 'temps') === (b.mesure === 'temps'));
+  }
 
   // 149 (v2_108, MOTEUR §9.17 ter) — UNE ÉCHELLE DE FIGURES : une échelle dont TOUTES les marches sont en secondes
   // (`mesure = 'temps'` : front lever, back lever, planche, L-sit, équilibre, drapeau). Elle se lit sur le catalogue,
@@ -1254,7 +1261,7 @@
     var e = index && slug ? index[slug] : null;
     var E = echelleDe(e);
     if (E === null) return null;
-    var moins = marchesDe(index, E).filter(function (x) { return x.echelle_rang < e.echelle_rang; });
+    var moins = marchesDe(index, E).filter(function (x) { return x.echelle_rang < e.echelle_rang && memeMesure(x, e); });
     if (!moins.length) return null;
     var r = Math.max.apply(null, moins.map(function (x) { return x.echelle_rang; }));
     return moins.filter(function (x) { return x.echelle_rang === r; }).sort(parSlug)[0] || null;
@@ -1292,11 +1299,23 @@
   // porte `variante` (son slug) : la carte du lest propose les deux. Une fois le lest refusé (`o.lestRefuse`, la réponse
   // « Pas de lest »), la variante devient la marche suivante, proposable : la carte « marche suivante » la propose seule.
   function marcheSuivante(index, slug, o) {
+    var m = marcheSuivanteBrute(index, slug, o);
+    // 245 (F3, I133) — UNE ZONE À MÉNAGER ÉCARTE LA MARCHE : `o.ecartee(slug)` dit qu'un exercice charge une zone que la personne ménage
+    // (la notion de zone du générateur, `zonesQueChargeLExercice` : le diamant charge le coude). Le filtre est posé ici, une seule fois,
+    // sur toute sortie (la variante sans lest comprise) ; une marche écartée n'est pas remplacée par la suivante : on ne saute pas un rang.
+    if (m && o && typeof o.ecartee === 'function') {
+      var cible = m.cible.filter(function (x) { return !o.ecartee(x); });
+      if (!cible.length) return null;
+      if (cible.length < m.cible.length) m = Object.assign({}, m, { cible: cible });
+    }
+    return m;
+  }
+  function marcheSuivanteBrute(index, slug, o) {
     var e = index && slug ? index[slug] : null;
     var E = echelleDe(e);
     if (E === null) return null;
-    var marches = marchesDe(index, E);
-    var stricte = echelleDe(index[E]) === E ? index[E] : null;
+    var marches = marchesDe(index, E).filter(function (x) { return memeMesure(x, e); });   // 245 (F3) : jamais une marche d'une autre mesure
+    var stricte = echelleDe(index[E]) === E && memeMesure(index[E], e) ? index[E] : null;
     var cible, type;
     if (e.charge === 'assistance' && stricte && stricte.echelle_rang > e.echelle_rang) {
       cible = [stricte]; type = 'sans_aide';
@@ -1327,6 +1346,27 @@
     var force = estEchelleDeFigures(index, E) || calisthenie ? cible : cible.filter(estDeForce);
     if (!force.length) return { type: 'habilete', cible: cible.map(function (x) { return x.slug; }), proposable: false };
     return { type: type, cible: force.map(function (x) { return x.slug; }), proposable: type !== 'lest' };
+  }
+
+  // I133 (245, F3, MOTEUR §9.17 bis) — AUCUNE CARTE NE PROPOSE UNE MARCHE D'UNE AUTRE MESURE QUE L'EXERCICE EN COURS, ni une marche qui
+  // charge une zone à ménager. Vérifié sur tout le catalogue : pour chaque exercice d'échelle, la marche suivante (et celle d'en
+  // dessous) a la même mesure, et `ecartee` n'en laisse passer aucune écartée. Rend la liste des erreurs (vide = tenu).
+  function verifierI133(index, o) {
+    var erreurs = [];
+    var ecartee = o && typeof o.ecartee === 'function' ? o.ecartee : null;
+    Object.keys(index || {}).forEach(function (slug) {
+      var e = index[slug];
+      if (echelleDe(e) === null) return;
+      var opt = Object.assign({}, o || {});
+      var m = marcheSuivante(index, slug, opt);
+      (m && m.cible || []).forEach(function (c) {
+        if (!memeMesure(index[c], e)) erreurs.push('I133 — ' + slug + ' (' + e.mesure + ') : la marche suivante ' + c + ' est mesurée en ' + index[c].mesure);
+        if (ecartee && ecartee(c)) erreurs.push('I133 — ' + slug + ' : la marche suivante ' + c + ' charge une zone à ménager');
+      });
+      var d = marcheDEnDessous(index, slug);
+      if (d && !memeMesure(d, e)) erreurs.push('I133 — ' + slug + ' (' + e.mesure + ') : la marche d’en dessous ' + d.slug + ' est mesurée en ' + d.mesure);
+    });
+    return erreurs;
   }
 
   // LE DÉPART d'une échelle : l'exercice de ta marche (`tienne`, le plus haut rang fait) fait le plus récemment, puis le
@@ -3003,6 +3043,8 @@
     // MOTEUR §9.17 bis (127) — l'échelle des variantes.
     echelleDe: echelleDe,
     marcheSuivante: marcheSuivante,
+    memeMesure: memeMesure,
+    verifierI133: verifierI133,
     marchesTriees: marchesTriees,
     rangDeLEchelle: rangDeLEchelle,
     estEchelleDeFigures: estEchelleDeFigures,

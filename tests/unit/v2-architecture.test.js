@@ -1089,6 +1089,11 @@ const NOTIONS = [
     raison: 'la consigne, la suite, « Dernière séance » et la page d’exercice lisent le même historique ' +
       'd’un exercice ; un second assemblage dans l’écran pourrait en oublier une séance. 132 : la consigne et la ' +
       'suite le lisent par `groupesDuMoteur` (en charges virtuelles pour un exercice noté par nom, MOTEUR §10 ter).' },
+  { notion: 'le premier essai d’un exercice raté à 0 rep (245, F3 : la marche d’en dessous tout de suite)', pr: '245-U6',
+    module: 'faits.js', fonction: 'premierEssaiRate', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['escalierDesEntrees'] },
+    raison: 'MOTEUR §9.35 : un fait (une seule séance, toutes ses séries à 0 rep) ; la décision, la carte « marche d’en dessous », est celle ' +
+      'de `planDeSeance` (`marcheDuDessous`) ; l’écran ne fait que donner le fait au plan.' },
   { notion: 'les points d’un exercice, un par séance (le max estimé, les reps ou les secondes), pour ses courbes', pr: '206-U1',
     module: 'faits.js', fonction: 'pointsDeLExercice', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['rendreExercice', 'sommaireExercices'] },
@@ -2542,7 +2547,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/periode.js');
     require('../../v2/js/parcours.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(52);   // 242 : + noteDeLaDerniereFois, noteDeLExercice
+    expect(FAITS.length).toBe(53);   // 242 : + noteDeLaDerniereFois, noteDeLExercice ; 245-6 : + premierEssaiRate
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 

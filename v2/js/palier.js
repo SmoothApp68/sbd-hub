@@ -369,13 +369,8 @@
     var palierProvisoire = calculerPalier(travail);
     var indexPalier = travail.length;
     if (uneAide) {
-      // 245 — aucune frontière de chauffe par les 75 % : le palier provisoire, s'il existe, situe seulement la première série au palier.
+      // 245 — aucune frontière de chauffe par les 75 % : depuis une aide, aucune série n'est une chauffe probable (la ligne 398 l'écarte).
       indexPalier = 0;
-      if (palierProvisoire !== null) {
-        for (var ia = 0; ia < travail.length; ia++) {
-          if (nombre(travail[ia].charge_kg) === palierProvisoire) { indexPalier = ia; break; }
-        }
-      }
     } else if (palierProvisoire !== null) {
       for (var i = 0; i < travail.length; i++) {
         if (nombre(travail[i].charge_kg) === palierProvisoire) { indexPalier = i; break; }

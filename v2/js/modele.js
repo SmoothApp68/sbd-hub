@@ -1995,7 +1995,7 @@
       // ⚠️ LA MESURE EST DONNÉE AU MOTEUR, pas devinée par lui. Sans elle, il ne
       // distingue pas une planche — qui n'aura jamais de palier — d'un développé
       // couché dont les kilos n'ont pas été saisis ce jour-là.
-      var r = palier.analyser(parExo[slug] || [], (etats || {})[slug], { mesure: g.mesure });
+      var r = palier.analyser(parExo[slug] || [], (etats || {})[slug], { mesure: g.mesure, charge: index[slug] ? index[slug].charge : null });
       // Une meilleure série absente ne s'invente pas.
       e.charge = r.meilleure ? r.meilleure.charge : null;
       e.reps = r.meilleure ? r.meilleure.reps : null;

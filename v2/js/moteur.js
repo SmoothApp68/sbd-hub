@@ -5923,7 +5923,7 @@
   function cleDuContrat(groupes, etat, mesure, options) {
     var o = options || {};
     try {
-      return JSON.stringify([mesure, o.reglage, o.equipement, o.correction, o.salle, etat, prudent, debutantEnCours, prudenceEffective(debutantEnCours, prudenceEnCours), groupes],
+      return JSON.stringify([mesure, o.reglage, o.equipement, o.charge, o.correction, o.salle, etat, prudent, debutantEnCours, prudenceEffective(debutantEnCours, prudenceEnCours), groupes],
         function (k, v) { return v === undefined ? '\u0000u' : v; });
     } catch (e) { return null; }
   }
@@ -5939,7 +5939,7 @@
       var series = ((g && g.series) || []).filter(function (x) { return !(x && x.hors_calcul === true); });
       var r = mesure === 'reps'
         ? Palier().analyserPoidsDuCorps(series)
-        : Palier().analyser(series, etat, { mesure: mesure, cran: pasMaxDuMateriel(options && options.equipement) });
+        : Palier().analyser(series, etat, { mesure: mesure, charge: options && options.charge, cran: pasMaxDuMateriel(options && options.equipement) });
       var se = seanceDuContrat(g && g.seance ? g.seance.debut : null, r);
       // §9.10 (53-1) — la fin de la séance, si elle en a une (la zone choisie
       // pendant la séance est la sienne). Absente, la clé n'existe pas.
@@ -9341,7 +9341,7 @@
   function chargesDeTravailDe(groupes, etat, options) {
     var o = options || {};
     var seances = contratDe(groupes, etat, 'charge_reps',
-      { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null, salle: o.salle || null });
+      { reglage: o.reglage, equipement: o.equipement, charge: o.charge || null, correction: o.correction || null, salle: o.salle || null });
     return chargesDeTravail(seances.map(vueDeSeance)).filter(function (x) {
       return x.palier !== null && x.niveau !== null && instant(x.debut) !== null;
     }).map(function (x) { return { date: x.debut, palier: x.palier, niveau: x.niveau }; });
@@ -9683,7 +9683,7 @@
     var zp = zoneParCle(o.zonePlan) ? o.zonePlan : null;
     if (zp !== null && o.mesure === 'charge_reps') {
       var base = sansLesAllegees(contratDe(groupes, etat, o.mesure,
-        { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null, salle: o.salle || null }),
+        { reglage: o.reglage, equipement: o.equipement, charge: o.charge || null, correction: o.correction || null, salle: o.salle || null }),
         o.periodesAllegees);
       var sh = sousHistoireDeZone(groupes, base, avant, zp, o.zonesDeRoutine || null);
       groupes = sh.groupes;
@@ -9695,7 +9695,7 @@
       if (sh.mode === 'premiere') plan.zoneAvant = sh.zoneAvant;
     }
     var seances = sansLesAllegees(contratDe(groupes, etat, o.mesure,
-      { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null, salle: o.salle || null }),
+      { reglage: o.reglage, equipement: o.equipement, charge: o.charge || null, correction: o.correction || null, salle: o.salle || null }),
       o.periodesAllegees);
     // 186 — les séances qui ont REÇU une consigne (un pari) portent la marque : le plafond des reps de l'habitude (`repsPlafonnees`)
     // ne vaut que pour elles. Sans liste (les historiques qui n'en ont jamais reçu), rien n'est plafonné.
@@ -9864,7 +9864,7 @@
     return frereQuiProgresse({ verdicts: verdicts }, candidats.map(function (f) {
       var o = f.options;
       var seances = contratDe(f.groupes, f.etat, o.mesure,
-        { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null, salle: o.salle || null });
+        { reglage: o.reglage, equipement: o.equipement, charge: o.charge || null, correction: o.correction || null, salle: o.salle || null });
       return { id: f.slug, nom: f.nom, verdicts: rejeuDuCompteur(seances, f.groupes, avant, o, true).complet.verdicts };
     }), avant);
   }
@@ -9959,7 +9959,7 @@
     // ou rien (« il te manque une rep pour tester… » ne se dit pas au-delà).
     var contrat = P === null || P === undefined || P === 0 ? null
       : contratDe(tous, etat, o.mesure,
-          { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null, salle: o.salle || null });
+          { reglage: o.reglage, equipement: o.equipement, charge: o.charge || null, correction: o.correction || null, salle: o.salle || null });
     var salleDuCran = P > 0 ? salleEnVigueur(o.salle || null, P) : null;
     var cran = contrat === null ? null : voisineSalleComprise(contrat, apres, P, o.equipement, 1, salleDuCran);
     // 163 — le cran suivant jamais fait se dit « ≈ » (« Il te manque une rep pour tester ≈ 45 kg »).

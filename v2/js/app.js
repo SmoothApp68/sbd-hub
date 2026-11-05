@@ -6796,6 +6796,8 @@
       mesure: g.inconnue ? null : (estSalleElastique(salleX) ? 'charge_reps' : g.mesure),
       // §9.17 — le matériel EFFECTIF : une charge ajoutée est du lest (cran 2,5).
       equipement: Moteur.equipementEffectif(exo),
+      // 245 (A12) — le type de charge du catalogue : sur une aide (`assistance`), la règle des 75 % ne classe aucune série.
+      charge: exo ? exo.charge || null : null,
       // §9.17 — l'intention de l'EXERCICE : celle du profil, puis son mode
       // (`modes_exercice`). Une seule valeur ; le moteur ne sait pas d'où elle vient.
       intention: intentionDeLExercice(slug),
@@ -6817,7 +6819,7 @@
       libre: libreDuLeste ? function () {
         var px = index[libreDuLeste], pg = Modele.gabaritDe(px);
         return { groupes: faits.seancesDeLExercice(corpus(), libreDuLeste), etat: etatsExercices[libreDuLeste],
-                 options: { mesure: pg.inconnue ? null : pg.mesure, equipement: Moteur.equipementEffectif(px),
+                 options: { mesure: pg.inconnue ? null : pg.mesure, equipement: Moteur.equipementEffectif(px), charge: px ? px.charge || null : null,
                             reglage: Profil.rythmeDe(profil), correction: zoneDe(libreDuLeste) } };
       } : null,
       reglage: Profil.rythmeDe(profil),

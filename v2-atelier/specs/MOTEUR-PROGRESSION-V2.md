@@ -193,6 +193,8 @@ Le **contenu** de l'échauffement (combien de séries, à quelle charge) relève
 
 ### 4.1 La chauffe non taguée — trou mesuré
 
+**Sur un exercice assisté (`charge = assistance`) — 05/11/2026 (245, A12), aucune chauffe probable.** Une aide se note en négatif (« −30 kg » est plus facile que « −20 kg ») : le seuil relatif de 75 % compare des charges et n'y a aucun sens. `analyser` ne pose aucun rôle `chauffe_probable` sur une aide ; seules les étiquettes (le type « échauffement ») font une chauffe, comme au poids du corps. Invariant **I131**, vérifié dans `palier.js` (`verifierI131`).
+
 Le tag existe, mais il n'est pas systématique. Mesuré sur l'historique importé :
 
 | | Part des séance-exercices |
@@ -1281,6 +1283,9 @@ Pas de chauffe ni de dégressive au poids du corps. Pas de repli ni de changemen
 **Le lest.** La version lestée est un autre exercice (`tractions_leste`…) ; « J'ai du lest » l'ajoute à la place de l'exercice libre, et elle **démarre** à **2,5 kg, au bas de la zone** (§8.4, exception étroite) ; ensuite, la mécanique d'une charge, **le saut valant 2,5 kg** (les coachs : le plus petit disque, puis retour au bas de la fourchette). La colonne s'appelle « Lest (kg) ».
 
 **L'aide.** Tapée **en positif** dans la colonne « **Aide (kg)** », rangée **en négatif** en base (la convention, 125 séries sur 129 ; comme Hevy, c'est le type d'exercice qui porte le sens), par **une seule fonction** à côté de `lireNombre` ; affichée « Aide 22,5 kg » ; **moins d'aide, c'est monter** (−25 → −22,5). Sur une aide : **ni chauffes, ni dégressive, ni repli, ni seconde charge, ni double saut** (ces règles en pourcentage n'ont pas de sens sur une aide). *Précisé le 04/10/2026 (50-1 bis)* : **l'éditeur de routine** dit « Aide (kg) » pour un exercice assisté, comme la séance (même grille, même en-tête) ; la **cible d'une aide y reste positive** (`charge_cible_kg` est borné de 0 à 1000, le brouillon garde ce qui est tapé) et la conversion en négatif se fait **à la validation d'une série**, par la même fonction unique — jamais à la frappe dans l'éditeur. La **jauge de la table par reps** d'une aide se lit à l'envers : moins d'aide, barre plus longue.
+
+*Précisé le 05/11/2026 (245, A12, I131).* Sur une aide, la règle des 75 % du §4.1 ne classe aucune série : seules les étiquettes font une chauffe ; aucun poids du corps n'est lu.
+
 
 **Entretenir par exercice** (`modes_exercice`) : un **réglage explicite**, depuis l'étiquette de l'exercice comme sa zone — **jamais proposé par le coach** (CADRAGE, 15/09 : l'intention ne se déduit pas des données). Il fait, **pour cet exercice**, ce que fait « Juste un carnet » au profil (I13) : ni ligne du coach, ni pari, ni message, ni chauffe ni dégressive du coach. Le bandeau de décharge planifiée, la semaine allégée et la fin de bloc, faits du plan entier, ne s'éteignent qu'au profil (précisé le 07/10/2026, #382). Le profil reste l'interrupteur général : en Entretenir au profil, tous les exercices le sont.
 

@@ -1922,7 +1922,7 @@
     var b = Object.assign({}, brouillon, { halteres: l });
     return { brouillon: b,
              phrase: l.length === 1 ? '« Jusqu’à » vide ou illisible : tes haltères restent à ' + declarees[0].jusqua + ' kg.'
-               : '« Jusqu’à » vide ou illisible : je remets ' + repris.join(' et ') + '.' };
+               : '« Jusqu’à » vide ou illisible : je remets ' + racine.THModele.enumerer(repris) + '.' };
   }
 
   // 132 (ECRAN-PROFIL §2.4 sexies, maquette `maquette-elastiques-v2.html`, écran 1) — LES GESTES DES DEUX LISTES, purs.

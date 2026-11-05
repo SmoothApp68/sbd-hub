@@ -565,6 +565,13 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
       M.phraseDesTenues({ max: 3, dernier: 4, vise: 2, dessous: 'Front Lever Groupé' })]);
   }
 
+  // 251 — LE COACH EN TEMPS RÉEL (MOTEUR §9.39) : la carte de la forme du jour, énumération « A, B et C » (D1).
+  {
+    const f = (baisses, nSous) => ({ niveau: 'seance', cas: 'S', silence: false, n: 2, sur: 3, nSous, baisses, veille: null });
+    noter('carte', 'forme du jour 3 noms', [M.phraseDeRate(f(['Développé Couché (Barre)', 'Rowing (Barre)', 'Curl (Haltères)'], 2)),
+      M.phraseDeRate(f(['Rowing (Barre)', 'Curl (Haltères)'], 0)), M.phraseDeRate(f([], 2))]);
+  }
+
   test('chaque famille est jouée, et la date relative l\'est vraiment', () => {
     // 181 : les cartes (21 cartes × leurs textes) et les figures sont balayées.
     expect(vues.filter((v) => v.famille === 'carte').length).toBeGreaterThan(60);

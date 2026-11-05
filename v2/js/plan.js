@@ -2670,9 +2670,14 @@
     var nom = x.nom || x.slug;
     var valid = faites.filter(function (l) { return l.type === 'travail'; });
     var sous = 0, baissee = false;
+    // 251 (D1) — « tu as baissé la charge » : une série faite plus légère que ce que le plan proposait ET que la charge de travail. Un cran de
+    // test, une ligne du coach ou d'élan non suivis (leur charge est AU-DESSUS du travail) ne sont pas une baisse. Une ligne posée plus bas par
+    // « Prendre X kg » reste comparée à X (elle est sous le travail). Charge de travail inconnue : la charge de la ligne.
+    var travailDuPlan = chargeDeTravail(x.consigne);
     valid.forEach(function (l) {
       var s = series[l.iSerie] || {};
       var reps = nombre(s.reps), vise = nombre(l.vise), ch = nombre(s.charge_kg), prevue = nombre(l.charge);
+      if (prevue !== null && travailDuPlan !== null && travailDuPlan < prevue) prevue = travailDuPlan;
       if (reps !== null && vise !== null && reps < vise) sous++;
       if (ch !== null && prevue !== null && prevue > 0 && ch < prevue && !memeChargeOuVides(ch, prevue)) baissee = true;
     });

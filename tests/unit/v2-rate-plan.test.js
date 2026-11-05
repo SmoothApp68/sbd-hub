@@ -303,3 +303,78 @@ describe('236 × 225 — la forme du jour et la veille d’une activité dure (I
     expect(T.verifierPlan(q, Object.assign({}, r.e, { veilleChoix: 'garder', activiteVeille: null })).erreurs.join('\n')).toMatch(/I129.*sans activité notée/);
   });
 });
+
+// ══ 251 (D1) — UN CRAN PAS PRIS N'EST PAS UNE BAISSE ══════════════════════════════════════════════════════════════════════════════
+// La recette du 05/11 : « tu as baissé la charge sur Développé Couché et Rowing et Curl » alors que rien n'avait baissé — les trois cran de
+// test n'avaient pas été pris. Une fixture avec un VRAI cran de test (`etat: 'test_propose'`, `haut` non nul, une ligne de rôle `test`) :
+// celles de 236 posaient `haut: null`. ⚠️ Les reps restent DANS la zone : sinon la porte du cran (D2) fermerait le cran, la 3e ligne
+// repasserait à la charge de travail, et le test passerait pour une autre raison que D1.
+const EXOS_H = [
+  { slug: 'couche', n: 3, vise: 5, charge: 107.5, haut: { charge: 110, vise: 3, k: 1 }, zone: 'lourd', equip: 'barre', mesure: 'charge_reps' },
+  { slug: 'rowing', n: 3, vise: 10, charge: 70, haut: { charge: 72.5, vise: 8, k: 1 }, zone: 'hypertrophie', equip: 'barre', mesure: 'charge_reps' },
+  { slug: 'curl', n: 3, vise: 12, charge: 16, haut: { charge: 18, vise: 10, k: 1 }, zone: 'volume', equip: 'haltere', mesure: 'charge_reps' },
+  { slug: 'dips', n: 3, vise: 10, charge: 20, haut: null, zone: 'hypertrophie', equip: 'corps', mesure: 'charge_reps' }
+];
+function planH(faits, extra) {
+  let k = 0;
+  const id = () => 'h-s' + (++k);
+  let se = S.creer({ id: 'S', userId: 'u', idSerie: id });
+  EXOS_H.forEach((x, i) => {
+    se = S.ajouterExercice(se, x.slug, id, { series: x.n });
+    se.exercices[i].series.forEach((s) => { s.reps_visees = x.vise; });
+  });
+  let minute = 0;
+  EXOS_H.forEach((x, i) => {
+    (faits[x.slug] || []).forEach(([ch, reps], j) => {
+      se = S.modifierSerie(se, i, j, { charge_kg: ch, reps });
+      se = S.valider(se, i, j, new Date(Date.UTC(2026, 10, 3, 10, 0, 0) + (++minute) * 150000));
+    });
+  });
+  ((extra && extra.gestes) || []).forEach((g) => { se = S.noterGeste(se, g); });
+  const consignes = {}, catalogue = {};
+  EXOS_H.forEach((x) => {
+    consignes[x.slug] = { consigne: { etat: x.haut ? 'test_propose' : 'progression', zone: x.zone, palier: x.charge, n: x.n,
+      ligne: { charge: x.charge, vise: x.vise }, haut: x.haut },
+      contexte: { cran: x.haut ? x.haut.charge : x.charge + 2.5, haut: x.haut }, pas: 2.5 };
+    catalogue[x.slug] = { equipement: x.equip, mesure: x.mesure, pas: 2.5, nom: x.slug, muscles_primaires: ['pectoraux'], muscles_secondaires: ['triceps'], muscles_stabilisateurs: [] };
+  });
+  const e = Object.assign({
+    seance: { id: 'S', debut: '2026-11-03T10:00:00Z', edition: false, exercices: se.exercices, gestes: se.gestes },
+    consignes, reglage: (extra && extra.reglage) || 'normal', objectif: (extra && extra.objectif) || 'les_deux', paris: [], catalogue
+  }, (extra && extra.entrees) || {});
+  return { se, e, p: T.planDeSeance(e) };
+}
+const FAITS_D1 = { couche: [[107.5, 4], [107.5, 4], [107.5, 4]], rowing: [[70, 9], [70, 9], [70, 9]], curl: [[16, 12], [16, 12], [16, 12]] };
+
+describe('251 D1 — la baisse se lit contre la charge de travail', () => {
+  test('⚠️ DISCRIMINANT — trois cran de test non pris, reps dans la zone : la carte sort, aucune baisse citée', () => {
+    const { e, p } = planH(FAITS_D1);
+    // préalable : le cran est bien réel (sinon le test ne prouve rien)
+    EXOS_H.slice(0, 3).forEach((x, i) => {
+      expect(p.exercices[i].consigne.etat).toBe('test_propose');
+      expect(p.exercices[i].lignes.filter((l) => l.role === 'test')).toHaveLength(1);
+    });
+    expect(p.formeDuJour.carte).toBe(true);
+    const c = p.exercices[3].carteForme;
+    expect(c).toBeTruthy();
+    expect(sp(c.phrase)).toBe('Tes séries sont sous la cible sur 2 des 3 derniers exercices. Pour la fin de séance ?');
+    expect(c.phrase).not.toMatch(/baissé/);
+    expect(p.formeDuJour.decision ? p.formeDuJour.decision.baisses : []).toEqual([]);
+    propre(p, e);
+  });
+  test('témoin — la 3e série du couché faite à 105 (sous la charge de travail) : le couché est une baisse', () => {
+    const f = Object.assign({}, FAITS_D1, { couche: [[107.5, 4], [107.5, 4], [105, 4]] });
+    const { e, p } = planH(f);
+    expect(sp(p.exercices[3].carteForme.phrase)).toMatch(/tu as baissé la charge sur couche/);
+    propre(p, e);
+  });
+  test('témoin — une ligne du coach ou d’élan plus lourde, faite à la charge de travail, n’est pas une baisse', () => {
+    // couché 107,5 × 8 (très au-dessus de la zone) : le coach propose plus lourd ; la suite faite à 107,5 n’est pas une baisse
+    const f = Object.assign({}, FAITS_D1, { couche: [[107.5, 9], [107.5, 4], [107.5, 4]] });
+    const { e, p } = planH(f);
+    // un seul exercice flanche (le couché, 9 puis 4, 4), aucune baisse : pas de carte (avant 251, trois « baisses » en faisaient une)
+    expect(p.formeDuJour.carte).toBeNull();
+    expect(p.exercices.some((x) => x.carteForme)).toBe(false);
+    propre(p, e);
+  });
+});

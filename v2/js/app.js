@@ -11358,7 +11358,7 @@
     return {
       nom: Modele.nommer(index, slug),
       tard: plus.possible ? {
-        apres: suivant.exercices.map(function (x) { return x.nom; }).join(' et '),
+        apres: Modele.enumerer(suivant.exercices.map(function (x) { return x.nom; })),
         surChoisir: function () {
           fermerVoile();
           // 188-1 — « Plus tard » : « Machine prise » sans remplaçant.

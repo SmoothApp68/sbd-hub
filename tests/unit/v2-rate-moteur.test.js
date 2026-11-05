@@ -239,6 +239,14 @@ describe('niveau 3 — la forme du jour', () => {
     expect(M.phraseDeRate(f({ exercices: [ex('a', true), ex('b', true)] }))).toBe('Tes séries sont sous la cible sur les 2 derniers exercices. Pour la fin de séance\u00a0?');
     expect(M.phraseDeRate(f({ exercices: [ex('a', false, { chargeBaissee: true, nom: 'rowing' }), ex('b', false, { chargeBaissee: true, nom: 'élévations' })] }))).toBe('Tu as baissé la charge sur rowing et élévations. Pour la fin de séance\u00a0?');
   });
+  test('⚠️ 251 D1 — trois noms : « A, B et C » (jamais « A et B et C »), par l’énumération unique', () => {
+    expect(M.phraseDeRate({ niveau: 'seance', cas: 'S', silence: false, n: 2, sur: 3, nSous: 0, baisses: ['A', 'B', 'C'] }))
+      .toBe('Tu as baissé la charge sur A, B et C. Pour la fin de séance\u00a0?');
+    expect(M.phraseDeRate({ niveau: 'seance', cas: 'S', silence: false, n: 3, sur: 3, nSous: 2, baisses: ['A', 'B', 'C'] }))
+      .toContain('et tu as baissé la charge sur A, B et C.');
+    const E = require('../../v2/js/modele.js').enumerer;
+    expect([E([]), E(['A']), E(['A', 'B']), E(['A', 'B', 'C']), E(['A', 'B', 'C', 'D'])]).toEqual(['', 'A', 'A et B', 'A, B et C', 'A, B, C et D']);
+  });
   test('un seul exercice qui flanche : rien', () => {
     expect(f({ exercices: [ex('a', true), ex('b', false), ex('c', false)] }).silence).toBe(true);
   });

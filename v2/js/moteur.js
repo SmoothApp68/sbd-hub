@@ -1378,7 +1378,7 @@
         if (morceaux.indexOf(t) < 0) morceaux.push(t);
       }
     });
-    return morceaux.length ? morceaux.join(' et ') + DEUX_POINTS + base : base;
+    return morceaux.length ? Modele().enumerer(morceaux) + DEUX_POINTS + base : base;
   }
 
   // §10.2 (delta 49-36) et §9.23 (55-1) — LE PLANCHER DES 12 MOIS d'un
@@ -6608,9 +6608,9 @@
     var l = (noms || []).map(String);
     var liste;
     if (l.length > NOMS_MAX_CARTE) {
-      liste = l.slice(0, 3).join(', ') + ' et ' + nombreFr(l.length - 3, regle('carte.autres')) + ' autres exercices';
+      liste = l.slice(0, 3).join(', ') + ' et ' + nombreFr(l.length - 3, regle('carte.autres')) + ' autres exercices'; // la troncature reste ici (251-U1)
     } else if (l.length > 1) {
-      liste = l.slice(0, -1).join(', ') + ' et ' + l[l.length - 1];
+      liste = Modele().enumerer(l);
     } else {
       liste = l.join('');
     }
@@ -6980,9 +6980,9 @@
   function phraseBaisseAttendue(noms, moyenne, reserve) {
     var l = (noms || []).map(String), liste;
     if (l.length > FATIGUE_NOMS_MAX) {
-      liste = l.slice(0, 3).join(', ') + ' et ' + nombreFr(l.length - 3, regle('carte.autres')) + ' autres exercices';
+      liste = l.slice(0, 3).join(', ') + ' et ' + nombreFr(l.length - 3, regle('carte.autres')) + ' autres exercices'; // la troncature reste ici (251-U1)
     } else if (l.length > 1) {
-      liste = l.slice(0, -1).join(', ') + ' et ' + l[l.length - 1];
+      liste = Modele().enumerer(l);
     } else {
       liste = l.join('');
     }
@@ -7091,9 +7091,9 @@
   function phraseBaisse(noms, moyenne, reserve, poids) {
     var l = (noms || []).map(String), liste;
     if (l.length > FATIGUE_NOMS_MAX) {
-      liste = l.slice(0, 3).join(', ') + ' et ' + nombreFr(l.length - 3, regle('carte.autres')) + ' autres exercices';
+      liste = l.slice(0, 3).join(', ') + ' et ' + nombreFr(l.length - 3, regle('carte.autres')) + ' autres exercices'; // la troncature reste ici (251-U1)
     } else if (l.length > 1) {
-      liste = l.slice(0, -1).join(', ') + ' et ' + l[l.length - 1];
+      liste = Modele().enumerer(l);
     } else {
       liste = l.join('');
     }
@@ -8067,9 +8067,7 @@
       return { mots: (sing ? 'ton ' : 'tes ') + lib.charAt(0).toLowerCase() + lib.slice(1), sing: sing };
     });
     if (!l.length) return null;
-    var liste = l.length > 1
-      ? l.slice(0, -1).map(function (x) { return x.mots; }).join(', ') + ' et ' + l[l.length - 1].mots
-      : l[0].mots;
+    var liste = Modele().enumerer(l.map(function (x) { return x.mots; }));
     return { texte: liste.charAt(0).toUpperCase() + liste.slice(1),
              pluriel: l.length > 1 || !l[0].sing, plusieurs: l.length > 1 };
   }
@@ -10852,7 +10850,7 @@
   }
   function listeDeRecul(reps) {
     var t = repsDeRecul(reps);
-    return t.length < 2 ? t.join('') : t.slice(0, -1).join(', ') + ' et ' + t[t.length - 1];
+    return Modele().enumerer(t);
   }
   // Le paragraphe du « Pourquoi ». `f` : `{ grosse, charge, ecart, depart, sens, reel, reps, cible }`.
   function pourquoiRecul(f) {
@@ -11102,7 +11100,7 @@
 
   // Les phrases du bloc (la voix : « amplitude », « souplesse » ; jamais « récupération », « courbatures », « prévention »).
   function mobiliteTitre(minutes) { return 'Mobilité · ' + String(Math.round(minutes)) + ' min'; }
-  function mobiliteSousTitre(zones) { return zones.map(function (z) { return z.libelle; }).join(' et ').toLowerCase().replace(/^./, function (c) { return c.toUpperCase(); }) + ' · facultatif'; }
+  function mobiliteSousTitre(zones) { return Modele().enumerer(zones.map(function (z) { return z.libelle; })).toLowerCase().replace(/^./, function (c) { return c.toUpperCase(); }) + ' · facultatif'; }
   function mobilitePourquoi(z) {
     return z.libelle + ' : ' + String(Math.round(z.minutes)) + ' min aujourd’hui, ' + String(Math.round(z.apres)) +
       ' cette semaine sur ' + MOBILITE_CIBLE_MIN + '. Tenir longtemps ou très fort n’apporte rien de plus ; le total de la semaine compte.';
@@ -11888,9 +11886,9 @@
       if (d.nSous > 0) {
         t = 'Tes séries sont sous la cible sur ' + (d.nSous === d.sur ? 'les ' + nombreFr(d.sur, regle('rate.reps')) : nombreFr(d.nSous, regle('rate.reps')) + ' des ' +
           nombreFr(d.sur, regle('rate.reps'))) + ' derniers exercices';
-        if (d.baisses && d.baisses.length) t += ', et tu as baissé la charge sur ' + d.baisses.join(' et ');
+        if (d.baisses && d.baisses.length) t += ', et tu as baissé la charge sur ' + Modele().enumerer(d.baisses);
       } else {
-        t = 'Tu as baissé la charge sur ' + d.baisses.join(' et ');
+        t = 'Tu as baissé la charge sur ' + Modele().enumerer(d.baisses);
       }
       return t + (d.veille ? '. Tu as noté ' + d.veille + ' hier' : '') + '. Pour la fin de séance\u00a0?';
     }

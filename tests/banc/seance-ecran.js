@@ -21944,6 +21944,9 @@ const SETS_IMPORTES = [
     await attendre(1500);
     await garderRecap(true);
     await poserEspion();
+    // Le point du « Pourquoi ? » (211) suppose un appareil neuf : le navigateur du groupe est partagé, une section antérieure
+    // (qui a ouvert un « Pourquoi ») a déjà posé la préférence locale. On la remet à zéro ici, comme le fait un appareil neuf.
+    await page.evaluate(() => { try { localStorage.removeItem('th-v2-pourquoi-ouvert'); } catch (e) { /* rien */ } });
     await demarrerRoutine('Dos R71 ×4');
     await attendre(900);
     // 211 — ce compte n'a aucun pari : la consigne dit « Mon premier pari : … » UNE fois (la phrase du plan), et le « Pourquoi ? »

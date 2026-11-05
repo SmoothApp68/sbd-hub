@@ -326,17 +326,8 @@
     return { valeur_observee: a.jours, set_observe: a.set_id, session_id: a.session_id };
   }
 
-  // TENU = observé ≤ prédit ; sans observation passé l'échéance, il est non tenu à la lecture ; avant, en cours
-  // (`null`). `aujourdhui` : un jour civil ou un instant.
-  function estTenu(pari, aujourdhui) {
-    if (!pari) return null;
-    var o = nombre(pari.valeur_observee), p = nombre(pari.valeur_predite);
-    if (o !== null && p !== null) return o <= p;
-    var ech = pari.fondement && pari.fondement.echeance;
-    var j = jourCivil(aujourdhui);
-    if (ech && j && j > ech) return false;
-    return null;
-  }
+  // 245 (D-O1) — `estTenu` n'existe plus ici : il n'avait aucun appelant et disait l'inverse de `Bilan.estTenu` (observé ≤ prédit contre
+  // observé ≥ prédit). Un pari d'objectif se lit par `Objectif.vue` ; « tenu » n'a qu'une définition, celle du bilan.
 
   // ══ CE QUE LA PAGE DE L'EXERCICE MONTRE ══════════════════════════════════════════════════════════════════════
 
@@ -473,7 +464,7 @@
     PAS_ENCORE: PAS_ENCORE, PLUS_D_UN_AN: PLUS_D_UN_AN, PARI: PARI,
     projection: projection, pariDe: pariDe, ligneDe: ligneDe, ligneAuRetour: ligneAuRetour, atteinte: atteinte,
     observationDe: observationDe,
-    estTenu: estTenu, vue: vue, phraseDeSaisie: phraseDeSaisie, lireSaisie: lireSaisie, phraseDejaFait: phraseDejaFait,
+    vue: vue, phraseDeSaisie: phraseDeSaisie, lireSaisie: lireSaisie, phraseDejaFait: phraseDejaFait,
     phraseHorsSalle: phraseHorsSalle,
     PHRASE_ELASTIQUE: PHRASE_ELASTIQUE,
     possible: possible, haussesDuRecord: haussesDuRecord, plafondDe: plafondDe, joursEntre: joursEntre

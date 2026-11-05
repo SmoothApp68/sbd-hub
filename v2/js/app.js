@@ -5914,7 +5914,15 @@
     var ligne = (planDeLExercice(iExo) || { lignes: [] }).lignes[iSerie];
     var charge = ligne && ligne.role !== 'hors' ? Number(ligne.charge) : NaN;
     var cible = ligne ? Number(ligne.vise) : NaN;
+    // 245 (D-Q1) — le meilleur de la question « hausse » et de celle du record est celui de la médaille (`recordsDeLExercice().lourde`,
+    // douze mois hors barres compris), pas la plus lourde charge de toute la vie : `null` si le périmètre n'en a pas.
+    var def = catalogueIndexe()[slug] || null;
+    var lourde = Modele.recordsDeLExercice(faits.seancesDeLExercice(corpus(), slug).filter(function (g) {
+      return g.seance.id !== seance.id && String(g.seance.debut || '') < debut;
+    }).map(function (g) { return { id: g.seance.id, debut: g.seance.debut, series: g.series }; }),
+    seance.debut, Modele.optionsDeRecord(def)).lourde;
     return { historique: historique, seance: duJour, confirmations: confirmationsDe(slug),
+             recordLourd: lourde && lourde.charge > 0 ? lourde.charge : null,
              chargeVisee: isFinite(charge) && ligne.charge !== null ? charge : null,
              cible: isFinite(cible) && ligne && ligne.vise !== null ? cible : null };
   }
@@ -8466,7 +8474,8 @@
     var entree = faits.entreeFatigue(corpus(), {
       jour: jour, periodesAllegees: allegees, zones: zonesLues(),
       nom: function (slug) { return Modele.nommer(index, slug); },
-      pesees: (local.pesees || []).map(function (x) { return { date: x.date, poids: x.poids_kg !== undefined ? x.poids_kg : x.poids }; })
+      // 245 (D-W1) — la pesée se lit par `Poids.normaliser` (la seule lecture : une ligne sans date ni poids fini est écartée)
+      pesees: Poids.normaliser(local.pesees || []).map(function (x) { return { date: Moteur.jourCivil(x.date), poids: x.poids }; })
     });
     memoFatigue = { cle: cle, seances: local.seances, series: local.series, zones: local.zones, pesees: local.pesees,
                     catalogue: local.exercices, entree: entree };

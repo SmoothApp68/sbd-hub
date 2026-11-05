@@ -1871,14 +1871,21 @@
     }
     // Le meilleur de l'exercice : la plus lourde charge de travail de l'historique ET des séries déjà validées du jour
     // (une charge confirmée plus tôt dans la séance n'est plus une surprise).
-    function meilleurDeLExercice(historique, deLaSeance) {
+    // 245 (D-Q1) — `recordLourd` : la charge la plus lourde du PÉRIMÈTRE DE LA MÉDAILLE (`Modele.recordsDeLExercice(...).lourde` : douze
+    // mois pour un matériel de salle, hors barres comprises), quand l'appelant la donne ; la question « hausse » et celle du record
+    // parlent alors du même meilleur que la médaille, plus d'un meilleur « de toute la vie » que la médaille ne montre pas.
+    function meilleurDeLExercice(historique, deLaSeance, recordLourd) {
       var meilleur = null;
-      (historique || []).forEach(function (g) {
-        seriesDeReference(g && g.series).forEach(function (x) {
-          var kg = Number(x.charge_kg);
-          if (meilleur === null || kg > meilleur) meilleur = kg;
+      if (recordLourd !== undefined) {
+        meilleur = recordLourd !== null && recordLourd > 0 ? Number(recordLourd) : null;
+      } else {
+        (historique || []).forEach(function (g) {
+          seriesDeReference(g && g.series).forEach(function (x) {
+            var kg = Number(x.charge_kg);
+            if (meilleur === null || kg > meilleur) meilleur = kg;
+          });
         });
-      });
+      }
       seriesDeReference(deLaSeance).forEach(function (x) {
         var kg = Number(x.charge_kg);
         if (meilleur === null || kg > meilleur) meilleur = kg;
@@ -1936,7 +1943,7 @@
       if (!aSesHabitudes) return null;
 
       var haltere = s.equipement === 'haltere';
-      var meilleur = meilleurDeLExercice(historique, c.seance);
+      var meilleur = meilleurDeLExercice(historique, c.seance, c.recordLourd);
       var habitude = habitudeDeLExercice(historique);
 
       if (charge !== null && charge > 0) {
@@ -1999,7 +2006,7 @@
       if (!Modele.estTravail({ type_serie: s.type, reps: reps })) return null;
       var historique = c.historique || [];
       if (seancesFaites(historique) < SEUIL_SEANCES_VRAISEMBLANCE) return null;
-      var meilleur = meilleurDeLExercice(historique, c.seance);
+      var meilleur = meilleurDeLExercice(historique, c.seance, c.recordLourd);
       if (meilleur === null) return null;
       var haltere = s.equipement === 'haltere';
       if (!(charge > meilleur * (1 + RECORD_ECART_RELATIF) + EPSILON && charge - meilleur > (haltere ? HAUSSE_ABSOLUE_HALTERE_KG : HAUSSE_ABSOLUE_KG) + EPSILON)) return null;

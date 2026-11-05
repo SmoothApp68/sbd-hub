@@ -573,6 +573,8 @@ collision, plutôt que de les renuméroter en place.
 | `muscles_stabilisateurs` | text[] NOT NULL DEFAULT `'{}'` | **pondération 0,25** (`v2_069`, REGLE-VOLUME §1 bis) |
 | `coef_pdc`, `masse_depart_kg`, `masse_depart_reglable` | | poids de corps et masse machine |
 | `compte_tonnage` | boolean NOT NULL | `false` par défaut |
+
+> **245 (D-C1, 05/11/2026) — les fonctions sociales comptent les séries par `serie_de_travail(type, reps, hors_calcul)`**, le miroir en base d'`estTravail` (`THModele.estTravail` : ni chauffe, ni dégressive, ni tentative à 0 rep, ni série « Non, ne compte pas »). Le filtre `coalesce(type_serie,'travail') = 'travail'` de `migrations-proposees/v2_082_groupe.sql` est périmé : la base fait foi (le fichier le dit en commentaire).
 | `equipement` | text | signature de parc, pas de lieu |
 | `actif` | boolean NOT NULL | |
 | `proprietaire` | uuid | NULL = catalogue partagé ; sinon exercice personnel, effacé avec le compte |

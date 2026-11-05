@@ -28781,6 +28781,18 @@ const SETS_IMPORTES = [
       await page.click('#btn-fermer-feuille'); await attendre(600);
     });
     ok('[ED245] D-S3 — une série qui compte n’offre pas « Compter cette série »', boutonAbsent245 === true, nb245(boutonAbsent245));
+    // (5) D-S3, le chemin « Non » : une série marquée « Non, ne compte pas » dont on CORRIGE la charge recompte (la réponse parlait de la
+    // série telle qu'elle était). Une correction qui ne change que la note la laisserait hors calcul : seule une vraie charge change la marque.
+    base.sets.filter((x) => x.exercise_slug === 'ed245-sq' && x.session_id.indexOf('ed245-h') < 0).forEach((x) => { x.hors_calcul = true; });
+    const chargeAvant245 = horsDe245().charge_kg;
+    await editer245(async () => {
+      const champs = await champsDe(0, 'charge_kg');
+      await champs[0].fill(String(Number(chargeAvant245) + 5));
+      await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    });
+    await jusqua(async () => horsDe245().hors_calcul === false, 10000, 'recompteED245');
+    ok('[ED245] DISCRIMINANT D-S3 — « Non, ne compte pas » puis la charge corrigée (' + chargeAvant245 + ' → ' + (Number(chargeAvant245) + 5) + ') : la série recompte (hors_calcul = false en base)',
+      horsDe245().hors_calcul === false && Number(horsDe245().charge_kg) === Number(chargeAvant245) + 5, nb245([horsDe245().hors_calcul, horsDe245().charge_kg]));
     ok('[ED245] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
       nb245([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));

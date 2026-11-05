@@ -41,9 +41,20 @@
       { cle: 'mentions', titre: 'Mentions légales', blocs: mentions },
       { cle: 'confidentialite', titre: 'Confidentialité', blocs: [
         { titre: 'Ce qui est enregistré',
-          texte: 'Ton compte, tes séances et leurs séries, tes routines, tes réponses au questionnaire, tes pesées si tu en notes, tes marques de douleur « J’ai mal », tes zones à ménager, et tes relations dans le jeu et la guilde.' },
+          texte: 'Ton compte, tes séances et leurs séries, tes routines, tes réponses au questionnaire, tes pesées si tu en notes, tes marques de douleur « J’ai mal », tes zones à ménager, tes notes d’exercice et de séance, et tes relations dans le jeu et la guilde.' },
         { titre: 'Pourquoi', texte: 'Pour faire fonctionner le coach : sans ton historique, il ne peut rien t’expliquer.' },
-        { titre: 'Où', texte: 'Dans l’Union européenne (Irlande).' },
+        { titre: 'Où', texte: 'Dans l’Union européenne (Irlande), sauf les textes envoyés à l’IA (ci-dessous).' },
+        // 250 — l'IA (Demander au coach, Lire mes notes). Hors garde de voix : texte légal, comme le reste du fichier.
+        // Sources relues le 05/11/2026 : conditions commerciales d'Anthropic (« Anthropic may not train models on Customer Content
+        // from Services »), son DPA (clauses contractuelles types de la Commission européenne, modules 2 et 3), son centre de
+        // confidentialité (suppression « within 30 days » ; jusqu'à « 2 years » si un contrôle de sécurité signale l'échange).
+        { titre: 'L’IA : ce qui part',
+          texte: 'Demander au coach : ta question et la consigne dont tu parles. Lire mes notes : le texte des notes qui contiennent un mot d’entraînement, coupé à 500 signes, sans lien, sans @pseudo ni date, avec le nom de l’exercice et les chiffres de ses séries. Une douleur ne part jamais : elle reste sur ton téléphone.' },
+        { titre: 'L’IA : à qui', texte: 'À Anthropic (Claude), aux États-Unis, qui agit comme sous-traitant, avec les clauses contractuelles types de la Commission européenne.' },
+        { titre: 'L’IA : combien de temps',
+          texte: 'Demander au coach : tes questions sont gardées 30 jours chez TrainHub, sans ton nom. Lire mes notes : rien n’est gardé chez TrainHub. Anthropic efface les textes sous 30 jours, et jusqu’à 2 ans si un contrôle de sécurité les signale.' },
+        { titre: 'L’IA : jamais pour entraîner', texte: 'Anthropic ne s’en sert pas pour entraîner ses modèles.' },
+        { titre: 'L’IA : sur quelle base', texte: 'Ton accord, que tu donnes d’un toucher et que tu retires dans Profil › Mon coach › Lire mes notes.' },
         { titre: 'Qui le voit', texte: 'Toi. Tes amis et ta guilde voient seulement ce que tu partages.' },
         { titre: 'Revente et publicité', texte: 'Aucune revente de tes données, aucune publicité.' },
         { titre: 'Tes droits',

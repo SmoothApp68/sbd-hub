@@ -289,6 +289,23 @@ describe('250 · les phrases (fixes)', () => {
     expect(N.ligne(P({ cle: 'k', genre: 'douleur', nom: 'Curl marteau', partie: 'coude', extrait: 'mal au coude gauche' }), F).propose)
       .toBe('→ je propose : douleur au coude, sur Curl marteau.');
   });
+  test('250 · la voix : les phrases passent les motifs de fixtures/voix-regles-181.json (compliment, jargon, assiduité, ordre, « vous », point décimal, comparaison, science)', () => {
+    const REGLES = require('./fixtures/voix-regles-181.json').interdits;
+    const lettre = '[\\wÀ-ÿ]';
+    const re = (i) => new RegExp(REGLES[i].motif.replace(/^\\b/, '(?<!' + lettre + ')').replace(/\\b$/, '(?!' + lettre + ')').replace(/\\w\*/g, lettre + '*'), REGLES[i].drapeaux);
+    const motifs = [2, 3, 5, 6, 7, 8, 13, 14].map(re).concat([/palier/i, /le moteur/i]);
+    const ctx = { faites: [0, 1, 2] };
+    const P2 = (o) => Object.assign({ cle: 'k', iExo: 0, nom: 'Squat', extrait: 'rpe 9', rangs: [2], valeur: 'reste_1' }, o);
+    const props = [P2({ genre: 'effort' }), P2({ genre: 'effort', valeur: 'reste_0' }), P2({ genre: 'effort', rangs: [1, 2], valeur: 'reste_2' }),
+      P2({ genre: 'effort', rangs: [0, 1, 2], valeur: 'reste_3_plus' }), P2({ genre: 'type_serie', valeur: 'degressive', rangs: [1, 2] }),
+      P2({ genre: 'type_serie', valeur: 'echec' }), P2({ genre: 'reglage', nom: 'Presse', ancienne: 'dossier cran 4' }),
+      P2({ genre: 'douleur', nom: 'Curl marteau', partie: 'coude' }), P2({ genre: 'douleur', partie: null })];
+    const phrases = [];
+    props.forEach((p) => { const l = N.ligne(p, ctx); phrases.push(l.propose, l.accepter, l.refuser, l.fait, N.phrase(p, ctx)); });
+    phrases.push(N.TEXTES.titre, N.TEXTES.accordTitre, N.TEXTES.oui, N.TEXTES.non, N.TEXTES.annuler, N.TEXTES.reglage, N.TEXTES.reglageAide, N.TEXTES.plusTexte);
+    N.TEXTES.accord.forEach((l) => phrases.push(l.join('')));
+    phrases.forEach((t) => motifs.forEach((m) => { if (m.test(t)) throw new Error('voix : « ' + t + ' » déclenche ' + m); }));
+  });
   test('jamais un mot interdit', () => {
     const textes = [N.TEXTES.accordTitre].concat(N.TEXTES.accord.map((l) => l.join('')), [N.TEXTES.plusTexte, N.TEXTES.reglageAide]);
     textes.forEach((t) => expect(t).not.toMatch(/bravo|J.ai corrigé|Tu as mal/));

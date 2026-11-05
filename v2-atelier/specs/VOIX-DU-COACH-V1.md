@@ -50,6 +50,21 @@ rappel « c'est toi qui décides de ta charge » seulement si l'on demande de ch
 « Je ne réponds pas sur une douleur. Dis-le au coach avec « J'ai mal » : il adapte ta séance. » · « Je n'ai pas de réponse
 sûre : regarde la feuille Pourquoi. »
 
+## Les notes (250, 05/11/2026)
+
+Forme unique : **Ta note dit « <extrait> » → je propose : <proposition>.** Titre du bloc : *Dans tes notes*. L'extrait est toujours les mots exacts de la personne (fautes comprises), « … » au-delà de 60 signes. Jamais « J'ai corrigé », « Tu as mal », « bravo », un mot de gravité, du rouge.
+
+| Genre | Proposition | Après ✓ |
+|---|---|---|
+| effort, N ≥ 1 | Squat, dernière série, 1 en réserve. / Squat, séries 2 et 3, 2 en réserve. / Squat, toutes les séries, 3 en réserve ou plus. | 1 en réserve noté. *Annuler* |
+| effort, N = 0 | Squat, dernière série, sans marge. | Sans marge noté. *Annuler* |
+| dégressive | Extension triceps, séries 3 et 4 en dégressive. | Noté. *Annuler* |
+| échec | Squat, dernière série en échec. | Noté. *Annuler* |
+| réglage | ta note de la presse. / ta note de la presse, à la place de « dossier cran 4 ». | Noté. *Annuler* |
+| douleur | douleur au coude, sur Curl marteau. | Douleur notée : coude. *Annuler* |
+
+Une réserve de 0 se dit « sans marge », jamais « 0 en réserve ». Les phrases sont balayées par `tests/unit/v2-notes-ia.test.js` avec les motifs de `fixtures/voix-regles-181.json`.
+
 ## Ce qui reste à faire
 
 *Réécrit au présent le 05/11/2026 (243) : la refonte du plan unique est faite.* La garde `tests/unit/v2-voix.test.js` (règles de

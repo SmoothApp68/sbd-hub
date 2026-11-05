@@ -1177,7 +1177,7 @@
       var sortie = [];
       for (var i = 0; i < datees.length && sortie.length < n; i++) {
         var travail = Modele.trierParRang((c.seriesDe(datees[i].id) || []).filter(function (x) {
-          return x && x.exercise_slug === slug && Modele.estTravail(x) && x.hors_calcul !== true && Number(x.reps) > 0;
+          return x && x.exercise_slug === slug && Modele.estTravail(x) && !Modele.estHorsCalcul(x) && Number(x.reps) > 0;
         }));
         if (travail.length < 3) continue;
         travail = travail.map(function (x, k) { return { x: x, k: k }; }).sort(function (a, b) {

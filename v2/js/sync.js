@@ -358,7 +358,7 @@
   // `avant` : les séries de la séance telles qu'elles étaient ; `apres` :
   // telles qu'elles partent. Rend les identifiants des séries qui perdent
   // leurs lignes.
-  var CHAMPS_DU_RECORD = ['type_serie', 'charge_kg', 'reps', 'duree_s', 'distance_m'];
+  var CHAMPS_DU_RECORD = ['type_serie', 'charge_kg', 'reps', 'duree_s', 'distance_m', 'hors_calcul'];
   function distincts(a, b) {
     var va = (a === undefined || a === null) ? null : a;
     var vb = (b === undefined || b === null) ? null : b;
@@ -373,7 +373,11 @@
     (avant || []).forEach(function (s) {
       if (!s || !s.id) return;
       var n = parId[s.id];
-      if (!n || CHAMPS_DU_RECORD.some(function (c) { return distincts(s[c], n[c]); })) out.push(s.id);
+      if (!n || CHAMPS_DU_RECORD.some(function (c) {
+        // 245 (D-S2) — `hors_calcul` absent = `false` : seule une vraie bascule retire les lignes du journal.
+        if (c === 'hors_calcul') return (s[c] === true) !== (n[c] === true);
+        return distincts(s[c], n[c]);
+      })) out.push(s.id);
     });
     return out;
   }

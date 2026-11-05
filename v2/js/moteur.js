@@ -5936,7 +5936,7 @@
       // 185 (v2_116) — UNE SÉRIE « NON, NE COMPTE PAS » N'ENTRE PAS DANS LE CONTRAT : ni le palier, ni le niveau, ni les crans voisins
       // (`chargesDe`), ni le fondement d'une consigne, ni le compteur ne la voient. La séance qui la porte garde sa date (une
       // présence pour le rythme). Elle reste au journal et au détail : seul le calcul l'ignore.
-      var series = ((g && g.series) || []).filter(function (x) { return !(x && x.hors_calcul === true); });
+      var series = ((g && g.series) || []).filter(function (x) { return !Modele().estHorsCalcul(x); });
       var r = mesure === 'reps'
         ? Palier().analyserPoidsDuCorps(series)
         : Palier().analyser(series, etat, { mesure: mesure, charge: options && options.charge, cran: pasMaxDuMateriel(options && options.equipement) });

@@ -109,7 +109,10 @@ describe('la copie locale, à l’image de la base', () => {
     // `IS DISTINCT FROM` : null et undefined sont la même absence, 100 et '100' le même nombre.
     expect(Sync.seriesQuiEffacent([{ id: 'x', charge_kg: 100, reps: null }],
       [{ id: 'x', charge_kg: '100', reps: undefined, duree_s: null }])).toEqual([]);
-    expect(Sync.CHAMPS_DU_RECORD).toEqual(['type_serie', 'charge_kg', 'reps', 'duree_s', 'distance_m']);
+    expect(Sync.CHAMPS_DU_RECORD).toEqual(['type_serie', 'charge_kg', 'reps', 'duree_s', 'distance_m', 'hors_calcul']);
+    // 245 (D-S2) — la bascule `hors_calcul` retire les lignes ; absent et `false` sont la même absence.
+    expect(Sync.seriesQuiEffacent([{ id: 'x', charge_kg: 100, reps: 5 }], [{ id: 'x', charge_kg: 100, reps: 5, hors_calcul: true }])).toEqual(['x']);
+    expect(Sync.seriesQuiEffacent([{ id: 'x', charge_kg: 100, reps: 5 }], [{ id: 'x', charge_kg: 100, reps: 5, hors_calcul: false }])).toEqual([]);
     const j = [ligne('a', 'charge_max'), ligne('b', 'cap'), ligne('d', 'volume_seance')];
     expect(Sync.retirerDuJournal(j, ['a', 'd']).map((l) => l.set_id)).toEqual(['b']);
   });

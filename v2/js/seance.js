@@ -1275,6 +1275,11 @@
     if ('etages' in champs) c.etages = enPlusBorne('etages', champs.etages);
     // 132 — le nom de l'élastique : un texte non vide (une liste de Ma salle le donne), sinon rien.
     if ('elastique' in champs) c.elastique = typeof champs.elastique === 'string' && champs.elastique ? champs.elastique : null;
+    // 245 (D-S3) — « Non, ne compte pas » parle de CETTE série telle qu'elle était : si la charge ou les reps changent vraiment, la
+    // réponse ne tient plus (une faute de frappe corrigée est de nouveau une série qui compte). Le menu ⋯ la rend aussi à la main.
+    var avant = seance && seance.exercices && seance.exercices[iExo] && seance.exercices[iExo].series ? seance.exercices[iExo].series[iSerie] : null;
+    if (avant && avant.hors_calcul === true &&
+        (('charge_kg' in c && c.charge_kg !== avant.charge_kg) || ('reps' in c && c.reps !== avant.reps))) c.hors_calcul = false;
     return avecSerie(seance, iExo, iSerie, c);
   }
 
@@ -2268,7 +2273,7 @@
   // (« Annuler ») — `{ slug }` ; le fait que `faits.chauffesAjoutees` relit. 237-bis : `chauffes_silence` (le 2e « Non merci » met l'exercice en silence,
   // dit une fois) et `chauffes_silence_annule` (« Annuler » retire ce refus).
   var GESTES_CHAUFFES = ['chauffes_ajoutees', 'chauffes_auto', 'chauffes_annulees', 'chauffes_silence', 'chauffes_silence_annule'];
-  var GESTES = ['raccourci', 'machine_prise', 'remplacement', 'ajout_serie', 'retrait'].concat(GESTES_DU_COACH, GESTES_CHAUFFES);
+  var GESTES = ['raccourci', 'machine_prise', 'remplacement', 'ajout_serie', 'retrait', 'serie_comptee'].concat(GESTES_DU_COACH, GESTES_CHAUFFES);
   function gestePropre(g) {
     if (!g || typeof g !== 'object' || GESTES.indexOf(g.geste) < 0) return null;
     var o = { geste: g.geste };

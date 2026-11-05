@@ -19492,6 +19492,29 @@ const SETS_IMPORTES = [
     await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     ok('[social-2] le retour d’une sous-page ramène à son profil (« ← jordan » → /a/jordan, « ← Fil »)',
       (await chemin()) === '/a/jordan' && (await lire()).retour === '← Retour', await chemin());
+    // 244 — LA FIN DE L'ENTRÉE NE RECRÉE PAS LE PROFIL D'UNE PERSONNE DÉJÀ LU (l'intermittent « Se comparer » du
+    // séquentiel : `moiCourbe: 0`, `btnExo: true` ; diagnostic GROUPE-2026-11-05, « Suite »). La lecture du journal des
+    // records (la dernière lecture de la synchronisation de l'entrée) est retenue : l'app rechargée sur son exercice,
+    // j'ouvre « Se comparer » ; la lecture répond, l'entrée finit (« À jour ») — la comparaison reste. Sans la garde :
+    // `rendreRoute` → `rendreAmi` recrée l'écran, la comparaison se referme.
+    base.lentesServies = [];
+    base.lenteurRecords = 6000;
+    await aller('/a/jordan/exercice/squat-barre');
+    await attendreQue(async () => !!(await lire()).charge);
+    await page.click('#social-comparer-exo');
+    await attendreQue(async () => (await lire()).moiCourbe > 0);
+    const compareOuvertA = Date.now();
+    await attendreQue(async () => base.lentesServies.length > 0);
+    await attendreQue(async () => page.evaluate(() => document.getElementById('etat-sync').classList.contains('a-jour')));
+    await reseauCalme();
+    const c2 = await lire();
+    ok('[social-2 244] prémisse — la dernière lecture de la synchronisation de l’entrée a répondu APRÈS l’ouverture de « Se comparer »',
+      base.lentesServies.length === 1 && base.lentesServies[0] > compareOuvertA, JSON.stringify({ compareOuvertA, servies: base.lentesServies }));
+    ok('[social-2 244] DISCRIMINANT — la fin de l’entrée (« À jour ») ne referme pas « Se comparer » ouvert pendant la synchronisation',
+      c2.moiCourbe === 1 && !c2.btnExo && (await chemin()) === '/a/jordan/exercice/squat-barre', JSON.stringify(c2));
+    await page.click('#btn-retour-ami');
+    await attendreQue(async () => (await lire()).exos.length > 0);
+    await reseauCalme();
 
     // ── D. SE COMPARER SUR LA PÉRIODE.
     await page.click('#social-comparer');

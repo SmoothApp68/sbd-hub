@@ -47,7 +47,9 @@ function bac() {
     CLE_CONSIGNES: 'consignes', CLE_BROUILLON: 'brouillon-routine',
     // 71 — le récap de fin de séance est protégé comme les écrans d'édition.
     // 244 — la vue du groupe aussi (`ecranTenu`, la garde unique de fin d'entrée).
-    vues: { detail: vue, routine: vue, seance: vue, questionnaire: vue, recap: vue, groupe: vue },
+    vues: { detail: vue, routine: vue, seance: vue, questionnaire: vue, recap: vue, groupe: vue, ami: vue },
+    // 244 — le profil d'une personne, une fois lu.
+    social: { ami: null },
     Seance: { verifierColonnes: () => {} },
     Routeur: { analyser: () => ({ vue: 'liste', params: {} }), interditAvecSession: () => false, estVueDuJeu: () => false,
                RACINE: 'liste', PROFIL: 'profil' },
@@ -162,6 +164,22 @@ describe('la ré-entrée du même utilisateur', () => {
     // la fin de la synchronisation ne repeint pas non plus.
     await b.entrer(b.session('u2'));
     expect(b.journal.rendus).toBe(rendus);
+  });
+
+  test('⚠️ 244 — le profil d’une personne, LU, n’est pas recréé par la fin d’une entrée ; pas encore lu, il est relu', async () => {
+    const b = bac();
+    await b.entrer(b.session('u1'));
+    b.ctx.vues.ami = { hidden: false };
+    const rendus = b.journal.rendus;
+    // En chargement (ou en erreur) : la fin de l'entrée le relit, comme avant.
+    b.ctx.social.ami = { etat: 'charge', pseudo: 'jordan' };
+    await b.entrer(b.session('u1'));
+    expect(b.journal.rendus).toBe(rendus + 1);
+    // Lu (« Se comparer » ouvert, une phrase de refus vue) : ni la ré-entrée ni la fin d'une entrée complète ne le recréent.
+    b.ctx.social.ami = { etat: 'ok', pseudo: 'jordan', sous: 'exercice', compare: true };
+    await b.entrer(b.session('u1'));
+    await b.entrer(b.session('u2'));
+    expect(b.journal.rendus).toBe(rendus + 1);
   });
 });
 

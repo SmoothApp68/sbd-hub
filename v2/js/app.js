@@ -15663,9 +15663,12 @@
   // 71 — le récap de fin de séance (« Terminer » pendant une synchronisation l'ouvrait, la fin le remplaçait par la saisie).
   // 244 — la vue du groupe aussi (plein écran, SANS route) : « Inviter » ou le récap du groupe ouverts pendant la fin
   // de la première synchronisation, `rendreRoute('/saisie')` la remplaçait par la séance, « ← Retour » compris.
+  // 244 — le profil d'une personne, une fois LU (`social.ami.etat === 'ok'`) : il se lit au réseau, pas dans ce que la
+  // synchronisation vient d'écrire ; le re-rendre le recréait — « Se comparer » ouvert se refermait, la phrase d'un
+  // refus déjà vue s'oubliait. Pas encore lu (en chargement, en erreur) : la fin de l'entrée le relit, comme avant.
   function ecranTenu() {
     return !vues.detail.hidden || !vues.routine.hidden || !vues.seance.hidden || !vues.questionnaire.hidden ||
-      !vues.recap.hidden || !vues.groupe.hidden;
+      !vues.recap.hidden || !vues.groupe.hidden || (!vues.ami.hidden && !!social.ami && social.ami.etat === 'ok');
   }
 
   async function entrerVraiment(session) {

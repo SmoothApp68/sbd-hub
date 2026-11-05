@@ -35,11 +35,24 @@
  {
   "nom": "244-groupe-garde-retiree",
   "fichier": "v2/js/app.js",
-  "ancien": "      !vues.recap.hidden || !vues.groupe.hidden;",
-  "nouveau": "      !vues.recap.hidden;",
+  "ancien": "      !vues.recap.hidden || !vues.groupe.hidden || (!vues.ami.hidden",
+  "nouveau": "      !vues.recap.hidden || (!vues.ami.hidden",
   "banc": "seance",
   "sections": [
    "groupe"
+  ],
+  "unitaires": [
+   "tests/unit/v2-reentree.test.js"
+  ]
+ },
+ {
+  "nom": "244-ami-garde-retiree",
+  "fichier": "v2/js/app.js",
+  "ancien": " || (!vues.ami.hidden && !!social.ami && social.ami.etat === 'ok');",
+  "nouveau": ";",
+  "banc": "seance",
+  "sections": [
+   "social-2"
   ],
   "unitaires": [
    "tests/unit/v2-reentree.test.js"

@@ -15593,7 +15593,7 @@
   // 245 (C8 / D-P1, D-P2 ; MOTEUR §9.11) — UNE CORRECTION REFAIT L'OBSERVATION, JAMAIS LE PARI. Pour chaque série que la
   // correction change sur un champ qui compte (`Sync.seriesQuiEffacent`, la liste des records), les paris de consigne qui
   // l'observaient sont réobservés sur la série corrigée (tenu, raté, ou observation vidée si elle ne remplit plus le pari), et
-  // les paris d'objectif suivent (observation vide si l'objectif n'est plus atteint). Ne tourne qu'à l'enregistrement d'une
+  // les paris d'objectif suivent (observation vidée seulement si l'objectif n'est plus atteint ET que la série qui l'observait, `set_observe`, fait partie des séries changées). Ne tourne qu'à l'enregistrement d'une
   // Édition : la validation d'une série en séance ne passe pas ici. Une correction qui ne change que la note : rien.
   async function reobserverLesParisCorriges(s, avant) {
     var changees = Sync.seriesQuiEffacent(avant, Seance.lignes(s));

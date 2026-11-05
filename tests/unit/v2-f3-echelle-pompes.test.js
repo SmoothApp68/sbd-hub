@@ -68,7 +68,7 @@ describe('245 F3 (a) — seul le COUDE écarte une marche, et seulement le motif
       expect(Mo.marcheSuivante(idx, 'tractions_assistees', { ecartee: ecartee([z]) }).cible).toEqual(['tractions']);
     });
   });
-  test('coude à ménager : un exercice hors du motif triceps (un curl) n’écarte pas de marche', () => {
+  test('coude à ménager : pompes (hors du motif triceps) : aucune marche n’est écartée', () => {
     expect(ecartee(['coude'])('pompes')).toBe(false);
   });
 });

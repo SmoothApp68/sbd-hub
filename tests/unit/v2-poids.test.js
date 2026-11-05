@@ -265,7 +265,7 @@ describe('tendance — des semaines lundi-dimanche, chacune à ≥ 2 pesées, 4 
   test('P1 — la semaine en cours à 1 pesée est ignorée ; à 2 pesées elle compte', () => {
     const base = serie([1, 2, 3, 4], 2, lin(-0.5));
     expect(Poids.tendanceDuPoids(base.concat(semaine(0, 1, lin(-0.5))), AUJ).semaines).toBe(4);
-    expect(Poids.tendanceDuPoids(base.concat(semaine(0, 2, lin(-0.5))).filter((p) => p.date <= AUJ || true), new Date(2026, 10, 15, 22, 0)).semaines).toBe(5);
+    expect(Poids.tendanceDuPoids(base.concat(semaine(0, 2, lin(-0.5))), new Date(2026, 10, 15, 22, 0)).semaines).toBe(5);
   });
   test('P1 — plafond de 12 semaines', () => {
     const ks = []; for (let k = 1; k <= 20; k++) ks.push(k);

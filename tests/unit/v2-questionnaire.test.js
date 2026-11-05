@@ -544,21 +544,21 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
     const commence = vue('anciennete', { rep: Q.appliquerChoix(Q.reponsesInitiales({}, {}), 'depuis', 'commence') });
     expect(blocs(commence, 'options')).toEqual([]);
     expect(commence.bouton).toEqual({ libelle: 'Continuer', actif: true });
-    // Une fourchette : la question des séances, avec ses sous-lignes et « Dans mes notes » désactivé (« Bientôt »).
+    // Une fourchette : la question des séances, avec ses sous-lignes ; « Dans mes notes » est retiré (243, 05/11/2026), rien de désactivé ni de « Bientôt ».
     const depuis = vue('anciennete', { rep: Q.appliquerChoix(Q.reponsesInitiales({}, {}), 'depuis', '1_a_3_ans') });
     const q = blocs(depuis, 'options')[0];
     expect(q.titre).toBe('Tes séances sont notées quelque part ?');
     expect(q.options.map((o) => [o.libelle, o.desactive === true, o.pastille || null])).toEqual([
-      ['Oui, dans Hevy ou Strong', false, null], ['Dans mes notes', true, 'Bientôt'], ['Non', false, null]]);
+      ['Oui, dans Hevy ou Strong', false, null], ['Non', false, null]]);
     expect(q.options[0].sous).toBe('J’importe ton fichier ici : je connaîtrai tes charges dès la première séance.');
     expect(depuis.bouton.actif).toBe(false);
   });
-  test('187 (A2) — « Oui, dans Hevy ou Strong » : le bouton devient « Importer mon fichier » ; « Dans mes notes » n’est pas une réponse', () => {
+  test('187 (A2) — « Oui, dans Hevy ou Strong » : le bouton devient « Importer mon fichier » ; une autre valeur (l’ancien « Dans mes notes ») n’est pas une réponse', () => {
     const r0 = Q.appliquerChoix(Q.reponsesInitiales({}, {}), 'depuis', '3_a_5_ans');
     const hevy = vue('anciennete', { rep: Q.appliquerChoix(r0, 'notees', 'import') });
     expect(hevy.bouton).toEqual({ libelle: 'Importer mon fichier', actif: true });
     expect(vue('anciennete', { rep: Q.appliquerChoix(r0, 'notees', 'non') }).bouton).toEqual({ libelle: 'Continuer', actif: true });
-    // DISCRIMINANT — « Dans mes notes » n'est pas un choix du code : la valeur 'notes' n'allume rien ni n'écrit rien.
+    // DISCRIMINANT — l'ancien « Dans mes notes » n'est plus un choix du code : la valeur 'notes' n'allume rien ni n'écrit rien.
     expect(Q.ecranPret('anciennete', Q.appliquerChoix(r0, 'notees', 'notes'))).toBe(false);
     expect(Q.champsDeLEcran('anciennete', Q.appliquerChoix(r0, 'notees', 'notes'), {}, { maintenant: MAINTENANT }).champs.historique_declare)
       .toBeUndefined();

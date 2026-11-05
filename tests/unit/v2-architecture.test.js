@@ -605,6 +605,14 @@ const NOTIONS = [
       'compte les séries de travail que prévoit une routine (`deraille.js`). 113 : le pari au plafond de la salle s’observe ' +
       'sur les séries de travail des séances de l’exercice (`moteur.js`, `observationPlafond`). 109 : l’objectif ne lit que des séries de ' +
       'travail (ses records, la série qui l’atteint, `objectif.js`).' },
+  { notion: 'la série « Non, ne compte pas » (la marque hors_calcul)', pr: 'correctif 05/11/2026',
+    module: 'modele.js', fonction: 'estHorsCalcul', lecteurs: ['faits.js', 'seance.js', 'app.js', 'plan.js'],
+    motif: /Modele\s*\.\s*estHorsCalcul\s*\(/g,
+    interditAilleurs: { motif: /(?:\(|&&|\|\||!)\s*[\w.]+\.hors_calcul\s*===\s*true/,
+      sauf: { 'palier.js': 'module feuille chargé avant le modèle : `roleDuTag` lit la marque directement pour qu\'elle prime sur tout type (185), sans dépendre de `THModele`' },
+      raison: 'une lecture directe de `hors_calcul === true` : passer par `Modele.estHorsCalcul` (D-S1, 245)' },
+    raison: '185 : une série marquée « Non, ne compte pas » reste en base mais sort de tout calcul ; 245 (D-S1) : quatre lectures directes ' +
+      'dans `faits.js` (bilans de reps, cardio) recopiaient la définition — une seule lecture, ici.' },
   { notion: 'le compte des séries de travail (la règle du volume)', pr: 'PR 6',
     module: 'semaine.js', fonction: 'compteSeriesTravail', lecteurs: ['modele.js', 'seance.js', 'profil.js', 'routines.js', 'app.js', 'bilan.js', 'faits.js', 'bilans.js'],
     parAilleurs: { 'modele.js': ['resumerSeance', 'construireBlocs'], 'seance.js': ['compter'], 'bilan.js': ['bilanDuMois'],

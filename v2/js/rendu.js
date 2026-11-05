@@ -2138,7 +2138,8 @@
     var phase = el('div', 'carte-mois pc-phase');
     phase.appendChild(el('div', null, vue.phase));
     if (vue.noteDePhase) phase.appendChild(el('p', 'pc-note', vue.noteDePhase));   // 189 : « Tes séries reviennent à ta routine. »
-    phase.appendChild(el('p', 'pc-note', vue.pesees.assez
+    // 246 : la tendance existe → sa phrase (`THPoids.phraseDeTendance`, lue par l'app) ; sinon les deux invitations.
+    phase.appendChild(el('p', 'pc-note', vue.pesees.tendance ? vue.pesees.tendance : vue.pesees.assez
       ? vue.pesees.nombre + ' pesées en huit semaines.'
       : 'Pas assez de pesées : ' + vue.pesees.nombre + ' en huit semaines. Une par semaine suffit.'));
     cible.appendChild(phase);

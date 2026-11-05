@@ -73,6 +73,7 @@ const SHELL = [
   './js/seance.js',
   './js/reserve.js',
   './js/assistant.js',
+  './js/notes-ia.js',
   './js/deraille.js',
   './js/equilibres.js',
   './js/objectif.js',

@@ -781,7 +781,7 @@ const NOTIONS = [
     raison: 'MOTEUR §9.20 : une seule série marquée rend la séance-exercice douloureuse ; le contrat ' +
       'le lit une fois, et `sansPalierRetenues` en fait une séance neutre.' },
   { notion: 'l’occurrence marquée « douleur » en séance (sans coach, I33)', pr: '51-U3',
-    module: 'seance.js', fonction: 'occurrenceDouloureuse', lecteurs: ['plan.js'],
+    module: 'seance.js', fonction: 'occurrenceDouloureuse', lecteurs: ['plan.js', 'notes-ia.js', 'app.js'],
     par: ['lignes'],
     parAilleurs: { 'plan.js': ['planDeSeance'] },
     raison: 'le plan (sans coach), l’envoi (`sets.douleur` sur chaque série) et l’écran lisent la même ' +
@@ -2012,6 +2012,13 @@ const NOTIONS = [
   { notion: 'la note affichée d’un exercice (épinglée, de la dernière fois, ou masquée)', pr: '242-U1',
     module: 'faits.js', fonction: 'noteDeLExercice', lecteurs: ['app.js'],
     raison: 'l’écran lit `profiles.notes_exercices` et le fait de la dernière fois par UNE fonction : la note épinglée prime, « Ne plus afficher » masque la série désignée.' },
+  // 250 — L9 « Lire mes notes » : un module pur, lu par app.js seulement ; la règle « identique à la consigne » reste UNE fonction de faits.js.
+  { notion: 'la règle « une note identique à la consigne de la routine n’est pas une note »', pr: 'correctif 05/11/2026',
+    module: 'faits.js', fonction: 'estUneNote', lecteurs: ['app.js'],
+    raison: '250 : la note de la dernière fois (242) et la lecture des notes par l’IA (L9) lisent la même règle ; aucune copie.' },
+  { notion: 'les candidates de « Lire mes notes » (ce qui peut partir, ce qui reste sur le téléphone)', pr: 'correctif 05/11/2026',
+    module: 'notes-ia.js', fonction: 'candidates', lecteurs: ['app.js'],
+    raison: '250 : le pré-filtre est UNE fonction pure ; l’écran et la lecture le lisent, aucun ne le refait. Elle ne décide rien : l’IA non plus.' },
   { notion: 'le poids à une date (la dernière pesée ≤ ce jour, d’au plus N jours, jamais interpolée)', pr: '246-U1',
     module: 'poids.js', fonction: 'poidsALaDate', lecteurs: ['app.js'],
     par: ['rapportAuPoids'],
@@ -2580,7 +2587,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/periode.js');
     require('../../v2/js/parcours.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(53);   // 242 : + noteDeLaDerniereFois, noteDeLExercice ; 245-6 : + premierEssaiRate
+    expect(FAITS.length).toBe(54);   // 250 : + estUneNote ; 242 : + noteDeLaDerniereFois, noteDeLExercice ; 245-6 : + premierEssaiRate
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 

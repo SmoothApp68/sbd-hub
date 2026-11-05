@@ -251,6 +251,78 @@
     return null;
   }
 
+  // ── 246 · LA TENDANCE (un fait, dit une fois) ───────────────────────────────
+  //
+  // Semaines civiles LUNDI-DIMANCHE, jour local (le même jour que `normaliser`). On remonte depuis la semaine en
+  // cours — qui ne compte que si elle a déjà ≥ 2 pesées, sinon on part de la dernière semaine complète — tant que
+  // chaque semaine a ≥ 2 pesées : au moins 4 semaines, au plus 12, sinon `null` (aucun point inventé). La pente est
+  // celle des MOINDRES CARRÉS sur toutes les pesées de ces semaines (x = jours depuis la première, y = kg), en
+  // kg par semaine ; `erreur` est l'erreur-type de cette pente (s / √Σ(x − x̄)², n − 2 degrés, × 7) : avec ±1 kg de
+  // bruit d'un matin à l'autre, 8 pesées sur 4 semaines ne donnent la pente qu'à ±0,3 kg/semaine près.
+  var TENDANCE_MIN = 4, TENDANCE_MAX = 12, PESEES_PAR_SEMAINE = 2;
+  function numeroDeLundi(d) {
+    var jourSemaine = (d.getDay() + 6) % 7;                   // lundi = 0
+    return Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate() - jourSemaine) / 864e5);
+  }
+  function tendance(lignes, aujourdhui) {
+    var liste = normaliser(lignes);
+    var ref = aujourdhui instanceof Date ? aujourdhui : (depuisJour(aujourdhui) || new Date());
+    if (isNaN(ref.getTime())) return null;
+    var courante = numeroDeLundi(ref);
+    var parSemaine = {};
+    liste.forEach(function (p) {
+      var w = (numeroDeLundi(p.date) - courante) / 7;           // 0 = cette semaine, −1 = la précédente…
+      if (w > 0) return;                                         // une pesée datée d'après aujourd'hui n'entre pas
+      (parSemaine[w] = parSemaine[w] || []).push(p);
+    });
+    var depart = (parSemaine[0] || []).length >= PESEES_PAR_SEMAINE ? 0 : -1;
+    var n = 0;
+    while (n < TENDANCE_MAX && (parSemaine[depart - n] || []).length >= PESEES_PAR_SEMAINE) n++;
+    if (n < TENDANCE_MIN) return null;
+    var pts = [];
+    for (var i = n - 1; i >= 0; i--) pts = pts.concat(parSemaine[depart - i]);
+    pts.sort(function (a, b) { return a.date - b.date; });
+    var u0 = Date.UTC(pts[0].date.getFullYear(), pts[0].date.getMonth(), pts[0].date.getDate());
+    var xs = pts.map(function (p) {
+      return Math.round((Date.UTC(p.date.getFullYear(), p.date.getMonth(), p.date.getDate()) - u0) / 864e5);
+    });
+    var m = pts.length, mx = 0, my = 0;
+    xs.forEach(function (x, k) { mx += x; my += pts[k].poids; });
+    mx /= m; my /= m;
+    var sxx = 0, sxy = 0;
+    xs.forEach(function (x, k) { sxx += (x - mx) * (x - mx); sxy += (x - mx) * (pts[k].poids - my); });
+    if (!(sxx > 0)) return null;
+    var pente = sxy / sxx, ssr = 0;
+    xs.forEach(function (x, k) {
+      var r = pts[k].poids - (my + pente * (x - mx));
+      ssr += r * r;
+    });
+    var s = m > 2 ? Math.sqrt(ssr / (m - 2)) : 0;
+    return { kgParSemaine: pente * 7, erreur: s / Math.sqrt(sxx) * 7, semaines: n, pesees: m };
+  }
+
+  // La seule phrase de la tendance. Un sens n'est dit que si |pente| ≥ 0,1 ET |pente| ≥ 2 × erreur ; « Stable » si la
+  // pente est petite ET bien mesurée ; sinon « Pas de sens net ». Un fait : ni jugement, ni invitation.
+  function kgFr(v) {
+    var M = racine.THModele;
+    return M.nombreSigne(M.nombreFixe(v, 1));
+  }
+  function phraseDeTendance(t) {
+    if (!t) return null;
+    var a = Math.abs(t.kgParSemaine), e = Number(t.erreur) || 0, E = 1e-9;
+    var fin = ' sur les ' + t.semaines + ' dernières semaines.';
+    if (a >= 0.1 - E && a >= 2 * e - E) {
+      return (t.kgParSemaine > 0 ? '+' : '') + kgFr(t.kgParSemaine) + ' kg par semaine en moyenne,' + fin;
+    }
+    if (a < 0.1 && 2 * e < 0.2) return 'Stable' + fin;
+    return 'Pas de sens net' + fin;
+  }
+  // La petite ligne de dessous : de quoi est faite la tendance.
+  function noteDeTendance(t) {
+    if (!t) return null;
+    return 'Calculée sur tes ' + t.pesees + ' pesées de ces ' + t.semaines + ' semaines.';
+  }
+
   // ── La pesée qu'on ÉCRIT (60-2a, QUESTIONNAIRE-COACH-V2 §3, écran « Toi ») ──
   //
   // Jusqu'ici une pesée ne se LISAIT que (Hevy, l'import) ; le questionnaire en
@@ -321,6 +393,9 @@
     rapportAuPoids: rapportAuPoids,
     poidsALaDate: poidsALaDate,
     poidsAutourDe: poidsAutourDe,
+    tendance: tendance,
+    phraseDeTendance: phraseDeTendance,
+    noteDeTendance: noteDeTendance,
     JOURS_ENCADRE: JOURS_ENCADRE,
     JOURS_PROCHE: JOURS_PROCHE,
     MARGE: MARGE,

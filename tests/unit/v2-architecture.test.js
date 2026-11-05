@@ -1997,7 +1997,14 @@ const NOTIONS = [
     module: 'poids.js', fonction: 'poidsALaDate', lecteurs: ['app.js'],
     par: ['rapportAuPoids'],
     raison: '246 : un seul « poids à une date » — le rapport au poids (14 j) et le score publié (90 j) le lisent ; ' +
-      'plus aucune lecture ad hoc de « la dernière pesée » pour un calcul.' }
+      'plus aucune lecture ad hoc de « la dernière pesée » pour un calcul.' },
+  { notion: 'la tendance du poids (moindres carrés sur 4 à 12 semaines à ≥ 2 pesées) et sa phrase', pr: '246-U3',
+    module: 'poids.js', fonction: 'tendance', lecteurs: ['app.js'],
+    raison: '246 : une seule tendance, sur toutes les pesées ; l’écran Poids et la note de la sèche la LISENT, ' +
+      'aucun écran ne la calcule. Elle ne sort jamais de l’appareil.' },
+  { notion: 'la phrase de la tendance du poids (un fait, ni jugement ni invitation)', pr: '246-U3',
+    module: 'poids.js', fonction: 'phraseDeTendance', lecteurs: ['app.js'],
+    raison: '246 : la seule phrase de la tendance ; « Pas de sens net » quand les pesées ne distinguent pas la pente du bruit.' }
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────

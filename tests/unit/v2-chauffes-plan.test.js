@@ -270,14 +270,24 @@ describe('§9.15.3 — la dégressive', () => {
     ok(p, e);
   });
 
+  test('I132 (245) : la dégressive hors barre est la charge disponible la plus proche de sa cible ; une autre est refusée', () => {
+    const se = seanceDe(MACHINE);
+    const e = entreesDe(se, MACHINE);
+    const p = T.planDeSeance(e);
+    expect(p.exercices[0].degressive.choix.dans).toEqual([45, 50]);   // cible 46,5 : 45 est le plus proche
+    ok(p, e);
+    p.exercices[0].degressive.charge = 50;                           // 50 est dans la fenêtre mais plus loin de la cible
+    expect(T.verifierPlan(p, e).erreurs.join('|')).toMatch(/I132/);
+  });
+
   test('la référence est la DERNIÈRE série de travail FAITE', () => {
     let se = seanceDe(MACHINE);
     se = valider(se, 0, 0, 60, 15);
     se = valider(se, 0, 1, 70, 12);
     const x = T.planDeSeance(entreesDe(se, MACHINE)).exercices[0];
-    // 70 × 0,775 = 54,25 → 50 au cran de 5 ; 12 reps → vise 5 à 7.
-    expect(x.degressive.charge).toBe(50);
-    expect(x.degressive.phrase).toBe('Dégressive : 50' + NB + 'kg, sans repos, jusqu\'à l\'échec. Vise 5 à 7.');
+    // 70 × 0,775 = 54,25 → 55 au cran de 5 (245 : le plus proche) ; 12 reps → vise 5 à 7.
+    expect(x.degressive.charge).toBe(55);
+    expect(x.degressive.phrase).toBe('Dégressive : 55' + NB + 'kg, sans repos, jusqu\'à l\'échec. Vise 5 à 7.');
   });
 
   test('sans consigne : la dégressive se cale sur la série de travail faite (cran de 2,5)', () => {

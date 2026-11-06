@@ -265,7 +265,10 @@ describe('§9.15.3 — la dégressive', () => {
     expect(d.role).toBe('hors');
     expect(d.fantome.charge).toBe(45);
     expect(x.degressive).toEqual({ iSerie: 2, apres: 1, reference: 60, charge: 45, repos: 0,
-      phrase: 'Dégressive : 45' + NB + 'kg, sans repos, jusqu\'à l\'échec. Vise 6 à 8.' });
+      phrase: 'Dégressive : 45' + NB + 'kg, sans repos, jusqu\'à l\'échec. Vise 6 à 8.',
+      // 259 — l'annonce de la série d'avant (la visée de la ligne est connue ici : 15).
+      annonce: x.degressive.annonce });
+    expect(x.degressive.annonce).toBe('Dernière série : 15 reps, puis baisse à 45' + NB + 'kg et continue.');
     expect(x.paris[2]).toBeNull();
     ok(p, e);
   });

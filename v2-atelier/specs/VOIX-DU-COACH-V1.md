@@ -33,7 +33,7 @@
 | Situation | Phrase |
 |---|---|
 | En-tête d'un exercice | garde-en 1 |
-| Question sous la dernière série de travail | Il t'en restait combien ? — 0 · 1 · 2 · 3 et + · Passer |
+| Question dans la barre de repos, après la dernière série de travail (259 : une seule fois ; la case « Effort » de la ligne répond aussi) | Il t’en restait combien ? — 0 · 1 · 2 · 3 ou + · Passer |
 | Réserve au-dessus de la visée (R ≥ V + 2) | 34 kg × 9, il t'en restait 3. Au-dessus de ce que je visais : la prochaine fois, on essaie 36 kg. |
 | Réserve sous la visée, à fond (R = 0 < V) | 130 kg × 5, sans marge. On garde 130 kg la prochaine fois. |
 | Réserve sous la visée (0 < R < V) | 130 kg × 5, avec 1 en réserve. On garde 130 kg la prochaine fois. |

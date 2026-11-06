@@ -4070,7 +4070,6 @@
 
   // 154 — les puces de l'effort visé (0 · 1 · 2 · 3 et + · Passer) ou la phrase d'après. `ef` : `{ cle, demande, phrase,
   // surChoix, surPasser }`. « Passer » n'écrit rien.
-  var PUCES_EFFORT = [['reste_0', '0'], ['reste_1', '1'], ['reste_2', '2'], ['reste_3_plus', '3 et +']];
   // 236 (MOTEUR §9.39) — LA RÉACTION APRÈS UN RATÉ, sous la série : la phrase du plan (jamais composée ici), puis les gestes d'un toucher
   // (44 px au moins). Tout s'ignore : sans toucher, rien ne change. Annoncée poliment aux lecteurs d'écran (`role="status"`).
   function reactionDeRate(rt, iExo, iSerie, vue) {
@@ -4135,28 +4134,12 @@
     return n;
   }
 
+  // 259 — LA QUESTION D'EFFORT N'A QU'UN POSTE : la barre de repos (`questionDuRepos`, avec « Passer »). Ici, sous la série, seule la phrase
+  // du coach qui suit la réponse ; on répond quand on veut par la case « Effort » de la ligne (la feuille d'effort).
   function effortViseDeSerie(ef) {
     var n = el('div', 'effort-vise');
     n.setAttribute('data-cle', String(ef.cle));
-    if (ef.demande) {
-      n.appendChild(el('span', 'effort-vise-q', 'Il t’en restait combien ?'));
-      var rang = el('span', 'effort-vise-b');
-      PUCES_EFFORT.forEach(function (r) {
-        var b = el('button', 'effort-puce', r[1]);
-        b.type = 'button';
-        b.setAttribute('data-ressenti', r[0]);
-        b.addEventListener('click', function () { ef.surChoix(r[0]); });
-        rang.appendChild(b);
-      });
-      var passer = el('button', 'effort-puce passer', 'Passer');
-      passer.type = 'button';
-      passer.setAttribute('data-passer', '1');
-      passer.addEventListener('click', function () { ef.surPasser(); });
-      rang.appendChild(passer);
-      n.appendChild(rang);
-    } else if (ef.phrase) {
-      n.appendChild(el('span', 'effort-vise-dit', ef.phrase));
-    }
+    if (ef.phrase) n.appendChild(el('span', 'effort-vise-dit', ef.phrase));
     return n;
   }
 
@@ -5044,6 +5027,12 @@
       b.addEventListener('click', function () { vue.surChoix(r[0]); });
       rang.appendChild(b);
     });
+    // 259 — « Passer » : la barre ne redemande pas cette série ; rien n'est écrit (jamais une réserve présumée).
+    var passer = el('button', 'passer', 'Passer');
+    passer.type = 'button';
+    passer.setAttribute('data-passer', '1');
+    passer.addEventListener('click', function () { if (typeof vue.surPasser === 'function') vue.surPasser(); });
+    rang.appendChild(passer);
     q.appendChild(rang);
     return q;
   }

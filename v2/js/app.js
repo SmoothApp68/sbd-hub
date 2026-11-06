@@ -5684,6 +5684,7 @@
     var s = seance && seance.exercices[iExo] && seance.exercices[iExo].series[iSerie];
     if (!s || !Seance.partEnBase(s)) return null;
     if ((s.rpe !== null && s.rpe !== undefined) || s.ressenti) return null;
+    if (effortPasse[s.id]) return null;
     return { iExo: iExo, iSerie: iSerie, id: s.id };
   }
 
@@ -5725,9 +5726,9 @@
     };
   }
 
-  // 154 (MOTEUR §9.26) — LES PUCES DE L'EFFORT VISÉ. Le plan dit sur quelle série (`x.effortVise.serie`), si elles se
-  // posent (`demande`) et la phrase d'après ; l'écran n'ajoute que « Passer », qui ne se retient que pour la session
-  // et n'écrit RIEN (jamais une réserve présumée).
+  // 154 (MOTEUR §9.26) — LA PHRASE DE L'EFFORT VISÉ sous la dernière série de travail, une fois la réponse donnée. Le plan dit sur
+  // quelle série (`x.effortVise.serie`) et la phrase. 259 : « Passer » de la barre de repos ne se retient que pour la session
+  // (`effortPasse`) et n'écrit RIEN (jamais une réserve présumée).
   var effortPasse = {};
   function effortViseSurLigne(iExo, iSerie) {
     var x = planDeLExercice(iExo);
@@ -5735,13 +5736,9 @@
     if (!e || e.serie !== iSerie) return null;
     var s = seance && seance.exercices[iExo] && seance.exercices[iExo].series[iSerie];
     if (!s || !Seance.partEnBase(s)) return null;
-    var demande = e.demande && !effortPasse[s.id];
-    if (!demande && !e.phrase) return null;
-    return {
-      cle: s.id, demande: demande, phrase: e.phrase,
-      surChoix: function (ressenti) { noterEffort(iExo, iSerie, { ressenti: ressenti }); },
-      surPasser: async function () { effortPasse[s.id] = true; await apresGeste(); rendreChrono(); }
-    };
+    // 259 — plus de puces posées d'office sous la série : la question vit dans la barre de repos (`vueDeLaQuestion`).
+    if (!e.phrase) return null;
+    return { cle: s.id, phrase: e.phrase };
   }
 
   // Ce que la carte de repos montre de la question : la série telle qu'elle est À CET INSTANT (le bouton choisi
@@ -5755,7 +5752,9 @@
       cle: q.id,
       serie: Modele.serieFaite(s.charge_kg, s.reps),
       choisi: s.ressenti || null,
-      surChoix: function (ressenti) { noterEffort(q.iExo, q.iSerie, { ressenti: ressenti }); }
+      surChoix: function (ressenti) { noterEffort(q.iExo, q.iSerie, { ressenti: ressenti }); },
+      // 259 — « Passer » : plus de question pour cette série (session), rien d'écrit.
+      surPasser: function () { effortPasse[q.id] = true; if (chrono) chrono.question = null; rendreChrono(); }
     };
   }
 
@@ -10378,6 +10377,12 @@
       // §9.15.3 (94) — la ligne vide porte ses deux gestes (hors Édition).
       if (dg.gestes && !enEdition()) md.gestes = dg.gestes.slice();
       return { message: md, proposee: false, fourchette: null, baisse: dg.rang || 1 };
+    }
+    // 259 — LA DÉGRESSIVE ANNONCÉE DÈS LA SÉRIE D'AVANT : « Dernière série : 12 reps, puis baisse à 25 kg et continue. » La phrase vient
+    // du plan (`x.degressive.annonce`) ; on la pose au-dessus de la ligne `apres` tant que ni elle ni la dégressive ne sont faites.
+    var ad = x && x.degressive && x.degressive.annonce && x.degressive.apres === iSerie && x.lignes ? x.degressive : null;
+    if (ad && x.lignes[iSerie] && !x.lignes[iSerie].validee && x.lignes[ad.iSerie] && !x.lignes[ad.iSerie].validee) {
+      return { message: { type: 'avant_degressive', phrase: ad.annonce }, proposee: false, fourchette: null };
     }
     // 149 (MOTEUR §9.17 ter) — UNE FIGURE EN SECONDES : la phrase du coach au-dessus de la tenue max tant qu'elle n'est
     // pas validée, sous elle ensuite, l'étiquette « max » / « après ton max » — lues sur le plan, jamais recomposées.

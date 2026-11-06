@@ -1528,6 +1528,8 @@ propose (VOIX-DU-COACH). Le calendrier des 21 jours ne commente pas l'assiduité
 
 ### 9.23 Les records — décidés le 06/10/2026 (chantier 55)
 
+> **Le journal est à sa date ; la Progression fait foi** (décision d'Aurélien du 06/11/2026, D-R1 de la carte des fils, tours de table `claude/TOURS-NE-RIEN-FAIRE-2026-11-06.md`). Corriger ou supprimer une séance efface les records de SES séries (déclencheur `sets_efface_records`) ; une correction n'ajoute rien après coup aux séances postérieures. Les écrans (médaille, Progression, bilans) recalculent et font foi ; le jeu, la guilde et le récap de groupe lisent le journal tel qu'il a été écrit. Écart accepté (un cas par an au plus), à ne pas rouvrir sans un cas réel.
+
 > **Un record est un fait : une série que rien de ton passé ne dépasse. La médaille le dit à la validation, avec le record d'avant et sa date. Jamais un « bravo ».**
 
 **Les records médaillés** (ceux de Hevy, plus l'ancien record) :

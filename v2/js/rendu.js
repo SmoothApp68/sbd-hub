@@ -794,9 +794,11 @@
       });
       var anneau = svg('circle', 'courbe-choix', { cx: -10, cy: -10, r: 7 });
       dessin.appendChild(anneau);
-      // La cible tactile de chaque point : un disque transparent plus large que le point.
+      // La cible tactile de chaque point : un disque transparent plus large que le point (260-a : le disque est dessiné à 25 pour tenir 44 px une fois la courbe réduite à 360 px (échelle ~0,91); le point dessiné ne grossit pas).
+      // Les disques voisins se recouvrent quand la courbe est dense : au toucher, c'est le point le plus proche (en x) qui est choisi.
+      var choisirLe = [];
       geo.points.forEach(function (p) {
-        var cib = svg('circle', 'courbe-cible', { cx: p.x, cy: p.y, r: 11, tabindex: 0, role: 'button',
+        var cib = svg('circle', 'courbe-cible', { cx: p.x, cy: p.y, r: 25, tabindex: 0, role: 'button',
                                                   'aria-label': texteDuPoint(c.genre, p) });
         var choisir = function () {
           anneau.setAttribute('cx', p.x);
@@ -805,9 +807,19 @@
           anneau.classList.add('on');
           bulle.classList.add('on');
         };
+        choisirLe.push({ x: p.x, choisir: choisir });
         cib.addEventListener('click', choisir);
         cib.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choisir(); } });
         dessin.appendChild(cib);
+      });
+      dessin.addEventListener('click', function (e) {
+        var m = dessin.getScreenCTM && dessin.getScreenCTM();
+        if (!m || !e.clientX || !dessin.createSVGPoint) return;
+        var pt = dessin.createSVGPoint();
+        pt.x = e.clientX; pt.y = e.clientY;
+        var x = pt.matrixTransform(m.inverse()).x, proche = null;
+        choisirLe.forEach(function (q) { if (!proche || Math.abs(q.x - x) < Math.abs(proche.x - x)) proche = q; });
+        if (proche) proche.choisir();
       });
       carte.appendChild(dessin);
       var note = el('div', 'courbe-note');

@@ -255,7 +255,7 @@ body{
 button{font-family:inherit;cursor:pointer}
 
 .principal{
-  width:100%;height:42px;margin-top:14px;
+  width:100%;height:44px;margin-top:14px;
   background:var(--panneau-2);color:var(--texte);border:1px solid var(--trait);border-radius:var(--r-bouton);
   font-size:14px;font-weight:700;
 }
@@ -274,7 +274,7 @@ button{font-family:inherit;cursor:pointer}
 .carte label{display:block;font-size:12px;color:var(--texte-2);margin:10px 0 5px;font-weight:600}
 .carte label:first-child{margin-top:0}
 .carte input{
-  width:100%;height:38px;padding:0 10px;
+  width:100%;height:44px;padding:0 10px;
   background:var(--panneau-2);border:1px solid var(--trait);border-radius:var(--r-petit);
   color:var(--texte);font-family:inherit;font-size:var(--police-champ);
 }
@@ -291,8 +291,8 @@ button{font-family:inherit;cursor:pointer}
    bouton. Il se superpose en haut à droite, là où il ne recouvre aucun texte —
    le titre s'arrête avant. */
 .seance-enveloppe{position:relative}
-.seance-enveloppe .seance{padding-right:40px}
-.seance-enveloppe .menu-pts{position:absolute;top:6px;right:4px;margin:0}
+.seance-enveloppe .seance{padding-right:48px}
+.seance-enveloppe .menu-pts{position:absolute;top:2px;right:2px;margin:0}
 .seance.sortie{padding:9px 12px;background:transparent;border:1px solid var(--trait)}
 .seance.sortie .seance-titre{font-size:12.5px;font-weight:500;color:var(--texte-2)}
 .seance.sortie .seance-meta{margin-top:2px;font-size:12px}
@@ -361,7 +361,7 @@ button{font-family:inherit;cursor:pointer}
 
 /* ── Barre de semaine, identique dans les deux onglets ──────────────────── */
 .barre-sem{display:flex;align-items:center;gap:var(--e2);padding:var(--e1) 0 var(--e3)}
-.barre-fl{width:34px;height:34px;flex:0 0 34px;border-radius:var(--r-petit);
+.barre-fl{width:44px;height:44px;flex:0 0 44px;border-radius:var(--r-petit);
   border:1px solid var(--trait);background:transparent;color:var(--texte-2);
   font-size:15px;display:grid;place-items:center;line-height:1}
 .barre-fl:active{border-color:var(--texte-2);color:var(--texte)}
@@ -934,7 +934,9 @@ html{scroll-padding-top:var(--h-barre-seance, 0px)}
    ce qu'on a imposé au moteur. Jamais de jaune dans aucun des deux états.
    La cible de tap fait 26 px de haut : on la vise une barre à la main. */
 button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:12px;font-weight:600;cursor:pointer;
-  min-height:26px;padding:3px 9px}
+  min-height:26px;padding:3px 9px;position:relative}
+/* 260-a — la pastille reste petite à l'œil, sa zone de toucher fait 44 px de haut (la règle du design system : un ::after invisible). */
+button.puce-zone::after{content:"";position:absolute;left:-3px;right:-3px;top:50%;height:44px;transform:translateY(-50%)}
 /* La forge (56-1) : le fond plein est devenu l'état de base. « Choisie » garde
    son point et prend le contour ambre — l'écart entre les deux états reste
    visible d'un coup d'œil. */
@@ -1038,7 +1040,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:12px;font-weig
 #vue-seance .legende-haut .nom-exo.lien{min-height:44px;display:inline-flex;align-items:center;text-align:left}
 #vue-seance .legende-haut .exo-seance{align-items:center}
 .aide-unite{padding:0 var(--e3) var(--e1);font-size:12px;color:var(--texte-2)}
-.cols-seance .repos-entete{justify-self:end;white-space:nowrap;min-width:40px;height:40px;margin:-8px 0 -8px;padding:0 2px;
+.cols-seance .repos-entete{justify-self:end;white-space:nowrap;min-width:44px;height:44px;margin:-10px 0 -10px;padding:0 2px;
   background:none;border:none;border-radius:var(--r-petit);color:var(--texte-2);font-size:12px;font-weight:600;letter-spacing:0}
 .cols-seance .repos-entete:active{color:var(--texte)}
 .note-sous-nom{display:block;width:100%;margin-top:2px;min-height:30px;padding:6px 10px;border-radius:var(--r-petit);border:1px solid var(--trait-case);
@@ -1094,16 +1096,16 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
    sélecteur, et la saisie gagnait parce qu'elle est écrite plus bas. */
 .cols-seance,
 .serie.grille{display:grid;gap:5px}
-.g-charge_reps{grid-template-columns:30px 62px 1fr 44px 40px 40px}  /* 79 px pour les kg */
-.g-reps{grid-template-columns:30px 62px 1fr 40px 40px}              /* 128 px */
-.g-temps{grid-template-columns:30px 62px 1fr 40px}                  /* 173 px, pas d'effort */
-.g-distance_temps{grid-template-columns:30px 66px 1fr 1fr 40px}     /* 82 px chacune */
+.g-charge_reps{grid-template-columns:30px 58px 1fr 44px 44px 44px}  /* 260-a : 44 px de toucher partout ; 67 px pour les kg à 360 px */
+.g-reps{grid-template-columns:30px 62px 1fr 44px 44px}              /* 260-a : 112 px */
+.g-temps{grid-template-columns:30px 62px 1fr 44px}                  /* 260-a : 169 px, pas d'effort */
+.g-distance_temps{grid-template-columns:30px 66px 1fr 1fr 44px}     /* 260-a : 80 px chacune */
 /* ECRAN §3 ter.5 (prompt 131) — un champ en plus prend une colonne (Escaliers : durée ·
    étages) : la grille à deux cases de la distance, vérifiée à 360 px (82 px chacune). */
-.g-temps.g-plus{grid-template-columns:30px 66px 1fr 1fr 40px}
+.g-temps.g-plus{grid-template-columns:30px 66px 1fr 1fr 44px}
 /* Le D+, sur sa propre ligne, sous la série (maquette mesures-cardio, écran 1) : la case
    sous les champs, à la place de la colonne de la coche. */
-.serie-plus{display:grid;grid-template-columns:30px 1fr 110px 40px;gap:5px;align-items:center;
+.serie-plus{display:grid;grid-template-columns:30px 1fr 110px 44px;gap:5px;align-items:center;
   padding:0 var(--e3) 6px;background:var(--panneau)}
 .serie-plus-k{grid-column:2;font-size:13px;color:var(--texte-2)}
 .serie-plus-k small{color:var(--texte-3);font-size:12px}
@@ -1165,7 +1167,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .ligne-serie.debut-tour .serie.grille{border-top-color:transparent;
   box-shadow:inset 0 1px 0 var(--reflet-haut)}
 
-.no-serie{width:30px;height:38px;border-radius:var(--r-petit);
+.no-serie{position:relative;width:30px;height:44px;border-radius:var(--r-petit);
   border:1px solid var(--trait);background:transparent;color:var(--texte-2);
   font-weight:700;font-size:16px;line-height:1;font-family:var(--pile-c);display:grid;place-items:center}
 /* ⚠️ §7 undecies.1 — LA CHAUFFE SE LIT EN UNE DEMI-SECONDE. Même carré, même
@@ -1182,16 +1184,19 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 /* Une note propre à CETTE série (§7 septies.1) : un point, pas un libellé —
    30 px de large ne portent pas un mot, et le numéro doit rester lisible. */
 .no-serie.a-note{position:relative}
+/* 260-a — le numéro de série garde ses 30 px à l'œil ; sa zone de toucher s'élargit dans les marges (::before : le ::after porte le point de note). */
+.no-serie::before{content:"";position:absolute;left:-8px;right:-4px;top:0;bottom:0}
 .no-serie.a-note::after{content:'';position:absolute;top:3px;right:3px;
   width:4px;height:4px;border-radius:50%;background:var(--texte-3)}
 
 .prec{font-size:13px;line-height:1.35;color:var(--texte-3);text-align:right;
   white-space:nowrap;align-self:center;font-family:var(--pile-c);font-weight:600}
 
-.ch-serie,.rp-serie{height:38px;border-radius:var(--r-petit);
+.ch-serie,.rp-serie{height:44px;border-radius:var(--r-petit);
   border:1px solid var(--trait);background:var(--panneau-2);
   display:flex;align-items:center;justify-content:center;gap:2px;overflow:hidden}
-.ch-serie input,.rp-serie input{width:100%;min-width:0;height:36px;border:none;
+/* 260-a : le champ prend toute la case, liseré compris (44 × 44), le cadre le rogne d'un pixel de chaque côté. */
+.ch-serie input,.rp-serie input{width:calc(100% + 2px);min-width:0;height:44px;margin:-1px;border:none;
   background:transparent;color:var(--texte);font-weight:700;font-size:17px;line-height:1;
   font-family:var(--pile-c);text-align:center;font-variant-numeric:tabular-nums;padding:0}
 .ch-serie input:focus,.rp-serie input:focus{outline:none}
@@ -1318,13 +1323,13 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   @keyframes trembler-case{0%,100%{transform:none}20%,60%{transform:translateX(-3px)}
     40%,80%{transform:translateX(3px)}}}
 
-.eff-serie{height:38px;border-radius:var(--r-petit);border:1px dashed var(--trait);
+.eff-serie{height:44px;border-radius:var(--r-petit);border:1px dashed var(--trait);
   background:transparent;color:var(--texte-3);font-weight:600;font-size:16px;line-height:1;
   font-family:var(--pile-c);display:grid;place-items:center}
 .eff-serie.plein{border-style:solid;background:var(--panneau-2);
   color:var(--texte-2);font-weight:700}
 
-.ok-serie{height:38px;border-radius:var(--r-petit);border:1px solid var(--trait);
+.ok-serie{height:44px;border-radius:var(--r-petit);border:1px solid var(--trait);
   background:transparent;color:var(--texte-3);display:grid;place-items:center}
 .ok-serie svg{width:17px;height:17px;stroke:currentColor;fill:none;
   stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
@@ -1354,7 +1359,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   @keyframes tracer-coche{to{stroke-dashoffset:0}}}
 
 .ajout-serie{padding:var(--e2) var(--e3) var(--e3);display:flex;flex-wrap:wrap;gap:6px}
-.ajout-serie button{flex:1 1 120px;height:36px;border-radius:var(--r-bouton);
+.ajout-serie button{flex:1 1 120px;height:44px;border-radius:var(--r-bouton);
   border:1px dashed var(--trait);background:transparent;color:var(--texte-3);
   font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit}
 
@@ -1365,7 +1370,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .tete-haut .superset-t{padding-bottom:0;flex:1;min-width:0}
 .legende-haut{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--e2)}
 .legende-haut .exo-seance{flex:1;min-width:0}
-.menu-pts{flex:0 0 auto;width:34px;height:26px;margin:-4px -6px 0 0;
+.menu-pts{flex:0 0 auto;width:44px;height:44px;margin:-14px -10px -14px 0;
   border:none;background:transparent;color:var(--texte-3);
   font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit;border-radius:var(--r-petit)}
 
@@ -1654,7 +1659,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   border-bottom:1px solid var(--trait);margin-bottom:var(--e2)}
 .sous-onglet{border:none;background:transparent;color:var(--texte-3);
   font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit;
-  padding:11px 0;margin-bottom:-1px;border-bottom:2px solid transparent}
+  display:inline-flex;align-items:center;min-height:44px;padding:0;margin-bottom:-1px;border-bottom:2px solid transparent}
 /* L'accent ne sert qu'à l'onglet actif et à la suggestion du moteur. */
 .sous-onglet.actif{color:var(--texte);border-bottom-color:var(--accent)}
 
@@ -1747,7 +1752,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   font-variant-numeric:tabular-nums}
 /* Le titre mène au détail complet, pour qui veut le contexte des autres
    exercices (§7 quater.4). */
-.exo-jour-s{flex:1;min-width:0;border:none;background:transparent;padding:0;
+.exo-jour-s{flex:1;min-width:0;border:none;background:transparent;padding:14px 0;margin:-14px 0;
   text-align:left;font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit;color:var(--texte-3);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .exo-jour-s b{color:var(--accent);font-weight:500}
@@ -2886,7 +2891,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
    (la case de l'élastique à la place de la charge, puis les reps) ; la case porte la pastille et le nom, en gris quand
    c'est le coach qui le propose (validé tel quel), « choisir » quand rien n'est proposé. La feuille de choix reprend les
    rangées de Ma salle ; le choisi en ambre, coché. */
-.g-elastique{grid-template-columns:30px 62px 1fr 44px 40px 40px}
+.g-elastique{grid-template-columns:30px 58px 1fr 44px 44px 44px}
 .el-case{display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;padding:0 6px;
   border:1.5px solid var(--trait);background:var(--panneau-2);color:var(--texte);font:inherit;font-size:14.5px}
 .el-case .el-case-nom{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}

@@ -445,7 +445,7 @@
 
     // Les records (98) : les NOUVELLES CHARGES MAX de la période — un exercice dont la charge la plus lourde de la
     // période (série de travail, au moins 1 rep) dépasse tout ce qui précède la période. Sans avant, pas de record.
-    // Les plus lourdes d'abord ; haltères : la paire (l'image de l'année l'écrit « 2 × moitié »).
+    // Les plus lourdes d'abord ; haltères : la charge notée, la paire, écrite comme partout (06/11).
     //
     // ⚠️ 136 (audit du 16/10/2026, F5) — UN SEUL PÉRIMÈTRE DE RECORD : « ce qui précède » se lit dans la fenêtre de la
     // MÉDAILLE (MOTEUR §9.23 : 12 mois avant la série pour une machine, une poulie, des haltères, une Smith ; toute la
@@ -467,8 +467,7 @@
       var ic = lourdeDe(slug, function (j) { return j >= periode.debut; });
       var av = ic ? avantDe(slug, ic.jour) : null;
       if (!ic || !av || ic.charge <= av.charge) return;
-      recs.push({ slug: slug, nom: nomDe(slug), charge: ic.charge, avant: av.charge, jour: ic.jour,
-                  haltere: Mo().chargeEstLaPaire(index[slug] || null) });
+      recs.push({ slug: slug, nom: nomDe(slug), charge: ic.charge, avant: av.charge, jour: ic.jour });
     });
     recs.sort(function (a, b) { return b.charge - a.charge || (a.slug < b.slug ? -1 : 1); });
     sortie.records = recs;

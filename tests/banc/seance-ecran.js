@@ -142,8 +142,7 @@ const ok = (nom, cond, detail) => {
 const DEFAUTS_PROUVES = {
   'D-R1': 'le journal des records (jeu, guilde, groupe, médailles du social) n’est pas revu quand une séance ANTÉRIEURE est corrigée ou supprimée ; la Progression, elle, recalcule',
   'D-C2': 'après une Édition, le score de force publié (scores_force) attend la prochaine ouverture du social',
-  'D-P1': 'dévalider puis revalider une série dans l’Édition vide l’observation de son pari (predictions.valeur_observee et set_observe à null) ; la correction des reps, elle, est corrigée (245)',
-  'D-H2': 'le même record aux haltères se dit « 40 kg » ici et « 2 × 40 kg » là'
+  'D-P1': 'dévalider puis revalider une série dans l’Édition vide l’observation de son pari (predictions.valeur_observee et set_observe à null) ; la correction des reps, elle, est corrigée (245)'
 };
 const defautsVus = [];
 const okDefaut = (defaut, nom, cond, detail) => {
@@ -30036,7 +30035,7 @@ const SETS_IMPORTES = [
     ok('[FV249] prémisse — le record de 40 kg est lu partout : journal rejoué (charge_max 40, séance du 15), page « 40 kg × 5 », image du mois et image de la saison nomment l’exercice',
       rejeu && !!ligneJ && Number(ligneJ.valeur) === 40 && ligneJ.session_id === idH && pageH === '40 kg × 5' &&
         apresNom(moisH) !== null && apresNom(saisonH) !== null, nb([!!ligneJ && ligneJ.valeur, pageH, apresNom(moisH), apresNom(saisonH), MOIS, SAISON, moisH.slice(0, 200), saisonH.slice(0, 200)]));
-    okDefaut('D-H2', '[FV249] le record aux haltères se dit avec la même charge sur la page (40 kg), au journal (40), à l’image du mois et à l’image de la saison',
+    ok('[FV249] le record aux haltères se dit avec la même charge sur la page (40 kg), au journal (40), à l’image du mois et à l’image de la saison',
       /^40 kg/.test(apresNom(moisH) || '') && /^40 kg/.test(apresNom(saisonH) || ''),
       'page « ' + pageH + ' » · journal ' + nb(ligneJ && ligneJ.valeur) + ' · mois « ' + apresNom(moisH) + ' » · saison « ' + apresNom(saisonH) + ' »');
 

@@ -2053,7 +2053,7 @@ Sur une **barre** (squat, couché, militaire — `familleDeBarre`), la consigne 
 
 ### 10.1 Règle
 
-> **Aux haltères, la charge notée est la PAIRE, les deux ensemble (05/11/2026, 245)** — ce que tous les comptes tapent depuis toujours. Aucune conversion en base ; aucun lecteur ne double ni ne divise (sauf l'image de l'année, qui l'écrit « 2 × moitié »). Dégressive : voir §9.15.3. Une seule notion, `Modele.chargeEstLaPaire`.
+> **Aux haltères, la charge notée est la PAIRE, les deux ensemble (05/11/2026, 245)** — ce que tous les comptes tapent depuis toujours. Aucune conversion en base ; aucun lecteur ne double ni ne divise (l'image de l'année écrit la charge notée, « 40 kg », depuis le 06/11/2026). Dégressive : voir §9.15.3. Une seule notion, `Modele.chargeEstLaPaire`.
 
 > **L'app ne demande jamais de combien monter. Elle déduit le pas de la salle depuis les charges déjà utilisées sur cet exercice.**
 

@@ -5096,6 +5096,7 @@
 
   // 242 — le bloc de la note d'un exercice : écran A (la note, « Modifier » · « Ne plus afficher »), écran B (le champ, « Garder » · « Annuler »).
   // L'édition vit dans le noeud : « Annuler » rend la note telle qu'elle était, rien n'est écrit avant « Garder ».
+  var NOTE_MAX = 500, NOTE_COMPTEUR_DES = 400;   // 256 (D8) — la limite du champ (CHECK de la note) et le seuil où le compteur apparaît
   function blocNoteDExercice(x, note, vue, sansTitre) {
     var boite = el('div', 'note-derniere');
     boite.setAttribute('data-slug', x.slug);
@@ -5121,7 +5122,7 @@
       boite.appendChild(el('p', 'note-derniere-t', 'Ta note pour cet exercice'));
       var champ = doc.createElement('textarea');
       champ.rows = 3;
-      champ.maxLength = 500;
+      champ.maxLength = NOTE_MAX;
       champ.className = 'note-derniere-champ';
       champ.value = typeof depart === 'string' ? depart : note.texte;
       // Le brouillon vit dans l'état de l'app : un redessin de la séance (une série validée ailleurs) le retrouve.
@@ -5131,6 +5132,17 @@
       }
       champ.setAttribute('aria-label', 'Note de ' + x.nom);
       boite.appendChild(champ);
+      // 256 (D8) — la limite se dit à son approche : « 480 / 500 » dès 400 signes, jamais une coupure muette.
+      var compteur = el('small', 'note-compteur');
+      var majCompteur = function () {
+        var n = champ.value.length;
+        compteur.hidden = n < NOTE_COMPTEUR_DES;
+        compteur.textContent = n + '\u00a0/\u00a0' + NOTE_MAX;
+        compteur.classList.toggle('plein', n >= NOTE_MAX);
+      };
+      champ.addEventListener('input', majCompteur);
+      majCompteur();
+      boite.appendChild(compteur);
       var gestes = el('div', 'note-derniere-gestes');
       var bg = el('button', 'principal note-derniere-garder', 'Garder');
       bg.type = 'button';

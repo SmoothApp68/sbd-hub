@@ -975,6 +975,9 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:12px;font-weig
 .note-derniere-t{margin:0 0 2px;font-size:12px;font-weight:600;color:var(--texte-3)}
 .note-derniere-texte{margin:0;font-size:14px;line-height:1.35;color:var(--texte-2);white-space:pre-wrap;overflow-wrap:anywhere}
 .note-derniere-champ{display:block;width:100%;box-sizing:border-box;margin:4px 0;padding:8px 10px;font:inherit;font-size:16px;color:var(--texte);background:var(--fond);border:1px solid #343A43;border-radius:var(--r-petit)}
+.note-compteur{display:block;text-align:right;font-size:12px;color:var(--texte-3);font-variant-numeric:tabular-nums}
+.note-compteur[hidden]{display:none}
+.note-compteur.plein{color:var(--manque)}
 .note-derniere-gestes{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
 .note-derniere-gestes button{min-height:44px;padding:0 14px;width:auto;margin-top:0}
 .pourquoi-ligne{margin-top:2px}.lien-pourquoi{background:none;border:0;padding:12px 4px;margin:-12px -4px;font:inherit;color:var(--texte);text-decoration:underline dotted var(--texte-3);text-underline-offset:3px;white-space:nowrap;cursor:pointer;line-height:20px}

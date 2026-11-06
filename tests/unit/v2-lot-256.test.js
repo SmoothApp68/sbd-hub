@@ -117,3 +117,33 @@ describe('256 (a) — le calage aux haltères demande la charge des DEUX haltèr
     expect(c.suivante.charge).toBe(24);
   });
 });
+
+describe('256 D8 — la limite de 500 signes d’une note se dit', () => {
+  const CAT = [{ slug: 'squat', nom: 'Squat (Barre)', mesure: 'charge_reps', charge: 'barre', muscles_primaires: ['quadriceps'] }];
+  test('le compteur « n / 500 » apparaît dès 400 signes, devient « plein » à 500, et se cache en dessous', () => {
+    const s = { exercices: [{ exercise_slug: 'squat', series: [{ id: 's1', type_serie: 'travail', charge_kg: null, reps: null }] }] };
+    const cible = document.createElement('div');
+    document.body.appendChild(cible);
+    window.THRendu.rendreBlocsSeance(cible, s, {
+      blocs: Modele.blocsDeSeance(s, CAT), exercice: () => CAT[0], precedent: () => null, fantome: () => ({}), tourAtteint: () => 0,
+      surValider: () => {}, surEffort: () => {}, surChamp: () => {}, surNumero: () => {}, surNote: () => {}, surRepos: () => {},
+      surAjoutSerie: () => {}, surSupprimerSerie: () => {}, surMenuBloc: () => {}, surMenuExercice: () => {},
+      noteSousLeNom: () => ({ mode: 'epinglee', texte: 'genou gauche tire' }), surNoteGardee: () => {}, surNoteRetiree: () => {}
+    });
+    cible.querySelector('.note-derniere-modifier').click();
+    const champ = cible.querySelector('.note-derniere-champ');
+    const compteur = cible.querySelector('.note-compteur');
+    expect(champ.maxLength).toBe(500);
+    const taper = (n) => { champ.value = 'a'.repeat(n); champ.dispatchEvent(new Event('input')); };
+    taper(120);
+    expect(compteur.hidden).toBe(true);
+    taper(450);
+    expect(compteur.hidden).toBe(false);
+    expect(compteur.textContent.replace(/ /g, ' ')).toBe('450 / 500');
+    expect(compteur.classList.contains('plein')).toBe(false);
+    taper(500);
+    expect(compteur.classList.contains('plein')).toBe(true);
+    taper(10);
+    expect(compteur.hidden).toBe(true);
+  });
+});

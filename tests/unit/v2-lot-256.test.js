@@ -40,6 +40,9 @@ describe('256 D6 — les cibles tactiles sont à 44 px', () => {
     expect(regle('.carte-escalier .ce-pourquoi summary')).toMatch(/min-height:44px/);
     expect(regle('.exo-reprendre')).toMatch(/min-height:44px/);
   });
+  test('(c) « Lire le texte » de l’import (classe .imp-bouton) fait au moins 44 px, malgré les 42 px de .principal', () => {
+    expect(regle('.imp-bouton')).toMatch(/min-height:44px/);
+  });
 });
 
 describe('256 D5 — « null » n’est jamais affiché sous TA PHASE', () => {
@@ -255,3 +258,4 @@ describe('256 D14 — « recul » s’annonce dès le plan, avant la validation'
     expect(rendre([1, 2], 1)).toEqual([null, null, 'recul']);   // la ligne 1 est validée (type en base : travail) : le plan ne la ré-étiquette pas
   });
 });
+

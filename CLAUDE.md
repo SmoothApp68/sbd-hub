@@ -182,6 +182,7 @@ trappe `/__sw-off` pendrait avec lui.
   `Semaine.volumeParMuscle` → la somme unique `Semaine.sommeDesSeries`). Épaules = 3 deltoïdes, Dos = haut du dos + grand dorsal, abducteurs
   sans tracé (liste seulement) ; une teinte (`--teinte`), aucun seuil ; le sexe du dessin est une préférence d'appareil (`th-silhouette`).
 
+- **Le superset par tours** (261, ECRAN-SAISIE §7 quinvicies ter) : en séance, un superset s'affiche en blocs CHAUFFE / SEUL / TOUR n ; l'ordre se calcule dans `v2/js/tours.js` (`THTours.ordonner`, pur, aucune décision du coach), `rendu.js` le pose. Une série garde sa place (le tour = son rang dans SON exercice) ; le bloc SEUL ne naît que de séries d'un même exercice faites d'affilée en tête de `validee_a`. Aucune mise en avant de la série qui arrive, aucun rail vert. Le mode programme (éditeur) garde `{ entrelacer: true }`.
 - **`app.js` ne se découpe pas** (diagnostic H1, 04/11/2026) ; toute nouvelle grosse fonctionnalité naît dans son propre module pur (`faits.js`, `equilibres.js`), `app.js` câble.
 - **Le module des faits** (58-1) : l'assemblage des faits (séances et séries, records d'une séance,
   d'un mois, du jour, le dernier record, la semaine affichée, les exercices faits) vit dans

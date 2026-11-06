@@ -4402,9 +4402,9 @@ const SETS_IMPORTES = [
   ok('le superset porte le liseré, l’exercice seul n’en a pas',
     lisere[0] === '4px' && lisere[1] === '0px', JSON.stringify(lisere));
 
-  ok('233 — les séries s’affichent PAR EXERCICE (une carte chacun), et le tour 3 n’attend aucun C3',
+  ok('261 — les séries s’affichent PAR TOUR (A1 B1 C1, A2 B2 C2, A3 B3), et le tour 3 n’attend aucun C3',
     JSON.stringify(await etiquettesBrutes(0)) ===
-    JSON.stringify(['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'C1', 'C2']) &&
+    JSON.stringify(['A1', 'B1', 'C1', 'A2', 'B2', 'C2', 'A3', 'B3']) &&
     JSON.stringify(await etiquettes(0)) === JSON.stringify(['A1', 'B1', 'C1', 'A2', 'B2', 'C2', 'A3', 'B3']),
     JSON.stringify(await etiquettesBrutes(0)));
 
@@ -4416,7 +4416,7 @@ const SETS_IMPORTES = [
     Array.from(document.querySelectorAll('.bloc-seance')[0].querySelectorAll('.exo-seance'))
       .map((n) => n.textContent));
   ok('le nom de chaque exercice n’apparaît QU’UNE FOIS, dans la légende',
-    legende.length === 3 && /^ADéveloppé/.test(legende[0]) && /^BCurl/.test(legende[1]),
+    legende.length === 3 && /^Développé/.test(legende[0]) && /^Curl/.test(legende[1]),
     JSON.stringify(legende));
 
   // ⚠️ 360 px — LA LARGEUR RÉELLE DE L'APPAREIL. La légende existe pour tenir
@@ -4455,16 +4455,16 @@ const SETS_IMPORTES = [
       .map((r) => Array.from(r.classList).filter((c) => c.startsWith('g-'))[0]));
   ok('chaque ligne garde le gabarit de SON exercice, même mélangés',
     JSON.stringify(grilles) === JSON.stringify([
-      'g-charge_reps', 'g-charge_reps', 'g-charge_reps',
-      'g-charge_reps', 'g-charge_reps', 'g-charge_reps',
-      'g-temps', 'g-temps']),
+      'g-charge_reps', 'g-charge_reps', 'g-temps',
+      'g-charge_reps', 'g-charge_reps', 'g-temps',
+      'g-charge_reps', 'g-charge_reps']),
     JSON.stringify(grilles));
-  ok('233 — chaque carte d’un superset à mesures mélangées a SON en-tête de colonnes (qui dit vrai pour elle seule)',
+  ok('261 — un superset à mesures mélangées : l’en-tête se tait (il mentirait sur la moitié des lignes), chaque ligne garde son gabarit',
     (await page.evaluate(() =>
-      document.querySelectorAll('.bloc-seance')[0].querySelectorAll('.cols-seance').length)) === 3 &&
+      document.querySelectorAll('.bloc-seance')[0].querySelectorAll('.cols-seance').length)) === 0 &&
     (await page.evaluate(() =>
       document.querySelectorAll('.bloc-seance')[1].querySelectorAll('.cols-seance').length)) === 1,
-    'superset mélangé : un par carte · exercice seul : un');
+    'superset mélangé : aucun en-tête · exercice seul : un');
 
   // ── L'éclairage porte sur le TOUR, et le tour ne recule pas ─────────────
   // §7 undecies.3 — le compteur affiche les tours FAITS : rien de fait, 0/3.
@@ -4473,8 +4473,8 @@ const SETS_IMPORTES = [
 
   // Rangée 0 = A1. Validée seule, elle n'allume rien : le tour n'est pas fait.
   await validerRangee(0, 0);
-  ok('valider A1 seul n’allume RIEN — l’éclairage porte sur le tour',
-    (await allumees(0)).every((x) => x === false) && /tour 0\/3/.test(await superT()),
+  ok('261 — valider A1 : la ligne est cochée, le compteur de tours ne bouge pas',
+    JSON.stringify(await allumees(0)) === JSON.stringify([true, false, false, false, false, false, false, false]) && /tour 0\/3/.test(await superT()),
     JSON.stringify(await allumees(0)) + ' · ' + (await superT()).trim());
   // ⚠️ ET ELLE SE VOIT POUR DE VRAI — couleur calculée, pas classe posée.
   // Le style de la coche était accroché à `.serie.faite` ; le fond vert disant
@@ -4491,8 +4491,8 @@ const SETS_IMPORTES = [
       rangeeAllumee: cochees[0] ? cochees[0].closest('.serie').classList.contains('faite') : null
     };
   });
-  ok('mais sa coche, elle, se voit — même dans un tour non allumé',
-    coche.n === 1 && coche.rangeeAllumee === false &&
+  ok('et sa coche se voit pour de vrai (couleur calculée)',
+    coche.n === 1 && coche.rangeeAllumee === true &&
     coche.fond !== coche.fondEteinte && /^rgb/.test(coche.fond),
     JSON.stringify(coche));
 
@@ -4509,8 +4509,8 @@ const SETS_IMPORTES = [
   await validerRangee(0, 0);          // dévalide A1
   ok('dévalider ne fait PAS reculer le tour', /tour 1\/3/.test(await superT()),
     (await superT()).trim());
-  ok('mais l’éclairage, lui, dit la vérité du moment',
-    (await allumees(0)).slice(0, 3).every((x) => x === false),
+  ok('mais la ligne dit la vérité du moment : A1 décochée, B1 et C1 restent faites',
+    JSON.stringify((await allumees(0)).slice(0, 3)) === JSON.stringify([false, true, true]),
     JSON.stringify((await allumees(0)).slice(0, 3)));
   await validerRangee(0, 0);          // revalide A1
 
@@ -4814,7 +4814,7 @@ const SETS_IMPORTES = [
   ok('et le remplaçant hérite du SLOT : il est dans le superset, pas à côté',
     (await compter('.bloc-seance')) === 2 &&
     (await page.evaluate(() => document.querySelectorAll('.bloc-seance')[0]
-      .querySelectorAll('.lettre-exo').length)) === 3,
+      .querySelectorAll('.exo-seance').length)) === 3,
     JSON.stringify(await formeEcran()));
 
   // ── §5 bis — AJOUTER UN EXERCICE APRÈS UN BLOC ──────────────────────────
@@ -5502,10 +5502,10 @@ const SETS_IMPORTES = [
       return { t: n.textContent, couleur: s.color, fond: s.backgroundColor,
                bord: s.borderTopColor, l: s.width, h: s.height };
     };
-    return [lu(b[0]), lu(b[1])];     // une chauffe, une série de travail (233 : la carte de A range A, A1, A2 à la suite)
+    return [lu(b[0]), lu(b[2])];     // une chauffe (bloc CHAUFFE), une série de travail (261 : A1)
   });
   ok('la chauffe porte la LETTRE de son exercice, pas « Ac »',
-    teintes[0].t === 'A' && teintes[1].t === 'A1',
+    teintes[0].t === 'A' && teintes[1].t === 'A1' && /^A,B,A1,B1,C1/.test(String(await badges(0))),
     JSON.stringify(await badges(0)));
   ok('elle se distingue par la TEINTE — couleur, fond et bordure diffèrent',
     teintes[0].couleur !== teintes[1].couleur &&
@@ -5520,18 +5520,18 @@ const SETS_IMPORTES = [
   // ── §7 undecies.2 — l'espace entre les tours ────────────────────────────
   // 233 — en séance les exercices d'un superset sont des CARTES : plus de tours entrelacés, donc plus de rangée « début de tour »
   // ni d'espace entre les tours. Chaque carte range ses rangées à la suite : chauffes puis travail, sans trou.
-  ok('en cartes : les rangées suivent leur exercice (A, A1, A2 · B, B1, B2 · C1, C2), aucune n’ouvre un tour',
+  ok('par tours : CHAUFFE (A, B), puis A1 B1 C1, puis A2 B2 C2, aucune rangée ne porte « début de tour »',
     JSON.stringify(await badges(0)) ===
-      JSON.stringify(['A', 'A1', 'A2', 'B', 'B1', 'B2', 'C1', 'C2']) &&
+      JSON.stringify(['A', 'B', 'A1', 'B1', 'C1', 'A2', 'B2', 'C2']) &&
     (await marques(0)).every((m) => m === false),
     JSON.stringify(await badges(0)) + ' · ' + JSON.stringify(await marques(0)));
   // ⚠️ MESURÉ, PAS DÉDUIT D'UNE CLASSE : dans une carte, les rangées se touchent.
   const ecarts = await page.evaluate(() => {
-    const l = Array.from(document.querySelectorAll('.bloc-seance')[0].querySelector('.carte-ss').querySelectorAll('.ligne-serie'));
+    const l = Array.from(document.querySelectorAll('.bloc-seance')[0].querySelector('.tour[data-genre="tour"]').querySelectorAll('.ligne-serie'));
     const trou = (i) => Math.round(l[i].getBoundingClientRect().top - l[i - 1].getBoundingClientRect().bottom);
     return { dansUneCarte: trou(1), aussi: trou(2) };
   });
-  ok('l’espace entre deux rangées d’une carte est nul (plus d’espace de tour)',
+  ok('l’espace entre deux rangées d’un tour est nul',
     ecarts.dansUneCarte === 0 && ecarts.aussi === 0, JSON.stringify(ecarts));
   ok('et aucun texte n’a été ajouté entre les lignes',
     !/Tour\s*\d/i.test(await page.evaluate(() =>
@@ -5971,7 +5971,11 @@ const SETS_IMPORTES = [
     await finir261();
     // ── cas 4 : commencé seul ──
     await demarrer261(4);
-    await cocher261(0, 0); await cocher261(0, 1);
+    await cocher261(0, 0);
+    const t4a = await tours261();
+    ok('cas 4 — une SEULE série faite d’abord n’est pas un bloc SEUL : A1 reste au tour 1, B1 vide à côté',
+      lire261(t4a) === 'T1:A1✓ B1 | T2:A2 B2 | T3:A3 B3 | T4:A4', lire261(t4a));
+    await cocher261(0, 1);
     const t4 = await tours261();
     ok('cas 4 — A1 puis A2 faites d’affilée : un bloc SEUL (« Fait seul, à la suite. »), puis les tours reprennent à 1 avec A3 et B1',
       lire261(t4) === 'SEUL:A1✓ A2✓ | T1:A3 B1 | T2:A4 B2 | T3:B3' && t4[0].phrase === 'Fait seul, à la suite.', lire261(t4));
@@ -6009,6 +6013,10 @@ const SETS_IMPORTES = [
     // ── cas 7 : la correction ──
     await demarrer261(7);
     await cocher261(0, 0); await cocher261(1, 0); await cocher261(0, 1);
+    const t7 = await tours261();
+    ok('cas 7 — une ligne est verte quand SA série est faite (A2 l’est, B2 non) ; aucun rail ni tour n’est vert, aucune ligne mise en avant',
+      t7[1].lignes[0].verte === true && t7[1].lignes[1].verte === false && t7[1].lignes[1].faite === false &&
+      (await page.evaluate(() => document.querySelectorAll('.bloc-seance.superset .rail.fini, .bloc-seance.superset .tour.fini, .bloc-seance.superset .serie.prochaine, .bloc-seance.superset .serie.encours').length)) === 0, lire261(t7));
     const avant7 = await placeDe261(0, 0);
     const champ7 = page.locator('.bloc-seance.superset .serie[data-iexo="0"][data-iserie="0"] [data-champ="charge_kg"] input');
     await champ7.fill('90'); await champ7.evaluate((e) => e.blur()); await attendre(500);   // temps réel : la correction est écrite avant la mesure

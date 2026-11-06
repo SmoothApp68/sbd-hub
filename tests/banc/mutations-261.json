@@ -1,0 +1,41 @@
+[
+ {
+  "nom": "261-seul-des-la-premiere-serie",
+  "fichier": "v2/js/tours.js",
+  "ancien": "if (tete.length >= 2) {",
+  "nouveau": "if (tete.length >= 1) {",
+  "unitaires": [
+   "tests/unit/v2-tours-261.test.js"
+  ],
+  "banc": "seance",
+  "sections": [
+   "261"
+  ]
+ },
+ {
+  "nom": "261-la-baisse-ouvre-son-propre-tour",
+  "fichier": "v2/js/tours.js",
+  "ancien": "return Modele().paqueter((x.series || []).filter(function (s) { return !estChauffe(s); }));",
+  "nouveau": "return (x.series || []).filter(function (s) { return !estChauffe(s); }).map(function (s) { return [s]; });",
+  "unitaires": [
+   "tests/unit/v2-tours-261.test.js"
+  ],
+  "banc": "seance",
+  "sections": [
+   "261"
+  ]
+ },
+ {
+  "nom": "261-la-ligne-verte-suit-le-tour-pas-la-serie",
+  "fichier": "v2/js/rendu.js",
+  "ancien": "(enTours ? !!s.faite : (s.tour ? complets[s.tour] === true : !!s.faite))",
+  "nouveau": "(s.tour ? complets[s.tour] === true : !!s.faite)",
+  "unitaires": [
+   "tests/unit/v2-supersets.test.js"
+  ],
+  "banc": "seance",
+  "sections": [
+   "261"
+  ]
+ }
+]

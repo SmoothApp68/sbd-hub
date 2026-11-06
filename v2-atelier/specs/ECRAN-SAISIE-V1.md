@@ -3794,6 +3794,30 @@ But : saisir une série d'un pouce, la tête ailleurs, sans chercher. Rien de ce
   rien. Un seul chrono de tenue à la fois ; valider la série à la main l'éteint sans rien écrire. Aucun `await` sans issue, aucune promesse
   en arrière-plan : l'écran reste allumé.
 
+## 7 quinvicies ter. Le superset par tours — décidé le 06/11/2026 (chantier 261, maquette `maquette-superset-entrelace-v4.html`)
+
+> **Delta.** Remplace §1 du « 7 quinvicies bis » (la carte par exercice) ; ses §2 (déplacer un exercice seul) et §3 (chrono de tenue) restent.
+> Tours de table : `TOURS-SUPERSET-V4-2026-11-06.md`. Le **mode programme** (éditeur de routine), l'exercice hors superset, les données et
+> les invariants du plan ne changent pas : l'ordre d'affichage n'est pas une décision du coach (`v2/js/tours.js`, pur).
+
+- **Un bloc par tour.** En séance, un superset s'affiche en blocs : « TOUR n » sur un rail à gauche ; dans un tour, A puis B (puis C : « Superset à 3 »).
+  Chaque ligne dit son exercice par une **forme colorée** (rond bleu A, carré rose B — pas le violet des records —, triangle gris clair C) et le **nom
+  court** (`Modele.nomParle`, deux lignes au plus) ; la lettre du badge double la forme (la couleur seule ne porte jamais le sens). Colonnes PRÉC. / KG / REPS
+  alignées sous un seul en-tête (il se tait si les mesures sont mélangées).
+- **La légende en tête** : une ligne par exercice — forme, nom complet, chiffre du jour (un toucher ouvre « Pourquoi ? »), « ⋯ ». L'exercice dont toutes les
+  séries de travail sont faites dit « N séries faites ». Le reste de l'ancienne légende (zone, phrase grise, pari, note, repos de la branche) est dans
+  « Zones, repos et notes › ».
+- **Aucune mise en avant** de la série qui arrive (ni cadre, ni couleur, ni taille) ; **aucun rail vert** sur un tour fini ; une ligne est verte quand SA série est faite.
+- **Rien ne bouge sous le pouce.** Le tour d'une série est le rang de son paquet dans SON exercice : si A3 est faite avant B2, B2 reste vide dans le tour 2.
+  Les séries faites ne sont jamais réordonnées. Une dégressive reste sous sa série, dans son tour, avant l'autre exercice ; elle n'ouvre pas de tour.
+- **CHAUFFE** : un bloc avant le tour 1 (jamais un « tour 0 »), seulement les chauffes qui existent. **SEUL** : deux séries au moins d'un même exercice faites
+  d'affilée en tête de la chronologie (`validee_a`), avant que l'autre exercice soit touché ; « Fait seul, à la suite. » (aucune cause devinée) ; les tours
+  reprennent ensuite à 1 avec ce qui reste. Une seule série faite d'abord n'est pas un bloc SEUL.
+- **Séries inégales** : le dernier tour dit « Couché seul : Pull-over a 3 séries. » (les noms courts, sans article : le genre n'est pas connu).
+- **« + Série · <exercice> »** : la série prend la première place libre de son exercice (le rang suivant, à côté de la série de l'autre exercice, s'il y en a).
+- **Correction** : un toucher sur la case, comme avant ; la ligne ne bouge pas (`validee_a` ne change pas).
+- **Déplacer un exercice d'un superset** : plus de carte à saisir ; ni poignée ni appui long dans un superset — « Monter / Descendre » du « ⋯ ».
+
 ---
 
 ### Les chauffes proposées par le coach — 237 (MOTEUR §9.41)

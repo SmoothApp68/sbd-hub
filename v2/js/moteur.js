@@ -11449,28 +11449,82 @@
     roller: 'coachs'
   });
   function activiteChargeLesJambes(slug) { return Object.prototype.hasOwnProperty.call(ACTIVITES_JAMBES, slug) ? ACTIVITES_JAMBES[slug] : null; }
+  // 253 (X2, décision d'Aurélien du 06/11/2026) — LA VEILLE D'UNE ACTIVITÉ DURE N'EST PLUS UN PASSAGE EN ZONE MIX : c'est UNE variante de la consigne
+  // du jour, pour cette séance seulement. Mêmes reps, même nombre de séries, aucune zone changée ; la charge baisse de 5 % (au cran le plus proche,
+  // au moins un cran sous le plan, au plus 10 %) et la réserve affichée monte de 2 (3 au plus). Équivalence : +2 reps de capacité (Epley et table
+  // RTS, 5,4 % et 6 %). Sources : Nédélec 2012 (la fonction neuromusculaire reste diminuée 48 à 72 h après un match de football), Sporer et Wenger
+  // 2003 (un effort aérobie réduit les reps au leg press pendant 4 à 8 h) ; Robinson 2024 et Refalo 2023 (pour la FORCE, la réserve ne change pas
+  // nettement le gain : une séance un peu moins stimulante ne coûte rien sur un bloc) ; Halperin 2022 (au-delà de 3 en réserve, le RIR se
+  // vérifie mal : d'où le plafond à 3).
   var VEILLE_CONVENTION = 'Garder les jambes lourdes pour le lendemain d\u2019un effort dur est une convention de coachs, pas une règle prouvée : ' +
-    'les études ne trouvent pas de perte de force ou de muscle à mélanger les deux (Schumann 2022).';
+    'après un match, la force des jambes reste diminuée un à trois jours (Nédélec 2012).';
   var VEILLE_COURSE = 'Courir réduit un peu les gains de force et de muscle, pas le vélo (Wilson 2012).';
-  // La proposition de la veille (§9.40) : UNE fois, pour UN exercice. `e` : { activite: { slug, nom, intense } | null, jambes: [{ slug, nom }]
-  // (les barres de jambes en zone Lourd ce jour-là, dans l'ordre de la séance), choix: 'mix' | 'garder' | null (la réponse, une fois
-  // donnée), muet: Édition ou « Juste un carnet » }. Rend `null` ou { slug, nom, activite, boutons, phrase, pourquoi, source }.
+  var VEILLE_LEGERE_PCT = 0.95;
+  var VEILLE_LEGERE_MAX_BAISSE = 0.10;
+  var VEILLE_LEGERE_SURPLUS = 2;
+  var VEILLE_LEGERE_RESERVE_MAX = 3;
+  // La variante « plus léger » d'une barre : `e` : { charge, reps, reserve (celle du plan, 0 si inconnue), pas (le cran réel), equipement, salle }.
+  // Rend `{ charge, reps, reserve, plan: { charge, reps, reserve }, baisse }` ou `null` (pas de variante : rien ne descend d'un cran, ou plus de 10 %).
+  // L'arrondi est celui des marches de chauffe (`chargeDeMarche` : le cran le plus proche, l'égalité vers le bas, la salle déclarée comprise,
+  // toujours au moins un cran sous la référence) — aucun autre arrondi.
+  function veilleLegere(e) {
+    var x = e || {}, ch = nombre(x.charge), reps = nombre(x.reps);
+    if (ch === null || ch <= 0 || reps === null || reps < 1) return null;
+    var pas = nombre(x.pas);
+    if (pas === null || pas <= 0) pas = x.equipement ? pasMaxDuMateriel(x.equipement) : null;
+    if (pas === null || pas <= 0) return null;
+    var c = chargeDeMarche({ p: VEILLE_LEGERE_PCT }, { equipement: x.equipement || null, reference: ch, salle: x.salle || null }, pas);
+    if (c === null || c === undefined || !(c < ch - 1e-9)) return null;
+    var baisse = (ch - c) / ch;
+    if (baisse > VEILLE_LEGERE_MAX_BAISSE + 1e-9) return null;
+    var rp = nombre(x.reserve);
+    if (rp === null || rp < 0) rp = 0;
+    var r = Math.min(rp + VEILLE_LEGERE_SURPLUS, VEILLE_LEGERE_RESERVE_MAX);
+    return { charge: auCentieme(c), reps: reps, reserve: r, baisse: baisse, plan: { charge: ch, reps: reps, reserve: rp } };
+  }
+  // Le Pourquoi : « Plan : 152,5 kg × 5. Aujourd'hui : 145 kg × 5, 2 en réserve : tu as noté football hier. »
+  function phraseDeLaVeilleLegere(l, nomActivite) {
+    var a = String(nomActivite || 'une activité').toLowerCase();
+    return 'Plan\u00a0: ' + Modele().chargeFois(l.plan.charge, l.plan.reps) + '. Aujourd\u2019hui\u00a0: ' + Modele().chargeFois(l.charge, l.reps) +
+      ', ' + l.reserve + ' en réserve\u00a0: tu as noté ' + a + ' hier.';
+  }
+  // La proposition de la veille (§9.40) : UNE fois, pour UN exercice. `e` : { activite: { slug, nom, intense } | null, jambes: [{ slug, nom,
+  // legere }] (les barres de jambes en zone Lourd ce jour-là, dans l'ordre de la séance, `legere` : le résultat de `veilleLegere`), choix:
+  // 'leger' | 'garder' | null (la réponse, une fois donnée), muet: Édition, « Juste un carnet », semaine de test, décharge }. Rend `null` ou
+  // { slug, nom, activite, boutons: { leger, garder }, phrase, pourquoi, legere, source }. `nom` : le nom court, parlé, de la barre.
   function veilleActivite(e) {
     var x = e || {};
-    if (x.muet === true || x.choix === 'mix' || x.choix === 'garder') return null;
+    if (x.muet === true || x.choix === 'leger' || x.choix === 'garder') return null;
     var a = x.activite;
     if (!a || a.intense !== true || !activiteChargeLesJambes(a.slug)) return null;
-    var j = (x.jambes || [])[0];
-    if (!j || !j.slug) return null;
+    var j = (x.jambes || []).filter(function (q) { return q && q.slug && q.legere; })[0];
+    if (!j) return null;
     var nomEx = j.nom || 'Squat';
     var nomAct = a.nom || a.slug;
     return {
       slug: j.slug, nom: nomEx, activite: a.slug, nomActivite: nomAct,
-      boutons: { mix: nomEx + ' en Mix aujourd\u2019hui', garder: 'Garder le plan' },
-      phrase: 'Hier : ' + String(nomAct).toLowerCase() + ', intense. ' + nomEx + ' est prévu en Lourd.',
-      pourquoi: VEILLE_CONVENTION + (activiteChargeLesJambes(a.slug) === 'wilson' ? ' ' + VEILLE_COURSE : ''),
+      boutons: { leger: nomEx + ' plus léger aujourd\u2019hui', garder: 'Garder le plan' },
+      phrase: 'Tu as noté ' + String(nomAct).toLowerCase() + ' hier. ' + nomEx + ' plus léger aujourd\u2019hui\u00a0?',
+      pourquoi: phraseDeLaVeilleLegere(j.legere, nomAct) + ' ' + VEILLE_CONVENTION + (activiteChargeLesJambes(a.slug) === 'wilson' ? ' ' + VEILLE_COURSE : ''),
+      legere: j.legere,
       source: activiteChargeLesJambes(a.slug)
     };
+  }
+
+  // X3 (253) — LA RÉPONSE VAUT POUR LA JOURNÉE : la ligne qui la dit, « Squat plus léger aujourd'hui. » / « Plan gardé. » dans la séance où elle a
+  // été donnée ; « Comme ce matin : squat plus léger. » / « Comme ce matin : plan gardé. » quand une nouvelle séance du même jour la reprend
+  // (« tout à l'heure » quand la réponse a été donnée à partir de midi). `x` : { choix: 'leger' | 'garder', nom, heure (0-23 de la réponse, ou
+  // null), repris }. `null` si le choix est inconnu. UNE seule fonction de phrase : la carte, la ligne et la reprise la lisent.
+  function phraseDeLaVeilleReprise(x) {
+    var o = x || {};
+    if (o.choix !== 'leger' && o.choix !== 'garder') return null;
+    var nom = typeof o.nom === 'string' && o.nom ? o.nom : 'la barre';
+    if (o.repris !== true) {
+      return o.choix === 'leger' ? nom + ' plus l\u00e9ger aujourd\u2019hui.' : 'Plan gard\u00e9.';
+    }
+    var h = nombre(o.heure);
+    var moment = h !== null && h >= 0 && h < 12 ? 'ce matin' : 'tout \u00e0 l\u2019heure';
+    return 'Comme ' + moment + '\u00a0: ' + (o.choix === 'leger' ? nom.toLowerCase() + ' plus l\u00e9ger' : 'plan gard\u00e9') + '.';
   }
 
   // 65 ans et plus : la MÊME borne que la prudence de montée (`AGE_PLAFOND_BAS`). `null` : l'âge est inconnu, rien n'est deviné.
@@ -11851,7 +11905,7 @@
     // un second allègement par-dessus — la carte se tait. Si elle a gardé le plan, la carte peut nommer le FAIT noté (« Tu as noté football
     // hier. »), sans deviner de cause.
     var veille = c.veille && typeof c.veille === 'object' ? c.veille : null;
-    if (veille && veille.choix === 'mix') return silence('veille_mix');
+    if (veille && veille.choix === 'leger') return silence('veille_leger');
     if (!(nombre(c.restants) >= 1)) return silence('fin');
     var eligibles = (c.exercices || []).filter(function (x) { return x && x.premiere !== true && x.calage !== true; });
     var derniers = eligibles.slice(-RATE_FORME_SUR);
@@ -12017,7 +12071,7 @@
     FORME_RENFORCEMENT_CIBLE: FORME_RENFORCEMENT_CIBLE, FORME_CARDIO_CIBLE_MIN: FORME_CARDIO_CIBLE_MIN, FORME_INTENSE_FACTEUR: FORME_INTENSE_FACTEUR, CARDIO_RPE_INTENSE: CARDIO_RPE_INTENSE,
     // 225 (§9.40) — les activités notées et la veille des jambes lourdes.
     ACTIVITE_RPE: ACTIVITE_RPE, ACTIVITE_INTENSITES: ACTIVITE_INTENSITES, intensiteDActivite: intensiteDActivite,
-    ACTIVITES_JAMBES: ACTIVITES_JAMBES, activiteChargeLesJambes: activiteChargeLesJambes, veilleActivite: veilleActivite,
+    ACTIVITES_JAMBES: ACTIVITES_JAMBES, activiteChargeLesJambes: activiteChargeLesJambes, veilleActivite: veilleActivite, VEILLE_LEGERE_SURPLUS_RESERVE: VEILLE_LEGERE_SURPLUS, VEILLE_LEGERE_RESERVE_PLAFOND: VEILLE_LEGERE_RESERVE_MAX, veilleLegere: veilleLegere, phraseDeLaVeilleLegere: phraseDeLaVeilleLegere, phraseDeLaVeilleReprise: phraseDeLaVeilleReprise,
     FORME_PUISSANCE_PHRASE: FORME_PUISSANCE_PHRASE, FORME_PUISSANCE_POURQUOI: FORME_PUISSANCE_POURQUOI, FORME_DOULEUR_PHRASE: FORME_DOULEUR_PHRASE,
     FORME_REPERES_PHRASE: FORME_REPERES_PHRASE, plusDe65Ans: plusDe65Ans, exerciceDePuissance: exerciceDePuissance,
     // 194-1 (§9.31) — la mobilité en fin de séance : une table, un bloc, des phrases.

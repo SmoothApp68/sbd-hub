@@ -2290,7 +2290,10 @@
   //   posée sur l'exercice `slug`), `paris_cran` / `paris_retente` (`{ slug }`). `equilibres.js` ne lit que les cinq premiers.
   //   251 (D2) — la porte du cran : `cran_tente` (« Tenter 110 kg quand même », `{ slug, rang }` : la série qui a fermé la porte) et `cran_tente_annule`
   //   (« Annuler ») ; `plan.js` (`cranTenteDe`) les lit, `equilibres.js` non.
-  var GESTES_DU_COACH = ['rate_prise', 'rate_ignoree', 'forme_ajustee', 'forme_gardee', 'paris_cran', 'paris_retente', 'cran_tente', 'cran_tente_annule'];
+  //   253 (X2) — la veille d'une activité dure : `veille_legere` (« <barre> plus léger aujourd'hui », `{ slug }`) et `veille_legere_annulee` (« Changer ») ;
+  //   une séance terminée qui garde un `veille_legere` non annulé est NEUTRE pour la suite (`Plan.veilleLegereDesGestes`), comme une séance ajustée à la forme.
+  var GESTES_DU_COACH = ['rate_prise', 'rate_ignoree', 'forme_ajustee', 'forme_gardee', 'paris_cran', 'paris_retente', 'cran_tente', 'cran_tente_annule',
+                         'veille_legere', 'veille_legere_annulee'];
   // 237 (MOTEUR §9.41) — les chauffes : `chauffes_ajoutees` (« Ajouter »), `chauffes_auto` (ajoutées d'elles-mêmes), `chauffes_annulees`
   // (« Annuler ») — `{ slug }` ; le fait que `faits.chauffesAjoutees` relit. 237-bis : `chauffes_silence` (le 2e « Non merci » met l'exercice en silence,
   // dit une fois) et `chauffes_silence_annule` (« Annuler » retire ce refus).

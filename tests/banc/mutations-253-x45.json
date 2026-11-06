@@ -1,0 +1,12 @@
+[
+ {"nom": "x45-1-encadre-avant-le-chiffre", "fichier": "v2/js/rendu.js",
+  "ancien": "      var poserEncadre = function () { if (encadre && !encadrePose) { entree.appendChild(encadre); encadrePose = true; } };\n",
+  "nouveau": "      var poserEncadre = function () { if (encadre && !encadrePose) { entree.appendChild(encadre); encadrePose = true; } };\n      poserEncadre();\n",
+  "banc": "seance", "sections": ["note-242"], "unitaires": ["tests/unit/v2-seance-en-salle.test.js"]},
+ {"nom": "x45-2-toujours-ouvert", "fichier": "v2/js/rendu.js",
+  "ancien": "choix.ouvert : faites === 0);", "nouveau": "choix.ouvert : true);",
+  "banc": "seance", "sections": ["note-242"], "unitaires": ["tests/unit/v2-seance-en-salle.test.js"]},
+ {"nom": "x45-3-consigne-tronquee", "fichier": "v2/js/rendu.js",
+  "ancien": "el('button', 'note-exo pleine note-sous-nom', x.note);\n      posee.type", "nouveau": "el('button', 'note-exo pleine note-sous-nom', x.note.slice(0, 20));\n      posee.type",
+  "banc": "aucun", "unitaires": ["tests/unit/v2-seance-en-salle.test.js"]}
+]

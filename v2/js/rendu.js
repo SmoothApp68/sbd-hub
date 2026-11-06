@@ -3159,9 +3159,12 @@
     }
     // 194-1 (MOTEUR §9.31) — la préparation avant la séance, en mouvement seulement : lue sur le plan, jamais calculée ici.
     var mob = !vue.modifier && typeof vue.propositionMobilite === 'function' ? vue.propositionMobilite() : null;
-    // 225 (MOTEUR §9.40) — la veille d'une activité dure : UNE carte, lue sur le plan (« … en Mix aujourd'hui » / « Garder le plan »).
+    // 225 (MOTEUR §9.40) — la veille d'une activité dure : UNE carte, lue sur le plan (« … plus léger aujourd'hui » / « Garder le plan »).
     var veille = !vue.modifier && typeof vue.propositionVeille === 'function' ? vue.propositionVeille() : null;
     if (veille) cible.appendChild(carteDeVeille(veille, vue));
+    // X3 (253) — la réponse du matin reprise : UNE ligne et « Changer » (la question ne revient pas).
+    var reprise = !vue.modifier && !veille && typeof vue.repriseVeille === 'function' ? vue.repriseVeille() : null;
+    if (reprise) cible.appendChild(ligneDeVeilleReprise(reprise, vue));
     if (mob && mob.avant) cible.appendChild(carteDeMobilite(mob.avant, 'avant', vue));
     blocs.forEach(function (bloc, iBloc) {
       // §5.3 — le mode Modifier replie TOUT sur une ligne par bloc. Deux
@@ -3174,12 +3177,23 @@
     if (mob && mob.fin) cible.appendChild(carteDeMobilite(mob.fin, 'fin', vue));
   }
 
+  function ligneDeVeilleReprise(r, vue) {
+    var n = el('section', 'carte-mobilite carte-veille carte-veille-reprise');
+    n.setAttribute('data-veille-reprise', r.choix);
+    n.appendChild(el('p', 'veille-reprise-texte', r.phrase));
+    var b = el('button', 'lien veille-changer', r.lien || 'Changer');
+    b.type = 'button';
+    b.addEventListener('click', function () { vue.surChangerVeille(); });
+    n.appendChild(b);
+    return n;
+  }
+
   function carteDeVeille(v, vue) {
     var n = el('section', 'carte-mobilite carte-veille');
     n.setAttribute('data-veille', v.slug);
     n.appendChild(propositionDExercice({
-      classe: 'proposition-veille', texte: v.phrase, oui: v.boutons.mix, non: v.boutons.garder,
-      surOui: function () { vue.surVeille('mix'); }, surNon: function () { vue.surVeille('garder'); }
+      classe: 'proposition-veille', texte: v.phrase, oui: v.boutons.leger, non: v.boutons.garder,
+      surOui: function () { vue.surVeille('leger'); }, surNon: function () { vue.surVeille('garder'); }
     }, -1));
     var det = el('details', 'cm-pourquoi');
     det.appendChild(el('summary', null, 'Pourquoi\u00a0?'));
@@ -3673,21 +3687,15 @@
       }
       entree.appendChild(ligne);
 
-      // 204 — UNE NOTE POSÉE S'AFFICHE SOUS LE NOM (elle se pose depuis le « ⋯ » de l'exercice) ; un toucher la rouvre.
-      if (!vue.programme && x.note) {
-        var notePosee = el('button', 'note-exo pleine note-sous-nom', x.note);
-        notePosee.type = 'button';
-        notePosee.setAttribute('aria-label', 'Modifier la note de ' + x.nom);
-        if (typeof vue.surNote === 'function') notePosee.addEventListener('click', function () { vue.surNote(x._iExo); });
-        entree.appendChild(notePosee);
+      // X4/X5 (253, maquette-haut-d-exercice-v1) — LA CONSIGNE DE ROUTINE (204, un toucher la rouvre) ET LA NOTE (242 : épinglée, ou celle de la
+      // dernière fois) tiennent dans UN SEUL encadré repliable ; le chiffre du jour passe AVANT lui (posé plus bas, après la voix du coach).
+      // Rien en mode programme (une routine n'observe rien).
+      var encadre = null, encadrePose = false;
+      if (!vue.programme) {
+        var nsn = typeof vue.noteSousLeNom === 'function' ? vue.noteSousLeNom(x.slug) : null;
+        if (x.note || nsn) encadre = encadreConsigneEtNote(x, nsn, vue, bloc);
       }
-
-      // 242 (maquette-note-derniere-fois-v1) — LA NOTE DE L'EXERCICE, entre son nom et ses séries : la note épinglée de la personne, ou celle
-      // de la dernière fois. Les mots sont les siens, jamais réécrits. Rien en mode programme (une routine n'observe rien).
-      if (!vue.programme && typeof vue.noteSousLeNom === 'function') {
-        var nsn = vue.noteSousLeNom(x.slug);
-        if (nsn) entree.appendChild(blocNoteDExercice(x, nsn, vue));
-      }
+      var poserEncadre = function () { if (encadre && !encadrePose) { entree.appendChild(encadre); encadrePose = true; } };
 
       // Le type de mesure est rappelé sous le nom : sans lui, une ligne à deux
       // colonnes au milieu de lignes à trois désoriente. Tu par prudence quand
@@ -3794,6 +3802,7 @@
         // rien ? » —, le lien est là quand même).
         var lp = lienPourquoi();
         if (lp) { var dLien = el('div', 'pourquoi-ligne'); dLien.appendChild(lp); entree.appendChild(dLien); }
+        poserEncadre();
         // 211 — « Mon premier pari : … » : la phrase du plan, une fois, sous la consigne (la ligne est déjà la porte du « Pourquoi »).
         var phrasePari = typeof vue.premierPari === 'function' ? vue.premierPari(x._iExo) : null;
         if (phrasePari) entree.appendChild(tapable(el('div', 'consigne-dit premier-pari', phrasePari)));
@@ -3818,6 +3827,7 @@
         // 175 — le tempo lent en cours (le levier accepté au plafond) : « 3 s en descente, jusqu'à ton prochain progrès ».
         if (lib.tempo) entree.appendChild(tapable(el('div', 'consigne-dit tempo-en-cours', lib.tempo)));
       }
+      poserEncadre();
       // 99 (MOTEUR §9.24) — un exercice ajouté pour cette semaine seulement : « ajouté : séance manquée de mardi ».
       if (x.ajout) entree.appendChild(el('div', 'consigne-dit ajout-semaine', 'ajouté : ' + x.ajout));
       // 204 — EN SÉANCE, un exercice seul n'a plus de rangée de réglages : le repos est en tête de la colonne ✓ (`enTetesColonnes`),
@@ -5021,16 +5031,62 @@
     return b;
   }
 
+  // X4/X5 (253) — L'ENCADRÉ UNIQUE du haut d'un exercice : « Consigne · Ta note du 4 nov. » (ou une seule des deux). Ouvert tant qu'aucune série de
+  // l'exercice n'est validée (la première fois qu'il s'affiche), replié dès la première ; un toucher l'ouvre ou le ferme (état d'écran : un choix
+  // vaut tant que le nombre de séries validées ne change pas). Un champ de note en cours d'édition le garde ouvert. Les mots sont ceux de la personne.
+  var choixEncadres = {};
+  function titreDeNote(note) {
+    return note.mode === 'epinglee' ? 'Ta note pour cet exercice' : 'Ta note du ' + M().jourCourtDeNote(note.jour);
+  }
+  function encadreConsigneEtNote(x, note, vue, bloc) {
+    var series = (bloc.series || []).filter(function (q) { return q._iExo === x._iExo; });
+    var faites = series.filter(function (q) { return q.faite; }).length;
+    var cle = ((bloc.series && bloc.series[0] && bloc.series[0].id) || '') + '|' + x._iExo + '|' + x.slug;
+    var edition = note && typeof vue.brouillonNote === 'function' && typeof vue.brouillonNote(x.slug) === 'string';
+    var choix = choixEncadres[cle];
+    var ouvert = edition ? true : (choix && choix.n === faites ? choix.ouvert : faites === 0);
+    var parts = [];
+    if (x.note) parts.push('Consigne');
+    if (note) parts.push(titreDeNote(note));
+    var n = el('div', 'encadre-exo' + (ouvert ? ' ouvert' : ''));
+    n.setAttribute('data-encadre', x.slug || '');
+    var tete = el('button', 'encadre-titre');
+    tete.type = 'button';
+    tete.setAttribute('aria-expanded', ouvert ? 'true' : 'false');
+    tete.appendChild(el('span', 'encadre-intitule', parts.join(' \u00b7 ')));
+    tete.appendChild(el('span', 'encadre-chev', ouvert ? '\u25b4' : '\u25be'));
+    var corps = el('div', 'encadre-corps');
+    corps.hidden = !ouvert;
+    tete.addEventListener('click', function () {
+      var o = corps.hidden;
+      corps.hidden = !o;
+      n.classList.toggle('ouvert', o);
+      tete.setAttribute('aria-expanded', o ? 'true' : 'false');
+      tete.lastChild.textContent = o ? '\u25b4' : '\u25be';
+      choixEncadres[cle] = { n: faites, ouvert: o };
+    });
+    if (x.note) {
+      // 204 — la consigne de routine : un toucher la rouvre dans la feuille de note (geste inchangé) ; ici elle est lue en entier.
+      var posee = el('button', 'note-exo pleine note-sous-nom', x.note);
+      posee.type = 'button';
+      posee.setAttribute('aria-label', 'Modifier la note de ' + x.nom);
+      if (typeof vue.surNote === 'function') posee.addEventListener('click', function () { vue.surNote(x._iExo); });
+      corps.appendChild(posee);
+    }
+    if (note) corps.appendChild(blocNoteDExercice(x, note, vue, true));
+    n.appendChild(tete);
+    n.appendChild(corps);
+    return n;
+  }
+
   // 242 — le bloc de la note d'un exercice : écran A (la note, « Modifier » · « Ne plus afficher »), écran B (le champ, « Garder » · « Annuler »).
   // L'édition vit dans le noeud : « Annuler » rend la note telle qu'elle était, rien n'est écrit avant « Garder ».
-  function blocNoteDExercice(x, note, vue) {
+  function blocNoteDExercice(x, note, vue, sansTitre) {
     var boite = el('div', 'note-derniere');
     boite.setAttribute('data-slug', x.slug);
     function montrer() {
       vider(boite);
-      var titre = note.mode === 'epinglee' ? 'Ta note pour cet exercice'
-        : 'Ta note du ' + M().jourCourtDeNote(note.jour);
-      boite.appendChild(el('p', 'note-derniere-t', titre));
+      boite.appendChild(el('p', 'note-derniere-t', titreDeNote(note)));
       boite.appendChild(el('p', 'note-derniere-texte', note.mode === 'epinglee' ? note.texte : '\u00ab\u00a0' + note.texte + '\u00a0\u00bb'));
       var gestes = el('div', 'note-derniere-gestes');
       var bm = el('button', 'discret note-derniere-modifier', 'Modifier');
@@ -5263,6 +5319,8 @@
     }
     // 193-3 — la zone vient de la routine : la première ligne, avant le détail de la zone.
     if (p.plan) cible.appendChild(el('p', 'pq-p', p.plan));
+    // 253 (X2) — la veille d'une activité dure : « Plan : 152,5 kg × 5. Aujourd'hui : 145 kg × 5, 2 en réserve : tu as noté football hier. »
+    if (p.veille) cible.appendChild(el('p', 'pq-p pq-veille', p.veille));
     ['zone', 'palier', 'etat'].forEach(function (k) {
       if (p[k]) cible.appendChild(el('p', 'pq-p', p[k]));
     });
@@ -10550,6 +10608,7 @@
     rendreFeuilleChoixMultiple: rendreFeuilleChoixMultiple,
     rendreFeuilleActivite: rendreFeuilleActivite,
     carteDeVeille: carteDeVeille,
+    ligneDeVeilleReprise: ligneDeVeilleReprise,
     rendreFeuilleMot: rendreFeuilleMot,
     rendreFeuilleMots: rendreFeuilleMots, rendreFeuilleMentions: rendreFeuilleMentions,
     rendreFeuilleSaisie: rendreFeuilleSaisie,

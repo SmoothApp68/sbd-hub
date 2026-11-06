@@ -164,3 +164,29 @@ describe('256 D9 — la carte « Pour tenir en 45 min » a de vrais boutons', ()
     expect(cible.querySelector('.carte-raccourci ~ .feuille-pied')).not.toBeNull();   // le repli du banc (`entree`) le trouve
   });
 });
+
+describe('256 D11 — la durée d’une série non validée ne déplace pas la visée de la suivante', () => {
+  const ROUTINE = { id: 'r1', exercices: [{ exercise_slug: 'gainage',
+    series: [{ type_serie: 'travail', duree_s: 60 }, { type_serie: 'travail', duree_s: 60 }] }] };
+  let k = 0;
+  const neuve = () => S.creer({ id: 'S1', userId: 'u', routine: ROUTINE, idSerie: () => 'g' + (++k) });
+  test('« Stop » à 1:05 écrit la durée SANS valider : la série 2 reste à la cible de la routine (1:00)', () => {
+    let se = neuve();
+    se = S.modifierSerie(se, 0, 0, { duree: 65 });                 // ce que le chrono écrit à Stop
+    expect(se.exercices[0].series[0].duree_s).toBe(65);
+    expect(S.partEnBase(se.exercices[0].series[0])).toBe(false);
+    expect(S.fantome(se, 0, 1, null).duree_s).toBe(60);
+  });
+  test('une fois la série 1 VALIDÉE à 1:05, la visée de la 2 la suit (la saisie fait foi)', () => {
+    let se = neuve();
+    se = S.modifierSerie(se, 0, 0, { duree: 65 });
+    se = S.valider(se, 0, 0, new Date('2026-11-05T10:00:00+01:00'));
+    expect(S.fantome(se, 0, 1, null).duree_s).toBe(65);
+  });
+  test('la charge tapée non validée garde sa règle (non-régression de « ta saisie fait foi »)', () => {
+    const R = { id: 'r2', exercices: [{ exercise_slug: 'curl', series: [{ type_serie: 'travail', reps: 8 }, { type_serie: 'travail', reps: 8 }] }] };
+    let se = S.creer({ id: 'S2', userId: 'u', routine: R, idSerie: () => 'c' + (++k) });
+    se = S.modifierSerie(se, 0, 0, { charge_kg: 30 });
+    expect(S.fantome(se, 0, 1, null).charge_kg).toBe(30);
+  });
+});

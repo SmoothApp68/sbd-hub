@@ -259,3 +259,20 @@ describe('256 D14 — « recul » s’annonce dès le plan, avant la validation'
   });
 });
 
+describe('256 (d) — les mesures de Hevy se lisent en français seulement', () => {
+  const I = require('../../v2/js/importhevy.js');
+  const AUJ = new Date('2026-11-06T10:00:00+01:00');
+  test('« 16 Jun 2026, 10:24 » et « Oct 2, 2026, 5:54 PM » : refusés, « Hevy en français » (enAnglais), aucune pesée', () => {
+    ['"16 Jun 2026, 10:24"', '"Oct 2, 2026, 5:54 PM"', '"16 Mar 2026, 10:24"'].forEach((d) => {
+      const r = I.lireMesuresCsv('date,weight_kg\n' + d + ',80', AUJ);
+      expect(r.pesees).toEqual([]);
+      expect(r.raison).toBe('date');
+      expect(r.enAnglais).toBe(true);
+    });
+  });
+  test('le français passe toujours : « 23 oct. 2023, 19:00 », « 14 juil. 2024, 08:00 », « 1 mars 2024, 08:00 »', () => {
+    const r = I.lireMesuresCsv('date,weight_kg\n"23 oct. 2023, 19:00",85\n"14 juil. 2024, 08:00",84\n"1 mars 2024, 08:00",83', AUJ);
+    expect(r.pesees.map((p) => p.date)).toEqual(['2023-10-23', '2024-03-01', '2024-07-14']);
+    expect(r.enAnglais).toBeUndefined();
+  });
+});

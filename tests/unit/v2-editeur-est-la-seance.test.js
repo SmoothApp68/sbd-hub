@@ -30,6 +30,7 @@ require('../../v2/js/semaine.js');
 const Modele = require('../../v2/js/modele.js');
 const Seance = require('../../v2/js/seance.js');
 require('../../v2/js/rendu.js');
+require('../../v2/js/tours.js');   // 261 : le superset s'affiche par tours
 const Rendu = () => window.THRendu;
 
 const CAT = [

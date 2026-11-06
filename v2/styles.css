@@ -140,6 +140,7 @@
   /* 261 — LE SUPERSET PAR TOURS : une couleur ET une forme par exercice (A rond bleu, B carré rose — pas le violet des records —,
      C triangle gris clair). La couleur seule ne porte jamais un sens : la forme et la lettre du badge la doublent. */
   --ex-a:#58B4F5; --ex-b:#F28CC0; --ex-c:#CBD5E1;
+  --degressive:#E0B25A; /* « ↓ Dégressive » dans un tour : 8,7:1 sur la carte */
   --rail-fond:#12161D; /* le rail d'un tour : une région plus sombre que la carte */
   --trait-case-saisie:#606C80; /* le contour pointillé d'une case à remplir : 3:1 sur la carte (WCAG 1.4.11) */
   --fond-serie-faite:#1D312F; /* le vert de sens à ~11 % sur la surface (opaque), une série faite */
@@ -1472,8 +1473,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 /* La légende : une ligne par exercice, le chiffre du jour à côté du nom (le héros de la consigne, déplacé). */
 .en-tours-leg .exo-seance{align-items:center;gap:8px}
 .en-tours-leg .legende-haut{align-items:center;gap:var(--e2)}
-.en-tours-leg .consigne-heros.heros-leg{margin:0;flex:0 0 auto;flex-wrap:nowrap;align-items:baseline;min-height:44px;align-content:center;cursor:pointer;
-  border-bottom:1px dotted var(--accent);border-bottom-width:0}
+.en-tours-leg .consigne-heros.heros-leg{margin:0;flex:0 0 auto;flex-wrap:nowrap;align-items:baseline;min-height:44px;align-content:center;cursor:pointer}
 .en-tours-leg .consigne-heros.heros-leg::before{display:none}
 .en-tours-leg .consigne-heros.heros-leg .c-charge,.en-tours-leg .consigne-heros.heros-leg .c-reps{font-size:19px}
 .en-tours-leg .consigne-heros.heros-leg .c-kg{font-size:14px}
@@ -1521,7 +1521,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .nom-ligne .forme-triangle{width:9px}
 .nom-ligne-t{overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:break-word;hyphens:auto}
 .nom-ligne.chauffe .nom-ligne-t{color:var(--chauffe)}
-.nom-ligne.degressive .nom-ligne-t{color:var(--accent);font-size:12.5px;hyphens:manual;overflow-wrap:normal}
+.nom-ligne.degressive .nom-ligne-t{color:var(--degressive);font-size:12.5px;hyphens:manual;overflow-wrap:normal}
 .serie.en-tours[data-ex="0"] .no-serie:not(.c):not(.d){box-shadow:inset 3px 0 0 var(--ex-a)}
 .serie.en-tours[data-ex="1"] .no-serie:not(.c):not(.d){box-shadow:inset 3px 0 0 var(--ex-b)}
 .serie.en-tours[data-ex="2"] .no-serie:not(.c):not(.d){box-shadow:inset 3px 0 0 var(--ex-c)}

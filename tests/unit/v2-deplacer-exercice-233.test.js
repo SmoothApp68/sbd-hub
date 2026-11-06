@@ -22,6 +22,7 @@ require('../../v2/js/modele.js');
 require('../../v2/js/semaine.js');
 require('../../v2/js/modele.js');
 require('../../v2/js/rendu.js');
+require('../../v2/js/tours.js');   // 261 : le superset s'affiche par tours
 const Modele = require('../../v2/js/modele.js');
 const Seance = require('../../v2/js/seance.js');
 const { progTravail } = require('./aide-routine-programmee.js');
@@ -154,16 +155,32 @@ function poserRects(noeuds) {
 }
 
 describe('233 — le glissement d’un exercice', () => {
-  test('la poignée ⠿ est là, en séance, sur chaque exercice (cible de 44 px en CSS)', () => {
-    const c = rendreAvecGlisse(seanceDe([['dc', 2, 1], ['ec', 2, 1]]), () => {});
+  // 261 — dans un SUPERSET, il n'y a plus de carte par exercice (les tours) : ni poignée ni appui long ; « Monter / Descendre » du ⋯
+  // est le chemin. Le glissement vaut pour les exercices SEULS (un bloc chacun).
+  test('261 — un superset n’a ni poignée ⠿ ni appui long : l’ordre se change par « Monter / Descendre »', () => {
+    jest.useFakeTimers();
+    try {
+      const appels = [];
+      const c = rendreAvecGlisse(seanceDe([['dc', 2, 1], ['ec', 2, 1]]), (...a) => appels.push(a));
+      expect(c.querySelectorAll('.poignee-exo')).toHaveLength(0);
+      const nom = c.querySelector('.nom-exo');
+      nom.dispatchEvent(evenement('pointerdown', 10));
+      jest.advanceTimersByTime(600);
+      expect(c.querySelector('.pris-exo')).toBeNull();
+      c.dispatchEvent(evenement('pointerup', 10));
+      expect(appels).toEqual([]);
+    } finally { jest.useRealTimers(); }
+  });
+  test('la poignée ⠿ est là, en séance, sur chaque exercice SEUL (cible de 44 px en CSS)', () => {
+    const c = rendreAvecGlisse(seanceDe([['dc', 2, null], ['ec', 2, null]]), () => {});
     expect(c.querySelectorAll('.poignee-exo')).toHaveLength(2);
     const css = require('fs').readFileSync(require('path').join(__dirname, '../../v2/styles.css'), 'utf8');
     expect(css).toMatch(/\.poignee-exo\{[^}]*min-width:44px;min-height:44px/);
   });
   test('saisir A par la poignée et le lâcher sous B : surDeplacerExercice(0, 1, après)', () => {
     const appels = [];
-    const c = rendreAvecGlisse(seanceDe([['dc', 2, 1], ['ec', 2, 1]]), (...a) => appels.push(a));
-    const cartes = Array.from(c.querySelectorAll('.carte-ss'));
+    const c = rendreAvecGlisse(seanceDe([['dc', 2, null], ['ec', 2, null]]), (...a) => appels.push(a));
+    const cartes = Array.from(c.querySelectorAll('.bloc-seance'));
     poserRects(cartes);
     cartes[0].querySelector('.poignee-exo').dispatchEvent(evenement('pointerdown', 10));
     expect(cartes[0].classList.contains('pris-exo')).toBe(true);
@@ -177,8 +194,8 @@ describe('233 — le glissement d’un exercice', () => {
     jest.useFakeTimers();
     try {
       const appels = [];
-      const c = rendreAvecGlisse(seanceDe([['dc', 2, 1], ['ec', 2, 1]]), (...a) => appels.push(a));
-      const cartes = Array.from(c.querySelectorAll('.carte-ss'));
+      const c = rendreAvecGlisse(seanceDe([['dc', 2, null], ['ec', 2, null]]), (...a) => appels.push(a));
+      const cartes = Array.from(c.querySelectorAll('.bloc-seance'));
       poserRects(cartes);
       const nom = cartes[1].querySelector('.nom-exo');
       nom.dispatchEvent(evenement('pointerdown', 150));

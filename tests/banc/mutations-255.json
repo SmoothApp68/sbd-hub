@@ -1,0 +1,5 @@
+[
+ {"nom": "255-1-cible-sans-reserve-visee", "fichier": "v2/js/moteur.js", "ancien": "unRMEpley(1, z.bas + (rVisee === null ? 0 : rVisee))", "nouveau": "unRMEpley(1, z.bas)", "unitaires": ["tests/unit/v2-report-de-zone.test.js"], "banc": "aucun"},
+ {"nom": "255-2-source-sans-reserve-notee", "fichier": "v2/js/moteur.js", "ancien": "unRMEpley(P, n + (rSource === null ? 0 : rSource))", "nouveau": "unRMEpley(P, n)", "unitaires": ["tests/unit/v2-report-de-zone.test.js"], "banc": "aucun"},
+ {"nom": "255-3-reglage-perdu-dans-la-consigne", "fichier": "v2/js/moteur.js", "ancien": "var r = reportSur(seances, avant, zoneAvant, consigne.zone, o.equipement, o.reglage);", "nouveau": "var r = reportSur(seances, avant, zoneAvant, consigne.zone, o.equipement);", "unitaires": ["tests/unit/v2-report-de-zone.test.js"], "banc": "aucun"}
+]

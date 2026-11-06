@@ -4209,7 +4209,7 @@
     // reporte, par la même fonction que la correction à l'étiquette. Sans
     // report (un corps, une aide, un lest, ou séries longues qui restent), les
     // replis d'avant : celui de §14.5, sinon celui de la reprise longue.
-    var report = reportSur(seances, avant, consigne.zone, zone, equipement);
+    var report = reportSur(seances, avant, consigne.zone, zone, equipement, (options || {}).reglage);
     var repli = report === null ? null
       : { source: 'report', palier: nombre(consigne.palier), ligne: [report.charge, report.visee] };
     var salle = (options || {}).salle || null;
@@ -9283,7 +9283,12 @@
     if (P <= 0) return null;
     // La visée : le bas de la zone, d'où l'on remonte.
     var visee = z.bas;
-    var estimee = unRMEpley(P, n) / unRMEpley(1, z.bas);
+    // 255 (06/11/2026, décision d'Aurélien) — LA RÉSERVE COMPTE DES DEUX CÔTÉS. Côté source : `n + réserve notée` de la série
+    // (inconnue → `n`, l'hypothèse prudente : le max estimé le plus bas, la charge la plus légère). Côté cible : la charge qui
+    // donne `z.bas` reps AVEC la réserve visée de la zone pour ce réglage (`reserveVisee`, la même table que la consigne).
+    var rSource = nombre(L.reserve);
+    var rVisee = reserveVisee({ zone: z.cle, role: 'ligne', reglage: p.reglage });
+    var estimee = unRMEpley(P, n + (rSource === null ? 0 : rSource)) / unRMEpley(1, z.bas + (rVisee === null ? 0 : rVisee));
     var charge = auCranInferieur(P, estimee, p.cran);
     // (a) la dernière charge tenue DANS la zone visée — son niveau validé
     // entre le bas et le haut —, dans les 90 jours.
@@ -9338,7 +9343,10 @@
   function chargesDeTravail(vues) {
     return (vues || []).filter(function (v) { return v && !v.neutre; }).map(function (v) {
       var A = seriesAuPalier(v);
-      return { debut: v.debut, palier: nombre(v.palier), niveau: A.length ? niveauValide(A) : null };
+      // 255 — la réserve notée de la DERNIÈRE série au palier (`Palier().reserveDeSerie`, la lecture de partout), `null` si rien
+      // n'est noté : le report s'en sert pour ne pas traiter la série source comme faite à l'échec.
+      return { debut: v.debut, palier: nombre(v.palier), niveau: A.length ? niveauValide(A) : null,
+               reserve: A.length ? Palier().reserveDeSerie(A[A.length - 1]) : null };
     });
   }
 
@@ -9354,7 +9362,7 @@
     }).map(function (x) { return { date: x.debut, palier: x.palier, niveau: x.niveau }; });
   }
 
-  function reportSur(seances, avant, zoneAvant, zone, equipement) {
+  function reportSur(seances, avant, zoneAvant, zone, equipement, reglage) {
     if (equipement === EQUIPEMENT_LEST) return null;
     // 132 (MOTEUR §10 ter) — PAS DE REPORT À L'ÉLASTIQUE : une estimation du 1RM sur une charge virtuelle (ou sur une
     // aide) ne veut rien dire. L'aide était déjà écartée (charge ≤ 0, `reportDeZone`) ; la résistance notée par nom
@@ -9363,7 +9371,7 @@
     var vues = (seances || []).map(vueDeSeance);
     var lues = chargesDeTravail(anterieures(vues, avant));
     return reportDeZone({
-      seances: lues, avant: avant, zoneAvant: zoneAvant, zone: zone,
+      seances: lues, avant: avant, zoneAvant: zoneAvant, zone: zone, reglage: reglage,
       cran: function (charge, sens) { return chargeVoisine(vues, avant, charge, equipement, sens); }
     });
   }
@@ -9407,7 +9415,7 @@
     if (o.mesure !== 'charge_reps') return null;
     // 193-3 — en « première fois » dans la zone du plan, la zone d'avant est celle que la dernière séance a FAITE (`zoneAvantDuPlan`).
     var zoneAvant = o.zoneAvantDuPlan !== undefined ? o.zoneAvantDuPlan : zoneDeLaDerniere(seances, avant, o);
-    var r = reportSur(seances, avant, zoneAvant, consigne.zone, o.equipement);
+    var r = reportSur(seances, avant, zoneAvant, consigne.zone, o.equipement, o.reglage);
     if (r === null) return null;
     var f = consigne.fondement || {};
     var garde = { date: f.date, reps: f.reps, seance: f.seance, habitude: f.habitude, correction: f.correction,
@@ -9804,7 +9812,7 @@
                : null,
              // §9.20 (51-3) — LA REPRISE APRÈS UNE SÉANCE DOULOUREUSE, figée avec
              // la consigne : le plan pose la carte, aucun écran ne la décide.
-             reprise: reprisePour(marquees, avant, consigne, compteur.meilleur, { equipement: o.equipement, salle: salle }),
+             reprise: reprisePour(marquees, avant, consigne, compteur.meilleur, { equipement: o.equipement, salle: salle, reglage: o.reglage }),
              // I34 — les séances marquées « douleur » (leurs débuts) : le plan
              // vérifie qu'aucune ne fonde la charge de la consigne.
              douleurs: anterieures(seances, avant).filter(function (se) { return se.douleur === true; })

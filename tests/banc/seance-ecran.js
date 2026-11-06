@@ -29276,7 +29276,11 @@ const SETS_IMPORTES = [
       return { nom: nom && nom.bottom, hero: her && her.top, heroBas: her && her.bottom, enc: enc && enc.top, nEnc: e.querySelectorAll('.encadre-exo').length,
         nNotes: e.querySelectorAll('.note-derniere').length, hTitre: tit && tit.height, ouvert: !!e.querySelector('.encadre-corps') && !e.querySelector('.encadre-corps').hidden,
         titre: (e.querySelector('.encadre-titre') || {}).textContent || null, largeur: document.documentElement.scrollWidth }; });
+    // 253 (X45) — la mesure se fait À 360 px, posés ici : en séquentiel, la section précédente laisse la page à 380 px.
+    const vue45 = page.viewportSize();
+    await page.setViewportSize({ width: 360, height: (vue45 && vue45.height) || 780 });
     const h45 = await haut45();
+    if (vue45) await page.setViewportSize(vue45);
     ok('[NU253X45] DISCRIMINANT — le chiffre du jour est juste sous le nom, avant l’encadré (un seul encadré, ouvert à l’arrivée)',
       !!h45 && h45.hero !== null && h45.enc !== null && h45.hero - h45.nom < 30 && h45.hero < h45.enc && h45.nEnc === 1 && h45.ouvert, nb242(h45));
     ok('[NU253X45] le titre de l’encadré dit ce qu’il contient et se touche à 44 px', !!h45 && /Ta note pour cet exercice/.test(sp242(h45.titre)) && h45.hTitre >= 44, nb242(h45));

@@ -142,8 +142,7 @@ const ok = (nom, cond, detail) => {
 const DEFAUTS_PROUVES = {
   'D-R1': 'le journal des records (jeu, guilde, groupe, médailles du social) n’est pas revu quand une séance ANTÉRIEURE est corrigée ou supprimée ; la Progression, elle, recalcule',
   'D-C2': 'après une Édition, le score de force publié (scores_force) attend la prochaine ouverture du social',
-  'D-P1': 'corriger une série dans l’Édition ne refait pas l’observation de son pari (predictions.valeur_observee périmée ou vidée)',
-  'D-S3': '« Non, ne compte pas » survit à la correction de la charge qui l’a déclenché (hors_calcul reste vrai)',
+  'D-P1': 'dévalider puis revalider une série dans l’Édition vide l’observation de son pari (predictions.valeur_observee et set_observe à null) ; la correction des reps, elle, est corrigée (245)',
   'D-H2': 'le même record aux haltères se dit « 40 kg » ici et « 2 × 40 kg » là'
 };
 const defautsVus = [];
@@ -29655,7 +29654,7 @@ const SETS_IMPORTES = [
     const pari1 = pariDe(setP) || parisDeLaSeance(sidP)[0] || {};
     ok('[FP249] prémisse — l’Édition a écrit la série corrigée (9 reps) en base, et le pari existe toujours',
       Number((base.sets.filter((x) => x.id === setP)[0] || {}).reps) === 9 && !!pari1.id, nb([(base.sets.filter((x) => x.id === setP)[0] || {}).reps, pari1.id]));
-    okDefaut('D-P1', '[FP249] Édition 7 → 9 reps — l’observation du pari dit les reps de la série qu’elle désigne (9)',
+    ok('[FP249] (245, D-P1 corrigé) Édition 7 → 9 reps — l’observation du pari dit les reps de la série qu’elle désigne (9)',
       pari1.valeur_observee === 9 && pari1.set_observe === setP, 'série : 9 reps · pari : valeur_observee ' + nb(pari1.valeur_observee) +
         ', set_observe ' + (pari1.set_observe === setP ? 'cette série' : nb(pari1.set_observe)));
 
@@ -29703,7 +29702,7 @@ const SETS_IMPORTES = [
     const rangee1 = await page.evaluate(() => (document.querySelectorAll('.ligne-serie')[1] || {}).textContent || '');
     ok('[FP249] prémisse — la charge corrigée (125) est écrite en base', !!serieQ(1) && Number(serieQ(1).charge_kg) === 125,
       nb(serieQ(1) && serieQ(1).charge_kg));
-    okDefaut('D-S3', '[FP249] la charge corrigée (155 → 125) : la série redevient du travail (hors_calcul = false), ou la question se repose',
+    ok('[FP249] (245, D-S3 corrigé) la charge corrigée (155 → 125) : la série redevient du travail (hors_calcul = false), ou la question se repose',
       (!!serieQ(1) && serieQ(1).hors_calcul === false) || !!q1, 'hors_calcul ' + nb(serieQ(1) && serieQ(1).hors_calcul) + ' · question ' + nb(q1) +
         ' · rangée « ' + rangee1.replace(/\s+/g, ' ').trim() + ' »');
     await abandonner();

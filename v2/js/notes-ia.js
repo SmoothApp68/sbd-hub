@@ -499,7 +499,7 @@
     if (r.length === 1) return n.length && r[0] === n[n.length - 1] ? 'dernière série' : 'série ' + (n.indexOf(r[0]) + 1);
     var numeros = r.map(function (j) { return n.indexOf(j) + 1; });
     if (n.length && r.length === n.length) return 'toutes les séries';
-    return 'séries ' + numeros.slice(0, -1).join(', ') + ' et ' + numeros[numeros.length - 1];
+    return 'séries ' + Modele().enumerer(numeros);   // 251 : une seule façon d'écrire « A, B et C »
   }
   function reserveTexte(valeur) {
     return { reste_0: 'sans marge', reste_1: '1 en réserve', reste_2: '2 en réserve', reste_3_plus: '3 en réserve ou plus' }[valeur] || null;

@@ -260,7 +260,7 @@ describe('236 × 233 — le repos réel court du cas A se lit par Moteur.reposRe
   });
 });
 
-// 236 × 225 — LA FORME DU JOUR ET LA VEILLE : après « Mix aujourd'hui », pas de second allègement par-dessus ; si le plan est gardé, la carte
+// 236 × 225 — LA FORME DU JOUR ET LA VEILLE : après « plus léger aujourd'hui » (253, X2 ; avant « Mix »), pas de second allègement par-dessus ; si le plan est gardé, la carte
 // nomme le FAIT noté (« Tu as noté football hier. »), sans deviner de cause (I129).
 describe('236 × 225 — la forme du jour et la veille d’une activité dure (I129)', () => {
   const fait = { tractions: [[0, 7], [0, 7], [0, 6], [0, 6]], incline: [[40, 11], [40, 9], [40, 9]] };
@@ -276,8 +276,8 @@ describe('236 × 225 — la forme du jour et la veille d’une activité dure (I
     expect(p.exercices[2].carteForme.veille).toBeNull();
     propre(p, e);
   });
-  test('« Mix aujourd’hui » pris : AUCUNE carte de forme du jour (la séance est déjà allégée)', () => {
-    const { e, p } = avec('mix');
+  test('« plus léger aujourd’hui » pris : AUCUNE carte de forme du jour (la séance est déjà allégée)', () => {
+    const { e, p } = avec('leger');
     expect(p.formeDuJour.carte).toBeNull();
     expect(p.exercices.some((x) => x.carteForme)).toBe(false);
     propre(p, e);
@@ -290,16 +290,16 @@ describe('236 × 225 — la forme du jour et la veille d’une activité dure (I
     expect(c.phrase).not.toMatch(/parce que|à cause|fatigu|donc/i);
     propre(p, e);
   });
-  test('le moteur : la décision de forme se tait après Mix, et nomme le fait après « garder »', () => {
+  test('le moteur : la décision de forme se tait après « plus léger », et nomme le fait après « garder »', () => {
     const ex = [{ slug: 'a', nom: 'A', sousCible: true, fini: true }, { slug: 'b', nom: 'B', sousCible: true, fini: true }];
-    expect(M.reactionAuRate({ niveau: 'seance', exercices: ex, restants: 2, veille: { choix: 'mix', nom: 'Football' } })).toMatchObject({ silence: true, raison: 'veille_mix' });
+    expect(M.reactionAuRate({ niveau: 'seance', exercices: ex, restants: 2, veille: { choix: 'leger', nom: 'Football' } })).toMatchObject({ silence: true, raison: 'veille_leger' });
     expect(M.reactionAuRate({ niveau: 'seance', exercices: ex, restants: 2, veille: { choix: 'garder', nom: 'Football' } }).veille).toBe('football');
     expect(M.reactionAuRate({ niveau: 'seance', exercices: ex, restants: 2, veille: { choix: 'garder', nom: null } }).veille).toBeNull();
   });
-  test('I129 forgé : une carte après Mix, un fait nommé sans plan gardé', () => {
+  test('I129 forgé : une carte après « plus léger », un fait nommé sans plan gardé', () => {
     const r = avec('garder');
     const q = JSON.parse(JSON.stringify(r.p));
-    expect(T.verifierPlan(q, Object.assign({}, r.e, { veilleChoix: 'mix' })).erreurs.join('\n')).toMatch(/I129.*Mix/);
+    expect(T.verifierPlan(q, Object.assign({}, r.e, { veilleChoix: 'leger' })).erreurs.join('\n')).toMatch(/I129.*plus léger/);
     expect(T.verifierPlan(q, Object.assign({}, r.e, { veilleChoix: 'garder', activiteVeille: null })).erreurs.join('\n')).toMatch(/I129.*sans activité notée/);
   });
 });

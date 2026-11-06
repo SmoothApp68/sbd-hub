@@ -6900,7 +6900,10 @@
   function seancesAjusteesALaForme() {
     return (local.seances || []).filter(function (x) {
       return x && x.id && (!seance || x.id !== seance.id) && Array.isArray(x.gestes) &&
-        x.gestes.some(function (g) { return g && g.geste === 'forme_ajustee'; });
+        (x.gestes.some(function (g) { return g && g.geste === 'forme_ajustee'; }) ||
+         // 253 (X2) — une séance volontairement plus légère (la veille d'une activité dure) est neutre, comme une séance ajustée à la forme :
+         // ni compteur d'escalier, ni référence de consigne, ni stagnation, ni baisse, ni pari perdu (UNE lecture : `Plan.veilleLegereDesGestes`).
+         Plan.veilleLegereDesGestes(x.gestes) !== null);
     });
   }
 
@@ -7789,7 +7792,7 @@
     } catch (e) { /* stockage indisponible : la question reviendra, rien de plus */ }
   }
   // À la CRÉATION d'une séance (jamais au rendu) : si la question de la veille naîtrait et que la personne y a déjà répondu CE jour, la réponse est
-  // reprise — `veille_choix` posé, « Mix » re-posé sur la zone de la barre — et le plan le dit (`veilleReprise`) au lieu de reposer la question.
+  // reprise — `veille_choix` posé, le geste « plus léger » re-noté sur la nouvelle séance — et le plan le dit (`veilleReprise`) au lieu de reposer la question.
   async function reprendreLaVeilleDuJour() {
     if (!seance || enEdition()) return;
     var p = planActuel(), v = p && p.veilleActivite;
@@ -7797,8 +7800,8 @@
     var r = lireVeilleDuJour(Moteur.jourCivil(seance.debut));
     if (!r) return;
     seance = Object.assign({}, seance, { veille_choix: r.choix, veille_reprise: { slug: v.slug, heure: r.heure } });
-    if (r.choix === 'mix') await poserZoneDePlanDe(v.slug, 'mix', false);
-    else await apresGeste({ structure: false });
+    if (r.choix === 'leger') seance = Seance.noterGeste(seance, { geste: 'veille_legere', slug: v.slug });
+    await apresGeste({ structure: false });
   }
 
   function slugsDesExercices(exos) {
@@ -8022,7 +8025,7 @@
       chauffesAjoutees: rejeuEnCours ? {} : faits.chauffesAjoutees(corpus(), slugsDesExercices(exos), seance.debut),
       // 225 (MOTEUR §9.40) — l'activité NOTÉE de la veille (un fait : jamais une habitude déclarée) et la réponse de la séance.
       activiteVeille: rejeuEnCours ? null : faits.activiteDeLaVeille(corpus(), seance.debut),
-      veilleChoix: seance.veille_choix === 'mix' || seance.veille_choix === 'garder' ? seance.veille_choix : null,
+      veilleChoix: seance.veille_choix === 'leger' || seance.veille_choix === 'garder' ? seance.veille_choix : null,
       // X3 (253) — la réponse du jour REPRISE à la création de la séance : { slug, heure }, ou `null`.
       veilleReprise: seance.veille_reprise || null,
       reglage: Profil.rythmeDe(profil),
@@ -10636,8 +10639,8 @@
         var p = planActuel();
         return p && p.mobilite && (p.mobilite.avant || p.mobilite.fin) ? p.mobilite : null;
       },
-      // 225 (MOTEUR §9.40) — la veille d'une activité dure, lue sur le plan ; « Mix aujourd'hui » pose la zone de CET exercice pour la
-      // séance (« Juste aujourd'hui », rien n'est écrit sur la routine), « Garder le plan » ne change rien ; les deux font taire la carte.
+      // 225 (MOTEUR §9.40) — la veille d'une activité dure, lue sur le plan ; « <barre> plus léger aujourd'hui » est une variante de la consigne du
+      // jour (253, X2 : la zone ne change pas, rien n'est écrit sur la routine) ; « Garder le plan » ne change rien ; les deux font taire la carte.
       propositionVeille: function () {
         if (enEdition() || !seance) return null;
         var p = planActuel();
@@ -10645,16 +10648,15 @@
       },
       surVeille: async function (choix) {
         var p = planActuel(), v = p && p.veilleActivite;
-        if (!v || (choix !== 'mix' && choix !== 'garder')) return;
+        if (!v || (choix !== 'leger' && choix !== 'garder')) return;
         seance = Object.assign({}, seance, { veille_choix: choix, veille_reprise: null });
         ecrireVeilleDuJour(Moteur.jourCivil(seance.debut), choix);
-        // « Mix aujourd'hui » : le geste « Juste pour aujourd'hui » de la zone (aucune écriture sur la routine) ; il rend la main à
-        // `apresGeste`. « Garder le plan » ne change que la mémoire de la réponse.
-        if (choix === 'mix') await poserZoneDePlanDe(v.slug, 'mix', false);
-        else await apresGeste({ structure: false });
+        // Le geste ne s'écrit que pour « plus léger » : c'est lui qui rend la séance neutre pour la suite (`Plan.veilleLegereDesGestes`).
+        if (choix === 'leger') seance = Seance.noterGeste(seance, { geste: 'veille_legere', slug: v.slug });
+        await apresGeste({ structure: false });
       },
-      // X3 (253) — la ligne « Comme ce matin : squat en Mix. » lue sur le plan, et « Changer » : la question revient, la zone Mix de la barre est
-      // levée (la séance seulement), la réponse du jour est oubliée.
+      // X3 (253) — la ligne qui dit la réponse (« Squat plus léger aujourd'hui. » / « Comme ce matin : squat plus léger. ») lue sur le plan, et
+      // « Changer » : la question revient, la variante est levée (la séance seulement), la réponse du jour est oubliée.
       repriseVeille: function () {
         if (enEdition() || !seance) return null;
         var p = planActuel();
@@ -10665,8 +10667,8 @@
         if (!r) return;
         seance = Object.assign({}, seance, { veille_choix: null, veille_reprise: null });
         ecrireVeilleDuJour(Moteur.jourCivil(seance.debut), null);
-        if (r.choix === 'mix') await poserZoneDePlanDe(r.slug, null, false);
-        else await apresGeste({ structure: false });
+        if (r.choix === 'leger') seance = Seance.noterGeste(seance, { geste: 'veille_legere_annulee', slug: r.slug });
+        await apresGeste({ structure: false });
       },
       // 197 — la consigne de puissance (65 ans et plus), lue sur le plan : `{ texte, pourquoi }` pour l'exercice, sinon `null`.
       puissance: function (slug) {

@@ -1,0 +1,5 @@
+[
+ {"nom": "253-x2-1-raté-lu-sur-la-variante", "fichier": "v2/js/plan.js", "ancien": "|| !aUnPari(x) || x.veilleLegere) return;\n    var cx = contexteDuRate", "nouveau": "|| !aUnPari(x)) return;\n    var cx = contexteDuRate", "unitaires": ["tests/unit/v2-veille-legere-253.test.js"], "banc": "aucun"},
+ {"nom": "253-x2-2-séance-légère-non-neutre", "fichier": "v2/js/app.js", "ancien": "Plan.veilleLegereDesGestes(x.gestes) !== null);", "nouveau": "false);", "unitaires": ["tests/unit/v2-veille-legere-253.test.js"], "banc": "aucun"},
+ {"nom": "253-x2-3-reserve-sans-plafond", "fichier": "v2/js/moteur.js", "ancien": "var r = Math.min(rp + VEILLE_LEGERE_SURPLUS, VEILLE_LEGERE_RESERVE_MAX);", "nouveau": "var r = rp + VEILLE_LEGERE_SURPLUS;", "unitaires": ["tests/unit/v2-veille-legere-253.test.js"], "banc": "aucun"}
+]

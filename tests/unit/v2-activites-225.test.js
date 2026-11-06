@@ -142,7 +142,8 @@ describe('225 — la veille dans planDeSeance (I123, I124)', () => {
     slugs.forEach((s) => { se = S.ajouterExercice(se, s, id, { series: 3 }); });
     return se;
   }
-  const consigne = (zone) => ({ consigne: { zone: { cle: zone } } });
+  // 253 (X2) — une consigne COMPLÈTE (la variante « plus léger » lit la ligne du plan et le cran) : 152,5 kg × 5, cran de 2,5.
+  const consigne = (zone) => ({ consigne: { etat: 'progression', zone: { cle: zone }, palier: 152.5, n: 3, ligne: { charge: 152.5, vise: 5 }, haut: null }, pas: 2.5 });
   const entrees = (se, extra) => Object.assign({
     seance: { id: 'S', debut: '2026-11-04T10:00:00Z', edition: false, exercices: se.exercices },
     consignes: { squat_barre: consigne('lourd') }, reglage: 'normal', paris: [], objectif: 'force', catalogue: CAT,
@@ -151,11 +152,11 @@ describe('225 — la veille dans planDeSeance (I123, I124)', () => {
   const erreurs = (p, e) => T.verifierPlan(p, e).erreurs.filter((x) => /I12[34]/.test(x));
   const se = seanceDe(['squat_barre', 'developpe_couche_barre']);
 
-  test('le lendemain d’un football intense, le squat en Lourd propose UNE fois Mix ou Garder le plan', () => {
+  test('le lendemain d’un football intense, le squat en Lourd propose UNE fois « plus léger » ou Garder le plan', () => {
     const p = T.planDeSeance(entrees(se));
     expect(p.veilleActivite.slug).toBe('squat_barre');
-    expect(p.veilleActivite.boutons).toEqual({ mix: 'Squat (Barre) en Mix aujourd’hui', garder: 'Garder le plan' });
-    expect(p.veilleActivite.phrase).toBe('Hier : football, intense. Squat (Barre) est prévu en Lourd.');
+    expect(p.veilleActivite.boutons).toEqual({ leger: 'Squat plus léger aujourd’hui', garder: 'Garder le plan' });
+    expect(p.veilleActivite.phrase).toBe('Tu as noté football hier. Squat plus léger aujourd’hui\u00a0?');
     expect(p.veilleActivite.pourquoi).toMatch(/convention de coachs, pas une règle prouvée/);
     expect(erreurs(p, entrees(se))).toEqual([]);
   });
@@ -165,7 +166,7 @@ describe('225 — la veille dans planDeSeance (I123, I124)', () => {
     expect(T.planDeSeance(entrees(se)).veilleActivite.pourquoi).not.toMatch(/Wilson/);
   });
   test('« Garder le plan » est respecté : la réponse fait taire la carte, et la zone ne bouge pas', () => {
-    ['garder', 'mix'].forEach((c) => expect(T.planDeSeance(entrees(se, { veilleChoix: c })).veilleActivite).toBeNull());
+    ['garder', 'leger'].forEach((c) => expect(T.planDeSeance(entrees(se, { veilleChoix: c })).veilleActivite).toBeNull());
     expect(erreurs(T.planDeSeance(entrees(se)), entrees(se, { veilleChoix: 'garder' })).join('|')).toMatch(/I124 — la proposition revient/);
   });
   test('rien sans activité notée (une habitude déclarée n’est pas un fait)', () => {
@@ -173,7 +174,7 @@ describe('225 — la veille dans planDeSeance (I123, I124)', () => {
     const p = T.planDeSeance(entrees(se));
     expect(erreurs(p, entrees(se, { activiteVeille: null })).join('|')).toMatch(/I124 — une proposition de veille sans activité notée/);
   });
-  test('rien si la barre n’est pas en Lourd (Mix, ou déjà passée en Mix aujourd’hui)', () => {
+  test('rien si la barre n’est pas en Lourd', () => {
     expect(T.planDeSeance(entrees(se, { consignes: { squat_barre: consigne('mix') } })).veilleActivite).toBeNull();
     expect(T.planDeSeance(entrees(se, { consignes: {} })).veilleActivite).toBeNull();
   });
@@ -199,7 +200,7 @@ describe('225 — la veille dans planDeSeance (I123, I124)', () => {
     p.veilleActivite = Object.assign({}, p.veilleActivite, { pourquoi: 'C’est prouvé.' });
     expect(erreurs(p, entrees(se)).join('|')).toMatch(/I123 — la convention/);
     const q = T.planDeSeance(entrees(se));
-    q.veilleActivite = Object.assign({}, q.veilleActivite, { boutons: { mix: 'Mix', garder: 'Non' } });
+    q.veilleActivite = Object.assign({}, q.veilleActivite, { boutons: { leger: 'Mix', garder: 'Non' } });
     expect(erreurs(q, entrees(se)).join('|')).toMatch(/I123 — les deux gestes/);
   });
   test('le plan ne modifie jamais les entrées ni la séance (render pur)', () => {
@@ -207,10 +208,11 @@ describe('225 — la veille dans planDeSeance (I123, I124)', () => {
     T.planDeSeance(e);
     expect(JSON.stringify(e)).toBe(avant);
   });
-  test('« Mix aujourd’hui » : la zone de CET exercice pour la séance, la routine n’est pas touchée', () => {
-    const apres = S.poserZoneDePlan(se, 0, 'mix');
-    expect(apres.exercices[0].zone_plan).toBe('mix');
-    expect(apres.exercices[1].zone_plan).toBeUndefined();
-    expect(se.exercices[0].zone_plan).toBeUndefined();
+  test('« plus léger aujourd’hui » ne pose AUCUNE zone : la séance et la routine ne sont pas touchées (253, X2)', () => {
+    const e = entrees(se, { veilleChoix: 'leger' }), avant = JSON.stringify(e.seance);
+    const p = T.planDeSeance(e);
+    expect(JSON.stringify(e.seance)).toBe(avant);
+    expect(p.exercices[0].consigne.zone.cle).toBe('lourd');
+    expect(e.seance.exercices[0].zone_plan).toBeUndefined();
   });
 });

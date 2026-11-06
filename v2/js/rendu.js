@@ -3159,7 +3159,7 @@
     }
     // 194-1 (MOTEUR §9.31) — la préparation avant la séance, en mouvement seulement : lue sur le plan, jamais calculée ici.
     var mob = !vue.modifier && typeof vue.propositionMobilite === 'function' ? vue.propositionMobilite() : null;
-    // 225 (MOTEUR §9.40) — la veille d'une activité dure : UNE carte, lue sur le plan (« … en Mix aujourd'hui » / « Garder le plan »).
+    // 225 (MOTEUR §9.40) — la veille d'une activité dure : UNE carte, lue sur le plan (« … plus léger aujourd'hui » / « Garder le plan »).
     var veille = !vue.modifier && typeof vue.propositionVeille === 'function' ? vue.propositionVeille() : null;
     if (veille) cible.appendChild(carteDeVeille(veille, vue));
     // X3 (253) — la réponse du matin reprise : UNE ligne et « Changer » (la question ne revient pas).
@@ -3192,8 +3192,8 @@
     var n = el('section', 'carte-mobilite carte-veille');
     n.setAttribute('data-veille', v.slug);
     n.appendChild(propositionDExercice({
-      classe: 'proposition-veille', texte: v.phrase, oui: v.boutons.mix, non: v.boutons.garder,
-      surOui: function () { vue.surVeille('mix'); }, surNon: function () { vue.surVeille('garder'); }
+      classe: 'proposition-veille', texte: v.phrase, oui: v.boutons.leger, non: v.boutons.garder,
+      surOui: function () { vue.surVeille('leger'); }, surNon: function () { vue.surVeille('garder'); }
     }, -1));
     var det = el('details', 'cm-pourquoi');
     det.appendChild(el('summary', null, 'Pourquoi\u00a0?'));
@@ -5319,6 +5319,8 @@
     }
     // 193-3 — la zone vient de la routine : la première ligne, avant le détail de la zone.
     if (p.plan) cible.appendChild(el('p', 'pq-p', p.plan));
+    // 253 (X2) — la veille d'une activité dure : « Plan : 152,5 kg × 5. Aujourd'hui : 145 kg × 5, 2 en réserve : tu as noté football hier. »
+    if (p.veille) cible.appendChild(el('p', 'pq-p pq-veille', p.veille));
     ['zone', 'palier', 'etat'].forEach(function (k) {
       if (p[k]) cible.appendChild(el('p', 'pq-p', p[k]));
     });

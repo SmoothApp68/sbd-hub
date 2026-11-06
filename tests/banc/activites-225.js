@@ -3,7 +3,7 @@
 //   1. « Ajouter une activité » (la feuille) : le sport, la durée, l'intensité ; la distance seulement pour un sport en distance ;
 //      l'enregistrement fabrique une séance courte (`Seance.activite`), sans muscle ;
 //   2. « Objectifs en entretien » (la feuille à cocher du Profil) : le principal n'y est pas proposé, trois au plus ;
-//   3. la carte de la veille (« … en Mix aujourd'hui » / « Garder le plan ») : deux gestes ≥ 44 px, rien ne déborde.
+//   3. la carte de la veille (« … plus léger aujourd'hui » / « Garder le plan ») : deux gestes ≥ 44 px, rien ne déborde.
 // Vrai `rendu.js`, vrai `styles.css`, sans l'app ni la base. Captures : tests/banc/captures-225/ (à regarder).
 //   node tests/banc/activites-225.js
 'use strict';
@@ -97,18 +97,18 @@ const PAGE = '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta n
       // 3. LA CARTE DE LA VEILLE
       await page.evaluate(() => {
         document.getElementById('feuille-seance').hidden = true;
-        const v = window.THMoteur.veilleActivite({ activite: { slug: 'football', nom: 'Football', intense: true }, jambes: [{ slug: 'squat_barre', nom: 'Squat (Barre)' }] });
+        const v = window.THMoteur.veilleActivite({ activite: { slug: 'football', nom: 'Football', intense: true }, jambes: [{ slug: 'squat_barre', nom: 'Squat', legere: window.THMoteur.veilleLegere({ charge: 152.5, reps: 5, reserve: 0, pas: 2.5, equipement: 'barre' }) }] });
         window.__gestes = [];
         window.THRendu.carteDeVeille ? 0 : 0;
         const n = window.THRendu.carteDeVeille(v, { surVeille(c) { window.__gestes.push(c); } });
         document.getElementById('corps').appendChild(n);
       });
       ok(largeur + ' px — la carte de la veille dit la phrase et les deux gestes du moteur',
-        (await page.locator('.proposition-veille .pc-texte').textContent()) === 'Hier : football, intense. Squat (Barre) est prévu en Lourd.' &&
-        (await page.locator('.proposition-veille .pc-ajouter').textContent()) === 'Squat (Barre) en Mix aujourd’hui' && (await page.locator('.proposition-veille .pc-refuser').textContent()) === 'Garder le plan');
+        (await page.locator('.proposition-veille .pc-texte').textContent()) === 'Tu as noté football hier. Squat plus léger aujourd\u2019hui\u00a0?' &&
+        (await page.locator('.proposition-veille .pc-ajouter').textContent()) === 'Squat plus léger aujourd’hui' && (await page.locator('.proposition-veille .pc-refuser').textContent()) === 'Garder le plan');
       await page.click('.proposition-veille .pc-refuser');
       await page.click('.proposition-veille .pc-ajouter');
-      ok(largeur + ' px — les deux gestes remontent à l’app', JSON.stringify(await page.evaluate(() => window.__gestes)) === '["garder","mix"]');
+      ok(largeur + ' px — les deux gestes remontent à l’app', JSON.stringify(await page.evaluate(() => window.__gestes)) === '["garder","leger"]');
       await page.locator('.carte-veille details summary').click();
       await page.screenshot({ path: sans('veille') });
       const carte = await page.evaluate(() => {
@@ -121,11 +121,11 @@ const PAGE = '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta n
       await page.evaluate(() => {
         document.getElementById('corps').innerHTML = '';
         window.__gestes = [];
-        const r = { choix: 'mix', slug: 'squat_barre', nom: 'Squat (Barre)', lien: 'Changer', phrase: window.THMoteur.phraseDeLaVeilleReprise({ choix: 'mix', nom: 'Squat (Barre)', heure: 8 }) };
+        const r = { choix: 'leger', slug: 'squat_barre', nom: 'Squat', lien: 'Changer', repris: false, phrase: window.THMoteur.phraseDeLaVeilleReprise({ choix: 'leger', nom: 'Squat' }) };
         document.getElementById('corps').appendChild(window.THRendu.ligneDeVeilleReprise(r, { surChangerVeille() { window.__gestes.push('changer'); } }));
       });
-      ok(largeur + ' px — la ligne reprise dit « Comme ce matin : squat (barre) en Mix. »',
-        (await page.locator('.veille-reprise-texte').textContent()) === 'Comme ce matin\u00a0: squat (barre) en Mix.' && (await page.locator('.proposition-veille').count()) === 0);
+      ok(largeur + ' px — la ligne dit « Squat plus léger aujourd’hui. » et offre « Changer »',
+        (await page.locator('.veille-reprise-texte').textContent()) === 'Squat plus léger aujourd’hui.' && (await page.locator('.proposition-veille').count()) === 0);
       await page.click('.veille-changer');
       ok(largeur + ' px — « Changer » remonte à l’app', JSON.stringify(await page.evaluate(() => window.__gestes)) === '["changer"]');
       await page.screenshot({ path: sans('veille-reprise') });

@@ -2131,11 +2131,29 @@
     return x;
   }
 
-  // ── 225 (MOTEUR §9.40) — LA VEILLE D'UNE ACTIVITÉ DURE : « Squat en Mix aujourd'hui » ou « Garder le plan » ────────────────────────────
+  // ── 225 (MOTEUR §9.40) — LA VEILLE D'UNE ACTIVITÉ DURE : « Squat plus léger aujourd'hui » ou « Garder le plan » ───────────────────────
   // Le FAIT vient de l'app (`faits.activiteDeLaVeille` : une activité NOTÉE, intense, qui charge les jambes — jamais une habitude déclarée) ;
   // la décision est ici, une fois : une barre de jambes (squat, soulevé) en zone Lourd ce jour-là, la proposition de `Moteur.veilleActivite`,
   // UNE fois (`e.veilleChoix` : la réponse, quelle qu'elle soit, la fait taire). Le plan se tait en Édition et en « Juste un carnet ».
-  // La barre est lue sur la ZONE DE LA CONSIGNE du jour : un squat déjà passé en Mix (« Juste aujourd'hui ») n'est plus proposé.
+  // La barre est lue sur la ZONE DE LA CONSIGNE du jour.
+  // 253 (X2, décision d'Aurélien du 06/11/2026) — « plus léger » N'EST PAS UNE ZONE : même zone, mêmes reps, même nombre de séries ; la charge du plan
+  // × 0,95 au cran le plus proche (`Moteur.veilleLegere`), la réserve affichée + 2 (3 au plus). Une variante de la consigne du jour, cette séance
+  // seulement. Elle ne s'applique ni en semaine de test, ni en décharge ou semaine allégée, ni au calage, ni à une consigne déjà allégée (repli,
+  // « plus léger » de la douleur) ou qui porte un test : `legereDeLaBarre` rend alors `null` et la barre n'est pas proposée.
+  function legereDeLaBarre(e, slug, entree) {
+    var k = entree && entree.consigne ? entree.consigne : null;
+    if (!k || k.etat === 'silence' || ETATS_TEST_PLAN[k.etat] === true || k.haut || k.repli || k.plusLegere || k.allegee) return null;
+    var l = k.ligne, ch = l ? nombre(l.charge) : null, reps = l ? nombre(l.vise) : null;
+    if (ch === null || reps === null) return null;
+    var cat = (e.catalogue || {})[slug] || {};
+    var rv = Moteur().reserveVisee({ zone: k.zone, role: 'ligne', reglage: reglageDe(e) });
+    return Moteur().veilleLegere({ charge: ch, reps: reps, reserve: rv === null || rv === undefined ? 0 : rv, pas: entree.pas, equipement: cat.equipement || null, salle: entree.salle || null });
+  }
+  function reglageDe(e) { return e.reglage === 'franc' || e.reglage === 'prudent' ? e.reglage : 'normal'; }
+  function nomParleDe(cat, slug) {
+    var n = racine.THModele.nomCourt(cat && cat.nom ? cat.nom : slug);
+    return n ? n.charAt(0).toUpperCase() + n.slice(1) : slug;
+  }
   function jambesLourdesDuPlan(e, exos, consignes) {
     var G = racine.THGenerateur, B = racine.THModele.BARRES, cat = e.catalogue || {}, vus = {}, sortie = [];
     if (!G || !G.familleDeBarre) return sortie;
@@ -2147,19 +2165,39 @@
       if (fam !== B[0] && fam !== B[2]) return;
       var c = consignes && consignes[slug] && consignes[slug].consigne ? consignes[slug].consigne : null;
       var z = c && c.zone ? (c.zone.cle || c.zone) : null;
-      if (z === 'lourd') sortie.push({ slug: slug, nom: cat[slug].nom || null });
+      if (z === 'lourd') sortie.push({ slug: slug, nom: nomParleDe(cat[slug], slug), legere: legereDeLaBarre(e, slug, consignes[slug]) });
     });
     return sortie;
   }
-  function veilleActiviteDuPlan(e, seance, exos, consignes, intentionProfil) {
+  // La barre de la variante « plus léger » — la première barre de jambes en Lourd qui admet la variante — ou `null` : ni activité notée hier, ni
+  // réponse « plus léger », ni barre admise, ni séance où la règle se tait (Édition, « Juste un carnet », semaine de test, décharge).
+  function barreLegereDuPlan(e, seance, exos, consignes, intentionProfil, bloquee) {
+    var a = e.activiteVeille;
+    if (!a || typeof a !== 'object' || !a.slug || !Moteur().activiteChargeLesJambes(a.slug)) return null;
+    if (seance.edition || intentionProfil === 'entretien' || bloquee) return null;
+    return jambesLourdesDuPlan(e, exos, consignes).filter(function (j) { return j.legere; })[0] || null;
+  }
+  function veilleActiviteDuPlan(e, seance, exos, consignes, intentionProfil, bloquee) {
     var a = e.activiteVeille;
     if (!a || typeof a !== 'object' || !a.slug) return null;
     return Moteur().veilleActivite({
       activite: { slug: a.slug, nom: a.nom || null, intense: true },
       jambes: jambesLourdesDuPlan(e, exos, consignes),
-      choix: e.veilleChoix === 'mix' || e.veilleChoix === 'garder' ? e.veilleChoix : null,
-      muet: !!seance.edition || intentionProfil === 'entretien'
+      choix: e.veilleChoix === 'leger' || e.veilleChoix === 'garder' ? e.veilleChoix : null,
+      muet: !!seance.edition || intentionProfil === 'entretien' || !!bloquee
     });
+  }
+  // Les gestes de la variante : `veille_legere` (la réponse « plus léger », `{ slug }`) et `veille_legere_annulee` (« Changer »). La séance terminée
+  // qui garde un `veille_legere` non annulé est NEUTRE pour la suite (comme une séance ajustée à la forme du jour : ni compteur, ni référence de
+  // consigne, ni stagnation, ni baisse) — l'app lit cette seule fonction. Rend le slug de la barre, ou `null`.
+  function veilleLegereDesGestes(gestes) {
+    var slug = null;
+    (Array.isArray(gestes) ? gestes : []).forEach(function (g) {
+      if (!g) return;
+      if (g.geste === 'veille_legere') slug = g.slug || null;
+      else if (g.geste === 'veille_legere_annulee') slug = null;
+    });
+    return slug;
   }
 
   // X3 (253, MOTEUR §9.40) — LA RÉPONSE VAUT POUR LA JOURNÉE. Une séance abandonnée est SUPPRIMÉE (ses gestes avec elle) : la réponse du jour vit
@@ -2168,23 +2206,25 @@
   //   · `noterVeilleDuJour(jour, choix, heure)` : la mémoire à écrire.
   function veilleDuJour(memoire, jour) {
     var m = memoire && typeof memoire === 'object' ? memoire : null;
-    if (!m || !jour || m.jour !== jour || (m.choix !== 'mix' && m.choix !== 'garder')) return null;
+    if (!m || !jour || m.jour !== jour || (m.choix !== 'leger' && m.choix !== 'garder')) return null;
     return { choix: m.choix, heure: typeof m.heure === 'number' && isFinite(m.heure) ? m.heure : null };
   }
   function noterVeilleDuJour(jour, choix, heure) {
-    if (!jour || (choix !== 'mix' && choix !== 'garder')) return null;
+    if (!jour || (choix !== 'leger' && choix !== 'garder')) return null;
     return { jour: jour, choix: choix, heure: typeof heure === 'number' && isFinite(heure) ? heure : null };
   }
-  // La ligne « Comme ce matin : squat en Mix. » + « Changer » : seulement quand la réponse a été REPRISE (`e.veilleReprise` : { slug, heure }),
-  // qu'elle est celle de la séance (`e.veilleChoix`) et que le fait de la veille est toujours là. Jamais en Édition ni en « Juste un carnet ».
-  function veilleRepriseDuPlan(e, seance, intentionProfil) {
-    var r = e.veilleReprise, a = e.activiteVeille;
-    if (!r || typeof r !== 'object' || !r.slug || !a || !a.slug) return null;
-    if (e.veilleChoix !== 'mix' && e.veilleChoix !== 'garder') return null;
-    if (seance.edition || intentionProfil === 'entretien') return null;
-    var cat = e.catalogue || {}, nom = cat[r.slug] && cat[r.slug].nom ? cat[r.slug].nom : null;
-    return { choix: e.veilleChoix, slug: r.slug, nom: nom, lien: 'Changer',
-             phrase: Moteur().phraseDeLaVeilleReprise({ choix: e.veilleChoix, nom: nom, heure: typeof r.heure === 'number' ? r.heure : null }) };
+  // La ligne qui DIT la réponse + « Changer » : « Squat plus léger aujourd'hui. » dans la séance où elle a été donnée, « Comme ce matin : squat plus léger. »
+  // quand une nouvelle séance du jour l'a REPRISE (`e.veilleReprise` : { slug, heure }). Une seule fonction de phrase (`Moteur.phraseDeLaVeilleReprise`).
+  // Seulement quand la réponse est celle de la séance (`e.veilleChoix`), que le fait de la veille est toujours là et qu'une barre admet la variante.
+  // Jamais en Édition ni en « Juste un carnet ».
+  function veilleRepriseDuPlan(e, seance, exos, consignes, intentionProfil, bloquee) {
+    var a = e.activiteVeille, r = e.veilleReprise && typeof e.veilleReprise === 'object' && e.veilleReprise.slug ? e.veilleReprise : null;
+    if (!a || !a.slug) return null;
+    if (e.veilleChoix !== 'leger' && e.veilleChoix !== 'garder') return null;
+    var barre = barreLegereDuPlan(e, seance, exos, consignes, intentionProfil, bloquee);
+    if (!barre) return null;
+    return { choix: e.veilleChoix, slug: barre.slug, nom: barre.nom, lien: 'Changer', repris: !!r,
+             phrase: Moteur().phraseDeLaVeilleReprise({ choix: e.veilleChoix, nom: barre.nom, heure: r && typeof r.heure === 'number' ? r.heure : null, repris: !!r }) };
   }
 
   function planDeSeance(entrees) {
@@ -2256,6 +2296,10 @@
     var portee = {};
     // 193-4 — la semaine de test de ce jour, ou `null` : la barre testée, les barres qui restent normales.
     var jourDeTest = intentionProfil === 'entretien' ? null : semaineDeTestDuJour(e, seance, exos);
+    // 253 (X2) — la variante « plus léger » de la veille : se tait en semaine de test et en semaine allégée / décharge ; la barre qui la porte aujourd'hui
+    // (réponse « plus léger » donnée) est lue ici, une fois, et lue par `planDeLOccurrence`.
+    var blocageVeille = !!esc.allegee || !!jourDeTest;
+    var barreLegere = e.veilleChoix === 'leger' ? barreLegereDuPlan(e, seance, exos, consignes, intentionProfil, blocageVeille) : null;
     var plan236 = {
       seance: seance.id === undefined ? null : seance.id,
       semaineDeTest: jourDeTest ? { debut: jourDeTest.debut, fin: jourDeTest.fin, jour: jourDeTest.jour, testee: jourDeTest.testee, conflits: jourDeTest.conflits, barres: jourDeTest.barres.map(function (q) { return q.slug; }) } : null,
@@ -2286,9 +2330,9 @@
       // 197 (MOTEUR §9.36) — la puissance des 65 ans et plus : un exercice et sa phrase, ou `null`.
       puissance: puissanceDuPlan(e, seance, exos, intentionProfil),
       // 225 (MOTEUR §9.40) — la veille d'une activité dure : une proposition (« … en Mix aujourd'hui » / « Garder le plan »), ou `null`.
-      veilleActivite: veilleActiviteDuPlan(e, seance, exos, consignes, intentionProfil),
+      veilleActivite: veilleActiviteDuPlan(e, seance, exos, consignes, intentionProfil, blocageVeille),
       // X3 (253) — la réponse du matin REPRISE par une nouvelle séance du jour : sa ligne et son « Changer », ou `null`.
-      veilleReprise: veilleRepriseDuPlan(e, seance, intentionProfil),
+      veilleReprise: veilleRepriseDuPlan(e, seance, exos, consignes, intentionProfil, blocageVeille),
       exercices: questionsDuPlan(exos.map(function (exoBrut, i) {
         // 132 (MOTEUR §10 ter) — UN EXERCICE NOTÉ PAR NOM : sa salle est la liste de ses élastiques (`cat.salle`,
         // `materiel: 'elastique'`). Ses séries entrent avec leur charge VIRTUELLE (`THProfil.seriesPourLeMoteur` :
@@ -2335,6 +2379,14 @@
         if (c && c.consigne && choixReprise && choixReprise.choix === 'leger' && choixReprise.repli) {
           c = Object.assign({}, c, { consigne: Moteur().consignePlusLegere(c.consigne, choixReprise.repli) });
         }
+        // 253 (X2, MOTEUR §9.40) — « PLUS LÉGER AUJOURD'HUI » (la veille d'une activité dure) : la ligne de la consigne descend (× 0,95, au cran, mêmes
+        // reps), la zone ne change pas, la consigne le dit (`veilleLegere`). Une barre déjà allégée (repli, « plus léger » de la reprise) n'en reçoit pas.
+        var legereX = barreLegere && barreLegere.slug === slug && barreLegere.legere && coachee && !douloureuse && !salleEl && c && c.consigne &&
+          !c.consigne.plusLegere && !c.consigne.repli && !c.consigne.allegee ? barreLegere.legere : null;
+        if (legereX) {
+          c = Object.assign({}, c, { consigne: Object.assign({}, c.consigne, { ligne: { charge: legereX.charge, vise: legereX.reps }, haut: null,
+            veilleLegere: { charge: legereX.charge, reps: legereX.reps, reserve: legereX.reserve, plan: legereX.plan } }) });
+        }
         var suites = e.suites || {};
         var suite = Object.prototype.hasOwnProperty.call(suites, slug) ? suites[slug] : null;
         var m = coachee && Object.prototype.hasOwnProperty.call(isoles, slug) ? isoles[slug] : null;
@@ -2356,8 +2408,19 @@
           e.reculs && Object.prototype.hasOwnProperty.call(e.reculs, slug) ? e.reculs[slug] : null,
           auMaxFaitsDe(e, seance, exos, i, coachee, douloureuse, intentionX, !!esc.allegee || !!jourDeTest, consignes),
           // 251 (D2) — la porte du cran (ses gestes), sauf là où le coach se tait. (Un 22e argument : aucun objet d'options existant ne porte ces faits.)
-          coachee && c && !douloureuse && intentionX !== 'entretien' && !seance.edition && !esc.allegee && !jourDeTest
+          coachee && c && !douloureuse && intentionX !== 'entretien' && !seance.edition && !esc.allegee && !jourDeTest && !legereX
             ? { tente: cranTenteDe(seance.gestes, slug), formeAjustee: formeAjusteeAvant(seance, i), prise: priseDe(seance.gestes, slug) } : null);
+        // 253 (X2) — ce jour-là, sur cette barre : pas de « Au max », pas d'échec, pas de pari (donc ni pari perdu, ni compteur, ni escalier), pas de
+        // réserve visée ni d'effort visé (la réserve affichée est celle de la variante), pas de réaction au raté (voir `reactionDExercice`).
+        x.veilleLegere = null;
+        if (legereX) {
+          x.veilleLegere = { charge: legereX.charge, reps: legereX.reps, reserve: legereX.reserve, plan: legereX.plan, baisse: legereX.baisse,
+                             phrase: Moteur().phraseDeLaVeilleLegere(legereX, e.activiteVeille && e.activiteVeille.nom) };
+          retirerLAuMax(x);
+          x.paris = (x.paris || []).map(function () { return null; });
+          x.premierPari = null;
+          if (x.pourquoi) x.pourquoi.veille = x.veilleLegere.phrase;
+        }
         x.blocHypertrophie = stBloc ? { zone: stBloc.zone, grosse: stBloc.grosse === true,
           reculs: stBloc.grosse ? (exo.series || []).filter(function (q) { return racine.THModele.typeDe(q) === 'recul'; }).length : 0 } : null;
         x.semaineDeTest = semaineDeTestDExercice(jourDeTest, e, seance, exos, i, x,
@@ -2420,7 +2483,7 @@
         x.mode = modeX;
         x.intention = intentionX;
         // 154 (MOTEUR §9.26) — L'EFFORT VISÉ : « garde-en N » dans l'en-tête, les puces sous la dernière série, la phrase.
-        var rvX = aUnPari(x) && !seance.edition && Moteur().effortViseEligible(x.consigne.palier) && (x.mesure === null || x.mesure === undefined || x.mesure === 'charge_reps')
+        var rvX = aUnPari(x) && !seance.edition && !legereX && Moteur().effortViseEligible(x.consigne.palier) && (x.mesure === null || x.mesure === undefined || x.mesure === 'charge_reps')
           ? Moteur().reserveVisee({ zone: x.consigne.zone, role: roleDeLaVisee(x), reglage: reglagePlan }) : null;
         x.reserveVisee = rvX;
         // 175 — « un cran de moins » : le recul de la règle de bord (174) se dit à côté du chiffre du jour, d'un badge. Le plan le dit, l'écran le dessine.
@@ -2839,9 +2902,9 @@
     var resume = resumeDeLExercice(x, series, travail, faites);
     resume.nom = (e.catalogue && e.catalogue[x.slug] && e.catalogue[x.slug].nom) || x.slug;
     if (premiere || x.calage) resume.premiere = true;
-    if (!mesureOk || x.douleur || x.figure) resume = null;
+    if (!mesureOk || x.douleur || x.figure || x.veilleLegere) resume = null;   // 253 (X2) — une séance volontairement plus légère ne compte pas pour la forme du jour
     resumes.push(resume ? Object.assign(resume, { iExo: x.iExo }) : null);
-    if (silence || premiere || !zone || !mesureOk || !faites.length || !aUnPari(x)) return;
+    if (silence || premiere || !zone || !mesureOk || !faites.length || !aUnPari(x) || x.veilleLegere) return;
     var cx = contexteDuRate(plan, x, exo, e, seance, gs);
     var chauffeValidee = (x.lignes || []).some(function (l) { return l.type === 'echauffement' && l.validee; });
     var superset = exo.groupe_superset !== null && exo.groupe_superset !== undefined;
@@ -2982,7 +3045,7 @@
   function parisRatesDeLExercice(plan, x, exo, e, seance, gs) {
     var M = Moteur(), V = Voix();
     if (!exo || !x.consigne || x.consigne.etat === 'silence' || !e.parisRates || !Object.prototype.hasOwnProperty.call(e.parisRates, x.slug)) return;
-    if (plan.intention === 'entretien' || !!plan.allegee || !!seance.edition || plan.debutant === true) return;
+    if (plan.intention === 'entretien' || !!plan.allegee || !!seance.edition || plan.debutant === true || x.veilleLegere) return;
     var fait = e.parisRates[x.slug] || {};
     var cx = contexteDuRate(plan, x, exo, e, seance, gs);
     var reponse = null;
@@ -6140,6 +6203,7 @@
     verifierMobilite(plan, entrees, erreurs);
     verifierVeilleActivite(plan, entrees, erreurs);
     verifierVeilleReprise(plan, entrees, erreurs);
+    verifierVeilleLegere(plan, entrees, erreurs);
     verifierChauffesProposees(plan, entrees, erreurs);
     verifierSemaineDeTest(plan, erreurs, entrees);
     verifierCalisthenie(plan, erreurs);
@@ -6353,10 +6417,10 @@
       }
     });
     if (cartes > 1) erreurs.push('I121 — ' + cartes + ' cartes de la forme du jour dans la séance');
-    // I129 (237, suite de 236 × 225, MOTEUR §9.39) — la forme du jour et la veille : après « Mix aujourd'hui » (§9.40), aucune carte de forme du jour
+    // I129 (237, suite de 236 × 225, MOTEUR §9.39) — la forme du jour et la veille : après « plus léger aujourd'hui » (§9.40), aucune carte de forme du jour
     // (pas de second allègement par-dessus) ; le fait de la veille n'est nommé que si le plan a été gardé, et c'est le sport NOTÉ.
     var ev = entrees || {};
-    if (ev.veilleChoix === 'mix' && cartes > 0) erreurs.push('I129 — la carte de la forme du jour après « Mix aujourd’hui » (second allègement)');
+    if (ev.veilleChoix === 'leger' && cartes > 0) erreurs.push('I129 — la carte de la forme du jour après « plus léger aujourd’hui » (second allègement)');
     ((plan && plan.exercices) || []).forEach(function (x, i) {
       var q = x && x.carteForme;
       if (!q || !q.veille) return;
@@ -6926,48 +6990,95 @@
 
   // I123 et I124 (225, MOTEUR §9.40) — la veille d'une activité dure.
   //   I123 : la proposition ne naît que d'une activité NOTÉE de la veille, intense, d'un sport qui charge les jambes (la table du moteur),
-  //          jamais en Édition ni en « Juste un carnet », pour UNE barre de jambes (squat, soulevé) en zone Lourd dans la séance, avec les
-  //          deux gestes du moteur et la convention dite comme telle.
-  //   I124 : une réponse donnée (Mix ou Garder le plan) fait taire la proposition — « Garder le plan » est respecté, UNE seule fois — et
+  //          jamais en Édition ni en « Juste un carnet » ni en semaine de test ou allégée, pour UNE barre de jambes (squat, soulevé) en zone Lourd
+  //          dans la séance qui admet la variante, avec les deux gestes du moteur (« <barre> plus léger aujourd'hui » / « Garder le plan ») et
+  //          la convention dite comme telle.
+  //   I124 : une réponse donnée (plus léger ou Garder le plan) fait taire la proposition — « Garder le plan » est respecté, UNE seule fois — et
   //          sans activité notée (une simple habitude déclarée, ou rien), le plan ne propose rien.
   function verifierVeilleActivite(plan, entrees, erreurs) {
     var M = Moteur(), e = entrees || {}, v = plan && plan.veilleActivite;
     if (!v) return;
     var a = e.activiteVeille;
     if (!a || !a.slug) { erreurs.push('I124 — une proposition de veille sans activité notée la veille'); return; }
-    if (e.veilleChoix === 'mix' || e.veilleChoix === 'garder') erreurs.push('I124 — la proposition revient après la réponse (' + e.veilleChoix + ')');
+    if (e.veilleChoix === 'leger' || e.veilleChoix === 'garder') erreurs.push('I124 — la proposition revient après la réponse (' + e.veilleChoix + ')');
     if (!M.activiteChargeLesJambes(a.slug)) erreurs.push('I123 — un sport qui ne charge pas les jambes : ' + a.slug);
     if (plan.edition) erreurs.push('I123 — une proposition de veille en Édition');
     if (plan.intention === 'entretien') erreurs.push('I123 — une proposition de veille en « Juste un carnet »');
-    var attendue = jambesLourdesDuPlan(e, (e.seance && e.seance.exercices) || [], e.consignes || {});
+    if (plan.semaineDeTest || plan.allegee) erreurs.push('I123 — une proposition de veille en semaine de test ou allégée');
+    var attendue = jambesLourdesDuPlan(e, (e.seance && e.seance.exercices) || [], e.consignes || {}).filter(function (j) { return j.legere; });
     if (!attendue.length || attendue[0].slug !== v.slug) erreurs.push('I123 — l\u2019exercice proposé n\u2019est pas la première barre de jambes en Lourd de la séance : ' + v.slug);
-    if (!v.boutons || !/ en Mix aujourd\u2019hui$/.test(v.boutons.mix || '') || v.boutons.garder !== 'Garder le plan') erreurs.push('I123 — les deux gestes ne sont pas ceux du moteur');
+    if (!v.boutons || !/ plus léger aujourd\u2019hui$/.test(v.boutons.leger || '') || v.boutons.garder !== 'Garder le plan') erreurs.push('I123 — les deux gestes ne sont pas ceux du moteur');
     if (!/convention de coachs/.test(v.pourquoi || '')) erreurs.push('I123 — la convention n\u2019est pas dite comme telle');
   }
 
   // I140 (253, X3, MOTEUR §9.40) — LA RÉPONSE DE LA VEILLE VAUT POUR LA JOURNÉE. Une réponse reprise (`entrees.veilleReprise`) : la question ne revient
   //   pas (pas de `veilleActivite`) ; la ligne dit la réponse (« Comme ce matin : … ») et offre « Changer » ; elle ne naît que d'une réponse donnée
-  //   (Mix ou Garder) ET d'une activité notée hier, jamais en Édition ni en « Juste un carnet » ; une reprise « Mix » a bien posé la zone Mix de
-  //   la barre (`zone_plan`) — sinon la ligne mentirait.
+  //   (plus léger ou Garder) ET d'une activité notée hier, jamais en Édition ni en « Juste un carnet ». 253 (X2) : la même ligne, sans « Comme ce
+  //   matin », dit la réponse donnée DANS la séance (« Squat plus léger aujourd'hui. · Changer ») ; elle ne vit que sur une barre qui admet la variante.
   function verifierVeilleReprise(plan, entrees, erreurs) {
     var e = entrees || {}, r = plan && plan.veilleReprise;
-    if (e.veilleReprise && (e.veilleChoix === 'mix' || e.veilleChoix === 'garder') && plan && plan.veilleActivite) {
-      erreurs.push('I140 \u2014 la question de la veille revient alors que sa r\u00e9ponse du jour est reprise');
+    if ((e.veilleChoix === 'leger' || e.veilleChoix === 'garder') && plan && plan.veilleActivite) {
+      erreurs.push('I140 \u2014 la question de la veille revient alors que sa r\u00e9ponse est donn\u00e9e');
     }
     if (!r) return;
-    if (e.veilleChoix !== r.choix || (r.choix !== 'mix' && r.choix !== 'garder')) erreurs.push('I140 \u2014 la ligne reprise ne dit pas la r\u00e9ponse de la s\u00e9ance');
-    if (!e.activiteVeille || !e.activiteVeille.slug) erreurs.push('I140 \u2014 une r\u00e9ponse reprise sans activit\u00e9 not\u00e9e la veille');
-    if (plan.edition) erreurs.push('I140 \u2014 une r\u00e9ponse reprise en \u00c9dition');
-    if (plan.intention === 'entretien') erreurs.push('I140 \u2014 une r\u00e9ponse reprise en \u00ab\u00a0Juste un carnet\u00a0\u00bb');
-    if (r.lien !== 'Changer') erreurs.push('I140 \u2014 la r\u00e9ponse reprise sans \u00ab\u00a0Changer\u00a0\u00bb');
-    if (!/^Comme (ce matin|tout \u00e0 l\u2019heure)\u00a0: /.test(r.phrase || '') || !(r.choix === 'mix' ? / en Mix\.$/ : /plan gard\u00e9\.$/).test(r.phrase || '')) {
-      erreurs.push('I140 \u2014 la ligne reprise n\u2019est pas dans la voix du coach : ' + r.phrase);
+    if (e.veilleChoix !== r.choix || (r.choix !== 'leger' && r.choix !== 'garder')) erreurs.push('I140 \u2014 la ligne ne dit pas la r\u00e9ponse de la s\u00e9ance');
+    if (!e.activiteVeille || !e.activiteVeille.slug) erreurs.push('I140 \u2014 une r\u00e9ponse sans activit\u00e9 not\u00e9e la veille');
+    if (plan.edition) erreurs.push('I140 \u2014 une r\u00e9ponse de la veille en \u00c9dition');
+    if (plan.intention === 'entretien') erreurs.push('I140 \u2014 une r\u00e9ponse de la veille en \u00ab\u00a0Juste un carnet\u00a0\u00bb');
+    if (r.lien !== 'Changer') erreurs.push('I140 \u2014 la r\u00e9ponse de la veille sans \u00ab\u00a0Changer\u00a0\u00bb');
+    var repris = !!e.veilleReprise && !!e.veilleReprise.slug;
+    var voix = r.choix === 'leger'
+      ? (repris ? /^Comme (ce matin|tout \u00e0 l\u2019heure)\u00a0: .+ plus l\u00e9ger\.$/ : /^.+ plus l\u00e9ger aujourd\u2019hui\.$/)
+      : (repris ? /^Comme (ce matin|tout \u00e0 l\u2019heure)\u00a0: plan gard\u00e9\.$/ : /^Plan gard\u00e9\.$/);
+    if (!voix.test(r.phrase || '')) erreurs.push('I140 \u2014 la ligne n\u2019est pas dans la voix du coach : ' + r.phrase);
+    var attendue = jambesLourdesDuPlan(e, (e.seance && e.seance.exercices) || [], e.consignes || {}).filter(function (j) { return j.legere; })[0];
+    if (!attendue || attendue.slug !== r.slug) erreurs.push('I140 \u2014 la ligne nomme une barre qui n\u2019admet pas la variante : ' + r.slug);
+    // « plus léger » dit : la barre porte bien la variante (I142 la vérifie) ; « plan gardé » dit : elle n'en porte pas.
+    var x = ((plan && plan.exercices) || []).filter(function (q) { return q && q.slug === r.slug; })[0];
+    if (x) {
+      if (r.choix === 'leger' && !x.veilleLegere) {
+        erreurs.push('I140 \u2014 \u00ab plus l\u00e9ger \u00bb dit, mais la barre ' + r.slug + ' porte la charge du plan');
+      }
+      if (r.choix === 'garder' && x.veilleLegere) erreurs.push('I140 \u2014 \u00ab plan gard\u00e9 \u00bb dit, mais la barre ' + r.slug + ' est all\u00e9g\u00e9e');
     }
-    if (r.choix === 'mix') {
-      var ex = ((e.seance && e.seance.exercices) || []).filter(function (x) { return x && x.exercise_slug === r.slug; })[0];
-      var z = ex && ex.zone_plan ? (ex.zone_plan.cle || ex.zone_plan) : null;
-      if (z !== 'mix') erreurs.push('I140 \u2014 \u00ab\u00a0' + r.slug + ' en Mix\u00a0\u00bb dit, mais la zone de la barre n\u2019est pas Mix');
-    }
+  }
+
+  // I142 (253, X2, MOTEUR §9.40) — LA VARIANTE « PLUS LÉGER » : sur la barre qui la porte, la charge des lignes à faire est au plus le plan moins UN cran
+  //   et au moins le plan × 0,90, aux MÊMES reps ; la zone de la consigne est celle du plan (jamais une zone changée) ; aucun « Au max », aucun pari,
+  //   aucune réserve visée de table ; la réserve affichée = min(réserve du plan + 2, 3) ; et elle n'existe que si la réponse est « plus léger ».
+  function verifierVeilleLegere(plan, entrees, erreurs) {
+    var e = entrees || {}, M = Moteur();
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var v = x && x.veilleLegere;
+      if (!v) return;
+      var nom = 'I142 \u2014 exercice ' + i + ' (' + x.slug + ') : ';
+      if (e.veilleChoix !== 'leger') erreurs.push(nom + 'la variante \u00ab plus l\u00e9ger \u00bb sans que la personne l\u2019ait choisie');
+      if (plan.edition || plan.intention === 'entretien' || plan.semaineDeTest || plan.allegee) erreurs.push(nom + 'la variante hors de son champ (\u00c9dition, Juste un carnet, test, all\u00e9g\u00e9e)');
+      var base = e.consignes && e.consignes[x.slug] && e.consignes[x.slug].consigne ? e.consignes[x.slug].consigne : null;
+      var k = x.consigne;
+      if (!base || !k) { erreurs.push(nom + 'la variante sans consigne du plan'); return; }
+      var zoneBase = base.zone && base.zone.cle ? base.zone.cle : base.zone, zoneK = k.zone && k.zone.cle ? k.zone.cle : k.zone;
+      if (zoneBase !== 'lourd' || zoneK !== zoneBase) erreurs.push(nom + 'la zone a chang\u00e9 (' + zoneBase + ' \u2192 ' + zoneK + ')');
+      var cp = base.ligne ? nombre(base.ligne.charge) : null, rp = base.ligne ? nombre(base.ligne.vise) : null;
+      var pas = e.consignes[x.slug].pas;
+      if (cp === null || rp === null) { erreurs.push(nom + 'la variante sur un plan sans charge'); return; }
+      if (nombre(v.plan.charge) !== cp || nombre(v.plan.reps) !== rp) erreurs.push(nom + 'le plan cit\u00e9 (' + v.plan.charge + ' \u00d7 ' + v.plan.reps + ') n\u2019est pas celui de la consigne (' + cp + ' \u00d7 ' + rp + ')');
+      if (!(v.charge < cp - 1e-9)) erreurs.push(nom + 'la charge du jour (' + v.charge + ') n\u2019est pas sous celle du plan (' + cp + ')');
+      if (nombre(pas) !== null && pas > 0 && v.charge > cp - pas + 1e-6) erreurs.push(nom + 'la charge du jour (' + v.charge + ') est \u00e0 moins d\u2019un cran (' + pas + ') du plan (' + cp + ')');
+      if (v.charge < cp * 0.9 - 1e-6) erreurs.push(nom + 'la charge du jour (' + v.charge + ') est \u00e0 plus de 10 % sous le plan (' + cp + ')');
+      if (v.reps !== rp) erreurs.push(nom + 'les reps ont chang\u00e9 (' + rp + ' \u2192 ' + v.reps + ')');
+      var attendueReserve = Math.min(nombre(v.plan.reserve) + M.VEILLE_LEGERE_SURPLUS_RESERVE, M.VEILLE_LEGERE_RESERVE_PLAFOND);
+      if (v.reserve !== attendueReserve) erreurs.push(nom + 'la r\u00e9serve affich\u00e9e est ' + v.reserve + ', la r\u00e8gle donne ' + attendueReserve);
+      (x.lignes || []).forEach(function (l) {
+        if (l.validee || l.type !== 'travail') return;
+        if (l.charge !== null && l.charge !== undefined && nombre(l.charge) !== v.charge) erreurs.push(nom + 'la ligne ' + l.iSerie + ' est \u00e0 ' + l.charge + ', la variante \u00e0 ' + v.charge);
+        if (nombre(l.vise) !== null && nombre(l.vise) !== rp) erreurs.push(nom + 'la ligne ' + l.iSerie + ' vise ' + l.vise + ', le plan ' + rp);
+        if (l.auMax) erreurs.push(nom + 'un \u00ab Au max \u00bb sur la ligne ' + l.iSerie);
+      });
+      if (x.auMax || x.propositionAuMax) erreurs.push(nom + 'un \u00ab Au max \u00bb propos\u00e9');
+      if ((x.paris || []).some(function (q) { return q; })) erreurs.push(nom + 'un pari \u00e9crit sur une s\u00e9ance volontairement plus l\u00e9g\u00e8re (il serait lu comme perdu)');
+      if (x.rate || x.parisRates || x.carteForme) erreurs.push(nom + 'une r\u00e9action au rat\u00e9 ou une carte de forme sur une s\u00e9ance volontairement plus l\u00e9g\u00e8re');
+    });
   }
 
   function verifierMobilite(plan, entrees, erreurs) {
@@ -7821,7 +7932,7 @@
     REFUS_DEFINITIFS: REFUS_DEFINITIFS,
     refuserChauffes: refuserChauffes,
     accepterChauffes: accepterChauffes,
-    veilleDuJour: veilleDuJour, noterVeilleDuJour: noterVeilleDuJour,
+    veilleDuJour: veilleDuJour, noterVeilleDuJour: noterVeilleDuJour, veilleLegereDesGestes: veilleLegereDesGestes,
     refusChauffesDe: refusChauffesDe, miseEnSilence: miseEnSilence, annulerRefusChauffes: annulerRefusChauffes,
     SERIES_DEPART_PROGRESSER: SERIES_DEPART_PROGRESSER,
     SERIES_DEPART_ENTRETIEN: SERIES_DEPART_ENTRETIEN,

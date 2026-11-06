@@ -3688,8 +3688,9 @@ describe('architecture — 250 : « Lire mes notes » ne décide rien et n’éc
     expect(lecteurs).toEqual(['app.js']);
   });
 
-  test('l’interrupteur de mise en service est éteint dans le dépôt (une PR d’une ligne l’allume, après les 60 cas joués par Claude.ai)', () => {
-    expect(require('../../v2/js/config.js').NOTES_IA_OUVERTE).toBe(false);
+  test('l’interrupteur de mise en service est allumé (254), et seulement après les 60 cas : leurs résultats sont dans le dépôt', () => {
+    expect(require('../../v2/js/config.js').NOTES_IA_OUVERTE).toBe(true);
+    expect(fs.existsSync(path.join(__dirname, '../../v2-atelier/banc/notes-ia/RESULTATS-2026-11-06.md'))).toBe(true);
   });
 
   test('app.js ne lit rien des notes sans passer par `notesIAPossibles` : l’appel de lecture est gardé par l’accord', () => {

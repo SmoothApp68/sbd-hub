@@ -5904,6 +5904,163 @@ const SETS_IMPORTES = [
     (sessions().filter((x) => x.id === idRoutine)[0] || {}).statut === 'terminee',
     JSON.stringify(sessions().map((x) => x.statut)));
 
+  console.log('\n══ 261. LE SUPERSET PAR TOURS (maquette-superset-entrelace-v4) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE (CADRAGE-V2 §2 quater) : DES SÉRIES COCHÉES DANS LE DÉSORDRE sur un superset à séries INÉGALES.
+  // Validé de haut en bas et à nombres égaux, « une série garde sa place » et « une série suit la dernière cochée » rendent le même
+  // écran. Il faut A3 avant B2 (la place reste), A1 A2 avant B1 (le bloc SEUL) et un exercice qui finit avant l'autre (la phrase).
+  // Les huit cas de la maquette ; les captures à 360 px vont dans `CAPTURES_261` si la variable est posée.
+  {
+    const catalogueAvant261 = CATALOGUE.length;
+    const routinesAvant261 = ROUTINES.length;
+    const sessionsAvant261 = base.sessions.length, setsAvant261 = base.sets.length;
+    const EXOS_261 = [['dc', 'Développé Couché (Haltère)', 88, 6], ['po', 'Pull-over (Poulie)', 32, 10], ['cu', 'Curl Biceps (Barre EZ)', 30, 11],
+      ['tr', 'Extension Triceps Poulie Haute (Câble)', 20, 10], ['ad', 'Adduction de Hanche (Machine)', 79, 20],
+      ['ab', 'Abduction de Hanche (Machine)', 79, 20], ['el', 'Élévation Latérale (Poulie)', 10, 16],
+      ['ti', 'Tirage Vers le Visage (Poulie)', 25, 18], ['ec', 'Écarté (Machine)', 100, 15]];
+    EXOS_261.forEach(([c, nom]) => CATALOGUE.push({ slug: c + '-261', nom, mesure: 'charge_reps', charge: 'externe',
+      muscles_primaires: ['pectoraux'], muscles_secondaires: [] }));
+    // Un passé : de quoi remplir la colonne PRÉC.
+    const debut261 = ilYa(7 * 86400000, Date.now()).toISOString();
+    base.sessions.push({ id: 's261-h', user_id: 'u-banc', titre: 'Passé 261', debut: debut261, fin: finDe(debut261, Date.now()).toISOString(),
+      statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut261 });
+    let rang261 = 0;
+    EXOS_261.forEach(([c, , kg, reps]) => { for (let k = 0; k < 4; k++) base.sets.push({ id: 's261-h-' + (++rang261), session_id: 's261-h', user_id: 'u-banc',
+      exercise_slug: c + '-261', charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail', rang: rang261, groupe_superset: null,
+      validee_a: debut261, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut261, modifie_a: null }); });
+    // Une routine par cas : `[code exercice, ['C' chauffe, 'T' travail, 'D' dégressive…]]`, tous dans le groupe 1.
+    const TYPES_261 = { C: 'echauffement', T: 'travail', D: 'degressive' };
+    const routine261 = (n, exos) => ({ id: 'r261-' + n, nom: 'Tours ' + n, note: null, archivee_a: null,
+      created_at: '2026-09-0' + n + 'T08:00:00Z', modifiee_a: '2026-09-0' + n + 'T08:00:00Z',
+      routine_exercises: exos.map(([c, codes], k) => ({ id: 're261-' + n + '-' + k, routine_id: 'r261-' + n, exercise_slug: c + '-261', rang: k,
+        routine_sets: codes.split('').map((t, i) => ({ id: 'pr261-' + n + '-' + k + '-' + i, rang: i + 1, type_serie: TYPES_261[t], reps_visees: 8,
+          charge_cible_kg: null, duree_cible_s: null, distance_cible_m: null })), repos_cible_s: 90, groupe_superset: 1, note: null })) });
+    [routine261(1, [['dc', 'CTTT'], ['po', 'TTT']]), routine261(2, [['dc', 'TTTT'], ['po', 'TTT']]), routine261(3, [['cu', 'TTTD'], ['tr', 'TTTD']]),
+      routine261(4, [['dc', 'TTTT'], ['po', 'TTT']]), routine261(5, [['ad', 'TT'], ['ab', 'TT']]), routine261(6, [['dc', 'TTTT'], ['po', 'TTT']]),
+      routine261(7, [['dc', 'TTT'], ['po', 'TTT']]), routine261(8, [['el', 'TTT'], ['ti', 'TTT'], ['ec', 'TTTD']])].forEach((r) => ROUTINES.push(r));
+
+    // ── la lecture de l'écran ──
+    const tours261 = () => page.evaluate(() => Array.from(document.querySelectorAll('.bloc-seance.superset .tour')).map((t) => ({
+      genre: t.dataset.genre, rail: t.querySelector('.rail').textContent, phrase: ((t.querySelector('.tour-phrase') || {}).textContent || '').replace(/ /g, ' ') || null,
+      lignes: Array.from(t.querySelectorAll('.serie')).map((r) => ({ no: r.querySelector('.no-serie').textContent, nom: r.querySelector('.nom-ligne-t').textContent,
+        ex: Number(r.dataset.iexo), i: Number(r.dataset.iserie), faite: !!r.querySelector('.ok-serie.cochee'), verte: r.classList.contains('faite') })) })));
+    const lire261 = (t) => t.map((b) => (b.genre === 'tour' ? 'T' + b.rail.replace(/\D/g, '') : b.rail) + ':' + b.lignes.map((l) => l.no + (l.faite ? '✓' : '')).join(' ')).join(' | ');
+    const placeDe261 = (iExo, iSerie) => page.evaluate(([e, s]) => { const r = document.querySelector('.bloc-seance.superset .serie[data-iexo="' + e + '"][data-iserie="' + s + '"]');
+      if (!r) return null; const b = r.getBoundingClientRect(); return { y: Math.round(b.top + window.scrollY), haut: Math.round(b.top - document.querySelector('.bloc-seance.superset .tours').getBoundingClientRect().top), tour: r.closest('.tour').dataset.tour || r.closest('.tour').dataset.genre }; }, [iExo, iSerie]);
+    // Une série se coche par SON identité (exercice, rang dans l'exercice) : la ligne qui la porte change de place avec le bloc SEUL.
+    const cocher261 = async (iExo, iSerie, kg) => {
+      const loc = () => page.locator('.bloc-seance.superset .ligne-serie').filter({ has: page.locator('.serie[data-iexo="' + iExo + '"][data-iserie="' + iSerie + '"]') });
+      await casesSiVides(vive(loc()), kg);
+      const cocheeDe = () => page.evaluate(([e, s]) => { const r = document.querySelector('.bloc-seance.superset .serie[data-iexo="' + e + '"][data-iserie="' + s + '"]');
+        return r ? !!r.querySelector('.ok-serie.cochee') : null; }, [iExo, iSerie]);
+      const etait = await cocheeDe();
+      const depart = await departGeste();
+      await page.evaluate(([e, s]) => document.querySelector('.bloc-seance.superset .serie[data-iexo="' + e + '"][data-iserie="' + s + '"] .ok-serie').click(), [iExo, iSerie]);
+      await serieMontee(cocheeDe, depart, !etait);
+      await attendre(120);
+    };
+    const dossier261 = process.env.CAPTURES_261;
+    const capturer261 = async (nom) => {
+      if (!dossier261) return;
+      require('fs').mkdirSync(dossier261, { recursive: true });
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.screenshot({ path: require('path').join(dossier261, nom + '.png'), fullPage: true });
+    };
+    const demarrer261 = async (n) => { await aller('/saisie'); await demarrerRoutine('Tours ' + n); await page.evaluate(() => window.scrollTo(0, 0)); };
+    const finir261 = async () => { await abandonner(); };
+
+    // ── cas 1 : la chauffe a son bloc, jamais un tour 0 ──
+    await demarrer261(1);
+    const t1 = await tours261();
+    ok('cas 1 — un bloc CHAUFFE avant le tour 1 (seulement la chauffe qui existe), puis TOUR 1, TOUR 2, TOUR 3 : pas de tour 0',
+      lire261(t1) === 'CHAUFFE:A | T1:A1 B1 | T2:A2 B2 | T3:A3 B3', lire261(t1));
+    ok('cas 1 — chaque bloc a un mot sur son rail, jamais un bloc sans nom', t1.every((b) => /^(CHAUFFE|SEUL|TOUR \d)$/.test(b.rail)), JSON.stringify(t1.map((b) => b.rail)));
+    ok('cas 1 — l’en-tête dit « Superset · tour 0/3 » (les tours FAITS, la chauffe ne compte pas)', /^Superset · tour 0\/3$/.test(await texte('.bloc-seance.superset .superset-t')), await texte('.bloc-seance.superset .superset-t'));
+    await capturer261('cas1-chauffe');
+    await finir261();
+    // ── cas 2 : séries inégales ──
+    await demarrer261(2);
+    const t2 = await tours261();
+    ok('cas 2 — quatre tours ; le dernier dit « Développé Couché seul : Pull-over a 3 séries. » et lui seul',
+      lire261(t2) === 'T1:A1 B1 | T2:A2 B2 | T3:A3 B3 | T4:A4' &&
+      JSON.stringify(t2.map((b) => b.phrase)) === JSON.stringify([null, null, null, 'Développé Couché seul : Pull-over a 3 séries.']), JSON.stringify(t2.map((b) => b.phrase)));
+    for (const [e, s] of [[0, 0], [1, 0], [0, 1], [1, 1], [0, 2], [1, 2]]) await cocher261(e, s);
+    ok('cas 2 — l’exercice fini dit « 3 séries faites » dans la légende (une seule fois)',
+      (await page.evaluate(() => Array.from(document.querySelectorAll('.bloc-seance.superset .exo-fini-t')).map((n) => n.textContent))).join('|') === '3 séries faites');
+    await capturer261('cas2-inegal');
+    await finir261();
+    // ── cas 3 : la dégressive reste dans son tour ──
+    await demarrer261(3);
+    const t3 = await tours261();
+    ok('cas 3 — la dégressive de chaque exercice reste sous sa série, avant l’autre exercice, et n’ouvre pas de tour (3 tours)',
+      lire261(t3) === 'T1:A1 B1 | T2:A2 B2 | T3:A3 A B3 B', lire261(t3));
+    ok('cas 3 — la ligne de baisse dit « ↓ Dégressive » à la place du nom', JSON.stringify(t3[2].lignes.map((l) => l.nom)) === JSON.stringify(['Curl Biceps', '↓ Dégressive', 'Extension Triceps Poulie Haute', '↓ Dégressive']).replace(/ /g, ' ') ||
+      JSON.stringify(t3[2].lignes.map((l) => l.nom.replace(/ /g, ' '))) === JSON.stringify(['Curl Biceps', '↓ Dégressive', 'Extension Triceps Poulie Haute', '↓ Dégressive']), JSON.stringify(t3[2].lignes.map((l) => l.nom)));
+    await capturer261('cas3-degressive');
+    await finir261();
+    // ── cas 4 : commencé seul ──
+    await demarrer261(4);
+    await cocher261(0, 0); await cocher261(0, 1);
+    const t4 = await tours261();
+    ok('cas 4 — A1 puis A2 faites d’affilée : un bloc SEUL (« Fait seul, à la suite. »), puis les tours reprennent à 1 avec A3 et B1',
+      lire261(t4) === 'SEUL:A1✓ A2✓ | T1:A3 B1 | T2:A4 B2 | T3:B3' && t4[0].phrase === 'Fait seul, à la suite.', lire261(t4));
+    ok('cas 4 — le dernier tour dit « Pull-over seul : Développé Couché a 4 séries. »', /^Pull-over seul : Développé Couché a 4 séries\.$/.test(t4[t4.length - 1].phrase || ''), String(t4[t4.length - 1].phrase));
+    await capturer261('cas4-seul');
+    await cocher261(0, 2);
+    const t4b = await tours261();
+    ok('cas 4 — A3 cochée à son tour : elle rejoint le bloc SEUL (ordre réel), la prochaine est sous la dernière cochée',
+      lire261(t4b) === 'SEUL:A1✓ A2✓ A3✓ | T1:A4 B1 | T2:B2 | T3:B3', lire261(t4b));
+    await finir261();
+    // ── cas 5 : court ──
+    await demarrer261(5);
+    const t5 = await tours261();
+    ok('cas 5 — adduction + abduction : même dessin, deux tours, le nom entier distingue les deux lignes',
+      lire261(t5) === 'T1:A1 B1 | T2:A2 B2' && t5[0].lignes[0].nom !== t5[0].lignes[1].nom, JSON.stringify(t5[0].lignes.map((l) => l.nom)));
+    await capturer261('cas5-court');
+    await finir261();
+    // ── cas 6 : sauté, puis « + Série » ──
+    await demarrer261(6);
+    await cocher261(0, 0); await cocher261(1, 0);
+    const avant6 = await placeDe261(1, 1);
+    await cocher261(0, 1); await cocher261(0, 2); await cocher261(0, 3);
+    const t6 = await tours261();
+    ok('cas 6 — Couché fait en entier, Pull-over sauté : rien ne s’efface, B2 et B3 restent VIDES à leur place (tours 2 et 3)',
+      lire261(t6) === 'T1:A1✓ B1✓ | T2:A2✓ B2 | T3:A3✓ B3 | T4:A4✓', lire261(t6));
+    const apres6 = await placeDe261(1, 1);
+    ok('cas 6 — « rien ne bouge sous le pouce » : B2 est restée dans le tour 2, à la même place de l’écran', avant6 && apres6 && avant6.tour === apres6.tour && avant6.y === apres6.y && avant6.haut === apres6.haut, JSON.stringify([avant6, apres6]));
+    await capturer261('cas6-saute');
+    await page.evaluate(() => Array.from(document.querySelectorAll('.bloc-seance.superset .ajout-tours'))[1].click());
+    await jusqua(async () => lire261(await tours261()).indexOf('T4:A4✓ B4') >= 0, 6000, 'B4 ajoutée');
+    const t6b = await tours261();
+    ok('cas 6 — « + Série · Pull-over » : la série prend la première place libre de son exercice (B4, à côté de A4), la phrase « seul » disparaît',
+      lire261(t6b) === 'T1:A1✓ B1✓ | T2:A2✓ B2 | T3:A3✓ B3 | T4:A4✓ B4' && t6b.every((b) => !b.phrase), lire261(t6b));
+    await finir261();
+    // ── cas 7 : la correction ──
+    await demarrer261(7);
+    await cocher261(0, 0); await cocher261(1, 0); await cocher261(0, 1);
+    const avant7 = await placeDe261(0, 0);
+    const champ7 = page.locator('.bloc-seance.superset .serie[data-iexo="0"][data-iserie="0"] [data-champ="charge_kg"] input');
+    await champ7.fill('90'); await champ7.evaluate((e) => e.blur()); await attendre(500);
+    const apres7 = await placeDe261(0, 0);
+    ok('cas 7 — corriger une valeur d’un tour fait : la ligne ne bouge pas, elle reste cochée', avant7.y === apres7.y && avant7.tour === apres7.tour &&
+      (await tours261())[0].lignes[0].faite, JSON.stringify([avant7, apres7]));
+    await capturer261('cas7-correction');
+    await finir261();
+    // ── cas 8 : le triset ──
+    await demarrer261(8);
+    const t8 = await tours261();
+    ok('cas 8 — triset : trois exercices par tour, la dégressive de C dans son tour',
+      lire261(t8) === 'T1:A1 B1 C1 | T2:A2 B2 C2 | T3:A3 B3 C3 C', lire261(t8));
+    const formes8 = await page.evaluate(() => Array.from(document.querySelectorAll('.bloc-seance.superset .tour[data-tour="1"] .nom-ligne .forme')).map((f) => f.className.replace('forme ', '')));
+    ok('cas 8 — trois formes (rond, carré, triangle) et « Superset à 3 »', formes8.join() === 'forme-rond,forme-carre,forme-triangle' &&
+      /^Superset à 3/.test(await texte('.bloc-seance.superset .superset-t')), formes8.join() + ' · ' + await texte('.bloc-seance.superset .superset-t'));
+    await capturer261('cas8-triset');
+    await finir261();
+
+    CATALOGUE.length = catalogueAvant261; ROUTINES.length = routinesAvant261;
+    base.sessions.length = sessionsAvant261; base.sets.length = setsAvant261;
+  }
+
   console.log('\n══ 7 quaterdecies. CORRIGER UNE SÉANCE IMPORTÉE ══');
   //
   // CONFIGURATION DISCRIMINANTE (CADRAGE-V2 §2 quater) — les TROIS conditions,

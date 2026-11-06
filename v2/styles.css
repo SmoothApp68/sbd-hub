@@ -137,6 +137,11 @@
   --trait-chauffe:#3A4A5E; /* contour du numéro d'une série de chauffe */
   --trait-calage:#4A4033; /* contour du numéro d'une série de calage */
   --texte-calage:#B08F3C; /* texte du numéro d'une série de calage */
+  /* 261 — LE SUPERSET PAR TOURS : une couleur ET une forme par exercice (A rond bleu, B carré rose — pas le violet des records —,
+     C triangle gris clair). La couleur seule ne porte jamais un sens : la forme et la lettre du badge la doublent. */
+  --ex-a:#58B4F5; --ex-b:#F28CC0; --ex-c:#CBD5E1;
+  --rail-fond:#12161D; /* le rail d'un tour : une région plus sombre que la carte */
+  --trait-case-saisie:#606C80; /* le contour pointillé d'une case à remplir : 3:1 sur la carte (WCAG 1.4.11) */
   --fond-serie-faite:#1D312F; /* le vert de sens à ~11 % sur la surface (opaque), une série faite */
   /* Le sens : manque et ambre, fonds et traits */
   --manque-trait:#4A3330; /* contour d'un état destructif ou en erreur */
@@ -1455,6 +1460,79 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .cible-avant::before,.cible-apres::after{content:"";position:absolute;left:0;right:0;height:3px;background:var(--teinte);border-radius:2px;pointer-events:none}
 .cible-avant::before{top:-2px}.cible-apres::after{bottom:-2px}
 .carte-ss + .carte-ss{margin-top:var(--e3);padding-top:var(--e3);border-top:1px solid var(--trait)}
+/* ══ 261 — LE SUPERSET PAR TOURS (maquette-superset-entrelace-v4) ═════════════════════════════════════════════════════════════════════
+   Un bloc par tour : « TOUR n » sur un rail à gauche, A puis B dans le tour. Aucune mise en avant de la série qui arrive (ni cadre,
+   ni couleur, ni grossissement) ; aucun rail vert sur un tour fini (la coche suffit). Le seul vert est celui de la série faite. */
+.forme{display:inline-block;width:11px;height:11px;flex:0 0 11px;vertical-align:baseline}
+.forme-rond{border-radius:50%;background:var(--ex-a)}
+.forme-carre{border-radius:2px;background:var(--ex-b)}
+.forme-triangle{background:var(--ex-c);clip-path:polygon(50% 0,100% 100%,0 100%);width:12px}
+.bloc-seance.en-tours{border-left:4px solid var(--teinte)}
+.bloc-seance.en-tours .superset-t{color:var(--teinte)}
+/* La légende : une ligne par exercice, le chiffre du jour à côté du nom (le héros de la consigne, déplacé). */
+.en-tours-leg .exo-seance{align-items:center;gap:8px}
+.en-tours-leg .legende-haut{align-items:center;gap:var(--e2)}
+.en-tours-leg .consigne-heros.heros-leg{margin:0;flex:0 0 auto;flex-wrap:nowrap;align-items:baseline;min-height:44px;align-content:center;cursor:pointer;
+  border-bottom:1px dotted var(--accent);border-bottom-width:0}
+.en-tours-leg .consigne-heros.heros-leg::before{display:none}
+.en-tours-leg .consigne-heros.heros-leg .c-charge,.en-tours-leg .consigne-heros.heros-leg .c-reps{font-size:19px}
+.en-tours-leg .consigne-heros.heros-leg .c-kg{font-size:14px}
+.en-tours-leg .consigne-heros.heros-leg .c-reste,.en-tours-leg .consigne-heros.heros-leg .badge-recul{display:none}
+.en-tours-leg .consigne-heros.heros-leg[data-garde]::after{display:none}
+.exo-fini-t{flex:0 0 auto;font:600 13px var(--pile-c);color:var(--texte-3);letter-spacing:.03em}
+.en-tours-leg + .en-tours-leg{margin-top:0;padding-top:0;border-top:0}
+.en-tours-leg .legende-haut{min-height:44px}
+.en-tours-leg .legende-plus{display:none}
+.tete-seance.legende-ouverte .legende-plus{display:block;margin:0 0 var(--e2);padding:var(--e2) 0 var(--e2) 0;border-top:1px dashed var(--trait)}
+.legende-plus-nom{display:flex;align-items:center;gap:8px;font:600 14px var(--pile-c);color:var(--texte-2);padding-bottom:4px}
+.legende-plus-bouton{display:flex;align-items:center;width:100%;min-height:44px;padding:0 4px;border:0;background:transparent;color:var(--texte-2);
+  font:500 14px var(--pile);text-align:left;cursor:pointer}
+.cartes-exo{margin:0 0 var(--e2)}
+.cartes-exo-nom{display:flex;align-items:center;gap:8px;font:600 14px var(--pile-c);color:var(--texte-2);padding:2px 0 4px}
+.tours{border-top:1px solid var(--trait)}
+.tour{display:grid;grid-template-columns:20px minmax(0,1fr);min-height:68px;border-top:1px solid var(--reflet-haut)}
+.tour:first-child,.tours > .cols-seance + .tour{border-top:0}
+.rail{display:flex;align-items:center;justify-content:center;background:var(--rail-fond);writing-mode:vertical-rl;transform:rotate(180deg);
+  font:800 12px var(--pile-c);letter-spacing:.08em;color:var(--texte-3);white-space:nowrap;user-select:none}
+.tour-chauffe .rail{color:var(--chauffe)}
+.tour-seul .rail{color:var(--texte)}
+.tour-lignes{min-width:0}
+.tour-lignes > .ligne-serie + .ligne-serie,.tour-lignes > .ligne-serie + .reaction,.tour-lignes > * + .ligne-serie{border-top:1px dashed var(--trait)}
+.tour-lignes .serie.grille{padding:5px 4px 5px 3px;min-height:56px;border-top:0}
+.tour-lignes .dit{font:600 14px var(--pile-c);color:var(--texte-3);padding:6px 8px 8px 6px;letter-spacing:.02em}
+.cols-seance.en-tours{padding:var(--e2) 4px 3px calc(20px + 3px)}
+/* Une ligne de tour : badge · nom court · PRÉC. · cases · coche (46 de haut, cases de 44). */
+.serie.grille.en-tours.g-charge_reps{grid-template-columns:28px minmax(0,1fr) 40px 46px 38px 30px 46px;gap:2px}
+.serie.grille.en-tours.g-reps{grid-template-columns:28px minmax(0,1fr) 40px 52px 30px 46px;gap:2px}
+.serie.grille.en-tours.g-temps{grid-template-columns:28px minmax(0,1fr) 40px 80px 46px;gap:2px}
+.serie.grille.en-tours.g-distance_temps,.serie.grille.en-tours.g-temps.g-plus{grid-template-columns:28px minmax(0,1fr) 40px 56px 56px 46px;gap:2px}
+.cols-seance.en-tours.g-charge_reps{grid-template-columns:28px minmax(0,1fr) 40px 46px 38px 30px 46px;gap:2px}
+.cols-seance.en-tours.g-reps{grid-template-columns:28px minmax(0,1fr) 40px 52px 30px 46px;gap:2px}
+.cols-seance.en-tours.g-temps{grid-template-columns:28px minmax(0,1fr) 40px 80px 46px;gap:2px}
+.cols-seance.en-tours.g-distance_temps,.cols-seance.en-tours.g-temps.g-plus{grid-template-columns:28px minmax(0,1fr) 40px 56px 56px 46px;gap:2px}
+.en-tours .ch-serie,.en-tours .rp-serie{height:44px}
+.en-tours .ch-serie input,.en-tours .rp-serie input{height:42px;font-size:20px}
+.en-tours .ch-serie u{display:none}
+.en-tours .ok-serie{height:46px;width:46px}
+.en-tours .no-serie{height:40px}
+.serie.en-tours .prec{font-size:12.5px}
+.nom-ligne{display:flex;align-items:center;gap:3px;min-width:0;font:600 14px/1.08 var(--pile-c);color:var(--texte)}
+.nom-ligne .forme{width:8px;height:8px;flex-basis:8px}
+.nom-ligne .forme-triangle{width:9px}
+.nom-ligne-t{overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:break-word;hyphens:auto}
+.nom-ligne.chauffe .nom-ligne-t{color:var(--chauffe)}
+.nom-ligne.degressive .nom-ligne-t{color:var(--accent);font-size:12.5px;hyphens:manual;overflow-wrap:normal}
+.serie.en-tours[data-ex="0"] .no-serie:not(.c):not(.d){box-shadow:inset 3px 0 0 var(--ex-a)}
+.serie.en-tours[data-ex="1"] .no-serie:not(.c):not(.d){box-shadow:inset 3px 0 0 var(--ex-b)}
+.serie.en-tours[data-ex="2"] .no-serie:not(.c):not(.d){box-shadow:inset 3px 0 0 var(--ex-c)}
+.serie.en-tours[data-ex="0"] .no-serie.c,.serie.en-tours[data-ex="0"] .no-serie.d{box-shadow:inset 3px 0 0 var(--ex-a)}
+.serie.en-tours[data-ex="1"] .no-serie.c,.serie.en-tours[data-ex="1"] .no-serie.d{box-shadow:inset 3px 0 0 var(--ex-b)}
+.serie.en-tours[data-ex="2"] .no-serie.c,.serie.en-tours[data-ex="2"] .no-serie.d{box-shadow:inset 3px 0 0 var(--ex-c)}
+.serie.en-tours.fait .no-serie{box-shadow:none}
+.en-tours .ch-serie.fantome,.en-tours .rp-serie.fantome{border-color:var(--trait-case-saisie)}
+.en-tours .ok-serie:not(.cochee){border-color:var(--trait-case-saisie)}
+.ajout-serie button.ajout-tours{display:flex;align-items:center;justify-content:center;gap:7px;min-height:44px;height:auto;color:var(--texte-2);font-size:14px;white-space:nowrap;min-width:0}
+.ajout-tours-t{overflow:hidden;text-overflow:ellipsis}
 .superset-t{font-size:12px;font-weight:700;color:var(--texte-3);letter-spacing:.06em;
   text-transform:uppercase;padding-bottom:var(--e2)}
 /* 233 — LE CHRONO DE TENUE : une ligne sous la série (▶ Chrono · visée 0:45), puis le compteur, Stop et Annuler. Cibles de 44 px. */

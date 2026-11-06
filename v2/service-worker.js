@@ -76,6 +76,7 @@ const SHELL = [
   './js/notes-ia.js',
   './js/deraille.js',
   './js/equilibres.js',
+  './js/tours.js',
   './js/objectif.js',
   './js/plan.js',
   './js/periode.js',

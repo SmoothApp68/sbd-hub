@@ -4209,7 +4209,7 @@
     // reporte, par la même fonction que la correction à l'étiquette. Sans
     // report (un corps, une aide, un lest, ou séries longues qui restent), les
     // replis d'avant : celui de §14.5, sinon celui de la reprise longue.
-    var report = reportSur(seances, avant, consigne.zone, zone, equipement, (options || {}).reglage, (options || {}).salle || null);
+    var report = reportSur(seances, avant, consigne.zone, zone, equipement, (options || {}).reglage, (options || {}).salle || null, true);
     var repli = report === null ? null
       : { source: 'report', palier: nombre(consigne.palier), ligne: [report.charge, report.visee] };
     var salle = (options || {}).salle || null;
@@ -9307,7 +9307,8 @@
     // plus grand r de la zone [bas, haut] dont le max estimé à `r + v` reps ne dépasse pas celui de la source (`repsAuCranDuDessous`) :
     // on ne laisse pas l'effort sur la table, et on ne sort jamais de la zone. I143 (plan.js) vérifie ce max estimé.
     var maxSource = unRMEpley(P, n + (rSource === null ? 0 : rSource));
-    if (charge !== null && charge > 0 && estimee > 0 && (estimee - charge) / estimee > REPORT_GROS_CRAN) {
+    // « Plus léger » (`reprisePour`, `sansMontee`) : l'allègement est le but, les reps restent au bas de la zone.
+    if (p.sansMontee !== true && charge !== null && charge > 0 && estimee > 0 && (estimee - charge) / estimee > REPORT_GROS_CRAN) {
       var repsHaut = repsAuCranDuDessous(charge, maxSource, rVisee === null ? 0 : rVisee, z.bas, z.haut);
       if (repsHaut !== null) visee = repsHaut;
     }
@@ -9386,7 +9387,7 @@
     }).map(function (x) { return { date: x.debut, palier: x.palier, niveau: x.niveau }; });
   }
 
-  function reportSur(seances, avant, zoneAvant, zone, equipement, reglage, salle) {
+  function reportSur(seances, avant, zoneAvant, zone, equipement, reglage, salle, sansMontee) {
     if (equipement === EQUIPEMENT_LEST) return null;
     // 132 (MOTEUR §10 ter) — PAS DE REPORT À L'ÉLASTIQUE : une estimation du 1RM sur une charge virtuelle (ou sur une
     // aide) ne veut rien dire. L'aide était déjà écartée (charge ≤ 0, `reportDeZone`) ; la résistance notée par nom
@@ -9397,7 +9398,7 @@
     // 255 bis — avec une salle déclarée, le cran est celui de la salle (`voisineSalleComprise`, le câblage de partout) : l'arrondi part
     // de la charge de la salle la plus proche de l'estimation, pas d'une charge source que la salle n'a pas.
     var r = reportDeZone({
-      seances: lues, avant: avant, zoneAvant: zoneAvant, zone: zone, reglage: reglage,
+      seances: lues, avant: avant, zoneAvant: zoneAvant, zone: zone, reglage: reglage, sansMontee: sansMontee === true,
       cran: function (charge, sens) { return voisineSalleComprise(vues, avant, charge, equipement, sens, salle || null); }
     });
     // Sous la plus légère de la salle : la plus légère (`arrondieALaSalle`).

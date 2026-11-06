@@ -25,7 +25,7 @@ function fonction255(src, nom) {
   return { i, j: j + 5, texte: src.slice(i, j + 5) };
 }
 const RAPIECES_255 = [
-  ['var report = reportSur(seances, avant, consigne.zone, zone, equipement);', 'var report = reportSur(seances, avant, consigne.zone, zone, equipement, (options || {}).reglage, (options || {}).salle || null);'],
+  ['var report = reportSur(seances, avant, consigne.zone, zone, equipement);', 'var report = reportSur(seances, avant, consigne.zone, zone, equipement, (options || {}).reglage, (options || {}).salle || null, true);'],
   ['var r = reportSur(seances, avant, zoneAvant, consigne.zone, o.equipement);', 'var r = reportSur(seances, avant, zoneAvant, consigne.zone, o.equipement, o.reglage, o.salle || null);'],
   ['depuis: { date: r.depuis.debut, palier: r.depuis.palier, niveau: r.depuis.niveau },',
     'depuis: r.depuis.reserve === null || r.depuis.reserve === undefined ? { date: r.depuis.debut, palier: r.depuis.palier, niveau: r.depuis.niveau } : { date: r.depuis.debut, palier: r.depuis.palier, niveau: r.depuis.niveau, reserve: r.depuis.reserve },'],

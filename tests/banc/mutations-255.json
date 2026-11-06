@@ -79,5 +79,15 @@
    "tests/unit/v2-report-de-zone.test.js"
   ],
   "banc": "aucun"
+ },
+ {
+  "nom": "255-9-montee-des-reps-aussi-au-plus-leger",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "(options || {}).reglage, (options || {}).salle || null, true);",
+  "nouveau": "(options || {}).reglage, (options || {}).salle || null, false);",
+  "unitaires": [
+   "tests/unit/v2-j-ai-mal.test.js"
+  ],
+  "banc": "aucun"
  }
 ]

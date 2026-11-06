@@ -189,7 +189,7 @@ describe('51-3 — la zone suivante en reps et la condition de la carte', () => 
     const c = CAS.neutralite.find((x) => x.id === 'N04');
     const se = M.sansPalierRetenues(contrat(c), { equipement: 'barre' });
     const k = M.consignePour(se, c.avant, { equipement: 'barre' });
-    expect(M.reprisePour(se, c.avant, k, null, { equipement: 'barre' }).repli.ligne).toEqual([15, 20]);   // 255 bis : le gros cran (20 → 15, -23 %) garde 15 et monte les reps à 20 ; 255 : le report compte la réserve visée (1 en séries longues) : 19,6 estimé, au cran inférieur de l’appareil
+    expect(M.reprisePour(se, c.avant, k, null, { equipement: 'barre' }).repli.ligne).toEqual([15, 15]);   // 255 bis : « Plus léger » ne monte JAMAIS les reps (l'allègement est le but, 20 → 15 reste 15 × 15) ; 255 : le report compte la réserve visée (1 en séries longues) : 19,6 estimé, au cran inférieur de l’appareil
   });
 
   // 51-3 ter (D5, §20 bis) — le libellé ne contredit jamais son chiffre.
@@ -202,7 +202,7 @@ describe('51-3 — la zone suivante en reps et la condition de la carte', () => 
     const t = M.carteRepriseTextes('Développé Militaire (Barre)', k, r);
     // 255 : la charge baisse maintenant (le report compte la réserve visée) : le libellé le dit, « Plus léger » — il suit son chiffre.
     expect(t.choix.map((q) => q.texte)).toEqual(['Comme avant : 20\u00a0kg\u00a0×\u00a012',
-      'Plus léger, plus de reps : 15\u00a0kg\u00a0×\u00a020', 'Sans coach cette fois']);
+      'Plus léger, plus de reps : 15\u00a0kg\u00a0×\u00a015', 'Sans coach cette fois']);
     expect(t.choix.map((q) => q.cle)).toEqual(['avant', 'leger', 'sans']);
   });
 

@@ -10,10 +10,10 @@
   "banc": "aucun"
  },
  {
-  "nom": "255-2-source-sans-reserve-notee",
+  "nom": "255-2b-source-sans-reserve-notee",
   "fichier": "v2/js/moteur.js",
-  "ancien": "unRMEpley(P, n + (rSource === null ? 0 : rSource))",
-  "nouveau": "unRMEpley(P, n)",
+  "ancien": "var estimee = unRMEpley(P, n + (rSource === null ? 0 : rSource))",
+  "nouveau": "var estimee = unRMEpley(P, n)",
   "unitaires": [
    "tests/unit/v2-report-de-zone.test.js"
   ],
@@ -22,18 +22,18 @@
  {
   "nom": "255-3-reglage-perdu-dans-la-consigne",
   "fichier": "v2/js/moteur.js",
-  "ancien": "var r = reportSur(seances, avant, zoneAvant, consigne.zone, o.equipement, o.reglage);",
-  "nouveau": "var r = reportSur(seances, avant, zoneAvant, consigne.zone, o.equipement);",
+  "ancien": "var r = reportSur(seances, avant, zoneAvant, consigne.zone, o.equipement, o.reglage, o.salle || null);",
+  "nouveau": "var r = reportSur(seances, avant, zoneAvant, consigne.zone, o.equipement, undefined, o.salle || null);",
   "unitaires": [
    "tests/unit/v2-report-de-zone.test.js"
   ],
   "banc": "aucun"
  },
  {
-  "nom": "255-4-gros-cran-seuil-supprime",
+  "nom": "255-4-reps-du-bas-jamais-testees",
   "fichier": "v2/js/moteur.js",
-  "ancien": "(estimee - charge) / estimee > REPORT_GROS_CRAN",
-  "nouveau": "(estimee - charge) / estimee > -1",
+  "ancien": "for (var r = haut; r >= bas; r--) {",
+  "nouveau": "for (var r = haut; r > bas; r--) {",
   "unitaires": [
    "tests/unit/v2-report-de-zone.test.js"
   ],

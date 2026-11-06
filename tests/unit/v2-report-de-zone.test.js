@@ -451,9 +451,9 @@ describe('255 bis — les gros crans, la salle et la plus petite réserve notée
     const noter = (ressentis) => LOURD.map((x, k) => k < LOURD.length - 1 ? x : Object.assign({}, x, {
       series: x.series.map((sr, j) => Object.assign({}, sr, { ressenti: ressentis[j] })) }));
     const ligne = (groupes) => consigne(groupes, Object.assign({ reglage: 'franc' }, MIX_LE_10)).consigne.ligne.charge;
-    expect(ligne(noter(['reste_3', 'reste_2', 'reste_1']))).toBe(95);      // plus petite = 1 (et c'est la dernière)
-    expect(ligne(noter(['reste_1', 'reste_3', 'reste_3']))).toBe(95);      // plus petite = 1, la dernière en dit 3 : avant, 100 × 5 + 3
-    expect(ligne(noter(['reste_0', 'reste_3', 'reste_3']))).toBe(92.5);    // un échec parmi elles : l'hypothèse prudente
+    expect(ligne(noter(['reste_3_plus', 'reste_2', 'reste_1']))).toBe(95);      // plus petite = 1 (et c'est la dernière)
+    expect(ligne(noter(['reste_1', 'reste_3_plus', 'reste_3_plus']))).toBe(95);      // plus petite = 1, la dernière en dit 3 : avant, 100 × 5 + 3
+    expect(ligne(noter(['reste_0', 'reste_3_plus', 'reste_3_plus']))).toBe(92.5);    // un échec parmi elles : l'hypothèse prudente
     expect(ligne(noter([null, null, null]))).toBe(92.5);                   // inconnue partout : n tel quel
     expect(ligne(noter([null, 'reste_2', null]))).toBe(100);               // les séries sans note sont ignorées : 2 en réserve → n + 2 = 7
   });

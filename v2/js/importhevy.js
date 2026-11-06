@@ -691,6 +691,19 @@
     return e.indexOf('date') >= 0 && (e.indexOf('weight_kg') >= 0 || e.indexOf('weight_lbs') >= 0) &&
       e.indexOf('exercise_title') < 0 && e.indexOf('start_time') < 0;
   }
+  // 256 — LES MESURES SE LISENT EN FRANÇAIS SEULEMENT (prévu dès 246 : « Hevy en français »). `dateCsv` lit aussi l'anglais (118, pour les
+  // SÉANCES : « 16 Jun 2026, 10:24 », « Oct 2, 2026, 5:54 PM ») ; une pesée datée ainsi aurait été importée sans que l'écran dise « Hevy en
+  // français ». Un mois qui n'existe qu'en anglais, ou la forme « mois jour, année », est refusé avec `enAnglais`.
+  var RE_MOIS_ANGLAIS_SEUL = /(^|[^a-z])(jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|september|october|november|december)([^a-z]|$)/;
+  function dateCsvFrancais(s) {
+    var t = norme(s);
+    if (RE_CSV_MJA.test(t) || RE_MOIS_ANGLAIS_SEUL.test(t)) {
+      var e = new Error('date en anglais : ' + s);
+      e.enAnglais = true;
+      throw e;
+    }
+    return dateCsv(s);
+  }
   function lireMesuresCsv(texte, aujourdhui) {
     var sortie = { pesees: [], ecartees: 0, raison: null };
     var brutes = lignesCsv(String(texte || '').replace(/^\uFEFF/, ''));
@@ -707,7 +720,7 @@
     var parJour = {}, illisibles = 0, anglais = false;
     lignes.forEach(function (v) {
       var local, kg;
-      try { local = dateCsv(v[iD]); }
+      try { local = dateCsvFrancais(v[iD]); }
       catch (e) { illisibles++; if (e && e.enAnglais) anglais = true; sortie.ecartees++; return; }
       var jour = local.slice(0, 10), heure = local.slice(11, 16);
       // Un jour qui n'existe pas au calendrier (2024-02-31) : aller-retour par `THPoids.depuisJour`.

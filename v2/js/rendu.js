@@ -1075,10 +1075,12 @@
     carte.appendChild(liste);
     if (c.phrase) carte.appendChild(el('p', 'feuille-aide cr-phrase', c.phrase));
     cible.appendChild(carte);
-    var menu = el('div', 'feuille-menu');
-    entreeMenu(menu, c.oui || 'Raccourcir', { classe: 'cr-oui', surClic: vue.surRaccourcir });
-    entreeMenu(menu, c.non || 'Garder la séance', { classe: 'cr-non', surClic: vue.surGarder });
-    cible.appendChild(menu);
+    // 256 (D9) — deux vrais boutons de 44 px et plus (le texte nu était à 43 px) : « Raccourcir » est l'action principale (ambre),
+    // « Garder la séance » le secondaire ; les classes `cr-oui` / `cr-non` restent celles des lecteurs.
+    piedFeuille(cible, [
+      { classe: 'sec cr-non', texte: c.non || 'Garder la séance', surClic: vue.surGarder },
+      { classe: 'pri cr-oui', texte: c.oui || 'Raccourcir', surClic: vue.surRaccourcir }
+    ]);
     return cible;
   }
 
@@ -2728,19 +2730,34 @@
     // la durée (§3 ter.2 ter). Le champ revient au dernier texte accepté, et rien n'est
     // écrit.
     var accepte = input.value;
+    // 256 (D7) — le chiffre refusé SE DIT, sous le champ : « 300 km au plus » (--manque). Rien n'est écrit ; le message s'efface à la
+    // frappe suivante acceptée ou à la sortie du champ.
+    var dite = el('small', 'borne-dite');
+    dite.hidden = true;
+    dite.setAttribute('role', 'status');
+    var tairePlafond = function () { dite.hidden = true; enveloppe.classList.remove('hors-borne'); };
     input.addEventListener('input', function () {
       if (o.max !== null && o.max !== undefined) {
         var n = M().lireNombre(input.value);
-        if (n !== null && n > o.max) { input.value = accepte; return; }
+        if (n !== null && n > o.max) {
+          input.value = accepte;
+          dite.textContent = nombreFr(o.max) + (suffixe ? '\u00a0' + suffixe : '') + ' au plus';
+          dite.hidden = false;
+          enveloppe.classList.add('hors-borne');
+          return;
+        }
       }
+      tairePlafond();
       accepte = input.value;
       surSaisie(input.value);
     });
+    input.addEventListener('blur', tairePlafond);
     if (typeof o.surQuitte === 'function') {
       input.addEventListener('change', function () { o.surQuitte(); });
     }
     enveloppe.appendChild(input);
     if (suffixe) enveloppe.appendChild(el('u', '', suffixe));
+    enveloppe.appendChild(dite);
     return enveloppe;
   }
 
@@ -4801,6 +4818,9 @@
     var f = vue.programme
       ? { charge_kg: ligneP ? ligneP.charge_kg : null }
       : vue.fantome(iExo, iSerie);
+    // 256 (D12) — UNE SÉRIE VALIDÉE NE MONTRE PLUS DE FANTÔME DANS UNE CASE QU'ELLE N'A PAS : une course validée avec la seule distance
+    // laissait « 30:00 » en gris dans la durée, alors que `duree_s` est nul. Ce qui est écrit s'affiche ; ce qui ne l'est pas reste vide.
+    if (s.faite && !vue.programme) f = {};
     // Une seule boucle pour les quatre gabarits : le champ porte sa colonne, son
     // unité et son facteur de conversion. La vue ne sait rien de la différence
     // entre une seconde et un kilomètre.
@@ -4886,7 +4906,13 @@
     if (info233) ligne.appendChild(chronoDeTenue(info233, vue, iExo, iSerie));
     // 152 — le mot d'une série `echec` : « à l'échec » (ambre) à 1 rep et plus, « manquée » à 0.
     // 200-4 — « 5+ · garde 1 » à la place d'« Au max » quand la consigne garde N reps (lu sur le plan).
-    var motLigne = s.motEchec, ea = motLigne && !vue.programme && typeof vue.etiquetteAuMax === 'function' && /(^|· )Au max$|au max$/.test(motLigne) ? vue.etiquetteAuMax(iExo, iSerie) : null;
+    var motLigne = s.motEchec;
+    // 256 (D14) — UNE LIGNE DE RECUL S'ANNONCE DÈS LE PLAN : avant la validation la série est encore `travail` en base (le type s'écrit à
+    // « ✓ », `typerSelonLePlan`) ; le plan, lui, sait déjà que c'est un recul (`vue.reculDuPlan`, lu sur `lignes[i].type`).
+    if (!vue.programme && !s.faite && typeof vue.reculDuPlan === 'function' && !/^recul/.test(motLigne || '') && vue.reculDuPlan(iExo, iSerie)) {
+      motLigne = motLigne ? 'recul \u00b7 ' + motLigne : 'recul';
+    }
+    var ea = motLigne && !vue.programme && typeof vue.etiquetteAuMax === 'function' && /(^|· )Au max$|au max$/.test(motLigne) ? vue.etiquetteAuMax(iExo, iSerie) : null;
     if (ea) motLigne = (/^recul/.test(motLigne) ? 'recul · ' : '') + ea.texte;
     if (motLigne) {
       var etqL = el('div', 'etq-ligne etq' + (s.estTravail ? ' fond' : ''), motLigne);
@@ -5081,6 +5107,7 @@
 
   // 242 — le bloc de la note d'un exercice : écran A (la note, « Modifier » · « Ne plus afficher »), écran B (le champ, « Garder » · « Annuler »).
   // L'édition vit dans le noeud : « Annuler » rend la note telle qu'elle était, rien n'est écrit avant « Garder ».
+  var NOTE_MAX = 500, NOTE_COMPTEUR_DES = 400;   // 256 (D8) — la limite du champ (CHECK de la note) et le seuil où le compteur apparaît
   function blocNoteDExercice(x, note, vue, sansTitre) {
     var boite = el('div', 'note-derniere');
     boite.setAttribute('data-slug', x.slug);
@@ -5106,7 +5133,7 @@
       boite.appendChild(el('p', 'note-derniere-t', 'Ta note pour cet exercice'));
       var champ = doc.createElement('textarea');
       champ.rows = 3;
-      champ.maxLength = 500;
+      champ.maxLength = NOTE_MAX;
       champ.className = 'note-derniere-champ';
       champ.value = typeof depart === 'string' ? depart : note.texte;
       // Le brouillon vit dans l'état de l'app : un redessin de la séance (une série validée ailleurs) le retrouve.
@@ -5116,6 +5143,17 @@
       }
       champ.setAttribute('aria-label', 'Note de ' + x.nom);
       boite.appendChild(champ);
+      // 256 (D8) — la limite se dit à son approche : « 480 / 500 » dès 400 signes, jamais une coupure muette.
+      var compteur = el('small', 'note-compteur');
+      var majCompteur = function () {
+        var n = champ.value.length;
+        compteur.hidden = n < NOTE_COMPTEUR_DES;
+        compteur.textContent = n + '\u00a0/\u00a0' + NOTE_MAX;
+        compteur.classList.toggle('plein', n >= NOTE_MAX);
+      };
+      champ.addEventListener('input', majCompteur);
+      majCompteur();
+      boite.appendChild(compteur);
       var gestes = el('div', 'note-derniere-gestes');
       var bg = el('button', 'principal note-derniere-garder', 'Garder');
       bg.type = 'button';

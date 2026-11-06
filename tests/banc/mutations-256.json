@@ -1,0 +1,5 @@
+[
+ {"nom": "256-D11-duree-non-validee-reportee", "fichier": "v2/js/seance.js", "ancien": "if (champ === 'duree_s' && !partEnBase(liste[k])) continue;", "nouveau": "if (false) continue;", "unitaires": ["tests/unit/v2-lot-256.test.js"], "banc": "aucun"},
+ {"nom": "256-D12-fantome-sur-serie-validee", "fichier": "v2/js/rendu.js", "ancien": "if (s.faite && !vue.programme) f = {};", "nouveau": "if (false) f = {};", "unitaires": ["tests/unit/v2-lot-256.test.js"], "banc": "aucun"},
+ {"nom": "256-D7-borne-muette", "fichier": "v2/js/rendu.js", "ancien": "          dite.hidden = false;\n          enveloppe.classList.add('hors-borne');", "nouveau": "          dite.hidden = true;\n          enveloppe.classList.add('hors-borne');", "unitaires": ["tests/unit/v2-lot-256.test.js"], "banc": "aucun"}
+]

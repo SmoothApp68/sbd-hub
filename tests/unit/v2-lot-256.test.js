@@ -1,0 +1,278 @@
+/** @jest-environment jsdom */
+// 256 — LE LOT DE LA RECETTE DE MAIN (défauts mineurs D4 à D14 et reliquats de la recette 585).
+// Chaque bloc porte la preuve de son défaut : il échoue sur main, il passe avec le correctif.
+process.env.TZ = 'Europe/Paris';
+const fs = require('fs');
+const path = require('path');
+const Modele = require('../../v2/js/modele.js');
+require('../../v2/js/palier.js');
+require('../../v2/js/semaine.js');
+require('../../v2/js/seance.js');
+require('../../v2/js/rendu.js');
+const Profil = require('../../v2/js/profil.js');
+const M = require('../../v2/js/moteur.js');
+const S = require('../../v2/js/seance.js');
+const T = require('../../v2/js/plan.js');
+
+const CSS = fs.readFileSync(path.join(__dirname, '../../v2/styles.css'), 'utf8');
+const regle = (sel) => {
+  let i = CSS.indexOf('}' + sel + '{');
+  if (i < 0) i = CSS.indexOf('\n' + sel + '{');
+  if (i < 0) i = CSS.indexOf(sel + '{');
+  if (i < 0) throw new Error('règle absente : ' + sel);
+  return CSS.slice(i + 1, CSS.indexOf('}', i + 1));
+};
+
+describe('256 D4 — « Pourquoi ? » ne raye pas la ligne suivante', () => {
+  test('le soulignement est collé au texte (text-decoration), plus une bordure du bouton de 44 px', () => {
+    const r = regle('.lien-pourquoi');
+    expect(CSS).toMatch(/\.pourquoi-ligne\{margin-top:2px\}\.lien-pourquoi\{/);
+    expect(r).toMatch(/text-decoration:underline dotted/);
+    expect(r).not.toMatch(/border-bottom/);
+    expect(r).toMatch(/padding:12px 4px;margin:-12px -4px/);   // la cible de 44 px est gardée
+  });
+});
+
+describe('256 D6 — les cibles tactiles sont à 44 px', () => {
+  test('les boutons d’une carte du coach, le « Pourquoi ? » de la veille et de l’escalier, « Reprendre »', () => {
+    expect(regle('.proposition-exercice button')).toMatch(/min-height:44px/);
+    expect(regle('.carte-mobilite .cm-pourquoi summary')).toMatch(/min-height:44px/);
+    expect(regle('.carte-escalier .ce-pourquoi summary')).toMatch(/min-height:44px/);
+    expect(regle('.exo-reprendre')).toMatch(/min-height:44px/);
+  });
+  test('(c) « Lire le texte » de l’import (classe .imp-bouton) fait au moins 44 px, malgré les 42 px de .principal', () => {
+    expect(regle('.imp-bouton')).toMatch(/min-height:44px/);
+  });
+});
+
+describe('256 D5 — « null » n’est jamais affiché sous TA PHASE', () => {
+  const MAINTENANT = new Date('2026-10-05T10:00:00+02:00');
+  test('une phase posée sans date de début : le pied est vide (null), pas le mot « null »', () => {
+    const sec = Profil.sectionPhase({ phase: 'seche', phase_depuis: null }, () => {}, MAINTENANT);
+    expect(sec.pied).toBeNull();
+    const avecNote = Profil.sectionPhase({ phase: 'seche', phase_depuis: null }, () => {}, MAINTENANT, 'Tes séries reviennent à ta routine.');
+    expect(avecNote.pied).toBe('Tes séries reviennent à ta routine.');
+  });
+  test('avec une date, le pied est inchangé', () => {
+    const sec = Profil.sectionPhase({ phase: 'seche', phase_depuis: '2026-09-29T10:00:00.000Z' }, () => {}, MAINTENANT);
+    expect(sec.pied).toMatch(/^Depuis /);
+  });
+  test('sans phase : « Maintien (par défaut) », comme avant', () => {
+    expect(Profil.sectionPhase({ phase: null }, () => {}, MAINTENANT).pied).toBe(Profil.LIBELLE_PHASE_VIDE);
+  });
+});
+
+describe('256 D7 — la borne de 300 km se dit', () => {
+  const CAT = [{ slug: 'course', nom: 'Course à Pied', mesure: 'distance_temps', charge: 'aucune', muscles_primaires: [] }];
+  test('grille : taper 350 garde 35 ET dit « 300 km au plus » sous le champ ; la frappe suivante acceptée l’efface', () => {
+    const ecrits = [];
+    const s = { exercices: [{ exercise_slug: 'course', series: [{ id: 's1', type_serie: 'travail', charge_kg: null, reps: null, duree_s: null, distance_m: null }] }] };
+    const cible = document.createElement('div');
+    window.THRendu.rendreBlocsSeance(cible, s, {
+      blocs: Modele.blocsDeSeance(s, CAT), exercice: () => CAT[0], precedent: () => null, fantome: () => ({}), tourAtteint: () => 0,
+      surValider: () => {}, surEffort: () => {}, surChamp: (i, j, champ, v) => ecrits.push([champ, v]),
+      surNumero: () => {}, surNote: () => {}, surRepos: () => {}, surAjoutSerie: () => {}, surSupprimerSerie: () => {}, surMenuBloc: () => {}, surMenuExercice: () => {}
+    });
+    const envelope = cible.querySelector('[data-champ="distance_km"]');
+    const input = envelope.querySelector('input');
+    const dite = envelope.querySelector('.borne-dite');
+    expect(dite.hidden).toBe(true);
+    ['3', '35', '350'].forEach((v) => { input.value = v; input.dispatchEvent(new Event('input')); });
+    expect(input.value).toBe('35');
+    expect(ecrits.map((e) => e[1])).toEqual(['3', '35']);
+    expect(dite.hidden).toBe(false);
+    expect(dite.textContent.replace(/ /g, ' ')).toBe('300 km au plus');
+    expect(envelope.classList.contains('hors-borne')).toBe(true);
+    input.value = '36'; input.dispatchEvent(new Event('input'));
+    expect(dite.hidden).toBe(true);
+    expect(envelope.classList.contains('hors-borne')).toBe(false);
+  });
+  test('feuille « Ajouter une activité » : 350 km n’enregistre rien et le dit (source de app.js)', () => {
+    const app = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
+    const i = app.indexOf('function ouvrirActivite');
+    const corps = app.slice(i, app.indexOf('async function enregistrerActivite', i));
+    expect(corps).toMatch(/MAX_DISTANCE_M/);
+    expect(corps.indexOf('MAX_DISTANCE_M')).toBeLessThan(corps.indexOf('Seance.activite('));
+    expect(corps).toMatch(/km au plus/);
+  });
+  test('la borne est 300 km', () => { expect(Modele.MAX_DISTANCE_M).toBe(300000); });
+});
+
+describe('256 (a) — le calage aux haltères demande la charge des DEUX haltères', () => {
+  const DEBUT = '2026-10-29T10:00:00+01:00';
+  const silenceC = { etat: 'silence', raison: 'premiere_fois', fondement: {} };
+  let n = 0;
+  const id = () => 'h' + (++n);
+  const planPour = (slug, equipement) => {
+    const se = S.ajouterExercice(S.creer({ id: 'S', userId: 'u', idSerie: id }), slug, id, { series: 3, reps_visees: 10 });
+    const CAT = {}; CAT[slug] = { equipement, muscles_primaires: ['biceps'] };
+    const consignes = {}; consignes[slug] = { consigne: silenceC, pas: 2 };
+    return T.planDeSeance({ seance: { id: 'S', debut: DEBUT, edition: false, exercices: se.exercices }, consignes, catalogue: CAT, paris: [], suites: {}, debutant: false }).exercices[0];
+  };
+  test('haltères : « Ta charge habituelle, les deux haltères ensemble ? »', () => {
+    expect(planPour('curl', 'haltere').calage.libelles.question).toBe('Ta charge habituelle, les deux haltères ensemble ?');
+  });
+  test('barre : la question reste « Ta charge habituelle ? »', () => {
+    expect(planPour('rowing', 'barre').calage.libelles.question).toBe('Ta charge habituelle ?');
+  });
+  test('le calcul ne change pas : la charge habituelle donnée est la première série, telle quelle', () => {
+    const c = M.calagePremiereFois({ equipement: 'haltere', reps: 10, debutant: false, habituelle: 24, series: [] });
+    expect(c.suivante.charge).toBe(24);
+  });
+});
+
+describe('256 D8 — la limite de 500 signes d’une note se dit', () => {
+  const CAT = [{ slug: 'squat', nom: 'Squat (Barre)', mesure: 'charge_reps', charge: 'barre', muscles_primaires: ['quadriceps'] }];
+  test('le compteur « n / 500 » apparaît dès 400 signes, devient « plein » à 500, et se cache en dessous', () => {
+    const s = { exercices: [{ exercise_slug: 'squat', series: [{ id: 's1', type_serie: 'travail', charge_kg: null, reps: null }] }] };
+    const cible = document.createElement('div');
+    document.body.appendChild(cible);
+    window.THRendu.rendreBlocsSeance(cible, s, {
+      blocs: Modele.blocsDeSeance(s, CAT), exercice: () => CAT[0], precedent: () => null, fantome: () => ({}), tourAtteint: () => 0,
+      surValider: () => {}, surEffort: () => {}, surChamp: () => {}, surNumero: () => {}, surNote: () => {}, surRepos: () => {},
+      surAjoutSerie: () => {}, surSupprimerSerie: () => {}, surMenuBloc: () => {}, surMenuExercice: () => {},
+      noteSousLeNom: () => ({ mode: 'epinglee', texte: 'genou gauche tire' }), surNoteGardee: () => {}, surNoteRetiree: () => {}
+    });
+    cible.querySelector('.note-derniere-modifier').click();
+    const champ = cible.querySelector('.note-derniere-champ');
+    const compteur = cible.querySelector('.note-compteur');
+    expect(champ.maxLength).toBe(500);
+    const taper = (n) => { champ.value = 'a'.repeat(n); champ.dispatchEvent(new Event('input')); };
+    taper(120);
+    expect(compteur.hidden).toBe(true);
+    taper(450);
+    expect(compteur.hidden).toBe(false);
+    expect(compteur.textContent.replace(/ /g, ' ')).toBe('450 / 500');
+    expect(compteur.classList.contains('plein')).toBe(false);
+    taper(500);
+    expect(compteur.classList.contains('plein')).toBe(true);
+    taper(10);
+    expect(compteur.hidden).toBe(true);
+  });
+});
+
+describe('256 D9 — la carte « Pour tenir en 45 min » a de vrais boutons', () => {
+  test('« Raccourcir » est le bouton principal, « Garder la séance » le secondaire, tous deux dans un pied de feuille (46 px)', () => {
+    const cible = document.createElement('div');
+    const faits = [];
+    window.THRendu.rendreCarteRaccourci(cible, { carte: { titre: 'Pour tenir en 45 min', lignes: ['a'], oui: 'Raccourcir', non: 'Garder la séance', tient: true },
+      surRaccourcir: () => faits.push('oui'), surGarder: () => faits.push('non') });
+    const oui = cible.querySelector('.feuille-pied button.pri.cr-oui');
+    const non = cible.querySelector('.feuille-pied button.sec.cr-non');
+    expect(oui.textContent).toBe('Raccourcir');
+    expect(non.textContent).toBe('Garder la séance');
+    oui.click(); non.click();
+    expect(faits).toEqual(['oui', 'non']);
+    expect(regle('.feuille-pied button')).toMatch(/height:46px/);
+    expect(cible.querySelector('.carte-raccourci ~ .feuille-pied')).not.toBeNull();   // le repli du banc (`entree`) le trouve
+  });
+});
+
+describe('256 D11 — la durée d’une série non validée ne déplace pas la visée de la suivante', () => {
+  const ROUTINE = { id: 'r1', exercices: [{ exercise_slug: 'gainage',
+    series: [{ type_serie: 'travail', duree_s: 60 }, { type_serie: 'travail', duree_s: 60 }] }] };
+  let k = 0;
+  const neuve = () => S.creer({ id: 'S1', userId: 'u', routine: ROUTINE, idSerie: () => 'g' + (++k) });
+  test('« Stop » à 1:05 écrit la durée SANS valider : la série 2 reste à la cible de la routine (1:00)', () => {
+    let se = neuve();
+    se = S.modifierSerie(se, 0, 0, { duree: 65 });                 // ce que le chrono écrit à Stop
+    expect(se.exercices[0].series[0].duree_s).toBe(65);
+    expect(S.partEnBase(se.exercices[0].series[0])).toBe(false);
+    expect(S.fantome(se, 0, 1, null).duree_s).toBe(60);
+  });
+  test('une fois la série 1 VALIDÉE à 1:05, la visée de la 2 la suit (la saisie fait foi)', () => {
+    let se = neuve();
+    se = S.modifierSerie(se, 0, 0, { duree: 65 });
+    se = S.valider(se, 0, 0, new Date('2026-11-05T10:00:00+01:00'));
+    expect(S.fantome(se, 0, 1, null).duree_s).toBe(65);
+  });
+  test('la charge tapée non validée garde sa règle (non-régression de « ta saisie fait foi »)', () => {
+    const R = { id: 'r2', exercices: [{ exercise_slug: 'curl', series: [{ type_serie: 'travail', reps: 8 }, { type_serie: 'travail', reps: 8 }] }] };
+    let se = S.creer({ id: 'S2', userId: 'u', routine: R, idSerie: () => 'c' + (++k) });
+    se = S.modifierSerie(se, 0, 0, { charge_kg: 30 });
+    expect(S.fantome(se, 0, 1, null).charge_kg).toBe(30);
+  });
+});
+
+describe('256 D12 — une série validée ne montre pas de fantôme dans la case qu’elle n’a pas', () => {
+  const CAT = [{ slug: 'course', nom: 'Course à Pied', mesure: 'distance_temps', charge: 'aucune', muscles_primaires: [] }];
+  const rendre = (faite) => {
+    const s = { exercices: [{ exercise_slug: 'course', series: [{ id: 's1', type_serie: 'travail', charge_kg: null, reps: null, duree_s: null, distance_m: 5000,
+      validee_a: faite ? '2026-11-05T10:00:00Z' : null, faite }] }] };
+    const cible = document.createElement('div');
+    window.THRendu.rendreBlocsSeance(cible, s, {
+      blocs: Modele.blocsDeSeance(s, CAT), exercice: () => CAT[0], precedent: () => null, fantome: () => ({ duree_s: 1800, distance_m: 5000 }), tourAtteint: () => 0,
+      surValider: () => {}, surEffort: () => {}, surChamp: () => {}, surNumero: () => {}, surNote: () => {}, surRepos: () => {},
+      surAjoutSerie: () => {}, surSupprimerSerie: () => {}, surMenuBloc: () => {}, surMenuExercice: () => {}
+    });
+    return cible.querySelector('[data-champ="duree"]');
+  };
+  test('validée avec la seule distance : la case durée est vide, sans « 30:00 » en gris', () => {
+    const c = rendre(true);
+    expect(c.classList.contains('fantome')).toBe(false);
+    expect(c.querySelector('input').placeholder).toBe('');
+  });
+  test('non validée : le fantôme est toujours là', () => {
+    const c = rendre(false);
+    expect(c.classList.contains('fantome')).toBe(true);
+    expect(c.querySelector('input').placeholder).toMatch(/30:00/);
+  });
+});
+
+describe('256 D13 — le nom parlé des phrases du coach (sans la précision du catalogue)', () => {
+  test('nomParle : la parenthèse tombe, la casse reste', () => {
+    expect(Modele.nomParle('Squat (Barre)')).toBe('Squat');
+    expect(Modele.nomParle('Développé Couché (Barre)')).toBe('Développé Couché');
+    expect(Modele.nomParle('Rowing Assis Prise en V (Poulie)')).toBe('Rowing Assis Prise en V');
+    expect(Modele.nomParle('Gainage')).toBe('Gainage');
+    expect(Modele.nomParle(null)).toBe('');
+  });
+  test('la phrase du silence des chauffes : « sur Développé Couché », pas « sur Développé Couché (Barre) »', () => {
+    expect(M.phraseDuSilenceDesChauffes('Développé Couché (Barre)')).toBe('D’accord, je ne te les propose plus sur Développé Couché pendant 4 semaines.');
+    expect(M.phraseDuSilenceDesChauffes(null)).toMatch(/sur cet exercice/);
+  });
+});
+
+describe('256 D14 — « recul » s’annonce dès le plan, avant la validation', () => {
+  const CAT = [{ slug: 'squat', nom: 'Squat (Barre)', mesure: 'charge_reps', charge: 'barre', muscles_primaires: ['quadriceps'] }];
+  const rendre = (reculs, faiteIdx) => {
+    const series = [0, 1, 2].map((i) => ({ id: 's' + i, type_serie: 'travail', charge_kg: i ? 125 : 155, reps: i ? 8 : 3,
+      validee_a: faiteIdx === i ? '2026-11-05T10:00:00Z' : null }));
+    const s = { exercices: [{ exercise_slug: 'squat', series }] };
+    const cible = document.createElement('div');
+    window.THRendu.rendreBlocsSeance(cible, s, {
+      blocs: Modele.blocsDeSeance(s, CAT), exercice: () => CAT[0], precedent: () => null, fantome: () => ({}), tourAtteint: () => 0,
+      surValider: () => {}, surEffort: () => {}, surChamp: () => {}, surNumero: () => {}, surNote: () => {}, surRepos: () => {},
+      surAjoutSerie: () => {}, surSupprimerSerie: () => {}, surMenuBloc: () => {}, surMenuExercice: () => {},
+      reculDuPlan: (iExo, iSerie) => reculs.indexOf(iSerie) >= 0
+    });
+    return Array.from(cible.querySelectorAll('.ligne-serie')).map((l) => { const e = l.querySelector('.etq-ligne'); return e ? e.textContent : null; });
+  };
+  test('les deux lignes de recul du plan portent « recul » avant d’être validées ; la grosse série n’en porte pas', () => {
+    expect(rendre([1, 2])).toEqual([null, 'recul', 'recul']);
+  });
+  test('sans recul au plan, aucune étiquette', () => {
+    expect(rendre([])).toEqual([null, null, null]);
+  });
+  test('une ligne déjà validée n’est pas ré-étiquetée par le plan (son type en base parle)', () => {
+    expect(rendre([1, 2], 1)).toEqual([null, null, 'recul']);   // la ligne 1 est validée (type en base : travail) : le plan ne la ré-étiquette pas
+  });
+});
+
+describe('256 (d) — les mesures de Hevy se lisent en français seulement', () => {
+  const I = require('../../v2/js/importhevy.js');
+  const AUJ = new Date('2026-11-06T10:00:00+01:00');
+  test('« 16 Jun 2026, 10:24 » et « Oct 2, 2026, 5:54 PM » : refusés, « Hevy en français » (enAnglais), aucune pesée', () => {
+    ['"16 Jun 2026, 10:24"', '"Oct 2, 2026, 5:54 PM"', '"16 Mar 2026, 10:24"'].forEach((d) => {
+      const r = I.lireMesuresCsv('date,weight_kg\n' + d + ',80', AUJ);
+      expect(r.pesees).toEqual([]);
+      expect(r.raison).toBe('date');
+      expect(r.enAnglais).toBe(true);
+    });
+  });
+  test('le français passe toujours : « 23 oct. 2023, 19:00 », « 14 juil. 2024, 08:00 », « 1 mars 2024, 08:00 »', () => {
+    const r = I.lireMesuresCsv('date,weight_kg\n"23 oct. 2023, 19:00",85\n"14 juil. 2024, 08:00",84\n"1 mars 2024, 08:00",83', AUJ);
+    expect(r.pesees.map((p) => p.date)).toEqual(['2023-10-23', '2024-03-01', '2024-07-14']);
+    expect(r.enAnglais).toBeUndefined();
+  });
+});

@@ -5111,6 +5111,10 @@
         surEnregistrer: function () {
           var min = Modele.lireNombre(brouillon.minutes);
           var km = String(brouillon.km || '').trim() === '' ? null : Modele.lireNombre(brouillon.km);
+          // 256 (D7) — la borne de la distance se DIT sous le champ au lieu d'enregistrer l'activité sans distance : rien n'est écrit tant que ce n'est pas corrigé.
+          if (km !== null && isFinite(km) && km * 1000 > Modele.MAX_DISTANCE_M) {
+            brouillon.erreur = Modele.MAX_DISTANCE_M / 1000 + ' km au plus.'; redessiner(); return;
+          }
           var a = Seance.activite({ id: uuid(), userId: sessionActive && sessionActive.user && sessionActive.user.id, slug: brouillon.sport,
             titre: ((sportsDuCatalogue().filter(function (x) { return x.cle === brouillon.sport; })[0]) || {}).libelle || null,
             minutes: min, km: km, intensite: brouillon.intensite, idSerie: uuid });
@@ -10557,6 +10561,11 @@
         return { texte: reps + (g !== null ? ' \u00b7 garde\u00a0' + g : ''), aria: z.bas + ' \u00e0 ' + z.haut + ' reps' + (g !== null ? ', garde ' + g + ' en r\u00e9serve' : '') };
       },
       // 200-4 — l'étiquette d'une ligne « Au max » qui GARDE N reps : « 5+ · garde 1 » ; `null` quand la consigne est l'échec.
+      // 256 (D14) — la ligne que le plan déclare « recul » (type lu sur le plan), pour l'annoncer avant la validation.
+      reculDuPlan: function (iExo, iSerie) {
+        var x = planDeLExercice(iExo), l = x && x.lignes ? x.lignes[iSerie] : null;
+        return !!(l && l.type === 'recul');
+      },
       etiquetteAuMax: function (iExo, iSerie) {
         var x = planDeLExercice(iExo), l = x && x.lignes ? x.lignes[iSerie] : null;
         if (!l || !l.auMax || l.auMax.reserve === null || l.auMax.reserve === undefined || !(l.auMax.reserve >= 1)) return null;

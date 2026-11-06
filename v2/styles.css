@@ -975,9 +975,12 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:12px;font-weig
 .note-derniere-t{margin:0 0 2px;font-size:12px;font-weight:600;color:var(--texte-3)}
 .note-derniere-texte{margin:0;font-size:14px;line-height:1.35;color:var(--texte-2);white-space:pre-wrap;overflow-wrap:anywhere}
 .note-derniere-champ{display:block;width:100%;box-sizing:border-box;margin:4px 0;padding:8px 10px;font:inherit;font-size:16px;color:var(--texte);background:var(--fond);border:1px solid #343A43;border-radius:var(--r-petit)}
+.note-compteur{display:block;text-align:right;font-size:12px;color:var(--texte-3);font-variant-numeric:tabular-nums}
+.note-compteur[hidden]{display:none}
+.note-compteur.plein{color:var(--manque)}
 .note-derniere-gestes{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
 .note-derniere-gestes button{min-height:44px;padding:0 14px;width:auto;margin-top:0}
-.pourquoi-ligne{margin-top:2px}.lien-pourquoi{background:none;border:0;padding:12px 4px;margin:-12px -4px;font:inherit;color:var(--texte);border-bottom:1px dotted var(--texte-3);white-space:nowrap;cursor:pointer;line-height:20px}
+.pourquoi-ligne{margin-top:2px}.lien-pourquoi{background:none;border:0;padding:12px 4px;margin:-12px -4px;font:inherit;color:var(--texte);text-decoration:underline dotted var(--texte-3);text-underline-offset:3px;white-space:nowrap;cursor:pointer;line-height:20px}
 /* Sans barre d'onglets (séance en cours), plus rien ne porte l'encoche du bas : le repos et le bas de page la prennent. */
 html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .repos{padding-bottom:calc(var(--e3) + env(safe-area-inset-bottom,0px))}
 html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:calc(var(--h-onglets, 68px) + var(--e6) + var(--h-repos, 0px) + var(--h-pied, 0px) + var(--h-toast, 0px) + env(safe-area-inset-bottom,0px))}
@@ -1107,6 +1110,10 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   background:transparent;color:var(--texte);font-weight:700;font-size:17px;line-height:1;
   font-family:var(--pile-c);text-align:center;font-variant-numeric:tabular-nums;padding:0}
 .ch-serie input:focus,.rp-serie input:focus{outline:none}
+.ch-serie.hors-borne,.rp-serie.hors-borne{position:relative;overflow:visible;border-color:var(--manque)}
+.borne-dite{position:absolute;top:100%;right:0;margin-top:2px;z-index:2;white-space:nowrap;font-size:12px;line-height:1.3;color:var(--manque);
+  background:var(--fond);padding:0 2px}
+.borne-dite[hidden]{display:none}
 .ch-serie u{text-decoration:none;font-size:12px;color:var(--texte-3);flex:0 0 auto}
 /* Un champ vide qui porte une valeur fantôme : bordure pointillée, gris. */
 .ch-serie.fantome,.rp-serie.fantome{border-style:dashed;background:transparent}
@@ -1175,7 +1182,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .proposition-schema .pc-texte,.proposition-serie .pc-texte,.proposition-degressive-proposee .pc-texte,.proposition-alleger .pc-texte,.proposition-remplacement .pc-texte,.proposition-leviers .pc-texte{color:var(--texte);font-weight:600}
 .proposition-exercice .pc-detail{margin-top:4px;color:var(--texte-2);font-size:13px;line-height:1.4}
 .proposition-exercice .pc-gestes{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
-.proposition-exercice button{min-height:36px;padding:0 12px;border-radius:var(--r-bouton);font:inherit;font-size:13.5px}
+.proposition-exercice button{min-height:44px;padding:0 12px;border-radius:var(--r-bouton);font:inherit;font-size:13.5px}
 .proposition-exercice .pc-ajouter{background:var(--accent);color:var(--sur-accent);border:0;font-weight:620}
 .proposition-exercice .pc-refuser{background:transparent;color:var(--texte-2);border:1px solid var(--trait)}
 /* §9.17 (50-1) — la carte du lest : le même composant, le titre dit la chose. */
@@ -1195,7 +1202,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .carte-escalier .ce-moins{background:var(--panneau-2,transparent);color:var(--texte);border:1px solid var(--trait);text-align:left}
 .carte-escalier .ce-titre{margin:0 0 6px;font-weight:700;font-size:16px}
 .carte-escalier .ce-pourquoi{margin-top:10px;font-size:13.5px}
-.carte-escalier .ce-pourquoi summary{min-height:40px;display:flex;align-items:center;color:var(--texte-2);cursor:pointer}
+.carte-escalier .ce-pourquoi summary{min-height:44px;display:flex;align-items:center;color:var(--texte-2);cursor:pointer}
 .carte-escalier .ce-pq-titre{margin:8px 0 4px;font-size:15px}
 .carte-escalier .ce-pq-table{width:100%;border-collapse:collapse;font-size:14px}
 .carte-escalier .ce-pq-table td{padding:6px 0;border-bottom:1px solid var(--trait)}
@@ -1552,7 +1559,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 /* Le seul accent de la page avec l'onglet actif et la cible : il ramène à la
    séance, et rien d'autre ici n'a ce poids. */
 .exo-reprendre{flex:none;border:none;background:transparent;color:var(--accent);
-  font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit;padding:0}
+  font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit;padding:0 4px;min-height:44px}
 
 .exo-tete{padding:var(--e1) 0 var(--e2)}
 .exo-tete h2{font-size:17px;font-weight:700;line-height:1.25;letter-spacing:-.01em;
@@ -2303,7 +2310,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .imp-zone{display:block;width:100%;box-sizing:border-box;min-height:118px;margin:var(--e2) 0;padding:10px;
   background:var(--panneau-2);color:var(--texte);border:1px solid var(--trait);border-radius:var(--r-petit);
   font:var(--police-champ)/1.35 ui-monospace,monospace;resize:vertical}
-.imp-bouton{display:block;width:100%;margin-top:10px}
+.imp-bouton{display:block;width:100%;margin-top:10px;min-height:44px}   /* 256 : « Lire le texte » était à 42 px */
 /* 246 — l'aperçu des mesures : des faits en clair (pas la teinte discrète) et deux cibles de 44 px. */
 .imp-mesure{color:var(--texte-2);font-size:13px;line-height:1.5;margin:6px 0}
 .imp-importer,.imp-annuler{min-height:44px}
@@ -2965,7 +2972,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .carte-mobilite .cm-zone{grid-column:1 / -1;color:var(--texte-2);font-size:12px}
 .carte-mobilite .cm-consigne,.carte-mobilite .cm-kine{margin-top:8px;color:var(--texte-2);font-size:13px;line-height:1.4}
 .carte-mobilite .cm-pourquoi{margin-top:6px;color:var(--texte-2);font-size:13px;line-height:1.5}
-.carte-mobilite .cm-pourquoi summary{cursor:pointer}
+.carte-mobilite .cm-pourquoi summary{cursor:pointer;min-height:44px;display:flex;align-items:center}
 
 /* 200-5/6 — les lignes repliées : un résumé d'une ligne, le détail au toucher (la règle du « Pourquoi », étendue à la chauffe et à la mobilité). */
 .ligne-repliee{margin:8px 0;border:1px dashed var(--trait);border-radius:12px}

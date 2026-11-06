@@ -2491,6 +2491,10 @@
     var type = typeDe(liste[iSerie]);
     for (var k = iSerie - 1; k >= 0; k--) {
       if (!liste[k] || typeDe(liste[k]) !== type) continue;
+      // 256 (D11) — LA DURÉE D'UNE SÉRIE NON VALIDÉE NE DÉPLACE PAS LA VISÉE DE LA SUIVANTE : « Stop » du chrono de tenue écrit la durée
+      // dans la case sans valider, et la série 2 passait de 1:00 (la cible de la routine) à 1:05. La durée ne se reporte qu'une fois la série
+      // validée ; la charge et les reps tapés gardent leur règle (« ta saisie fait foi »).
+      if (champ === 'duree_s' && !partEnBase(liste[k])) continue;
       var v = liste[k][champ];
       if (v === null || v === undefined) continue;
       // ⚠️ LA COMPARAISON SE FAIT AU RANG DE LA SÉRIE SOURCE, pas à celui de

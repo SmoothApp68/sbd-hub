@@ -10251,7 +10251,7 @@
   // l'affiche, le plan la porte, l'invariant I130 la vérifie.
   function phraseDuSilenceDesChauffes(nom) {
     var semaines = CHAUFFE_SILENCE_JOURS / 7;
-    return 'D\u2019accord, je ne te les propose plus sur ' + (nom || 'cet exercice') + ' pendant ' + semaines + ' semaines.';
+    return 'D\u2019accord, je ne te les propose plus sur ' + (nom ? Modele().nomParle(nom) : 'cet exercice') + ' pendant ' + semaines + ' semaines.';   // 256 (D13) : le nom parlé
   }
 
   function paliersDeChauffe(e, ref, pas, n) {

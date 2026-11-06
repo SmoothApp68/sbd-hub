@@ -12160,8 +12160,8 @@ const SETS_IMPORTES = [
       JSON.stringify({ tete: mil.split('\n')[0], visees: visees(mil) }));
     // 53-1 bis (MOTEUR §9.10, delta Z3) — Volume 52,5 × 10 → Mix : la charge
     // reportée MONTE (57,5 kg × 6) ; la phrase le dit, sans « un peu en dessous ».
-    ok('[RJ] 53-1 bis — le militaire passe en Mix : « Moins de reps, plus de charge », 57,5 kg × 6',
-      /consigne nouvelle_zone · zone mix · palier 52,5 · niveau 10 · n 4 · ligne 57,5 × 6/.test(mil) &&
+    ok('[RJ] 53-1 bis — le militaire passe en Mix : « Moins de reps, plus de charge », 55 kg × 6 (255 ; 57,5 avant la réserve visée)',
+      /consigne nouvelle_zone · zone mix · palier 52,5 · niveau 10 · n 4 · ligne 55 × 6/.test(mil) &&
         /en-tête \(gris\) : « Nouvelle zone.: Mix\. Moins de reps, plus de charge.: estimée depuis ton 52,5.kg.×.10\. »/.test(mil) &&
         !/un peu en dessous/.test(mil),
       (mil.split('\n').filter((l) => /gris|consigne/.test(l)).join(' | ')));
@@ -12179,10 +12179,10 @@ const SETS_IMPORTES = [
     // chauffe est validée (le militaire : 40 × 6 à l'étape 1).
     // 53-1 (MOTEUR §9.10) — la zone du militaire passe de Volume (52,5 × 10) à
     // Mix : la charge se reporte, 57,5 kg × 6 (estimée, 58,3), et les chauffes
-    // se calent sur elle (avant 53-1 : 52,5, « 20 · 45 kg »).
+    // se calent sur elle (avant 53-1 : 52,5, « 20 · 45 kg » ; 255 : 55, la réserve visée comptée).
     const etape1 = (t1.split('── Étape 1 ')[1] || '').split('── Étape 2 ')[0];
     ok('[RJ] 49-U18 bis — la phrase des chauffes du militaire disparaît après la chauffe à 40 × 6',
-      /chauffes : « Chauffes calées sur 57,5.kg.: 20 · 50.kg\. »/.test(mil) &&
+      /chauffes : « Chauffes calées sur 55.kg.: 20 · 50.kg\. »/.test(mil) &&
       /chauffes : \(sans phrase\)/.test(etape1) && !/Chauffes calées/.test(etape1),
       (etape1.split('\n').filter((l) => /chauffes/.test(l))[0] || ''));
     ok('[RJ] 49-U18 bis — le couché : « Ta première série à 88 kg passe à 92 kg. » (une montée)',
@@ -14021,7 +14021,7 @@ const SETS_IMPORTES = [
     const c0 = await planC();
     ok('[D53] DISCRIMINANT — sans palier tenu en Mix, la marque relue de la base pose la carte, avec TROIS choix',
       kc && kc.boutons.length === 3 && /^avant:Comme avant : 100/.test(sp(kc.boutons[0])) &&
-        sp(kc.boutons[1]) === 'leger:Plus léger, plus de reps : 95 kg × 6', JSON.stringify([kc, c0]));
+        sp(kc.boutons[1]) === 'leger:Plus léger, plus de reps : 90 kg × 6', JSON.stringify([kc, c0]));
     ok('[D53] « Comme avant » ne lit pas la séance douloureuse (100 kg, pas 80)', c0 && c0.charge === 100, JSON.stringify(c0));
     await choisirD('leger');
     await attendre(800);
@@ -14029,9 +14029,9 @@ const SETS_IMPORTES = [
     // 53-1 (MOTEUR §9.10) — « Plus léger » est un changement de zone : la charge
     // se REPORTE, par la même fonction que l'étiquette (avant 53-1 : le repli de
     // la reprise longue, ici au même chiffre). 100 × 5 → Mix : 97,2 estimé, au
-    // cran inférieur, 95 — déjà fait.
-    ok('[D53] DISCRIMINANT — « Plus léger » par le REPORT (§9.10) : 95 kg × 6 en Mix, sans ligne haute, sans repli d’escalier',
-      c1 && c1.charge === 95 && c1.vise === 6 && c1.zone === 'mix' && c1.haut === null && !c1.repli &&
+    // cran inférieur, 95 — déjà fait. 255 : la réserve visée (2 au réglage Normal) est comptée, 90.
+    ok('[D53] DISCRIMINANT — « Plus léger » par le REPORT (§9.10) : 90 kg × 6 en Mix, sans ligne haute, sans repli d’escalier',
+      c1 && c1.charge === 90 && c1.vise === 6 && c1.zone === 'mix' && c1.haut === null && !c1.repli &&
         c1.plusLegere && c1.plusLegere.source === 'report', JSON.stringify(c1));
     ok('[D53] la garde de l’app (I22, I33 à I35) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
       JSON.stringify(gardeBanc.liste.slice(-2)));

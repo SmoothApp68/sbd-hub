@@ -1528,6 +1528,8 @@ propose (VOIX-DU-COACH). Le calendrier des 21 jours ne commente pas l'assiduité
 
 ### 9.23 Les records — décidés le 06/10/2026 (chantier 55)
 
+> **Le journal est à sa date ; la Progression fait foi** (décision d'Aurélien du 06/11/2026, D-R1 de la carte des fils, tours de table `claude/TOURS-NE-RIEN-FAIRE-2026-11-06.md`). Corriger ou supprimer une séance efface les records de SES séries (déclencheur `sets_efface_records`) ; une correction n'ajoute rien après coup aux séances postérieures. Les écrans (médaille, Progression, bilans) recalculent et font foi ; le jeu, la guilde et le récap de groupe lisent le journal tel qu'il a été écrit. Écart accepté (un cas par an au plus), à ne pas rouvrir sans un cas réel.
+
 > **Un record est un fait : une série que rien de ton passé ne dépasse. La médaille le dit à la validation, avec le record d'avant et sa date. Jamais un « bravo ».**
 
 **Les records médaillés** (ceux de Hevy, plus l'ancien record) :
@@ -2053,7 +2055,7 @@ Sur une **barre** (squat, couché, militaire — `familleDeBarre`), la consigne 
 
 ### 10.1 Règle
 
-> **Aux haltères, la charge notée est la PAIRE, les deux ensemble (05/11/2026, 245)** — ce que tous les comptes tapent depuis toujours. Aucune conversion en base ; aucun lecteur ne double ni ne divise (sauf l'image de l'année, qui l'écrit « 2 × moitié »). Dégressive : voir §9.15.3. Une seule notion, `Modele.chargeEstLaPaire`.
+> **Aux haltères, la charge notée est la PAIRE, les deux ensemble (05/11/2026, 245)** — ce que tous les comptes tapent depuis toujours. Aucune conversion en base ; aucun lecteur ne double ni ne divise (l'image de l'année écrit la charge notée, « 40 kg », depuis le 06/11/2026). Dégressive : voir §9.15.3. Une seule notion, `Modele.chargeEstLaPaire`.
 
 > **L'app ne demande jamais de combien monter. Elle déduit le pas de la salle depuis les charges déjà utilisées sur cet exercice.**
 

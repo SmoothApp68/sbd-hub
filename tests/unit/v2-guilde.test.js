@@ -549,7 +549,11 @@ describe('121 — `poserScoresGuilde` / `publierScoresGuildeDeLaFile` : à la fi
   });
   test('la fin d’une séance pose (plus de condition « écran Guilde ouvert ») ; le démarrage pose une fois le profil lu', () => {
     expect(APP).not.toMatch(/if \(social\.guilde && social\.guilde\.g\) publierScoresGuilde\(\)/);
-    expect(extraire('terminerSeance').match(/poserScoresGuilde\(\)/g) || []).toHaveLength(1);
+    // 257 (D-C2) — les trois publications vivent dans `apresEcritureDeSeance`, appelée par « Terminer », la correction et la suppression.
+    expect(extraire('apresEcritureDeSeance').match(/poserScoresGuilde\(\)/g) || []).toHaveLength(1);
+    expect(extraire('terminerSeance').match(/apresEcritureDeSeance\(\)/g) || []).toHaveLength(1);
+    expect(extraire('enregistrerCorrection')).toMatch(/apresEcritureDeSeance\(\)/);
+    expect(extraire('supprimerSeance')).toMatch(/apresEcritureDeSeance\(\)/);
     expect(extraire('entrerVraiment')).toMatch(/profilLu[\s\S]*poserScoresGuilde\(\)/);
     expect(Social.gesteValide({ moi: 'u', geste: 'scores_guilde', scores: SCORES })).toBe(true);
     expect(Social.gesteValide({ moi: 'u', geste: 'scores_guilde', scores: { semaine: 'x' } })).toBe(false);

@@ -141,9 +141,6 @@ const ok = (nom, cond, detail) => {
 // la marque doit partir — la liste dit ce qui est, comme `AUTORISATIONS`. Un défaut inconnu de la liste → ❌.
 const DEFAUTS_PROUVES = {
   'D-R1': 'le journal des records (jeu, guilde, groupe, médailles du social) n’est pas revu quand une séance ANTÉRIEURE est corrigée ou supprimée ; la Progression, elle, recalcule',
-  'D-C2': 'après une Édition, le score de force publié (scores_force) attend la prochaine ouverture du social',
-  'D-P1': 'dévalider puis revalider une série dans l’Édition vide l’observation de son pari (predictions.valeur_observee et set_observe à null) ; la correction des reps, elle, est corrigée (245)',
-  'D-H2': 'le même record aux haltères se dit « 40 kg » ici et « 2 × 40 kg » là'
 };
 const defautsVus = [];
 const okDefaut = (defaut, nom, cond, detail) => {
@@ -29710,6 +29707,8 @@ const SETS_IMPORTES = [
 
     // ── 1. ÉDITION D'UNE SÉANCE ANTÉRIEURE : 150 → 105.
     await editerCharge(ids[1], 105);
+    // 257 — l'app publie d'elle-même après l'Édition (`apresEcritureDeSeance`) : on attend la publication, jamais l'ouverture du social.
+    await jusqua(() => Promise.resolve(scorePublie() !== score0), 8000, { nom: 'scorePublieApresEdition257', attendu: 'le score peut ne pas changer' });
     const score1 = scorePublie();
     const prog1 = await recordProgression();
     const j1 = lignesServeur(), m1 = chargeMax(j1), a1 = await lignesAppareil();
@@ -29725,7 +29724,7 @@ const SETS_IMPORTES = [
     const score2 = scorePublie();
     ok('[FR249] prémisse — à la réouverture du social, le score publié suit la nouvelle meilleure charge (il change)',
       typeof score2 === 'number' && score2 !== score0, nb([score0, score2]));
-    okDefaut('D-C2', '[FR249] après l’Édition, SANS rouvrir le social, scores_force porte déjà le score de la nouvelle meilleure charge (celui publié à la réouverture)',
+    ok('[FR249] (257, D-C2 corrigé) après l’Édition, SANS rouvrir le social, scores_force porte déjà le score de la nouvelle meilleure charge (celui publié à la réouverture)',
       score1 === score2, 'juste après l’Édition : ' + nb(score1) + ' · à la réouverture : ' + nb(score2) + ' · avant : ' + nb(score0));
 
     // ── 2. L'ORACLE : le journal rejoué sur le même historique. La Progression ne bouge pas ; le journal et le jeu, si.
@@ -29742,6 +29741,13 @@ const SETS_IMPORTES = [
 
     // ── 3. SUPPRESSION D'UNE SÉANCE ANTÉRIEURE : la séance à 112,5 (le journal, rejoué, était cohérent).
     await supprimerSeance249(ids[3]);
+    // 257 (D-C2) — la suppression publie aussi, sans rouvrir le social : le score publié est celui que la réouverture donnera.
+    await jusqua(() => Promise.resolve(scorePublie() !== score2), 8000, { nom: 'scorePublieApresSuppression257', attendu: 'le score peut ne pas changer' });
+    const score3 = scorePublie();
+    await aller('/jeu/fil');
+    await jusqua(() => Promise.resolve(scorePublie() !== score3), 5000, { nom: 'scoreRepublie3-257', attendu: 'le score ne change plus' });
+    ok('[FR249] (257, D-C2) après la suppression d’une séance, SANS rouvrir le social, scores_force porte déjà le score (celui de la réouverture)',
+      typeof score3 === 'number' && score3 !== score2 && score3 === scorePublie(), 'après la suppression : ' + nb(score3) + ' · à la réouverture : ' + nb(scorePublie()) + ' · avant : ' + nb(score2));
     const prog3 = await recordProgression();
     const j3 = lignesServeur(), m3 = chargeMax(j3);
     ok('[FR249] après la suppression de la séance à 112,5, la Progression dit 111 kg × 5 (séance 4), et le journal a perdu les lignes de la séance (cascade)',
@@ -29875,9 +29881,19 @@ const SETS_IMPORTES = [
     const pari2 = parisDeLaSeance(sidP).filter((l) => l.fondement.rang === pari0.fondement.rang)[0] || {};
     ok('[FP249] prémisse — dévalidée puis revalidée dans l’Édition : la série est en base, validée, à 9 reps',
       !!setP2.id && !!setP2.validee_a && Number(setP2.reps) === 9, nb([setP2.id === setP, setP2.validee_a, setP2.reps]));
-    okDefaut('D-P1', '[FP249] Édition, dévalider puis revalider — l’observation du pari reste posée sur la série (9 reps)',
+    ok('[FP249] (257, D-P1 corrigé) Édition, dévalider puis revalider — l’observation du pari reste posée sur la série (9 reps)',
       pari2.valeur_observee === 9 && pari2.set_observe === setP2.id, 'pari : valeur_observee ' + nb(pari2.valeur_observee) +
         ', set_observe ' + nb(pari2.set_observe));
+
+    // 257 — dévalider puis enregistrer SANS revalider : la série n'est plus dans la séance, l'enregistrement tranche.
+    await ouvrirEdition(sidP);
+    const depAb = await departGeste();
+    await page.evaluate(() => document.querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie').click());
+    await serieMontee(0, depAb, false);
+    await fermerEdition();
+    const pariSans = parisDeLaSeance(sidP).filter((l) => l.fondement.rang === pari0.fondement.rang)[0] || {};
+    ok('[FP249] (257, D-P1) Édition, dévalider puis enregistrer sans revalider — l’observation du pari est vide',
+      pariSans.valeur_observee === null || pariSans.valeur_observee === undefined, 'pari : valeur_observee ' + nb(pariSans.valeur_observee));
 
     // ── B. D-S3 — « NON, NE COMPTE PAS », PUIS LA CHARGE CORRIGÉE.
     await aller('/saisie');
@@ -30036,7 +30052,7 @@ const SETS_IMPORTES = [
     ok('[FV249] prémisse — le record de 40 kg est lu partout : journal rejoué (charge_max 40, séance du 15), page « 40 kg × 5 », image du mois et image de la saison nomment l’exercice',
       rejeu && !!ligneJ && Number(ligneJ.valeur) === 40 && ligneJ.session_id === idH && pageH === '40 kg × 5' &&
         apresNom(moisH) !== null && apresNom(saisonH) !== null, nb([!!ligneJ && ligneJ.valeur, pageH, apresNom(moisH), apresNom(saisonH), MOIS, SAISON, moisH.slice(0, 200), saisonH.slice(0, 200)]));
-    okDefaut('D-H2', '[FV249] le record aux haltères se dit avec la même charge sur la page (40 kg), au journal (40), à l’image du mois et à l’image de la saison',
+    ok('[FV249] le record aux haltères se dit avec la même charge sur la page (40 kg), au journal (40), à l’image du mois et à l’image de la saison',
       /^40 kg/.test(apresNom(moisH) || '') && /^40 kg/.test(apresNom(saisonH) || ''),
       'page « ' + pageH + ' » · journal ' + nb(ligneJ && ligneJ.valeur) + ' · mois « ' + apresNom(moisH) + ' » · saison « ' + apresNom(saisonH) + ' »');
 

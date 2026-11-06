@@ -1,0 +1,35 @@
+[
+ {
+  "nom": "257-D-H2-saison-2-fois-moitie",
+  "fichier": "v2/js/annee.js",
+  "ancien": "v: kg(r.charge) }; }),",
+  "nouveau": "v: '2 × ' + kg(r.charge / 2) }; }),",
+  "unitaires": [
+   "tests/unit/v2-annee-ecrans.test.js"
+  ],
+  "banc": "seance",
+  "sections": [
+   "fils-volume"
+  ]
+ },
+ {
+  "nom": "257-D-P1-devalider-en-edition-vide-l-observation",
+  "fichier": "v2/js/app.js",
+  "ancien": "var vidage = edit ? retenirLObservationEnEdition(iExo, iSerie) : oublierObservationDe(iExo, iSerie);",
+  "nouveau": "var vidage = oublierObservationDe(iExo, iSerie);",
+  "banc": "seance",
+  "sections": [
+   "fils-paris"
+  ]
+ },
+ {
+  "nom": "257-D-C2-correction-sans-publication",
+  "fichier": "v2/js/app.js",
+  "ancien": "    await reobserverLesParisCorriges(s, seriesAvant);\n    apresEcritureDeSeance();\n  }",
+  "nouveau": "    await reobserverLesParisCorriges(s, seriesAvant);\n  }",
+  "banc": "seance",
+  "sections": [
+   "fils-records"
+  ]
+ }
+]

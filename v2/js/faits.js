@@ -1363,7 +1363,9 @@
       var dates = datesExercices || datesDesExercices(c);
       return { total: (c.exercices || []).length, faits: Object.keys(dates).length };
     }
-    function oublierDates() { datesExercices = null; }
+    // 257 (D-C2) — il oublie aussi les séances-avec-séries (`memoSeancesBilan`, clé « nombre de séances | nombre de séries ») : une
+    // correction qui garde ces deux nombres (150 → 105 kg) laissait `seriesComptees` sur l'ancienne charge, donc le score de force publié.
+    function oublierDates() { datesExercices = null; memoSeancesBilan = { cle: null, liste: [] }; }
 
     // ── 126 (ECRAN-SAISIE §7 quindecies.11) — les faits de la recherche d'exercice ──
     //

@@ -1171,7 +1171,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .ligne-serie.debut-tour .serie.grille{border-top-color:transparent;
   box-shadow:inset 0 1px 0 var(--reflet-haut)}
 
-.no-serie{position:relative;width:30px;height:44px;border-radius:var(--r-petit);
+.no-serie{position:relative;width:30px;height:44px;border-radius:var(--r-bouton);
   border:1px solid var(--trait);background:transparent;color:var(--texte-2);
   font-weight:700;font-size:16px;line-height:1;font-family:var(--pile-c);display:grid;place-items:center}
 /* ⚠️ §7 undecies.1 — LA CHAUFFE SE LIT EN UNE DEMI-SECONDE. Même carré, même
@@ -1196,7 +1196,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .prec{font-size:13px;line-height:1.35;color:var(--texte-3);text-align:right;
   white-space:nowrap;align-self:center;font-family:var(--pile-c);font-weight:600}
 
-.ch-serie,.rp-serie{height:44px;border-radius:var(--r-petit);
+.ch-serie,.rp-serie{height:44px;border-radius:var(--r-bouton);
   border:1px solid var(--trait);background:var(--panneau-2);
   display:flex;align-items:center;justify-content:center;gap:2px;overflow:hidden}
 /* 260-a : le champ prend toute la case, liseré compris (44 × 44), le cadre le rogne d'un pixel de chaque côté. */
@@ -1327,13 +1327,13 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   @keyframes trembler-case{0%,100%{transform:none}20%,60%{transform:translateX(-3px)}
     40%,80%{transform:translateX(3px)}}}
 
-.eff-serie{height:44px;border-radius:var(--r-petit);border:1px dashed var(--trait);
+.eff-serie{height:44px;border-radius:var(--r-bouton);border:1px dashed var(--trait);
   background:transparent;color:var(--texte-3);font-weight:600;font-size:16px;line-height:1;
   font-family:var(--pile-c);display:grid;place-items:center}
 .eff-serie.plein{border-style:solid;background:var(--panneau-2);
   color:var(--texte-2);font-weight:700}
 
-.ok-serie{height:44px;border-radius:var(--r-petit);border:1px solid var(--trait);
+.ok-serie{height:44px;border-radius:var(--r-bouton);border:1px solid var(--trait);
   background:transparent;color:var(--texte-3);display:grid;place-items:center}
 .ok-serie svg{width:17px;height:17px;stroke:currentColor;fill:none;
   stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
@@ -3113,7 +3113,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
    et les sélecteurs de période gardent leur visuel : la zone de toucher déborde par un ::after invisible. */
 button[id^="btn-retour"],.q-retour,.q-plus-tard,.s-periode{min-height:44px}
 button[id^="btn-retour"],.q-retour,.q-plus-tard{display:inline-flex;align-items:center}
-button[id^="btn-retour"]{padding:0 14px;font-size:14px}
+button[id^="btn-retour"]{padding:0 14px;font-size:15px}
 .q-retour{font-size:14px}.q-plus-tard{font-size:14px;min-width:44px;justify-content:flex-end}
 .s-couleur,.s-plus{position:relative}
 .s-couleur::after,.s-plus::after{content:"";position:absolute;left:50%;top:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
@@ -3174,22 +3174,25 @@ button[id^="btn-retour"]{padding:0 14px;font-size:14px}
 /* ── 210 — L'ambre ne signale que l'action principale et l'actif ───────────────────────────────
    Ambre gardé pour : bouton principal, onglet/période actif, cible du jour, records. Étiquettes « Au max »/« recul »,
    titres de section du récap et puces de zone passent en texte normal / --texte-2.
-   UN SEUL bouton secondaire : contour 1 px --trait, fond transparent, 44 px mini, rayon 12 px. Les variantes
-   (Saisie, pilule du Fil/Jeu, gros contour du récap, retour, fermer) y sont fusionnées ; les tailles de texte restent
-   celles de chaque règle d'origine. Classe canonique : .btn-sec. */
+   UN SEUL bouton secondaire (260-c) : contour 1 px --trait (= --trait-controle, 3:1, voir 260-b), fond transparent, 44 px mini,
+   rayon 10 px (--r-bouton), 15 px / 600. Les variantes (Saisie, pilule du Fil/Jeu, gros contour du récap, retour, fermer, flèches de
+   semaine, barre de repos, « + Série », périodes de la courbe, gestes du coach après un raté) y sont fusionnées : l'audit du 06/11 en
+   comptait six (rayons 8/10/12, 12 à 15 px, 34 à 48 px). Rôle et texte de chacune ne changent pas ; la barre de repos garde ses 48 px
+   (on la vise entre deux séries), l'état « actif » d'une période son contour ambre, « + Série » son rôle d'ajout. Classe canonique : .btn-sec. */
 .btn-sec,.discret,.fermer,.cal-pied button,.peu-de-temps,.seance.sortie,
 .proposition-exercice .pc-refuser,.carte-escalier .ce-refuser,.carte-fin-bloc .cfb-ajuster,.carte-fin-bloc .cfb-arreter,
-.feuille-pied .sec{
-  background:transparent;border:1px solid var(--trait);border-radius:12px;min-height:44px;
-  box-sizing:border-box}
-.btn-sec{color:var(--texte-2)}
+.feuille-pied .sec,
+.barre-fl,.repos-b,.ajout-serie button,.courbe-per-b,.rate-bouton{
+  background:transparent;border:1px solid var(--trait);border-radius:var(--r-bouton);min-height:44px;
+  box-sizing:border-box;font-size:15px;font-weight:600;line-height:1.2}
+.btn-sec,.ajout-serie button{color:var(--texte-2)}
 
 /* 236 (MOTEUR §9.39) — la réaction du coach après un raté : une phrase sous la série, des gestes d'un toucher (44 px). */
 .rate-reaction{padding:var(--e2) 0 var(--e1)}
 .rate-phrase{margin:0;font-size:14px;line-height:1.4;color:var(--texte-2)}
 .rate-boutons{display:flex;flex-wrap:wrap;gap:var(--e2);margin-top:6px}
-.rate-bouton{min-height:44px;padding:0 14px;border-radius:12px;border:1px solid var(--trait);background:transparent;color:var(--texte);
-  font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;box-sizing:border-box}
+.rate-bouton{padding:0 14px;color:var(--texte);
+  font-family:inherit;cursor:pointer}
 .rate-forme,.rate-paris{border-style:solid}
 .rate-forme .pc-texte,.rate-paris .pc-texte{color:var(--texte)}
 

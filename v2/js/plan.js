@@ -7018,14 +7018,14 @@
         else if (x.silenceChauffes.annuler !== 'Annuler') erreurs.push('I130' + nom + ' : la mise en silence des chauffes sans « Annuler »');
       }
       if (x.silenceChauffes && etatSilence !== true) erreurs.push('I130' + nom + ' : la phrase du silence des chauffes sans geste de mise en silence');
-      // I133 (259) — l'annonce de la dégressive, sur la série d'avant : elle dit la charge DU PLAN (jamais une autre), ou « la charge » quand le
+      // I144 (259) — l'annonce de la dégressive, sur la série d'avant : elle dit la charge DU PLAN (jamais une autre), ou « la charge » quand le
       // plan n'en a pas ; et elle se pose sur la série qui précède la dégressive.
       if (x.degressive && x.degressive.annonce !== undefined) {
         var an = String(x.degressive.annonce);
         var dgc = x.degressive.charge;
-        var attendue133 = dgc !== null && dgc !== undefined ? 'baisse à ' + racine.THModele.charge(dgc) + ' et continue.' : 'baisse la charge et continue.';
-        if (!/^Dernière série/.test(an) || an.indexOf(attendue133) < 0) erreurs.push('I133' + nom + ' : l’annonce de la dégressive (« ' + an + ' ») ne dit pas la charge du plan (' + attendue133 + ')');
-        if (x.degressive.apres === undefined || x.degressive.apres === null || x.degressive.apres >= x.degressive.iSerie) erreurs.push('I133' + nom + ' : l’annonce de la dégressive hors de la série qui la précède');
+        var attendue144 = dgc !== null && dgc !== undefined ? 'baisse à ' + racine.THModele.charge(dgc) + ' et continue.' : 'baisse la charge et continue.';
+        if (!/^Dernière série/.test(an) || an.indexOf(attendue144) < 0) erreurs.push('I144' + nom + ' : l’annonce de la dégressive (« ' + an + ' ») ne dit pas la charge du plan (' + attendue144 + ')');
+        if (x.degressive.apres === undefined || x.degressive.apres === null || x.degressive.apres >= x.degressive.iSerie) erreurs.push('I144' + nom + ' : l’annonce de la dégressive hors de la série qui la précède');
       }
       // I132 (245, MOTEUR §9.15.3) — une dégressive proposée hors barre est la charge disponible la plus proche de sa cible dans la fenêtre :
       // aucune autre charge disponible de la fenêtre n'en est plus proche (à égalité, la plus basse), et elle est dans la fenêtre.

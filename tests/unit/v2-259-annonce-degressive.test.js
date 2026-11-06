@@ -74,12 +74,12 @@ describe('259 — dans le plan', () => {
     expect(x.lignes[2].degressive.charge).toBe(x.degressive.charge);
   });
 
-  test('I133 — une annonce qui ment sur la charge est refusée par l’invariant', () => {
+  test('I144 — une annonce qui ment sur la charge est refusée par l’invariant', () => {
     let se = seance('curl_poulie', 2);
     se = valider(se, 0, 30, 12);
     const { e, p } = plan(se, 'curl_poulie');
     p.exercices[0].degressive.annonce = 'Dernière série : 12 reps, puis baisse à 99' + NB + 'kg et continue.';
-    expect(T.verifierPlan(p, e).erreurs.some((m) => /I133/.test(m))).toBe(true);
+    expect(T.verifierPlan(p, e).erreurs.some((m) => /I144/.test(m))).toBe(true);
   });
 
   test('sans dégressive dans la routine : aucune annonce', () => {

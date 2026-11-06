@@ -215,3 +215,18 @@ describe('256 D12 — une série validée ne montre pas de fantôme dans la case
     expect(c.querySelector('input').placeholder).toMatch(/30:00/);
   });
 });
+
+describe('256 D13 — le nom parlé des phrases du coach (sans la précision du catalogue)', () => {
+  test('nomParle : la parenthèse tombe, la casse reste', () => {
+    expect(Modele.nomParle('Squat (Barre)')).toBe('Squat');
+    expect(Modele.nomParle('Développé Couché (Barre)')).toBe('Développé Couché');
+    expect(Modele.nomParle('Rowing Assis Prise en V (Poulie)')).toBe('Rowing Assis Prise en V');
+    expect(Modele.nomParle('Gainage')).toBe('Gainage');
+    expect(Modele.nomParle(null)).toBe('');
+  });
+  test('la phrase du silence des chauffes : « sur Développé Couché », pas « sur Développé Couché (Barre) »', () => {
+    expect(M.phraseDuSilenceDesChauffes('Développé Couché (Barre)')).toBe('D’accord, je ne te les propose plus sur Développé Couché pendant 4 semaines.');
+    expect(M.phraseDuSilenceDesChauffes(null)).toMatch(/sur cet exercice/);
+  });
+});
+

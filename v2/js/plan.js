@@ -2858,7 +2858,7 @@
 
   // Ce que le plan sait d'un exercice pour la forme du jour : fini ? sous la cible ? charge baissée ?
   function resumeDeLExercice(x, series, travail, faites) {
-    var nom = x.nom || x.slug;
+    var nom = x.nom ? racine.THModele.nomParle(x.nom) : x.slug;     // 256 (D13) — le nom parlé : la carte de la forme du jour le dit dans une phrase
     var valid = faites.filter(function (l) { return l.type === 'travail'; });
     var sous = 0, baissee = false;
     // 251 (D1) — « tu as baissé la charge » : une série faite plus légère que ce que le plan proposait ET que la charge de travail. Un cran de

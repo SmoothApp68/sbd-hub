@@ -2704,6 +2704,12 @@
   function nomCourt(nom) {
     return String(nom || '').replace(/\s*\([^)]*\)\s*/g, ' ').trim().toLowerCase();
   }
+  // 256 (D13) — LE NOM PARLÉ d'un exercice dans une phrase du coach : le nom du catalogue sans sa précision entre parenthèses, SA CASSE
+  // gardée (« Squat (Barre) » → « Squat », « Développé Couché (Barre) » → « Développé Couché »). `nomCourt` (minuscules) sert derrière « au ».
+  function nomParle(nom) {
+    var s = String(nom || '').replace(/\s*\([^)]*\)\s*/g, ' ').replace(/\s{2,}/g, ' ').trim();
+    return s || String(nom || '').trim();
+  }
 
   // LA PHRASE DE LA MÉDAILLE : `[gras, gris]`, ou `null` sans record.
   //   `exercice`   : le nom court qui suit « au » dans le cap rond (« squat ») ;
@@ -3091,6 +3097,7 @@
     tableauDesRecords: tableauDesRecords,
     REPS_DU_TABLEAU: REPS_DU_TABLEAU,
     nomCourt: nomCourt,
+    nomParle: nomParle,
     libelleAutres: libelleAutres,
     enumerer: enumerer
   };

@@ -152,3 +152,113 @@ describe('193-5 — le plan : le recul sur le max du jour', () => {
     expect(T.verifierPlan(a, e).erreurs.join('|')).not.toMatch(/I78.*bornes/);
   });
 });
+
+
+// 251 (D3) — LE 2e RECUL NE REMONTE PLUS APRÈS LE 1er : routine 3 × 5 `travail`, bloc Hypertrophie à grosse série (reculs × 8).
+// Décor de la recette du 05/11 : grosse 155 × 3, 1er recul validé à 125 kg × 8. ⚠️ Les reps de la routine (5) diffèrent de celles du bloc (8).
+describe('251 D3 — le recul validé porte la visée du bloc', () => {
+  const COUCHE = 'developpe_couche_barre';
+  const route = (reglage) => {
+    let k = 0; const id = () => 'd-s' + (++k);
+    let se = S.creer({ id: 'S', userId: 'u', idSerie: id });
+    se = S.ajouterExercice(se, COUCHE, id, { series: 3 });
+    se.exercices[0].series.forEach((s) => { s.reps_visees = 5; });
+    return se;
+  };
+  const ent = (se, reglage) => ({
+    seance: { id: 'S', debut: '2026-10-31T10:00:00Z', edition: false, exercices: se.exercices },
+    consignes: { [COUCHE]: { consigne: { etat: 'progression', zone: 'lourd', palier: 150, n: 3, ligne: { charge: 150, vise: 3 }, haut: null }, contexte: { cran: 152.5, haut: null } } },
+    reglage: reglage || 'franc', paris: [], objectif: 'les_deux',
+    programme: { blocs: [{ id: 'b1', dossier: 'Haut', zone: 'hypertrophie', debut: '2026-10-26', semaines: 4, decharge: true,
+      exercices: [COUCHE], statut: 'en_cours', grosse_serie: true }], lignes: [], objectif: 'les_deux', familles: { [COUCHE]: COUCHE } },
+    catalogue: { [COUCHE]: { equipement: 'barre', mesure: 'charge_reps', pas: 2.5 } }
+  });
+  // Le geste de l'app : le plan dit le type et la visée de la ligne, la série s'écrit typée, puis se valide.
+  const valider = (se, reglage, i, kg, reps) => {
+    const x = T.planDeSeance(ent(se, reglage)).exercices[0];
+    const l = x.lignes[i];
+    se = S.typerSelonLePlan(se, 0, i, l.type, l.recul ? l.recul.vise : undefined);
+    se = S.modifierSerie(se, 0, i, { charge_kg: kg, reps });
+    return S.valider(se, 0, i, new Date(Date.UTC(2026, 9, 31, 10, i, 0)));
+  };
+  ['franc', 'normal'].forEach((reglage) => {
+    test('⚠️ DISCRIMINANT (' + reglage + ') — le 2e recul garde sa charge (74 %) après la validation du 1er', () => {
+      let se = valider(route(), reglage, 0, 155, 3);
+      const avant = T.planDeSeance(ent(se, reglage)).exercices[0];
+      expect(avant.lignes.map((l) => l.type)).toEqual(['travail', 'recul', 'recul']);
+      expect(avant.blocHypertrophie).toBeTruthy();
+      se = valider(se, reglage, 1, avant.lignes[1].fantome.charge, 8);
+      // la série écrite porte la visée du bloc, pas celle de la routine
+      expect(se.exercices[0].series[1]).toMatchObject({ type_serie: 'recul', reps_visees: 8 });
+      const e = ent(se, reglage);
+      const apres = T.planDeSeance(e).exercices[0];
+      expect(apres.lignes[2].fantome.charge).toBe(avant.lignes[2].fantome.charge);
+      expect(apres.reculs.pct).toBe(avant.reculs.pct);
+      expect(apres.reculs.vise).toBe(8);
+      propre(T.planDeSeance(e), e);
+    });
+  });
+  test('défense — un 1er recul validé qui porte déjà un faux `reps_visees: 5` : le 2e recul reste à la charge de 8 reps', () => {
+    let se = valider(route(), 'franc', 0, 155, 3);
+    const avant = T.planDeSeance(ent(se, 'franc')).exercices[0];
+    // on écrit le 1er recul comme avant le correctif : typé recul, MAIS visée de la routine
+    se = S.typerSelonLePlan(se, 0, 1, 'recul');
+    se = S.modifierSerie(se, 0, 1, { charge_kg: avant.lignes[1].fantome.charge, reps: 8 });
+    se = S.valider(se, 0, 1, new Date(Date.UTC(2026, 9, 31, 10, 1, 0)));
+    expect(se.exercices[0].series[1].reps_visees).toBe(5);
+    const apres = T.planDeSeance(ent(se, 'franc')).exercices[0];
+    expect(apres.lignes[2].fantome.charge).toBe(avant.lignes[2].fantome.charge);
+    expect(apres.reculs.pct).toBe(avant.reculs.pct);
+  });
+  test('témoin — une routine qui porte déjà des reculs × 6 garde ses 6', () => {
+    let k = 0; const id = () => 'w-s' + (++k);
+    let se = S.creer({ id: 'S', userId: 'u', idSerie: id });
+    se = S.ajouterExercice(se, 'sq', id, { series: 3 });
+    se.exercices[0].series.forEach((s, i) => { if (i >= 1) { s.type_serie = 'recul'; s.reps_visees = 6; } else s.reps_visees = 4; });
+    const x = T.planDeSeance(entrees(se, 135, 4)).exercices[0];
+    x.lignes.slice(1).forEach((l) => expect(l.recul.vise).toBe(6));
+    const apres = S.typerSelonLePlan(se, 0, 1, x.lignes[1].type, x.lignes[1].recul.vise);
+    expect(apres.exercices[0].series.map((s) => s.reps_visees)).toEqual([4, 6, 6]);
+  });
+});
+
+
+// 251 (D2 bis) — la grosse série d'un bloc, ratée : cas G (les reculs se recalent), jamais le silence « pas encore » du cas I.
+describe('251 D2 — la grosse série ratée', () => {
+  const COUCHE = 'developpe_couche_barre';
+  test('⚠️ DISCRIMINANT — grosse série en ligne de test (155 × 3 après 152,5 × 5) faite à 155 × 2 : cas G', () => {
+    let k = 0; const id = () => 'g-s' + (++k);
+    let se = S.creer({ id: 'S', userId: 'u', idSerie: id });
+    se = S.ajouterExercice(se, COUCHE, id, { series: 3 });
+    se.exercices[0].series.forEach((s) => { s.reps_visees = 5; });
+    se = S.modifierSerie(se, 0, 0, { charge_kg: 155, reps: 2 });
+    se = S.valider(se, 0, 0, new Date(Date.UTC(2026, 9, 31, 10, 0, 0)));
+    const e = {
+      seance: { id: 'S', debut: '2026-10-31T10:00:00Z', edition: false, exercices: se.exercices },
+      consignes: { [COUCHE]: { consigne: { etat: 'test_propose', zone: 'lourd', palier: 152.5, n: 5, ligne: { charge: 152.5, vise: 5 }, haut: { charge: 155, vise: 3, k: 1 } },
+        contexte: { cran: 155, haut: { charge: 155, vise: 3, k: 1 } }, pas: 2.5 } },
+      reglage: 'normal', paris: [], objectif: 'les_deux',
+      programme: { blocs: [{ id: 'b1', dossier: 'Haut', zone: 'hypertrophie', debut: '2026-10-26', semaines: 4, decharge: true,
+        exercices: [COUCHE], statut: 'en_cours', grosse_serie: true }], lignes: [], objectif: 'les_deux', familles: { [COUCHE]: COUCHE } },
+      catalogue: { [COUCHE]: { equipement: 'barre', mesure: 'charge_reps', pas: 2.5 } }
+    };
+    const p = T.planDeSeance(e);
+    const x = p.exercices[0];
+    expect(x.reculs).toBeTruthy();
+    expect(x.rate).toBeTruthy();
+    expect(x.rate.cas).toBe('G');
+    expect(x.rate.cas).not.toBe('I');
+    propre(p, e);
+    // I139 — le même plan forgé en cas I est refusé ; I135 — des reculs qui ne visent pas la visée du premier recul non validé
+    const clone = (o) => JSON.parse(JSON.stringify(o));
+    const faux = clone(p);
+    faux.exercices[0].rate.cas = 'I';
+    expect(T.verifierPlan(faux, e).erreurs.filter((m) => m.indexOf('I139') === 0)).toHaveLength(1);
+    const f2 = clone(p);
+    f2.exercices[0].reculs.vise += 2;
+    expect(T.verifierPlan(f2, e).erreurs.filter((m) => m.indexOf('I135') === 0).length).toBeGreaterThan(0);
+    const f3 = clone(p);
+    { const l = f3.exercices[0].lignes.filter((q) => q.type === 'recul').pop(); if (l.recul) l.recul.vise += 1; else l.vise += 1; }
+    expect(T.verifierPlan(f3, e).erreurs.filter((m) => m.indexOf('I135') === 0).length).toBeGreaterThan(0);
+  });
+});

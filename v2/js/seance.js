@@ -1324,11 +1324,19 @@
   // série NON VALIDÉE de type `travail` que le plan porte `recul` s'écrit `recul`, juste avant sa validation ; une série déjà validée ou
   // importée (`partEnBase`), une chauffe, une dégressive ou un échec ne sont jamais réécrits. Aucune décision ici : `typePlan` vient du plan.
   var NON_TRAVAIL = ['echauffement', 'degressive', 'echec', 'test', 'recul'];
-  function typerSelonLePlan(seance, iExo, iSerie, typePlan) {
+  //
+  // 251 (D3) — LE RECUL PORTE LA VISÉE DU BLOC : la série `travail` de la routine porte les reps de la routine (5) ; le plan la lit recul
+  // à la visée du bloc (8, `seriesEnGrosseEtReculs`). Réécrite `recul`, elle s'écrit AUSSI avec cette visée (`viseePlan`, celle que le plan
+  // affiche sur la ligne) : sinon la base reçoit un faux `reps_visees = 5`, et le recul suivant remonte (le plan lisait la visée du jour sur le
+  // premier recul). Sans visée entière ≥ 1, `reps_visees` n'est pas touchée.
+  function typerSelonLePlan(seance, iExo, iSerie, typePlan, viseePlan) {
     var exo = seance && seance.exercices ? seance.exercices[iExo] : null;
     var s = exo && exo.series ? exo.series[iSerie] : null;
     if (typePlan !== 'recul' || !s || partEnBase(s) || s.validee_a || NON_TRAVAIL.indexOf(racine.THModele.typeDe(s)) >= 0) return seance;
-    return changerType(seance, iExo, iSerie, 'recul');
+    var v = Number(viseePlan);
+    var patch = { type_serie: 'recul' };
+    if (viseePlan !== null && viseePlan !== undefined && viseePlan !== '' && Number.isInteger(v) && v >= 1) patch.reps_visees = v;
+    return avecSerie(seance, iExo, iSerie, patch);
   }
 
   // ⚠️ RPE et ressenti sont EXCLUSIFS, et c'est un choix.
@@ -2280,7 +2288,9 @@
   //   236 (MOTEUR §9.39) — la MESURE du coach en temps réel, pour recaler ses seuils : `rate_prise` / `rate_ignoree` (`{ slug, rang, bouton?, kg? }` :
   //   la réaction sous la série `rang`, le bouton touché), `forme_ajustee` / `forme_gardee` (`{ slug, implicite? }` : la carte de la forme du jour
   //   posée sur l'exercice `slug`), `paris_cran` / `paris_retente` (`{ slug }`). `equilibres.js` ne lit que les cinq premiers.
-  var GESTES_DU_COACH = ['rate_prise', 'rate_ignoree', 'forme_ajustee', 'forme_gardee', 'paris_cran', 'paris_retente'];
+  //   251 (D2) — la porte du cran : `cran_tente` (« Tenter 110 kg quand même », `{ slug, rang }` : la série qui a fermé la porte) et `cran_tente_annule`
+  //   (« Annuler ») ; `plan.js` (`cranTenteDe`) les lit, `equilibres.js` non.
+  var GESTES_DU_COACH = ['rate_prise', 'rate_ignoree', 'forme_ajustee', 'forme_gardee', 'paris_cran', 'paris_retente', 'cran_tente', 'cran_tente_annule'];
   // 237 (MOTEUR §9.41) — les chauffes : `chauffes_ajoutees` (« Ajouter »), `chauffes_auto` (ajoutées d'elles-mêmes), `chauffes_annulees`
   // (« Annuler ») — `{ slug }` ; le fait que `faits.chauffesAjoutees` relit. 237-bis : `chauffes_silence` (le 2e « Non merci » met l'exercice en silence,
   // dit une fois) et `chauffes_silence_annule` (« Annuler » retire ce refus).
@@ -2643,7 +2653,11 @@
   var ROLES_FIGES = { ligne: true, haut: true, coach: true, retour: true, elan: true };
 
   // `reserves` (122) : les rangs qu'aucune série libre ne prend (`rangsQuittes` de l'exercice, I8).
-  function couvertureSeance(series, consigne, figees, reserves) {
+  //
+  // 251 (D2, MOTEUR §9.39) — `o.sansTest` : LA PORTE DU CRAN EST FERMÉE (une série de travail du jour ratée sous la zone, ou « Ajuster la fin »).
+  // Aucune ligne libre ne reçoit plus le rôle `haut` (`reste` = 0) : le test part, en-tête, paris, réaction et réserve visée suivent d'eux-mêmes — la
+  // source des rôles est ICI, une seule fois. Les séries figées gardent leur rôle (un test déjà fait reste un test).
+  function couvertureSeance(series, consigne, figees, reserves, o) {
     var liste = series || [];
     var sortie = liste.map(function () { return null; });
     if (!consigne || !consigne.n) return sortie;
@@ -2663,7 +2677,7 @@
       return !!f && f.role === 'haut';
     }).length;
     var libres = travail.filter(function (i) { return !figeeDe(i); });
-    var reste = Math.max(0, k - testsFaits);
+    var reste = o && o.sansTest === true ? 0 : Math.max(0, k - testsFaits);
     var roles = {};
     // §14.7 (49-U17) — LA SÉRIE DE PLUS : la routine compte `routine` séries ;
     // les séries de travail AU-DELÀ (la ligne en plus, et ce qu'on ajoute

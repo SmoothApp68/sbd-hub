@@ -940,9 +940,6 @@
     if (!l.length) return 'Aucune';
     return l.map(function (z) { return Profil().libelleDe(Profil().ZONES_A_MENAGER, z) || z; }).join(', ');
   }
-  function listeEt(noms) {
-    return noms.length < 2 ? noms.join('') : noms.slice(0, -1).join(', ') + ' et ' + noms[noms.length - 1];
-  }
   function premiereSeance(rep, etat) {
     if (rep.coach === 'carnet') return [];
     var lignes = [];
@@ -952,7 +949,7 @@
       lignes.push({ libelle: 'Tes exercices', valeur: 'je te propose tes charges, d’après tes séances.' });
     } else {
       if (recentes.length) {
-        lignes.push({ libelle: majuscule(listeEt(recentes.map(function (x) { return x.nom.toLowerCase(); }))),
+        lignes.push({ libelle: majuscule(Modele().enumerer(recentes.map(function (x) { return x.nom.toLowerCase(); }))),
                       valeur: 'je te propose tes charges, à partir de tes séries récentes.' });
       }
       lignes.push({ libelle: recentes.length ? 'Les autres exercices' : 'Tous les exercices',

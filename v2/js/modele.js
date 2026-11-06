@@ -1982,6 +1982,14 @@
   // cataloguée. La colonne de droite attend le moteur.
   var APERCU_MAX = 3;
 
+  // 251-U1 — L'ÉNUMÉRATION « A », « A et B », « A, B et C » : UNE fonction, lue partout où une liste de noms se joint par « et »
+  // (une notion, une fonction ; la garde d'architecture refuse tout autre `join(' et ')` dans `v2/js/`). Une liste vide rend ''.
+  function enumerer(noms) {
+    var l = (noms || []).map(String);
+    if (l.length < 2) return l.join('');
+    return l.slice(0, -1).join(', ') + ' et ' + l[l.length - 1];
+  }
+
   // « et 1 autre exercice », « et 3 autres exercices ». Les DEUX mots
   // s'accordent — le second était resté au pluriel.
   function libelleAutres(n) {
@@ -3083,7 +3091,8 @@
     tableauDesRecords: tableauDesRecords,
     REPS_DU_TABLEAU: REPS_DU_TABLEAU,
     nomCourt: nomCourt,
-    libelleAutres: libelleAutres
+    libelleAutres: libelleAutres,
+    enumerer: enumerer
   };
 
   // Pas de module ES6 (contrainte du dépôt) : namespace global côté navigateur,

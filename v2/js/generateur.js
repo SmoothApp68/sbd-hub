@@ -556,7 +556,7 @@
     var deplacees = lourdes.filter(function (rt) { return rt.hybride.deplace; });
     var restent = lourdes.filter(function (rt) { return rt.hybride.impossible; });
     var sem = e.cardioSemaines || {};
-    var qui = joindre(cardio.map(function (j) { return NOMS_DES_JOURS[j] + (sem[j] > 0 ? ' (' + sem[j] + ' des 4 dernières semaines)' : ''); }));
+    var qui = racine.THModele.enumerer(cardio.map(function (j) { return NOMS_DES_JOURS[j] + (sem[j] > 0 ? ' (' + sem[j] + ' des 4 dernières semaines)' : ''); }));
     var phrases = [];
     deplacees.forEach(function (rt) {
       phrases.push('Tu fais du cardio le ' + qui + '. Ton jour de jambes lourdes (' + rt.nom + ') passe au ' + NOMS_DES_JOURS[rt.hybride.jour] +
@@ -564,7 +564,7 @@
     });
     if (restent.length) {
       phrases.push((deplacees.length ? '' : 'Tu fais du cardio le ' + qui + '. ') + 'Je n\u2019ai pas pu écarter de ton cardio ' +
-        joindre(restent.map(function (rt) { return rt.nom; })) + ' : ' + (restent.length > 1 ? 'elles restent' : 'elle reste') + ' à moins de deux jours.');
+        racine.THModele.enumerer(restent.map(function (rt) { return rt.nom; })) + ' : ' + (restent.length > 1 ? 'elles restent' : 'elle reste') + ' à moins de deux jours.');
     }
     return phrases.concat([HYBRIDE_SCIENCE, HYBRIDE_CONVENTION]);
   }
@@ -827,11 +827,6 @@
     return barreTraction !== true && typeof materiel === 'string' && materiel !== '' && !contient(SALLES, materiel);
   }
 
-  function joindre(noms) {
-    if (noms.length < 2) return noms.join('');
-    return noms.slice(0, -1).join(', ') + ' et ' + noms[noms.length - 1];
-  }
-
   function uniques(noms) {
     var vus = {}, sortie = [];
     noms.forEach(function (n) { if (!possede(vus, n)) { vus[n] = true; sortie.push(n); } });
@@ -866,7 +861,7 @@
   function mentionsDeLigne(l, entree) {
     var e = entree || {}, m = [];
     var zones = zonesDeLigne(l, e.menager);
-    if (zones.length) m.push('sans série lourde \u00b7 ' + joindre(zones.map(function (z) { return POSSESSIF[z]; })));
+    if (zones.length) m.push('sans série lourde \u00b7 ' + racine.THModele.enumerer(zones.map(function (z) { return POSSESSIF[z]; })));
     if (l.barre_fixe && barreFixeAVerifier(e.materiel, e.barre_traction)) m.push('demande une barre fixe');
     // 193-2 — la zone du jour que la routine portera (193-3), avec ses reps : « Lourd (3-5) ». Une place sans zone (Automatique) : rien.
     if (l.zone && racine.THMoteur && racine.THMoteur.libelleZoneDeBloc) {
@@ -934,7 +929,7 @@
     if (barreFixeAVerifier(e.materiel, e.barre_traction)) {
       var fixes = uniques(lignes.filter(function (l) { return l.barre_fixe; }).map(function (l) { return nommer(l.exercise_slug); }));
       if (fixes.length) {
-        barre = joindre(fixes) + (fixes.length > 1 ? ' demandent' : ' demande') +
+        barre = racine.THModele.enumerer(fixes) + (fixes.length > 1 ? ' demandent' : ' demande') +
           ' une barre fixe. Sans barre : touche-le, puis Remplacer.';
       }
     }

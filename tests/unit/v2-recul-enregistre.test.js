@@ -59,3 +59,41 @@ describe('234 — Seance.typerSelonLePlan : la série validée que le plan porte
     expect(S.typerSelonLePlan(se, 5, 0, 'recul')).toBe(se);
   });
 });
+
+// 251 (D3) — le recul enregistré porte la visée du BLOC (8), jamais celle de la routine (5).
+describe('251 D3 — Seance.typerSelonLePlan écrit la visée du bloc', () => {
+  const seance = (reps) => {
+    let k = 0; const id = () => 'r-s' + (++k);
+    let se = S.creer({ id: 'S', userId: 'u', idSerie: id });
+    se = S.ajouterExercice(se, SQUAT, id, { series: 3 });
+    se.exercices[0].series.forEach((x) => { x.reps_visees = reps; });
+    return se;
+  };
+  test('⚠️ DISCRIMINANT — une routine à 5 reps : la série typée recul avec la visée 8 porte 8, pas 5', () => {
+    const se = S.typerSelonLePlan(seance(5), 0, 1, 'recul', 8);
+    expect(se.exercices[0].series[1]).toMatchObject({ type_serie: 'recul', reps_visees: 8 });
+    expect(se.exercices[0].series[0].reps_visees).toBe(5);       // la grosse série garde la routine
+    expect(se.exercices[0].series[2]).toMatchObject({ type_serie: 'travail', reps_visees: 5 });
+  });
+  test('témoin — sans visée (undefined, null, 0, 6,5) : reps_visees n’est pas touchée', () => {
+    [undefined, null, 0, 6.5, 'x'].forEach((v) => {
+      const se = S.typerSelonLePlan(seance(5), 0, 1, 'recul', v);
+      expect(se.exercices[0].series[1]).toMatchObject({ type_serie: 'recul', reps_visees: 5 });
+    });
+  });
+  test('témoin — un recul déjà typé par la routine garde sa visée (rien n’est réécrit)', () => {
+    let se = seance(5);
+    se = S.changerType(se, 0, 1, 'recul');
+    se.exercices[0].series[1].reps_visees = 6;
+    const apres = S.typerSelonLePlan(se, 0, 1, 'recul', 8);
+    expect(apres).toBe(se);
+    expect(apres.exercices[0].series[1].reps_visees).toBe(6);
+  });
+  test('une série validée ou une chauffe ne reçoit jamais la visée', () => {
+    let se = S.valider(seance(5), 0, 1, new Date('2026-11-04T10:00:00Z'));
+    se = S.typerSelonLePlan(se, 0, 1, 'recul', 8);
+    expect(se.exercices[0].series[1]).toMatchObject({ type_serie: 'travail', reps_visees: 5 });
+    const c = S.changerType(seance(5), 0, 2, 'echauffement');
+    expect(S.typerSelonLePlan(c, 0, 2, 'recul', 8).exercices[0].series[2].reps_visees).toBe(5);
+  });
+});

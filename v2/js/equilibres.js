@@ -502,7 +502,7 @@
         propose.push({ type: 'fusionner', libelle: 'Fusionner ' + ajout.nomRoutine + ' et ' + r.nom, routine_id: ajout.routine_id, autre_id: r.id });
       }
       causes.push({ texte: '« ' + r.nom + ' » n’a pas été faite ' + nonFaites + ' ' + pluriel(nonFaites, 'semaine') + ' sur ' + semainesF.length +
-        ' : c’est elle qui porte ' + noms.map(function (n) { return n; }).join(' et ') + '.', proposition: propose[0] || null, autres: propose.slice(1) });
+        ' : c’est elle qui porte ' + Modele().enumerer(noms) + '.', proposition: propose[0] || null, autres: propose.slice(1) });
     });
 
     // (e) Un exercice écarté par « J'ai mal » : une variante appuyée, jamais plus de séries sur ce qui fait mal.
@@ -738,7 +738,7 @@
               fenetre: t.sm.f, traine: traine };
     if (pourComparer) c.lignes.push({ libelle: pourComparer.libelle, texte: nb(pourComparer.par) + ' ' + pluriel(pourComparer.par, 'série') + ' / sem.', gris: true });
     c.fait = traine.length
-      ? 'Tu as choisi ' + noms.join(' et ') + ' comme ' + pluriel(traine.length, 'priorité') + ' : ' +
+      ? 'Tu as choisi ' + Modele().enumerer(noms) + ' comme ' + pluriel(traine.length, 'priorité') + ' : ' +
         (traine.length > 1 ? 'chacune compte' : 'elle compte') + ' moins de la moitié des séries ' + duMouvement(t.plus) + ' (' +
         nb(refPar) + ' par semaine).'
       : '';
@@ -905,8 +905,8 @@
           (uniques.length ? uniques : siens).slice(0, 2).forEach(function (sl) { if (porte.indexOf(sl) < 0) porte.push(sl); });
         });
         porte = porte.slice(0, 2);
-        causes.push({ texte: 'Les séances qui sautent sont surtout ' + qui.map(function (x) { return '« ' + x.r.nom + ' »'; }).join(' et ') +
-          ' : ce sont elles qui portent ' + porte.map(function (sl) { return nomDe(e, sl); }).join(' et ') + '.', proposition: null });
+        causes.push({ texte: 'Les séances qui sautent sont surtout ' + Modele().enumerer(qui.map(function (x) { return '« ' + x.r.nom + ' »'; })) +
+          ' : ce sont elles qui portent ' + Modele().enumerer(porte.map(function (sl) { return nomDe(e, sl); })) + '.', proposition: null });
       }
       causes.push({ texte: 'Un programme en ' + visee + ' ' + pluriel(visee, 'jour') + ' répartirait tout sur les jours que tu fais vraiment.', proposition: null });
     } else {
@@ -987,7 +987,7 @@
     if (qui.length) {
       var enFin = qui.every(function (sl) { return manques[sl].place / manques[sl].n >= TIERS; });
       causes.push({ texte: (enFin ? 'Ce sont les derniers exercices qui sautent : ' : 'Ce qui saute le plus : ') +
-        qui.map(function (sl) { return nomDe(e, sl); }).join(' et ') + '.' });
+        Modele().enumerer(qui.map(function (sl) { return nomDe(e, sl); })) + '.' });
     }
     causes.push({ texte: 'Un programme bâti pour ' + propose + ' min garderait l’essentiel, au lieu d’être coupé à la fin.' });
     c.causes = causes.map(function (x) { return { texte: x.texte, proposition: null }; });
@@ -1066,7 +1066,7 @@
     c.fait = '';
     c.repere = 'Pour progresser en force sur un mouvement, deux fois par semaine font mieux qu’une (Grgic, 2018). ' +
       (lents.length === lignes.length && lents.length > 1 ? 'Tes ' + (lents.length === 3 ? 'trois ' : '') + 'priorités reviennent une fois ou moins.'
-        : lents.length === 1 ? 'Ta priorité ' + nomsLents[0] + ' revient une fois ou moins.' : 'Tes priorités ' + nomsLents.join(' et ') + ' reviennent une fois ou moins.');
+        : lents.length === 1 ? 'Ta priorité ' + nomsLents[0] + ' revient une fois ou moins.' : 'Tes priorités ' + Modele().enumerer(nomsLents) + ' reviennent une fois ou moins.');
     var causes = [];
     if (deadLent) {
       causes.push({ texte: 'Sur le soulevé, une fois par semaine suffit si un autre jour porte une charnière plus légère (RDL, hip thrust). Je te propose cette variante, jamais un second soulevé lourd.' });
@@ -1180,7 +1180,7 @@
       return items.some(function (x) { return x.parSemaine[i] !== null && x.parSemaine[i] >= TIERS; });
     });
     var noms = items.map(function (x) { return nomDe(e, x.slug); });
-    c.fait = (noms.length === 1 ? noms[0] + ' arrive' : noms.join(' et ') + ' arrivent') + ' en moyenne dans le dernier tiers de tes séances.';
+    c.fait = (noms.length === 1 ? noms[0] + ' arrive' : Modele().enumerer(noms) + ' arrivent') + ' en moyenne dans le dernier tiers de tes séances.';
     c.repere = 'En musculation, beaucoup de coachs placent d’abord ce qu’ils veulent faire progresser, quand on est frais (Simão, 2012). ' +
       'Une isolation d’un muscle qui travaille aussi dans les gros mouvements du jour passe juste après eux, jamais avant : elle les pré-fatiguerait.';
     var props = [], causes = [];

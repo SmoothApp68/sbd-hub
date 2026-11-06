@@ -6466,9 +6466,11 @@
     lAuMax = lAuMax && lAuMax.lignes && lAuMax.lignes[iSerie] ? lAuMax.lignes[iSerie].auMax : null;
     if (lAuMax) seance = Seance.poserAuMaxReserve(seance, iExo, iSerie, lAuMax.reserve);
     // 234 — un recul du bloc Hypertrophie s'enregistre `recul` : le type que le plan lit sur la ligne, écrit AVANT la validation (jamais sur une série déjà validée).
+    // 251 (D3) — avec la visée que le plan affiche sur la ligne de recul (`recul.vise`, celle du bloc) : jamais celle de la routine.
     var lType = planDeLExercice(iExo);
-    lType = lType && lType.lignes && lType.lignes[iSerie] ? lType.lignes[iSerie].type : null;
-    seance = Seance.typerSelonLePlan(seance, iExo, iSerie, lType);
+    var lLigne = lType && lType.lignes && lType.lignes[iSerie] ? lType.lignes[iSerie] : null;
+    lType = lLigne ? lLigne.type : null;
+    seance = Seance.typerSelonLePlan(seance, iExo, iSerie, lType, lLigne && lLigne.recul ? lLigne.recul.vise : undefined);
     seance = Seance.valider(seance, iExo, iSerie,
       enEdition() ? new Date(seance.fin || seance.debut) : new Date());
     // §2.7 — le tour avance ICI, au geste, et jamais au rendu : une marque qui
@@ -9326,6 +9328,21 @@
     }
     await apresGeste();
   }
+  // 251 (D2, MOTEUR §9.39) — LA PORTE DU CRAN : « Tenter 110 kg quand même » / « Annuler ». Le plan décide (`x.porteDuCran`) ; ici, seulement le geste,
+  // écrit par `Seance.noterGeste` (`cran_tente`, `cran_tente_annule`), jamais dans une série.
+  async function repondrePorte(iExo, cle) {
+    if (!seance || enEdition() || reponseEnCours) return;
+    var x = planDeLExercice(iExo);
+    var p = x && x.porteDuCran;
+    if (!p || p.iSerie === null || p.iSerie === undefined) return;
+    reponseEnCours = true;
+    try {
+      seance = Seance.noterGeste(seance, { geste: cle === 'tenter' ? 'cran_tente' : 'cran_tente_annule', slug: x.slug, rang: p.iSerie });
+    } finally {
+      reponseEnCours = false;
+    }
+    await apresGeste();
+  }
   async function repondreForme(iExo, cle) {
     if (!seance || enEdition() || reponseEnCours) return;
     var x = planDeLExercice(iExo);
@@ -10668,6 +10685,13 @@
         return x && x.rate && x.rate.iSerie === j ? x.rate : null;
       },
       surRate: function (i, j, cle) { return repondreRate(i, j, cle); },
+      // 251 — la porte du cran, sous la série qui l'a fermée : la phrase et le geste viennent du plan.
+      porte: function (i, j) {
+        if (enEdition()) return null;
+        var x = planDeLExercice(i);
+        return x && x.porteDuCran && x.porteDuCran.iSerie === j && x.porteDuCran.phrase ? x.porteDuCran : null;
+      },
+      surPorte: function (i, cle) { return repondrePorte(i, cle); },
       carteForme: function (i) {
         if (enEdition()) return null;
         var x = planDeLExercice(i);
@@ -11358,7 +11382,7 @@
     return {
       nom: Modele.nommer(index, slug),
       tard: plus.possible ? {
-        apres: suivant.exercices.map(function (x) { return x.nom; }).join(' et '),
+        apres: Modele.enumerer(suivant.exercices.map(function (x) { return x.nom; })),
         surChoisir: function () {
           fermerVoile();
           // 188-1 — « Plus tard » : « Machine prise » sans remplaçant.

@@ -565,6 +565,54 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
       M.phraseDesTenues({ max: 3, dernier: 4, vise: 2, dessous: 'Front Lever Groupé' })]);
   }
 
+  // 251 — LE COACH EN TEMPS RÉEL (MOTEUR §9.39) : la carte de la forme du jour, énumération « A, B et C » (D1).
+  {
+    const f = (baisses, nSous) => ({ niveau: 'seance', cas: 'S', silence: false, n: 2, sur: 3, nSous, baisses, veille: null });
+    noter('carte', 'forme du jour 3 noms', [M.phraseDeRate(f(['Développé Couché (Barre)', 'Rowing (Barre)', 'Curl (Haltères)'], 2)),
+      M.phraseDeRate(f(['Rowing (Barre)', 'Curl (Haltères)'], 0)), M.phraseDeRate(f([], 2))]);
+  }
+
+  // 251 (D2) — LA PORTE DU CRAN : la phrase sous la série (fermée sous la zone, à l'échec, après un « Prendre », tentée), ses boutons et les Pourquoi.
+  {
+    const base = { cran: { charge: 110, vise: 3 }, serie: { charge: 107.5, reps: 2 }, force: 113, repsAuCran: 2, zone: { bas: 3, haut: 5 } };
+    const d = (o) => Object.assign({}, base, o);
+    noter('réaction', 'porte', [M.phraseDeLaPorte(d({ raison: 'sous_la_zone', tente: false })), M.phraseDeLaPorte(d({ raison: 'echec', tente: false })),
+      M.phraseDeLaPorte(d({ raison: 'prise', tente: false })), M.phraseDeLaPorte(d({ raison: 'sous_la_zone', tente: true })),
+      M.boutonDeLaPorte(d({ raison: 'sous_la_zone', tente: false })), M.boutonDeLaPorte(d({ raison: 'sous_la_zone', tente: true })),
+      M.pourquoiDeLaPorte(d({ raison: 'sous_la_zone', tente: false })), M.pourquoiDeLaPorte(d({ raison: 'echec', tente: false })),
+      M.pourquoiDeLaPorte(d({ raison: 'prise', tente: false })), M.pourquoiDeLaPorte(d({ raison: 'forme', tente: false }))].filter(Boolean));
+  }
+
+  test('251 — les phrases de la porte, mot pour mot, sans « max » ni « rampe » ni « ? »', () => {
+    const sp = (t) => String(t).replace(/[\u00a0\u202f]/g, ' ');
+    const base = { cran: { charge: 110, vise: 3 }, serie: { charge: 107.5, reps: 2 }, force: 113, repsAuCran: 2, zone: { bas: 3, haut: 5 } };
+    const d = (o) => Object.assign({}, base, o);
+    const dit = {
+      ferme: sp(M.phraseDeLaPorte(d({ raison: 'sous_la_zone', tente: false }))),
+      echec: sp(M.phraseDeLaPorte(d({ raison: 'echec', tente: false }))),
+      prise: sp(M.phraseDeLaPorte(d({ raison: 'prise', tente: false }))),
+      revient: sp(M.phraseDeLaPorte(d({ raison: 'sous_la_zone', tente: true }))),
+      tenter: sp(M.boutonDeLaPorte(d({ raison: 'sous_la_zone', tente: false }))),
+      annuler: sp(M.boutonDeLaPorte(d({ raison: 'sous_la_zone', tente: true }))),
+      pqZone: sp(M.pourquoiDeLaPorte(d({ raison: 'sous_la_zone', tente: false }))),
+      pqEchec: sp(M.pourquoiDeLaPorte(d({ raison: 'echec', tente: false, serie: { charge: 107.5, reps: 4 } }))),
+      pqForme: sp(M.pourquoiDeLaPorte(d({ raison: 'forme', tente: false })))
+    };
+    expect(dit.ferme).toBe('Pas de test à 110 kg aujourd’hui : ta série est sous ta zone.');
+    expect(dit.echec).toBe('Pas de test à 110 kg aujourd’hui : ta série est allée jusqu’à l’échec.');
+    expect(dit.prise).toBe('Pas de test à 110 kg aujourd’hui : tu as baissé la charge.');
+    expect(dit.revient).toBe('Le test à 110 kg revient.');
+    expect(dit.tenter).toBe('Tenter 110 kg quand même');
+    expect(dit.annuler).toBe('Annuler');
+    expect(dit.pqZone).toBe('Ta série à 107,5 kg × 2 est sous ta zone (3 à 5 reps) : le test à 110 kg × 3 attend une autre séance. ' +
+      'Ta force du jour, d’environ 113 kg, donne environ 2 reps à 110 kg.');
+    expect(sp(M.pourquoiDeLaPorte(d({ raison: 'prise', tente: false })))).toBe('Tu as baissé la charge après ta série à 107,5 kg × 2 : le test à 110 kg × 3 attend une autre séance.');
+    expect(dit.pqEchec).toMatch(/^Ta série à 107,5 kg × 4 est allée jusqu’à l’échec : le test à 110 kg × 3 attend une autre séance\./);
+    expect(dit.pqForme).toBe('Tu as ajusté la fin de séance à ta forme du jour : pas de test aujourd’hui.');
+    expect(M.pourquoiDeLaPorte(d({ raison: 'sous_la_zone', tente: true }))).toBeNull();      // tenté : le Pourquoi ne dit pas le contraire
+    Object.values(dit).forEach((t) => { expect(t).not.toMatch(/\bmax\b|rampe|porte|\?/i); });
+  });
+
   test('chaque famille est jouée, et la date relative l\'est vraiment', () => {
     // 181 : les cartes (21 cartes × leurs textes) et les figures sont balayées.
     expect(vues.filter((v) => v.famille === 'carte').length).toBeGreaterThan(60);

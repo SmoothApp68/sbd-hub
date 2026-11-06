@@ -10231,6 +10231,7 @@
   //   4. ISOLATION en tête de séance — une série légère de 15.
   //   5. « J'AI PEU DE TEMPS » — une chauffe, jamais zéro sur un exercice qui n'est ni une isolation ni au poids du corps (barre ou non :
   //      smith, presse, hack squat, machine guidée lourde) ; zéro sur une isolation, sauf zone à ménager (237-bis).
+  //   7. (253-X1, 06/11/2026) PAS SUR UNE ISOLATION DÉJÀ ÉCHAUFFÉE PAR LA SÉANCE — jamais le premier exercice, jamais une zone à ménager.
   //   6. APPRENTISSAGE — après 2 séances où la personne a ajouté ses chauffes, elles s'ajoutent d'elles-mêmes (avec « Annuler ») ;
   //      2 « Non merci » : silence 4 semaines, DIT une fois au geste (`phraseDuSilenceDesChauffes`, avec « Annuler »).
   var CHAUFFE_SEUIL_MAX = 0.60;
@@ -10304,6 +10305,8 @@
     else if (e.menagee === true) raison = 'zone';
     else if (e.forme === true) raison = 'forme';
     if (!raison) return rien;
+    // 7. (253-X1) UNE ISOLATION DONT LES MUSCLES ONT DÉJÀ ÉTÉ TRAVAILLÉS par un exercice précédent de la séance : rien, sauf zone à ménager.
+    if (e.isolation === true && e.premierExercice !== true && e.dejaTravaille === true && e.menagee !== true) return rien;
     // 5. peu de temps (237-bis) : une chauffe, jamais zéro sur un polyarticulaire chargé (barre ou non) ; zéro sur une isolation
     //    (`e.isolation`, la notion unique du plan), sauf zone à ménager. Le poids du corps : zéro aussi, comme avant.
     var seule = e.peuDeTemps === true;

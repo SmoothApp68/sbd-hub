@@ -2043,6 +2043,8 @@ Sur une **barre** (squat, couché, militaire — `familleDeBarre`), la consigne 
 
 *237-bis (04/11/2026) — **I127 adapté** : « J'ai peu de temps » sur un exercice qui n'est ni une isolation ni au poids du corps : exactement une chauffe. **Le silence annoncé (règle 6)** : au 2ᵉ « Non merci » (ou « Annuler » des chauffes ajoutées d'elles-mêmes, qui compte comme un refus), la mise en silence de 4 semaines est dite, UNE fois, au geste : `Moteur.phraseDuSilenceDesChauffes(nom)` — « D'accord, je ne te les propose plus sur <exercice> pendant 4 semaines. » — avec « Annuler », qui retire ce dernier refus (`Plan.annulerRefusChauffes`, l'état d'avant est gardé dans l'entrée `avant`). Deux gestes de séance (`sessions.gestes`) : `chauffes_silence` (le plan en tire `x.silenceChauffes`, tant qu'aucune série de l'exercice n'est faite) et `chauffes_silence_annule`. **I130** : une mise en silence (geste non annulé, exercice pas commencé) sans sa phrase annoncée, avec une autre phrase ou sans « Annuler » est une erreur ; la phrase sans geste aussi. Hors scope, rangé avec le chantier iPhone : les refus restent sur l'appareil (pas de synchronisation).*
 
+*253-X1 (06/11/2026, décision d'Aurélien) — **règle 7 : pas de chauffe proposée sur une isolation (`estIsolation`) dont un muscle primaire a déjà été travaillé (`Semaine.musclesPonderes` : primaire, secondaire ou stabilisateur, la notion du volume) par un exercice PLACÉ AVANT elle dans la séance**, sauf zone à ménager ; le premier exercice n'est jamais concerné. **I141** le vérifie.*
+
 ## 10. L'incrément
 
 ### 10.1 Règle

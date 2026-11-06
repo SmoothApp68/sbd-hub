@@ -185,6 +185,11 @@
   function $(id) { return doc.getElementById(id); }
 
   var ecranCourant = null;
+  // 258-1 (b) — L'ONGLET DU BAS QUE LA FICHE D'EXERCICE ALLUME : celui d'où l'on vient (Progression, Profil, Séances…).
+  // Posé par `afficherExercice` (la porte commune) à l'arrivée depuis un autre écran ; remis à zéro dès qu'un autre écran
+  // s'affiche. Sans lui (rechargement direct sur /exercice/<slug>, retour par l'historique), la fiche allume Séances.
+  var ongletDeLaFiche = null;
+  var ongletAffiche = null;     // l'onglet que `montrer` vient d'allumer pour l'écran courant
 
   // Une vue visible à la fois, et la barre d'onglets suit : elle disparaît sur
   // la connexion, où il n'y a rien à naviguer.
@@ -208,7 +213,9 @@
     if (nom !== 'profil') { noteProfil = null; bandeauMotDePasse = false; }
     // 116 (03 #6) — « Pas enregistré : … » se dit une fois, sur le Profil : vue, elle s'efface en le quittant.
     if (nom !== 'profil' && refusProfil && refusProfil.vu) refusProfil = null;
-    var onglet = Routeur.ongletDe(vue || nom);
+    if (nom !== 'exercice') ongletDeLaFiche = null;
+    var onglet = nom === 'exercice' && ongletDeLaFiche ? ongletDeLaFiche : Routeur.ongletDe(vue || nom);
+    ongletAffiche = onglet;
     if (onglet !== Routeur.PROFIL) groupeProfilOuvert = null;   // 213 — tout fermé à l'arrivée sur le Profil
     // 136 (audit du 16/10, 03 #18) — quitter le profil n'écrit plus rien (`onboarding_completed`, « vu », retiré : le
     // bandeau de bienvenue n'existe plus depuis 60-2a, et plus rien ne lisait la colonne).
@@ -14809,6 +14816,8 @@
     var params = { slug: slug };
     // 125 — `comment` s'adresse comme `historique` (ECRAN-SAISIE §7 quater.5).
     if (onglet === Routeur.EXO_HISTORIQUE || onglet === Routeur.EXO_COMMENT) params.onglet = onglet;
+    // 258-1 (b) — d'où l'on vient : depuis une autre fiche (ou la même, autre sous-onglet), l'origine reste celle de la première.
+    if (ecranCourant !== 'exercice') ongletDeLaFiche = ongletAffiche;
     allerA(Routeur.EXERCICE, params);
     rendreExercice(slug, onglet);
   }

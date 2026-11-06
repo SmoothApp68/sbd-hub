@@ -6365,10 +6365,15 @@
       // faite dès l'appel. Avant, `apresGeste` dessinait un plan où la série
       // dévalidée portait encore l'observation de son pari (I7), et rien ne le
       // redessinait avant le geste suivant.
-      var vidage = oublierObservationDe(iExo, iSerie);
+      // 257 (D-P1) — SAUF dans l'Édition : elle est muette (pas de plan, donc rien à garder cohérent à l'écran) et le lien
+      // du pari à sa série (`set_observe`) est le seul moyen de le retrouver sans rang. La base, elle, vide l'observation à
+      // la suppression de la ligne (`sets_efface_observation`) : la copie locale n'est plus « confirmée », et la
+      // revalidation (ci-dessous) la renvoie ; sans revalidation, l'enregistrement tranche (`reobserverLesParisCorriges`).
+      var edit = enEdition();
+      var vidage = edit ? retenirLObservationEnEdition(iExo, iSerie) : oublierObservationDe(iExo, iSerie);
       await apresGeste();
       await vidage;
-      return observerSerie(iExo, iSerie);
+      return edit ? undefined : observerSerie(iExo, iSerie);
     }
     // 236 — ce que la personne laisse sans réponse en passant à la suite (la réaction ignorée, la forme du jour gardée) : un geste de mesure.
     noterLesPropositionsPassees(iExo, iSerie);
@@ -6508,7 +6513,9 @@
     // exister pour être observé. C'est aussi lui qui la fige (§9.13). Déjà sur
     // l'appareil ; il entre dans la file ICI, derrière les séries.
     if (pariProvisoire) await poserPari(await finirPari(pariProvisoire));
-    await observerSerie(iExo, iSerie);
+    // 257 (D-P1) — dans l'Édition, seule la REVALIDATION d'une série reliée renvoie l'observation vidée par la base (rang inconnu :
+    // `parisAObserver` retrouve les paris que cette série observait) ; une frappe, elle, attend l'enregistrement.
+    await (enEdition() ? observerSerieDe(seance, iExo, iSerie, true) : observerSerie(iExo, iSerie));
     // 185 — le record qui dépasse le meilleur de plus de 20 % : un mot de plus, AVANT le journal des records (il ne s'écrit
     // qu'à « Terminer », par `ecrireJournalDeSeance` : « Non, ne compte pas » passe par là avant lui).
     var qr = questionDuRecordApres(iExo, iSerie);
@@ -9939,6 +9946,22 @@
       ((exo && exo.series) || []).forEach(function (s) { if (s && s.id) ids[s.id] = true; });
     });
     return oublierObservationsDesSeries(ids);
+  }
+
+  // 257 (D-P1) — dans l'Édition, dévalider une série garde le lien de ses paris (`set_observe`, `valeur_observee`) sur
+  // l'appareil mais retire leur confirmation : la base vide l'observation avec la ligne. Rien n'est écrit ici.
+  async function retenirLObservationEnEdition(iExo, iSerie) {
+    var exo = seance && (seance.exercices || [])[iExo];
+    var serie = exo && (exo.series || [])[iSerie];
+    if (!serie || !serie.id) return;
+    var maj = [];
+    local.predictions = (local.predictions || []).map(function (l) {
+      if (!l || l.set_observe !== serie.id || !l.observation_confirmee) return l;
+      var m = Object.assign({}, l, { observation_confirmee: null });
+      maj.push(m);
+      return m;
+    });
+    if (maj.length) await Cache.ecrireLot('predictions', maj).catch(function () {});
   }
 
   async function oublierObservationsDesSeries(ids) {

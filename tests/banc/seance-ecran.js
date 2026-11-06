@@ -142,7 +142,6 @@ const ok = (nom, cond, detail) => {
 const DEFAUTS_PROUVES = {
   'D-R1': 'le journal des records (jeu, guilde, groupe, médailles du social) n’est pas revu quand une séance ANTÉRIEURE est corrigée ou supprimée ; la Progression, elle, recalcule',
   'D-C2': 'après une Édition, le score de force publié (scores_force) attend la prochaine ouverture du social',
-  'D-P1': 'dévalider puis revalider une série dans l’Édition vide l’observation de son pari (predictions.valeur_observee et set_observe à null) ; la correction des reps, elle, est corrigée (245)'
 };
 const defautsVus = [];
 const okDefaut = (defaut, nom, cond, detail) => {
@@ -29874,9 +29873,19 @@ const SETS_IMPORTES = [
     const pari2 = parisDeLaSeance(sidP).filter((l) => l.fondement.rang === pari0.fondement.rang)[0] || {};
     ok('[FP249] prémisse — dévalidée puis revalidée dans l’Édition : la série est en base, validée, à 9 reps',
       !!setP2.id && !!setP2.validee_a && Number(setP2.reps) === 9, nb([setP2.id === setP, setP2.validee_a, setP2.reps]));
-    okDefaut('D-P1', '[FP249] Édition, dévalider puis revalider — l’observation du pari reste posée sur la série (9 reps)',
+    ok('[FP249] (257, D-P1 corrigé) Édition, dévalider puis revalider — l’observation du pari reste posée sur la série (9 reps)',
       pari2.valeur_observee === 9 && pari2.set_observe === setP2.id, 'pari : valeur_observee ' + nb(pari2.valeur_observee) +
         ', set_observe ' + nb(pari2.set_observe));
+
+    // 257 — dévalider puis enregistrer SANS revalider : la série n'est plus dans la séance, l'enregistrement tranche.
+    await ouvrirEdition(sidP);
+    const depAb = await departGeste();
+    await page.evaluate(() => document.querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie').click());
+    await serieMontee(0, depAb, false);
+    await fermerEdition();
+    const pariSans = parisDeLaSeance(sidP).filter((l) => l.fondement.rang === pari0.fondement.rang)[0] || {};
+    ok('[FP249] (257, D-P1) Édition, dévalider puis enregistrer sans revalider — l’observation du pari est vide',
+      pariSans.valeur_observee === null || pariSans.valeur_observee === undefined, 'pari : valeur_observee ' + nb(pariSans.valeur_observee));
 
     // ── B. D-S3 — « NON, NE COMPTE PAS », PUIS LA CHARGE CORRIGÉE.
     await aller('/saisie');

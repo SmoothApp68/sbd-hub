@@ -230,3 +230,28 @@ describe('256 D13 — le nom parlé des phrases du coach (sans la précision du 
   });
 });
 
+describe('256 D14 — « recul » s’annonce dès le plan, avant la validation', () => {
+  const CAT = [{ slug: 'squat', nom: 'Squat (Barre)', mesure: 'charge_reps', charge: 'barre', muscles_primaires: ['quadriceps'] }];
+  const rendre = (reculs, faiteIdx) => {
+    const series = [0, 1, 2].map((i) => ({ id: 's' + i, type_serie: 'travail', charge_kg: i ? 125 : 155, reps: i ? 8 : 3,
+      validee_a: faiteIdx === i ? '2026-11-05T10:00:00Z' : null }));
+    const s = { exercices: [{ exercise_slug: 'squat', series }] };
+    const cible = document.createElement('div');
+    window.THRendu.rendreBlocsSeance(cible, s, {
+      blocs: Modele.blocsDeSeance(s, CAT), exercice: () => CAT[0], precedent: () => null, fantome: () => ({}), tourAtteint: () => 0,
+      surValider: () => {}, surEffort: () => {}, surChamp: () => {}, surNumero: () => {}, surNote: () => {}, surRepos: () => {},
+      surAjoutSerie: () => {}, surSupprimerSerie: () => {}, surMenuBloc: () => {}, surMenuExercice: () => {},
+      reculDuPlan: (iExo, iSerie) => reculs.indexOf(iSerie) >= 0
+    });
+    return Array.from(cible.querySelectorAll('.ligne-serie')).map((l) => { const e = l.querySelector('.etq-ligne'); return e ? e.textContent : null; });
+  };
+  test('les deux lignes de recul du plan portent « recul » avant d’être validées ; la grosse série n’en porte pas', () => {
+    expect(rendre([1, 2])).toEqual([null, 'recul', 'recul']);
+  });
+  test('sans recul au plan, aucune étiquette', () => {
+    expect(rendre([])).toEqual([null, null, null]);
+  });
+  test('une ligne déjà validée n’est pas ré-étiquetée par le plan (son type en base parle)', () => {
+    expect(rendre([1, 2], 1)).toEqual([null, null, 'recul']);   // la ligne 1 est validée (type en base : travail) : le plan ne la ré-étiquette pas
+  });
+});

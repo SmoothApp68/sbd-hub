@@ -4906,7 +4906,13 @@
     if (info233) ligne.appendChild(chronoDeTenue(info233, vue, iExo, iSerie));
     // 152 — le mot d'une série `echec` : « à l'échec » (ambre) à 1 rep et plus, « manquée » à 0.
     // 200-4 — « 5+ · garde 1 » à la place d'« Au max » quand la consigne garde N reps (lu sur le plan).
-    var motLigne = s.motEchec, ea = motLigne && !vue.programme && typeof vue.etiquetteAuMax === 'function' && /(^|· )Au max$|au max$/.test(motLigne) ? vue.etiquetteAuMax(iExo, iSerie) : null;
+    var motLigne = s.motEchec;
+    // 256 (D14) — UNE LIGNE DE RECUL S'ANNONCE DÈS LE PLAN : avant la validation la série est encore `travail` en base (le type s'écrit à
+    // « ✓ », `typerSelonLePlan`) ; le plan, lui, sait déjà que c'est un recul (`vue.reculDuPlan`, lu sur `lignes[i].type`).
+    if (!vue.programme && !s.faite && typeof vue.reculDuPlan === 'function' && !/^recul/.test(motLigne || '') && vue.reculDuPlan(iExo, iSerie)) {
+      motLigne = motLigne ? 'recul \u00b7 ' + motLigne : 'recul';
+    }
+    var ea = motLigne && !vue.programme && typeof vue.etiquetteAuMax === 'function' && /(^|· )Au max$|au max$/.test(motLigne) ? vue.etiquetteAuMax(iExo, iSerie) : null;
     if (ea) motLigne = (/^recul/.test(motLigne) ? 'recul · ' : '') + ea.texte;
     if (motLigne) {
       var etqL = el('div', 'etq-ligne etq' + (s.estTravail ? ' fond' : ''), motLigne);

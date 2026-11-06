@@ -10561,6 +10561,11 @@
         return { texte: reps + (g !== null ? ' \u00b7 garde\u00a0' + g : ''), aria: z.bas + ' \u00e0 ' + z.haut + ' reps' + (g !== null ? ', garde ' + g + ' en r\u00e9serve' : '') };
       },
       // 200-4 — l'étiquette d'une ligne « Au max » qui GARDE N reps : « 5+ · garde 1 » ; `null` quand la consigne est l'échec.
+      // 256 (D14) — la ligne que le plan déclare « recul » (type lu sur le plan), pour l'annoncer avant la validation.
+      reculDuPlan: function (iExo, iSerie) {
+        var x = planDeLExercice(iExo), l = x && x.lignes ? x.lignes[iSerie] : null;
+        return !!(l && l.type === 'recul');
+      },
       etiquetteAuMax: function (iExo, iSerie) {
         var x = planDeLExercice(iExo), l = x && x.lignes ? x.lignes[iSerie] : null;
         if (!l || !l.auMax || l.auMax.reserve === null || l.auMax.reserve === undefined || !(l.auMax.reserve >= 1)) return null;

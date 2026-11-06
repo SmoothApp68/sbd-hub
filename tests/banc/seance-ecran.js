@@ -29269,6 +29269,27 @@ const SETS_IMPORTES = [
     const d242 = await note242();
     ok('[NU242] à la séance suivante, la note épinglée revient (elle prime sur celle de la dernière fois)',
       sp242(d242.t) === 'Ta note pour cet exercice' && sp242(d242.texte) === 'serrer les omoplates', nb242(d242));
+    // X4/X5 (253) — LE HAUT D'EXERCICE : le chiffre du jour juste sous le nom, UN seul encadré (consigne + note), ouvert à l'arrivée, replié à la 1re série.
+    const haut45 = () => page.evaluate(() => { const e = document.querySelector('.legende-exo'); if (!e) return null;
+      const r = (q) => { const n = e.querySelector(q); return n ? n.getBoundingClientRect() : null; };
+      const nom = r('.legende-haut'), her = r('.consigne-heros'), enc = r('.encadre-exo'), tit = r('.encadre-titre');
+      return { nom: nom && nom.bottom, hero: her && her.top, heroBas: her && her.bottom, enc: enc && enc.top, nEnc: e.querySelectorAll('.encadre-exo').length,
+        nNotes: e.querySelectorAll('.note-derniere').length, hTitre: tit && tit.height, ouvert: !!e.querySelector('.encadre-corps') && !e.querySelector('.encadre-corps').hidden,
+        titre: (e.querySelector('.encadre-titre') || {}).textContent || null, largeur: document.documentElement.scrollWidth }; });
+    const h45 = await haut45();
+    ok('[NU253X45] DISCRIMINANT — le chiffre du jour est juste sous le nom, avant l’encadré (un seul encadré, ouvert à l’arrivée)',
+      !!h45 && h45.hero !== null && h45.enc !== null && h45.hero - h45.nom < 30 && h45.hero < h45.enc && h45.nEnc === 1 && h45.ouvert, nb242(h45));
+    ok('[NU253X45] le titre de l’encadré dit ce qu’il contient et se touche à 44 px', !!h45 && /Ta note pour cet exercice/.test(sp242(h45.titre)) && h45.hTitre >= 44, nb242(h45));
+    ok('[NU253X45] rien ne déborde à 360 px', !!h45 && h45.largeur <= 360, nb242(h45));
+    if (process.env.BANC_CAPTURES_X45) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_X45, 'haut-exercice-ouvert.png') });
+    const dep45 = await departGeste(0);
+    await page.evaluate(() => document.querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie').click());
+    await serieMontee(0, dep45, true);
+    const h45b = await haut45();
+    ok('[NU253X45] DISCRIMINANT — dès la 1re série validée de l’exercice, l’encadré est replié (le titre reste)', !!h45b && !h45b.ouvert && h45b.nEnc === 1 && h45b.hTitre >= 44, nb242(h45b));
+    if (process.env.BANC_CAPTURES_X45) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_X45, 'haut-exercice-replie.png') });
+    await page.click('.encadre-titre');
+    ok('[NU253X45] un toucher sur le titre rouvre l’encadré', !!(await haut45()).ouvert);
     await page.click('.note-derniere-masquer');
     await attendreQue(() => note242().then((n) => !n), 15000, 'masquerNU242');
     const toast242 = await page.evaluate(() => { const t = document.getElementById('toast-seance'); return t && !t.hidden ? t.textContent : null; });

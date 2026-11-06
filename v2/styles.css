@@ -959,6 +959,16 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:12px;font-weig
 .note-sous-nom{display:block;width:100%;margin-top:2px;min-height:30px;padding:6px 10px;border-radius:var(--r-petit);border:1px solid #343A43;
   background:var(--panneau-2);color:var(--texte-2);font-size:13.333333px;text-align:left;
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+/* X4/X5 (253) — l'encadré unique consigne + note : titre de 44 px fermé, corps replié par [hidden]. */
+.encadre-exo{margin:6px 0 2px;border:1px solid var(--trait);border-radius:var(--r-petit);background:var(--panneau-2)}
+.encadre-titre{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:44px;padding:0 10px;background:none;border:0;
+  color:var(--texte-2);font:inherit;font-size:13.5px;font-weight:600;text-align:left}
+.encadre-intitule{min-width:0;overflow-wrap:anywhere}
+.encadre-chev{flex:none;color:var(--texte-3)}
+.encadre-corps{padding:0 10px 8px}
+.encadre-corps[hidden]{display:none}
+.encadre-corps .note-sous-nom{display:block;-webkit-line-clamp:unset;overflow:visible;border:0;padding:0 0 6px;min-height:0;background:none;white-space:pre-wrap;overflow-wrap:anywhere}
+.encadre-corps .note-derniere{margin:0;padding:6px 0 0;border:0;border-top:1px solid var(--trait);background:none}
 /* 242 — la note de l'exercice (épinglée ou de la dernière fois) : entre le nom et les séries, les mots de la personne. */
 .note-derniere{margin:6px 0 2px;padding:8px 10px;border-radius:var(--r-petit);border:1px solid #343A43;background:var(--panneau-2)}
 .note-derniere-t{margin:0 0 2px;font-size:12px;font-weight:600;color:var(--texte-3)}

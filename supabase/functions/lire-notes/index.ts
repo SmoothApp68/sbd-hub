@@ -30,7 +30,7 @@ const K = (globalThis as any).THControleNotes;
 // Le modèle des notes est évalué à part de celui de demander-coach.
 const MODELE_NOTES = 'claude-haiku-5-5';
 const MAX_PAR_JOUR = 10;
-const DELAI_MODELE_MS = 12_000;
+const DELAI_MODELE_MS = 20_000;   // 252 : la réflexion allonge la réponse
 const VIDE = { propositions: [] };
 
 const SCHEMA = {
@@ -170,7 +170,9 @@ Deno.serve(async (req: Request) => {
       method: 'POST', signal: ctrl.signal,
       headers: { 'x-api-key': cle, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: MODELE_NOTES, max_tokens: 400, temperature: 0, system: CONSIGNE_NOTES,
+        // 252 : PAS de `temperature` (refusée pour ce modèle : 400 à chaque appel) ; 1 200 jetons car le modèle réfléchit avant de
+        // répondre (jusqu'à ~750 jetons mesurés le 06/11 sur les 27 cas du banc ; 400 coupait 3 cas sur 27).
+        model: MODELE_NOTES, max_tokens: 1200, system: CONSIGNE_NOTES,
         messages: [{ role: 'user', content: '<notes>' + JSON.stringify(purge.corps) + '</notes>' }],
         output_config: { format: { type: 'json_schema', schema: SCHEMA } },
       }),

@@ -336,7 +336,7 @@ describe('250 · lire (panne, délai, JSON invalide : rien, sans bruit)', () => 
   test('N9 · le délai : abandonné', async () => {
     jest.useFakeTimers();
     const p = N.lire(o((u, init) => new Promise((res, rej) => { if (init.signal.aborted) return rej(new Error('abort')); init.signal.addEventListener('abort', () => rej(new Error('abort'))); })));
-    jest.advanceTimersByTime(15001);
+    jest.advanceTimersByTime(25001);
     jest.useRealTimers();
     expect((await p).propositions).toEqual([]);
   });

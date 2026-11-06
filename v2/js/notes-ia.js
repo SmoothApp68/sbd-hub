@@ -29,7 +29,7 @@
   var MAX_SIGNES = 500;
   var MAX_CITATION = 60;
   var MAX_PROPOSITIONS = 3;
-  var DELAI_MS = 15000;
+  var DELAI_MS = 25000;   // 252 : au-delà des 20 s de la fonction (le modèle réfléchit avant de répondre)
   var GENRES = ['effort', 'type_serie', 'reglage', 'douleur'];      // l'ordre fixe d'affichage
   var GENRES_IA = ['effort', 'type_serie', 'reglage'];              // ceux que le modèle peut rendre (pas la douleur, pas la variante)
   // Le TYPE `travail` au sens strict (ni `test`, ni `recul`, ni une série déjà `echec` ou `degressive`) : L9 ne remplit qu'une série de travail.

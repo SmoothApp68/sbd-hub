@@ -1,0 +1,5 @@
+[
+ {"nom": "253-1-autre-jour-repris", "fichier": "v2/js/plan.js", "ancien": "if (!m || !jour || m.jour !== jour || (m.choix", "nouveau": "if (!m || !jour || (m.choix", "unitaires": ["tests/unit/v2-veille-du-jour-253.test.js"], "banc": "aucun"},
+ {"nom": "253-2-reprise-en-entretien", "fichier": "v2/js/plan.js", "ancien": "    if (seance.edition || intentionProfil === 'entretien') return null;\n    var cat = e.catalogue", "nouveau": "    var cat = e.catalogue", "unitaires": ["tests/unit/v2-veille-du-jour-253.test.js"], "banc": "aucun"},
+ {"nom": "253-3-I140-zone-mix-neutralisee", "fichier": "v2/js/plan.js", "ancien": "if (z !== 'mix') erreurs.push('I140", "nouveau": "if (false) erreurs.push('I140", "unitaires": ["tests/unit/v2-veille-du-jour-253.test.js"], "banc": "aucun"}
+]

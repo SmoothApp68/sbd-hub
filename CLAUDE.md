@@ -53,7 +53,7 @@ PWA fitness de powerlifting/powerbuilding (français), pour Aurélien et un peti
 ## 2. ⚠️ DIVISION DU TRAVAIL (CRITIQUE)
 
 Deux Claude, rôles séparés :
-1. **Claude.ai (chat + MCP Supabase)** — fait **TOUT** ce qui touche Supabase : SQL, migrations, vérif des données, RLS. Diagnostics data + décisions coaching (avec Gemini) vivent là.
+1. **Claude.ai (chat + MCP Supabase)** — fait **TOUT** ce qui touche Supabase : SQL, migrations, vérif des données, RLS. Diagnostics data + décisions coaching (tours de table, §3) vivent là.
 2. **Toi, Claude Code** — fais **TOUT** le travail repo : commits, PR, tests, refactors.
    **Écriture, migration et RLS sur Supabase : jamais.** En revanche la **lecture du schéma
    est autorisée** (`v2-atelier/specs/SCHEMA-REEL.md`, « Règle de travail »), précisément pour ne jamais
@@ -75,8 +75,11 @@ Deux Claude, rôles séparés :
 - **Render pur** : le rendu du Coach ne produit **aucune écriture** en base (`db` identique après deux renders). Invariante. (Dette connue : `blockStartDate` muté au render, préexistant v230.)
 - **Ne génère PAS de prompt/PR non demandé.** Un chantier à la fois ; noter-pour-plus-tard plutôt que scope-creep. Signale les problèmes hors-scope sans les corriger.
 
-### La chaîne à 4 voix (coaching/algo)
-Claude.ai (data Supabase) → toi, Claude Code (implémentation) → Gemini (validation coaching/seuils) → Aurélien (décision finale + vérif device). Ne court-circuite ni Gemini ni la vérif device sur les sujets de coaching.
+### La chaîne de validation (coaching/algo)
+Claude.ai (data Supabase) → **tours de table** (science sourcée, coachs, pratiquant, ergonome… de nouvelles voix à chaque tour) →
+**contradicteur à froid** (un agent qui n'a pas vu le raisonnement relit la règle et ses sources pour la casser) → la règle **jouée
+sur les vraies données** → toi, Claude Code (implémentation) → Aurélien (décision finale + vérif device). Ne court-circuite ni le
+contradicteur ni la vérif device sur les sujets de coaching. (Décision d'Aurélien du 06/11/2026 : Gemini n'est plus consulté.)
 
 ---
 

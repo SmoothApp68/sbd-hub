@@ -18,7 +18,9 @@
     // 250 (L9) — « Lire mes notes » : l'interrupteur de MISE EN SERVICE (décision d'Aurélien du 05/11/2026). FAUX : l'accord ne s'affiche
     // pas, la section du Profil n'existe pas, aucune note n'est lue ni envoyée. On l'allume par une PR d'une ligne, une fois les 60 cas
     // joués par Claude.ai contre `lire-notes` déployée (`v2-atelier/banc/notes-ia/`).
-    NOTES_IA_OUVERTE: false
+    // 254 (06/11/2026) — ALLUMÉ : les 60 cas sont passés (22 montrées, 0 fausse ; v2-atelier/banc/notes-ia/RESULTATS-2026-11-06.md),
+    // `lire-notes` redéployée depuis main après la PR 252.
+    NOTES_IA_OUVERTE: true
   };
   racine.THConfig = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

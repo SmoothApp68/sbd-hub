@@ -2728,19 +2728,34 @@
     // la durée (§3 ter.2 ter). Le champ revient au dernier texte accepté, et rien n'est
     // écrit.
     var accepte = input.value;
+    // 256 (D7) — le chiffre refusé SE DIT, sous le champ : « 300 km au plus » (--manque). Rien n'est écrit ; le message s'efface à la
+    // frappe suivante acceptée ou à la sortie du champ.
+    var dite = el('small', 'borne-dite');
+    dite.hidden = true;
+    dite.setAttribute('role', 'status');
+    var tairePlafond = function () { dite.hidden = true; enveloppe.classList.remove('hors-borne'); };
     input.addEventListener('input', function () {
       if (o.max !== null && o.max !== undefined) {
         var n = M().lireNombre(input.value);
-        if (n !== null && n > o.max) { input.value = accepte; return; }
+        if (n !== null && n > o.max) {
+          input.value = accepte;
+          dite.textContent = nombreFr(o.max) + (suffixe ? '\u00a0' + suffixe : '') + ' au plus';
+          dite.hidden = false;
+          enveloppe.classList.add('hors-borne');
+          return;
+        }
       }
+      tairePlafond();
       accepte = input.value;
       surSaisie(input.value);
     });
+    input.addEventListener('blur', tairePlafond);
     if (typeof o.surQuitte === 'function') {
       input.addEventListener('change', function () { o.surQuitte(); });
     }
     enveloppe.appendChild(input);
     if (suffixe) enveloppe.appendChild(el('u', '', suffixe));
+    enveloppe.appendChild(dite);
     return enveloppe;
   }
 

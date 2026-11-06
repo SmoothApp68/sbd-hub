@@ -5111,6 +5111,10 @@
         surEnregistrer: function () {
           var min = Modele.lireNombre(brouillon.minutes);
           var km = String(brouillon.km || '').trim() === '' ? null : Modele.lireNombre(brouillon.km);
+          // 256 (D7) — la borne de la distance se DIT sous le champ au lieu d'enregistrer l'activité sans distance : rien n'est écrit tant que ce n'est pas corrigé.
+          if (km !== null && isFinite(km) && km * 1000 > Modele.MAX_DISTANCE_M) {
+            brouillon.erreur = Modele.MAX_DISTANCE_M / 1000 + ' km au plus.'; redessiner(); return;
+          }
           var a = Seance.activite({ id: uuid(), userId: sessionActive && sessionActive.user && sessionActive.user.id, slug: brouillon.sport,
             titre: ((sportsDuCatalogue().filter(function (x) { return x.cle === brouillon.sport; })[0]) || {}).libelle || null,
             minutes: min, km: km, intensite: brouillon.intensite, idSerie: uuid });

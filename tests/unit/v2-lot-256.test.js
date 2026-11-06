@@ -59,3 +59,39 @@ describe('256 D5 — « null » n’est jamais affiché sous TA PHASE', () => {
   });
 });
 
+describe('256 D7 — la borne de 300 km se dit', () => {
+  const CAT = [{ slug: 'course', nom: 'Course à Pied', mesure: 'distance_temps', charge: 'aucune', muscles_primaires: [] }];
+  test('grille : taper 350 garde 35 ET dit « 300 km au plus » sous le champ ; la frappe suivante acceptée l’efface', () => {
+    const ecrits = [];
+    const s = { exercices: [{ exercise_slug: 'course', series: [{ id: 's1', type_serie: 'travail', charge_kg: null, reps: null, duree_s: null, distance_m: null }] }] };
+    const cible = document.createElement('div');
+    window.THRendu.rendreBlocsSeance(cible, s, {
+      blocs: Modele.blocsDeSeance(s, CAT), exercice: () => CAT[0], precedent: () => null, fantome: () => ({}), tourAtteint: () => 0,
+      surValider: () => {}, surEffort: () => {}, surChamp: (i, j, champ, v) => ecrits.push([champ, v]),
+      surNumero: () => {}, surNote: () => {}, surRepos: () => {}, surAjoutSerie: () => {}, surSupprimerSerie: () => {}, surMenuBloc: () => {}, surMenuExercice: () => {}
+    });
+    const envelope = cible.querySelector('[data-champ="distance_km"]');
+    const input = envelope.querySelector('input');
+    const dite = envelope.querySelector('.borne-dite');
+    expect(dite.hidden).toBe(true);
+    ['3', '35', '350'].forEach((v) => { input.value = v; input.dispatchEvent(new Event('input')); });
+    expect(input.value).toBe('35');
+    expect(ecrits.map((e) => e[1])).toEqual(['3', '35']);
+    expect(dite.hidden).toBe(false);
+    expect(dite.textContent.replace(/ /g, ' ')).toBe('300 km au plus');
+    expect(envelope.classList.contains('hors-borne')).toBe(true);
+    input.value = '36'; input.dispatchEvent(new Event('input'));
+    expect(dite.hidden).toBe(true);
+    expect(envelope.classList.contains('hors-borne')).toBe(false);
+  });
+  test('feuille « Ajouter une activité » : 350 km n’enregistre rien et le dit (source de app.js)', () => {
+    const app = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
+    const i = app.indexOf('function ouvrirActivite');
+    const corps = app.slice(i, app.indexOf('async function enregistrerActivite', i));
+    expect(corps).toMatch(/MAX_DISTANCE_M/);
+    expect(corps.indexOf('MAX_DISTANCE_M')).toBeLessThan(corps.indexOf('Seance.activite('));
+    expect(corps).toMatch(/km au plus/);
+  });
+  test('la borne est 300 km', () => { expect(Modele.MAX_DISTANCE_M).toBe(300000); });
+});
+

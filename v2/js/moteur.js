@@ -11949,7 +11949,7 @@
     (x.series || []).forEach(function (s) {
       if (fermante !== null || !s) return;
       var reps = nombre(s.reps), vise = nombre(s.vise);
-      var lu = rateSousLaZone({ reps: reps, bas: zone.bas, reserve: s.reserve, charge: s.charge });
+      var lu = rateSousLaZone({ reps: reps, bas: zone.bas, objectif: x.objectif, barre: x.barre, reserve: s.reserve, charge: s.charge });
       if (lu.sousZone) { fermante = s; raison = 'sous_la_zone'; }
       else if (lu.echec && reps !== null && vise !== null && reps < vise) { fermante = s; raison = 'echec'; }
     });

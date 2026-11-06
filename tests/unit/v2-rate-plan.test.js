@@ -444,6 +444,14 @@ describe('251 D2 — la porte du cran', () => {
     propre(r.p, r.e);
   });
 
+  test('⚠️ Franc, trois séries à 107,5 × 2 : la ligne validée garde la visée du niveau 1 (3 reps), pas celle du niveau 2 — le niveau 2 ne masque pas, même en rejeu', () => {
+    const r = planH({ couche: [[107.5, 2], [107.5, 2], [107.5, 2]] }, { reglage: 'franc' });
+    const x = X0(r);
+    expect([L(x, 1).vise, L(x, 2).vise]).toEqual([3, 3]);
+    expect([x.paris[1].valeur_predite, x.paris[2].valeur_predite]).toEqual([3, 3]);
+    propre(r.p, r.e);
+  });
+
   test('témoin Muscle (plusTot) — 107,5 × 3 en zone 3-5 : le niveau 1 propose sa baisse (cas D), mais la porte reste ouverte (« sous la zone » strict)', () => {
     const r = planH({ couche: [[107.5, 3]] }, MUSCLE);
     const x = X0(r);

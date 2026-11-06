@@ -1382,7 +1382,7 @@
       lues.push({ iSerie: i, charge: ch, reps: nombre(s.reps), vise: vise, reserve: P.reserveDeSerie(s) });
     });
     var r = M.decisionDeLaPorte({ zone: { bas: zone.bas, haut: zone.haut }, cran: cran, travail: chargeDeTravail(consigne), series: lues,
-      formeAjustee: ctx.formeAjustee === true, tente: ctx.tente === true });
+      formeAjustee: ctx.formeAjustee === true, tente: ctx.tente === true, objectif: ctx.objectif || null, barre: ctx.barre === true });
     if (!r.fermee) return null;
     var f = lues.filter(function (q) { return q.iSerie === r.serie; })[0] || null;
     return Object.assign(r, { zone: { bas: zone.bas, haut: zone.haut }, cran: cran, travail: chargeDeTravail(consigne),
@@ -1501,7 +1501,7 @@
     // 251 (D2) — LA PORTE DU CRAN : lue AVANT les lignes (elle décide si la couverture pose un test). `porteCtx` est `null` dans les contextes
     // où le coach se tait (Édition, Entretenir, « J'ai mal », semaine allégée, semaine de test, repli) ; sans `ligne` ET `haut`, elle se tait aussi.
     var porte = porteCtx && consigne.haut && consigne.ligne && !consigne.allegee && !consigne.repli && consigne.etat !== 'silence'
-      ? porteDeLExercice(series, consigne, porteCtx) : null;
+      ? porteDeLExercice(series, consigne, Object.assign({}, porteCtx, { objectif: objectif, barre: !!(materiel && materiel.equipement === 'barre') })) : null;
     var r = planDesLignes(series, consigne, c.contexte || null, figees, {
       sansTest: !!(porte && porte.fermee && !porte.tente),
       slug: base.slug, seance: seanceId === undefined ? null : seanceId,

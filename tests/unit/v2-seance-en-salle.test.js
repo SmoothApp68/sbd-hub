@@ -158,11 +158,40 @@ describe('l’exercice en salle', () => {
     s = Seance.definirNoteExercice(s, 0, 'Prise large');
     let appel = null;
     const c = rendre(s, { surNote: (i) => { appel = i; } });
-    const note = c.querySelector('.legende-exo > .note-sous-nom');
+    const note = c.querySelector('.legende-exo > .encadre-exo .note-sous-nom');
     expect(note.textContent).toBe('Prise large');
-    expect(note.previousElementSibling.className).toBe('legende-haut');
+    expect(c.querySelector('.encadre-titre').textContent).toContain('Consigne');
     note.click();
     expect(appel).toBe(0);
+  });
+
+  test('X4/X5 (253) — le chiffre du jour juste sous le nom ; consigne + note dans UN encadré, ouvert puis replié à la première série validée, mots entiers', () => {
+    let s = seanceDe([['dc', 3, null]]);
+    const longue = 'Pause 1 s en bas, barre basse, coudes rentrés, omoplates serrées, pieds ancrés et lire la consigne entière sans coupure';
+    s = Seance.definirNoteExercice(s, 0, longue);
+    const note = { mode: 'derniere', jour: '2026-11-04', texte: 'genou gauche rentre un peu' };
+    const c = rendre(s, { noteSousLeNom: () => note, brouillonNote: () => null });
+    const exo = c.querySelector('.legende-exo');
+    const enfants = [...exo.children].map((n) => n.className.split(' ')[0]);
+    expect(enfants.indexOf('consigne')).toBeGreaterThan(-1);
+    expect(enfants.indexOf('consigne')).toBeLessThan(enfants.indexOf('encadre-exo'));
+    expect(enfants.indexOf('legende-haut')).toBe(0);
+    expect(enfants.indexOf('consigne')).toBe(1);
+    expect(exo.querySelectorAll('.encadre-exo')).toHaveLength(1);
+    expect(exo.querySelectorAll('.note-sous-nom, .note-derniere')).toHaveLength(2);
+    expect(exo.querySelector('.encadre-titre').textContent).toMatch(/^Consigne . Ta note du 4 nov/);
+    expect(exo.querySelector('.encadre-corps').hidden).toBe(false);
+    expect(exo.querySelector('.note-sous-nom').textContent).toBe(longue);
+    // dès la première série validée de l'exercice : replié (le titre reste, 44 px au CSS) ; un toucher l'ouvre, un autre le ferme
+    s = Seance.valider(s, 0, 0, new Date());
+    const c2 = rendre(s, { noteSousLeNom: () => note, brouillonNote: () => null });
+    expect(c2.querySelector('.encadre-corps').hidden).toBe(true);
+    expect(c2.querySelector('.encadre-titre').getAttribute('aria-expanded')).toBe('false');
+    c2.querySelector('.encadre-titre').click();
+    expect(c2.querySelector('.encadre-corps').hidden).toBe(false);
+    c2.querySelector('.encadre-titre').click();
+    expect(c2.querySelector('.encadre-corps').hidden).toBe(true);
+    expect(CSS).toMatch(/\.encadre-titre\{[^}]*min-height:44px/);
   });
 
   test('« Pourquoi ? » : un lien au bout de la phrase datée (230 : le seul geste qui ouvre la feuille), le texte du coach reste mot pour mot', () => {

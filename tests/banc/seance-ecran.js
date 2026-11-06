@@ -13312,7 +13312,7 @@ const SETS_IMPORTES = [
                aide: (c.querySelector('.feuille-aide') || {}).textContent || '',
                lignes: Array.from(c.querySelectorAll('.cr-lignes li')).map((l) => l.textContent),
                phrase: (c.querySelector('.cr-phrase') || {}).textContent || '',
-               boutons: Array.from(c.querySelectorAll('.feuille-menu button')).map((b) => b.textContent) };
+               boutons: Array.from(c.querySelectorAll('.feuille-menu button, .feuille-pied button')).map((b) => b.textContent) };
     });
     const structureR = () => page.evaluate(() => {
       const d = window.THPlan && window.THPlan.dernier;
@@ -13352,7 +13352,7 @@ const SETS_IMPORTES = [
         JSON.stringify(b1.lignes.map(sp)) === JSON.stringify(carte45.lignes.map(sp)) &&
         b1.lignes.some((l) => /Poussée Haute Délai U51 \(Haltères\) 3 → 2 séries/.test(sp(l))) &&
         b1.lignes.some((l) => /Cardio Délai U51 7 → 3 min/.test(sp(l))) &&
-        sp(b1.phrase) === sp(carte45.phrase) && JSON.stringify(b1.boutons.map(sp)) === JSON.stringify([sp(carte45.oui), 'Garder la séance']) &&
+        sp(b1.phrase) === sp(carte45.phrase) && JSON.stringify(b1.boutons.map(sp)) === JSON.stringify(['Garder la séance', sp(carte45.oui)]) &&
         /^Raccourcir à \d+ min$/.test(sp(carte45.oui)),
       JSON.stringify(b1));
     await entree('^Garder la séance$');
@@ -13408,7 +13408,7 @@ const SETS_IMPORTES = [
     const e1 = await feuilleR();
     ok('[T51] DISCRIMINANT — inatteignable : « Au plus court : … (estimation) » et « Raccourcir à … », jamais « Pour tenir en 45 min »',
       !resLong.tient && sp(e1.titre) === sp(carteLong.titre) && /^Au plus court : \d+ min \(estimation\)$/.test(sp(e1.titre)) &&
-        JSON.stringify(e1.boutons.map(sp)) === JSON.stringify([sp(carteLong.oui), 'Garder la séance']) &&
+        JSON.stringify(e1.boutons.map(sp)) === JSON.stringify(['Garder la séance', sp(carteLong.oui)]) &&
         /^Raccourcir à \d+ min$/.test(sp(carteLong.oui)) && !/45 min/.test(sp(e1.titre) + sp(carteLong.oui)),
       JSON.stringify([e1, carteLong.titre, carteLong.oui]));
     // On ferme par « Garder la séance » (la séance complète), puis on abandonne.
@@ -13632,7 +13632,7 @@ const SETS_IMPORTES = [
         choix: Array.from(c.querySelectorAll('.choix-mp .mp-titre')).map((n) => n.textContent),
         sous: Array.from(c.querySelectorAll('.choix-mp .mp-sous')).map((n) => n.textContent),
         sansFrere: (c.querySelector('.sans-frere') || {}).textContent || '',
-        boutons: Array.from(c.querySelectorAll('.feuille-menu button')).map((b) => b.textContent) };
+        boutons: Array.from(c.querySelectorAll('.feuille-menu button, .feuille-pied button')).map((b) => b.textContent) };
     });
     const validerM = async (iBloc, k) => {
       await page.evaluate(([b, j]) => document.querySelectorAll('.bloc-seance')[b]
@@ -14250,7 +14250,7 @@ const SETS_IMPORTES = [
           [l.querySelector('.apercu-nom').textContent, l.querySelector('.apercu-texte').textContent]),
         aide: Array.from(c.querySelectorAll('.feuille-aide')).map((n) => n.textContent),
         choix: Array.from(c.querySelectorAll('.choix-mp .mp-titre')).map((n) => n.textContent),
-        boutons: Array.from(c.querySelectorAll('.feuille-menu button')).map((b) => b.textContent),
+        boutons: Array.from(c.querySelectorAll('.feuille-menu button, .feuille-pied button')).map((b) => b.textContent),
         champs: Array.from(c.querySelectorAll('input')).map((i) => i.value),
         dossier: (c.querySelector('.champ-dossier-v') || {}).textContent || '' };
     });
@@ -17247,7 +17247,7 @@ const SETS_IMPORTES = [
           ligne: t(k.querySelector('.rc-ligne')), exos: t(k.querySelector('.rc-exos')), ancienne: t(k.querySelector('.rc-ancienne')),
           cochee: k.getAttribute('aria-pressed') === 'true' })),
         voix: t(c.querySelector('.q-voix')),
-        boutons: Array.from(c.querySelectorAll('.feuille-menu button')).map((b) => [t(b), b.disabled]) };
+        boutons: Array.from(c.querySelectorAll('.feuille-menu button, .feuille-pied button')).map((b) => [t(b), b.disabled]) };
     });
     const MIENNES = ['Haut U603', 'Bas U603'];
     const decocherLesAutres = async () => {
@@ -17427,7 +17427,7 @@ const SETS_IMPORTES = [
           exos: Array.from(k.querySelectorAll('.ap-ex')).map((x) => ({ nom: t(x.querySelector('.ap-ex-nom')),
             series: t(x.querySelector('.ap-ex-series')), mentions: Array.from(x.querySelectorAll('.ap-ex-mention')).map(t),
             neuf: x.classList.contains('neuf') })) })),
-        boutons: Array.from(c.querySelectorAll('.feuille-menu button')).map((b) => [t(b), b.disabled]),
+        boutons: Array.from(c.querySelectorAll('.feuille-menu button, .feuille-pied button')).map((b) => [t(b), b.disabled]),
         erreur: t(c.querySelector('.erreur')) };
     });
     ROUTINES.splice(0, ROUTINES.length);
@@ -17989,7 +17989,7 @@ const SETS_IMPORTES = [
       return { ouverte: !document.getElementById('feuille-seance').hidden,
         titre: c.querySelector('.feuille-t') ? c.querySelector('.feuille-t').firstChild.textContent : null,
         sujet: t(c.querySelector('.feuille-t em')),
-        boutons: Array.from(c.querySelectorAll('.feuille-menu button')).map((b) => t(b.querySelector('.mp-titre')) || t(b)),
+        boutons: Array.from(c.querySelectorAll('.feuille-menu button, .feuille-pied button')).map((b) => t(b.querySelector('.mp-titre')) || t(b)),
         sous: Array.from(c.querySelectorAll('.choix-mp .mp-sous')).map((n) => n.textContent) };
     });
     const nomsEditeur = () => page.evaluate(() => Array.from(document.querySelectorAll('#exos-routine .nom-exo'))
@@ -20954,7 +20954,7 @@ const SETS_IMPORTES = [
             x.classList.contains('neuf'), !!x.closest('.ap-paire')]),
           paires: Array.from(k.querySelectorAll('.ap-paire')).map((p) => [t(p.querySelector('.ap-paire-t'))]
             .concat(Array.from(p.querySelectorAll('.ap-ex-nom')).map(t))) })),
-        boutons: Array.from(c.querySelectorAll('.feuille-menu button')).map((b) => t(b)) };
+        boutons: Array.from(c.querySelectorAll('.feuille-menu button, .feuille-pied button')).map((b) => t(b)) };
     });
     // Une ligne absente ne fait pas planter la section : le contrôle suivant le dira.
     const geste = async (texte) => {

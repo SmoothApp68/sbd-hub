@@ -96,7 +96,7 @@
   /* La rareté, pour le jeu (64B, JEU-V1 §9.6) : commun gris, rare bleu, exceptionnel violet ; MAJEUR = l'or des
      records (`--medaille`). `#f2c14b`, son ancienne valeur, était trop proche de l'ambre du coach — et ne servait
      nulle part (constaté le 10/10). */
-  --rarete-1:#8b929c; --rarete-2:#4f9be8; --rarete-3:#a26ee8; --rarete-4:var(--medaille);
+  --rarete-1:var(--texte-3); --rarete-2:#4f9be8; --rarete-3:#a26ee8; --rarete-4:var(--medaille);
 
   /* Espacements : échelle de 4. */
   --e1:4px; --e2:8px; --e3:12px; --e4:16px; --e5:24px; --e6:32px;
@@ -118,22 +118,14 @@
      Des valeurs proches ne sont PAS fusionnées (un gris à 1 niveau d'un autre reste son propre jeton) :
      la fusion est visible, elle est pour le lot 2. Une couleur neuve s'écrit ici, jamais dans une règle. */
   /* Traits, filets et surfaces neutres (valeurs gardées à l'identique, pas fusionnées : la fusion est pour le lot 2) */
-  --trait-case:#343A43; /* contour d'une case posée sur la surface 2 (note, zone fixée, jauge déduite) */
-  --trait-selection:#363B44; /* contour de la bande de sélection de la molette */
-  --trait-choisi:#3A4049; /* contour d'une case choisie (période, choix de routine, RIR/RPE) */
-  --reflet-haut:#3A4048; /* le filet clair intérieur du haut d'une carte (à 1 niveau de --trait-choisi) */
-  --trait-focus:#4A5058; /* contour d'un champ qui a le focus, d'un segment actif */
-  --jauge:#4A5461; /* remplissage d'une jauge de tendance */
-  --molette-eteint:#4E545C; /* chiffre éloigné de la molette */
-  --filet-liste:#212529; /* filet entre deux lignes de liste (Profil) */
-  --filet-question:#23262A; /* filet d'une question de routine, d'un menu */
-  --radar-axe:#22262C; /* axe du radar */
-  --radar-grille:#282C33; /* grille du radar */
+  /* 260-d — FUSION : un jeton par rôle. Les valeurs voisines du lot 1 (à 1 à 4 niveaux l'une de l'autre) n'en font plus qu'une. */
+  --trait-case:#363B44; /* contour doux d'une case sur la surface 2 (note, zone fixée, jauge déduite, bande de la molette) et filet clair du haut d'une carte (étaient #343A43, #363B44, #3A4049, #3A4048) */
+  --gris-moyen:#4A5461; /* un gris moyen sans rôle de texte : remplissage de jauge, chiffre éloigné de la molette, contour d'un champ ou d'un segment actif (étaient #4A5058, #4A5461, #4E545C) */
+  --filet:#23262A; /* filet entre deux lignes de liste, axe et grille du radar (étaient #212529, #23262A, #22262C, #282C33) */
+  --trait-bleute:#3A4556; /* contour bleuté : le dessin du bonhomme, la barre B de l'équilibre (étaient #3A4556 et #3a4658) */
   --fond-hors-saisie:#1F2229; /* fond d'une ligne « hors saisie » */
   --filet-serie:rgba(255,255,255,.04); /* filet très pâle entre deux séries */
-  --precedent:#6E7885; /* tracé de la période précédente (radar, puce) */
   --precedent-fond:rgba(120,130,145,.12); /* aplat de la période précédente (radar) */
-  --eq-barre-b:#3a4658; /* barre B de l'équilibre */
   --metal:#9AA3AF; /* le métal de la barre dessinée (disque, manche) */
   --encre-disque:#111; /* le chiffre posé sur un disque de la barre dessinée */
   /* La chauffe et le calage */
@@ -141,19 +133,15 @@
   --trait-chauffe:#5F7798; /* contour du numéro d'une série de chauffe (260-b : 3,5:1 sur la carte, était #3A4A5E à 1,9:1) */
   --trait-calage:#85744A; /* contour du numéro d'une série de calage (260-b : 3,5:1 sur la carte, était #4A4033) */
   --texte-calage:#B08F3C; /* texte du numéro d'une série de calage */
-  --fond-serie-faite:#1D312F; /* le vert de sens à ~11 % sur la surface (opaque), une série faite */
+  --fond-serie-faite:color-mix(in srgb,var(--reussi) 11%,var(--panneau)); /* 260-d : LE vert d'une série faite, --reussi à 11 % sur la surface (opaque : #1D312F, valeur de repli ci-dessous) */
   /* Le sens : manque et ambre, fonds et traits */
   --manque-trait:#4A3330; /* contour d'un état destructif ou en erreur */
   --manque-fond:#33201e; /* fond révélé sous la ligne qu'on glisse pour supprimer */
-  --accent-fond:#2a2110; /* encadré du coach : ambre très sombre */
-  --accent-fond-choisi:#2a2214; /* fond d'une option choisie */
-  --accent-fond-levier:#2a2218; /* haut du dégradé de la carte levier */
+  --accent-fond:#2a2214; /* encadré du coach, option choisie, haut de la carte levier : ambre très sombre (étaient #2a2110, #2a2214, #2a2218) */
   --accent-06:rgba(255,185,56,.06); /* ambre à 6 % */
   --accent-10:rgba(255,185,56,.10); /* ambre à 10 % */
   --accent-45:rgba(255,185,56,.45); /* ambre à 45 % (début de l'onde d'attente) */
   --accent-0:rgba(255,185,56,0); /* ambre transparent (fin de l'onde d'attente) */
-  --sync-a-jour:#3fb950; /* pastille « synchronisé » */
-  --presence:#7fd18b; /* pastille de présence */
   /* Voiles, ombres, fondus */
   --voile:rgba(6,7,9,.68); /* le voile derrière une feuille */
   --ombre-flottante:rgba(0,0,0,.45); /* ombre d'un élément qu'on déplace */
@@ -170,7 +158,6 @@
   --social-n2:#8a723a; /* niveau 2 */
   /* Le bonhomme des muscles */
   --bh-fond:#10151c; /* fond du dessin et trait de séparation */
-  --bh-contour:#3A4556; /* contour du dessin */
   --bh-corps:#1B222C; /* fond d'une zone non travaillée */
   /* Le bilan de l'année (palette propre, police Archivo) */
   --annee-acier:#161a1f;
@@ -198,6 +185,9 @@
   /* L'or de la médaille (déplacé ici depuis un second :root, plus bas). */
   --medaille:#ffd46b;--medaille-fond:#2e2410;--medaille-trait:#6b5420;
 }
+
+/* Navigateur sans color-mix : la valeur calculée du vert d'une série faite. */
+@supports not (color:color-mix(in srgb,red,blue)){:root{--fond-serie-faite:#1D312F}}
 
 /* Les chiffres s'alignent d'une ligne à l'autre, partout. */
 .num,
@@ -247,7 +237,7 @@ body{
 }
 .etat-sync:empty{display:none}
 .etat-pastille{width:6px;height:6px;border-radius:50%;background:var(--texte-2);flex:none}
-.etat-sync.a-jour .etat-pastille{background:var(--sync-a-jour)}
+.etat-sync.a-jour .etat-pastille{background:var(--reussi)}
 .etat-sync.local .etat-pastille{background:var(--texte-2)}
 .etat-sync.vide .etat-pastille{background:var(--texte-3)}
 /* Un écart se constate, il ne s'alarme pas : pastille neutre, le texte dit le fait. */
@@ -353,7 +343,7 @@ button{font-family:inherit;cursor:pointer}
    sépare les tours au même endroit : deux écrans, une seule lecture. */
 .serie.hors-travail .tag.c{color:var(--chauffe);font-weight:700}
 .bloc .serie.debut-tour{margin-top:9px;border-top-color:transparent;
-  box-shadow:inset 0 1px 0 var(--reflet-haut)}
+  box-shadow:inset 0 1px 0 var(--trait-case)}
 .mesure{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 
 /* ── États ────────────────────────────────────────────────────────────── */
@@ -650,16 +640,16 @@ button.bloc-exo:active{background:var(--panneau-2)}
 .periodes{display:flex;gap:var(--e1);margin-bottom:var(--e3)}
 .periode{flex:1;padding:7px 0;border-radius:var(--r-petit);border:1px solid var(--trait);
   background:transparent;color:var(--texte-3);font:600 12px/1 var(--pile);min-height:44px}
-.periode.actif{background:var(--panneau);color:var(--texte);border-color:var(--trait-choisi)}
+.periode.actif{background:var(--panneau);color:var(--texte);border-color:var(--trait-case)}
 
 /* ── Le radar ─────────────────────────────────────────────────────────────── */
 .radar{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e3)}
 .radar svg{width:100%;height:238px;display:block}
-.radar-grille{fill:none;stroke:var(--radar-grille);stroke-width:1}
-.radar-axe{stroke:var(--radar-axe);stroke-width:1}
+.radar-grille{fill:none;stroke:var(--filet);stroke-width:1}
+.radar-axe{stroke:var(--filet);stroke-width:1}
 /* La période précédente en gris neutre, la courante en accent. Pas de vert ni
    de rouge : deux périodes se comparent, elles ne se jugent pas. */
-.radar-prec{fill:var(--precedent-fond);stroke:var(--precedent);stroke-width:1.5}
+.radar-prec{fill:var(--precedent-fond);stroke:var(--trait-controle);stroke-width:1.5}
 .radar-cour{fill:var(--accent-10);stroke:var(--accent);stroke-width:2}
 .radar-et{font:600 12px/1 var(--pile);fill:var(--texte-3)}
 .radar-lg{display:flex;justify-content:center;gap:var(--e4);margin-top:var(--e2);
@@ -668,7 +658,7 @@ button.bloc-exo:active{background:var(--panneau-2)}
 .radar-lg i{display:inline-block;width:8px;height:8px;border-radius:50%;
   margin-right:5px;vertical-align:-1px}
 .puce-cour{background:var(--accent)}
-.puce-prec{background:var(--precedent)}
+.puce-prec{background:var(--trait-controle)}
 
 .cartes-per{display:grid;grid-template-columns:1fr 1fr;gap:var(--e2);margin-top:var(--e3)}
 .carte-per{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e3);min-width:0}
@@ -786,7 +776,7 @@ button.bloc-exo:active{background:var(--panneau-2)}
   background:linear-gradient(0deg,var(--panneau) 18%,var(--panneau-0))}
 /* La fenêtre de sélection ne se touche pas : c'est un repère, pas un bouton. */
 .molette .selection{position:absolute;left:0;right:0;top:84px;height:48px;
-  border-radius:var(--r-petit);background:var(--panneau-2);border:1px solid var(--trait-selection);
+  border-radius:var(--r-petit);background:var(--panneau-2);border:1px solid var(--trait-case);
   pointer-events:none;z-index:1}
 .molette .piste{height:100%;overflow-y:auto;scroll-snap-type:y mandatory;
   padding:84px 0;position:relative;z-index:3;
@@ -794,10 +784,10 @@ button.bloc-exo:active{background:var(--panneau-2)}
 .molette .piste::-webkit-scrollbar{width:0}
 .molette .opt{height:48px;display:flex;align-items:center;justify-content:center;
   scroll-snap-align:center;font-size:16px;font-weight:400;line-height:normal;font-family:inherit;
-  color:var(--molette-eteint);font-variant-numeric:tabular-nums;transition:color .12s}
+  color:var(--gris-moyen);font-variant-numeric:tabular-nums;transition:color .12s}
 .molette .opt.sel{color:var(--texte);font-size:22px;font-weight:700}
 .molette .opt.pres{color:var(--texte-3)}
-.molette .opt.eteint{color:var(--molette-eteint);font-size:16px;font-weight:600}
+.molette .opt.eteint{color:var(--gris-moyen);font-size:16px;font-weight:600}
 
 /* Trois sorties, et « Désactiver » ne prend pas la place des deux autres :
    c'est le geste rare, il garde la largeur de son texte. */
@@ -1169,7 +1159,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
    la marge et laisserait le filet contre la ligne d'au-dessus. */
 .ligne-serie.debut-tour{margin-top:11px}
 .ligne-serie.debut-tour .serie.grille{border-top-color:transparent;
-  box-shadow:inset 0 1px 0 var(--reflet-haut)}
+  box-shadow:inset 0 1px 0 var(--trait-case)}
 
 .no-serie{position:relative;width:30px;height:44px;border-radius:var(--r-bouton);
   border:1px solid var(--trait);background:transparent;color:var(--texte-2);
@@ -1528,7 +1518,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   color:var(--texte-3);font-weight:400;margin-top:3px}
 
 .feuille-menu button{width:100%;text-align:left;padding:13px var(--e2);
-  background:transparent;border:none;border-top:1px solid var(--filet-question);
+  background:transparent;border:none;border-top:1px solid var(--filet);
   color:var(--texte);font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit}
 .feuille-menu button.sel{color:var(--texte);font-weight:700}
 .feuille-menu button.danger,.danger{color:var(--manque)}
@@ -1580,7 +1570,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 /* ── LA QUESTION DE FIN SUR LA ROUTINE (§6) ────────────────────────────────
    Elle n'apparaît QUE s'il y a un écart réel. Le défaut est « garder » : c'est
    le geste qui a le moins de conséquences. */
-.question-routine{border-top:1px solid var(--filet-question);padding:var(--e3) 0}
+.question-routine{border-top:1px solid var(--filet);padding:var(--e3) 0}
 .question-t{font-size:12.5px;font-weight:600;line-height:1.35}
 .ecarts{margin:6px 0 var(--e2);padding-left:16px}
 .ecarts li{font-size:12px;line-height:1.5;color:var(--texte-3)}
@@ -1588,7 +1578,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .choix-routine button{min-height:40px;padding:8px;border-radius:var(--r-petit);
   border:1px solid var(--trait);background:transparent;color:var(--texte-2);
   font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit}
-.choix-routine button.sel{background:var(--panneau-2);border-color:var(--trait-choisi);
+.choix-routine button.sel{background:var(--panneau-2);border-color:var(--trait-case);
   color:var(--texte)}
 
 .grille-rir{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--e2)}
@@ -1598,7 +1588,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   justify-content:center;gap:4px}
 .rir-n{font-size:18px;font-weight:700;font-family:var(--pile-c)}
 .grille-rir em{font-style:normal;font-size:12px;color:var(--texte-3);text-align:center}
-.grille-rir button.sel,.grille-rpe button.sel{background:var(--panneau-2);border-color:var(--trait-choisi)}
+.grille-rir button.sel,.grille-rpe button.sel{background:var(--panneau-2);border-color:var(--trait-case)}
 
 .grille-rpe{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .grille-rpe button{height:44px;border-radius:var(--r-petit);
@@ -1703,7 +1693,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .tr-ligne + .tr-ligne{border-top:1px solid var(--trait)}
 .tr-reps{font-size:12px;font-weight:600;line-height:1.4;color:var(--texte-2)}
 .tr-jauge{height:5px;background:var(--panneau-2);border-radius:3px;overflow:hidden}
-.tr-jauge i{display:block;height:100%;background:var(--jauge);border-radius:3px}
+.tr-jauge i{display:block;height:100%;background:var(--gris-moyen);border-radius:3px}
 .tr-charge{font-size:14px;font-weight:700;line-height:1.4;text-align:right;font-family:var(--pile-c)}
 .tr-quand{font-size:12px;line-height:1.4;color:var(--texte-3);text-align:right}
 /* Déduit : grisé, en italique, et « déduit » à la place de la date — la date du
@@ -1800,7 +1790,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   background:var(--panneau);color:var(--texte);padding:0 var(--e3);
   font-family:inherit;font-size:var(--police-champ)}
 .entree-champ input::placeholder{color:var(--texte-3)}
-.entree-champ input:focus{outline:none;border-color:var(--trait-focus)}
+.entree-champ input:focus{outline:none;border-color:var(--gris-moyen)}
 .entree-champ input.ko{border-color:var(--manque-trait)}
 .entree-aide,.entree-err{font-size:12px;line-height:1.4;font-style:normal}
 .entree-aide{color:var(--texte-3)}
@@ -1856,7 +1846,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .p-questionnaire{margin-bottom:var(--e3)}
 
 .p-ligne{display:flex;align-items:center;gap:var(--e3);width:100%;
-  padding:13px var(--e3);min-height:50px;border:none;border-top:1px solid var(--filet-liste);
+  padding:13px var(--e3);min-height:50px;border:none;border-top:1px solid var(--filet);
   background:transparent;color:var(--texte);font-family:inherit;text-align:left}
 .p-ligne:first-child{border-top:none}
 .p-ligne:active{background:var(--panneau-2)}
@@ -1871,7 +1861,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .p-seg button{flex:1;height:34px;border-radius:var(--r-petit);border:1px solid var(--trait);
   background:transparent;color:var(--texte-3);font-family:inherit;
   font-size:12px;font-weight:600}
-.p-seg button.on{background:var(--panneau-2);border-color:var(--trait-focus);color:var(--texte)}
+.p-seg button.on{background:var(--panneau-2);border-color:var(--gris-moyen);color:var(--texte)}
 .p-seg.deux{flex-wrap:wrap}
 .p-seg.deux button{flex:1 1 calc(50% - var(--e1))}
 .p-aide{padding:var(--e3) var(--e3) 0;font-size:12px;line-height:1.45;color:var(--texte-2)}
@@ -1916,7 +1906,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .p-compte{font-size:12px;line-height:1.4;color:var(--texte-3);padding:0 0 var(--e2)}
 .exo-liste{background:var(--panneau);border-radius:var(--r-grand);overflow:hidden}
 .exo-ligne{display:flex;align-items:center;gap:var(--e3);width:100%;
-  padding:12px var(--e3);min-height:50px;border:none;border-top:1px solid var(--filet-liste);
+  padding:12px var(--e3);min-height:50px;border:none;border-top:1px solid var(--filet);
   background:transparent;color:var(--texte);font-family:inherit;text-align:left}
 .exo-ligne:first-child{border-top:none}
 .exo-ligne:active{background:var(--panneau-2)}
@@ -2230,7 +2220,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   border:1.5px solid var(--trait);border-radius:12px;padding:11px 13px;color:var(--texte);
   font-size:15px;font-weight:600}
 .q-opt .q-sous{display:block;font-size:13px;font-weight:400;color:var(--texte-2);margin-top:2px}
-.q-opt.on{border-color:var(--accent);background:var(--accent-fond-choisi)}
+.q-opt.on{border-color:var(--accent);background:var(--accent-fond)}
 .q-replie{margin-top:var(--e3);border:1px solid var(--trait);border-radius:var(--r-grand);background:var(--panneau)}
 .q-replie-tete{display:block;width:100%;text-align:left;background:none;border:0;padding:var(--e3);font:inherit;color:var(--texte);cursor:pointer}
 .q-replie-lib{display:block;font-weight:700}
@@ -2239,7 +2229,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .q-puces{display:flex;flex-wrap:wrap;gap:var(--e2)}
 .q-puce{background:var(--panneau);border:1.5px solid var(--trait);border-radius:999px;
   padding:8px 13px;color:var(--texte);font-size:14px;font-weight:500}
-.q-puce.on{border-color:var(--accent);background:var(--accent-fond-choisi)}
+.q-puce.on{border-color:var(--accent);background:var(--accent-fond)}
 .q-puce.absent{color:var(--texte-2);text-decoration:line-through;background:transparent;border-style:dashed}
 .q-puce .q-absent{display:block;font-size:12px;font-weight:400;text-decoration:none;line-height:1.1}
 .q-opt:focus-visible,.q-puce:focus-visible,.q-ligne-choix:focus-visible,.q-mod:focus-visible,
@@ -2495,7 +2485,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .pc-exo-nom{min-width:0;overflow-wrap:anywhere}
 .pc-exo-detail{font-size:12px;color:var(--texte-2);margin-top:2px;font-variant-numeric:tabular-nums}
 .pc-pourquoi summary{cursor:pointer;color:var(--texte-2);font-size:13px;padding:4px 0}
-.pc-levier{background:linear-gradient(180deg,var(--accent-fond-levier),var(--panneau));border:1px solid var(--accent-sombre);
+.pc-levier{background:linear-gradient(180deg,var(--accent-fond),var(--panneau));border:1px solid var(--accent-sombre);
   border-radius:var(--r-grand);padding:12px 14px;font-size:14px;line-height:1.45}
 .pc-levier b{color:var(--accent)}
 .pc-tous summary{background:var(--panneau);border-radius:var(--r-petit);padding:10px 12px;cursor:pointer}
@@ -2656,7 +2646,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .g-tete-actions{display:flex;gap:6px}
 .g-pastilles{display:flex;gap:6px;margin:8px 0;flex-wrap:nowrap;overflow:hidden;height:30px}
 .g-p{width:30px;height:30px;flex:none;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--fond);position:relative}
-.g-p.g-actif::after{content:"";position:absolute;right:-1px;bottom:-1px;width:9px;height:9px;border-radius:50%;background:var(--presence);border:2px solid var(--panneau)}
+.g-p.g-actif::after{content:"";position:absolute;right:-1px;bottom:-1px;width:9px;height:9px;border-radius:50%;background:var(--reussi);border:2px solid var(--panneau)}
 .g-lignes{height:44px;overflow:hidden}
 .g-ouvert .g-lignes{height:auto;max-height:240px;overflow-y:auto}
 .g-l{font-size:13px;line-height:22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -3005,7 +2995,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .eq-barre{display:flex;height:12px;border-radius:6px;overflow:hidden;margin:9px 0 5px}
 .eq-barre i{display:block}
 .eq-barre .eq-a{background:var(--donnees)}
-.eq-barre .eq-b{background:var(--eq-barre-b)}
+.eq-barre .eq-b{background:var(--trait-bleute)}
 .eq-etiq{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:var(--texte-2)}
 .eq-sous{font-weight:700;font-size:14px;margin-top:12px}
 .eq-causes{margin:4px 0 0;padding-left:18px;font-size:14px;line-height:1.45;color:var(--texte-2)}
@@ -3033,7 +3023,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .bh-fig figcaption{font-size:13px;color:var(--texte-2);margin-top:2px}
 .bh-w{position:relative;aspect-ratio:1/2}
 .bh{width:100%;height:100%;display:block}
-.bh .bh-o{fill:var(--bh-fond);stroke:var(--bh-contour);stroke-width:1.6;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.bh .bh-o{fill:var(--bh-fond);stroke:var(--trait-bleute);stroke-width:1.6;stroke-linejoin:round;vector-effect:non-scaling-stroke}
 .bh .bh-n{fill:var(--bh-corps);stroke:var(--bh-fond);stroke-width:1;stroke-linejoin:round;vector-effect:non-scaling-stroke}
 .bh .bh-m{stroke:var(--bh-fond);stroke-width:1;stroke-linejoin:round;vector-effect:non-scaling-stroke;cursor:pointer}
 .bh .bh-m.sel{stroke:var(--texte);stroke-width:2}
@@ -3165,11 +3155,11 @@ button[id^="btn-retour"]{padding:0 14px;font-size:15px}
 .p-gr-corps > .p-sect:first-child{padding-top:var(--e3)}
 .p-acompleter{margin-top:var(--e3)}
 .p-ac-titre{padding:var(--e3) var(--e3) var(--e1);font-size:13px;font-weight:600;line-height:1.3;color:var(--texte)}
-.p-ac-ligne{display:flex;align-items:center;gap:var(--e3);width:100%;min-height:50px;padding:13px var(--e3);border:none;border-top:1px solid var(--filet-liste);background:transparent;color:var(--texte);font-family:inherit;text-align:left}
+.p-ac-ligne{display:flex;align-items:center;gap:var(--e3);width:100%;min-height:50px;padding:13px var(--e3);border:none;border-top:1px solid var(--filet);background:transparent;color:var(--texte);font-family:inherit;text-align:left}
 .p-ac-ligne:active{background:var(--panneau-2)}
 @media (prefers-reduced-motion:reduce){.p-gr-tete .p-fl{transition:none}}
 .p-ac-plus[hidden]{display:none}
-.p-ac-tout{display:block;width:100%;min-height:44px;padding:0 var(--e3);border:none;border-top:1px solid var(--filet-liste);background:transparent;color:var(--texte-2);font-family:inherit;font-size:13px;font-weight:600;text-align:left}
+.p-ac-tout{display:block;width:100%;min-height:44px;padding:0 var(--e3);border:none;border-top:1px solid var(--filet);background:transparent;color:var(--texte-2);font-family:inherit;font-size:13px;font-weight:600;text-align:left}
 
 /* ── 210 — L'ambre ne signale que l'action principale et l'actif ───────────────────────────────
    Ambre gardé pour : bouton principal, onglet/période actif, cible du jour, records. Étiquettes « Au max »/« recul »,
@@ -3236,7 +3226,7 @@ button[id^="btn-retour"]{padding:0 14px;font-size:15px}
    pas de cadre) restent à la valeur du filet : leur séparation n'est pas un contrôle. */
 button:not(.bloc-tous,.imp-seance,.el-choisir,.dq-ligne,.dq-item,.j-porte,.pc-tous-ligne,.retrouver-carte,.case-programme,.ap-ex,.resultat,.sous-onglet,.bandeau-reprise,.toast-annuler button,.p-ac-ligne,.p-ac-tout,.exo-jour-s),
 input,select,textarea,.ch-serie,.rp-serie,.eff-serie{
-  --trait:var(--trait-controle);--trait-case:var(--trait-controle);--trait-choisi:var(--trait-controle)}
+  --trait:var(--trait-controle);--trait-case:var(--trait-controle)}
 /* L'anneau de focus (WCAG 2.4.7) : 2 px d'ambre à 2 px du contrôle, sur tout ce qui prend le focus — y compris les champs et les
    boutons dont une règle a retiré le contour (`outline:none`, qui ne laissait que la couleur du trait). La case de saisie (le
    champ est rogné par son cadre) porte l'anneau elle-même. `.annee` et le questionnaire gardent le leur. */

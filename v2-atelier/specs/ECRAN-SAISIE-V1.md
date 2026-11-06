@@ -1797,6 +1797,23 @@ partis à « Terminer », par la file, §9.23).
 
 ---
 
+### 7 septies.4 ter « Dans tes notes » — le récap range une note (250, L9, 05/11/2026)
+
+> **Après « Terminer », le récap peut proposer de ranger ce que la personne a écrit.** Un bloc « Dans tes notes » sous les
+> records, une seule lecture par séance, jamais pour une séance importée, une activité (`sansRecap`) ou une Édition. Maquette v4.
+
+**Quand.** L'interrupteur `NOTES_IA_OUVERTE` est allumé ET la colonne `profiles.notes_ia_accord_a` existe. Sans accord, une
+seule fois (`notes_ia_question_a`), l'écran A « Je peux lire tes notes ? » : *Oui, vas-y* / *Non merci* (le texte de la maquette v4, mot pour mot ; « En savoir plus » dit aussi « Anthropic les efface sous 30 jours (jusqu'à 2 ans si un contrôle de sécurité les signale) »). « Non merci » ne revient jamais.
+
+**Quoi.** Quatre genres : effort (« Squat, dernière série, 1 en réserve. »), type de série (échec, dégressive), réglage (« ta note de la presse. »), douleur (locale). Chaque ligne : *Ta note dit « <extrait> » → je propose : <phrase>.* avec ✓ (« Accepter : 1 en réserve ») et ✕ (« Refuser ») de 44 px. Après ✓ : la phrase d'après (« 1 en réserve noté. ») et *Annuler*.
+
+**L'ordre et le plafond.** Effort, type de série, réglage, puis la douleur en dernier ; 3 au plus ; la place de la douleur est réservée avant le plafond.
+
+**Les chemins.** Effort, type de série, douleur : `enregistrerCorrection` (le chemin de `enregistrerManque` : reprise de la séance, geste pur, `Seance.noterGeste`, correction). Réglage : le chemin de la note d'exercice (242). Douleur : `Seance.marquerDouleur` ; son inverse `Seance.retirerDouleur` (une occurrence qui n'était pas marquée).
+
+**Règles N1 à N12** (prouvées par `tests/unit/v2-notes-ia*.test.js` et la section `notes-ia` du banc ; ce ne sont pas des invariants de plan : L9 n'est pas une décision du coach).
+N1 sans accord, ou accord retiré : aucun appel, aucun bloc, aucune lecture locale des notes. · N2 une note attrapée par `estSante` ou la santé incidente ne quitte jamais le téléphone (et la fonction la retire si elle arrivait). · N3 le corps envoyé ne contient ni id, ni slug, ni date, ni `@pseudo`, ni lien ; 500 signes au plus par note. · N4 aucune proposition ne s'applique sans ✓ ; fermer le récap ou ignorer n'écrit rien. · N5 une proposition ne remplit qu'un champ vide (effort nul, série `travail`, pas de marque, note différente). · N6 chaque ✓ passe par `enregistrerCorrection` (effort, type, douleur) ou la note d'exercice (réglage), jamais un `poser*` direct depuis `notes-ia.js`. · N7 l'extrait affiché est une sous-chaîne de la note locale (les mots exacts de la personne). · N8 ordre fixe, 3 au plus, la douleur garde sa place et vient en dernier. · N9 panne, 401/403/429/503, délai, JSON invalide : le récap d'aujourd'hui, sans ligne ni message. · N10 une seule lecture par séance, jamais pour une séance importée, une activité ou une Édition. · N11 « Annuler » défait le seul champ de son geste. · N12 les gestes `note_prise`, `note_refusee`, `note_annulee` (`sessions.gestes`, `{geste, slug, genre}`) ne portent jamais de texte.
+
 ## 7 sexies. La file d'attente ne perd rien en silence — corrigé au chantier 25
 
 Défaut trouvé au banc d'écran en tapant une durée **chiffre par chiffre**. Chaque frappe pose

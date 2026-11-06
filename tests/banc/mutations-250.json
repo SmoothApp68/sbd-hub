@@ -1,0 +1,56 @@
+[
+ {
+  "nom": "250-M1-prefiltre-sans-estSante",
+  "fichier": "v2/js/notes-ia.js",
+  "ancien": "      if (A().estSante(texte)) {\n        if (!douleurProposable(texte)) return;",
+  "nouveau": "      if (false && A().estSante(texte)) {\n        if (!douleurProposable(texte)) return;",
+  "banc": "seance",
+  "sections": [
+   "notes-ia"
+  ],
+  "unitaires": [
+   "tests/unit/v2-notes-ia.test.js"
+  ]
+ },
+ {
+  "nom": "250-M2-premiere-appliquee-sans-coche",
+  "fichier": "v2/js/app.js",
+  "ancien": "      recap.nia.liste = NotesIA.retenir(res, finie, c.envoyer, c.douleurs, etatNotesIA());\n      rendreRecap();",
+  "nouveau": "      recap.nia.liste = NotesIA.retenir(res, finie, c.envoyer, c.douleurs, etatNotesIA());\n      rendreRecap();\n      if (recap.nia.liste.length) accepterNoteIA(recap.nia.liste[0].cle);",
+  "banc": "seance",
+  "sections": [
+   "notes-ia"
+  ],
+  "unitaires": []
+ },
+ {
+  "nom": "250-M3-effort-de-note-ecrase-la-reserve",
+  "fichier": "v2/js/notes-ia.js",
+  "ancien": "          return seulementTravail(s) && (s.rpe === null || s.rpe === undefined) && !s.ressenti;",
+  "nouveau": "          return seulementTravail(s);",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-notes-ia.test.js"
+  ]
+ },
+ {
+  "nom": "250-M4-C1-retire-cote-serveur",
+  "fichier": "supabase/functions/lire-notes/controle-notes.js",
+  "ancien": "    if (e.length < 2 || lisse(note.texte).indexOf(e) < 0) return null;",
+  "nouveau": "    if (e.length < 2) return null;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-notes-ia-controle.test.js"
+  ]
+ },
+ {
+  "nom": "250-M5-douleur-sous-le-plafond",
+  "fichier": "v2/js/notes-ia.js",
+  "ancien": "    var places = douleur ? MAX_PROPOSITIONS - 1 : MAX_PROPOSITIONS;\n    var sortie = ia.slice(0, places);\n    sortie.forEach(function (p) { p.extrait = citationCourte(p.extrait); });\n    if (douleur) sortie.push(douleur);",
+  "nouveau": "    var sortie = ia.slice(0, MAX_PROPOSITIONS);\n    sortie.forEach(function (p) { p.extrait = citationCourte(p.extrait); });\n    if (douleur && sortie.length < MAX_PROPOSITIONS) sortie.push(douleur);",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-notes-ia.test.js"
+  ]
+ }
+]

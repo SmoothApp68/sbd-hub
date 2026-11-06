@@ -2102,6 +2102,18 @@
     return avecExercices(seance, exos);
   }
 
+  // 250 (L9) — l'EXACT INVERSE de `marquerDouleur`, sur une occurrence qui n'était PAS marquée : l'occurrence et ses séries reprennent
+  // `douleur: false`. Sans marque, la séance revient inchangée. « Annuler » de « Lire mes notes » est la seule à l'appeler : « J'ai mal »
+  // n'a pas d'inverse en séance, et L9 ne propose jamais une douleur déjà posée.
+  function retirerDouleur(seance, iExo) {
+    var exos = (seance.exercices || []).slice();
+    var exo = exos[iExo];
+    if (!exo || !occurrenceDouloureuse(exo)) return seance;
+    exos[iExo] = Object.assign({}, exo, { douleur: false,
+      series: (exo.series || []).map(function (sr) { return Object.assign({}, sr, { douleur: false }); }) });
+    return avecExercices(seance, exos);
+  }
+
   // La carte de reprise (§9.20) : le choix fait dans CETTE séance, par
   // exercice — « avant », ou « leger » avec le repli figé au choix. Il vit dans
   // le brouillon (la séance n'a pas de colonne pour lui) ; « Sans coach cette
@@ -2273,7 +2285,13 @@
   // (« Annuler ») — `{ slug }` ; le fait que `faits.chauffesAjoutees` relit. 237-bis : `chauffes_silence` (le 2e « Non merci » met l'exercice en silence,
   // dit une fois) et `chauffes_silence_annule` (« Annuler » retire ce refus).
   var GESTES_CHAUFFES = ['chauffes_ajoutees', 'chauffes_auto', 'chauffes_annulees', 'chauffes_silence', 'chauffes_silence_annule'];
-  var GESTES = ['raccourci', 'machine_prise', 'remplacement', 'ajout_serie', 'retrait', 'serie_comptee'].concat(GESTES_DU_COACH, GESTES_CHAUFFES);
+  // 250 (L9, « Lire mes notes ») — les RÉPONSES de la personne aux propositions du coach sur ses notes : `note_prise` (✓), `note_refusee` (✕),
+  // `note_annulee` (« Annuler »), `{ geste, slug, genre }`, `genre` ∈ `effort` · `type_serie` · `reglage` · `douleur` (sinon le geste ne s'écrit
+  // pas). AUCUN TEXTE DE NOTE dans un geste. Écrits par `Seance.noterGeste` depuis `app.js`, jamais ailleurs ; `equilibres.js` ne les lit pas
+  // (il ne lit que les cinq premiers gestes). Le carnet (A7) les compte par genre.
+  var GESTES_NOTES = ['note_prise', 'note_refusee', 'note_annulee'];
+  var GENRES_NOTES = ['effort', 'type_serie', 'reglage', 'douleur'];
+  var GESTES = ['raccourci', 'machine_prise', 'remplacement', 'ajout_serie', 'retrait', 'serie_comptee'].concat(GESTES_DU_COACH, GESTES_CHAUFFES, GESTES_NOTES);
   function gestePropre(g) {
     if (!g || typeof g !== 'object' || GESTES.indexOf(g.geste) < 0) return null;
     var o = { geste: g.geste };
@@ -2287,6 +2305,10 @@
     if ((g.geste === 'remplacement') && !slug(g.vers)) return null;
     if (slug(g.vers)) o.vers = g.vers;
     if (g.geste === 'ajout_serie') o.n = g.n > 0 ? Math.floor(g.n) : 1;
+    if (GESTES_NOTES.indexOf(g.geste) >= 0) {
+      if (GENRES_NOTES.indexOf(g.genre) < 0) return null;
+      o.genre = g.genre;
+    }
     if (GESTES_DU_COACH.indexOf(g.geste) >= 0) {
       if (typeof g.rang === 'number' && g.rang >= 0 && isFinite(g.rang)) o.rang = Math.floor(g.rang);
       if (typeof g.bouton === 'string' && g.bouton) o.bouton = g.bouton;
@@ -3358,6 +3380,7 @@
     plusTard: plusTard,
     occurrenceDouloureuse: occurrenceDouloureuse,
     marquerDouleur: marquerDouleur,
+    retirerDouleur: retirerDouleur,
     choisirReprise: choisirReprise,
     poserHabituelle: poserHabituelle,
     uuidDOccurrence: uuidDOccurrence,
@@ -3411,6 +3434,7 @@
     noterGeste: noterGeste,
     gestesPropres: gestesPropres,
     GESTES: GESTES,
+    GESTES_NOTES: GESTES_NOTES,
     precedent: precedent,
     correspondant: correspondant,
     derniereSaisie: derniereSaisie,

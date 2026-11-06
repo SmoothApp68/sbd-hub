@@ -22,6 +22,39 @@
 
   function contactAffichable() { return CONTACT !== A_COMPLETER && String(CONTACT).trim() !== ''; }
 
+  // 250 — l'IA (Demander au coach, Lire mes notes). Hors garde de voix : texte légal, comme le reste du fichier.
+  // Sources relues le 05/11/2026 : conditions commerciales d'Anthropic (« Anthropic may not train models on Customer Content
+  // from Services »), son DPA (clauses contractuelles types de la Commission européenne, modules 2 et 3), son centre de
+  // confidentialité (suppression « within 30 days » ; jusqu'à « 2 years » si un contrôle de sécurité signale l'échange).
+  // ⚠️ Décrit « Lire mes notes » et son chemin de retrait : il n'existe pas tant que l'interrupteur de mise en service est éteint.
+  function notesIAOuvertes() {
+    var c = racine.THConfig;
+    if (!c && typeof require === 'function') { try { c = require('./config.js'); } catch (e) { c = null; } }
+    return !!c && c.NOTES_IA_OUVERTE === true;
+  }
+  function blocsIA() {
+    return [
+      { titre: 'L’IA : ce qui part',
+        texte: 'Demander au coach : ta question et la consigne dont tu parles. Lire mes notes : le texte des notes qui contiennent un mot d’entraînement, coupé à 500 signes, sans lien, sans @pseudo ni date, avec le nom de l’exercice et les chiffres de ses séries. Une douleur ne part jamais : elle reste sur ton téléphone.' },
+      { titre: 'L’IA : à qui', texte: 'À Anthropic (Claude), aux États-Unis, qui agit comme sous-traitant, avec les clauses contractuelles types de la Commission européenne.' },
+      { titre: 'L’IA : combien de temps',
+        texte: 'Demander au coach : tes questions sont gardées 30 jours chez TrainHub, sans ton nom. Lire mes notes : rien n’est gardé chez TrainHub. Anthropic efface les textes sous 30 jours, et jusqu’à 2 ans si un contrôle de sécurité les signale.' },
+      { titre: 'L’IA : jamais pour entraîner', texte: 'Anthropic ne s’en sert pas pour entraîner ses modèles.' },
+      { titre: 'L’IA : sur quelle base', texte: 'Ton accord, que tu donnes d’un toucher et que tu retires dans Profil › Mon coach › Lire mes notes.' }
+    ];
+  }
+  // Les blocs de la page Confidentialité : le bloc de l'IA vient après « Où » quand « Lire mes notes » est ouverte.
+  function blocsConfidentialite(blocs) {
+    var ouvert = notesIAOuvertes();
+    var out = [];
+    blocs.forEach(function (b) {
+      if (b.titre === 'Où' && ouvert) b = { titre: b.titre, texte: 'Dans l’Union européenne (Irlande), sauf les textes envoyés à l’IA (ci-dessous).' };
+      out.push(b);
+      if (b.titre === 'Où' && ouvert) blocsIA().forEach(function (x) { out.push(x); });
+    });
+    return out;
+  }
+
   // Une page : { cle, titre, blocs: [{ titre?, texte }] }
   function pages() {
     var mentions = [
@@ -39,16 +72,17 @@
     );
     return [
       { cle: 'mentions', titre: 'Mentions légales', blocs: mentions },
-      { cle: 'confidentialite', titre: 'Confidentialité', blocs: [
+      { cle: 'confidentialite', titre: 'Confidentialité', blocs: blocsConfidentialite([
         { titre: 'Ce qui est enregistré',
-          texte: 'Ton compte, tes séances et leurs séries, tes routines, tes réponses au questionnaire, tes pesées si tu en notes, tes marques de douleur « J’ai mal », tes zones à ménager, et tes relations dans le jeu et la guilde.' },
+          texte: 'Ton compte, tes séances et leurs séries, tes routines, tes réponses au questionnaire, tes pesées si tu en notes, tes marques de douleur « J’ai mal », tes zones à ménager, tes notes d’exercice et de séance, et tes relations dans le jeu et la guilde.' },
         { titre: 'Pourquoi', texte: 'Pour faire fonctionner le coach : sans ton historique, il ne peut rien t’expliquer.' },
-        { titre: 'Où', texte: 'Dans l’Union européenne (Irlande).' },
+        { titre: 'Où', texte: 'Dans l’Union européenne (Irlande), sauf la question que tu poses à « Demander au coach » : elle part à Anthropic, aux États-Unis, avec ton accord.' },
+        // 250 — l'IA : ajoutée plus bas (`blocsIA`), seulement quand « Lire mes notes » est ouverte (THConfig.NOTES_IA_OUVERTE).
         { titre: 'Qui le voit', texte: 'Toi. Tes amis et ta guilde voient seulement ce que tu partages.' },
         { titre: 'Revente et publicité', texte: 'Aucune revente de tes données, aucune publicité.' },
         { titre: 'Tes droits',
           texte: 'Tu peux exporter tes données (Profil › Mon compte › Exporter mes données), supprimer ton compte (Profil, tout en bas) et rectifier ce qui est faux depuis ton profil. Tu peux aussi adresser une réclamation à la CNIL.' }
-      ] },
+      ]) },
       { cle: 'sante', titre: 'Santé', blocs: [{ texte: SANTE }] },
       { cle: 'credits', titre: 'Crédits', blocs: [
         { titre: 'Silhouettes du bonhomme des muscles',

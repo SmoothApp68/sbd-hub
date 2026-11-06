@@ -91,7 +91,9 @@ function profilEcran(profil, options) {
     // 116 (03 #6) — une colonne refusée pour de bon : la phrase en tête du Profil.
     refusProfil: opt.refusProfil || null,
     // 213 — les groupes repliés : le groupe ouvert, les routines (pour le résumé de « Mon programme »).
-    groupeProfilOuvert: null, routines: [], Routines: { visibles: (l) => l }
+    groupeProfilOuvert: null, routines: [], Routines: { visibles: (l) => l },
+    // 250 — « Lire mes notes » : absente tant que l'interrupteur est fermé.
+    sectionNotesIA: () => null
   };
   vm.createContext(ctx);
   vm.runInContext(extraire('jeuAllume'), ctx);

@@ -403,6 +403,15 @@
     //     par la personne) prime, sans date ; sinon la note de la dernière fois, sauf si « Ne plus afficher » désigne la série qui la porte.
     //     Rend `{ mode: 'epinglee' | 'derniere', texte, jour, serieId }` ou `null`.
     function espacesNormalises(t) { return String(t === null || t === undefined ? '' : t).replace(/\s+/g, ' ').trim(); }
+    // 250 — LA RÈGLE « UNE NOTE IDENTIQUE À LA CONSIGNE DE LA ROUTINE N'EST PAS UNE NOTE », UNE SEULE FOIS : la note de la dernière fois
+    // (242) et la lecture des notes par l'IA (L9, `notes-ia.js`) la lisent toutes deux. `consigne` : un texte ou une liste de textes (les
+    // consignes de la routine pour cet exercice). Un texte vide, ou égal (espaces normalisés) à une consigne, n'est pas une note.
+    function estUneNote(texte, consigne) {
+      var t = espacesNormalises(texte);
+      if (t === '') return false;
+      var consignes = (Array.isArray(consigne) ? consigne : [consigne]).map(espacesNormalises).filter(function (c) { return c !== ''; });
+      return consignes.indexOf(t) < 0;
+    }
     var memoNotes = { cle: null, parClef: {} };
     function noteDeLaDerniereFois(c, slug, consigne, sauf) {
       if (!slug) return null;
@@ -418,10 +427,7 @@
         var siennes = (c.seriesDe(se.id) || []).filter(function (x) { return x && x.exercise_slug === slug; });
         if (!siennes.some(function (x) { return Modele.estTravail(x); })) continue;
         // La dernière séance où l'exercice a été fait : la note est dans celle-ci, ou nulle part.
-        var notees = Modele.trierParRang(siennes).filter(function (x) {
-          var t = espacesNormalises(x.note);
-          return t !== '' && consignes.indexOf(t) < 0;
-        });
+        var notees = Modele.trierParRang(siennes).filter(function (x) { return estUneNote(x.note, consignes); });
         if (notees.length) {
           var d = notees[notees.length - 1];
           sortie = { texte: String(d.note).trim(), serieId: d.id === undefined ? null : d.id, jour: se.debut ? jourDeLaSeance(se.debut) : null };
@@ -2355,6 +2361,7 @@
       seancesDeLExercice: seancesDeLExercice,
       tenuesDeLExercice: tenuesDeLExercice,
       noteDeLaDerniereFois: noteDeLaDerniereFois,
+      estUneNote: estUneNote,
       noteDeLExercice: noteDeLExercice,
       pointsDeLExercice: pointsDeLExercice,
       premierEssaiRate: premierEssaiRate,

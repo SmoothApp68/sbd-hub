@@ -603,6 +603,21 @@ Pendant cette période, l'utilisateur a le journal de bord : ses séances, ses c
 
 « Demander au coach » (la feuille « Pourquoi », ECRAN-SAISIE §3.10 ter) fait rédiger par un modèle trois phrases sur la consigne **que le plan a déjà décidée**. L'IA ne calcule rien, ne change aucune consigne, ne propose aucun programme, ne prédit pas, ne compare pas, ne parle ni d'assiduité ni de durée d'absence. Chaque nombre de sa réponse doit être dans le contexte (contrôlé côté serveur) : sinon la réponse n'est pas montrée. Aucune IA dans un calcul ou un verdict (doctrine du projet) : celle-ci habille un fait, elle ne le produit pas.
 
+### 3.1 quater L'IA lit une note et propose de la ranger ; elle ne décide rien — 05/11/2026, décision d'Aurélien (250, L9)
+
+« Lire mes notes » (le récap de fin de séance, ECRAN-SAISIE §7 septies.4 ter) fait lire à un modèle les notes que la personne a écrites sur sa séance terminée. Dix lignes de principe :
+
+1. L'IA **lit**, elle n'écrit rien et ne décide rien : elle rend des **codes** dans un schéma fermé, avec un extrait de la note.
+2. Quatre genres seulement : **effort**, **type de série** (échec, dégressive), **réglage**, **douleur**. Aucune variante d'exercice (hors du lot, décision du 05/11).
+3. La **douleur** est repérée sur le téléphone ; elle ne part jamais. Elle a sa place gardée dans le plafond (3 propositions, dont au plus 2 de l'IA) et vient en dernier.
+4. Seules les notes qui passent le filtre du téléphone partent : un mot d'entraînement, ni santé, ni santé incidente, ni tiers, ni injection, ni lien, ni date, 500 signes au plus.
+5. Le code **vérifie** chaque code (serveur : C1 à C9, `lire-notes/controle-notes.js` ; téléphone : `THNotesIA.retenir`) ; une proposition qui échoue à un contrôle disparaît sans bruit.
+6. **Rien ne s'applique sans un toucher** (✓) ; chaque ✓ passe par un chemin existant (`enregistrerCorrection`, la note d'exercice) ; « Annuler » défait le seul champ de son geste.
+7. Les phrases sont **fixes** (VOIX « Les notes (250) ») ; la citation est toujours les mots exacts de la personne.
+8. **Rien n'est gardé** chez TrainHub ; Anthropic efface sous 30 jours (jusqu'à 2 ans si un contrôle de sécurité les signale) et ne s'en sert pas pour entraîner ses modèles. La ZDR n'est pas demandée.
+9. **Un accord explicite** (Profil › Mon coach › Lire mes notes, retirable à tout moment) ; sans accord, aucune lecture, même locale, aucun bloc.
+10. **Mise en service par un interrupteur** (`THConfig.NOTES_IA_OUVERTE`, éteint par défaut) : allumé par une PR d'une ligne seulement après que les 60 cas ont été joués contre la fonction déployée (`v2-atelier/banc/notes-ia/`).
+
 ### 3.2 Le vrai gisement : les seuils de détection
 
 Plutôt que chercher le programme idéal, utiliser les 1 221 séances pour répondre à : **combien de séances faut-il avant de pouvoir affirmer qu'un utilisateur progresse réellement, plutôt que de bouger dans le bruit ?**

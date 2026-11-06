@@ -716,7 +716,10 @@
                        'objectifs_entretien',
                        // 242 (v2_131, jsonb NOT NULL DEFAULT '{}') — les notes d'exercice : `{ slug: { texte, a } }` (la note épinglée, modifiée par la
                        // personne) ou `{ slug: { masquee: <id de la série>, a } }` (« Ne plus afficher »). FACULTATIVE (`COLONNES_FACULTATIVES`).
-                       'notes_exercices'];
+                       'notes_exercices',
+                       // 250 (v2_137, timestamptz NULL) — « Lire mes notes » (L9) : l'accord (NULL : pas d'accord, ou retiré) et la question posée
+                       // (« Oui » ou « Non merci », elle ne revient jamais). FACULTATIVES (`COLONNES_FACULTATIVES`).
+                       'notes_ia_accord_a', 'notes_ia_question_a'];
   // 136 (audit du 16/10, 03 #18) — `onboarding_completed` n'est plus écrite (ni lue) : plus rien ne la décide depuis
   // 60-2a (`questionnaire_fait_le`). La colonne reste en base.
 
@@ -812,6 +815,11 @@
         if (typeof src[c] === 'string' && !isNaN(Date.parse(src[c]))) sortie[c] = src[c];
         return;
       }
+      // 250 — L'accord et la question de « Lire mes notes » : un instant (texte) OU `null` (accord retiré) ; jamais un autre type.
+      if (c === 'notes_ia_accord_a' || c === 'notes_ia_question_a') {
+        if (src[c] === null || (typeof src[c] === 'string' && !isNaN(Date.parse(src[c])))) sortie[c] = src[c];
+        return;
+      }
       sortie[c] = src[c];
     });
     return sortie;
@@ -873,7 +881,7 @@
     duree_seance_min: 'Durée d’une séance', objectif: 'But d’entraînement', priorites: 'Priorités', temps_reponse: 'Ton temps',
     historique_declare: 'Historique', programme_choix: 'Ton programme', zones_a_menager: 'Zone à ménager', zones_raides: 'Zones raides',
     exercices_ecartes: 'Exercices écartés', jeu_actif: 'Le jeu', compte_prive: 'Compte privé', ma_salle: 'Ma salle',
-    marche_reponses: 'Marche suivante', completer_refus: 'Ce qui manque à tes séances', assistant_accord_a: 'Demander au coach', cartes_semaine: 'Les cartes de ta semaine', objectifs_entretien: 'Objectifs en entretien', notes_exercices: 'Tes notes d’exercice'
+    marche_reponses: 'Marche suivante', completer_refus: 'Ce qui manque à tes séances', assistant_accord_a: 'Demander au coach', cartes_semaine: 'Les cartes de ta semaine', objectifs_entretien: 'Objectifs en entretien', notes_exercices: 'Tes notes d’exercice', notes_ia_accord_a: 'Lire mes notes', notes_ia_question_a: 'Lire mes notes'
   };
   // « Pas enregistré : Bio. La base a refusé cette valeur ; celle d'avant est gardée. » — `null` sans colonne.
   function phraseRefusProfil(colonnes) {

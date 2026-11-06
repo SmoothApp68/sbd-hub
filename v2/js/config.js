@@ -14,7 +14,11 @@
     // ne vit que dans Supabase (Authentication › Bot and Abuse Protection), JAMAIS dans le dépôt. VIDE = captcha
     // désactivé côté app : aucun script chargé, aucun widget, appels d'authentification identiques à ceux d'avant.
     // Ordre de mise en service : poser la clé ICI et la mettre en ligne AVANT d'activer le réglage dans Supabase.
-    TURNSTILE_SITE_KEY: ''
+    TURNSTILE_SITE_KEY: '',
+    // 250 (L9) — « Lire mes notes » : l'interrupteur de MISE EN SERVICE (décision d'Aurélien du 05/11/2026). FAUX : l'accord ne s'affiche
+    // pas, la section du Profil n'existe pas, aucune note n'est lue ni envoyée. On l'allume par une PR d'une ligne, une fois les 60 cas
+    // joués par Claude.ai contre `lire-notes` déployée (`v2-atelier/banc/notes-ia/`).
+    NOTES_IA_OUVERTE: false
   };
   racine.THConfig = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

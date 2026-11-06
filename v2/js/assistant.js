@@ -275,7 +275,7 @@
   }
 
   var api = {
-    estSante: estSante, MOTIFS_SANTE: MOTIFS_SANTE, PARTIES_CORPS: PARTIES_CORPS, SYMPTOMES: SYMPTOMES, MOTS_DE_SEANCE: MOTS_DE_SEANCE, NOMS_EXERCICES: NOMS_EXERCICES, MOTIFS_DATE: MOTIFS_DATE, contientDate: contientDate, issueAccordRefuse: issueAccordRefuse,
+    estSante: estSante, MOTIFS_SANTE: MOTIFS_SANTE, PARTIES_CORPS: PARTIES_CORPS, SYMPTOMES: SYMPTOMES, MOTS_DE_SEANCE: MOTS_DE_SEANCE, NOMS_EXERCICES: NOMS_EXERCICES, LIENS_EXERCICES: LIENS_EXERCICES, MOTIFS_DATE: MOTIFS_DATE, contientDate: contientDate, issueAccordRefuse: issueAccordRefuse,
     normaliser: normaliser, sansDate: sansDate, contexteDe: contexteDe,
     cransDe: cransDe, puces: puces, TEXTES: TEXTES, MAX_PAR_JOUR: MAX_PAR_JOUR, MAX_QUESTION: MAX_QUESTION,
     resteDuJour: resteDuJour, noterReste: noterReste, oublier: oublier, demander: demander

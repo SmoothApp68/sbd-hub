@@ -8942,7 +8942,7 @@
   //   · la part : Prudent 50 %, Normal 60 %, Franc 70 % de la tenue max du jour (les coachs : 50 à 80 %), arrondie à la
   //     seconde la plus proche, au moins 2 s ;
   //   · une tenue suivante plus longue que sa cible NE CHANGE PAS la cible (une seule tenue max par séance) ;
-  //   · sous 5 s de tenue max, un fait sourcé (Sommer) : les coachs travaillent la marche d'en dessous ;
+  //   · sous 5 s de tenue max, un réglage, aucune source (MOTEUR §23) : une convention de coachs, qui travaillent la marche d'en dessous ;
   //   · la carte « marche suivante » lit la tenue max de chaque séance (Franc : la dernière) contre le seuil du catalogue.
   var PARTS_DE_TENUE = { prudent: 50, normal: 60, franc: 70 };   // % de la tenue max du jour
   var TENUE_MIN_S = 2;
@@ -11604,10 +11604,10 @@
   var SOURCES = {
     // L'effort visé : « garde N ».
     reserve: [
-      { type: 'etude', auteur: 'Refalo', annee: 2024, effectif: '26 pratiquants entraînés',
-        texte: 'Refalo 2024 (26 pratiquants entraînés, quadriceps) : à 1-2 reps de l’échec, le muscle progresse presque autant qu’à l’échec.' },
+      { type: 'etude', auteur: 'Refalo', annee: 2024, effectif: '18 pratiquants entraînés',
+        texte: 'Refalo 2024 (18 pratiquants entraînés, quadriceps) : à 1-2 reps de l’échec, le muscle progresse presque autant qu’à l’échec.' },
       { type: 'etude', auteur: 'Robinson', annee: 2024, effectif: '55 études',
-        texte: 'Robinson 2024 (55 études réunies) : plus près de l’échec, un peu plus de croissance musculaire, un effet qui s’aplatit au-delà de 2 reps en réserve ; pour la force, rien de plus.' }
+        texte: 'Robinson 2024 (55 études réunies, analyse exploratoire) : la force progresse de la même façon loin ou près de l’échec ; le muscle croît davantage à mesure qu’on s’en approche.' }
     ],
     // Le recul calé sur le max du jour : la table reps × réserve, le max lu sur une série.
     'recul.max': [
@@ -11654,7 +11654,7 @@
     // 221 — le bloc Hypertrophie : le muscle gagne à rester proche de l'échec ; la grosse série garde le contact avec le lourd.
     'bloc.hypertrophie': [
       { type: 'etude', auteur: 'Robinson', annee: 2024, effectif: '55 études',
-        texte: 'Robinson 2024 (55 études réunies) : plus près de l’échec, un peu plus de croissance musculaire, un effet qui s’aplatit au-delà de 2 reps en réserve ; pour la force, rien de plus.' },
+        texte: 'Robinson 2024 (55 études réunies, analyse exploratoire) : la force progresse de la même façon loin ou près de l’échec ; le muscle croît davantage à mesure qu’on s’en approche.' },
       { type: 'coachs', auteur: 'programmes de powerbuilding',
         texte: 'Un bloc d’accumulation (plus de volume, plus de reps) avant un bloc plus lourd : la pratique des programmes de powerbuilding.' }
     ],

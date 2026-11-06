@@ -7081,6 +7081,10 @@ const SETS_IMPORTES = [
   ok('[40] taper le nom ouvre la page d’exercice, et l’URL la porte',
     (await visible())[0] === 'vue-exercice' && (await url()) === '/exercice/presse-vicies',
     JSON.stringify(await visible()) + ' · ' + (await url()));
+  // 258-1 (b) — L'ONGLET DU BAS RESTE CELUI D'OÙ L'ON VIENT (ici : le détail d'une séance, donc Séances).
+  const ongletActif = () => page.evaluate(() => Array.from(document.querySelectorAll('.onglet.actif')).map((o) => o.dataset.vue).join(','));
+  ok('[258] la fiche ouverte depuis le détail d’une séance allume Séances',
+    (await ongletActif()) === 'racine', await ongletActif());
 
   // ── 7. LA TABLE PAR REPS : brut, lignes déduites grisées ────────────────
   const tableExo = () => page.evaluate(() =>
@@ -7206,6 +7210,18 @@ const SETS_IMPORTES = [
   ok('[40] le bouton retour de la page ramène D’OÙ L’ON VIENT',
     (await visible())[0] === 'vue-detail' && (await url()) === '/seance/' + ID_MIXTE,
     JSON.stringify(await visible()) + ' · ' + (await url()));
+  // 258-1 (b) — depuis Progression, la fiche garde Progression ; rechargée directement, elle allume Séances.
+  await aller('/progression');
+  const ouvertDepuisProgression = await page.evaluate(() => { const b = document.querySelector('.bloc-exo'); if (b) b.click(); return !!b; });
+  await attendreQue(async () => (await visible())[0] === 'vue-exercice').catch(() => {});
+  ok('[258] la fiche ouverte depuis Progression garde l’onglet Progression',
+    ouvertDepuisProgression && (await visible())[0] === 'vue-exercice' && (await ongletActif()) === 'progression',
+    ouvertDepuisProgression + ' · ' + JSON.stringify(await visible()) + ' · ' + (await ongletActif()));
+  await aller(await url());
+  ok('[258] rechargée directement, la fiche allume Séances (aucune origine)',
+    (await visible())[0] === 'vue-exercice' && (await ongletActif()) === 'racine',
+    JSON.stringify(await visible()) + ' · ' + (await ongletActif()));
+  await aller('/seance/' + ID_MIXTE);
   await terminer().catch(() => {});
 
   // ══ 47. LES DÉFAUTS DE L'ÉTAT DES LIEUX DU 18/09 ═════════════════════════

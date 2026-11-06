@@ -95,3 +95,25 @@ describe('256 D7 — la borne de 300 km se dit', () => {
   test('la borne est 300 km', () => { expect(Modele.MAX_DISTANCE_M).toBe(300000); });
 });
 
+describe('256 (a) — le calage aux haltères demande la charge des DEUX haltères', () => {
+  const DEBUT = '2026-10-29T10:00:00+01:00';
+  const silenceC = { etat: 'silence', raison: 'premiere_fois', fondement: {} };
+  let n = 0;
+  const id = () => 'h' + (++n);
+  const planPour = (slug, equipement) => {
+    const se = S.ajouterExercice(S.creer({ id: 'S', userId: 'u', idSerie: id }), slug, id, { series: 3, reps_visees: 10 });
+    const CAT = {}; CAT[slug] = { equipement, muscles_primaires: ['biceps'] };
+    const consignes = {}; consignes[slug] = { consigne: silenceC, pas: 2 };
+    return T.planDeSeance({ seance: { id: 'S', debut: DEBUT, edition: false, exercices: se.exercices }, consignes, catalogue: CAT, paris: [], suites: {}, debutant: false }).exercices[0];
+  };
+  test('haltères : « Ta charge habituelle, les deux haltères ensemble ? »', () => {
+    expect(planPour('curl', 'haltere').calage.libelles.question).toBe('Ta charge habituelle, les deux haltères ensemble ?');
+  });
+  test('barre : la question reste « Ta charge habituelle ? »', () => {
+    expect(planPour('rowing', 'barre').calage.libelles.question).toBe('Ta charge habituelle ?');
+  });
+  test('le calcul ne change pas : la charge habituelle donnée est la première série, telle quelle', () => {
+    const c = M.calagePremiereFois({ equipement: 'haltere', reps: 10, debutant: false, habituelle: 24, series: [] });
+    expect(c.suivante.charge).toBe(24);
+  });
+});

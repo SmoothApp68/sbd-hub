@@ -899,7 +899,8 @@
     var declinee = Object.prototype.hasOwnProperty.call(habs, slug) && habs[slug] === 0;
     r.demandeHabituelle = e.debutant !== true && r.faites === 0 && r.habituelle === null && !declinee;
     if (r.demandeHabituelle) { r.suivante = null; r.iSerie = null; r.libelles = Object.assign({}, r.libelles, {
-      question: 'Ta charge habituelle ?', pour: 'Pour ' + r.n + ' reps environ', passer: 'Je ne sais pas : on la trouve ensemble' }); }
+      // 256 — aux haltères la charge notée est la PAIRE (`THModele.chargeEstLaPaire`, MOTEUR §10.1) : la question le dit, le calcul ne change pas.
+      question: racine.THModele.chargeEstLaPaire(cat) ? 'Ta charge habituelle, les deux haltères ensemble ?' : 'Ta charge habituelle ?', pour: 'Pour ' + r.n + ' reps environ', passer: 'Je ne sais pas : on la trouve ensemble' }); }
     return r;
   }
 

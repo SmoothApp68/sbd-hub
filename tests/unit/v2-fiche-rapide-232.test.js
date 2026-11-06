@@ -15,21 +15,29 @@ const AVANT_232 = '4950551e';   // main avant le chantier 232
 // 255 (06/11/2026) — le report de zone compte désormais la réserve (visée et notée) : une règle VOULUE, hors du périmètre de 232. L'ANCIEN
 // moteur la reçoit donc à l'identique (trois remplacements exacts, qui échouent bruyamment si le texte d'avant change), pour que ce test
 // continue de ne comparer QUE la vitesse du chantier 232.
+// 255 bis (06/11/2026) : le report a gagné les gros crans, la plus petite réserve notée et la salle ; l'ancien moteur reçoit donc les
+// TROIS fonctions du report telles que la version courante les écrit (extraites de son source), plus les appels.
+const FONCTIONS_255 = ['reportDeZone', 'chargesDeTravail', 'reportSur'];
+function fonction255(src, nom) {
+  const i = src.indexOf('  function ' + nom + '(');
+  if (i === -1) throw new Error('255 : « function ' + nom + ' » introuvable');
+  const j = src.indexOf('\n  }\n', i);
+  return { i, j: j + 5, texte: src.slice(i, j + 5) };
+}
 const RAPIECES_255 = [
-  ['var estimee = unRMEpley(P, n) / unRMEpley(1, z.bas);',
-    'var rSource = nombre(L.reserve); var rVisee = reserveVisee({ zone: z.cle, role: \'ligne\', reglage: p.reglage });\n' +
-    '    var estimee = unRMEpley(P, n + (rSource === null ? 0 : rSource)) / unRMEpley(1, z.bas + (rVisee === null ? 0 : rVisee));'],
-  ['return { debut: v.debut, palier: nombre(v.palier), niveau: A.length ? niveauValide(A) : null };',
-    'return { debut: v.debut, palier: nombre(v.palier), niveau: A.length ? niveauValide(A) : null, reserve: A.length ? Palier().reserveDeSerie(A[A.length - 1]) : null };'],
-  ['function reportSur(seances, avant, zoneAvant, zone, equipement) {', 'function reportSur(seances, avant, zoneAvant, zone, equipement, reglage) {'],
-  ['seances: lues, avant: avant, zoneAvant: zoneAvant, zone: zone,\n', 'seances: lues, avant: avant, zoneAvant: zoneAvant, zone: zone, reglage: reglage,\n'],
-  ['var report = reportSur(seances, avant, consigne.zone, zone, equipement);', 'var report = reportSur(seances, avant, consigne.zone, zone, equipement, (options || {}).reglage);'],
-  ['var r = reportSur(seances, avant, zoneAvant, consigne.zone, o.equipement);', 'var r = reportSur(seances, avant, zoneAvant, consigne.zone, o.equipement, o.reglage);'],
+  ['var report = reportSur(seances, avant, consigne.zone, zone, equipement);', 'var report = reportSur(seances, avant, consigne.zone, zone, equipement, (options || {}).reglage, (options || {}).salle || null);'],
+  ['var r = reportSur(seances, avant, zoneAvant, consigne.zone, o.equipement);', 'var r = reportSur(seances, avant, zoneAvant, consigne.zone, o.equipement, o.reglage, o.salle || null);'],
+  ['depuis: { date: r.depuis.debut, palier: r.depuis.palier, niveau: r.depuis.niveau },',
+    'depuis: r.depuis.reserve === null || r.depuis.reserve === undefined ? { date: r.depuis.debut, palier: r.depuis.palier, niveau: r.depuis.niveau } : { date: r.depuis.debut, palier: r.depuis.palier, niveau: r.depuis.niveau, reserve: r.depuis.reserve },'],
   ['{ equipement: o.equipement, salle: salle }),', '{ equipement: o.equipement, salle: salle, reglage: o.reglage }),']
 ];
 function lireAncien(nom) {
   let src = cp.execFileSync('git', ['show', AVANT_232 + ':v2/js/' + nom + '.js'], { cwd: RACINE, maxBuffer: 64 * 1024 * 1024 }).toString('utf8');
   if (nom === 'moteur') {
+    const courant = fs.readFileSync(path.join(RACINE, 'v2/js/moteur.js'), 'utf8');
+    FONCTIONS_255.forEach((f) => { const o = fonction255(src, f), n = fonction255(courant, f); src = src.slice(0, o.i) + n.texte + src.slice(o.j); });
+    const gros = courant.slice(courant.indexOf('  // 255 bis — au-dessus de cette perte'), courant.indexOf('  function reportDeZone(o) {'));
+    src = src.replace('  function reportDeZone(o) {', () => gros + '  function reportDeZone(o) {');
     RAPIECES_255.forEach(([a, b]) => {
       if (src.indexOf(a) === -1) throw new Error('255 : le moteur d\'avant 232 ne contient plus « ' + a + ' »');
       src = src.replace(a, () => b);

@@ -6457,7 +6457,7 @@
   //   I139  sous la première série de travail d'un exercice à reculs, le coach parle en cas G, jamais I
   // I143 (255, MOTEUR §9.10) — LE REPORT DE ZONE COMPTE LA RÉSERVE VISÉE : la charge reportée sur une nouvelle zone (origine « estimée »)
   // donne, au bas de la zone PLUS la réserve visée de la zone pour le réglage de la séance, un max estimé qui ne dépasse jamais celui de
-  // la série dont elle part (palier × niveau, sans réserve notée : l'hypothèse prudente). Sans cela, la nouvelle zone était plus dure
+  // la série dont elle part (palier × (niveau + la plus petite réserve notée, 0 si inconnue : l’hypothèse prudente)), reps visées baissées au cran du dessus comprises (255 bis). Sans cela, la nouvelle zone était plus dure
   // que le plan ne le disait (152,5 × 5 en Lourd → Mix 147,5 × 6, soit 2 % de plus).
   function verifierReportDeZone(plan, erreurs) {
     var M = Moteur();
@@ -6468,7 +6468,7 @@
       var P = nombre(d.palier), n = nombre(d.niveau);
       if (charge === null || vise === null || P === null || n === null) return;
       var rv = M.reserveVisee({ zone: c.zone, role: 'ligne', reglage: plan.reglage });
-      var tenable = M.unRMEpley(charge, vise + (rv === null ? 0 : rv)), source = M.unRMEpley(P, n);
+      var tenable = M.unRMEpley(charge, vise + (rv === null ? 0 : rv)), rs = nombre(d.reserve), source = M.unRMEpley(P, n + (rs === null ? 0 : rs));
       if (tenable > source + 1e-6) {
         erreurs.push('I143 — exercice ' + i + ' (' + x.slug + ') : le report en ' + c.zone + ' propose ' + charge + ' kg × ' + vise +
           ' (réserve visée ' + (rv === null ? 0 : rv) + ') : un max estimé de ' + (Math.round(tenable * 10) / 10) + ' kg, sous ' + P + ' kg × ' + n + ' il n’est que de ' + (Math.round(source * 10) / 10));

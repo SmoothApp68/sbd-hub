@@ -1752,8 +1752,9 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .exo-jour-s b{color:var(--accent);font-weight:500}
 /* Les blocs de l'historique sont ceux du détail de séance : posés DANS la carte
-   du jour, ils n'ont pas à porter une seconde surface. */
-.exo-jour .bloc{background:transparent;margin-bottom:0}
+   du jour, ils n'ont pas à porter une seconde surface — ni son reflet haut (258-1 c :
+   la règle des cartes, plus bas, le leur donnait, et un petit arc recouvrait le coin de l'en-tête). */
+.exo-jour .bloc{background:transparent;margin-bottom:0;box-shadow:none}
 .exo-jour .exos{padding:0 0 6px}
 .exo-jour .resume{padding:0 0 6px}
 .exo-jour .entetes,.exo-jour .serie{padding:0}

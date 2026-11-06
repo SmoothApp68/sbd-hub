@@ -311,6 +311,8 @@ describe('§10 bis — les haltères, arrondis aux charges déclarées', () => {
     const hist = [{ seance: { id: 'S2', debut: jour('10-10') }, series: [brute(42, 10), brute(42, 10), brute(42, 10)] },
       { seance: { id: 'S1', debut: jour('10-06') }, series: [brute(42, 9), brute(42, 9), brute(42, 9)] }];
     const c = M.consigneDExercice(hist, undefined, AVANT, Object.assign({ salle: salle() }, DH)).consigne;
+    // 255 : Hypertrophie → Volume, le report compte la réserve visée (40,98 estimé, avant 42). 255 bis : l'arrondi part de la charge
+    // de la salle la plus proche de l'estimation (40), pas de la charge source hors grille (42 → cran du dessous 35).
     expect(c.ligne.charge).toBe(40);
     expect(M.dansLaSalle(salle(), c.ligne.charge)).toBe(true);
   });

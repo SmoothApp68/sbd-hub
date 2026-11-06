@@ -685,7 +685,7 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
       .map((v) => v.source).sort()).toEqual(['début de bloc 0', 'report 0', 'report 0']);
     expect(vues.filter((v) => v.famille === 'départ' && /^Première fois ici : on part de ta charge de départ, 22,5 kg\.$/
       .test(v.phrase.replace(/[\u00a0\u202f]/g, ' '))).length).toBe(1);
-    expect(vues.filter((v) => v.famille === 'douleur' && /^Plus de reps : 20/.test(v.phrase)).length).toBe(2);
+    expect(vues.filter((v) => v.famille === 'douleur' && /^Plus léger, plus de reps : 15/.test(v.phrase)).length).toBe(2);
     expect(vues.filter((v) => v.famille === 'frères' && / → /.test(v.phrase)).length).toBe(5);
     // La phrase « Je ne compte pas la dernière série » est bien jouée.
     expect(vues.filter((v) => v.famille === 'chute' && /Je ne compte pas la dernière série/.test(v.phrase)).length)

@@ -1,0 +1,93 @@
+[
+ {
+  "nom": "255-1-cible-sans-reserve-visee",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "unRMEpley(1, z.bas + (rVisee === null ? 0 : rVisee))",
+  "nouveau": "unRMEpley(1, z.bas)",
+  "unitaires": [
+   "tests/unit/v2-report-de-zone.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "255-2b-source-sans-reserve-notee",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var estimee = unRMEpley(P, n + (rSource === null ? 0 : rSource))",
+  "nouveau": "var estimee = unRMEpley(P, n)",
+  "unitaires": [
+   "tests/unit/v2-report-de-zone.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "255-3-reglage-perdu-dans-la-consigne",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var r = reportSur(seances, avant, zoneAvant, consigne.zone, o.equipement, o.reglage, o.salle || null);",
+  "nouveau": "var r = reportSur(seances, avant, zoneAvant, consigne.zone, o.equipement, undefined, o.salle || null);",
+  "unitaires": [
+   "tests/unit/v2-report-de-zone.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "255-4-reps-du-bas-jamais-testees",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "for (var r = haut; r >= bas; r--) {",
+  "nouveau": "for (var r = haut; r > bas; r--) {",
+  "unitaires": [
+   "tests/unit/v2-report-de-zone.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "255-5-reserve-source-derniere-serie",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "reserve: reserves.length ? Math.min.apply(null, reserves) : null",
+  "nouveau": "reserve: reserves.length ? reserves[reserves.length - 1] : null",
+  "unitaires": [
+   "tests/unit/v2-report-de-zone.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "255-6-arrondi-hors-salle",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "return voisineSalleComprise(vues, avant, charge, equipement, sens, salle || null); }",
+  "nouveau": "return chargeVoisine(vues, avant, charge, equipement, sens); }",
+  "unitaires": [
+   "tests/unit/v2-report-de-zone.test.js",
+   "tests/unit/v2-ma-salle.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "255-7-gros-cran-ignore-la-source",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "if (unRMEpley(charge, r + reserveVisee) <= maxSource + 1e-6) return r;",
+  "nouveau": "if (true) return r;",
+  "unitaires": [
+   "tests/unit/v2-report-de-zone.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "255-8-seuil-des-10-pour-cent-supprime",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "(estimee - charge) / estimee > REPORT_GROS_CRAN",
+  "nouveau": "(estimee - charge) / estimee > -1",
+  "unitaires": [
+   "tests/unit/v2-report-de-zone.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "255-9-montee-des-reps-aussi-au-plus-leger",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "(options || {}).reglage, (options || {}).salle || null, true);",
+  "nouveau": "(options || {}).reglage, (options || {}).salle || null, false);",
+  "unitaires": [
+   "tests/unit/v2-j-ai-mal.test.js"
+  ],
+  "banc": "aucun"
+ }
+]

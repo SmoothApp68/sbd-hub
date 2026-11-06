@@ -138,6 +138,7 @@ describe('123 — le coach lit les tranches (§10 bis)', () => {
     const hist = [{ seance: { id: 'S2', debut: jour('10-10') }, series: [brute(22, 10), brute(22, 10), brute(22, 10)] },
       { seance: { id: 'S1', debut: jour('10-06') }, series: [brute(22, 9), brute(22, 9), brute(22, 9)] }];
     const c = M.consigneDExercice(hist, undefined, AVANT, Object.assign({ salle: salleDe(SALLE_AUREL) }, DH)).consigne;
+    // 255 : le report compte la réserve visée (21,5 estimé, avant 22) ; 255 bis : l’arrondi part de la charge de la salle la plus proche (2 × 10).
     expect(c.ligne.charge).toBe(20);
   });
 

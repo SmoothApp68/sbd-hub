@@ -77,7 +77,7 @@ describe('53-1 — reportDeZone, les 39 cas du fichier', () => {
     const r = M.reportDeZone({ seances: [{ debut: '2026-09-01T10:00:00Z', palier: 100, niveau: 5 }],
       avant: '2026-09-08T10:00:00Z', zoneAvant: 'lourd', zone: 'mix', cran: (x, s) => x + s * 2.5 });
     expect(Object.keys(r).sort()).toEqual(['charge', 'depuis', 'origine', 'visee']);
-    expect(r.charge).toBe(95);   // 97,2 estimé, au cran inférieur
+    expect(r.charge).toBe(90);   // 255 : 100 × 5 → Mix, réglage Normal (2 en réserve visée) : 92,2 estimé, au cran inférieur (avant 255 : 97,2 → 95)
   });
 
   test('sans cran connu en dessous : la charge reste inconnue (« le cran en dessous »), jamais inventée', () => {
@@ -86,10 +86,10 @@ describe('53-1 — reportDeZone, les 39 cas du fichier', () => {
     expect([r.charge, r.visee, r.origine]).toEqual([null, 6, 'estimee']);
   });
 
-  test('vers une zone plus lourde, le cran inférieur se lit en montant : 100 × 7 → Lourd, 110 (112,1 estimé)', () => {
+  test('vers une zone plus lourde, le cran inférieur se lit en montant : 100 × 7 → Lourd, 105 (255 : 106,6 estimé ; avant : 112,1 → 110)', () => {
     const r = M.reportDeZone({ seances: [{ debut: '2026-09-01T10:00:00Z', palier: 100, niveau: 7 }],
       avant: '2026-09-08T10:00:00Z', zoneAvant: 'mix', zone: 'lourd', cran: (x, s) => x + s * 2.5 });
-    expect([r.charge, r.visee]).toEqual([110, 3]);
+    expect([r.charge, r.visee]).toEqual([105, 3]);
   });
 
   test('ni un corps (0), ni une aide (négative) : pas de report', () => {
@@ -129,12 +129,12 @@ describe('53-1 — le câblage : la correction à l’étiquette (Lourd → Mix)
   test('⚠️ DISCRIMINANT — la ligne repart de la charge estimée, au bas de la zone, avec sa phrase', () => {
     const r = consigne(LOURD, MIX_LE_10);
     expect([r.consigne.etat, r.consigne.zone, r.consigne.ligne, r.consigne.haut])
-      .toEqual(['nouvelle_zone', 'mix', { charge: 95, vise: 6 }, null]);
+      .toEqual(['nouvelle_zone', 'mix', { charge: 90, vise: 6 }, null]);
     expect(r.consigne.fondement.report).toEqual({ origine: 'estimee', zoneAvant: 'lourd',
       depuis: { date: '2026-09-08T10:00:00Z', palier: 100, niveau: 5 }, ligne: 'personne' });
     expect(norm(r.libelles.gris)).toBe('Nouvelle zone : Mix. Estimée depuis ton 100 kg × 5, un peu en dessous pour démarrer.');
-    expect(r.libelles.jaune.map(norm)).toEqual(['95 kg × 6']);
-    // Avant 53-1 : 100 kg × 6 — le palier gardé, une rep de plus (le relevé du 05/10).
+    expect(r.libelles.jaune.map(norm)).toEqual(['90 kg × 6']);
+    // 255 (06/11/2026) : 95 avant que la réserve visée (2 au réglage Normal) soit comptée. Avant 53-1 : 100 kg × 6 — le palier gardé, une rep de plus (le relevé du 05/10).
   });
 
   test('la charge déjà tenue en Mix, plus basse que l’estimation : elle l’emporte, datée', () => {
@@ -168,15 +168,15 @@ describe('53-1 — le câblage : la correction à l’étiquette (Lourd → Mix)
     expect(consigne(LOURD, Object.assign({}, sous, MIX_LE_10)).compteur.compteur).toBe(0);
   });
 
-  test('⚠️ DISCRIMINANT — le cran est celui du moteur : un pas de salle de 5 kg donne 90, pas 92,5', () => {
+  test('⚠️ DISCRIMINANT — le cran est celui du moteur : un pas de salle de 5 kg donne 85, pas 87,5 (255 ; avant : 90 et 92,5)', () => {
     const pas5 = [80, 85, 90, 95].map((c, i) => g('2026-08-' + (10 + 3 * i) + 'T10:00:00Z', c, [5, 5, 5]))
       .concat([g('2026-09-08T10:00:00Z', 100, [4, 4, 4])]);
     const r = consigne(pas5, MIX_LE_10);
-    // 100 × 4 → Mix : 94,4 estimé ; le pas de la salle (80, 85, 90, 95, 100) est de 5.
-    expect([r.consigne.etat, r.consigne.ligne]).toEqual(['nouvelle_zone', { charge: 90, vise: 6 }]);
-    // Sans cet historique, le repli de la barre (2,5) : 92,5.
+    // 100 × 4 → Mix : 89,5 estimé au réglage Normal (255 ; 94,4 avant) ; le pas de la salle (80, 85, 90, 95, 100) est de 5.
+    expect([r.consigne.etat, r.consigne.ligne]).toEqual(['nouvelle_zone', { charge: 85, vise: 6 }]);
+    // Sans cet historique, le repli de la barre (2,5) : 87,5 (255 ; 92,5 avant que la réserve visée soit comptée).
     const seul = [g('2026-09-01T10:00:00Z', 100, [4, 4, 4]), g('2026-09-08T10:00:00Z', 100, [4, 4, 4])];
-    expect(consigne(seul, MIX_LE_10).consigne.ligne).toEqual({ charge: 92.5, vise: 6 });
+    expect(consigne(seul, MIX_LE_10).consigne.ligne).toEqual({ charge: 87.5, vise: 6 });
   });
 
   test('sans cran connu (matériel inconnu, aucune charge plus basse) : « le cran en dessous », sans chiffre', () => {
@@ -189,7 +189,7 @@ describe('53-1 — le câblage : la correction à l’étiquette (Lourd → Mix)
     const mix = [g('2026-09-01T10:00:00Z', 100, [7, 7, 7]), g('2026-09-04T10:00:00Z', 100, [7, 7, 7]),
       g('2026-09-07T10:00:00Z', 100, [7, 7, 7])];
     const r = consigne(mix, choix('lourd', '2026-09-10T20:00:00Z'));
-    expect([r.consigne.etat, r.consigne.zone, r.consigne.ligne]).toEqual(['nouvelle_zone', 'lourd', { charge: 110, vise: 3 }]);
+    expect([r.consigne.etat, r.consigne.zone, r.consigne.ligne]).toEqual(['nouvelle_zone', 'lourd', { charge: 105, vise: 3 }]);
     // 53-1 bis (delta Z3) — la charge monte : la phrase le dit.
     expect(norm(r.libelles.gris)).toBe('Nouvelle zone : Lourd. Moins de reps, plus de charge : estimée depuis ton 100 kg × 7.');
   });
@@ -260,7 +260,7 @@ describe('53-1 — les phrases : d’où vient la charge, jamais un maximum', ()
   test('⚠️ DISCRIMINANT — le militaire rejoué : la charge monte, « Moins de reps, plus de charge »', () => {
     const r = consigne(MILITAIRE, MIX_LE_30, AVANT_MIL);
     expect([r.consigne.etat, r.consigne.zone, r.consigne.palier, r.consigne.ligne])
-      .toEqual(['nouvelle_zone', 'mix', 52.5, { charge: 57.5, vise: 6 }]);
+      .toEqual(['nouvelle_zone', 'mix', 52.5, { charge: 55, vise: 6 }]);
     expect(norm(r.libelles.gris)).toBe('Nouvelle zone : Mix. Moins de reps, plus de charge : estimée depuis ton 52,5 kg × 10.');
     expect(norm(M.pourquoiConsigne(r.consigne, 'normal', AVANT_MIL).etat)).toBe(
       'Ta zone passe de Volume à Mix : j\'estime ta charge depuis 52,5 kg × 10 : moins de reps, plus de charge. ' +
@@ -329,5 +329,153 @@ describe('53-2 bis — D1 : « Nouveau bloc », la même phrase', () => {
     expect(M.etiquetteZone({ zone: 'lourd' }, LIGNE_BLOC)).toBe('Lourd 3-5');
     expect(M.etiquetteZone({ zone: 'mix' }, LIGNE_BLOC)).toBe('Mix 6-8 · bloc');
     expect(M.etiquetteZone({ zone: 'mix' }, null)).toBe('Mix 6-8');
+  });
+});
+
+// ══ 255 — LA RÉSERVE COMPTE DES DEUX CÔTÉS (MOTEUR §9.10, 06/11/2026) ════════
+//
+// La cible vise le bas de la zone AVEC la réserve visée (`reserveVisee`, selon le réglage) ; la source compte `n + réserve notée`
+// (inconnue : `n`, l'hypothèse prudente). Cas réel : 152,5 × 5 en Lourd → Mix donnait 147,5 × 6, qui vaut 7 reps possibles au
+// réglage Franc (181,9 kg de max estimé) : 2 % de plus que la série d'où l'on part (177,9).
+describe('255 — le report compte la réserve visée et la réserve de la série source', () => {
+  const rapporte = (extra) => M.reportDeZone(Object.assign({
+    seances: [{ debut: '2026-09-01T10:00:00Z', palier: 152.5, niveau: 5 }],
+    avant: '2026-09-08T10:00:00Z', zoneAvant: 'lourd', zone: 'mix', cran: (x, s) => x + s * 2.5 }, extra));
+  const e1 = (charge, reps) => M.unRMEpley(charge, reps);
+
+  test('⚠️ DISCRIMINANT — 152,5 × 5 Lourd → Mix, Franc : 142,5 × 6 (et non 147,5), qui tient 6 reps avec 1 en réserve sans dépasser la source', () => {
+    const r = rapporte({ reglage: 'franc' });
+    expect([r.charge, r.visee, r.origine]).toEqual([142.5, 6, 'estimee']);
+    expect(M.reserveVisee({ zone: 'mix', role: 'ligne', reglage: 'franc' })).toBe(1);
+    expect(e1(r.charge, r.visee + 1)).toBeLessThanOrEqual(e1(152.5, 5));
+    // L'ancien chiffre : 147,5 × 6 avec 1 en réserve = 7 reps, plus dur que la série d'où l'on part.
+    expect(e1(147.5, 7)).toBeGreaterThan(e1(152.5, 5));
+  });
+
+  test('au réglage Normal (2 en réserve en Mix) : 140 ; sans réglage donné, le même (Normal)', () => {
+    expect(rapporte({ reglage: 'normal' }).charge).toBe(140);
+    expect(rapporte({}).charge).toBe(140);
+  });
+
+  test('⚠️ DISCRIMINANT — une réserve connue sur la série source relève l’estimation : 1 en réserve → 147,5 en Franc, 142,5 en Normal', () => {
+    const avec = (reserve, reglage) => rapporte({ reglage, seances: [{ debut: '2026-09-01T10:00:00Z', palier: 152.5, niveau: 5, reserve }] }).charge;
+    expect(avec(1, 'franc')).toBe(147.5);
+    expect(avec(1, 'normal')).toBe(142.5);
+    expect(avec(0, 'franc')).toBe(142.5);       // à l'échec : comme une réserve inconnue
+    expect(avec(null, 'franc')).toBe(142.5);    // inconnue : l'hypothèse prudente
+    // Même avec la réserve source, le max estimé de la proposition ne dépasse pas celui de la source (n + réserve).
+    expect(e1(147.5, 7)).toBeLessThanOrEqual(e1(152.5, 6));
+  });
+
+  test('Mix → Volume (120 × 6) et Volume → Lourd (80 × 12), Normal et Franc', () => {
+    const r = (P, n, de, vers, reglage) => M.reportDeZone({ seances: [{ debut: '2026-09-01T10:00:00Z', palier: P, niveau: n }],
+      avant: '2026-09-08T10:00:00Z', zoneAvant: de, zone: vers, reglage, cran: (x, s) => x + s * 2.5 }).charge;
+    expect([r(120, 6, 'mix', 'volume', 'normal'), r(120, 6, 'mix', 'volume', 'franc')]).toEqual([105, 107.5]);
+    expect([r(80, 12, 'volume', 'lourd', 'normal'), r(80, 12, 'volume', 'lourd', 'franc')]).toEqual([95, 97.5]);
+  });
+
+  test('la branche « tenue » ne change pas : la plus basse des deux, à égalité la charge déjà tenue', () => {
+    const seances = [{ debut: '2026-08-20T10:00:00Z', palier: 100, niveau: 7 }, { debut: '2026-09-01T10:00:00Z', palier: 152.5, niveau: 5 }];
+    const r = rapporte({ reglage: 'franc', seances });
+    expect([r.charge, r.origine]).toEqual([100, 'tenue']);
+  });
+
+  test('⚠️ DISCRIMINANT — le câblage : la réserve notée de la dernière série au palier arrive jusqu’à la consigne (Franc, 100 × 5 Lourd → Mix)', () => {
+    const noter = (ressenti) => LOURD.map((x, k) => k < LOURD.length - 1 ? x : Object.assign({}, x, {
+      series: x.series.map((sr, j) => j === x.series.length - 1 ? Object.assign({}, sr, { ressenti }) : sr) }));
+    const ligne = (groupes) => consigne(groupes, Object.assign({ reglage: 'franc' }, MIX_LE_10)).consigne.ligne;
+    const inconnue = ligne(LOURD), reste1 = ligne(noter('reste_1'));
+    // Inconnue : 100 × 5 → 116,7 de max ; Mix avec 1 en réserve (7 reps) : 94,6 → 92,5. Un reste_1 : n + 1 = 6 → 120, soit 97,3 → 95.
+    expect([inconnue.charge, inconnue.vise, reste1.charge]).toEqual([92.5, 6, 95]);
+    expect(ligne(noter('reste_0')).charge).toBe(92.5);   // à fond : comme une réserve inconnue
+    expect(M.unRMEpley(inconnue.charge, inconnue.vise + 1)).toBeLessThanOrEqual(M.unRMEpley(100, 5) + 1e-9);
+    expect(M.unRMEpley(reste1.charge, reste1.vise + 1)).toBeLessThanOrEqual(M.unRMEpley(100, 6) + 1e-9);
+  });
+});
+
+// ══ 255 bis — LES GROS CRANS ET LA MARGE LUE CÔTÉ SOURCE (décisions du coach, 06/11/2026) ═══════════
+describe('255 bis — les gros crans, la salle et la plus petite réserve notée', () => {
+  const e1 = (charge, reps) => M.unRMEpley(charge, reps);
+  const SOURCE = [{ debut: '2026-09-01T10:00:00Z', palier: 25, niveau: 6 }];
+  // Des crans sur une grille (des haltères de 5 kg, 2,5 kg…), comme la salle : le voisin strict au-dessus / au-dessous.
+  const grille = (pas) => (x, s) => (s > 0 ? Math.floor(x / pas + 1e-9) + 1 : Math.ceil(x / pas - 1e-9) - 1) * pas;
+  const rapporte = (extra) => M.reportDeZone(Object.assign({ seances: SOURCE, avant: '2026-09-08T10:00:00Z',
+    zoneAvant: 'mix', zone: 'series_longues', reglage: 'normal', cran: grille(5) }, extra));
+
+  test('⚠️ DISCRIMINANT — haltères de 5 kg, 25 × 6 Mix → Séries longues : l’estimation exacte (19,6) tombe à 15 (−23 %) ; la charge reste 15, les reps visées montent à 20 (avant : 15 × 15)', () => {
+    const r = rapporte({});
+    expect([r.charge, r.visee, r.origine]).toEqual([15, 20, 'estimee']);
+    const rv = M.reserveVisee({ zone: 'series_longues', role: 'ligne', reglage: 'normal' });
+    // Le plus grand r de la zone qui tient : 20 (le haut) ; à 21 on dépasserait la zone, pas la source.
+    expect(e1(15, 20 + rv)).toBeLessThanOrEqual(e1(25, 6));
+    expect(r.visee).toBeLessThanOrEqual(M.zoneParCle('series_longues').haut);
+  });
+
+  test('⚠️ la règle ne s’applique jamais quand l’écart est de 10 % ou moins : crans de 2,5 : la visée reste le bas', () => {
+    const r = rapporte({ seances: [{ debut: '2026-09-01T10:00:00Z', palier: 26, niveau: 6 }], cran: grille(2.5) });
+    expect([r.charge, r.visee]).toEqual([20, 15]);         // 20,35 estimé, 20 au cran : −1,7 %
+    const t = rapporte({ seances: [{ debut: '2026-09-01T10:00:00Z', palier: 26, niveau: 6 }], cran: grille(1) });
+    expect([t.charge, t.visee]).toEqual([20, 15]);
+  });
+
+  test('repsAuCranDuDessous : le plus grand nombre de reps de la zone qui ne dépasse pas la source, sinon null (20 kg, zone 10-12, 1 en réserve)', () => {
+    expect(M.repsAuCranDuDessous(20, e1(20, 13) + 0.01, 1, 10, 12)).toBe(12);
+    expect(M.repsAuCranDuDessous(20, e1(20, 12) + 0.01, 1, 10, 12)).toBe(11);
+    expect(M.repsAuCranDuDessous(20, e1(20, 11) + 0.01, 1, 10, 12)).toBe(10);
+    expect(M.repsAuCranDuDessous(20, e1(20, 11) - 0.01, 1, 10, 12)).toBeNull();     // même `bas` dépasse : aucune rep ne tient
+    expect(M.repsAuCranDuDessous(20, e1(20, 13), 1, 10, 12)).toBe(12);              // égalité : tient
+  });
+
+  test('⚠️ I143, étendu : sur toute la grille (zones, réglages, crans de 2,5 à 10), le max estimé de la proposition (reps visées comprises) ne dépasse jamais celui de la source', () => {
+    const zones = ['lourd', 'mix', 'hypertrophie', 'volume', 'series_longues'];
+    let vus = 0;
+    zones.forEach((de) => zones.forEach((vers) => {
+      if (de === vers) return;
+      [[18, 15], [24, 6], [60, 10], [100, 5], [152.5, 5], [12, 12]].forEach(([P, n]) => [2.5, 5, 10].forEach((cr) => ['franc', 'normal', 'prudent'].forEach((reglage) => {
+        const r = M.reportDeZone({ seances: [{ debut: '2026-09-01T10:00:00Z', palier: P, niveau: n }], avant: '2026-09-08T10:00:00Z',
+          zoneAvant: de, zone: vers, reglage, cran: grille(cr) });
+        if (!r || r.origine !== 'estimee' || r.charge === null) return;
+        vus++;
+        const rv = M.reserveVisee({ zone: vers, role: 'ligne', reglage }) || 0;
+        const z = M.zoneParCle(vers);
+        expect(r.visee).toBeGreaterThanOrEqual(z.bas);
+        expect(r.visee).toBeLessThanOrEqual(z.haut);
+        // Un cran du dessous perdait ≤ 10 % ou le dessus tient : la source n’est jamais dépassée, sauf le plancher d’un cran sans plus léger.
+        const tenable = e1(r.charge, r.visee + rv), source = e1(P, n);
+        if (r.charge <= P || r.charge < 1e9) expect(tenable).toBeLessThanOrEqual(source + 1e-6);
+      })));
+    }));
+    expect(vus).toBeGreaterThan(100);
+  });
+
+  test('⚠️ DISCRIMINANT (b) — la plus petite réserve notée parmi les séries au palier, pas celle de la dernière (Franc, 100 × 5 Lourd → Mix)', () => {
+    const noter = (ressentis) => LOURD.map((x, k) => k < LOURD.length - 1 ? x : Object.assign({}, x, {
+      series: x.series.map((sr, j) => Object.assign({}, sr, { ressenti: ressentis[j] })) }));
+    const ligne = (groupes) => consigne(groupes, Object.assign({ reglage: 'franc' }, MIX_LE_10)).consigne.ligne.charge;
+    expect(ligne(noter(['reste_3_plus', 'reste_2', 'reste_1']))).toBe(95);      // plus petite = 1 (et c'est la dernière)
+    expect(ligne(noter(['reste_1', 'reste_3_plus', 'reste_3_plus']))).toBe(95);      // plus petite = 1, la dernière en dit 3 : avant, 100 × 5 + 3
+    expect(ligne(noter(['reste_0', 'reste_3_plus', 'reste_3_plus']))).toBe(92.5);    // un échec parmi elles : l'hypothèse prudente
+    expect(ligne(noter([null, null, null]))).toBe(92.5);                   // inconnue partout : n tel quel
+    expect(ligne(noter([null, 'reste_2', null]))).toBe(100);               // les séries sans note sont ignorées : 2 en réserve → n + 2 = 7
+  });
+
+  test('(b) la réserve de la source est dans le fondement et I143 la compte', () => {
+    const noter = LOURD.map((x, k) => k < LOURD.length - 1 ? x : Object.assign({}, x, {
+      series: x.series.map((sr) => Object.assign({}, sr, { ressenti: 'reste_2' })) }));
+    const c = consigne(noter, Object.assign({ reglage: 'franc' }, MIX_LE_10)).consigne;
+    expect(c.fondement.report.depuis.reserve).toBe(2);
+    const sans = consigne(LOURD, Object.assign({ reglage: 'franc' }, MIX_LE_10)).consigne;
+    expect('reserve' in sans.fondement.report.depuis).toBe(false);
+    expect(norm(M.pourquoiConsigne(c, 'franc', AVANT).etat)).toMatch(/j'estime ta charge depuis 100 kg × 5/);
+  });
+
+  test('le câblage avec une salle à crans de 5 : le gros cran garde le cran du dessous et monte les reps (15 × 20), la phrase reste « Estimée depuis ton 25 kg × 6 », la consigne affiche la visée', () => {
+    const H = [g('2026-09-01T10:00:00Z', 25, [6, 6, 6]), g('2026-09-04T10:00:00Z', 25, [6, 6, 6]), g('2026-09-08T10:00:00Z', 25, [6, 6, 6])];
+    const salle = { materiel: 'halteres', charges: [5, 10, 15, 20, 25, 30, 35, 40] };
+    const r = consigne(H, Object.assign({ equipement: 'haltere', salle }, choix('series_longues', '2026-09-10T20:00:00Z')));
+    expect([r.consigne.ligne.charge, r.consigne.ligne.vise]).toEqual([15, 20]);
+    expect(r.libelles.jaune.map(norm).join(' ')).toMatch(/15 kg × 20/);
+    expect(norm(r.libelles.gris)).toBe('Nouvelle zone : Séries longues. Estimée depuis ton 25 kg × 6, un peu en dessous pour démarrer.');
+    expect(M.dansLaSalle(salle, r.consigne.ligne.charge)).toBe(true);
   });
 });

@@ -4209,7 +4209,7 @@
     // reporte, par la même fonction que la correction à l'étiquette. Sans
     // report (un corps, une aide, un lest, ou séries longues qui restent), les
     // replis d'avant : celui de §14.5, sinon celui de la reprise longue.
-    var report = reportSur(seances, avant, consigne.zone, zone, equipement);
+    var report = reportSur(seances, avant, consigne.zone, zone, equipement, (options || {}).reglage, (options || {}).salle || null, true);
     var repli = report === null ? null
       : { source: 'report', palier: nombre(consigne.palier), ligne: [report.charge, report.visee] };
     var salle = (options || {}).salle || null;
@@ -9263,6 +9263,18 @@
     return charge * (1 + reps / REPORT_EPLEY);
   }
 
+  // 255 bis — au-dessus de cette perte (relative à l'estimation exacte), le cran du dessous est « gros » : les reps visées montent.
+  var REPORT_GROS_CRAN = 0.10;
+  // Le plus grand nombre de reps `r` de [bas, haut] tel que `charge` à `r + réserve visée` ne dépasse pas le max estimé de la source
+  // (`unRMEpley`, la même formule que partout) ; `null` si aucun ne tient — le max estimé monte avec les reps, donc c'est `bas` qui
+  // est testé le premier : si `bas` dépasse déjà la source, aucun autre nombre de la zone ne la respecte (`null`, la visée reste `bas`).
+  function repsAuCranDuDessous(charge, maxSource, reserveVisee, bas, haut) {
+    for (var r = haut; r >= bas; r--) {
+      if (unRMEpley(charge, r + reserveVisee) <= maxSource + 1e-6) return r;
+    }
+    return null;
+  }
+
   function reportDeZone(o) {
     var p = o || {};
     var z = zoneParCle(p.zone);
@@ -9283,8 +9295,23 @@
     if (P <= 0) return null;
     // La visée : le bas de la zone, d'où l'on remonte.
     var visee = z.bas;
-    var estimee = unRMEpley(P, n) / unRMEpley(1, z.bas);
+    // 255 (06/11/2026, décision d'Aurélien) — LA RÉSERVE COMPTE DES DEUX CÔTÉS. Côté source : `n + réserve notée` de la série
+    // (inconnue → `n`, l'hypothèse prudente : le max estimé le plus bas, la charge la plus légère). Côté cible : la charge qui
+    // donne `z.bas` reps AVEC la réserve visée de la zone pour ce réglage (`reserveVisee`, la même table que la consigne).
+    var rSource = nombre(L.reserve);
+    var rVisee = reserveVisee({ zone: z.cle, role: 'ligne', reglage: p.reglage });
+    var estimee = unRMEpley(P, n + (rSource === null ? 0 : rSource)) / unRMEpley(1, z.bas + (rVisee === null ? 0 : rVisee));
     var charge = auCranInferieur(P, estimee, p.cran);
+    // 255 bis (06/11/2026, décision du coach, déléguée par Aurélien) — LES GROS CRANS. Quand le cran du dessous fait perdre PLUS de
+    // 10 % de l'estimation exacte (haltères de 5 kg : 19,6 → 15), la charge reste au cran du dessous, mais les reps visées MONTENT au
+    // plus grand r de la zone [bas, haut] dont le max estimé à `r + v` reps ne dépasse pas celui de la source (`repsAuCranDuDessous`) :
+    // on ne laisse pas l'effort sur la table, et on ne sort jamais de la zone. I143 (plan.js) vérifie ce max estimé.
+    var maxSource = unRMEpley(P, n + (rSource === null ? 0 : rSource));
+    // « Plus léger » (`reprisePour`, `sansMontee`) : l'allègement est le but, les reps restent au bas de la zone.
+    if (p.sansMontee !== true && charge !== null && charge > 0 && estimee > 0 && (estimee - charge) / estimee > REPORT_GROS_CRAN) {
+      var repsHaut = repsAuCranDuDessous(charge, maxSource, rVisee === null ? 0 : rVisee, z.bas, z.haut);
+      if (repsHaut !== null) visee = repsHaut;
+    }
     // (a) la dernière charge tenue DANS la zone visée — son niveau validé
     // entre le bas et le haut —, dans les 90 jours.
     var tenue = null;
@@ -9294,7 +9321,7 @@
       var nv = nombre(se.niveau);
       if (nombre(se.palier) > 0 && nv >= z.bas && nv <= z.haut) { tenue = se; break; }
     }
-    var lue = function (se) { return { debut: se.debut, palier: nombre(se.palier), niveau: nombre(se.niveau) }; };
+    var lue = function (se) { return { debut: se.debut, palier: nombre(se.palier), niveau: nombre(se.niveau), reserve: nombre(se.reserve) }; };
     // La plus basse des deux ; à égalité, la charge déjà tenue (elle est vraie).
     if (tenue !== null && charge !== null &&
         (nombre(tenue.palier) < charge || memeCharge(nombre(tenue.palier), charge))) {
@@ -9338,7 +9365,13 @@
   function chargesDeTravail(vues) {
     return (vues || []).filter(function (v) { return v && !v.neutre; }).map(function (v) {
       var A = seriesAuPalier(v);
-      return { debut: v.debut, palier: nombre(v.palier), niveau: A.length ? niveauValide(A) : null };
+      // 255 — la réserve notée (`Palier().reserveDeSerie`, la lecture de partout), `null` si rien n'est noté : le report s'en sert
+      // pour ne pas traiter la série source comme faite à l'échec.
+      // 255 bis (06/11/2026, décision du coach) — la PLUS PETITE réserve notée parmi les séries à ce palier (l'estimation la plus
+      // prudente) ; inconnue partout → `null`, le niveau tel quel.
+      var reserves = A.map(function (se) { return Palier().reserveDeSerie(se); }).filter(function (r) { return r !== null && r !== undefined; });
+      return { debut: v.debut, palier: nombre(v.palier), niveau: A.length ? niveauValide(A) : null,
+               reserve: reserves.length ? Math.min.apply(null, reserves) : null };
     });
   }
 
@@ -9354,7 +9387,7 @@
     }).map(function (x) { return { date: x.debut, palier: x.palier, niveau: x.niveau }; });
   }
 
-  function reportSur(seances, avant, zoneAvant, zone, equipement) {
+  function reportSur(seances, avant, zoneAvant, zone, equipement, reglage, salle, sansMontee) {
     if (equipement === EQUIPEMENT_LEST) return null;
     // 132 (MOTEUR §10 ter) — PAS DE REPORT À L'ÉLASTIQUE : une estimation du 1RM sur une charge virtuelle (ou sur une
     // aide) ne veut rien dire. L'aide était déjà écartée (charge ≤ 0, `reportDeZone`) ; la résistance notée par nom
@@ -9362,10 +9395,15 @@
     if (equipement === 'elastique') return null;
     var vues = (seances || []).map(vueDeSeance);
     var lues = chargesDeTravail(anterieures(vues, avant));
-    return reportDeZone({
-      seances: lues, avant: avant, zoneAvant: zoneAvant, zone: zone,
-      cran: function (charge, sens) { return chargeVoisine(vues, avant, charge, equipement, sens); }
+    // 255 bis — avec une salle déclarée, le cran est celui de la salle (`voisineSalleComprise`, le câblage de partout) : l'arrondi part
+    // de la charge de la salle la plus proche de l'estimation, pas d'une charge source que la salle n'a pas.
+    var r = reportDeZone({
+      seances: lues, avant: avant, zoneAvant: zoneAvant, zone: zone, reglage: reglage, sansMontee: sansMontee === true,
+      cran: function (charge, sens) { return voisineSalleComprise(vues, avant, charge, equipement, sens, salle || null); }
     });
+    // Sous la plus légère de la salle : la plus légère (`arrondieALaSalle`).
+    if (r && r.charge === null && salle) r = Object.assign({}, r, { charge: arrondieALaSalle(salle, 0.01) });
+    return r;
   }
 
   // LA ZONE DE LA DERNIÈRE SÉANCE NON NEUTRE : celle de la consigne qu'elle a
@@ -9407,7 +9445,7 @@
     if (o.mesure !== 'charge_reps') return null;
     // 193-3 — en « première fois » dans la zone du plan, la zone d'avant est celle que la dernière séance a FAITE (`zoneAvantDuPlan`).
     var zoneAvant = o.zoneAvantDuPlan !== undefined ? o.zoneAvantDuPlan : zoneDeLaDerniere(seances, avant, o);
-    var r = reportSur(seances, avant, zoneAvant, consigne.zone, o.equipement);
+    var r = reportSur(seances, avant, zoneAvant, consigne.zone, o.equipement, o.reglage, o.salle || null);
     if (r === null) return null;
     var f = consigne.fondement || {};
     var garde = { date: f.date, reps: f.reps, seance: f.seance, habitude: f.habitude, correction: f.correction,
@@ -9415,7 +9453,9 @@
     var fondement = {};
     Object.keys(garde).forEach(function (cle) { if (garde[cle] !== undefined) fondement[cle] = garde[cle]; });
     fondement.report = { origine: r.origine, zoneAvant: zoneAvant,
-                         depuis: { date: r.depuis.debut, palier: r.depuis.palier, niveau: r.depuis.niveau },
+                         depuis: r.depuis.reserve === null || r.depuis.reserve === undefined
+                           ? { date: r.depuis.debut, palier: r.depuis.palier, niveau: r.depuis.niveau }
+                           : { date: r.depuis.debut, palier: r.depuis.palier, niveau: r.depuis.niveau, reserve: r.depuis.reserve },
                          ligne: origineDeLaLigne(o.ligneDeZone) };
     return {
       etat: 'nouvelle_zone', zone: consigne.zone, palier: consigne.palier, niveau: consigne.niveau,
@@ -9804,7 +9844,7 @@
                : null,
              // §9.20 (51-3) — LA REPRISE APRÈS UNE SÉANCE DOULOUREUSE, figée avec
              // la consigne : le plan pose la carte, aucun écran ne la décide.
-             reprise: reprisePour(marquees, avant, consigne, compteur.meilleur, { equipement: o.equipement, salle: salle }),
+             reprise: reprisePour(marquees, avant, consigne, compteur.meilleur, { equipement: o.equipement, salle: salle, reglage: o.reglage }),
              // I34 — les séances marquées « douleur » (leurs débuts) : le plan
              // vérifie qu'aucune ne fonde la charge de la consigne.
              douleurs: anterieures(seances, avant).filter(function (se) { return se.douleur === true; })
@@ -12429,6 +12469,7 @@
     MODULE_CONSIGNE: MODULE_CONSIGNE,
     VERSION_CONSIGNE: VERSION_CONSIGNE,
     reportDeZone: reportDeZone,
+    repsAuCranDuDessous: repsAuCranDuDessous,
     // §9.22 (53-2) — les programmes à cycles
     chargesDeTravailDe: chargesDeTravailDe,
     semaineDuBloc: semaineDuBloc,

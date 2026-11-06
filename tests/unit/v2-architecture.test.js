@@ -1057,11 +1057,11 @@ const NOTIONS = [
     raison: 'MOTEUR §9.23 : les mots de la médaille, une fois — le cap rond, la charge pour N reps, le volume, ' +
       'la durée, et le record d’avant avec sa date (120, D1 : plus le 1RM estimé).' },
   { notion: 'le 1RM estimé (Epley)', pr: '55-U1',
-    module: 'moteur.js', fonction: 'unRMEpley', lecteurs: ['modele.js', 'faits.js'],
+    module: 'moteur.js', fonction: 'unRMEpley', lecteurs: ['modele.js', 'faits.js', 'plan.js'],
     par: ['reportDeZone'],
-    parAilleurs: { 'modele.js': ['recordsDeLExercice'], 'faits.js': ['pointsDeLExercice'] },
+    parAilleurs: { 'modele.js': ['recordsDeLExercice'], 'faits.js': ['pointsDeLExercice'], 'plan.js': ['verifierReportDeZone'] },
     raison: 'MOTEUR §9.10 et §9.23 : l’estimation du report et la force estimée de la page (120, D1 : une ' +
-      'progression, plus un record) lisent la même formule — jamais recopiée.' },
+      'progression, plus un record) lisent la même formule — jamais recopiée. 255 : l’invariant I143 la relit (il vérifie, il ne décide pas).' },
   { notion: 'la fenêtre des 12 mois d’un matériel (machines, poulies, haltères, Smith)', pr: '55-U1',
     module: 'moteur.js', fonction: 'plancherDuMateriel', lecteurs: ['modele.js'],
     par: ['chargeVoisine'],

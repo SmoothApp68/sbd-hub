@@ -6198,6 +6198,7 @@
     verifierBlocHypertrophie(plan, erreurs);
     verifierRate(plan, entrees, erreurs);
     verifierPorte(plan, entrees, erreurs);
+    verifierReportDeZone(plan, erreurs);
     verifierRestPause(plan, erreurs);
     verifierBaisseAttendue(plan, erreurs);
     verifierEffortVise(plan, entrees, erreurs);
@@ -6455,6 +6456,26 @@
   //   I138  la voix de la porte : la phrase et le bouton sous la PREMIÈRE série qui ferme ; « Le test à … revient. » et « Annuler », sans phrase au Pourquoi
   //         une fois tentée ; rien dans les contextes muets
   //   I139  sous la première série de travail d'un exercice à reculs, le coach parle en cas G, jamais I
+  // I143 (255, MOTEUR §9.10) — LE REPORT DE ZONE COMPTE LA RÉSERVE VISÉE : la charge reportée sur une nouvelle zone (origine « estimée »)
+  // donne, au bas de la zone PLUS la réserve visée de la zone pour le réglage de la séance, un max estimé qui ne dépasse jamais celui de
+  // la série dont elle part (palier × (niveau + la plus petite réserve notée, 0 si inconnue : l’hypothèse prudente)), reps visées montées par un gros cran comprises (255 bis). Sans cela, la nouvelle zone était plus dure
+  // que le plan ne le disait (152,5 × 5 en Lourd → Mix 147,5 × 6, soit 2 % de plus).
+  function verifierReportDeZone(plan, erreurs) {
+    var M = Moteur();
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var c = x && x.consigne;
+      if (!c || c.etat !== 'nouvelle_zone' || !c.fondement || !c.fondement.report || c.fondement.report.origine !== 'estimee') return;
+      var charge = nombre(c.ligne && c.ligne.charge), vise = nombre(c.ligne && c.ligne.vise), d = c.fondement.report.depuis || {};
+      var P = nombre(d.palier), n = nombre(d.niveau);
+      if (charge === null || vise === null || P === null || n === null) return;
+      var rv = M.reserveVisee({ zone: c.zone, role: 'ligne', reglage: plan.reglage });
+      var tenable = M.unRMEpley(charge, vise + (rv === null ? 0 : rv)), rs = nombre(d.reserve), source = M.unRMEpley(P, n + (rs === null ? 0 : rs));
+      if (tenable > source + 1e-6) {
+        erreurs.push('I143 — exercice ' + i + ' (' + x.slug + ') : le report en ' + c.zone + ' propose ' + charge + ' kg × ' + vise +
+          ' (réserve visée ' + (rv === null ? 0 : rv) + ') : un max estimé de ' + (Math.round(tenable * 10) / 10) + ' kg, sous ' + P + ' kg × ' + n + ' il n’est que de ' + (Math.round(source * 10) / 10));
+      }
+    });
+  }
   function verifierPorte(plan, entrees, erreurs) {
     var xs = (plan && plan.exercices) || [];
     var exos = entrees && entrees.seance && Array.isArray(entrees.seance.exercices) ? entrees.seance.exercices : [];

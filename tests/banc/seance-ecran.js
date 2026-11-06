@@ -10646,10 +10646,17 @@ const SETS_IMPORTES = [
     await saisirSerie(7, 60, 15);
     await attendre(500);
     ok('[U10] après la première série de travail, le repos tourne', await reposVisible(), '');
+    // 259 — la dégressive annoncée en mots sur la série d'AVANT (la dernière de travail, pas encore faite), une seule fois, avec les chiffres du plan.
+    const annonces259 = async () => (await phrasesU('avant_degressive')).map(esp).filter((t) => /baisse à 45 kg/.test(t));
+    ok('[U10] 259 — DISCRIMINANT : la dernière série de travail de la machine porte « Dernière série : N reps, puis baisse à 45 kg et continue. » (une fois)',
+      (await annonces259()).length === 1 && /^Dernière série : \d+ reps, puis baisse à 45 kg et continue\.$/.test((await annonces259())[0]),
+      esp(JSON.stringify(await phrasesU('avant_degressive'))));
     await saisirSerie(8, 60, 15);
     await attendre(500);
     ok('[U10] DISCRIMINANT — après la dernière série de travail, PAS de repos avant la dégressive', !(await reposVisible()),
       esp(await texte('#repos')));
+    ok('[U10] 259 — l\u2019annonce disparaît quand la dernière série est faite (la ligne dégressive, elle, garde sa phrase)',
+      (await annonces259()).length === 0 && (await phrasesU('degressive')).map(esp).some((t) => /^Dégressive : 45 kg/.test(t)), esp(JSON.stringify([await phrasesU('avant_degressive'), await phrasesU('degressive')])));
     // La visée : la moitié des reps de la dernière série de travail FAITE (15).
     ok('[U10] la phrase de la dégressive',
       esp((await phrasesU('degressive'))[0]) === 'Dégressive : 45 kg, sans repos, jusqu\'à l\'échec. Vise 6 à 8.',

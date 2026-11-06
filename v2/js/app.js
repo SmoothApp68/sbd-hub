@@ -10378,6 +10378,12 @@
       if (dg.gestes && !enEdition()) md.gestes = dg.gestes.slice();
       return { message: md, proposee: false, fourchette: null, baisse: dg.rang || 1 };
     }
+    // 259 — LA DÉGRESSIVE ANNONCÉE DÈS LA SÉRIE D'AVANT : « Dernière série : 12 reps, puis baisse à 25 kg et continue. » La phrase vient
+    // du plan (`x.degressive.annonce`) ; on la pose au-dessus de la ligne `apres` tant que ni elle ni la dégressive ne sont faites.
+    var ad = x && x.degressive && x.degressive.annonce && x.degressive.apres === iSerie && x.lignes ? x.degressive : null;
+    if (ad && x.lignes[iSerie] && !x.lignes[iSerie].validee && x.lignes[ad.iSerie] && !x.lignes[ad.iSerie].validee) {
+      return { message: { type: 'avant_degressive', phrase: ad.annonce }, proposee: false, fourchette: null };
+    }
     // 149 (MOTEUR §9.17 ter) — UNE FIGURE EN SECONDES : la phrase du coach au-dessus de la tenue max tant qu'elle n'est
     // pas validée, sous elle ensuite, l'étiquette « max » / « après ton max » — lues sur le plan, jamais recomposées.
     var lf = x && x.figure && x.lignes ? x.lignes[iSerie] : null;

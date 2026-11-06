@@ -1,0 +1,38 @@
+[
+ {
+  "nom": "259-1-passer-de-la-barre-sans-effet",
+  "fichier": "v2/js/app.js",
+  "ancien": "    if (effortPasse[s.id]) return null;\n",
+  "nouveau": "",
+  "unitaires": [
+   "tests/unit/v2-259-une-question-d-effort.test.js"
+  ],
+  "banc": "seance",
+  "sections": [
+   "effort-vise"
+  ]
+ },
+ {
+  "nom": "259-2-annonce-avec-la-charge-de-reference",
+  "fichier": "v2/js/plan.js",
+  "ancien": "annonce: M.phraseAvantDegressive(reps, d.charge) };",
+  "nouveau": "annonce: M.phraseAvantDegressive(reps, charge) };",
+  "unitaires": [
+   "tests/unit/v2-259-annonce-degressive.test.js"
+  ],
+  "banc": "seance",
+  "sections": [
+   "7-G-septies"
+  ]
+ },
+ {
+  "nom": "259-2-annonce-sur-la-ligne-degressive-au-lieu-de-la-serie-d-avant",
+  "fichier": "v2/js/app.js",
+  "ancien": "x.degressive.apres === iSerie && x.lignes ? x.degressive : null;",
+  "nouveau": "x.degressive.iSerie === iSerie && x.lignes ? x.degressive : null;",
+  "banc": "seance",
+  "sections": [
+   "7-G-septies"
+  ]
+ }
+]

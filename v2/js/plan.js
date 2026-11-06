@@ -674,7 +674,7 @@
         var capP = Voix().capturer(function () {
           return M.propositionDeChauffes({
             equipement: materiel.equipement, reference: reference, e1rm: materiel.e1rm, premier: !materiel.deja_sollicite,
-            premierExercice: materiel.premierExercice, isolation: materiel.isolation, menagee: materiel.menagee,
+            premierExercice: materiel.premierExercice, isolation: materiel.isolation, dejaTravaille: materiel.deja_travaille === true, menagee: materiel.menagee,
             forme: materiel.forme, peuDeTemps: materiel.peuDeTemps, silence: !!materiel.refus, ajoutees: materiel.ajoutees,
             muscle: materiel.muscle, cran: materiel.pas, sol: !!materiel.sol, salle: materiel.salle || null
           });
@@ -1909,6 +1909,15 @@
       deja = siens.some(function (m) { return miens.indexOf(m) >= 0; });
     }
     var pas = consigneDuSlug ? nombre(consigneDuSlug.pas) : null;
+    // 253-X1 (MOTEUR §9.41, règle 7) — « DÉJÀ TRAVAILLÉS » : un muscle PRIMAIRE de cet exercice figure parmi les muscles pondérés
+    // (`Semaine.musclesPonderes`, primaire, secondaire, stabilisateur : la notion du volume) d'un exercice PLACÉ AVANT lui. Distinct de
+    // `deja_sollicite` (primaires seulement), qui garde la règle « premier sur ses muscles » des barres.
+    var travailles = {};
+    for (var kk = 0; kk < i; kk++) {
+      var avant = exos[kk] && catalogue[exos[kk].exercise_slug];
+      if (avant && Semaine()) Semaine().musclesPonderes(avant).forEach(function (x) { if (x.muscle) travailles[x.muscle] = true; });
+    }
+    var dejaTravaille = miens.some(function (m) { return travailles[m] === true; });
     // 237 (MOTEUR §9.41) — ce que la décision des chauffes lit en plus : l'exercice (isolation, poids du corps), la séance (objectif,
     // « peu de temps », zone à ménager) et l'historique (max estimé, séances où la personne a ajouté ses chauffes).
     var c = ctx || {};
@@ -1933,6 +1942,7 @@
       mesure: cat.mesure || null,
       sol: Moteur().SOULEVES_AU_SOL.indexOf(slug) >= 0,
       deja_sollicite: deja,
+      deja_travaille: dejaTravaille,
       pas: pas,
       refus: !!(refus && refus[slug]),
       // §10 bis (108) — la salle déclarée pour cet exercice (`THProfil.
@@ -6815,6 +6825,7 @@
   //   I126 : les charges montent, aucune n'atteint la charge de travail, la dernière ne dépasse pas 90 % de la charge de travail ;
   //   I127 : « J'ai peu de temps » sur un exercice qui n'est ni une isolation ni au poids du corps (barre ou non) : exactement une chauffe ;
   //   I128 : en silence (deux « Non merci » depuis moins de 4 semaines) aucune proposition ; un ajout automatique expose toujours « Annuler ».
+  //   I141 (253-X1) : aucune proposition sur une isolation dont un muscle primaire a déjà été travaillé par un exercice précédent (sauf zone à ménager).
   function verifierChauffesProposees(plan, entrees, erreurs) {
     var e = entrees || {}, M = Moteur();
     var exos = (e.seance && e.seance.exercices) || [], cat = e.catalogue || {};
@@ -6857,6 +6868,17 @@
         // I127
         if (e.raccourci && fiche && p.situation === 'paliers' && !M.estIsolation({ prim: fiche.muscles_primaires || [], sec: fiche.muscles_secondaires || [], stab: fiche.muscles_stabilisateurs || [] }) && (p.lignes || []).length !== 1) {
           erreurs.push('I127' + nom + ' : « J\u2019ai peu de temps » sur un polyarticulaire chargé avec ' + (p.lignes || []).length + ' chauffe(s)');
+        }
+        // I141 (253-X1)
+        if (fiche && !(e.zonesMenagees && Object.prototype.hasOwnProperty.call(e.zonesMenagees, x.slug) && e.zonesMenagees[x.slug] && !e.zonesMenagees[x.slug].choisie) && M.estIsolation({ prim: fiche.muscles_primaires || [], sec: fiche.muscles_secondaires || [], stab: fiche.muscles_stabilisateurs || [] })) {
+          var propres = fiche.muscles_primaires || [];
+          for (var j = 0; j < i; j++) {
+            var prec = cat[exos[j] && exos[j].exercise_slug];
+            if (prec && Semaine() && Semaine().musclesPonderes(prec).some(function (q) { return propres.indexOf(q.muscle) >= 0; })) {
+              erreurs.push('I141' + nom + ' : chauffes proposées sur une isolation dont les muscles sont déjà travaillés par l\u2019exercice ' + j);
+              break;
+            }
+          }
         }
         // I128
         if (p.mode === 'auto' && p.annulable !== true) erreurs.push('I128' + nom + ' : un ajout automatique sans « Annuler »');

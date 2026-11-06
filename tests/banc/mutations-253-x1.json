@@ -1,0 +1,5 @@
+[
+ {"nom": "x1-1-regle-7-neutralisee", "fichier": "v2/js/moteur.js", "ancien": "if (e.isolation === true && e.premierExercice !== true && e.dejaTravaille === true && e.menagee !== true) return rien;", "nouveau": "", "unitaires": ["tests/unit/v2-chauffes-isolation-253.test.js"], "banc": "aucun"},
+ {"nom": "x1-2-zone-non-exemptee", "fichier": "v2/js/moteur.js", "ancien": "e.dejaTravaille === true && e.menagee !== true) return rien;", "nouveau": "e.dejaTravaille === true) return rien;", "unitaires": ["tests/unit/v2-chauffes-isolation-253.test.js"], "banc": "aucun"},
+ {"nom": "x1-3-primaires-seulement", "fichier": "v2/js/plan.js", "ancien": "if (avant && Semaine()) Semaine().musclesPonderes(avant).forEach(function (x) { if (x.muscle) travailles[x.muscle] = true; });", "nouveau": "if (avant) (avant.muscles_primaires || []).forEach(function (m) { travailles[m] = true; });", "unitaires": ["tests/unit/v2-chauffes-isolation-253.test.js"], "banc": "aucun"}
+]

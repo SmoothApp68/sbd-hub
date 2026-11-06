@@ -53,8 +53,8 @@ describe('260-d — un jeton par rôle', () => {
       'radar-grille', 'sync-a-jour', 'presence', 'accent-fond-choisi', 'accent-fond-levier', 'eq-barre-b', 'bh-contour', 'precedent']
       .forEach((t) => expect(css).not.toMatch(new RegExp('--' + t + '\\b(?!-)')));
   });
-  test('le vert d\'une série faite dérive de --reussi', () => {
-    expect(css).toMatch(/--fond-serie-faite:color-mix\(in srgb,var\(--reussi\) 11%,var\(--panneau\)\)/);
-    expect(css).toMatch(/@supports not \(color:color-mix[^)]*\)\)\{:root\{--fond-serie-faite:#1D312F\}\}/);
+  test('le vert d\'une série faite : une seule valeur, posée en dur (--reussi à 11 % sur --panneau)', () => {
+    expect(css).toMatch(/--fond-serie-faite:#1D312F;/);
+    expect(css).not.toMatch(/--fond-serie-faite:color-mix/);
   });
 });

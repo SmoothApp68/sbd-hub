@@ -134,7 +134,7 @@
   --trait-chauffe:#5F7798; /* contour du numéro d'une série de chauffe (260-b : 3,5:1 sur la carte, était #3A4A5E à 1,9:1) */
   --trait-calage:#85744A; /* contour du numéro d'une série de calage (260-b : 3,5:1 sur la carte, était #4A4033) */
   --texte-calage:#B08F3C; /* texte du numéro d'une série de calage */
-  --fond-serie-faite:color-mix(in srgb,var(--reussi) 11%,var(--panneau)); /* 260-d : LE vert d'une série faite, --reussi à 11 % sur la surface (opaque : #1D312F, valeur de repli ci-dessous) */
+  --fond-serie-faite:#1D312F; /* 260-d : LE vert d'une série faite, --reussi à 11 % sur la surface, valeur calculée posée en dur (opaque ; un rendu color(srgb …) se lit mal) */
   /* Le sens : manque et ambre, fonds et traits */
   --manque-trait:#4A3330; /* contour d'un état destructif ou en erreur */
   --manque-fond:#33201e; /* fond révélé sous la ligne qu'on glisse pour supprimer */
@@ -186,9 +186,6 @@
   /* L'or de la médaille (déplacé ici depuis un second :root, plus bas). */
   --medaille:#ffd46b;--medaille-fond:#2e2410;--medaille-trait:#6b5420;
 }
-
-/* Navigateur sans color-mix : la valeur calculée du vert d'une série faite. */
-@supports not (color:color-mix(in srgb,red,blue)){:root{--fond-serie-faite:#1D312F}}
 
 /* Les chiffres s'alignent d'une ligne à l'autre, partout. */
 .num,
@@ -931,7 +928,7 @@ html{scroll-padding-top:var(--h-barre-seance, 0px)}
 button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:12px;font-weight:600;cursor:pointer;
   min-height:26px;padding:3px 9px;position:relative;border-color:var(--trait-controle)}
 /* 260-a — la pastille reste petite à l'œil, sa zone de toucher fait 44 px de haut (la règle du design system : un ::after invisible). */
-button.puce-zone::after{content:"";position:absolute;left:-3px;right:-3px;top:50%;height:44px;transform:translateY(-50%)}
+button.puce-zone::after{content:"";position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
 /* La forge (56-1) : le fond plein est devenu l'état de base. « Choisie » garde
    son point et prend le contour ambre — l'écart entre les deux états reste
    visible d'un coup d'œil. */

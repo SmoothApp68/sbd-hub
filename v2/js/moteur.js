@@ -11470,6 +11470,18 @@
     };
   }
 
+  // X3 (253) — LA RÉPONSE VAUT POUR LA JOURNÉE : une nouvelle séance du même jour (après un abandon, ou une autre séance) reprend la réponse
+  // sans reposer la question, et le DIT : « Comme ce matin : squat en Mix. » / « Comme ce matin : plan gardé. » (« tout à l'heure » quand la
+  // réponse a été donnée à partir de midi). `x` : { choix: 'mix' | 'garder', nom, heure (0-23 de la réponse, ou null) }. `null` si le choix est inconnu.
+  function phraseDeLaVeilleReprise(x) {
+    var o = x || {};
+    if (o.choix !== 'mix' && o.choix !== 'garder') return null;
+    var h = nombre(o.heure);
+    var moment = h !== null && h >= 0 && h < 12 ? 'ce matin' : 'tout \u00e0 l\u2019heure';
+    var nom = typeof o.nom === 'string' && o.nom ? o.nom.toLowerCase() : 'la barre';
+    return 'Comme ' + moment + '\u00a0: ' + (o.choix === 'mix' ? nom + ' en Mix' : 'plan gard\u00e9') + '.';
+  }
+
   // 65 ans et plus : la MÊME borne que la prudence de montée (`AGE_PLAFOND_BAS`). `null` : l'âge est inconnu, rien n'est deviné.
   function plusDe65Ans(age) {
     var a = nombre(age);
@@ -12014,7 +12026,7 @@
     FORME_RENFORCEMENT_CIBLE: FORME_RENFORCEMENT_CIBLE, FORME_CARDIO_CIBLE_MIN: FORME_CARDIO_CIBLE_MIN, FORME_INTENSE_FACTEUR: FORME_INTENSE_FACTEUR, CARDIO_RPE_INTENSE: CARDIO_RPE_INTENSE,
     // 225 (§9.40) — les activités notées et la veille des jambes lourdes.
     ACTIVITE_RPE: ACTIVITE_RPE, ACTIVITE_INTENSITES: ACTIVITE_INTENSITES, intensiteDActivite: intensiteDActivite,
-    ACTIVITES_JAMBES: ACTIVITES_JAMBES, activiteChargeLesJambes: activiteChargeLesJambes, veilleActivite: veilleActivite,
+    ACTIVITES_JAMBES: ACTIVITES_JAMBES, activiteChargeLesJambes: activiteChargeLesJambes, veilleActivite: veilleActivite, phraseDeLaVeilleReprise: phraseDeLaVeilleReprise,
     FORME_PUISSANCE_PHRASE: FORME_PUISSANCE_PHRASE, FORME_PUISSANCE_POURQUOI: FORME_PUISSANCE_POURQUOI, FORME_DOULEUR_PHRASE: FORME_DOULEUR_PHRASE,
     FORME_REPERES_PHRASE: FORME_REPERES_PHRASE, plusDe65Ans: plusDe65Ans, exerciceDePuissance: exerciceDePuissance,
     // 194-1 (§9.31) — la mobilité en fin de séance : une table, un bloc, des phrases.

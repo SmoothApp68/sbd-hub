@@ -117,6 +117,23 @@ const PAGE = '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta n
                  hb: [...document.querySelectorAll('.carte-veille button')].map((x) => Math.round(x.getBoundingClientRect().height)) };
       });
       ok(largeur + ' px — la carte de la veille tient dans l’écran, boutons ≥ 40 px', carte.d <= carte.iw && carte.sw <= carte.iw && carte.hb.every((h) => h >= 40), JSON.stringify(carte));
+      // 253 (X3) — LA RÉPONSE DU MATIN REPRISE : une ligne et « Changer » (≥ 44 px), rien ne déborde, le geste remonte à l'app.
+      await page.evaluate(() => {
+        document.getElementById('corps').innerHTML = '';
+        window.__gestes = [];
+        const r = { choix: 'mix', slug: 'squat_barre', nom: 'Squat (Barre)', lien: 'Changer', phrase: window.THMoteur.phraseDeLaVeilleReprise({ choix: 'mix', nom: 'Squat (Barre)', heure: 8 }) };
+        document.getElementById('corps').appendChild(window.THRendu.ligneDeVeilleReprise(r, { surChangerVeille() { window.__gestes.push('changer'); } }));
+      });
+      ok(largeur + ' px — la ligne reprise dit « Comme ce matin : squat (barre) en Mix. »',
+        (await page.locator('.veille-reprise-texte').textContent()) === 'Comme ce matin\u00a0: squat (barre) en Mix.' && (await page.locator('.proposition-veille').count()) === 0);
+      await page.click('.veille-changer');
+      ok(largeur + ' px — « Changer » remonte à l’app', JSON.stringify(await page.evaluate(() => window.__gestes)) === '["changer"]');
+      await page.screenshot({ path: sans('veille-reprise') });
+      const lr = await page.evaluate(() => {
+        const c = document.querySelector('.carte-veille-reprise').getBoundingClientRect();
+        return { d: c.right, iw: window.innerWidth, sw: document.documentElement.scrollWidth, h: Math.round(document.querySelector('.veille-changer').getBoundingClientRect().height) };
+      });
+      ok(largeur + ' px — la ligne reprise tient dans l’écran, « Changer » ≥ 44 px', lr.d <= lr.iw && lr.sw <= lr.iw && lr.h >= 44, JSON.stringify(lr));
       await page.close();
     }
   } finally {

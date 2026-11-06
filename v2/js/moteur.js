@@ -165,8 +165,10 @@
   // Hypertrophie ; l'utilisateur peut toujours choisir Mix (ECRAN-SAISIE §3.8).
   //
   // Sous 3 reps, AUCUNE zone : ce sont les maximaux, et le §9.1.2 interdit d'y
-  // demander une rep de plus — la variabilité journalière de ±18 % dépasse
-  // l'écart entre une rep et deux.
+  // demander une rep de plus — une rep vaut 3 à 4,5 % de charge à ces reps
+  // (PCT_MAX_PAR_REPS) : la marge d'erreur de l'estimation devient trop fine
+  // pour qu'une rep de plus se lise (règle décidée, 174 ; le « ±18 % » qui
+  // était cité ici est retiré, audit C-F2, MOTEUR §9.1.2).
   var RANGEMENT = [
     { jusqua: 2,        cle: null },
     { jusqua: 5,        cle: 'lourd' },
@@ -2333,8 +2335,8 @@
     }
 
     // 4. La règle de bord : sous 3 reps d'habitude, il n'y a plus de zone. On
-    // monte la charge AUX MÊMES REPS — la variabilité journalière des maximaux
-    // dépasse l'écart entre une rep et deux (§9.1.2).
+    // monte la charge AUX MÊMES REPS — la marge d'erreur de l'estimation (3 à 4,5 %
+    // par rep) est trop fine pour qu'une rep de plus se lise (§9.1.2).
     //
     // §9.17 — Au poids du corps il n'y a pas de charge à monter : les reps
     // continuent, comme l'étirement (une de plus, sans zone ni ligne haute).

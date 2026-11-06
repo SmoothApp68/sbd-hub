@@ -138,7 +138,8 @@ describe('123 — le coach lit les tranches (§10 bis)', () => {
     const hist = [{ seance: { id: 'S2', debut: jour('10-10') }, series: [brute(22, 10), brute(22, 10), brute(22, 10)] },
       { seance: { id: 'S1', debut: jour('10-06') }, series: [brute(22, 9), brute(22, 9), brute(22, 9)] }];
     const c = M.consigneDExercice(hist, undefined, AVANT, Object.assign({ salle: salleDe(SALLE_AUREL) }, DH)).consigne;
-    expect(c.ligne.charge).toBe(20);
+    // 255 : le report compte la réserve visée (22 × 10 estimé plus bas qu’avant) ; la charge que la salle fait en dessous : 2 × 9 = 18.
+    expect(c.ligne.charge).toBe(18);
   });
 
   test('⚠️ DISCRIMINANT — la dégressive à 2 × 24 : 2 × 18 (−22,5 % = 37,2, la charge que la salle fait la plus proche, 245)', () => {

@@ -185,23 +185,24 @@ describe('51-3 — la zone suivante en reps et la condition de la carte', () => 
     });
   });
 
-  test('au-delà de 10 %, la reprise longue garde le palier (§9.9) : 20 kg × 15 au militaire', () => {
+  test('le militaire à 20 kg : 15 kg × 15 depuis 255 (le report compte la réserve visée)', () => {
     const c = CAS.neutralite.find((x) => x.id === 'N04');
     const se = M.sansPalierRetenues(contrat(c), { equipement: 'barre' });
     const k = M.consignePour(se, c.avant, { equipement: 'barre' });
-    expect(M.reprisePour(se, c.avant, k, null, { equipement: 'barre' }).repli.ligne).toEqual([20, 15]);
+    expect(M.reprisePour(se, c.avant, k, null, { equipement: 'barre' }).repli.ligne).toEqual([15, 15]);   // 255 : le report compte la réserve visée (1 en séries longues) : 19,6 estimé, au cran inférieur de l’appareil
   });
 
   // 51-3 ter (D5, §20 bis) — le libellé ne contredit jamais son chiffre.
-  test('⚠️ DISCRIMINANT — la charge ne baisse pas (militaire, 20 kg) : « Plus de reps », jamais « Plus léger »', () => {
+  test('⚠️ DISCRIMINANT — le libellé suit son chiffre (militaire, 20 kg → 15 depuis 255) : « Plus léger » quand la charge baisse', () => {
     const c = CAS.neutralite.find((x) => x.id === 'N04');
     const se = M.sansPalierRetenues(contrat(c), { equipement: 'barre' });
     const k = M.consignePour(se, c.avant, { equipement: 'barre' });
     const r = M.reprisePour(se, c.avant, k, null, { equipement: 'barre' });
     expect(k.ligne.charge).toBe(20);
     const t = M.carteRepriseTextes('Développé Militaire (Barre)', k, r);
+    // 255 : la charge baisse maintenant (le report compte la réserve visée) : le libellé le dit, « Plus léger » — il suit son chiffre.
     expect(t.choix.map((q) => q.texte)).toEqual(['Comme avant : 20\u00a0kg\u00a0×\u00a012',
-      'Plus de reps : 20\u00a0kg\u00a0×\u00a015', 'Sans coach cette fois']);
+      'Plus léger, plus de reps : 15\u00a0kg\u00a0×\u00a015', 'Sans coach cette fois']);
     expect(t.choix.map((q) => q.cle)).toEqual(['avant', 'leger', 'sans']);
   });
 
@@ -232,14 +233,14 @@ describe('51-3 — la zone suivante en reps et la condition de la carte', () => 
   });
 
   // 53-1 — sans charge tenue en Mix, le report part de l'ESTIMATION depuis
-  // 120 × 4, au cran inférieur : 112,5 × 6 (avant 53-1 : 115 × 6, la reprise longue).
+  // 120 × 4, au cran inférieur : 100 × 6 depuis 255 (112,5 avant que la réserve visée soit comptée ; avant 53-1 : 115 × 6, la reprise longue).
   test('⚠️ DISCRIMINANT — sans palier tenu dans la zone suivante (N02) : le report estimé, trois choix', () => {
     const c = CAS.neutralite.find((x) => x.id === 'N02');
     const se = M.sansPalierRetenues(dixDernieres(contrat(c)), {});
     const k = M.consignePour(se, c.avant, {});
     const r = M.reprisePour(se, c.avant, k, { palier: 120, niveau: 5 });
     expect(M.repliEscalier(se, c.avant, { palier: 120, niveau: 5 }, 'mix')).toBe(null);
-    expect([r.repli.source, r.repli.ligne]).toEqual(['report', [112.5, 6]]);
+    expect([r.repli.source, r.repli.ligne]).toEqual(['report', [100, 6]]);
     expect(M.carteRepriseTextes('Développé Couché (Barre)', k, r).choix.map((q) => q.cle)).toEqual(['avant', 'leger', 'sans']);
   });
 });

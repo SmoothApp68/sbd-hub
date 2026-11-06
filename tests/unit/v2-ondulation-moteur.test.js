@@ -4,7 +4,7 @@
 // cette zone. Chaque branche de `consigneDExerciceCalcul` a son test : sous-histoire, première fois, périmée, zone de routine.
 //
 // ⚠️ LE BANC DE COMPARAISON EXACTE : sans zone de plan (absente, `null`, `undefined`), la sortie complète de
-// `consigneDExercice` est identique, octet pour octet, à celle de main après la 193-1 (19f52ae), sauf la phrase « vers tes N-M » de la 200b — `fixtures/ondulation-or.json`.
+// `consigneDExercice` est identique, octet pour octet, à celle de main après la 193-1 (19f52ae), sauf la phrase « vers tes N-M » de la 200b — `fixtures/ondulation-or.json`. 255 (06/11/2026) : l’or est régénéré volontairement (`ondulation-generer-or.js`) — seules les sorties en `nouvelle_zone` changent (81 clés sur 1152 : la charge reportée compte la réserve visée, plus basse ; la branche « tenue » cède à l’estimation quand elle est plus haute).
 
 require('../../v2/js/modele.js');
 require('../../v2/js/palier.js');

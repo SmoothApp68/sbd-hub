@@ -33,3 +33,12 @@ describe('256 D4 — « Pourquoi ? » ne raye pas la ligne suivante', () => {
   });
 });
 
+describe('256 D6 — les cibles tactiles sont à 44 px', () => {
+  test('les boutons d’une carte du coach, le « Pourquoi ? » de la veille et de l’escalier, « Reprendre »', () => {
+    expect(regle('.proposition-exercice button')).toMatch(/min-height:44px/);
+    expect(regle('.carte-mobilite .cm-pourquoi summary')).toMatch(/min-height:44px/);
+    expect(regle('.carte-escalier .ce-pourquoi summary')).toMatch(/min-height:44px/);
+    expect(regle('.exo-reprendre')).toMatch(/min-height:44px/);
+  });
+});
+

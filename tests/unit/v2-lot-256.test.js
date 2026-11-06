@@ -147,3 +147,20 @@ describe('256 D8 — la limite de 500 signes d’une note se dit', () => {
     expect(compteur.hidden).toBe(true);
   });
 });
+
+describe('256 D9 — la carte « Pour tenir en 45 min » a de vrais boutons', () => {
+  test('« Raccourcir » est le bouton principal, « Garder la séance » le secondaire, tous deux dans un pied de feuille (46 px)', () => {
+    const cible = document.createElement('div');
+    const faits = [];
+    window.THRendu.rendreCarteRaccourci(cible, { carte: { titre: 'Pour tenir en 45 min', lignes: ['a'], oui: 'Raccourcir', non: 'Garder la séance', tient: true },
+      surRaccourcir: () => faits.push('oui'), surGarder: () => faits.push('non') });
+    const oui = cible.querySelector('.feuille-pied button.pri.cr-oui');
+    const non = cible.querySelector('.feuille-pied button.sec.cr-non');
+    expect(oui.textContent).toBe('Raccourcir');
+    expect(non.textContent).toBe('Garder la séance');
+    oui.click(); non.click();
+    expect(faits).toEqual(['oui', 'non']);
+    expect(regle('.feuille-pied button')).toMatch(/height:46px/);
+    expect(cible.querySelector('.carte-raccourci ~ .feuille-pied')).not.toBeNull();   // le repli du banc (`entree`) le trouve
+  });
+});

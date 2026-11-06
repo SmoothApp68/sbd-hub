@@ -4611,8 +4611,10 @@ const SETS_IMPORTES = [
     const avant = await signatureFeuille();
     const depart = await departGeste();
     await page.evaluate((m) => {
-      const b = Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
-        .filter((x) => new RegExp(m).test(x.textContent))[0];
+      const parMotif = (liste) => Array.from(liste).filter((x) => new RegExp(m).test(x.textContent))[0];
+      // 256 (D9) — la carte « Pour tenir en N min » a de vrais boutons (`.feuille-pied`) : repli sur eux si le menu n'a pas le motif.
+      const b = parMotif(document.querySelectorAll('#feuille-contenu .feuille-menu button')) ||
+                parMotif(document.querySelectorAll('#feuille-contenu .carte-raccourci ~ .feuille-pied button'));
       b.click();
     }, motif);
     // 143 — l'état : la feuille se ferme ou change de contenu (plus 700 ms fixes), puis le disque a la séance.

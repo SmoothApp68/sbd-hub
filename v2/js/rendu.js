@@ -1075,10 +1075,12 @@
     carte.appendChild(liste);
     if (c.phrase) carte.appendChild(el('p', 'feuille-aide cr-phrase', c.phrase));
     cible.appendChild(carte);
-    var menu = el('div', 'feuille-menu');
-    entreeMenu(menu, c.oui || 'Raccourcir', { classe: 'cr-oui', surClic: vue.surRaccourcir });
-    entreeMenu(menu, c.non || 'Garder la séance', { classe: 'cr-non', surClic: vue.surGarder });
-    cible.appendChild(menu);
+    // 256 (D9) — deux vrais boutons de 44 px et plus (le texte nu était à 43 px) : « Raccourcir » est l'action principale (ambre),
+    // « Garder la séance » le secondaire ; les classes `cr-oui` / `cr-non` restent celles des lecteurs.
+    piedFeuille(cible, [
+      { classe: 'sec cr-non', texte: c.non || 'Garder la séance', surClic: vue.surGarder },
+      { classe: 'pri cr-oui', texte: c.oui || 'Raccourcir', surClic: vue.surRaccourcir }
+    ]);
     return cible;
   }
 

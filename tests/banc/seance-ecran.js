@@ -141,7 +141,6 @@ const ok = (nom, cond, detail) => {
 // la marque doit partir — la liste dit ce qui est, comme `AUTORISATIONS`. Un défaut inconnu de la liste → ❌.
 const DEFAUTS_PROUVES = {
   'D-R1': 'le journal des records (jeu, guilde, groupe, médailles du social) n’est pas revu quand une séance ANTÉRIEURE est corrigée ou supprimée ; la Progression, elle, recalcule',
-  'D-C2': 'après une Édition, le score de force publié (scores_force) attend la prochaine ouverture du social',
 };
 const defautsVus = [];
 const okDefaut = (defaut, nom, cond, detail) => {
@@ -29708,6 +29707,8 @@ const SETS_IMPORTES = [
 
     // ── 1. ÉDITION D'UNE SÉANCE ANTÉRIEURE : 150 → 105.
     await editerCharge(ids[1], 105);
+    // 257 — l'app publie d'elle-même après l'Édition (`apresEcritureDeSeance`) : on attend la publication, jamais l'ouverture du social.
+    await jusqua(() => Promise.resolve(scorePublie() !== score0), 8000, { nom: 'scorePublieApresEdition257', attendu: 'le score peut ne pas changer' });
     const score1 = scorePublie();
     const prog1 = await recordProgression();
     const j1 = lignesServeur(), m1 = chargeMax(j1), a1 = await lignesAppareil();
@@ -29723,7 +29724,7 @@ const SETS_IMPORTES = [
     const score2 = scorePublie();
     ok('[FR249] prémisse — à la réouverture du social, le score publié suit la nouvelle meilleure charge (il change)',
       typeof score2 === 'number' && score2 !== score0, nb([score0, score2]));
-    okDefaut('D-C2', '[FR249] après l’Édition, SANS rouvrir le social, scores_force porte déjà le score de la nouvelle meilleure charge (celui publié à la réouverture)',
+    ok('[FR249] (257, D-C2 corrigé) après l’Édition, SANS rouvrir le social, scores_force porte déjà le score de la nouvelle meilleure charge (celui publié à la réouverture)',
       score1 === score2, 'juste après l’Édition : ' + nb(score1) + ' · à la réouverture : ' + nb(score2) + ' · avant : ' + nb(score0));
 
     // ── 2. L'ORACLE : le journal rejoué sur le même historique. La Progression ne bouge pas ; le journal et le jeu, si.
@@ -29740,6 +29741,13 @@ const SETS_IMPORTES = [
 
     // ── 3. SUPPRESSION D'UNE SÉANCE ANTÉRIEURE : la séance à 112,5 (le journal, rejoué, était cohérent).
     await supprimerSeance249(ids[3]);
+    // 257 (D-C2) — la suppression publie aussi, sans rouvrir le social : le score publié est celui que la réouverture donnera.
+    await jusqua(() => Promise.resolve(scorePublie() !== score2), 8000, { nom: 'scorePublieApresSuppression257', attendu: 'le score peut ne pas changer' });
+    const score3 = scorePublie();
+    await aller('/jeu/fil');
+    await jusqua(() => Promise.resolve(scorePublie() !== score3), 5000, { nom: 'scoreRepublie3-257', attendu: 'le score ne change plus' });
+    ok('[FR249] (257, D-C2) après la suppression d’une séance, SANS rouvrir le social, scores_force porte déjà le score (celui de la réouverture)',
+      typeof score3 === 'number' && score3 !== score2 && score3 === scorePublie(), 'après la suppression : ' + nb(score3) + ' · à la réouverture : ' + nb(scorePublie()) + ' · avant : ' + nb(score2));
     const prog3 = await recordProgression();
     const j3 = lignesServeur(), m3 = chargeMax(j3);
     ok('[FR249] après la suppression de la séance à 112,5, la Progression dit 111 kg × 5 (séance 4), et le journal a perdu les lignes de la séance (cascade)',

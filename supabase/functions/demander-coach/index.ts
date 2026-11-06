@@ -25,7 +25,7 @@ const C = (globalThis as any).THControle;
 
 const MODELE = 'claude-haiku-5-5';
 const MAX_PAR_JOUR = 10;
-const DELAI_MODELE_MS = 15_000;
+const DELAI_MODELE_MS = 20_000;   // 252 : la réflexion allonge la réponse
 const REPONSE_SANTE = 'Je ne réponds pas sur une douleur. Dis-le au coach avec « J\'ai mal » : il adapte ta séance.';
 const REPONSE_BLOQUEE = 'Je n\'ai pas de réponse sûre : regarde la feuille Pourquoi.';
 
@@ -148,7 +148,9 @@ Deno.serve(async (req: Request) => {
       method: 'POST', signal: ctrl.signal,
       headers: { 'x-api-key': cle, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: MODELE, max_tokens: 300, temperature: 0.2, system: CONSIGNE,
+        // 252 : PAS de `temperature` (refusée pour ce modèle : 400 à chaque appel, constaté le 06/11 sur lire-notes) ; 1 000 jetons
+        // car le modèle réfléchit avant de répondre (300 aurait laissé une réponse vide).
+        model: MODELE, max_tokens: 1000, system: CONSIGNE,
         messages: [{ role: 'user', content: 'Contexte de la consigne :\n' + contexteTexte + '\n\nQuestion : ' + question }],
       }),
     });

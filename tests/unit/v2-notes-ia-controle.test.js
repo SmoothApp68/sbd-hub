@@ -270,13 +270,27 @@ describe('250 · index.ts : rien n\'est gardé, rien n\'est journalisé', () => 
 });
 
 describe('250 · demander-coach ne bouge pas', () => {
-  test('somme de contrôle des deux fichiers de demander-coach', () => {
+  test('somme de contrôle des contrôles partagés de demander-coach', () => {
     const h = (f) => crypto.createHash('sha256').update(fs.readFileSync(path.join(DOSSIER, 'demander-coach', f))).digest('hex').slice(0, 16);
     const { execSync } = require('child_process');
     // le fichier doit être identique à celui de la branche de départ
     const ref = (f) => crypto.createHash('sha256').update(execSync('git show origin/claude/248-train-coach-poids-captcha:supabase/functions/demander-coach/' + f, { cwd: path.join(__dirname, '../..') })).digest('hex').slice(0, 16);
     let base;
-    try { base = { c: ref('controle.js'), i: ref('index.ts') }; } catch (e) { return; }   // branche absente (CI sans la branche) : rien à comparer
-    expect({ c: h('controle.js'), i: h('index.ts') }).toEqual(base);
+    // 252 : index.ts change exprès (plus de `temperature`, 1 000 jetons) ; seuls les contrôles partagés restent figés.
+    try { base = { c: ref('controle.js') }; } catch (e) { return; }   // branche absente (CI sans la branche) : rien à comparer
+    expect({ c: h('controle.js') }).toEqual(base);
+  });
+});
+
+// 252 (06/11/2026) — banc des 27 cas joué contre le vrai modèle : `temperature` est refusée (400 à chaque appel) et la
+// réflexion du modèle prend jusqu'à ~750 jetons. Une réintroduction de l'un ou l'autre éteindrait la fonction en silence.
+describe('252 · les appels au modèle', () => {
+  const lire = (d) => fs.readFileSync(path.join(DOSSIER, d, 'index.ts'), 'utf8');
+  test.each(['lire-notes', 'demander-coach'])('%s : aucune temperature, assez de jetons pour la réflexion', (d) => {
+    const src = lire(d).replace(/\/\/.*$/gm, '');
+    expect(src).not.toMatch(/\btemperature\s*:/);
+    const m = src.match(/max_tokens:\s*(\d+)/);
+    expect(m).not.toBeNull();
+    expect(Number(m[1])).toBeGreaterThanOrEqual(1000);
   });
 });

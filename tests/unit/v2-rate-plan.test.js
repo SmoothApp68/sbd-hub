@@ -452,6 +452,36 @@ describe('251 D2 — la porte du cran', () => {
     propre(r.p, r.e);
   });
 
+  test('⚠️ DISCRIMINANT — « Prendre 97,5 kg » accepté (Muscle, 107,5 × 3 dans la zone) : la porte se ferme, la ligne 3 passe à 97,5, plus de « Si ça passe »', () => {
+    const prise = { geste: 'rate_prise', slug: 'couche', rang: 0, bouton: 'prendre', kg: 97.5 };
+    const r = planH({ couche: [[107.5, 3]] }, Object.assign({ gestes: [prise] }, MUSCLE));
+    const x = X0(r);
+    expect(x.rate.charge.action).toBe('baisse');
+    expect(x.porteDuCran).toMatchObject({ fermee: true, tente: false, raison: 'prise', iSerie: 0 });
+    expect(sp(x.porteDuCran.phrase)).toBe('Pas de test à 110 kg aujourd’hui : tu as baissé la charge.');
+    expect(sp(x.porteDuCran.bouton)).toBe('Tenter 110 kg quand même');
+    expect(sp(x.pourquoi.porte)).toBe('Tu as baissé la charge après ta série à 107,5 kg × 3 : le test à 110 kg × 3 attend une autre séance. ' +
+      'Ta force du jour, d’environ 117 kg, donne environ 2 reps à 110 kg.');
+    expect(x.lignes.some((l) => l.role === 'test')).toBe(false);
+    expect(L(x, 2).charge).toBe(97.5);
+    expect(x.entete.jaune.join(' ')).not.toMatch(/Si ça passe/);
+    propre(r.p, r.e);
+    // « Tenter 110 kg quand même » reste possible après la prise, avec « Annuler »
+    const t = planH({ couche: [[107.5, 3]] }, Object.assign({ gestes: [prise, { geste: 'cran_tente', slug: 'couche', rang: 0 }] }, MUSCLE));
+    expect(X0(t).porteDuCran).toMatchObject({ fermee: true, tente: true });
+    expect([L(X0(t), 2).role, L(X0(t), 2).charge]).toEqual(['test', 110]);
+    expect(X0(t).pourquoi.porte).toBeUndefined();
+    propre(t.p, t.e);
+  });
+
+  test('témoin — sans « Prendre » accepté, 107,5 × 3 dans la zone laisse la porte ouverte ; un « Prendre » sur un autre exercice ne la ferme pas', () => {
+    expect(X0(planH({ couche: [[107.5, 3]] }, MUSCLE)).porteDuCran).toBeNull();
+    const autre = { geste: 'rate_prise', slug: 'rowing', rang: 0, bouton: 'prendre', kg: 60 };
+    expect(X0(planH({ couche: [[107.5, 3]] }, Object.assign({ gestes: [autre] }, MUSCLE))).porteDuCran).toBeNull();
+    const ignore = { geste: 'rate_prise', slug: 'couche', rang: 0, bouton: 'approche' };
+    expect(X0(planH({ couche: [[107.5, 3]] }, Object.assign({ gestes: [ignore] }, MUSCLE))).porteDuCran).toBeNull();
+  });
+
   test('témoin Muscle (plusTot) — 107,5 × 3 en zone 3-5 : le niveau 1 propose sa baisse (cas D), mais la porte reste ouverte (« sous la zone » strict)', () => {
     const r = planH({ couche: [[107.5, 3]] }, MUSCLE);
     const x = X0(r);
@@ -495,12 +525,15 @@ describe('251 D2 — la porte du cran', () => {
     expect(x.paris[2].valeur_predite).toBe(3);
     expect(x.paris[2].borne_basse).toBe(X0(planH({})).paris[2].borne_basse);
     expect(t.se.gestes).toEqual([gTente]);
-    expect(x.pourquoi.porte).toBeTruthy();
+    expect(x.pourquoi.porte).toBeUndefined();                                    // tenté : le Pourquoi ne dit pas le contraire de l'écran
+    expect(x.phrases.filter((p) => p.ou === 'pourquoi.porte')).toHaveLength(0);
     propre(t.p, t.e);
     const a = planH({ couche: [[107.5, 2]] }, { gestes: [gTente, { geste: 'cran_tente_annule', slug: 'couche', rang: 0 }], objectif: 'muscle' });
     expect([L(X0(a), 2).role, L(X0(a), 2).charge]).toEqual(['ligne', 107.5]);
     expect(X0(a).porteDuCran.tente).toBe(false);
     expect(a.se.gestes.map((g) => g.geste)).toEqual(['cran_tente', 'cran_tente_annule']);
+    expect(sp(X0(a).pourquoi.porte)).toBe('Ta série à 107,5 kg × 2 est sous ta zone (3 à 5 reps) : le test à 110 kg × 3 attend une autre séance. ' +
+      'Ta force du jour, d’environ 113 kg, donne environ 2 reps à 110 kg.');
     propre(a.p, a.e);
   });
 
@@ -698,6 +731,31 @@ describe('251 — invariants I134 à I139 (plans forgés)', () => {
     p = clone(t.p);
     p.exercices[0].porteDuCran.annuler = null;
     expect(a(p, t.e, 'I138').join(' ')).toMatch(/sans « Annuler »/);
+  });
+
+  test('I138 — le Pourquoi dit la porte fermée alors que le test est revenu ; la phrase sous une série qui n’est pas la première à fermer', () => {
+    const t = planH({ couche: [[107.5, 2]] }, { gestes: [{ geste: 'cran_tente', slug: 'couche', rang: 0 }], objectif: 'muscle' });
+    const p = clone(t.p);
+    p.exercices[0].pourquoi.porte = 'Ta série à 107,5 kg × 2 est sous ta zone.';
+    expect(a(p, t.e, 'I138').join(' ')).toMatch(/le Pourquoi dit la porte fermée/);
+    const r = planH({ couche: [[107.5, 2], [107.5, 2]] }, MUSCLE);
+    const f = clone(r.p);
+    f.exercices[0].porteDuCran.iSerie = 1;
+    expect(a(f, r.e, 'I138').join(' ')).toMatch(/première série qui ferme/);
+    expect(a(r.p, r.e, 'I138')).toEqual([]);
+  });
+
+  test('I136 — un « Prendre » accepté et une ligne de test encore proposée ; une porte « prise » sans le geste', () => {
+    const prise = { geste: 'rate_prise', slug: 'couche', rang: 0, bouton: 'prendre', kg: 97.5 };
+    const r = planH({ couche: [[107.5, 3]] }, Object.assign({ gestes: [prise] }, MUSCLE));
+    expect(a(r.p, r.e, 'I136')).toEqual([]);
+    const p = clone(r.p);
+    p.exercices[0].porteDuCran = null; p.exercices[0].phrases = p.exercices[0].phrases.filter((q) => q.ou !== 'porte');
+    p.exercices[0].lignes[2].role = 'test';
+    expect(a(p, r.e, 'I136').join(' ')).toMatch(/Prendre.+accepté et une ligne de test/);
+    const e = clone(r.e);
+    e.seance.gestes = [];
+    expect(a(r.p, e, 'I136').join(' ')).toMatch(/par un « Prendre » que la séance n’a pas accepté/);
   });
 
   test('I116 amendé — une ligne abaissée par la porte ne porte aucune charge de réaction ; une ligne sous la charge de travail sans geste est refusée', () => {

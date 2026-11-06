@@ -48,6 +48,7 @@ Quatre phrases, un fait chacune, jamais « porte » ni « rampe » ni « max » 
 - « Pas de test à 110 kg aujourd'hui : ta série est sous ta zone. » (ou « …allée jusqu'à l'échec. ») + « Tenter 110 kg quand même »
 - « Le test à 110 kg revient. » + « Annuler »
 - Pourquoi : « Ta série à 107,5 kg × 2 est sous ta zone (3 à 5 reps) : le test à 110 kg × 3 attend une autre séance. Ta force du jour, d'environ 113 kg, donne environ 2 reps à 110 kg. »
+- « Pas de test à 110 kg aujourd'hui : tu as baissé la charge. » (après un « Prendre X kg » accepté) ; Pourquoi : « Tu as baissé la charge après ta série à 107,5 kg × 3 : le test à 110 kg × 3 attend une autre séance. » Tenté : aucune phrase au Pourquoi.
 - Pourquoi (forme) : « Tu as ajusté la fin de séance à ta forme du jour : pas de test aujourd'hui. »
 
 ## L'assistant « Demander au coach » (160, 24/10/2026)

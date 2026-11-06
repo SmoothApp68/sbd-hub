@@ -1382,7 +1382,7 @@
       lues.push({ iSerie: i, charge: ch, reps: nombre(s.reps), vise: vise, reserve: P.reserveDeSerie(s) });
     });
     var r = M.decisionDeLaPorte({ zone: { bas: zone.bas, haut: zone.haut }, cran: cran, travail: chargeDeTravail(consigne), series: lues,
-      formeAjustee: ctx.formeAjustee === true, tente: ctx.tente === true, objectif: ctx.objectif || null, barre: ctx.barre === true });
+      formeAjustee: ctx.formeAjustee === true, tente: ctx.tente === true, prise: ctx.prise || null, objectif: ctx.objectif || null, barre: ctx.barre === true });
     if (!r.fermee) return null;
     var f = lues.filter(function (q) { return q.iSerie === r.serie; })[0] || null;
     return Object.assign(r, { zone: { bas: zone.bas, haut: zone.haut }, cran: cran, travail: chargeDeTravail(consigne),
@@ -1408,6 +1408,11 @@
   }
   // Le geste « Tenter … quand même » (`cran_tente`) de CET exercice, non suivi d'« Annuler » (`cran_tente_annule`) : UNE lecture, sur le modèle de
   // `chauffesAutoDe`.
+  // 251 — un « Prendre X kg » accepté (`rate_prise`, bouton `prendre`) sur CET exercice : { iSerie, kg } du premier, ou `null`. Il ferme la porte.
+  function priseDe(gestes, slug) {
+    var g = (Array.isArray(gestes) ? gestes : []).filter(function (q) { return q && q.geste === 'rate_prise' && q.bouton === 'prendre' && q.slug === slug; })[0];
+    return g ? { iSerie: g.rang, kg: g.kg } : null;
+  }
   function cranTenteDe(gestes, slug) {
     var tente = false;
     (Array.isArray(gestes) ? gestes : []).forEach(function (g) {
@@ -2325,7 +2330,7 @@
           auMaxFaitsDe(e, seance, exos, i, coachee, douloureuse, intentionX, !!esc.allegee || !!jourDeTest, consignes),
           // 251 (D2) — la porte du cran (ses gestes), sauf là où le coach se tait. (Un 22e argument : aucun objet d'options existant ne porte ces faits.)
           coachee && c && !douloureuse && intentionX !== 'entretien' && !seance.edition && !esc.allegee && !jourDeTest
-            ? { tente: cranTenteDe(seance.gestes, slug), formeAjustee: formeAjusteeAvant(seance, i) } : null);
+            ? { tente: cranTenteDe(seance.gestes, slug), formeAjustee: formeAjusteeAvant(seance, i), prise: priseDe(seance.gestes, slug) } : null);
         x.blocHypertrophie = stBloc ? { zone: stBloc.zone, grosse: stBloc.grosse === true,
           reculs: stBloc.grosse ? (exo.series || []).filter(function (q) { return racine.THModele.typeDe(q) === 'recul'; }).length : 0 } : null;
         x.semaineDeTest = semaineDeTestDExercice(jourDeTest, e, seance, exos, i, x,
@@ -6258,9 +6263,12 @@
 
   // ══ I115 à I122 (236, MOTEUR §9.39) — LE COACH EN TEMPS RÉEL APRÈS UN RATÉ, lu sur le plan ═══════════════════════════════════════════
   //   I115  au plus une phrase de réaction par exercice, sous la DERNIÈRE série validée, et jamais avec la réaction existante (§9.14) ;
-  //   I116  jamais une charge baissée sans geste : une ligne dont la charge a changé le doit à « Prendre X kg » ou à « un cran dessous » ;
+  //   I116  jamais une charge baissée sans geste : une ligne dont la charge a changé le doit à « Prendre X kg » ou à « un cran dessous » ; (251) jamais
+  //         une charge SOUS la charge de travail sans geste — une ligne abaissée par la porte du cran repasse à la charge de travail, elle ne porte aucune
+  //         charge de réaction (`l.rate.charge`) ;
   //   I117  « Garder le plan » respecté : une réponse à la forme du jour, et la carte ne revient pas ;
-  //   I118  aucune réaction en Entretenir, décharge, semaine de test, calage, « J'ai mal », Édition ;
+  //   I118  aucune réaction en Entretenir, décharge, semaine de test, calage, « J'ai mal », Édition ; (251) la PORTE du cran, elle, parle même au calage et
+  //         au débutant : elle change le plan, ce n'est pas une réaction au raté (I138 la tait dans les autres contextes) ;
   //   I119  la fourchette tient (bornes entières, basse ≤ haute) et contient les reps faites, sauf la baisse (bas de zone à bas + 2) ;
   //   I120  pas d'« Au max » après un échec franc, ni après « Ajuster la fin à ma forme du jour » ;
   //   I121  la carte de la forme du jour : une seule, 2 exercices au moins sur 3 au plus ;
@@ -6341,7 +6349,8 @@
   //   I136  porte fermée et non tentée : aucune ligne `test` non validée, aucune ligne non validée plus lourde que la charge de travail (sauf coach, élan) ;
   //         aucune porte fermée sans série validée sous la zone (ou allée à l'échec), ni sans geste `forme_ajustee` pour la raison forme
   //   I137  `x.rate.niveau === 'exercice'` jamais quand la dernière série de travail validée est classée D ou L
-  //   I138  la voix de la porte : la phrase et le bouton sous la 1re série qui ferme ; « Le test à … revient. » et « Annuler » ; rien dans les contextes muets
+  //   I138  la voix de la porte : la phrase et le bouton sous la PREMIÈRE série qui ferme ; « Le test à … revient. » et « Annuler », sans phrase au Pourquoi
+  //         une fois tentée ; rien dans les contextes muets
   //   I139  sous la première série de travail d'un exercice à reculs, le coach parle en cas G, jamais I
   function verifierPorte(plan, entrees, erreurs) {
     var xs = (plan && plan.exercices) || [];
@@ -6409,6 +6418,14 @@
       var muet = plan.intention === 'entretien' || x.intention === 'entretien' || x.mode === 'entretien' || !!plan.allegee || (x.consigne && x.consigne.allegee) ||
         !!plan.semaineDeTest || !!x.semaineDeTest || !!x.douleur || plan.edition === true;
       if (!q) {
+        var priseA = !muet && x.consigne && x.consigne.haut && x.consigne.ligne && !x.consigne.allegee && !x.consigne.repli
+          ? gestes.filter(function (g) { return g && g.geste === 'rate_prise' && g.bouton === 'prendre' && g.slug === x.slug; })[0] : null;
+        if (priseA) {
+          var srP = ((exos[i] && exos[i].series) || [])[priseA.rang] || {}, crP = nombre(x.consigne.haut.charge), chP = nombre(srP.charge_kg);
+          if (srP.validee_a && crP !== null && chP !== null && chP < crP - 1e-9 && lignes.some(function (l) { return l.role === 'test' && !l.validee; })) {
+            erreurs.push('I136' + nom + 'un « Prendre » accepté et une ligne de test encore proposée');
+          }
+        }
         if (portePhrases.length) erreurs.push('I138' + nom + 'la phrase de la porte sans porte fermée');
         return;
       }
@@ -6436,20 +6453,35 @@
         var sr2 = q.iSerie !== null && q.iSerie !== undefined ? ((exos[i] && exos[i].series) || [])[q.iSerie] : null;
         var zone2 = x.consigne ? M.zoneParCle(x.consigne.zone) : null;
         if (!sr2 || !sr2.validee_a) erreurs.push('I136' + nom + 'une porte fermée sans série validée qui la ferme');
-        else {
+        else if (q.raison === 'prise') {
+          var cran3 = q.cran ? nombre(q.cran.charge) : null, ch3 = nombre(sr2.charge_kg);
+          if (ch3 === null || cran3 === null || !(ch3 < cran3)) erreurs.push('I136' + nom + 'la série qui ferme n’est pas sous le cran');
+          if (!gestes.some(function (g) { return g && g.geste === 'rate_prise' && g.bouton === 'prendre' && g.slug === x.slug && g.rang === q.iSerie; })) {
+            erreurs.push('I136' + nom + 'une porte fermée par un « Prendre » que la séance n’a pas accepté');
+          }
+        } else {
           var rep2 = nombre(sr2.reps), ch2 = nombre(sr2.charge_kg), cran2 = q.cran ? nombre(q.cran.charge) : null;
           if (ch2 === null || cran2 === null || !(ch2 < cran2)) erreurs.push('I136' + nom + 'la série qui ferme n’est pas sous le cran');
           if (q.raison === 'sous_la_zone' && zone2 && !(rep2 !== null && rep2 < zone2.bas)) erreurs.push('I136' + nom + 'la porte se ferme sur ' + rep2 + ' reps, pas sous la zone');
           if (q.raison === 'echec' && P.reserveDeSerie(sr2) !== 0) erreurs.push('I136' + nom + 'la porte se ferme sur un échec que la série ne note pas');
         }
         // I138 — la phrase et le bouton, sous la PREMIÈRE série qui ferme.
-        var attendu0 = /^Pas de test à .+ kg aujourd’hui : ta série est (sous ta zone|allée jusqu’à l’échec)\.$/;
+        var attendu0 = /^Pas de test à .+ kg aujourd’hui : (ta série est (sous ta zone|allée jusqu’à l’échec)|tu as baissé la charge)\.$/;
         if (!q.tente) {
           if (!attendu0.test(sp(q.phrase))) erreurs.push('I138' + nom + 'la phrase de la porte fermée n’est pas la phrase écrite (« ' + sp(q.phrase) + ' »)');
           if (!q.bouton || !/^Tenter .+ kg quand même$/.test(sp(q.bouton))) erreurs.push('I138' + nom + 'la porte fermée sans son bouton « Tenter … quand même »');
         } else {
           if (!/^Le test à .+ kg revient\.$/.test(sp(q.phrase))) erreurs.push('I138' + nom + 'la porte tentée ne dit pas « Le test à … revient. »');
           if (sp(q.annuler) !== 'Annuler') erreurs.push('I138' + nom + 'la porte tentée sans « Annuler »');
+          if (x.pourquoi && x.pourquoi.porte) erreurs.push('I138' + nom + 'le Pourquoi dit la porte fermée alors que le test est revenu (« ' + sp(x.pourquoi.porte) + ' »)');
+        }
+        // I138 — q.iSerie est la PREMIÈRE série qui ferme : relue sur la séance, avec la même lecture que le plan.
+        if (x.consigne && x.consigne.haut && x.consigne.ligne) {
+          var cat4 = catalogue[x.slug] || {};
+          var prise4 = gestes.filter(function (g) { return g && g.geste === 'rate_prise' && g.bouton === 'prendre' && g.slug === x.slug; })[0];
+          var relue = porteDeLExercice((exos[i] && exos[i].series) || [], x.consigne, { tente: q.tente === true, formeAjustee: false,
+            prise: prise4 ? { iSerie: prise4.rang, kg: prise4.kg } : null, objectif: entrees.objectif || null, barre: cat4.equipement === 'barre' });
+          if (!relue || relue.serie !== q.iSerie) erreurs.push('I138' + nom + 'la phrase est sous la série ' + q.iSerie + ', la première série qui ferme est la ' + (relue ? relue.serie : 'aucune'));
         }
         if (portePhrases.length !== 1) erreurs.push('I138' + nom + portePhrases.length + ' phrases de porte (une seule, sous la série qui ferme)');
       }

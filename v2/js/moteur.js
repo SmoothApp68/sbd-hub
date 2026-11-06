@@ -11953,6 +11953,12 @@
       if (lu.sousZone) { fermante = s; raison = 'sous_la_zone'; }
       else if (lu.echec && reps !== null && vise !== null && reps < vise) { fermante = s; raison = 'echec'; }
     });
+    // 251 (la décision d'Aurélien du 06/11) — un « Prendre X kg » ACCEPTÉ ferme aussi la porte : la série qui l'a fait naître (sous le cran) la ferme.
+    // La règle « sous la zone » reste stricte pour les séries seules.
+    if (fermante === null && x.prise && nombre(x.prise.iSerie) !== null) {
+      var sp = (x.series || []).filter(function (q) { return q && q.iSerie === x.prise.iSerie; })[0];
+      if (sp) { fermante = sp; raison = 'prise'; }
+    }
     if (fermante === null && x.formeAjustee === true) raison = 'forme';
     var fermee = fermante !== null || raison === 'forme';
     var max = fermante !== null ? maxDuJour(fermante.charge, fermante.reps, nombre(fermante.reserve) === null ? 0 : nombre(fermante.reserve)) : null;
@@ -11969,6 +11975,7 @@
   function phraseDeLaPorte(d) {
     if (!d || d.raison === 'forme' || !d.cran) return null;
     if (d.tente) return 'Le test à ' + porteKg(d.cran.charge, 'porte.cran') + ' revient.';
+    if (d.raison === 'prise') return 'Pas de test à ' + porteKg(d.cran.charge, 'porte.cran') + ' aujourd’hui : tu as baissé la charge.';
     return 'Pas de test à ' + porteKg(d.cran.charge, 'porte.cran') + ' aujourd’hui : ta série est ' +
       (d.raison === 'echec' ? 'allée jusqu’à l’échec.' : 'sous ta zone.');
   }
@@ -11978,11 +11985,14 @@
   }
   function pourquoiDeLaPorte(d) {
     if (!d || !d.cran) return null;
+    if (d.tente) return null;                       // « Tenter » rend le test : le Pourquoi ne dit pas le contraire de l'écran
     if (d.raison === 'forme') return 'Tu as ajusté la fin de séance à ta forme du jour : pas de test aujourd’hui.';
     if (!d.serie) return null;
     var attend = ' : le test à ' + porteFois(d.cran.charge, 'porte.cran', d.cran.vise) + ' attend une autre séance.';
     var t = 'Ta série à ' + porteFois(d.serie.charge, 'porte.travail', d.serie.reps);
-    if (d.raison === 'echec') {
+    if (d.raison === 'prise') {
+      t = 'Tu as baissé la charge après ta série à ' + porteFois(d.serie.charge, 'porte.travail', d.serie.reps) + attend;
+    } else if (d.raison === 'echec') {
       t += ' est allée jusqu’à l’échec' + attend;
     } else {
       var z = d.zone || {};

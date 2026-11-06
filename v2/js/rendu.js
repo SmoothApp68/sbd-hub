@@ -4818,6 +4818,9 @@
     var f = vue.programme
       ? { charge_kg: ligneP ? ligneP.charge_kg : null }
       : vue.fantome(iExo, iSerie);
+    // 256 (D12) — UNE SÉRIE VALIDÉE NE MONTRE PLUS DE FANTÔME DANS UNE CASE QU'ELLE N'A PAS : une course validée avec la seule distance
+    // laissait « 30:00 » en gris dans la durée, alors que `duree_s` est nul. Ce qui est écrit s'affiche ; ce qui ne l'est pas reste vide.
+    if (s.faite && !vue.programme) f = {};
     // Une seule boucle pour les quatre gabarits : le champ porte sa colonne, son
     // unité et son facteur de conversion. La vue ne sait rien de la différence
     // entre une seconde et un kilomètre.

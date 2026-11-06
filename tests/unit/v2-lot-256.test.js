@@ -190,3 +190,28 @@ describe('256 D11 — la durée d’une série non validée ne déplace pas la v
     expect(S.fantome(se, 0, 1, null).charge_kg).toBe(30);
   });
 });
+
+describe('256 D12 — une série validée ne montre pas de fantôme dans la case qu’elle n’a pas', () => {
+  const CAT = [{ slug: 'course', nom: 'Course à Pied', mesure: 'distance_temps', charge: 'aucune', muscles_primaires: [] }];
+  const rendre = (faite) => {
+    const s = { exercices: [{ exercise_slug: 'course', series: [{ id: 's1', type_serie: 'travail', charge_kg: null, reps: null, duree_s: null, distance_m: 5000,
+      validee_a: faite ? '2026-11-05T10:00:00Z' : null, faite }] }] };
+    const cible = document.createElement('div');
+    window.THRendu.rendreBlocsSeance(cible, s, {
+      blocs: Modele.blocsDeSeance(s, CAT), exercice: () => CAT[0], precedent: () => null, fantome: () => ({ duree_s: 1800, distance_m: 5000 }), tourAtteint: () => 0,
+      surValider: () => {}, surEffort: () => {}, surChamp: () => {}, surNumero: () => {}, surNote: () => {}, surRepos: () => {},
+      surAjoutSerie: () => {}, surSupprimerSerie: () => {}, surMenuBloc: () => {}, surMenuExercice: () => {}
+    });
+    return cible.querySelector('[data-champ="duree"]');
+  };
+  test('validée avec la seule distance : la case durée est vide, sans « 30:00 » en gris', () => {
+    const c = rendre(true);
+    expect(c.classList.contains('fantome')).toBe(false);
+    expect(c.querySelector('input').placeholder).toBe('');
+  });
+  test('non validée : le fantôme est toujours là', () => {
+    const c = rendre(false);
+    expect(c.classList.contains('fantome')).toBe(true);
+    expect(c.querySelector('input').placeholder).toMatch(/30:00/);
+  });
+});

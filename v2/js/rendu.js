@@ -3162,6 +3162,9 @@
     // 225 (MOTEUR §9.40) — la veille d'une activité dure : UNE carte, lue sur le plan (« … en Mix aujourd'hui » / « Garder le plan »).
     var veille = !vue.modifier && typeof vue.propositionVeille === 'function' ? vue.propositionVeille() : null;
     if (veille) cible.appendChild(carteDeVeille(veille, vue));
+    // X3 (253) — la réponse du matin reprise : UNE ligne et « Changer » (la question ne revient pas).
+    var reprise = !vue.modifier && !veille && typeof vue.repriseVeille === 'function' ? vue.repriseVeille() : null;
+    if (reprise) cible.appendChild(ligneDeVeilleReprise(reprise, vue));
     if (mob && mob.avant) cible.appendChild(carteDeMobilite(mob.avant, 'avant', vue));
     blocs.forEach(function (bloc, iBloc) {
       // §5.3 — le mode Modifier replie TOUT sur une ligne par bloc. Deux
@@ -3172,6 +3175,17 @@
         : rendreBlocSaisie(bloc, iBloc, vue));
     });
     if (mob && mob.fin) cible.appendChild(carteDeMobilite(mob.fin, 'fin', vue));
+  }
+
+  function ligneDeVeilleReprise(r, vue) {
+    var n = el('section', 'carte-mobilite carte-veille carte-veille-reprise');
+    n.setAttribute('data-veille-reprise', r.choix);
+    n.appendChild(el('p', 'veille-reprise-texte', r.phrase));
+    var b = el('button', 'lien veille-changer', r.lien || 'Changer');
+    b.type = 'button';
+    b.addEventListener('click', function () { vue.surChangerVeille(); });
+    n.appendChild(b);
+    return n;
   }
 
   function carteDeVeille(v, vue) {
@@ -10550,6 +10564,7 @@
     rendreFeuilleChoixMultiple: rendreFeuilleChoixMultiple,
     rendreFeuilleActivite: rendreFeuilleActivite,
     carteDeVeille: carteDeVeille,
+    ligneDeVeilleReprise: ligneDeVeilleReprise,
     rendreFeuilleMot: rendreFeuilleMot,
     rendreFeuilleMots: rendreFeuilleMots, rendreFeuilleMentions: rendreFeuilleMentions,
     rendreFeuilleSaisie: rendreFeuilleSaisie,

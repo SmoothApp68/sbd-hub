@@ -2162,6 +2162,31 @@
     });
   }
 
+  // X3 (253, MOTEUR §9.40) — LA RÉPONSE VAUT POUR LA JOURNÉE. Une séance abandonnée est SUPPRIMÉE (ses gestes avec elle) : la réponse du jour vit
+  // donc sur l'appareil, `{ jour, choix, heure }` (comme les « Non merci » des chauffes, aucune colonne). Deux fonctions pures ; l'app lit et écrit.
+  //   · `veilleDuJour(memoire, jour)` : la réponse de CE jour civil local, ou `null` (un autre jour, un choix inconnu : rien n'est repris) ;
+  //   · `noterVeilleDuJour(jour, choix, heure)` : la mémoire à écrire.
+  function veilleDuJour(memoire, jour) {
+    var m = memoire && typeof memoire === 'object' ? memoire : null;
+    if (!m || !jour || m.jour !== jour || (m.choix !== 'mix' && m.choix !== 'garder')) return null;
+    return { choix: m.choix, heure: typeof m.heure === 'number' && isFinite(m.heure) ? m.heure : null };
+  }
+  function noterVeilleDuJour(jour, choix, heure) {
+    if (!jour || (choix !== 'mix' && choix !== 'garder')) return null;
+    return { jour: jour, choix: choix, heure: typeof heure === 'number' && isFinite(heure) ? heure : null };
+  }
+  // La ligne « Comme ce matin : squat en Mix. » + « Changer » : seulement quand la réponse a été REPRISE (`e.veilleReprise` : { slug, heure }),
+  // qu'elle est celle de la séance (`e.veilleChoix`) et que le fait de la veille est toujours là. Jamais en Édition ni en « Juste un carnet ».
+  function veilleRepriseDuPlan(e, seance, intentionProfil) {
+    var r = e.veilleReprise, a = e.activiteVeille;
+    if (!r || typeof r !== 'object' || !r.slug || !a || !a.slug) return null;
+    if (e.veilleChoix !== 'mix' && e.veilleChoix !== 'garder') return null;
+    if (seance.edition || intentionProfil === 'entretien') return null;
+    var cat = e.catalogue || {}, nom = cat[r.slug] && cat[r.slug].nom ? cat[r.slug].nom : null;
+    return { choix: e.veilleChoix, slug: r.slug, nom: nom, lien: 'Changer',
+             phrase: Moteur().phraseDeLaVeilleReprise({ choix: e.veilleChoix, nom: nom, heure: typeof r.heure === 'number' ? r.heure : null }) };
+  }
+
   function planDeSeance(entrees) {
     var e = entrees || {};
     var seance = e.seance || {};
@@ -2262,6 +2287,8 @@
       puissance: puissanceDuPlan(e, seance, exos, intentionProfil),
       // 225 (MOTEUR §9.40) — la veille d'une activité dure : une proposition (« … en Mix aujourd'hui » / « Garder le plan »), ou `null`.
       veilleActivite: veilleActiviteDuPlan(e, seance, exos, consignes, intentionProfil),
+      // X3 (253) — la réponse du matin REPRISE par une nouvelle séance du jour : sa ligne et son « Changer », ou `null`.
+      veilleReprise: veilleRepriseDuPlan(e, seance, intentionProfil),
       exercices: questionsDuPlan(exos.map(function (exoBrut, i) {
         // 132 (MOTEUR §10 ter) — UN EXERCICE NOTÉ PAR NOM : sa salle est la liste de ses élastiques (`cat.salle`,
         // `materiel: 'elastique'`). Ses séries entrent avec leur charge VIRTUELLE (`THProfil.seriesPourLeMoteur` :
@@ -6112,6 +6139,7 @@
     verifierAuMax(plan, erreurs);
     verifierMobilite(plan, entrees, erreurs);
     verifierVeilleActivite(plan, entrees, erreurs);
+    verifierVeilleReprise(plan, entrees, erreurs);
     verifierChauffesProposees(plan, entrees, erreurs);
     verifierSemaineDeTest(plan, erreurs, entrees);
     verifierCalisthenie(plan, erreurs);
@@ -6915,6 +6943,31 @@
     if (!attendue.length || attendue[0].slug !== v.slug) erreurs.push('I123 — l\u2019exercice proposé n\u2019est pas la première barre de jambes en Lourd de la séance : ' + v.slug);
     if (!v.boutons || !/ en Mix aujourd\u2019hui$/.test(v.boutons.mix || '') || v.boutons.garder !== 'Garder le plan') erreurs.push('I123 — les deux gestes ne sont pas ceux du moteur');
     if (!/convention de coachs/.test(v.pourquoi || '')) erreurs.push('I123 — la convention n\u2019est pas dite comme telle');
+  }
+
+  // I140 (253, X3, MOTEUR §9.40) — LA RÉPONSE DE LA VEILLE VAUT POUR LA JOURNÉE. Une réponse reprise (`entrees.veilleReprise`) : la question ne revient
+  //   pas (pas de `veilleActivite`) ; la ligne dit la réponse (« Comme ce matin : … ») et offre « Changer » ; elle ne naît que d'une réponse donnée
+  //   (Mix ou Garder) ET d'une activité notée hier, jamais en Édition ni en « Juste un carnet » ; une reprise « Mix » a bien posé la zone Mix de
+  //   la barre (`zone_plan`) — sinon la ligne mentirait.
+  function verifierVeilleReprise(plan, entrees, erreurs) {
+    var e = entrees || {}, r = plan && plan.veilleReprise;
+    if (e.veilleReprise && (e.veilleChoix === 'mix' || e.veilleChoix === 'garder') && plan && plan.veilleActivite) {
+      erreurs.push('I140 \u2014 la question de la veille revient alors que sa r\u00e9ponse du jour est reprise');
+    }
+    if (!r) return;
+    if (e.veilleChoix !== r.choix || (r.choix !== 'mix' && r.choix !== 'garder')) erreurs.push('I140 \u2014 la ligne reprise ne dit pas la r\u00e9ponse de la s\u00e9ance');
+    if (!e.activiteVeille || !e.activiteVeille.slug) erreurs.push('I140 \u2014 une r\u00e9ponse reprise sans activit\u00e9 not\u00e9e la veille');
+    if (plan.edition) erreurs.push('I140 \u2014 une r\u00e9ponse reprise en \u00c9dition');
+    if (plan.intention === 'entretien') erreurs.push('I140 \u2014 une r\u00e9ponse reprise en \u00ab\u00a0Juste un carnet\u00a0\u00bb');
+    if (r.lien !== 'Changer') erreurs.push('I140 \u2014 la r\u00e9ponse reprise sans \u00ab\u00a0Changer\u00a0\u00bb');
+    if (!/^Comme (ce matin|tout \u00e0 l\u2019heure)\u00a0: /.test(r.phrase || '') || !(r.choix === 'mix' ? / en Mix\.$/ : /plan gard\u00e9\.$/).test(r.phrase || '')) {
+      erreurs.push('I140 \u2014 la ligne reprise n\u2019est pas dans la voix du coach : ' + r.phrase);
+    }
+    if (r.choix === 'mix') {
+      var ex = ((e.seance && e.seance.exercices) || []).filter(function (x) { return x && x.exercise_slug === r.slug; })[0];
+      var z = ex && ex.zone_plan ? (ex.zone_plan.cle || ex.zone_plan) : null;
+      if (z !== 'mix') erreurs.push('I140 \u2014 \u00ab\u00a0' + r.slug + ' en Mix\u00a0\u00bb dit, mais la zone de la barre n\u2019est pas Mix');
+    }
   }
 
   function verifierMobilite(plan, entrees, erreurs) {
@@ -7768,6 +7821,7 @@
     REFUS_DEFINITIFS: REFUS_DEFINITIFS,
     refuserChauffes: refuserChauffes,
     accepterChauffes: accepterChauffes,
+    veilleDuJour: veilleDuJour, noterVeilleDuJour: noterVeilleDuJour,
     refusChauffesDe: refusChauffesDe, miseEnSilence: miseEnSilence, annulerRefusChauffes: annulerRefusChauffes,
     SERIES_DEPART_PROGRESSER: SERIES_DEPART_PROGRESSER,
     SERIES_DEPART_ENTRETIEN: SERIES_DEPART_ENTRETIEN,

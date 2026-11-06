@@ -994,9 +994,9 @@ const NOTIONS = [
       '(la semaine qui déraille, `deraille.js`) se compte par la même fonction que le volume fait (`faits.semaineDuProgramme`).' },
   // ── 65 — LE POIDS D'UN MUSCLE (REGLE-VOLUME §1 bis, v2_069) : une table, lue par le coach et le jeu ──
   { notion: 'le poids d’un muscle dans une série (principal 1, secondaire ½, stabilisateur ¼)', pr: '65-U1',
-    module: 'semaine.js', fonction: 'musclesPonderes', lecteurs: ['jeu.js', 'generateur.js', 'equilibres.js'],
+    module: 'semaine.js', fonction: 'musclesPonderes', lecteurs: ['jeu.js', 'generateur.js', 'equilibres.js', 'plan.js'],
     par: ['sommeDesSeries', 'apportsParMuscle'],
-    raison: 'REGLE-VOLUME §1 bis (65) : UNE table de poids (`POIDS_DES_MUSCLES`), lue par le coach (le volume, la fenêtre ' +
+    raison: '253-X1 : `plan.js` la lit pour « les muscles déjà travaillés » (chauffes, MOTEUR §9.41 règle 7), la même notion que le volume. REGLE-VOLUME §1 bis (65) : UNE table de poids (`POIDS_DES_MUSCLES`), lue par le coach (le volume, la fenêtre ' +
       '« d’où vient ce chiffre ») et par le jeu (les points des muscles) ; une seconde table finirait par dire autre chose. ' +
       '66A : la relecture de la semaine (§5 ter.1) compte les séries d’une routine par muscle avec ces poids.' },
   { notion: 'la somme pondérée des séries par muscle (n séries × 1, ½, ¼, additionnées)', pr: '217-U1',

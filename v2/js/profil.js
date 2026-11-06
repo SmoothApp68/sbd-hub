@@ -479,7 +479,8 @@
       },
       // Une phase vide ne dit pas « depuis » : elle dit ce que le coach en fait.
       // 189 — la fin d'une « série de moins » se dit ici : « Tes séries reviennent à ta routine. »
-      pied: (PHASES_EN_BASE.indexOf(p.phase) >= 0 ? depuisPhase(p) : LIBELLE_PHASE_VIDE) + (note ? ' ' + note : '')
+      // 256 (D5) — une phase posée sans date de début n'a pas de « Depuis… » : jamais le mot « null », et pas de pied du tout s'il est vide.
+      pied: [PHASES_EN_BASE.indexOf(p.phase) >= 0 ? depuisPhase(p) : LIBELLE_PHASE_VIDE, note].filter(Boolean).join(' ') || null
     };
   }
 

@@ -42,3 +42,20 @@ describe('256 D6 — les cibles tactiles sont à 44 px', () => {
   });
 });
 
+describe('256 D5 — « null » n’est jamais affiché sous TA PHASE', () => {
+  const MAINTENANT = new Date('2026-10-05T10:00:00+02:00');
+  test('une phase posée sans date de début : le pied est vide (null), pas le mot « null »', () => {
+    const sec = Profil.sectionPhase({ phase: 'seche', phase_depuis: null }, () => {}, MAINTENANT);
+    expect(sec.pied).toBeNull();
+    const avecNote = Profil.sectionPhase({ phase: 'seche', phase_depuis: null }, () => {}, MAINTENANT, 'Tes séries reviennent à ta routine.');
+    expect(avecNote.pied).toBe('Tes séries reviennent à ta routine.');
+  });
+  test('avec une date, le pied est inchangé', () => {
+    const sec = Profil.sectionPhase({ phase: 'seche', phase_depuis: '2026-09-29T10:00:00.000Z' }, () => {}, MAINTENANT);
+    expect(sec.pied).toMatch(/^Depuis /);
+  });
+  test('sans phase : « Maintien (par défaut) », comme avant', () => {
+    expect(Profil.sectionPhase({ phase: null }, () => {}, MAINTENANT).pied).toBe(Profil.LIBELLE_PHASE_VIDE);
+  });
+});
+

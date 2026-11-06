@@ -460,8 +460,7 @@ describe('251 D2 — la porte du cran', () => {
     expect(x.porteDuCran).toMatchObject({ fermee: true, tente: false, raison: 'prise', iSerie: 0 });
     expect(sp(x.porteDuCran.phrase)).toBe('Pas de test à 110 kg aujourd’hui : tu as baissé la charge.');
     expect(sp(x.porteDuCran.bouton)).toBe('Tenter 110 kg quand même');
-    expect(sp(x.pourquoi.porte)).toBe('Tu as baissé la charge après ta série à 107,5 kg × 3 : le test à 110 kg × 3 attend une autre séance. ' +
-      'Ta force du jour, d’environ 117 kg, donne environ 2 reps à 110 kg.');
+    expect(sp(x.pourquoi.porte)).toBe('Tu as baissé la charge après ta série à 107,5 kg × 3 : le test à 110 kg × 3 attend une autre séance.');
     expect(x.lignes.some((l) => l.role === 'test')).toBe(false);
     expect(L(x, 2).charge).toBe(97.5);
     expect(x.entete.jaune.join(' ')).not.toMatch(/Si ça passe/);

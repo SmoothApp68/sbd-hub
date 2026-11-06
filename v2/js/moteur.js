@@ -11992,6 +11992,7 @@
     var t = 'Ta série à ' + porteFois(d.serie.charge, 'porte.travail', d.serie.reps);
     if (d.raison === 'prise') {
       t = 'Tu as baissé la charge après ta série à ' + porteFois(d.serie.charge, 'porte.travail', d.serie.reps) + attend;
+      return t;                                       // la raison est le geste de la personne, pas sa force : rien d'autre
     } else if (d.raison === 'echec') {
       t += ' est allée jusqu’à l’échec' + attend;
     } else {

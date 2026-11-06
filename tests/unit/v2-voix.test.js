@@ -606,6 +606,7 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     expect(dit.annuler).toBe('Annuler');
     expect(dit.pqZone).toBe('Ta série à 107,5 kg × 2 est sous ta zone (3 à 5 reps) : le test à 110 kg × 3 attend une autre séance. ' +
       'Ta force du jour, d’environ 113 kg, donne environ 2 reps à 110 kg.');
+    expect(sp(M.pourquoiDeLaPorte(d({ raison: 'prise', tente: false })))).toBe('Tu as baissé la charge après ta série à 107,5 kg × 2 : le test à 110 kg × 3 attend une autre séance.');
     expect(dit.pqEchec).toMatch(/^Ta série à 107,5 kg × 4 est allée jusqu’à l’échec : le test à 110 kg × 3 attend une autre séance\./);
     expect(dit.pqForme).toBe('Tu as ajusté la fin de séance à ta forme du jour : pas de test aujourd’hui.');
     expect(M.pourquoiDeLaPorte(d({ raison: 'sous_la_zone', tente: true }))).toBeNull();      // tenté : le Pourquoi ne dit pas le contraire

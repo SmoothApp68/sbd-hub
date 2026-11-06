@@ -69,5 +69,15 @@
    "tests/unit/v2-report-de-zone.test.js"
   ],
   "banc": "aucun"
+ },
+ {
+  "nom": "255-8-seuil-des-10-pour-cent-supprime",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "(estimee - charge) / estimee > REPORT_GROS_CRAN",
+  "nouveau": "(estimee - charge) / estimee > -1",
+  "unitaires": [
+   "tests/unit/v2-report-de-zone.test.js"
+  ],
+  "banc": "aucun"
  }
 ]

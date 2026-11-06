@@ -9263,12 +9263,12 @@
     return charge * (1 + reps / REPORT_EPLEY);
   }
 
-  // 255 bis — au-dessus de cette perte (relative à l'estimation exacte), le cran du dessous est « gros » : on regarde le cran du dessus.
+  // 255 bis — au-dessus de cette perte (relative à l'estimation exacte), le cran du dessous est « gros » : les reps visées montent.
   var REPORT_GROS_CRAN = 0.10;
   // Le plus grand nombre de reps `r` de [bas, haut] tel que `charge` à `r + réserve visée` ne dépasse pas le max estimé de la source
   // (`unRMEpley`, la même formule que partout) ; `null` si aucun ne tient — le max estimé monte avec les reps, donc c'est `bas` qui
-  // est testé le premier : si `bas` dépasse déjà la source, aucun autre nombre de la zone ne la respecte.
-  function repsAuCranDuDessus(charge, maxSource, reserveVisee, bas, haut) {
+  // est testé le premier : si `bas` dépasse déjà la source, aucun autre nombre de la zone ne la respecte (`null`, la visée reste `bas`).
+  function repsAuCranDuDessous(charge, maxSource, reserveVisee, bas, haut) {
     for (var r = haut; r >= bas; r--) {
       if (unRMEpley(charge, r + reserveVisee) <= maxSource + 1e-6) return r;
     }
@@ -9303,16 +9303,13 @@
     var estimee = unRMEpley(P, n + (rSource === null ? 0 : rSource)) / unRMEpley(1, z.bas + (rVisee === null ? 0 : rVisee));
     var charge = auCranInferieur(P, estimee, p.cran);
     // 255 bis (06/11/2026, décision du coach, déléguée par Aurélien) — LES GROS CRANS. Quand le cran du dessous fait perdre PLUS de
-    // 10 % de l'estimation exacte (haltères de 5 kg : 18,8 → 15), on prend le cran du dessus et on baisse les reps visées pour
-    // garder le même effort (`repsAuCranDuDessus`) ; aucun nombre de reps de la zone ne tient-il sans dépasser la série source ?
-    // le cran du dessous reste. I143 (plan.js) vérifie ce max estimé dans tous les cas, reps baissées comprises.
+    // 10 % de l'estimation exacte (haltères de 5 kg : 19,6 → 15), la charge reste au cran du dessous, mais les reps visées MONTENT au
+    // plus grand r de la zone [bas, haut] dont le max estimé à `r + v` reps ne dépasse pas celui de la source (`repsAuCranDuDessous`) :
+    // on ne laisse pas l'effort sur la table, et on ne sort jamais de la zone. I143 (plan.js) vérifie ce max estimé.
     var maxSource = unRMEpley(P, n + (rSource === null ? 0 : rSource));
-    if (charge !== null && estimee > 0 && (estimee - charge) / estimee > REPORT_GROS_CRAN && typeof p.cran === 'function') {
-      var dessus = nombre(p.cran(charge, 1));
-      if (dessus !== null && dessus > charge && !memeCharge(dessus, charge)) {
-        var repsHaut = repsAuCranDuDessus(dessus, maxSource, rVisee === null ? 0 : rVisee, z.bas, z.haut);
-        if (repsHaut !== null) { charge = dessus; visee = repsHaut; }
-      }
+    if (charge !== null && charge > 0 && estimee > 0 && (estimee - charge) / estimee > REPORT_GROS_CRAN) {
+      var repsHaut = repsAuCranDuDessous(charge, maxSource, rVisee === null ? 0 : rVisee, z.bas, z.haut);
+      if (repsHaut !== null) visee = repsHaut;
     }
     // (a) la dernière charge tenue DANS la zone visée — son niveau validé
     // entre le bas et le haut —, dans les 90 jours.
@@ -12471,7 +12468,7 @@
     MODULE_CONSIGNE: MODULE_CONSIGNE,
     VERSION_CONSIGNE: VERSION_CONSIGNE,
     reportDeZone: reportDeZone,
-    repsAuCranDuDessus: repsAuCranDuDessus,
+    repsAuCranDuDessous: repsAuCranDuDessous,
     // §9.22 (53-2) — les programmes à cycles
     chargesDeTravailDe: chargesDeTravailDe,
     semaineDuBloc: semaineDuBloc,

@@ -402,27 +402,28 @@ describe('255 bis — les gros crans, la salle et la plus petite réserve notée
   const rapporte = (extra) => M.reportDeZone(Object.assign({ seances: SOURCE, avant: '2026-09-08T10:00:00Z',
     zoneAvant: 'mix', zone: 'series_longues', reglage: 'normal', cran: grille(5) }, extra));
 
-  test('⚠️ DISCRIMINANT — haltères de 5 kg, 25 × 6 Mix → Séries longues : l’estimation exacte (19,6) tombe à 15 (−23 %) ; le cran du dessus (20) ne tient aucune rep de la zone sans dépasser la source : 15 × 15 reste', () => {
+  test('⚠️ DISCRIMINANT — haltères de 5 kg, 25 × 6 Mix → Séries longues : l’estimation exacte (19,6) tombe à 15 (−23 %) ; la charge reste 15, les reps visées montent à 20 (avant : 15 × 15)', () => {
     const r = rapporte({});
-    expect([r.charge, r.visee, r.origine]).toEqual([15, 15, 'estimee']);
-    // Le cran du dessus : 20 kg à 15 reps (+ 1 en réserve) dépasse la série source ; la zone n’a pas de reps plus basses.
-    expect(e1(20, 15 + 1)).toBeGreaterThan(e1(25, 6));
-    expect(e1(r.charge, r.visee + M.reserveVisee({ zone: 'series_longues', role: 'ligne', reglage: 'normal' }))).toBeLessThanOrEqual(e1(25, 6));
+    expect([r.charge, r.visee, r.origine]).toEqual([15, 20, 'estimee']);
+    const rv = M.reserveVisee({ zone: 'series_longues', role: 'ligne', reglage: 'normal' });
+    // Le plus grand r de la zone qui tient : 20 (le haut) ; à 21 on dépasserait la zone, pas la source.
+    expect(e1(15, 20 + rv)).toBeLessThanOrEqual(e1(25, 6));
+    expect(r.visee).toBeLessThanOrEqual(M.zoneParCle('series_longues').haut);
   });
 
-  test('⚠️ la règle ne s’applique jamais quand l’écart est de 10 % ou moins : crans de 2,5, le cran du dessous reste', () => {
+  test('⚠️ la règle ne s’applique jamais quand l’écart est de 10 % ou moins : crans de 2,5 : la visée reste le bas', () => {
     const r = rapporte({ seances: [{ debut: '2026-09-01T10:00:00Z', palier: 26, niveau: 6 }], cran: grille(2.5) });
     expect([r.charge, r.visee]).toEqual([20, 15]);         // 20,35 estimé, 20 au cran : −1,7 %
     const t = rapporte({ seances: [{ debut: '2026-09-01T10:00:00Z', palier: 26, niveau: 6 }], cran: grille(1) });
     expect([t.charge, t.visee]).toEqual([20, 15]);
   });
 
-  test('repsAuCranDuDessus : le plus grand nombre de reps de la zone qui ne dépasse pas la source, sinon null (20 kg, zone 10-12, 1 en réserve)', () => {
-    expect(M.repsAuCranDuDessus(20, e1(20, 13) + 0.01, 1, 10, 12)).toBe(12);
-    expect(M.repsAuCranDuDessus(20, e1(20, 12) + 0.01, 1, 10, 12)).toBe(11);
-    expect(M.repsAuCranDuDessus(20, e1(20, 11) + 0.01, 1, 10, 12)).toBe(10);
-    expect(M.repsAuCranDuDessus(20, e1(20, 11) - 0.01, 1, 10, 12)).toBeNull();     // même `bas` dépasse : aucune rep ne tient
-    expect(M.repsAuCranDuDessus(20, e1(20, 13), 1, 10, 12)).toBe(12);              // égalité : tient
+  test('repsAuCranDuDessous : le plus grand nombre de reps de la zone qui ne dépasse pas la source, sinon null (20 kg, zone 10-12, 1 en réserve)', () => {
+    expect(M.repsAuCranDuDessous(20, e1(20, 13) + 0.01, 1, 10, 12)).toBe(12);
+    expect(M.repsAuCranDuDessous(20, e1(20, 12) + 0.01, 1, 10, 12)).toBe(11);
+    expect(M.repsAuCranDuDessous(20, e1(20, 11) + 0.01, 1, 10, 12)).toBe(10);
+    expect(M.repsAuCranDuDessous(20, e1(20, 11) - 0.01, 1, 10, 12)).toBeNull();     // même `bas` dépasse : aucune rep ne tient
+    expect(M.repsAuCranDuDessous(20, e1(20, 13), 1, 10, 12)).toBe(12);              // égalité : tient
   });
 
   test('⚠️ I143, étendu : sur toute la grille (zones, réglages, crans de 2,5 à 10), le max estimé de la proposition (reps visées comprises) ne dépasse jamais celui de la source', () => {
@@ -468,11 +469,12 @@ describe('255 bis — les gros crans, la salle et la plus petite réserve notée
     expect(norm(M.pourquoiConsigne(c, 'franc', AVANT).etat)).toMatch(/j'estime ta charge depuis 100 kg × 5/);
   });
 
-  test('le câblage avec une salle à crans de 5 : le gros cran reste le cran du dessous (15 × 15), la phrase reste « Estimée depuis ton 25 kg × 6 », la consigne affiche la visée', () => {
+  test('le câblage avec une salle à crans de 5 : le gros cran garde le cran du dessous et monte les reps (15 × 20), la phrase reste « Estimée depuis ton 25 kg × 6 », la consigne affiche la visée', () => {
     const H = [g('2026-09-01T10:00:00Z', 25, [6, 6, 6]), g('2026-09-04T10:00:00Z', 25, [6, 6, 6]), g('2026-09-08T10:00:00Z', 25, [6, 6, 6])];
     const salle = { materiel: 'halteres', charges: [5, 10, 15, 20, 25, 30, 35, 40] };
     const r = consigne(H, Object.assign({ equipement: 'haltere', salle }, choix('series_longues', '2026-09-10T20:00:00Z')));
-    expect([r.consigne.ligne.charge, r.consigne.ligne.vise]).toEqual([15, 15]);
+    expect([r.consigne.ligne.charge, r.consigne.ligne.vise]).toEqual([15, 20]);
+    expect(r.libelles.jaune.map(norm).join(' ')).toMatch(/15 kg × 20/);
     expect(norm(r.libelles.gris)).toBe('Nouvelle zone : Séries longues. Estimée depuis ton 25 kg × 6, un peu en dessous pour démarrer.');
     expect(M.dansLaSalle(salle, r.consigne.ligne.charge)).toBe(true);
   });

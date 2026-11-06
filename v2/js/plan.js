@@ -6457,7 +6457,7 @@
   //   I139  sous la première série de travail d'un exercice à reculs, le coach parle en cas G, jamais I
   // I143 (255, MOTEUR §9.10) — LE REPORT DE ZONE COMPTE LA RÉSERVE VISÉE : la charge reportée sur une nouvelle zone (origine « estimée »)
   // donne, au bas de la zone PLUS la réserve visée de la zone pour le réglage de la séance, un max estimé qui ne dépasse jamais celui de
-  // la série dont elle part (palier × (niveau + la plus petite réserve notée, 0 si inconnue : l’hypothèse prudente)), reps visées baissées au cran du dessus comprises (255 bis). Sans cela, la nouvelle zone était plus dure
+  // la série dont elle part (palier × (niveau + la plus petite réserve notée, 0 si inconnue : l’hypothèse prudente)), reps visées montées par un gros cran comprises (255 bis). Sans cela, la nouvelle zone était plus dure
   // que le plan ne le disait (152,5 × 5 en Lourd → Mix 147,5 × 6, soit 2 % de plus).
   function verifierReportDeZone(plan, erreurs) {
     var M = Moteur();

@@ -1510,6 +1510,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .repos-q-b{display:flex;gap:var(--e2)}
 .repos-q-b button{flex:1;height:40px;border-radius:var(--r-petit);border:1px solid var(--trait);background:var(--panneau-2);
   color:var(--texte);font-family:var(--pile-c);font-size:17px;font-weight:600}
+.repos-q-b button.passer{flex:1.4;background:none;color:var(--texte-2);font-weight:400}
 .repos-q-b button.sel{background:var(--accent);border-color:var(--accent);color:var(--sur-accent)}
 
 /* ── Les feuilles ─────────────────────────────────────────────────────────── */
@@ -2912,11 +2913,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   border-radius:var(--r-etiquette);font-family:var(--pile-c);font-size:12px;font-weight:600;letter-spacing:.02em;color:var(--accent);
   white-space:nowrap;vertical-align:1px}
 .effort-vise{display:flex;flex-wrap:wrap;align-items:center;gap:var(--e2);padding:var(--e2) 0 var(--e1)}
-.effort-vise-q,.effort-vise-dit{font-size:14px;color:var(--texte-2)}
-.effort-vise-b{display:flex;gap:var(--e2);flex:1 1 100%}
-.effort-puce{flex:1;min-width:44px;height:40px;border-radius:var(--r-petit);border:1px solid var(--trait);background:var(--panneau-2);
-  color:var(--texte);font:inherit;font-weight:600;cursor:pointer}
-.effort-puce.passer{flex:1.4;background:none;color:var(--texte-2);font-weight:400}
+.effort-vise-dit{font-size:14px;color:var(--texte-2)}
 
 /* 171 (ECRAN-SAISIE, décision du 25/10/2026) — Saisie : A · à faire (liseré ambre), B · « Le coach te dit (n) » (une ligne),
    les routines, C · en bas, discret. Seule la place des cartes change. */

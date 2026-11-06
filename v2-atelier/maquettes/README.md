@@ -9,6 +9,7 @@ plutôt que de mémoire.
 
 | Fichier | Ce qu'il fixe |
 |---|---|
+| `maquette-superset-entrelace-v4.html` | 261, validée le 06/11/2026 : **le superset par tours** en séance — un bloc par tour (« TOUR n » sur un rail), CHAUFFE avant le tour 1, SEUL pour des séries faites d'affilée avant l'alternance ; une forme et une couleur par exercice (rond bleu, carré rose, triangle gris), la légende en une ligne par exercice, la dégressive dans son tour, le dernier tour qui dit qui reste seul, le triset. Huit cas ; charges rondes. |
 | `maquette-serie-de-recul-v2.html` | 193-1, validée le 30/10/2026 : la série de recul. Une grosse série (« Grosse »), puis des séries plus légères (« Recul ») au repos normal ; la consigne « 150 kg × 5 · puis 135 kg × 6 », le « Pourquoi », le constat « Tes reculs tiennent 6-6-6 », l'écart de 10 % qui se resserre ou s'éloigne de 2,5 points, et le menu ⋯ de la série. |
 | `bloc-suggere-entete.html` | Anatomie d'un bloc : palier et cible de reps écrits **une seule fois** dans l'en-tête, pas sur chaque série. Les séries de rampe et de chauffe ne reçoivent aucune suggestion. Un exercice sans palier établi le dit au lieu d'inventer un chiffre. |
 | `mode-edition.html` | Bascule **Modifier** : les blocs se replient sur leur légende, les poignées apparaissent, le menu trois points expose grouper / dégrouper / déplacer / remplacer / supprimer. |

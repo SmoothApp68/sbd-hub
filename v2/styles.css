@@ -108,6 +108,91 @@
      La police système en repli, tant que la police n'est pas là. */
   --pile:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   --pile-c:"Barlow Condensed","Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+
+  /* ══ 258-1 — LES COULEURS DU DÉPÔT, EN JETONS (lot 1 de propreté, 06/11/2026) ══
+     Chaque valeur qui était écrite en dur dans une règle est ici, À L'IDENTIQUE : aucun pixel ne change.
+     Des valeurs proches ne sont PAS fusionnées (un gris à 1 niveau d'un autre reste son propre jeton) :
+     la fusion est visible, elle est pour le lot 2. Une couleur neuve s'écrit ici, jamais dans une règle. */
+  /* Traits, filets et surfaces neutres (valeurs gardées à l'identique, pas fusionnées : la fusion est pour le lot 2) */
+  --trait-case:#343A43; /* contour d'une case posée sur la surface 2 (note, zone fixée, jauge déduite) */
+  --trait-selection:#363B44; /* contour de la bande de sélection de la molette */
+  --trait-choisi:#3A4049; /* contour d'une case choisie (période, choix de routine, RIR/RPE) */
+  --reflet-haut:#3A4048; /* le filet clair intérieur du haut d'une carte (à 1 niveau de --trait-choisi) */
+  --trait-focus:#4A5058; /* contour d'un champ qui a le focus, d'un segment actif */
+  --jauge:#4A5461; /* remplissage d'une jauge de tendance */
+  --molette-eteint:#4E545C; /* chiffre éloigné de la molette */
+  --filet-liste:#212529; /* filet entre deux lignes de liste (Profil) */
+  --filet-question:#23262A; /* filet d'une question de routine, d'un menu */
+  --radar-axe:#22262C; /* axe du radar */
+  --radar-grille:#282C33; /* grille du radar */
+  --fond-hors-saisie:#1F2229; /* fond d'une ligne « hors saisie » */
+  --filet-serie:rgba(255,255,255,.04); /* filet très pâle entre deux séries */
+  --precedent:#6E7885; /* tracé de la période précédente (radar, puce) */
+  --precedent-fond:rgba(120,130,145,.12); /* aplat de la période précédente (radar) */
+  --eq-barre-b:#3a4658; /* barre B de l'équilibre */
+  --metal:#9AA3AF; /* le métal de la barre dessinée (disque, manche) */
+  --encre-disque:#111; /* le chiffre posé sur un disque de la barre dessinée */
+  /* La chauffe et le calage */
+  --fond-chauffe:#1B2129; /* fond du numéro d'une série de chauffe */
+  --trait-chauffe:#3A4A5E; /* contour du numéro d'une série de chauffe */
+  --trait-calage:#4A4033; /* contour du numéro d'une série de calage */
+  --texte-calage:#B08F3C; /* texte du numéro d'une série de calage */
+  --fond-serie-faite:#1D312F; /* le vert de sens à ~11 % sur la surface (opaque), une série faite */
+  /* Le sens : manque et ambre, fonds et traits */
+  --manque-trait:#4A3330; /* contour d'un état destructif ou en erreur */
+  --manque-fond:#33201e; /* fond révélé sous la ligne qu'on glisse pour supprimer */
+  --accent-fond:#2a2110; /* encadré du coach : ambre très sombre */
+  --accent-fond-choisi:#2a2214; /* fond d'une option choisie */
+  --accent-fond-levier:#2a2218; /* haut du dégradé de la carte levier */
+  --accent-06:rgba(255,185,56,.06); /* ambre à 6 % */
+  --accent-10:rgba(255,185,56,.10); /* ambre à 10 % */
+  --accent-45:rgba(255,185,56,.45); /* ambre à 45 % (début de l'onde d'attente) */
+  --accent-0:rgba(255,185,56,0); /* ambre transparent (fin de l'onde d'attente) */
+  --sync-a-jour:#3fb950; /* pastille « synchronisé » */
+  --presence:#7fd18b; /* pastille de présence */
+  /* Voiles, ombres, fondus */
+  --voile:rgba(6,7,9,.68); /* le voile derrière une feuille */
+  --ombre-flottante:rgba(0,0,0,.45); /* ombre d'un élément qu'on déplace */
+  --ombre-prise:rgba(0,0,0,.5); /* ombre d'une carte prise */
+  --ombre-lourde:#0008; /* ombre portée du bilan de l'année et de la bulle du bonhomme */
+  --panneau-0:rgba(23,28,37,0); /* --panneau transparent : fin des fondus (même teinte, pas de frange grise) */
+  --blanc:#fff; /* texte posé sur le rouge de la garde de développement */
+  /* La médaille */
+  --medaille-reflet:#fff3c4; /* le reflet du disque de la médaille */
+  --medaille-bord:rgba(255,255,255,.28); /* le liseré clair de la médaille */
+  --pastille-bord:rgba(255,255,255,.18); /* le liseré clair d'une pastille d'élément */
+  /* Le social (niveaux d'activité) */
+  --social-n1:#4a3f22; /* niveau 1 */
+  --social-n2:#8a723a; /* niveau 2 */
+  /* Le bonhomme des muscles */
+  --bh-fond:#10151c; /* fond du dessin et trait de séparation */
+  --bh-contour:#3A4556; /* contour du dessin */
+  --bh-corps:#1B222C; /* fond d'une zone non travaillée */
+  /* Le bilan de l'année (palette propre, police Archivo) */
+  --annee-acier:#161a1f;
+  --annee-fonte:#232931;
+  --annee-rayure:#353d47;
+  --annee-craie:#ece8df;
+  --annee-cendre:#9aa3ad;
+  --annee-or:#d9b45a;
+  --annee-bleu:#5f8fbf;
+  --annee-rouge:#b8574a;
+  --annee-plaque-haut:#262d36;
+  --annee-plaque-bas:#1a1f25;
+  --annee-fond-haut:#1d232a;
+  --annee-encre:#1a1712;
+  --annee-manche:#59626d;
+  --annee-blanc-14:#ffffff14; /* blanc à 8 % */
+  --annee-blanc-1a:#ffffff1a; /* blanc à 10 % */
+  --annee-blanc-1f:#ffffff1f; /* blanc à 12 % */
+  --annee-blanc-26:#ffffff26; /* blanc à 15 % */
+  --annee-blanc-2e:#ffffff2e; /* blanc à 18 % */
+  --annee-blanc-38:#ffffff38; /* blanc à 22 % */
+  /* Variables lues sans être déclarées jusqu'ici : leur valeur est celle que le navigateur leur donnait (le repli). */
+  --t-petit:12px;        /* la petite taille de texte (.etq) */
+  --bordure:currentColor; /* le contour d'un geste de menu : la couleur du texte */
+  /* L'or de la médaille (déplacé ici depuis un second :root, plus bas). */
+  --medaille:#ffd46b;--medaille-fond:#2e2410;--medaille-trait:#6b5420;
 }
 
 /* Les chiffres s'alignent d'une ligne à l'autre, partout. */
@@ -158,7 +243,7 @@ body{
 }
 .etat-sync:empty{display:none}
 .etat-pastille{width:6px;height:6px;border-radius:50%;background:var(--texte-2);flex:none}
-.etat-sync.a-jour .etat-pastille{background:#3fb950}
+.etat-sync.a-jour .etat-pastille{background:var(--sync-a-jour)}
 .etat-sync.local .etat-pastille{background:var(--texte-2)}
 .etat-sync.vide .etat-pastille{background:var(--texte-3)}
 /* Un écart se constate, il ne s'alarme pas : pastille neutre, le texte dit le fait. */
@@ -253,7 +338,7 @@ button{font-family:inherit;cursor:pointer}
 }
 .entetes{height:22px;font-size:12px;color:var(--texte-2);
   border-top:1px solid var(--trait);letter-spacing:.04em}
-.serie{min-height:34px;border-top:1px solid rgba(255,255,255,.04)}
+.serie{min-height:34px;border-top:1px solid var(--filet-serie)}
 /* Les séries qui ne sont pas du travail sont visuellement en retrait. */
 .serie.hors-travail{opacity:.62}
 
@@ -264,7 +349,7 @@ button{font-family:inherit;cursor:pointer}
    sépare les tours au même endroit : deux écrans, une seule lecture. */
 .serie.hors-travail .tag.c{color:var(--chauffe);font-weight:700}
 .bloc .serie.debut-tour{margin-top:9px;border-top-color:transparent;
-  box-shadow:inset 0 1px 0 #3A4048}
+  box-shadow:inset 0 1px 0 var(--reflet-haut)}
 .mesure{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 
 /* ── États ────────────────────────────────────────────────────────────── */
@@ -340,7 +425,7 @@ button{font-family:inherit;cursor:pointer}
 .muscle-fl{flex:0 0 9px;color:var(--texte-3);font-size:12px}
 
 /* ── Voiles : fenêtre de muscle et calendrier ───────────────────────────── */
-.voile{position:fixed;inset:0;z-index:60;background:rgba(6,7,9,.68);
+.voile{position:fixed;inset:0;z-index:60;background:var(--voile);
   display:grid;place-items:center;padding:var(--e4);
   /* 134 (I-09, audit iPhone) — la barre d'accueil de l'iPhone (≈ 34 px) : « Fermer » et les boutons du pied d'une
      feuille ne se posent plus dans sa zone, où un toucher se lit comme le geste « retour à l'accueil ». */
@@ -561,17 +646,17 @@ button.bloc-exo:active{background:var(--panneau-2)}
 .periodes{display:flex;gap:var(--e1);margin-bottom:var(--e3)}
 .periode{flex:1;padding:7px 0;border-radius:var(--r-petit);border:1px solid var(--trait);
   background:transparent;color:var(--texte-3);font:600 12px/1 var(--pile);min-height:44px}
-.periode.actif{background:var(--panneau);color:var(--texte);border-color:#3A4049}
+.periode.actif{background:var(--panneau);color:var(--texte);border-color:var(--trait-choisi)}
 
 /* ── Le radar ─────────────────────────────────────────────────────────────── */
 .radar{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e3)}
 .radar svg{width:100%;height:238px;display:block}
-.radar-grille{fill:none;stroke:#282C33;stroke-width:1}
-.radar-axe{stroke:#22262C;stroke-width:1}
+.radar-grille{fill:none;stroke:var(--radar-grille);stroke-width:1}
+.radar-axe{stroke:var(--radar-axe);stroke-width:1}
 /* La période précédente en gris neutre, la courante en accent. Pas de vert ni
    de rouge : deux périodes se comparent, elles ne se jugent pas. */
-.radar-prec{fill:rgba(120,130,145,.12);stroke:#6E7885;stroke-width:1.5}
-.radar-cour{fill:rgba(255,185,56,.10);stroke:var(--accent);stroke-width:2}
+.radar-prec{fill:var(--precedent-fond);stroke:var(--precedent);stroke-width:1.5}
+.radar-cour{fill:var(--accent-10);stroke:var(--accent);stroke-width:2}
 .radar-et{font:600 12px/1 var(--pile);fill:var(--texte-3)}
 .radar-lg{display:flex;justify-content:center;gap:var(--e4);margin-top:var(--e2);
   font-size:12px;line-height:1;color:var(--texte-3)}
@@ -579,7 +664,7 @@ button.bloc-exo:active{background:var(--panneau-2)}
 .radar-lg i{display:inline-block;width:8px;height:8px;border-radius:50%;
   margin-right:5px;vertical-align:-1px}
 .puce-cour{background:var(--accent)}
-.puce-prec{background:#6E7885}
+.puce-prec{background:var(--precedent)}
 
 .cartes-per{display:grid;grid-template-columns:1fr 1fr;gap:var(--e2);margin-top:var(--e3)}
 .carte-per{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e3);min-width:0}
@@ -692,12 +777,12 @@ button.bloc-exo:active{background:var(--panneau-2)}
 .molette::before,.molette::after{content:"";position:absolute;left:0;right:0;
   height:84px;pointer-events:none;z-index:2}
 .molette::before{top:0;
-  background:linear-gradient(180deg,var(--panneau) 18%,rgba(23,28,37,0))}
+  background:linear-gradient(180deg,var(--panneau) 18%,var(--panneau-0))}
 .molette::after{bottom:0;
-  background:linear-gradient(0deg,var(--panneau) 18%,rgba(23,28,37,0))}
+  background:linear-gradient(0deg,var(--panneau) 18%,var(--panneau-0))}
 /* La fenêtre de sélection ne se touche pas : c'est un repère, pas un bouton. */
 .molette .selection{position:absolute;left:0;right:0;top:84px;height:48px;
-  border-radius:var(--r-petit);background:var(--panneau-2);border:1px solid #363B44;
+  border-radius:var(--r-petit);background:var(--panneau-2);border:1px solid var(--trait-selection);
   pointer-events:none;z-index:1}
 .molette .piste{height:100%;overflow-y:auto;scroll-snap-type:y mandatory;
   padding:84px 0;position:relative;z-index:3;
@@ -705,10 +790,10 @@ button.bloc-exo:active{background:var(--panneau-2)}
 .molette .piste::-webkit-scrollbar{width:0}
 .molette .opt{height:48px;display:flex;align-items:center;justify-content:center;
   scroll-snap-align:center;font-size:16px;font-weight:400;line-height:normal;font-family:inherit;
-  color:#4E545C;font-variant-numeric:tabular-nums;transition:color .12s}
+  color:var(--molette-eteint);font-variant-numeric:tabular-nums;transition:color .12s}
 .molette .opt.sel{color:var(--texte);font-size:22px;font-weight:700}
 .molette .opt.pres{color:var(--texte-3)}
-.molette .opt.eteint{color:#4E545C;font-size:16px;font-weight:600}
+.molette .opt.eteint{color:var(--molette-eteint);font-size:16px;font-weight:600}
 
 /* Trois sorties, et « Désactiver » ne prend pas la place des deux autres :
    c'est le geste rare, il garde la largeur de son texte. */
@@ -720,7 +805,7 @@ button.bloc-exo:active{background:var(--panneau-2)}
 /* 60-5 — « Valider » grisé pendant qu'une réponse est attendue (la vérification du pseudo) : il n'avait aucun état désactivé. */
 .feuille-pied .pri:disabled{opacity:.6;cursor:default}
 .feuille-pied .des{flex:0 0 auto;padding:0 var(--e3);background:transparent;
-  border:1px solid #4A3330;color:var(--manque);font-weight:600}
+  border:1px solid var(--manque-trait);color:var(--manque);font-weight:600}
 
 /* ── Le catalogue ───────────────────────────────────────────────────────── */
 #champ-recherche-exo{
@@ -938,10 +1023,10 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:12px;font-weig
 .repos-cible{flex:0 0 auto;white-space:nowrap}
 /* 193-3 — la zone que la routine fixe à l'exercice (éditeur de routine) : même gabarit que le repos ; jaune quand elle est fixée. */
 .zone-routine{flex:0 0 auto;white-space:nowrap}
-.zone-routine.fixee{color:var(--texte-2);border-color:#343A43;background:var(--panneau-2)}
+.zone-routine.fixee{color:var(--texte-2);border-color:var(--trait-case);background:var(--panneau-2)}
 .note-exo{flex:1 1 140px;min-width:0;overflow:hidden;
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
-.note-exo.pleine{color:var(--texte-2);border-color:#343A43;background:var(--panneau-2)}
+.note-exo.pleine{color:var(--texte-2);border-color:var(--trait-case);background:var(--panneau-2)}
 
 /* ── 204 (maquette « Séance en salle ») — LES CIBLES AU POUCE, ET CE QUI NE SERT PAS PENDANT UNE SÉRIE S'EFFACE ───────────────
    · le « ⋯ » et le nom de l'exercice : 44 px de zone de toucher (la rangée du nom ne grandit pas : marges négatives) ;
@@ -956,7 +1041,7 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:12px;font-weig
 .cols-seance .repos-entete{justify-self:end;white-space:nowrap;min-width:40px;height:40px;margin:-8px 0 -8px;padding:0 2px;
   background:none;border:none;border-radius:var(--r-petit);color:var(--texte-2);font-size:12px;font-weight:600;letter-spacing:0}
 .cols-seance .repos-entete:active{color:var(--texte)}
-.note-sous-nom{display:block;width:100%;margin-top:2px;min-height:30px;padding:6px 10px;border-radius:var(--r-petit);border:1px solid #343A43;
+.note-sous-nom{display:block;width:100%;margin-top:2px;min-height:30px;padding:6px 10px;border-radius:var(--r-petit);border:1px solid var(--trait-case);
   background:var(--panneau-2);color:var(--texte-2);font-size:13.333333px;text-align:left;
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 /* X4/X5 (253) — l'encadré unique consigne + note : titre de 44 px fermé, corps replié par [hidden]. */
@@ -971,10 +1056,10 @@ button.puce-zone{font:inherit;font-family:var(--pile-c);font-size:12px;font-weig
 .encadre-corps .note-derniere:not(:has(textarea)) .note-derniere-t{display:none}
 .encadre-corps .note-derniere{margin:0;padding:6px 0 0;border:0;border-top:1px solid var(--trait);background:none}
 /* 242 — la note de l'exercice (épinglée ou de la dernière fois) : entre le nom et les séries, les mots de la personne. */
-.note-derniere{margin:6px 0 2px;padding:8px 10px;border-radius:var(--r-petit);border:1px solid #343A43;background:var(--panneau-2)}
+.note-derniere{margin:6px 0 2px;padding:8px 10px;border-radius:var(--r-petit);border:1px solid var(--trait-case);background:var(--panneau-2)}
 .note-derniere-t{margin:0 0 2px;font-size:12px;font-weight:600;color:var(--texte-3)}
 .note-derniere-texte{margin:0;font-size:14px;line-height:1.35;color:var(--texte-2);white-space:pre-wrap;overflow-wrap:anywhere}
-.note-derniere-champ{display:block;width:100%;box-sizing:border-box;margin:4px 0;padding:8px 10px;font:inherit;font-size:16px;color:var(--texte);background:var(--fond);border:1px solid #343A43;border-radius:var(--r-petit)}
+.note-derniere-champ{display:block;width:100%;box-sizing:border-box;margin:4px 0;padding:8px 10px;font:inherit;font-size:16px;color:var(--texte);background:var(--fond);border:1px solid var(--trait-case);border-radius:var(--r-petit)}
 .note-compteur{display:block;text-align:right;font-size:12px;color:var(--texte-3);font-variant-numeric:tabular-nums}
 .note-compteur[hidden]{display:none}
 .note-compteur.plein{color:var(--manque)}
@@ -1065,7 +1150,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 /* 57-1 : le fond, même teinte, assombri juste assez pour que « Supprimer »
    tienne 4,5:1 (il était à 4,23:1, #3A2422). */
 .ligne-serie{position:relative;overflow:hidden;touch-action:pan-y}
-.glisse-fond{position:absolute;inset:0;background:#33201e;display:flex;
+.glisse-fond{position:absolute;inset:0;background:var(--manque-fond);display:flex;
   align-items:center;justify-content:flex-end;padding-right:var(--e3);
   color:var(--manque);font-size:12px;font-weight:700;z-index:0}
 .serie.grille{position:relative;z-index:1;align-items:center;
@@ -1078,7 +1163,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
    la marge et laisserait le filet contre la ligne d'au-dessus. */
 .ligne-serie.debut-tour{margin-top:11px}
 .ligne-serie.debut-tour .serie.grille{border-top-color:transparent;
-  box-shadow:inset 0 1px 0 #3A4048}
+  box-shadow:inset 0 1px 0 var(--reflet-haut)}
 
 .no-serie{width:30px;height:38px;border-radius:var(--r-petit);
   border:1px solid var(--trait);background:transparent;color:var(--texte-2);
@@ -1087,8 +1172,8 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
    place, même hauteur : c'est la TEINTE qui distingue, pas la forme. Sur une
    colonne qu'on parcourt verticalement, une ligne qui dépasse casse le rythme
    et coûte plus qu'elle ne rapporte. */
-.no-serie.c{border-color:#3A4A5E;color:var(--chauffe);background:#1B2129;font-weight:700}
-.no-serie.d{border-color:#4A4033;color:#B08F3C}
+.no-serie.c{border-color:var(--trait-chauffe);color:var(--chauffe);background:var(--fond-chauffe);font-weight:700}
+.no-serie.d{border-color:var(--trait-calage);color:var(--texte-calage)}
 /* 57-1 — LA SÉRIE « ÉCHEC » DIT SON TYPE, ELLE NE JUGE PAS. Le « ✕ » était
    rouge, et le rouge jugeait une performance (ECRAN : « Aucun rouge, aucun
    échec ») ; il passe au gris du texte, sur le cadre de toutes les séries :
@@ -1137,10 +1222,9 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 /* MOTEUR §9.23 (55-1) — LA MÉDAILLE (maquette-progression-v1, « La médaille »).
    Un fait, pas la voix du coach : l'or de la médaille, jamais l'accent. Sous la
    rangée de la série, la phrase en gras, le record d'avant en gris. */
-:root{--medaille:#ffd46b;--medaille-fond:#2e2410;--medaille-trait:#6b5420}
 .medaille{display:inline-block;width:18px;height:18px;border-radius:50%;
-  background:radial-gradient(circle at 35% 30%,#fff3c4 0,var(--medaille) 45%,var(--accent-sombre) 100%);
-  position:relative;flex:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.28)}
+  background:radial-gradient(circle at 35% 30%,var(--medaille-reflet) 0,var(--medaille) 45%,var(--accent-sombre) 100%);
+  position:relative;flex:none;box-shadow:inset 0 0 0 1px var(--medaille-bord)}
 .medaille::after{content:"";position:absolute;left:5px;top:15px;border-left:4px solid transparent;
   border-right:4px solid transparent;border-top:6px solid var(--medaille)}
 .record-serie{display:flex;gap:10px;align-items:flex-start;background:var(--medaille-fond);
@@ -1153,7 +1237,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   @keyframes pose-medaille{from{transform:translateY(-4px);opacity:.6}to{transform:none;opacity:1}}}
 /* 185 — LA QUESTION DE VRAISEMBLANCE (maquette-saisie-vraisemblance-v1) : une ligne sous la série et ses boutons, jamais une
    fenêtre. Les cibles font 44 px au moins ; l'ambre est la voix du coach ; le record garde le violet des records. */
-.question-saisie{margin:4px 0 8px 35px;padding:9px 10px;background:#2a2110;border-left:3px solid var(--accent);
+.question-saisie{margin:4px 0 8px 35px;padding:9px 10px;background:var(--accent-fond);border-left:3px solid var(--accent);
   border-radius:0 10px 10px 0}
 .question-saisie .qs-texte{margin:0 0 8px;font-size:15px;line-height:1.35;color:var(--texte)}
 .question-saisie.record .qs-texte{color:var(--record)}
@@ -1216,15 +1300,15 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 /* MOTEUR §14.7 (49-U17) — la ligne de la série de plus, à la couleur du coach. */
 .ligne-serie.ajoutee .serie{box-shadow:inset 3px 0 0 var(--accent)}
 .ligne-serie.proposee .serie{box-shadow:inset 3px 0 0 var(--accent);
-  background:rgba(255,185,56,.06)}
+  background:var(--accent-06)}
 .ch-serie.coach input::placeholder{color:var(--accent);font-weight:600;opacity:.9}
 .rp-serie.indication{border-style:dashed;background:transparent}
 .rp-serie.indication input::placeholder{color:var(--accent);font-weight:400;opacity:.9}
 /* La ligne proposée validée sans ses reps : le champ attend, sans alarme. */
 .rp-serie.a-taper{border-color:var(--accent);border-style:solid;
   animation:attendre-reps .9s ease-out 1}
-@keyframes attendre-reps{0%{box-shadow:0 0 0 0 rgba(255,185,56,.45)}
-  100%{box-shadow:0 0 0 8px rgba(255,185,56,0)}}
+@keyframes attendre-reps{0%{box-shadow:0 0 0 0 var(--accent-45)}
+  100%{box-shadow:0 0 0 8px var(--accent-0)}}
 /* Prompts 100 et 105 (§3 bis.3 bis) — la série validée avec une case obligatoire
    vide, sans chiffre gris : la case en rouge, un léger tremblement, sauf
    mouvement réduit. */
@@ -1248,7 +1332,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
    discrète à bout de bras, entre deux séries : on doit voir où l'on en est
    sans lire. Vert de SENS (--reussi dilué dans le panneau), jamais l'accent —
    le jaune reste réservé à l'onglet actif et à la suggestion du moteur. */
-.serie.faite{background:#1D312F} /* le vert de sens à ~11 % sur la surface (opaque : le contraste se mesure sur un fond plein) */
+.serie.faite{background:var(--fond-serie-faite)} /* le vert de sens à ~11 % sur la surface (opaque : le contraste se mesure sur un fond plein) */
 /* 173 (« Vivant ») — une série validée s'allume : le numéro plein, la case pleine, le mot « fait » dans la colonne effort si elle est vide. */
 .serie.fait .no-serie{background:var(--reussi);border-color:var(--reussi);color:var(--sur-accent)}
 .eff-serie[data-fait]:empty::before{content:attr(data-fait);font-family:var(--pile);font-size:12px;font-weight:700;
@@ -1325,7 +1409,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .poignee:active{color:var(--texte-2);cursor:grabbing}
 /* La rangée prise : elle sort du flux visuel sans sortir du DOM. */
 .bloc-seance.pris,.routine-rangee.pris{position:relative;z-index:9;
-  box-shadow:0 10px 24px rgba(0,0,0,.5)}
+  box-shadow:0 10px 24px var(--ombre-prise)}
 .bloc-seance.pris{border:1px solid var(--accent)}
 .routine-rangee.pris .routine{border:1px solid var(--accent)}
 /* En mode réorganisation, la poignée passe devant la carte : on range par la
@@ -1367,7 +1451,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .en-deplacement .carte-ss>:not(.legende-exo),.en-deplacement .bloc-seance>:not(.tete-seance):not(.carte-ss){display:none}
 .en-deplacement .legende-exo>:not(.legende-haut){display:none}
 .en-deplacement .tete-haut{display:none}
-.pris-exo{z-index:9;opacity:.92;box-shadow:0 6px 18px rgba(0,0,0,.45);transition:none}
+.pris-exo{z-index:9;opacity:.92;box-shadow:0 6px 18px var(--ombre-flottante);transition:none}
 .cible-avant::before,.cible-apres::after{content:"";position:absolute;left:0;right:0;height:3px;background:var(--teinte);border-radius:2px;pointer-events:none}
 .cible-avant::before{top:-2px}.cible-apres::after{bottom:-2px}
 .carte-ss + .carte-ss{margin-top:var(--e3);padding-top:var(--e3);border-top:1px solid var(--trait)}
@@ -1435,7 +1519,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   color:var(--texte-3);font-weight:400;margin-top:3px}
 
 .feuille-menu button{width:100%;text-align:left;padding:13px var(--e2);
-  background:transparent;border:none;border-top:1px solid #23262A;
+  background:transparent;border:none;border-top:1px solid var(--filet-question);
   color:var(--texte);font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit}
 .feuille-menu button.sel{color:var(--texte);font-weight:700}
 .feuille-menu button.danger,.danger{color:var(--manque)}
@@ -1487,7 +1571,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 /* ── LA QUESTION DE FIN SUR LA ROUTINE (§6) ────────────────────────────────
    Elle n'apparaît QUE s'il y a un écart réel. Le défaut est « garder » : c'est
    le geste qui a le moins de conséquences. */
-.question-routine{border-top:1px solid #23262A;padding:var(--e3) 0}
+.question-routine{border-top:1px solid var(--filet-question);padding:var(--e3) 0}
 .question-t{font-size:12.5px;font-weight:600;line-height:1.35}
 .ecarts{margin:6px 0 var(--e2);padding-left:16px}
 .ecarts li{font-size:12px;line-height:1.5;color:var(--texte-3)}
@@ -1495,7 +1579,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .choix-routine button{min-height:40px;padding:8px;border-radius:var(--r-petit);
   border:1px solid var(--trait);background:transparent;color:var(--texte-2);
   font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit}
-.choix-routine button.sel{background:var(--panneau-2);border-color:#3A4049;
+.choix-routine button.sel{background:var(--panneau-2);border-color:var(--trait-choisi);
   color:var(--texte)}
 
 .grille-rir{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--e2)}
@@ -1505,7 +1589,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   justify-content:center;gap:4px}
 .rir-n{font-size:18px;font-weight:700;font-family:var(--pile-c)}
 .grille-rir em{font-style:normal;font-size:12px;color:var(--texte-3);text-align:center}
-.grille-rir button.sel,.grille-rpe button.sel{background:var(--panneau-2);border-color:#3A4049}
+.grille-rir button.sel,.grille-rpe button.sel{background:var(--panneau-2);border-color:var(--trait-choisi)}
 
 .grille-rpe{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .grille-rpe button{height:44px;border-radius:var(--r-petit);
@@ -1610,13 +1694,13 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .tr-ligne + .tr-ligne{border-top:1px solid var(--trait)}
 .tr-reps{font-size:12px;font-weight:600;line-height:1.4;color:var(--texte-2)}
 .tr-jauge{height:5px;background:var(--panneau-2);border-radius:3px;overflow:hidden}
-.tr-jauge i{display:block;height:100%;background:#4A5461;border-radius:3px}
+.tr-jauge i{display:block;height:100%;background:var(--jauge);border-radius:3px}
 .tr-charge{font-size:14px;font-weight:700;line-height:1.4;text-align:right;font-family:var(--pile-c)}
 .tr-quand{font-size:12px;line-height:1.4;color:var(--texte-3);text-align:right}
 /* Déduit : grisé, en italique, et « déduit » à la place de la date — la date du
    brut désignerait une performance qui n'est pas celle affichée. */
 .tr-ligne.deduit{opacity:.42}
-.tr-ligne.deduit .tr-jauge i{background:#343A43}
+.tr-ligne.deduit .tr-jauge i{background:var(--trait-case)}
 .tr-ligne.deduit .tr-quand{font-style:italic}
 /* La cible du moment est mise en avant : un fond, et la jauge à l'accent. */
 .tr-ligne.cible{background:var(--panneau-2)}
@@ -1706,8 +1790,8 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   background:var(--panneau);color:var(--texte);padding:0 var(--e3);
   font-family:inherit;font-size:var(--police-champ)}
 .entree-champ input::placeholder{color:var(--texte-3)}
-.entree-champ input:focus{outline:none;border-color:#4A5058}
-.entree-champ input.ko{border-color:#4A3330}
+.entree-champ input:focus{outline:none;border-color:var(--trait-focus)}
+.entree-champ input.ko{border-color:var(--manque-trait)}
 .entree-aide,.entree-err{font-size:12px;line-height:1.4;font-style:normal}
 .entree-aide{color:var(--texte-3)}
 .entree-err{color:var(--manque);min-height:1em}
@@ -1719,7 +1803,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .entree-form .principal{margin-top:var(--e2);height:50px}
 
 .entree-hors{display:flex;align-items:center;gap:var(--e2);padding:10px var(--e3);
-  border-radius:var(--r-petit);background:#1F2229;border:1px solid var(--trait);
+  border-radius:var(--r-petit);background:var(--fond-hors-saisie);border:1px solid var(--trait);
   font-size:12px;line-height:1.4;color:var(--texte-2);margin-top:var(--e3)}
 .entree-hors svg{width:14px;height:14px;stroke:var(--chauffe);fill:none;
   stroke-width:2;flex:0 0 auto}
@@ -1762,7 +1846,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .p-questionnaire{margin-bottom:var(--e3)}
 
 .p-ligne{display:flex;align-items:center;gap:var(--e3);width:100%;
-  padding:13px var(--e3);min-height:50px;border:none;border-top:1px solid #212529;
+  padding:13px var(--e3);min-height:50px;border:none;border-top:1px solid var(--filet-liste);
   background:transparent;color:var(--texte);font-family:inherit;text-align:left}
 .p-ligne:first-child{border-top:none}
 .p-ligne:active{background:var(--panneau-2)}
@@ -1777,7 +1861,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .p-seg button{flex:1;height:34px;border-radius:var(--r-petit);border:1px solid var(--trait);
   background:transparent;color:var(--texte-3);font-family:inherit;
   font-size:12px;font-weight:600}
-.p-seg button.on{background:var(--panneau-2);border-color:#4A5058;color:var(--texte)}
+.p-seg button.on{background:var(--panneau-2);border-color:var(--trait-focus);color:var(--texte)}
 .p-seg.deux{flex-wrap:wrap}
 .p-seg.deux button{flex:1 1 calc(50% - var(--e1))}
 .p-aide{padding:var(--e3) var(--e3) 0;font-size:12px;line-height:1.45;color:var(--texte-2)}
@@ -1790,7 +1874,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 /* Quitter est bordé et net. Supprimer est DESSOUS et discret — les deux gestes
    qu'on ne veut pas confondre (fix RGPD v351-v362). */
 .p-quitter{width:100%;height:46px;margin-top:var(--e4);border-radius:var(--r-bouton);
-  border:1px solid #4A3330;background:transparent;color:var(--manque);
+  border:1px solid var(--manque-trait);background:transparent;color:var(--manque);
   font-family:inherit;font-size:13px;font-weight:600}
 .p-supprimer{width:100%;height:40px;margin-top:var(--e2);border-radius:var(--r-bouton);
   border:1px solid transparent;background:transparent;color:var(--texte-3);
@@ -1822,7 +1906,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .p-compte{font-size:12px;line-height:1.4;color:var(--texte-3);padding:0 0 var(--e2)}
 .exo-liste{background:var(--panneau);border-radius:var(--r-grand);overflow:hidden}
 .exo-ligne{display:flex;align-items:center;gap:var(--e3);width:100%;
-  padding:12px var(--e3);min-height:50px;border:none;border-top:1px solid #212529;
+  padding:12px var(--e3);min-height:50px;border:none;border-top:1px solid var(--filet-liste);
   background:transparent;color:var(--texte);font-family:inherit;text-align:left}
 .exo-ligne:first-child{border-top:none}
 .exo-ligne:active{background:var(--panneau-2)}
@@ -1844,14 +1928,14 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .garde-coach{
   position:fixed;left:var(--e1);bottom:calc(var(--e1) + env(safe-area-inset-bottom, 0px));
   z-index:2147483000;max-width:60vw;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
-  font:600 12px/1.2 var(--pile);color:#fff;background:var(--manque);opacity:.85;
+  font:600 12px/1.2 var(--pile);color:var(--blanc);background:var(--manque);opacity:.85;
   border:0;border-radius:var(--r-petit);padding:2px 6px;
 }
 
 /* L'outil de rejeu (développement seulement) : un texte brut, par-dessus tout. */
 .rejeu{
   position:fixed;inset:0;z-index:2147483001;display:flex;flex-direction:column;
-  background:var(--fond, #0b0c0e);color:var(--texte, #e8e8e8);
+  background:var(--fond);color:var(--texte);
 }
 .rejeu[hidden]{display:none}
 .rejeu-barre{display:flex;gap:8px;align-items:center;padding:8px 16px;flex-wrap:wrap}
@@ -1957,7 +2041,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .ap-ex{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--e2);width:100%;
   padding:9px 12px;background:none;border:0;border-top:1px solid var(--trait);color:var(--texte);
   font:inherit;font-size:13.5px;text-align:left;cursor:pointer}
-.ap-ex.neuf{background:rgba(255,185,56,.10)}
+.ap-ex.neuf{background:var(--accent-10)}
 .ap-ex-corps{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .ap-ex-nom{overflow-wrap:anywhere}
 .ap-ex-mention{font-size:12px;color:var(--texte-2)}
@@ -2136,7 +2220,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   border:1.5px solid var(--trait);border-radius:12px;padding:11px 13px;color:var(--texte);
   font-size:15px;font-weight:600}
 .q-opt .q-sous{display:block;font-size:13px;font-weight:400;color:var(--texte-2);margin-top:2px}
-.q-opt.on{border-color:var(--accent);background:#2a2214}
+.q-opt.on{border-color:var(--accent);background:var(--accent-fond-choisi)}
 .q-replie{margin-top:var(--e3);border:1px solid var(--trait);border-radius:var(--r-grand);background:var(--panneau)}
 .q-replie-tete{display:block;width:100%;text-align:left;background:none;border:0;padding:var(--e3);font:inherit;color:var(--texte);cursor:pointer}
 .q-replie-lib{display:block;font-weight:700}
@@ -2145,7 +2229,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .q-puces{display:flex;flex-wrap:wrap;gap:var(--e2)}
 .q-puce{background:var(--panneau);border:1.5px solid var(--trait);border-radius:999px;
   padding:8px 13px;color:var(--texte);font-size:14px;font-weight:500}
-.q-puce.on{border-color:var(--accent);background:#2a2214}
+.q-puce.on{border-color:var(--accent);background:var(--accent-fond-choisi)}
 .q-puce.absent{color:var(--texte-2);text-decoration:line-through;background:transparent;border-style:dashed}
 .q-puce .q-absent{display:block;font-size:12px;font-weight:400;text-decoration:none;line-height:1.1}
 .q-opt:focus-visible,.q-puce:focus-visible,.q-ligne-choix:focus-visible,.q-mod:focus-visible,
@@ -2401,7 +2485,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .pc-exo-nom{min-width:0;overflow-wrap:anywhere}
 .pc-exo-detail{font-size:12px;color:var(--texte-2);margin-top:2px;font-variant-numeric:tabular-nums}
 .pc-pourquoi summary{cursor:pointer;color:var(--texte-2);font-size:13px;padding:4px 0}
-.pc-levier{background:linear-gradient(180deg,#2a2218,var(--panneau));border:1px solid var(--accent-sombre);
+.pc-levier{background:linear-gradient(180deg,var(--accent-fond-levier),var(--panneau));border:1px solid var(--accent-sombre);
   border-radius:var(--r-grand);padding:12px 14px;font-size:14px;line-height:1.45}
 .pc-levier b{color:var(--accent)}
 .pc-tous summary{background:var(--panneau);border-radius:var(--r-petit);padding:10px 12px;cursor:pointer}
@@ -2468,7 +2552,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .s-cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;text-align:center;font-size:12px}
 .s-cal .s-j{color:var(--texte-2);font-size:12px;padding:2px 0}
 .s-jour{padding:8px 0;border-radius:9px;color:var(--texte-2);border:0;background:transparent;font:inherit;min-width:0}
-.s-n1{background:#4a3f22;color:var(--texte)}.s-n2{background:#8a723a;color:var(--fond)}.s-n3{background:var(--medaille);color:var(--fond);font-weight:700}
+.s-n1{background:var(--social-n1);color:var(--texte)}.s-n2{background:var(--social-n2);color:var(--fond)}.s-n3{background:var(--medaille);color:var(--fond);font-weight:700}
 .s-sel{outline:2px solid var(--texte);outline-offset:1px}
 .s-lg{display:flex;gap:6px;align-items:center;justify-content:flex-end;color:var(--texte-2);font-size:12px;margin-top:6px}
 .s-lg i{width:12px;height:12px;border-radius:3px;display:inline-block}
@@ -2562,7 +2646,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .g-tete-actions{display:flex;gap:6px}
 .g-pastilles{display:flex;gap:6px;margin:8px 0;flex-wrap:nowrap;overflow:hidden;height:30px}
 .g-p{width:30px;height:30px;flex:none;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--fond);position:relative}
-.g-p.g-actif::after{content:"";position:absolute;right:-1px;bottom:-1px;width:9px;height:9px;border-radius:50%;background:#7fd18b;border:2px solid var(--panneau)}
+.g-p.g-actif::after{content:"";position:absolute;right:-1px;bottom:-1px;width:9px;height:9px;border-radius:50%;background:var(--presence);border:2px solid var(--panneau)}
 .g-lignes{height:44px;overflow:hidden}
 .g-ouvert .g-lignes{height:auto;max-height:240px;overflow-y:auto}
 .g-l{font-size:13px;line-height:22px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -2599,17 +2683,17 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 @font-face{font-family:"Archivo";font-style:normal;font-weight:100 900;font-stretch:62% 125%;font-display:swap;
   src:url("/fonts/archivo-variable.woff2") format("woff2");
   unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
-.annee{--acier:#161a1f;--fonte:#232931;--rayure:#353d47;--craie:#ece8df;--cendre:#9aa3ad;--or:#d9b45a;--bleu:#5f8fbf;--rouge:#b8574a;
+.annee{--acier:var(--annee-acier);--fonte:var(--annee-fonte);--rayure:var(--annee-rayure);--craie:var(--annee-craie);--cendre:var(--annee-cendre);--or:var(--annee-or);--bleu:var(--annee-bleu);--rouge:var(--annee-rouge);
   position:fixed;inset:0;z-index:70;background:var(--acier);color:var(--craie);font-family:"Archivo",system-ui,sans-serif;
   font-variation-settings:"wdth" 100;display:flex;justify-content:center}
 .annee[hidden]{display:none}
 .annee *{box-sizing:border-box;margin:0}
 .annee .tel{position:relative;width:100%;max-width:400px;height:100%;max-height:800px;overflow:hidden;user-select:none;-webkit-user-select:none;
-  -webkit-tap-highlight-color:transparent;touch-action:manipulation;background:radial-gradient(140% 70% at 50% 0%,#1d232a 0%,var(--acier) 60%)}
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;background:radial-gradient(140% 70% at 50% 0%,var(--annee-fond-haut) 0%,var(--acier) 60%)}
 .annee .bar{position:absolute;top:12px;left:14px;right:14px;display:flex;gap:3px;z-index:5}
-.annee .bar i{flex:1;height:3px;border-radius:2px;background:#ffffff26;overflow:hidden}
+.annee .bar i{flex:1;height:3px;border-radius:2px;background:var(--annee-blanc-26);overflow:hidden}
 .annee .bar i b{display:block;height:100%;width:0;background:var(--craie)}
-.annee .partage{position:absolute;top:26px;right:14px;z-index:6;font:600 13px "Archivo",system-ui,sans-serif;color:var(--craie);background:#ffffff14;border:1px solid #ffffff2e;border-radius:18px;padding:6px 12px}
+.annee .partage{position:absolute;top:26px;right:14px;z-index:6;font:600 13px "Archivo",system-ui,sans-serif;color:var(--craie);background:var(--annee-blanc-14);border:1px solid var(--annee-blanc-2e);border-radius:18px;padding:6px 12px}
 .annee .fermer{position:absolute;top:24px;left:10px;z-index:6;width:36px;height:36px;font:400 26px/1 "Archivo",system-ui,sans-serif;color:var(--cendre);background:transparent;border:0;border-radius:18px}
 .annee .partage:focus-visible,.annee .btn:focus-visible,.annee .fermer:focus-visible{outline:2px solid var(--or);outline-offset:2px}
 .annee .s{position:absolute;inset:0;padding:76px 26px 44px;display:none;flex-direction:column;justify-content:center;gap:10px}
@@ -2641,13 +2725,13 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .annee .pile i{display:block;width:16px;border-radius:4px;opacity:0;transform:translateX(-40px)}
 .annee .s.on .pile i{animation:annee-glisse .32s cubic-bezier(.2,.8,.2,1) forwards}
 @keyframes annee-glisse{to{opacity:1;transform:none}}
-.annee .pile .manche{width:120px;height:10px;border-radius:3px;background:#59626d;opacity:1;transform:none;animation:none!important}
+.annee .pile .manche{width:120px;height:10px;border-radius:3px;background:var(--annee-manche);opacity:1;transform:none;animation:none!important}
 .annee .mois{display:flex;align-items:flex-end;gap:6px;height:160px;margin:10px 0 2px}
 .annee .mois div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;height:100%;font-size:12px;color:var(--cendre)}
 .annee .mois b{display:block;width:100%;height:0;border-radius:4px 4px 1px 1px;background:var(--rayure);transition:height 1s cubic-bezier(.2,.8,.2,1)}
 .annee .mois b.haut{background:var(--or)}
 .annee .mois.semaines{gap:3px}.annee .mois.semaines div{font-size:12px}
-.annee .ligne button.v{display:block;width:100%;text-align:left;background:none;border:0;padding:0;color:var(--craie);font:inherit;font-size:18px;font-weight:650;cursor:pointer;text-decoration:underline;text-decoration-color:#ffffff38;text-underline-offset:3px}
+.annee .ligne button.v{display:block;width:100%;text-align:left;background:none;border:0;padding:0;color:var(--craie);font:inherit;font-size:18px;font-weight:650;cursor:pointer;text-decoration:underline;text-decoration-color:var(--annee-blanc-38);text-underline-offset:3px}
 .annee .detail{padding:10px 14px;border-radius:14px;background:var(--fonte)}.annee .detail[hidden]{display:none}.annee .detail .txt{font-size:15px;margin-top:8px}
 .annee .barre3{display:flex;height:26px;border-radius:6px;overflow:hidden;margin:10px 0 4px;background:var(--fonte)}
 .annee .barre3 b{height:100%;width:0;transition:width 1.1s cubic-bezier(.2,.8,.2,1) .3s}
@@ -2658,10 +2742,10 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .annee svg.courbe circle{fill:var(--or);opacity:0}.annee .s.on svg.courbe circle{animation:annee-monte .3s 1.8s forwards}
 .annee .jauge{height:12px;border-radius:6px;background:var(--fonte);overflow:hidden;margin:6px 0}
 .annee .jauge b{display:block;height:100%;width:0;background:var(--or);transition:width 1.5s cubic-bezier(.2,.8,.2,1) .3s}
-.annee .plaque{border-radius:20px;padding:20px 18px 16px;background:linear-gradient(160deg,#262d36,#1a1f25);border:1px solid #ffffff1f;box-shadow:inset 0 1px 0 #ffffff14}
+.annee .plaque{border-radius:20px;padding:20px 18px 16px;background:linear-gradient(160deg,var(--annee-plaque-haut),var(--annee-plaque-bas));border:1px solid var(--annee-blanc-1f);box-shadow:inset 0 1px 0 var(--annee-blanc-14)}
 .annee .plaque .tete{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px;gap:8px}
 .annee .plaque .an{font-size:40px;font-weight:900;font-variation-settings:"wdth" 125;line-height:1}
-.annee .plaque .lignes{margin-top:10px}.annee .plaque .ligne{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid #ffffff1f;font-size:14px}.annee .plaque .ligne .n{color:var(--cendre);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.annee .plaque .ligne .v{font-weight:700;white-space:nowrap}
+.annee .plaque .lignes{margin-top:10px}.annee .plaque .ligne{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--annee-blanc-1f);font-size:14px}.annee .plaque .ligne .n{color:var(--cendre);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.annee .plaque .ligne .v{font-weight:700;white-space:nowrap}
 .annee .plaque .qui{font-size:14px;color:var(--cendre);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .annee .plaque .an.long{font-size:26px;font-variation-settings:"wdth" 110;line-height:1.1;min-width:0}.annee .plaque .tete:has(.long){flex-direction:column;align-items:flex-start;gap:4px}
 .annee .grille{display:grid;grid-template-columns:1fr 1fr;row-gap:14px;column-gap:16px}
@@ -2670,18 +2754,18 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .annee .grille .g{font-size:30px;font-weight:850;font-variation-settings:"wdth" 118;color:var(--or);line-height:1.05;font-variant-numeric:tabular-nums;white-space:nowrap}
 .annee .grille .m{font-size:20px;font-weight:700;line-height:1.15}
 .annee .grille .p{font-size:12px;color:var(--cendre)}
-.annee .grille .heros{grid-column:1/-1}.annee .grille .heros .q{font-size:15px;font-weight:700;margin-top:2px}.annee .plaque .ligne .rang{color:var(--or);font-weight:900;min-width:18px}.annee .plaque .ligne .n{flex:1}.annee .grille .heros .g{font-size:52px;margin-bottom:8px}.annee .grille .heros .p{font-size:13px}.annee .plaque .lignes .k{font-size:12.5px;color:var(--cendre);padding-bottom:4px}.annee .plaque .pied span:first-child{color:var(--craie,#ece8df);font-weight:800;font-size:14px}
-.annee .plaque .pied{margin-top:14px;padding-top:10px;border-top:1px solid #ffffff1a;display:flex;justify-content:space-between;font-size:12px;color:var(--cendre)}
-.annee .btn{width:100%;border:0;border-radius:12px;padding:14px;font:700 16px "Archivo",system-ui,sans-serif;margin-top:12px;background:var(--or);color:#1a1712}
-.annee .btn.sec{background:transparent;color:var(--craie);border:1px solid #ffffff38;margin-top:8px}
+.annee .grille .heros{grid-column:1/-1}.annee .grille .heros .q{font-size:15px;font-weight:700;margin-top:2px}.annee .plaque .ligne .rang{color:var(--or);font-weight:900;min-width:18px}.annee .plaque .ligne .n{flex:1}.annee .grille .heros .g{font-size:52px;margin-bottom:8px}.annee .grille .heros .p{font-size:13px}.annee .plaque .lignes .k{font-size:12.5px;color:var(--cendre);padding-bottom:4px}.annee .plaque .pied span:first-child{color:var(--craie,var(--annee-craie));font-weight:800;font-size:14px}
+.annee .plaque .pied{margin-top:14px;padding-top:10px;border-top:1px solid var(--annee-blanc-1a);display:flex;justify-content:space-between;font-size:12px;color:var(--cendre)}
+.annee .btn{width:100%;border:0;border-radius:12px;padding:14px;font:700 16px "Archivo",system-ui,sans-serif;margin-top:12px;background:var(--or);color:var(--annee-encre)}
+.annee .btn.sec{background:transparent;color:var(--craie);border:1px solid var(--annee-blanc-38);margin-top:8px}
 @media (prefers-reduced-motion:reduce){.annee .s.on .a,.annee .s.on .pile i,.annee .s.on svg.courbe circle{animation:none;opacity:1;transform:none}.annee .s.on svg.courbe path{animation:none;stroke-dashoffset:0}.annee .mois b,.annee .barre3 b,.annee .jauge b{transition:none}}
 /* L'annonce du 1er janvier : un seul message dans l'app. */
 .annonce-annee{position:fixed;left:12px;right:12px;bottom:76px;z-index:65;display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;
-  background:#232931;color:#ece8df;border:1px solid #ffffff1f;box-shadow:0 8px 24px #0008}
+  background:var(--annee-fonte);color:var(--annee-craie);border:1px solid var(--annee-blanc-1f);box-shadow:0 8px 24px var(--ombre-lourde)}
 .annonce-annee[hidden]{display:none}
 .annonce-annee p{flex:1;font-size:15px;line-height:1.3}
-.annonce-annee button{border:0;border-radius:10px;padding:9px 12px;font-weight:700;background:#d9b45a;color:#1a1712}
-.annonce-annee button.discret{background:transparent;color:#9aa3ad;padding:9px 6px}
+.annonce-annee button{border:0;border-radius:10px;padding:9px 12px;font-weight:700;background:var(--annee-or);color:var(--annee-encre)}
+.annonce-annee button.discret{background:transparent;color:var(--annee-cendre);padding:9px 6px}
 
 /* 99 (MOTEUR §9.24) — la semaine qui déraille : la bande de la semaine, la phrase du plan, trois choix. */
 #carte-semaine { margin: 0 0 var(--e3); }
@@ -2781,9 +2865,9 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .el-rang{display:grid;grid-template-columns:28px 14px 1fr auto 36px;gap:var(--e2);align-items:center;min-height:44px;
   border-top:1px solid var(--trait);background:var(--panneau);touch-action:none}
 .el-rang:first-child{border-top:0}
-.el-rang.glisse{position:relative;z-index:2;box-shadow:0 2px 10px rgba(0,0,0,.45);opacity:.95}
+.el-rang.glisse{position:relative;z-index:2;box-shadow:0 2px 10px var(--ombre-flottante);opacity:.95}
 .el-poignee{color:var(--texte-3);letter-spacing:-2px;font-size:13px;text-align:center;cursor:grab;line-height:44px;touch-action:none}
-.el-pastille{width:12px;height:12px;border-radius:50%;display:inline-block;box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
+.el-pastille{width:12px;height:12px;border-radius:50%;display:inline-block;box-shadow:inset 0 0 0 1px var(--pastille-bord)}
 .el-pastille.neutre{background:var(--panneau-2);box-shadow:inset 0 0 0 1.5px var(--texte-3)}
 .el-nom{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .el-kg{color:var(--texte-2);font-weight:600}
@@ -2906,12 +2990,12 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .eq-carte .eq-titre{font-weight:700;font-size:16px;margin-bottom:6px}
 .eq-carte .eq-fait{font-size:15px;line-height:1.45}
 .forme-semaine .forme-ligne{display:flex;justify-content:space-between;gap:12px;font-size:15px;padding:2px 0}
-.forme-semaine .forme-libelle{color:var(--txt2,inherit)}
+.forme-semaine .forme-libelle{color:inherit}
 .forme-semaine .forme-pourquoi{margin:8px 0;font-size:14px}
 .eq-barre{display:flex;height:12px;border-radius:6px;overflow:hidden;margin:9px 0 5px}
 .eq-barre i{display:block}
-.eq-barre .eq-a{background:var(--donnees,#6AA8FF)}
-.eq-barre .eq-b{background:#3a4658}
+.eq-barre .eq-a{background:var(--donnees)}
+.eq-barre .eq-b{background:var(--eq-barre-b)}
 .eq-etiq{display:flex;justify-content:space-between;gap:8px;font-size:13px;color:var(--texte-2)}
 .eq-sous{font-weight:700;font-size:14px;margin-top:12px}
 .eq-causes{margin:4px 0 0;padding-left:18px;font-size:14px;line-height:1.45;color:var(--texte-2)}
@@ -2924,7 +3008,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .eq-tab .eq-ligne-tab{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--trait);font-size:14px}
 .eq-tab .eq-ligne-tab.gris{color:var(--texte-3)}
 .eq-tab .eq-val{font-variant-numeric:tabular-nums}
-.eq-fait-pose{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#2a2110;border-left:3px solid var(--accent);
+.eq-fait-pose{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--accent-fond);border-left:3px solid var(--accent);
   border-radius:0 10px 10px 0;padding:9px 10px;margin-bottom:var(--e3);font-size:14px}
 .eq-fait-pose button{min-height:44px}
 /* 218 — « LE BONHOMME DES MUSCLES » (maquette-bonhomme-v2) : une teinte (--teinte) plus ou moins soutenue, aucun seuil, aucun
@@ -2939,12 +3023,12 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .bh-fig figcaption{font-size:13px;color:var(--texte-2);margin-top:2px}
 .bh-w{position:relative;aspect-ratio:1/2}
 .bh{width:100%;height:100%;display:block}
-.bh .bh-o{fill:#10151c;stroke:#3A4556;stroke-width:1.6;stroke-linejoin:round;vector-effect:non-scaling-stroke}
-.bh .bh-n{fill:#1B222C;stroke:#10151c;stroke-width:1;stroke-linejoin:round;vector-effect:non-scaling-stroke}
-.bh .bh-m{stroke:#10151c;stroke-width:1;stroke-linejoin:round;vector-effect:non-scaling-stroke;cursor:pointer}
+.bh .bh-o{fill:var(--bh-fond);stroke:var(--bh-contour);stroke-width:1.6;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.bh .bh-n{fill:var(--bh-corps);stroke:var(--bh-fond);stroke-width:1;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.bh .bh-m{stroke:var(--bh-fond);stroke-width:1;stroke-linejoin:round;vector-effect:non-scaling-stroke;cursor:pointer}
 .bh .bh-m.sel{stroke:var(--texte);stroke-width:2}
-.bh-bulle{position:absolute;transform:translate(-50%,-100%);background:var(--texte);color:#0A0C10;border-radius:10px;padding:8px 11px;
-  font-size:14px;font-weight:600;line-height:1.25;width:128px;text-align:center;box-shadow:0 4px 14px #0008;pointer-events:none;z-index:2}
+.bh-bulle{position:absolute;transform:translate(-50%,-100%);background:var(--texte);color:var(--fond);border-radius:10px;padding:8px 11px;
+  font-size:14px;font-weight:600;line-height:1.25;width:128px;text-align:center;box-shadow:0 4px 14px var(--ombre-lourde);pointer-events:none;z-index:2}
 .bh-bulle::after{content:"";position:absolute;left:50%;bottom:-6px;margin-left:-6px;border:6px solid transparent;border-bottom:0;
   border-top-color:var(--texte)}
 .bh-bulle b{font-size:16px}
@@ -3042,11 +3126,11 @@ button[id^="btn-retour"]{padding:0 14px;font-size:14px}
 .dq-aide{font-size:13px;color:var(--texte-2);line-height:1.4}
 .dq-texte{font-size:20px;font-weight:700}
 .dq-barre{display:flex;align-items:center;height:110px;margin:8px 0 4px}
-.dq-manche{width:36px;flex:none;height:10px;background:#9AA3AF;border-radius:2px}
-.dq-butee{width:8px;height:34px;background:#9AA3AF;border-radius:2px;margin-right:2px;flex:none}
+.dq-manche{width:36px;flex:none;height:10px;background:var(--metal);border-radius:2px}
+.dq-butee{width:8px;height:34px;background:var(--metal);border-radius:2px;margin-right:2px;flex:none}
 .dq-disque.dq-petit{position:relative;overflow:visible}.dq-petit-chiffre{position:absolute;bottom:calc(100% + 2px);left:50%;transform:translateX(-50%);font-size:12px;font-weight:700;color:var(--texte);white-space:nowrap}.dq-petit-chiffre.dq-bas{bottom:auto;top:calc(100% + 2px)}
-.dq-disque{flex:none;border-radius:3px;margin-right:2px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#111;overflow:hidden}
-.dq-bout{width:20px;flex:none;height:10px;background:#9AA3AF;border-radius:0 3px 3px 0}
+.dq-disque{flex:none;border-radius:3px;margin-right:2px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--encre-disque);overflow:hidden}
+.dq-bout{width:20px;flex:none;height:10px;background:var(--metal);border-radius:0 3px 3px 0}
 .dq-ligne{display:flex;justify-content:space-between;align-items:center;width:100%;min-height:44px;border:0;border-top:1px solid var(--trait);background:none;font:inherit;font-size:14px;color:var(--texte-2);padding:0}
 .dq-val{color:var(--texte)}
 .dq-barres{padding:6px 0}
@@ -3071,11 +3155,11 @@ button[id^="btn-retour"]{padding:0 14px;font-size:14px}
 .p-gr-corps > .p-sect:first-child{padding-top:var(--e3)}
 .p-acompleter{margin-top:var(--e3)}
 .p-ac-titre{padding:var(--e3) var(--e3) var(--e1);font-size:13px;font-weight:600;line-height:1.3;color:var(--texte)}
-.p-ac-ligne{display:flex;align-items:center;gap:var(--e3);width:100%;min-height:50px;padding:13px var(--e3);border:none;border-top:1px solid #212529;background:transparent;color:var(--texte);font-family:inherit;text-align:left}
+.p-ac-ligne{display:flex;align-items:center;gap:var(--e3);width:100%;min-height:50px;padding:13px var(--e3);border:none;border-top:1px solid var(--filet-liste);background:transparent;color:var(--texte);font-family:inherit;text-align:left}
 .p-ac-ligne:active{background:var(--panneau-2)}
 @media (prefers-reduced-motion:reduce){.p-gr-tete .p-fl{transition:none}}
 .p-ac-plus[hidden]{display:none}
-.p-ac-tout{display:block;width:100%;min-height:44px;padding:0 var(--e3);border:none;border-top:1px solid #212529;background:transparent;color:var(--texte-2);font-family:inherit;font-size:13px;font-weight:600;text-align:left}
+.p-ac-tout{display:block;width:100%;min-height:44px;padding:0 var(--e3);border:none;border-top:1px solid var(--filet-liste);background:transparent;color:var(--texte-2);font-family:inherit;font-size:13px;font-weight:600;text-align:left}
 
 /* ── 210 — L'ambre ne signale que l'action principale et l'actif ───────────────────────────────
    Ambre gardé pour : bouton principal, onglet/période actif, cible du jour, records. Étiquettes « Au max »/« recul »,

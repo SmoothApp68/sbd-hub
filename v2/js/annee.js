@@ -186,8 +186,14 @@
     } else if (!saison && (b.exercices || []).length) {
       lignes = { titre: 'Tes exercices du mois', l: b.exercices.slice(0, 3).map(function (x) { return { n: sansParentheses(x.nom), v: repsTxt(x.reps) }; }) };
     }
+    // 268 (F) — le dessin du mois : les mêmes séries que « Muscle du mois » (`bilan.muscles`, la somme unique `Semaine.sommeDesSeries`), jamais un autre compte.
+    var corps = null;
+    if (!saison && b.muscles.length) {
+      corps = { volume: {}, libelles: {}, sexe: vue.sexe || null };
+      b.muscles.forEach(function (m) { corps.volume[m.muscle] = m.series; corps.libelles[m.muscle] = m.libelle; });
+    }
     out.push({ cle: 'plaque', d: 0, plaque: { an: titre, qui: vue.qui || '', cases: cases.slice(0, 6), pied: titre,
-                                              heros: true,
+                                              heros: true, corps: corps,
                                               titreLignes: lignes.titre, lignes: lignes.l,
                                               bouton: saison ? 'Partager ma saison' : 'Partager mon mois' } });
     return out;
@@ -350,6 +356,48 @@
     if (c.unite) p.appendChild(el('small', null, (c.espace ? ' ' : '') + c.unite));
     return p;
   }
+  // 268 (F) — la silhouette du mois, de face et de dos : `THSilhouettes.lire` (tracés et teinte), une seule teinte de 0 au maximum du
+  // mois, aucun seuil. Décorative (`aria-hidden`) : « Muscle du mois » et le détail par muscle disent la même chose.
+  function lectureDuCorps(c) {
+    var S = racine.THSilhouettes;
+    if (!S || !c) return null;
+    var sexe = S.sexeValide(c.sexe);
+    return { S: S, sexe: sexe, lecture: S.lire(c.volume, c.libelles) };
+  }
+  function corpsDuMois(c) {
+    var l = lectureDuCorps(c);
+    if (!l || !l.lecture.max) return null;
+    var NS = 'http://www.w3.org/2000/svg';
+    var bloc = el('div', 'corps');
+    bloc.setAttribute('data-corps', l.sexe);
+    var vues = el('div', 'bh-vues');
+    vues.setAttribute('aria-hidden', 'true');
+    ['avant', 'arriere'].forEach(function (cote) {
+      var v = l.S.VUES[l.sexe + '_' + cote];
+      var fig = el('figure', 'bh-fig');
+      var dessin = doc.createElementNS(NS, 'svg');
+      dessin.setAttribute('class', 'bh');
+      dessin.setAttribute('viewBox', v.vb);
+      dessin.setAttribute('focusable', 'false');
+      var o = doc.createElementNS(NS, 'path'); o.setAttribute('class', 'bh-o'); o.setAttribute('d', v.o); dessin.appendChild(o);
+      var n = doc.createElementNS(NS, 'path'); n.setAttribute('class', 'bh-n'); n.setAttribute('d', v.n); dessin.appendChild(n);
+      l.lecture.parties.forEach(function (p) {
+        if (!v.r[p.cle]) return;
+        var m = doc.createElementNS(NS, 'path');
+        m.setAttribute('class', 'bh-m'); m.setAttribute('d', v.r[p.cle]); m.setAttribute('fill', p.teinte); m.setAttribute('data-p', p.cle);
+        dessin.appendChild(m);
+      });
+      fig.appendChild(dessin);
+      vues.appendChild(fig);
+    });
+    bloc.appendChild(vues);
+    var leg = el('div', 'bh-legende');
+    leg.appendChild(el('span', null, '0'));
+    leg.appendChild(el('i'));
+    leg.appendChild(el('span', null, M().nombreTexte(l.lecture.max, 1) + (l.lecture.max >= 2 ? ' séries' : ' série')));
+    bloc.appendChild(leg);
+    return bloc;
+  }
   function section(e) {
     var s = el('section', 's');
     s.dataset.d = String(e.d);
@@ -371,6 +419,7 @@
         gr.appendChild(d);
       });
       pl.appendChild(gr);
+      if (e.plaque.corps) { var cp = corpsDuMois(e.plaque.corps); if (cp) pl.appendChild(cp); }
       if (e.plaque.lignes && e.plaque.lignes.length) {
         var lg = el('div', 'lignes');
         if (e.plaque.titreLignes) lg.appendChild(el('div', 'k', e.plaque.titreLignes));
@@ -553,6 +602,23 @@
 
   // ── L'image partagée : l'écran redessiné sur un canevas, sur l'appareil ───
   var IMG_L = 1080, IMG_H = 1920;
+  // 268 (F) — le dessin sur l'image : les mêmes tracés et la même teinte que l'écran (`Path2D`), de face et de dos, sa légende dessous.
+  function dessinerLeCorps(ctx, lc, haut, X, L) {
+    if (typeof racine.Path2D !== 'function') return;
+    var H = 290, cx = X + L / 2;
+    ['avant', 'arriere'].forEach(function (cote, i) {
+      var v = lc.S.VUES[lc.sexe + '_' + cote], vb = v.vb.split(' ').map(Number);
+      var k = H / vb[3], dx = cx + (i ? 20 : -20 - vb[2] * k) - vb[0] * k;
+      ctx.save();
+      ctx.translate(dx, haut - vb[1] * k); ctx.scale(k, k);
+      ctx.fillStyle = '#2a323b'; ctx.fill(new racine.Path2D(v.o));
+      lc.lecture.parties.forEach(function (p) { if (v.r[p.cle]) { ctx.fillStyle = p.teinte; ctx.fill(new racine.Path2D(v.r[p.cle])); } });
+      ctx.restore();
+    });
+    ctx.font = police(500, 30); ctx.fillStyle = PALETTE.cendre; ctx.textAlign = 'center';
+    ctx.fillText('0  →  ' + M().nombreTexte(lc.lecture.max, 1) + (lc.lecture.max >= 2 ? ' séries' : ' série'), cx, haut + H + 50);
+    ctx.textAlign = 'left';
+  }
   var PALETTE = { acier: '#161a1f', fonte: '#232931', craie: '#ece8df', cendre: '#9aa3ad', or: '#d9b45a',
                   rouge: '#b8574a', bleu: '#5f8fbf' };
   function police(poids, taille, large) {
@@ -585,7 +651,10 @@
       var pl = e.plaque;
       // 226 — la hauteur suit le contenu (le chiffre fort, la grille, les lignes) : rien n'est coupé, rien ne flotte.
       var nGrille = pl.heros ? Math.max(pl.cases.length - 1, 0) : pl.cases.length, nLignes = (pl.lignes || []).length;
-      var haut = pl.heros ? 120 + 425 + (pl.cases[0] && pl.cases[0].q ? 55 : 0) + 90 + Math.ceil(nGrille / 2) * 250 + (nLignes ? 70 + nLignes * 80 : 0) - 30 : 1100;
+      var lc = pl.corps ? lectureDuCorps(pl.corps) : null;
+      if (lc && !lc.lecture.max) lc = null;
+      if (lc) nLignes = 0;   // 268 (F) — le dessin prend la place de la liste des records sur l'image (maquette) ; l'écran garde les deux
+      var haut = pl.heros ? 120 + 425 + (pl.cases[0] && pl.cases[0].q ? 55 : 0) + 90 + Math.ceil(nGrille / 2) * 250 + (nLignes ? 70 + nLignes * 80 : 0) + (lc ? 330 : 0) - 30 : 1100;
       ctx.fillStyle = PALETTE.fonte; ctx.fillRect(X - 30, y, L + 60, haut);
       if (pl.heros) { ctx.fillStyle = PALETTE.or; ctx.fillRect(X - 30, y, L + 60, 14); }   // 226 : la bande de la marque
       y += 120; ctx.font = police(500, 38); var lq = pl.qui ? ctx.measureText(pl.qui).width + 30 : 0;
@@ -614,8 +683,9 @@
         if (c.p) { ctx.font = police(500, 32); ctx.fillStyle = PALETTE.cendre; ctx.fillText(c.p, cx, cy + 140); }
       });
       var yl = y + 90 + Math.ceil(grille.length / 2) * pas;
-      if (pl.titreLignes && (pl.lignes || []).length) { ctx.font = police(500, 34); ctx.fillStyle = PALETTE.cendre; ctx.fillText(pl.titreLignes, X, yl - 20); yl += 70; }
-      (pl.lignes || []).forEach(function (l, i) {
+      if (lc) dessinerLeCorps(ctx, lc, yl - 70, X, L);
+      if (!lc && pl.titreLignes && (pl.lignes || []).length) { ctx.font = police(500, 34); ctx.fillStyle = PALETTE.cendre; ctx.fillText(pl.titreLignes, X, yl - 20); yl += 70; }
+      (lc ? [] : (pl.lignes || [])).forEach(function (l, i) {
         var ly = yl + i * 80;
         ctx.fillStyle = '#353d47'; ctx.fillRect(X, ly - 50, L, 2);
         ctx.font = police(900, 44); ctx.fillStyle = PALETTE.or; ctx.fillText(String(i + 1), X, ly);   // 226 : le classement, comme un top 3

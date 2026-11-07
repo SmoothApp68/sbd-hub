@@ -1858,7 +1858,7 @@
           if (A_DISTANCE.indexOf(x.exercise_slug) >= 0 && g.mesure === 'distance_temps') noms = noms.concat(['distance_km']);
           noms.forEach(function (nom) {
             var champ = Modele.champDeMesure(nom);
-            if (!champ || !vide(x[champ.cle])) return;
+            if (!champ || champ.sansRelance || !vide(x[champ.cle])) return;   // 268 : la pente n'est jamais réclamée après coup
             var k = x.exercise_slug + ':' + champ.cle;
             if (refuses[k]) return;
             if (!parCle[k]) {

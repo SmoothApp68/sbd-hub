@@ -1471,7 +1471,8 @@
   // enregistrée avec 8 reps visées (donnée cachée, recopiée dans chaque séance). `mesures` : { avant, apres } ; même
   // mesure, ou une mesure inconnue : rien ne change.
   var CIBLES_DE = {
-    charge_reps: ['reps'], reps: ['reps'], temps: ['duree_s'], distance_temps: ['duree_s', 'distance_m']
+    charge_reps: ['reps'], reps: ['reps'], temps: ['duree_s'], distance_temps: ['duree_s', 'distance_m'],
+    charge_distance: ['distance_m'], charge_temps: ['duree_s']   // 268 (C)
   };
   function viderCiblesHorsMesure(ligne, apres) {
     var gardees = CIBLES_DE[apres] || null;
@@ -1861,6 +1862,8 @@
     var f = filtres || {};
     if (f.equipement !== null && f.equipement !== undefined && e.equipement !== f.equipement) return false;
     if (f.muscle !== null && f.muscle !== undefined && (e.muscles_primaires || []).indexOf(f.muscle) < 0) return false;
+    // 268 (E) — l'onglet « Nouveaux » : seulement ces slugs.
+    if (Array.isArray(f.slugs) && f.slugs.indexOf(e.slug) < 0) return false;
     return true;
   }
 

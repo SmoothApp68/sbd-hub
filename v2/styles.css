@@ -827,6 +827,16 @@ button.bloc-exo:active{background:var(--panneau-2)}
    une pastille au doigt (44 px), son choix en ambre quand il est actif, et son « ✕ » ; « N exercices » ; la sous-ligne
    « Matériel · Muscle » de chaque résultat. Le choix d'un filtre prend la place des résultats (la feuille de choix de
    l'app, `rendreFeuilleChoix`, dans le catalogue). */
+/* 268 (E) — les onglets du catalogue (« Tout », « Nouveaux · N »), la mesure de chaque résultat et l'étiquette « Nouveau ». */
+.onglets-exo{display:flex;gap:var(--e4);margin:var(--e2) 0 0;border-bottom:1px solid var(--trait)}
+.onglet-exo{min-height:44px;padding:0 2px;background:transparent;border:0;border-bottom:2px solid transparent;
+  color:var(--texte-3);font:600 14px var(--pile);cursor:pointer}
+.onglet-exo.actif{color:var(--texte);border-bottom-color:var(--texte)}
+.resultat.a-mesure{position:relative;padding-right:104px}
+.resultat .resultat-mesure{position:absolute;right:var(--e1);top:12px;font-size:12px;font-weight:600;letter-spacing:.04em;
+  color:var(--texte-3);white-space:nowrap}
+.resultat .resultat-nouveau{display:inline-block;margin-top:3px;font-size:12px;font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--texte)}
 .filtres-exo{display:flex;gap:var(--e2);margin:var(--e2) 0 var(--e1)}
 .filtre-exo{flex:1;min-width:0;display:flex;align-items:stretch;background:var(--panneau);
   border:1px solid var(--trait);border-radius:999px;overflow:hidden}
@@ -1098,7 +1108,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .serie.grille.g-charge_reps,.cols-seance.g-charge_reps{column-gap:4px}  /* 260-f : 4 px entre les cibles de 44 px (5 avant) : les kg gardent ≥ 70 px à 360 px */
 .g-reps{grid-template-columns:30px 62px 1fr 44px 44px}              /* 260-a : 112 px */
 .g-temps{grid-template-columns:30px 62px 1fr 44px}                  /* 260-a : 169 px, pas d'effort */
-.g-distance_temps{grid-template-columns:30px 66px 1fr 1fr 44px}     /* 260-a : 80 px chacune */
+.g-distance_temps,.g-charge_distance,.g-charge_temps{grid-template-columns:30px 66px 1fr 1fr 44px}     /* 260-a : 80 px chacune */
 /* ECRAN §3 ter.5 (prompt 131) — un champ en plus prend une colonne (Escaliers : durée ·
    étages) : la grille à deux cases de la distance, vérifiée à 360 px (82 px chacune). */
 .g-temps.g-plus{grid-template-columns:30px 66px 1fr 1fr 44px}
@@ -1141,7 +1151,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .grille.programme.g-charge_reps{grid-template-columns:30px 1fr 90px 12px}
 .grille.programme.g-reps{grid-template-columns:30px 1fr 12px}
 .grille.programme.g-temps{grid-template-columns:30px 1fr 12px}
-.grille.programme.g-distance_temps{grid-template-columns:30px 1fr 1fr 12px}
+.grille.programme.g-distance_temps,.grille.programme.g-charge_distance,.grille.programme.g-charge_temps{grid-template-columns:30px 1fr 1fr 12px}
 .cols-seance{padding:var(--e2) var(--e3) 3px;font-size:12px;font-weight:600;
   color:var(--texte-3);letter-spacing:.02em}
 .cols-seance .centre{text-align:center}
@@ -1222,6 +1232,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 /* 149 (MOTEUR §9.17 ter) — LES FIGURES EN SECONDES : la phrase du coach, en gris (un fait, pas un bravo), et
    l'étiquette « max » / « après ton max » sous la rangée de la tenue. */
 .reaction-serie.figure{color:var(--texte-2);font-weight:500}
+.reaction-serie.mieux{color:var(--texte);font-weight:560}   /* 268 (D) : un fait, pas une fanfare */
 .fig-eti{color:var(--texte-2);font-size:12px;font-weight:620;line-height:1.2;padding:0 2px 2px 35px}
 /* MOTEUR §9.23 (55-1) — LA MÉDAILLE (maquette-progression-v1, « La médaille »).
    Un fait, pas la voix du coach : l'or de la médaille, jamais l'accent. Sous la
@@ -1503,11 +1514,11 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .serie.grille.en-tours.g-charge_reps{grid-template-columns:28px minmax(0,1fr) 40px 46px 38px 30px 46px;gap:2px}
 .serie.grille.en-tours.g-reps{grid-template-columns:28px minmax(0,1fr) 40px 52px 30px 46px;gap:2px}
 .serie.grille.en-tours.g-temps{grid-template-columns:28px minmax(0,1fr) 40px 80px 46px;gap:2px}
-.serie.grille.en-tours.g-distance_temps,.serie.grille.en-tours.g-temps.g-plus{grid-template-columns:28px minmax(0,1fr) 40px 56px 56px 46px;gap:2px}
+.serie.grille.en-tours.g-distance_temps,.serie.grille.en-tours.g-charge_distance,.serie.grille.en-tours.g-charge_temps,.serie.grille.en-tours.g-temps.g-plus{grid-template-columns:28px minmax(0,1fr) 40px 56px 56px 46px;gap:2px}
 .cols-seance.en-tours.g-charge_reps{grid-template-columns:28px minmax(0,1fr) 40px 46px 38px 30px 46px;gap:2px}
 .cols-seance.en-tours.g-reps{grid-template-columns:28px minmax(0,1fr) 40px 52px 30px 46px;gap:2px}
 .cols-seance.en-tours.g-temps{grid-template-columns:28px minmax(0,1fr) 40px 80px 46px;gap:2px}
-.cols-seance.en-tours.g-distance_temps,.cols-seance.en-tours.g-temps.g-plus{grid-template-columns:28px minmax(0,1fr) 40px 56px 56px 46px;gap:2px}
+.cols-seance.en-tours.g-distance_temps,.cols-seance.en-tours.g-charge_distance,.cols-seance.en-tours.g-charge_temps,.cols-seance.en-tours.g-temps.g-plus{grid-template-columns:28px minmax(0,1fr) 40px 56px 56px 46px;gap:2px}
 .en-tours .ch-serie,.en-tours .rp-serie{height:44px}
 .en-tours .ch-serie input,.en-tours .rp-serie input{height:42px;font-size:22px}
 .en-tours .ch-serie u{display:none}
@@ -1733,7 +1744,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   font-size:13px;font-weight:400;line-height:normal;font-family:inherit;
   display:inline-flex;align-items:center;min-height:44px;padding:0;margin-bottom:-1px;border-bottom:2px solid transparent}
 /* L'accent ne sert qu'à l'onglet actif et à la suggestion du moteur. */
-.sous-onglet.actif{color:var(--texte);border-bottom-color:var(--accent)}
+.sous-onglet.actif{color:var(--texte);border-bottom-color:var(--texte)}
 
 /* ── Résumé : la fiche des records ───────────────────────────────────────── */
 .exo-fiche{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e1) var(--e4)}
@@ -3321,7 +3332,7 @@ button[id^="btn-retour"]{padding:0 14px;font-size:15px}
    Un contrôle lit `--trait` (et les deux jetons de case) à la valeur du contour de contrôle : on redéfinit les trois SUR
    l'élément, ses règles d'origine n'ont pas à changer. Les boutons qui ne sont que des lignes de liste (filet en haut ou en bas,
    pas de cadre) restent à la valeur du filet : leur séparation n'est pas un contrôle. */
-button:not(.bloc-tous,.imp-seance,.el-choisir,.dq-ligne,.dq-item,.j-porte,.pc-tous-ligne,.retrouver-carte,.case-programme,.ap-ex,.resultat,.sous-onglet,.bandeau-reprise,.toast-annuler button,.p-ac-ligne,.p-ac-tout,.exo-jour-s),
+button:not(.bloc-tous,.imp-seance,.el-choisir,.dq-ligne,.dq-item,.j-porte,.pc-tous-ligne,.retrouver-carte,.case-programme,.ap-ex,.resultat,.sous-onglet,.onglet-exo,.bandeau-reprise,.toast-annuler button,.p-ac-ligne,.p-ac-tout,.exo-jour-s),
 input,select,textarea,.ch-serie,.rp-serie,.eff-serie{
   --trait:var(--trait-controle);--trait-case:var(--trait-controle)}
 /* L'anneau de focus (WCAG 2.4.7) : 2 px d'ambre à 2 px du contrôle, sur tout ce qui prend le focus — y compris les champs et les
@@ -3355,3 +3366,9 @@ input,select,textarea,.ch-serie,.rp-serie,.eff-serie{
 .cartes-exo.sous-legende{margin:2px 0 6px}
 .cartes-exo.sous-legende .cartes-exo-nom{display:none}
 .en-tours .ok-serie:not(.cochee){border-color:#2B3442}
+/* 268 (F) — la silhouette du mois sur la plaque : les deux vues, une teinte, aucun seuil ; décorative. */
+.annee .plaque .corps{margin-top:12px}
+.annee .plaque .corps .bh-vues{max-width:260px;margin:0 auto;gap:10px}
+.annee .plaque .corps .bh-fig{aspect-ratio:1/2}
+.annee .plaque .corps .bh .bh-m{cursor:default}
+.annee .plaque .corps .bh-legende{max-width:260px;margin-left:auto;margin-right:auto}

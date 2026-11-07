@@ -3658,7 +3658,7 @@
     return String(v || '').split('/').filter(Boolean);
   }
   function compteDe(v) { var n = Math.floor(Number(v)); return isFinite(n) && n > 0 ? n : 0; }
-  function enDuree(e) { return !!e && (e.mesure === 'temps' || e.mesure === 'distance_temps'); }
+  function enDuree(e) { return !!e && (e.mesure === 'temps' || e.mesure === 'distance_temps' || e.mesure === 'charge_distance' || e.mesure === 'charge_temps'); }
   function nombreDeMuscles(e) { return musclesDe(e.prim).length + musclesDe(e.sec).length + musclesDe(e.stab).length; }
   function aDesMuscles(e) { return nombreDeMuscles(e) > 0; }
   // UN POLYARTICULAIRE : au moins 3 muscles principaux, secondaires et

@@ -654,6 +654,11 @@
   function repsTexte(n) { return nombreGroupe(nombreTexte(n, 0)) + ' ' + uniteReps(n); }
 
   function aValeur(v) { return v !== null && v !== undefined && v !== ''; }
+  // 268 (C) — UNE CHARGE PORTÉE : `charge_distance` (marche du fermier, traîneau) et `charge_temps` (pincé de disques). Pas de répétitions,
+  // donc pas de moteur. UNE définition de « le coach ne suit pas cette mesure » (`horsMoteur`, avec `distance_temps`) : le palier, le plan
+  // (I13), la durée d'une séance et la phrase de la page d'exercice la lisent ; personne ne recopie la liste.
+  function estUnePortee(mesure) { return mesure === 'charge_distance' || mesure === 'charge_temps'; }
+  function horsMoteur(mesure) { return mesure === 'distance_temps' || estUnePortee(mesure); }
   // §9.17 — une charge négative est une aide : « Aide 22,5 kg × 8 », jamais « −22,5 kg × 8 » (le journal dit la même
   // chose que le coach).
   // 133 (audit 130 #10) — une charge de 0 kg est le poids du corps : « poids du corps × 12 », comme la médaille.
@@ -673,6 +678,8 @@
     // ECRAN §3 ter.5 (prompt 131) — les champs en plus. Une valeur absente ne s'affiche
     // jamais, ni à zéro (jamais « D+ 0 m »).
     denivele: function (s) { return s.denivele_m ? 'D+ ' + nombreGroupe(nombreTexte(s.denivele_m, 0)) + ' m' : ''; },
+    // 268 (B) — la pente moyenne d'un tapis : « pente 4,5 % ». 0 est une valeur (un tapis à plat), vide est « inconnue » : rien.
+    pente: function (s) { return aValeur(s.pente_pct) && isFinite(Number(s.pente_pct)) ? 'pente ' + nombreTexte(s.pente_pct, 1) + '\u00a0%' : ''; },
     etages: function (s) {
       return s.etages ? nombreGroupe(nombreTexte(s.etages, 0)) + ' ' + (Number(s.etages) >= 2 ? 'étages' : 'étage') : '';
     }
@@ -688,10 +695,10 @@
     // ECRAN §3 ter.5 (prompt 131, maquette mesures-cardio écran 4) — distance, puis durée,
     // puis D+ ou étages : « 13,2 km · 3 h 25 · D+ 920 m », « 20 min · 72 étages ».
     temps: { entete: 'Durée', meilleure: 'Plus longue durée', valeur: function (s) {
-      return partiesDe(s, [PART.duree, PART.denivele, PART.etages]);
+      return partiesDe(s, [PART.duree, PART.denivele, PART.etages, PART.pente]);
     } },
     distance_temps: { entete: 'Distance · durée', meilleure: 'Plus longue durée', valeur: function (s) {
-      return partiesDe(s, [PART.distance, PART.duree, PART.denivele, PART.etages]);
+      return partiesDe(s, [PART.distance, PART.duree, PART.denivele, PART.etages, PART.pente]);
     } },
     charge_distance: { entete: 'Charge · distance', meilleure: 'Plus longue distance', valeur: function (s) {
       return partiesDe(s, [PART.charge, PART.distance]);
@@ -777,6 +784,10 @@
     // base de soixante.
     distance_km: { cle: 'distance_m', entete: 'DISTANCE', unite: 'km',  facteur: 1000, saisie: 'nombre',
                    manque: 'la distance' },
+    // 268 (C) — LA DISTANCE EN MÈTRES, pour un portage ou une poussée de traîneau : « 40 », jamais « 0,04 km ». La même colonne
+    // (`distance_m`) et la même borne que la distance en kilomètres ; seul le facteur change.
+    distance_m:  { cle: 'distance_m', entete: 'DISTANCE', unite: 'm',   facteur: 1,    saisie: 'nombre',
+                   manque: 'la distance' },
     // ECRAN §3 ter.5 (prompt 131, v2_101) — LES CHAMPS EN PLUS, exercice par exercice : jamais
     // obligatoires, jamais de chiffre gris. `place` dit où la grille les pose : les étages
     // prennent la colonne de la distance (Escaliers = durée · étages) ; le D+ a sa propre
@@ -785,7 +796,14 @@
     denivele_m:  { cle: 'denivele_m', entete: 'D+',       unite: 'm',   facteur: 1,    saisie: 'nombre',
                    facultatif: true, place: 'dessous', libelle: 'D+', texte: 'Dénivelé +', manque: 'le D+' },
     etages:      { cle: 'etages',     entete: 'ÉTAGES',   unite: null,  facteur: 1,    saisie: 'nombre',
-                   facultatif: true, place: 'colonne', libelle: 'ÉTAGES', manque: 'les étages' }
+                   facultatif: true, place: 'colonne', libelle: 'ÉTAGES', manque: 'les étages' },
+    // 268 (B, v2_140) — LA PENTE MOYENNE du tapis : sous la série comme le D+, facultative, jamais recopiée d'une séance à
+    // l'autre. 0 est une valeur (tapis à plat), vide est « inconnue » ; décimale (4,5), 0 à 40 %. `sansRelance` : la pente
+    // n'est JAMAIS réclamée après coup (ni « Ce qui manque à tes séances », ni la carte de fin de séance) — vide, elle est
+    // inconnue, et personne n'a de pente à retrouver sur l'historique.
+    pente_pct:   { cle: 'pente_pct',  entete: 'PENTE',    unite: '%',   facteur: 1,    saisie: 'nombre',
+                   facultatif: true, place: 'dessous', libelle: 'PENTE', texte: 'Pente moyenne', manque: 'la pente',
+                   sansRelance: true }
   };
 
   // ── Le pavé de chronométrage, en fonctions pures ────────────────────────
@@ -815,7 +833,8 @@
     duree_s:    { min: 1, max: MAX_DUREE_S },
     distance_m: { min: 1, max: MAX_DISTANCE_M },
     denivele_m: { min: 1, max: 10000 },        // D+ : 10 000 m
-    etages:     { min: 1, max: 2000 }          // les étages tels que la machine les affiche
+    etages:     { min: 1, max: 2000 },         // les étages tels que la machine les affiche
+    pente_pct:  { min: 0, max: 40 }            // 268 (B) : la pente moyenne du tapis, en % — 0 accepté (à plat), 40 % au plus
   };
   // La valeur bornée d'une colonne : la valeur, ou `null` (hors borne, ou pas un nombre).
   // Une colonne sans borne passe telle quelle.
@@ -938,7 +957,13 @@
     temps:          { mesure: 'temps',          champs: ['duree'],
                       effort: false, libelle: 'DURÉE' },
     distance_temps: { mesure: 'distance_temps', champs: ['duree', 'distance_km'],
-                      effort: false, libelle: 'DURÉE · DISTANCE' }
+                      effort: false, libelle: 'DURÉE · DISTANCE' },
+    // 268 (C, v2_140) — UNE CHARGE PORTÉE OU POUSSÉE : sur une distance (marche du fermier, traîneau) ou pendant une durée (pincé de
+    // disques). Pas de colonne d'effort : pas de répétitions (§3 ter.2) ; la distance se tape en mètres, la durée au pavé.
+    charge_distance: { mesure: 'charge_distance', champs: ['charge_kg', 'distance_m'],
+                       effort: false, libelle: 'CHARGE · DISTANCE' },
+    charge_temps:    { mesure: 'charge_temps',    champs: ['charge_kg', 'duree'],
+                       effort: false, libelle: 'CHARGE · DURÉE' }
   };
 
   var MESURES = Object.keys(GABARITS);
@@ -1003,7 +1028,9 @@
   }
   function colonnesDeSerie(exo) {
     var noms = arguments.length ? champsDeSerie(exo) : Object.keys(CHAMPS_MESURE);
-    return noms.map(function (n) { return CHAMPS_MESURE[n].cle; });
+    var cles = [];
+    noms.forEach(function (n) { var c = CHAMPS_MESURE[n].cle; if (cles.indexOf(c) < 0) cles.push(c); });   // 268 (C) : `distance_km` et `distance_m` partagent la colonne
+    return cles;
   }
   // La grille d'un exercice : le gabarit de sa mesure, plus `colonnes` (les champs en
   // colonne), `dessous` (les champs sous la série) et la légende complétée (« DURÉE ·
@@ -1013,8 +1040,16 @@
   var AIDE_DES_HALTERES = 'kg, les deux haltères';
   // 245 — UNE SEULE NOTION : la charge d'un exercice aux haltères (`equipement = haltere`) est la PAIRE, les deux ensemble.
   function chargeEstLaPaire(exo) { return !!exo && exo.equipement === 'haltere'; }
+  // 268 (C) — la charge d'un portage ou d'une poussée dit ce qu'on tape, sous les en-têtes : aux haltères la paire (la marche du fermier) ;
+  // sinon, sur une distance, ce qui est POSÉ sur le traîneau (jamais le traîneau) ; sur une durée, TOUT ce qu'on tient (le pincé de disques).
+  var AIDE_DU_TRAINEAU = 'kg posés dessus';
+  var AIDE_DE_CE_QU_ON_TIENT = 'kg, tout ce que tu tiens';
   function avecAideDeLUnite(g, exo) {
-    return chargeEstLaPaire(exo) && g.mesure === 'charge_reps' ? Object.assign({}, g, { aide: AIDE_DES_HALTERES }) : g;
+    var aide = null;
+    if (g.mesure === 'charge_reps') aide = chargeEstLaPaire(exo) ? AIDE_DES_HALTERES : null;
+    else if (g.mesure === 'charge_distance') aide = chargeEstLaPaire(exo) ? AIDE_DES_HALTERES : AIDE_DU_TRAINEAU;
+    else if (g.mesure === 'charge_temps') aide = chargeEstLaPaire(exo) ? AIDE_DES_HALTERES : AIDE_DE_CE_QU_ON_TIENT;
+    return aide ? Object.assign({}, g, { aide: aide }) : g;
   }
   function grilleDe(exo, programme) {
     var g = gabaritDe(exo);
@@ -1050,6 +1085,43 @@
       entetes: { elastique: CHAMP_ELASTIQUE.entete }, libelle: 'ÉLASTIQUE × REPS' });
   }
 
+  // ══ 268 (E) — LES NOUVEAUX AU CATALOGUE, ET CE QU'ON Y TAPE ══════════════════════════════════════════════════
+  //
+  // Le catalogue vit en base (`exercises`) ; ce que le code sait, c'est la LISTE de ce qui est nouveau et depuis quand : un slug, la date
+  // d'arrivée. Un exercice « Nouveau » le reste 30 jours, ou jusqu'à la première séance qui le contient (`faits`, le nombre de séances de
+  // chaque exercice) : le premier des deux. Un slug que le catalogue de l'appareil ne contient pas encore (migration pas lancée, cache
+  // d'avant) ne compte pas : l'onglet n'existe qu'avec ce qu'il montre.
+  var NOUVEAUX_AU_CATALOGUE = Object.freeze({
+    marche_du_fermier_halteres: '2026-11-07', poussee_de_traineau: '2026-11-07'
+  });
+  var JOURS_DE_NOUVEAUTE = 30;
+  var ETIQUETTE_NOUVEAU = 'Nouveau';
+  function estNouveau(slug, aujourdhui, faits) {
+    if (!Object.prototype.hasOwnProperty.call(NOUVEAUX_AU_CATALOGUE, slug)) return false;
+    if (faits && Number(faits[slug]) > 0) return false;
+    var depuis = jourLocal(NOUVEAUX_AU_CATALOGUE[slug]), auj = jourLocal(aujourdhui);
+    if (depuis === null || auj === null) return false;
+    var jours = Math.round((Date.UTC(auj.getFullYear(), auj.getMonth(), auj.getDate()) -
+                            Date.UTC(depuis.getFullYear(), depuis.getMonth(), depuis.getDate())) / 86400000);
+    return jours <= JOURS_DE_NOUVEAUTE;
+  }
+  // Les slugs nouveaux présents au catalogue de l'appareil, par nom.
+  function nouveauxDuCatalogue(exercices, aujourdhui, faits) {
+    return (exercices || []).filter(function (e) { return e && estNouveau(e.slug, aujourdhui, faits); })
+      .sort(function (a, b) { return String(a.nom || a.slug).localeCompare(String(b.nom || b.slug), 'fr'); })
+      .map(function (e) { return e.slug; });
+  }
+  // CE QU'ON Y TAPE, écrit comme les en-têtes de la grille (« KG · REPS », « DURÉE ») : on le sait avant d'ajouter l'exercice. Une mesure
+  // inconnue : rien (on ne nomme pas ce qu'on ne connaît pas).
+  var LIBELLES_DE_MESURE = { charge_reps: 'KG \u00b7 REPS', reps: 'REPS', temps: 'DUR\u00c9E', distance_temps: 'DUR\u00c9E \u00b7 DISTANCE',
+                             charge_distance: 'KG \u00b7 DISTANCE', charge_temps: 'KG \u00b7 DUR\u00c9E' };
+  function libelleDeMesure(exo) {
+    var m = exo && exo.mesure;
+    if (!Object.prototype.hasOwnProperty.call(LIBELLES_DE_MESURE, m)) return '';
+    var nature = m === 'charge_reps' ? natureDeCharge(exo) : null;
+    return nature ? ENTETES_DE_CHARGE[nature].replace(' (KG)', '') + ' \u00b7 REPS' : LIBELLES_DE_MESURE[m];
+  }
+
   // La colonne « précédent » : 62 px. `formatMesure` y déborderait — on donne
   // la grandeur qui porte l'information, et elle seule.
   //   charge_reps → « 122,5×5 » · reps → « 12 » · temps → « 45 s »
@@ -1074,6 +1146,12 @@
       var chrono = formatChrono(serie.duree_s);
       if (chrono) return chrono;
       return mesure === 'distance_temps' && serie.distance_m ? formatDistance(serie.distance_m) : '—';
+    }
+    // 268 (C) — UNE CHARGE PORTÉE : « 64 · 40 m », « 20 · 00:40 » (la durée en horloge, comme le champ juste à côté).
+    if (mesure === 'charge_distance' || mesure === 'charge_temps') {
+      var kgP = aValeur(serie.charge_kg) ? chargeEnColonne(serie.charge_kg) : '';
+      var finP = mesure === 'charge_distance' ? (serie.distance_m ? formatDistance(serie.distance_m) : '') : formatChrono(serie.duree_s);
+      return kgP && finP ? kgP + ' \u00b7 ' + finP : (kgP || finP || '\u2014');
     }
     if (serie.charge_kg === null || serie.charge_kg === undefined) return '—';
     // §9.17 — sous « AIDE (KG) », l'aide se lit comme elle se tape : sans signe.
@@ -2067,6 +2145,23 @@
     });
     if (!siennes.length) return e;
 
+    // 268 (C) — UNE CHARGE PORTÉE : la plus longue distance (ou durée) À LA CHARGE LA PLUS LOURDE — la même règle que le record
+    // (« à cette charge ou plus ») : 80 m à 20 kg ne passe pas devant 60 m à 64 kg.
+    if (estUnePortee(g.mesure)) {
+      var cle = g.mesure === 'charge_distance' ? 'distance_m' : 'duree_s';
+      var lourde = null;
+      siennes.forEach(function (x) {
+        var v = valeurNumerique(x, cle), k = valeurNumerique(x, 'charge_kg');
+        if (v === null || v <= 0 || k === null) return;
+        if (lourde === null || k > lourde.k || (k === lourde.k && v > lourde.v)) lourde = { x: x, k: k, v: v };
+      });
+      if (lourde === null) return e;
+      e.valeur = cle === 'distance_m' ? formatDistance(lourde.v) : formatDuree(lourde.v);
+      e.complement = '\u00b7 ' + chargeDuJournal(lourde.k);
+      e.libelle = (cle === 'distance_m' ? 'Plus longue distance' : 'Plus longue durée') + ', à ' + chargeDuJournal(lourde.k);
+      return e;
+    }
+
     if (g.mesure === 'reps') {
       // Pas de clé du tout quand il n'y a rien à dire : « rien » et « zéro » ne
       // doivent pas se ressembler, même en interne.
@@ -2606,15 +2701,25 @@
 
     // ── La durée, la distance, le D+ et les étages : toute la vie (153 : le D+ et les étages, la même règle).
     if (passees.length) {
+      // 268 (D) — UNE CHARGE PORTÉE (charge × distance, charge × durée : `estUnePortee(mesureDesColonnes(s))`) ne se bat qu'« À CHARGE ÉGALE
+      // OU PLUS » : 80 m à 20 kg ne bat pas 60 m à 64 kg. Les séries d'avant qui comptent sont celles de la MÊME charge ou plus lourdes ;
+      // le record porte sa charge (`records.charge`) et celle de l'ancien (`ancien_charge`, pour dire « Avant : 40 m à 64 kg »). Une série
+      // sans charge garde la règle d'avant, octet pour octet.
+      var chargeP = estUnePortee(mesureDesColonnes(s)) ? valeurNumerique(s, 'charge_kg') : null;
       ['duree_s', 'distance_m', 'denivele_m', 'etages'].forEach(function (champ) {
         var v = valeurNumerique(s, champ);
         if (v === null || v <= 0) return;
+        var portee = chargeP !== null && chargeP > 0 && (champ === 'duree_s' || champ === 'distance_m');
         var avantLui = plusGrand(dater(passees).map(function (x) {
           var vx = valeurNumerique(x.s, champ);
-          return { v: vx !== null && vx > 0 ? vx : null, date: x.date };
+          var cx = portee ? valeurNumerique(x.s, 'charge_kg') : null;
+          var compte = vx !== null && vx > 0 && (!portee || (cx !== null && cx >= chargeP - EPS_RECORD));
+          return { v: compte ? vx : null, date: x.date, c: cx };
         }));
         if (avantLui === null || v > avantLui.v + EPS_RECORD) {
-          out.push({ type: champ, valeur: v, ancien: avantLui ? avantLui.v : null, ancien_le: avantLui ? avantLui.date : null });
+          var rec = { type: champ, valeur: v, ancien: avantLui ? avantLui.v : null, ancien_le: avantLui ? avantLui.date : null };
+          if (portee) { rec.charge = chargeP; rec.ancien_charge = avantLui ? avantLui.c : null; }
+          out.push(rec);
         }
       });
       // 153 (A) — L'ALLURE POUR AU MOINS N : la série entière (durée ÷ distance), au plus grand palier atteint par sa
@@ -2769,8 +2874,10 @@
     if (vol) gras.push('Volume de la séance : ' + nombreTexte(vol.valeur, 0) + INSECABLE + (vol.unite === 'reps' ? 'reps' : 'kg') + '.');
     // 119 (audit du 16/10/2026, E9) — LA PROSE DE LA MÉDAILLE ÉCRIT COMME LE JOURNAL : « 1 min 30 », « 3,2 km » (la
     // ligne d'au-dessus dit « Tapis : 20 min · 3,2 km ») ; l'horloge (« 01:30 ») reste sous la rangée de la grille.
-    if (duree) gras.push('Plus longue durée : ' + formatDuree(duree.valeur) + '.');
-    if (distance) gras.push('Plus longue distance : ' + formatDistance(distance.valeur) + '.');
+    // 268 (D) — une charge portée : « Plus longue distance, à 64 kg ou plus : 60 m. » (à charge égale ou plus, jamais à une charge plus légère).
+    var chargeOuPlus = function (x) { return x.charge !== undefined && x.charge !== null && Number(x.charge) > 0 ? ', à ' + chargeDeLaMedaille(x.charge) + ' ou plus' : ''; };
+    if (duree) gras.push('Plus longue durée' + chargeOuPlus(duree) + ' : ' + formatDuree(duree.valeur) + '.');
+    if (distance) gras.push('Plus longue distance' + chargeOuPlus(distance) + ' : ' + formatDistance(distance.valeur) + '.');
     // 153 — l'allure pour au moins N (« Record d'allure sur 1 km ou plus : 7:00 /km. »), le D+, les étages, la première
     // fois sur une marche (« Première fois : Tractions Lestées. »).
     if (allure) gras.push('Record d’allure sur ' + libelleDuPalier(allure) + ' ou plus : ' + mmss(allure.valeur) + INSECABLE +
@@ -2779,6 +2886,10 @@
     if (etages) gras.push('Record d’étages : ' + nombreTexte(etages.valeur, 0) + '.');
     if (marche) gras.push('Première fois : ' + nomComplet(marche.slug) + '.');
     var quandAvant = function (x) { return dateDeLaMedaille(x.ancien_le, aujourdhui); };
+    // 268 (D) — l'ancien record d'une charge portée dit sa charge : « Avant : 40 m à 64 kg, le 3 oct. ».
+    var avecSaCharge = function (x) {
+      return x.ancien_charge !== undefined && x.ancien_charge !== null && Number(x.ancien_charge) > 0 ? ' à ' + chargeDeLaMedaille(x.ancien_charge) : '';
+    };
     // Le point final, une fois : « le 1er sept. », jamais « sept.. ».
     var fin = function (t) { return /\.$/.test(t) ? t : t + '.'; };
     var gris = null;
@@ -2789,9 +2900,9 @@
     } else if (rac) {
       gris = 'Avant : ' + repsDeLaMedaille(rac.ancien) + ', ' + fin(quandAvant(rac));
     } else if (duree) {
-      if (duree.ancien !== null) gris = 'Avant : ' + formatDuree(duree.ancien) + ', ' + fin(quandAvant(duree));
+      if (duree.ancien !== null) gris = 'Avant : ' + formatDuree(duree.ancien) + avecSaCharge(duree) + ', ' + fin(quandAvant(duree));
     } else if (distance) {
-      if (distance.ancien !== null) gris = 'Avant : ' + formatDistance(distance.ancien) + ', ' + fin(quandAvant(distance));
+      if (distance.ancien !== null) gris = 'Avant : ' + formatDistance(distance.ancien) + avecSaCharge(distance) + ', ' + fin(quandAvant(distance));
     } else if (allure) {
       gris = 'Avant : ' + mmss(allure.ancien) + INSECABLE + UNITES_D_ALLURE[allure.unite] + ', ' + fin(quandAvant(allure));
     } else if (deniv) {
@@ -2803,6 +2914,26 @@
         : fin('Avant : ' + nomComplet(marche.ancien_slug) + ', depuis ' + dateDeLaMedaille(marche.ancien_le, aujourdhui));
     }
     return [gras.join(' '), gris];
+  }
+
+  // 268 (D) — « MIEUX UN JOUR » : LA LIGNE DU COACH sous une série dont la durée ou la distance bat la meilleure d'avant — UN FAIT, jamais un
+  // « bravo », jamais un point d'exclamation : « Gainage : 2:10, ton meilleur. Avant : 1:55, le 12 oct. » ; sur une charge portée, à charge égale
+  // ou plus : « Marche du Fermier : 60 m à 64 kg, ton meilleur. Avant : 40 m à 64 kg, le 3 oct. ». La même règle que la médaille et le journal
+  // (`recordsBattus` : UNE notion, un câblage) ; ce n'est pas une décision du coach, seulement un fait lu. Une distance d'abord (une course en
+  // distance et en durée dit sa distance), sinon la durée. `exercice` : le nom parlé (`nomParle`). Sans record de durée ni de distance : `null`.
+  function phraseDuMeilleur(records, exercice, aujourdhui) {
+    var liste = records || [];
+    var r = liste.filter(function (x) { return x.type === 'distance_m'; })[0] || liste.filter(function (x) { return x.type === 'duree_s'; })[0] || null;
+    if (!r) return null;
+    var dit = function (v) { return r.type === 'distance_m' ? formatDistance(v) : (Number(v) < 3600 ? mmss(v) : formatDuree(v)); };
+    var kg = function (c) { return c !== undefined && c !== null && Number(c) > 0 ? ' à ' + chargeDeLaMedaille(c) : ''; };
+    var t = nomParle(exercice) + ' : ' + dit(r.valeur) + kg(r.charge) + ', ton meilleur.';
+    if (r.ancien !== null && r.ancien !== undefined) {
+      var quand = dateDeLaMedaille(r.ancien_le, aujourdhui);
+      t += ' Avant : ' + dit(r.ancien) + kg(r.ancien_charge) + (quand ? ', ' + quand : '');
+      if (!/\.$/.test(t)) t += '.';   // « le 12 oct. » porte déjà son point
+    }
+    return t;
   }
 
   // ── LE RECORD DE CHARGE (§7 quater, PR 5 de la consolidation) ────────────
@@ -2947,6 +3078,10 @@
     LETTRES: LETTRES,
     TYPES_CONNUS: TYPES_CONNUS,
     MESURES: MESURES,
+    NOUVEAUX_AU_CATALOGUE: NOUVEAUX_AU_CATALOGUE, ETIQUETTE_NOUVEAU: ETIQUETTE_NOUVEAU,
+    estNouveau: estNouveau, nouveauxDuCatalogue: nouveauxDuCatalogue, libelleDeMesure: libelleDeMesure,
+    estUnePortee: estUnePortee,
+    horsMoteur: horsMoteur,
     GABARITS: GABARITS,
     CHAMPS_MESURE: CHAMPS_MESURE,
     gabaritDe: gabaritDe,
@@ -3091,6 +3226,7 @@
     allureDeSerie: allureDeSerie,
     distancesMaxParSport: distancesMaxParSport,
     phraseDeRecord: phraseDeRecord,
+    phraseDuMeilleur: phraseDuMeilleur,
     optionsDeRecord: optionsDeRecord,
     recordsDeLExercice: recordsDeLExercice,
     seancesDuPerimetre: seancesDuPerimetre,

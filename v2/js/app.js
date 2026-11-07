@@ -2008,6 +2008,7 @@
     var vue = {
       bilan: bilanPeriode(periode),
       qui: profil && profil.username ? profil.username : '',
+      sexe: lireSilhouette(),   // 268 (F) — le sexe du dessin du mois : la préférence de l'appareil
       jeu: jeu,
       surDetail: afficherParcours,
       surFermer: o.surFermer || null,
@@ -10535,6 +10536,17 @@
       function (slug) { return index[slug] ? index[slug].nom : slug; });
   }
 
+  // 268 (D) — « MIEUX UN JOUR » : la phrase du coach sous la série dont la durée ou la distance bat la meilleure d'avant (un FAIT :
+  // « Gainage : 2:10, ton meilleur. Avant : 1:55, le 12 oct. »), ou rien. Lue sur les records (`faits.recordsDeLaSerie`, la fonction de la
+  // médaille et du journal) et dite par le formateur (`Modele.phraseDuMeilleur`) : l'écran ne calcule rien.
+  function mieuxSurLigne(iExo, iSerie) {
+    if (!seance) return null;
+    var r = faits.recordsDeLaSerie(corpus(), seance, iExo, iSerie);
+    if (!r.length) return null;
+    var exo = catalogueIndexe()[seance.exercices[iExo].exercise_slug];
+    return Modele.phraseDuMeilleur(r, exo ? exo.nom : '', seance.debut);
+  }
+
 
   // ── L'écran ─────────────────────────────────────────────────────────────
   function rendreSeance() {
@@ -10724,6 +10736,8 @@
       effortVise: effortViseSurLigne,
       // MOTEUR §9.23 (55-1) — la médaille, sous la rangée d'une série validée.
       medaille: medailleSurLigne,
+      // 268 (D) — « mieux un jour » : une durée ou une distance qui bat la meilleure, dite comme un fait sur la ligne du coach.
+      mieux: mieuxSurLigne,
       // ⚠️ CORRIGER AU CLAVIER UNE SÉRIE VALIDÉE REDESSINE LE BLOC (P10), mais
       // à la SORTIE du champ, pas à chaque frappe : redessiner à la frappe
       // volerait le focus au milieu de « 130 ». La réaction se refait alors sur
@@ -14115,6 +14129,7 @@
     // 67B (ES §7 quindecies.10) — les filtres reviennent à zéro à chaque ouverture : un filtre oublié cacherait des
     // exercices la fois suivante.
     filtresCatalogue = { equipement: null, muscle: null };
+    ongletCatalogue = 'tout';   // 268 (E) — l'onglet « Nouveaux » aussi revient à « Tout »
     $('choix-filtre-exo').hidden = true;
     $('resultats-exo').hidden = false;
     rendreCatalogue();
@@ -14128,6 +14143,8 @@
   var contexteDuCatalogue = null;
   // 67B — les deux filtres du catalogue (`Routines.chercher`, `filtres`), remis à zéro par `ouvrirCatalogue`.
   var filtresCatalogue = { equipement: null, muscle: null };
+  // 268 (E) — l'onglet du catalogue : « tout » ou « nouveaux » (`Modele.nouveauxDuCatalogue`).
+  var ongletCatalogue = 'tout';
   var FILTRES_CATALOGUE = {
     equipement: { titre: 'Matériel', tous: 'Tout le matériel', libelle: function (c) { return Profil.libelleEquipement(c); } },
     muscle: { titre: 'Muscle principal', tous: 'Tous les muscles', libelle: function (c) { return Semaine.libelleMuscle(c); } }
@@ -14229,6 +14246,7 @@
       var m = [];
       if (!(o.faits[e.slug] > 0) && Profil.estHorsDeMaSalle(e.slug, e, o.equipements, o.sansBarre)) m.push('Pas dans Ma salle');
       if (ctx.type === 'routine' && ctx.dans.indexOf(e.slug) >= 0) m.push('Déjà dans la routine');
+      if (Modele.estNouveau(e.slug, new Date(), o.faits)) m.push(Modele.ETIQUETTE_NOUVEAU);   // 268 (E)
       return m;
     };
   }
@@ -14248,15 +14266,26 @@
     var o = optionsDuCatalogue(ctx);
     // 67B — les deux filtres, combinés au nom (ET), avant l'ordre et la limite ; le compte quand l'un est actif.
     var requete = $('champ-recherche-exo').value;
-    var actif = filtresCatalogue.equipement !== null || filtresCatalogue.muscle !== null;
+    // 268 (E) — LES ONGLETS « Tout » et « Nouveaux · N » : ce que le catalogue de l'appareil contient de nouveau (la liste du code, la
+    // date d'arrivée, la première séance qui le contient). Sans nouveau, un seul onglet : rien n'est dessiné.
+    var nouveaux = Modele.nouveauxDuCatalogue(local.exercices, new Date(), o.faits);
+    if (!nouveaux.length) ongletCatalogue = 'tout';
+    var surNouveaux = ongletCatalogue === 'nouveaux';
+    Rendu.rendreOngletsExo($('onglets-exo'), {
+      onglets: nouveaux.length ? [{ cle: 'tout', libelle: 'Tout', actif: !surNouveaux },
+        { cle: 'nouveaux', libelle: 'Nouveaux \u00b7 ' + nouveaux.length, actif: surNouveaux }] : [],
+      surChoix: function (cle) { ongletCatalogue = cle; $('choix-filtre-exo').hidden = true; $('resultats-exo').hidden = false; rendreCatalogue(); }
+    });
+    var filtresDeRecherche = surNouveaux ? Object.assign({}, filtresCatalogue, { slugs: nouveaux }) : filtresCatalogue;
+    var actif = filtresCatalogue.equipement !== null || filtresCatalogue.muscle !== null || surNouveaux;
     var n = actif ? Routines.chercher(local.exercices, requete,
-      Object.assign({}, o, { filtres: filtresCatalogue, limite: Infinity })).length : 0;
+      Object.assign({}, o, { filtres: filtresDeRecherche, limite: Infinity })).length : 0;
     Rendu.rendreFiltresExo($('filtres-exo'), $('compte-exo'), {
       filtres: ['equipement', 'muscle'].map(function (cle) {
         var v = filtresCatalogue[cle];
         return { cle: cle, actif: v !== null, libelle: v === null ? FILTRES_CATALOGUE[cle].tous : FILTRES_CATALOGUE[cle].libelle(v) };
       }),
-      compte: actif ? n + (n > 1 ? ' exercices' : ' exercice') : null,
+      compte: actif && !surNouveaux ? n + (n > 1 ? ' exercices' : ' exercice') : null,
       surOuvrir: ouvrirChoixFiltre,
       surRetirer: retirerFiltre
     });
@@ -14347,7 +14376,7 @@
       });
     }
     Rendu.rendreResultatsExo($('resultats-exo'),
-      Routines.chercher(local.exercices, requete, Object.assign({}, o, { filtres: filtresCatalogue })),
+      Routines.chercher(local.exercices, requete, Object.assign({}, o, { filtres: filtresDeRecherche })),
       choisir, o.ecartes, descriptionExo, mentions);
   }
 

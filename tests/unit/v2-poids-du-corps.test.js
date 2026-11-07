@@ -556,6 +556,8 @@ describe('50-1 — les invariants du poids du corps, de la carte, de l\'aide, d\
   test.each([
     ['rameur', 'temps', 'machine'],
     ['tapis', 'distance_temps', 'machine'],
+    ['marche_fermier', 'charge_distance', 'haltere'],   // 268 (C) : une charge portée sort du coach comme le cardio
+    ['pince_disques', 'charge_temps', 'disque'],
     ['dips', 'reps', 'machine']
   ])('119 — %s (%s), une ligne dégressive, sans consigne : ni dégressive ni phrase du coach', (slug, mesure, equipement) => {
     const e = entreesDe([{ slug, mesure, equipement, travail: 2, degressives: [1] }]);

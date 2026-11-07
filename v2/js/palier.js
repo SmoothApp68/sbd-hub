@@ -343,7 +343,8 @@
     // planche avec un développé couché dont personne n'a saisi les kilos
     // (84 séries en base sont dans ce cas). L'appelant a le catalogue ; le
     // moteur ne devine pas la nature d'un exercice à partir d'un jour.
-    if (mesure === 'distance_temps') return sortie(series, roles, null, HORS_MOTEUR, []);
+    // 268 (C) — une charge portée (fermier, traîneau, pincé) sort du moteur comme le cardio : pas de répétitions, pas de palier.
+    if (mesure === 'distance_temps' || mesure === 'charge_distance' || mesure === 'charge_temps') return sortie(series, roles, null, HORS_MOTEUR, []);
     if (MESURES_SANS_CHARGE[mesure]) return sortie(series, roles, null, SANS_CHARGE, []);
 
     // §4 — le tag prime. Une chauffe taguée est une chauffe, point.

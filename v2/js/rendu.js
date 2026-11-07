@@ -308,7 +308,10 @@
   var PHRASE_SANS_PALIER = {
     reps: null,   // la phrase du formateur — voir `phraseSansPalier`
     temps: 'Cet exercice se mesure en durée : le coach ne le suit pas.',
-    distance_temps: 'Cet exercice se mesure en distance et en durée : le coach ne le suit pas.'
+    distance_temps: 'Cet exercice se mesure en distance et en durée : le coach ne le suit pas.',
+    // 268 (C) — une charge portée : la voix des deux autres, la mesure en toutes lettres.
+    charge_distance: 'Cet exercice se mesure en charge et en distance : le coach ne le suit pas.',
+    charge_temps: 'Cet exercice se mesure en charge et en durée : le coach ne le suit pas.'
   };
   // 119 (E5) — LA TABLE PAR NOMBRE DE RÉPÉTITIONS n'existe que là où il y a des répétitions : jamais sur une planche,
   // un tapis ou une randonnée (« PAR NOMBRE DE RÉPÉTITIONS » au-dessus d'une durée, vu par Aurélien le 16/10).
@@ -3584,6 +3587,11 @@
       // max validée, la phrase du coach sous elle. Lues sur le plan (`info`), jamais recomposées.
       if (info && info.etiquette) hote.appendChild(el('div', 'fig-eti', info.etiquette));
       if (info && info.apres) hote.appendChild(phraseDeReaction({ type: 'figure', phrase: info.apres }, false));
+      // 268 (D) — « MIEUX UN JOUR » : sous la série qui bat la meilleure durée ou la meilleure distance, un fait sur la ligne du coach
+      // (« Gainage : 2:10, ton meilleur. Avant : 1:55, le 12 oct. »). Lu sur l'app (`vue.mieux`), jamais calculé ici ; une seule ligne
+      // du coach sous la série : la phrase d'une figure, quand elle parle, garde la place.
+      var mx = !vue.programme && !(info && (info.apres || info.message)) && typeof vue.mieux === 'function' ? vue.mieux(s._iExo, s._iSerie) : null;
+      if (mx) hote.appendChild(phraseDeReaction({ type: 'mieux', phrase: mx }, false));
       // ECRAN §3 ter.5 (prompt 131, maquette mesures-cardio écran 1) — LE D+, SUR SA PROPRE LIGNE,
       // SOUS LA SÉRIE : une troisième colonne ne tient pas à 360 px à côté d'une durée en horloge.
       // Facultatif, sans chiffre gris ; jamais dans l'éditeur de routine.
@@ -8090,9 +8098,14 @@
   // décidées par l'app ; chacune sa ligne `resultat-mention`, sous « écarté ».
   function boutonResultat(e, surChoix, ecarte, sous, autres) {
     var b = el('button', 'resultat', e.nom || e.slug);
+    // 268 (E) — CE QU'ON Y TAPE, à droite, écrit comme les en-têtes de la grille (« KG · REPS », « DURÉE ») : on le sait avant d'ajouter.
+    var mesure = M().libelleDeMesure(e);
+    if (mesure) { b.classList.add('a-mesure'); b.appendChild(el('span', 'resultat-mesure', mesure)); }
     if (sous) b.appendChild(el('small', 'resultat-sous', sous));
     if (ecarte.indexOf(e.slug) >= 0) b.appendChild(el('small', 'resultat-mention', 'écarté'));
-    (autres || []).forEach(function (m) { if (m) b.appendChild(el('small', 'resultat-mention', m)); });
+    (autres || []).forEach(function (m) {
+      if (m) b.appendChild(el('small', m === M().ETIQUETTE_NOUVEAU ? 'resultat-mention resultat-nouveau' : 'resultat-mention', m));
+    });
     b.type = 'button';
     b.addEventListener('click', function () { surChoix(e); });
     return b;
@@ -8128,6 +8141,26 @@
       });
     });
     if (v.pied) cible.appendChild(el('p', 'resultats-plus', v.pied));
+  }
+
+  // 268 (E) — LES ONGLETS DU CATALOGUE (« Tout », « Nouveaux · N »), sous le champ ; rien n'est calculé ici. Un seul onglet : rien.
+  //   vue : { onglets: [{ cle, libelle, actif }], surChoix(cle) }
+  function rendreOngletsExo(cible, vue) {
+    vider(cible);
+    var v = vue || {};
+    var liste = v.onglets || [];
+    cible.hidden = liste.length < 2;
+    if (cible.hidden) return cible;
+    liste.forEach(function (o) {
+      var b = el('button', 'onglet-exo' + (o.actif ? ' actif' : ''), o.libelle);
+      b.type = 'button';
+      b.dataset.cle = o.cle;
+      b.setAttribute('role', 'tab');
+      b.setAttribute('aria-selected', o.actif ? 'true' : 'false');
+      b.addEventListener('click', function () { v.surChoix(o.cle); });
+      cible.appendChild(b);
+    });
+    return cible;
   }
 
   // 67B (ES §7 quindecies.10, maquette `maquette-catalogue-filtres-v2.html`) — LES DEUX FILTRES DU CATALOGUE, sous le
@@ -10876,6 +10909,7 @@
     rendreResultatsExo: rendreResultatsExo,
     rendreSuggestionsExo: rendreSuggestionsExo,
     rendreFiltresExo: rendreFiltresExo,
+    rendreOngletsExo: rendreOngletsExo,
     el: el,
     vider: vider,
     dateCourte: dateCourte,

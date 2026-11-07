@@ -96,7 +96,7 @@ describe('131 — la fonction des champs d’une série : la mesure, puis le cat
     expect(Modele.champsDeSerie({ mesure: 'zzz', champs_series: ['etages'] })).toEqual(['charge_kg', 'reps']);
   });
   test('sans argument, toutes les colonnes de mesure d’une série', () => {
-    expect(Modele.colonnesDeSerie()).toEqual(['charge_kg', 'reps', 'duree_s', 'distance_m', 'denivele_m', 'etages']);
+    expect(Modele.colonnesDeSerie()).toEqual(['charge_kg', 'reps', 'duree_s', 'distance_m', 'denivele_m', 'etages', 'pente_pct']);
   });
   test('la grille : les étages en colonne, le D+ dessous, la légende complétée ; rien dans l’éditeur', () => {
     const e = Modele.grilleDe(ESCALIERS);

@@ -375,7 +375,7 @@
       .sort(function (a, b) { return String(a.cree_le || '').localeCompare(String(b.cree_le || '')); });
     if (!ls.length) return null;
     var e = { lundi: lundi, questions: {}, planning: null, ajouts: [] };
-    // 266 — une ligne `annule` plus récente sur la même clé (routine, jour de la séance manquée) efface le choix d'avant : ni question
+    // 266 — une ligne `annule` STRICTEMENT plus récente sur la même clé (routine, jour de la séance manquée) efface le choix d'avant : ni question
     // marquée, ni planning, ni ajouts — la question revient. (En base la ligne annule REMPLACE l'ancienne : même clé d'upsert.)
     var annulees = {};
     ls.forEach(function (l) { if (l.choix === 'annule') annulees[l.routine_id + '@' + ((l.detail || {}).jour)] = String(l.cree_le || ''); });
@@ -383,7 +383,7 @@
       if (l.choix === 'annule') return;
       var d = l.detail || {};
       var cleA = l.routine_id + '@' + d.jour;
-      if (Object.prototype.hasOwnProperty.call(annulees, cleA) && annulees[cleA] >= String(l.cree_le || '')) return;
+      if (Object.prototype.hasOwnProperty.call(annulees, cleA) && annulees[cleA] > String(l.cree_le || '')) return;
       e.questions[l.routine_id + '@' + d.jour] = l.choix;
       if (Array.isArray(d.planning)) e.planning = d.planning;
       if (Array.isArray(d.ajouts)) e.ajouts = e.ajouts.concat(d.ajouts);
@@ -412,7 +412,7 @@
     var vivantes = ls.filter(function (l) {
       if (l.choix === 'annule') return false;
       var cleA = l.routine_id + '@' + ((l.detail || {}).jour);
-      return !(Object.prototype.hasOwnProperty.call(annulees, cleA) && annulees[cleA] >= String(l.cree_le || ''));
+      return !(Object.prototype.hasOwnProperty.call(annulees, cleA) && annulees[cleA] > String(l.cree_le || ''));
     }).sort(function (a, b) { return String(a.cree_le || '').localeCompare(String(b.cree_le || '')); });
     var groupes = [], parCle = {};
     vivantes.forEach(function (l) {

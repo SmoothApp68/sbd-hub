@@ -134,6 +134,11 @@ describe('ce qui n’est jamais deviné', () => {
     expect.assertions(2);
     try { I.lireStrong(avecType(v)); } catch (e) { expect(e.pasUnExport).toBe(true); expect(e.typeInconnu).toBe(v); }
   });
+  test('ancien format sans unité ET type inconnu : le refus passe avant la question', () => {
+    expect.assertions(2);
+    try { I.lireStrong(ANCIEN + '\n2022-09-24 10:00:00,"X",30min,"Squat (Barbell)",W,60,5,0,0,,,'); }
+    catch (e) { expect(e.uniteRequise).toBeUndefined(); expect(e.typeInconnu).toBe('W'); }
+  });
   test('Set Order vide aussi', () => {
     expect.assertions(1);
     try { I.lireStrong(avecType('')); } catch (e) { expect(e.typeInconnu).toBe(''); }

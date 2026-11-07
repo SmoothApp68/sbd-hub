@@ -411,11 +411,10 @@
     if (f.format !== 'strong-ancien' && f.format !== 'strong-nouveau') throw erreurExport('pas un export Strong');
     var nouveau = f.format === 'strong-nouveau';
     var unite = nouveau ? f.unite : (opts && opts.unite) || null;
-    if (unite !== 'kg' && unite !== 'lbs') {
-      var e0 = erreurExport('unité du poids à demander');
-      e0.uniteRequise = true;
-      throw e0;
-    }
+    // L'unité se demande APRÈS que le fichier a été lu en entier : un fichier refusé (type de série inconnu) l'est
+    // avant toute question. Sans unité, la lecture se fait en kilos « pour voir » et son résultat n'est jamais rendu.
+    var uniteAbsente = unite !== 'kg' && unite !== 'lbs';
+    if (uniteAbsente) unite = 'kg';
     var en = enteteStrong(texte), cols = en.cols;
     var brutes = lignesCsv(String(texte || '').replace(/^﻿/, ''), en.sep);
     var colPoids = nouveau ? cols.filter(function (n) { return /^weight\s*\(/i.test(n); })[0] : 'Weight';
@@ -472,6 +471,11 @@
         rpe: rpe && nombreLu(rpe) > 0 ? nombre(rpe) : null
       });
     });
+    if (uniteAbsente) {
+      var e0 = erreurExport('unité du poids à demander');
+      e0.uniteRequise = true;
+      throw e0;
+    }
     seances.forEach(function (s) { s.exercices.forEach(function (e) { delete e.dernierRang; }); });
     return seances;
   }

@@ -1,0 +1,27 @@
+[
+ {
+  "nom": "266-1-le-depart-du-recul-retombe-a-la-convention",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "ecart: depart !== null && depart !== undefined ? depart : RECUL_ECART_DEPART",
+  "nouveau": "ecart: RECUL_ECART_DEPART",
+  "unitaires": ["tests/unit/v2-recul-charge.test.js", "tests/unit/v2-recul-plan.test.js"],
+  "banc": "aucun"
+ },
+ {
+  "nom": "266-2-une-ligne-annule-n-annule-plus-rien",
+  "fichier": "v2/js/deraille.js",
+  "ancien": "if (l.choix === 'annule') return;",
+  "nouveau": "if (false) return;",
+  "unitaires": ["tests/unit/v2-deraille.test.js"],
+  "banc": "seance",
+  "sections": ["deraille"]
+ },
+ {
+  "nom": "266-3-une-barre-lourde-change-d-accessoire",
+  "fichier": "v2/js/generateur.js",
+  "ancien": "if (estBarreLourde(slug, cat)) return;",
+  "nouveau": "if (false) return;",
+  "unitaires": ["tests/unit/v2-variation-bloc.test.js"],
+  "banc": "aucun"
+ }
+]

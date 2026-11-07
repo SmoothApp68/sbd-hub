@@ -4110,10 +4110,10 @@
           if (ch.phrase !== null && (ch.phrase || '').indexOf('Trop léger pour une chauffe de plus.') < 0) err('I16', 'une chauffe trop légère sans sa phrase (série ' + l.iSerie + ')');
           return;
         }
-        // 265 (§9.15.7, I143) — une chauffe vide parce que trop proche de la charge de travail a toujours sa phrase, même
+        // 265 (§9.15.7, I149) — une chauffe vide parce que trop proche de la charge de travail a toujours sa phrase, même
         // après une chauffe faite (`phrase_apres_faites`).
         if (l.chauffe.trop_proche) {
-          if ((ch.phrase || '').indexOf('Trop proche de ta charge de travail pour une chauffe de plus.') < 0) err('I143', 'une chauffe trop proche sans sa phrase (série ' + l.iSerie + ')');
+          if ((ch.phrase || '').indexOf('Trop proche de ta charge de travail pour une chauffe de plus.') < 0) err('I149', 'une chauffe trop proche sans sa phrase (série ' + l.iSerie + ')');
           return;
         }
         if (vues <= ch.prevues) err('I16', 'une chauffe de la routine restée vide (série ' + l.iSerie + ')');

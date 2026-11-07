@@ -148,7 +148,7 @@ describe('59-4 — la garde réseau elle-même', () => {
 
   test('⚠️ une requête que le banc n’a pas prise en charge est coupée, et notée avec son URL', async () => {
     const ctx = await Garde.garderContexte(contexte());
-    expect(ctx.routes.length).toBe(1);
+    expect(ctx.routes.length).toBe(2)   // 267 : la coupure, puis config.js à clé vide;
     expect(ctx.sockets.length).toBe(1);
     const coupees = [];
     const req = { method: () => 'POST', url: () => 'https://' + Garde.HOTE + '/auth/v1/signup' };
@@ -165,10 +165,13 @@ describe('59-4 — la garde réseau elle-même', () => {
     const ctx = contexte();
     await Garde.garderContexte(ctx);
     await Garde.garderContexte(ctx);
-    expect(ctx.routes.length).toBe(1);
+    expect(ctx.routes.length).toBe(2);
     // Playwright essaie le plus récent d'abord : celui du banc, posé ensuite.
     await ctx.route(/supabase\.co/, () => {});
     expect(ctx.routes[0].motif).toBe(Garde.aCouper);
+    // 267 — la seconde route sert config.js avec une clé de captcha vide (le dépôt porte la vraie).
+    expect(ctx.routes[1].motif.test('http://127.0.0.1:8080/js/config.js?v=3')).toBe(true);
+    expect(ctx.routes[1].motif.test('http://127.0.0.1:8080/js/app.js')).toBe(false);
   });
 
   test('`lancer` garde chaque contexte — y compris celui de `newPage`', async () => {
@@ -180,6 +183,6 @@ describe('59-4 — la garde réseau elle-même', () => {
     await b.newContext({});
     await b.newPage({});
     expect(crees.length).toBe(2);
-    crees.forEach((c) => expect([c.routes.length, c.sockets.length]).toEqual([1, 1]));
+    crees.forEach((c) => expect([c.routes.length, c.sockets.length]).toEqual([2, 1]));
   });
 });

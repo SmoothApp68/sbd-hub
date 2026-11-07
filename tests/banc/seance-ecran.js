@@ -28363,6 +28363,9 @@ const SETS_IMPORTES = [
     const carte171 = () => page.evaluate(() => {
       const n = document.getElementById('carte-semaine');
       if (!n || n.hidden) return null;
+      // 266 — après un choix, la carte reste avec sa ligne « fait » et « Annuler » (§9.24) : sans question, ni choix, ni « Démarrer »,
+      // il n'y a plus de carte à quoi répondre — le banc la lit comme absente.
+      if (!n.querySelector('.semaine-titre') && !n.querySelector('.semaine-choix button') && !n.querySelector('.carte-semaine > .principal')) return null;
       return { titre: (n.querySelector('.semaine-titre') || {}).textContent || null,
         choix: Array.from(n.querySelectorAll('.semaine-choix button')).map((b) => b.dataset.choix),
         cliquables: Array.from(n.querySelectorAll('.semaine-choix button')).every((b) => !!b.offsetParent && !b.disabled),

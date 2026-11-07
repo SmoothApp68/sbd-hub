@@ -24126,8 +24126,7 @@ const SETS_IMPORTES = [
       fin: new Date(2026, 9, 14, 11, 20, 0).toISOString(), statut: 'terminee', note: null, salle: null, salle_norme: null,
       routine_id: 'r-d99-pull', source: 'app', created_at: apresLeChoix });
     await aller('/saisie');
-    await jusqua(async () => { const c = await carte99(); return !!c && c.faits.length > 0; }, 15000);
-    await attendre(2500);
+    await jusqua(async () => { const c = await carte99(); return !!c && c.faits.length > 0 && c.annuler === false; }, 15000);
     const g266 = await carte99();
     ok('[D266] une séance commencée sur une routine portée (Pull) : le fait reste lisible, « Annuler » a disparu',
       !!g266 && g266.faits.length === 1 && /^Jambes D99 réparti/.test(g266.faits[0]) && g266.annuler === false, nb99(g266));

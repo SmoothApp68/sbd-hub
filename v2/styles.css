@@ -2864,7 +2864,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .semaine-exo { color: var(--texte-2); padding: var(--e1) 0; }
 /* 266 (§9.24) — les choix de la semaine, lisibles sous la bande (le liseré du coach) ; « Annuler » et le lien en boutons de 44 px. */
 .semaine-fait-bloc { margin: 0 0 var(--e3); }
-.semaine-fait { margin: 0 0 var(--e1); padding-left: var(--e3); border-left: 3px solid var(--accent); color: var(--texte); }
+.semaine-fait { margin: 0 0 var(--e1); padding-left: var(--e3); border-left: 3px solid var(--texte-2); color: var(--texte); }
 .semaine-fait-ajout { margin: 0; padding-left: var(--e3); color: var(--texte-2); font-size: 13px; }
 .semaine-fait-voir, .semaine-fait-annuler { min-height: 44px; }
 .carte-semaine > .principal { margin-top: var(--e3); width: 100%; }

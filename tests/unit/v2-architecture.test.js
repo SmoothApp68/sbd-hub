@@ -2055,7 +2055,7 @@ const NOTIONS = [
   // 251 — « A, B et C » : UNE énumération. Le coach disait « Développé Couché et Rowing et Curl » (`join(' et ')`).
   { notion: 'l’énumération d’une liste de noms (« A », « A et B », « A, B et C »)', pr: '251-U1',
     module: 'modele.js', fonction: 'enumerer',
-    lecteurs: ['moteur.js', 'generateur.js', 'questionnaire.js', 'equilibres.js', 'app.js', 'profil.js', 'notes-ia.js', 'tours.js'],
+    lecteurs: ['moteur.js', 'generateur.js', 'questionnaire.js', 'equilibres.js', 'app.js', 'profil.js', 'notes-ia.js', 'tours.js', 'deraille.js'],
     interditAilleurs: { motif: /\.join\(\s*' et '\s*\)|\.slice\(0,\s*-1\)\s*\.join\(', '\)/,
                         raison: 'une liste de noms ne se joint que par `THModele.enumerer` (251-U1) : « A, B et C », jamais « A et B et C »' },
     raison: '251 — la carte de la forme du jour (`phraseDeRate`), les cartes, les équilibres, le générateur et le questionnaire joignaient chacun leurs noms ' +

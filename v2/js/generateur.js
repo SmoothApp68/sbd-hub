@@ -1742,8 +1742,6 @@
     return { routines: sortie, journal: journal };
   }
 
-  // LES INVARIANTS DES SUPERSETS (§5 quater.4 bis) : V6 aucune ligne changée (exercice, séries, reps) ; V7 une paire
-  // est de deux exercices contigus, et aucune sans cible ; V8 jamais une barre lourde ; V9 toujours deux antagonistes.
   // 266 — I148 : la variante à pause. Une ligne à pause n'existe qu'en objectif Force, jamais pour un débutant, jamais sur une place lourde,
   // toujours avec un `lien` dont la principale est la barre correspondante, jamais si une zone à ménager charge son motif. Rend les fautes.
   function verifierPauses(entree, routines) {
@@ -1766,6 +1764,8 @@
     return fautes;
   }
 
+  // LES INVARIANTS DES SUPERSETS (§5 quater.4 bis) : V6 aucune ligne changée (exercice, séries, reps) ; V7 une paire
+  // est de deux exercices contigus, et aucune sans cible ; V8 jamais une barre lourde ; V9 toujours deux antagonistes.
   function verifierAssociation(entree, sortie) {
     var e = entree || {}, s = sortie || {}, cat = e.catalogue || {};
     var fautes = [];

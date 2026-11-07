@@ -1092,8 +1092,6 @@
   // chaque exercice) : le premier des deux. Un slug que le catalogue de l'appareil ne contient pas encore (migration pas lancée, cache
   // d'avant) ne compte pas : l'onglet n'existe qu'avec ce qu'il montre.
   var NOUVEAUX_AU_CATALOGUE = Object.freeze({
-    curl_barre_chargee: '2026-11-07', jefferson_curl_barre: '2026-11-07', soutien_aux_barres: '2026-11-07',
-    soutien_aux_anneaux: '2026-11-07', grenouille: '2026-11-07',
     marche_du_fermier_halteres: '2026-11-07', poussee_de_traineau: '2026-11-07'
   });
   var JOURS_DE_NOUVEAUTE = 30;

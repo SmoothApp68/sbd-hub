@@ -171,6 +171,15 @@ function horsDeVie(date, maintenant) {
   return new Date(Math.min(new Date(date).getTime(), t - ABANDON));
 }
 
+// 262 — « Le Nᵉ jour (0 = lundi) de la semaine calendaire d'il y a `semaines` semaines » : le nombre de JOURS à reculer depuis
+// `maintenant`, pour `ilYa(jours * JOUR, maintenant)`. Un décor qui veut « deux jours par semaine » le veut dans la MÊME semaine
+// (lundi → dimanche) quel que soit le jour où tourne le banc ; « 7w+1 et 7w+3 jours avant » tombait dans deux semaines voisines.
+function joursJusquA(semaines, jourDeSemaine, maintenant) {
+  var t = maintenant === undefined ? Date.now() : Number(maintenant);
+  var rang = (new Date(t).getDay() + 6) % 7;
+  return 7 * semaines + rang - jourDeSemaine;
+}
+
 module.exports = {
   horsDeVie: horsDeVie,
   JOUR: JOUR,
@@ -182,5 +191,6 @@ module.exports = {
   seanceSansSeries: seanceSansSeries,
   jourIsole: jourIsole,
   ilYa: ilYa,
+  joursJusquA: joursJusquA,
   finDe: finDe
 };

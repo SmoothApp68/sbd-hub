@@ -55,3 +55,17 @@ describe('horloge du banc : ni les 7 premiers jours du mois, ni la fenêtre jour
     expect(decalageDuDecor(t)).toBe(0);
   });
 });
+
+describe('262 — joursJusquA : le Nᵉ jour d\'une semaine calendaire passée', () => {
+  const { joursJusquA, ilYa, JOUR } = require(path.join(__dirname, '../banc/decor-dates.js'));
+  const lundiDe = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - (x.getDay() + 6) % 7); return x.getTime(); };
+  test('pour chaque jour de 2026 : le mardi et le jeudi d\'il y a w semaines tombent dans la MÊME semaine, w semaines avant', () => {
+    const debut = new Date(2026, 0, 1, 10).getTime();
+    for (let t = debut; t < debut + 365 * 86400000; t += 86400000) for (const w of [1, 4, 10]) {
+      const ma = ilYa(joursJusquA(w, 1, t) * JOUR, t), je = ilYa(joursJusquA(w, 3, t) * JOUR, t);
+      expect([ma.getDay(), je.getDay()]).toEqual([2, 4]);
+      expect(lundiDe(ma)).toBe(lundiDe(je));
+      expect(Math.round((lundiDe(t) - lundiDe(ma)) / (7 * 86400000))).toBe(w);
+    }
+  });
+});

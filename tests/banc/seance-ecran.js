@@ -577,7 +577,7 @@ const PROFIL_BANC = {
 // SEMAINE. Le pourquoi, en entier, est dans `decor-dates.js` — avec la seule
 // milliseconde de bord qui subsiste. `JOURS[n]` remplace l'ancien
 // `LUNDI + n jours` : même ORDRE, mêmes rangs, et toujours dans le passé.
-const { datesDuDecor, ancreSemaineIsolee, seanceSansSeries, jourIsole, ilYa, debutDeJournee, finDe, horsDeVie, mercrediEcoule } =
+const { datesDuDecor, ancreSemaineIsolee, seanceSansSeries, jourIsole, ilYa, joursJusquA, debutDeJournee, finDe, horsDeVie, mercrediEcoule } =
   require(path.join(__dirname, 'decor-dates.js'));
 const JOURS = datesDuDecor();
 // 87 — le faux serveur du social (cercles, blocage, compte privé, colonnes autorisées).
@@ -28478,8 +28478,7 @@ const SETS_IMPORTES = [
     for (let w = 1; w <= 14; w++) {
       // 262 — LE MARDI ET LE JEUDI DE LA SEMAINE CALENDAIRE w (lundi → dimanche), pas « 7w+1 et 7w+3 jours avant » : selon le jour
       // où tourne le banc, ces deux-là tombaient dans deux semaines voisines, et la moyenne des jours passait de 2 à 1,9 ([EQ1882]).
-      const dow = (new Date(t188).getDay() + 6) % 7;
-      [7 * w + dow - 1, 7 * w + dow - 3].forEach((j, n) => {
+      [joursJusquA(w, 1, t188), joursJusquA(w, 3, t188)].forEach((j, n) => {
         const id = 'eq188-' + w + '-' + n;
         const debut = ilYa(j * 86400000, t188).toISOString();
         base.sessions.push({ id, user_id: 'u-banc', titre: 'EQ188 — ' + id, debut, fin: finDe(debut, t188).toISOString(),
@@ -28698,8 +28697,7 @@ const SETS_IMPORTES = [
     for (let w = 1; w <= 10; w++) {
       // 262 — LE MARDI ET LE JEUDI DE LA SEMAINE CALENDAIRE w (lundi → dimanche), pas « 7w+1 et 7w+3 jours avant » : selon le jour
       // où tourne le banc, ces deux-là tombaient dans deux semaines voisines, et la moyenne des jours passait de 2 à 1,9 ([EQ1882]).
-      const dow = (new Date(t1882).getDay() + 6) % 7;
-      [7 * w + dow - 1, 7 * w + dow - 3].forEach((j, n) => {
+      [joursJusquA(w, 1, t1882), joursJusquA(w, 3, t1882)].forEach((j, n) => {
         const id = 'eq1882-' + w + '-' + n;
         const debut = ilYa(j * 86400000, t1882).toISOString();
         base.sessions.push({ id, user_id: 'u-banc', titre: 'EQ1882 — ' + id, debut, fin: finDe(debut, t1882).toISOString(),
@@ -28714,7 +28712,7 @@ const SETS_IMPORTES = [
     for (let w = 1; w <= 7; w++) {
       const id = 'eq1882-st-' + w;
       // 262 — le MÊME jour que la première séance de la semaine w (le mardi) : un jour de plus, et la moyenne des jours monterait.
-      const debut = ilYa((7 * w + (new Date(t1882).getDay() + 6) % 7 - 1) * 86400000, t1882).toISOString();
+      const debut = ilYa(joursJusquA(w, 1, t1882) * 86400000, t1882).toISOString();
       base.sessions.push({ id, user_id: 'u-banc', titre: 'EQ1882 stagne — ' + id, debut, fin: finDe(debut, t1882).toISOString(),
         statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: 'r-eq1882s', source: 'app', created_at: debut, gestes: [] });
       // 233 — le repos lu par la règle est le repos RÉEL (l'écart entre deux séries validées) : 75 s entre les séries, comme réglé.

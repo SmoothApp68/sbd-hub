@@ -11,7 +11,7 @@ const Routines = require('../../v2/js/routines.js');
 const CAT = [
   { slug: 'curl_barre_chargee', nom: 'Curl à la Barre Chargée', mesure: 'charge_reps', charge: 'absolue', equipement: 'barre', muscles_primaires: ['biceps'] },
   { slug: 'soutien_aux_barres', nom: 'Soutien aux Barres', mesure: 'temps', charge: 'aucune', equipement: 'aucun', muscles_primaires: ['triceps'] },
-  { slug: 'auto_massage_rouleau', nom: 'Auto-massage (Rouleau)', mesure: 'temps', charge: 'aucune', equipement: 'aucun', muscles_primaires: [] },
+  { slug: 'grenouille', nom: 'Grenouille', mesure: 'temps', charge: 'aucune', equipement: 'aucun', muscles_primaires: ['deltoide_anterieur'] },
   { slug: 'abduction_machine', nom: 'Abduction (Machine)', mesure: 'charge_reps', charge: 'absolue', equipement: 'machine', muscles_primaires: ['abducteurs'] }
 ];
 const LE = (j) => new Date(j + 'T12:00:00');
@@ -32,9 +32,9 @@ describe('Nouveau : trente jours, ou la première séance qui le contient', () =
     expect(Modele.estNouveau('abduction_machine', LE('2026-11-08'), {})).toBe(false);
   });
   test('l’onglet ne compte que ce que le catalogue de l’appareil contient (migration pas lancée : rien)', () => {
-    expect(Modele.nouveauxDuCatalogue(CAT, LE('2026-11-08'), {})).toEqual(['auto_massage_rouleau', 'curl_barre_chargee', 'soutien_aux_barres']);
+    expect(Modele.nouveauxDuCatalogue(CAT, LE('2026-11-08'), {})).toEqual(['curl_barre_chargee', 'grenouille', 'soutien_aux_barres']);
     expect(Modele.nouveauxDuCatalogue([CAT[3]], LE('2026-11-08'), {})).toEqual([]);
-    expect(Modele.nouveauxDuCatalogue(CAT, LE('2026-11-08'), { soutien_aux_barres: 2 })).toEqual(['auto_massage_rouleau', 'curl_barre_chargee']);
+    expect(Modele.nouveauxDuCatalogue(CAT, LE('2026-11-08'), { soutien_aux_barres: 2 })).toEqual(['curl_barre_chargee', 'grenouille']);
   });
 });
 
@@ -54,7 +54,7 @@ describe('ce qu’on y tape, écrit comme les en-têtes de la grille', () => {
 });
 
 describe('la recherche : l’onglet « Nouveaux » restreint aux slugs nouveaux, le nom les trouve aussi', () => {
-  const nouveaux = ['auto_massage_rouleau', 'curl_barre_chargee', 'soutien_aux_barres'];
+  const nouveaux = ['curl_barre_chargee', 'grenouille', 'soutien_aux_barres'];
   test('restreinte aux nouveaux', () => {
     const l = Routines.chercher(CAT, '', { filtres: { slugs: nouveaux }, limite: Infinity }).map((e) => e.slug).sort();
     expect(l).toEqual(nouveaux);

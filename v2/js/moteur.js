@@ -10248,6 +10248,7 @@
       precedente = c;
       return { reps: r, charge: c, reps_coach: reps === null || reps === undefined };
     });
+    var tropProches = Array.isArray(e.faites) && ref !== null && ref > 0 ? apresLesChauffesFaites(lignes, e.faites, ref, pas) : 0;
     var remplies = lignes.filter(function (l) { return l.charge !== null; }).map(function (l) { return l.charge; });
     var phrase = null;
     if (remplies.length) {
@@ -10256,9 +10257,63 @@
         avant.concat([Modele().charge(remplies[remplies.length - 1], undefined, regle('chauffe'))]).join(' · ') + '.';
     }
     if (tropLegeres) phrase = (phrase ? phrase + ' ' : '') + TROP_LEGER;
+    else if (tropProches) phrase = (phrase ? phrase + ' ' : '') + TROP_PROCHE;
     return { situation: situation, lignes: lignes, prevues: chargesCoach ? n : (ajoutees ? marches.length : table.length),
-             trop_legeres: tropLegeres,
-             non_remplies: lignes.length - remplies.length - tropLegeres, phrase: phrase };
+             trop_legeres: tropLegeres, trop_proches: tropProches, phrase_apres_faites: tropProches && !tropLegeres ? TROP_PROCHE : null,
+             non_remplies: lignes.length - remplies.length - tropLegeres - tropProches, phrase: phrase };
+  }
+
+  // ══ 265 (§9.15.7, 07/11/2026) — UNE CHAUFFE AJOUTÉE APRÈS UNE CHAUFFE FAITE ════════════════════════════════════════
+  //
+  // Une chauffe faite est figée ; les lignes non faites montent AU-DESSUS de la plus lourde des chauffes faites (quelle que soit sa
+  // place), jusqu'à 90 % de la charge de travail au plus (`CHAUFFE_PLAFOND`, arrondi au cran VERS LE BAS, toujours sous la charge de
+  // travail). Une ligne de la rampe déjà au-dessus de cette borne garde sa charge ; les autres se répartissent régulièrement dans
+  // l'intervalle, en crans distincts et croissants. Plus de cran libre : la ligne reste sans charge, avec la phrase TROP_PROCHE (sauf
+  // si elle est déjà trop légère : cette phrase-là passe d'abord). Reps du coach : jamais plus que la dernière faite moins une.
+  // Fonction pure des lignes faites : dévalider une chauffe rend la rampe du nombre de lignes. Modifie `lignes` en place ; rend le
+  // nombre de lignes laissées vides parce que trop proches.
+  var TROP_PROCHE = 'Trop proche de ta charge de travail pour une chauffe de plus.';
+  function apresLesChauffesFaites(lignes, faites, ref, pas) {
+    var borne = null, repsFaites = null, i;
+    for (i = 0; i < lignes.length; i++) {
+      var f = faites[i];
+      if (!f) continue;
+      var cf = nombre(f.charge);
+      if (cf !== null && (borne === null || cf > borne)) { borne = cf; repsFaites = nombre(f.reps); }
+    }
+    if (borne === null) return 0;
+    var cran = pas > 0 ? pas : 2.5;
+    var plafond = Math.floor((CHAUFFE_PLAFOND * ref) / cran + 1e-9) * cran;
+    while (plafond >= ref - 1e-9) plafond -= cran;
+    var aPlacer = [];
+    var bas = borne;
+    for (i = 0; i < lignes.length; i++) {
+      if (faites[i]) continue;
+      var l = lignes[i];
+      if (l.trop_leger) continue;
+      if (l.charge !== null && l.charge > bas + 1e-9 && l.charge <= plafond + 1e-9 && !aPlacer.length) { bas = l.charge; continue; }
+      aPlacer.push(i);
+    }
+    var proches = 0;
+    var k = aPlacer.length;
+    aPlacer.forEach(function (idx, j) {
+      var l = lignes[idx];
+      var cible = bas + (plafond - bas) * (j + 1) / k;
+      var c = Math.floor(cible / cran + 1e-9) * cran;
+      if (c <= bas + 1e-9) c = Math.ceil((bas + 1e-9) / cran) * cran;
+      if (c <= bas + 1e-9) c += cran;
+      if (c > plafond + 1e-9 || c >= ref - 1e-9) {
+        l.charge = null; l.trop_proche = true; proches++;
+        return;
+      }
+      l.charge = Math.round(c * 100) / 100;
+      bas = l.charge;
+    });
+    if (repsFaites !== null && repsFaites > 0) lignes.forEach(function (l, idx) {
+      if (faites[idx] || !l.reps_coach || l.charge === null) return;
+      l.reps = Math.max(1, Math.min(l.reps, repsFaites - 1));
+    });
+    return proches;
   }
 
   // ══ §9.41 — LES CHAUFFES PROPOSÉES PAR LE COACH (237, 04/11/2026) ═════════

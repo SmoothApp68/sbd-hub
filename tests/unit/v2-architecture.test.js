@@ -218,6 +218,11 @@ const GARDEES = [
   // module avant « Construis-le-moi » (66D).
   { fn: 'completer', module: 'generateur.js' },
   { fn: 'verifierComplement', module: 'generateur.js' },
+  // 266 (I148) — la variante à pause en Force : elle se vérifie, elle ne se décide qu'au générateur.
+  { fn: 'verifierPauses', module: 'generateur.js' },
+  // 266 (I145, I146) — un accessoire qui change au début d'un bloc : la décision (`variationsDuBloc`) et sa vérification.
+  { fn: 'variationsDuBloc', module: 'generateur.js' },
+  { fn: 'verifierVariations', module: 'generateur.js' },
   // generateur.js — la fin (66D, QUESTIONNAIRE-COACH-V2 §5 quater.4-5) : l'ordre, les supersets, l'habillage d'une
   // ligne déduite et les lignes de « Ce que j'ai changé ». `motif` de `ranger` : `Sync.ranger` (sync.js) est une
   // autre fonction du même nom ; seul l'appel qualifié par le générateur compte.
@@ -229,6 +234,8 @@ const GARDEES = [
   { fn: 'changementsDeLApercu', module: 'generateur.js' },
   // deraille.js — la semaine qui déraille (99, MOTEUR §9.24)
   { fn: 'semaineQuiDeraille', module: 'deraille.js' },
+  // 266 (MOTEUR §9.24) — les choix de la semaine, lisibles et annulables sous la bande.
+  { fn: 'choixDeLaSemaine', module: 'deraille.js' },
   // objectif.js — l'objectif posé par la personne, à l'essai (109, MOTEUR §9.25) : la date annoncée, ce que la page
   // montre, l'observation du pari ; et l'identifiant du pari (moteur.js).
   { fn: 'projection', module: 'objectif.js', motif: /(?:\bObjectif|racine\.THObjectif)\s*\.\s*projection\b/g },
@@ -326,6 +333,12 @@ const AUTORISATIONS = {
       'plan ; l’écran passe à la règle son entrée (le programme, les faits de `faits.semaineDuProgramme`, les décisions ' +
       'de la semaine) et lit la carte telle quelle (app.js, `rendreCarteSemaine`). Un exercice ajouté entre ensuite ' +
       'dans la séance et le plan le coache comme les autres.'
+  },
+  variationsDuBloc: {
+    'app.js': '266 : la vue du programme lit les variations du bloc (`programmeDuDossierCalcule`) ; rien n’est calculé à l’écran.'
+  },
+  choixDeLaSemaine: {
+    'app.js': '266 : la carte de la semaine lit les choix et leur annulation, rien n’est calculé à l’écran (app.js, `rendreCarteSemaine`).'
   },
   periodeAllegee: {
     'app.js': 'MOTEUR §9.18 (51-1 ter) : l’écran de la ROUTINE, avant toute séance — donc sans plan — ' +
@@ -703,10 +716,11 @@ const NOTIONS = [
       'MÊME table, à côté de `EQUIPEMENTS` ; une valeur inconnue se rend telle quelle.' },
   // 67A — la famille : une colonne, une lecture, un seul usage (la feuille « Remplacer »).
   { notion: 'la même famille d’un exercice (même `schema_mouvement` au catalogue, MOTEUR §13.6 bis)', pr: '67-U1',
-    module: 'modele.js', fonction: 'cousinsDe', lecteurs: ['app.js', 'parcours.js'],
-    parAilleurs: { 'app.js': ['cousinsDe'], 'parcours.js': ['parcours'] },
+    module: 'modele.js', fonction: 'cousinsDe', lecteurs: ['app.js', 'parcours.js', 'generateur.js'],
+    parAilleurs: { 'app.js': ['cousinsDe'], 'parcours.js': ['parcours'], 'generateur.js': ['variationsDuBloc', 'verifierVariations'] },
     // 75 — un second lecteur, avec sa raison (décidé le 11/10/2026).
-    raisonsDesLecteurs: { 'parcours.js': 'le relais d’un exercice moins pratiqué (75)' },
+    raisonsDesLecteurs: { 'parcours.js': 'le relais d’un exercice moins pratiqué (75)',
+      'generateur.js': '266 (décision d’Aurélien du 07/11/2026) : la variante d’un accessoire en début de bloc est un frère d’un autre matériel, sinon un cousin' },
     interditAilleurs: { motif: /\.\s*schema_mouvement\b|\[\s*(['"`])schema_mouvement\1\s*\]/,
                         raison: '`schema_mouvement` lu ailleurs que dans `cousinsDe` : une famille hors de « Remplacer »' },
     raison: 'MOTEUR §13.6 bis (67A) : la famille ne sert QU’À la feuille « Remplacer », sous les frères ; aucun calcul ' +
@@ -849,8 +863,8 @@ const NOTIONS = [
     parAilleurs: { 'app.js': ['restPauseDeLaFeuille'] },
     raison: '196 (MOTEUR §9.33) : une définition, lue par le menu ⋯ d’une série et par « J’ai peu de temps » en objectif Muscle ; 236 : le plan la lit pour le levier « Rest-pause » de la réaction après un raté (jamais une seconde définition).' },
   { notion: 'l’isolation (des muscles au catalogue, moins de trois ; sans muscle connu : ni l’un ni l’autre)', pr: '124-U3',
-    module: 'moteur.js', fonction: 'estIsolation', lecteurs: ['profil.js', 'plan.js', 'app.js', 'generateur.js'],
-    parAilleurs: { 'profil.js': ['avecIsolation'], 'plan.js': ['polyarticulaireDe'], 'app.js': ['optionsDeConsigne'], 'generateur.js': ['marquerAuMax'] },
+    module: 'moteur.js', fonction: 'estIsolation', lecteurs: ['profil.js', 'plan.js', 'app.js', 'generateur.js', 'routines.js'],
+    parAilleurs: { 'profil.js': ['avecIsolation'], 'plan.js': ['polyarticulaireDe'], 'app.js': ['optionsDeConsigne'], 'generateur.js': ['marquerAuMax', 'verifierAssociation'], 'routines.js': ['supersetsHabituels'] },
     raison: 'audit du 16/10/2026 (01 #15) : pour un exercice sans muscle connu, la salle (`avecIsolation`) n’en faisait pas ' +
       'une isolation, la dégressive du plan si ; une définition, lue aux deux endroits (MOTEUR §10 bis et §14 : « la ' +
       'même définition que la salle »). 175 (MOTEUR §9.7 bis) : le gros cran — le plancher de son test ne descend pas sous 8 reps ' +
@@ -906,7 +920,10 @@ const NOTIONS = [
       'la réaction, la suite, le repli) lit la consigne reportée, jamais une charge à part.' },
   // 53-2 (MOTEUR §9.22) — les programmes à cycles : une fonction par notion.
   { notion: 'la semaine du bloc (« semaine k sur N », au calendrier, jamais en séances)', pr: '53-U2',
-    module: 'moteur.js', fonction: 'semaineDuBloc', lecteurs: [],
+    module: 'moteur.js', fonction: 'semaineDuBloc', lecteurs: ['app.js', 'generateur.js'],
+    parAilleurs: { 'app.js': ['variationsDuDossier'], 'generateur.js': ['variationsDuBloc', 'verifierVariations'] },
+    raisonsDesLecteurs: { 'app.js': '266 : le calcul des faits d’une variation ne se fait que la 1re semaine du bloc (la décision, elle, est au générateur)',
+      'generateur.js': '266 : une carte « NOUVEAU BLOC » seulement la 1re semaine du bloc (I145)' },
     par: ['badgeDuBloc', 'exercicesEnBloc'],
     raison: 'le badge et « Changer de schéma » lisent la même semaine : le coach ne commente pas l’assiduité.' },
   { notion: 'le début de la décharge planifiée (la dernière semaine du bloc)', pr: '53-U2',
@@ -1104,6 +1121,14 @@ const NOTIONS = [
     parAilleurs: { 'app.js': ['escalierDesEntrees'] },
     raison: 'MOTEUR §9.35 : un fait (une seule séance, toutes ses séries à 0 rep) ; la décision, la carte « marche d’en dessous », est celle ' +
       'de `planDeSeance` (`marcheDuDessous`) ; l’écran ne fait que donner le fait au plan.' },
+  { notion: 'les semaines de suite d’un exercice (la série courante, un trou de 2 semaines toléré) — le fait de la variation d’un bloc', pr: '266-U6',
+    module: 'faits.js', fonction: 'semainesDeSuite', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['variationsDuDossier'] },
+    raison: 'MOTEUR §9.22 ter : un fait du calendrier ; la décision (`Generateur.variationsDuBloc`) est au générateur, l’écran ne fait que lui donner le fait.' },
+  { notion: 'la dernière hausse du record d’un exercice (la dernière ligne de sa table des records, jamais un maximum estimé)', pr: '266-U6',
+    module: 'faits.js', fonction: 'derniereHausseDuRecord', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['variationsDuDossier'] },
+    raison: 'MOTEUR §9.22 ter : un fait ; lu par la variation d’un accessoire en début de bloc (`Generateur.variationsDuBloc`).' },
   { notion: 'les points d’un exercice, un par séance (le max estimé, les reps ou les secondes), pour ses courbes', pr: '206-U1',
     module: 'faits.js', fonction: 'pointsDeLExercice', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['rendreExercice', 'sommaireExercices'] },
@@ -2048,7 +2073,7 @@ const NOTIONS = [
   // 251 — « A, B et C » : UNE énumération. Le coach disait « Développé Couché et Rowing et Curl » (`join(' et ')`).
   { notion: 'l’énumération d’une liste de noms (« A », « A et B », « A, B et C »)', pr: '251-U1',
     module: 'modele.js', fonction: 'enumerer',
-    lecteurs: ['moteur.js', 'generateur.js', 'questionnaire.js', 'equilibres.js', 'app.js', 'profil.js', 'notes-ia.js', 'tours.js'],
+    lecteurs: ['moteur.js', 'generateur.js', 'questionnaire.js', 'equilibres.js', 'app.js', 'profil.js', 'notes-ia.js', 'tours.js', 'deraille.js'],
     interditAilleurs: { motif: /\.join\(\s*' et '\s*\)|\.slice\(0,\s*-1\)\s*\.join\(', '\)/,
                         raison: 'une liste de noms ne se joint que par `THModele.enumerer` (251-U1) : « A, B et C », jamais « A et B et C »' },
     raison: '251 — la carte de la forme du jour (`phraseDeRate`), les cartes, les équilibres, le générateur et le questionnaire joignaient chacun leurs noms ' +
@@ -2603,7 +2628,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/periode.js');
     require('../../v2/js/parcours.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(54);   // 250 : + estUneNote ; 242 : + noteDeLaDerniereFois, noteDeLExercice ; 245-6 : + premierEssaiRate
+    expect(FAITS.length).toBe(56);   // 266 : + semainesDeSuite, derniereHausseDuRecord ; 250 : + estUneNote ; 242 : + noteDeLaDerniereFois, noteDeLExercice ; 245-6 : + premierEssaiRate
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 

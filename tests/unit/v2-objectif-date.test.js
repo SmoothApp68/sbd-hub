@@ -128,7 +128,7 @@ describe('la date, à la pose', () => {
     expect(p.raison).toBe('rythme_nul');
   });
 
-  test('au-delà de 12 mois : « Au rythme actuel : plus d\u2019un an. », et aucun pari', () => {
+  test('au-delà de 12 mois : « Pas de date : à ton rythme actuel, plus d\u2019un an. », et aucun pari', () => {
     const lent = [seance('2025-01-01', [[138, 1]]), seance('2025-06-01', [[140, 1]]), seance('2026-09-01', [[141, 1]])];
     const p = projeter({ seances: lent });
     expect(p.etat).toBe('plus_d_un_an');
@@ -136,7 +136,7 @@ describe('la date, à la pose', () => {
     expect(ligne).toMatchObject({ projection: 'plus_d_un_an', echeance: null, pari_id: null });
     expect(O.pariDe(ligne, p, 'u', 'id')).toBeNull();
     expect(O.vue({ objectif: ligne, seances: lent, options: BARRE, maintenant: MAINTENANT }).ligne)
-      .toBe('Au rythme actuel\u00a0: plus d\u2019un an.');
+      .toBe(O.PLUS_D_UN_AN);
   });
 
   test('un objectif déjà fait est refusé, avec le fait (la série, ses vraies reps)', () => {
@@ -203,7 +203,7 @@ describe('la date figée, et ce que la page montre', () => {
     const ligne = O.ligneDe('squat', 150, 3, MAINTENANT.toISOString(), p, 'u');
     const v = O.vue({ objectif: ligne, seances: HISTOIRE(), options: BARRE, maintenant: MAINTENANT });
     expect(v.ligne).toBe('Pas encore de date.');
-    [v.ligne, O.PLUS_D_UN_AN, O.PARI].forEach((t) => expect(t).not.toMatch(/impossible/i));
+    [v.ligne, O.PLUS_D_UN_AN, O.PARI, O.VEILLE, O.VEILLE_PAS_ENCORE].forEach((t) => expect(t).not.toMatch(/impossible/i));
   });
 
   test('atteint : « Atteint le 12 février. », jauge pleine — même en « Juste un carnet » (un fait)', () => {
@@ -419,7 +419,7 @@ describe('150 — le pari figé, et « Au rythme d\u2019aujourd\u2019hui » (sec
     const lent = [seance('2025-01-01', [[138, 1]]), seance('2025-06-01', [[140, 1]]), seance('2026-09-01', [[141, 1]])];
     const sansPari = O.ligneDe('squat', 150, 1, MAINTENANT.toISOString(), projeter({ seances: lent }), 'u');
     const v = O.vue({ objectif: sansPari, seances: lent, options: BARRE, maintenant: MAINTENANT });
-    expect([v.ligne, v.pari, v.rythme]).toEqual(['Au rythme actuel\u00a0: plus d\u2019un an.', null, null]);
+    expect([v.ligne, v.pari, v.rythme]).toEqual([O.PLUS_D_UN_AN, null, null]);
   });
 
   test('l\u2019année de la pose seulement si elle diffère d\u2019aujourd\u2019hui', () => {
@@ -434,5 +434,61 @@ describe('150 — le pari figé, et « Au rythme d\u2019aujourd\u2019hui » (sec
     O.vue({ objectif: l, seances: s, options: BARRE, maintenant: MAINTENANT });
     O.vue({ objectif: l, seances: s, options: BARRE, maintenant: MAINTENANT });
     expect(JSON.stringify([l, s])).toBe(avant);
+  });
+});
+
+// 266 (MOTEUR §9.25) — L'OBJECTIF SANS DATE RESTE SUIVI : la veille, le chemin, le geste « Parier sur … », la ligne qui garde sa pose.
+describe('266 — l’objectif sans date reste suivi', () => {
+  const sansDate = (charge, projection) => ({ exercise_slug: 'squat', charge_kg: charge, reps: 1, pose_le: '2026-08-01T10:00:00.000Z', depart_kg: 140,
+    projection: projection || 'plus_d_un_an', echeance: null, pari_id: null });
+  const vue = (o, extra) => O.vue(Object.assign({ objectif: o, seances: HISTOIRE(), options: BARRE, maintenant: MAINTENANT }, extra || {}));
+
+  test('(a) plus d’un an : la phrase, la veille, aucun pari ; le chemin, jamais un maximum estimé', () => {
+    const v = vue(sansDate(150));
+    expect(O.projection({ seances: HISTOIRE(), charge: 150, reps: 1, maintenant: MAINTENANT, options: BARRE }).jours).toBeGreaterThan(O.JOURS_POUR_PARIER);
+    expect(v.ligne).toBe(O.PLUS_D_UN_AN);
+    expect(O.PLUS_D_UN_AN).toBe('Pas de date\u00a0: à ton rythme actuel, plus d’un an.');
+    expect(v.veille).toBe(O.VEILLE);
+    expect(v.parier).toBeNull();
+    expect(v.chemin).toBe('40 % du chemin');                    // (144 − 140) ÷ (150 − 140)
+    expect(v.aujourdhui).toBe('Aujourd’hui\u00a0: 144\u00a0kg\u00a0×\u00a01');
+  });
+
+  test('(a bis) pas encore de date : sa veille à elle', () => {
+    const v = vue(sansDate(150, 'pas_encore'));
+    expect(v.ligne).toBe(O.PAS_ENCORE);
+    expect(v.veille).toBe(O.VEILLE_PAS_ENCORE);
+  });
+
+  test('(b) une projection du jour à 183 jours ou moins : « Ça passe sous les 6 mois. » et le geste « Parier sur fin … »', () => {
+    const pr = O.projection({ seances: HISTOIRE(), charge: 149, reps: 1, maintenant: MAINTENANT, options: BARRE });
+    expect(pr.etat).toBe('date');
+    expect(pr.jours).toBeLessThanOrEqual(O.JOURS_POUR_PARIER);
+    const v = vue(sansDate(149));
+    expect(v.ligne).toMatch(/^Au rythme d’aujourd’hui\u00a0: fin mars\. Ça passe sous les 6 mois\.$/);
+    expect(v.parier.libelle).toBe('Parier sur fin mars');
+    expect(v.veille).toBeNull();
+  });
+
+  test('(c) la même histoire à plus de 183 jours : pas de geste', () => {
+    expect(vue(sansDate(150)).parier).toBeNull();
+    expect(vue(sansDate(149), { carnet: true }).parier).toBeNull();
+  });
+
+  test('(d) ligneQuandUneDateArrive garde la pose et le départ ; refuse un objectif qui a déjà sa date', () => {
+    const pr = O.projection({ seances: HISTOIRE(), charge: 149, reps: 1, maintenant: MAINTENANT, options: BARRE });
+    const o = sansDate(149);
+    const l = O.ligneQuandUneDateArrive(o, pr, 'pari-9');
+    expect(l).toMatchObject({ pose_le: o.pose_le, depart_kg: 140, projection: 'date', echeance: pr.echeance, pari_id: 'pari-9' });
+    expect(O.ligneQuandUneDateArrive(Object.assign({}, o, { projection: 'date' }), pr, 'x')).toBeNull();
+    expect(O.ligneQuandUneDateArrive(o, { etat: 'plus_d_un_an' }, 'x')).toBeNull();
+  });
+
+  test('(e) la vue est pure : deux appels, même sortie ; (f) jamais « impossible » ni « estimé »', () => {
+    const o = sansDate(149);
+    expect(JSON.stringify(vue(o))).toBe(JSON.stringify(vue(o)));
+    const v = vue(o);
+    [v.ligne, v.veille, v.chemin, v.aujourdhui, v.parier && v.parier.libelle, O.VEILLE, O.VEILLE_PAS_ENCORE, O.PLUS_D_UN_AN]
+      .filter(Boolean).forEach((t) => { expect(t).not.toMatch(/impossible/i); expect(t).not.toMatch(/estim/i); });
   });
 });

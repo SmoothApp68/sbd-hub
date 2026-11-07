@@ -67,17 +67,20 @@ describe('les places liées se remplacent ensemble', () => {
   const cat = catalogue();
   const e = entree({ objectif: 'force', jours: 4 });
   const prog = () => G.generer(cat, clone(e));
+  // 266 : en Force, la 2e exposition du squat est sa version à pause — la barre et sa pause se comptent ensemble, la barre d'abord (le lourd).
+  const PAUSES = { squat_barre: 'squat_avec_pause_barre', developpe_couche_barre: 'developpe_couche_avec_pause' };
   const places = (rs, slug) => {
     const o = [];
-    rs.forEach((rt, i) => rt.exercices.forEach((x, k) => { if (x.exercise_slug === slug) o.push([i, k]); }));
-    return o;
+    rs.forEach((rt, i) => rt.exercices.forEach((x, k) => { if (x.exercise_slug === slug || x.exercise_slug === PAUSES[slug]) o.push([i, k]); }));
+    return o.sort((a, b) => Number(!!rs[a[0]].exercices[a[1]].lourd ? 0 : 1) - Number(!!rs[b[0]].exercices[b[1]].lourd ? 0 : 1));
   };
 
   test('lieesDe : une barre à deux zones donne deux places ; une ligne sans lien, elle seule', () => {
     const rs = prog();
     const p = places(rs, SQUAT);
     expect(p.length).toBe(2);
-    expect(G.lieesDe(rs, p[0][0], p[0][1]).length).toBe(2);
+    expect(G.lieesDe(rs, p[0][0], p[0][1]).length).toBe(2);              // depuis la barre : sa pause est liée aussi (266)
+    expect(G.lieesDe(rs, p[1][0], p[1][1])).toEqual([[p[1][0], p[1][1]]]);   // depuis la pause : elle seule (266)
     const seule = rs.map((rt, i) => rt.exercices.map((x, k) => (!x.lien ? [i, k] : null)).filter(Boolean)).filter((l) => l.length)[0][0];
     expect(G.lieesDe(rs, seule[0], seule[1])).toEqual([seule]);
   });
@@ -95,11 +98,13 @@ describe('les places liées se remplacent ensemble', () => {
     expect(rs.length).toBe(neuf.length);
   });
 
-  test('remplacer la deuxième place remplace aussi la première', () => {
+  test('remplacer la barre remplace aussi sa pause ; remplacer la pause (266) ne change qu’elle : la barre reste', () => {
     const rs = prog();
-    const p = places(rs, SQUAT);
+    const p = places(rs, SQUAT);                                         // [la barre (lourd), sa pause]
+    expect(places(G.remplacePar(cat, rs, e, p[0][0], p[0][1], 'presse_a_cuisses'), 'presse_a_cuisses').length).toBe(2);
     const neuf = G.remplacePar(cat, rs, e, p[1][0], p[1][1], 'presse_a_cuisses');
-    expect(places(neuf, 'presse_a_cuisses').length).toBe(2);
+    expect(places(neuf, 'presse_a_cuisses').length).toBe(1);
+    expect(neuf[p[0][0]].exercices[p[0][1]].exercise_slug).toBe(SQUAT);
   });
 
   test('neVeuxPas : les deux places changent ensemble, avec le même remplaçant, et l’écarté est écarté', () => {
@@ -153,6 +158,7 @@ describe('193-2 (commit 4) — l’aperçu dit le programme de famille', () => {
     expect(p.famille).toEqual([
       'Dans la semaine : squat 2 fois, couché 3 fois, soulevé 1 fois lourd.',
       'Chaque jour a sa zone : la même barre passe de Lourd à Mix ou à Hypertrophie.',
+      'Ta deuxième séance de squat et de couché se fait avec une pause\u00a0: marque un temps d’arrêt en bas. Même mouvement, plus de contrôle au point le plus dur\u00a0; retire-la si tu préfères la barre.',
       'Une semaine allégée toutes les 5 semaines : mêmes charges, moins de séries.',
       'Fréquence : environ 3 % de force de plus par séance hebdomadaire ajoutée sur un mouvement (Pelland 2026).']);
   });

@@ -964,7 +964,7 @@ button.puce-zone::after{content:"";position:absolute;left:0;right:0;top:50%;heig
    voix du moteur). */
 .mode-exercice{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:4px 0 10px}
 .option-mode{min-height:40px;padding:0 10px;border:1px solid var(--trait);border-radius:var(--r-bouton);
-  background:none;color:var(--texte);font:inherit;font-size:14px}
+  background:none;color:var(--texte);font:600 13px var(--pile);cursor:pointer}
 .option-mode.active{background:var(--panneau-2);border-color:var(--panneau-2);font-weight:620}
 
 /* §3.10 — LA FEUILLE « POURQUOI ». Une ligne de séance est un couple : ce qui
@@ -2076,6 +2076,18 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .carte-fin-bloc button{width:100%;min-height:44px;padding:0 14px;border-radius:var(--r-bouton);font:inherit;font-size:15px;font-weight:620}
 .carte-fin-bloc .cfb-commencer{background:var(--accent);color:var(--sur-accent);border:0}
 .carte-fin-bloc .cfb-ajuster,.carte-fin-bloc .cfb-arreter{background:transparent;color:var(--texte);border:1px solid var(--trait)}
+.nouveau-bloc{margin:0 0 var(--e3)}
+.nouveau-bloc .nb-etiquette{margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--texte-2)}
+.nouveau-bloc .nb-carte{padding:10px 12px;border:1px dashed var(--trait);border-radius:var(--r-grand);margin:0 0 var(--e2)}
+.nouveau-bloc .nb-titre{margin:0;font-weight:700;line-height:1.35}
+.nouveau-bloc .nb-detail{margin:6px 0 0;font-size:14px;line-height:1.45;color:var(--texte-2)}
+.nouveau-bloc .nb-gestes{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.nouveau-bloc button{width:100%;min-height:44px;padding:0 14px;border-radius:var(--r-bouton);font:inherit;font-size:15px;font-weight:620}
+.nouveau-bloc .nb-pourquoi{margin-top:6px;background:transparent;border:0;color:var(--texte-2);font-size:14px;font-weight:600}
+.nouveau-bloc .nb-fondement{margin:4px 0 0;font-size:13px;line-height:1.45;color:var(--texte-2)}
+.nouveau-bloc .nb-fait{display:flex;align-items:center;justify-content:space-between;gap:var(--e2);padding:6px 2px}
+.nouveau-bloc .nb-fait-texte{margin:0;flex:1;min-width:0;font-size:14px;line-height:1.4}
+.nouveau-bloc .nb-fait button{width:auto;min-width:44px}
 .champ-programme{display:flex;justify-content:space-between;align-items:center;gap:var(--e2);margin-top:6px;
   padding:4px 4px 4px 10px;background:var(--panneau-2);border:1px solid var(--trait);border-radius:var(--r-petit);font-size:14px}
 .champ-programme .cp-k{color:var(--texte-2)}
@@ -2147,6 +2159,10 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .ap-paire{border-left:2px solid var(--accent)}
 .ap-paire-t{padding:6px 12px 0;border-top:1px solid var(--trait);font-size:12px;color:var(--accent)}
 .ap-paire .ap-ex:first-of-type{border-top:0}
+.ap-habituel{padding:8px 12px 10px;border-top:1px solid var(--trait)}
+.ap-habituel-t{margin:0;font-size:14px;color:var(--texte)}
+.ap-habituel-d{margin:2px 0 0;font-size:13px;color:var(--texte-2)}
+.ap-habituel-geste{min-height:44px;margin-top:6px;padding:0 12px;border:0;border-radius:var(--r-bouton);background:var(--panneau);color:var(--texte);font:600 13px var(--pile);cursor:pointer}
 /* 60-5 — « Créer ces N routines », l'action principale de l'aperçu (constat d'Aurélien, sur téléphone : elle passait
    inaperçue). Elle portait déjà `.principal`, mais `.feuille-menu button` (fond transparent, texte à gauche, police
    héritée — plus spécifique) l'aplatissait en ligne de menu. On rend ICI ce que `.principal` dit : l'ambre de la forge
@@ -2236,6 +2252,8 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .objectif-date{font-size:13px;line-height:1.5;color:var(--texte);margin:var(--e2) 0 0}
 .objectif-pari{display:block;color:var(--texte-3);font-size:13px;margin-top:2px}
 .objectif-rythme{font-size:13px;line-height:1.5;color:var(--texte);margin:var(--e2) 0 0;padding-top:var(--e2);border-top:1px solid var(--trait)}
+.objectif-veille{font-size:12px;line-height:1.4;color:var(--texte-2);margin:var(--e2) 0 0}
+.objectif-parier{min-height:44px;margin-top:var(--e2)}
 .objectif-changer{margin-top:var(--e2)}
 .defile-records{overflow-x:auto;margin-top:var(--e2)}
 .tableau-records{width:100%;border-collapse:collapse;font-size:14px}
@@ -2860,6 +2878,11 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .semaine-choix button { width: 100%; text-align: left; }
 .semaine-pourquoi { margin: var(--e2) 0 0; font-size: 13px; color: var(--accent); }
 .semaine-exo { color: var(--texte-2); padding: var(--e1) 0; }
+/* 266 (§9.24) — les choix de la semaine, lisibles sous la bande (le liseré du coach) ; « Annuler » et le lien en boutons de 44 px. */
+.semaine-fait-bloc { margin: 0 0 var(--e3); }
+.semaine-fait { margin: 0 0 var(--e1); padding-left: var(--e3); border-left: 3px solid var(--texte-2); color: var(--texte); }
+.semaine-fait-ajout { margin: 0; padding-left: var(--e3); color: var(--texte-2); font-size: 13px; }
+.semaine-fait-voir, .semaine-fait-annuler { min-height: 44px; }
 .carte-semaine > .principal { margin-top: var(--e3); width: 100%; }
 .consigne-dit.ajout-semaine { color: var(--texte-2); font-style: italic; }
 /* 108 — « Ma salle » (ECRAN-PROFIL §2.4 quinquies) : les puces des barres fixes et des haltères. */

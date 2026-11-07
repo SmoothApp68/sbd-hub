@@ -104,13 +104,13 @@ describe('193-5 — le plan : le recul sur le max du jour', () => {
     propre(p, e);
   });
 
-  test('reculs aux MÊMES reps (6 et 6) : la 193-1, l’écart de 10 %, aucun champ du max du jour', () => {
+  test('reculs aux MÊMES reps (6 et 6) : la 193-1, le départ tiré de la table : 5 %, aucun champ du max du jour', () => {
     const e = entrees(seance(2, 6, 6), 150, 6);
     const p = T.planDeSeance(e);
     const R = p.exercices[0].reculs;
-    expect(R.charge).toBe(135);
+    expect(R.charge).toBe(142.5);
     expect(R.mode).toBeUndefined();
-    expect(sp(R.phrase)).toBe('Recul : 135 kg, 10 % sous ta grosse série.');
+    expect(sp(R.phrase)).toBe('Recul : 142,5 kg, 5 % sous ta grosse série.');
     expect(p.exercices[0].paris[1].fondement.max_du_jour).toBeUndefined();
     propre(p, e);
   });
@@ -126,8 +126,8 @@ describe('193-5 — le plan : le recul sur le max du jour', () => {
     prec.historique = [JSON.parse(JSON.stringify(prec))];
     const e = entrees(seance(1, 6, 6), 150, 6, { reculs: { sq: prec } });
     const R = T.planDeSeance(e).exercices[0].reculs;
-    expect(R.depart).toBe(true);        // aucune séance aux mêmes reps : 10 % au départ
-    expect(R.charge).toBe(135);
+    expect(R.depart).toBe(true);        // aucune séance aux mêmes reps : le départ de la table
+    expect(R.charge).toBe(142.5);
   });
 
   test('I82 : un recul qui n’est pas celui de la table, une correction hors bornes, des reps qui ne dépassent pas la grosse', () => {

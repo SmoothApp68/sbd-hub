@@ -302,6 +302,8 @@ change (voulu) ; Forme, sans objectif et maison sans barre restent identiques oc
 les charges ne sont jamais des pourcentages prévus (Helms 2018 : au moins aussi bien que les %), le coach règle chaque jour sur les
 séries et le ressenti. Hors de cette PR : 193-2b (les comptes avec historique), 193-4 (la semaine de test toutes les 2 phases), la puissance.
 
+**266 (07/11/2026, décision d'Aurélien) — la variante à pause.** En objectif Force (pas débutant), la deuxième exposition hebdomadaire du squat et du couché (la place liée, zone Mix) est leur version à pause (`squat_avec_pause_barre`, `developpe_couche_avec_pause`), si la salle la permet, si elle n'est pas écartée et si aucune zone à ménager ne charge son motif ; sinon la barre. Visible dans l'aperçu (une phrase), retirable (« Je n'en veux pas » rend la barre ; remplacer la barre emporte la pause). Elle a son palier à elle (« Première fois ici »). Aucune routine existante n'est modifiée. I148 (`Generateur.verifierPauses`).
+
 ## 5 ter. Le coach relit ta semaine — décidé le 10/10/2026 (66)
 
 > **Pour qui a des routines, le générateur ne réécrit rien : il relit la semaine, dit ce qu'il voit, et propose. La
@@ -604,6 +606,22 @@ n'est écrit au profil (ce n'est pas « Je n'en veux pas »). Sans changement : 
 **La création** : chaque ligne garde son `groupe_superset` jusqu'à la routine écrite (`deduiteDuProgramme` →
 `Routines.routineDeduite` → `routineDepuisSeance` : le membre non final, repos du superset) ; ses chauffes aussi.
 Une paire dont le raccourci a retiré un membre redevient une série classique.
+
+**266 (07/11/2026, décision d'Aurélien) — le superset que tu fais déjà.** Le programme déduit reprend une paire de deux
+isolations (`Moteur.estIsolation`) sans muscle principal commun que la personne enchaîne (`sets.groupe_superset` non nul
+partagé) dans au moins 4 séances (le seuil d'une routine déduite, `DEDUIT.seancesMin`) et dans plus de la moitié des 8
+dernières séances de la routine où les deux ont une série de travail (`Routines.supersetsHabituels`, 3e argument de
+`seancesQuiReviennent` : sans lui, la sortie est celle d'avant). Il n'en invente jamais : l'`associer` du manque de temps
+reste à part. Le second membre se place juste après le premier ; un exercice n'est que dans une paire (la plus enchaînée
+d'abord). Les lignes portent `groupe_superset` et `superset_habituel: { n, m }`, que `habiller` recopie et qu'`associer`
+garde (ces membres ne sont pas `apte` ; `refus_paires` ou un membre retiré la défait). Une paire habituelle n'est pas un
+« changement » de « Ce que j'ai changé ». Phrases (`Generateur.phrasesDuSupersetHabituel`, le vrai compte) : « En
+superset, comme tu les fais d'habitude. » / « Tu les as enchaînées 4 fois sur tes 7 dernières séances. », geste « Les
+séparer » (la clé de refus `paire:…` ; refusée, la ligne « {A} et {b} en séries classiques. » et « Remettre » la rendent).
+**V10** : un superset habituel = deux isolations sans principal commun, contiguës, `n ≥ 4` et `2n > m` ; V7 (« sans
+cible ») et V9 (antagonistes) ne s'appliquent pas à une paire habituelle. Rejoué sur aurel_br (84 jours) : curl barre EZ +
+extension triceps poulie haute (4/7) passe ; élévation latérale + face pull (4/9), abduction + adduction (3/4) et couché
+haltères + pull-over (polyarticulaire) ne passent pas.
 
 ## 6. Retiré de l'écran du profil
 

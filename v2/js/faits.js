@@ -216,6 +216,46 @@
       }).filter(Boolean);
     }
 
+    // 266 (MOTEUR §9.22 ter) — LES SEMAINES DE SUITE d'un exercice : les semaines civiles (le lundi) où il a une série de travail ; la
+    // série COURANTE remonte de la dernière semaine, un trou de 2 semaines au plus (trois semaines sans lui la coupent). Rend
+    // `{ semaines, derniere }` (`derniere` : le lundi de la dernière semaine, jour civil) ou `null` : jamais fait, ou sa dernière
+    // semaine est à plus de 3 semaines de `jour`. Un fait du calendrier, jamais l'assiduité : la carte « NOUVEAU BLOC » le dit comme un fait (« 8 semaines sur la poulie »), jamais comme un jugement sur la régularité.
+    var SEMAINE_MS = 7 * 86400000;
+    var TROU_MAX_SEMAINES = 2, ABSENCE_MAX_SEMAINES = 3;
+    function semainesDeSuite(c, slug, jour) {
+      var vues = {};
+      seancesDuSlug(c, slug).forEach(function (g) {
+        if (!g.debut || !(g.series || []).some(function (x) { return Modele.estTravail(x); })) return;
+        var b = Semaine.bornesSemaine(g.debut);
+        if (b) vues[b.lundi.getTime()] = b.lundi;
+      });
+      var lundis = Object.keys(vues).map(Number).sort(function (x, y) { return y - x; });   // la plus récente d'abord
+      if (!lundis.length) return null;
+      var bj = Semaine.bornesSemaine(new Date(jour + 'T12:00:00'));
+      if (!bj) return null;
+      var ecart = function (a, b) { return Math.round((a - b) / SEMAINE_MS); };
+      if (ecart(bj.lundi.getTime(), lundis[0]) > ABSENCE_MAX_SEMAINES) return null;
+      var premiere = lundis[0];
+      for (var i = 1; i < lundis.length; i++) {
+        if (ecart(premiere, lundis[i]) - 1 > TROU_MAX_SEMAINES) break;
+        premiere = lundis[i];
+      }
+      return { semaines: ecart(lundis[0], premiere) + 1, derniere: Moteur.jourCivil(new Date(lundis[0])) };
+    }
+
+    // 266 (MOTEUR §9.22 ter) — LA DERNIÈRE HAUSSE du record d'un exercice : le jour civil le plus récent d'une ligne de SA table
+    // des records (`Modele.recordsDeLExercice(...).table`, le périmètre de la médaille), ou `null`. Jamais un maximum estimé.
+    function derniereHausseDuRecord(c, slug, jour) {
+      var index = c.catalogue() || {};
+      var table = Modele.recordsDeLExercice(seancesDuSlug(c, slug), jour, Modele.optionsDeRecord(index[slug] || null)).table || [];
+      var dernier = null;
+      table.forEach(function (ligne) {
+        var j = ligne && ligne.date ? jourDeLaSeance(ligne.date) : null;
+        if (j && (dernier === null || j > dernier)) dernier = j;
+      });
+      return dernier;
+    }
+
     // 245 (F3, MOTEUR §9.35) — LE PREMIER ESSAI RATÉ À ZÉRO, DEPUIS UNE AIDE : l'exercice est une marche sans aide d'une échelle
     // (`index[slug].echelle`), la personne y est venue d'une marche ASSISTÉE de la même échelle déjà faite, il n'a été fait qu'UNE
     // fois et toutes ses séries (hors chauffes) sont à 0 rep. Un fait : la décision (la marche d'en dessous) est celle du plan.
@@ -1127,7 +1167,7 @@
       var seances = seancesAvecSeries(c).map(function (s) {
         return { id: s.id, debut: s.debut, titre: titres[s.id] === undefined ? null : titres[s.id], series: s.series };
       });
-      return racine.THRoutines.seancesQuiReviennent(seances, mesures);
+      return racine.THRoutines.seancesQuiReviennent(seances, mesures, index);
     }
 
     // ── La dernière séance de la personne (66D, QUESTIONNAIRE-COACH-V2 §5 quater.5) ──
@@ -1330,7 +1370,7 @@
         if (js >= lundi) series = series.concat(travail);
         var slugs = {};
         travail.forEach(function (x) { slugs[x.exercise_slug] = true; });
-        seances.push({ jour: js, routine_id: s.routine_id || null, slugs: Object.keys(slugs) });
+        seances.push({ jour: js, debut: s.debut, routine_id: s.routine_id || null, slugs: Object.keys(slugs) });   // 266 : `debut` (l'annulation d'un choix lit l'instant)
       });
       var volume = {};
       Semaine.volumeParMuscle(series, cc.exercices).forEach(function (v) { volume[v.muscle] = v.series; });
@@ -2367,6 +2407,8 @@
       noteDeLExercice: noteDeLExercice,
       pointsDeLExercice: pointsDeLExercice,
       premierEssaiRate: premierEssaiRate,
+      semainesDeSuite: semainesDeSuite,
+      derniereHausseDuRecord: derniereHausseDuRecord,
       exercicesDeProgression: exercicesDeProgression,
       ceQuiAProgresse: ceQuiAProgresse,
       recordsDeLaSeance: recordsDeLaSeance,

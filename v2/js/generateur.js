@@ -186,6 +186,12 @@
   // Les variantes qui n'ont pas de motif de remplacement dans `MOTIFS` (pour ne pas changer le programme déduit) : la prise serrée,
   // puis Larsen, puis la barre elle-même (la dernière passe de `choisirBrut` la reprend, MOTEUR §9.29).
   var VARIANTES = { couche_serre: ['developpe_couche_prise_serree', 'developpe_couche_larsen', 'developpe_couche_barre'] };
+  // 266 (décision d'Aurélien du 07/11/2026) — LA VARIANTE À PAUSE en objectif Force : la place `reprise` (la deuxième exposition de la
+  // semaine, « la même barre, une autre zone ») du squat et du couché prend sa version à pause, si elle est faisable, non écartée, pas
+  // pour un débutant, et si aucune zone à ménager ne charge son motif. Le lourd ne change jamais. Une routine existante n'est jamais touchée.
+  var PAUSE = { squat_barre: 'squat_avec_pause_barre', developpe_couche_barre: 'developpe_couche_avec_pause' };
+  function estUnePause(slug) { return Object.keys(PAUSE).some(function (k) { return PAUSE[k] === slug; }); }
+  function barreDeLaPause(slug) { return Object.keys(PAUSE).filter(function (k) { return PAUSE[k] === slug; })[0] || null; }
 
   // 190 (décision d'Aurélien du 30/10/2026) — LES EXERCICES QUI DEMANDENT UNE BARRE (de traction, fixe, en hauteur) : une seule
   // définition, celle du profil (`THProfil.demandeUneBarreDeTraction`, lue sur le slug et l'équipement de la fiche du catalogue
@@ -374,7 +380,7 @@
     var reps = (role === 'P' ? (barre ? r[0] : r[1]) : role === 'S' ? r[1] : r[2]) +
       (contient(PETITS, motif) && (role === 'I' || role === 'T') ? 3 : 0);
     var n = seriesDe(role, objectif);
-    var prioEx = contient(priorites, slug);
+    var prioEx = contient(priorites, slug) || (barreDeLaPause(slug) !== null && contient(priorites, barreDeLaPause(slug)));   // 266 : la pause suit la priorité de sa barre
     // Un muscle prioritaire, hors sèche (un exercice prioritaire l'est toujours, sèche comprise) : +1 série sur un
     // secondaire, une isolation ou le tronc ; sur un principal seulement quand sa zone n'a aucune autre place dans le
     // programme (`solo`) — sinon la priorité passe par les autres places de la zone (60-6, S4).
@@ -439,7 +445,8 @@
         return fam === B[0] || fam === B[2];
       });
       var a = Moteur.auMaxDe({
-        objectif: p.objectif, debutant: debutant, famille: familleDeBarre(l.exercise_slug, catalogue),
+        // 266 — la version à pause d'une barre se décide comme sa barre (la même place, la même zone : jamais « au max » de plus).
+        objectif: p.objectif, debutant: debutant, famille: familleDeBarre(barreDeLaPause(l.exercise_slug) || l.exercise_slug, catalogue),
         equipement: fiche.equipement || null,
         isolation: Moteur.estIsolation({ prim: liste(fiche.muscles_primaires), sec: liste(fiche.muscles_secondaires), stab: liste(fiche.muscles_stabilisateurs) }),
         allegee: false, menagee: !!l.menage, douleurRecente: false, barreDeJambesApres: jambesApres,
@@ -599,7 +606,16 @@
       var liee = gabarit[pl.r][1][pl.j][2];
       if (liee && liee.lie) {                      // 193-2 : la même barre, une autre zone — jamais un second choix
         var cle = ids[liee.lie];
-        if (cle && choix[cle]) choix[pl.r + '-' + pl.j] = choix[cle];
+        if (cle && choix[cle]) {
+          choix[pl.r + '-' + pl.j] = choix[cle];
+          // 266 — la deuxième exposition d'une barre en Force prend sa version à pause (jamais pour un débutant, jamais si une zone à ménager
+          // charge le motif de la principale, jamais si elle est écartée ou hors de la salle) ; sinon la barre.
+          var kp0 = cle.split('-');
+          if (p.objectif === 'force' && !debutant && possede(PAUSE, choix[cle]) && ok(PAUSE[choix[cle]]) && !contient(ecartes, PAUSE[choix[cle]]) &&
+              !estMenagee(gabarit[Number(kp0[0])][1][Number(kp0[1])][0], p.menager)) {
+            choix[pl.r + '-' + pl.j] = PAUSE[choix[cle]];
+          }
+        }
         return;
       }
       // Les exercices déjà choisis DANS cette séance (les places plus prioritaires) : jamais deux fois le même.
@@ -709,7 +725,10 @@
     if (!vieux.lien) return sortie;
     rt.forEach(function (s, i) {
       liste(s.exercices).forEach(function (x, j) {
-        if ((i !== r || j !== k) && x.lien === vieux.lien && x.exercise_slug === vieux.exercise_slug) sortie.push([i, j]);
+        if ((i === r && j === k) || x.lien !== vieux.lien) return;
+        // 266 — depuis une ligne SANS pause, sa version à pause (même lien) est aussi liée : remplacer la barre emporte sa pause. Depuis la
+        // ligne à pause : elle seule.
+        if (x.exercise_slug === vieux.exercise_slug || (possede(PAUSE, vieux.exercise_slug) && x.exercise_slug === PAUSE[vieux.exercise_slug])) sortie.push([i, j]);
       });
     });
     return sortie;
@@ -737,6 +756,14 @@
     if (!vieux) return { routines: nouveau, ecartes: ecartes };
     if (!contient(ecartes, vieux.exercise_slug)) ecartes.push(vieux.exercise_slug);
     var faits = p.faits || {};
+    // 266 — « Je n'en veux pas » sur une pause : la place reprend la barre (faisable, non écartée), la pause rejoint les écartées ; sinon le
+    // chemin ordinaire.
+    var barreDePause = barreDeLaPause(vieux.exercise_slug);
+    if (barreDePause !== null && faisable(catalogue, p.materiel, faits, p.barre_traction)(barreDePause) && !contient(ecartes, barreDePause)) {
+      nouveau[r].exercices[k] = ligneNeuve(catalogue, barreDePause, vieux.motif, vieux, p);
+      marquerAuMax(catalogue, nouveau[r].exercices, p, [k]);
+      return { routines: nouveau, ecartes: ecartes };
+    }
     var pris = {};
     var liees = lieesDe(nouveau, r, k);
     // Les séances des places liées : l'exercice choisi ne doit être dans AUCUNE d'elles.
@@ -892,6 +919,13 @@
     var reculs = zonees.some(function (l) { return l.reculs > 0; });
     phrases.push(reculs ? 'Un jour lourd, une grosse série puis des reculs\u00a0; un jour en hypertrophie, des séries égales.'
                         : 'Chaque jour a sa zone\u00a0: la même barre passe de Lourd à Mix ou à Hypertrophie.');
+    // 266 — la deuxième exposition du squat et du couché se fait avec une pause (retirable : « Je n'en veux pas » rend la barre).
+    var pauseSq = zonees.some(function (l) { return l.exercise_slug === PAUSE.squat_barre; });
+    var pauseCo = zonees.some(function (l) { return l.exercise_slug === PAUSE.developpe_couche_barre; });
+    if (pauseSq || pauseCo) {
+      phrases.push('Ta deuxième séance de ' + (pauseSq && pauseCo ? 'squat et de couché' : pauseSq ? 'squat' : 'couché') +
+        ' se fait avec une pause\u00a0: marque un temps d’arrêt en bas. Même mouvement, plus de contrôle au point le plus dur\u00a0; retire-la si tu préfères la barre.');
+    }
     if (total <= 2 && sq <= 1 && co <= 1) phrases.push('Avec ' + total + ' séances, chaque barre passe une fois.');
     phrases.push('Une semaine allégée toutes les 5 semaines\u00a0: mêmes charges, moins de séries.');
     if (sq >= 2 || co >= 2) {
@@ -1662,12 +1696,27 @@
     var structures = liste(e.structures);
     var sortie = [], journal = [];
     liste(e.routines).forEach(function (r, ir) {
-      var lignes = liste(r.exercices).map(function (x) { return Object.assign({}, x, { groupe_superset: null }); });
+      // 266 — une paire HABITUELLE (`superset_habituel`) garde son groupe : elle n'est pas `apte`, ne compte pas parmi celles du manque
+      // de temps, et se défait seulement si la personne l'a refusée (`refus_paires`) ou si elle n'est plus deux lignes contiguës.
+      var lignes = liste(r.exercices).map(function (x) {
+        return x.superset_habituel && x.groupe_superset !== null && x.groupe_superset !== undefined ? Object.assign({}, x)
+          : Object.assign({}, x, { groupe_superset: null });
+      });
+      var habituels = {};
+      lignes.forEach(function (x, k) { if (x.superset_habituel) (habituels[x.groupe_superset] = habituels[x.groupe_superset] || []).push(k); });
+      Object.keys(habituels).forEach(function (g) {
+        var ks = habituels[g];
+        var tient = ks.length === 2 && ks[1] === ks[0] + 1 && !ks.some(function (k) { return refuse[r.nom + '\u0000' + lignes[k].exercise_slug]; });
+        if (tient) return;
+        ks.forEach(function (k) { lignes[k].groupe_superset = null; delete lignes[k].superset_habituel; });
+      });
+      var plusHaut = 0;
+      lignes.forEach(function (x) { if (x.superset_habituel && x.groupe_superset > plusHaut) plusHaut = x.groupe_superset; });
       var S = liste(structures[ir]).map(function (x) { return Object.assign({}, x); });
       if (sansCible) { sortie.push({ nom: r.nom, exercices: lignes }); return; }
       var premier = null;
       for (var p0 = 0; p0 < S.length && premier === null; p0++) if (Moteur.estPolyarticulaire(S[p0])) premier = S[p0].slug;
-      var groupe = 0, avant = Moteur.dureeEstimee(S), aJoue = false;
+      var groupe = plusHaut, avant = Moteur.dureeEstimee(S), aJoue = false;
       var apte = function (k) {
         var x = lignes[k], s = x.exercise_slug, f = ficheDu(cat, s) || {};
         return k !== 0 && s !== premier && !refuse[r.nom + '\u0000' + s] && x.groupe_superset === null &&
@@ -1708,8 +1757,162 @@
     return { routines: sortie, journal: journal };
   }
 
+  // 266 — I148 : la variante à pause. Une ligne à pause n'existe qu'en objectif Force, jamais pour un débutant, jamais sur une place lourde,
+  // toujours avec un `lien` dont la principale est la barre correspondante, jamais si une zone à ménager charge son motif. Rend les fautes.
+  function verifierPauses(entree, routines) {
+    var e = entree || {}, fautes = [];
+    var rts = liste(routines);
+    rts.forEach(function (rt, r) {
+      liste(rt.exercices).forEach(function (l) {
+        if (!estUnePause(l.exercise_slug)) return;
+        var nom = 'I148 ' + (rt.nom || r) + ' : ' + l.exercise_slug;
+        if (e.objectif !== 'force') fautes.push(nom + ' hors de l’objectif Force');
+        if (racine.THProfil.estDebutant(e)) fautes.push(nom + ' pour un débutant');
+        if (l.lourd) fautes.push(nom + ' sur une place lourde');
+        var principale = l.lien ? rts.some(function (rt2) {
+          return liste(rt2.exercices).some(function (x) { return x !== l && x.lien === l.lien && x.exercise_slug === barreDeLaPause(l.exercise_slug) && !estUnePause(x.exercise_slug); });
+        }) : false;
+        if (!l.lien || !principale) fautes.push(nom + ' sans sa barre pour principale (lien ' + l.lien + ')');
+        if (estMenagee(l.motif, e.menager)) fautes.push(nom + ' alors qu’une zone à ménager charge son motif');
+      });
+    });
+    return fautes;
+  }
+
   // LES INVARIANTS DES SUPERSETS (§5 quater.4 bis) : V6 aucune ligne changée (exercice, séries, reps) ; V7 une paire
   // est de deux exercices contigus, et aucune sans cible ; V8 jamais une barre lourde ; V9 toujours deux antagonistes.
+  // ══ 266 (MOTEUR §9.22 ter, décision d'Aurélien du 07/11/2026 ; Kassiano 2022, 8 études : varier de façon planifiée, pas au hasard) ══
+  // UN ACCESSOIRE QUI CHANGE AU DÉBUT D'UN BLOC. Pur. Réglages de l'app (dits comme tels à la personne) : 8 semaines de suite, aucune
+  // hausse du record depuis 6 semaines, 2 cartes par bloc.
+  var VARIATION_SEMAINES = 8, VARIATION_SANS_RECORD_JOURS = 42, VARIATION_PAR_BLOC = 2;
+  var POURQUOI_VARIATION = 'Varier de façon planifiée peut aider un muscle à grossir partout ; varier au hasard, non (Kassiano 2022, 8 études). ' +
+    'Huit semaines et six sans record sont des réglages de l’app. Rien ne change sans toi, et « Annuler » défait le changement.';
+  var DETAIL_VARIATION = ' Changer un accessoire par bloc travaille le même muscle sous un autre angle ; les barres ne changent pas.';
+
+  function joursEntre(a, b) {      // jours civils « AAAA-MM-JJ » : b − a
+    return Math.round((new Date(b + 'T12:00:00Z') - new Date(a + 'T12:00:00Z')) / 86400000);
+  }
+  // Le matériel dit à la personne : l'article et le mot (`Profil.equipementDit`, la table des libellés du matériel).
+  function materielDit(fiche) { return racine.THProfil.equipementDit(fiche && fiche.equipement); }
+
+  // `e` : `{ bloc, jour, routines: [{ id, exercices: [{ exercise_slug }] }], catalogue, profil, faits: { slug: { semaines, derniereHausse,
+  // faitDans12Mois } }, reponses (`cartes_semaine.variation`), carnet }`.
+  function variationsDuBloc(e) {
+    var Modele = racine.THModele, Profil = racine.THProfil, Moteur = racine.THMoteur;
+    var x = e || {}, cat = x.catalogue || {}, profil = x.profil || {}, bloc = x.bloc, faits = x.faits || {};
+    var rts = liste(x.routines);
+    if (x.carnet || !bloc || Profil.estDebutant(profil)) return [];
+    var k = Moteur.semaineDuBloc(bloc, x.jour);
+    if (k === null || k > 1) return [];
+    var reponses = x.reponses && x.reponses[bloc.id] ? x.reponses[bloc.id] : {};
+    var priorites = Profil.prioritesDe(profil), menager = Profil.zonesAMenagerValides(profil.zones_a_menager) || [];
+    var ecartes = Profil.ecartesDe(profil), permis = faisable(cat, profil.materiel, {}, Profil.barreTractionDe(profil));
+    var dansLeDossier = {}, uniques = [];
+    rts.forEach(function (rt) {
+      liste(rt.exercices).forEach(function (l) {
+        if (!possede(dansLeDossier, l.exercise_slug)) { dansLeDossier[l.exercise_slug] = []; uniques.push(l.exercise_slug); }
+        if (dansLeDossier[l.exercise_slug].indexOf(rt.id) < 0) dansLeDossier[l.exercise_slug].push(rt.id);
+      });
+    });
+    var candidats = [];
+    uniques.forEach(function (slug) {
+      var f = ficheDu(cat, slug) || {};
+      if (estBarreLourde(slug, cat)) return;
+      if (contient(liste(bloc.exercices), slug) || contient(priorites, slug)) return;
+      if (f.habilete || f.mesure !== 'charge_reps') return;
+      var fait = faits[slug];
+      if (!fait || !(fait.semaines >= VARIATION_SEMAINES)) return;
+      if (fait.derniereHausse && !(joursEntre(fait.derniereHausse, x.jour) > VARIATION_SANS_RECORD_JOURS)) return;
+      if (possede(reponses, slug)) return;
+      var muscle = liste(f.muscles_primaires)[0];
+      if (!muscle) return;
+      // La variante : un frère d'un AUTRE matériel, sinon un cousin ; même mesure, faisable, hors du dossier, sans charger de zone en plus.
+      var zonesDeSlug = zonesQueChargeLExercice(slug, menager);
+      var admis = function (v) {
+        var g = ficheDu(cat, v) || {};
+        return g.mesure === f.mesure && !g.habilete && permis(v) && !contient(ecartes, v) && !possede(dansLeDossier, v) &&
+          zonesQueChargeLExercice(v, menager).every(function (z) { return contient(zonesDeSlug, z); });
+      };
+      var rang = function (a, b) {
+        var fa = faits[a] && faits[a].faitDans12Mois ? 0 : 1, fb = faits[b] && faits[b].faitDans12Mois ? 0 : 1;
+        return fa - fb || (a < b ? -1 : a > b ? 1 : 0);
+      };
+      var freres = Modele.freresDe(cat, slug).filter(function (v) { return (ficheDu(cat, v) || {}).equipement !== f.equipement && admis(v); });
+      var vers = (freres.length ? freres : Modele.cousinsDe(cat, slug).filter(admis)).sort(rang)[0];
+      if (!vers) return;
+      candidats.push({ slug: slug, vers: vers, muscle: muscle, semaines: fait.semaines, derniereHausse: fait.derniereHausse || null });
+    });
+    // Un par muscle principal, deux au plus, la plus longue série d'abord.
+    candidats.sort(function (a, b) { return b.semaines - a.semaines || (a.slug < b.slug ? -1 : a.slug > b.slug ? 1 : 0); });
+    var pris = {}, sortie = [];
+    candidats.forEach(function (c) {
+      if (sortie.length >= VARIATION_PAR_BLOC || possede(pris, c.muscle)) return;
+      pris[c.muscle] = true;
+      var f = ficheDu(cat, c.slug) || {}, v = ficheDu(cat, c.vers) || {};
+      var base = Modele.nomCourt(f.nom), baseV = Modele.nomCourt(v.nom);
+      var record = c.derniereHausse ? 'sans record depuis ' + Math.floor(joursEntre(c.derniereHausse, x.jour) / 7) + ' semaines' : 'sans record';
+      var titre, garder, sur;
+      if (base !== '' && base === baseV) {
+        var m1 = materielDit(f), m2 = materielDit(v);
+        titre = base.charAt(0).toUpperCase() + base.slice(1) + ' : ' + m1[1] + ' → ' + m2[1] + ' ?';
+        garder = 'Garder ' + m1[0] + (m1[0] === 'l’' ? '' : ' ') + m1[1];
+        sur = m1[0] + (m1[0] === 'l’' ? '' : ' ') + m1[1];
+      } else {
+        titre = Modele.nomParle(f.nom) + ' → ' + baseV + ' ?';
+        garder = 'Garder ' + base;
+        sur = base;
+      }
+      sortie.push({ slug: c.slug, vers: c.vers, muscle: c.muscle, semaines: c.semaines, titre: titre,
+        detail: c.semaines + ' semaines sur ' + sur + ', ' + record + '.' + DETAIL_VARIATION,
+        changer: 'Changer', garder: garder, pourquoi: POURQUOI_VARIATION, routines: dansLeDossier[c.slug].slice() });
+    });
+    return sortie;
+  }
+
+  // I145 — jamais une barre lourde, un exercice du bloc ou une priorité ; au plus un par muscle et `VARIATION_PAR_BLOC` au total ; la
+  // variante est un frère ou un cousin, de même mesure, faisable, hors du dossier ; aucune carte après la 1re semaine du bloc.
+  // I146 — aucune carte pour un exercice déjà répondu dans CE bloc, aucune en carnet ni pour un débutant. Rend les fautes.
+  function verifierVariations(entree, sortie) {
+    var Modele = racine.THModele, Profil = racine.THProfil, Moteur = racine.THMoteur;
+    var x = entree || {}, cat = x.catalogue || {}, profil = x.profil || {}, bloc = x.bloc, vs = liste(sortie), fautes = [];
+    if (!vs.length) return fautes;
+    var rts = liste(x.routines), dossier = {};
+    rts.forEach(function (rt) { liste(rt.exercices).forEach(function (l) { dossier[l.exercise_slug] = true; }); });
+    var permis = faisable(cat, profil.materiel, {}, Profil.barreTractionDe(profil));
+    var priorites = Profil.prioritesDe(profil), muscles = {};
+    var reponses = bloc && x.reponses && x.reponses[bloc.id] ? x.reponses[bloc.id] : {};
+    if (vs.length > VARIATION_PAR_BLOC) fautes.push('I145 plus de ' + VARIATION_PAR_BLOC + ' variations dans un bloc');
+    if (bloc) {
+      var k = Moteur.semaineDuBloc(bloc, x.jour);
+      if (k === null || k > 1) fautes.push('I145 une variation hors de la 1re semaine du bloc');
+    }
+    if (x.carnet) fautes.push('I146 une variation en « Juste un carnet »');
+    if (Profil.estDebutant(profil)) fautes.push('I146 une variation pour un débutant');
+    vs.forEach(function (v) {
+      var nom = v.slug + ' → ' + v.vers;
+      if (estBarreLourde(v.slug, cat)) fautes.push('I145 ' + nom + ' : une barre lourde');
+      if (bloc && contient(liste(bloc.exercices), v.slug)) fautes.push('I145 ' + nom + ' : un exercice du bloc');
+      if (contient(priorites, v.slug)) fautes.push('I145 ' + nom + ' : une priorité');
+      if (possede(muscles, v.muscle)) fautes.push('I145 ' + nom + ' : deux variations pour ' + v.muscle);
+      muscles[v.muscle] = true;
+      var f = ficheDu(cat, v.slug) || {}, g = ficheDu(cat, v.vers) || {};
+      if (!contient(Modele.freresDe(cat, v.slug), v.vers) && !contient(Modele.cousinsDe(cat, v.slug), v.vers)) fautes.push('I145 ' + nom + ' : ni un frère ni un cousin');
+      if (g.mesure !== f.mesure) fautes.push('I145 ' + nom + ' : une autre mesure');
+      if (!permis(v.vers)) fautes.push('I145 ' + nom + ' : hors de Ma salle');
+      if (possede(dossier, v.vers)) fautes.push('I145 ' + nom + ' : déjà dans le dossier');
+      if (possede(reponses, v.slug)) fautes.push('I146 ' + nom + ' : déjà répondu dans ce bloc');
+    });
+    return fautes;
+  }
+
+  // 266 (QUESTIONNAIRE §5 quater.5) — LES PHRASES DU SUPERSET HABITUEL : le titre et le détail de la carte du coach sous la paire.
+  // Le VRAI compte (`n` séances sur les `m` dernières où les deux paraissent), jamais arrondi : « 4 fois sur tes 7 dernières séances ».
+  function phrasesDuSupersetHabituel(n, m) {
+    var fois = n === 1 ? '1 fois' : n + ' fois';
+    var sur = m === 1 ? 'ta dernière séance' : 'tes ' + m + ' dernières séances';
+    return ['En superset, comme tu les fais d\u2019habitude.', 'Tu les as enchaînées ' + fois + ' sur ' + sur + '.'];
+  }
+
   function verifierAssociation(entree, sortie) {
     var e = entree || {}, s = sortie || {}, cat = e.catalogue || {};
     var fautes = [];
@@ -1720,7 +1923,7 @@
     for (var ir = 0; ir < Math.min(avant.length, apres.length); ir++) {
       var r = apres[ir];
       if (JSON.stringify(cles(avant[ir])) !== JSON.stringify(cles(r))) fautes.push('V6 une ligne changée');
-      var g = {}, ordre = [];
+      var g = {}, ordre = [], habituelles = 0;
       liste(r.exercices).forEach(function (x, k) {
         var gs = x.groupe_superset;
         if (gs === null || gs === undefined) return;
@@ -1731,10 +1934,22 @@
         var ks = g[gs];
         if (ks.length !== 2 || ks[1] !== ks[0] + 1) { fautes.push('V7 une paire non contiguë'); return; }
         var a = r.exercices[ks[0]].exercise_slug, b = r.exercices[ks[1]].exercise_slug;
+        // 266 — V10 : une paire HABITUELLE (V7 « sans cible » et V9 ne s'y appliquent pas) : deux isolations sans principal commun,
+        // contiguës (ci-dessus), enchaînées dans n >= 4 séances et dans plus de la moitié des m dernières.
+        var ha = r.exercices[ks[0]].superset_habituel, hb = r.exercices[ks[1]].superset_habituel;
+        if (ha || hb) {
+          habituelles += 1;
+          var Mo = racine.THMoteur, fa = ficheDu(cat, a) || {}, fb = ficheDu(cat, b) || {};
+          var iso = function (f) { return Mo.estIsolation({ prim: liste(f.muscles_primaires), sec: liste(f.muscles_secondaires), stab: liste(f.muscles_stabilisateurs) }); };
+          var commun = liste(fa.muscles_primaires).some(function (m) { return contient(liste(fb.muscles_primaires), m); });
+          if (!ha || !hb || ha.n !== hb.n || ha.m !== hb.m || !iso(fa) || !iso(fb) || commun ||
+              !(ha.n >= ((racine.THRoutines && racine.THRoutines.DEDUIT.seancesMin) || 4)) || !(2 * ha.n > ha.m)) fautes.push('V10 un superset habituel qui ne tient pas');
+          return;
+        }
         if (estBarreLourde(a, cat) || estBarreLourde(b, cat)) fautes.push('V8 une barre lourde en superset');
         if (!antagonistes(familleAntagoniste(a, cat), familleAntagoniste(b, cat))) fautes.push('V9 une paire non antagoniste');
       });
-      if ((e.cible_min === null || e.cible_min === undefined) && ordre.length) fautes.push('V7 un superset sans manque de temps');
+      if ((e.cible_min === null || e.cible_min === undefined) && ordre.length > habituelles) fautes.push('V7 un superset sans manque de temps');
     }
     return fautes;
   }
@@ -1747,9 +1962,15 @@
     var p = entree || {}, x = l || {}, slug = x.exercise_slug;
     var motif = motifDe(slug), rang = rangDe(slug, catalogue || {});
     var menage = estMenagee(motif, p.menager);
-    return { exercise_slug: slug, motif: motif, role: rang === null ? null : ROLES.charAt(rang), series: x.series,
+    var o = { exercise_slug: slug, motif: motif, role: rang === null ? null : ROLES.charAt(rang), series: x.series,
              reps: repsDeLaPlace(x.reps, motif, menage, p.objectif), prioritaire: contient(liste(p.priorites), slug),
              menage: menage, barre_fixe: demandeUneBarreFixe(slug, (catalogue || {})[slug]), chauffes: x.chauffes || 0 };
+    // 266 — le superset que la personne fait déjà (`Routines.supersetsHabituels`) traverse l'habillage : son groupe et son compte.
+    if (x.superset_habituel) {
+      o.groupe_superset = x.groupe_superset === undefined ? null : x.groupe_superset;
+      o.superset_habituel = { n: x.superset_habituel.n, m: x.superset_habituel.m };
+    }
+    return o;
   }
 
   // « CE QUE J'AI CHANGÉ » (§5 quater.5) — des faits, sans « parce que » (VOIX). `journalCompl` : celui de
@@ -2033,6 +2254,11 @@
     MUSCLES: MUSCLES,
     relireSemaine: relireSemaine,
     verifierRelecture: verifierRelecture,
+    verifierPauses: verifierPauses,
+    faisable: faisable,
+    variationsDuBloc: variationsDuBloc, verifierVariations: verifierVariations,
+    VARIATION_SEMAINES: VARIATION_SEMAINES, VARIATION_SANS_RECORD_JOURS: VARIATION_SANS_RECORD_JOURS, VARIATION_PAR_BLOC: VARIATION_PAR_BLOC,
+    phrasesDuSupersetHabituel: phrasesDuSupersetHabituel, PAUSE: PAUSE,
     // 66C — le programme déduit complété (QUESTIONNAIRE-COACH-V2 §5 quater.3)
     ECART: ECART,
     SERIES_MAX: SERIES_MAX,

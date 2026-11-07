@@ -37,22 +37,36 @@ function entrees(se, extra) {
 }
 
 describe('193-1 — le plan des reculs', () => {
-  test('150 × 4 puis trois reculs : la ligne recul est hors couverture, à 135 kg (10 %), avec son fantôme', () => {
+  test('150 × 4 puis trois reculs : la ligne recul est hors couverture, à 142,5 kg (5 %, le départ tiré de la table), avec son fantôme', () => {
     const e = entrees(seance(3));
     const p = T.planDeSeance(e);
     const x = p.exercices[0];
     expect(x.lignes.map((l) => [l.type, l.role])).toEqual([['travail', 'ligne'], ['recul', 'hors'], ['recul', 'hors'], ['recul', 'hors']]);
     x.lignes.slice(1).forEach((l) => {
-      expect(l.recul.charge).toBe(135);
-      expect(l.fantome).toEqual({ charge: 135, reps: null, source: 'recul' });
-      expect(l.prerempli.charge_kg).toBe(135);
+      expect(l.recul.charge).toBe(142.5);
+      expect(l.fantome).toEqual({ charge: 142.5, reps: null, source: 'recul' });
+      expect(l.prerempli.charge_kg).toBe(142.5);
       expect(l.prerempli.reps).toBe(6);
     });
     expect(x.reculs.grosse).toBe(150);
     expect(x.reculs.depart).toBe(true);
-    expect(x.reculs.phrase.replace(/[\u00a0\u202f]/g, ' ')).toBe('Recul : 135 kg, 10 % sous ta grosse série.');
+    expect(x.reculs.phrase.replace(/[\u00a0\u202f]/g, ' ')).toBe('Recul : 142,5 kg, 5 % sous ta grosse série.');
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
     expect(T.verifierPhrases(p)).toEqual([]);
+  });
+
+  test('266 — sans historique de reculs, le départ est tiré de la table (5 %), dit dans le Pourquoi ; I147 refuse un 10 % forcé', () => {
+    const e = entrees(seance(3));
+    const p = T.planDeSeance(e);
+    const x = p.exercices[0];
+    expect(x.reculs.depart).toBe(true);
+    expect(x.reculs.deduit).toBe(true);
+    expect(x.reculs.ecart).toBe(0.05);
+    expect(x.reculs.pourquoi).toContain('tiré de la table des reps');
+    expect(T.verifierPlan(p, e).erreurs.filter((m) => m.indexOf('I147') === 0)).toEqual([]);
+    const f = JSON.parse(JSON.stringify(p));
+    f.exercices[0].reculs.ecart = 0.10;
+    expect(T.verifierPlan(f, e).erreurs.join('|')).toMatch(/I147.*n’est pas celui de la table/);
   });
 
   test('un pari par recul : rôle « recul », rang texte « r1 », « r2 », « r3 », jamais un rang de la couverture', () => {
@@ -63,7 +77,7 @@ describe('193-1 — le plan des reculs', () => {
     [1, 2, 3].forEach((i) => {
       expect(paris[i].fondement.role).toBe('recul');
       expect(paris[i].fondement.rang).toBe('r' + i);
-      expect(paris[i].fondement.charge).toBe(135);
+      expect(paris[i].fondement.charge).toBe(142.5);
       expect(paris[i].valeur_predite).toBe(6);
       expect(paris[i].grandeur).toBe('reps');
     });
@@ -129,7 +143,7 @@ describe('193-1 — le plan des reculs', () => {
       const p = T.planDeSeance(e);
       vu.push(T.verifierPlan(p, e, avant).erreurs);
       avant = p;
-      se = S.modifierSerie(se, 0, t, t === 0 ? { charge_kg: 150, reps: 4 } : { charge_kg: 135, reps: 6 });
+      se = S.modifierSerie(se, 0, t, t === 0 ? { charge_kg: 150, reps: 4 } : { charge_kg: 142.5, reps: 6 });
       se = S.valider(se, 0, t, new Date('2026-10-31T10:3' + t + ':00Z'));
       const q = T.planDeSeance(entrees(se, { paris: paris.slice() })).exercices[0].paris[t];
       if (q) paris.push(Object.assign({}, q, { set_observe: se.exercices[0].series[t].id }));
@@ -171,11 +185,11 @@ describe('193-1 — l’observation d’un pari de recul', () => {
   test('une série de recul observe le pari de SON rang texte, et compte ses reps', () => {
     const p = T.planDeSeance(entrees(seance(2))).exercices[0];
     const pari = Object.assign({}, p.paris[1], { id: 'p1', set_observe: null, valeur_observee: null });
-    const serie = { id: 'sr', charge_kg: 135, reps: 5, type_serie: 'recul', exercise_slug: 'sq' };
+    const serie = { id: 'sr', charge_kg: 142.5, reps: 5, type_serie: 'recul', exercise_slug: 'sq' };
     const a = S.parisAObserver([pari], serie, 'r1', [serie]);
     expect(a).toEqual([pari]);
     expect(S.parisAObserver([pari], serie, 'r2', [serie])).toEqual([]);
-    const vue = M.observationDe(pari.fondement, { enBase: true, id: 'sr', charge: 135, reps: 5 });
+    const vue = M.observationDe(pari.fondement, { enBase: true, id: 'sr', charge: 142.5, reps: 5 });
     expect(vue.set_observe).toBe('sr');
     expect(vue.valeur_observee).toBe(5);
   });

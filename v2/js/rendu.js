@@ -544,12 +544,20 @@
       plein.style.width = Math.round(v.jauge * 100) + '%';
       jauge.appendChild(plein);
       fiche.appendChild(jauge);
-      if (v.aujourdhui) fiche.appendChild(el('div', 'objectif-aujourdhui num', v.aujourdhui));
+      if (v.aujourdhui) fiche.appendChild(el('div', 'objectif-aujourdhui num', v.aujourdhui + (v.chemin ? ' \u00b7 ' + v.chemin : '')));
       if (v.ligne) {
         var ligne = el('p', 'objectif-date', v.ligne);
         if (v.pari) ligne.appendChild(el('span', 'objectif-pari', v.pari));
         fiche.appendChild(ligne);
         if (v.rythme) fiche.appendChild(el('p', 'objectif-rythme', v.rythme));
+      }
+      // 266 (§9.25) — l'objectif sans date reste suivi : la veille en gris, ou le geste « Parier sur fin avril » (un toucher, aucune écriture au rendu).
+      if (v.veille) fiche.appendChild(el('p', 'objectif-veille', v.veille));
+      if (v.parier) {
+        var bp = el('button', 'discret objectif-parier', v.parier.libelle);
+        bp.type = 'button';
+        bp.addEventListener('click', o.surParier);
+        fiche.appendChild(bp);
       }
       carte.appendChild(fiche);
     }
@@ -7206,6 +7214,34 @@
       cible.appendChild(c);
       return cible;
     }
+    // 266 (§9.24) — les choix de la semaine, lisibles sous la bande (le liseré du coach), « Annuler » tant qu'aucune séance qu'ils portent n'est
+    // commencée ; pour une répartition, « Voir ce qui a été ajouté » déplie une ligne par ajout. Le rendu ne calcule rien.
+    (vue.faits || []).forEach(function (f) {
+      var bloc = el('div', 'semaine-fait-bloc');
+      bloc.setAttribute('data-choix-fait', f.cle);
+      bloc.appendChild(el('p', 'semaine-fait', f.phrase));
+      if (f.choix === 'repartir' && (f.ajouts || []).length) {
+        var liste = el('div', 'semaine-fait-liste');
+        liste.hidden = true;
+        f.ajouts.forEach(function (a) {
+          liste.appendChild(el('p', 'semaine-fait-ajout', a.jourNom + '\u00a0: ' + a.nom + ', ' + a.series + ' série' + (a.series >= 2 ? 's' : '')));
+        });
+        var voir = el('button', 'discret semaine-fait-voir', 'Voir ce qui a été ajouté');
+        voir.type = 'button';
+        voir.addEventListener('click', function () { liste.hidden = !liste.hidden; });
+        bloc.appendChild(voir);
+        bloc.appendChild(liste);
+      }
+      if (f.annulable) {
+        var an = el('button', 'discret semaine-fait-annuler', 'Annuler');
+        an.type = 'button';
+        an.setAttribute('data-annuler', f.cle);
+        an.addEventListener('click', function () { f.surAnnuler(); });
+        bloc.appendChild(an);
+      }
+      c.appendChild(bloc);
+    });
+    if (!vue.titre) { cible.appendChild(c); return cible; }
     c.appendChild(el('p', 'semaine-titre', vue.titre));
     if (vue.phrase) c.appendChild(el('p', 'semaine-phrase', vue.phrase));
     var actions = el('div', 'semaine-choix');
@@ -7534,6 +7570,17 @@
           valeur = groupe;
         }
         paire.appendChild(b);
+        // 266 — la carte du coach sous un superset que la personne fait déjà : sa phrase, son compte, « Les séparer ».
+        if (x.habituel) {
+          var coach = el('div', 'ap-habituel');
+          coach.appendChild(el('p', 'ap-habituel-t', x.habituel.phrases[0]));
+          coach.appendChild(el('p', 'ap-habituel-d', x.habituel.phrases[1]));
+          var sep = el('button', 'ap-habituel-geste', 'Les séparer');
+          sep.type = 'button';
+          sep.addEventListener('click', function () { if (v.surSeparer) v.surSeparer(x.habituel.cle); });
+          coach.appendChild(sep);
+          paire.appendChild(coach);
+        }
       });
       liste.appendChild(carte);
     });
@@ -7741,8 +7788,58 @@
     vider(cible);
     if (!items || !items.length) { cible.hidden = true; return cible; }
     cible.hidden = false;
-    items.forEach(function (x) { cible.appendChild(x.bilanTest ? carteBilanTest(x.bilanTest, v) : carteFinDeBloc(x.dossier, x.fin, v)); });
+    items.forEach(function (x) {
+      if (x.variations || x.fait) cible.appendChild(sectionNouveauBloc(x, v));
+      else cible.appendChild(x.bilanTest ? carteBilanTest(x.bilanTest, v) : carteFinDeBloc(x.dossier, x.fin, v));
+    });
     return cible;
+  }
+
+  // 266 (MOTEUR §9.22 ter) — « NOUVEAU BLOC » : par accessoire à changer, la carte du coach (titre, détail, « Changer » / « Garder … »,
+  // « Pourquoi ? » qui déplie le fondement) ; dessous, le « Fait : … » et « Annuler » quand un changement vient d'être écrit.
+  // AUCUN texte n'est écrit ici : `x.variations` vient de `Generateur.variationsDuBloc`, `x.fait` de l'app.
+  function sectionNouveauBloc(x, v) {
+    var c = el('section', 'nouveau-bloc');
+    c.setAttribute('data-dossier', x.dossier);
+    c.appendChild(el('p', 'nb-etiquette', 'NOUVEAU BLOC'));
+    (x.variations || []).forEach(function (va) {
+      var carte = el('div', 'nb-carte');
+      carte.setAttribute('data-slug', va.slug);
+      carte.appendChild(el('p', 'nb-titre', va.titre));
+      carte.appendChild(el('p', 'nb-detail', va.detail));
+      var gestes = el('div', 'nb-gestes');
+      var change = el('button', 'principal nb-changer', va.changer);
+      change.type = 'button';
+      change.addEventListener('click', function () { if (v.surChangerAccessoire) v.surChangerAccessoire(x.dossier, va); });
+      var garde = el('button', 'discret nb-garder', va.garder);
+      garde.type = 'button';
+      garde.addEventListener('click', function () { if (v.surGarderAccessoire) v.surGarderAccessoire(x.dossier, va); });
+      gestes.appendChild(change);
+      gestes.appendChild(garde);
+      carte.appendChild(gestes);
+      var pq = el('button', 'discret nb-pourquoi', 'Pourquoi\u00a0?');
+      pq.type = 'button';
+      pq.setAttribute('aria-expanded', 'false');
+      var texte = el('p', 'nb-fondement', va.pourquoi);
+      texte.hidden = true;
+      pq.addEventListener('click', function () {
+        texte.hidden = !texte.hidden;
+        pq.setAttribute('aria-expanded', texte.hidden ? 'false' : 'true');
+      });
+      carte.appendChild(pq);
+      carte.appendChild(texte);
+      c.appendChild(carte);
+    });
+    if (x.fait) {
+      var f = el('div', 'nb-fait');
+      f.appendChild(el('p', 'nb-fait-texte', x.fait.texte));
+      var an = el('button', 'discret nb-annuler', 'Annuler');
+      an.type = 'button';
+      an.addEventListener('click', function () { if (x.fait.surAnnuler) x.fait.surAnnuler(); });
+      f.appendChild(an);
+      c.appendChild(f);
+    }
+    return c;
   }
 
   // LA FEUILLE « FAIRE DE CE DOSSIER UN PROGRAMME » (ou « Ajuster le bloc »),

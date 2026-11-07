@@ -1546,7 +1546,7 @@ const SETS_IMPORTES = [
           const inconnue = Object.keys(l).filter((k) => ['user_id', 'semaine', 'routine_id', 'choix', 'detail', 'cree_le'].indexOf(k) < 0)[0];
           if (inconnue) return json(refus('PGRST204', 'semaine_choix : colonne inconnue « ' + inconnue + ' »'), 400);
           if (l.user_id !== MOI) return json(refus('42501', 'new row violates row-level security policy for table "semaine_choix"'), 400);
-          if (['decaler', 'repartir', 'garder', 'ajouter', 'non'].indexOf(l.choix) < 0) return json(refus('23514', 'semaine_choix_choix_check'), 400);
+          if (['decaler', 'repartir', 'garder', 'ajouter', 'non', 'annule'].indexOf(l.choix) < 0) return json(refus('23514', 'semaine_choix_choix_check'), 400);
           if (!/^\d{4}-\d{2}-\d{2}$/.test(String(l.semaine)) || new Date(l.semaine + 'T12:00:00Z').getUTCDay() !== 1) {
             return json(refus('23514', 'semaine_choix_semaine_check'), 400);
           }
@@ -15367,6 +15367,120 @@ const SETS_IMPORTES = [
     ok('[C53] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
+  console.log('\n══ variation-bloc. UN ACCESSOIRE CHANGE AU DÉBUT D’UN BLOC : LA CARTE, « CHANGER », « ANNULER », « GARDER » (266, MOTEUR §9.22 ter) ══');
+  //
+  // Un dossier « Var U266 » : un bloc qui COMMENCE aujourd'hui (sa 1re semaine, au calendrier), une barre dans le bloc, une
+  // élévation latérale à la poulie faite 8 semaines de suite à la même charge (aucune hausse du record depuis 8 semaines), et sa
+  // variante aux haltères (même `mouvement`, autre matériel). Horloge réelle : le bloc part d'aujourd'hui, les séances du même jour de la semaine
+  // des 8 semaines d'avant. ⚠️ DISCRIMINANT : la carte ne vient QUE de l'historique (8 semaines, 8 sans record) et du début du bloc.
+  {
+    const erreursAvant = erreurs.length;
+    const violationsAvant = gardeBanc.violations;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const rendreBlocs266 = await retirerBlocsDeLAppareil();
+    const profilAvant = base.profiles[0], sessionsAvant = base.sessions, setsAvant = base.sets, catalogueAvant = CATALOGUE.length;
+    const routinesAvant = ROUTINES.splice(0, ROUTINES.length);
+    base.sessions = []; base.sets = [];
+    base.profiles[0] = Object.assign({}, PROFIL_BANC, { intention: 'progresser', cartes_semaine: null, priorites: null, objectif: null,
+      materiel: 'salle_complete', zones_a_menager: null, exercices_ecartes: null });
+    const fiche = (slug, nom, equipement, mouvement, prim) => CATALOGUE.push({ slug, nom, mesure: 'charge_reps', charge: 'externe',
+      equipement, muscles_primaires: prim, muscles_secondaires: [], mouvement });
+    fiche('var-barre-u266', 'Barre Bloc U266 (Barre)', 'barre', 'var_barre_u266', ['quadriceps']);
+    fiche('var-lat-poulie-u266', 'Élévation Latérale Bloc (Poulie)', 'poulie', 'var_lat_u266', ['deltoide_lateral']);
+    fiche('var-lat-haltere-u266', 'Élévation Latérale Bloc (Haltère)', 'haltere', 'var_lat_u266', ['deltoide_lateral']);
+    // Le bloc COMMENCE aujourd'hui (sa 1re semaine) ; les séances, le même jour de la semaine, 1 à 8 semaines avant : huit semaines civiles
+    // de suite, la dernière juste avant celle-ci. Pas de décalage en millisecondes : des composantes de date.
+    const maintenant = new Date();
+    const il = (k, h) => new Date(maintenant.getFullYear(), maintenant.getMonth(), maintenant.getDate() - 7 * k, h, 0, 0);
+    const jourDe = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    for (let k = 1; k <= 8; k++) {
+      const id = '00000000-0000-4000-8266-' + String(k).padStart(12, '0'), debut = il(k, 10).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Var U266', debut, fin: il(k, 11).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      [1, 2, 3].forEach((r) => base.sets.push({ id: 'v266-' + k + '-a' + r, session_id: id, user_id: 'u-banc', exercise_slug: 'var-lat-poulie-u266',
+        charge_kg: 10, reps: 12, duree_s: null, distance_m: null, type_serie: 'travail', rang: r, groupe_superset: null, validee_a: debut,
+        rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    }
+    const ID_R = '00000000-0000-4000-8266-0000000000a1', ID_B = '00000000-0000-4000-8266-0000000000b1';
+    ROUTINES.push({ id: ID_R, nom: 'Var U266', note: null, archivee_a: null, rang: null, dossier: 'Var U266',
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: ['var-barre-u266', 'var-lat-poulie-u266'].map((slug, i) => ({ id: ID_R.slice(0, -2) + '1' + i, routine_id: ID_R,
+        exercise_slug: slug, rang: i, routine_sets: progr(3, 10), repos_cible_s: 90, groupe_superset: null, note: null })) });
+    base.blocs = [{ id: ID_B, user_id: 'u-banc', dossier: 'Var U266', zone: 'mix', debut: jourDe(maintenant), semaines: 4, decharge: true,
+      exercices: ['var-barre-u266'], statut: 'en_cours', precedent: null, created_at: maintenant.toISOString(), modifie_a: null, grosse_serie: false }];
+    const routineR = () => ROUTINES.filter((r) => r.id === ID_R)[0];
+    const slugsR = () => routineR().routine_exercises.slice().sort((a, b) => a.rang - b.rang).map((e) => e.exercise_slug);
+    const carte266 = () => page.evaluate(() => {
+      const t = (n) => (n ? n.textContent.replace(/[  ]/g, ' ') : null);
+      const s = document.querySelector('#carte-fin-saisie .nouveau-bloc[data-dossier="Var U266"]');
+      if (!s) return null;
+      return { etiquette: t(s.querySelector('.nb-etiquette')),
+        cartes: Array.from(s.querySelectorAll('.nb-carte')).map((c) => ({ slug: c.getAttribute('data-slug'), titre: t(c.querySelector('.nb-titre')),
+          detail: t(c.querySelector('.nb-detail')), boutons: [t(c.querySelector('.nb-changer')), t(c.querySelector('.nb-garder'))],
+          hauteurs: Array.from(c.querySelectorAll('.nb-changer, .nb-garder')).map((b) => Math.round(b.getBoundingClientRect().height)),
+          fondement: (c.querySelector('.nb-fondement') || {}).hidden === false ? t(c.querySelector('.nb-fondement')) : null })),
+        fait: t(s.querySelector('.nb-fait-texte')), annuler: !!s.querySelector('.nb-annuler') };
+    });
+    const cliquer266 = (sel) => page.evaluate((x) => document.querySelector('#carte-fin-saisie .nouveau-bloc ' + x).click(), sel);
+    await aller('/saisie');
+    await jusqua(async () => !!(await carte266()), 20000, 'carte 266');
+    let c266 = await carte266();
+    ok('[V266] la carte « NOUVEAU BLOC » en tête de Saisie : « Élévation latérale bloc : poulie → haltères ? », 8 semaines, 8 sans record, « Changer » / « Garder la poulie », 44 px',
+      c266.etiquette === 'NOUVEAU BLOC' && c266.cartes.length === 1 && c266.cartes[0].slug === 'var-lat-poulie-u266' &&
+        c266.cartes[0].titre === 'Élévation latérale bloc : poulie → haltères ?' &&
+        c266.cartes[0].detail === '8 semaines sur la poulie, sans record depuis 8 semaines. Changer un accessoire par bloc travaille le même muscle sous un autre angle ; les barres ne changent pas.' &&
+        JSON.stringify(c266.cartes[0].boutons) === JSON.stringify(['Changer', 'Garder la poulie']) && c266.cartes[0].hauteurs.every((h) => h >= 44),
+      JSON.stringify(c266));
+    ok('[V266] rien n’est écrit à l’ouverture : la routine garde sa poulie, aucune réponse au profil',
+      JSON.stringify(slugsR()) === '["var-barre-u266","var-lat-poulie-u266"]' && !base.profiles[0].cartes_semaine, JSON.stringify([slugsR(), base.profiles[0].cartes_semaine]));
+    await cliquer266('.nb-pourquoi');
+    c266 = await carte266();
+    ok('[V266] « Pourquoi ? » déplie le fondement : Kassiano 2022, et les réglages dits comme tels',
+      !!c266.cartes[0].fondement && /Kassiano 2022/.test(c266.cartes[0].fondement) && /réglages de l’app/.test(c266.cartes[0].fondement), JSON.stringify(c266.cartes[0].fondement));
+
+    await cliquer266('.nb-changer');
+    await jusqua(async () => JSON.stringify(slugsR()) === '["var-barre-u266","var-lat-haltere-u266"]', 15000, 'changer 266');
+    await jusqua(async () => !!(await carte266()) && (await carte266()).fait !== null, 10000, 'fait 266');
+    await jusqua(async () => !!base.profiles[0].cartes_semaine && !!base.profiles[0].cartes_semaine.variation, 10000, 'réponse 266');
+    c266 = await carte266();
+    ok('[V266] « Changer » : la routine porte la variante (journal des routines), « Fait : … » et « Annuler » ; la réponse est dans le profil',
+      /^Fait : Élévation Latérale Bloc \(Haltère\) remplace Élévation Latérale Bloc \(Poulie\) dans « Var U266 »\.$/.test(c266.fait) && c266.annuler &&
+        c266.cartes.length === 0 && base.profiles[0].cartes_semaine.variation[ID_B]['var-lat-poulie-u266'] === 'changer',
+      JSON.stringify([c266, slugsR(), base.profiles[0].cartes_semaine]));
+
+    await cliquer266('.nb-annuler');
+    await jusqua(async () => JSON.stringify(slugsR()) === '["var-barre-u266","var-lat-poulie-u266"]', 15000, 'annuler 266');
+    await jusqua(async () => !!(await carte266()) && (await carte266()).cartes.length === 1, 10000, 'carte revenue 266');
+    c266 = await carte266();
+    ok('[V266] « Annuler » : la routine d’avant, la réponse effacée, la carte revient',
+      c266.fait === null && c266.cartes.length === 1 && !(base.profiles[0].cartes_semaine && base.profiles[0].cartes_semaine.variation),
+      JSON.stringify([c266, slugsR(), base.profiles[0].cartes_semaine]));
+
+    await cliquer266('.nb-garder');
+    await jusqua(async () => !!base.profiles[0].cartes_semaine && !!base.profiles[0].cartes_semaine.variation, 10000, 'garder 266');
+    await jusqua(async () => !(await carte266()), 10000, 'carte retirée 266');
+    ok('[V266] « Garder la poulie » : la carte se tait, la routine ne bouge pas, la réponse est dans `cartes_semaine.variation[bloc][exercice]`',
+      (await carte266()) === null && JSON.stringify(slugsR()) === '["var-barre-u266","var-lat-poulie-u266"]' &&
+        base.profiles[0].cartes_semaine.variation[ID_B]['var-lat-poulie-u266'] === 'garder', JSON.stringify(base.profiles[0].cartes_semaine));
+    await page.reload();
+    await aller('/saisie');
+    await jusqua(() => page.evaluate(() => !!document.querySelector('#liste-routines .dossier-ligne')), 20000, 'liste 266');
+    ok('[V266] rechargée, la carte ne revient pas dans ce bloc', (await carte266()) === null, JSON.stringify(await carte266()));
+
+    // ── LA REMISE EN ÉTAT, pour les sections suivantes (le bloc aussi, sur l'appareil).
+    base.profiles[0] = profilAvant;
+    ROUTINES.splice(0, ROUTINES.length);
+    routinesAvant.forEach((r) => ROUTINES.push(r));
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant; base.sets = setsAvant;
+    base.blocs = [];
+    await retirerBlocsDeLAppareil();
+    rendreBlocs266();
+    ok('[V266] aucun refus du faux serveur, la garde de l’app n’a rien signalé (I145, I146), aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
   console.log('\n══ progression. LA MÉDAILLE, LA FEUILLE « TERMINER », LE MOIS ET SES RECORDS (55-1, MOTEUR §9.23) ══');
   //
   // Une barre (120 × 5 il y a 20 jours, 125 × 4 et 120 × 5 il y a 13 jours).
@@ -21261,6 +21375,66 @@ const SETS_IMPORTES = [
         ROUTINES.every((r) => r.routine_exercises.every((e) => e.routine_sets.every((s) => s.charge_cible_kg === null))),
       JSON.stringify(couche && couche.routine_sets.map((s) => s.type_serie)));
 
+    // ── 266 — LE SUPERSET QUE LA PERSONNE FAIT DÉJÀ (QUESTIONNAIRE §5 quater.5). Le curl et l'extension, enchaînés dans les
+    // 5 séances « Haut U66D » les plus récentes (sur les 8 où les deux paraissent) : le programme déduit les reprend, sans
+    // que « Ce que j'ai changé » les compte, avec la carte du coach et « Les séparer ».
+    // ⚠️ DISCRIMINANT : sans `groupe_superset` dans l'historique, la même paire n'est qu'une paire du manque de temps (ci-dessus).
+    {
+      ROUTINES.splice(0, ROUTINES.length);
+      Object.assign(base.profiles[0], { exercices_ecartes: null, programme_construit_dossier: null, programme_construit_le: null });
+      base.sets.forEach((x) => {
+        const n = Number(String(x.session_id).slice(-12));
+        if (n >= 1 && n <= 5 && (x.exercise_slug === 'curl_biceps_haltere' || x.exercise_slug === 'extension_triceps_poulie_haute')) x.groupe_superset = 1;
+      });
+      await page.reload();
+      await aller('/saisie');
+      await aller('/profil');
+      await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+        .filter((l) => l.querySelector('.p-lib').firstChild.textContent === 'Refaire mon programme')[0].click());
+      await jusqua(async () => !!(await page.$('#questionnaire-corps .q-puce[data-cle="2"]')), 10000, 'questionnaire 266');
+      await page.click('#questionnaire-corps .q-puce[data-cle="2"]');
+      await page.click('#questionnaire-corps .q-continuer');
+      await jusqua(async () => (await apercu()).cartes.length > 0, 15000, 'aperçu 266');
+      const habituel = () => page.evaluate(() => {
+        const t = (n) => n ? n.textContent.replace(/[\u00a0\u202f]/g, ' ') : null;
+        const k = document.querySelectorAll('#feuille-contenu .ap-routine')[0];
+        const g = k && k.querySelector('.ap-habituel-geste');
+        return { titre: t(k && k.querySelector('.ap-habituel-t')), detail: t(k && k.querySelector('.ap-habituel-d')),
+          geste: t(g), hauteur: g ? Math.round(g.getBoundingClientRect().height) : 0,
+          dansLaPaire: !!(k && k.querySelector('.ap-paire .ap-habituel')) };
+      });
+      const lignesChg = () => apercu().then((a) => a.changements.map((l) => l[0]));
+      const paireBras266 = 'Curl Biceps (Haltère) et extension Triceps (Poulie Haute)';
+      let a266 = await apercu(), h266 = await habituel();
+      ok('[O266] la paire que la personne fait déjà est reprise : curl et extension sous « Superset », la carte du coach au vrai compte (5 fois sur ses 8 dernières séances)',
+        a266.cartes[0].paires.some((p) => p[1] === 'Curl Biceps (Haltère)' && p[2] === 'Extension Triceps (Poulie Haute)') &&
+          h266.titre === 'En superset, comme tu les fais d’habitude.' &&
+          h266.detail === 'Tu les as enchaînées 5 fois sur tes 8 dernières séances.' && h266.dansLaPaire && h266.geste === 'Les séparer' && h266.hauteur >= 44,
+        JSON.stringify([a266.cartes[0].paires, h266]));
+      ok('[O266] ce n’est PAS un changement du coach : aucune ligne « … en superset dans Haut U66D » pour le curl et l’extension',
+        !(await lignesChg()).some((l) => l.indexOf(paireBras266) === 0), JSON.stringify(await lignesChg()));
+      await page.evaluate(() => document.querySelector('#feuille-contenu .ap-habituel-geste').click());
+      await jusqua(async () => (await habituel()).geste === null, 8000, 'Les séparer');
+      a266 = await apercu();
+      ok('[O266] « Les séparer » : plus de carte, ni la paire ; la ligne « … en séries classiques. » avec « Remettre »',
+        !a266.cartes[0].paires.some((p) => p.indexOf('Curl Biceps (Haltère)') >= 0) &&
+          a266.changements.some((l) => l[0] === paireBras266 + ' en séries classiques.' && l[1] === 'Remettre' && l[2] === true),
+        JSON.stringify([a266.cartes[0].paires, a266.changements]));
+      await geste(paireBras266 + ' en séries classiques.');
+      h266 = await habituel();
+      ok('[O266] « Remettre » : la paire et la carte reviennent',
+        h266.titre === 'En superset, comme tu les fais d’habitude.' && h266.dansLaPaire, JSON.stringify(h266));
+      await page.evaluate(() => document.querySelector('#feuille-contenu .apercu-creer').click());
+      await jusqua(async () => !(await apercu()).ouverte, 15000, 'créer 266');
+      await jusqua(async () => ROUTINES.some((r) => r.nom === 'Haut U66D'), 15000, 'routine 266');
+      const haut266 = ROUTINES.filter((r) => r.nom === 'Haut U66D')[0];
+      const e266 = haut266 ? haut266.routine_exercises.slice().sort((x, y) => x.rang - y.rang) : [];
+      const gc = e266.filter((e) => e.exercise_slug === 'curl_biceps_haltere')[0], ge = e266.filter((e) => e.exercise_slug === 'extension_triceps_poulie_haute')[0];
+      ok('[O266] « Créer » : la routine écrite porte le curl et l’extension au même `groupe_superset`, contigus',
+        !!gc && !!ge && gc.groupe_superset !== null && gc.groupe_superset === ge.groupe_superset && ge.rang === gc.rang + 1,
+        JSON.stringify(e266.map((e) => [e.exercise_slug, e.rang, e.groupe_superset])));
+    }
+
     // ── LA REMISE EN ÉTAT, pour les sections suivantes.
     base.profiles[0] = profilAvant;
     ROUTINES.splice(0, ROUTINES.length);
@@ -24047,10 +24221,14 @@ const SETS_IMPORTES = [
       if (!n || n.hidden) return null;
       const t = (s) => (n.querySelector(s) || {}).textContent || null;
       return { titre: t('.semaine-titre'), pourquoi: t('.semaine-pourquoi'),
+        faits: Array.from(n.querySelectorAll('.semaine-fait')).map((x) => x.textContent),     // 266 : les choix de la semaine
+        annuler: !!n.querySelector('button[data-annuler]'), voir: !!n.querySelector('.semaine-fait-voir'),
         bande: Array.from(n.querySelectorAll('.semaine-r')).map((x) => x.textContent),
         choix: Array.from(n.querySelectorAll('.semaine-choix button')).map((b) => (b.className.indexOf('principal') >= 0 ? '* ' : '') + b.textContent),
         exos: Array.from(n.querySelectorAll('.semaine-exo')).map((x) => x.textContent), demarrer: !!n.querySelector('.carte-semaine > .principal') };
     });
+    // 266 — « la question » : la carte avec son titre (les choix faits restent lisibles sans elle).
+    const question99 = async () => { const c = await carte99(); return c && c.titre ? c : null; };
     const choisir99 = async (cle) => {
       await page.click('#carte-semaine button[data-choix="' + cle + '"]');
       await attendre(800);
@@ -24081,11 +24259,11 @@ const SETS_IMPORTES = [
       return b.textContent.slice(0, 60) + (m ? ' | ' + m.textContent : '');
     }));
     ok('[D99] « Répartir » : la carte se ferme ; Pull d’aujourd’hui a son leg curl en plus, « ajouté : séance manquée de mardi » (pas de squat ni de roumain après le rowing : lombaires)',
-      apres1 === null && blocs1.length === 3 && /Leg Curl D99/.test(blocs1[2]) && /ajouté : séance manquée de mardi/.test(blocs1[2]) &&
+      apres1 !== null && apres1.titre === null && apres1.choix.length === 0 && blocs1.length === 3 && /Leg Curl D99/.test(blocs1[2]) && /ajouté : séance manquée de mardi/.test(blocs1[2]) &&
         !blocs1.some((b) => /Squat D99|Roumain D99/.test(b)), nb99([apres1, blocs1]));
     await abandonner();
     await aller('/saisie');
-    ok('[D99] la question n’est posée qu’une fois : rechargé, plus de carte', (await carte99()) === null);
+    ok('[D99] la question n’est posée qu’une fois : rechargé, plus de question', (await question99()) === null);
     await A.fermer();
     const ligne99 = base.semaineChoix.filter((x) => x.routine_id === 'r-d99-jambes')[0];
     ok('[D99] le choix est en base, par la file : une ligne `semaine_choix` (lundi 12 oct., Jambes, « repartir », le leg curl dans le détail)',
@@ -24096,15 +24274,45 @@ const SETS_IMPORTES = [
     page = A2.p;
     await aller('/saisie');
     await attendre(1500);
-    ok('[D99] sur un autre appareil, le choix suit la personne : pas de carte', (await carte99()) === null);
+    ok('[D99] sur un autre appareil, le choix suit la personne : pas de question', (await question99()) === null);
     await A2.fermer();
+
+    // ── 1 bis. (266, MOTEUR §9.24) ANNULER UN CHOIX : le fait lisible sous la bande, « Annuler », la question qui revient ; une séance
+    // commencée sur une routine portée retire « Annuler ».
+    const E = await ouvrir99('D266-annuler');
+    await jusqua(async () => { const c = await carte99(); return !!c && c.faits.length > 0; }, 15000);
+    const f266 = await carte99();
+    ok('[D266] après « Répartir » : le fait « Jambes D99 réparti : mercredi. » sous la bande (pas de question), « Annuler » et « Voir ce qui a été ajouté »',
+      !!f266 && f266.titre === null && nb99(f266.faits) === nb99(['Jambes D99 réparti\u00a0: mercredi.']) && f266.annuler === true && f266.voir === true, nb99(f266));
+    await page.click('#carte-semaine button[data-annuler]');
+    await jusqua(async () => base.semaineChoix.some((x) => x.routine_id === 'r-d99-jambes' && x.choix === 'annule'), 15000);
+    await jusqua(async () => !!(await question99()), 10000);
+    const l266 = base.semaineChoix.filter((x) => x.routine_id === 'r-d99-jambes')[0] || {};
+    const q266 = await question99();
+    ok('[D266] « Annuler » : une ligne `annule` part par la file (journal semaine_choix, même semaine et même routine, avant = répartir), la question revient',
+      l266.choix === 'annule' && l266.semaine === '2026-10-12' && l266.detail.avant === 'repartir' && l266.detail.jour === 2 &&
+        base.journal.some((j) => j.op === 'semaine_choix' && j.lignes.some((x) => x.choix === 'annule')) &&
+        !!q266 && q266.titre === 'Jambes D99 n\'a pas eu lieu mardi.' && q266.faits.length === 0, nb99([l266, q266]));
+    await choisir99('repartir');
+    // Une séance de Pull (la routine portée par la répartition), commencée après le choix, vue à la synchronisation.
+    const apresLeChoix = new Date(2026, 9, 14, 10, 40, 0).toISOString();
+    base.sessions.push({ id: 'd266-pull', user_id: 'u-banc', titre: 'Mercredi — Pull D99', debut: apresLeChoix,
+      fin: new Date(2026, 9, 14, 11, 20, 0).toISOString(), statut: 'terminee', note: null, salle: null, salle_norme: null,
+      routine_id: 'r-d99-pull', source: 'app', created_at: apresLeChoix });
+    await aller('/saisie');
+    await jusqua(async () => { const c = await carte99(); return !!c && c.faits.length > 0 && c.annuler === false; }, 15000);
+    const g266 = await carte99();
+    ok('[D266] une séance commencée sur une routine portée (Pull) : le fait reste lisible, « Annuler » a disparu',
+      !!g266 && g266.faits.length === 1 && /^Jambes D99 réparti/.test(g266.faits[0]) && g266.annuler === false, nb99(g266));
+    await E.fermer();
+    base.sessions = base.sessions.filter((x) => x.id !== 'd266-pull');
     base.semaineChoix = [];
 
     // ── 2. « GARDER PULL, COMME PRÉVU ».
     const B = await ouvrir99('D99-garder');
     await choisir99('garder');
     await aller('/saisie');
-    ok('[D99] « Garder Pull D99, comme prévu » est respecté : rechargé, plus de carte', (await carte99()) === null);
+    ok('[D99] « Garder Pull D99, comme prévu » est respecté : rechargé, plus de question', (await question99()) === null);
     await B.fermer();
     base.semaineChoix = [];
 
@@ -24468,7 +24676,7 @@ const SETS_IMPORTES = [
     await aller('/exercice/squat-o109');
     const c1 = await carteO();
     ok('[O109] posé : « 150 kg × 1 », la jauge depuis le record (0), « Aujourd’hui : 144 kg × 1 », le pari figé : « Le pari du coach : fin avril. », « Posé le 16 oct. On verra s’il tombe juste. », et « Au rythme d’aujourd’hui : toujours fin avril. »',
-      !!c1 && nbO(c1.titre) === nbO('150 kg × 1') && c1.jauge === '0' && nbO(c1.aujourdhui) === nbO('Aujourd’hui : 144 kg × 1') &&
+      !!c1 && nbO(c1.titre) === nbO('150 kg × 1') && c1.jauge === '0' && nbO(c1.aujourdhui) === nbO('Aujourd’hui : 144 kg × 1 · 0 % du chemin') &&
         nbO(c1.ligne) === nbO('Le pari du coach : fin avril.') && nbO(c1.pari) === nbO('Posé le 16 oct. On verra s’il tombe juste.') &&
         nbO(c1.rythme) === nbO('Au rythme d’aujourd’hui : toujours fin avril.') &&
         c1.bouton === 'Changer l’objectif', nbO(c1));
@@ -24523,7 +24731,7 @@ const SETS_IMPORTES = [
     await aller('/exercice/squat-o109');
     const c5 = await carteO();
     ok('[O109] la carte garde la date du pari de 155, figée — elle ne bouge pas avec la séance du 10 mars ; « Aujourd’hui : 150 kg × 1 »',
-      !!c5 && c5.ligne === ligne155 && nbO(c5.aujourdhui) === nbO('Aujourd’hui : 150 kg × 1'), nbO([c5, ligne155]));
+      !!c5 && c5.ligne === ligne155 && nbO(c5.aujourdhui) === nbO('Aujourd’hui : 150 kg × 1 · 55 % du chemin'), nbO([c5, ligne155]));
     ok('[O150] un record de plus depuis la pose : le pari ne bouge pas, la ligne « Au rythme d’aujourd’hui » est recalculée à la date d’aujourd’hui (une date, jamais un écart chiffré)',
       !!c5 && /^Au rythme d’aujourd’hui : (toujours )?fin [a-zéû]+( \d{4})?\.$|^Au rythme d’aujourd’hui : (plus d’un an|pas encore de date)\.$/.test((c5 && c5.rythme || '').replace(/[\u00a0\u202f]/g, ' ')), nbO(c5));
     // Le mois de mars est la STORY du mois (98, BILANS-V1) : son écran « Le coach » compte les paris de CONSIGNE
@@ -24703,6 +24911,53 @@ const SETS_IMPORTES = [
         !!cD && nbO(cD.titre) === nbO('155 kg × 1') && !!bD && (bD.lignes || []).length === 1 && bD.lignes[0].charge_kg === 155,
         nbO([cD, bD, base.objectifs]));
       await D.fermer();
+    }
+
+    // ── 9. (266, MOTEUR §9.25) L'OBJECTIF SANS DATE RESTE SUIVI : la veille ; puis, quand la projection du jour passe sous 6 mois, le geste
+    // « Parier sur fin … » — un toucher pose le pari (module objectif) puis l'objectif (`date`), la carte dit « Le pari du coach : fin … ».
+    {
+      const ligneSansDate = (charge) => ({ user_id: 'u-banc', exercise_slug: 'squat-o109', charge_kg: charge, reps: 1, pose_le: '2026-08-01T10:00:00.000Z',
+        depart_kg: 140, projection: 'plus_d_un_an', echeance: null, pari_id: null });
+      const carte9 = () => page.evaluate(() => {
+        const n = document.querySelector('#page-exercice .exo-objectif');
+        if (!n) return null;
+        const t = (q) => (n.querySelector(q) || {}).textContent || null;
+        const d = n.querySelector('.objectif-date');
+        return { aujourdhui: t('.objectif-aujourdhui'), ligne: d ? d.firstChild.textContent : null, veille: t('.objectif-veille'), parier: t('.objectif-parier'),
+          pari: t('.objectif-pari') };
+      });
+      const parisAvant9 = base.predictions.filter((x) => x.module === 'objectif').length;
+      base.objectifs = [ligneSansDate(150)];
+      const E9 = await ouvrirO('O266-veille', new Date(2026, 9, 16, 12, 0, 0));
+      await jusqua(syncTerminee, 60000);
+      await aller('/exercice/squat-o109');
+      await jusqua(async () => !!(await carte9()), 10000);
+      const c9a = await carte9();
+      ok('[O266] un objectif à plus de 6 mois : « Pas de date… », « 40 % du chemin » (jamais un maximum estimé), la veille en gris — et aucun geste de pari',
+        !!c9a && nbO(c9a.ligne) === nbO('Pas de date : à ton rythme actuel, plus d’un an.') && /40 % du chemin/.test(nbO(c9a.aujourdhui)) &&
+          nbO(c9a.veille) === nbO('Je te dis dès que ça passe sous les 6 mois. Pas de pari tant qu’il n’y a pas de date.') && c9a.parier === null &&
+          !/estim/i.test(nbO(c9a)), nbO(c9a));
+      await E9.fermer();
+      // 149 × 1 : la projection du jour (≈ 5 mois) passe sous les 6 mois.
+      base.objectifs = [ligneSansDate(149)];
+      const F9 = await ouvrirO('O266-parier', new Date(2026, 9, 16, 12, 0, 0));
+      await jusqua(syncTerminee, 60000);
+      await aller('/exercice/squat-o109');
+      await jusqua(async () => !!((await carte9() || {}).parier), 10000);
+      const c9b = await carte9();
+      ok('[O266] la projection du jour passe sous les 6 mois : « Ça passe sous les 6 mois. » et le geste « Parier sur fin mars » ; rien n’est écrit tant qu’on ne le touche pas',
+        !!c9b && /Ça passe sous les 6 mois\.$/.test((c9b.ligne || '').replace(/[\u00a0\u202f]/g, ' ')) && nbO(c9b.parier) === nbO('Parier sur fin mars') && c9b.veille === null &&
+          base.predictions.filter((x) => x.module === 'objectif').length === parisAvant9 && base.objectifs[0].projection === 'plus_d_un_an', nbO([c9b, base.objectifs]));
+      await page.click('#page-exercice .objectif-parier');
+      await jusqua(async () => base.objectifs[0] && base.objectifs[0].projection === 'date' && base.predictions.filter((x) => x.module === 'objectif').length === parisAvant9 + 1, 15000);
+      const l9 = base.objectifs[0] || {};
+      const p9 = base.predictions.filter((x) => x.module === 'objectif' && x.id === l9.pari_id)[0] || {};
+      await jusqua(async () => /Le pari du coach/.test(nbO((await carte9() || {}).ligne)), 10000);
+      const c9c = await carte9();
+      ok('[O266] le toucher pose le pari (module objectif) puis l’objectif en `date` (pose et départ gardés) ; la carte dit « Le pari du coach : fin mars. » et le geste a disparu',
+        l9.projection === 'date' && l9.echeance === '2027-03-31' && l9.pose_le === '2026-08-01T10:00:00.000Z' && l9.depart_kg === 140 && p9.grandeur === 'jours' &&
+          !!c9c && nbO(c9c.ligne) === nbO('Le pari du coach : fin mars.') && c9c.parier === null, nbO([l9, p9.valeur_predite, c9c]));
+      await F9.fermer();
     }
 
     // LA REMISE EN ÉTAT.
@@ -28108,6 +28363,9 @@ const SETS_IMPORTES = [
     const carte171 = () => page.evaluate(() => {
       const n = document.getElementById('carte-semaine');
       if (!n || n.hidden) return null;
+      // 266 — après un choix, la carte reste avec sa ligne « fait » et « Annuler » (§9.24) : sans question, ni choix, ni « Démarrer »,
+      // il n'y a plus de carte à quoi répondre — le banc la lit comme absente.
+      if (!n.querySelector('.semaine-titre') && !n.querySelector('.semaine-choix button') && !n.querySelector('.carte-semaine > .principal')) return null;
       return { titre: (n.querySelector('.semaine-titre') || {}).textContent || null,
         choix: Array.from(n.querySelectorAll('.semaine-choix button')).map((b) => b.dataset.choix),
         cliquables: Array.from(n.querySelectorAll('.semaine-choix button')).every((b) => !!b.offsetParent && !b.disabled),

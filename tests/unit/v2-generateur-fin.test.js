@@ -315,3 +315,93 @@ describe('66D bis — « Ce que j’ai changé » lit la carte, pas le journal',
       'rowing_poulie_assis et developpe_couche_haltere en superset dans DOS B : ≈ 5 min de moins.']);
   });
 });
+
+// ══ 266 — LE SUPERSET HABITUEL (QUESTIONNAIRE §5 quater.5, V10) ════════════════════════════════════════════════════════
+describe('266 — le superset que la personne fait déjà traverse habiller et associer, V10 le vérifie', () => {
+  const fiche = (prim, sec, equipement) => ({ equipement: equipement || 'machine', muscles_primaires: prim, muscles_secondaires: sec || [],
+    muscles_stabilisateurs: [], mesure: 'charge_reps' });
+  const CAT = { dc: fiche(['pectoraux'], ['triceps', 'deltoide_anterieur'], 'barre'), curl: fiche(['biceps']), ext: fiche(['triceps']),
+    curl2: fiche(['biceps']) };
+  const ligne = (slug, extra) => Object.assign({ exercise_slug: slug, series: 3, reps: 10, chauffes: 0, groupe_superset: null }, extra || {});
+  const HAB = { n: 4, m: 7 };
+  const entree = (refus, cible) => ({ catalogue: CAT, cible_min: cible === undefined ? null : cible, refus_paires: refus || [],
+    routines: [{ nom: 'Push', exercices: [ligne('dc'), ligne('curl', { groupe_superset: 1, superset_habituel: HAB }),
+                                          ligne('ext', { groupe_superset: 1, superset_habituel: HAB })] }] });
+
+  test('habiller recopie le groupe et le compte d’une ligne habituelle, rien sur une autre', () => {
+    const h = G.habiller(CAT, ligne('curl', { groupe_superset: 1, superset_habituel: HAB }), {});
+    expect(h.groupe_superset).toBe(1);
+    expect(h.superset_habituel).toEqual(HAB);
+    const s = G.habiller(CAT, ligne('dc'), {});
+    expect('groupe_superset' in s).toBe(false);
+    expect('superset_habituel' in s).toBe(false);
+  });
+
+  test('associer garde la paire habituelle sans cible de durée (rien ne manque de temps)', () => {
+    const e = entree();
+    const s = G.associer(e);
+    expect(s.routines[0].exercices.map((x) => x.groupe_superset)).toEqual([null, 1, 1]);
+    expect(s.routines[0].exercices[1].superset_habituel).toEqual(HAB);
+    expect(s.journal).toEqual([]);
+    expect(G.verifierAssociation(e, s)).toEqual([]);
+  });
+
+  test('refus_paires (« Les séparer ») la défait : deux séries classiques, plus de compte', () => {
+    const e = entree([['Push', 'curl', 'ext']]);
+    const s = G.associer(e);
+    expect(s.routines[0].exercices.map((x) => x.groupe_superset)).toEqual([null, null, null]);
+    expect(s.routines[0].exercices.some((x) => x.superset_habituel)).toBe(false);
+    expect(G.verifierAssociation(e, s)).toEqual([]);
+  });
+
+  test('un membre qui manque (retiré, remplacé) : l’autre redevient une série classique', () => {
+    const e = entree();
+    e.routines[0].exercices.splice(2, 1);
+    const s = G.associer(e);
+    expect(s.routines[0].exercices.map((x) => x.groupe_superset)).toEqual([null, null]);
+    expect(s.routines[0].exercices.some((x) => x.superset_habituel)).toBe(false);
+  });
+
+  test('V10 : passe sur la paire habituelle ; échoue si un membre n’est plus une isolation, partage un principal, ou sous le seuil', () => {
+    const e = entree(), s = G.associer(e);
+    expect(G.verifierAssociation(e, s)).toEqual([]);
+    const pol = JSON.parse(JSON.stringify(s));
+    pol.routines[0].exercices[1].exercise_slug = 'dc';
+    const e2 = JSON.parse(JSON.stringify(e)); e2.routines[0].exercices[1].exercise_slug = 'dc';
+    expect(G.verifierAssociation(e2, pol)).toEqual(['V10 un superset habituel qui ne tient pas']);
+    const commun = JSON.parse(JSON.stringify(s));
+    commun.routines[0].exercices[2].exercise_slug = 'curl2';
+    const e3 = JSON.parse(JSON.stringify(e)); e3.routines[0].exercices[2].exercise_slug = 'curl2';
+    expect(G.verifierAssociation(e3, commun)).toEqual(['V10 un superset habituel qui ne tient pas']);
+    const bas = JSON.parse(JSON.stringify(s));
+    bas.routines[0].exercices.forEach((x) => { if (x.superset_habituel) x.superset_habituel = { n: 3, m: 4 }; });
+    expect(G.verifierAssociation(e, bas)).toEqual(['V10 un superset habituel qui ne tient pas']);
+    const moitie = JSON.parse(JSON.stringify(s));
+    moitie.routines[0].exercices.forEach((x) => { if (x.superset_habituel) x.superset_habituel = { n: 4, m: 8 }; });
+    expect(G.verifierAssociation(e, moitie)).toEqual(['V10 un superset habituel qui ne tient pas']);
+  });
+
+  test('une paire habituelle dont les membres ne se touchent plus est une paire non contiguë (V7)', () => {
+    const e = entree(), s = G.associer(e);
+    const ordre = (r) => [r[1], r[0], r[2]];
+    e.routines[0].exercices = ordre(e.routines[0].exercices);
+    const t = JSON.parse(JSON.stringify(s));
+    t.routines[0].exercices = ordre(s.routines[0].exercices);
+    expect(G.verifierAssociation(e, t)).toContain('V7 une paire non contiguë');
+  });
+
+  test('changementsDeLApercu : une paire habituelle n’est pas un « changement » ; refusée, elle se lit « en séries classiques »', () => {
+    const e = entree(), s = G.associer(e);
+    expect(G.changementsDeLApercu([], s.journal, { paires: [] }, (x) => x, s.routines)).toEqual([]);
+    const l = G.changementsDeLApercu([], [], { paires: [['Push', 'curl', 'ext']] }, (x) => x);
+    expect(l.length).toBe(1);
+    expect(l[0].retire).toBe(true);
+    expect(l[0].cle).toBe('paire:Push:curl:ext');
+    expect(l[0].texte).toMatch(/en séries classiques\.$/);
+  });
+
+  test('phrasesDuSupersetHabituel : le vrai compte, au singulier quand il le faut', () => {
+    expect(G.phrasesDuSupersetHabituel(4, 7)).toEqual(['En superset, comme tu les fais d’habitude.', 'Tu les as enchaînées 4 fois sur tes 7 dernières séances.']);
+    expect(G.phrasesDuSupersetHabituel(1, 1)[1]).toBe('Tu les as enchaînées 1 fois sur ta dernière séance.');
+  });
+});

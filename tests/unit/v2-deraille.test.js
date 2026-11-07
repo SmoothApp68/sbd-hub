@@ -210,8 +210,8 @@ describe('ce qui a été fait cette semaine : `faits.semaineDuProgramme`', () =>
     seriesDe: (id) => series[id] || [], catalogue: () => CAT, journal: [] };
   test('les séances des 14 derniers jours (jour, routine, exercices de travail) ; le volume de la SEMAINE seulement', () => {
     const r = F.semaineDuProgramme(c, '2026-10-14', null);
-    expect(r.seances).toEqual([{ jour: '2026-10-12', routine_id: 'r-push', slugs: ['couche'] },
-      { jour: '2026-10-09', routine_id: null, slugs: ['squat'] }]);
+    expect(r.seances).toEqual([{ jour: '2026-10-12', debut: seances[0].debut, routine_id: 'r-push', slugs: ['couche'] },
+      { jour: '2026-10-09', debut: seances[1].debut, routine_id: null, slugs: ['squat'] }]);   // 266 : `debut`, lu par l'annulation d'un choix
     expect(r.volume).toEqual({ pectoraux: 1, triceps: 0.5, deltoide_anterieur: 0.5 });
   });
 });
@@ -373,5 +373,68 @@ describe('choixAReposer (178)', () => {
   test('hors de la fenêtre lue, ou d’un autre compte : rien', () => {
     expect(D.choixAReposer([L('2026-10-05', 'r1')], [], {}, DEPUIS, 'u1')).toEqual([]);
     expect(D.choixAReposer([L('2026-10-26', 'r1', { user_id: 'u2' })], [], {}, DEPUIS, 'u1')).toEqual([]);
+  });
+});
+
+// 266 (MOTEUR §9.24) — ANNULER UN CHOIX DE LA SEMAINE. Des lignes écrites à la main (le format de `lignesDuChoix`), lues par
+// `choixDeLaSemaine` ; la ligne `annule` plus récente efface le choix d'avant dans `etatDepuisLignes`.
+describe('266 — annuler un choix de la semaine', () => {
+  const SEM = '2026-10-12';
+  const ROUTINES = [{ id: 'haut-b', nom: 'Mardi — Haut B' }, { id: 'bas-b', nom: 'Jeudi — Bas B' }, { id: 'pull', nom: 'Mercredi — Pull' }];
+  const C2 = Object.assign({}, CAT, { hip: { nom: 'Hip Thrust (Barre)' }, rowing_poulie: { nom: 'Rowing Poulie Assis' } });
+  const L = (routine, choix, cree, detail) => ({ user_id: 'u', semaine: SEM, routine_id: routine, choix, cree_le: cree, detail: detail || { jour: 2 } });
+  const T1 = '2026-10-15T08:00:00.000Z', T2 = '2026-10-15T09:00:00.000Z';
+  const lire = (lignes, extra) => D.choixDeLaSemaine(Object.assign({ lignes, jour: '2026-10-16', routines: ROUTINES, catalogue: C2, seances: [], enCours: null }, extra || {}));
+  const AJOUTS = [{ routine: 'bas-b', jour: 5, slug: 'rowing_poulie', series: 2, depuis: 'mardi', exercice: {} },
+                  { routine: 'bas-b', jour: 6, slug: 'rowing_poulie', series: 2, depuis: 'mardi', exercice: {} }];
+
+  test('etatDepuisLignes : une ligne annule plus récente sur la même clé efface planning et ajouts ; seule elle : la question revient', () => {
+    const avant = [L('haut-b', 'repartir', T1, { jour: 2, ajouts: AJOUTS }), L('pull', 'repartir', T1, { jour: 3 })];
+    expect(D.etatDepuisLignes(avant, '2026-10-16').ajouts.length).toBe(2);
+    const apres = avant.concat([L('haut-b', 'annule', T2, { jour: 2, avant: 'repartir' }), L('pull', 'annule', T2, { jour: 3, avant: 'repartir' })]);
+    const e = D.etatDepuisLignes(apres, '2026-10-16');
+    expect(e.ajouts).toEqual([]);
+    expect(e.planning).toBeNull();
+    expect(e.questions).toEqual({});
+    const seule = D.etatDepuisLignes([L('haut-b', 'annule', T2, { jour: 2, avant: 'repartir' })], '2026-10-16');
+    expect(seule.questions).toEqual({});
+    expect(seule.ajouts).toEqual([]);
+  });
+
+  test('choixDeLaSemaine : les phrases exactes des cinq choix', () => {
+    const rep = lire([L('haut-b', 'repartir', T1, { jour: 2, ajouts: AJOUTS })])[0];
+    expect(rep.phrase).toBe('Haut B réparti : vendredi et samedi.');
+    expect(rep.ajouts).toEqual([{ jourNom: 'vendredi', nom: 'Rowing Poulie Assis', series: 2 }, { jourNom: 'samedi', nom: 'Rowing Poulie Assis', series: 2 }]);
+    expect(lire([L('haut-b', 'ajouter', T1, { jour: 2, ajouts: [{ routine: 'bas-b', jour: 6, slug: 'hip', series: 3, depuis: 'mardi', exercice: {} }] })])[0].phrase)
+      .toBe('Haut B : hip thrust ajouté samedi.');
+    expect(lire([L('haut-b', 'decaler', T1, { jour: 2, planning: [{ routine: 'haut-b', jour: 3 }, { routine: 'pull', jour: 4 }] }), L('pull', 'decaler', T1, { jour: 3 })])[0].phrase)
+      .toBe('Haut B passée à mercredi ; la suite se décale.');
+    expect(lire([L('haut-b', 'garder', T1)])[0].phrase).toBe('Haut B n’a pas eu lieu : semaine gardée comme prévue.');
+    expect(lire([L('haut-b', 'non', T1)])[0].phrase).toBe('Haut B : rien d’ajouté.');
+  });
+
+  test('un geste = un fait (une ligne par clé, groupées) ; la ligne annulée n’en fait plus ; une autre semaine : rien', () => {
+    const lignes = [L('haut-b', 'garder', T1), L('pull', 'garder', T1, { jour: 3 }), L('bas-b', 'non', T2, { jour: 4 })];
+    expect(lire(lignes).map((f) => [f.choix, f.lignes.length])).toEqual([['garder', 2], ['non', 1]]);
+    expect(lire(lignes.concat([L('bas-b', 'annule', '2026-10-15T10:00:00.000Z', { jour: 4, avant: 'non' })])).map((f) => f.choix)).toEqual(['garder']);
+    expect(lire(lignes, { jour: '2026-10-23' })).toEqual([]);
+  });
+
+  test('annulable : faux dès qu’une séance portée commence après le choix, vrai si elle est antérieure ; « Garder » : n’importe quelle séance ; en cours : non', () => {
+    const rep = [L('haut-b', 'repartir', T1, { jour: 2, ajouts: AJOUTS })];
+    expect(lire(rep)[0].annulable).toBe(true);
+    expect(lire(rep, { seances: [{ debut: '2026-10-15T07:00:00.000Z', routine_id: 'bas-b' }] })[0].annulable).toBe(true);        // avant le choix
+    expect(lire(rep, { seances: [{ debut: '2026-10-16T18:00:00.000Z', routine_id: 'bas-b' }] })[0].annulable).toBe(false);       // une routine portée
+    expect(lire(rep, { seances: [{ debut: '2026-10-16T18:00:00.000Z', routine_id: 'pull' }] })[0].annulable).toBe(true);          // une autre routine
+    expect(lire(rep, { enCours: 'bas-b' })[0].annulable).toBe(false);
+    const garder = [L('haut-b', 'garder', T1)];
+    expect(lire(garder, { seances: [{ debut: '2026-10-16T18:00:00.000Z', routine_id: 'pull' }] })[0].annulable).toBe(false);
+    expect(lire(garder, { enCours: 'pull' })[0].annulable).toBe(false);
+  });
+
+  test('lignesDAnnulation garde semaine, routine_id, detail.jour et dit le choix d’avant', () => {
+    const l = D.lignesDAnnulation([L('haut-b', 'repartir', T1, { jour: 2, ajouts: AJOUTS }), L('pull', 'repartir', T1, { jour: 3 })], T2);
+    expect(l).toEqual([{ user_id: 'u', semaine: SEM, routine_id: 'haut-b', choix: 'annule', detail: { jour: 2, avant: 'repartir' }, cree_le: T2 },
+                       { user_id: 'u', semaine: SEM, routine_id: 'pull', choix: 'annule', detail: { jour: 3, avant: 'repartir' }, cree_le: T2 }]);
   });
 });

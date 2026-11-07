@@ -10625,7 +10625,7 @@
   // de la charge (le palier, le test, le cran : rien ne change pour elle) ; les reculs la SUIVENT, sans règle de charge à eux.
   //   charge d'un recul = la charge de la grosse série DU JOUR − un écart, arrondie au cran le PLUS PROCHE du matériel, vers le BAS
   //   en cas d'égalité (150 × 0,925 = 138,75 → 137,5, pas 140), jamais au niveau de la grosse (le cran de départ est celui d'en dessous).
-  //   écart : 10 % au départ (convention des coachs : RTS, powerbuilding, 10 à 15 % ; en powerlifting, les séries qui suivent un single
+  //   écart : au départ, la table des reps (266 : `ecartDeDepartDeRecul`) ; 10 % sans reps connues (convention des coachs : RTS, powerbuilding, 10 à 15 % ; en powerlifting, les séries qui suivent un single
   //   se font vers 80 % de ce single — Androulakis-Korakakis 2021). Il se LIT sur la dernière séance de l'exercice qui avait des
   //   reculs : l'écart réel (1 − charge des reculs ÷ charge de la grosse), borné 5 % à 20 %, puis ± 2,5 points selon les reps —
   //   TOUS les reculs à la cible + 2 ou plus : il baisse ; UN recul sous la cible : il monte. Les chiffres 2,5 et 5-20 % sont une
@@ -10637,6 +10637,16 @@
   var RECUL_MARGE_REPS = 2;
   function bornerEcartDeRecul(v) {
     return Math.min(RECUL_ECART_MAX, Math.max(RECUL_ECART_MIN, Math.round(v * 1e6) / 1e6));
+  }
+  // 266 (MOTEUR §9.28, décision du 07/11/2026) — LE DÉPART DE L'ÉCART, SANS SÉANCE À RECULS : la table des reps (Tuchscherer, celle de 193-5)
+  // entre la grosse série (ses reps, sa marge) et un recul (ses reps, en gardant 2), au demi-point, borné 5 à 20 %. `null` quand une
+  // donnée manque ou sort de la table : le 10 % d'avant reste.
+  function ecartDeDepartDeRecul(grosseReps, marge, reps) {
+    var gr = nombre(grosseReps), m = nombre(marge), r = nombre(reps);
+    if (gr === null || r === null || gr < 1 || r < 1) return null;
+    var pG = pctDuMax(gr, m === null ? 0 : m), pR = pctDuMax(r, RECUL_MARGE_VISEE);
+    if (pG === null || pR === null) return null;
+    return bornerEcartDeRecul(Math.round((1 - pR / pG) * 200) / 200);
   }
   // Le cran sous P le plus proche de `cible`, VERS LE BAS à égalité (contrairement à `cranSousProcheDe`, qui garde le plus lourd :
   // il sert aux vagues de bord). Départ : le cran en dessous de P, donc jamais P ni plus lourd. `null` : rien de plus léger.
@@ -10654,7 +10664,7 @@
   // (`routine_id`) quand l'app les a, sinon celles d'aujourd'hui : une APPROXIMATION (la routine a pu changer entre-temps), dite
   // telle. Sans cible, l'écart réel est gardé tel quel. L'écart réel est arrondi au demi-point (135 ÷ 150 et 137,5 ÷ 152,5 sont « 10 % »).
   // Rend `{ ecart, depart, reel, sens, reps, cible }` ; `sens` : 'rapproche' | 'eloigne' | null.
-  function ecartDeRecul(precedent, cible) {
+  function ecartDeRecul(precedent, cible, depart) {
     var serie = (precedent && precedent.series) || [];
     var M = Modele();
     var grosse = null, reculs = [];
@@ -10665,7 +10675,7 @@
       else if (M.estTravail(x) && (grosse === null || kg > grosse)) grosse = kg;
     });
     if (grosse === null || !reculs.length) {
-      return { ecart: RECUL_ECART_DEPART, depart: true, reel: null, sens: null, reps: [], cible: null };
+      return { ecart: depart !== null && depart !== undefined ? depart : RECUL_ECART_DEPART, depart: true, deduit: depart != null, reel: null, sens: null, reps: [], cible: null };
     }
     var reel = bornerEcartDeRecul(Math.round((1 - reculs[0].charge / grosse) * 200) / 200);
     var c = nombre(cible);
@@ -10969,6 +10979,13 @@
     var t = 'Tes séries de recul suivent ta grosse série' + DEUX_POINTS + nombreFr(pctDeRecul(f.ecart), regle('recul.ecart')) + INSECABLE +
       '% en dessous de ' + enKg(f.grosse, regle('recul.grosse')) + ', arrondi au cran le plus proche de ton matériel, ' +
       enKg(f.charge, regle('recul')) + '. Elles comptent dans ton volume et tes records, jamais comme un test.';
+    if (f.depart === true) {
+      t += f.deduit === true
+        ? ' Premier écart, tiré de la table des reps' + DEUX_POINTS + 'ta grosse série à ' + nombreFr(f.grosseReps, regle('recul.reps')) + ' reps ' + gardantMarge(f.marge) +
+          ', tes reculs à ' + nombreFr(f.vise, regle('recul.reps')) + ' en gardant ' + nombreFr(RECUL_MARGE_VISEE, regle('recul.marge')) + ' ; jamais moins de ' +
+          nombreFr(5, regle('recul.depart')) + INSECABLE + '%.'
+        : ' Premier écart' + DEUX_POINTS + nombreFr(pctDeRecul(f.ecart), regle('recul.ecart')) + INSECABLE + '%, la convention des coachs.';
+    }
     if (f.sens && f.reps && f.reps.length) {
       t += ' La dernière fois, tes séries de recul ont fait ' + listeDeRecul(f.reps) + ' pour une cible de ' + nombreFr(f.cible, regle('recul.reps')) + '. ' +
         (f.sens === 'rapproche'
@@ -11685,6 +11702,8 @@
       { type: 'etude', auteur: 'Reynolds', annee: 2006, effectif: '70 personnes',
         texte: 'Reynolds 2006 (70 personnes, couché et presse) : le max se calcule le mieux depuis une série de 5 reps (environ 3 kg d’écart au couché) ; au-delà de 10 reps, on ne le calcule plus.' }
     ],
+    'recul.depart': { type: 'convention',
+      texte: 'Le plancher de 5 % sous la grosse série : la fatigue d’une grosse série que la table ne voit pas ; un choix de l’app, dans la fourchette des coachs (RTS : 5 à 10 %).' },
     'recul.correction': { type: 'convention',
       texte: 'Le pas de 2,5 % (corrigé par tes séries) : un choix de l’app.' },
     // La dernière série « Au max ».
@@ -12462,6 +12481,7 @@
     phraseReculAuMax: phraseReculAuMax,
     pourquoiReculAuMax: pourquoiReculAuMax,
     ecartDeRecul: ecartDeRecul,
+    ecartDeDepartDeRecul: ecartDeDepartDeRecul,
     cranLePlusProche: cranLePlusProche,
     phraseRecul: phraseRecul,
     puisRecul: puisRecul,
@@ -12469,6 +12489,7 @@
     phraseConstatReculs: phraseConstatReculs,
     phrasePremierPari: phrasePremierPari,
     RECUL_ECART_DEPART: RECUL_ECART_DEPART,
+    RECUL_ECART_MIN: RECUL_ECART_MIN,
     FENETRE_HABITUDE: FENETRE_HABITUDE,
     FENETRE_COUPLE: FENETRE_COUPLE,
     MAJORITE_COUPLE: MAJORITE_COUPLE,

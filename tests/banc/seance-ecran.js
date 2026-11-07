@@ -22116,7 +22116,7 @@ const SETS_IMPORTES = [
     await attendre(800);
     ok('[E69] l’écran à deux choix, sous « /profil/import »',
       (await visible())[0] === 'vue-import' && page.url().endsWith('/profil/import') &&
-      (await etat()).titre === 'Importer depuis Hevy' && (await compter('#import-hevy .imp-fichier')) === 1,
+      (await etat()).titre === 'Importer depuis Hevy ou Strong' && (await compter('#import-hevy .imp-fichier')) === 1,
       nbE([await visible(), page.url(), (await etat()).titre]));
     await coller(CAS.texte.source);
     const a1 = await etat();
@@ -22341,7 +22341,7 @@ const SETS_IMPORTES = [
     const e1 = await etat();
     base.reseau = true;
     ok('[E69] (e) hors réseau : « L’import demande une connexion. », aucun aperçu, rien ne part',
-      e1.erreur === 'L’import demande une connexion.' && e1.titre === 'Importer depuis Hevy' &&
+      e1.erreur === 'L’import demande une connexion.' && e1.titre === 'Importer depuis Hevy ou Strong' &&
       ecrituresDeSeances() === avantE && base.ecrituresAlias.length === aliasE, nbE(e1));
     // Un texte qui n'est pas de Hevy.
     await page.fill('#champ-texte-hevy', 'Bonjour\nceci n’est pas une séance');
@@ -22351,8 +22351,26 @@ const SETS_IMPORTES = [
       (await etat()).erreur === 'Je ne reconnais pas ce texte. Copie-le depuis Hevy : une séance → Partager → Copier.', nbE(await etat()));
     await page.setInputFiles('#fichier-hevy', { name: 'pesees.csv', mimeType: 'text/csv', buffer: Buffer.from('date,poids\n2026-01-01,80\n', 'utf8') });
     await jusqua(async () => !!(await etat()).erreur && /fichier/.test((await etat()).erreur), 3000);
-    ok('[E69] un fichier qui n’est pas un export de séances : « Ce fichier n’est pas un export de séances Hevy. »',
-      (await etat()).erreur === 'Ce fichier n’est pas un export de séances Hevy.', nbE(await etat()));
+    ok('[E69] un fichier qui n’est pas un export de séances : « Ce fichier n’est pas un export de séances Hevy ou Strong. »',
+      (await etat()).erreur === 'Ce fichier n’est pas un export de séances Hevy ou Strong.', nbE(await etat()));
+
+    // [E269] STRONG, le même écran : un type de série inconnu refuse le fichier (jamais deviné) ; l'ancien format
+    // demande l'unité UNE fois (« Kilos » / « Livres »), puis donne son aperçu.
+    const ENTETE_S = 'Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Reps,Distance,Seconds,Notes,Workout Notes,RPE';
+    const LIGNE_S = (ordre) => '2022-09-21 10:26:28,"Mercredi",38min,"Squat (Barbell)",' + ordre + ',100.0,5,0,0,,,';
+    await page.setInputFiles('#fichier-hevy', { name: 'strong.csv', mimeType: 'text/csv', buffer: Buffer.from(ENTETE_S + '\n' + LIGNE_S('1') + '\n' + LIGNE_S('W') + '\n', 'utf8') });
+    await jusqua(async () => /Strong contient/.test((await etat()).erreur || ''), 3000);
+    ok('[E269] Strong : un « Set Order » « W » refuse le fichier, valeur nommée, rien n’est deviné',
+      (await etat()).erreur === 'Ce fichier Strong contient des séries de type « W » que je ne sais pas lire : rien n’est importé.', nbE(await etat()));
+    await page.setInputFiles('#fichier-hevy', { name: 'strong.csv', mimeType: 'text/csv', buffer: Buffer.from(ENTETE_S + '\n' + LIGNE_S('1') + '\n' + LIGNE_S('2') + '\n', 'utf8') });
+    await jusqua(async () => (await compter('#import-hevy .imp-unite-kg')) === 1, 3000);
+    ok('[E269] Strong ancien format : l’écran demande « kg ou lb » avant tout, une seule question',
+      (await compter('#import-hevy .imp-unite-kg')) === 1 && (await compter('#import-hevy .imp-unite-lbs')) === 1 &&
+      /Kilos ou livres/.test(await page.textContent('#import-hevy')), nbE(await etat()));
+    await page.click('#import-hevy .imp-unite-kg');
+    await jusqua(async () => (await compter('#import-hevy .imp-seance')) === 1, 3000);
+    ok('[E269] Strong ancien format, après « Kilos » : l’aperçu (une séance, rien d’écrit avant « Importer »)',
+      (await compter('#import-hevy .imp-seance')) === 1 && /1 séance trouvée/.test(await page.textContent('#import-hevy')), nbE(await etat()));
 
     // LA REMISE EN ÉTAT, pour les sections suivantes.
     await cdp.send('Emulation.setTimezoneOverride', { timezoneId: '' }).catch(() => {});

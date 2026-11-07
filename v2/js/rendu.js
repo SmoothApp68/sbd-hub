@@ -9231,6 +9231,15 @@
       cible.appendChild(el('p', 'imp-aide imp-progression', vue.progression.texte));
       return cible;
     }
+    // 269 — Strong, ancien format : le poids n'a pas d'unité, on la demande (une question).
+    if (vue.etape === 'unite') {
+      cible.appendChild(el('h2', 'titre-vue', 'Importer depuis Hevy ou Strong'));
+      cible.appendChild(el('p', 'imp-ok', vue.questionUnite));
+      cible.appendChild(bouton('Kilos', 'principal imp-bouton imp-unite-kg', function () { vue.surChoisirUnite('kg'); }));
+      cible.appendChild(bouton('Livres', 'principal imp-bouton imp-unite-lbs', function () { vue.surChoisirUnite('lbs'); }));
+      cible.appendChild(bouton('Annuler', 'discret imp-bouton imp-annuler', vue.surAnnulerUnite));
+      return cible;
+    }
     if (vue.etape === 'fini') {
       cible.appendChild(el('h2', 'titre-vue', vue.fin.titre));
       if (vue.fin.connexion) cible.appendChild(el('p', 'imp-ok imp-erreur', vue.fin.connexion));
@@ -9302,7 +9311,7 @@
       return cible;
     }
     // Les deux choix.
-    cible.appendChild(el('h2', 'titre-vue', 'Importer depuis Hevy'));
+    cible.appendChild(el('h2', 'titre-vue', 'Importer depuis Hevy ou Strong'));
     if (vue.erreur) cible.appendChild(el('p', 'imp-ok imp-erreur', vue.erreur));
     var c1 = el('div', 'imp-choix');
     c1.appendChild(el('b', '', 'Coller des séances'));
@@ -9316,8 +9325,8 @@
     c1.appendChild(bouton('Lire le texte', 'principal imp-bouton imp-lire', function () { vue.surLireTexte(zone.value); }, !vue.occupe));
     cible.appendChild(c1);
     var c2 = el('div', 'imp-choix');
-    c2.appendChild(el('b', '', 'Choisir le fichier de Hevy'));
-    c2.appendChild(el('div', 'imp-aide', 'L\u2019export des séances (.csv), dans les paramètres de Hevy. Tout ton historique d\u2019un coup.'));
+    c2.appendChild(el('b', '', 'Choisir le fichier de Hevy ou de Strong'));
+    c2.appendChild(el('div', 'imp-aide', 'L\u2019export des séances (.csv), dans les paramètres de Hevy ou de Strong. Tout ton historique d\u2019un coup.'));
     c2.appendChild(bouton('Choisir le fichier', 'discret imp-bouton imp-fichier', vue.surChoisirFichier, !vue.occupe));
     cible.appendChild(c2);
     // 187 (A2) — depuis le questionnaire : on peut y revenir sans rien importer.

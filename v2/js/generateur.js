@@ -489,13 +489,13 @@
   // Le coach lit les jours de cardio réguliers de la personne dans ses séances (`faits.joursDeCardioReguliers` : rien n'est demandé). Le générateur
   // place le jour de jambes lourdes (un squat ou un soulevé en zone Lourd ou Mix) À DEUX JOURS AU MOINS d'un jour de cardio régulier — ni la
   // veille, ni le lendemain, ni le jour même. Convention de coachs (plans Hyrox, Tactical Barbell), dite comme telle ; la science (Schumann 2022)
-  // ne l'exige pas : elle dit seulement que l'explosivité baisse un peu si les deux sont à moins de 3 h d'écart.
+  // ne l'exige pas : elle dit seulement que l'explosivité baisse un peu, surtout si les deux sont dans la même séance.
   // Le programme ne connaît pas les jours de la semaine : sauf `entree.joursSeances` (lundi = 0), ses séances tombent sur les jours TYPES ci-dessous
   // (convention : réparties dans la semaine). Impossible de les écarter toutes : l'ordre reste, et le générateur le dit.
   var NOMS_DES_JOURS = racine.THModele.JOURS_DEPUIS_LUNDI;       // lundi = 0 (le formateur, une seule liste)
   var JOURS_TYPES = { 1: [0], 2: [0, 3], 3: [0, 2, 4], 4: [0, 1, 3, 4], 5: [0, 1, 2, 4, 5], 6: [0, 1, 2, 3, 4, 5] };
   var HYBRIDE_ECART_MIN = 2;
-  var HYBRIDE_SCIENCE = 'Courir ne te fait pas perdre de force : 43 études, ni force maximale ni muscle en moins quand on mélange les deux. Seule l\u2019explosivité baisse un peu si les deux sont à moins de 3 h d\u2019écart (Schumann 2022).';
+  var HYBRIDE_SCIENCE = 'Courir ne te fait pas perdre de force : 43 études, ni force maximale ni muscle en moins quand on mélange les deux. Seule l\u2019explosivité baisse un peu, surtout si les deux sont dans la même séance (Schumann 2022).';
   var HYBRIDE_CONVENTION = 'Éviter les jambes lourdes la veille et le lendemain d\u2019un cardio dur est une convention de coachs (plans Hyrox, Tactical Barbell), pas une règle prouvée.';
 
   function joursDeCardio(x) {

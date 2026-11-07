@@ -20,6 +20,7 @@ require('../../v2/js/modele.js');
 require('../../v2/js/semaine.js');
 require('../../v2/js/modele.js');
 require('../../v2/js/rendu.js');
+require('../../v2/js/tours.js');   // 261 : le superset s'affiche par tours
 const Modele = require('../../v2/js/modele.js');
 const Seance = require('../../v2/js/seance.js');
 const { progTravail } = require('./aide-routine-programmee.js');
@@ -91,9 +92,9 @@ describe('le badge de chauffe se lit sans être déchiffré', () => {
     s = Seance.changerType(s, 0, 0, 'echauffement');
     s = Seance.changerType(s, 1, 0, 'echauffement');
     const c = rendre(s);
-    // 233 — une carte par exercice : la chauffe de A, A1, puis la chauffe de B, B1.
-    expect(badges(c, 0)).toEqual(['A', 'A1', 'B', 'B1']);
-    expect(classesBadges(c, 0)).toEqual([true, false, true, false]);
+    // 261 — le bloc CHAUFFE (A, B) avant le tour 1 (A1, B1).
+    expect(badges(c, 0)).toEqual(['A', 'B', 'A1', 'B1']);
+    expect(classesBadges(c, 0)).toEqual([true, true, false, false]);
   });
 
   test('hors superset, il porte un « W » : aucune lettre à porter', () => {
@@ -117,7 +118,7 @@ describe('le badge de chauffe se lit sans être déchiffré', () => {
 // ══ 2. L'ESPACE ENTRE LES TOURS (§7 undecies.2) ════════════════════════════
 
 describe('les tours se séparent par un espace, sans texte ajouté', () => {
-  test('chaque tour ouvre sur une ligne marquée — jamais la première du bloc', () => {
+  test('261 — chaque tour est un BLOC à rail (CHAUFFE, TOUR 1, TOUR 2) : aucune ligne n’est marquée « début de tour »', () => {
     // A : 2 chauffes + 2 travail · B : 1 chauffe + 2 travail
     // → chauffe 1 (A,B) · chauffe 2 (A) · travail 1 (A,B) · travail 2 (A,B)
     let s = seanceDe([['dc', 4, 1], ['ec', 3, 1]]);
@@ -125,9 +126,10 @@ describe('les tours se séparent par un espace, sans texte ajouté', () => {
     s = Seance.changerType(s, 0, 1, 'echauffement');
     s = Seance.changerType(s, 1, 0, 'echauffement');
     const c = rendre(s);
-    // 233 — plus de tours en séance : rangé par exercice, aucune ligne n'ouvre un tour.
-    expect(badges(c, 0)).toEqual(['A', 'A', 'A1', 'A2', 'B', 'B1', 'B2']);
+    // 261 — le bloc CHAUFFE en tours entre exercices (A B · A), puis TOUR 1 (A1 B1) et TOUR 2 (A2 B2) : la séparation est le rail, plus l'espace.
+    expect(badges(c, 0)).toEqual(['A', 'B', 'A', 'A1', 'B1', 'A2', 'B2']);
     expect(debuts(c, 0)).toEqual([false, false, false, false, false, false, false]);
+    expect(Array.from(c.querySelectorAll('.tour .rail')).map((r) => r.textContent)).toEqual(['CHAUFFE', 'TOUR 1', 'TOUR 2']);
   });
 
   // ⚠️ ON LIT LES RANGÉES, PAS LE BLOC ENTIER : la tête annonce « tour 0/3 »,

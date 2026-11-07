@@ -22,6 +22,7 @@ require('../../v2/js/modele.js');
 require('../../v2/js/semaine.js');
 require('../../v2/js/modele.js');
 require('../../v2/js/rendu.js');
+require('../../v2/js/tours.js');   // 261 : le superset s'affiche par tours
 const Modele = require('../../v2/js/modele.js');
 const Seance = require('../../v2/js/seance.js');
 const { progTravail } = require('./aide-routine-programmee.js');
@@ -103,19 +104,20 @@ describe('l’entrelacement (§2.3)', () => {
   test('superset à 2 exercices, tours complets → A1, B1, A2, B2, A3, B3', () => {
     const c = rendre(seanceDe([['dc', 3, 1], ['ec', 3, 1]]));
     expect(c.querySelectorAll('.bloc-seance')).toHaveLength(1);
-    expect(etiquettes(c, 0)).toEqual(['A1', 'A2', 'A3', 'B1', 'B2', 'B3']);
+    // 261 — l'écran range par TOURS : A puis B dans chaque tour.
+    expect(etiquettes(c, 0)).toEqual(['A1', 'B1', 'A2', 'B2', 'A3', 'B3']);
   });
 
   test('superset à 3 exercices → A1, B1, C1, A2, B2, C2', () => {
     const c = rendre(seanceDe([['dc', 2, 1], ['ec', 2, 1], ['pd', 2, 1]]));
-    expect(etiquettes(c, 0)).toEqual(['A1', 'A2', 'B1', 'B2', 'C1', 'C2']);
+    expect(etiquettes(c, 0)).toEqual(['A1', 'B1', 'C1', 'A2', 'B2', 'C2']);
   });
 
   test('le nom de chaque exercice n’apparaît QU’UNE FOIS, dans la légende', () => {
     const c = rendre(seanceDe([['dc', 3, 1], ['ec', 3, 1]]));
     const bloc = c.querySelectorAll('.bloc-seance')[0];
     const noms = Array.from(bloc.querySelectorAll('.exo-seance')).map((n) => n.textContent);
-    expect(noms).toEqual(['ADéveloppé Couché (Barre)', 'BÉcarté Poulie']);
+    expect(noms).toEqual(['Développé Couché (Barre)', 'Écarté Poulie']);   // 261 : la forme colorée, plus la lettre
     expect(bloc.classList.contains('superset')).toBe(true);
   });
 
@@ -123,14 +125,14 @@ describe('l’entrelacement (§2.3)', () => {
   test('séries inégales : le tour 3 est A3, B3 — aucun C3 fantôme', () => {
     const c = rendre(seanceDe([['dc', 3, 1], ['ec', 3, 1], ['pd', 2, 1]]));
     expect(etiquettes(c, 0)).toEqual(
-      ['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'C1', 'C2']);
+      ['A1', 'B1', 'C1', 'A2', 'B2', 'C2', 'A3', 'B3']);
   });
 
   test('deux supersets distincts font deux blocs, chacun reparti à A', () => {
     const c = rendre(seanceDe([['dc', 2, 1], ['ec', 2, 1], ['pd', 2, 2], ['pl', 2, 2]]));
     expect(c.querySelectorAll('.bloc-seance')).toHaveLength(2);
-    expect(etiquettes(c, 0)).toEqual(['A1', 'A2', 'B1', 'B2']);
-    expect(etiquettes(c, 1)).toEqual(['A1', 'A2', 'B1', 'B2']);
+    expect(etiquettes(c, 0)).toEqual(['A1', 'B1', 'A2', 'B2']);
+    expect(etiquettes(c, 1)).toEqual(['A1', 'B1', 'A2', 'B2']);
   });
 });
 
@@ -146,7 +148,7 @@ describe('le bloc d’un seul exercice (§2.1)', () => {
 
   test('et il cohabite avec un superset sans lui emprunter ses lettres', () => {
     const c = rendre(seanceDe([['dc', 2, 1], ['ec', 2, 1], ['cu', 2, null]]));
-    expect(etiquettes(c, 0)).toEqual(['A1', 'A2', 'B1', 'B2']);
+    expect(etiquettes(c, 0)).toEqual(['A1', 'B1', 'A2', 'B2']);
     expect(etiquettes(c, 1)).toEqual(['1', '2']);
   });
 
@@ -173,7 +175,7 @@ describe('l’échauffement (§2.5)', () => {
     s = Seance.changerType(s, 2, 0, 'echauffement');
     const c = rendre(s);
     expect(etiquettes(c, 0)).toEqual(
-      ['A1', 'A2', 'B1', 'B2', 'C', 'C1', 'C2']);
+      ['C', 'A1', 'B1', 'C1', 'A2', 'B2', 'C2']);
   });
 
   // ⚠️ TEST RETOURNÉ AU CHANTIER 28, APRÈS ESSAI SUR DEVICE (§2.5 précisé).
@@ -224,19 +226,19 @@ describe('l’éclairage porte sur le tour (§2.6 et §2.7)', () => {
   const SUPERSET = [['dc', 3, 1], ['ec', 3, 1], ['pd', 2, 1]];
 
   // ⚠️ TEST 6 — L'AUTRE MOITIÉ DE LA CONFIGURATION DISCRIMINANTE.
-  test('valider A1 seul n’allume RIEN et n’avance pas le tour', () => {
+  test('valider A1 seul allume A1 seule (261 : la série faite, pas le tour) et n’avance pas le tour', () => {
     let s = valider(seanceDe(SUPERSET), 0, 0);
     const c = rendre(s);
-    expect(allumees(c, 0)).toEqual([false, false, false, false, false, false, false, false]);
+    expect(allumees(c, 0)).toEqual([true, false, false, false, false, false, false, false]);
     expect(Seance.tourAtteint(s, 1)).toBe(0);
   });
 
-  test('le tour complet allume TOUTES ses lignes d’un coup', () => {
+  test('chaque ligne est verte quand SA série est faite : le tour complet les allume toutes', () => {
     let s = seanceDe(SUPERSET);
     s = valider(s, 0, 0); s = valider(s, 1, 0); s = valider(s, 2, 0);
     const c = rendre(s);
-    // A1, B1, C1 allumées ; le reste éteint.
-    expect(allumees(c, 0)).toEqual([true, false, false, true, false, false, true, false]);
+    // A1, B1, C1 allumées (le tour 1, en tête) ; le reste éteint.
+    expect(allumees(c, 0)).toEqual([true, true, true, false, false, false, false, false]);
     expect(Seance.tourAtteint(s, 1)).toBe(1);
   });
 
@@ -270,15 +272,15 @@ describe('l’éclairage porte sur le tour (§2.6 et §2.7)', () => {
     expect(Seance.tourAtteint(s, 1)).toBe(1);
     s = devalider(s, 0, 0);
     expect(Seance.tourAtteint(s, 1)).toBe(1);
-    // L'ÉCLAIRAGE, lui, dit la vérité du moment : le tour n'est plus complet.
-    expect(allumees(rendre(s), 0)).toEqual([false, false, false, false]);
+    // L'ÉCLAIRAGE, lui, dit la vérité du moment : A1 n'est plus faite.
+    expect(allumees(rendre(s), 0)).toEqual([false, true, false, false]);
   });
 
   test('un trou ne fait pas sauter deux crans : le tour 2 fermé sans le 1 ne compte pas', () => {
     let s = seanceDe([['dc', 2, 1], ['ec', 2, 1]]);
     s = valider(s, 0, 1); s = valider(s, 1, 1);        // le tour 2, sans le 1
     expect(Seance.tourAtteint(s, 1)).toBe(0);
-    expect(allumees(rendre(s), 0)).toEqual([false, true, false, true]);
+    expect(allumees(rendre(s), 0)).toEqual([false, false, true, true]);
   });
 
   test('hors superset, l’éclairage dégénère en éclairage de ligne', () => {
@@ -307,15 +309,15 @@ describe('un superset peut mélanger les mesures (§3 ter)', () => {
     const c = rendre(seanceDe([['dc', 2, 1], ['pl', 2, 1]]));
     const grilles = Array.from(c.querySelectorAll('.bloc-seance')[0].querySelectorAll('.serie'))
       .map((r) => Array.from(r.classList).filter((x) => x.startsWith('g-'))[0]);
-    expect(grilles).toEqual(['g-charge_reps', 'g-charge_reps', 'g-temps', 'g-temps']);
+    expect(grilles).toEqual(['g-charge_reps', 'g-temps', 'g-charge_reps', 'g-temps']);   // 261 : par tours
   });
 
   test('et l’en-tête de colonnes se TAIT plutôt que de mentir sur la moitié des lignes', () => {
     const mixte = rendre(seanceDe([['dc', 2, 1], ['pl', 2, 1]]));
-    // 233 — une carte par exercice : chaque carte a SON en-tête, qui dit vrai pour ses seules lignes.
-    expect(mixte.querySelectorAll('.cols-seance')).toHaveLength(2);
+    // 261 — un seul en-tête pour les tours, qui se tait quand les mesures sont mélangées.
+    expect(mixte.querySelectorAll('.cols-seance')).toHaveLength(0);
     const homogene = rendre(seanceDe([['dc', 2, 1], ['ec', 2, 1]]));
-    expect(homogene.querySelectorAll('.cols-seance')).toHaveLength(2);
+    expect(homogene.querySelectorAll('.cols-seance')).toHaveLength(1);
   });
 
   test('le type de mesure est rappelé sous CHAQUE nom de la légende', () => {
@@ -331,7 +333,7 @@ describe('un superset peut mélanger les mesures (§3 ter)', () => {
     s = Seance.definirReposCible(s, 0, 120);
     const bloc = rendre(s).querySelectorAll('.bloc-seance')[0];
     expect(Array.from(bloc.querySelectorAll('.ajout-serie button')).map((b) => b.textContent))
-      .toEqual(['+ Série A', '+ Série B']);
+      .toEqual(['+ Série\u00a0· Développé Couché', '+ Série\u00a0· Écarté Poulie']);   // 261 : la forme et le nom court
     expect(Array.from(bloc.querySelectorAll('.repos-cible')).map((b) => b.textContent))
       .toEqual(['repos 2:00', 'repos —']);
     // 204 : plus de « + Note » : la note se pose depuis le « ⋯ » de l'exercice, et une note posée s'affiche sous son nom.

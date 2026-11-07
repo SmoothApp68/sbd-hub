@@ -22,6 +22,7 @@ require('../../v2/js/modele.js');
 require('../../v2/js/semaine.js');
 require('../../v2/js/modele.js');
 require('../../v2/js/rendu.js');
+require('../../v2/js/tours.js');   // 261 : le superset s'affiche par tours
 const Modele = require('../../v2/js/modele.js');
 const Seance = require('../../v2/js/seance.js');
 const { progTravail } = require('./aide-routine-programmee.js');
@@ -98,31 +99,33 @@ const allumees = (cible, iBloc) =>
     .map((r) => r.classList.contains('faite'));
 
 
-// ══ 233 — DES CARTES À LA SUITE, JAMAIS ENTRELACÉES ════════════════════════
-describe('233 — le superset en séance : une carte par exercice', () => {
-  test('deux cartes à la suite, reliées par la barre (classe) et l’étiquette « Superset »', () => {
+// ══ 233 → 261 — LA SÉANCE EN COURS : DES TOURS, LA VALIDATION DANS N'IMPORTE QUEL ORDRE ═════════════
+describe('261 — le superset en séance : un bloc par tour (la carte par exercice de 233 est remplacée)', () => {
+  test('deux exercices : des TOURS (rail « TOUR n »), A puis B dans chacun, reliés par la barre et l’étiquette « Superset »', () => {
     const c = rendre(seanceDe([['dc', 3, 1], ['ec', 3, 1]]));
     const bloc = c.querySelector('.bloc-seance');
-    expect(bloc.classList.contains('en-cartes')).toBe(true);
+    expect(bloc.classList.contains('en-tours')).toBe(true);
     expect(bloc.querySelector('.superset-t').textContent).toMatch(/^Superset/);
-    const cartes = Array.from(bloc.querySelectorAll('.carte-ss'));
-    expect(cartes).toHaveLength(2);
-    // chaque carte garde SA légende (consigne, repos) et SES séries : A puis B, jamais A1 B1 A2 B2.
-    expect(cartes.map((k) => Array.from(k.querySelectorAll('.no-serie')).map((n) => n.textContent)))
-      .toEqual([['A1', 'A2', 'A3'], ['B1', 'B2', 'B3']]);
-    expect(cartes.every((k) => k.querySelectorAll('.legende-exo').length === 1)).toBe(true);
-    expect(cartes.map((k) => k.querySelector('.nom-exo').textContent))
+    expect(bloc.querySelectorAll('.carte-ss')).toHaveLength(0);
+    const tours = Array.from(bloc.querySelectorAll('.tour'));
+    expect(tours.map((t) => t.querySelector('.rail').textContent)).toEqual(['TOUR 1', 'TOUR 2', 'TOUR 3']);
+    expect(tours.map((t) => Array.from(t.querySelectorAll('.no-serie')).map((n) => n.textContent)))
+      .toEqual([['A1', 'B1'], ['A2', 'B2'], ['A3', 'B3']]);
+    // une légende par exercice, le nom écrit en entier ; sur chaque ligne le nom court et la forme de son exercice.
+    expect(Array.from(bloc.querySelectorAll('.legende-exo .nom-exo')).map((n) => n.textContent))
       .toEqual(['Développé Couché (Barre)', 'Écarté Poulie']);
+    expect(Array.from(tours[0].querySelectorAll('.nom-ligne')).map((n) => n.textContent)).toEqual(['Développé Couché', 'Écarté Poulie']);
+    expect(Array.from(tours[0].querySelectorAll('.nom-ligne .forme')).map((f) => f.className)).toEqual(['forme forme-rond', 'forme forme-carre']);
   });
 
-  test('un « + Série » par carte, et un en-tête de colonnes par carte', () => {
-    const c = rendre(seanceDe([['dc', 2, 1], ['pl', 2, 1]]));
-    const cartes = Array.from(c.querySelectorAll('.carte-ss'));
-    expect(cartes.map((k) => k.querySelectorAll('.ajout-serie button').length)).toEqual([1, 1]);
-    expect(cartes.map((k) => k.querySelectorAll('.cols-seance').length)).toEqual([1, 1]);
+  test('un « + Série · nom » par exercice, et un seul en-tête de colonnes pour les tours', () => {
+    const c = rendre(seanceDe([['dc', 2, 1], ['ec', 2, 1]]));
+    const bloc = c.querySelector('.bloc-seance');
+    expect(bloc.querySelectorAll('.ajout-serie button')).toHaveLength(2);
+    expect(bloc.querySelectorAll('.cols-seance')).toHaveLength(1);
   });
 
-  test('la validation se fait dans n’importe quel ordre : B avant A, le tour se compte quand même', () => {
+  test('la validation se fait dans n’importe quel ordre : B avant A, le tour se compte quand même, la ligne reste à sa place', () => {
     let s = seanceDe([['dc', 2, 1], ['ec', 2, 1]]);
     s = valider(s, 1, 0);                       // B1 d'abord
     expect(Seance.tourAtteint(s, 1)).toBe(0);
@@ -131,8 +134,10 @@ describe('233 — le superset en séance : une carte par exercice', () => {
     s = valider(s, 0, 1);                       // A2 sans B2 : le tour 2 n'est pas complet
     expect(Seance.tourAtteint(s, 1)).toBe(1);
     const c = rendre(s);
-    // l'éclairage porte sur le TOUR : A1 et B1 allumées, A2 seule non.
-    expect(allumees(c, 0)).toEqual([true, false, true, false]);
+    // 261 — une ligne est verte quand SA série est faite : A1, B1, A2 ; B2 reste vide, à sa place (tour 2).
+    expect(allumees(c, 0)).toEqual([true, true, true, false]);
+    const tour2 = c.querySelectorAll('.tour')[1];
+    expect(Array.from(tour2.querySelectorAll('.no-serie')).map((n) => n.textContent)).toEqual(['A2', 'B2']);
   });
 
   test('l’éditeur de routine garde l’enchaînement (option entrelacer), la séance non', () => {
@@ -142,10 +147,22 @@ describe('233 — le superset en séance : une carte par exercice', () => {
       .toEqual(['A1', 'B1', 'A2', 'B2']);
   });
 
-  test('même une fois la chronologie posée, la séance en cours ne s’entrelace pas', () => {
+  test('même une fois la chronologie posée, le MODÈLE de la séance en cours ne s’entrelace pas (l’écran range par tours, THTours)', () => {
     let s = seanceDe([['dc', 2, 1], ['ec', 2, 1]]);
     s = valider(s, 0, 0); s = valider(s, 1, 0);
     expect(Modele.blocsDeSeance(s, CATALOGUE)[0].chronologie).toBe(true);
     expect(Modele.blocsDeSeance(s, CATALOGUE)[0].series.map((x) => x.etiquette)).toEqual(['A1', 'A2', 'B1', 'B2']);
+  });
+
+  test('le mode programme (l’éditeur) ne dessine PAS de tours', () => {
+    const cible = document.createElement('div');
+    const s = seanceDe([['dc', 2, 1], ['ec', 2, 1]]);
+    Rendu().rendreBlocsSeance(cible, s, {
+      blocs: Modele.blocsDeSeance(s, CATALOGUE, { entrelacer: true }), programme: true,
+      tourAtteint: () => 0, exercice: (slug) => INDEX[slug], precedent: () => null, fantome: () => ({}),
+      surChamp: () => {}, surValider: () => {}, surNumero: () => {}, surEffort: () => {}, surAjoutSerie: () => {}, surSupprimerSerie: () => {}
+    });
+    expect(cible.querySelectorAll('.tour')).toHaveLength(0);
+    expect(cible.querySelectorAll('.en-tours')).toHaveLength(0);
   });
 });

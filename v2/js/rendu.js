@@ -3070,6 +3070,8 @@
     }
     function candidatDe(entree, immediat) {
       if (!entree || !entree.hasAttribute('data-iexo')) return null;
+      // 261 — dans les tours il n'y a plus de carte par exercice : l'ordre d'un superset se change par « Monter / Descendre » du « ⋯ ».
+      if (entree.classList.contains('en-tours-leg')) return null;
       var carte = entree.closest('.carte-ss') || entree.closest('.bloc-seance');
       if (!carte || carte.classList.contains('replie')) return null;
       var enSuperset = carte.classList.contains('carte-ss');
@@ -3410,23 +3412,53 @@
     // 233 — LE SUPERSET À LA HEVY : en séance, les exercices d'un même groupe ne s'entrelacent plus. Chacun a sa CARTE (sa
     // légende, ses colonnes, ses séries, son « + Série »), à la suite des autres, reliées par une barre de la teinte (CSS) ; la
     // validation se fait dans n'importe quel ordre. Les blocs arrivent déjà rangés par exercice (`Modele.blocsDeSeance`).
-    var cartes = bloc.superset && !vue.programme;
+    // 261 — LE SUPERSET PAR TOURS (maquette-superset-entrelace-v4, qui remplace la carte par exercice de 233) : un bloc par tour,
+    // « TOUR n » sur un rail à gauche ; A puis B dans le tour. L'ordre vient de `THTours.ordonner` (pur) ; ici on ne fait que
+    // poser. Une série garde sa place quand on en coche une autre ; chaque rangée reste branchée sur sa série (`_iExo`, `_iSerie`).
+    var tours = bloc.superset && !vue.programme;
     var carteDe = {};
-    if (cartes) {
-      noeud.classList.add('en-cartes');
-      var legendes = Array.prototype.slice.call(noeud.querySelectorAll('.legende-exo'));
-      bloc.exercices.forEach(function (x, i) {
-        var carte = el('div', 'carte-ss');
-        carte.setAttribute('data-iexo', String(x._iExo));
-        if (legendes[i]) { legendes[i].parentNode.removeChild(legendes[i]); carte.appendChild(legendes[i]); }
-        carte.appendChild(enTetesColonnes(gabarits[i], false, null,
-          bloc.series.some(function (q) { return q._iExo === x._iExo && q.faite; }), null));
-        carteDe[x._iExo] = carte;
-        noeud.appendChild(carte);
+    var hotesDeRangee = {};
+    var sequence = bloc.series;
+    var zoneTours = null;
+    if (tours) {
+      noeud.classList.add('en-tours');
+      sequence = [];
+      zoneTours = el('div', 'tours');
+      var ordre = racine.THTours.ordonner(bloc);
+      ordre.blocs.forEach(function (bt) {
+        var tour = el('div', 'tour tour-' + bt.genre);
+        tour.setAttribute('data-genre', bt.genre);
+        if (bt.genre === 'tour') tour.setAttribute('data-tour', String(bt.n));
+        var rail = el('div', 'rail', bt.genre === 'chauffe' ? 'CHAUFFE' : bt.genre === 'seul' ? 'SEUL' : 'TOUR ' + bt.n);
+        rail.setAttribute('aria-hidden', 'true');
+        tour.appendChild(rail);
+        var lignes = el('div', 'tour-lignes');
+        lignes.setAttribute('role', 'group');
+        lignes.setAttribute('aria-label', bt.genre === 'chauffe' ? 'Chauffe' : bt.genre === 'seul' ? 'Séries faites seul' : 'Tour ' + bt.n);
+        bt.lignes.forEach(function (sr) { hotesDeRangee[sr._iExo + ':' + sr._iSerie] = lignes; sequence.push(sr); });
+        tour.appendChild(lignes);
+        tour._lignes = lignes; tour._phrase = bt.genre === 'seul' ? 'Fait seul, à la suite.' : bt.phrase;
+        zoneTours.appendChild(tour);
       });
+      // Les cartes du coach d'un exercice (chauffes proposées, schéma, au max…) : AVANT les tours, une ligne de nom pour dire à qui
+      // elles parlent (elles étaient dans la carte de l'exercice).
+      carteDe = {};
     }
-    var hoteDe = function (s) { return cartes && carteDe[s._iExo] ? carteDe[s._iExo] : noeud; };
-    var memeGabarit = !cartes && gabaritsHomogenes(gabarits);
+    var cartesDe = function (iExo) {
+      if (!carteDe[iExo]) {
+        var c = el('div', 'cartes-exo');
+        var x = bloc.exercices.filter(function (e) { return e._iExo === iExo; })[0];
+        var idx = bloc.exercices.indexOf(x);
+        var t = el('div', 'cartes-exo-nom');
+        t.appendChild(el('span', 'forme forme-' + racine.THTours.formeDe(idx)));
+        t.appendChild(doc.createTextNode(x ? M().nomParle(x.nom) : ''));
+        c.appendChild(t);
+        carteDe[iExo] = c;
+      }
+      return carteDe[iExo];
+    };
+    var hoteDe = function (sr) { return tours ? hotesDeRangee[sr._iExo + ':' + sr._iSerie] || noeud : noeud; };
+    var memeGabarit = gabaritsHomogenes(gabarits);
     // §7 quindecies.3 (52-1) — dans l'éditeur, la colonne de charge dit ce
     // qu'elle est : « DÉPART » sur un exercice jamais fait, absente sinon. Des
     // exercices qui ne s'accordent pas là-dessus taisent l'en-tête, comme des
@@ -3438,9 +3470,17 @@
     if (memeGabarit && memeCharge) {
       // 204 — le repos d'un exercice seul, « ⏱ 3:00 », en tête de la colonne ✓ (réglable au toucher). Un superset garde un repos par branche.
       var xSeul = !vue.programme && !bloc.superset && typeof vue.surRepos === 'function' ? bloc.exercices[0] : null;
-      noeud.appendChild(enTetesColonnes(gabarits[0], vue.programme, charges && charges.length ? charges[0] : null,
+      var enTetes = enTetesColonnes(gabarits[0], vue.programme, charges && charges.length ? charges[0] : null,
         bloc.series.some(function (q) { return q.faite; }),
-        xSeul ? { secondes: xSeul.repos_cible_s, nom: xSeul.nom, sur: function () { vue.surRepos(xSeul._iExo); } } : null));
+        xSeul ? { secondes: xSeul.repos_cible_s, nom: xSeul.nom, sur: function () { vue.surRepos(xSeul._iExo); } } : null);
+      // 261 — dans les tours, une colonne de plus (le nom court de la ligne) : l'en-tête la tient, vide, pour que PRÉC., KG et
+      // REPS restent au-dessus de leurs cases.
+      if (tours) {
+        var ligneEnTete = enTetes.querySelector ? enTetes.querySelector('.cols-seance') : null;
+        if (!ligneEnTete && enTetes.classList && enTetes.classList.contains('cols-seance')) ligneEnTete = enTetes;
+        if (ligneEnTete) { ligneEnTete.classList.add('en-tours'); ligneEnTete.insertBefore(el('span', '', ''), ligneEnTete.children[1] || null); }
+        zoneTours.insertBefore(enTetes, zoneTours.firstChild);
+      } else noeud.appendChild(enTetes);
     }
 
     // §2.6 — l'éclairage porte sur le TOUR entier, pas sur une ligne isolée.
@@ -3449,8 +3489,10 @@
     var complets = M().toursComplets(bloc);
 
     var proposees = {};
-    bloc.series.forEach(function (s) {
+    sequence.forEach(function (s) {
       var hote = hoteDe(s);
+      // 261 — les cartes du coach d'un EXERCICE (pas d'une série) : dans les tours, au-dessus d'eux, sous le nom de l'exercice.
+      var hoteCartes = tours ? { appendChild: function (n) { return cartesDe(s._iExo).appendChild(n); } } : hote;
       // MOTEUR §9.15.2 (49-U10) — la proposition de chauffes, au-dessus de la
       // première série de l'exercice : une ligne à accepter, jamais des séries
       // insérées d'office.
@@ -3464,42 +3506,42 @@
         // §9.20 — la carte de reprise d'abord : elle ne se pose qu'après une
         // séance douloureuse, et c'est elle qui décide comment l'exercice reprend.
         var pr = typeof vue.propositionReprise === 'function' ? vue.propositionReprise(s._iExo) : null;
-        if (pr) hote.appendChild(propositionDeReprise(pr, s._iExo, vue));
+        if (pr) hoteCartes.appendChild(propositionDeReprise(pr, s._iExo, vue));
         var pl = typeof vue.propositionLest === 'function' ? vue.propositionLest(s._iExo) : null;
-        if (pl) hote.appendChild(propositionDeLest(pl, s._iExo, vue));
+        if (pl) hoteCartes.appendChild(propositionDeLest(pl, s._iExo, vue));
         // MOTEUR §9.17 bis (127) — la carte « marche suivante » : la place et le composant de la carte du lest (le
         // plan ne pose jamais les deux sur un exercice).
         var pm = typeof vue.propositionMarche === 'function' ? vue.propositionMarche(s._iExo) : null;
-        if (pm) hote.appendChild(propositionDeMarche(pm, s._iExo, vue));
+        if (pm) hoteCartes.appendChild(propositionDeMarche(pm, s._iExo, vue));
         var ps = typeof vue.propositionSchema === 'function' ? vue.propositionSchema(s._iExo) : null;
-        if (ps) hote.appendChild(propositionDeSchema(ps, s._iExo, vue));
+        if (ps) hoteCartes.appendChild(propositionDeSchema(ps, s._iExo, vue));
         var pc = typeof vue.propositionChauffes === 'function' ? vue.propositionChauffes(s._iExo) : null;
         // 200-5 — la chauffe se replie sur une ligne : « Chauffe · 4 séries › » ; « Ajouter » et « Non merci » à l'ouverture.
-        if (pc) hote.appendChild(ligneRepliee('lr-chauffes', 'Chauffe \u00b7 ' + pc.lignes.length + ' s\u00e9rie' + (pc.lignes.length > 1 ? 's' : '') + '\u00a0\u203a',
+        if (pc) hoteCartes.appendChild(ligneRepliee('lr-chauffes', 'Chauffe \u00b7 ' + pc.lignes.length + ' s\u00e9rie' + (pc.lignes.length > 1 ? 's' : '') + '\u00a0\u203a',
           propositionDeChauffes(pc, s._iExo, vue)));
         // 237 (MOTEUR §9.41) — les chauffes ajoutées d'elles-mêmes : une ligne du plan, un seul geste, « Annuler ».
         var pca = typeof vue.chauffesAuto === 'function' ? vue.chauffesAuto(s._iExo) : null;
-        if (pca) hote.appendChild(propositionDExercice({
+        if (pca) hoteCartes.appendChild(propositionDExercice({
           classe: 'proposition-chauffes chauffes-auto', texte: pca.texte,
           gestes: [{ texte: pca.annuler, classe: 'pc-annuler-auto', surClic: function () { vue.surAnnulerChauffesAuto(s._iExo); } }]
         }, s._iExo));
         // 237-bis (MOTEUR §9.41) — le silence annoncé : la phrase du moteur, « Annuler » (retire ce dernier refus).
         var psl = typeof vue.silenceChauffes === 'function' ? vue.silenceChauffes(s._iExo) : null;
-        if (psl) hote.appendChild(propositionDExercice({
+        if (psl) hoteCartes.appendChild(propositionDExercice({
           classe: 'proposition-chauffes chauffes-silence', texte: psl.texte,
           gestes: [{ texte: psl.annuler, classe: 'pc-annuler-silence', surClic: function () { vue.surAnnulerSilenceChauffes(s._iExo); } }]
         }, s._iExo));
         // 193-6 (MOTEUR §9.30) — « Dernière série au max ? » : une fois par exercice, du plan ; trois gestes.
         var pa = typeof vue.propositionAuMax === 'function' ? vue.propositionAuMax(s._iExo) : null;
-        if (pa) hote.appendChild(propositionDAuMax(pa, s._iExo, vue));
+        if (pa) hoteCartes.appendChild(propositionDAuMax(pa, s._iExo, vue));
         // 236 (MOTEUR §9.39) — « un cran dessous » (deux paris ratés de suite) et la forme du jour : deux cartes du plan, une fois chacune.
         var cp = typeof vue.carteParis === 'function' ? vue.carteParis(s._iExo) : null;
-        if (cp) hote.appendChild(carteDeRate(cp, 'rate-paris', s._iExo, function (cle) { vue.surParis(s._iExo, cle); }));
+        if (cp) hoteCartes.appendChild(carteDeRate(cp, 'rate-paris', s._iExo, function (cle) { vue.surParis(s._iExo, cle); }));
         var cf = typeof vue.carteForme === 'function' ? vue.carteForme(s._iExo) : null;
-        if (cf) hote.appendChild(carteDeRate(cf, 'rate-forme', s._iExo, function (cle) { vue.surForme(s._iExo, cle); }));
+        if (cf) hoteCartes.appendChild(carteDeRate(cf, 'rate-forme', s._iExo, function (cle) { vue.surForme(s._iExo, cle); }));
         // 193-4 (MOTEUR §9.32) — la semaine de test : la barre testée aujourd'hui, ou la note d'un accessoire.
         var pt = typeof vue.semaineDeTest === 'function' ? vue.semaineDeTest(s._iExo) : null;
-        if (pt) { var ct = carteDeTest(pt, s._iExo, vue); if (ct) hote.appendChild(ct); }
+        if (pt) { var ct = carteDeTest(pt, s._iExo, vue); if (ct) hoteCartes.appendChild(ct); }
       }
       // §9.14 (49-R2) — LA RÉACTION PARLE DANS LA GRILLE, au-dessus de la
       // ligne qu'elle concerne (ECRAN §3.2, maquette variante A). Une ligne de
@@ -3556,11 +3598,16 @@
       if (ef) hote.appendChild(effortViseDeSerie(ef));
     });
 
-    if (cartes) {
-      bloc.exercices.forEach(function (x) {
-        carteDe[x._iExo].appendChild(boutonsAjoutSerie({ exercices: [x] }, vue));
+    if (tours) {
+      // Les phrases des blocs (« Fait seul, à la suite. », « Couché seul : … ») : sous les lignes de leur bloc, une fois.
+      Array.prototype.forEach.call(zoneTours.childNodes, function (tour) {
+        if (tour._phrase) tour._lignes.appendChild(el('div', 'dit tour-phrase', tour._phrase));
       });
-    } else noeud.appendChild(boutonsAjoutSerie(bloc, vue));
+      // Les cartes du coach de chaque exercice, dans l'ordre de la routine, avant les colonnes et les tours.
+      bloc.exercices.forEach(function (x) { if (carteDe[x._iExo]) noeud.appendChild(carteDe[x._iExo]); });
+      noeud.appendChild(zoneTours);
+    }
+    noeud.appendChild(boutonsAjoutSerie(bloc, vue));
     return noeud;
   }
 
@@ -3607,8 +3654,9 @@
     // le nombre de tours que le bloc PRESCRIT.
     var n = bloc.superset && !vue.programme
       ? Math.min(vue.tourAtteint(bloc.groupe), bloc.nbTours) : 0;
+    // 261 — « Superset à 3 » : un triset se dit (une forme de plus à chercher), un superset à deux garde son mot.
     haut.appendChild(el('div', 'superset-t', bloc.superset
-      ? 'Superset' + (bloc.nbTours
+      ? 'Superset' + (bloc.exercices.length > 2 && !vue.programme ? ' à ' + bloc.exercices.length : '') + (bloc.nbTours
           ? (vue.programme
               ? ' · ' + bloc.nbTours + ' tour' + (bloc.nbTours > 1 ? 's' : '')
               : ' · tour ' + n + '/' + bloc.nbTours)
@@ -3649,10 +3697,14 @@
 
       var ligne = el('div', 'legende-haut');
       var nom = el('div', 'exo-seance');
+      // 261 — dans les tours, la légende de l'exercice porte SA FORME colorée (la même devant chaque ligne du tour) ; la lettre
+      // reste sur le badge des lignes.
+      var enToursL = bloc.superset && !vue.programme;
+      if (enToursL) { entree.classList.add('en-tours-leg'); nom.appendChild(el('span', 'forme forme-' + racine.THTours.formeDe(i))); }
       // La lettre n'existe QUE dans un superset (§2.3) : un bloc d'un seul
       // n'a rien à alterner, et l'étiqueter « A » était le défaut de la
       // première maquette.
-      if (x.lettre) nom.appendChild(el('span', 'lettre-exo', x.lettre));
+      if (x.lettre && !enToursL) nom.appendChild(el('span', 'lettre-exo', x.lettre));
       // §2.8 — UN TAP SUR LE NOM DONNE SA PAGE (§7 quater). Inerte depuis le
       // chantier 27 faute de page ; elle existe.
       //
@@ -3671,7 +3723,7 @@
       // 233 — LA POIGNÉE ⠿ (cible de 44 px) : la saisir fait glisser l'exercice entier ; l'appui long sur le nom fait de même.
       // Aucun geste ici (le glissement est branché sur le conteneur, `brancherDeplacementExercice`) : `aria-hidden`, le menu ⋯
       // (Monter / Descendre) est le chemin accessible.
-      if (!vue.programme && !enCoursDeSelection(vue) && typeof vue.surDeplacerExercice === 'function' && x._iExo !== undefined && x._iExo !== null) {
+      if (!vue.programme && !enToursL && !enCoursDeSelection(vue) && typeof vue.surDeplacerExercice === 'function' && x._iExo !== undefined && x._iExo !== null) {
         var pe = el('span', 'poignee-exo', '\u283f');
         pe.setAttribute('aria-hidden', 'true');
         ligne.appendChild(pe);
@@ -3864,8 +3916,59 @@
       if (vue.programme) entree.appendChild(reglagesExo(x, vue));
       else if (bloc.superset) entree.appendChild(reglagesExo(x, vue, true));
 
+      // 261 — LA LÉGENDE EN UNE LIGNE PAR EXERCICE : forme, nom, le chiffre du jour (un toucher = « Pourquoi ? »), « ⋯ ». Le chiffre
+      // est le héros de la consigne DÉPLACÉ (même nœud : sa charge se touche toujours pour les disques) ; l'exercice dont toutes les
+      // séries de travail sont faites dit « N séries faites » à la place.
+      if (enToursL && !enCoursDeSelection(vue)) {
+        var nTravailX = x.series.filter(function (q) { return q.estTravail; }).length;
+        var toutesFaites = nTravailX > 0 && x.series.every(function (q) { return !q.estTravail || q.faite; });
+        var heros = entree.querySelector('.consigne-heros');
+        var menuX = ligne.querySelector('.menu-pts');
+        if (toutesFaites) {
+          entree.classList.add('exo-fini');
+          ligne.insertBefore(el('span', 'exo-fini-t', nTravailX + ' série' + (nTravailX > 1 ? 's' : '') + ' faite' + (nTravailX > 1 ? 's' : '')), menuX);
+        } else if (heros) {
+          heros.classList.add('heros-leg');
+          if (vue.surPourquoi && x.slug) {
+            heros.setAttribute('role', 'button');
+            heros.tabIndex = 0;
+            heros.addEventListener('click', function () { vue.surPourquoi(x.slug); });
+          }
+          ligne.insertBefore(heros, menuX);
+        }
+      }
+
+      // 261 — TOUT LE RESTE DE LA LÉGENDE (la zone, la phrase grise et son « Pourquoi ? », le pari, la note, le repos de la branche…)
+      // se replie dans « Zones, repos et notes » : la légende des tours n'a qu'une ligne par exercice. Rien ne disparaît, le constat
+      // de fin de bloc reste visible.
+      if (enToursL && !enCoursDeSelection(vue)) {
+        var plus = el('div', 'legende-plus');
+        var enteteP = el('div', 'legende-plus-nom');
+        enteteP.appendChild(el('span', 'forme forme-' + racine.THTours.formeDe(i)));
+        enteteP.appendChild(doc.createTextNode(x.nom));
+        plus.appendChild(enteteP);
+        var puceP = nom.querySelector('.puce-zone');
+        if (puceP) plus.appendChild(puceP);
+        Array.prototype.slice.call(entree.childNodes).forEach(function (n) {
+          if (n === ligne || (n.classList && (n.classList.contains('constat') || n.classList.contains('constat-suite')))) return;
+          plus.appendChild(n);
+        });
+        entree.appendChild(plus);
+      }
+
       tete.appendChild(entree);
     });
+    if (bloc.superset && !vue.programme && !enCoursDeSelection(vue)) {
+      var bascule = el('button', 'legende-plus-bouton', 'Zones, repos et notes\u00a0\u203a');
+      bascule.type = 'button';
+      bascule.setAttribute('aria-expanded', 'false');
+      bascule.addEventListener('click', function () {
+        var ouvert = tete.classList.toggle('legende-ouverte');
+        bascule.setAttribute('aria-expanded', ouvert ? 'true' : 'false');
+        bascule.textContent = ouvert ? 'Replier\u00a0\u2039' : 'Zones, repos et notes\u00a0\u203a';
+      });
+      tete.appendChild(bascule);
+    }
     return tete;
   }
 
@@ -4740,7 +4843,9 @@
     // série qui n'en a pas — chauffe, dégressive, tentative manquée — s'allume
     // dès qu'elle est validée, pour elle seule.
     // En mode programme, rien n'est fait : aucune ligne ne s'allume, jamais.
-    var allumee = vue.programme ? false : (s.tour ? complets[s.tour] === true : !!s.faite);
+    // 261 — dans les TOURS, une ligne est verte quand SA série est faite (aucun fond de tour : « la coche suffit »).
+    var enTours = bloc.superset && !vue.programme;
+    var allumee = vue.programme ? false : (enTours ? !!s.faite : (s.tour ? complets[s.tour] === true : !!s.faite));
 
     // §7 undecies.2 — un espace et un filet plus clair entre les tours. Aucun
     // texte : `A1`, `B1`, `C1` disent déjà « tour 1 », et un libellé coûtait
@@ -4774,6 +4879,20 @@
     no.type = 'button';
     no.addEventListener('click', function () { vue.surNumero(iExo, iSerie); });
     rangee.appendChild(no);
+    // 261 — dans les tours, chaque ligne dit son exercice : la forme colorée (rond, carré, triangle) et le nom court ; une chauffe
+    // ou une baisse dit son TYPE à la place du nom (la lettre du badge et la forme disent quel exercice).
+    if (enTours) {
+      var iEx = 0;
+      (bloc.exercices || []).forEach(function (e, k) { if (e._iExo === iExo) iEx = k; });
+      var exL = (bloc.exercices || [])[iEx];
+      rangee.classList.add('en-tours');
+      rangee.setAttribute('data-ex', String(iEx));
+      var nl = el('div', 'nom-ligne' + (s.type_serie === 'echauffement' ? ' chauffe' : s.type_serie === 'degressive' ? ' degressive' : ''));
+      nl.appendChild(el('span', 'forme forme-' + racine.THTours.formeDe(iEx)));
+      var nomL = s.type_serie === 'echauffement' ? 'Chauffe' : s.type_serie === 'degressive' ? '\u2193 Dégressive' : M().nomParle(exL ? exL.nom : '');
+      nl.appendChild(el('span', 'nom-ligne-t', nomL));
+      rangee.appendChild(nl);
+    }
 
     // ⚠️ LE SECOND POINT DE RENDU (chantier 39). Le chantier 38 a corrigé le
     // FANTÔME ; la colonne, elle, alignait toujours par indice brut — et les deux
@@ -4942,8 +5061,14 @@
   // à voir avec en ajouter une à B, et un bouton unique ne saurait pas laquelle.
   function boutonsAjoutSerie(bloc, vue) {
     var ajout = el('div', 'ajout-serie');
-    bloc.exercices.forEach(function (x) {
-      var b = el('button', '', '+ Série' + (x.lettre ? ' ' + x.lettre : ''));
+    var enTours = bloc.superset && !vue.programme;
+    bloc.exercices.forEach(function (x, i) {
+      // 261 — dans les tours le bouton porte la forme colorée et le nom court (« + Série · Couché »), pas seulement la lettre.
+      var b = el('button', enTours ? 'ajout-tours' : '', enTours ? '' : '+ Série' + (x.lettre ? ' ' + x.lettre : ''));
+      if (enTours) {
+        b.appendChild(el('span', 'forme forme-' + racine.THTours.formeDe(i)));
+        b.appendChild(el('span', 'ajout-tours-t', '+ Série\u00a0· ' + M().nomParle(x.nom)));
+      }
       b.type = 'button';
       b.setAttribute('aria-label', 'Ajouter une série à ' + x.nom);
       b.addEventListener('click', function () { vue.surAjoutSerie(x._iExo); });

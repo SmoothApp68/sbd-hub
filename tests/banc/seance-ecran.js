@@ -5889,8 +5889,9 @@ const SETS_IMPORTES = [
       ['tr', 'Extension Triceps Poulie Haute (Câble)', 20, 10], ['ad', 'Adduction de Hanche (Machine)', 79, 20],
       ['ab', 'Abduction de Hanche (Machine)', 79, 20], ['el', 'Élévation Latérale (Poulie)', 10, 16],
       ['ti', 'Tirage Vers le Visage (Poulie)', 25, 18], ['ec', 'Écarté (Machine)', 100, 15]];
-    EXOS_261.forEach(([c, nom]) => CATALOGUE.push({ slug: c + '-261', nom, mesure: 'charge_reps', charge: 'externe',
-      muscles_primaires: ['pectoraux'], muscles_secondaires: [] }));
+    // Le cas 3 (curl, triceps) porte son matériel : sans lui, le coach ne calcule aucune dégressive, et la phrase de 259 ne naît pas.
+    EXOS_261.forEach(([c, nom]) => CATALOGUE.push(Object.assign({ slug: c + '-261', nom, mesure: 'charge_reps', charge: 'externe',
+      muscles_primaires: ['pectoraux'], muscles_secondaires: [] }, c === 'cu' ? { equipement: 'machine' } : c === 'tr' ? { equipement: 'poulie' } : {})));
     // Un passé : de quoi remplir la colonne PRÉC.
     const debut261 = ilYa(7 * 86400000, Date.now()).toISOString();
     base.sessions.push({ id: 's261-h', user_id: 'u-banc', titre: 'Passé 261', debut: debut261, fin: finDe(debut261, Date.now()).toISOString(),
@@ -5967,6 +5968,14 @@ const SETS_IMPORTES = [
       lire261(t3) === 'T1:A1 B1 | T2:A2 B2 | T3:A3 A B3 B', lire261(t3));
     ok('cas 3 — la ligne de baisse dit « ↓ Dégressive » à la place du nom', JSON.stringify(t3[2].lignes.map((l) => l.nom)) === JSON.stringify(['Curl Biceps', '↓ Dégressive', 'Extension Triceps Poulie Haute', '↓ Dégressive']).replace(/ /g, ' ') ||
       JSON.stringify(t3[2].lignes.map((l) => l.nom.replace(/ /g, ' '))) === JSON.stringify(['Curl Biceps', '↓ Dégressive', 'Extension Triceps Poulie Haute', '↓ Dégressive']), JSON.stringify(t3[2].lignes.map((l) => l.nom)));
+    // 259 dans les tours — la dégressive annoncée en mots sur la série d'AVANT de SON exercice (A2 et B2, tour 2), jamais ailleurs.
+    const annonces261 = await page.evaluate(() => Array.from(document.querySelectorAll('.bloc-seance.superset .reaction-serie.avant_degressive'))
+      .map((n) => { const r = n.nextElementSibling && n.nextElementSibling.querySelector('.serie');
+        return { t: n.textContent.replace(/\s+/g, ' ').trim(), tour: (n.closest('[data-tour]') || { dataset: {} }).dataset.tour || null,
+          sous: r ? r.dataset.iexo + ':' + r.dataset.iserie : null }; }));
+    ok('cas 3 — 259 DANS LES TOURS : chaque exercice annonce sa dégressive en mots, au tour 3, au-dessus de SA dernière série de travail (A3, B3)',
+      annonces261.length === 2 && annonces261.every((a) => a.tour === '3' && /^Dernière série : \d+ reps, puis baisse à [\d,]+ kg et continue\.$/.test(a.t)) &&
+      annonces261.map((a) => a.sous).join() === '0:2,1:2', JSON.stringify(annonces261));
     await capturer261('cas3-degressive');
     await finir261();
     // ── cas 4 : commencé seul ──

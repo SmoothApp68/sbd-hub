@@ -1488,7 +1488,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .cartes-exo{margin:0 0 var(--e2)}
 .cartes-exo-nom{display:flex;align-items:center;gap:8px;font:600 14px var(--pile-c);color:var(--texte-2);padding:2px 0 4px}
 .tours{border-top:1px solid var(--trait)}
-.tour{display:grid;grid-template-columns:20px minmax(0,1fr);min-height:68px;border-top:1px solid var(--reflet-haut)}
+.tour{display:grid;grid-template-columns:20px minmax(0,1fr);min-height:68px;border-top:1px solid var(--trait-case)}
 .tour:first-child,.tours > .cols-seance + .tour{border-top:0}
 .rail{display:flex;align-items:center;justify-content:center;background:var(--rail-fond);writing-mode:vertical-rl;transform:rotate(180deg);
   font:800 12px var(--pile-c);letter-spacing:.08em;color:var(--texte-3);white-space:nowrap;user-select:none}

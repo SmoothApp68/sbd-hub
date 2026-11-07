@@ -1088,7 +1088,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
    sélecteur, et la saisie gagnait parce qu'elle est écrite plus bas. */
 .cols-seance,
 .serie.grille{display:grid;gap:5px}
-.g-charge_reps{grid-template-columns:30px 58px 1fr 44px 44px 44px}  /* 260-a : 44 px de toucher partout ; 67 px pour les kg à 360 px */
+.g-charge_reps{grid-template-columns:30px 58px 1fr 44px 44px 44px;column-gap:8px}  /* 260-a : 44 px de toucher partout ; 260-f : écart de 8 px (10 avant) pour garder 76 px aux kg à 360 px (≥ 70) */
 .g-reps{grid-template-columns:30px 62px 1fr 44px 44px}              /* 260-a : 112 px */
 .g-temps{grid-template-columns:30px 62px 1fr 44px}                  /* 260-a : 169 px, pas d'effort */
 .g-distance_temps{grid-template-columns:30px 66px 1fr 1fr 44px}     /* 260-a : 80 px chacune */
@@ -2883,7 +2883,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
    (la case de l'élastique à la place de la charge, puis les reps) ; la case porte la pastille et le nom, en gris quand
    c'est le coach qui le propose (validé tel quel), « choisir » quand rien n'est proposé. La feuille de choix reprend les
    rangées de Ma salle ; le choisi en ambre, coché. */
-.g-elastique{grid-template-columns:30px 58px 1fr 44px 44px 44px}
+.g-elastique{grid-template-columns:30px 58px 1fr 44px 44px 44px;column-gap:8px}
 .el-case{display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;padding:0 6px;
   border:1.5px solid var(--trait);background:var(--panneau-2);color:var(--texte);font:inherit;font-size:14.5px}
 .el-case .el-case-nom{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}

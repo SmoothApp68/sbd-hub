@@ -35,7 +35,7 @@ describe('260-a — cibles de toucher à 44 px', () => {
     ['.no-serie', '.ch-serie,.rp-serie', '.eff-serie', '.ok-serie'].forEach((sel) => expect(regle(sel)).toMatch(/height:44px/));
     expect(regle('.ajout-serie button')).toMatch(/height:44px/);
     expect(regle('.principal')).toMatch(/height:44px/);
-    expect(css).toMatch(/\.g-charge_reps\{grid-template-columns:30px 58px 1fr 44px 44px 44px\}/);
+    expect(css).toMatch(/\.g-charge_reps\{grid-template-columns:30px 58px 1fr 44px 44px 44px;column-gap:8px\}/);
   });
   test('les points de la courbe : un disque de toucher d\'au moins 44 px une fois la courbe à 360 px', () => {
     const r = Number((rendu.match(/'courbe-cible', \{ cx: p\.x, cy: p\.y, r: (\d+)/) || [])[1]);

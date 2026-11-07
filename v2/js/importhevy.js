@@ -227,7 +227,9 @@
   // Le découpage d'un CSV (RFC 4180, comme le module `csv` de Python) :
   // guillemets doublés, virgules et sauts de ligne dans un champ entre
   // guillemets ; une ligne entièrement vide est sautée.
-  function lignesCsv(texte) {
+  // 269 — `sep` : « , » (Hevy, ancien Strong) ou « ; » (nouveau Strong).
+  function lignesCsv(texte, sep) {
+    sep = sep || ',';
     var lignes = [], ligne = [], champ = '', dans = false, i = 0, n = texte.length;
     var finChamp = function () { ligne.push(champ); champ = ''; };
     var finLigne = function () {
@@ -245,7 +247,7 @@
         champ += c; i++; continue;
       }
       if (c === '"' && champ === '') { dans = true; i++; continue; }
-      if (c === ',') { finChamp(); i++; continue; }
+      if (c === sep) { finChamp(); i++; continue; }
       if (c === '\r') { finLigne(); i += texte[i + 1] === '\n' ? 2 : 1; continue; }
       if (c === '\n') { finLigne(); i++; continue; }
       champ += c; i++;
@@ -341,6 +343,136 @@
         if (e.groupe_superset !== null && Object.keys(noms[e.groupe_superset]).length < 2) e.groupe_superset = null;
       });
     });
+    return seances;
+  }
+
+  // ══ 269 — STRONG, SECOND LECTEUR (à côté de Hevy) ══════════════════════════════════════════════════════════════
+  //
+  // Deux exports CSV, relevés le 07/11/2026 sur des exports publics :
+  //   · ANCIEN : virgule ; `Date,Workout Name,Duration,Exercise Name,Set Order,Weight,Reps,Distance,Seconds,Notes,
+  //     Workout Notes,RPE` (Notes, Workout Notes, RPE parfois absents) ; « 2022-09-21 10:26:28 » ; Duration « 38min »,
+  //     « 2h 38m », « 35m » ; le poids n'a PAS d'unité : l'écran la DEMANDE (`opts.unite`), une fois.
+  //   · NOUVEAU : point-virgule, guillemets ; `Workout #;Date;Workout Name;Duration (sec);Exercise Name;Set Order;
+  //     Weight (kg);Reps;RPE;Distance (meters);Seconds;Notes;Workout Notes` ; l'unité est dans l'en-tête (kg ou lbs).
+  // Même forme de séance que Hevy (même aperçu, même anti-doublon, même table de noms : `indexDesNoms`, rien de copié).
+  //
+  // ⚠️ CE QUI N'EST JAMAIS DEVINÉ :
+  //   · un « Set Order » non numérique (« W », « D », « F »…) : le type de série est inconnu, comme un `set_type` inconnu
+  //     chez Hevy → le fichier est refusé EN ENTIER, avec la valeur nommée (`typeInconnu`) ;
+  //   · l'unité du poids de l'ancien format : demandée (`uniteRequise`) ;
+  //   · la distance de l'ancien format (sans unité) : non importée, la série l'est ;
+  //   · un nom d'exercice : à rattacher, comme Hevy.
+  var COLONNES_STRONG = ['Date', 'Workout Name', 'Exercise Name', 'Set Order'];
+  var RE_DATE_STRONG = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})(?::\d{2})?$/;
+
+  function enteteStrong(texte) {
+    var brut = String(texte || '').replace(/^﻿/, '');
+    var fin = brut.search(/\r|\n/);
+    var l = fin < 0 ? brut : brut.slice(0, fin);
+    var sep = l.indexOf(';') >= 0 ? ';' : ',';
+    var cols = lignesCsv(l, sep)[0] || [];
+    return { sep: sep, cols: cols.map(function (c) { return String(c).trim(); }) };
+  }
+
+  // Quel export est-ce ? { format: 'hevy' | 'strong-ancien' | 'strong-nouveau' | null, unite: 'kg' | 'lbs' | null }.
+  // `unite` n'est connue que du nouveau format (l'en-tête la porte). Rien n'est lu au-delà de la première ligne.
+  function formatDuCsv(texte) {
+    var e = enteteStrong(texte), c = e.cols;
+    var a = function (n) { return c.indexOf(n) >= 0; };
+    if (a('start_time') && a('exercise_title')) return { format: 'hevy', unite: null };
+    var colPoids = null;
+    c.forEach(function (n) { if (/^weight\s*\(/i.test(n)) colPoids = n; });
+    if (colPoids && a('Workout #') && COLONNES_STRONG.every(a)) {
+      var u = /\(\s*(kg|lbs?)\s*\)/i.exec(colPoids);
+      return { format: 'strong-nouveau', unite: u ? (u[1].toLowerCase() === 'kg' ? 'kg' : 'lbs') : null };
+    }
+    if (a('Weight') && a('Reps') && COLONNES_STRONG.every(a)) return { format: 'strong-ancien', unite: null };
+    return { format: null, unite: null };
+  }
+
+  // « 38min », « 2h 38m », « 35m », « 2h » → secondes ; illisible ou 0 → null (une durée n'est jamais devinée).
+  function dureeStrongAncien(s) {
+    var m = /^(?:(\d+)\s*h)?\s*(?:(\d+)\s*(?:min|m))?$/i.exec(String(s || '').trim());
+    if (!m) return null;
+    var t = Number(m[1] || 0) * 3600 + Number(m[2] || 0) * 60;
+    return t || null;
+  }
+
+  // « 2026-11-07T10:20 » + n secondes → idem (heure locale du mur, comme Hevy).
+  function ajouterSecondes(local, sec) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(local);
+    var d = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) + Math.round(sec / 60) * 60000);
+    return d.getUTCFullYear() + '-' + deux(d.getUTCMonth() + 1) + '-' + deux(d.getUTCDate()) + 'T' +
+      deux(d.getUTCHours()) + ':' + deux(d.getUTCMinutes());
+  }
+
+  function lireStrong(texte, opts) {
+    var f = formatDuCsv(texte);
+    if (f.format !== 'strong-ancien' && f.format !== 'strong-nouveau') throw erreurExport('pas un export Strong');
+    var nouveau = f.format === 'strong-nouveau';
+    var unite = nouveau ? f.unite : (opts && opts.unite) || null;
+    if (unite !== 'kg' && unite !== 'lbs') {
+      var e0 = erreurExport('unité du poids à demander');
+      e0.uniteRequise = true;
+      throw e0;
+    }
+    var en = enteteStrong(texte), cols = en.cols;
+    var brutes = lignesCsv(String(texte || '').replace(/^﻿/, ''), en.sep);
+    var colPoids = nouveau ? cols.filter(function (n) { return /^weight\s*\(/i.test(n); })[0] : 'Weight';
+    ['Reps', colPoids].forEach(function (n) { if (cols.indexOf(n) < 0) throw erreurExport('colonne absente : ' + n); });
+    var seances = [], index = {};
+    brutes.slice(1).forEach(function (valeurs) {
+      var x = {};
+      cols.forEach(function (c, k) { x[c] = k < valeurs.length ? valeurs[k] : null; });
+      var ordre = vide(x['Set Order']);
+      if (ordre === null || !/^\d+$/.test(ordre)) {
+        var e1 = erreurExport('type de série inconnu : ' + ordre);
+        e1.typeInconnu = ordre === null ? '' : ordre;
+        throw e1;
+      }
+      var d = RE_DATE_STRONG.exec(String(x.Date || '').trim());
+      if (!d) throw erreurExport('date illisible : ' + x.Date);
+      var local = d[1] + '-' + d[2] + '-' + d[3] + 'T' + deux(Number(d[4])) + ':' + d[5];
+      var cleS = JSON.stringify([nouveau ? x['Workout #'] : null, local, x['Workout Name']]);
+      if (!Object.prototype.hasOwnProperty.call(index, cleS)) {
+        var sec = nouveau ? vide(x['Duration (sec)']) : null;
+        var dureeS = nouveau ? (sec && nombreLu(sec) > 0 ? Math.trunc(nombreLu(sec)) : null) : dureeStrongAncien(x.Duration);
+        var s0 = {
+          titre: String(x['Workout Name'] === null ? '' : x['Workout Name']).trim(),
+          debut_local: local,
+          fin_local: dureeS ? ajouterSecondes(local, dureeS) : null,
+          note: vide(x['Workout Notes']), ref: 'strong:' + local + ':00', exercices: []
+        };
+        index[cleS] = s0; seances.push(s0);
+      }
+      var s = index[cleS];
+      var exo = s.exercices.length ? s.exercices[s.exercices.length - 1] : null;
+      var rang = Number(ordre);
+      if (exo === null || exo.nom !== x['Exercise Name'] || rang <= exo.dernierRang) {
+        exo = { nom: x['Exercise Name'], note: null, groupe_superset: null, series: [], dernierRang: 0 };
+        s.exercices.push(exo);
+      }
+      exo.dernierRang = rang;
+      var note = vide(x.Notes);
+      if (note !== null && exo.note === null) exo.note = note;
+      var kg = vide(x[colPoids]);
+      kg = kg === null ? null : nombreLu(kg);
+      if (kg !== null && unite === 'lbs') kg = dixieme(kg * LIVRE);
+      var reps = vide(x.Reps);
+      reps = reps === null ? null : nombreLu(reps);
+      if (reps !== null && Math.floor(reps) !== reps) throw erreurExport('répétitions illisibles : ' + x.Reps);
+      var dist = nouveau ? vide(x['Distance (meters)']) : null;   // ancien : sans unité, jamais devinée
+      var dur = vide(x.Seconds), rpe = vide(x.RPE);
+      exo.series.push({
+        type_serie: 'travail',
+        charge_kg: kg ? nombre(kg) : null,   // 0 = sans charge, comme un poids vide chez Hevy
+        reps: reps ? reps : null,
+        duree_s: dur && nombreLu(dur) > 0 ? Math.trunc(nombreLu(dur)) : null,
+        distance_m: dist && nombreLu(dist) > 0 ? nombre(dist) : null,
+        rpe: rpe && nombreLu(rpe) > 0 ? nombre(rpe) : null
+      });
+    });
+    seances.forEach(function (s) { s.exercices.forEach(function (e) { delete e.dernierRang; }); });
     return seances;
   }
 
@@ -843,7 +975,10 @@
 
   var MESSAGES = {
     texte: 'Je ne reconnais pas ce texte. Copie-le depuis Hevy : une séance → Partager → Copier.',
-    fichier: 'Ce fichier n’est pas un export de séances Hevy.',
+    fichier: 'Ce fichier n’est pas un export de séances Hevy ou Strong.',
+    // 269 — Strong : un type de série que rien ne dit n'est jamais deviné ; l'unité de l'ancien format se demande.
+    strongType: function (v) { return 'Ce fichier Strong contient des séries de type « ' + v + ' » que je ne sais pas lire : rien n’est importé.'; },
+    strongUnite: 'Ce fichier ne dit pas l’unité du poids. Kilos ou livres ?',
     // 118 (audit du 16/10, 03 #12) — un Hevy réglé en anglais : ce n'est pas « pas un export ».
     fichierAnglais: 'Export en anglais : change la langue de Hevy en français et réexporte.',
     texteAnglais: 'Texte en anglais : change la langue de Hevy en français et copie-le de nouveau.',
@@ -868,6 +1003,7 @@
     norme: norme,
     lireTexte: lireTexte,
     lireCsv: lireCsv,
+    lireStrong: lireStrong, formatDuCsv: formatDuCsv,
     lireMesuresCsv: lireMesuresCsv, estUnCsvDeMesures: estUnCsvDeMesures, apercuDesMesures: apercuDesMesures,
     phrasesDesMesures: phrasesDesMesures, libelleDImporterPesees: libelleDImporterPesees,
     MESURES_OCTETS_MAX: MESURES_OCTETS_MAX, MESURES_LIGNES_MAX: MESURES_LIGNES_MAX,

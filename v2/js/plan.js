@@ -996,7 +996,6 @@
     var precEcart = null;
     for (var ip = 0; ip < pool.length && precEcart === null; ip++) { if (!M.reculDePlusDeReps(pool[ip])) precEcart = pool[ip]; }
     var cible = precEcart && nombre(precEcart.cible) !== null ? nombre(precEcart.cible) : aujourdhui;
-    var lu = M.ecartDeRecul(precEcart, cible);
     var cran = materiel ? materiel.pas : undefined;
     var salle = (materiel && materiel.salle) || (consigne && consigne.salle) || null;
     // 193-5 — les reculs à PLUS de reps que la grosse série : le max du jour. Les reps de la grosse série : faites, sinon proposées
@@ -1016,6 +1015,8 @@
       }
       if (margeGrosse === null) margeGrosse = 0;
     }
+    // 266 (§9.28) — sans séance à reculs, le départ de l'écart se lit sur la table des reps (grosse série, recul), sinon le 10 % d'avant.
+    var lu = M.ecartDeRecul(precEcart, cible, M.ecartDeDepartDeRecul(grosseReps, margeGrosse, aujourdhui));
     var correction = M.correctionDeRecul(pool);
     var capM = V.capturer(function () {
       return M.reculAuMax({ grosse: grosse, grosseReps: grosseReps, marge: margeGrosse, reps: aujourdhui, correction: correction.valeur,
@@ -1041,7 +1042,7 @@
                                         pct: auMax.pct, charge: d.charge, correction: auMax.correction, pas: correction.pas });
         }
         return M.pourquoiRecul({ grosse: grosse, charge: d.charge, ecart: d.ecart, depart: lu.depart, sens: lu.sens, reel: lu.reel,
-                                 reps: lu.reps, cible: lu.cible });
+                                 reps: lu.reps, cible: lu.cible, deduit: lu.deduit === true, grosseReps: grosseReps, marge: margeGrosse, vise: aujourdhui });
       });
       pourquoi = capQ.texte;
       citesP = capQ.citations;
@@ -1082,7 +1083,8 @@
     }
     sortie.reculs = {
       iSerie: rec[0].iSerie, lignes: rec.map(function (l) { return l.iSerie; }), grosse: grosse, charge: d.charge, ecart: d.ecart,
-      depart: lu.depart, sens: lu.sens, reel: lu.reel, reps: lu.reps, cible: lu.cible === null ? cible : lu.cible,
+      depart: lu.depart, deduit: lu.deduit === true, grosseReps: grosseReps, margeGrosse: margeGrosse,
+      sens: lu.sens, reel: lu.reel, reps: lu.reps, cible: lu.cible === null ? cible : lu.cible,
       vise: aujourdhui, phrase: phrase, pourquoi: pourquoi, constat: constat, faites: fait
     };
     // 193-5 — le recul calé sur le max du jour (`null` : la 193-1). `max_du_jour` arrondi à l'entier, `marge` celle de la grosse série.
@@ -4316,6 +4318,17 @@
         if (Math.abs(R.max_du_jour - (g / (M.pctDuMax(gr, mg) / 100))) > 0.5 + 1e-9) err('I82', 'le max du jour (' + R.max_du_jour + ' kg) n\u2019est pas celui de la grosse série');
       }
     }
+    // I147 (266, MOTEUR §9.28) — LE DÉPART DE L'ÉCART : sans séance à reculs, l'écart est celui de la table des reps (`ecartDeDepartDeRecul`) ;
+    // sans reps connues, le 10 % de départ.
+    if (R.mode !== 'max_du_jour' && R.depart === true && c !== null) {
+      var M147 = Moteur();
+      if (R.deduit === true) {
+        var att147 = M147.ecartDeDepartDeRecul(R.grosseReps, R.margeGrosse, R.vise);
+        if (att147 === null || e === null || Math.abs(e - att147) > 1e-9) err('I147', 'le départ des reculs (' + e + ') n\u2019est pas celui de la table (' + att147 + ')');
+      } else if (e === null || Math.abs(e - M147.RECUL_ECART_DEPART) > 1e-9) {
+        err('I147', 'le départ des reculs sans reps connues (' + e + ') n\u2019est pas le ' + M147.RECUL_ECART_DEPART + ' de départ');
+      }
+    }
     if (c !== null) {
       if (g === null || !(c > 0) || !(c < g)) err('I78', 'le recul à ' + c + ' kg n\u2019est pas sous la grosse série (' + g + ' kg)');
       // I78 amendé (193-5) : les bornes 5 à 20 % valent pour la 193-1 ; sur le max du jour, l'écart est un fait descriptif (I82).
@@ -5935,11 +5948,14 @@
         .map(function (v) { return Math.round(v * 1000) / 10; }) } : null,
       'recul.reps': x.reculs ? { valeurs: (x.reculs.reps || []).concat(x.reculs.faites || [], [x.reculs.cible], x.reculs.mode === 'max_du_jour'
         ? [x.reculs.grosseReps, x.reculs.vise].concat(x.reculs.derniere ? [x.reculs.derniere.faites, x.reculs.derniere.faites - x.reculs.derniere.prevision, x.reculs.derniere.cible] : [])
-        : []).filter(function (v) { return nombre(v) !== null; }) } : null,
+        : (x.reculs.depart === true && x.reculs.deduit === true ? [x.reculs.grosseReps, x.reculs.vise] : [])).filter(function (v) { return nombre(v) !== null; }) } : null,
       // 193-5 — le recul sur le max du jour : le max (entier), son pourcentage, la marge de la grosse série et celle du recul (2), la correction, la dernière série.
       'recul.max': x.reculs && x.reculs.mode === 'max_du_jour' ? { charge: x.reculs.max_du_jour } : null,
       'recul.pct': x.reculs && x.reculs.mode === 'max_du_jour' ? { valeur: x.reculs.pct } : null,
-      'recul.marge': x.reculs && x.reculs.mode === 'max_du_jour' ? { valeurs: [x.reculs.marge, Moteur().RECUL_MARGE_VISEE] } : null,
+      'recul.marge': x.reculs && x.reculs.mode === 'max_du_jour' ? { valeurs: [x.reculs.marge, Moteur().RECUL_MARGE_VISEE] }
+        : (x.reculs && x.reculs.depart === true && x.reculs.deduit === true ? { valeurs: [x.reculs.margeGrosse, Moteur().RECUL_MARGE_VISEE] } : null),
+      // 266 — le plancher du départ de l'écart (5 %), cité quand le départ est tiré de la table.
+      'recul.depart': x.reculs && x.reculs.depart === true && x.reculs.deduit === true ? { valeur: Math.round(Moteur().RECUL_ECART_MIN * 1000) / 10 } : null,
       'recul.correction': x.reculs && x.reculs.mode === 'max_du_jour' ? { valeur: Math.round(Math.abs(x.reculs.correction) * 1000) / 10 } : null,
       'recul.derniere': x.reculs && x.reculs.derniere ? { charge: x.reculs.derniere.charge } : null,
       // 193-6 — « Au max » : la réserve demandée (de la ligne, de la carte), les reps et la charge de la dernière série, l'écart à la table.

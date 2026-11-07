@@ -51,6 +51,23 @@ describe('193-1 — la charge : le cran le plus proche, vers le bas à égalité
   });
 });
 
+describe('266 — le départ de l’écart tiré de la table des reps (MOTEUR §9.28)', () => {
+  test('130 × 3 en gardant 1, reculs × 3 : le plancher de 5 % ; sans marge : 6,5 % (au demi-point)', () => {
+    expect(M.ecartDeDepartDeRecul(3, 1, 3)).toBeCloseTo(0.05, 9);
+    expect(M.ecartDeDepartDeRecul(3, 0, 3)).toBeCloseTo(0.065, 9);
+  });
+  test('moins de reps au recul : le plancher ; donnée absente ou hors de la table : null (le 10 % reste)', () => {
+    expect(M.ecartDeDepartDeRecul(5, 1, 3)).toBeCloseTo(0.05, 9);
+    expect(M.ecartDeDepartDeRecul(null, 1, 3)).toBeNull();
+    expect(M.ecartDeDepartDeRecul(10, 0, 12)).toBeNull();
+  });
+  test('ecartDeRecul : le 3e argument sert sans séance à reculs, il est ignoré avec une séance à reculs', () => {
+    expect(M.ecartDeRecul(null, 3, 0.05)).toMatchObject({ ecart: 0.05, depart: true, deduit: true });
+    expect(M.ecartDeRecul(null, 3)).toMatchObject({ ecart: 0.10, depart: true, deduit: false });
+    expect(M.ecartDeRecul({ series: [g(150, 4), r(135, 6), r(135, 6)] }, 6, 0.05)).toMatchObject({ ecart: 0.10, reel: 0.10 });
+  });
+});
+
 describe('193-1 — l’écart : lu sur la dernière séance à reculs', () => {
   test('sans séance antérieure à reculs : 10 %', () => {
     expect(M.ecartDeRecul(null, 6)).toMatchObject({ ecart: 0.10, depart: true });

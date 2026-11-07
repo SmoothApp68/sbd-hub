@@ -24468,7 +24468,7 @@ const SETS_IMPORTES = [
     await aller('/exercice/squat-o109');
     const c1 = await carteO();
     ok('[O109] posé : « 150 kg × 1 », la jauge depuis le record (0), « Aujourd’hui : 144 kg × 1 », le pari figé : « Le pari du coach : fin avril. », « Posé le 16 oct. On verra s’il tombe juste. », et « Au rythme d’aujourd’hui : toujours fin avril. »',
-      !!c1 && nbO(c1.titre) === nbO('150 kg × 1') && c1.jauge === '0' && nbO(c1.aujourdhui) === nbO('Aujourd’hui : 144 kg × 1') &&
+      !!c1 && nbO(c1.titre) === nbO('150 kg × 1') && c1.jauge === '0' && nbO(c1.aujourdhui) === nbO('Aujourd’hui : 144 kg × 1 · 0 % du chemin') &&
         nbO(c1.ligne) === nbO('Le pari du coach : fin avril.') && nbO(c1.pari) === nbO('Posé le 16 oct. On verra s’il tombe juste.') &&
         nbO(c1.rythme) === nbO('Au rythme d’aujourd’hui : toujours fin avril.') &&
         c1.bouton === 'Changer l’objectif', nbO(c1));
@@ -24523,7 +24523,7 @@ const SETS_IMPORTES = [
     await aller('/exercice/squat-o109');
     const c5 = await carteO();
     ok('[O109] la carte garde la date du pari de 155, figée — elle ne bouge pas avec la séance du 10 mars ; « Aujourd’hui : 150 kg × 1 »',
-      !!c5 && c5.ligne === ligne155 && nbO(c5.aujourdhui) === nbO('Aujourd’hui : 150 kg × 1'), nbO([c5, ligne155]));
+      !!c5 && c5.ligne === ligne155 && nbO(c5.aujourdhui) === nbO('Aujourd’hui : 150 kg × 1 · 55 % du chemin'), nbO([c5, ligne155]));
     ok('[O150] un record de plus depuis la pose : le pari ne bouge pas, la ligne « Au rythme d’aujourd’hui » est recalculée à la date d’aujourd’hui (une date, jamais un écart chiffré)',
       !!c5 && /^Au rythme d’aujourd’hui : (toujours )?fin [a-zéû]+( \d{4})?\.$|^Au rythme d’aujourd’hui : (plus d’un an|pas encore de date)\.$/.test((c5 && c5.rythme || '').replace(/[\u00a0\u202f]/g, ' ')), nbO(c5));
     // Le mois de mars est la STORY du mois (98, BILANS-V1) : son écran « Le coach » compte les paris de CONSIGNE
@@ -24703,6 +24703,53 @@ const SETS_IMPORTES = [
         !!cD && nbO(cD.titre) === nbO('155 kg × 1') && !!bD && (bD.lignes || []).length === 1 && bD.lignes[0].charge_kg === 155,
         nbO([cD, bD, base.objectifs]));
       await D.fermer();
+    }
+
+    // ── 9. (266, MOTEUR §9.25) L'OBJECTIF SANS DATE RESTE SUIVI : la veille ; puis, quand la projection du jour passe sous 6 mois, le geste
+    // « Parier sur fin … » — un toucher pose le pari (module objectif) puis l'objectif (`date`), la carte dit « Le pari du coach : fin … ».
+    {
+      const ligneSansDate = (charge) => ({ user_id: 'u-banc', exercise_slug: 'squat-o109', charge_kg: charge, reps: 1, pose_le: '2026-08-01T10:00:00.000Z',
+        depart_kg: 140, projection: 'plus_d_un_an', echeance: null, pari_id: null });
+      const carte9 = () => page.evaluate(() => {
+        const n = document.querySelector('#page-exercice .exo-objectif');
+        if (!n) return null;
+        const t = (q) => (n.querySelector(q) || {}).textContent || null;
+        const d = n.querySelector('.objectif-date');
+        return { aujourdhui: t('.objectif-aujourdhui'), ligne: d ? d.firstChild.textContent : null, veille: t('.objectif-veille'), parier: t('.objectif-parier'),
+          pari: t('.objectif-pari') };
+      });
+      const parisAvant9 = base.predictions.filter((x) => x.module === 'objectif').length;
+      base.objectifs = [ligneSansDate(150)];
+      const E9 = await ouvrirO('O266-veille', new Date(2026, 9, 16, 12, 0, 0));
+      await jusqua(syncTerminee, 60000);
+      await aller('/exercice/squat-o109');
+      await jusqua(async () => !!(await carte9()), 10000);
+      const c9a = await carte9();
+      ok('[O266] un objectif à plus de 6 mois : « Pas de date… », « 40 % du chemin » (jamais un maximum estimé), la veille en gris — et aucun geste de pari',
+        !!c9a && nbO(c9a.ligne) === nbO('Pas de date : à ton rythme actuel, plus d’un an.') && /40 % du chemin/.test(nbO(c9a.aujourdhui)) &&
+          nbO(c9a.veille) === nbO('Je te dis dès que ça passe sous les 6 mois. Pas de pari tant qu’il n’y a pas de date.') && c9a.parier === null &&
+          !/estim/i.test(nbO(c9a)), nbO(c9a));
+      await E9.fermer();
+      // 149 × 1 : la projection du jour (≈ 5 mois) passe sous les 6 mois.
+      base.objectifs = [ligneSansDate(149)];
+      const F9 = await ouvrirO('O266-parier', new Date(2026, 9, 16, 12, 0, 0));
+      await jusqua(syncTerminee, 60000);
+      await aller('/exercice/squat-o109');
+      await jusqua(async () => !!((await carte9() || {}).parier), 10000);
+      const c9b = await carte9();
+      ok('[O266] la projection du jour passe sous les 6 mois : « Ça passe sous les 6 mois. » et le geste « Parier sur fin mars » ; rien n’est écrit tant qu’on ne le touche pas',
+        !!c9b && /Ça passe sous les 6 mois\.$/.test((c9b.ligne || '').replace(/[\u00a0\u202f]/g, ' ')) && nbO(c9b.parier) === nbO('Parier sur fin mars') && c9b.veille === null &&
+          base.predictions.filter((x) => x.module === 'objectif').length === parisAvant9 && base.objectifs[0].projection === 'plus_d_un_an', nbO([c9b, base.objectifs]));
+      await page.click('#page-exercice .objectif-parier');
+      await jusqua(async () => base.objectifs[0] && base.objectifs[0].projection === 'date' && base.predictions.filter((x) => x.module === 'objectif').length === parisAvant9 + 1, 15000);
+      const l9 = base.objectifs[0] || {};
+      const p9 = base.predictions.filter((x) => x.module === 'objectif' && x.id === l9.pari_id)[0] || {};
+      await jusqua(async () => /Le pari du coach/.test(nbO((await carte9() || {}).ligne)), 10000);
+      const c9c = await carte9();
+      ok('[O266] le toucher pose le pari (module objectif) puis l’objectif en `date` (pose et départ gardés) ; la carte dit « Le pari du coach : fin mars. » et le geste a disparu',
+        l9.projection === 'date' && l9.echeance === '2027-03-31' && l9.pose_le === '2026-08-01T10:00:00.000Z' && l9.depart_kg === 140 && p9.grandeur === 'jours' &&
+          !!c9c && nbO(c9c.ligne) === nbO('Le pari du coach : fin mars.') && c9c.parier === null, nbO([l9, p9.valeur_predite, c9c]));
+      await F9.fermer();
     }
 
     // LA REMISE EN ÉTAT.

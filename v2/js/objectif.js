@@ -291,6 +291,13 @@
                                   pari_id: etat === 'date' ? (pariId || null) : null });
   }
 
+  // 266 — QUAND UNE DATE ARRIVE : un objectif « plus d'un an » ou « pas encore » dont la projection du jour donne une date passe en `date`
+  // (le geste « Parier sur fin avril »). Sur le patron de `ligneAuRetour` : la pose et le départ sont gardés.
+  function ligneQuandUneDateArrive(o, pr, pariId) {
+    if (!o || (o.projection !== 'plus_d_un_an' && o.projection !== 'pas_encore') || !pr || pr.etat !== 'date') return null;
+    return Object.assign({}, o, { projection: 'date', echeance: pr.echeance, pari_id: pariId || null });
+  }
+
   // ══ ATTEINT : LA PREMIÈRE SÉRIE QUI FAIT L'OBJECTIF, APRÈS LA POSE ═══════════════════════════════════════════
   //
   // Une série de travail de l'exercice, à la charge de l'objectif ou plus, pour ses reps ou plus, faite après la
@@ -380,7 +387,11 @@
   }
 
   var PAS_ENCORE = 'Pas encore de date.';
-  var PLUS_D_UN_AN = 'Au rythme actuel\u00a0: plus d\u2019un an.';
+  // 266 (07/11/2026, MOTEUR §9.25) — l'objectif sans date reste suivi : « je te dis dès que ça passe sous les 6 mois » (réglage d'Aurélien).
+  var JOURS_POUR_PARIER = 183;
+  var PLUS_D_UN_AN = 'Pas de date\u00a0: à ton rythme actuel, plus d\u2019un an.';
+  var VEILLE = 'Je te dis dès que ça passe sous les 6 mois. Pas de pari tant qu\u2019il n\u2019y a pas de date.';
+  var VEILLE_PAS_ENCORE = 'Je te dis dès qu\u2019une date passe sous les 6 mois.';
   var PARI = 'On verra s\u2019il tombe juste.';
 
   // `e` : { objectif (la ligne), seances, options, maintenant, carnet }. Rend la carte « Mon objectif » :
@@ -401,20 +412,37 @@
     else if (depart === null || charge - depart <= EPS) jauge = maintenant.charge / charge;
     else jauge = (maintenant.charge - depart) / (charge - depart);
     jauge = Math.max(0, Math.min(1, jauge));
-    var ligne = null, pari = null, rythme = null;
+    var ligne = null, pari = null, rythme = null, veille = null, parier = null;
     if (a) ligne = ligneAtteint(a.debut, e.maintenant);
     else if (!e.carnet) {
       if (o.projection === 'date' && o.echeance) { ligne = ligneDeDate(o, e.maintenant); pari = lignePose(o, e.maintenant);
         rythme = ligneDuRythme(o, projection({ seances: e.seances, charge: charge, reps: n, maintenant: e.maintenant,
           anciennete: e.anciennete || null, options: e.options, carnet: false, salle: e.salle || null }), e.maintenant); }
-      else if (o.projection === 'plus_d_un_an') ligne = PLUS_D_UN_AN;
-      else ligne = PAS_ENCORE;
+      else {
+        var sansDate = o.projection === 'plus_d_un_an';
+        ligne = sansDate ? PLUS_D_UN_AN : PAS_ENCORE;
+        veille = sansDate ? VEILLE : VEILLE_PAS_ENCORE;
+        // 266 — un second appel de `projection` (la seule règle), à maintenant : rien n'est écrit. Une date à 183 jours ou moins : le geste.
+        if (o.projection === 'plus_d_un_an' || o.projection === 'pas_encore') {
+          var pr = projection({ seances: e.seances, charge: charge, reps: n, maintenant: e.maintenant,
+            anciennete: e.anciennete || null, options: e.options, carnet: false, salle: e.salle || null });
+          if (pr && pr.etat === 'date' && pr.jours <= JOURS_POUR_PARIER) {
+            var fin = finDeMois(pr.echeance, e.maintenant);
+            if (fin) {
+              ligne = 'Au rythme d\u2019aujourd\u2019hui\u00a0: ' + fin + '. Ça passe sous les 6 mois.';
+              veille = null;
+              parier = { libelle: 'Parier sur ' + fin, projection: pr };
+            }
+          }
+        }
+      }
     }
     return {
       titre: M.chargeFois(charge, n),
       jauge: jauge,
       aujourdhui: maintenant ? 'Aujourd\u2019hui\u00a0: ' + M.chargeFois(maintenant.charge, n) : null,
-      ligne: ligne, pari: pari, rythme: rythme, atteint: !!a
+      chemin: a ? null : Math.round(jauge * 100) + ' % du chemin',
+      ligne: ligne, pari: pari, rythme: rythme, veille: veille, parier: parier, atteint: !!a
     };
   }
 
@@ -461,8 +489,9 @@
   var api = {
     GRANDEUR: GRANDEUR, VERSION: VERSION, PLAFONDS: PLAFONDS, PLAFOND_PAR_DEFAUT: PLAFOND_PAR_DEFAUT,
     JOURS_PAR_MOIS: JOURS_PAR_MOIS, SEMAINES_MIN: SEMAINES_MIN, RECORDS_MIN: RECORDS_MIN, MOIS_MAX: MOIS_MAX,
-    PAS_ENCORE: PAS_ENCORE, PLUS_D_UN_AN: PLUS_D_UN_AN, PARI: PARI,
-    projection: projection, pariDe: pariDe, ligneDe: ligneDe, ligneAuRetour: ligneAuRetour, atteinte: atteinte,
+    PAS_ENCORE: PAS_ENCORE, PLUS_D_UN_AN: PLUS_D_UN_AN, PARI: PARI, VEILLE: VEILLE, VEILLE_PAS_ENCORE: VEILLE_PAS_ENCORE,
+    JOURS_POUR_PARIER: JOURS_POUR_PARIER,
+    projection: projection, pariDe: pariDe, ligneDe: ligneDe, ligneAuRetour: ligneAuRetour, ligneQuandUneDateArrive: ligneQuandUneDateArrive, atteinte: atteinte,
     observationDe: observationDe,
     vue: vue, phraseDeSaisie: phraseDeSaisie, lireSaisie: lireSaisie, phraseDejaFait: phraseDejaFait,
     phraseHorsSalle: phraseHorsSalle,

@@ -544,12 +544,20 @@
       plein.style.width = Math.round(v.jauge * 100) + '%';
       jauge.appendChild(plein);
       fiche.appendChild(jauge);
-      if (v.aujourdhui) fiche.appendChild(el('div', 'objectif-aujourdhui num', v.aujourdhui));
+      if (v.aujourdhui) fiche.appendChild(el('div', 'objectif-aujourdhui num', v.aujourdhui + (v.chemin ? ' \u00b7 ' + v.chemin : '')));
       if (v.ligne) {
         var ligne = el('p', 'objectif-date', v.ligne);
         if (v.pari) ligne.appendChild(el('span', 'objectif-pari', v.pari));
         fiche.appendChild(ligne);
         if (v.rythme) fiche.appendChild(el('p', 'objectif-rythme', v.rythme));
+      }
+      // 266 (§9.25) — l'objectif sans date reste suivi : la veille en gris, ou le geste « Parier sur fin avril » (un toucher, aucune écriture au rendu).
+      if (v.veille) fiche.appendChild(el('p', 'objectif-veille', v.veille));
+      if (v.parier) {
+        var bp = el('button', 'discret objectif-parier', v.parier.libelle);
+        bp.type = 'button';
+        bp.addEventListener('click', o.surParier);
+        fiche.appendChild(bp);
       }
       carte.appendChild(fiche);
     }

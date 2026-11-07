@@ -2236,6 +2236,8 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .objectif-date{font-size:13px;line-height:1.5;color:var(--texte);margin:var(--e2) 0 0}
 .objectif-pari{display:block;color:var(--texte-3);font-size:13px;margin-top:2px}
 .objectif-rythme{font-size:13px;line-height:1.5;color:var(--texte);margin:var(--e2) 0 0;padding-top:var(--e2);border-top:1px solid var(--trait)}
+.objectif-veille{font-size:12px;line-height:1.4;color:var(--texte-2);margin:var(--e2) 0 0}
+.objectif-parier{min-height:44px;margin-top:var(--e2)}
 .objectif-changer{margin-top:var(--e2)}
 .defile-records{overflow-x:auto;margin-top:var(--e2)}
 .tableau-records{width:100%;border-collapse:collapse;font-size:14px}

@@ -17361,7 +17361,9 @@
       vue: o ? Objectif.vue({ objectif: o, seances: seancesPourObjectif(groupes), options: Modele.optionsDeRecord(exo),
                               maintenant: maintenant, carnet: coachSeTaitIci(), anciennete: profil ? profil.anciennete : null,
                               salle: Profil.salleDeLExercice(profil, slug, Modele.indexerExercices(local.exercices)) }) : null,
-      surPoser: function () { ouvrirFeuilleObjectif(slug, function () { rendreExercice(slug, onglet); }); }
+      surPoser: function () { ouvrirFeuilleObjectif(slug, function () { rendreExercice(slug, onglet); }); },
+      // 266 — le geste « Parier sur fin avril » : pose le pari et réécrit la ligne (rien n'est écrit au rendu).
+      surParier: function () { parierSurLaDate(slug).then(function () { rendreExercice(slug, onglet); }); }
     };
   }
 
@@ -17469,6 +17471,29 @@
       var pari = Objectif.pariDe({ exercise_slug: slug, charge_kg: l.charge_kg, reps: l.reps, pose_le: pose }, pr, uid, pariId);
       await ecrireObjectif(slug, ligne, pari);
     }
+  }
+
+  // 266 (§9.25) — « PARIER SUR FIN AVRIL » : un objectif « plus d'un an » ou « pas encore » dont la projection d'aujourd'hui passe sous les 6
+  // mois. Relit l'objectif et recalcule (la seule règle) ; hors des 183 jours, rien n'est écrit. Le pari part d'abord, l'objectif derrière.
+  async function parierSurLaDate(slug) {
+    if (local.objectifsDispo !== true || !profil || coachSeTaitIci()) return;
+    var uid = userId(), o = objectifDe(slug);
+    if (!uid || !o) return;
+    var exo = Modele.indexerExercices(local.exercices)[slug];
+    if (!Objectif.possible(exo)) return;
+    var seances = seancesPourObjectif(faits.seancesDeLExercice(corpus(), slug));
+    if (Objectif.atteinte(seances, o)) return;
+    var maintenant = new Date(), pose = maintenant.toISOString();
+    var pr = Objectif.projection({
+      seances: seances, charge: Number(o.charge_kg), reps: Number(o.reps), maintenant: maintenant, anciennete: profil.anciennete,
+      options: Modele.optionsDeRecord(exo), carnet: false, salle: Profil.salleDeLExercice(profil, slug, Modele.indexerExercices(local.exercices))
+    });
+    if (pr.etat !== 'date' || pr.jours > Objectif.JOURS_POUR_PARIER) return;
+    var pariId = await Moteur.idDObjectif(slug, pose);
+    var ligne = Objectif.ligneQuandUneDateArrive(o, pr, pariId);
+    if (!ligne) return;
+    var pari = Objectif.pariDe({ exercise_slug: slug, charge_kg: o.charge_kg, reps: o.reps, pose_le: pose }, pr, uid, pariId);
+    await ecrireObjectif(slug, ligne, pari);
   }
 
   // RETIRER : la ligne s'efface ; son pari reste, et s'observe comme les autres.

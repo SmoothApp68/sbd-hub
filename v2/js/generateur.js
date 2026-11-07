@@ -1785,12 +1785,6 @@
   // UN ACCESSOIRE QUI CHANGE AU DÉBUT D'UN BLOC. Pur. Réglages de l'app (dits comme tels à la personne) : 8 semaines de suite, aucune
   // hausse du record depuis 6 semaines, 2 cartes par bloc.
   var VARIATION_SEMAINES = 8, VARIATION_SANS_RECORD_JOURS = 42, VARIATION_PAR_BLOC = 2;
-  // Le matériel dit à la personne : le mot, son article (jamais « le poulie »).
-  var MATERIEL_DIT = {
-    poulie: ['la', 'poulie'], haltere: ['les', 'haltères'], machine: ['la', 'machine'], barre: ['la', 'barre'],
-    machine_smith: ['la', 'Smith'], elastique: ['l’', 'élastique'], aucun: ['le', 'poids du corps'],
-    kettlebell: ['la', 'kettlebell'], disque: ['le', 'disque']
-  };
   var POURQUOI_VARIATION = 'Varier de façon planifiée peut aider un muscle à grossir partout ; varier au hasard, non (Kassiano 2022, 8 études). ' +
     'Huit semaines et six sans record sont des réglages de l’app. Rien ne change sans toi, et « Annuler » défait le changement.';
   var DETAIL_VARIATION = ' Changer un accessoire par bloc travaille le même muscle sous un autre angle ; les barres ne changent pas.';
@@ -1798,10 +1792,8 @@
   function joursEntre(a, b) {      // jours civils « AAAA-MM-JJ » : b − a
     return Math.round((new Date(b + 'T12:00:00Z') - new Date(a + 'T12:00:00Z')) / 86400000);
   }
-  function materielDit(fiche) {
-    var m = possede(MATERIEL_DIT, fiche && fiche.equipement) ? MATERIEL_DIT[fiche.equipement] : null;
-    return m || ['le', String((fiche && fiche.equipement) || '')];
-  }
+  // Le matériel dit à la personne : l'article et le mot (`Profil.equipementDit`, la table des libellés du matériel).
+  function materielDit(fiche) { return racine.THProfil.equipementDit(fiche && fiche.equipement); }
 
   // `e` : `{ bloc, jour, routines: [{ id, exercices: [{ exercise_slug }] }], catalogue, profil, faits: { slug: { semaines, derniereHausse,
   // faitDans12Mois } }, reponses (`cartes_semaine.variation`), carnet }`.

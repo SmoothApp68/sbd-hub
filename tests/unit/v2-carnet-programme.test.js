@@ -133,6 +133,7 @@ describe('60-2a — `programmeDuDossier` : programme en cours, profil en carnet 
       exercicesDuDossier: o.exercicesDuDossier || (() => ['squat_barre']),
       bilanDe: (b) => M.bilanDuBloc(b, {}, []),
       pariDuBloc: () => null,
+      variationsDuDossier: () => ({ variations: [], entree: null }),   // 266 : la variation d'un accessoire, hors du sujet de ce fichier
       nomsDuCatalogue: () => ({}),
       garde: { verifierProgramme: (intention, dossier, vue) => { releve.garde.push([intention, dossier, vue]); } },
       // Tout ce qui écrit casse : la bibliothèque LIT.

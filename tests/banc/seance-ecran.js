@@ -15369,10 +15369,10 @@ const SETS_IMPORTES = [
 
   console.log('\n══ variation-bloc. UN ACCESSOIRE CHANGE AU DÉBUT D’UN BLOC : LA CARTE, « CHANGER », « ANNULER », « GARDER » (266, MOTEUR §9.22 ter) ══');
   //
-  // Un dossier « Var U266 » : un bloc qui COMMENCE cette semaine (sa 1re semaine, au calendrier), une barre dans le bloc, une
+  // Un dossier « Var U266 » : un bloc qui COMMENCE aujourd'hui (sa 1re semaine, au calendrier), une barre dans le bloc, une
   // élévation latérale à la poulie faite 8 semaines de suite à la même charge (aucune hausse du record depuis 8 semaines), et sa
-  // variante aux haltères (même `mouvement`, autre matériel). Horloge réelle : le bloc part du lundi de cette semaine, les séances des
-  // 8 lundis d'avant. ⚠️ DISCRIMINANT : la carte ne vient QUE de l'historique (8 semaines, 8 sans record) et du début du bloc.
+  // variante aux haltères (même `mouvement`, autre matériel). Horloge réelle : le bloc part d'aujourd'hui, les séances du même jour de la semaine
+  // des 8 semaines d'avant. ⚠️ DISCRIMINANT : la carte ne vient QUE de l'historique (8 semaines, 8 sans record) et du début du bloc.
   {
     const erreursAvant = erreurs.length;
     const violationsAvant = gardeBanc.violations;
@@ -15388,13 +15388,14 @@ const SETS_IMPORTES = [
     fiche('var-barre-u266', 'Barre Bloc U266 (Barre)', 'barre', 'var_barre_u266', ['quadriceps']);
     fiche('var-lat-poulie-u266', 'Élévation Latérale Bloc (Poulie)', 'poulie', 'var_lat_u266', ['deltoide_lateral']);
     fiche('var-lat-haltere-u266', 'Élévation Latérale Bloc (Haltère)', 'haltere', 'var_lat_u266', ['deltoide_lateral']);
+    // Le bloc COMMENCE aujourd'hui (sa 1re semaine) ; les séances, le même jour de la semaine, 1 à 8 semaines avant : huit semaines civiles
+    // de suite, la dernière juste avant celle-ci. Pas de décalage en millisecondes : des composantes de date.
     const maintenant = new Date();
-    const lundi = new Date(maintenant.getFullYear(), maintenant.getMonth(), maintenant.getDate() - ((maintenant.getDay() + 6) % 7), 10, 0, 0);
+    const il = (k, h) => new Date(maintenant.getFullYear(), maintenant.getMonth(), maintenant.getDate() - 7 * k, h, 0, 0);
     const jourDe = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     for (let k = 1; k <= 8; k++) {
-      const d = new Date(lundi.getFullYear(), lundi.getMonth(), lundi.getDate() - 7 * k, 10, 0, 0);
-      const id = '00000000-0000-4000-8266-' + String(k).padStart(12, '0'), debut = d.toISOString();
-      base.sessions.push({ id, user_id: 'u-banc', titre: 'Var U266', debut, fin: new Date(d.getTime() + 3600000).toISOString(),
+      const id = '00000000-0000-4000-8266-' + String(k).padStart(12, '0'), debut = il(k, 10).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Var U266', debut, fin: il(k, 11).toISOString(),
         statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
       [1, 2, 3].forEach((r) => base.sets.push({ id: 'v266-' + k + '-a' + r, session_id: id, user_id: 'u-banc', exercise_slug: 'var-lat-poulie-u266',
         charge_kg: 10, reps: 12, duree_s: null, distance_m: null, type_serie: 'travail', rang: r, groupe_superset: null, validee_a: debut,
@@ -15405,8 +15406,8 @@ const SETS_IMPORTES = [
       created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
       routine_exercises: ['var-barre-u266', 'var-lat-poulie-u266'].map((slug, i) => ({ id: ID_R.slice(0, -2) + '1' + i, routine_id: ID_R,
         exercise_slug: slug, rang: i, routine_sets: progr(3, 10), repos_cible_s: 90, groupe_superset: null, note: null })) });
-    base.blocs = [{ id: ID_B, user_id: 'u-banc', dossier: 'Var U266', zone: 'mix', debut: jourDe(lundi), semaines: 4, decharge: true,
-      exercices: ['var-barre-u266'], statut: 'en_cours', precedent: null, created_at: lundi.toISOString(), modifie_a: null, grosse_serie: false }];
+    base.blocs = [{ id: ID_B, user_id: 'u-banc', dossier: 'Var U266', zone: 'mix', debut: jourDe(maintenant), semaines: 4, decharge: true,
+      exercices: ['var-barre-u266'], statut: 'en_cours', precedent: null, created_at: maintenant.toISOString(), modifie_a: null, grosse_serie: false }];
     const routineR = () => ROUTINES.filter((r) => r.id === ID_R)[0];
     const slugsR = () => routineR().routine_exercises.slice().sort((a, b) => a.rang - b.rang).map((e) => e.exercise_slug);
     const carte266 = () => page.evaluate(() => {

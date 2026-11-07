@@ -48,6 +48,15 @@
   var LIBELLES_EQUIPEMENT = { aucun: 'Sans matériel', barre: 'Barre', haltere: 'Haltère', machine: 'Machine',
                               machine_smith: 'Machine Smith', poulie: 'Poulie', elastique: 'Élastique',
                               kettlebell: 'Kettlebell', disque: 'Disque' };
+  // 266 — LE MATÉRIEL DIT DANS UNE PHRASE du coach (« la poulie », « les haltères », « l’élastique », « le poids du corps ») : `[article,
+  // mot]`, à côté des libellés de la liste. Une valeur inconnue : « le » et la valeur telle quelle.
+  var EQUIPEMENT_DIT = { aucun: ['le', 'poids du corps'], barre: ['la', 'barre'], haltere: ['les', 'haltères'], machine: ['la', 'machine'],
+                         machine_smith: ['la', 'Smith'], poulie: ['la', 'poulie'], elastique: ['l\u2019', '\u00e9lastique'],
+                         kettlebell: ['la', 'kettlebell'], disque: ['le', 'disque'] };
+  function equipementDit(e) {
+    if (Object.prototype.hasOwnProperty.call(EQUIPEMENT_DIT, e)) return EQUIPEMENT_DIT[e].slice();
+    return ['le', String(e === null || e === undefined ? '' : e)];
+  }
   function libelleEquipement(e) {
     if (Object.prototype.hasOwnProperty.call(LIBELLES_EQUIPEMENT, e)) return LIBELLES_EQUIPEMENT[e];
     return String(e === null || e === undefined ? '' : e);
@@ -2475,7 +2484,7 @@
     BILANS_ANNONCES_MAX: BILANS_ANNONCES_MAX, bilansAnnonces: bilansAnnonces, ajouterBilansAnnonces: ajouterBilansAnnonces,
     PSEUDO_MIN: PSEUDO_MIN, PSEUDO_MAX: PSEUDO_MAX, MDP_MIN: MDP_MIN,
     CHAMPS_ECRITS: CHAMPS_ECRITS, A_RENSEIGNER: A_RENSEIGNER,
-    EQUIPEMENTS: EQUIPEMENTS, LIBELLES_EQUIPEMENT: LIBELLES_EQUIPEMENT, libelleEquipement: libelleEquipement,
+    EQUIPEMENTS: EQUIPEMENTS, LIBELLES_EQUIPEMENT: LIBELLES_EQUIPEMENT, libelleEquipement: libelleEquipement, equipementDit: equipementDit,
     equipementsDe: equipementsDe, estHorsMateriel: estHorsMateriel,
     rangerParMateriel: rangerParMateriel,
     libelleDe: libelleDe,

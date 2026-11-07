@@ -165,8 +165,10 @@
   // Hypertrophie ; l'utilisateur peut toujours choisir Mix (ECRAN-SAISIE §3.8).
   //
   // Sous 3 reps, AUCUNE zone : ce sont les maximaux, et le §9.1.2 interdit d'y
-  // demander une rep de plus — la variabilité journalière de ±18 % dépasse
-  // l'écart entre une rep et deux.
+  // demander une rep de plus — une rep vaut 3 à 4,5 % de charge à ces reps
+  // (PCT_MAX_PAR_REPS) : la marge d'erreur de l'estimation devient trop fine
+  // pour qu'une rep de plus se lise (règle décidée, 174 ; le « ±18 % » qui
+  // était cité ici est retiré, audit C-F2, MOTEUR §9.1.2).
   var RANGEMENT = [
     { jusqua: 2,        cle: null },
     { jusqua: 5,        cle: 'lourd' },
@@ -2333,8 +2335,8 @@
     }
 
     // 4. La règle de bord : sous 3 reps d'habitude, il n'y a plus de zone. On
-    // monte la charge AUX MÊMES REPS — la variabilité journalière des maximaux
-    // dépasse l'écart entre une rep et deux (§9.1.2).
+    // monte la charge AUX MÊMES REPS — la marge d'erreur de l'estimation (3 à 4,5 %
+    // par rep) est trop fine pour qu'une rep de plus se lise (§9.1.2).
     //
     // §9.17 — Au poids du corps il n'y a pas de charge à monter : les reps
     // continuent, comme l'étirement (une de plus, sans zone ni ligne haute).
@@ -10522,6 +10524,16 @@
     };
   }
 
+  // 259 — L'ANNONCE DE LA DÉGRESSIVE, SUR LA SÉRIE D'AVANT : « Dernière série : 12 reps, puis baisse à 25 kg et continue. » Les reps sont
+  // celles visées de la série ; la charge, celle que `degressiveDe` a déjà calculée (`degressiveLaPlusProche`, I132) — rien n'est recalculé ici.
+  // Charge inconnue (la dégressive n'a pas pu se calculer) : « puis baisse la charge et continue » ; reps inconnues : « Dernière série, puis … ».
+  function phraseAvantDegressive(reps, charge) {
+    var r = nombre(reps), c = nombre(charge);
+    var debut = r !== null && r > 0 ? 'Dernière série : ' + nombreFr(r) + (r === 1 ? ' rep' : ' reps') : 'Dernière série';
+    var suite = c !== null && c > 0 ? 'baisse à ' + enKg(c) : 'baisse la charge';
+    return debut + ', puis ' + suite + ' et continue.';
+  }
+
   // La fourchette d'une dégressive : environ la moitié des reps de la série de
   // travail (§9.15.3), et sa phrase. Une seule définition, pour la barre, les
   // disques et la salle.
@@ -12352,6 +12364,7 @@
     CHAUFFE_VISEE: CHAUFFE_VISEE,
     CHAUFFE_PLAFOND: CHAUFFE_PLAFOND,
     degressiveDe: degressiveDe,
+    phraseAvantDegressive: phraseAvantDegressive,
     // 193-1 (§9.28) — la série de recul.
     reculDe: reculDe,
     // 193-5 — les reculs à plus de reps, calés sur le max du jour (§9.28)

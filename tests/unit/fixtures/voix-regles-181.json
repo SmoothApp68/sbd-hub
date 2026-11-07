@@ -166,7 +166,7 @@
   },
   {
    "ecran": "seance",
-   "selecteur": ".effort-vise-q, .effort-vise-dit",
+   "selecteur": ".effort-vise-dit",
    "source": "phrase"
   },
   {

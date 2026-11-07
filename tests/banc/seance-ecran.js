@@ -10782,10 +10782,17 @@ const SETS_IMPORTES = [
     await saisirSerie(7, 60, 15);
     await attendre(500);
     ok('[U10] après la première série de travail, le repos tourne', await reposVisible(), '');
+    // 259 — la dégressive annoncée en mots sur la série d'AVANT (la dernière de travail, pas encore faite), une seule fois, avec les chiffres du plan.
+    const annonces259 = async () => (await phrasesU('avant_degressive')).map(esp).filter((t) => /baisse à 45 kg/.test(t));
+    ok('[U10] 259 — DISCRIMINANT : la dernière série de travail de la machine porte « Dernière série : N reps, puis baisse à 45 kg et continue. » (une fois)',
+      (await annonces259()).length === 1 && /^Dernière série : \d+ reps, puis baisse à 45 kg et continue\.$/.test((await annonces259())[0]),
+      esp(JSON.stringify(await phrasesU('avant_degressive'))));
     await saisirSerie(8, 60, 15);
     await attendre(500);
     ok('[U10] DISCRIMINANT — après la dernière série de travail, PAS de repos avant la dégressive', !(await reposVisible()),
       esp(await texte('#repos')));
+    ok('[U10] 259 — l\u2019annonce disparaît quand la dernière série est faite (la ligne dégressive, elle, garde sa phrase)',
+      (await annonces259()).length === 0 && (await phrasesU('degressive')).map(esp).some((t) => /^Dégressive : 45 kg/.test(t)), esp(JSON.stringify([await phrasesU('avant_degressive'), await phrasesU('degressive')])));
     // La visée : la moitié des reps de la dernière série de travail FAITE (15).
     ok('[U10] la phrase de la dégressive',
       esp((await phrasesU('degressive'))[0]) === 'Dégressive : 45 kg, sans repos, jusqu\'à l\'échec. Vise 6 à 8.',
@@ -23696,7 +23703,7 @@ const SETS_IMPORTES = [
     ok('[Q78] après la dernière série de A : « Dernière série : ' + fA + '. Il t’en restait combien ? », 0 · 1 · 2 · 3 ou +',
       /^60 kg × \d+$/.test(fA.replace(/\s/g, ' ')) &&
       nb78(q2) === nb78({ texte: 'Dernière série : ' + fA + '. Il t’en restait combien ?',
-        boutons: ['0', '1', '2', '3 ou +'], choisi: [] }), nb78([fA, q2]));
+        boutons: ['0', '1', '2', '3 ou +', 'Passer'], choisi: [] }), nb78([fA, q2]));
 
     const idA2 = p0[0].ids[1], idA1 = p0[0].ids[0];
     // 136 (audit du 16/10, E13 ; audit iPhone I-06) — LA PAGE RECHARGÉE PENDANT LE REPOS : le décompte reprend où il en
@@ -26485,7 +26492,7 @@ const SETS_IMPORTES = [
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refus153), gardeBanc.liste.slice(-2), erreurs.slice(erreurs153)]));
   }
 
-  console.log('\n══ effort-vise. L’EFFORT VISÉ : « GARDE-EN 1 », LES PUCES SOUS LA DERNIÈRE SÉRIE, LA PHRASE, PUIS LE TEST DE LA SÉANCE SUIVANTE (154, MOTEUR §9.26) ══');
+  console.log('\n══ effort-vise. L’EFFORT VISÉ : « GARDE-EN 1 », LA QUESTION DANS LA BARRE DE REPOS, LA PHRASE, PUIS LE TEST DE LA SÉANCE SUIVANTE (154, MOTEUR §9.26) ══');
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE : un exercice à la barre, 40 kg × 9 trois séances de suite (zone Hypertrophie, Normal : « garde-en 1 »).
   // Séance du jour : trois séries validées — les puces « Il t’en restait combien ? » n’apparaissent qu’après la DERNIÈRE ; « 3 et + » écrit
@@ -26558,11 +26565,22 @@ const SETS_IMPORTES = [
     await valider154(1);
     ok('[EV154] DISCRIMINANT — jamais de puces avant la DERNIÈRE série de travail', (await puces154()) === null, JSON.stringify(await puces154()));
     await valider154(2);
-    await jusqua(async () => (await puces154()) !== null, 6000);
+    // 259 — UNE SEULE QUESTION : la barre de repos (« Passer » visible) ; la carte ne la pose plus d'office.
+    const barre259 = () => page.evaluate(() => {
+      const r = document.querySelector('#repos');
+      const q = r && !r.hidden ? r.querySelector('.repos-q') : null;
+      return q ? { texte: q.querySelector('.repos-q-t').textContent, boutons: Array.from(q.querySelectorAll('button')).map((b) => b.textContent) } : null;
+    });
+    await jusqua(async () => (await barre259()) !== null, 6000);
+    const b259 = await barre259();
+    ok('[EV154] DISCRIMINANT (259) — après la dernière série : « Il t’en restait combien ? » UNE SEULE FOIS, dans la barre de repos : 0 · 1 · 2 · 3 ou + · Passer',
+      !!b259 && /Il t’en restait combien \?$/.test(sp154(b259.texte)) && sp154(b259.boutons.join('|')) === '0|1|2|3 ou +|Passer', JSON.stringify(b259));
     const p1 = await puces154();
-    ok('[EV154] après la dernière série : « Il t’en restait combien ? », 0 · 1 · 2 · 3 et + · Passer, sous la troisième ligne',
-      !!p1 && sp154(p1.question) === 'Il t’en restait combien ?' && sp154(p1.boutons.join('|')) === '0|1|2|3 et +|Passer' && p1.apres === 2, JSON.stringify(p1));
-    await page.click('.bloc-seance .effort-vise button[data-ressenti="reste_3_plus"]');
+    ok('[EV154] DISCRIMINANT (259) — la carte de l’exercice ne pose plus la question d’office (ni puces ni « Passer » sous la troisième ligne)',
+      p1 === null || (p1.question === null && p1.boutons.length === 0 && p1.phrase === null), JSON.stringify(p1));
+    ok('[EV154] DISCRIMINANT (259) — « Il t’en restait combien ? » n’apparaît qu’une fois dans la page entière',
+      (await page.evaluate(() => (document.body.innerText.match(/restait combien/g) || []).length)) === 1);
+    await page.click('#repos .repos-q button[data-ressenti="reste_3_plus"]');
     await jusqua(() => ressentiDuJour().some((r) => r === 'reste_3_plus'), 8000);
     await jusqua(async () => { const p = await puces154(); return !!p && p.phrase !== null; }, 8000);
     const p2 = await puces154();
@@ -26597,11 +26615,11 @@ const SETS_IMPORTES = [
     await demarrerRoutine('Effort visé U154');
     await jusqua(() => page.evaluate(() => document.querySelectorAll('.bloc-seance .ligne-serie').length >= 3), 8000);
     await valider154(0); await valider154(1); await valider154(2);
-    await jusqua(async () => (await puces154()) !== null, 6000);
-    await page.click('.bloc-seance .effort-vise button[data-passer="1"]');
-    await jusqua(async () => (await puces154()) === null, 6000);
-    ok('[EV154] DISCRIMINANT — « Passer » : plus de puces, et RIEN d’écrit (aucune réserve présumée)',
-      (await puces154()) === null && ressentiDuJour().every((r) => r === null || r === undefined), nb154(ressentiDuJour()));
+    await jusqua(async () => (await barre259()) !== null, 6000);
+    await page.click('#repos .repos-q button[data-passer="1"]');
+    await jusqua(async () => (await barre259()) === null, 6000);
+    ok('[EV154] DISCRIMINANT — « Passer » (barre de repos) : plus de question, et RIEN d’écrit (aucune réserve présumée)',
+      (await barre259()) === null && (await puces154()) === null && ressentiDuJour().every((r) => r === null || r === undefined), nb154(ressentiDuJour()));
     await abandonner();
 
     // LA REMISE EN ÉTAT.

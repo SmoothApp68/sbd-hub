@@ -654,6 +654,11 @@
   function repsTexte(n) { return nombreGroupe(nombreTexte(n, 0)) + ' ' + uniteReps(n); }
 
   function aValeur(v) { return v !== null && v !== undefined && v !== ''; }
+  // 268 (C) — UNE CHARGE PORTÉE : `charge_distance` (marche du fermier, traîneau) et `charge_temps` (pincé de disques). Pas de répétitions,
+  // donc pas de moteur. UNE définition de « le coach ne suit pas cette mesure » (`horsMoteur`, avec `distance_temps`) : le palier, le plan
+  // (I13), la durée d'une séance et la phrase de la page d'exercice la lisent ; personne ne recopie la liste.
+  function estUnePortee(mesure) { return mesure === 'charge_distance' || mesure === 'charge_temps'; }
+  function horsMoteur(mesure) { return mesure === 'distance_temps' || estUnePortee(mesure); }
   // §9.17 — une charge négative est une aide : « Aide 22,5 kg × 8 », jamais « −22,5 kg × 8 » (le journal dit la même
   // chose que le coach).
   // 133 (audit 130 #10) — une charge de 0 kg est le poids du corps : « poids du corps × 12 », comme la médaille.
@@ -778,6 +783,10 @@
     // lisible. Le décalage n'apporte rien là où il n'y a ni trois groupes ni
     // base de soixante.
     distance_km: { cle: 'distance_m', entete: 'DISTANCE', unite: 'km',  facteur: 1000, saisie: 'nombre',
+                   manque: 'la distance' },
+    // 268 (C) — LA DISTANCE EN MÈTRES, pour un portage ou une poussée de traîneau : « 40 », jamais « 0,04 km ». La même colonne
+    // (`distance_m`) et la même borne que la distance en kilomètres ; seul le facteur change.
+    distance_m:  { cle: 'distance_m', entete: 'DISTANCE', unite: 'm',   facteur: 1,    saisie: 'nombre',
                    manque: 'la distance' },
     // ECRAN §3 ter.5 (prompt 131, v2_101) — LES CHAMPS EN PLUS, exercice par exercice : jamais
     // obligatoires, jamais de chiffre gris. `place` dit où la grille les pose : les étages
@@ -948,7 +957,13 @@
     temps:          { mesure: 'temps',          champs: ['duree'],
                       effort: false, libelle: 'DURÉE' },
     distance_temps: { mesure: 'distance_temps', champs: ['duree', 'distance_km'],
-                      effort: false, libelle: 'DURÉE · DISTANCE' }
+                      effort: false, libelle: 'DURÉE · DISTANCE' },
+    // 268 (C, v2_140) — UNE CHARGE PORTÉE OU POUSSÉE : sur une distance (marche du fermier, traîneau) ou pendant une durée (pincé de
+    // disques). Pas de colonne d'effort : pas de répétitions (§3 ter.2) ; la distance se tape en mètres, la durée au pavé.
+    charge_distance: { mesure: 'charge_distance', champs: ['charge_kg', 'distance_m'],
+                       effort: false, libelle: 'CHARGE · DISTANCE' },
+    charge_temps:    { mesure: 'charge_temps',    champs: ['charge_kg', 'duree'],
+                       effort: false, libelle: 'CHARGE · DURÉE' }
   };
 
   var MESURES = Object.keys(GABARITS);
@@ -1023,8 +1038,16 @@
   var AIDE_DES_HALTERES = 'kg, les deux haltères';
   // 245 — UNE SEULE NOTION : la charge d'un exercice aux haltères (`equipement = haltere`) est la PAIRE, les deux ensemble.
   function chargeEstLaPaire(exo) { return !!exo && exo.equipement === 'haltere'; }
+  // 268 (C) — la charge d'un portage ou d'une poussée dit ce qu'on tape, sous les en-têtes : aux haltères la paire (la marche du fermier) ;
+  // sinon, sur une distance, ce qui est POSÉ sur le traîneau (jamais le traîneau) ; sur une durée, TOUT ce qu'on tient (le pincé de disques).
+  var AIDE_DU_TRAINEAU = 'kg posés dessus';
+  var AIDE_DE_CE_QU_ON_TIENT = 'kg, tout ce que tu tiens';
   function avecAideDeLUnite(g, exo) {
-    return chargeEstLaPaire(exo) && g.mesure === 'charge_reps' ? Object.assign({}, g, { aide: AIDE_DES_HALTERES }) : g;
+    var aide = null;
+    if (g.mesure === 'charge_reps') aide = chargeEstLaPaire(exo) ? AIDE_DES_HALTERES : null;
+    else if (g.mesure === 'charge_distance') aide = chargeEstLaPaire(exo) ? AIDE_DES_HALTERES : AIDE_DU_TRAINEAU;
+    else if (g.mesure === 'charge_temps') aide = chargeEstLaPaire(exo) ? AIDE_DES_HALTERES : AIDE_DE_CE_QU_ON_TIENT;
+    return aide ? Object.assign({}, g, { aide: aide }) : g;
   }
   function grilleDe(exo, programme) {
     var g = gabaritDe(exo);
@@ -1084,6 +1107,12 @@
       var chrono = formatChrono(serie.duree_s);
       if (chrono) return chrono;
       return mesure === 'distance_temps' && serie.distance_m ? formatDistance(serie.distance_m) : '—';
+    }
+    // 268 (C) — UNE CHARGE PORTÉE : « 64 · 40 m », « 20 · 00:40 » (la durée en horloge, comme le champ juste à côté).
+    if (mesure === 'charge_distance' || mesure === 'charge_temps') {
+      var kgP = aValeur(serie.charge_kg) ? chargeEnColonne(serie.charge_kg) : '';
+      var finP = mesure === 'charge_distance' ? (serie.distance_m ? formatDistance(serie.distance_m) : '') : formatChrono(serie.duree_s);
+      return kgP && finP ? kgP + ' \u00b7 ' + finP : (kgP || finP || '\u2014');
     }
     if (serie.charge_kg === null || serie.charge_kg === undefined) return '—';
     // §9.17 — sous « AIDE (KG) », l'aide se lit comme elle se tape : sans signe.
@@ -2077,6 +2106,23 @@
     });
     if (!siennes.length) return e;
 
+    // 268 (C) — UNE CHARGE PORTÉE : la plus longue distance (ou durée) À LA CHARGE LA PLUS LOURDE — la même règle que le record
+    // (« à cette charge ou plus ») : 80 m à 20 kg ne passe pas devant 60 m à 64 kg.
+    if (estUnePortee(g.mesure)) {
+      var cle = g.mesure === 'charge_distance' ? 'distance_m' : 'duree_s';
+      var lourde = null;
+      siennes.forEach(function (x) {
+        var v = valeurNumerique(x, cle), k = valeurNumerique(x, 'charge_kg');
+        if (v === null || v <= 0 || k === null) return;
+        if (lourde === null || k > lourde.k || (k === lourde.k && v > lourde.v)) lourde = { x: x, k: k, v: v };
+      });
+      if (lourde === null) return e;
+      e.valeur = cle === 'distance_m' ? formatDistance(lourde.v) : formatDuree(lourde.v);
+      e.complement = '\u00b7 ' + chargeDuJournal(lourde.k);
+      e.libelle = (cle === 'distance_m' ? 'Plus longue distance' : 'Plus longue durée') + ', à ' + chargeDuJournal(lourde.k);
+      return e;
+    }
+
     if (g.mesure === 'reps') {
       // Pas de clé du tout quand il n'y a rien à dire : « rien » et « zéro » ne
       // doivent pas se ressembler, même en interne.
@@ -2957,6 +3003,8 @@
     LETTRES: LETTRES,
     TYPES_CONNUS: TYPES_CONNUS,
     MESURES: MESURES,
+    estUnePortee: estUnePortee,
+    horsMoteur: horsMoteur,
     GABARITS: GABARITS,
     CHAMPS_MESURE: CHAMPS_MESURE,
     gabaritDe: gabaritDe,

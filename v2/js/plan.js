@@ -2906,7 +2906,7 @@
       peuDeTemps: gs.concat(Array.isArray(seance.gestes) ? seance.gestes : []).some(function (g) { return g && g.geste === 'raccourci'; }),
       seche: plan.phase === 'seche', autreSalle: e.autreSalle === true,
       barre: equip === 'barre', materiel: equip, isolation: isolation,
-      peutRestPause: Moteur().peutRestPause(muscles), peutDegressive: equip !== 'barre' && x.mesure !== 'temps',
+      peutRestPause: Moteur().peutRestPause(muscles), peutDegressive: equip !== 'barre' && x.mesure !== 'temps' && x.mesure !== 'charge_distance' && x.mesure !== 'charge_temps',
       pas: cs ? nombre(cs.pas) : null
     };
   }
@@ -5292,13 +5292,13 @@
       var k = x.consigne || null;
 
       // I13 — et I31, qui n'en est que le même silence pour un exercice choisi.
-      var horsMesure = x.mesure === 'temps' || x.mesure === 'distance_temps';
+      var horsMesure = x.mesure === 'temps' || x.mesure === 'distance_temps' || x.mesure === 'charge_distance' || x.mesure === 'charge_temps';   // 268 : une charge portée sort du coach comme le cardio
       var causes = [];
       if (plan.intention === 'entretien') causes.push('Entretenir (profil)');
       if (plan.edition === true) causes.push('Édition');
       // 149 — SAUF une figure : I13 ne s'ouvre QUE pour les échelles de figures (la règle des secondes, I52 à I55) ;
       // gainage, étirements, cardio, sorties : rien ne change.
-      if (horsMesure && !x.figure) causes.push('une mesure en ' + (x.mesure === 'temps' ? 'durée' : 'distance'));
+      if (horsMesure && !x.figure) causes.push('une mesure en ' + (x.mesure === 'temps' || x.mesure === 'charge_temps' ? 'durée' : 'distance'));
       // 119 (audit du 16/10/2026, E6) — sur une mesure en durée ou en distance, le coach ne dit RIEN, comme en
       // Entretenir : ni dégressive, ni chauffe, ni phrase (« Pas de charge de travail pour caler la dégressive. »
       // passait sous I13, qui ne regardait pas la dégressive).

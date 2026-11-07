@@ -1098,7 +1098,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .serie.grille.g-charge_reps,.cols-seance.g-charge_reps{column-gap:4px}  /* 260-f : 4 px entre les cibles de 44 px (5 avant) : les kg gardent ≥ 70 px à 360 px */
 .g-reps{grid-template-columns:30px 62px 1fr 44px 44px}              /* 260-a : 112 px */
 .g-temps{grid-template-columns:30px 62px 1fr 44px}                  /* 260-a : 169 px, pas d'effort */
-.g-distance_temps{grid-template-columns:30px 66px 1fr 1fr 44px}     /* 260-a : 80 px chacune */
+.g-distance_temps,.g-charge_distance,.g-charge_temps{grid-template-columns:30px 66px 1fr 1fr 44px}     /* 260-a : 80 px chacune */
 /* ECRAN §3 ter.5 (prompt 131) — un champ en plus prend une colonne (Escaliers : durée ·
    étages) : la grille à deux cases de la distance, vérifiée à 360 px (82 px chacune). */
 .g-temps.g-plus{grid-template-columns:30px 66px 1fr 1fr 44px}
@@ -1141,7 +1141,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .grille.programme.g-charge_reps{grid-template-columns:30px 1fr 90px 12px}
 .grille.programme.g-reps{grid-template-columns:30px 1fr 12px}
 .grille.programme.g-temps{grid-template-columns:30px 1fr 12px}
-.grille.programme.g-distance_temps{grid-template-columns:30px 1fr 1fr 12px}
+.grille.programme.g-distance_temps,.grille.programme.g-charge_distance,.grille.programme.g-charge_temps{grid-template-columns:30px 1fr 1fr 12px}
 .cols-seance{padding:var(--e2) var(--e3) 3px;font-size:12px;font-weight:600;
   color:var(--texte-3);letter-spacing:.02em}
 .cols-seance .centre{text-align:center}
@@ -1503,11 +1503,11 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .serie.grille.en-tours.g-charge_reps{grid-template-columns:28px minmax(0,1fr) 40px 46px 38px 30px 46px;gap:2px}
 .serie.grille.en-tours.g-reps{grid-template-columns:28px minmax(0,1fr) 40px 52px 30px 46px;gap:2px}
 .serie.grille.en-tours.g-temps{grid-template-columns:28px minmax(0,1fr) 40px 80px 46px;gap:2px}
-.serie.grille.en-tours.g-distance_temps,.serie.grille.en-tours.g-temps.g-plus{grid-template-columns:28px minmax(0,1fr) 40px 56px 56px 46px;gap:2px}
+.serie.grille.en-tours.g-distance_temps,.serie.grille.en-tours.g-charge_distance,.serie.grille.en-tours.g-charge_temps,.serie.grille.en-tours.g-temps.g-plus{grid-template-columns:28px minmax(0,1fr) 40px 56px 56px 46px;gap:2px}
 .cols-seance.en-tours.g-charge_reps{grid-template-columns:28px minmax(0,1fr) 40px 46px 38px 30px 46px;gap:2px}
 .cols-seance.en-tours.g-reps{grid-template-columns:28px minmax(0,1fr) 40px 52px 30px 46px;gap:2px}
 .cols-seance.en-tours.g-temps{grid-template-columns:28px minmax(0,1fr) 40px 80px 46px;gap:2px}
-.cols-seance.en-tours.g-distance_temps,.cols-seance.en-tours.g-temps.g-plus{grid-template-columns:28px minmax(0,1fr) 40px 56px 56px 46px;gap:2px}
+.cols-seance.en-tours.g-distance_temps,.cols-seance.en-tours.g-charge_distance,.cols-seance.en-tours.g-charge_temps,.cols-seance.en-tours.g-temps.g-plus{grid-template-columns:28px minmax(0,1fr) 40px 56px 56px 46px;gap:2px}
 .en-tours .ch-serie,.en-tours .rp-serie{height:44px}
 .en-tours .ch-serie input,.en-tours .rp-serie input{height:42px;font-size:22px}
 .en-tours .ch-serie u{display:none}

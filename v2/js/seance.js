@@ -3037,7 +3037,7 @@
   // `charge_reps` et `reps` ne changent pas : leur gris est une consigne du coach,
   // validée case par case (§3 bis.3). Rend le fantôme à valider : `f`, ou `{}`.
   function grisValide(g, serie, f) {
-    if (!g || (g.mesure !== 'temps' && g.mesure !== 'distance_temps')) return f || {};
+    if (!g || (g.mesure !== 'temps' && g.mesure !== 'distance_temps' && g.mesure !== 'charge_distance' && g.mesure !== 'charge_temps')) return f || {};   // 268 : une charge portée se valide comme le cardio
     // Toutes les cases : celles de la mesure ET les champs en plus (un D+ tapé compte) —
     // les colonnes de mesure de la série (`THModele.colonnesDeSerie()`).
     var tapee = colonnesDeMesure().some(function (cle) { return !videDeSaisie(serie && serie[cle]); });

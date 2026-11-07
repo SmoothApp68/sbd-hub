@@ -308,7 +308,10 @@
   var PHRASE_SANS_PALIER = {
     reps: null,   // la phrase du formateur — voir `phraseSansPalier`
     temps: 'Cet exercice se mesure en durée : le coach ne le suit pas.',
-    distance_temps: 'Cet exercice se mesure en distance et en durée : le coach ne le suit pas.'
+    distance_temps: 'Cet exercice se mesure en distance et en durée : le coach ne le suit pas.',
+    // 268 (C) — une charge portée : la voix des deux autres, la mesure en toutes lettres.
+    charge_distance: 'Cet exercice se mesure en charge et en distance : le coach ne le suit pas.',
+    charge_temps: 'Cet exercice se mesure en charge et en durée : le coach ne le suit pas.'
   };
   // 119 (E5) — LA TABLE PAR NOMBRE DE RÉPÉTITIONS n'existe que là où il y a des répétitions : jamais sur une planche,
   // un tapis ou une randonnée (« PAR NOMBRE DE RÉPÉTITIONS » au-dessus d'une durée, vu par Aurélien le 16/10).

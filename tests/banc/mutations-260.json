@@ -1,0 +1,26 @@
+[
+ {
+  "nom": "260-b-contour-de-controle-redevient-le-filet",
+  "fichier": "v2/styles.css",
+  "ancien": "  --trait-controle:#6F7A8B;\n",
+  "nouveau": "  --trait-controle:#2B3442;\n",
+  "unitaires": ["tests/unit/v2-proprete-260.test.js"],
+  "banc": "aucun"
+ },
+ {
+  "nom": "260-a-la-coche-retombe-a-38-px",
+  "fichier": "v2/styles.css",
+  "ancien": ".ok-serie{height:44px;",
+  "nouveau": ".ok-serie{height:38px;",
+  "unitaires": ["tests/unit/v2-proprete-260.test.js"],
+  "banc": "aucun"
+ },
+ {
+  "nom": "260-a-points-de-courbe-a-20-px",
+  "fichier": "v2/js/rendu.js",
+  "ancien": "cy: p.y, r: 25, tabindex",
+  "nouveau": "cy: p.y, r: 11, tabindex",
+  "unitaires": ["tests/unit/v2-proprete-260.test.js"],
+  "banc": "aucun"
+ }
+]

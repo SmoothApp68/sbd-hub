@@ -10265,8 +10265,7 @@
 
   // ══ 265 (§9.15.7, 07/11/2026) — UNE CHAUFFE AJOUTÉE APRÈS UNE CHAUFFE FAITE ════════════════════════════════════════
   //
-  // Une chauffe faite est figée ; les lignes non faites montent AU-DESSUS de la plus lourde des chauffes faites (quelle que soit sa
-  // place), jusqu'à 90 % de la charge de travail au plus (`CHAUFFE_PLAFOND`, arrondi au cran VERS LE BAS, toujours sous la charge de
+  // Une chauffe faite est figée ; les lignes non faites qui la SUIVENT montent AU-DESSUS de la plus lourde des chauffes faites, jusqu'à 90 % de la charge de travail au plus (`CHAUFFE_PLAFOND`, arrondi au cran VERS LE BAS, toujours sous la charge de
   // travail). Une ligne de la rampe déjà au-dessus de cette borne garde sa charge ; les autres se répartissent régulièrement dans
   // l'intervalle, en crans distincts et croissants. Plus de cran libre : la ligne reste sans charge, avec la phrase TROP_PROCHE (sauf
   // si elle est déjà trop légère : cette phrase-là passe d'abord). Reps du coach : jamais plus que la dernière faite moins une.
@@ -10274,10 +10273,11 @@
   // nombre de lignes laissées vides parce que trop proches.
   var TROP_PROCHE = 'Trop proche de ta charge de travail pour une chauffe de plus.';
   function apresLesChauffesFaites(lignes, faites, ref, pas) {
-    var borne = null, repsFaites = null, i;
+    var borne = null, repsFaites = null, derniere = -1, i;
     for (i = 0; i < lignes.length; i++) {
       var f = faites[i];
       if (!f) continue;
+      derniere = i;
       var cf = nombre(f.charge);
       if (cf !== null && (borne === null || cf > borne)) { borne = cf; repsFaites = nombre(f.reps); }
     }
@@ -10287,7 +10287,9 @@
     while (plafond >= ref - 1e-9) plafond -= cran;
     var aPlacer = [];
     var bas = borne;
-    for (i = 0; i < lignes.length; i++) {
+    // Seules les lignes APRÈS la dernière chauffe faite (celles qu'on ajoute, « + Chauffe » les pose à la suite) : une ligne restée
+    // avant une chauffe faite (validée dans le désordre) garde la rampe — la montée se lit dans l'ordre des lignes (I16).
+    for (i = derniere + 1; i < lignes.length; i++) {
       if (faites[i]) continue;
       var l = lignes[i];
       if (l.trop_leger) continue;
@@ -10310,7 +10312,7 @@
       bas = l.charge;
     });
     if (repsFaites !== null && repsFaites > 0) lignes.forEach(function (l, idx) {
-      if (faites[idx] || !l.reps_coach || l.charge === null) return;
+      if (idx <= derniere || faites[idx] || !l.reps_coach || l.charge === null) return;
       l.reps = Math.max(1, Math.min(l.reps, repsFaites - 1));
     });
     return proches;

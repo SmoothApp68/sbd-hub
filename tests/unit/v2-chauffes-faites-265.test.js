@@ -45,10 +45,14 @@ describe('§9.15.7 — après une chauffe faite', () => {
     expect(r.phrase_apres_faites).toBe(TROP_PROCHE);
   });
 
-  test('validation dans le désordre : la borne est la plus lourde des faites, quelle que soit sa place', () => {
+  test('validation dans le désordre : une ligne restée AVANT une chauffe faite garde la rampe (la montée se lit dans l\u2019ordre, I16)', () => {
     const r = avec(3, [null, null, { charge: 80, reps: 2 }]);
-    expect(r.lignes[0].charge === null || r.lignes[0].charge > 80).toBe(true);
-    expect(r.lignes[1].charge === null || r.lignes[1].charge > 80).toBe(true);
+    expect(charges(r)).toEqual([40, 60, 80]);
+  });
+
+  test('la borne est la plus lourde des chauffes faites, quelle que soit sa place', () => {
+    const r = avec(3, [{ charge: 50, reps: 8 }, { charge: 85, reps: 2 }, null]);
+    expect(r.lignes[2].charge).toBe(90);
   });
 
   test('plusieurs lignes d’un coup : charges strictement croissantes, jamais au-dessus de 90 %, jamais deux fois la même', () => {

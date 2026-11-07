@@ -3315,7 +3315,7 @@ input,select,textarea,.ch-serie,.rp-serie,.eff-serie{
 .bloc-seance .ch-serie,.bloc-seance .rp-serie,.bloc-seance .eff-serie,.bloc-seance .no-serie,.bloc-seance .ok-serie,.bloc-seance .ajout-serie button{
   --trait:#2B3442;--trait-case:#2B3442}
 .bloc-seance .ch-serie.fantome,.bloc-seance .rp-serie.fantome{border-style:solid;background:var(--panneau-2)}
-.bloc-seance .no-serie{background:var(--panneau-2);border-color:transparent}
+.bloc-seance .no-serie:not(.c):not(.d){background:var(--panneau-2);border-color:transparent}
 .bloc-seance .ajout-serie button{border-style:dashed;font-size:14px;font-weight:400;color:var(--texte-3)}
 .ajouts{display:flex;flex-wrap:wrap;gap:6px;padding:var(--e2) var(--e3) var(--e3)}
 .ajouts .ajout-serie{flex:1 1 auto;padding:0}

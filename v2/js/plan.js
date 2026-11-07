@@ -674,7 +674,8 @@
           non_remplies: r.non_remplies, prevues: r.prevues, trop_legeres: r.trop_legeres || 0, trop_proches: r.trop_proches || 0,
           iSerie: deChauffe[0].iSerie
         };
-        if (sortie.chauffes.phrase) sortie.citations.chauffes = capR.citations;
+        // 265 — la phrase « trop proche » dite après une chauffe faite ne cite aucun chiffre : pas de citations (I26).
+        if (sortie.chauffes.phrase && !uneFaite) sortie.citations.chauffes = capR.citations;
       } else if (!lignes.some(function (l) { return l.validee; })) {
         // §9.41 — aucune ligne de chauffe : une PROPOSITION (ou, après deux séances où la personne les a ajoutées, un ajout avec
         // « Annuler »), jamais des séries insérées d'office par le plan. Tant qu'aucune série de l'exercice n'est faite.

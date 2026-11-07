@@ -1,0 +1,34 @@
+[
+ {
+  "nom": "268-1-un-record-de-portee-ignore-la-charge",
+  "fichier": "v2/js/modele.js",
+  "ancien": "var compte = vx !== null && vx > 0 && (!portee || (cx !== null && cx >= chargeP - EPS_RECORD));",
+  "nouveau": "var compte = vx !== null && vx > 0;",
+  "unitaires": ["tests/unit/v2-268-portees.test.js", "tests/unit/v2-268-mieux.test.js"],
+  "banc": "aucun"
+ },
+ {
+  "nom": "268-2-la-pente-depasse-40-pour-cent",
+  "fichier": "v2/js/modele.js",
+  "ancien": "pente_pct:  { min: 0, max: 40 }",
+  "nouveau": "pente_pct:  { min: 0, max: 400 }",
+  "unitaires": ["tests/unit/v2-268-pente.test.js"],
+  "banc": "aucun"
+ },
+ {
+  "nom": "268-3-un-exercice-deja-fait-reste-nouveau",
+  "fichier": "v2/js/modele.js",
+  "ancien": "if (faits && Number(faits[slug]) > 0) return false;",
+  "nouveau": "if (false) return false;",
+  "unitaires": ["tests/unit/v2-268-nouveaux.test.js"],
+  "banc": "aucun"
+ },
+ {
+  "nom": "268-4-la-silhouette-du-mois-lit-un-autre-compte",
+  "fichier": "v2/js/annee.js",
+  "ancien": "corps.volume[m.muscle] = m.series;",
+  "nouveau": "corps.volume[m.muscle] = m.series + 1;",
+  "unitaires": ["tests/unit/v2-268-silhouette-mois.test.js"],
+  "banc": "aucun"
+ }
+]

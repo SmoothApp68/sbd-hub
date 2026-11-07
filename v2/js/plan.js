@@ -641,6 +641,12 @@
         routine: deChauffe.length ? deChauffe.map(function (l) {
           var v = nombre(liste[l.iSerie] && liste[l.iSerie].reps_visees);
           return v;
+        }) : null,
+        // 265 (§9.15.7) — les chauffes FAITES (charge et reps réelles), à leur place ; `null` pour une ligne pas faite.
+        faites: deChauffe.length ? deChauffe.map(function (l) {
+          if (!l.validee) return null;
+          var sr = liste[l.iSerie] || {};
+          return { charge: nombre(sr.charge_kg), reps: nombre(sr.reps) };
         }) : null
       };
       var capR = Voix().capturer(function () { return M.chauffesDe(entree); });
@@ -653,6 +659,7 @@
           // §9.15.5 (94) — une chauffe que la table ne prévoyait pas et que le
           // coach ne peut pas distinguer de la précédente : vide, et dit.
           if (rl.trop_leger) l.chauffe.trop_leger = true;
+          if (rl.trop_proche) l.chauffe.trop_proche = true;
           // Ses reps, quand la routine n'en porte pas : celles de la règle.
           if (rl.reps_coach) l.chauffe.reps = rl.reps;
           if (c !== null && !l.validee) l.fantome = { charge: c, reps: rl.reps_coach ? rl.reps : null, source: 'chauffe' };
@@ -663,11 +670,12 @@
         // citait des charges que la personne n'avait pas faites.
         var uneFaite = deChauffe.some(function (l) { return l.validee; });
         sortie.chauffes = {
-          situation: r.situation, reference: reference, phrase: uneFaite ? null : r.phrase,
-          non_remplies: r.non_remplies, prevues: r.prevues, trop_legeres: r.trop_legeres || 0,
+          situation: r.situation, reference: reference, phrase: uneFaite ? (r.phrase_apres_faites || null) : r.phrase,
+          non_remplies: r.non_remplies, prevues: r.prevues, trop_legeres: r.trop_legeres || 0, trop_proches: r.trop_proches || 0,
           iSerie: deChauffe[0].iSerie
         };
-        if (sortie.chauffes.phrase) sortie.citations.chauffes = capR.citations;
+        // 265 — la phrase « trop proche » dite après une chauffe faite ne cite aucun chiffre : pas de citations (I26).
+        if (sortie.chauffes.phrase && !uneFaite) sortie.citations.chauffes = capR.citations;
       } else if (!lignes.some(function (l) { return l.validee; })) {
         // §9.41 — aucune ligne de chauffe : une PROPOSITION (ou, après deux séances où la personne les a ajoutées, un ajout avec
         // « Annuler »), jamais des séries insérées d'office par le plan. Tant qu'aucune série de l'exercice n'est faite.
@@ -4100,6 +4108,12 @@
         if (l.chauffe.charge !== null || l.validee) return;
         if (l.chauffe.trop_leger) {
           if (ch.phrase !== null && (ch.phrase || '').indexOf('Trop léger pour une chauffe de plus.') < 0) err('I16', 'une chauffe trop légère sans sa phrase (série ' + l.iSerie + ')');
+          return;
+        }
+        // 265 (§9.15.7, I143) — une chauffe vide parce que trop proche de la charge de travail a toujours sa phrase, même
+        // après une chauffe faite (`phrase_apres_faites`).
+        if (l.chauffe.trop_proche) {
+          if ((ch.phrase || '').indexOf('Trop proche de ta charge de travail pour une chauffe de plus.') < 0) err('I143', 'une chauffe trop proche sans sa phrase (série ' + l.iSerie + ')');
           return;
         }
         if (vues <= ch.prevues) err('I16', 'une chauffe de la routine restée vide (série ' + l.iSerie + ')');

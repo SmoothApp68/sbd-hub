@@ -3516,9 +3516,9 @@
         var ps = typeof vue.propositionSchema === 'function' ? vue.propositionSchema(s._iExo) : null;
         if (ps) hoteCartes.appendChild(propositionDeSchema(ps, s._iExo, vue));
         var pc = typeof vue.propositionChauffes === 'function' ? vue.propositionChauffes(s._iExo) : null;
-        // 200-5 — la chauffe se replie sur une ligne : « Chauffe · 4 séries › » ; « Ajouter » et « Non merci » à l'ouverture.
-        if (pc) hoteCartes.appendChild(ligneRepliee('lr-chauffes', 'Chauffe \u00b7 ' + pc.lignes.length + ' s\u00e9rie' + (pc.lignes.length > 1 ? 's' : '') + '\u00a0\u203a',
-          propositionDeChauffes(pc, s._iExo, vue)));
+        // 265 (maquette séance v4) — la proposition du coach est UNE LIGNE À LUI, dépliée : ses charges en clair, « Ajouter » et
+        // « Non merci » d'un toucher (elle était repliée en « Chauffe · N séries › » depuis 200-5 : on ne voyait ni qui parlait ni quoi).
+        if (pc) hoteCartes.appendChild(propositionDeChauffes(pc, s._iExo, vue));
         // 237 (MOTEUR §9.41) — les chauffes ajoutées d'elles-mêmes : une ligne du plan, un seul geste, « Annuler ».
         var pca = typeof vue.chauffesAuto === 'function' ? vue.chauffesAuto(s._iExo) : null;
         if (pca) hoteCartes.appendChild(propositionDExercice({
@@ -3604,7 +3604,15 @@
         if (tour._phrase) tour._lignes.appendChild(el('div', 'dit tour-phrase', tour._phrase));
       });
       // Les cartes du coach de chaque exercice, dans l'ordre de la routine, avant les colonnes et les tours.
-      bloc.exercices.forEach(function (x) { if (carteDe[x._iExo]) noeud.appendChild(carteDe[x._iExo]); });
+      // 265 — SOUS LA LIGNE DE LEUR EXERCICE dans l'en-tête (maquette séance v4) : la ligne de nom des cartes devient inutile, la
+      // légende juste au-dessus dit à qui elles parlent. Sans légende trouvée (sélection en cours), avant les tours, avec leur nom.
+      bloc.exercices.forEach(function (x) {
+        var c = carteDe[x._iExo];
+        if (!c) return;
+        var leg = noeud.querySelector('.legende-exo[data-iexo="' + x._iExo + '"]');
+        if (leg && leg.parentNode) { c.classList.add('sous-legende'); leg.parentNode.insertBefore(c, leg.nextSibling); }
+        else noeud.appendChild(c);
+      });
       noeud.appendChild(zoneTours);
     }
     noeud.appendChild(boutonsAjoutSerie(bloc, vue));
@@ -5063,17 +5071,54 @@
     var ajout = el('div', 'ajout-serie');
     var enTours = bloc.superset && !vue.programme;
     bloc.exercices.forEach(function (x, i) {
-      // 261 — dans les tours le bouton porte la forme colorée et le nom court (« + Série · Couché »), pas seulement la lettre.
+      // 261 — dans les tours le bouton porte la forme colorée ; 265 (maquette séance v4) — et la lettre, « + Série A » : le nom coupé
+      // (« + Série · Élévation… ») ne tenait pas à trois boutons sur 380 px, la forme dit déjà l'exercice.
       var b = el('button', enTours ? 'ajout-tours' : '', enTours ? '' : '+ Série' + (x.lettre ? ' ' + x.lettre : ''));
       if (enTours) {
         b.appendChild(el('span', 'forme forme-' + racine.THTours.formeDe(i)));
-        b.appendChild(el('span', 'ajout-tours-t', '+ Série\u00a0· ' + M().nomParle(x.nom)));
+        b.appendChild(el('span', 'ajout-tours-t', '+ Série' + (x.lettre ? '\u00a0' + x.lettre : '')));
       }
       b.type = 'button';
       b.setAttribute('aria-label', 'Ajouter une série à ' + x.nom);
       b.addEventListener('click', function () { vue.surAjoutSerie(x._iExo); });
       ajout.appendChild(b);
     });
+    // 265 (MOTEUR §9.15.5 et §9.15.7, maquette séance v4) — « + Chauffe » : TA chauffe, une ligne à la fois, que le coach charge
+    // (sa charge vient du plan, comme toute chauffe posée). En superset, une question : pour quel exercice ? Pas en mode programme
+    // (l'éditeur pose ses chauffes par le type de la série).
+    // Hors de `.ajout-serie` : ses boutons restent les seuls « + Série » (les bancs et l'app les comptent), la rangée les tient côte à côte.
+    var chauffables = bloc.exercices.filter(function (x) { var g = gabaritDe(vue, x.slug); return !g || g.mesure === 'charge_reps'; });
+    if (!vue.programme && typeof vue.surAjoutChauffe === 'function' && chauffables.length) {
+      var rangee = el('div', 'ajouts');
+      rangee.appendChild(ajout);
+      var bc = el('button', 'ajout-chauffe', '+ Chauffe');
+      bc.type = 'button';
+      if (chauffables.length === 1) {
+        bc.setAttribute('aria-label', 'Ajouter une chauffe à ' + chauffables[0].nom);
+        bc.addEventListener('click', function () { vue.surAjoutChauffe(chauffables[0]._iExo); });
+        rangee.appendChild(bc);
+      } else {
+        bc.setAttribute('aria-expanded', 'false');
+        var choix = el('div', 'choix-chauffe');
+        choix.hidden = true;
+        choix.appendChild(el('div', 'choix-chauffe-t', 'Une chauffe pour quel exercice\u00a0?'));
+        chauffables.forEach(function (x) {
+          var q = el('button', 'choix-chauffe-b', '');
+          q.type = 'button';
+          q.appendChild(el('span', 'forme forme-' + racine.THTours.formeDe(bloc.exercices.indexOf(x))));
+          q.appendChild(doc.createTextNode(M().nomParle(x.nom)));
+          q.addEventListener('click', function () { vue.surAjoutChauffe(x._iExo); });
+          choix.appendChild(q);
+        });
+        bc.addEventListener('click', function () {
+          choix.hidden = !choix.hidden;
+          bc.setAttribute('aria-expanded', choix.hidden ? 'false' : 'true');
+        });
+        rangee.appendChild(bc);
+        rangee.appendChild(choix);
+      }
+      return rangee;
+    }
     return ajout;
   }
 

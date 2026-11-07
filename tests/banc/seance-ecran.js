@@ -10838,16 +10838,14 @@ const SETS_IMPORTES = [
     const prop1 = await propositionU(3);
     ok('[U10] DISCRIMINANT — ajouté sans chauffe : le coach PROPOSE la montée (80 kg : 45 × 8 · 70 × 3, 237)',
       esp(prop1) === 'Chauffe : 45 kg × 8 · 70 kg × 3', esp(prop1));
-    const replie200 = await page.evaluate(() => {
-      const d = document.querySelector('.ligne-repliee.lr-chauffes:has(.proposition-chauffes[data-iexo="3"])');
-      const r = d ? d.querySelector('summary') : null;
-      const b = d ? d.querySelector('.pc-ajouter') : null;
-      return d ? { resume: r.textContent.replace(/\s+/g, ' ').trim(), ouvert: d.open, ajouterVu: b.checkVisibility() } : null;
+    const deplie265 = await page.evaluate(() => {
+      const n = document.querySelector('.proposition-chauffes[data-iexo="3"]');
+      const b = n ? n.querySelector('.pc-ajouter') : null;
+      return n ? { replie: !!n.closest('details'), ajouterVu: !!b && b.checkVisibility() } : null;
     });
-    ok('[U10] 200-5 — DISCRIMINANT : la chauffe est UNE ligne repliée « Chauffe · 2 séries › », « Ajouter » caché jusqu’à l’ouverture',
-      !!replie200 && replie200.resume === 'Chauffe · 2 séries ›' && replie200.ouvert === false && replie200.ajouterVu === false, JSON.stringify(replie200));
+    ok('[U10] 265 — DISCRIMINANT : la proposition est la ligne du coach, DÉPLIÉE (maquette séance v4) : « Ajouter » visible sans ouvrir',
+      !!deplie265 && deplie265.replie === false && deplie265.ajouterVu === true, JSON.stringify(deplie265));
     const nAvant = await compter('.ligne-serie');
-    await page.click('.ligne-repliee:has(.proposition-chauffes[data-iexo="3"]) > summary');   // 200-5 : la ligne repliée s'ouvre avant « Non merci »
     await page.click('.proposition-chauffes[data-iexo="3"] .pc-refuser');
     await attendre(700);
     ok('[U10] « Non merci » : la proposition disparaît, aucune série insérée',
@@ -10862,7 +10860,6 @@ const SETS_IMPORTES = [
     await ajouterExoSeance('Militaire U10');
     ok('[U10] une autre séance : la proposition revient (un refus seulement)', (await propositionU(3)) !== null, '');
     const avantAjout = await compter('.ligne-serie');
-    await page.click('.ligne-repliee:has(.proposition-chauffes[data-iexo="3"]) > summary');
     await page.click('.proposition-chauffes[data-iexo="3"] .pc-ajouter');
     await attendre(900);
     f = await fantomesU();
@@ -29264,7 +29261,6 @@ const SETS_IMPORTES = [
     const planPret237 = (slug) => attendreQue(() => page.evaluate((sl) => !!(window.THPlan && window.THPlan.dernier && window.THPlan.dernier.plan &&
       window.THPlan.dernier.plan.exercices.some((x) => x.slug === sl && x.consigne)), slug), 15000, 'planRT237' + slug);
     const ouvrirEtAjouter237 = async () => {
-      await page.click('.ligne-repliee.lr-chauffes > summary');
       await page.click('.proposition-chauffes .pc-ajouter');
     };
     // ── SÉANCE 1 : la proposition, « Ajouter ».
@@ -29272,11 +29268,12 @@ const SETS_IMPORTES = [
     await demarrerRoutine('Squat RT237');
     await planPret237('rt237-squat');
     const s1 = await lire237('rt237-squat');
-    const resume1 = await page.evaluate(() => { const d = document.querySelector('.ligne-repliee.lr-chauffes'); return d ? { resume: d.querySelector('summary').textContent.replace(/\s+/g, ' ').trim(), ouvert: d.open } : null; });
+    if (process.env.BANC_CAPTURES_265) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_265, 'chauffes-proposees.png') });
+    const resume1 = await page.evaluate(() => { const n = document.querySelector('.proposition-chauffes'); return n ? { replie: !!n.closest('details'), texte: n.querySelector('.pc-texte').textContent.replace(/\s+/g, ' ').trim() } : null; });
     ok('[RT237] DISCRIMINANT — séance 1 : le coach PROPOSE (premier exercice du muscle, 100 kg au-dessus de 60 % du max), sans rien écrire',
       !!s1.prop && s1.prop.mode === 'proposer' && s1.prop.raison === 'muscle' && s1.prop.lignes.length >= 2 && s1.types.every((t) => t === 'travail'), nb237(s1));
-    ok('[RT237] la proposition est UNE ligne repliée « Chauffe · N séries › » ; le Pourquoi dit la règle',
-      !!resume1 && resume1.ouvert === false && /^Chauffe · \d séries ›$/.test(resume1.resume) && /^Premier exercice de la séance sur ce muscle.*60 %/.test(sp237(s1.prop && s1.prop.pourquoi)), nb237([resume1, s1.prop && s1.prop.pourquoi]));
+    ok('[RT237] 265 — la proposition est la ligne du coach, dépliée, ses charges en clair ; le Pourquoi dit la règle',
+      !!resume1 && resume1.replie === false && /^Chauffe : \d/.test(resume1.texte) && /^Premier exercice de la séance sur ce muscle.*60 %/.test(sp237(s1.prop && s1.prop.pourquoi)), nb237([resume1, s1.prop && s1.prop.pourquoi]));
     ok('[RT237] I126 — les charges montent, aucune n’atteint 100 kg, la dernière ≤ 90 kg',
       s1.prop.lignes.every((l, i) => l[0] < 100 && (i === 0 || l[0] > s1.prop.lignes[i - 1][0])) && s1.prop.lignes[s1.prop.lignes.length - 1][0] <= 90, nb237(s1.prop.lignes));
     await ouvrirEtAjouter237();
@@ -29321,7 +29318,6 @@ const SETS_IMPORTES = [
     await demarrerRoutine('Presse RT237');
     await planPret237('rt237-presse');
     ok('[RT237] 2e exercice, séance A : la proposition est là', !!(await lire237('rt237-presse')).prop, '');
-    await page.click('.ligne-repliee.lr-chauffes > summary');
     await page.click('.proposition-chauffes .pc-refuser');
     await attendreQue(() => lire237('rt237-presse').then((p) => p.prop === null), 15000, 'refus1RT237');
     await abandonner();
@@ -29329,7 +29325,6 @@ const SETS_IMPORTES = [
     await demarrerRoutine('Presse RT237');
     await planPret237('rt237-presse');
     ok('[RT237] séance B : UN « Non merci » ne fait pas taire — la proposition revient', !!(await lire237('rt237-presse')).prop, '');
-    await page.click('.ligne-repliee.lr-chauffes > summary');
     await page.click('.proposition-chauffes .pc-refuser');
     await attendreQue(() => lire237('rt237-presse').then((p) => p.prop === null), 15000, 'refus2RT237');
     const memoireDeux237 = await page.evaluate(() => localStorage.getItem('th-v2-refus-chauffes'));
@@ -29345,7 +29340,6 @@ const SETS_IMPORTES = [
     const memoireAnnulee237 = await page.evaluate(() => localStorage.getItem('th-v2-refus-chauffes'));
     ok('[RT237] 237-bis — « Annuler » retire ce dernier refus : la phrase part, la proposition revient, la mémoire repasse à un refus',
       (await carteSilence237()) === null && /"rt237-presse":\{"n":1,/.test(memoireAnnulee237 || ''), memoireAnnulee237);
-    await page.click('.ligne-repliee.lr-chauffes > summary');
     await page.click('.proposition-chauffes .pc-refuser');
     await attendreQue(() => carteSilence237().then((c) => !!c), 15000, 'refus2bisRT237');
     const memoire237 = await page.evaluate(() => localStorage.getItem('th-v2-refus-chauffes'));

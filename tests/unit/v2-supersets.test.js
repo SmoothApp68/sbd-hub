@@ -333,7 +333,7 @@ describe('un superset peut mélanger les mesures (§3 ter)', () => {
     s = Seance.definirReposCible(s, 0, 120);
     const bloc = rendre(s).querySelectorAll('.bloc-seance')[0];
     expect(Array.from(bloc.querySelectorAll('.ajout-serie button')).map((b) => b.textContent))
-      .toEqual(['+ Série\u00a0· Développé Couché', '+ Série\u00a0· Écarté Poulie']);   // 261 : la forme et le nom court
+      .toEqual(['+ Série\u00a0A', '+ Série\u00a0B']);   // 265 : la forme et la lettre (maquette séance v4)
     expect(Array.from(bloc.querySelectorAll('.repos-cible')).map((b) => b.textContent))
       .toEqual(['repos 2:00', 'repos —']);
     // 204 : plus de « + Note » : la note se pose depuis le « ⋯ » de l'exercice, et une note posée s'affiche sous son nom.

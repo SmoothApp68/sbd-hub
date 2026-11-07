@@ -3307,3 +3307,23 @@ input,select,textarea,.ch-serie,.rp-serie,.eff-serie{
 :is(button,input,select,textarea,summary,a[href],[role=button],[tabindex]):not(.ch-serie input,.rp-serie input):focus-visible,
 #champ-recherche-exo:focus-visible{outline:2px solid var(--anneau-focus);outline-offset:2px}
 .ch-serie:has(input:focus-visible),.rp-serie:has(input:focus-visible){outline:2px solid var(--anneau-focus);outline-offset:1px}
+
+/* ══ 265 — LA SÉANCE RETROUVE SON ALLURE D'AVANT LE 07/11 (maquette séance v4, validée par Aurélien le 07/11/2026) ═══════════
+   260-b avait porté le contour 3:1 (--trait-controle) sur les cases, les numéros et la coche de la grille : les fantômes en
+   pointillés clairs, des cases « vides », un « + Série » lourd. En séance, on revient au filet sombre (--trait) et aux cases
+   PLEINES — le fantôme se lit à son chiffre gris, plus à son cadre. Ce qui reste de 260 : 44 px de toucher, l'anneau de focus. */
+.bloc-seance .ch-serie,.bloc-seance .rp-serie,.bloc-seance .eff-serie,.bloc-seance .no-serie,.bloc-seance .ok-serie,.bloc-seance .ajout-serie button{
+  --trait:#2B3442;--trait-case:#2B3442}
+.bloc-seance .ch-serie.fantome,.bloc-seance .rp-serie.fantome{border-style:solid;background:var(--panneau-2)}
+.bloc-seance .no-serie{background:var(--panneau-2);border-color:transparent}
+.bloc-seance .ajout-serie button{border-style:dashed;font-size:14px;font-weight:400;color:var(--texte-3)}
+.bloc-seance .ajout-serie button.ajout-chauffe{flex:0 0 auto;padding:0 14px}
+.choix-chauffe{flex:1 1 100%;display:flex;flex-direction:column;gap:6px;margin-top:4px;padding:10px;border-radius:var(--r-bouton);background:var(--panneau-2)}
+.choix-chauffe[hidden]{display:none}
+.choix-chauffe-t{font:600 14px var(--pile-c);color:var(--texte);padding:0 2px 2px}
+.bloc-seance .ajout-serie .choix-chauffe-b{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;flex:none}
+/* La ligne du coach (§9.41) : un filet d'ambre, ses charges en clair, « Ajouter » / « Non merci » à droite. */
+.proposition-exercice.proposition-chauffes{border:0;border-left:3px solid var(--accent);border-radius:0 8px 8px 0;background:var(--accent-fond)}
+.proposition-exercice.proposition-chauffes .pc-texte{color:var(--texte);font-weight:600}
+.cartes-exo.sous-legende{margin:2px 0 6px}
+.cartes-exo.sous-legende .cartes-exo-nom{display:none}

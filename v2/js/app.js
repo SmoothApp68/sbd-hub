@@ -10653,6 +10653,14 @@
         seance = Seance.ajouterSerie(seance, i, uuid());
         await apresGeste({ structure: false });
       },
+      // 265 (MOTEUR §9.15.5 et §9.15.7) — « + Chauffe » : UNE ligne de chauffe, avant la première série de travail, sans charge ni reps
+      // écrites — le coach la charge par le plan (fantôme), comme toute chauffe posée ; la saisie de la personne fait foi. Pas de geste :
+      // la ligne typée échauffement EST le fait que `faits.chauffesAjoutees` relit (§9.41, règle 6).
+      surAjoutChauffe: async function (i) {
+        if (!seance || !seance.exercices[i]) return;
+        seance = Seance.insererChauffes(seance, i, [[null, null]], uuid);
+        await apresGeste({ structure: false });
+      },
       // MOTEUR §9.15.2 (49-U10) — la proposition de chauffes, lue sur le plan.
       propositionChauffes: function (i) {
         if (enEdition()) return null;

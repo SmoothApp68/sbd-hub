@@ -6798,9 +6798,10 @@ const SETS_IMPORTES = [
   // l'assertion ne prouverait rien. En seconde position, A porte une CHAUFFE au
   // même indice — la mauvaise liste chercherait donc une chauffe de tractions,
   // qui n'existe pas, et la colonne resterait vide.
+  // 261 — dans les tours, le bouton dit « + Série · <nom> » et non plus « + Série B » : on prend le second bouton du
+  // superset, celui de B (le même geste que la section 233).
   await page.evaluate(() => {
-    Array.from(document.querySelectorAll('.ajout-serie button'))
-      .filter((b) => /Série B/.test(b.textContent))[0].click();
+    Array.from(document.querySelectorAll('.bloc-seance.superset .ajout-serie button'))[1].click();
   });
   await attendre(600);
   const colonnesDeB = () => page.evaluate(() =>

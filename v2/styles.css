@@ -964,7 +964,7 @@ button.puce-zone::after{content:"";position:absolute;left:0;right:0;top:50%;heig
    voix du moteur). */
 .mode-exercice{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:4px 0 10px}
 .option-mode{min-height:40px;padding:0 10px;border:1px solid var(--trait);border-radius:var(--r-bouton);
-  background:none;color:var(--texte);font:inherit;font-size:14px}
+  background:none;color:var(--texte);font:600 13px var(--pile);cursor:pointer}
 .option-mode.active{background:var(--panneau-2);border-color:var(--panneau-2);font-weight:620}
 
 /* §3.10 — LA FEUILLE « POURQUOI ». Une ligne de séance est un couple : ce qui
@@ -2147,6 +2147,10 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .ap-paire{border-left:2px solid var(--accent)}
 .ap-paire-t{padding:6px 12px 0;border-top:1px solid var(--trait);font-size:12px;color:var(--accent)}
 .ap-paire .ap-ex:first-of-type{border-top:0}
+.ap-habituel{padding:8px 12px 10px;border-top:1px solid var(--trait)}
+.ap-habituel-t{margin:0;font-size:14px;color:var(--texte)}
+.ap-habituel-d{margin:2px 0 0;font-size:13px;color:var(--texte-2)}
+.ap-habituel-geste{min-height:44px;margin-top:6px;padding:0 12px;border:0;border-radius:var(--r-bouton);background:var(--panneau);color:var(--texte);font:600 13px var(--pile);cursor:pointer}
 /* 60-5 — « Créer ces N routines », l'action principale de l'aperçu (constat d'Aurélien, sur téléphone : elle passait
    inaperçue). Elle portait déjà `.principal`, mais `.feuille-menu button` (fond transparent, texte à gauche, police
    héritée — plus spécifique) l'aplatissait en ligne de menu. On rend ICI ce que `.principal` dit : l'ambre de la forge

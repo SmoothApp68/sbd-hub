@@ -7570,6 +7570,17 @@
           valeur = groupe;
         }
         paire.appendChild(b);
+        // 266 — la carte du coach sous un superset que la personne fait déjà : sa phrase, son compte, « Les séparer ».
+        if (x.habituel) {
+          var coach = el('div', 'ap-habituel');
+          coach.appendChild(el('p', 'ap-habituel-t', x.habituel.phrases[0]));
+          coach.appendChild(el('p', 'ap-habituel-d', x.habituel.phrases[1]));
+          var sep = el('button', 'ap-habituel-geste', 'Les séparer');
+          sep.type = 'button';
+          sep.addEventListener('click', function () { if (v.surSeparer) v.surSeparer(x.habituel.cle); });
+          coach.appendChild(sep);
+          paire.appendChild(coach);
+        }
       });
       liste.appendChild(carte);
     });

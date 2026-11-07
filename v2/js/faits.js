@@ -1127,7 +1127,7 @@
       var seances = seancesAvecSeries(c).map(function (s) {
         return { id: s.id, debut: s.debut, titre: titres[s.id] === undefined ? null : titres[s.id], series: s.series };
       });
-      return racine.THRoutines.seancesQuiReviennent(seances, mesures);
+      return racine.THRoutines.seancesQuiReviennent(seances, mesures, index);
     }
 
     // ── La dernière séance de la personne (66D, QUESTIONNAIRE-COACH-V2 §5 quater.5) ──

@@ -15286,6 +15286,17 @@
     });
     // Fondues AVANT `associer` : une ligne, une entrée de structure (deux voisins identiques feraient un seul bloc).
     habillees = fondreLesVoisins(habillees);
+    // 266 — une paire habituelle refusée (« Les séparer ») redevient deux séries classiques AVANT les structures (leurs repos).
+    habillees = habillees.map(function (rt) {
+      var refusees = {};
+      h.refusPaires.forEach(function (p) { if (p[0] === rt.nom) { refusees[p[1]] = true; refusees[p[2]] = true; } });
+      return Object.assign({}, rt, { exercices: rt.exercices.map(function (l) {
+        if (!l.superset_habituel || !refusees[l.exercise_slug]) return l;
+        var n = Object.assign({}, l, { groupe_superset: null });
+        delete n.superset_habituel;
+        return n;
+      }) });
+    });
     var assoc = Generateur.associer({ routines: habillees, structures: habillees.map(structureDuProgramme),
       cible_min: cibleDuProgrammeConstruit(), catalogue: index, refus_paires: h.refusPaires });
     var faitesNoms = c.routines.filter(function (rt, i) { return c.faites[i]; }).map(function (rt) { return rt.nom; });
@@ -15331,7 +15342,8 @@
   function ligneDeRetouche(l) {
     var x = Object.assign({}, l);
     delete x.raccourcie;
-    delete x.groupe_superset;
+    // 266 — la paire HABITUELLE se garde (le groupe et son compte) ; `associer` la défait si elle n'est plus deux lignes contiguës.
+    if (!x.superset_habituel) delete x.groupe_superset;
     return x;
   }
 
@@ -15408,7 +15420,11 @@
         }
         // 188-2 — les deux premiers pas de la compression : un superset de plus, un repos d'isolation raccourci.
         r.journal.forEach(function (t) {
-          if (t.quoi === 'superset' && (t.i === j || t.j === j)) nl.groupe_superset = t.groupe;
+          // 266 — une paire que la personne a séparée (« Les séparer », `refusPaires`) ne se regroupe pas en silence par le raccourci.
+          var separee = ((construit && construit.historique && construit.historique.refusPaires) || []).some(function (p) {
+            return p[0] === rt.nom && ((p[1] === t.slug && p[2] === t.avec) || (p[1] === t.avec && p[2] === t.slug));
+          });
+          if (t.quoi === 'superset' && (t.i === j || t.j === j) && !separee) nl.groupe_superset = t.groupe;
           if (t.quoi === 'repos' && t.i === j) nl.repos_raccourci_s = t.apres;
         });
         if (tr > 0) lignes.push(nl);
@@ -15419,7 +15435,10 @@
       });
       lignes = lignes.map(function (l) {
         var g = l.groupe_superset;
-        return g !== null && g !== undefined && membres[g] < 2 ? Object.assign({}, l, { groupe_superset: null }) : l;
+        if (!(g !== null && g !== undefined && membres[g] < 2)) return l;
+        var n = Object.assign({}, l, { groupe_superset: null });
+        delete n.superset_habituel;      // 266 : un membre retiré par le raccourci, l'autre redevient une série classique
+        return n;
       });
       return Object.assign({ nom: rt.nom, exercices: lignes }, rt.hybride ? { hybride: rt.hybride } : {});
     });
@@ -15473,14 +15492,22 @@
         lignes: changements.map(function (x) { return { texte: x.texte, retire: x.retire, libelle: x.retire ? 'Remettre' : 'Retirer' }; })
       } : null,
       surChangement: function (n) { if (changements[n]) basculerChangement(changements[n].cle); },
+      surSeparer: function (cle) { basculerChangement(cle); },
       routines: restantes.map(function (i) {
         var rt = c.routines[i];
         return { nom: lecture[i].nom, duree: lecture[i].duree, pourquoi: lecture[i].pourquoi,
           reprise: !!(h && c.reprises[rt.nom]),
           exercices: rt.exercices.map(function (l, k) {
-            return { nom: nommer(l.exercise_slug), series: seriesFois(l), mentions: Generateur.mentionsDeLigne(l, c.entree),
+            var x = { nom: nommer(l.exercise_slug), series: seriesFois(l), mentions: Generateur.mentionsDeLigne(l, c.entree),
                      neuf: !!c.neuf[i + ':' + l.exercise_slug] || !!(h && c.ajouts[rt.nom + '\u0000' + l.exercise_slug]),
                      paire: l.groupe_superset === undefined ? null : l.groupe_superset };
+            // 266 — le superset que la personne fait déjà : sous la paire, la carte du coach et « Les séparer » (le refus `paire:…`).
+            var avant = rt.exercices[k - 1];
+            if (l.superset_habituel && avant && avant.superset_habituel && avant.groupe_superset === l.groupe_superset) {
+              x.habituel = { phrases: Generateur.phrasesDuSupersetHabituel(l.superset_habituel.n, l.superset_habituel.m),
+                             cle: 'paire:' + rt.nom + ':' + avant.exercise_slug + ':' + l.exercise_slug };
+            }
+            return x;
           }) };
       }),
       erreur: c.erreur,

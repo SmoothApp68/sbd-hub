@@ -1191,7 +1191,59 @@
     return n >= DEDUIT.exercicesMin ? sig : null;
   }
 
-  function seancesQuiReviennent(seances, mesures) {
+  // 266 (QUESTIONNAIRE §5 quater.5) — LE SUPERSET QUE LA PERSONNE FAIT DÉJÀ. `routine` : `{ exercices: [{ exercise_slug, … }] }` (déjà
+  // ordonnée) ; `seances` : les séances de SON groupe, de la plus ancienne à la plus récente ; `catalogue` : `{ slug: { prim, sec, stab } }`.
+  // Une paire (a, b) est gardée si les deux sont des ISOLATIONS (`THMoteur.estIsolation`) sans muscle principal commun, enchaînées
+  // (même `groupe_superset` non nul sur une série de travail de chacun) dans au moins `DEDUIT.seancesMin` séances ET dans plus de la
+  // moitié des (au plus 8) dernières séances où les deux ont une série de travail. Rend `[{ a, b, n, m }]` : le plus enchaîné d'abord,
+  // un exercice dans une seule paire. Jamais une paire inventée : sans `groupe_superset` dans l'historique, rien.
+  var DEDUIT_SUPERSET_FENETRE = 8;
+  function supersetsHabituels(routine, seances, catalogue) {
+    var M = racine.THModele, Mo = racine.THMoteur, cat = catalogue || {};
+    var exos = (routine && routine.exercices) || [];
+    var principaux = function (f) {
+      var p = f && f.muscles_primaires;
+      return Array.isArray(p) ? p.filter(Boolean) : String(p || '').split('/').filter(Boolean);
+    };
+    var isolation = function (slug) {
+      var f = cat[slug];
+      return !!f && Mo.estIsolation({ prim: f.muscles_primaires, sec: f.muscles_secondaires, stab: f.muscles_stabilisateurs });
+    };
+    var travail = function (s, slug) {
+      return ((s && s.series) || []).filter(function (x) { return x && x.exercise_slug === slug && M.estTravail(x); });
+    };
+    var candidats = [];
+    exos.forEach(function (ea, i) {
+      if (!isolation(ea.exercise_slug)) return;
+      exos.forEach(function (eb, j) {
+        if (j <= i || !isolation(eb.exercise_slug)) return;
+        var pa = principaux(cat[ea.exercise_slug]), pb = principaux(cat[eb.exercise_slug]);
+        if (pa.some(function (x) { return pb.indexOf(x) >= 0; })) return;
+        var ensemble = (seances || []).filter(function (s) {
+          return travail(s, ea.exercise_slug).length > 0 && travail(s, eb.exercise_slug).length > 0;
+        }).slice(-DEDUIT_SUPERSET_FENETRE);
+        var n = ensemble.filter(function (s) {
+          return travail(s, ea.exercise_slug).some(function (x) {
+            var g = x.groupe_superset;
+            return g !== null && g !== undefined && travail(s, eb.exercise_slug).some(function (y) { return y.groupe_superset === g; });
+          });
+        }).length;
+        var m = ensemble.length;
+        if (n >= DEDUIT.seancesMin && 2 * n > m) candidats.push({ a: ea.exercise_slug, b: eb.exercise_slug, n: n, m: m, i: i, j: j });
+      });
+    });
+    candidats.sort(function (x, y) { return y.n - x.n || x.i - y.i || x.j - y.j; });
+    var pris = {}, gardes = [];
+    candidats.forEach(function (c) {
+      if (pris[c.a] || pris[c.b]) return;
+      pris[c.a] = pris[c.b] = true;
+      gardes.push({ a: c.a, b: c.b, n: c.n, m: c.m, i: c.i });
+    });
+    gardes.sort(function (x, y) { return x.i - y.i; });
+    return gardes.map(function (c) { return { a: c.a, b: c.b, n: c.n, m: c.m }; });
+  }
+
+  function seancesQuiReviennent(seances, mesures, catalogue) {
     var M = racine.THModele, Mo = racine.THMoteur, P = racine.THPeriode;
     var m = mesures || {};
     var datees = (seances || []).filter(function (s) {
@@ -1266,6 +1318,33 @@
       }).map(function (e) {
         return { exercise_slug: e.exercise_slug, series: e.series, reps: e.reps, chauffes: e.chauffes };
       });
+
+      // 266 — le superset habituel (le 3e argument ; sans lui, rien ne change). Le second membre se place juste après le premier ;
+      // les groupes se numérotent dans l'ordre de la routine.
+      if (catalogue) {
+        var paires = supersetsHabituels({ exercices: exercices }, ss, catalogue);
+        if (paires.length) {
+          var apres = exercices.slice();
+          paires.forEach(function (p) {
+            var ib = apres.map(function (x) { return x.exercise_slug; }).indexOf(p.b);
+            var xb = apres.splice(ib, 1)[0];
+            apres.splice(apres.map(function (x) { return x.exercise_slug; }).indexOf(p.a) + 1, 0, xb);
+          });
+          paires.sort(function (x, y) {
+            var s2 = apres.map(function (e) { return e.exercise_slug; });
+            return s2.indexOf(x.a) - s2.indexOf(y.a);
+          });
+          paires.forEach(function (p, k) {
+            apres.forEach(function (x) {
+              if (x.exercise_slug === p.a || x.exercise_slug === p.b) {
+                x.groupe_superset = k + 1;
+                x.superset_habituel = { n: p.n, m: p.m };
+              }
+            });
+          });
+          exercices = apres;
+        }
+      }
 
       var titres = {}, nom = null;
       ss.forEach(function (s, k) {
@@ -2125,6 +2204,7 @@
     copieDeRoutine: copieDeRoutine,
     routineDepuisSeance: routineDepuisSeance,
     seancesQuiReviennent: seancesQuiReviennent,
+    supersetsHabituels: supersetsHabituels,
     signatureDeSeance: signatureDeSeance,
     arrondiDeduit: arrondiDeduit,
     fenetreDeLaPersonne: fenetreDeLaPersonne,

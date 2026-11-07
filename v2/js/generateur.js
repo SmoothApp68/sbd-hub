@@ -1696,12 +1696,27 @@
     var structures = liste(e.structures);
     var sortie = [], journal = [];
     liste(e.routines).forEach(function (r, ir) {
-      var lignes = liste(r.exercices).map(function (x) { return Object.assign({}, x, { groupe_superset: null }); });
+      // 266 — une paire HABITUELLE (`superset_habituel`) garde son groupe : elle n'est pas `apte`, ne compte pas parmi celles du manque
+      // de temps, et se défait seulement si la personne l'a refusée (`refus_paires`) ou si elle n'est plus deux lignes contiguës.
+      var lignes = liste(r.exercices).map(function (x) {
+        return x.superset_habituel && x.groupe_superset !== null && x.groupe_superset !== undefined ? Object.assign({}, x)
+          : Object.assign({}, x, { groupe_superset: null });
+      });
+      var habituels = {};
+      lignes.forEach(function (x, k) { if (x.superset_habituel) (habituels[x.groupe_superset] = habituels[x.groupe_superset] || []).push(k); });
+      Object.keys(habituels).forEach(function (g) {
+        var ks = habituels[g];
+        var tient = ks.length === 2 && ks[1] === ks[0] + 1 && !ks.some(function (k) { return refuse[r.nom + '\u0000' + lignes[k].exercise_slug]; });
+        if (tient) return;
+        ks.forEach(function (k) { lignes[k].groupe_superset = null; delete lignes[k].superset_habituel; });
+      });
+      var plusHaut = 0;
+      lignes.forEach(function (x) { if (x.superset_habituel && x.groupe_superset > plusHaut) plusHaut = x.groupe_superset; });
       var S = liste(structures[ir]).map(function (x) { return Object.assign({}, x); });
       if (sansCible) { sortie.push({ nom: r.nom, exercices: lignes }); return; }
       var premier = null;
       for (var p0 = 0; p0 < S.length && premier === null; p0++) if (Moteur.estPolyarticulaire(S[p0])) premier = S[p0].slug;
-      var groupe = 0, avant = Moteur.dureeEstimee(S), aJoue = false;
+      var groupe = plusHaut, avant = Moteur.dureeEstimee(S), aJoue = false;
       var apte = function (k) {
         var x = lignes[k], s = x.exercise_slug, f = ficheDu(cat, s) || {};
         return k !== 0 && s !== premier && !refuse[r.nom + '\u0000' + s] && x.groupe_superset === null &&
@@ -1766,6 +1781,14 @@
 
   // LES INVARIANTS DES SUPERSETS (§5 quater.4 bis) : V6 aucune ligne changée (exercice, séries, reps) ; V7 une paire
   // est de deux exercices contigus, et aucune sans cible ; V8 jamais une barre lourde ; V9 toujours deux antagonistes.
+  // 266 (QUESTIONNAIRE §5 quater.5) — LES PHRASES DU SUPERSET HABITUEL : le titre et le détail de la carte du coach sous la paire.
+  // Le VRAI compte (`n` séances sur les `m` dernières où les deux paraissent), jamais arrondi : « 4 fois sur tes 7 dernières séances ».
+  function phrasesDuSupersetHabituel(n, m) {
+    var fois = n === 1 ? '1 fois' : n + ' fois';
+    var sur = m === 1 ? 'ta dernière séance' : 'tes ' + m + ' dernières séances';
+    return ['En superset, comme tu les fais d\u2019habitude.', 'Tu les as enchaînées ' + fois + ' sur ' + sur + '.'];
+  }
+
   function verifierAssociation(entree, sortie) {
     var e = entree || {}, s = sortie || {}, cat = e.catalogue || {};
     var fautes = [];
@@ -1776,7 +1799,7 @@
     for (var ir = 0; ir < Math.min(avant.length, apres.length); ir++) {
       var r = apres[ir];
       if (JSON.stringify(cles(avant[ir])) !== JSON.stringify(cles(r))) fautes.push('V6 une ligne changée');
-      var g = {}, ordre = [];
+      var g = {}, ordre = [], habituelles = 0;
       liste(r.exercices).forEach(function (x, k) {
         var gs = x.groupe_superset;
         if (gs === null || gs === undefined) return;
@@ -1787,10 +1810,22 @@
         var ks = g[gs];
         if (ks.length !== 2 || ks[1] !== ks[0] + 1) { fautes.push('V7 une paire non contiguë'); return; }
         var a = r.exercices[ks[0]].exercise_slug, b = r.exercices[ks[1]].exercise_slug;
+        // 266 — V10 : une paire HABITUELLE (V7 « sans cible » et V9 ne s'y appliquent pas) : deux isolations sans principal commun,
+        // contiguës (ci-dessus), enchaînées dans n >= 4 séances et dans plus de la moitié des m dernières.
+        var ha = r.exercices[ks[0]].superset_habituel, hb = r.exercices[ks[1]].superset_habituel;
+        if (ha || hb) {
+          habituelles += 1;
+          var Mo = racine.THMoteur, fa = ficheDu(cat, a) || {}, fb = ficheDu(cat, b) || {};
+          var iso = function (f) { return Mo.estIsolation({ prim: liste(f.muscles_primaires), sec: liste(f.muscles_secondaires), stab: liste(f.muscles_stabilisateurs) }); };
+          var commun = liste(fa.muscles_primaires).some(function (m) { return contient(liste(fb.muscles_primaires), m); });
+          if (!ha || !hb || ha.n !== hb.n || ha.m !== hb.m || !iso(fa) || !iso(fb) || commun ||
+              !(ha.n >= ((racine.THRoutines && racine.THRoutines.DEDUIT.seancesMin) || 4)) || !(2 * ha.n > ha.m)) fautes.push('V10 un superset habituel qui ne tient pas');
+          return;
+        }
         if (estBarreLourde(a, cat) || estBarreLourde(b, cat)) fautes.push('V8 une barre lourde en superset');
         if (!antagonistes(familleAntagoniste(a, cat), familleAntagoniste(b, cat))) fautes.push('V9 une paire non antagoniste');
       });
-      if ((e.cible_min === null || e.cible_min === undefined) && ordre.length) fautes.push('V7 un superset sans manque de temps');
+      if ((e.cible_min === null || e.cible_min === undefined) && ordre.length > habituelles) fautes.push('V7 un superset sans manque de temps');
     }
     return fautes;
   }
@@ -1803,9 +1838,15 @@
     var p = entree || {}, x = l || {}, slug = x.exercise_slug;
     var motif = motifDe(slug), rang = rangDe(slug, catalogue || {});
     var menage = estMenagee(motif, p.menager);
-    return { exercise_slug: slug, motif: motif, role: rang === null ? null : ROLES.charAt(rang), series: x.series,
+    var o = { exercise_slug: slug, motif: motif, role: rang === null ? null : ROLES.charAt(rang), series: x.series,
              reps: repsDeLaPlace(x.reps, motif, menage, p.objectif), prioritaire: contient(liste(p.priorites), slug),
              menage: menage, barre_fixe: demandeUneBarreFixe(slug, (catalogue || {})[slug]), chauffes: x.chauffes || 0 };
+    // 266 — le superset que la personne fait déjà (`Routines.supersetsHabituels`) traverse l'habillage : son groupe et son compte.
+    if (x.superset_habituel) {
+      o.groupe_superset = x.groupe_superset === undefined ? null : x.groupe_superset;
+      o.superset_habituel = { n: x.superset_habituel.n, m: x.superset_habituel.m };
+    }
+    return o;
   }
 
   // « CE QUE J'AI CHANGÉ » (§5 quater.5) — des faits, sans « parce que » (VOIX). `journalCompl` : celui de
@@ -2089,7 +2130,8 @@
     MUSCLES: MUSCLES,
     relireSemaine: relireSemaine,
     verifierRelecture: verifierRelecture,
-    verifierPauses: verifierPauses, PAUSE: PAUSE,
+    verifierPauses: verifierPauses,
+    phrasesDuSupersetHabituel: phrasesDuSupersetHabituel, PAUSE: PAUSE,
     // 66C — le programme déduit complété (QUESTIONNAIRE-COACH-V2 §5 quater.3)
     ECART: ECART,
     SERIES_MAX: SERIES_MAX,

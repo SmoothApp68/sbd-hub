@@ -21261,6 +21261,66 @@ const SETS_IMPORTES = [
         ROUTINES.every((r) => r.routine_exercises.every((e) => e.routine_sets.every((s) => s.charge_cible_kg === null))),
       JSON.stringify(couche && couche.routine_sets.map((s) => s.type_serie)));
 
+    // ── 266 — LE SUPERSET QUE LA PERSONNE FAIT DÉJÀ (QUESTIONNAIRE §5 quater.5). Le curl et l'extension, enchaînés dans les
+    // 5 séances « Haut U66D » les plus récentes (sur les 8 où les deux paraissent) : le programme déduit les reprend, sans
+    // que « Ce que j'ai changé » les compte, avec la carte du coach et « Les séparer ».
+    // ⚠️ DISCRIMINANT : sans `groupe_superset` dans l'historique, la même paire n'est qu'une paire du manque de temps (ci-dessus).
+    {
+      ROUTINES.splice(0, ROUTINES.length);
+      Object.assign(base.profiles[0], { exercices_ecartes: null, programme_construit_dossier: null, programme_construit_le: null });
+      base.sets.forEach((x) => {
+        const n = Number(String(x.session_id).slice(-12));
+        if (n >= 1 && n <= 5 && (x.exercise_slug === 'curl_biceps_haltere' || x.exercise_slug === 'extension_triceps_poulie_haute')) x.groupe_superset = 1;
+      });
+      await page.reload();
+      await aller('/saisie');
+      await aller('/profil');
+      await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+        .filter((l) => l.querySelector('.p-lib').firstChild.textContent === 'Refaire mon programme')[0].click());
+      await jusqua(async () => !!(await page.$('#questionnaire-corps .q-puce[data-cle="2"]')), 10000, 'questionnaire 266');
+      await page.click('#questionnaire-corps .q-puce[data-cle="2"]');
+      await page.click('#questionnaire-corps .q-continuer');
+      await jusqua(async () => (await apercu()).cartes.length > 0, 15000, 'aperçu 266');
+      const habituel = () => page.evaluate(() => {
+        const t = (n) => n ? n.textContent.replace(/[\u00a0\u202f]/g, ' ') : null;
+        const k = document.querySelectorAll('#feuille-contenu .ap-routine')[0];
+        const g = k && k.querySelector('.ap-habituel-geste');
+        return { titre: t(k && k.querySelector('.ap-habituel-t')), detail: t(k && k.querySelector('.ap-habituel-d')),
+          geste: t(g), hauteur: g ? Math.round(g.getBoundingClientRect().height) : 0,
+          dansLaPaire: !!(k && k.querySelector('.ap-paire .ap-habituel')) };
+      });
+      const lignesChg = () => apercu().then((a) => a.changements.map((l) => l[0]));
+      const paireBras266 = 'Curl Biceps (Haltère) et extension Triceps (Poulie Haute)';
+      let a266 = await apercu(), h266 = await habituel();
+      ok('[O266] la paire que la personne fait déjà est reprise : curl et extension sous « Superset », la carte du coach au vrai compte (5 fois sur ses 8 dernières séances)',
+        a266.cartes[0].paires.some((p) => p[1] === 'Curl Biceps (Haltère)' && p[2] === 'Extension Triceps (Poulie Haute)') &&
+          h266.titre === 'En superset, comme tu les fais d’habitude.' &&
+          h266.detail === 'Tu les as enchaînées 5 fois sur tes 8 dernières séances.' && h266.dansLaPaire && h266.geste === 'Les séparer' && h266.hauteur >= 44,
+        JSON.stringify([a266.cartes[0].paires, h266]));
+      ok('[O266] ce n’est PAS un changement du coach : aucune ligne « … en superset dans Haut U66D » pour le curl et l’extension',
+        !(await lignesChg()).some((l) => l.indexOf(paireBras266) === 0), JSON.stringify(await lignesChg()));
+      await page.evaluate(() => document.querySelector('#feuille-contenu .ap-habituel-geste').click());
+      await jusqua(async () => (await habituel()).geste === null, 8000, 'Les séparer');
+      a266 = await apercu();
+      ok('[O266] « Les séparer » : plus de carte, ni la paire ; la ligne « … en séries classiques. » avec « Remettre »',
+        !a266.cartes[0].paires.some((p) => p.indexOf('Curl Biceps (Haltère)') >= 0) &&
+          a266.changements.some((l) => l[0] === paireBras266 + ' en séries classiques.' && l[1] === 'Remettre' && l[2] === true),
+        JSON.stringify([a266.cartes[0].paires, a266.changements]));
+      await geste(paireBras266 + ' en séries classiques.');
+      h266 = await habituel();
+      ok('[O266] « Remettre » : la paire et la carte reviennent',
+        h266.titre === 'En superset, comme tu les fais d’habitude.' && h266.dansLaPaire, JSON.stringify(h266));
+      await page.evaluate(() => document.querySelector('#feuille-contenu .apercu-creer').click());
+      await jusqua(async () => !(await apercu()).ouverte, 15000, 'créer 266');
+      await jusqua(async () => ROUTINES.some((r) => r.nom === 'Haut U66D'), 15000, 'routine 266');
+      const haut266 = ROUTINES.filter((r) => r.nom === 'Haut U66D')[0];
+      const e266 = haut266 ? haut266.routine_exercises.slice().sort((x, y) => x.rang - y.rang) : [];
+      const gc = e266.filter((e) => e.exercise_slug === 'curl_biceps_haltere')[0], ge = e266.filter((e) => e.exercise_slug === 'extension_triceps_poulie_haute')[0];
+      ok('[O266] « Créer » : la routine écrite porte le curl et l’extension au même `groupe_superset`, contigus',
+        !!gc && !!ge && gc.groupe_superset !== null && gc.groupe_superset === ge.groupe_superset && ge.rang === gc.rang + 1,
+        JSON.stringify(e266.map((e) => [e.exercise_slug, e.rang, e.groupe_superset])));
+    }
+
     // ── LA REMISE EN ÉTAT, pour les sections suivantes.
     base.profiles[0] = profilAvant;
     ROUTINES.splice(0, ROUTINES.length);

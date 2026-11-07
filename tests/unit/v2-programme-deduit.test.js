@@ -365,3 +365,70 @@ describe('Faits.programmeDeduit — les faits de la règle viennent du module de
     expect(Faits.creer().programmeDeduit(Object.assign({}, c, { catalogue: () => ({}) }))).toEqual([]);
   });
 });
+
+// ══ 266 — LE SUPERSET QUE LA PERSONNE FAIT DÉJÀ (QUESTIONNAIRE §5 quater.5) ══════════════════════════════════════════
+describe('266 — supersetsHabituels : deux isolations enchaînées, assez souvent', () => {
+  const fiche = (prim, sec) => ({ muscles_primaires: prim, muscles_secondaires: sec || [], muscles_stabilisateurs: [], mesure: 'charge_reps' });
+  const CATALOGUE = {
+    dc: fiche(['pectoraux'], ['triceps', 'deltoide_anterieur']),
+    pull: fiche(['pectoraux'], ['triceps', 'grand_dorsal']),
+    curl: fiche(['biceps']), ext: fiche(['triceps']), curl2: fiche(['biceps']),
+  };
+  const MESURES = { dc: 'charge_reps', pull: 'charge_reps', curl: 'charge_reps', ext: 'charge_reps', curl2: 'charge_reps' };
+  // `chaine[i]` : la séance i enchaîne-t-elle `a` et `b` ? (même `groupe_superset`) ; sinon deux blocs (`null`).
+  const histoire = (chaine, a, b) => chaine.map((enchaine, i) => {
+    const jour = new Date(Date.UTC(2026, 8, 1 + i * 3, 9));
+    let rang = 0;
+    const serie = (slug, g) => [1, 2, 3].map(() => ({ rang: ++rang, exercise_slug: slug, type_serie: 'travail', reps: 10, groupe_superset: g }));
+    return { id: 's' + i, debut: jour.toISOString(), titre: 'Push',
+      series: [].concat(serie('dc', null), serie(a, enchaine ? 1 : null), serie(b, enchaine ? 1 : null)) };
+  });
+  const sort = (chaine, a, b, cat) => R.seancesQuiReviennent(histoire(chaine, a, b), MESURES, cat === undefined ? CATALOGUE : cat)[0];
+  const slugs = (r) => r.exercices.map((x) => x.exercise_slug);
+
+  test('curl et extension triceps enchaînés 4 fois sur 7 : gardés, contigus, avec leur compte', () => {
+    const r = sort([1, 1, 1, 1, 0, 0, 0].map(Boolean), 'curl', 'ext');
+    const l = r.exercices;
+    const i = slugs(r).indexOf('curl');
+    expect(slugs(r)[i + 1]).toBe('ext');
+    expect(l[i].groupe_superset).toBe(1);
+    expect(l[i + 1].groupe_superset).toBe(1);
+    expect(l[i].superset_habituel).toEqual({ n: 4, m: 7 });
+    expect(l[i + 1].superset_habituel).toEqual({ n: 4, m: 7 });
+    const dc = l[slugs(r).indexOf('dc')];
+    expect(dc.groupe_superset).toBeUndefined();
+    expect(dc.superset_habituel).toBeUndefined();
+  });
+
+  test('4 fois sur 9 : pas la moitié des 8 dernières (la fenêtre est de 8 séances)', () => {
+    const r = sort([0, 1, 1, 1, 1, 0, 0, 0, 0].map(Boolean), 'curl', 'ext');
+    expect(r.exercices.some((x) => x.superset_habituel)).toBe(false);
+  });
+
+  test('3 fois sur 4 : sous le seuil des 4 séances', () => {
+    const r = sort([1, 1, 1, 0].map(Boolean), 'curl', 'ext');
+    expect(r.exercices.some((x) => x.superset_habituel)).toBe(false);
+  });
+
+  test('couché + pull-over 5 fois sur 5 : des polyarticulaires ne sont jamais un superset habituel', () => {
+    const r = sort([1, 1, 1, 1, 1].map(Boolean), 'dc', 'pull');
+    expect(r.exercices.some((x) => x.superset_habituel)).toBe(false);
+  });
+
+  test('deux isolations du même muscle principal 5 fois sur 5 : non', () => {
+    const r = sort([1, 1, 1, 1, 1].map(Boolean), 'curl', 'curl2');
+    expect(r.exercices.some((x) => x.superset_habituel)).toBe(false);
+  });
+
+  test('sans le 3e argument, la sortie est celle d’avant : aucune clé de superset, même enchaînés 7 fois sur 7', () => {
+    const r = R.seancesQuiReviennent(histoire([1, 1, 1, 1, 1, 1, 1].map(Boolean), 'curl', 'ext'), MESURES)[0];
+    expect(r.exercices.some((x) => 'groupe_superset' in x || 'superset_habituel' in x)).toBe(false);
+  });
+
+  test('une paire enchaînée dans la routine déduite s’écrit en superset (`routineDeduite`)', () => {
+    const r = sort([1, 1, 1, 1, 1, 0, 0].map(Boolean), 'curl', 'ext');
+    const st = R.routineDeduite(Object.assign({}, r, { exercices: r.exercices.map((x) => Object.assign({ chauffes: 0 }, x)) }), {});
+    const g = st.exercices.filter((x) => x.groupe_superset !== null && x.groupe_superset !== undefined);
+    expect(g.map((x) => x.exercise_slug)).toEqual(['curl', 'ext']);
+  });
+});

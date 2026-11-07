@@ -233,8 +233,8 @@ describe('247 — structure : une seule clé, la CSP, le service worker intact',
   test('⚠️ la clé de site se lit à UN endroit (auth.js), se déclare à UN endroit (config.js), jamais en dur ailleurs', () => {
     const lecteurs = fichiers.filter((f) => /TURNSTILE_SITE_KEY/.test(lire(f)));
     expect(lecteurs.sort()).toEqual(['js/auth.js', 'js/config.js']);
-    // Une clé de site Turnstile commence par « 0x4 » ; aucune valeur de ce genre dans v2/.
-    expect(fichiers.filter((f) => /\b0x4[A-Za-z0-9_-]{15,}/.test(lire(f)))).toEqual([]);
+    // Une clé de site Turnstile commence par « 0x4 » ; posée le 07/11/2026 (267) dans config.js SEULEMENT, nulle part ailleurs.
+    expect(fichiers.filter((f) => /\b0x4[A-Za-z0-9_-]{15,}/.test(lire(f)))).toEqual(['js/config.js']);
     // Et `sitekey:` n'apparaît que dans auth.js.
     expect(fichiers.filter((f) => /\bsitekey\s*:/.test(lire(f)))).toEqual(['js/auth.js']);
   });

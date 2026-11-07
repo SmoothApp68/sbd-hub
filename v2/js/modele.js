@@ -1083,6 +1083,44 @@
       entetes: { elastique: CHAMP_ELASTIQUE.entete }, libelle: 'ÉLASTIQUE × REPS' });
   }
 
+  // ══ 268 (E) — LES NOUVEAUX AU CATALOGUE, ET CE QU'ON Y TAPE ══════════════════════════════════════════════════
+  //
+  // Le catalogue vit en base (`exercises`) ; ce que le code sait, c'est la LISTE de ce qui est nouveau et depuis quand : un slug, la date
+  // d'arrivée. Un exercice « Nouveau » le reste 30 jours, ou jusqu'à la première séance qui le contient (`faits`, le nombre de séances de
+  // chaque exercice) : le premier des deux. Un slug que le catalogue de l'appareil ne contient pas encore (migration pas lancée, cache
+  // d'avant) ne compte pas : l'onglet n'existe qu'avec ce qu'il montre.
+  var NOUVEAUX_AU_CATALOGUE = Object.freeze({
+    curl_barre_chargee: '2026-11-07', jefferson_curl_barre: '2026-11-07', soutien_aux_barres: '2026-11-07',
+    soutien_aux_anneaux: '2026-11-07', grenouille: '2026-11-07', auto_massage_rouleau: '2026-11-07'
+  });
+  var JOURS_DE_NOUVEAUTE = 30;
+  var ETIQUETTE_NOUVEAU = 'Nouveau';
+  function estNouveau(slug, aujourdhui, faits) {
+    if (!Object.prototype.hasOwnProperty.call(NOUVEAUX_AU_CATALOGUE, slug)) return false;
+    if (faits && Number(faits[slug]) > 0) return false;
+    var depuis = jourLocal(NOUVEAUX_AU_CATALOGUE[slug]), auj = jourLocal(aujourdhui);
+    if (depuis === null || auj === null) return false;
+    var jours = Math.round((Date.UTC(auj.getFullYear(), auj.getMonth(), auj.getDate()) -
+                            Date.UTC(depuis.getFullYear(), depuis.getMonth(), depuis.getDate())) / 86400000);
+    return jours <= JOURS_DE_NOUVEAUTE;
+  }
+  // Les slugs nouveaux présents au catalogue de l'appareil, par nom.
+  function nouveauxDuCatalogue(exercices, aujourdhui, faits) {
+    return (exercices || []).filter(function (e) { return e && estNouveau(e.slug, aujourdhui, faits); })
+      .sort(function (a, b) { return String(a.nom || a.slug).localeCompare(String(b.nom || b.slug), 'fr'); })
+      .map(function (e) { return e.slug; });
+  }
+  // CE QU'ON Y TAPE, écrit comme les en-têtes de la grille (« KG · REPS », « DURÉE ») : on le sait avant d'ajouter l'exercice. Une mesure
+  // inconnue : rien (on ne nomme pas ce qu'on ne connaît pas).
+  var LIBELLES_DE_MESURE = { charge_reps: 'KG \u00b7 REPS', reps: 'REPS', temps: 'DUR\u00c9E', distance_temps: 'DUR\u00c9E \u00b7 DISTANCE',
+                             charge_distance: 'KG \u00b7 DISTANCE', charge_temps: 'KG \u00b7 DUR\u00c9E' };
+  function libelleDeMesure(exo) {
+    var m = exo && exo.mesure;
+    if (!Object.prototype.hasOwnProperty.call(LIBELLES_DE_MESURE, m)) return '';
+    var nature = m === 'charge_reps' ? natureDeCharge(exo) : null;
+    return nature ? ENTETES_DE_CHARGE[nature].replace(' (KG)', '') + ' \u00b7 REPS' : LIBELLES_DE_MESURE[m];
+  }
+
   // La colonne « précédent » : 62 px. `formatMesure` y déborderait — on donne
   // la grandeur qui porte l'information, et elle seule.
   //   charge_reps → « 122,5×5 » · reps → « 12 » · temps → « 45 s »
@@ -3039,6 +3077,8 @@
     LETTRES: LETTRES,
     TYPES_CONNUS: TYPES_CONNUS,
     MESURES: MESURES,
+    NOUVEAUX_AU_CATALOGUE: NOUVEAUX_AU_CATALOGUE, ETIQUETTE_NOUVEAU: ETIQUETTE_NOUVEAU,
+    estNouveau: estNouveau, nouveauxDuCatalogue: nouveauxDuCatalogue, libelleDeMesure: libelleDeMesure,
     estUnePortee: estUnePortee,
     horsMoteur: horsMoteur,
     GABARITS: GABARITS,

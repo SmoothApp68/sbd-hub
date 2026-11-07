@@ -8098,9 +8098,14 @@
   // décidées par l'app ; chacune sa ligne `resultat-mention`, sous « écarté ».
   function boutonResultat(e, surChoix, ecarte, sous, autres) {
     var b = el('button', 'resultat', e.nom || e.slug);
+    // 268 (E) — CE QU'ON Y TAPE, à droite, écrit comme les en-têtes de la grille (« KG · REPS », « DURÉE ») : on le sait avant d'ajouter.
+    var mesure = M().libelleDeMesure(e);
+    if (mesure) { b.classList.add('a-mesure'); b.appendChild(el('span', 'resultat-mesure', mesure)); }
     if (sous) b.appendChild(el('small', 'resultat-sous', sous));
     if (ecarte.indexOf(e.slug) >= 0) b.appendChild(el('small', 'resultat-mention', 'écarté'));
-    (autres || []).forEach(function (m) { if (m) b.appendChild(el('small', 'resultat-mention', m)); });
+    (autres || []).forEach(function (m) {
+      if (m) b.appendChild(el('small', m === M().ETIQUETTE_NOUVEAU ? 'resultat-mention resultat-nouveau' : 'resultat-mention', m));
+    });
     b.type = 'button';
     b.addEventListener('click', function () { surChoix(e); });
     return b;
@@ -8136,6 +8141,26 @@
       });
     });
     if (v.pied) cible.appendChild(el('p', 'resultats-plus', v.pied));
+  }
+
+  // 268 (E) — LES ONGLETS DU CATALOGUE (« Tout », « Nouveaux · N »), sous le champ ; rien n'est calculé ici. Un seul onglet : rien.
+  //   vue : { onglets: [{ cle, libelle, actif }], surChoix(cle) }
+  function rendreOngletsExo(cible, vue) {
+    vider(cible);
+    var v = vue || {};
+    var liste = v.onglets || [];
+    cible.hidden = liste.length < 2;
+    if (cible.hidden) return cible;
+    liste.forEach(function (o) {
+      var b = el('button', 'onglet-exo' + (o.actif ? ' actif' : ''), o.libelle);
+      b.type = 'button';
+      b.dataset.cle = o.cle;
+      b.setAttribute('role', 'tab');
+      b.setAttribute('aria-selected', o.actif ? 'true' : 'false');
+      b.addEventListener('click', function () { v.surChoix(o.cle); });
+      cible.appendChild(b);
+    });
+    return cible;
   }
 
   // 67B (ES §7 quindecies.10, maquette `maquette-catalogue-filtres-v2.html`) — LES DEUX FILTRES DU CATALOGUE, sous le
@@ -10884,6 +10909,7 @@
     rendreResultatsExo: rendreResultatsExo,
     rendreSuggestionsExo: rendreSuggestionsExo,
     rendreFiltresExo: rendreFiltresExo,
+    rendreOngletsExo: rendreOngletsExo,
     el: el,
     vider: vider,
     dateCourte: dateCourte,

@@ -827,6 +827,16 @@ button.bloc-exo:active{background:var(--panneau-2)}
    une pastille au doigt (44 px), son choix en ambre quand il est actif, et son « ✕ » ; « N exercices » ; la sous-ligne
    « Matériel · Muscle » de chaque résultat. Le choix d'un filtre prend la place des résultats (la feuille de choix de
    l'app, `rendreFeuilleChoix`, dans le catalogue). */
+/* 268 (E) — les onglets du catalogue (« Tout », « Nouveaux · N »), la mesure de chaque résultat et l'étiquette « Nouveau ». */
+.onglets-exo{display:flex;gap:var(--e4);margin:var(--e2) 0 0;border-bottom:1px solid var(--trait)}
+.onglet-exo{min-height:44px;padding:0 2px;background:transparent;border:0;border-bottom:2px solid transparent;
+  color:var(--texte-3);font:600 14px var(--pile);cursor:pointer}
+.onglet-exo.actif{color:var(--texte);border-bottom-color:var(--accent)}
+.resultat.a-mesure{position:relative;padding-right:104px}
+.resultat .resultat-mesure{position:absolute;right:var(--e1);top:12px;font-size:11px;font-weight:600;letter-spacing:.04em;
+  color:var(--texte-3);white-space:nowrap}
+.resultat .resultat-nouveau{display:inline-block;margin-top:3px;font-size:11px;font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--accent)}
 .filtres-exo{display:flex;gap:var(--e2);margin:var(--e2) 0 var(--e1)}
 .filtre-exo{flex:1;min-width:0;display:flex;align-items:stretch;background:var(--panneau);
   border:1px solid var(--trait);border-radius:999px;overflow:hidden}
@@ -3322,7 +3332,7 @@ button[id^="btn-retour"]{padding:0 14px;font-size:15px}
    Un contrôle lit `--trait` (et les deux jetons de case) à la valeur du contour de contrôle : on redéfinit les trois SUR
    l'élément, ses règles d'origine n'ont pas à changer. Les boutons qui ne sont que des lignes de liste (filet en haut ou en bas,
    pas de cadre) restent à la valeur du filet : leur séparation n'est pas un contrôle. */
-button:not(.bloc-tous,.imp-seance,.el-choisir,.dq-ligne,.dq-item,.j-porte,.pc-tous-ligne,.retrouver-carte,.case-programme,.ap-ex,.resultat,.sous-onglet,.bandeau-reprise,.toast-annuler button,.p-ac-ligne,.p-ac-tout,.exo-jour-s),
+button:not(.bloc-tous,.imp-seance,.el-choisir,.dq-ligne,.dq-item,.j-porte,.pc-tous-ligne,.retrouver-carte,.case-programme,.ap-ex,.resultat,.sous-onglet,.onglet-exo,.bandeau-reprise,.toast-annuler button,.p-ac-ligne,.p-ac-tout,.exo-jour-s),
 input,select,textarea,.ch-serie,.rp-serie,.eff-serie{
   --trait:var(--trait-controle);--trait-case:var(--trait-controle)}
 /* L'anneau de focus (WCAG 2.4.7) : 2 px d'ambre à 2 px du contrôle, sur tout ce qui prend le focus — y compris les champs et les

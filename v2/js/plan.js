@@ -7949,6 +7949,11 @@
     function verifierProgramme(intentionProfil, dossier, vue) {
       if (!active) return null;
       var graves = verifierSilenceDuProgramme(intentionProfil, vue);
+      // 266 (I145, I146) — un accessoire qui change au début d'un bloc : ce que la vue montre, vérifié sur l'entrée qui l'a produit.
+      var G = racine.THGenerateur;
+      if (G && vue && vue.variations && vue.variations.length && vue.variationsEntree) {
+        graves = graves.concat(G.verifierVariations(vue.variationsEntree, vue.variations));
+      }
       var j = e.journal || null;
       if (graves.length) {
         violations = violations.concat(graves);

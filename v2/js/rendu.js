@@ -7788,8 +7788,58 @@
     vider(cible);
     if (!items || !items.length) { cible.hidden = true; return cible; }
     cible.hidden = false;
-    items.forEach(function (x) { cible.appendChild(x.bilanTest ? carteBilanTest(x.bilanTest, v) : carteFinDeBloc(x.dossier, x.fin, v)); });
+    items.forEach(function (x) {
+      if (x.variations || x.fait) cible.appendChild(sectionNouveauBloc(x, v));
+      else cible.appendChild(x.bilanTest ? carteBilanTest(x.bilanTest, v) : carteFinDeBloc(x.dossier, x.fin, v));
+    });
     return cible;
+  }
+
+  // 266 (MOTEUR §9.22 ter) — « NOUVEAU BLOC » : par accessoire à changer, la carte du coach (titre, détail, « Changer » / « Garder … »,
+  // « Pourquoi ? » qui déplie le fondement) ; dessous, le « Fait : … » et « Annuler » quand un changement vient d'être écrit.
+  // AUCUN texte n'est écrit ici : `x.variations` vient de `Generateur.variationsDuBloc`, `x.fait` de l'app.
+  function sectionNouveauBloc(x, v) {
+    var c = el('section', 'nouveau-bloc');
+    c.setAttribute('data-dossier', x.dossier);
+    c.appendChild(el('p', 'nb-etiquette', 'NOUVEAU BLOC'));
+    (x.variations || []).forEach(function (va) {
+      var carte = el('div', 'nb-carte');
+      carte.setAttribute('data-slug', va.slug);
+      carte.appendChild(el('p', 'nb-titre', va.titre));
+      carte.appendChild(el('p', 'nb-detail', va.detail));
+      var gestes = el('div', 'nb-gestes');
+      var change = el('button', 'principal nb-changer', va.changer);
+      change.type = 'button';
+      change.addEventListener('click', function () { if (v.surChangerAccessoire) v.surChangerAccessoire(x.dossier, va); });
+      var garde = el('button', 'discret nb-garder', va.garder);
+      garde.type = 'button';
+      garde.addEventListener('click', function () { if (v.surGarderAccessoire) v.surGarderAccessoire(x.dossier, va); });
+      gestes.appendChild(change);
+      gestes.appendChild(garde);
+      carte.appendChild(gestes);
+      var pq = el('button', 'discret nb-pourquoi', 'Pourquoi\u00a0?');
+      pq.type = 'button';
+      pq.setAttribute('aria-expanded', 'false');
+      var texte = el('p', 'nb-fondement', va.pourquoi);
+      texte.hidden = true;
+      pq.addEventListener('click', function () {
+        texte.hidden = !texte.hidden;
+        pq.setAttribute('aria-expanded', texte.hidden ? 'false' : 'true');
+      });
+      carte.appendChild(pq);
+      carte.appendChild(texte);
+      c.appendChild(carte);
+    });
+    if (x.fait) {
+      var f = el('div', 'nb-fait');
+      f.appendChild(el('p', 'nb-fait-texte', x.fait.texte));
+      var an = el('button', 'discret nb-annuler', 'Annuler');
+      an.type = 'button';
+      an.addEventListener('click', function () { if (x.fait.surAnnuler) x.fait.surAnnuler(); });
+      f.appendChild(an);
+      c.appendChild(f);
+    }
+    return c;
   }
 
   // LA FEUILLE « FAIRE DE CE DOSSIER UN PROGRAMME » (ou « Ajuster le bloc »),

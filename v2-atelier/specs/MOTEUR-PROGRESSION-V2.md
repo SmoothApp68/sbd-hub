@@ -1529,6 +1529,27 @@ propose (VOIX-DU-COACH). Le calendrier des 21 jours ne commente pas l'assiduité
 
 **Référence** : `cycles53.py` ; cas `cas_cycles53.json` ; l'arrêt : `arret53.py`, cas `cas_arret53.json`.
 
+#### 9.22 ter — Un accessoire change au début d'un bloc (266, décision d'Aurélien du 07/11/2026)
+
+Au début d'un bloc (de sa création à la fin de sa 1re semaine), le coach propose de changer UN accessoire par muscle
+principal, deux au plus par bloc : un exercice du dossier, ni barre lourde ni frère à la barre, ni exercice du bloc, ni
+priorité, fait 8 semaines de suite (trous de 2 semaines tolérés) et sans hausse de sa table des records depuis 6 semaines,
+vers son frère d'un autre matériel (sinon un cousin), même mesure, dans Ma salle, hors du dossier, sans charger une zone à
+ménager de plus. Carte « Élévation latérale : poulie → haltères ? », « Changer » / « Garder la poulie », « Pourquoi ? ».
+Changer passe par le chemin des routines (toutes les routines du dossier qui le portent), se voit (« Fait : … ») et
+s'annule ; « Garder » le tait jusqu'au bloc suivant (`profiles.cartes_semaine.variation[bloc][exercice]`). Silence en
+« Juste un carnet », pour un débutant, sans bloc. Source : Kassiano et al. 2022 (8 études, 241 hommes jeunes : la variation
+planifiée peut aider, la variation au hasard ou redondante peut nuire) ; Baz-Valle 2019 (8 semaines au hasard : pas mieux,
+plus motivant). **Réglages de l'app, dits comme tels** (pas une donnée de la science) : 8 semaines, 6 sans record
+(`VARIATION_SANS_RECORD_JOURS` = 42, strictement plus), 2 cartes par bloc. Faits : `faits.semainesDeSuite`,
+`faits.derniereHausseDuRecord` ; décision : `Generateur.variationsDuBloc`. Rejoué sur aurel_br (bloc du 02/11) : 16
+accessoires à 8 semaines ou plus ; sans progrès sur 6 semaines, leg curl allongé (18) et élévation latérale poulie (14) —
+les deux cartes ; tirage vers le visage (10) attend le bloc suivant. **I145** : jamais une barre lourde, un exercice du bloc
+ou une priorité ; au plus un par muscle et `VARIATION_PAR_BLOC` au total ; la variante est un frère ou un cousin, de même
+mesure, faisable, hors du dossier ; aucune carte après la 1re semaine. **I146** : aucune carte pour un exercice déjà répondu
+dans ce bloc, aucune en carnet ou pour un débutant. Écran : la section « NOUVEAU BLOC » en tête de Saisie (la bibliothèque
+est sur le même écran : pas de seconde carte).
+
 
 ### 9.23 Les records — décidés le 06/10/2026 (chantier 55)
 

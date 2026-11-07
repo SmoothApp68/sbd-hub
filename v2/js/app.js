@@ -522,7 +522,11 @@
     if (!b) return { creer: exercicesDuDossier(dossier).length > 0 };
     var phases = Moteur.blocAPhases(b, routines);       // 193-2 : « Phase », jamais « Bloc Lourd » pour un programme de force
     var badge = Moteur.badgeDuBloc(b, jour, phases);
-    if (!Moteur.blocTermine(b, jour)) return { badge: badge };
+    if (!Moteur.blocTermine(b, jour)) {
+      // 266 (MOTEUR §9.22 ter) — au début du bloc, un accessoire qui change : la vue porte les cartes et l'entrée qui les a produites.
+      var vv = variationsDuDossier(dossier, b, jour);
+      return vv.variations.length ? { badge: badge, variations: vv.variations, variationsEntree: vv.entree } : { badge: badge };
+    }
     var bilan = bilanDe(b);
     var pari = pariDuBloc(b);
     var fin = Moteur.carteFinDeBloc(b, bilan, nomsDuCatalogue(),
@@ -534,6 +538,94 @@
     }
     return { badge: badge, fin: fin };
   }
+  // 266 (MOTEUR §9.22 ter, décision d'Aurélien du 07/11/2026) — UN ACCESSOIRE QUI CHANGE AU DÉBUT D'UN BLOC. Les FAITS (les semaines de
+  // suite, la dernière hausse du record, le matériel déjà fait dans les 12 mois) viennent de `faits.js`, la DÉCISION de
+  // `Generateur.variationsDuBloc` ; ici on ne fait que les donner. Seulement la 1re semaine du bloc (le calcul coûte un balayage).
+  function variationsDuDossier(dossier, bloc, jour) {
+    var vide = { variations: [], entree: null };
+    if (Moteur.semaineDuBloc(bloc, jour) !== 1) return vide;
+    var rts = Routines.visibles(routines).filter(function (r) { return Routines.dossierPropre(r.dossier) === dossier; })
+      .map(function (r) { return { id: r.id, nom: r.nom, exercices: r.exercices || [] }; });
+    var c = corpus(), fs = {}, dates = faits.datesDesExercices(c);
+    var plancher = new Date(new Date(jour + 'T12:00:00').getTime() - 365 * 86400000).toISOString();
+    Object.keys(dates).forEach(function (slug) { if (dates[slug] && String(dates[slug]) >= plancher) fs[slug] = { faitDans12Mois: true }; });
+    rts.forEach(function (rt) {
+      rt.exercices.forEach(function (l) {
+        var slug = l && l.exercise_slug;
+        if (!slug || (fs[slug] && fs[slug].semaines !== undefined)) return;
+        var suite = faits.semainesDeSuite(c, slug, jour);
+        fs[slug] = Object.assign({}, fs[slug], { semaines: suite ? suite.semaines : 0,
+          derniereHausse: suite ? faits.derniereHausseDuRecord(c, slug, jour) : null });
+      });
+    });
+    var entree = { bloc: bloc, jour: jour, routines: rts, catalogue: catalogueIndexe(), profil: profil || {}, faits: fs,
+                   reponses: variationsRepondues(), carnet: false };
+    return { variations: Generateur.variationsDuBloc(entree), entree: entree };
+  }
+  // Les réponses de la personne (`profiles.cartes_semaine.variation[bloc][exercice]` : 'changer' ou 'garder').
+  function variationsRepondues() {
+    var v = reponsesDesCartes().variation;
+    return v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+  }
+  var faitVariation = null;       // { dossier, bloc, texte, surAnnuler } : ce que « Changer » vient d'écrire, jusqu'à « Annuler »
+
+  // « Changer » : chaque routine du dossier qui porte l'exercice le remplace par sa variante (le chemin des routines, la file),
+  // la réponse se range dans le profil, et le geste se voit et s'annule — comme « Ajouter » d'une carte de la semaine.
+  async function changerUnAccessoire(dossier, v) {
+    var b = Moteur.blocEnCours(local.blocs, dossier);
+    if (!b) return;
+    var mesures = mesuresDuRemplacement(v.slug, v.vers);
+    var avant = [], ecrites = [];
+    Routines.visibles(routines).filter(function (r) {
+      return Routines.dossierPropre(r.dossier) === dossier && (v.routines || []).indexOf(r.id) >= 0;
+    }).forEach(function (rt) {
+      if (!(rt.exercices || []).some(function (x) { return x.exercise_slug === v.slug; })) return;
+      avant.push({ rt: rt, exercices: JSON.parse(JSON.stringify(rt.exercices)) });
+      ecrites.push({ rt: rt, voulues: rt.exercices.map(function (x) {
+        return x.exercise_slug === v.slug ? Routines.exerciceRemplace(x, v.vers, mesures) : x;
+      }) });
+    });
+    if (!ecrites.length) {
+      faitVariation = { dossier: dossier, bloc: b.id, texte: 'Ta routine a changé depuis : je recalcule.', surAnnuler: function () { faitVariation = null; rendreSaisie(); } };
+      return rendreSaisie();
+    }
+    var avantReponses = JSON.parse(JSON.stringify(reponsesDesCartes()));
+    var noms = ecrites.map(function (x) { return '\u00ab\u00a0' + x.rt.nom + '\u00a0\u00bb'; });
+    for (var i = 0; i < ecrites.length; i++) await poserRoutineVoulue(ecrites[i].rt, ecrites[i].voulues);
+    await ecrireVariation(b, v.slug, 'changer');
+    faitVariation = {
+      dossier: dossier, bloc: b.id,
+      texte: 'Fait\u00a0: ' + Modele.nommer(catalogueIndexe(), v.vers) + ' remplace ' + Modele.nommer(catalogueIndexe(), v.slug) + ' dans ' + noms.join(', ') + '.',
+      surAnnuler: async function () {
+        faitVariation = null;
+        for (var k = 0; k < avant.length; k++) {
+          var r2 = routines.filter(function (r) { return r.id === avant[k].rt.id; })[0];
+          if (r2) await poserRoutineVoulue(r2, avant[k].exercices);
+        }
+        await poserProfil({ cartes_semaine: avantReponses });
+        rendreSaisie();
+      }
+    };
+    rendreSaisie();
+  }
+
+  // « Garder la poulie » : la carte se tait jusqu'au bloc suivant (autre identifiant de bloc). Rien d'autre ne change.
+  async function garderUnAccessoire(dossier, v) {
+    var b = Moteur.blocEnCours(local.blocs, dossier);
+    if (!b) return;
+    await ecrireVariation(b, v.slug, 'garder');
+    rendreSaisie();
+  }
+
+  async function ecrireVariation(bloc, slug, reponse) {
+    var toutes = Object.assign({}, reponsesDesCartes());
+    var variation = Object.assign({}, variationsRepondues());
+    variation[bloc.id] = Object.assign({}, variation[bloc.id]);
+    variation[bloc.id][slug] = reponse;
+    toutes.variation = variation;
+    await poserProfil({ cartes_semaine: toutes });
+  }
+
   function proposerSemaineDeTestDuProgramme(b) {
     var n = 0, manque = false, cur = b, vus = {};
     while (cur && !vus[cur.id]) {
@@ -12660,12 +12752,20 @@
         vus[d] = true;
         var pr = programmeDuDossier(d);
         if (pr && pr.fin) items.push({ dossier: d, fin: pr.fin });
+        // 266 — « NOUVEAU BLOC » : les accessoires à changer, et le « Fait : … » qui reste jusqu'à « Annuler » (tant que le bloc est le même).
+        var bd = pr && pr.badge ? Moteur.blocEnCours(local.blocs, d) : null;
+        var fait = faitVariation && bd && faitVariation.dossier === d && faitVariation.bloc === bd.id
+          ? { texte: faitVariation.texte, surAnnuler: faitVariation.surAnnuler } : null;
+        if ((pr && pr.variations && pr.variations.length) || fait) items.push({ dossier: d, variations: (pr && pr.variations) || [], fait: fait });
       });
     }
     // 193-4 — le bilan de la semaine de test, une fois la semaine finie : « avant → mesuré », l'objectif « Pas encore ».
     var bilanTest = !seance && etatRoutines.code === 'ok' ? bilanDeLaSemaineDeTest() : null;
     if (bilanTest) items.unshift({ dossier: null, bilanTest: bilanTest });
-    Rendu.rendreFinsDeCycleSaisie(noeud, items, Object.assign({}, gestesFinDeCycle, { surCompris: function () {
+    Rendu.rendreFinsDeCycleSaisie(noeud, items, Object.assign({}, gestesFinDeCycle, {
+      surChangerAccessoire: function (d, v) { changerUnAccessoire(d, v).catch(function (e) { console.warn('Accessoire non changé :', texteErreur(e)); }); },
+      surGarderAccessoire: function (d, v) { garderUnAccessoire(d, v).catch(function (e) { console.warn('Réponse non écrite :', texteErreur(e)); }); },
+      surCompris: function () {
       var T = testDesCartes();
       if (T) ecrireTest(Object.assign({}, T, { vu: true })).then(rendreSaisie);
     } }));

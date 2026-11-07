@@ -15367,6 +15367,119 @@ const SETS_IMPORTES = [
     ok('[C53] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
+  console.log('\n══ variation-bloc. UN ACCESSOIRE CHANGE AU DÉBUT D’UN BLOC : LA CARTE, « CHANGER », « ANNULER », « GARDER » (266, MOTEUR §9.22 ter) ══');
+  //
+  // Un dossier « Var U266 » : un bloc qui COMMENCE cette semaine (sa 1re semaine, au calendrier), une barre dans le bloc, une
+  // élévation latérale à la poulie faite 8 semaines de suite à la même charge (aucune hausse du record depuis 8 semaines), et sa
+  // variante aux haltères (même `mouvement`, autre matériel). Horloge réelle : le bloc part du lundi de cette semaine, les séances des
+  // 8 lundis d'avant. ⚠️ DISCRIMINANT : la carte ne vient QUE de l'historique (8 semaines, 8 sans record) et du début du bloc.
+  {
+    const erreursAvant = erreurs.length;
+    const violationsAvant = gardeBanc.violations;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const rendreBlocs266 = await retirerBlocsDeLAppareil();
+    const profilAvant = base.profiles[0], sessionsAvant = base.sessions, setsAvant = base.sets, catalogueAvant = CATALOGUE.length;
+    const routinesAvant = ROUTINES.splice(0, ROUTINES.length);
+    base.sessions = []; base.sets = [];
+    base.profiles[0] = Object.assign({}, PROFIL_BANC, { intention: 'progresser', cartes_semaine: null, priorites: null, objectif: null,
+      materiel: 'salle_complete', zones_a_menager: null, exercices_ecartes: null });
+    const fiche = (slug, nom, equipement, mouvement, prim) => CATALOGUE.push({ slug, nom, mesure: 'charge_reps', charge: 'externe',
+      equipement, muscles_primaires: prim, muscles_secondaires: [], mouvement });
+    fiche('var-barre-u266', 'Barre Bloc U266 (Barre)', 'barre', 'var_barre_u266', ['quadriceps']);
+    fiche('var-lat-poulie-u266', 'Élévation Latérale Bloc (Poulie)', 'poulie', 'var_lat_u266', ['deltoide_lateral']);
+    fiche('var-lat-haltere-u266', 'Élévation Latérale Bloc (Haltère)', 'haltere', 'var_lat_u266', ['deltoide_lateral']);
+    const maintenant = new Date();
+    const lundi = new Date(maintenant.getFullYear(), maintenant.getMonth(), maintenant.getDate() - ((maintenant.getDay() + 6) % 7), 10, 0, 0);
+    const jourDe = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    for (let k = 1; k <= 8; k++) {
+      const d = new Date(lundi.getFullYear(), lundi.getMonth(), lundi.getDate() - 7 * k, 10, 0, 0);
+      const id = '00000000-0000-4000-8266-' + String(k).padStart(12, '0'), debut = d.toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'Var U266', debut, fin: new Date(d.getTime() + 3600000).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      [1, 2, 3].forEach((r) => base.sets.push({ id: 'v266-' + k + '-a' + r, session_id: id, user_id: 'u-banc', exercise_slug: 'var-lat-poulie-u266',
+        charge_kg: 10, reps: 12, duree_s: null, distance_m: null, type_serie: 'travail', rang: r, groupe_superset: null, validee_a: debut,
+        rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    }
+    const ID_R = '00000000-0000-4000-8266-0000000000a1', ID_B = '00000000-0000-4000-8266-0000000000b1';
+    ROUTINES.push({ id: ID_R, nom: 'Var U266', note: null, archivee_a: null, rang: null, dossier: 'Var U266',
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: ['var-barre-u266', 'var-lat-poulie-u266'].map((slug, i) => ({ id: ID_R.slice(0, -2) + '1' + i, routine_id: ID_R,
+        exercise_slug: slug, rang: i, routine_sets: progr(3, 10), repos_cible_s: 90, groupe_superset: null, note: null })) });
+    base.blocs = [{ id: ID_B, user_id: 'u-banc', dossier: 'Var U266', zone: 'mix', debut: jourDe(lundi), semaines: 4, decharge: true,
+      exercices: ['var-barre-u266'], statut: 'en_cours', precedent: null, created_at: lundi.toISOString(), modifie_a: null, grosse_serie: false }];
+    const routineR = () => ROUTINES.filter((r) => r.id === ID_R)[0];
+    const slugsR = () => routineR().routine_exercises.slice().sort((a, b) => a.rang - b.rang).map((e) => e.exercise_slug);
+    const carte266 = () => page.evaluate(() => {
+      const t = (n) => (n ? n.textContent.replace(/[  ]/g, ' ') : null);
+      const s = document.querySelector('#carte-fin-saisie .nouveau-bloc[data-dossier="Var U266"]');
+      if (!s) return null;
+      return { etiquette: t(s.querySelector('.nb-etiquette')),
+        cartes: Array.from(s.querySelectorAll('.nb-carte')).map((c) => ({ slug: c.getAttribute('data-slug'), titre: t(c.querySelector('.nb-titre')),
+          detail: t(c.querySelector('.nb-detail')), boutons: [t(c.querySelector('.nb-changer')), t(c.querySelector('.nb-garder'))],
+          hauteurs: Array.from(c.querySelectorAll('.nb-changer, .nb-garder')).map((b) => Math.round(b.getBoundingClientRect().height)),
+          fondement: (c.querySelector('.nb-fondement') || {}).hidden === false ? t(c.querySelector('.nb-fondement')) : null })),
+        fait: t(s.querySelector('.nb-fait-texte')), annuler: !!s.querySelector('.nb-annuler') };
+    });
+    const cliquer266 = (sel) => page.evaluate((x) => document.querySelector('#carte-fin-saisie .nouveau-bloc ' + x).click(), sel);
+    await aller('/saisie');
+    await jusqua(async () => !!(await carte266()), 20000, 'carte 266');
+    let c266 = await carte266();
+    ok('[V266] la carte « NOUVEAU BLOC » en tête de Saisie : « Élévation latérale bloc : poulie → haltères ? », 8 semaines, 8 sans record, « Changer » / « Garder la poulie », 44 px',
+      c266.etiquette === 'NOUVEAU BLOC' && c266.cartes.length === 1 && c266.cartes[0].slug === 'var-lat-poulie-u266' &&
+        c266.cartes[0].titre === 'Élévation latérale bloc : poulie → haltères ?' &&
+        c266.cartes[0].detail === '8 semaines sur la poulie, sans record depuis 8. Changer un accessoire par bloc travaille le même muscle sous un autre angle ; les barres ne changent pas.' &&
+        JSON.stringify(c266.cartes[0].boutons) === JSON.stringify(['Changer', 'Garder la poulie']) && c266.cartes[0].hauteurs.every((h) => h >= 44),
+      JSON.stringify(c266));
+    ok('[V266] rien n’est écrit à l’ouverture : la routine garde sa poulie, aucune réponse au profil',
+      JSON.stringify(slugsR()) === '["var-barre-u266","var-lat-poulie-u266"]' && !base.profiles[0].cartes_semaine, JSON.stringify([slugsR(), base.profiles[0].cartes_semaine]));
+    await cliquer266('.nb-pourquoi');
+    c266 = await carte266();
+    ok('[V266] « Pourquoi ? » déplie le fondement : Kassiano 2022, et les réglages dits comme tels',
+      !!c266.cartes[0].fondement && /Kassiano 2022/.test(c266.cartes[0].fondement) && /réglages de l’app/.test(c266.cartes[0].fondement), JSON.stringify(c266.cartes[0].fondement));
+
+    await cliquer266('.nb-changer');
+    await jusqua(async () => JSON.stringify(slugsR()) === '["var-barre-u266","var-lat-haltere-u266"]', 15000, 'changer 266');
+    await jusqua(async () => !!(await carte266()) && (await carte266()).fait !== null, 10000, 'fait 266');
+    await jusqua(async () => !!base.profiles[0].cartes_semaine && !!base.profiles[0].cartes_semaine.variation, 10000, 'réponse 266');
+    c266 = await carte266();
+    ok('[V266] « Changer » : la routine porte la variante (journal des routines), « Fait : … » et « Annuler » ; la réponse est dans le profil',
+      /^Fait : Élévation Latérale Bloc \(Haltère\) remplace Élévation Latérale Bloc \(Poulie\) dans « Var U266 »\.$/.test(c266.fait) && c266.annuler &&
+        c266.cartes.length === 0 && base.profiles[0].cartes_semaine.variation[ID_B]['var-lat-poulie-u266'] === 'changer',
+      JSON.stringify([c266, slugsR(), base.profiles[0].cartes_semaine]));
+
+    await cliquer266('.nb-annuler');
+    await jusqua(async () => JSON.stringify(slugsR()) === '["var-barre-u266","var-lat-poulie-u266"]', 15000, 'annuler 266');
+    await jusqua(async () => !!(await carte266()) && (await carte266()).cartes.length === 1, 10000, 'carte revenue 266');
+    c266 = await carte266();
+    ok('[V266] « Annuler » : la routine d’avant, la réponse effacée, la carte revient',
+      c266.fait === null && c266.cartes.length === 1 && !(base.profiles[0].cartes_semaine && base.profiles[0].cartes_semaine.variation),
+      JSON.stringify([c266, slugsR(), base.profiles[0].cartes_semaine]));
+
+    await cliquer266('.nb-garder');
+    await jusqua(async () => !!base.profiles[0].cartes_semaine && !!base.profiles[0].cartes_semaine.variation, 10000, 'garder 266');
+    await jusqua(async () => !(await carte266()), 10000, 'carte retirée 266');
+    ok('[V266] « Garder la poulie » : la carte se tait, la routine ne bouge pas, la réponse est dans `cartes_semaine.variation[bloc][exercice]`',
+      (await carte266()) === null && JSON.stringify(slugsR()) === '["var-barre-u266","var-lat-poulie-u266"]' &&
+        base.profiles[0].cartes_semaine.variation[ID_B]['var-lat-poulie-u266'] === 'garder', JSON.stringify(base.profiles[0].cartes_semaine));
+    await page.reload();
+    await aller('/saisie');
+    await jusqua(() => page.evaluate(() => !!document.querySelector('#liste-routines .dossier-ligne')), 20000, 'liste 266');
+    ok('[V266] rechargée, la carte ne revient pas dans ce bloc', (await carte266()) === null, JSON.stringify(await carte266()));
+
+    // ── LA REMISE EN ÉTAT, pour les sections suivantes (le bloc aussi, sur l'appareil).
+    base.profiles[0] = profilAvant;
+    ROUTINES.splice(0, ROUTINES.length);
+    routinesAvant.forEach((r) => ROUTINES.push(r));
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant; base.sets = setsAvant;
+    base.blocs = [];
+    await retirerBlocsDeLAppareil();
+    rendreBlocs266();
+    ok('[V266] aucun refus du faux serveur, la garde de l’app n’a rien signalé (I145, I146), aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
   console.log('\n══ progression. LA MÉDAILLE, LA FEUILLE « TERMINER », LE MOIS ET SES RECORDS (55-1, MOTEUR §9.23) ══');
   //
   // Une barre (120 × 5 il y a 20 jours, 125 × 4 et 120 × 5 il y a 13 jours).

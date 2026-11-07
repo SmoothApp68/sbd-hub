@@ -2076,6 +2076,18 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .carte-fin-bloc button{width:100%;min-height:44px;padding:0 14px;border-radius:var(--r-bouton);font:inherit;font-size:15px;font-weight:620}
 .carte-fin-bloc .cfb-commencer{background:var(--accent);color:var(--sur-accent);border:0}
 .carte-fin-bloc .cfb-ajuster,.carte-fin-bloc .cfb-arreter{background:transparent;color:var(--texte);border:1px solid var(--trait)}
+.nouveau-bloc{margin:0 0 var(--e3)}
+.nouveau-bloc .nb-etiquette{margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:.04em;color:var(--texte-2)}
+.nouveau-bloc .nb-carte{padding:10px 12px;border:1px dashed var(--trait);border-radius:var(--r-grand);margin:0 0 var(--e2)}
+.nouveau-bloc .nb-titre{margin:0;font-weight:700;line-height:1.35}
+.nouveau-bloc .nb-detail{margin:6px 0 0;font-size:14px;line-height:1.45;color:var(--texte-2)}
+.nouveau-bloc .nb-gestes{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.nouveau-bloc button{width:100%;min-height:44px;padding:0 14px;border-radius:var(--r-bouton);font:inherit;font-size:15px;font-weight:620}
+.nouveau-bloc .nb-pourquoi{margin-top:6px;background:transparent;border:0;color:var(--texte-2);font-size:14px;font-weight:600}
+.nouveau-bloc .nb-fondement{margin:4px 0 0;font-size:13px;line-height:1.45;color:var(--texte-2)}
+.nouveau-bloc .nb-fait{display:flex;align-items:center;justify-content:space-between;gap:var(--e2);padding:6px 2px}
+.nouveau-bloc .nb-fait-texte{margin:0;flex:1;min-width:0;font-size:14px;line-height:1.4}
+.nouveau-bloc .nb-fait button{width:auto;min-width:44px}
 .champ-programme{display:flex;justify-content:space-between;align-items:center;gap:var(--e2);margin-top:6px;
   padding:4px 4px 4px 10px;background:var(--panneau-2);border:1px solid var(--trait);border-radius:var(--r-petit);font-size:14px}
 .champ-programme .cp-k{color:var(--texte-2)}

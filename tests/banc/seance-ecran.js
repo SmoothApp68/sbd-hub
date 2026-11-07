@@ -29268,6 +29268,7 @@ const SETS_IMPORTES = [
     await demarrerRoutine('Squat RT237');
     await planPret237('rt237-squat');
     const s1 = await lire237('rt237-squat');
+    if (process.env.BANC_CAPTURES_265) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_265, 'chauffes-proposees.png') });
     const resume1 = await page.evaluate(() => { const n = document.querySelector('.proposition-chauffes'); return n ? { replie: !!n.closest('details'), texte: n.querySelector('.pc-texte').textContent.replace(/\s+/g, ' ').trim() } : null; });
     ok('[RT237] DISCRIMINANT — séance 1 : le coach PROPOSE (premier exercice du muscle, 100 kg au-dessus de 60 % du max), sans rien écrire',
       !!s1.prop && s1.prop.mode === 'proposer' && s1.prop.raison === 'muscle' && s1.prop.lignes.length >= 2 && s1.types.every((t) => t === 'travail'), nb237(s1));

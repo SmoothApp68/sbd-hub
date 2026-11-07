@@ -3314,7 +3314,7 @@ input,select,textarea,.ch-serie,.rp-serie,.eff-serie{
    PLEINES — le fantôme se lit à son chiffre gris, plus à son cadre. Ce qui reste de 260 : 44 px de toucher, l'anneau de focus. */
 .bloc-seance .ch-serie,.bloc-seance .rp-serie,.bloc-seance .eff-serie,.bloc-seance .no-serie,.bloc-seance .ok-serie,.bloc-seance .ajout-serie button{
   --trait:#2B3442;--trait-case:#2B3442}
-.bloc-seance .ch-serie.fantome,.bloc-seance .rp-serie.fantome{border-style:solid;background:var(--panneau-2)}
+.bloc-seance .ch-serie.fantome,.bloc-seance .rp-serie.fantome,.en-tours .ch-serie.fantome,.en-tours .rp-serie.fantome{border-style:solid;border-color:#2B3442;background:var(--panneau-2)}
 .bloc-seance .no-serie:not(.c):not(.d){background:var(--panneau-2);border-color:transparent}
 .bloc-seance .ajout-serie button{border-style:dashed;font-size:14px;font-weight:400;color:var(--texte-3)}
 .ajouts{display:flex;flex-wrap:wrap;gap:6px;padding:var(--e2) var(--e3) var(--e3)}
@@ -3331,3 +3331,4 @@ input,select,textarea,.ch-serie,.rp-serie,.eff-serie{
 .proposition-exercice.proposition-chauffes .pc-texte{color:var(--texte);font-weight:600}
 .cartes-exo.sous-legende{margin:2px 0 6px}
 .cartes-exo.sous-legende .cartes-exo-nom{display:none}
+.en-tours .ok-serie:not(.cochee){border-color:#2B3442}

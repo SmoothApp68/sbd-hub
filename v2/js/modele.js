@@ -1028,7 +1028,9 @@
   }
   function colonnesDeSerie(exo) {
     var noms = arguments.length ? champsDeSerie(exo) : Object.keys(CHAMPS_MESURE);
-    return noms.map(function (n) { return CHAMPS_MESURE[n].cle; });
+    var cles = [];
+    noms.forEach(function (n) { var c = CHAMPS_MESURE[n].cle; if (cles.indexOf(c) < 0) cles.push(c); });   // 268 (C) : `distance_km` et `distance_m` partagent la colonne
+    return cles;
   }
   // La grille d'un exercice : le gabarit de sa mesure, plus `colonnes` (les champs en
   // colonne), `dessous` (les champs sous la série) et la légende complétée (« DURÉE ·

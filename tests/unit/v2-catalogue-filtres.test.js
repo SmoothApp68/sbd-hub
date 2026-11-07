@@ -176,6 +176,7 @@ function bac() {
     corpus: () => ({}), $, freresDe: () => [],
     Rendu: {
       rendreFiltresExo: (c, compte, v) => { ctx.__filtres = v; },
+      rendreOngletsExo: () => {},
       rendreResultatsExo: (c, liste, choisir, ecartes, decrire) => { ctx.__liste = liste.map((e) => e.slug); ctx.__decrire = decrire; ctx.__vide = null; },
       // 126 — le champ vide, sans filtre : les suggestions et la phrase du pied, plus la liste.
       rendreSuggestionsExo: (c, v) => { ctx.__liste = null; ctx.__vide = v; ctx.__decrire = v.decrire; },

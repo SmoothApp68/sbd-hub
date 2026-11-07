@@ -227,7 +227,7 @@ describe('60-1 — le branchement dans app.js', () => {
       // 126 — le nombre de séances de chaque exercice fait (`faits.seancesParExercice`), plus sa date.
       faits: { seancesParExercice: () => comptes || {} }, corpus: () => ({}),
       $: () => ({ value: 'exo' }), Rendu: { rendreResultatsExo: (c, liste) => sorties.push(liste.map((x) => x.slug)), message: () => {},
-                                           rendreFiltresExo: () => {} },
+                                           rendreFiltresExo: () => {}, rendreOngletsExo: () => {} },
       // 67B — les filtres du catalogue (leurs tests : `v2-catalogue-filtres`).
       filtresCatalogue: { equipement: null, muscle: null }, FILTRES_CATALOGUE: { equipement: { tous: 'Tout le matériel', libelle: (c) => c }, muscle: { tous: 'Tous les muscles', libelle: (c) => c } }, descriptionExo: () => '', ouvrirChoixFiltre: () => {}, retirerFiltre: () => {},
       fermerVoile: () => {}, faitsDuCatalogue: null, contexteDuCatalogue: null, sorties

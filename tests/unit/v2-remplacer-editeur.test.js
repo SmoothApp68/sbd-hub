@@ -182,7 +182,7 @@ function bac(options) {
       rendreResultatsExo: (c, liste, choisir) => { ctx.__choisir = choisir; },
       // 126 — le champ vide : les suggestions (« Le même mouvement »…) ; le choix y passe par le même `surChoix`.
       rendreSuggestionsExo: (c, v) => { ctx.__choisir = v.surChoix; ctx.__suggestions = v; },
-      rendreFiltresExo: () => {},
+      rendreFiltresExo: () => {}, rendreOngletsExo: () => {},
       message: () => {}
     },
     // 67B — les filtres du catalogue (leurs tests : `v2-catalogue-filtres`).

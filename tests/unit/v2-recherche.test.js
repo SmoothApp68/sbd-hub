@@ -284,7 +284,7 @@ function bac(o) {
     corpus: () => ({}), $,
     freresDe: (slug, dans) => { appels.freres = [slug, dans]; return (opts.freres || []).map((s) => ({ slug: s })); },
     Rendu: {
-      rendreFiltresExo: () => {},
+      rendreFiltresExo: () => {}, rendreOngletsExo: () => {},
       rendreResultatsExo: (c, liste, choisir, ecartes, decrire, mentions) => {
         ctx.__vue = { liste: liste.map((e) => e.slug), mentions: liste.map((e) => (mentions ? mentions(e) : [])), ecartes };
       },

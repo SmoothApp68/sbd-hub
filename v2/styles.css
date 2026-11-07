@@ -831,12 +831,12 @@ button.bloc-exo:active{background:var(--panneau-2)}
 .onglets-exo{display:flex;gap:var(--e4);margin:var(--e2) 0 0;border-bottom:1px solid var(--trait)}
 .onglet-exo{min-height:44px;padding:0 2px;background:transparent;border:0;border-bottom:2px solid transparent;
   color:var(--texte-3);font:600 14px var(--pile);cursor:pointer}
-.onglet-exo.actif{color:var(--texte);border-bottom-color:var(--accent)}
+.onglet-exo.actif{color:var(--texte);border-bottom-color:var(--texte)}
 .resultat.a-mesure{position:relative;padding-right:104px}
-.resultat .resultat-mesure{position:absolute;right:var(--e1);top:12px;font-size:11px;font-weight:600;letter-spacing:.04em;
+.resultat .resultat-mesure{position:absolute;right:var(--e1);top:12px;font-size:12px;font-weight:600;letter-spacing:.04em;
   color:var(--texte-3);white-space:nowrap}
-.resultat .resultat-nouveau{display:inline-block;margin-top:3px;font-size:11px;font-weight:700;letter-spacing:.06em;
-  text-transform:uppercase;color:var(--accent)}
+.resultat .resultat-nouveau{display:inline-block;margin-top:3px;font-size:12px;font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--texte)}
 .filtres-exo{display:flex;gap:var(--e2);margin:var(--e2) 0 var(--e1)}
 .filtre-exo{flex:1;min-width:0;display:flex;align-items:stretch;background:var(--panneau);
   border:1px solid var(--trait);border-radius:999px;overflow:hidden}
@@ -1744,7 +1744,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   font-size:13px;font-weight:400;line-height:normal;font-family:inherit;
   display:inline-flex;align-items:center;min-height:44px;padding:0;margin-bottom:-1px;border-bottom:2px solid transparent}
 /* L'accent ne sert qu'à l'onglet actif et à la suggestion du moteur. */
-.sous-onglet.actif{color:var(--texte);border-bottom-color:var(--accent)}
+.sous-onglet.actif{color:var(--texte);border-bottom-color:var(--texte)}
 
 /* ── Résumé : la fiche des records ───────────────────────────────────────── */
 .exo-fiche{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e1) var(--e4)}

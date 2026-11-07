@@ -198,14 +198,15 @@ async function contexte(nav, bd, o) {
     sessionStorage.setItem('__graine', '1');
     if (s) localStorage.setItem('th-v2-auth', s);
   }, opt.stockage ? JSON.stringify(opt.stockage) : null);
-  // 247 — LE FAUX CLOUDFLARE. `opt.captcha` : { cle, script } — `cle` est posée dans `config.js` servi (le dépôt
-  // l'a VIDE) ; `script` ('ok' | 'echec') se lit à chaque requête, donc se change en cours de scénario. Le faux widget
+  // 247 — LE FAUX CLOUDFLARE. `opt.captcha` : { cle, script } — `cle` est posée dans `config.js` servi (vide
+  // sans `opt.captcha`) ; `script` ('ok' | 'echec') se lit à chaque requête, donc se change en cours de scénario. Le faux widget
   // appelle `callback('faux-jeton-N')` aussitôt monté, et un nouveau jeton après chaque `reset`. Rien ne part vers le
   // vrai Cloudflare : la garde réseau coupe ce que ce banc ne prend pas.
   const cap = opt.captcha || {};
-  if (cap.cle) {
+  // 267 — le dépôt porte maintenant la VRAIE clé : le banc sert TOUJOURS sa clé à lui (vide sans `opt.captcha`), jamais celle du dépôt.
+  {
     const config = require('fs').readFileSync(path.join(R, 'v2/js/config.js'), 'utf8')
-      .replace(/TURNSTILE_SITE_KEY\s*:\s*'[^']*'/, "TURNSTILE_SITE_KEY: '" + cap.cle + "'");
+      .replace(/TURNSTILE_SITE_KEY\s*:\s*'[^']*'/, "TURNSTILE_SITE_KEY: '" + (cap.cle || '') + "'");
     await ctx.route(/\/js\/config\.js(\?.*)?$/, (route) => route.fulfill({ status: 200, contentType: 'application/javascript', body: config }));
   }
   await ctx.route(/challenges\.cloudflare\.com/, (route) => {

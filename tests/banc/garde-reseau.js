@@ -78,6 +78,14 @@ async function garderContexte(ctx) {
     signaler(route.request().method(), route.request().url());
     return route.abort('blockedbyclient');
   });
+  // 267 — LE DÉPÔT PORTE LA VRAIE CLÉ DU CAPTCHA (config.js) : tout banc reçoit config.js avec une clé VIDE, sinon l'écran de
+  // connexion chargerait le vrai Turnstile. Un banc qui joue le captcha (profil-creation) pose sa propre route après celle-ci :
+  // la plus récente l'emporte.
+  await ctx.route(/\/js\/config\.js(\?.*)?$/, async (route) => {
+    const r = await route.fetch();
+    const corps = (await r.text()).replace(/TURNSTILE_SITE_KEY\s*:\s*'[^']*'/, "TURNSTILE_SITE_KEY: ''");
+    return route.fulfill({ response: r, body: corps });
+  });
   await ctx.routeWebSocket(versSupabase, (ws) => {
     signaler('WebSocket', ws.url());
     ws.close();

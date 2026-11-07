@@ -25,17 +25,26 @@
 //      envoie ses bornes en jour LOCAL. Entre minuit local et minuit UTC (1 à 2 h par nuit à Paris), une séance
 //      forgée « il y a 10 minutes » est datée de la veille UTC.
 // Sans BANC_HORLOGE, l'heure du banc est donc décalée au plus juste pour n'être ni dans les 7 premiers jours d'un
-// mois (elle passe au 8, à la même heure), ni dans la fenêtre de la deuxième frontière (elle avance d'heure en
-// heure). Un décalage, comme le reste de ce fichier ; BANC_HORLOGE le remplace.
+// mois, ni un dimanche ou un lundi (troisième frontière, plus bas : elle avance de jour en jour, à la même heure), ni dans
+// la fenêtre de la deuxième frontière (elle avance d'heure en heure). Un décalage, comme le reste de ce fichier ; BANC_HORLOGE le remplace.
 const JOUR_MIN = 8;
 function jourLocal(t) { const d = new Date(t); return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); }
 function jourUtc(t) { const d = new Date(t); return d.getUTCFullYear() * 10000 + (d.getUTCMonth() + 1) * 100 + d.getUTCDate(); }
+// 3. LA SEMAINE (262, 07/11/2026). Les sections datent aussi « hier » et lisent « cette semaine » (lundi → dimanche) : un
+//    lundi, hier est dans la semaine d'avant ; un dimanche soir, le banc passe minuit pendant qu'il tourne et se retrouve
+//    lundi. [BH218] échouait ainsi chaque soir où le 8 (la date retenue par la frontière 1) tombait un dimanche. Le jour
+//    retenu n'est donc jamais un dimanche ni un lundi : on avance de jour en jour, à la même heure locale, jusqu'à un
+//    jour ≥ 8 qui n'en est pas un.
 function decalageDuDecor(t) {
-  let d = 0;
   const l = new Date(t);
-  if (l.getDate() < JOUR_MIN) {
-    d = new Date(l.getFullYear(), l.getMonth(), JOUR_MIN, l.getHours(), l.getMinutes(), l.getSeconds(), l.getMilliseconds()).getTime() - t;
+  const jourPlus = (k) => new Date(l.getFullYear(), l.getMonth(), l.getDate() + k, l.getHours(), l.getMinutes(), l.getSeconds(), l.getMilliseconds());
+  let k = 0;
+  while (k < 45) {
+    const c = jourPlus(k);
+    if (c.getDate() >= JOUR_MIN && c.getDay() !== 0 && c.getDay() !== 1) break;
+    k++;
   }
+  let d = k ? jourPlus(k).getTime() - t : 0;
   const fin = d + 24 * 3600000;
   while (d < fin && jourLocal(t + d) !== jourUtc(t + d)) d += 3600000;
   return d;

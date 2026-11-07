@@ -11,14 +11,35 @@ describe('horloge du banc : ni les 7 premiers jours du mois, ni la fenêtre jour
     for (let t = debut; t < debut + 3 * 86400000; t += 900000) {
       const d = decalageDuDecor(t);
       expect(jl(t + d)).toBe(ju(t + d));
-      expect(d).toBeLessThanOrEqual(8 * 86400000);
+      expect(d).toBeLessThanOrEqual(10 * 86400000);
     }
   });
 
-  test('le 1er novembre 2026, l\'heure du banc passe au 8, à la même heure locale', () => {
+  test('le 1er octobre 2026 (jeudi), l\'heure du banc passe au 8 (jeudi), à la même heure locale', () => {
+    const t = new Date(2026, 9, 1, 12, 0, 0).getTime();
+    const l = new Date(t + decalageDuDecor(t));
+    expect([l.getMonth(), l.getDate(), l.getHours()]).toEqual([9, 8, 12]);
+  });
+
+  test('262 — le 1er novembre 2026 : le 8 est un dimanche, l\'heure du banc passe au mardi 10, à la même heure locale', () => {
     const t = new Date(2026, 10, 1, 12, 0, 0).getTime();
     const l = new Date(t + decalageDuDecor(t));
-    expect([l.getMonth(), l.getDate(), l.getHours()]).toEqual([10, 8, 12]);
+    expect([l.getMonth(), l.getDate(), l.getHours()]).toEqual([10, 10, 12]);
+  });
+
+  test('262 — DISCRIMINANT : le jeudi 5 novembre à 23 h 55 (le soir de l\'échec [BH218]), le banc ne vit ni un dimanche ni un lundi', () => {
+    const t = new Date(2026, 10, 5, 23, 55).getTime(), l = new Date(t + decalageDuDecor(t));
+    expect([0, 1]).not.toContain(l.getDay());
+  });
+
+  test('262 — chaque heure de 2026 : le banc ne vit jamais un lundi, et un dimanche seulement au petit matin (passé minuit, pas avant lundi)', () => {
+    const debut = new Date(2026, 0, 1).getTime();
+    for (let t = debut; t < debut + 365 * 86400000; t += 3600000) {
+      const l = new Date(t + decalageDuDecor(t));
+      expect(l.getDay()).not.toBe(1);
+      if (l.getDay() === 0) expect(l.getHours()).toBeLessThan(12);
+      expect(l.getDate()).toBeGreaterThanOrEqual(8);
+    }
   });
 
   test('du 1er au 7 de chaque mois de 2026, le jour retenu est au moins le 8 du même mois', () => {
@@ -32,5 +53,19 @@ describe('horloge du banc : ni les 7 premiers jours du mois, ni la fenêtre jour
   test('un jour sans frontière, aucun décalage', () => {
     const t = new Date(2026, 9, 15, 12, 0, 0).getTime();
     expect(decalageDuDecor(t)).toBe(0);
+  });
+});
+
+describe('262 — joursJusquA : le Nᵉ jour d\'une semaine calendaire passée', () => {
+  const { joursJusquA, ilYa, JOUR } = require(path.join(__dirname, '../banc/decor-dates.js'));
+  const lundiDe = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - (x.getDay() + 6) % 7); return x.getTime(); };
+  test('pour chaque jour de 2026 : le mardi et le jeudi d\'il y a w semaines tombent dans la MÊME semaine, w semaines avant', () => {
+    const debut = new Date(2026, 0, 1, 10).getTime();
+    for (let t = debut; t < debut + 365 * 86400000; t += 86400000) for (const w of [1, 4, 10]) {
+      const ma = ilYa(joursJusquA(w, 1, t) * JOUR, t), je = ilYa(joursJusquA(w, 3, t) * JOUR, t);
+      expect([ma.getDay(), je.getDay()]).toEqual([2, 4]);
+      expect(lundiDe(ma)).toBe(lundiDe(je));
+      expect(Math.round((lundiDe(t) - lundiDe(ma)) / (7 * 86400000))).toBe(w);
+    }
   });
 });

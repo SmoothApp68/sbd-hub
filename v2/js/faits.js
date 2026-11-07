@@ -219,7 +219,7 @@
     // 266 (MOTEUR §9.22 ter) — LES SEMAINES DE SUITE d'un exercice : les semaines civiles (le lundi) où il a une série de travail ; la
     // série COURANTE remonte de la dernière semaine, un trou de 2 semaines au plus (trois semaines sans lui la coupent). Rend
     // `{ semaines, derniere }` (`derniere` : le lundi de la dernière semaine, jour civil) ou `null` : jamais fait, ou sa dernière
-    // semaine est à plus de 3 semaines de `jour`. Un fait du calendrier, jamais l'assiduité : le coach n'en dit rien à la personne.
+    // semaine est à plus de 3 semaines de `jour`. Un fait du calendrier, jamais l'assiduité : la carte « NOUVEAU BLOC » le dit comme un fait (« 8 semaines sur la poulie »), jamais comme un jugement sur la régularité.
     var SEMAINE_MS = 7 * 86400000;
     var TROU_MAX_SEMAINES = 2, ABSENCE_MAX_SEMAINES = 3;
     function semainesDeSuite(c, slug, jour) {

@@ -1850,7 +1850,7 @@
       pris[c.muscle] = true;
       var f = ficheDu(cat, c.slug) || {}, v = ficheDu(cat, c.vers) || {};
       var base = Modele.nomCourt(f.nom), baseV = Modele.nomCourt(v.nom);
-      var record = c.derniereHausse ? 'sans record depuis ' + Math.floor(joursEntre(c.derniereHausse, x.jour) / 7) : 'sans record';
+      var record = c.derniereHausse ? 'sans record depuis ' + Math.floor(joursEntre(c.derniereHausse, x.jour) / 7) + ' semaines' : 'sans record';
       var titre, garder, sur;
       if (base !== '' && base === baseV) {
         var m1 = materielDit(f), m2 = materielDit(v);

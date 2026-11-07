@@ -571,7 +571,13 @@
 
   // « Changer » : chaque routine du dossier qui porte l'exercice le remplace par sa variante (le chemin des routines, la file),
   // la réponse se range dans le profil, et le geste se voit et s'annule — comme « Ajouter » d'une carte de la semaine.
+  var changementEnCours = false;   // relecture 266 : un double toucher sur « Changer » ne rejoue pas le geste (l'« Annuler » du premier resterait perdu)
   async function changerUnAccessoire(dossier, v) {
+    if (changementEnCours) return;
+    changementEnCours = true;
+    try { return await changerUnAccessoireUneFois(dossier, v); } finally { changementEnCours = false; }
+  }
+  async function changerUnAccessoireUneFois(dossier, v) {
     var b = Moteur.blocEnCours(local.blocs, dossier);
     if (!b) return;
     var mesures = mesuresDuRemplacement(v.slug, v.vers);
@@ -17602,7 +17608,13 @@
 
   // 266 (§9.25) — « PARIER SUR FIN AVRIL » : un objectif « plus d'un an » ou « pas encore » dont la projection d'aujourd'hui passe sous les 6
   // mois. Relit l'objectif et recalcule (la seule règle) ; hors des 183 jours, rien n'est écrit. Le pari part d'abord, l'objectif derrière.
+  var pariEnCours = false;   // relecture 266 : un double toucher sur « Parier sur fin … » ne pose pas deux paris (predictions est immuable)
   async function parierSurLaDate(slug) {
+    if (pariEnCours) return;
+    pariEnCours = true;
+    try { return await parierSurLaDateUneFois(slug); } finally { pariEnCours = false; }
+  }
+  async function parierSurLaDateUneFois(slug) {
     if (local.objectifsDispo !== true || !profil || coachSeTaitIci()) return;
     var uid = userId(), o = objectifDe(slug);
     if (!uid || !o) return;

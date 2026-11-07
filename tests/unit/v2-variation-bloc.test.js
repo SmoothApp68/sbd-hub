@@ -106,7 +106,7 @@ describe('266 — variationsDuBloc : un accessoire change au début d’un bloc'
     expect(v).toEqual({
       slug: 'elevation_laterale_poulie', vers: 'elevation_laterale_haltere', muscle: 'deltoide_lateral', semaines: 8,
       titre: 'Élévation latérale : poulie → haltères ?', changer: 'Changer', garder: 'Garder la poulie',
-      detail: '8 semaines sur la poulie, sans record depuis 7. Changer un accessoire par bloc travaille le même muscle sous un autre angle ; les barres ne changent pas.',
+      detail: '8 semaines sur la poulie, sans record depuis 7 semaines. Changer un accessoire par bloc travaille le même muscle sous un autre angle ; les barres ne changent pas.',
       pourquoi: 'Varier de façon planifiée peut aider un muscle à grossir partout ; varier au hasard, non (Kassiano 2022, 8 études). ' +
         'Huit semaines et six sans record sont des réglages de l’app. Rien ne change sans toi, et « Annuler » défait le changement.',
       routines: ['r1'] });

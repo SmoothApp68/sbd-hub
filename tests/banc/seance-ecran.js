@@ -15428,7 +15428,7 @@ const SETS_IMPORTES = [
     ok('[V266] la carte « NOUVEAU BLOC » en tête de Saisie : « Élévation latérale bloc : poulie → haltères ? », 8 semaines, 8 sans record, « Changer » / « Garder la poulie », 44 px',
       c266.etiquette === 'NOUVEAU BLOC' && c266.cartes.length === 1 && c266.cartes[0].slug === 'var-lat-poulie-u266' &&
         c266.cartes[0].titre === 'Élévation latérale bloc : poulie → haltères ?' &&
-        c266.cartes[0].detail === '8 semaines sur la poulie, sans record depuis 8. Changer un accessoire par bloc travaille le même muscle sous un autre angle ; les barres ne changent pas.' &&
+        c266.cartes[0].detail === '8 semaines sur la poulie, sans record depuis 8 semaines. Changer un accessoire par bloc travaille le même muscle sous un autre angle ; les barres ne changent pas.' &&
         JSON.stringify(c266.cartes[0].boutons) === JSON.stringify(['Changer', 'Garder la poulie']) && c266.cartes[0].hauteurs.every((h) => h >= 44),
       JSON.stringify(c266));
     ok('[V266] rien n’est écrit à l’ouverture : la routine garde sa poulie, aucune réponse au profil',

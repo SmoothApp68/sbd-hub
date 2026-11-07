@@ -228,7 +228,7 @@ body{
   display:flex;justify-content:space-between;align-items:center;
   gap:8px;padding:0 2px 14px;flex-wrap:wrap;
 }
-.entete h1{font-size:17px;font-weight:700;letter-spacing:.01em}
+.entete h1{font-size:18px;font-weight:700;letter-spacing:.01em}
 .jalon{font-size:12px;color:var(--texte-2)}
 
 /* ── Indicateur de synchronisation ──────────────────────────────────────
@@ -292,10 +292,10 @@ button{font-family:inherit;cursor:pointer}
 .seance-enveloppe .seance{padding-right:48px}
 .seance-enveloppe .menu-pts{position:absolute;top:2px;right:2px;margin:0}
 .seance.sortie{padding:9px 12px;background:transparent;border:1px solid var(--trait)}
-.seance.sortie .seance-titre{font-size:12.5px;font-weight:500;color:var(--texte-2)}
+.seance.sortie .seance-titre{font-size:13px;font-weight:500;color:var(--texte-2)}
 .seance.sortie .seance-meta{margin-top:2px;font-size:12px}
 .seance-haut{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
-.seance-titre{font-size:13.5px;font-weight:600;line-height:1.25;min-width:0;overflow-wrap:anywhere}
+.seance-titre{font-size:14px;font-weight:600;line-height:1.25;min-width:0;overflow-wrap:anywhere}
 .seance-date{font-size:12px;color:var(--texte-2);white-space:nowrap;font-variant-numeric:tabular-nums}
 .seance-meta{font-size:12px;color:var(--texte-2);margin-top:5px;font-variant-numeric:tabular-nums}
 .seance-salle{font-size:12px;color:var(--texte-2);margin-top:3px;overflow-wrap:anywhere}
@@ -304,7 +304,7 @@ button{font-family:inherit;cursor:pointer}
 .detail-tete{padding:0 2px 12px}
 .detail-tete h2{font-size:16px;font-weight:700;overflow-wrap:anywhere}
 .detail-meta{font-size:12px;color:var(--texte-2)}
-.detail-note{font-size:12.5px;line-height:1.5;color:var(--texte-2);
+.detail-note{font-size:13px;line-height:1.5;color:var(--texte-2);
   background:var(--panneau);border-radius:var(--r-grand);
   padding:var(--e3);margin-bottom:var(--e2);overflow-wrap:anywhere;
   white-space:pre-wrap}
@@ -327,7 +327,7 @@ button{font-family:inherit;cursor:pointer}
   width:17px;height:17px;flex:none;border-radius:3px;background:var(--trait);
   font-size:12px;font-weight:700;display:grid;place-items:center;color:var(--texte-2);
 }
-.nom{font-size:13.5px;font-weight:600;line-height:1.25;min-width:0;overflow-wrap:anywhere}
+.nom{font-size:14px;font-weight:600;line-height:1.25;min-width:0;overflow-wrap:anywhere}
 .resume{font-size:12px;color:var(--texte-2);padding:0 12px 9px;font-variant-numeric:tabular-nums}
 
 .entetes,.serie{
@@ -351,8 +351,8 @@ button{font-family:inherit;cursor:pointer}
 .mesure{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 
 /* ── États ────────────────────────────────────────────────────────────── */
-.vide{font-size:12.5px;color:var(--texte-2);padding:14px 4px;line-height:1.5}
-.erreur{font-size:12.5px;color:var(--manque);padding:10px 0 0;line-height:1.5;min-height:1em}
+.vide{font-size:13px;color:var(--texte-2);padding:14px 4px;line-height:1.5}
+.erreur{font-size:13px;color:var(--manque);padding:10px 0 0;line-height:1.5;min-height:1em}
 .erreur.ok{color:var(--texte-2)}
 
 /* ── Vue hebdomadaire ───────────────────────────────────────────────────── */
@@ -434,10 +434,10 @@ button{font-family:inherit;cursor:pointer}
   padding:var(--e4)}
 .fen-haut{display:flex;align-items:baseline;gap:var(--e2);
   padding-bottom:var(--e3);border-bottom:1px solid var(--trait)}
-.fen-quoi{font-size:17px;font-weight:700;line-height:1.2;color:var(--texte)}
+.fen-quoi{font-size:18px;font-weight:700;line-height:1.2;color:var(--texte)}
 .fen-zone{display:block;font-size:12px;font-weight:400;line-height:1.2;
   color:var(--texte-3);margin-top:3px}
-.fen-combien{margin-left:auto;font-size:20px;font-weight:700;line-height:1;
+.fen-combien{margin-left:auto;font-size:22px;font-weight:700;line-height:1;
   color:var(--texte);font-variant-numeric:tabular-nums;white-space:nowrap}
 .fen-combien em{font-size:12px;font-weight:400;font-style:normal;
   color:var(--texte-3);margin-left:3px}
@@ -566,7 +566,7 @@ button{font-family:inherit;cursor:pointer}
    courante du radar — où il distingue deux tracés superposés, ce qu'une nuance
    de gris ne ferait pas à 360 px. Aucun bloc jaune, aucun bouton jaune. */
 
-.titre-vue{font-size:19px;font-weight:700;line-height:1.2;letter-spacing:-.02em;
+.titre-vue{font-size:18px;font-weight:700;line-height:1.2;letter-spacing:-.02em;
   padding:var(--e1) 0 var(--e3)}
 .section-t{font-size:12px;font-weight:600;line-height:1.3;color:var(--texte-3);
   margin:var(--e5) 0 var(--e2)}
@@ -586,9 +586,9 @@ button{font-family:inherit;cursor:pointer}
 .bloc-quand{font-size:12px;line-height:1.3;color:var(--texte-3);
   font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bloc-fl{margin-left:auto;color:var(--texte-3);font-size:13px;flex:none}
-.bloc-rien{font-size:12.5px;line-height:1.5;color:var(--texte-3)}
+.bloc-rien{font-size:13px;line-height:1.5;color:var(--texte-3)}
 
-.bloc-zones{display:flex;flex-direction:column;gap:4px;font-size:12.5px;line-height:1.5;color:var(--texte-2)}
+.bloc-zones{display:flex;flex-direction:column;gap:4px;font-size:13px;line-height:1.5;color:var(--texte-2)}
 /* 173 — le volume par muscle en barres horizontales `--donnees`, largeur proportionnelle au plus grand, le nombre à droite. */
 .bloc-zone{display:grid;grid-template-columns:minmax(72px,34%) 1fr 30px;align-items:center;gap:var(--e2);white-space:nowrap}
 .bz-nom{overflow:hidden;text-overflow:ellipsis}
@@ -680,7 +680,7 @@ button.bloc-exo:active{background:var(--panneau-2)}
   padding:var(--e3) var(--e3) var(--e2)}
 .graphe-tete{display:flex;align-items:baseline;gap:var(--e2);margin-bottom:var(--e2)}
 .graphe-q{font-size:12px;font-weight:500;line-height:1.3;color:var(--texte-3)}
-.graphe-v{margin-left:auto;font-size:17px;font-weight:700;line-height:1.1;
+.graphe-v{margin-left:auto;font-size:18px;font-weight:700;line-height:1.1;
   letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .graphe-v small{font-size:12px;font-weight:400;color:var(--texte-3);margin-left:3px;
   letter-spacing:0}
@@ -732,7 +732,7 @@ button.bloc-exo:active{background:var(--panneau-2)}
    pas une alerte, c'est un rappel. */
 .bandeau-reprise{background:var(--panneau);border-radius:var(--r-grand);
   border-left:3px solid var(--accent);padding:var(--e3);margin-bottom:var(--e3)}
-.reprise-t{font-size:13.5px;font-weight:600;line-height:1.35}
+.reprise-t{font-size:14px;font-weight:600;line-height:1.35}
 .reprise-quoi{color:var(--texte)}
 .reprise-sujet{display:block;font-style:normal;font-weight:400;
   color:var(--texte-2);overflow-wrap:anywhere}
@@ -754,7 +754,7 @@ button.bloc-exo:active{background:var(--panneau-2)}
 .ico-part{display:inline-block;width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.9;
   stroke-linecap:round;stroke-linejoin:round}
 .aide-sept{margin-top:var(--e3);padding-bottom:0;font-size:12px;line-height:1.45;color:var(--texte-2)}
-.vide-aide{font-size:12.5px;color:var(--texte-3);line-height:1.55;
+.vide-aide{font-size:13px;color:var(--texte-3);line-height:1.55;
   padding:0 4px var(--e4)}
 
 /* ── L'éditeur ──────────────────────────────────────────────────────────── */
@@ -797,7 +797,7 @@ button.bloc-exo:active{background:var(--panneau-2)}
    c'est le geste rare, il garde la largeur de son texte. */
 .feuille-pied{display:flex;gap:var(--e2);padding:var(--e3) 0 0}
 .feuille-pied button{flex:1;height:46px;border-radius:var(--r-bouton);border:none;
-  font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit}
+  font-size:13px;font-weight:400;line-height:normal;font-family:inherit}
 .feuille-pied .sec{background:transparent;border:1px solid var(--trait);color:var(--texte-2)}
 .feuille-pied .pri{background:var(--accent);color:var(--sur-accent)}
 /* 60-5 — « Valider » grisé pendant qu'une réponse est attendue (la vérification du pseudo) : il n'avait aucun état désactivé. */
@@ -868,7 +868,7 @@ button.bloc-exo:active{background:var(--panneau-2)}
 /* 204 (maquette « Séance en salle ») — LES CIBLES AU POUCE. « ⌄ » (réduire) et « ⋯ » (actions de la séance) mesurent 44 × 44 ;
    « Terminer » est le bouton principal, 48 px de haut, à l'ambre (une action principale par écran). */
 .bandeau-pt{flex:0 0 auto;width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;
-  background:none;border:none;border-radius:var(--r-petit);color:var(--texte-2);font-size:20px;line-height:1;padding:0}
+  background:none;border:none;border-radius:var(--r-petit);color:var(--texte-2);font-size:22px;line-height:1;padding:0}
 .bandeau-pt:active{color:var(--texte)}
 #bandeau-seance .bandeau-fin.principal{width:auto;min-width:48px;height:48px;margin:0;padding:0 16px;flex:0 0 auto}
 /* « Rien d'interactif sous une barre » (chantier 24, étendu à la barre du HAUT) : un
@@ -908,7 +908,7 @@ html{scroll-padding-top:var(--h-barre-seance, 0px)}
    plutôt que de déborder. */
 .consigne{color:var(--accent);font-size:15px;font-weight:650;line-height:1.3;
   margin-top:5px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
-.consigne + .consigne{font-size:13.5px;font-weight:600;margin-top:1px}
+.consigne + .consigne{font-size:14px;font-weight:600;margin-top:1px}
 /* §3.8 — L'ÉTIQUETTE DE ZONE. Au CONTOUR, et JAMAIS jaune : le jaune est la
    seule voix du moteur, l'étiquette n'est qu'un repère. Le fond plein avec un
    point (« ton choix ») viendra avec la correction, au chantier 48b-7.
@@ -1019,7 +1019,7 @@ button.puce-zone::after{content:"";position:absolute;left:0;right:0;top:50%;heig
 .reglages-exo{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .reglages-exo button{min-height:30px;padding:6px 10px;border-radius:var(--r-petit);
   border:1px solid var(--trait);background:transparent;color:var(--texte-3);
-  font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit;text-align:left}
+  font-size:13px;font-weight:400;line-height:normal;font-family:inherit;text-align:left}
 .repos-cible{flex:0 0 auto;white-space:nowrap}
 /* 193-3 — la zone que la routine fixe à l'exercice (éditeur de routine) : même gabarit que le repos ; jaune quand elle est fixée. */
 .zone-routine{flex:0 0 auto;white-space:nowrap}
@@ -1033,7 +1033,7 @@ button.puce-zone::after{content:"";position:absolute;left:0;right:0;top:50%;heig
    · le repos, « ⏱ 3:00 », prend la tête de la colonne ✓ ; il déborde vers la gauche si la durée est longue (« ⏱ 10:00 ») ;
    · une note posée s'affiche sous le nom (un toucher la rouvre) ;
    · « Pourquoi ? » : un lien discret au bout de la phrase datée (rendu par CSS, le texte du coach reste mot pour mot). */
-#vue-seance .legende-haut .menu-pts{width:44px;height:44px;margin:-10px -12px -10px 0;font-size:20px;color:var(--texte-2);
+#vue-seance .legende-haut .menu-pts{width:44px;height:44px;margin:-10px -12px -10px 0;font-size:22px;color:var(--texte-2);
   display:inline-flex;align-items:center;justify-content:center;padding:0}
 #vue-seance .legende-haut .nom-exo.lien{min-height:44px;display:inline-flex;align-items:center;text-align:left}
 #vue-seance .legende-haut .exo-seance{align-items:center}
@@ -1042,12 +1042,12 @@ button.puce-zone::after{content:"";position:absolute;left:0;right:0;top:50%;heig
   background:none;border:none;border-radius:var(--r-petit);color:var(--texte-2);font-size:12px;font-weight:600;letter-spacing:0}
 .cols-seance .repos-entete:active{color:var(--texte)}
 .note-sous-nom{display:block;width:100%;margin-top:2px;min-height:30px;padding:6px 10px;border-radius:var(--r-petit);border:1px solid var(--trait-case);
-  background:var(--panneau-2);color:var(--texte-2);font-size:13.333333px;text-align:left;
+  background:var(--panneau-2);color:var(--texte-2);font-size:13px;text-align:left;
   display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 /* X4/X5 (253) — l'encadré unique consigne + note : titre de 44 px fermé, corps replié par [hidden]. */
 .encadre-exo{margin:6px 0 2px;border:1px solid var(--trait);border-radius:var(--r-petit);background:var(--panneau-2)}
 .encadre-titre{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:44px;padding:0 10px;background:none;border:0;
-  color:var(--texte-2);font:inherit;font-size:13.5px;font-weight:600;text-align:left}
+  color:var(--texte-2);font:inherit;font-size:14px;font-weight:600;text-align:left}
 .encadre-intitule{min-width:0;overflow-wrap:anywhere}
 .encadre-chev{flex:none;color:var(--texte-3)}
 .encadre-corps{padding:0 10px 8px}
@@ -1196,7 +1196,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   display:flex;align-items:center;justify-content:center;gap:2px;overflow:hidden}
 /* 260-a : le champ prend toute la case, liseré compris (44 × 44), le cadre le rogne d'un pixel de chaque côté. */
 .ch-serie input,.rp-serie input{width:calc(100% + 2px);min-width:0;height:44px;margin:-1px;border:none;
-  background:transparent;color:var(--texte);font-weight:700;font-size:17px;line-height:1;
+  background:transparent;color:var(--texte);font-weight:700;font-size:18px;line-height:1;
   font-family:var(--pile-c);text-align:center;font-variant-numeric:tabular-nums;padding:0}
 .ch-serie input:focus,.rp-serie input:focus{outline:none}
 .ch-serie.hors-borne,.rp-serie.hors-borne{position:relative;overflow:visible;border-color:var(--manque)}
@@ -1213,7 +1213,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
    variante A). La phrase au-dessus de la ligne qu'elle concerne ; la ligne
    proposée porte un filet à gauche et sa charge en couleur du coach ; ses reps
    n'ont qu'une indication (la fourchette), pas un fantôme. */
-.reaction-serie{color:var(--texte);font-size:13.5px;font-weight:620;line-height:1.35;
+.reaction-serie{color:var(--texte);font-size:14px;font-weight:620;line-height:1.35;
   margin:6px 0 4px 35px;padding:2px 2px 2px 9px;border-left:3px solid var(--accent)}
 .reaction-serie.tenue,.reaction-serie.haut{color:var(--texte);font-weight:560}
 /* MOTEUR §9.14 bis (68A) — « pas encore » de son propre chef, en gris comme « pas encore ». */
@@ -1233,7 +1233,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   border-right:4px solid transparent;border-top:6px solid var(--medaille)}
 .record-serie{display:flex;gap:10px;align-items:flex-start;background:var(--medaille-fond);
   border:1px solid var(--medaille-trait);border-radius:var(--r-grand);padding:10px 12px;margin:2px 0 6px 35px;
-  font-size:13.5px;line-height:1.35}
+  font-size:14px;line-height:1.35}
 .record-serie b{color:var(--texte);font-weight:620}
 .record-serie .record-avant{color:var(--texte-2);font-size:13px;margin-top:2px}
 @media (prefers-reduced-motion: no-preference){
@@ -1259,18 +1259,18 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .records-fin{display:flex;flex-direction:column;gap:6px;padding:10px 0;margin-bottom:8px;
   border-bottom:1px solid var(--trait);font-variant-numeric:tabular-nums}
 .records-fin-t{display:flex;gap:8px;align-items:center;font-weight:600;white-space:nowrap}
-.records-fin-l{display:flex;flex-direction:column;gap:2px;padding-left:26px;font-size:13.5px;color:var(--texte-2)}
+.records-fin-l{display:flex;flex-direction:column;gap:2px;padding-left:26px;font-size:14px;color:var(--texte-2)}
 /* MOTEUR §9.15 (49-U10) — les chauffes et la dégressive : la voix du coach, en
    retrait (elles ne comptent pas), et la proposition de chauffes à accepter. */
 .reaction-serie.chauffe,.reaction-serie.degressive,.reaction-serie.avant_degressive,.reaction-serie.recul,.reaction-serie.au_max{color:var(--texte-2);font-weight:500}
 /* La proposition d'exercice (49-U10, généralisée en 49-U15) : les chauffes,
    la carte de schéma. */
 .proposition-exercice{margin:6px 0 4px;padding:8px 10px;border:1px dashed var(--trait);border-radius:8px}
-.proposition-exercice .pc-texte{color:var(--texte-2);font-size:13.5px;line-height:1.35}
+.proposition-exercice .pc-texte{color:var(--texte-2);font-size:14px;line-height:1.35}
 .proposition-schema .pc-texte,.proposition-serie .pc-texte,.proposition-degressive-proposee .pc-texte,.proposition-alleger .pc-texte,.proposition-remplacement .pc-texte,.proposition-leviers .pc-texte{color:var(--texte);font-weight:600}
 .proposition-exercice .pc-detail{margin-top:4px;color:var(--texte-2);font-size:13px;line-height:1.4}
 .proposition-exercice .pc-gestes{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
-.proposition-exercice button{min-height:44px;padding:0 12px;border-radius:var(--r-bouton);font:inherit;font-size:13.5px}
+.proposition-exercice button{min-height:44px;padding:0 12px;border-radius:var(--r-bouton);font:inherit;font-size:14px}
 .proposition-exercice .pc-ajouter{background:var(--accent);color:var(--sur-accent);border:0;font-weight:620}
 .proposition-exercice .pc-refuser{background:transparent;color:var(--texte-2);border:1px solid var(--trait)}
 /* §9.17 (50-1) — la carte du lest : le même composant, le titre dit la chose. */
@@ -1281,7 +1281,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 #escalier-seance{margin:8px 12px 4px}
 .carte-escalier{padding:10px 12px;border:1px dashed var(--trait);border-radius:var(--r-grand)}
 .carte-escalier .ce-phrase{margin:0;font-weight:600;line-height:1.35}
-.carte-escalier .ce-detail{margin:6px 0 0;color:var(--texte-2);font-size:13.5px;line-height:1.4}
+.carte-escalier .ce-detail{margin:6px 0 0;color:var(--texte-2);font-size:14px;line-height:1.4}
 .carte-escalier .ce-gestes{display:flex;gap:8px;margin-top:10px}
 .carte-escalier button{min-height:40px;padding:0 14px;border-radius:var(--r-bouton);font:inherit;font-size:14px}
 .carte-escalier .ce-alleger{background:var(--accent);color:var(--sur-accent);border:0;font-weight:620}
@@ -1289,7 +1289,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .carte-escalier .ce-gestes{flex-wrap:wrap}
 .carte-escalier .ce-moins{background:var(--panneau-2,transparent);color:var(--texte);border:1px solid var(--trait);text-align:left}
 .carte-escalier .ce-titre{margin:0 0 6px;font-weight:700;font-size:16px}
-.carte-escalier .ce-pourquoi{margin-top:10px;font-size:13.5px}
+.carte-escalier .ce-pourquoi{margin-top:10px;font-size:14px}
 .carte-escalier .ce-pourquoi summary{min-height:44px;display:flex;align-items:center;color:var(--texte-2);cursor:pointer}
 .carte-escalier .ce-pq-titre{margin:8px 0 4px;font-size:15px}
 .carte-escalier .ce-pq-table{width:100%;border-collapse:collapse;font-size:14px}
@@ -1297,8 +1297,8 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .carte-escalier .ce-pq-table td:not(:first-child){text-align:right;font-variant-numeric:tabular-nums}
 .carte-escalier .ce-pq-tete td,.carte-escalier .ce-pq-note td{color:var(--texte-2)}
 .carte-escalier .ce-pq-bas{color:var(--manque,var(--texte))}
-.bandeau-moins .ce-revenir{min-height:40px;padding:0 4px;background:transparent;border:0;color:var(--texte);text-decoration:underline;font:inherit;font-size:13.5px}
-.bandeau-allegee{padding:8px 12px;border-left:3px solid var(--accent);color:var(--texte-2);font-size:13.5px;line-height:1.35}
+.bandeau-moins .ce-revenir{min-height:40px;padding:0 4px;background:transparent;border:0;color:var(--texte);text-decoration:underline;font:inherit;font-size:14px}
+.bandeau-allegee{padding:8px 12px;border-left:3px solid var(--accent);color:var(--texte-2);font-size:14px;line-height:1.35}
 .reaction-serie .coche-verte{width:14px;height:14px;margin:0 6px -2px 0;fill:none;
   stroke:var(--reussi);stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
 /* MOTEUR §14.7 (49-U17) — la ligne de la série de plus, à la couleur du coach. */
@@ -1360,7 +1360,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .ajout-serie{padding:var(--e2) var(--e3) var(--e3);display:flex;flex-wrap:wrap;gap:6px}
 .ajout-serie button{flex:1 1 120px;height:44px;border-radius:var(--r-bouton);
   border:1px dashed var(--trait);background:transparent;color:var(--texte-3);
-  font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit}
+  font-size:13px;font-weight:400;line-height:normal;font-family:inherit}
 
 /* ── LES MENUS DE DÉVIATION (§5 bis) ───────────────────────────────────────
    Le « ⋯ » du bloc, et celui de chaque branche d'un superset. Cible de 34 px :
@@ -1371,7 +1371,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .legende-haut .exo-seance{flex:1;min-width:0}
 .menu-pts{flex:0 0 auto;width:44px;height:44px;margin:-14px -10px -14px 0;
   border:none;background:transparent;color:var(--texte-3);
-  font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit;border-radius:var(--r-petit)}
+  font-size:13px;font-weight:400;line-height:normal;font-family:inherit;border-radius:var(--r-petit)}
 
 /* Le mode SÉLECTION du §5.7 : les autres blocs s'allument et deviennent
    tapables. La source reste visible, en retrait — on doit savoir d'où l'on
@@ -1385,7 +1385,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .bloc-seance.replie{padding:var(--e3)}
 .replie-haut{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--e2)}
 .replie-noms{flex:1;min-width:0}
-.replie-nom{display:flex;align-items:baseline;gap:7px;font-size:13.5px;
+.replie-nom{display:flex;align-items:baseline;gap:7px;font-size:14px;
   font-weight:600;line-height:1.35;overflow-wrap:anywhere}
 .replie-gestes{display:flex;gap:4px;flex:0 0 auto}
 /* Les deux flèches du mode Modifier. Elles étaient partagées avec l'éditeur de
@@ -1408,7 +1408,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
    Et la poignée est à DROITE : c'est le côté du pouce sur un téléphone tenu
    d'une main, et c'est là qu'étaient déjà les deux flèches. */
 .poignee{width:38px;height:38px;flex:0 0 38px;display:grid;place-items:center;
-  color:var(--texte-3);font-size:17px;line-height:1;cursor:grab;
+  color:var(--texte-3);font-size:18px;line-height:1;cursor:grab;
   touch-action:none;-webkit-user-select:none;user-select:none}
 .poignee:active{color:var(--texte-2);cursor:grabbing}
 /* La rangée prise : elle sort du flux visuel sans sortir du DOM. */
@@ -1449,7 +1449,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 /* 233 — DÉPLACER UN EXERCICE : la poignée ⠿ (cible de 44 px, touch-action:none pour que le doigt glisse sans faire défiler), la carte
    prise (elle suit le doigt, au-dessus), le filet qui dit où elle se posera. */
 .poignee-exo{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;margin:-10px -4px -10px 0;
-  color:var(--texte-3);font-size:20px;line-height:1;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+  color:var(--texte-3);font-size:22px;line-height:1;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
 .carte-ss,.bloc-seance{position:relative}
 /* Pendant le geste, chaque carte se réduit à la ligne de son nom : on voit tout l'ordre d'un coup d'œil. */
 .en-deplacement .carte-ss>:not(.legende-exo),.en-deplacement .bloc-seance>:not(.tete-seance):not(.carte-ss){display:none}
@@ -1473,7 +1473,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .en-tours-leg .legende-haut{align-items:center;gap:var(--e2)}
 .en-tours-leg .consigne-heros.heros-leg{margin:0;flex:0 0 auto;flex-wrap:nowrap;align-items:baseline;min-height:44px;align-content:center;cursor:pointer}
 .en-tours-leg .consigne-heros.heros-leg::before{display:none}
-.en-tours-leg .consigne-heros.heros-leg .c-charge,.en-tours-leg .consigne-heros.heros-leg .c-reps{font-size:19px}
+.en-tours-leg .consigne-heros.heros-leg .c-charge,.en-tours-leg .consigne-heros.heros-leg .c-reps{font-size:18px}
 .en-tours-leg .consigne-heros.heros-leg .c-kg{font-size:14px}
 .en-tours-leg .consigne-heros.heros-leg .c-reste,.en-tours-leg .consigne-heros.heros-leg .badge-recul{display:none}
 .en-tours-leg .consigne-heros.heros-leg[data-garde]::after{display:none}
@@ -1509,17 +1509,17 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .cols-seance.en-tours.g-temps{grid-template-columns:28px minmax(0,1fr) 40px 80px 46px;gap:2px}
 .cols-seance.en-tours.g-distance_temps,.cols-seance.en-tours.g-temps.g-plus{grid-template-columns:28px minmax(0,1fr) 40px 56px 56px 46px;gap:2px}
 .en-tours .ch-serie,.en-tours .rp-serie{height:44px}
-.en-tours .ch-serie input,.en-tours .rp-serie input{height:42px;font-size:20px}
+.en-tours .ch-serie input,.en-tours .rp-serie input{height:42px;font-size:22px}
 .en-tours .ch-serie u{display:none}
 .en-tours .ok-serie{height:46px;width:46px}
 .en-tours .no-serie{height:40px}
-.serie.en-tours .prec{font-size:12.5px}
+.serie.en-tours .prec{font-size:13px}
 .nom-ligne{display:flex;align-items:center;gap:3px;min-width:0;font:600 14px/1.08 var(--pile-c);color:var(--texte)}
 .nom-ligne .forme{width:8px;height:8px;flex-basis:8px}
 .nom-ligne .forme-triangle{width:9px}
 .nom-ligne-t{overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:break-word;hyphens:auto}
 .nom-ligne.chauffe .nom-ligne-t{color:var(--chauffe)}
-.nom-ligne.degressive .nom-ligne-t{color:var(--degressive);font-size:12.5px;hyphens:manual;overflow-wrap:normal}
+.nom-ligne.degressive .nom-ligne-t{color:var(--degressive);font-size:13px;hyphens:manual;overflow-wrap:normal}
 .serie.en-tours[data-ex="0"] .no-serie:not(.c):not(.d){box-shadow:inset 3px 0 0 var(--ex-a)}
 .serie.en-tours[data-ex="1"] .no-serie:not(.c):not(.d){box-shadow:inset 3px 0 0 var(--ex-b)}
 .serie.en-tours[data-ex="2"] .no-serie:not(.c):not(.d){box-shadow:inset 3px 0 0 var(--ex-c)}
@@ -1567,25 +1567,25 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   max-width:520px;margin:0 auto;z-index:50}
 .repos[hidden]{display:none}
 .repos-h{display:flex;align-items:center;gap:var(--e2);margin-bottom:var(--e2)}
-.repos-g{font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1;font-family:var(--pile-c);color:var(--accent)}
+.repos-g{font-size:28px;font-weight:700;letter-spacing:-.02em;line-height:1;font-family:var(--pile-c);color:var(--accent)}
 /* Arrêté à l'échéance, pas planté (§7 septies.3). */
 .repos-c{font-size:12px;color:var(--texte-3);white-space:nowrap}
 /* −15 / +15 / son : des commandes, pas des boutons d'action. Discrètes, mais
    204 : la cible de tap fait 48 px de haut — on les vise entre deux séries, en sueur. */
 .repos-b{min-width:48px;height:48px;padding:0 6px;border-radius:var(--r-petit);
   border:1px solid var(--trait);background:transparent;color:var(--texte-2);
-  font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit;flex:0 0 auto}
+  font-size:13px;font-weight:400;line-height:normal;font-family:inherit;flex:0 0 auto}
 .repos-b.coupe{color:var(--texte-3);border-style:dashed}
 .piste{height:4px;background:var(--panneau-2);border-radius:2px;overflow:hidden}
 .piste i{display:block;height:100%;background:var(--accent)}
 /* MOTEUR §17.2 bis (78) — la question de réserve, dans la carte de repos : la voix du coach (ambre). Quatre
    boutons à la largeur égale, 40 px de haut — on les vise entre deux séries, en sueur. */
 .repos-q{margin-top:var(--e3);padding-top:var(--e2);border-top:1px solid var(--trait)}
-.repos-q-t{margin:0 0 var(--e2);font-size:14.5px;color:var(--texte-2)}
+.repos-q-t{margin:0 0 var(--e2);font-size:15px;color:var(--texte-2)}
 .repos-q-t b{color:var(--accent);font-weight:600}
 .repos-q-b{display:flex;gap:var(--e2)}
 .repos-q-b button{flex:1;height:40px;border-radius:var(--r-petit);border:1px solid var(--trait);background:var(--panneau-2);
-  color:var(--texte);font-family:var(--pile-c);font-size:17px;font-weight:600}
+  color:var(--texte);font-family:var(--pile-c);font-size:18px;font-weight:600}
 .repos-q-b button.passer{flex:1.4;background:none;color:var(--texte-2);font-weight:400}
 .repos-q-b button.sel{background:var(--accent);border-color:var(--accent);color:var(--sur-accent)}
 
@@ -1597,7 +1597,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 
 .feuille-menu button{width:100%;text-align:left;padding:13px var(--e2);
   background:transparent;border:none;border-top:1px solid var(--filet);
-  color:var(--texte);font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit}
+  color:var(--texte);font-size:13px;font-weight:400;line-height:normal;font-family:inherit}
 .feuille-menu button.sel{color:var(--texte);font-weight:700}
 .feuille-menu button.danger,.danger{color:var(--manque)}
 /* 59-2 — la fenêtre de sortie : « Rester » (principal) et « Quitter quand
@@ -1649,13 +1649,13 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
    Elle n'apparaît QUE s'il y a un écart réel. Le défaut est « garder » : c'est
    le geste qui a le moins de conséquences. */
 .question-routine{border-top:1px solid var(--filet);padding:var(--e3) 0}
-.question-t{font-size:12.5px;font-weight:600;line-height:1.35}
+.question-t{font-size:13px;font-weight:600;line-height:1.35}
 .ecarts{margin:6px 0 var(--e2);padding-left:16px}
 .ecarts li{font-size:12px;line-height:1.5;color:var(--texte-3)}
 .choix-routine{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .choix-routine button{min-height:40px;padding:8px;border-radius:var(--r-petit);
   border:1px solid var(--trait);background:transparent;color:var(--texte-2);
-  font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit}
+  font-size:13px;font-weight:400;line-height:normal;font-family:inherit}
 .choix-routine button.sel{background:var(--panneau-2);border-color:var(--trait-case);
   color:var(--texte)}
 
@@ -1671,7 +1671,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .grille-rpe{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 .grille-rpe button{height:44px;border-radius:var(--r-petit);
   border:1px solid var(--trait);background:transparent;color:var(--texte-2);
-  font-size:13.333333px;font-weight:400;line-height:normal;font-family:var(--pile-c)}
+  font-size:13px;font-weight:400;line-height:normal;font-family:var(--pile-c)}
 
 .bascule{display:flex;align-items:center;gap:var(--e2);
   padding-top:var(--e3);margin-top:var(--e3);border-top:1px solid var(--trait)}
@@ -1682,7 +1682,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .routine-rangee .routine{flex:1;margin-bottom:0}
 .demarrer{flex:0 0 auto;padding:0 var(--e3);border-radius:var(--r-bouton);
   border:1px solid var(--trait);background:var(--panneau);color:var(--texte);
-  font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit}
+  font-size:13px;font-weight:400;line-height:normal;font-family:inherit}
 .demarrer:active{border-color:var(--texte-2)}
 /* §9.18 (51-1) — la durée estimée, et « J'ai peu de temps » sous « Démarrer ». */
 .routine-duree{font-size:12px;color:var(--texte-2);margin-top:2px;font-variant-numeric:tabular-nums}
@@ -1691,7 +1691,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .routine-actions{display:flex;flex-direction:column;gap:6px;flex:0 0 auto}
 .routine-actions .demarrer{flex:1;min-height:40px}
 .peu-de-temps{padding:7px var(--e2);border-radius:var(--r-bouton);border:1px solid var(--trait);
-  background:none;color:var(--texte-2);font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit}
+  background:none;color:var(--texte-2);font-size:13px;font-weight:400;line-height:normal;font-family:inherit}
 .peu-de-temps:active{border-color:var(--texte-2)}
 .cr-lignes{margin:var(--e2) 0 0;padding-left:18px;font-size:14px;line-height:1.5;color:var(--texte)}
 .cr-phrase{margin-top:var(--e2)}
@@ -1720,17 +1720,17 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 /* Le seul accent de la page avec l'onglet actif et la cible : il ramène à la
    séance, et rien d'autre ici n'a ce poids. */
 .exo-reprendre{flex:none;border:none;background:transparent;color:var(--accent);
-  font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit;padding:0 4px;min-height:44px}
+  font-size:13px;font-weight:400;line-height:normal;font-family:inherit;padding:0 4px;min-height:44px}
 
 .exo-tete{padding:var(--e1) 0 var(--e2)}
-.exo-tete h2{font-size:17px;font-weight:700;line-height:1.25;letter-spacing:-.01em;
+.exo-tete h2{font-size:18px;font-weight:700;line-height:1.25;letter-spacing:-.01em;
   overflow-wrap:anywhere}
 .exo-meta{font-size:12px;line-height:1.45;color:var(--texte-3);margin-top:5px}
 
 .sous-onglets{display:flex;gap:var(--e4);
   border-bottom:1px solid var(--trait);margin-bottom:var(--e2)}
 .sous-onglet{border:none;background:transparent;color:var(--texte-3);
-  font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit;
+  font-size:13px;font-weight:400;line-height:normal;font-family:inherit;
   display:inline-flex;align-items:center;min-height:44px;padding:0;margin-bottom:-1px;border-bottom:2px solid transparent}
 /* L'accent ne sert qu'à l'onglet actif et à la suggestion du moteur. */
 .sous-onglet.actif{color:var(--texte);border-bottom-color:var(--accent)}
@@ -1753,7 +1753,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
    muscles), pas un chiffre : la valeur passe à la ligne, à droite, en Barlow. */
 .exo-comment-fiche .exo-li{gap:var(--e3)}
 .exo-comment-fiche .exo-li-k{flex:none;width:62px}
-.exo-comment-fiche .exo-li-v{text-align:right;font:400 13.5px/1.4 var(--pile);
+.exo-comment-fiche .exo-li-v{text-align:right;font:400 14px/1.4 var(--pile);
   letter-spacing:normal;white-space:normal;color:var(--texte);min-width:0}
 .etapes{list-style:none;margin:var(--e3) 0 0;background:var(--panneau);
   border-radius:var(--r-grand);padding:var(--e1) var(--e4)}
@@ -1825,7 +1825,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 /* Le titre mène au détail complet, pour qui veut le contexte des autres
    exercices (§7 quater.4). */
 .exo-jour-s{flex:1;min-width:0;border:none;background:transparent;padding:14px 0;margin:-14px 0;
-  text-align:left;font-size:13.333333px;font-weight:400;line-height:normal;font-family:inherit;color:var(--texte-3);
+  text-align:left;font-size:13px;font-weight:400;line-height:normal;font-family:inherit;color:var(--texte-3);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .exo-jour-s b{color:var(--accent);font-weight:500}
 /* Les blocs de l'historique sont ceux du détail de séance : posés DANS la carte
@@ -1845,7 +1845,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   font:inherit;font-family:inherit;text-align:left;padding:0;
   min-width:0;overflow-wrap:anywhere;text-decoration:underline;
   text-decoration-color:var(--trait);text-underline-offset:3px}
-.nom.lien{font-weight:600;font-size:13.5px;line-height:1.25}
+.nom.lien{font-weight:600;font-size:14px;line-height:1.25}
 .nom-exo.lien{font-weight:inherit;font-size:inherit;line-height:inherit}
 
 /* ══ L'ÉCRAN D'ENTRÉE (chantier 46 §2 ter) ══════════════════════════════════
@@ -1899,10 +1899,10 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .p-bandeau{display:flex;align-items:center;gap:var(--e3);
   padding:var(--e4) var(--e1) var(--e4);border-bottom:1px solid var(--trait)}
 .p-rond{width:52px;height:52px;border-radius:50%;background:var(--panneau-2);
-  display:grid;place-items:center;font-size:19px;font-weight:700;line-height:1;
+  display:grid;place-items:center;font-size:18px;font-weight:700;line-height:1;
   color:var(--accent);border:1px solid var(--trait);flex:0 0 auto}
 .p-ident{flex:1;min-width:0}
-.p-nom{font-size:17px;font-weight:700;line-height:1.2;
+.p-nom{font-size:18px;font-weight:700;line-height:1.2;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .p-sous{font-size:12px;line-height:1.4;color:var(--texte-3);margin-top:3px;
   font-variant-numeric:tabular-nums}
@@ -1992,7 +1992,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
    Il est simplement en retrait : la liste répond d'abord « ce que je fais ». */
 .exo-ligne.jamais .exo-nom{color:var(--texte-2)}
 .exo-g{flex:1;min-width:0}
-.exo-nom{display:block;font-size:13.5px;font-weight:600;line-height:1.25;
+.exo-nom{display:block;font-size:14px;font-weight:600;line-height:1.25;
   overflow-wrap:anywhere}
 .exo-g small{display:block;font-size:12px;line-height:1.4;color:var(--texte-3);margin-top:2px}
 .exo-quand{font-size:12px;line-height:1.3;color:var(--texte-3);
@@ -2033,7 +2033,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 /* Le champ « Dossier » de l'éditeur et de l'aperçu : il ouvre le choix. */
 .champ-dossier{display:flex;justify-content:space-between;align-items:center;width:100%;
   margin-top:10px;padding:9px 10px;background:var(--panneau-2);border:1px solid var(--trait);
-  border-radius:var(--r-petit);color:var(--texte);font:inherit;font-size:13.5px;text-align:left;cursor:pointer}
+  border-radius:var(--r-petit);color:var(--texte);font:inherit;font-size:14px;text-align:left;cursor:pointer}
 .champ-dossier-k{color:var(--texte-2);font-size:12px;font-weight:600}
 /* L'aperçu d'une routine (nouvelle, ou mise à jour) : une ligne par exercice. */
 .apercu-routine{margin:var(--e2) 0}
@@ -2065,27 +2065,27 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .programme-creer{width:100%;text-align:left}
 .carte-fin-bloc{padding:10px 12px;border:1px dashed var(--trait);border-radius:var(--r-grand);margin:0 0 var(--e3)}
 .carte-fin-bloc .cfb-titre{margin:0;font-weight:600;line-height:1.35}
-.carte-fin-bloc .cfb-entete{margin:8px 0 2px;font-weight:700;font-size:13.5px}
+.carte-fin-bloc .cfb-entete{margin:8px 0 2px;font-weight:700;font-size:14px}
 .carte-fin-bloc .cfb-ligne{display:flex;justify-content:space-between;gap:var(--e2);padding:6px 2px;
-  border-bottom:1px solid var(--trait);font-size:13.5px}
+  border-bottom:1px solid var(--trait);font-size:14px}
 .carte-fin-bloc .cfb-nom{flex:1;min-width:0;overflow-wrap:anywhere}
 .carte-fin-bloc .cfb-valeur{color:var(--texte-2);text-align:right;max-width:62%}
-.carte-fin-bloc .cfb-paris{margin:8px 0 0;color:var(--texte-2);font-size:12.5px;line-height:1.4}
-.carte-fin-bloc .cfb-suivant{margin:8px 0 0;font-size:13.5px;line-height:1.45}
+.carte-fin-bloc .cfb-paris{margin:8px 0 0;color:var(--texte-2);font-size:13px;line-height:1.4}
+.carte-fin-bloc .cfb-suivant{margin:8px 0 0;font-size:14px;line-height:1.45}
 .carte-fin-bloc .cfb-gestes{display:flex;flex-direction:column;gap:6px;margin-top:10px}
-.carte-fin-bloc button{width:100%;min-height:44px;padding:0 14px;border-radius:var(--r-bouton);font:inherit;font-size:14.5px;font-weight:620}
+.carte-fin-bloc button{width:100%;min-height:44px;padding:0 14px;border-radius:var(--r-bouton);font:inherit;font-size:15px;font-weight:620}
 .carte-fin-bloc .cfb-commencer{background:var(--accent);color:var(--sur-accent);border:0}
 .carte-fin-bloc .cfb-ajuster,.carte-fin-bloc .cfb-arreter{background:transparent;color:var(--texte);border:1px solid var(--trait)}
 .champ-programme{display:flex;justify-content:space-between;align-items:center;gap:var(--e2);margin-top:6px;
-  padding:4px 4px 4px 10px;background:var(--panneau-2);border:1px solid var(--trait);border-radius:var(--r-petit);font-size:13.5px}
+  padding:4px 4px 4px 10px;background:var(--panneau-2);border:1px solid var(--trait);border-radius:var(--r-petit);font-size:14px}
 .champ-programme .cp-k{color:var(--texte-2)}
-.champ-programme .cp-v{background:transparent;border:0;color:var(--texte);font:inherit;font-size:13.5px;
+.champ-programme .cp-v{background:transparent;border:0;color:var(--texte);font:inherit;font-size:14px;
   text-align:right;padding:6px 4px;max-width:60%}
 .cp-aide{margin:12px 0 4px}
 .exercices-programme{margin:0 0 var(--e2)}
 .case-programme{display:flex;justify-content:space-between;align-items:center;gap:var(--e2);width:100%;
   padding:9px 2px;background:none;border:0;border-bottom:1px solid var(--trait);color:var(--texte);
-  font:inherit;font-size:13.5px;text-align:left;cursor:pointer}
+  font:inherit;font-size:14px;text-align:left;cursor:pointer}
 .case-programme .cp-nom{flex:1;min-width:0;overflow-wrap:anywhere}
 .case-programme .cp-zone{color:var(--texte-2);white-space:nowrap}
 
@@ -2097,14 +2097,14 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .retrouver-liste{margin:0 0 var(--e3)}
 .retrouver-carte{display:flex;align-items:flex-start;gap:var(--e2);width:100%;padding:11px 2px;
   background:none;border:0;border-bottom:1px solid var(--trait);color:var(--texte);
-  font:inherit;font-size:13.5px;text-align:left;cursor:pointer}
+  font:inherit;font-size:14px;text-align:left;cursor:pointer}
 .retrouver-carte .rc-case{flex:none;line-height:1.35}
 .retrouver-carte .rc-corps{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
 .retrouver-carte .rc-nom{font-weight:650;overflow-wrap:anywhere}
 .retrouver-carte .rc-ligne{font-size:12px;color:var(--texte-2)}
 .retrouver-carte .rc-exos{font-size:12px;line-height:1.4;color:var(--texte-2);overflow-wrap:anywhere}
 .retrouver-carte .rc-ancienne{font-size:12px;color:var(--texte-3)}
-.retrouver-rien{font-size:13.5px;line-height:1.45;color:var(--texte-2);margin:0 0 var(--e2)}
+.retrouver-rien{font-size:14px;line-height:1.45;color:var(--texte-2);margin:0 0 var(--e2)}
 
 /* 60-4 (QUESTIONNAIRE §5 bis) — L'aperçu du programme construit : une carte par séance (nom, « ≈ 69 min »,
    ligne « pourquoi »), puis chaque exercice en bouton, séries × reps à droite. L'exercice qui vient de
@@ -2115,10 +2115,10 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .ap-tete{display:flex;justify-content:space-between;align-items:baseline;gap:var(--e2);padding:10px 12px 2px}
 .ap-nom{font-weight:700;font-size:15px;overflow-wrap:anywhere}
 .ap-duree{color:var(--texte-2);font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
-.ap-pourquoi{margin:0;padding:0 12px 6px;font-size:12.5px;color:var(--texte-2)}
+.ap-pourquoi{margin:0;padding:0 12px 6px;font-size:13px;color:var(--texte-2)}
 .ap-ex{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--e2);width:100%;
   padding:9px 12px;background:none;border:0;border-top:1px solid var(--trait);color:var(--texte);
-  font:inherit;font-size:13.5px;text-align:left;cursor:pointer}
+  font:inherit;font-size:14px;text-align:left;cursor:pointer}
 .ap-ex.neuf{background:var(--accent-10)}
 .ap-ex-corps{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
 .ap-ex-nom{overflow-wrap:anywhere}
@@ -2132,7 +2132,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .ap-chg-titre{margin:0 0 var(--e1);font:600 13px var(--pile-c);text-transform:uppercase;letter-spacing:1.2px;
   color:var(--texte-2)}
 .ap-chg{display:grid;grid-template-columns:auto 1fr auto;gap:var(--e2);align-items:center;padding:var(--e1) 0;
-  border-top:1px solid var(--trait);font-size:13.5px}
+  border-top:1px solid var(--trait);font-size:14px}
 .ap-chg:first-of-type{border-top:0}
 .ap-chg-marque{width:8px;height:8px;border-radius:2px;background:var(--accent);transform:rotate(45deg)}
 .ap-chg-texte{overflow-wrap:anywhere}
@@ -2170,12 +2170,12 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
    en gris, quelle que soit leur hauteur ; aucune couleur de jugement. */
 /* 173 — le liseré doré est retiré : les cartes ressortent par leur surface. */
 .bloc-som.neuf{border:none}
-.bloc-ligne{font-size:12.5px;line-height:1.5;color:var(--texte-2)}
+.bloc-ligne{font-size:13px;line-height:1.5;color:var(--texte-2)}
 /* 173 — le mois : le chiffre en héros (Condensed 38 px pour le premier, 26 px pour les suivants). */
-.bloc-heros{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 16px;font-size:13.5px}
+.bloc-heros{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 16px;font-size:14px}
 .bh-bout{display:inline-flex;align-items:baseline;white-space:nowrap}
 .bh-sep{display:none}
-.bh-n{font-family:var(--pile-c);font-weight:700;color:var(--texte);font-size:26px;line-height:1.1;margin-right:5px}
+.bh-n{font-family:var(--pile-c);font-weight:700;color:var(--texte);font-size:28px;line-height:1.1;margin-right:5px}
 .bh-premier .bh-n{font-size:38px}
 /* 173 — le dernier record : l'étoile et la pastille « RECORD » (`--record`), dessinées en CSS ; la charge × reps en gras. */
 .bloc-dernier::before{content:"\2605 RECORD";display:inline-block;margin-right:8px;padding:0 7px;border-radius:var(--r-etiquette);
@@ -2195,12 +2195,12 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .mois-nav button:disabled{opacity:.3}
 .tuiles-mois{display:grid;grid-template-columns:1fr 1fr;gap:var(--e2);margin-bottom:var(--e3)}
 .tuile-mois{background:var(--panneau);border-radius:var(--r-grand);padding:10px 12px;font-variant-numeric:tabular-nums}
-.tuile-mois b{display:block;font-size:20px;font-weight:650;font-family:var(--pile-c)}
+.tuile-mois b{display:block;font-size:22px;font-weight:650;font-family:var(--pile-c)}
 .tuile-mois span{color:var(--texte-2);font-size:12px}
 .carte-mois{background:var(--panneau);border-radius:var(--r-grand);padding:12px 14px;margin-bottom:var(--e3)}
 .carte-mois h3{margin:0 0 8px;font-size:14px;font-weight:600;display:flex;gap:8px;align-items:center}
 .ligne-mois{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--trait);
-  font-size:13.5px;font-variant-numeric:tabular-nums}
+  font-size:14px;font-variant-numeric:tabular-nums}
 .ligne-mois:last-child{border-bottom:0}
 .ligne-mois.lien{cursor:pointer}
 .ligne-mois .gris,.carte-mois .gris{color:var(--texte-2)}
@@ -2218,7 +2218,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .cal-mois .j{color:var(--texte-3);font-size:12px}
 .cal-mois span{padding:5px 0;border-radius:50%}
 .cal-mois .fait{background:var(--accent);color:var(--sur-accent);font-weight:700}
-.voix-paris{color:var(--accent);font-weight:620;margin-top:8px;font-size:13.5px}
+.voix-paris{color:var(--accent);font-weight:620;margin-top:8px;font-size:14px}
 
 /* MOTEUR §9.23 (55-1), ECRAN §7 bis.15 — les records en tête de la vue d'un
    exercice (maquette « Un exercice ») : le tableau à reps égales, son recul, et
@@ -2229,16 +2229,16 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
    Jamais de rouge (« jamais impossible, jamais en rouge »). */
 .exo-objectif{margin-bottom:var(--e3)}
 .objectif-fiche{padding:var(--e3) var(--e4)}
-.objectif-titre{font-size:26px;font-weight:800;line-height:1.15;letter-spacing:-.01em;font-family:var(--pile-c)}
+.objectif-titre{font-size:28px;font-weight:800;line-height:1.15;letter-spacing:-.01em;font-family:var(--pile-c)}
 .objectif-jauge{height:8px;border-radius:99px;background:var(--panneau-2);margin:var(--e2) 0 6px;overflow:hidden}
 .objectif-jauge i{display:block;height:100%;border-radius:99px;background:var(--accent)}
 .objectif-aujourdhui{font-size:12px;line-height:1.4;color:var(--texte-2)}
 .objectif-date{font-size:13px;line-height:1.5;color:var(--texte);margin:var(--e2) 0 0}
-.objectif-pari{display:block;color:var(--texte-3);font-size:12.5px;margin-top:2px}
+.objectif-pari{display:block;color:var(--texte-3);font-size:13px;margin-top:2px}
 .objectif-rythme{font-size:13px;line-height:1.5;color:var(--texte);margin:var(--e2) 0 0;padding-top:var(--e2);border-top:1px solid var(--trait)}
 .objectif-changer{margin-top:var(--e2)}
 .defile-records{overflow-x:auto;margin-top:var(--e2)}
-.tableau-records{width:100%;border-collapse:collapse;font-size:13.5px}
+.tableau-records{width:100%;border-collapse:collapse;font-size:14px}
 .tableau-records th{color:var(--texte-3);font-weight:600;font-size:12px;line-height:1.2;text-align:right;
   padding:6px 4px;border-bottom:1px solid var(--trait);vertical-align:bottom}
 .tableau-records th:first-child,.tableau-records td:first-child{text-align:left}
@@ -2286,7 +2286,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .q-corps{flex:1;padding:var(--e2) 0 var(--e3)}
 .q-etape{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
   color:var(--texte-2);margin:var(--e1) 0 6px}
-.q-titre{font-family:var(--pile-c);font-size:24px;font-weight:700;line-height:1.15;
+.q-titre{font-family:var(--pile-c);font-size:22px;font-weight:700;line-height:1.15;
   letter-spacing:.01em;margin:0 0 6px;text-wrap:balance}
 .q-voix{display:flex;gap:var(--e2);color:var(--accent);font-size:14px;line-height:1.4;margin:0 0 14px}
 .q-voix::before{content:"";flex:none;width:8px;height:8px;margin-top:6px;background:var(--accent);
@@ -2319,11 +2319,11 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   border-bottom:1px solid var(--trait);font-size:14px}
 .q-ligne:last-child{border-bottom:0}
 .q-g{color:var(--texte-2)}
-.q-c{font-family:var(--pile-c);font-size:17px;font-weight:700;text-align:right;
+.q-c{font-family:var(--pile-c);font-size:18px;font-weight:700;text-align:right;
   font-variant-numeric:tabular-nums}
 .q-resume .q-c{display:flex;align-items:baseline;gap:var(--e2);font-family:var(--pile);
   font-size:14px;font-weight:600}
-.q-mod{background:none;border:0;color:var(--texte-2);font-size:12.5px;font-weight:500;padding:0;
+.q-mod{background:none;border:0;color:var(--texte-2);font-size:13px;font-weight:500;padding:0;
   text-decoration:underline;text-underline-offset:3px}
 .q-note{font-size:13px;color:var(--texte-2);margin:var(--e2) 0 0}
 .q-champs{display:flex;flex-direction:column;gap:var(--e2)}
@@ -2332,17 +2332,17 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .q-champ-lib{font-weight:600;font-size:15px}
 .q-champ-saisie{display:flex;align-items:baseline;gap:6px;justify-self:end}
 .q-champ-in{width:6.5em;background:var(--panneau-2);border:1px solid var(--trait);
-  border-radius:var(--r-petit);color:var(--texte);font-family:var(--pile-c);font-size:20px;
+  border-radius:var(--r-petit);color:var(--texte);font-family:var(--pile-c);font-size:22px;
   font-weight:700;padding:6px 8px;text-align:right;font-variant-numeric:tabular-nums}
 .q-champ-in:focus{outline:none;border-color:var(--texte-2)}
 .q-champ-unite{color:var(--texte-2);font-size:13px}
-.q-champ-aide,.q-err{grid-column:1/-1;color:var(--texte-2);font-size:12.5px;line-height:1.4}
+.q-champ-aide,.q-err{grid-column:1/-1;color:var(--texte-2);font-size:13px;line-height:1.4}
 .q-err{color:var(--texte)}
 .q-ligne-choix{display:flex;align-items:center;gap:var(--e3);width:100%;margin-top:var(--e3);
   background:var(--panneau);border:1px solid var(--trait);border-radius:12px;padding:12px 13px;
   color:var(--texte);text-align:left}
 .q-lc-lib{flex:1;color:var(--texte-2);font-size:14px}
-.q-lc-val{font-family:var(--pile-c);font-size:17px;font-weight:700;font-variant-numeric:tabular-nums}
+.q-lc-val{font-family:var(--pile-c);font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}
 .q-lc-fl{color:var(--texte-3);font-size:15px;line-height:1}
 .q-bas{padding:var(--e3) 0 var(--e4);border-top:1px solid var(--trait)}
 .q-bas .principal{margin-top:0;height:50px;font-size:16px}
@@ -2367,7 +2367,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .j-porte{width:100%;background:none;border:0;border-bottom:1px solid var(--trait);font:inherit;font-size:14px;
   color:var(--texte);text-align:left;cursor:pointer}
 .j-porte > span:first-child{flex:1}
-.j-fl{color:var(--texte-2);font-size:20px;line-height:1}
+.j-fl{color:var(--texte-2);font-size:22px;line-height:1}
 .j-portes{padding-top:2px;padding-bottom:2px}
 .j-rangee{display:flex;gap:var(--e3);align-items:center}
 .j-txt{flex:1;min-width:0}
@@ -2377,8 +2377,8 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .j-jauge i{display:block;height:100%;background:var(--texte-2)}
 .j-hex{flex:none;width:46px;height:52px;display:grid;place-items:center;
   clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);
-  font:800 19px/1 var(--pile-c);color:var(--fond);font-variant-numeric:tabular-nums}
-.j-hex.grand{width:64px;height:72px;font-size:26px}
+  font:800 18px/1 var(--pile-c);color:var(--fond);font-variant-numeric:tabular-nums}
+.j-hex.grand{width:64px;height:72px;font-size:28px}
 .j-hex.mini{width:28px;height:32px;font-size:13px}
 .j-hex.r-1{background:var(--rarete-1)} .j-hex.r-2{background:var(--rarete-2)}
 .j-hex.r-3{background:var(--rarete-3)} .j-hex.r-4{background:var(--rarete-4)}
@@ -2431,16 +2431,16 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .rl-rangee{color:var(--accent);text-align:left}
 #relecture{padding:0 16px 24px}
 .rl-tete{padding:4px 0 10px;border-bottom:1px solid var(--trait)}
-.rl-titre{font:700 24px/1.1 var(--pile-c);margin:6px 0 2px}
+.rl-titre{font:700 22px/1.1 var(--pile-c);margin:6px 0 2px}
 .rl-sous{margin:0;color:var(--texte-2);font-size:13px}
-.rl-message{margin:12px 0 0;color:var(--texte-2);font-size:13.5px}
+.rl-message{margin:12px 0 0;color:var(--texte-2);font-size:14px}
 .rl-bloc{padding:14px 0;border-bottom:1px solid var(--trait)}
 .rl-h2{font:600 13px var(--pile-c);text-transform:uppercase;letter-spacing:1.2px;color:var(--texte-2);margin:0 0 10px}
 .rl-fait{margin:0 0 8px;color:var(--texte-2);font-size:13px}
 .rl-barre{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:9px 0;border-top:1px solid var(--trait)}
 .rl-h2+.rl-barre,.rl-fait+.rl-barre{border-top:0}
-.rl-nom{font:600 17px var(--pile-c)}
-.rl-kg{font:700 19px var(--pile-c);text-align:right}
+.rl-nom{font:600 18px var(--pile-c)}
+.rl-kg{font:700 18px var(--pile-c);text-align:right}
 .rl-kg small{font:500 12px var(--pile);color:var(--texte-2)}
 .rl-medaille{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--medaille);
   margin-right:5px;vertical-align:1px}
@@ -2460,7 +2460,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .rl-ok{list-style:none;margin:0;padding:0;color:var(--texte-2);font-size:13px}
 .rl-ok li{padding:3px 0}
 .rl-ok li::before{content:"\2713  ";color:var(--texte)}
-.rl-constat{margin:8px 0 0;font-size:13.5px;line-height:1.4}
+.rl-constat{margin:8px 0 0;font-size:14px;line-height:1.4}
 .rl-chg{font-size:13px;margin:6px 0 0;padding-left:16px}
 .rl-chg li{margin:2px 0}
 .rl-chg s{color:var(--texte-3)}
@@ -2468,7 +2468,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 /* ── 69 — Importer depuis Hevy (ECRAN-PROFIL §2.4 quater, maquette `maquette-import-hevy-v2.html`) ── */
 .imp-choix{background:var(--panneau);border:1px solid var(--trait);border-radius:var(--r-grand);padding:var(--e3);margin:var(--e2) 0}
 .imp-choix b{display:block;margin-bottom:2px}
-.imp-aide{color:var(--texte-3);font-size:12.5px;line-height:1.35}
+.imp-aide{color:var(--texte-3);font-size:13px;line-height:1.35}
 .imp-zone{display:block;width:100%;box-sizing:border-box;min-height:118px;margin:var(--e2) 0;padding:10px;
   background:var(--panneau-2);color:var(--texte);border:1px solid var(--trait);border-radius:var(--r-petit);
   font:var(--police-champ)/1.35 ui-monospace,monospace;resize:vertical}
@@ -2492,7 +2492,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .imp-g{display:flex;flex-direction:column;min-width:0}
 .imp-t{font-weight:600}
 .imp-d{color:var(--texte-2);font-size:13px}
-.imp-e{color:var(--texte-3);font-size:12.5px;margin-top:2px}
+.imp-e{color:var(--texte-3);font-size:13px;margin-top:2px}
 .imp-groupe{font:600 12px var(--pile-c);text-transform:uppercase;letter-spacing:1.2px;color:var(--texte-3);margin:14px 0 4px}
 .imp-rattacher{background:var(--panneau);border:1px solid var(--trait);border-radius:var(--r-grand);padding:4px 12px}
 .imp-nom{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid var(--trait);padding:10px 0}
@@ -2504,11 +2504,11 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .titre-catalogue{font-weight:600;margin:0 0 var(--e2)}
 .pied-rattacher{margin:var(--e2) 0}
 .lien-rattacher{background:none;border:0;color:var(--accent);font:inherit;font-size:14px;min-height:44px;padding:0}
-.aide-rattacher{color:var(--texte-3);font-size:12.5px;margin:2px 0 0}
+.aide-rattacher{color:var(--texte-3);font-size:13px;margin:2px 0 0}
 
 /* ── 71 — Le récap de fin de séance (ECRAN-SAISIE §7 septies.4 bis, maquette `maquette-recap-fin-v3.html`) ── */
 #vue-recap{padding:var(--e4) var(--e4) var(--e6)}
-.recap-titre{font:700 24px/1.15 var(--pile-c);margin:var(--e2) 0 2px}
+.recap-titre{font:700 22px/1.15 var(--pile-c);margin:var(--e2) 0 2px}
 .recap-quand{color:var(--texte-2);font-size:13px;margin-bottom:14px}
 .recap-tuiles{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:16px}
 .recap-tuile{background:var(--panneau);border:1px solid var(--trait);border-radius:12px;padding:9px 6px;text-align:center;min-width:0}
@@ -2525,7 +2525,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .recap-mu b{font-weight:600;text-align:right}
 .recap-rec{border-left:3px solid var(--record);padding:6px 0 6px 10px;margin:6px 0}
 .recap-rec .l1{font-weight:600}
-.recap-rec .l2{color:var(--texte-3);font-size:12.5px}
+.recap-rec .l2{color:var(--texte-3);font-size:13px}
 .recap-voix{color:var(--accent);font-weight:600;margin:4px 0 8px}
 .recap-pari{display:flex;justify-content:space-between;gap:8px;border-top:1px solid var(--trait);padding:8px 2px;font-size:14px}
 .recap-cardio{display:flex;justify-content:space-between;gap:8px;border-top:1px solid var(--trait);padding:8px 2px;font-size:14px}
@@ -2540,10 +2540,10 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
    levier), l'or pour « ton meilleur » (la ligne de la courbe), le vert pour le sens « en hausse » seulement. Aucun
    rouge : une baisse s'écrit en ambre, comme un fait. */
 .pc-phrase{background:var(--panneau);border-left:3px solid var(--accent);border-radius:var(--r-grand);
-  padding:12px 14px;font-size:15.5px;line-height:1.45;margin:var(--e2) 0 var(--e3)}
-.pc-monte{color:var(--reussi);font-size:12.5px;text-align:right}
-.pc-neutre{color:var(--accent);font-size:12.5px;text-align:right}
-.pc-gris{color:var(--texte-2);font-size:12.5px;text-align:right}
+  padding:12px 14px;font-size:16px;line-height:1.45;margin:var(--e2) 0 var(--e3)}
+.pc-monte{color:var(--reussi);font-size:13px;text-align:right}
+.pc-neutre{color:var(--accent);font-size:13px;text-align:right}
+.pc-gris{color:var(--texte-2);font-size:13px;text-align:right}
 .pc-lift-tete{display:flex;justify-content:space-between;align-items:baseline;gap:var(--e2)}
 .pc-lift-nom{font:600 18px var(--pile-c)}
 .pc-courbe{display:block;width:100%;height:90px;margin:4px 0}
@@ -2555,7 +2555,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .pc-or{color:var(--medaille)}
 .pc-groupe{background:var(--panneau);border-radius:var(--r-petit);margin-bottom:6px}
 .pc-groupe summary{list-style:none;display:flex;justify-content:space-between;gap:var(--e2);padding:10px 12px;
-  cursor:pointer;font-size:14.5px}
+  cursor:pointer;font-size:15px}
 .pc-groupe summary::-webkit-details-marker{display:none}
 .pc-groupe-corps{padding:0 12px 10px}
 .pc-exo{padding:6px 0;border-top:1px solid var(--trait)}
@@ -2569,7 +2569,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .pc-tous summary{background:var(--panneau);border-radius:var(--r-petit);padding:10px 12px;cursor:pointer}
 .pc-tous-ligne{display:flex;justify-content:space-between;gap:var(--e2);width:100%;text-align:left;
   background:none;border:0;border-bottom:1px solid var(--trait);color:var(--texte);padding:10px 4px;font:inherit;
-  font-size:13.5px;cursor:pointer}
+  font-size:14px;cursor:pointer}
 .pc-note{font-size:12px;line-height:1.45;color:var(--texte-2);margin:6px 0 var(--e2)}
 
 /* ══ 87 — LE SOCIAL, ÉTAGE 1 (SOCIAL-V1, maquette `maquette-social-etage1-v2.html`) ══════════════════════════
@@ -2699,7 +2699,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   bottom:calc(var(--h-onglets, 68px) + var(--h-repos, 0px) + 8px);
   display:flex;align-items:center;justify-content:space-between;gap:var(--e2);
   background:var(--panneau);border-top:1px solid var(--trait);color:var(--texte);
-  font-size:13.5px;padding:var(--e2) var(--e3)}
+  font-size:14px;padding:var(--e2) var(--e3)}
 .bandeau-maj[hidden]{display:none}
 .bandeau-maj button{min-height:44px;background:none;border:0;color:var(--accent);
   font-weight:650;padding:0 var(--e2)}
@@ -2710,7 +2710,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   bottom:calc(var(--h-onglets, 68px) + var(--h-repos, 0px) + var(--h-pied, 0px));
   display:flex;align-items:center;justify-content:space-between;gap:var(--e2);
   background:var(--panneau-2);border-top:1px solid var(--trait);color:var(--texte);
-  font-size:13.5px;padding:var(--e2) var(--e3)}
+  font-size:14px;padding:var(--e2) var(--e3)}
 .toast-annuler[hidden]{display:none}
 .toast-annuler button{min-height:44px;background:none;border:0;color:var(--accent);
   font-weight:650;padding:0 var(--e2)}
@@ -2772,7 +2772,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .annee .bar i{flex:1;height:3px;border-radius:2px;background:var(--annee-blanc-26);overflow:hidden}
 .annee .bar i b{display:block;height:100%;width:0;background:var(--craie)}
 .annee .partage{position:absolute;top:26px;right:14px;z-index:6;font:600 13px "Archivo",system-ui,sans-serif;color:var(--craie);background:var(--annee-blanc-14);border:1px solid var(--annee-blanc-2e);border-radius:18px;padding:6px 12px}
-.annee .fermer{position:absolute;top:24px;left:10px;z-index:6;width:36px;height:36px;font:400 26px/1 "Archivo",system-ui,sans-serif;color:var(--cendre);background:transparent;border:0;border-radius:18px}
+.annee .fermer{position:absolute;top:24px;left:10px;z-index:6;width:36px;height:36px;font:400 28px/1 "Archivo",system-ui,sans-serif;color:var(--cendre);background:transparent;border:0;border-radius:18px}
 .annee .partage:focus-visible,.annee .btn:focus-visible,.annee .fermer:focus-visible{outline:2px solid var(--or);outline-offset:2px}
 .annee .s{position:absolute;inset:0;padding:76px 26px 44px;display:none;flex-direction:column;justify-content:center;gap:10px}
 .annee .s.on{display:flex}
@@ -2784,7 +2784,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .annee .chiffre{font-size:84px;white-space:nowrap;display:inline-block;max-width:100%;line-height:.9;font-weight:900;font-variation-settings:"wdth" 125;color:var(--or);letter-spacing:-.01em;font-variant-numeric:tabular-nums}
 .annee .chiffre small{font-size:.42em;font-weight:800;margin-left:4px}
 .annee .moyen{font-size:52px}
-.annee .txt{font-size:17px;line-height:1.4;color:var(--cendre);max-width:30ch}
+.annee .txt{font-size:18px;line-height:1.4;color:var(--cendre);max-width:30ch}
 .annee .txt b{color:var(--craie);font-weight:600}
 .annee .liste{margin-top:6px}
 .annee .ligne{padding:9px 0;border-top:1px solid var(--rayure)}
@@ -2796,9 +2796,9 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .annee .pdc .n{font-size:14px;color:var(--cendre);margin-bottom:8px}
 .annee .pdcg{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px}
 .annee .pdcg div{display:flex;flex-direction:column;gap:2px;min-width:0}
-.annee .pdcg b{font-size:20px;font-weight:800;font-variation-settings:"wdth" 112;font-variant-numeric:tabular-nums;white-space:nowrap}
+.annee .pdcg b{font-size:22px;font-weight:800;font-variation-settings:"wdth" 112;font-variant-numeric:tabular-nums;white-space:nowrap}
 .annee .pdcg span{font-size:12px;color:var(--cendre)}
-.annee .note{font-size:12.5px;color:var(--texte-3);line-height:1.4}
+.annee .note{font-size:13px;color:var(--texte-3);line-height:1.4}
 .annee .pile{display:flex;align-items:center;justify-content:center;gap:3px;height:118px;margin:8px 0 4px}
 .annee .pile i{display:block;width:16px;border-radius:4px;opacity:0;transform:translateX(-40px)}
 .annee .s.on .pile i{animation:annee-glisse .32s cubic-bezier(.2,.8,.2,1) forwards}
@@ -2825,14 +2825,14 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .annee .plaque .an{font-size:40px;font-weight:900;font-variation-settings:"wdth" 125;line-height:1}
 .annee .plaque .lignes{margin-top:10px}.annee .plaque .ligne{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--annee-blanc-1f);font-size:14px}.annee .plaque .ligne .n{color:var(--cendre);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.annee .plaque .ligne .v{font-weight:700;white-space:nowrap}
 .annee .plaque .qui{font-size:14px;color:var(--cendre);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.annee .plaque .an.long{font-size:26px;font-variation-settings:"wdth" 110;line-height:1.1;min-width:0}.annee .plaque .tete:has(.long){flex-direction:column;align-items:flex-start;gap:4px}
+.annee .plaque .an.long{font-size:28px;font-variation-settings:"wdth" 110;line-height:1.1;min-width:0}.annee .plaque .tete:has(.long){flex-direction:column;align-items:flex-start;gap:4px}
 .annee .grille{display:grid;grid-template-columns:1fr 1fr;row-gap:14px;column-gap:16px}
 .annee .grille>div{min-width:0}
-.annee .grille .k{font-size:12.5px;color:var(--cendre)}
+.annee .grille .k{font-size:13px;color:var(--cendre)}
 .annee .grille .g{font-size:30px;font-weight:850;font-variation-settings:"wdth" 118;color:var(--or);line-height:1.05;font-variant-numeric:tabular-nums;white-space:nowrap}
-.annee .grille .m{font-size:20px;font-weight:700;line-height:1.15}
+.annee .grille .m{font-size:22px;font-weight:700;line-height:1.15}
 .annee .grille .p{font-size:12px;color:var(--cendre)}
-.annee .grille .heros{grid-column:1/-1}.annee .grille .heros .q{font-size:15px;font-weight:700;margin-top:2px}.annee .plaque .ligne .rang{color:var(--or);font-weight:900;min-width:18px}.annee .plaque .ligne .n{flex:1}.annee .grille .heros .g{font-size:52px;margin-bottom:8px}.annee .grille .heros .p{font-size:13px}.annee .plaque .lignes .k{font-size:12.5px;color:var(--cendre);padding-bottom:4px}.annee .plaque .pied span:first-child{color:var(--craie,var(--annee-craie));font-weight:800;font-size:14px}
+.annee .grille .heros{grid-column:1/-1}.annee .grille .heros .q{font-size:15px;font-weight:700;margin-top:2px}.annee .plaque .ligne .rang{color:var(--or);font-weight:900;min-width:18px}.annee .plaque .ligne .n{flex:1}.annee .grille .heros .g{font-size:52px;margin-bottom:8px}.annee .grille .heros .p{font-size:13px}.annee .plaque .lignes .k{font-size:13px;color:var(--cendre);padding-bottom:4px}.annee .plaque .pied span:first-child{color:var(--craie,var(--annee-craie));font-weight:800;font-size:14px}
 .annee .plaque .pied{margin-top:14px;padding-top:10px;border-top:1px solid var(--annee-blanc-1a);display:flex;justify-content:space-between;font-size:12px;color:var(--cendre)}
 .annee .btn{width:100%;border:0;border-radius:12px;padding:14px;font:700 16px "Archivo",system-ui,sans-serif;margin-top:12px;background:var(--or);color:var(--annee-encre)}
 .annee .btn.sec{background:transparent;color:var(--craie);border:1px solid var(--annee-blanc-38);margin-top:8px}
@@ -2896,11 +2896,11 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .te-exos{display:flex;flex-wrap:wrap;align-items:center;gap:0 6px}
 .te-sep{color:var(--texte-3)}
 .te-exo{min-height:44px;background:none;border:0;padding:6px 0;margin:0;text-align:left;color:var(--texte);
-  font:inherit;font-size:14.5px;line-height:1.3;display:inline-flex;flex-direction:column;justify-content:center;cursor:pointer}
+  font:inherit;font-size:15px;line-height:1.3;display:inline-flex;flex-direction:column;justify-content:center;cursor:pointer}
 .te-marche.tienne .te-nom{font-weight:600}
 .te-marche.vue .te-nom{text-decoration:underline;text-decoration-color:var(--texte-3);text-underline-offset:3px}
-.te-det{color:var(--texte-2);font-size:12.5px;line-height:1.4;margin-top:1px}
-.te-det b{color:var(--texte);font-weight:600;font-family:var(--pile-c);font-size:13.5px}
+.te-det{color:var(--texte-2);font-size:13px;line-height:1.4;margin-top:1px}
+.te-det b{color:var(--texte);font-weight:600;font-family:var(--pile-c);font-size:14px}
 .te-etiq{display:inline-block;font-size:12px;padding:1px 7px;border-radius:var(--r-etiquette);align-self:center}
 .te-exo .te-etiq{align-self:flex-start;margin-top:2px}
 .te-etiq.ici{background:var(--accent);color:var(--sur-accent);font-weight:600}
@@ -2965,7 +2965,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
    rangées de Ma salle ; le choisi en ambre, coché. */
 .g-elastique{grid-template-columns:30px 58px 1fr 44px 44px 44px}
 .el-case{display:flex;align-items:center;justify-content:center;gap:6px;min-width:0;padding:0 6px;
-  border:1.5px solid var(--trait);background:var(--panneau-2);color:var(--texte);font:inherit;font-size:14.5px}
+  border:1.5px solid var(--trait);background:var(--panneau-2);color:var(--texte);font:inherit;font-size:15px}
 .el-case .el-case-nom{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .el-case.vide{border-style:dashed;background:transparent;color:var(--texte-3)}
 .el-case.gris{color:var(--texte-3)}
@@ -2997,7 +2997,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .avis-ligne{display:flex;align-items:center;gap:var(--e2);width:100%;min-height:44px;margin:0 0 var(--e3);padding:var(--e2) var(--e3);
   background:var(--panneau-2);border:0;border-radius:var(--r-grand);color:var(--texte);font:inherit;text-align:left;cursor:pointer}
 .avis-tete{display:inline-flex;align-items:center;gap:6px;flex:none}
-.avis-nom{font-weight:600;font-size:14.5px}
+.avis-nom{font-weight:600;font-size:15px}
 .avis-point{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none}
 .avis-titres{flex:1 1 auto;min-width:0;font-size:12px;color:var(--texte-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .avis-n{margin-left:auto;flex:none;font-weight:700;color:var(--accent)}
@@ -3005,7 +3005,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 #avis-corps .bandeau-reprise{border-left-color:var(--trait)}
 #bandeau-questionnaire .bandeau-reprise,#bandeau-installer .bandeau-reprise{background:none;border-left:0;border-top:1px solid var(--trait);border-radius:0;
   padding:var(--e2) var(--e1);margin:var(--e2) 0 0}
-#bandeau-questionnaire .reprise-t,#bandeau-installer .reprise-t{font-size:12.5px;font-weight:400;color:var(--texte-3)}
+#bandeau-questionnaire .reprise-t,#bandeau-installer .reprise-t{font-size:13px;font-weight:400;color:var(--texte-3)}
 #bandeau-questionnaire .reprise-actions,#bandeau-installer .reprise-actions{margin-top:var(--e2)}
 /* 170 — le reflet haut des cartes : un filet de lumière, sans toucher aux dimensions. */
 .carte,.carte-per,.bloc,.radar,.graphe,.pesees,.bloc-seance,.exo-fiche,.table-reps,.exo-jour,.p-groupe,.exo-liste,.tuile-mois,.bandeau-reprise,.releve{box-shadow:inset 0 1px 0 var(--reflet)}
@@ -3021,7 +3021,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .consigne-heros .c-reste{font-size:16px;font-weight:600;color:var(--texte-2);margin-left:6px}
 .consigne-heros .c-mot{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .consigne-heros .c-charge{font-size:40px;font-weight:700;color:var(--accent)}
-.consigne-heros .c-kg{font-size:24px;font-weight:600;color:var(--texte-2);white-space:pre}
+.consigne-heros .c-kg{font-size:22px;font-weight:600;color:var(--texte-2);white-space:pre}
 .consigne-heros .c-reps{font-size:40px;font-weight:700;color:var(--texte)}
 .consigne-heros .c-point{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .consigne-heros[data-garde]::after{margin-left:auto;align-self:center}
@@ -3036,7 +3036,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .consigne.consigne-grande{font-family:var(--pile-c);font-size:28px;font-weight:700;line-height:1.15;margin-top:6px}
 /* « Si ça passe, … » : une bulle, la charge × reps en gras ambre. */
 .consigne.si-ca-passe{display:inline-block;background:var(--panneau-2);border-radius:var(--r-petit);padding:6px 10px;margin-top:8px;
-  font-size:13.5px;font-weight:500;color:var(--texte-2)}
+  font-size:14px;font-weight:500;color:var(--texte-2)}
 .consigne.si-ca-passe .sp-chiffre{color:var(--accent);font-weight:800}
 
 /* ── 173 (« Vivant », 25/10/2026) — « PROCHAINE SÉANCE », en tête de l'accueil ────────────────────────────────────────── */
@@ -3196,9 +3196,9 @@ button[id^="btn-retour"]{padding:0 14px;font-size:15px}
 /* 205 — la feuille « Disques » (maquette-disques-v1) et la grande charge qui s'y touche */
 .c-charge-disques{border-bottom:2px dotted var(--accent);cursor:pointer}
 .dq-carte{background:var(--panneau);border-radius:14px;padding:12px;margin-top:var(--e2,8px)}
-.dq-charge{margin:0 0 4px;font-size:17px}
+.dq-charge{margin:0 0 4px;font-size:18px}
 .dq-aide{font-size:13px;color:var(--texte-2);line-height:1.4}
-.dq-texte{font-size:20px;font-weight:700}
+.dq-texte{font-size:22px;font-weight:700}
 .dq-barre{display:flex;align-items:center;height:110px;margin:8px 0 4px}
 .dq-manche{width:36px;flex:none;height:10px;background:var(--metal);border-radius:2px}
 .dq-butee{width:8px;height:34px;background:var(--metal);border-radius:2px;margin-right:2px;flex:none}
@@ -3219,7 +3219,7 @@ button[id^="btn-retour"]{padding:0 14px;font-size:15px}
 .p-gr-tete{display:flex;align-items:center;gap:var(--e3);width:100%;min-height:56px;padding:var(--e3);border:none;border-radius:var(--r-grand);background:var(--panneau);color:var(--texte);font-family:inherit;text-align:left;box-shadow:inset 0 1px 0 var(--reflet)}
 .p-gr-tete:active{background:var(--panneau-2)}
 .p-gr-textes{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
-.p-gr-nom{font-family:var(--pile-c);font-size:20px;font-weight:700;line-height:1.1;letter-spacing:.01em}
+.p-gr-nom{font-family:var(--pile-c);font-size:22px;font-weight:700;line-height:1.1;letter-spacing:.01em}
 .p-gr-resume{font-family:var(--pile);font-size:13px;font-weight:400;line-height:1.3;color:var(--texte-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .p-gr-tete .p-fl{transition:transform .15s}
 .p-gr.ouvert .p-gr-tete .p-fl{transform:rotate(90deg)}
@@ -3276,7 +3276,7 @@ button[id^="btn-retour"]{padding:0 14px;font-size:15px}
 /* 250 (L9) — « Lire mes notes » : l'accord et le bloc « Dans tes notes » du récap. Même liseré (ambre) pour toutes les lignes, la douleur comprise. */
 .recap-accord,.recap-notes{margin:0 0 14px}
 .nia-accord{background:var(--panneau-2);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px}
-.nia-titre{font-size:17px;font-weight:600;margin:0}
+.nia-titre{font-size:18px;font-weight:600;margin:0}
 .nia-liste{margin:0;padding-left:18px;color:var(--texte-2);font-size:14px}
 .nia-liste li{margin-bottom:4px}
 .nia-liste b{color:var(--texte);font-weight:600}

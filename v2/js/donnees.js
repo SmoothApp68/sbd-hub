@@ -102,7 +102,41 @@
     return S().COLONNES_SESSION.concat(S().COLONNES_SESSION_EN_PLUS).join(', ');
   }
   function colonnesSerie() {
-    return S().COLONNES_SET.concat(S().COLONNES_SET_EN_PLUS).join(', ');
+    return S().COLONNES_SET.concat(S().COLONNES_SET_EN_PLUS).filter(function (c) { return !seriesAbsentes[c]; }).join(', ');
+  }
+
+  // ⚠️ 268 (B, v2_140) — UNE COLONNE DE `sets` FACULTATIVE NE CASSE JAMAIS LA LECTURE NI LA FILE (le même défaut que #418, 104, pour les
+  // séries). La pente moyenne du tapis (`pente_pct`) existe dans le code avant d'exister en base : nommée dans un `select`, elle fait échouer
+  // la lecture ENTIÈRE (`42703`) ; nommée dans un `upsert`, l'écriture ENTIÈRE (`PGRST204`) — et la file la rejouerait sans fin. Si la base dit
+  // qu'elle n'existe pas, elle quitte la lecture et l'écriture POUR LA SESSION, et la même requête repart une fois sans elle. La valeur
+  // reste sur l'appareil (la séance locale la garde) et part avec la prochaine écriture, la migration lancée. Une colonne obligatoire n'entre
+  // JAMAIS ici.
+  var COLONNES_SERIE_FACULTATIVES = ['pente_pct'];
+  var seriesAbsentes = {};
+  function serieFacultativeAbsente(err) {
+    if (!err || (err.code !== '42703' && err.code !== 'PGRST204')) return null;
+    var txt = String(err.message || '') + ' ' + String(err.details || '');
+    for (var i = 0; i < COLONNES_SERIE_FACULTATIVES.length; i++) {
+      var c = COLONNES_SERIE_FACULTATIVES[i];
+      if (!seriesAbsentes[c] && txt.indexOf(c) >= 0) return c;
+    }
+    return null;
+  }
+  // Rejoue `faire` une fois par colonne facultative absente (la boucle finit : chaque colonne ne sort qu'une fois).
+  async function avecSeriesFacultatives(faire) {
+    for (;;) {
+      try { return await faire(); }
+      catch (e) {
+        var absente = serieFacultativeAbsente(e);
+        if (!absente) throw e;
+        seriesAbsentes[absente] = true;
+      }
+    }
+  }
+  function sansSeriesAbsentes(ligne) {
+    var out = {};
+    Object.keys(ligne || {}).forEach(function (c) { if (!seriesAbsentes[c]) out[c] = ligne[c]; });
+    return out;
   }
 
   // Rafraîchissement COMPLET : 545 Ko, et `sessions` n'a aucune colonne de
@@ -156,13 +190,15 @@
   // INCRÉMENTAL : 15 Mo, qu'on ne retélécharge pas. Une ligne neuve porte
   // `created_at`, une ligne retouchée porte `modifie_a` — il faut les deux.
   function seriesDepuis(curseur) {
-    return paginerParCle(trancheur(function () {
-      var q = client().from('sets').select(colonnesSerie());
-      // Le filtre incrémental et le curseur de clé se combinent : PostgREST
-      // conjugue les filtres de premier niveau — (neuve OU retouchée) ET id > x.
-      if (curseur) q = q.or('created_at.gt.' + curseur + ',modifie_a.gt.' + curseur);
-      return q;
-    }, 'id'), 'id');
+    return avecSeriesFacultatives(function () {
+      return paginerParCle(trancheur(function () {
+        var q = client().from('sets').select(colonnesSerie());
+        // Le filtre incrémental et le curseur de clé se combinent : PostgREST
+        // conjugue les filtres de premier niveau — (neuve OU retouchée) ET id > x.
+        if (curseur) q = q.or('created_at.gt.' + curseur + ',modifie_a.gt.' + curseur);
+        return q;
+      }, 'id'), 'id');
+    });
   }
 
   // 117 (audit du 16/10, 06 #1) — LES SEULS IDENTIFIANTS des séries de quelques séances (`id`, `session_id`), pour
@@ -515,8 +551,11 @@
     }
 
     if (liste.length) {
-      var r = await client().from('sets').upsert(liste, { onConflict: 'id' });
-      if (r.error) throw r.error;
+      // 268 — la même ligne, sans la colonne facultative que la base dit absente (rien n'a été écrit).
+      await avecSeriesFacultatives(async function () {
+        var r = await client().from('sets').upsert(liste.map(sansSeriesAbsentes), { onConflict: 'id' });
+        if (r.error) throw r.error;
+      });
     }
     return { envoyees: liste.length, retirees: aRetirer.length };
   }
@@ -549,10 +588,12 @@
   // Les séries d'une séance, pour reprendre une séance ouverte sur un autre
   // appareil — ou après une réinstallation.
   async function seriesDeSeance(sessionId) {
-    var r = await client().from('sets').select(colonnesSerie())
-      .eq('session_id', sessionId).order('rang', { ascending: true });
-    if (r.error) throw r.error;
-    return r.data || [];
+    return avecSeriesFacultatives(async function () {
+      var r = await client().from('sets').select(colonnesSerie())
+        .eq('session_id', sessionId).order('rang', { ascending: true });
+      if (r.error) throw r.error;
+      return r.data || [];
+    });
   }
 
   // ══ LES CORRECTIONS DE ZONE (§9.1.1, chantier 48b-7) ═════════════════════

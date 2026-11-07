@@ -785,6 +785,8 @@ const SETS_IMPORTES = [
       return refus('23514', 'sets_denivele_borne');
     }
     if (l.etages !== null && l.etages !== undefined && !(l.etages >= 1 && l.etages <= 2000)) return refus('23514', 'sets_etages_borne');
+    // 268 (v2_140) — la pente moyenne du tapis : numeric(4,1), 0 à 40 (0 accepté), comme dans l'app.
+    if (l.pente_pct !== null && l.pente_pct !== undefined && !(l.pente_pct >= 0 && l.pente_pct <= 40)) return refus('23514', 'sets_pente_pct_borne');
     for (const col of ['reps', 'duree_s', 'denivele_m', 'etages']) {
       const v = l[col];
       if (v === null || v === undefined) continue;

@@ -88,6 +88,10 @@
     // ET écrits, comme la durée et la distance. Ils viennent de `THModele.colonnesDeSerie()`
     // (`lignes()` les envoie par elle) ; `verifierColonnes()` vérifie l'accord au démarrage.
     'denivele_m', 'etages',
+    // 268 (B, v2_140) — la pente moyenne du tapis (numeric(4,1), NULL, 0 à 40). FACULTATIVE : tant que la migration n'est pas lancée, la base
+    // répond « colonne absente » ; `donnees.js` la retire alors de la lecture et de l'écriture POUR LA SESSION (rien n'est perdu : la valeur reste
+    // sur l'appareil, et part avec la prochaine écriture une fois la colonne là).
+    'pente_pct',
     // 132 (MOTEUR §10 ter, ECRAN-SAISIE §3 ter.6, v2_034) — le NOM de l'élastique d'une série notée par nom, lu ET écrit
     // (audit 130 #12 : `sets.elastique` n'était ni écrit ni relu). Il part toujours, à null compris, comme la note.
     'elastique',
@@ -1226,6 +1230,11 @@
   // Les champs en plus (§3 ter.5) : des entiers, bornés par la même table (D+ ≤ 10 000 m,
   // étages ≤ 2 000, jamais 0).
   function enPlusBorne(cle, v) { return racine.THModele.borneDeColonne(cle, entierOuNul(v, 1)); }
+  // 268 (B) — la pente moyenne : UNE décimale (4,5), 0 accepté (à plat), 0 à 40 %, sinon `null` (la valeur n'est pas écrite).
+  function penteBornee(v) {
+    var n = nombreOuNul(v);
+    return n === null ? null : racine.THModele.borneDeColonne('pente_pct', Math.round(n * 10) / 10);
+  }
 
   // ⚠️ BORNER UNE LIGNE DÉJÀ CALCULÉE, ET DIRE SI ÇA A CHANGÉ QUELQUE CHOSE.
   //
@@ -1259,6 +1268,10 @@
       c[cle] = enPlusBorne(cle, ligne[cle]);
       if (c[cle] !== ligne[cle]) change = true;
     });
+    if ('pente_pct' in ligne) {
+      c.pente_pct = penteBornee(ligne.pente_pct);
+      if (c.pente_pct !== ligne.pente_pct) change = true;
+    }
     return change ? { ligne: Object.assign({}, ligne, c), change: true }
                   : { ligne: ligne, change: false };
   }
@@ -1273,6 +1286,7 @@
     if ('distance_km' in champs) c.distance_m = distanceBornee(champs.distance_km, 1000);
     if ('denivele_m' in champs) c.denivele_m = enPlusBorne('denivele_m', champs.denivele_m);
     if ('etages' in champs) c.etages = enPlusBorne('etages', champs.etages);
+    if ('pente_pct' in champs) c.pente_pct = penteBornee(champs.pente_pct);
     // 132 — le nom de l'élastique : un texte non vide (une liste de Ma salle le donne), sinon rien.
     if ('elastique' in champs) c.elastique = typeof champs.elastique === 'string' && champs.elastique ? champs.elastique : null;
     // 245 (D-S3) — « Non, ne compte pas » parle de CETTE série telle qu'elle était : si la charge ou les reps changent vraiment, la
@@ -1870,7 +1884,7 @@
       if (g.mesure === 'distance_temps' && !vide(p.serie.duree_s)) candidats.push('distance_km');
       for (var j = 0; j < candidats.length; j++) {
         var c = M.champDeMesure(candidats[j]);
-        if (c && vide(p.serie[c.cle])) {
+        if (c && !c.sansRelance && vide(p.serie[c.cle])) {
           return { iExo: p.iExo, iSerie: p.iSerie, slug: p.exo.exercise_slug, nom: candidats[j] };
         }
       }
@@ -2054,6 +2068,8 @@
           // Prompt 131 — le D+ et les étages, toujours envoyés, à null compris (même raison).
           denivele_m: p.serie.denivele_m === undefined ? null : p.serie.denivele_m,
           etages: p.serie.etages === undefined ? null : p.serie.etages,
+          // 268 (B) — la pente moyenne du tapis, toujours envoyée, à null compris (même raison).
+          pente_pct: p.serie.pente_pct === undefined ? null : p.serie.pente_pct,
           // 132 — le nom de l'élastique (une série notée par nom), toujours envoyé, à null compris.
           elastique: p.serie.elastique === undefined ? null : p.serie.elastique,
           rpe: p.serie.rpe,

@@ -673,6 +673,8 @@
     // ECRAN §3 ter.5 (prompt 131) — les champs en plus. Une valeur absente ne s'affiche
     // jamais, ni à zéro (jamais « D+ 0 m »).
     denivele: function (s) { return s.denivele_m ? 'D+ ' + nombreGroupe(nombreTexte(s.denivele_m, 0)) + ' m' : ''; },
+    // 268 (B) — la pente moyenne d'un tapis : « pente 4,5 % ». 0 est une valeur (un tapis à plat), vide est « inconnue » : rien.
+    pente: function (s) { return aValeur(s.pente_pct) && isFinite(Number(s.pente_pct)) ? 'pente ' + nombreTexte(s.pente_pct, 1) + '\u00a0%' : ''; },
     etages: function (s) {
       return s.etages ? nombreGroupe(nombreTexte(s.etages, 0)) + ' ' + (Number(s.etages) >= 2 ? 'étages' : 'étage') : '';
     }
@@ -688,10 +690,10 @@
     // ECRAN §3 ter.5 (prompt 131, maquette mesures-cardio écran 4) — distance, puis durée,
     // puis D+ ou étages : « 13,2 km · 3 h 25 · D+ 920 m », « 20 min · 72 étages ».
     temps: { entete: 'Durée', meilleure: 'Plus longue durée', valeur: function (s) {
-      return partiesDe(s, [PART.duree, PART.denivele, PART.etages]);
+      return partiesDe(s, [PART.duree, PART.denivele, PART.etages, PART.pente]);
     } },
     distance_temps: { entete: 'Distance · durée', meilleure: 'Plus longue durée', valeur: function (s) {
-      return partiesDe(s, [PART.distance, PART.duree, PART.denivele, PART.etages]);
+      return partiesDe(s, [PART.distance, PART.duree, PART.denivele, PART.etages, PART.pente]);
     } },
     charge_distance: { entete: 'Charge · distance', meilleure: 'Plus longue distance', valeur: function (s) {
       return partiesDe(s, [PART.charge, PART.distance]);
@@ -785,7 +787,14 @@
     denivele_m:  { cle: 'denivele_m', entete: 'D+',       unite: 'm',   facteur: 1,    saisie: 'nombre',
                    facultatif: true, place: 'dessous', libelle: 'D+', texte: 'Dénivelé +', manque: 'le D+' },
     etages:      { cle: 'etages',     entete: 'ÉTAGES',   unite: null,  facteur: 1,    saisie: 'nombre',
-                   facultatif: true, place: 'colonne', libelle: 'ÉTAGES', manque: 'les étages' }
+                   facultatif: true, place: 'colonne', libelle: 'ÉTAGES', manque: 'les étages' },
+    // 268 (B, v2_140) — LA PENTE MOYENNE du tapis : sous la série comme le D+, facultative, jamais recopiée d'une séance à
+    // l'autre. 0 est une valeur (tapis à plat), vide est « inconnue » ; décimale (4,5), 0 à 40 %. `sansRelance` : la pente
+    // n'est JAMAIS réclamée après coup (ni « Ce qui manque à tes séances », ni la carte de fin de séance) — vide, elle est
+    // inconnue, et personne n'a de pente à retrouver sur l'historique.
+    pente_pct:   { cle: 'pente_pct',  entete: 'PENTE',    unite: '%',   facteur: 1,    saisie: 'nombre',
+                   facultatif: true, place: 'dessous', libelle: 'PENTE', texte: 'Pente moyenne', manque: 'la pente',
+                   sansRelance: true }
   };
 
   // ── Le pavé de chronométrage, en fonctions pures ────────────────────────
@@ -815,7 +824,8 @@
     duree_s:    { min: 1, max: MAX_DUREE_S },
     distance_m: { min: 1, max: MAX_DISTANCE_M },
     denivele_m: { min: 1, max: 10000 },        // D+ : 10 000 m
-    etages:     { min: 1, max: 2000 }          // les étages tels que la machine les affiche
+    etages:     { min: 1, max: 2000 },         // les étages tels que la machine les affiche
+    pente_pct:  { min: 0, max: 40 }            // 268 (B) : la pente moyenne du tapis, en % — 0 accepté (à plat), 40 % au plus
   };
   // La valeur bornée d'une colonne : la valeur, ou `null` (hors borne, ou pas un nombre).
   // Une colonne sans borne passe telle quelle.

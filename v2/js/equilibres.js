@@ -1064,7 +1064,7 @@
     var nomsLents = lents.map(function (x) { return x.cle === 'tractions' ? 'tractions' : M.NOM_DE_BARRE[x.cle]; });
     var deadLent = lents.some(function (x) { return x.cle === DEAD; });
     c.fait = '';
-    c.repere = 'Pour progresser en force sur un mouvement, deux fois par semaine font mieux qu’une (Grgic, 2018). ' +
+    c.repere = 'Deux séances par semaine sur un mouvement donnent un peu plus de force, surtout parce qu’on y fait plus de séries : à volume égal, aucune différence (Grgic, 2018). ' +
       (lents.length === lignes.length && lents.length > 1 ? 'Tes ' + (lents.length === 3 ? 'trois ' : '') + 'priorités reviennent une fois ou moins.'
         : lents.length === 1 ? 'Ta priorité ' + nomsLents[0] + ' revient une fois ou moins.' : 'Tes priorités ' + Modele().enumerer(nomsLents) + ' reviennent une fois ou moins.');
     var causes = [];
@@ -1111,7 +1111,7 @@
     var f = cat[slug];
     // 191 — DEUX NOTIONS, pas une. « Grand mouvement » (`Moteur.estGrandMouvement`) : ce que la compression protège (barre ou poids du
     // corps). « Polyarticulaire » (`Moteur.estPolyarticulaire`) : ce que l'ORDRE met en premier — la science de l'ordre (Simão 2012,
-    // Nunes 2021) oppose polyarticulaire et isolation, quel que soit le matériel : une presse ou un développé haltères passent avant
+    // Nunes 2021) classe par priorité, pas par type de mouvement ; notre choix : polyarticulaire avant isolation, quel que soit le matériel : une presse ou un développé haltères passent avant
     // leurs isolations. La carte de l'ordre lit donc la fonction polyarticulaire, jamais une définition à elle ni `estGrandMouvement`.
     return !!f && Moteur().estPolyarticulaire({ prim: liste(f.muscles_primaires), sec: liste(f.muscles_secondaires), stab: liste(f.muscles_stabilisateurs) });
   }

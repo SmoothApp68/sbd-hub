@@ -1512,7 +1512,7 @@
   //   · Un cran seul reste TOUJOURS permis : la prudence ne bloque jamais la montée, elle la ralentit.
   //   · L'âge est celui du profil (`date_naissance`). ABSENT (`null`) : aucune de ces règles, jamais un âge deviné. Rien ne change
   //     sur la charge de départ : ce n'est pas une estimation de force par population.
-  // Raison : les tendons s'adaptent plus lentement que les muscles, et plus encore avec l'âge (Magnusson et Kjaer) ; l'ACSM
+  // Raison : les tendons s'adaptent plus lentement que les muscles, et plus encore avec l'âge (Magnusson et Kjaer, 2019, J Physiol) ; l'ACSM
   // recommande une progression prudente chez les plus âgés (position stand 2009).
   var AGE_PLAFOND_BAS = 65, AGE_UN_CRAN = 50;
   var RAISON_PRUDENCE = { debutant: 'debutant', age: 'age', debutantAge: 'debutant_age' };
@@ -3647,7 +3647,7 @@
   // déplacé 176 secondaires vers les stabilisateurs sans changer le total d'aucun exercice : en les comptant,
   // aucun exercice ne change de classe ; sans eux, 26 passeraient de polyarticulaire à isolation.
   var MUSCLES_POLYARTICULAIRE = 3;
-  // 188-2 (Iversen 2021) — JAMAIS SOUS 2 SÉRIES : une isolation ne descend plus à 1 (le raccourci d'avant l'y réduisait).
+  // 188-2 (notre choix) — JAMAIS SOUS 2 SÉRIES : une isolation ne descend plus à 1 (le raccourci d'avant l'y réduisait).
   var PLANCHER_ISOLATION = 2, PLANCHER_COMPOSE = 2;
   // 188-2 — LES REPOS DES ISOLATIONS, étape 2 de l'ordre de compression : d'abord à 90 s, puis à 60 s.
   var REPOS_ISOLATION_HAUT = 90, REPOS_ISOLATION_BAS = 60;
@@ -3690,7 +3690,7 @@
   // 191 (décision d'Aurélien du 30/10/2026) — LES MOUVEMENTS AU POIDS DU CORPS qui comptent comme de grands mouvements : les
   // tractions, les dips, les pompes et le rowing inversé, avec toutes leurs variantes (lestées, assistées, à l'élastique,
   // en supination, déclinées…). Le catalogue n'a pas de colonne qui le dise : le slug, lu par ses mots, comme
-  // `THProfil.demandeUneBarreDeTraction`. Raison : la compression retire d'abord les isolations (Iversen 2021), et couper les
+  // `THProfil.demandeUneBarreDeTraction`. Raison : la compression retire d'abord les isolations (notre choix, inspiré d'Iversen 2021), et couper les
   // tractions creuse le tirage, l'équilibre le plus souvent en défaut (188-1).
   var MOTS_DU_POIDS_DU_CORPS = ['traction', 'tractions', 'dip', 'dips', 'pompe', 'pompes'];
   function estUnMouvementAuPoidsDuCorps(slug) {
@@ -3781,7 +3781,7 @@
     if (tient()) return fin();
 
     // 0. 196 (MOTEUR §9.33) — en objectif MUSCLE, les 2 dernières séries d'UNE isolation (ou machine) deviennent UNE série rest-pause
-    // (jusqu'à l'échec, 15 s, encore, 15 s, encore) : le muscle progresse autant en moins de temps (Enes 2021, Sodal 2023). Avant toute
+    // (jusqu'à l'échec, 15 s, encore, 15 s, encore) : le muscle progresse autant à volume égal (Enes 2021, Sodal 2023) ; le gain de temps vient d'Iversen 2021. Avant toute
     // autre coupe ; le bloc de mobilité est déjà retiré (l'appelant). Jamais un exercice sans 3 séries de travail, jamais un
     // exempté ou un grand mouvement ; l'exercice qui y gagne le plus de temps passe d'abord, un seul.
     if (options && options.objectif === 'muscle') {
@@ -3837,7 +3837,7 @@
       if (tient()) return fin();
     }
 
-    // 188-2 — L'ORDRE DE COMPRESSION (Iversen 2021), aux étapes 4 à 7 :
+    // 188-2 — L'ORDRE DE COMPRESSION (notre choix, inspiré d'Iversen 2021), aux étapes 4 à 7 :
     //   4. grouper des exercices en supersets (deux isolations voisines, sans muscle en commun) ;
     //   5. raccourcir les repos des isolations : à 90 s, puis à 60 s ;
     //   6. une série de moins aux exercices secondaires, JAMAIS sous 2 ;
@@ -4079,7 +4079,7 @@
               'Les charges ne changent pas.' +
               // 196 — le « Pourquoi » du rest-pause (maquette muscle-et-phase v1) : un fait sourcé, sans promesse.
               (((resultat && resultat.journal) || []).some(function (t) { return t.quoi === 'rest_pause'; })
-                ? ' Une série en rest-pause fait le travail de deux séries en moins de temps : le muscle progresse autant (Enes 2021, Sodal 2023), la séance raccourcit.'
+                ? ' Une série en rest-pause fait le travail de deux séries en moins de temps (Iversen 2021) : à volume égal, le muscle progresse autant (Enes 2021, Sodal 2023), la séance raccourcit.'
                 : ''),
       oui: tient ? 'Raccourcir' : 'Raccourcir à ' + minutesFr(court) + ' min',
       non: 'Garder la séance'
@@ -11645,13 +11645,13 @@
     test: { type: 'coachs', auteur: 'Juggernaut, 5/3/1, SBS, Candito',
       texte: 'Juggernaut, 5/3/1, SBS et Candito recalent sur une série lourde ou une série au max plutôt que sur un vrai max.' },
     // Le défaut de la semaine de test : « Série au max » quand le max vient d'une série de plus de 5 reps, ou à partir de 65 ans.
-    'test.defaut.reps': { type: 'etude', auteur: 'Reynolds', annee: 2006, effectif: '70 pratiquants',
-      texte: 'Reynolds 2006 (70 pratiquants) : le max se calcule le mieux à partir d’une série de 5 reps ou moins.' },
+    'test.defaut.reps': { type: 'etude', auteur: 'Reynolds', annee: 2006, effectif: '70 adultes',
+      texte: 'Reynolds 2006 (70 adultes) : le max se calcule le mieux à partir d’une série de 5 reps ou moins.' },
     'test.defaut.age': { type: 'convention',
       texte: 'Le défaut « série au max » à partir de 65 ans : un choix de l’app, aucune étude ne fixe d’âge.' },
     // La baisse de force attendue en sèche (198).
     'seche.baisse': { type: 'etude', auteur: 'Garthe', annee: 2011, effectif: '24 athlètes',
-      texte: 'Garthe 2011 (24 athlètes en sèche) : perdre 0,7 % du poids par semaine a mieux gardé la force que perdre 1,4 %.' },
+      texte: 'Garthe 2011 (24 athlètes en sèche) : perdre 0,7 % du poids par semaine a permis de gagner du muscle (environ +2 %), contre 0 % pour 1,4 % par semaine.' },
     // La semaine allégée, la phase.
     allegee: { type: 'coachs', auteur: 'Calgary Barbell, Candito',
       texte: 'La semaine allégée planifiée : la pratique de Calgary Barbell et de Candito.' },

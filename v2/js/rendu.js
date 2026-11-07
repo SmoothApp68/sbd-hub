@@ -3587,6 +3587,11 @@
       // max validée, la phrase du coach sous elle. Lues sur le plan (`info`), jamais recomposées.
       if (info && info.etiquette) hote.appendChild(el('div', 'fig-eti', info.etiquette));
       if (info && info.apres) hote.appendChild(phraseDeReaction({ type: 'figure', phrase: info.apres }, false));
+      // 268 (D) — « MIEUX UN JOUR » : sous la série qui bat la meilleure durée ou la meilleure distance, un fait sur la ligne du coach
+      // (« Gainage : 2:10, ton meilleur. Avant : 1:55, le 12 oct. »). Lu sur l'app (`vue.mieux`), jamais calculé ici ; une seule ligne
+      // du coach sous la série : la phrase d'une figure, quand elle parle, garde la place.
+      var mx = !vue.programme && !(info && (info.apres || info.message)) && typeof vue.mieux === 'function' ? vue.mieux(s._iExo, s._iSerie) : null;
+      if (mx) hote.appendChild(phraseDeReaction({ type: 'mieux', phrase: mx }, false));
       // ECRAN §3 ter.5 (prompt 131, maquette mesures-cardio écran 1) — LE D+, SUR SA PROPRE LIGNE,
       // SOUS LA SÉRIE : une troisième colonne ne tient pas à 360 px à côté d'une durée en horloge.
       // Facultatif, sans chiffre gris ; jamais dans l'éditeur de routine.

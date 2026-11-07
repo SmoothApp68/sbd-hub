@@ -2662,15 +2662,25 @@
 
     // ── La durée, la distance, le D+ et les étages : toute la vie (153 : le D+ et les étages, la même règle).
     if (passees.length) {
+      // 268 (D) — UNE CHARGE PORTÉE (charge × distance, charge × durée : `estUnePortee(mesureDesColonnes(s))`) ne se bat qu'« À CHARGE ÉGALE
+      // OU PLUS » : 80 m à 20 kg ne bat pas 60 m à 64 kg. Les séries d'avant qui comptent sont celles de la MÊME charge ou plus lourdes ;
+      // le record porte sa charge (`records.charge`) et celle de l'ancien (`ancien_charge`, pour dire « Avant : 40 m à 64 kg »). Une série
+      // sans charge garde la règle d'avant, octet pour octet.
+      var chargeP = estUnePortee(mesureDesColonnes(s)) ? valeurNumerique(s, 'charge_kg') : null;
       ['duree_s', 'distance_m', 'denivele_m', 'etages'].forEach(function (champ) {
         var v = valeurNumerique(s, champ);
         if (v === null || v <= 0) return;
+        var portee = chargeP !== null && chargeP > 0 && (champ === 'duree_s' || champ === 'distance_m');
         var avantLui = plusGrand(dater(passees).map(function (x) {
           var vx = valeurNumerique(x.s, champ);
-          return { v: vx !== null && vx > 0 ? vx : null, date: x.date };
+          var cx = portee ? valeurNumerique(x.s, 'charge_kg') : null;
+          var compte = vx !== null && vx > 0 && (!portee || (cx !== null && cx >= chargeP - EPS_RECORD));
+          return { v: compte ? vx : null, date: x.date, c: cx };
         }));
         if (avantLui === null || v > avantLui.v + EPS_RECORD) {
-          out.push({ type: champ, valeur: v, ancien: avantLui ? avantLui.v : null, ancien_le: avantLui ? avantLui.date : null });
+          var rec = { type: champ, valeur: v, ancien: avantLui ? avantLui.v : null, ancien_le: avantLui ? avantLui.date : null };
+          if (portee) { rec.charge = chargeP; rec.ancien_charge = avantLui ? avantLui.c : null; }
+          out.push(rec);
         }
       });
       // 153 (A) — L'ALLURE POUR AU MOINS N : la série entière (durée ÷ distance), au plus grand palier atteint par sa
@@ -2825,8 +2835,10 @@
     if (vol) gras.push('Volume de la séance : ' + nombreTexte(vol.valeur, 0) + INSECABLE + (vol.unite === 'reps' ? 'reps' : 'kg') + '.');
     // 119 (audit du 16/10/2026, E9) — LA PROSE DE LA MÉDAILLE ÉCRIT COMME LE JOURNAL : « 1 min 30 », « 3,2 km » (la
     // ligne d'au-dessus dit « Tapis : 20 min · 3,2 km ») ; l'horloge (« 01:30 ») reste sous la rangée de la grille.
-    if (duree) gras.push('Plus longue durée : ' + formatDuree(duree.valeur) + '.');
-    if (distance) gras.push('Plus longue distance : ' + formatDistance(distance.valeur) + '.');
+    // 268 (D) — une charge portée : « Plus longue distance, à 64 kg ou plus : 60 m. » (à charge égale ou plus, jamais à une charge plus légère).
+    var chargeOuPlus = function (x) { return x.charge !== undefined && x.charge !== null && Number(x.charge) > 0 ? ', à ' + chargeDeLaMedaille(x.charge) + ' ou plus' : ''; };
+    if (duree) gras.push('Plus longue durée' + chargeOuPlus(duree) + ' : ' + formatDuree(duree.valeur) + '.');
+    if (distance) gras.push('Plus longue distance' + chargeOuPlus(distance) + ' : ' + formatDistance(distance.valeur) + '.');
     // 153 — l'allure pour au moins N (« Record d'allure sur 1 km ou plus : 7:00 /km. »), le D+, les étages, la première
     // fois sur une marche (« Première fois : Tractions Lestées. »).
     if (allure) gras.push('Record d’allure sur ' + libelleDuPalier(allure) + ' ou plus : ' + mmss(allure.valeur) + INSECABLE +
@@ -2835,6 +2847,10 @@
     if (etages) gras.push('Record d’étages : ' + nombreTexte(etages.valeur, 0) + '.');
     if (marche) gras.push('Première fois : ' + nomComplet(marche.slug) + '.');
     var quandAvant = function (x) { return dateDeLaMedaille(x.ancien_le, aujourdhui); };
+    // 268 (D) — l'ancien record d'une charge portée dit sa charge : « Avant : 40 m à 64 kg, le 3 oct. ».
+    var avecSaCharge = function (x) {
+      return x.ancien_charge !== undefined && x.ancien_charge !== null && Number(x.ancien_charge) > 0 ? ' à ' + chargeDeLaMedaille(x.ancien_charge) : '';
+    };
     // Le point final, une fois : « le 1er sept. », jamais « sept.. ».
     var fin = function (t) { return /\.$/.test(t) ? t : t + '.'; };
     var gris = null;
@@ -2845,9 +2861,9 @@
     } else if (rac) {
       gris = 'Avant : ' + repsDeLaMedaille(rac.ancien) + ', ' + fin(quandAvant(rac));
     } else if (duree) {
-      if (duree.ancien !== null) gris = 'Avant : ' + formatDuree(duree.ancien) + ', ' + fin(quandAvant(duree));
+      if (duree.ancien !== null) gris = 'Avant : ' + formatDuree(duree.ancien) + avecSaCharge(duree) + ', ' + fin(quandAvant(duree));
     } else if (distance) {
-      if (distance.ancien !== null) gris = 'Avant : ' + formatDistance(distance.ancien) + ', ' + fin(quandAvant(distance));
+      if (distance.ancien !== null) gris = 'Avant : ' + formatDistance(distance.ancien) + avecSaCharge(distance) + ', ' + fin(quandAvant(distance));
     } else if (allure) {
       gris = 'Avant : ' + mmss(allure.ancien) + INSECABLE + UNITES_D_ALLURE[allure.unite] + ', ' + fin(quandAvant(allure));
     } else if (deniv) {
@@ -2859,6 +2875,26 @@
         : fin('Avant : ' + nomComplet(marche.ancien_slug) + ', depuis ' + dateDeLaMedaille(marche.ancien_le, aujourdhui));
     }
     return [gras.join(' '), gris];
+  }
+
+  // 268 (D) — « MIEUX UN JOUR » : LA LIGNE DU COACH sous une série dont la durée ou la distance bat la meilleure d'avant — UN FAIT, jamais un
+  // « bravo », jamais un point d'exclamation : « Gainage : 2:10, ton meilleur. Avant : 1:55, le 12 oct. » ; sur une charge portée, à charge égale
+  // ou plus : « Marche du Fermier : 60 m à 64 kg, ton meilleur. Avant : 40 m à 64 kg, le 3 oct. ». La même règle que la médaille et le journal
+  // (`recordsBattus` : UNE notion, un câblage) ; ce n'est pas une décision du coach, seulement un fait lu. Une distance d'abord (une course en
+  // distance et en durée dit sa distance), sinon la durée. `exercice` : le nom parlé (`nomParle`). Sans record de durée ni de distance : `null`.
+  function phraseDuMeilleur(records, exercice, aujourdhui) {
+    var liste = records || [];
+    var r = liste.filter(function (x) { return x.type === 'distance_m'; })[0] || liste.filter(function (x) { return x.type === 'duree_s'; })[0] || null;
+    if (!r) return null;
+    var dit = function (v) { return r.type === 'distance_m' ? formatDistance(v) : (Number(v) < 3600 ? mmss(v) : formatDuree(v)); };
+    var kg = function (c) { return c !== undefined && c !== null && Number(c) > 0 ? ' à ' + chargeDeLaMedaille(c) : ''; };
+    var t = nomParle(exercice) + ' : ' + dit(r.valeur) + kg(r.charge) + ', ton meilleur.';
+    if (r.ancien !== null && r.ancien !== undefined) {
+      var quand = dateDeLaMedaille(r.ancien_le, aujourdhui);
+      t += ' Avant : ' + dit(r.ancien) + kg(r.ancien_charge) + (quand ? ', ' + quand : '');
+      if (!/\.$/.test(t)) t += '.';   // « le 12 oct. » porte déjà son point
+    }
+    return t;
   }
 
   // ── LE RECORD DE CHARGE (§7 quater, PR 5 de la consolidation) ────────────
@@ -3149,6 +3185,7 @@
     allureDeSerie: allureDeSerie,
     distancesMaxParSport: distancesMaxParSport,
     phraseDeRecord: phraseDeRecord,
+    phraseDuMeilleur: phraseDuMeilleur,
     optionsDeRecord: optionsDeRecord,
     recordsDeLExercice: recordsDeLExercice,
     seancesDuPerimetre: seancesDuPerimetre,

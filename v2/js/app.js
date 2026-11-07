@@ -10535,6 +10535,17 @@
       function (slug) { return index[slug] ? index[slug].nom : slug; });
   }
 
+  // 268 (D) — « MIEUX UN JOUR » : la phrase du coach sous la série dont la durée ou la distance bat la meilleure d'avant (un FAIT :
+  // « Gainage : 2:10, ton meilleur. Avant : 1:55, le 12 oct. »), ou rien. Lue sur les records (`faits.recordsDeLaSerie`, la fonction de la
+  // médaille et du journal) et dite par le formateur (`Modele.phraseDuMeilleur`) : l'écran ne calcule rien.
+  function mieuxSurLigne(iExo, iSerie) {
+    if (!seance) return null;
+    var r = faits.recordsDeLaSerie(corpus(), seance, iExo, iSerie);
+    if (!r.length) return null;
+    var exo = catalogueIndexe()[seance.exercices[iExo].exercise_slug];
+    return Modele.phraseDuMeilleur(r, exo ? exo.nom : '', seance.debut);
+  }
+
 
   // ── L'écran ─────────────────────────────────────────────────────────────
   function rendreSeance() {
@@ -10724,6 +10735,8 @@
       effortVise: effortViseSurLigne,
       // MOTEUR §9.23 (55-1) — la médaille, sous la rangée d'une série validée.
       medaille: medailleSurLigne,
+      // 268 (D) — « mieux un jour » : une durée ou une distance qui bat la meilleure, dite comme un fait sur la ligne du coach.
+      mieux: mieuxSurLigne,
       // ⚠️ CORRIGER AU CLAVIER UNE SÉRIE VALIDÉE REDESSINE LE BLOC (P10), mais
       // à la SORTIE du champ, pas à chaque frappe : redessiner à la frappe
       // volerait le focus au milieu de « 130 ». La réaction se refait alors sur

@@ -1073,6 +1073,11 @@ const NOTIONS = [
     parAilleurs: { 'app.js': ['medailleSurLigne'], 'faits.js': ['recordsDuJour'] },
     raison: 'MOTEUR §9.23 : les mots de la médaille, une fois — le cap rond, la charge pour N reps, le volume, ' +
       'la durée, et le record d’avant avec sa date (120, D1 : plus le 1RM estimé).' },
+  { notion: 'la ligne « mieux un jour » (une durée ou une distance qui bat la meilleure : un fait sur la ligne du coach)', pr: '268-D',
+    module: 'modele.js', fonction: 'phraseDuMeilleur', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['mieuxSurLigne'] },
+    raison: '268 (lot 2, D) : « Gainage : 2:10, ton meilleur. Avant : 1:55, le 12 oct. » — les mots d’un record de durée ou de distance, ' +
+      'dits une fois, lus sur les records de la médaille (`recordsDeLaSerie`) ; jamais un bravo, jamais une décision du coach.' },
   { notion: 'le 1RM estimé (Epley)', pr: '55-U1',
     module: 'moteur.js', fonction: 'unRMEpley', lecteurs: ['modele.js', 'faits.js', 'plan.js'],
     par: ['reportDeZone'],
@@ -1170,7 +1175,7 @@ const NOTIONS = [
   { notion: 'les records d’une série de la séance en cours (la médaille)', pr: '58-U1',
     module: 'faits.js', fonction: 'recordsDeLaSerie', lecteurs: ['app.js'],
     par: ['recordsDuJour', 'journalDuJour'],
-    parAilleurs: { 'app.js': ['medailleSurLigne'] },
+    parAilleurs: { 'app.js': ['medailleSurLigne', 'mieuxSurLigne'] },
     raison: 'MOTEUR §9.23 : la médaille sous une rangée et la feuille « Terminer » lisent le même ' +
       'calcul.' },
   { notion: 'les records du jour (la feuille « Terminer »)', pr: '58-U1',

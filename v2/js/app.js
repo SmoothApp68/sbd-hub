@@ -17594,17 +17594,33 @@
       }
     }
     var carte = Deraille.semaineQuiDeraille(e);
-    if (!carte) { Rendu.rendreCarteSemaine(noeud, null); return; }
-    vue.titre = carte.titre;
-    vue.phrase = carte.phrase || null;
-    vue.pourquoi = carte.pourquoi || null;
-    vue.choix = carte.choix;
-    vue.surChoix = function (cle) {
-      poserChoixDeSemaine(Deraille.lignesDuChoix(carte, cle, jour, idUtilisateur(), new Date().toISOString()))
-        .catch(function (e) { console.warn('Choix de la semaine non posé :', texteErreur(e)); });
-      semaineDecalee = cle === 'decaler' ? { jour: jour, routine: carte.manquee.routine } : null;
-      rendreSaisie();
-    };
+    // 266 (§9.24) — les choix faits cette semaine restent lisibles sous la bande, avec « Annuler » tant qu'aucune séance qu'ils portent n'est
+    // commencée. La carte s'affiche s'il y a une question OU un choix.
+    var faitsDeLaSemaine = Deraille.choixDeLaSemaine({
+      lignes: local.semaineChoix || [], jour: jour, routines: e.routines, catalogue: e.catalogue,
+      seances: e.seances, enCours: seance && seance.routine_id || null });
+    if (!carte && !faitsDeLaSemaine.length) { Rendu.rendreCarteSemaine(noeud, null); return; }
+    vue.faits = faitsDeLaSemaine.map(function (f) {
+      return { cle: f.cle, choix: f.choix, phrase: f.phrase, ajouts: f.ajouts, annulable: f.annulable,
+               surAnnuler: function () {
+                 poserChoixDeSemaine(Deraille.lignesDAnnulation(f.lignes, new Date().toISOString()))
+                   .catch(function (er) { console.warn('Annulation du choix non posée :', texteErreur(er)); });
+                 semaineDecalee = null;
+                 rendreSaisie();
+               } };
+    });
+    if (carte) {
+      vue.titre = carte.titre;
+      vue.phrase = carte.phrase || null;
+      vue.pourquoi = carte.pourquoi || null;
+      vue.choix = carte.choix;
+      vue.surChoix = function (cle) {
+        poserChoixDeSemaine(Deraille.lignesDuChoix(carte, cle, jour, idUtilisateur(), new Date().toISOString()))
+          .catch(function (e) { console.warn('Choix de la semaine non posé :', texteErreur(e)); });
+        semaineDecalee = cle === 'decaler' ? { jour: jour, routine: carte.manquee.routine } : null;
+        rendreSaisie();
+      };
+    }
     Rendu.rendreCarteSemaine(noeud, vue);
   }
 

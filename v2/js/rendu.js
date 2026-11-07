@@ -7214,6 +7214,34 @@
       cible.appendChild(c);
       return cible;
     }
+    // 266 (§9.24) — les choix de la semaine, lisibles sous la bande (le liseré du coach), « Annuler » tant qu'aucune séance qu'ils portent n'est
+    // commencée ; pour une répartition, « Voir ce qui a été ajouté » déplie une ligne par ajout. Le rendu ne calcule rien.
+    (vue.faits || []).forEach(function (f) {
+      var bloc = el('div', 'semaine-fait-bloc');
+      bloc.setAttribute('data-choix-fait', f.cle);
+      bloc.appendChild(el('p', 'semaine-fait', f.phrase));
+      if (f.choix === 'repartir' && (f.ajouts || []).length) {
+        var liste = el('div', 'semaine-fait-liste');
+        liste.hidden = true;
+        f.ajouts.forEach(function (a) {
+          liste.appendChild(el('p', 'semaine-fait-ajout', a.jourNom + '\u00a0: ' + a.nom + ', ' + a.series + ' série' + (a.series >= 2 ? 's' : '')));
+        });
+        var voir = el('button', 'discret semaine-fait-voir', 'Voir ce qui a été ajouté');
+        voir.type = 'button';
+        voir.addEventListener('click', function () { liste.hidden = !liste.hidden; });
+        bloc.appendChild(voir);
+        bloc.appendChild(liste);
+      }
+      if (f.annulable) {
+        var an = el('button', 'discret semaine-fait-annuler', 'Annuler');
+        an.type = 'button';
+        an.setAttribute('data-annuler', f.cle);
+        an.addEventListener('click', function () { f.surAnnuler(); });
+        bloc.appendChild(an);
+      }
+      c.appendChild(bloc);
+    });
+    if (!vue.titre) { cible.appendChild(c); return cible; }
     c.appendChild(el('p', 'semaine-titre', vue.titre));
     if (vue.phrase) c.appendChild(el('p', 'semaine-phrase', vue.phrase));
     var actions = el('div', 'semaine-choix');

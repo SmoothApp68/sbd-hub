@@ -2862,6 +2862,11 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .semaine-choix button { width: 100%; text-align: left; }
 .semaine-pourquoi { margin: var(--e2) 0 0; font-size: 13px; color: var(--accent); }
 .semaine-exo { color: var(--texte-2); padding: var(--e1) 0; }
+/* 266 (§9.24) — les choix de la semaine, lisibles sous la bande (le liseré du coach) ; « Annuler » et le lien en boutons de 44 px. */
+.semaine-fait-bloc { margin: 0 0 var(--e3); }
+.semaine-fait { margin: 0 0 var(--e1); padding-left: var(--e3); border-left: 3px solid var(--accent); color: var(--texte); }
+.semaine-fait-ajout { margin: 0; padding-left: var(--e3); color: var(--texte-2); font-size: 13px; }
+.semaine-fait-voir, .semaine-fait-annuler { min-height: 44px; }
 .carte-semaine > .principal { margin-top: var(--e3); width: 100%; }
 .consigne-dit.ajout-semaine { color: var(--texte-2); font-style: italic; }
 /* 108 — « Ma salle » (ECRAN-PROFIL §2.4 quinquies) : les puces des barres fixes et des haltères. */

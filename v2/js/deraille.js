@@ -375,13 +375,92 @@
       .sort(function (a, b) { return String(a.cree_le || '').localeCompare(String(b.cree_le || '')); });
     if (!ls.length) return null;
     var e = { lundi: lundi, questions: {}, planning: null, ajouts: [] };
+    // 266 — une ligne `annule` plus récente sur la même clé (routine, jour de la séance manquée) efface le choix d'avant : ni question
+    // marquée, ni planning, ni ajouts — la question revient. (En base la ligne annule REMPLACE l'ancienne : même clé d'upsert.)
+    var annulees = {};
+    ls.forEach(function (l) { if (l.choix === 'annule') annulees[l.routine_id + '@' + ((l.detail || {}).jour)] = String(l.cree_le || ''); });
     ls.forEach(function (l) {
+      if (l.choix === 'annule') return;
       var d = l.detail || {};
+      var cleA = l.routine_id + '@' + d.jour;
+      if (Object.prototype.hasOwnProperty.call(annulees, cleA) && annulees[cleA] >= String(l.cree_le || '')) return;
       e.questions[l.routine_id + '@' + d.jour] = l.choix;
       if (Array.isArray(d.planning)) e.planning = d.planning;
       if (Array.isArray(d.ajouts)) e.ajouts = e.ajouts.concat(d.ajouts);
     });
     return e;
+  }
+
+  // ── 266 (MOTEUR §9.24) — ANNULER UN CHOIX DE LA SEMAINE ────────────────────────────────────────────────────────────
+  // Annuler écrit, par la file, une ligne `choix = 'annule'` par clé du choix (même semaine, même routine, `detail.avant` = le choix d'avant) :
+  // la plus récente gagne partout, la question revient. Pas de DELETE (`choixAReposer`, 178, renverrait la ligne effacée d'un autre appareil).
+  function lignesDAnnulation(groupe, maintenant) {
+    return (groupe || []).map(function (l) {
+      return { user_id: l.user_id, semaine: l.semaine, routine_id: l.routine_id, choix: 'annule',
+               detail: { jour: (l.detail || {}).jour, avant: l.choix }, cree_le: maintenant };
+    });
+  }
+
+  // Les choix de la semaine de `jour`, lisibles sous la bande : `e = { lignes, jour, routines, catalogue, seances: [{ debut, routine_id }],
+  // enCours: routine_id de la séance en cours ou null }`. Pure. Un geste écrit une ligne par clé : groupées par (cree_le, choix).
+  // `annulable` : aucune séance commencée après le choix sur une routine qu'il touche (pour « Garder » et « Non merci », n'importe laquelle).
+  function choixDeLaSemaine(e) {
+    var lundi = lundiDe(e.jour);
+    var ls = (e.lignes || []).filter(function (l) { return l && String(l.semaine || '').slice(0, 10) === lundi; });
+    var annulees = {};
+    ls.forEach(function (l) { if (l.choix === 'annule') annulees[l.routine_id + '@' + ((l.detail || {}).jour)] = String(l.cree_le || ''); });
+    var vivantes = ls.filter(function (l) {
+      if (l.choix === 'annule') return false;
+      var cleA = l.routine_id + '@' + ((l.detail || {}).jour);
+      return !(Object.prototype.hasOwnProperty.call(annulees, cleA) && annulees[cleA] >= String(l.cree_le || ''));
+    }).sort(function (a, b) { return String(a.cree_le || '').localeCompare(String(b.cree_le || '')); });
+    var groupes = [], parCle = {};
+    vivantes.forEach(function (l) {
+      var cle = l.cree_le + '|' + l.choix;
+      if (!parCle[cle]) { parCle[cle] = { cle: cle, choix: l.choix, cree_le: l.cree_le, lignes: [] }; groupes.push(parCle[cle]); }
+      parCle[cle].lignes.push(l);
+    });
+    var nomDe = {};
+    (e.routines || []).forEach(function (r) { if (r) nomDe[r.id] = nomCourt(r.nom); });
+    var M = Modele();
+    return groupes.map(function (g) {
+      var porteur = g.lignes.filter(function (l) { var d = l.detail || {}; return Array.isArray(d.planning) || (Array.isArray(d.ajouts) && d.ajouts.length); })[0] || g.lignes[0];
+      var d = porteur.detail || {};
+      var manquee = nomDe[porteur.routine_id] || porteur.routine_id;
+      var ajouts = (Array.isArray(d.ajouts) ? d.ajouts : []).map(function (a) {
+        return { jourNom: noms()[a.jour - 1] || '', nom: M.nomCourt(M.nommer(e.catalogue || {}, a.slug)), affiche: M.nommer(e.catalogue || {}, a.slug),
+                 series: a.series, routine: a.routine, jour: a.jour };
+      });
+      var portees = null;     // null : n'importe quelle routine (« Garder », « Non merci »)
+      var phrase;
+      if (g.choix === 'repartir') {
+        portees = (Array.isArray(d.ajouts) ? d.ajouts : []).map(function (a) { return a.routine; });
+        var jours = [];
+        ajouts.forEach(function (a) { if (a.jourNom && jours.indexOf(a.jourNom) < 0) jours.push(a.jourNom); });
+        phrase = manquee + ' réparti\u00a0: ' + M.enumerer(jours) + '.';
+      } else if (g.choix === 'ajouter') {
+        portees = (Array.isArray(d.ajouts) ? d.ajouts : []).map(function (a) { return a.routine; });
+        var a0 = ajouts[0] || { nom: '', jourNom: '' };
+        phrase = manquee + '\u00a0: ' + a0.nom + ' ajouté ' + a0.jourNom + '.';
+      } else if (g.choix === 'decaler') {
+        var pl = (Array.isArray(d.planning) ? d.planning : []).filter(function (x) { return x.routine === porteur.routine_id; })[0];
+        portees = g.lignes.map(function (l) { return l.routine_id; }).concat((Array.isArray(d.planning) ? d.planning : []).map(function (x) { return x.routine; }));
+        phrase = manquee + ' passée à ' + (pl ? noms()[pl.jour - 1] : '') + ' ; la suite se décale.';
+      } else if (g.choix === 'garder') {
+        phrase = manquee + ' n\u2019a pas eu lieu\u00a0: semaine gardée comme prévue.';
+      } else {
+        phrase = manquee + '\u00a0: rien d\u2019ajouté.';
+      }
+      var t0 = Date.parse(g.cree_le);
+      var commencee = (e.seances || []).some(function (s) {
+        if (!s || (portees !== null && portees.indexOf(s.routine_id) < 0)) return false;
+        var t = Date.parse(s.debut);
+        return !isNaN(t0) && !isNaN(t) ? t >= t0 : false;
+      });
+      var enCours = e.enCours ? (portees === null || portees.indexOf(e.enCours) >= 0) : false;
+      return { cle: g.cle, choix: g.choix, phrase: phrase, ajouts: ajouts.map(function (a) { return { jourNom: a.jourNom, nom: a.affiche, series: a.series }; }),
+               annulable: !commencee && !enCours, lignes: g.lignes };
+    });
   }
 
   // Les exercices ajoutés à une routine pour aujourd'hui (la séance qui démarre), avec leur mention.
@@ -424,7 +503,7 @@
     jourDuNom: jourDuNom, nomCourt: nomCourt, lundiDe: lundiDe,
     semaineQuiDeraille: semaineQuiDeraille, decider: decider, ajoutsDuJour: ajoutsDuJour,
     lignesDuChoix: lignesDuChoix, etatDepuisLignes: etatDepuisLignes,
-    bandeDeLaSemaine: bandeDeLaSemaine
+    bandeDeLaSemaine: bandeDeLaSemaine, choixDeLaSemaine: choixDeLaSemaine, lignesDAnnulation: lignesDAnnulation
   };
   racine.THDeraille = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

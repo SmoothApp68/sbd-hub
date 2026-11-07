@@ -1618,6 +1618,8 @@ Une décision de la personne (décaler, répartir) ne s'efface jamais en silence
 
 **Maquette** : `v2-atelier/maquettes/maquette-semaine-deraille-v3.html` (validée le 15/10/2026). **Tests** : `tests/unit/v2-deraille.test.js` ; banc : section `deraille`.
 
+**266 (07/11/2026, décision d'Aurélien) — annuler un choix.** Chaque choix de la semaine reste lisible sous la bande (« Haut B réparti : vendredi et samedi. », « Bas B : hip thrust ajouté samedi. ») avec « Annuler » tant qu'aucune séance qu'il porte n'est commencée (une séance de la semaine, commencée après le choix, sur une routine qu'il touche ; pour « Garder » et « Non merci », n'importe quelle séance) ; une séance déjà faite garde ce qu'elle a fait. Annuler écrit, par la file, une ligne `choix = 'annule'` par clé du choix (même `semaine`, même `routine_id`, `detail.avant` = le choix d'avant) : la plus récente gagne partout (`fondreChoix`), la question revient. Pas de DELETE : `choixAReposer` (178) renverrait la ligne effacée depuis un autre appareil. Base : le CHECK `semaine_choix_choix_check` accepte `annule` (migration Claude.ai, `V2-137-SEMAINE-CHOIX-ANNULE.sql`). Lecture : `Deraille.choixDeLaSemaine` ; écriture : `Deraille.lignesDAnnulation` (`poserChoixDeSemaine`).
+
 
 ### 9.25 L'objectif — à l'essai, décidé le 16/10/2026
 

@@ -1330,7 +1330,7 @@
         if (js >= lundi) series = series.concat(travail);
         var slugs = {};
         travail.forEach(function (x) { slugs[x.exercise_slug] = true; });
-        seances.push({ jour: js, routine_id: s.routine_id || null, slugs: Object.keys(slugs) });
+        seances.push({ jour: js, debut: s.debut, routine_id: s.routine_id || null, slugs: Object.keys(slugs) });   // 266 : `debut` (l'annulation d'un choix lit l'instant)
       });
       var volume = {};
       Semaine.volumeParMuscle(series, cc.exercices).forEach(function (v) { volume[v.muscle] = v.series; });

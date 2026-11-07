@@ -229,6 +229,8 @@ const GARDEES = [
   { fn: 'changementsDeLApercu', module: 'generateur.js' },
   // deraille.js — la semaine qui déraille (99, MOTEUR §9.24)
   { fn: 'semaineQuiDeraille', module: 'deraille.js' },
+  // 266 (MOTEUR §9.24) — les choix de la semaine, lisibles et annulables sous la bande.
+  { fn: 'choixDeLaSemaine', module: 'deraille.js' },
   // objectif.js — l'objectif posé par la personne, à l'essai (109, MOTEUR §9.25) : la date annoncée, ce que la page
   // montre, l'observation du pari ; et l'identifiant du pari (moteur.js).
   { fn: 'projection', module: 'objectif.js', motif: /(?:\bObjectif|racine\.THObjectif)\s*\.\s*projection\b/g },
@@ -326,6 +328,9 @@ const AUTORISATIONS = {
       'plan ; l’écran passe à la règle son entrée (le programme, les faits de `faits.semaineDuProgramme`, les décisions ' +
       'de la semaine) et lit la carte telle quelle (app.js, `rendreCarteSemaine`). Un exercice ajouté entre ensuite ' +
       'dans la séance et le plan le coache comme les autres.'
+  },
+  choixDeLaSemaine: {
+    'app.js': '266 : la carte de la semaine lit les choix et leur annulation, rien n’est calculé à l’écran (app.js, `rendreCarteSemaine`).'
   },
   periodeAllegee: {
     'app.js': 'MOTEUR §9.18 (51-1 ter) : l’écran de la ROUTINE, avant toute séance — donc sans plan — ' +

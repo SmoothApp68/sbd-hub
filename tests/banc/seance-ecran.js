@@ -1546,7 +1546,7 @@ const SETS_IMPORTES = [
           const inconnue = Object.keys(l).filter((k) => ['user_id', 'semaine', 'routine_id', 'choix', 'detail', 'cree_le'].indexOf(k) < 0)[0];
           if (inconnue) return json(refus('PGRST204', 'semaine_choix : colonne inconnue « ' + inconnue + ' »'), 400);
           if (l.user_id !== MOI) return json(refus('42501', 'new row violates row-level security policy for table "semaine_choix"'), 400);
-          if (['decaler', 'repartir', 'garder', 'ajouter', 'non'].indexOf(l.choix) < 0) return json(refus('23514', 'semaine_choix_choix_check'), 400);
+          if (['decaler', 'repartir', 'garder', 'ajouter', 'non', 'annule'].indexOf(l.choix) < 0) return json(refus('23514', 'semaine_choix_choix_check'), 400);
           if (!/^\d{4}-\d{2}-\d{2}$/.test(String(l.semaine)) || new Date(l.semaine + 'T12:00:00Z').getUTCDay() !== 1) {
             return json(refus('23514', 'semaine_choix_semaine_check'), 400);
           }
@@ -24047,10 +24047,14 @@ const SETS_IMPORTES = [
       if (!n || n.hidden) return null;
       const t = (s) => (n.querySelector(s) || {}).textContent || null;
       return { titre: t('.semaine-titre'), pourquoi: t('.semaine-pourquoi'),
+        faits: Array.from(n.querySelectorAll('.semaine-fait')).map((x) => x.textContent),     // 266 : les choix de la semaine
+        annuler: !!n.querySelector('button[data-annuler]'), voir: !!n.querySelector('.semaine-fait-voir'),
         bande: Array.from(n.querySelectorAll('.semaine-r')).map((x) => x.textContent),
         choix: Array.from(n.querySelectorAll('.semaine-choix button')).map((b) => (b.className.indexOf('principal') >= 0 ? '* ' : '') + b.textContent),
         exos: Array.from(n.querySelectorAll('.semaine-exo')).map((x) => x.textContent), demarrer: !!n.querySelector('.carte-semaine > .principal') };
     });
+    // 266 — « la question » : la carte avec son titre (les choix faits restent lisibles sans elle).
+    const question99 = async () => { const c = await carte99(); return c && c.titre ? c : null; };
     const choisir99 = async (cle) => {
       await page.click('#carte-semaine button[data-choix="' + cle + '"]');
       await attendre(800);
@@ -24081,11 +24085,11 @@ const SETS_IMPORTES = [
       return b.textContent.slice(0, 60) + (m ? ' | ' + m.textContent : '');
     }));
     ok('[D99] « Répartir » : la carte se ferme ; Pull d’aujourd’hui a son leg curl en plus, « ajouté : séance manquée de mardi » (pas de squat ni de roumain après le rowing : lombaires)',
-      apres1 === null && blocs1.length === 3 && /Leg Curl D99/.test(blocs1[2]) && /ajouté : séance manquée de mardi/.test(blocs1[2]) &&
+      apres1 !== null && apres1.titre === null && apres1.choix.length === 0 && blocs1.length === 3 && /Leg Curl D99/.test(blocs1[2]) && /ajouté : séance manquée de mardi/.test(blocs1[2]) &&
         !blocs1.some((b) => /Squat D99|Roumain D99/.test(b)), nb99([apres1, blocs1]));
     await abandonner();
     await aller('/saisie');
-    ok('[D99] la question n’est posée qu’une fois : rechargé, plus de carte', (await carte99()) === null);
+    ok('[D99] la question n’est posée qu’une fois : rechargé, plus de question', (await question99()) === null);
     await A.fermer();
     const ligne99 = base.semaineChoix.filter((x) => x.routine_id === 'r-d99-jambes')[0];
     ok('[D99] le choix est en base, par la file : une ligne `semaine_choix` (lundi 12 oct., Jambes, « repartir », le leg curl dans le détail)',
@@ -24096,15 +24100,46 @@ const SETS_IMPORTES = [
     page = A2.p;
     await aller('/saisie');
     await attendre(1500);
-    ok('[D99] sur un autre appareil, le choix suit la personne : pas de carte', (await carte99()) === null);
+    ok('[D99] sur un autre appareil, le choix suit la personne : pas de question', (await question99()) === null);
     await A2.fermer();
+
+    // ── 1 bis. (266, MOTEUR §9.24) ANNULER UN CHOIX : le fait lisible sous la bande, « Annuler », la question qui revient ; une séance
+    // commencée sur une routine portée retire « Annuler ».
+    const E = await ouvrir99('D266-annuler');
+    await jusqua(async () => { const c = await carte99(); return !!c && c.faits.length > 0; }, 15000);
+    const f266 = await carte99();
+    ok('[D266] après « Répartir » : le fait « Jambes D99 réparti : mercredi. » sous la bande (pas de question), « Annuler » et « Voir ce qui a été ajouté »',
+      !!f266 && f266.titre === null && nb99(f266.faits) === nb99(['Jambes D99 réparti\u00a0: mercredi.']) && f266.annuler === true && f266.voir === true, nb99(f266));
+    await page.click('#carte-semaine button[data-annuler]');
+    await jusqua(async () => base.semaineChoix.some((x) => x.routine_id === 'r-d99-jambes' && x.choix === 'annule'), 15000);
+    await jusqua(async () => !!(await question99()), 10000);
+    const l266 = base.semaineChoix.filter((x) => x.routine_id === 'r-d99-jambes')[0] || {};
+    const q266 = await question99();
+    ok('[D266] « Annuler » : une ligne `annule` part par la file (journal semaine_choix, même semaine et même routine, avant = répartir), la question revient',
+      l266.choix === 'annule' && l266.semaine === '2026-10-12' && l266.detail.avant === 'repartir' && l266.detail.jour === 2 &&
+        base.journal.some((j) => j.op === 'semaine_choix' && j.lignes.some((x) => x.choix === 'annule')) &&
+        !!q266 && q266.titre === 'Jambes D99 n\'a pas eu lieu mardi.' && q266.faits.length === 0, nb99([l266, q266]));
+    await choisir99('repartir');
+    // Une séance de Pull (la routine portée par la répartition), commencée après le choix, vue à la synchronisation.
+    const apresLeChoix = new Date(2026, 9, 14, 10, 40, 0).toISOString();
+    base.sessions.push({ id: 'd266-pull', user_id: 'u-banc', titre: 'Mercredi — Pull D99', debut: apresLeChoix,
+      fin: new Date(2026, 9, 14, 11, 20, 0).toISOString(), statut: 'terminee', note: null, salle: null, salle_norme: null,
+      routine_id: 'r-d99-pull', source: 'app', created_at: apresLeChoix });
+    await aller('/saisie');
+    await jusqua(async () => { const c = await carte99(); return !!c && c.faits.length > 0; }, 15000);
+    await attendre(2500);
+    const g266 = await carte99();
+    ok('[D266] une séance commencée sur une routine portée (Pull) : le fait reste lisible, « Annuler » a disparu',
+      !!g266 && g266.faits.length === 1 && /^Jambes D99 réparti/.test(g266.faits[0]) && g266.annuler === false, nb99(g266));
+    await E.fermer();
+    base.sessions = base.sessions.filter((x) => x.id !== 'd266-pull');
     base.semaineChoix = [];
 
     // ── 2. « GARDER PULL, COMME PRÉVU ».
     const B = await ouvrir99('D99-garder');
     await choisir99('garder');
     await aller('/saisie');
-    ok('[D99] « Garder Pull D99, comme prévu » est respecté : rechargé, plus de carte', (await carte99()) === null);
+    ok('[D99] « Garder Pull D99, comme prévu » est respecté : rechargé, plus de question', (await question99()) === null);
     await B.fermer();
     base.semaineChoix = [];
 

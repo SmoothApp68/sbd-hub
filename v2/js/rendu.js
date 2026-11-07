@@ -5086,14 +5086,17 @@
     // 265 (MOTEUR §9.15.5 et §9.15.7, maquette séance v4) — « + Chauffe » : TA chauffe, une ligne à la fois, que le coach charge
     // (sa charge vient du plan, comme toute chauffe posée). En superset, une question : pour quel exercice ? Pas en mode programme
     // (l'éditeur pose ses chauffes par le type de la série).
+    // Hors de `.ajout-serie` : ses boutons restent les seuls « + Série » (les bancs et l'app les comptent), la rangée les tient côte à côte.
     var chauffables = bloc.exercices.filter(function (x) { var g = gabaritDe(vue, x.slug); return !g || g.mesure === 'charge_reps'; });
     if (!vue.programme && typeof vue.surAjoutChauffe === 'function' && chauffables.length) {
+      var rangee = el('div', 'ajouts');
+      rangee.appendChild(ajout);
       var bc = el('button', 'ajout-chauffe', '+ Chauffe');
       bc.type = 'button';
       if (chauffables.length === 1) {
         bc.setAttribute('aria-label', 'Ajouter une chauffe à ' + chauffables[0].nom);
         bc.addEventListener('click', function () { vue.surAjoutChauffe(chauffables[0]._iExo); });
-        ajout.appendChild(bc);
+        rangee.appendChild(bc);
       } else {
         bc.setAttribute('aria-expanded', 'false');
         var choix = el('div', 'choix-chauffe');
@@ -5111,9 +5114,10 @@
           choix.hidden = !choix.hidden;
           bc.setAttribute('aria-expanded', choix.hidden ? 'false' : 'true');
         });
-        ajout.appendChild(bc);
-        ajout.appendChild(choix);
+        rangee.appendChild(bc);
+        rangee.appendChild(choix);
       }
+      return rangee;
     }
     return ajout;
   }

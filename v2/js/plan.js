@@ -1875,7 +1875,7 @@
   // `n`, le nombre de séries de travail de la dernière séance de l'exercice tel
   // que la consigne le lit ; sans consigne (Entretenir, mesure sans charge), les
   // séries de travail de la dernière séance ; sans historique, l'intention — 3
-  // en Progresser, 2 en Entretenir (Spiering et al. 2021). Ce n'est qu'un
+  // en Progresser, 2 en Entretenir (Spiering et al. 2021, chez les jeunes adultes). Ce n'est qu'un
   // pré-remplissage : on ajoute et on retire librement. Une routine garde ses
   // propres séries (`exerciceDepuisRoutine`). Plus aucune lecture de
   // `consigne.n` hors du plan.

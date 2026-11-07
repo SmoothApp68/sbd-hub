@@ -327,7 +327,7 @@ describe('188-2 — Tes priorités, combien de fois par semaine', () => {
     expect(c).not.toBeNull();
     expect(c.famille).toBe('frequence');
     expect(c.lignes).toEqual([{ libelle: 'Tractions', texte: '1 fois / sem.', cle: 'tractions' }]);
-    expect(c.repere).toMatch(/deux fois par semaine font mieux qu’une \(Grgic, 2018\)/);
+    expect(c.repere).toMatch(/Deux séances par semaine sur un mouvement donnent un peu plus de force, surtout parce qu’on y fait plus de séries : à volume égal, aucune différence \(Grgic, 2018\)/);
     expect(JSON.stringify(c)).not.toMatch(/Schoenfeld/);       // Schoenfeld 2019 dit que la fréquence compte peu pour l'hypertrophie : pas pour la force
   });
   test('⚠️ le seuil 1,5 des deux côtés : 11 séances sur 8 semaines (1,375) est un écart, 12 (1,5) n’en est pas un', () => {

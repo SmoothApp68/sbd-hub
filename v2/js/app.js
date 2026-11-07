@@ -2008,6 +2008,7 @@
     var vue = {
       bilan: bilanPeriode(periode),
       qui: profil && profil.username ? profil.username : '',
+      sexe: lireSilhouette(),   // 268 (F) — le sexe du dessin du mois : la préférence de l'appareil
       jeu: jeu,
       surDetail: afficherParcours,
       surFermer: o.surFermer || null,

@@ -3366,3 +3366,9 @@ input,select,textarea,.ch-serie,.rp-serie,.eff-serie{
 .cartes-exo.sous-legende{margin:2px 0 6px}
 .cartes-exo.sous-legende .cartes-exo-nom{display:none}
 .en-tours .ok-serie:not(.cochee){border-color:#2B3442}
+/* 268 (F) — la silhouette du mois sur la plaque : les deux vues, une teinte, aucun seuil ; décorative. */
+.annee .plaque .corps{margin-top:12px}
+.annee .plaque .corps .bh-vues{max-width:260px;margin:0 auto;gap:10px}
+.annee .plaque .corps .bh-fig{aspect-ratio:1/2}
+.annee .plaque .corps .bh .bh-m{cursor:default}
+.annee .plaque .corps .bh-legende{max-width:260px;margin-left:auto;margin-right:auto}

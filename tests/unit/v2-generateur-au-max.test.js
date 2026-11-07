@@ -78,8 +78,10 @@ describe('193-2 — la dernière série « Au max », posée par défaut par `Mo
   });
   test('Force : les barres lourdes n’ont rien, les accessoires ont la marque (réserve 1)', () => {
     const ls = lignes(G.generer(cat, entree({ objectif: 'force', jours: 4 })));
-    ls.filter((x) => G.familleDeBarre(x.exercise_slug, cat) !== null).forEach((x) => expect(x.au_max).toBeUndefined());
-    const acc = ls.filter((x) => G.familleDeBarre(x.exercise_slug, cat) === null);
+    // 266 : la version à pause d'une barre se décide comme sa barre (jamais « au max » de plus)
+    const barreDe = (x) => Object.keys(G.PAUSE).filter((k) => G.PAUSE[k] === x.exercise_slug)[0] || x.exercise_slug;
+    ls.filter((x) => G.familleDeBarre(barreDe(x), cat) !== null).forEach((x) => expect(x.au_max).toBeUndefined());
+    const acc = ls.filter((x) => G.familleDeBarre(barreDe(x), cat) === null);
     expect(acc.length).toBeGreaterThan(0);
     acc.forEach((x) => expect(x.au_max).toBe(true));
   });

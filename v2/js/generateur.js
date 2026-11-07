@@ -186,6 +186,12 @@
   // Les variantes qui n'ont pas de motif de remplacement dans `MOTIFS` (pour ne pas changer le programme déduit) : la prise serrée,
   // puis Larsen, puis la barre elle-même (la dernière passe de `choisirBrut` la reprend, MOTEUR §9.29).
   var VARIANTES = { couche_serre: ['developpe_couche_prise_serree', 'developpe_couche_larsen', 'developpe_couche_barre'] };
+  // 266 (décision d'Aurélien du 07/11/2026) — LA VARIANTE À PAUSE en objectif Force : la place `reprise` (la deuxième exposition de la
+  // semaine, « la même barre, une autre zone ») du squat et du couché prend sa version à pause, si elle est faisable, non écartée, pas
+  // pour un débutant, et si aucune zone à ménager ne charge son motif. Le lourd ne change jamais. Une routine existante n'est jamais touchée.
+  var PAUSE = { squat_barre: 'squat_avec_pause_barre', developpe_couche_barre: 'developpe_couche_avec_pause' };
+  function estUnePause(slug) { return Object.keys(PAUSE).some(function (k) { return PAUSE[k] === slug; }); }
+  function barreDeLaPause(slug) { return Object.keys(PAUSE).filter(function (k) { return PAUSE[k] === slug; })[0] || null; }
 
   // 190 (décision d'Aurélien du 30/10/2026) — LES EXERCICES QUI DEMANDENT UNE BARRE (de traction, fixe, en hauteur) : une seule
   // définition, celle du profil (`THProfil.demandeUneBarreDeTraction`, lue sur le slug et l'équipement de la fiche du catalogue
@@ -374,7 +380,7 @@
     var reps = (role === 'P' ? (barre ? r[0] : r[1]) : role === 'S' ? r[1] : r[2]) +
       (contient(PETITS, motif) && (role === 'I' || role === 'T') ? 3 : 0);
     var n = seriesDe(role, objectif);
-    var prioEx = contient(priorites, slug);
+    var prioEx = contient(priorites, slug) || (barreDeLaPause(slug) !== null && contient(priorites, barreDeLaPause(slug)));   // 266 : la pause suit la priorité de sa barre
     // Un muscle prioritaire, hors sèche (un exercice prioritaire l'est toujours, sèche comprise) : +1 série sur un
     // secondaire, une isolation ou le tronc ; sur un principal seulement quand sa zone n'a aucune autre place dans le
     // programme (`solo`) — sinon la priorité passe par les autres places de la zone (60-6, S4).
@@ -439,7 +445,8 @@
         return fam === B[0] || fam === B[2];
       });
       var a = Moteur.auMaxDe({
-        objectif: p.objectif, debutant: debutant, famille: familleDeBarre(l.exercise_slug, catalogue),
+        // 266 — la version à pause d'une barre se décide comme sa barre (la même place, la même zone : jamais « au max » de plus).
+        objectif: p.objectif, debutant: debutant, famille: familleDeBarre(barreDeLaPause(l.exercise_slug) || l.exercise_slug, catalogue),
         equipement: fiche.equipement || null,
         isolation: Moteur.estIsolation({ prim: liste(fiche.muscles_primaires), sec: liste(fiche.muscles_secondaires), stab: liste(fiche.muscles_stabilisateurs) }),
         allegee: false, menagee: !!l.menage, douleurRecente: false, barreDeJambesApres: jambesApres,
@@ -599,7 +606,16 @@
       var liee = gabarit[pl.r][1][pl.j][2];
       if (liee && liee.lie) {                      // 193-2 : la même barre, une autre zone — jamais un second choix
         var cle = ids[liee.lie];
-        if (cle && choix[cle]) choix[pl.r + '-' + pl.j] = choix[cle];
+        if (cle && choix[cle]) {
+          choix[pl.r + '-' + pl.j] = choix[cle];
+          // 266 — la deuxième exposition d'une barre en Force prend sa version à pause (jamais pour un débutant, jamais si une zone à ménager
+          // charge le motif de la principale, jamais si elle est écartée ou hors de la salle) ; sinon la barre.
+          var kp0 = cle.split('-');
+          if (p.objectif === 'force' && !debutant && possede(PAUSE, choix[cle]) && ok(PAUSE[choix[cle]]) && !contient(ecartes, PAUSE[choix[cle]]) &&
+              !estMenagee(gabarit[Number(kp0[0])][1][Number(kp0[1])][0], p.menager)) {
+            choix[pl.r + '-' + pl.j] = PAUSE[choix[cle]];
+          }
+        }
         return;
       }
       // Les exercices déjà choisis DANS cette séance (les places plus prioritaires) : jamais deux fois le même.
@@ -709,7 +725,10 @@
     if (!vieux.lien) return sortie;
     rt.forEach(function (s, i) {
       liste(s.exercices).forEach(function (x, j) {
-        if ((i !== r || j !== k) && x.lien === vieux.lien && x.exercise_slug === vieux.exercise_slug) sortie.push([i, j]);
+        if ((i === r && j === k) || x.lien !== vieux.lien) return;
+        // 266 — depuis une ligne SANS pause, sa version à pause (même lien) est aussi liée : remplacer la barre emporte sa pause. Depuis la
+        // ligne à pause : elle seule.
+        if (x.exercise_slug === vieux.exercise_slug || (possede(PAUSE, vieux.exercise_slug) && x.exercise_slug === PAUSE[vieux.exercise_slug])) sortie.push([i, j]);
       });
     });
     return sortie;
@@ -737,6 +756,14 @@
     if (!vieux) return { routines: nouveau, ecartes: ecartes };
     if (!contient(ecartes, vieux.exercise_slug)) ecartes.push(vieux.exercise_slug);
     var faits = p.faits || {};
+    // 266 — « Je n'en veux pas » sur une pause : la place reprend la barre (faisable, non écartée), la pause rejoint les écartées ; sinon le
+    // chemin ordinaire.
+    var barreDePause = barreDeLaPause(vieux.exercise_slug);
+    if (barreDePause !== null && faisable(catalogue, p.materiel, faits, p.barre_traction)(barreDePause) && !contient(ecartes, barreDePause)) {
+      nouveau[r].exercices[k] = ligneNeuve(catalogue, barreDePause, vieux.motif, vieux, p);
+      marquerAuMax(catalogue, nouveau[r].exercices, p, [k]);
+      return { routines: nouveau, ecartes: ecartes };
+    }
     var pris = {};
     var liees = lieesDe(nouveau, r, k);
     // Les séances des places liées : l'exercice choisi ne doit être dans AUCUNE d'elles.
@@ -892,6 +919,13 @@
     var reculs = zonees.some(function (l) { return l.reculs > 0; });
     phrases.push(reculs ? 'Un jour lourd, une grosse série puis des reculs\u00a0; un jour en hypertrophie, des séries égales.'
                         : 'Chaque jour a sa zone\u00a0: la même barre passe de Lourd à Mix ou à Hypertrophie.');
+    // 266 — la deuxième exposition du squat et du couché se fait avec une pause (retirable : « Je n'en veux pas » rend la barre).
+    var pauseSq = zonees.some(function (l) { return l.exercise_slug === PAUSE.squat_barre; });
+    var pauseCo = zonees.some(function (l) { return l.exercise_slug === PAUSE.developpe_couche_barre; });
+    if (pauseSq || pauseCo) {
+      phrases.push('Ta deuxième séance de ' + (pauseSq && pauseCo ? 'squat et de couché' : pauseSq ? 'squat' : 'couché') +
+        ' se fait avec une pause\u00a0: marque un temps d’arrêt en bas. Même mouvement, plus de contrôle au point le plus dur\u00a0; retire-la si tu préfères la barre.');
+    }
     if (total <= 2 && sq <= 1 && co <= 1) phrases.push('Avec ' + total + ' séances, chaque barre passe une fois.');
     phrases.push('Une semaine allégée toutes les 5 semaines\u00a0: mêmes charges, moins de séries.');
     if (sq >= 2 || co >= 2) {
@@ -1710,6 +1744,28 @@
 
   // LES INVARIANTS DES SUPERSETS (§5 quater.4 bis) : V6 aucune ligne changée (exercice, séries, reps) ; V7 une paire
   // est de deux exercices contigus, et aucune sans cible ; V8 jamais une barre lourde ; V9 toujours deux antagonistes.
+  // 266 — I148 : la variante à pause. Une ligne à pause n'existe qu'en objectif Force, jamais pour un débutant, jamais sur une place lourde,
+  // toujours avec un `lien` dont la principale est la barre correspondante, jamais si une zone à ménager charge son motif. Rend les fautes.
+  function verifierPauses(entree, routines) {
+    var e = entree || {}, fautes = [];
+    var rts = liste(routines);
+    rts.forEach(function (rt, r) {
+      liste(rt.exercices).forEach(function (l) {
+        if (!estUnePause(l.exercise_slug)) return;
+        var nom = 'I148 ' + (rt.nom || r) + ' : ' + l.exercise_slug;
+        if (e.objectif !== 'force') fautes.push(nom + ' hors de l’objectif Force');
+        if (racine.THProfil.estDebutant(e)) fautes.push(nom + ' pour un débutant');
+        if (l.lourd) fautes.push(nom + ' sur une place lourde');
+        var principale = l.lien ? rts.some(function (rt2) {
+          return liste(rt2.exercices).some(function (x) { return x !== l && x.lien === l.lien && x.exercise_slug === barreDeLaPause(l.exercise_slug) && !estUnePause(x.exercise_slug); });
+        }) : false;
+        if (!l.lien || !principale) fautes.push(nom + ' sans sa barre pour principale (lien ' + l.lien + ')');
+        if (estMenagee(l.motif, e.menager)) fautes.push(nom + ' alors qu’une zone à ménager charge son motif');
+      });
+    });
+    return fautes;
+  }
+
   function verifierAssociation(entree, sortie) {
     var e = entree || {}, s = sortie || {}, cat = e.catalogue || {};
     var fautes = [];
@@ -2033,6 +2089,7 @@
     MUSCLES: MUSCLES,
     relireSemaine: relireSemaine,
     verifierRelecture: verifierRelecture,
+    verifierPauses: verifierPauses, PAUSE: PAUSE,
     // 66C — le programme déduit complété (QUESTIONNAIRE-COACH-V2 §5 quater.3)
     ECART: ECART,
     SERIES_MAX: SERIES_MAX,

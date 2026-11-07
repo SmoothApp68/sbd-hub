@@ -1840,6 +1840,8 @@ Même mécanique que §9.27 (`THEquilibres`, réglage habitude/cartes/silence, `
 
 **Le générateur pose la zone (193-2).** Pour Force et Les deux, le programme construit écrit la zone du jour sur la ligne de chaque barre (`brouillonDeStructure` : la zone de la ligne, plus `null` en dur) ; les accessoires restent en Automatique. Les deux lignes d'une même barre (deux zones) sont **liées** et se remplacent ensemble (QUESTIONNAIRE-COACH-V2 §5 bis.1). La zone à ménager prime (ci-dessus) : le générateur ne pose pas Lourd sur une place qui la charge. La phase de 5 semaines qui l'accompagne n'écrit aucune ligne de zone (§9.22, « Une phase »).
 
+**La variante à pause (266, 07/11/2026).** En objectif Force, la place liée du squat et du couché (la deuxième exposition, zone Mix) est leur version à pause quand elle est faisable, non écartée, hors débutant et hors zone à ménager (QUESTIONNAIRE §5 bis.1). Elle se décide comme sa barre (jamais « au max » de plus, la priorité de la barre la suit) et a son palier à elle. I148.
+
 **Inchangés** : les paris (un par ligne couverte), les records (par exercice et reps), la fatigue 189, les reculs 193-1 (ils suivent la grosse série de la consigne du jour).
 
 **Invariants.** I79 : une zone de plan n'est jamais remplacée en silence (la consigne d'un exercice à zone de plan porte cette zone). I80 : sous-histoire vide ou périmée (zone d'avant connue) : le report ou « première fois », jamais un palier d'une autre zone. I81 : un exercice à zone de plan n'est pas dans `programme.enBloc`.

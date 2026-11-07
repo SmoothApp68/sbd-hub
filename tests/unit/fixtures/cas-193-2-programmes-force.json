@@ -73,7 +73,7 @@
  "cas": [
   {
    "id": "force_2j",
-   "raison": "Force, 2 jours, avec barre : la famille Force",
+   "raison": "Force, 2 jours, avec barre : la famille Force — 266 : la pause sur la 2e exposition",
    "entree": {
     "materiel": "salle_complete",
     "anciennete": "3_a_5_ans",
@@ -107,7 +107,7 @@
        false
       ],
       [
-       "developpe_couche_barre",
+       "developpe_couche_avec_pause",
        "couche",
        "S",
        4,
@@ -246,7 +246,7 @@
   },
   {
    "id": "force_3j",
-   "raison": "Force, 3 jours, avec barre : la famille Force",
+   "raison": "Force, 3 jours, avec barre : la famille Force — 266 : la pause sur la 2e exposition",
    "entree": {
     "materiel": "salle_complete",
     "anciennete": "3_a_5_ans",
@@ -280,7 +280,7 @@
        false
       ],
       [
-       "developpe_couche_barre",
+       "developpe_couche_avec_pause",
        "couche",
        "S",
        4,
@@ -350,7 +350,7 @@
        false
       ],
       [
-       "squat_barre",
+       "squat_avec_pause_barre",
        "squat",
        "S",
        4,
@@ -473,7 +473,7 @@
   },
   {
    "id": "force_4j",
-   "raison": "Force, 4 jours, avec barre : la famille Force",
+   "raison": "Force, 4 jours, avec barre : la famille Force — 266 : la pause sur la 2e exposition",
    "entree": {
     "materiel": "salle_complete",
     "anciennete": "3_a_5_ans",
@@ -507,7 +507,7 @@
        false
       ],
       [
-       "developpe_couche_barre",
+       "developpe_couche_avec_pause",
        "couche",
        "S",
        4,
@@ -685,7 +685,7 @@
      "pourquoi": "Jambes 4 · Dos 3 · Épaules 3 · Tronc 2 séries",
      "exercices": [
       [
-       "squat_barre",
+       "squat_avec_pause_barre",
        "squat",
        "S",
        4,
@@ -754,7 +754,7 @@
   },
   {
    "id": "force_5j",
-   "raison": "Force, 5 jours, avec barre : la famille Force",
+   "raison": "Force, 5 jours, avec barre : la famille Force — 266 : la pause sur la 2e exposition",
    "entree": {
     "materiel": "salle_complete",
     "anciennete": "3_a_5_ans",
@@ -788,7 +788,7 @@
        false
       ],
       [
-       "developpe_couche_barre",
+       "developpe_couche_avec_pause",
        "couche",
        "S",
        4,
@@ -966,7 +966,7 @@
      "pourquoi": "Jambes 4 · Dos 3 · Épaules 3 · Tronc 2 séries",
      "exercices": [
       [
-       "squat_barre",
+       "squat_avec_pause_barre",
        "squat",
        "S",
        4,
@@ -1137,7 +1137,7 @@
   },
   {
    "id": "force_6j",
-   "raison": "Force, 6 jours, avec barre : la famille Force",
+   "raison": "Force, 6 jours, avec barre : la famille Force — 266 : la pause sur la 2e exposition",
    "entree": {
     "materiel": "salle_complete",
     "anciennete": "3_a_5_ans",
@@ -1171,7 +1171,7 @@
        false
       ],
       [
-       "developpe_couche_barre",
+       "developpe_couche_avec_pause",
        "couche",
        "S",
        4,
@@ -1349,7 +1349,7 @@
      "pourquoi": "Jambes 4 · Dos 3 · Épaules 3 · Tronc 2 séries",
      "exercices": [
       [
-       "squat_barre",
+       "squat_avec_pause_barre",
        "squat",
        "S",
        4,
@@ -3944,7 +3944,7 @@
   },
   {
    "id": "force_3j_dos",
-   "raison": "dos à ménager : le squat prend le belt squat, le soulevé la barre hexagonale, sans série lourde (zone Mix), le roumain ≤ 8",
+   "raison": "dos à ménager : le squat prend le belt squat, le soulevé la barre hexagonale, sans série lourde (zone Mix), le roumain ≤ 8 — 266 : la pause sur la 2e exposition",
    "entree": {
     "materiel": "salle_complete",
     "anciennete": "3_a_5_ans",
@@ -3980,7 +3980,7 @@
        true
       ],
       [
-       "developpe_couche_barre",
+       "developpe_couche_avec_pause",
        "couche",
        "S",
        4,
@@ -4472,7 +4472,7 @@
   },
   {
    "id": "force_3j_couche_ecarte",
-   "raison": "couché à la barre écarté : le lourd et sa reprise prennent le même remplaçant",
+   "raison": "couché à la barre écarté : le lourd et sa reprise prennent le même remplaçant — 266 : la pause sur la 2e exposition",
    "entree": {
     "materiel": "salle_complete",
     "anciennete": "3_a_5_ans",
@@ -4578,7 +4578,7 @@
        true
       ],
       [
-       "squat_barre",
+       "squat_avec_pause_barre",
        "squat",
        "S",
        4,
@@ -4701,7 +4701,7 @@
   },
   {
    "id": "force_3j_serree_ecartee",
-   "raison": "prise serrée écartée : Larsen",
+   "raison": "prise serrée écartée : Larsen — 266 : la pause sur la 2e exposition",
    "entree": {
     "materiel": "salle_complete",
     "anciennete": "3_a_5_ans",
@@ -4737,7 +4737,7 @@
        false
       ],
       [
-       "developpe_couche_barre",
+       "developpe_couche_avec_pause",
        "couche",
        "S",
        4,
@@ -4807,7 +4807,7 @@
        false
       ],
       [
-       "squat_barre",
+       "squat_avec_pause_barre",
        "squat",
        "S",
        4,
@@ -4930,7 +4930,7 @@
   },
   {
    "id": "force_3j_serree_larsen_ecartes",
-   "raison": "prise serrée et Larsen écartées : la barre elle-même, en Hypertrophie",
+   "raison": "prise serrée et Larsen écartées : la barre elle-même, en Hypertrophie — 266 : la pause sur la 2e exposition",
    "entree": {
     "materiel": "salle_complete",
     "anciennete": "3_a_5_ans",
@@ -4967,7 +4967,7 @@
        false
       ],
       [
-       "developpe_couche_barre",
+       "developpe_couche_avec_pause",
        "couche",
        "S",
        4,
@@ -5037,7 +5037,7 @@
        false
       ],
       [
-       "squat_barre",
+       "squat_avec_pause_barre",
        "squat",
        "S",
        4,
@@ -5160,7 +5160,7 @@
   },
   {
    "id": "force_4j_prio_squat",
-   "raison": "priorité squat : une série de plus au lourd et à sa reprise",
+   "raison": "priorité squat : une série de plus au lourd et à sa reprise — 266 : la pause sur la 2e exposition",
    "entree": {
     "materiel": "salle_complete",
     "anciennete": "3_a_5_ans",
@@ -5196,7 +5196,7 @@
        false
       ],
       [
-       "developpe_couche_barre",
+       "developpe_couche_avec_pause",
        "couche",
        "S",
        4,
@@ -5374,7 +5374,7 @@
      "pourquoi": "Jambes 5 · Dos 3 · Épaules 3 · Tronc 2 séries",
      "exercices": [
       [
-       "squat_barre",
+       "squat_avec_pause_barre",
        "squat",
        "S",
        5,
@@ -6768,7 +6768,7 @@
   },
   {
    "id": "jordan_3j_force_prio_souleve",
-   "raison": "cas de 60-6 en Force / Les deux avec barre : nouvelle sortie des familles de 193-2 (l’ancienne reste rejouée par v2-generateur.test.js avec famille:false)",
+   "raison": "cas de 60-6 en Force / Les deux avec barre : nouvelle sortie des familles de 193-2 (l’ancienne reste rejouée par v2-generateur.test.js avec famille:false) — 266 : la pause sur la 2e exposition",
    "entree": {
     "jours": 3,
     "objectif": "force",
@@ -6831,7 +6831,7 @@
        false
       ],
       [
-       "developpe_couche_barre",
+       "developpe_couche_avec_pause",
        "couche",
        "S",
        4,
@@ -6901,7 +6901,7 @@
        false
       ],
       [
-       "squat_barre",
+       "squat_avec_pause_barre",
        "squat",
        "S",
        4,
@@ -8056,7 +8056,7 @@
   },
   {
    "id": "maison_equipee_4j_force_presse_faite",
-   "raison": "cas de 60-6 en Force / Les deux avec barre : nouvelle sortie des familles de 193-2 (l’ancienne reste rejouée par v2-generateur.test.js avec famille:false)",
+   "raison": "cas de 60-6 en Force / Les deux avec barre : nouvelle sortie des familles de 193-2 (l’ancienne reste rejouée par v2-generateur.test.js avec famille:false) — 266 : la pause sur la 2e exposition",
    "entree": {
     "jours": 4,
     "objectif": "force",
@@ -8087,7 +8087,7 @@
        false
       ],
       [
-       "developpe_couche_barre",
+       "developpe_couche_avec_pause",
        "couche",
        "S",
        4,
@@ -8265,7 +8265,7 @@
      "pourquoi": "Jambes 4 · Dos 3 · Épaules 3 · Tronc 2 séries",
      "exercices": [
       [
-       "squat_barre",
+       "squat_avec_pause_barre",
        "squat",
        "S",
        4,
@@ -8334,7 +8334,7 @@
   },
   {
    "id": "jours_1_borne_2",
-   "raison": "cas de 60-6 en Force / Les deux avec barre : nouvelle sortie des familles de 193-2 (l’ancienne reste rejouée par v2-generateur.test.js avec famille:false)",
+   "raison": "cas de 60-6 en Force / Les deux avec barre : nouvelle sortie des familles de 193-2 (l’ancienne reste rejouée par v2-generateur.test.js avec famille:false) — 266 : la pause sur la 2e exposition",
    "entree": {
     "jours": 1,
     "objectif": "force",
@@ -8362,7 +8362,7 @@
        false
       ],
       [
-       "developpe_couche_barre",
+       "developpe_couche_avec_pause",
        "couche",
        "S",
        4,
@@ -8983,7 +8983,7 @@
   },
   {
    "id": "deux_jours_force_salle_complete",
-   "raison": "cas de 60-6 en Force / Les deux avec barre : nouvelle sortie des familles de 193-2 (l’ancienne reste rejouée par v2-generateur.test.js avec famille:false)",
+   "raison": "cas de 60-6 en Force / Les deux avec barre : nouvelle sortie des familles de 193-2 (l’ancienne reste rejouée par v2-generateur.test.js avec famille:false) — 266 : la pause sur la 2e exposition",
    "entree": {
     "jours": 2,
     "objectif": "force",
@@ -9011,7 +9011,7 @@
        false
       ],
       [
-       "developpe_couche_barre",
+       "developpe_couche_avec_pause",
        "couche",
        "S",
        4,
@@ -9150,7 +9150,7 @@
   },
   {
    "id": "trois_jours_force_prio_jambes",
-   "raison": "cas de 60-6 en Force / Les deux avec barre : nouvelle sortie des familles de 193-2 (l’ancienne reste rejouée par v2-generateur.test.js avec famille:false)",
+   "raison": "cas de 60-6 en Force / Les deux avec barre : nouvelle sortie des familles de 193-2 (l’ancienne reste rejouée par v2-generateur.test.js avec famille:false) — 266 : la pause sur la 2e exposition",
    "entree": {
     "jours": 3,
     "objectif": "force",
@@ -9182,7 +9182,7 @@
        false
       ],
       [
-       "developpe_couche_barre",
+       "developpe_couche_avec_pause",
        "couche",
        "S",
        4,
@@ -9252,7 +9252,7 @@
        false
       ],
       [
-       "squat_barre",
+       "squat_avec_pause_barre",
        "squat",
        "S",
        4,

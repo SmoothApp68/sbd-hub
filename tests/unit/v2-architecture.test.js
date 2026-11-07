@@ -218,6 +218,8 @@ const GARDEES = [
   // module avant « Construis-le-moi » (66D).
   { fn: 'completer', module: 'generateur.js' },
   { fn: 'verifierComplement', module: 'generateur.js' },
+  // 266 (I148) — la variante à pause en Force : elle se vérifie, elle ne se décide qu'au générateur.
+  { fn: 'verifierPauses', module: 'generateur.js' },
   // generateur.js — la fin (66D, QUESTIONNAIRE-COACH-V2 §5 quater.4-5) : l'ordre, les supersets, l'habillage d'une
   // ligne déduite et les lignes de « Ce que j'ai changé ». `motif` de `ranger` : `Sync.ranger` (sync.js) est une
   // autre fonction du même nom ; seul l'appel qualifié par le générateur compte.

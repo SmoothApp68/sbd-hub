@@ -109,7 +109,8 @@ describe('193-2 — les règles, sur chaque famille de 2 à 6 jours', () => {
   const cat = catalogue();
   const programme = (objectif, jours, o) => G.generer(cat, entree(Object.assign({ objectif, jours }, o || {})));
   // Une barre « est faite » dans une séance : son exercice, ou une variante de sa famille (la prise serrée est un couché).
-  const COUCHES = [COUCHE, 'developpe_couche_prise_serree'];
+  const SQUAT_PAUSE = 'squat_avec_pause_barre', COUCHE_PAUSE = 'developpe_couche_avec_pause';
+  const COUCHES = [COUCHE, 'developpe_couche_prise_serree', COUCHE_PAUSE];   // 266 : la 2e exposition d'une barre est sa version à pause en Force
   const compte = (rs, slugs, filtre) => lignes(rs).filter((x) => slugs.indexOf(x.exercise_slug) >= 0 && (!filtre || filtre(x))).length;
 
   ['force', 'les_deux'].forEach((objectif) => {
@@ -123,7 +124,7 @@ describe('193-2 — les règles, sur chaque famille de 2 à 6 jours', () => {
         });
 
         test('la fréquence : le squat 2 fois (une seule à 2 jours), le couché 2 fois (Force : 3 dès 3 jours), le soulevé 1 fois lourd', () => {
-          const squat = compte(rs, [SQUAT]);
+          const squat = compte(rs, [SQUAT, SQUAT_PAUSE]);
           const couche = compte(rs, COUCHES);
           const souleve = compte(rs, [SOULEVE]);
           expect(squat).toBe(jours === 2 ? 1 : 2);
@@ -159,7 +160,14 @@ describe('193-2 — les règles, sur chaque famille de 2 à 6 jours', () => {
           lignes(rs).filter((x) => x.lien).forEach((x) => { (parLien[x.lien] = parLien[x.lien] || []).push(x); });
           Object.keys(parLien).forEach((lien) => {
             const l = parLien[lien];
-            expect(new Set(l.map((x) => x.exercise_slug)).size).toBe(1);
+            // 266 : « le même exercice, ou sa version à pause en Force » (la principale reste la barre)
+            const slugs = new Set(l.map((x) => x.exercise_slug));
+            if (slugs.size === 2) {
+              expect(objectif).toBe('force');
+              const [barre] = l.filter((x) => x.lourd).map((x) => x.exercise_slug);
+              expect([SQUAT, COUCHE]).toContain(barre);
+              expect(l.filter((x) => !x.lourd).map((x) => x.exercise_slug)).toEqual([barre === SQUAT ? SQUAT_PAUSE : COUCHE_PAUSE]);
+            } else expect(slugs.size).toBe(1);
             if (l.length > 1) expect(new Set(l.map((x) => x.zone)).size).toBe(l.length);
           });
         });
@@ -172,6 +180,10 @@ describe('193-2 — les règles, sur chaque famille de 2 à 6 jours', () => {
           const e = entree({ objectif, jours }), avant = clone(e);
           expect(JSON.stringify(G.generer(cat, e))).toBe(JSON.stringify(G.generer(cat, e)));
           expect(e).toEqual(avant);
+        });
+
+        test('I148 (266) : la variante à pause est à sa place sur chaque programme', () => {
+          expect(G.verifierPauses(entree({ objectif, jours }), rs)).toEqual([]);
         });
       });
     });
@@ -204,7 +216,7 @@ describe('193-2 — les règles, sur chaque famille de 2 à 6 jours', () => {
   });
 
   test('priorité : +1 série à une barre de Force ; à une grosse série, +1 RECUL, jamais une seconde grosse série', () => {
-    const f = lignes(programme('force', 4, { priorites: [SQUAT] })).filter((x) => x.exercise_slug === SQUAT);
+    const f = lignes(programme('force', 4, { priorites: [SQUAT] })).filter((x) => x.exercise_slug === SQUAT || x.exercise_slug === SQUAT_PAUSE);   // 266 : la 2e exposition est la pause
     expect(f.map((x) => x.series).sort()).toEqual([5, 5]);
     const d = lignes(programme('les_deux', 4, { priorites: [SQUAT] })).filter((x) => x.exercise_slug === SQUAT && x.zone === 'lourd')[0];
     expect(d.series).toBe(1);
@@ -233,5 +245,101 @@ describe('193-2 — les règles, sur chaque famille de 2 à 6 jours', () => {
       .filter((x) => x.motif === 'couche_serre');
     expect(b[0].exercise_slug).toBe(COUCHE);
     expect(b[0].zone).toBe('hypertrophie');
+  });
+});
+
+// 266 (décision d'Aurélien du 07/11/2026) — LA VARIANTE À PAUSE sur la deuxième exposition du squat et du couché, en Force.
+describe('266 — la variante à pause (Force, deuxième exposition)', () => {
+  const cat = catalogue();
+  const prog = (o) => G.generer(cat, entree(o));
+  const sansPause = () => { const c = catalogue(); delete c[SQUAT_PAUSE_266]; delete c[COUCHE_PAUSE_266]; return c; };
+  const SQUAT_PAUSE_266 = 'squat_avec_pause_barre', COUCHE_PAUSE_266 = 'developpe_couche_avec_pause';
+  const repriseDe = (rs, barre) => lignes(rs).filter((x) => x.lien && !x.lourd && (x.exercise_slug === barre || G.PAUSE[barre] === x.exercise_slug));
+
+  test('Force 3 jours : la reprise du squat et celle du couché sont leurs versions à pause ; le lourd ne change jamais', () => {
+    const rs = prog({ objectif: 'force', jours: 3 });
+    expect(repriseDe(rs, SQUAT).map((x) => x.exercise_slug)).toEqual([SQUAT_PAUSE_266]);
+    expect(repriseDe(rs, COUCHE).map((x) => x.exercise_slug)).toEqual([COUCHE_PAUSE_266]);
+    expect(lignes(rs).filter((x) => x.lourd).map((x) => x.exercise_slug)).toEqual(expect.arrayContaining([SQUAT, COUCHE, SOULEVE]));
+    lignes(rs).filter((x) => x.lourd).forEach((x) => expect([SQUAT_PAUSE_266, COUCHE_PAUSE_266]).not.toContain(x.exercise_slug));
+  });
+
+  test('Les deux, le débutant, une maison sans barre : jamais de pause', () => {
+    [2, 3, 4, 5, 6].forEach((jours) => {
+      expect(lignes(prog({ objectif: 'les_deux', jours })).some((x) => G.PAUSE[x.exercise_slug] === undefined && [SQUAT_PAUSE_266, COUCHE_PAUSE_266].indexOf(x.exercise_slug) >= 0)).toBe(false);
+    });
+    expect(lignes(prog({ objectif: 'force', jours: 4, anciennete: 'moins_1_an' })).some((x) => [SQUAT_PAUSE_266, COUCHE_PAUSE_266].indexOf(x.exercise_slug) >= 0)).toBe(false);
+    expect(lignes(prog({ objectif: 'force', jours: 3, materiel: 'maison_minimal' })).some((x) => [SQUAT_PAUSE_266, COUCHE_PAUSE_266].indexOf(x.exercise_slug) >= 0)).toBe(false);
+  });
+
+  test('une pause écartée, ou absente du catalogue : la barre', () => {
+    const e = prog({ objectif: 'force', jours: 3, ecartes: [SQUAT_PAUSE_266] });
+    expect(repriseDe(e, SQUAT).map((x) => x.exercise_slug)).toEqual([SQUAT]);
+    expect(repriseDe(e, COUCHE).map((x) => x.exercise_slug)).toEqual([COUCHE_PAUSE_266]);
+    const c = sansPause();
+    expect(lignes(G.generer(c, entree({ objectif: 'force', jours: 3 }))).some((x) => [SQUAT_PAUSE_266, COUCHE_PAUSE_266].indexOf(x.exercise_slug) >= 0)).toBe(false);
+  });
+
+  test('une zone à ménager qui charge le motif : la barre (genou → squat ; dos → squat)', () => {
+    const g = prog({ objectif: 'force', jours: 3, menager: ['genou'] });
+    expect(lignes(g).some((x) => x.exercise_slug === SQUAT_PAUSE_266)).toBe(false);
+    expect(G.verifierPauses(entree({ objectif: 'force', jours: 3, menager: ['genou'] }), g)).toEqual([]);
+  });
+
+  test('« Je n’en veux pas » sur la pause : la place reprend la barre, la pause rejoint les écartées ; la barre écartée : le chemin ordinaire', () => {
+    const e = entree({ objectif: 'force', jours: 3 });
+    const rs = G.generer(cat, e);
+    const [i, k] = (() => { let o; rs.forEach((rt, a) => rt.exercices.forEach((x, b) => { if (x.exercise_slug === SQUAT_PAUSE_266) o = [a, b]; })); return o; })();
+    const r = G.neVeuxPas(cat, rs, e, i, k);
+    expect(r.routines[i].exercices[k].exercise_slug).toBe(SQUAT);
+    expect(r.routines[i].exercices[k].lien).toBe(rs[i].exercices[k].lien);
+    expect(r.ecartes).toContain(SQUAT_PAUSE_266);
+    const e2 = entree({ objectif: 'force', jours: 3, ecartes: [SQUAT] });
+    const rs2 = G.generer(cat, e2);
+    const loc = (() => { let o; rs2.forEach((rt, a) => rt.exercices.forEach((x, b) => { if (x.exercise_slug === SQUAT_PAUSE_266) o = [a, b]; })); return o; })();
+    if (loc) expect(G.neVeuxPas(cat, rs2, e2, loc[0], loc[1]).routines[loc[0]].exercices[loc[1]].exercise_slug).not.toBe(SQUAT);
+  });
+
+  test('l’aperçu le dit une fois (squat seul, couché seul, les deux)', () => {
+    const e = entree({ objectif: 'force', jours: 3 });
+    const rs = G.generer(cat, e);
+    const dit = G.phrasesDeLApercu(rs, e, (x) => x, rs.length).famille.filter((p) => /pause/.test(p));
+    expect(dit).toEqual(['Ta deuxième séance de squat et de couché se fait avec une pause\u00a0: marque un temps d’arrêt en bas. Même mouvement, plus de contrôle au point le plus dur\u00a0; retire-la si tu préfères la barre.']);
+    const ec = entree({ objectif: 'force', jours: 3, ecartes: [COUCHE_PAUSE_266] });
+    const rc = G.generer(cat, ec);
+    expect(G.phrasesDeLApercu(rc, ec, (x) => x, rc.length).famille.filter((p) => /pause/.test(p))[0]).toMatch(/^Ta deuxième séance de squat se fait avec une pause/);
+  });
+
+  test('I148 : une pause en Les deux, pour un débutant, sur une place lourde, sans sa barre ou sur une zone ménagée est refusée', () => {
+    const e = entree({ objectif: 'force', jours: 3 });
+    const bon = G.generer(cat, e);
+    expect(G.verifierPauses(e, bon)).toEqual([]);
+    expect(G.verifierPauses(Object.assign(clone(e), { objectif: 'les_deux' }), bon).join('|')).toMatch(/I148.*hors de l’objectif Force/);
+    expect(G.verifierPauses(Object.assign(clone(e), { anciennete: 'moins_1_an' }), bon).join('|')).toMatch(/I148.*pour un débutant/);
+    expect(G.verifierPauses(Object.assign(clone(e), { menager: ['genou'] }), bon).join('|')).toMatch(/I148.*zone à ménager/);
+    const lourd = clone(bon); lignes(lourd).filter((x) => x.exercise_slug === SQUAT_PAUSE_266).forEach((x) => { x.lourd = true; });
+    expect(G.verifierPauses(e, lourd).join('|')).toMatch(/I148.*place lourde/);
+    const seule = clone(bon); lignes(seule).filter((x) => x.exercise_slug === SQUAT_PAUSE_266).forEach((x) => { delete x.lien; });
+    expect(G.verifierPauses(e, seule).join('|')).toMatch(/I148.*sans sa barre/);
+  });
+
+  test('la différence avec l’avant-266 se limite aux slugs des reprises du squat et du couché (champ à champ, hors exercise_slug)', () => {
+    let n = 0;
+    F.cas.concat(F.reprises_de_60_6).forEach((c) => {
+      const avec = vue(cat, G.generer(cat, clone(c.entree)));
+      const c0 = sansPause();
+      const sans = vue(c0, G.generer(c0, clone(c.entree)));
+      expect(avec.length).toBe(sans.length);
+      avec.forEach((rt, i) => {
+        expect(rt.nom).toBe(sans[i].nom);
+        expect(rt.exercices.length).toBe(sans[i].exercices.length);
+        rt.exercices.forEach((x, j) => {
+          const y = sans[i].exercices[j];
+          expect(x.slice(1)).toEqual(y.slice(1));
+          if (x[0] !== y[0]) { expect(x[0]).toBe(G.PAUSE[y[0]]); expect(x[9]).not.toBeNull(); expect(x[8]).toBe(false); n++; }
+        });
+      });
+    });
+    expect(n).toBeGreaterThan(15);
   });
 });

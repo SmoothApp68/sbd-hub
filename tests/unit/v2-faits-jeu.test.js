@@ -108,12 +108,13 @@ describe('64A — faitsDuJeu, l’entrée du jeu (JEU-V1 §8)', () => {
     expect(e.series.some((x) => x.type_serie === 'echauffement')).toBe(true);
   });
 
-  test('les maximums suivent l’ordre de BARRES_DU_JEU (pas l’ordre des séances), ceux de `ceQueJeSais`', () => {
+  test('les maximums : les barres de BARRES_DU_JEU d’abord (pas l’ordre des séances), puis les autres ; les charges de `ceQueJeSais`', () => {
     const c = historique();
     const f = Faits.creer();
     const e = f.faitsDuJeu(c, AUJ);
-    expect(e.maximums.map((x) => x.slug)).toEqual(f.BARRES_DU_JEU);
-    expect(e.maximums).toEqual(Faits.creer().ceQueJeSais(c, AUJ, f.BARRES_DU_JEU).maximums);
+    expect(e.maximums.slice(0, f.BARRES_DU_JEU.length).map((x) => x.slug)).toEqual(f.BARRES_DU_JEU);
+    expect(e.maximums.slice(0, f.BARRES_DU_JEU.length).map((x) => ({ slug: x.slug, charge: x.charge })))
+      .toEqual(Faits.creer().ceQueJeSais(c, AUJ, f.BARRES_DU_JEU).maximums);
     expect(e.maximums.filter((x) => x.slug === 'squat_barre')[0].charge).toBe(140);
   });
 
@@ -148,7 +149,7 @@ describe('64A — faitsDuJeu, l’entrée du jeu (JEU-V1 §8)', () => {
     expect(etat.muscles.jambes.points).toBe(2);              // le squat de 140 (1) et le soulevé (1) ; pas la chauffe
     expect(etat.succes.ids).not.toContain('rando-sortie-20');  // les 25 km sont dans la séance en cours
     expect(etat.succes.ids).toContain('cap-squat_barre-140');
-    expect(etat.succes.ids).not.toContain('cap-squat_barre-160');
+    expect(etat.succes.ids).not.toContain('cap-squat_barre-180');
   });
 });
 
@@ -214,13 +215,13 @@ describe('64B — faitsDuJeu avec la séance en cours (« comme si elle était t
   test('⚠️ (b) un cap rond gagné dans la séance en cours : le maximum l’inclut', () => {
     const c = historique();
     const f = Faits.creer();
-    const ec = enCoursDe(brouillon([{ slug: 'squat_barre', series: [{ charge_kg: 160, reps: 1 }] }]));
+    const ec = enCoursDe(brouillon([{ slug: 'squat_barre', series: [{ charge_kg: 180, reps: 1 }] }]));
     const e = f.faitsDuJeu(c, SOIR, ec);
-    expect(e.maximums.filter((x) => x.slug === 'squat_barre')[0].charge).toBe(160);
-    expect(e.maximums.map((x) => x.slug)).toEqual(f.BARRES_DU_JEU);
+    expect(e.maximums.filter((x) => x.slug === 'squat_barre')[0].charge).toBe(180);
+    expect(e.maximums.slice(0, f.BARRES_DU_JEU.length).map((x) => x.slug)).toEqual(f.BARRES_DU_JEU);
     const Jeu = require('../../v2/js/jeu.js');
-    expect(Jeu.etatDuJeu(e).succes.ids).toContain('cap-squat_barre-160');
-    expect(Jeu.etatDuJeu(f.faitsDuJeu(c, SOIR)).succes.ids).not.toContain('cap-squat_barre-160');
+    expect(Jeu.etatDuJeu(e).succes.ids).toContain('cap-squat_barre-180');
+    expect(Jeu.etatDuJeu(f.faitsDuJeu(c, SOIR)).succes.ids).not.toContain('cap-squat_barre-180');
   });
 
   test('⚠️ (c) une découverte gagnée dans la séance en cours, sans polluer les mémos de l’instance', () => {
@@ -238,10 +239,10 @@ describe('64B — faitsDuJeu avec la séance en cours (« comme si elle était t
 
   test('le journal reçoit les records de la séance (`journalDuJour`, ceux de la feuille), avec leur `set_id`', () => {
     const c = historique();
-    const ec = enCoursDe(brouillon([{ slug: 'squat_barre', series: [{ charge_kg: 160, reps: 1 }, { charge_kg: 60, reps: 5 }] }]));
+    const ec = enCoursDe(brouillon([{ slug: 'squat_barre', series: [{ charge_kg: 180, reps: 1 }, { charge_kg: 60, reps: 5 }] }]));
     const e = Faits.creer().faitsDuJeu(c, SOIR, ec);
     const lignes = e.journal.filter((l) => l.session_id === 'cur');
-    // 160 × 1 (charge maximale) et 60 × 5 (la charge pour 5 reps, jamais faite avant) : deux séries médaillées.
+    // 180 × 1 (charge maximale) et 60 × 5 (la charge pour 5 reps, jamais faite avant) : deux séries médaillées.
     expect(Array.from(new Set(lignes.map((l) => l.set_id))).sort()).toEqual(['cur-squat_barre-0', 'cur-squat_barre-1']);
     expect(lignes.every((l) => ec.lignes.some((x) => x.id === l.set_id))).toBe(true);
     expect(e.journal.length).toBe(Faits.creer().recordsDuJournal(c).length + lignes.length);

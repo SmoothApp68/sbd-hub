@@ -2196,7 +2196,11 @@
   // La description d'un succès, avec le nom court de l'exercice pour un cap rond (comme la médaille).
   function succesDecrit(id) {
     var d = Jeu.descriptionDuSucces(id);
-    if (d && d.categorie === 'cap') d.nom = Modele.nomCourt(Modele.nommer(corpus().catalogue(), d.cle));
+    if (d && d.categorie === 'cap') {
+      var index = corpus().catalogue();
+      d.nom = Modele.nomCourt(Modele.nommer(index, d.cle));
+      d.plaques = Jeu.plaquesDuCap(index[d.cle] || null, d.cle, d.palier);   // 273 — une barre droite se dit en plaques
+    }
     return d;
   }
 

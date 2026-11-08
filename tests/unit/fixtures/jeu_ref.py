@@ -9,7 +9,7 @@ L'entrée d'un cas est celle de `THJeu.etatDuJeu` (JEU-V1 §8), en JSON : `aujou
 Les historiques réels sont stockés compacts (`compact`) et dépliés ici comme dans le test JavaScript (`deplier`).
 La semaine se lit à l'heure de Paris (le fuseau de Jest, `jest.globalSetup.js`).
 """
-import json, math, sys, datetime as dt
+import json, math, re, sys, datetime as dt
 from zoneinfo import ZoneInfo
 
 PARIS = ZoneInfo('Europe/Paris')
@@ -161,12 +161,15 @@ def succes(entree, sem, mus):
     for n, _, r in TITRES:
         if mini >= n:
             liste.append((f'tous-{n}', r))
+    # 273 — les caps en plaques : barre droite (equipement « barre », hors EZ) 60 puis +40 ; le reste, tous les 50 kg.
     for x in entree.get('maximums') or []:
         b, v = x['slug'], x.get('charge') or 0
-        k = 40
+        exo = (entree.get('catalogue') or {}).get(b) or {}
+        plaque = exo.get('equipement') == 'barre' and not re.search(r'(^|_)ez($|_)', b)
+        k, pas = (60, 40) if plaque else (50, 50)
         while k <= v + 1e-9:
             liste.append((f'cap-{b}-{k}', 'c'))
-            k += 20
+            k += pas
     return liste, c
 
 

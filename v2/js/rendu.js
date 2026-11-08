@@ -9634,6 +9634,10 @@
 
   // Le nom d'un succès (§9.2, « Libellés ») : sa catégorie et son palier ; un cap rond, le nom court de l'exercice,
   // comme la médaille. `d` : `descriptionDuSucces(id)`, et `d.nom` pour un cap (posé par l'appelant).
+  // 273 — un cap en plaques (« 3 plaques », barre droite : 1 plaque = 60 kg) ou en kilos (« 150 kg »).
+  function libelleDeCap(plaques, kg) {
+    return plaques ? plaques + ' ' + motJeu(plaques, 'plaque', 'plaques') : nombreFr(kg) + NBSP + 'kg';
+  }
   function libelleSucces(d) {
     var p = d.palier;
     switch (d.categorie) {
@@ -9646,7 +9650,7 @@
       case 'distance': return d.libelle || String(p);
       case 'muscle': return libelleMuscleJeu(d.cle) + ' niveau ' + p;
       case 'tous': return 'Tous les muscles à ' + p;
-      case 'cap': return 'Cap rond : ' + (d.nom || d.cle) + ' ' + nombreFr(p) + NBSP + 'kg';
+      case 'cap': return 'Cap rond : ' + (d.nom || d.cle) + ' ' + libelleDeCap(d.plaques, p);
       default: return String(p);
     }
   }

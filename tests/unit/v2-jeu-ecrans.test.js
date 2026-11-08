@@ -63,7 +63,7 @@ describe('descriptionDuSucces — chaque identifiant du jeu, depuis ses tables',
 
   test('un identifiant que le jeu ne donne pas : null', () => {
     ['seances-11', 'serie-1', 'rando-sortie-30', 'muscle-cou-10', 'muscle-dos-15', 'tous-15', 'cap-squat_barre-30',
-      'cap-squat_barre-50', 'cap-squat_barre-060', 'inconnu-10', 'xyz', '', null, undefined, 42].forEach((id) =>
+      'cap-squat_barre-70', 'cap-squat_barre-060', 'inconnu-10', 'xyz', '', null, undefined, 42].forEach((id) =>
       expect([id, Jeu.descriptionDuSucces(id)]).toEqual([id, null]));
   });
 
@@ -212,7 +212,7 @@ describe('les lectures des vues (64B, JEU-V1 §9.2) — décidées dans le modul
 
   test('parCategorie : obtenus / total · prochain ; la randonnée compte la grande sortie ; les caps sans total', () => {
     const e = etat({ ids: ['seances-10', 'seances-50', 'serie-4', 'rando-50', 'rando-sortie-20', 'muscle-dos-10',
-      'muscle-tronc-10', 'muscle-tronc-20', 'tous-10', 'cap-squat_barre-40', 'cap-squat_barre-60', 'course-5', 'nage-1'] });
+      'muscle-tronc-10', 'muscle-tronc-20', 'tous-10', 'cap-squat_barre-50', 'cap-squat_barre-60', 'course-5', 'nage-1'] });
     expect(Jeu.parCategorie(e)).toEqual([
       { cle: 'seances', obtenus: 2, total: 6, prochain: 100 },
       { cle: 'serie', obtenus: 1, total: 5, prochain: 12 },

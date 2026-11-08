@@ -90,24 +90,24 @@ function bac(o) {
 
 describe('64B — le bloc du jeu dans la feuille « Terminer » (le vrai code d’app.js)', () => {
   test('jeu éteint : pas de bloc', () => {
-    const b = bac({ profil: { jeu_actif: false }, seance: brouillon([{ charge_kg: 160, reps: 1 }]) });
+    const b = bac({ profil: { jeu_actif: false }, seance: brouillon([{ charge_kg: 180, reps: 1 }]) });
     expect(b.ctx.jeuDeLaFeuille()).toBeNull();
   });
 
   test('sans profil lu (absent = allumé), une série record : de l’XP et le cap rond gagné ; rien n’est écrit', () => {
-    const b = bac({ profil: null, seance: brouillon([{ charge_kg: 160, reps: 1 }]) });
+    const b = bac({ profil: null, seance: brouillon([{ charge_kg: 180, reps: 1 }]) });
     const avant = JSON.stringify(b.C);
     const j = b.ctx.jeuDeLaFeuille();
     expect(j).not.toBeNull();
     expect(j.apport.xp).toBeGreaterThan(0);
-    expect(j.apport.succes).toEqual(expect.arrayContaining(['cap-squat_barre-160']));
-    const cap = j.succes.filter((d) => d.categorie === 'cap' && d.palier === 160)[0];
+    expect(j.apport.succes).toEqual(expect.arrayContaining(['cap-squat_barre-180']));
+    const cap = j.succes.filter((d) => d.categorie === 'cap' && d.palier === 180)[0];
     expect(cap.nom).toBe(Modele.nomCourt('Squat (Barre)'));
     expect(JSON.stringify(b.C)).toBe(avant);
   });
 
   test('⚠️ une exception (une série validée SANS identifiant : `Seance.lignes` lève) → null, jamais une exception', () => {
-    const s = brouillon([{ charge_kg: 160, reps: 1 }]);
+    const s = brouillon([{ charge_kg: 180, reps: 1 }]);
     s.exercices[0].series[0].id = null;
     expect(() => Seance.lignes(s)).toThrow();                     // la fixture déclenche bien le chemin
     const b = bac({ seance: s });
@@ -123,11 +123,11 @@ describe('64B — le bloc du jeu dans la feuille « Terminer » (le vrai code d�
     b.ctx.seance = Seance.decrire(b.ctx.seance, { titre: 'Jambes' });   // un objet neuf, comme `surTitre`
     expect(b.ctx.jeuDeLaFeuille()).toBe(j1);
     const s = JSON.parse(JSON.stringify(b.ctx.seance));
-    s.exercices[0].series.push(Object.assign({}, s.exercices[0].series[0], { id: 'cur-9', charge_kg: 160, reps: 1 }));
+    s.exercices[0].series.push(Object.assign({}, s.exercices[0].series[0], { id: 'cur-9', charge_kg: 180, reps: 1 }));
     b.ctx.seance = s;
     const j2 = b.ctx.jeuDeLaFeuille();
     expect(j2).not.toBe(j1);
-    expect(j2.apport.succes).toEqual(expect.arrayContaining(['cap-squat_barre-160']));
+    expect(j2.apport.succes).toEqual(expect.arrayContaining(['cap-squat_barre-180']));
   });
 });
 

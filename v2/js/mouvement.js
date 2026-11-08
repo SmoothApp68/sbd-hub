@@ -46,7 +46,9 @@
     pull_over: 'pull_over.json',
     releve_de_genoux_suspendu: 'releve_de_genoux_suspendu.json',
     planche: 'planche.json',
-    tapis_roulant: 'tapis_roulant.json'
+    tapis_roulant: 'tapis_roulant.json',
+    developpe_militaire_barre: 'developpe_militaire_barre.json',
+    curl_biceps_barre_ez: 'curl_biceps_barre_ez.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

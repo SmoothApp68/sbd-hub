@@ -31,7 +31,22 @@
     souleve_de_terre_barre: 'souleve_de_terre_barre.json',
     developpe_couche_barre: 'developpe_couche_barre.json',
     tractions: 'tractions.json',
-    squat_avec_pause_barre: 'squat_avec_pause_barre.json'
+    squat_avec_pause_barre: 'squat_avec_pause_barre.json',
+    presse_a_cuisses: 'presse_a_cuisses.json',
+    extension_jambes: 'extension_jambes.json',
+    leg_curl_assis: 'leg_curl_assis.json',
+    leg_curl_allonge_machine: 'leg_curl_allonge_machine.json',
+    hip_thrust_machine: 'hip_thrust_machine.json',
+    extension_mollets_debout_machine: 'extension_mollets_debout_machine.json',
+    abduction_hanche: 'abduction_hanche.json',
+    adduction_hanche: 'adduction_hanche.json',
+    developpe_couche_haltere: 'developpe_couche_haltere.json',
+    developpe_couche_incline_haltere: 'developpe_couche_incline_haltere.json',
+    curl_marteau_haltere: 'curl_marteau_haltere.json',
+    pull_over: 'pull_over.json',
+    releve_de_genoux_suspendu: 'releve_de_genoux_suspendu.json',
+    planche: 'planche.json',
+    tapis_roulant: 'tapis_roulant.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

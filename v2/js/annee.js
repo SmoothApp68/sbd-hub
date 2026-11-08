@@ -637,6 +637,71 @@
     if (typeof c.v !== 'number') return (c.avant || '') + c.v;
     return (c.avant || '') + (c.dec ? M().nombreTexte(c.v, 1) : milliers(c.v));
   }
+  // « Partager en image » (social 2) — un record et une séance, sur le MÊME fond, la MÊME palette et le même pied que l'année. L'écran `e`
+  // vient de `partage-image.js` (pur) : ici, seulement le dessin. La silhouette est `dessinerLeCorps`, la même que « Muscle du mois ».
+  function ajusterTexte(ctx, texte, largeur) {
+    var t = String(texte);
+    if (ctx.measureText(t).width <= largeur) return t;
+    while (t.length > 1 && ctx.measureText(t + '…').width > largeur) t = t.slice(0, -1);
+    return t.replace(/\s+$/, '') + '…';
+  }
+  function dessinerPartage(ctx, p, X, L) {
+    var y = 330;
+    ctx.font = police(500, 44); ctx.fillStyle = PALETTE.cendre; ctx.fillText(p.sur, X, y);
+    if (p.type === 'record') {
+      var ta = 200; ctx.font = police(900, ta);
+      while (ctx.measureText(p.chiffre).width > L && ta > 70) { ta -= 6; ctx.font = police(900, ta); }
+      y += ta + 20; ctx.fillStyle = PALETTE.or; ctx.fillText(p.chiffre, X, y);
+      y += 80; ctx.font = police(700, 62); ctx.fillStyle = PALETTE.craie; ctx.fillText(ajusterTexte(ctx, p.nom || '', L), X, y);
+      [[p.ecart, PALETTE.craie], [p.pari, PALETTE.or]].forEach(function (b) {
+        if (!b[0]) return;
+        ctx.font = police(500, 42); ctx.fillStyle = b[1];
+        lignesCoupees(ctx, b[0], L).forEach(function (l) { y += 58; ctx.fillText(l, X, y); });
+        y += 14;
+      });
+      if (p.courbe) {
+        var H = 220, y0 = y + 50, pts = p.courbe.points, n = pts.length;
+        var px = function (q) { return X + 20 + q.x * (L - 40); }, py = function (q) { return y0 + H - q.y * H; };
+        ctx.strokeStyle = PALETTE.cendre; ctx.lineWidth = 6; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+        ctx.beginPath(); pts.slice(0, n - 1).forEach(function (q, k) { if (k === 0) ctx.moveTo(px(q), py(q)); else ctx.lineTo(px(q), py(q)); });
+        ctx.stroke();
+        ctx.strokeStyle = PALETTE.or; ctx.beginPath(); ctx.moveTo(px(pts[n - 2]), py(pts[n - 2])); ctx.lineTo(px(pts[n - 1]), py(pts[n - 1])); ctx.stroke();
+        ctx.fillStyle = PALETTE.or; ctx.beginPath(); ctx.arc(px(pts[n - 1]), py(pts[n - 1]), 13, 0, Math.PI * 2); ctx.fill();
+        y = y0 + H + 60;
+        ctx.font = police(500, 32); ctx.fillStyle = PALETTE.cendre;
+        ctx.fillText(p.courbe.gauche.date + ' · ' + p.courbe.gauche.valeur, X, y);
+        ctx.textAlign = 'right'; ctx.fillStyle = PALETTE.craie; ctx.font = police(700, 36);
+        ctx.fillText(p.courbe.droite.valeur, X + L, y); ctx.textAlign = 'left';
+        y += 30;
+      }
+      if (p.rapport) {
+        y += 70; ctx.font = police(500, 36); ctx.fillStyle = PALETTE.cendre; ctx.fillText('Rapporté à ton poids ce jour-là', X, y);
+        y += 56; ctx.font = police(800, 48); ctx.fillStyle = PALETTE.craie; ctx.fillText(p.rapport, X, y);
+      }
+      var lc = p.corps ? lectureDuCorps(p.corps) : null;
+      if (lc && lc.lecture.max) {
+        ctx.font = police(500, 34); ctx.fillStyle = PALETTE.cendre; ctx.fillText('Muscles', X, 1330);
+        ctx.font = police(650, 40); ctx.fillStyle = PALETTE.craie; ctx.fillText(ajusterTexte(ctx, p.muscles, L), X, 1380);
+        dessinerLeCorps(ctx, lc, 1420, X, L);
+      }
+    } else {
+      y += 70; ctx.font = police(700, 54); ctx.fillStyle = PALETTE.craie; ctx.fillText(p.titre, X, y);
+      var cols = p.colonnes, gap = 40, w = (L - gap * (cols - 1)) / cols, par = Math.ceil(p.lignes.length / cols);
+      var pas = p.taille + (cols === 2 ? 30 : 36), top = y + 50, fin = top;
+      p.lignes.forEach(function (l, k) {
+        var c = Math.floor(k / par), r = k % par, lx = X + c * (w + gap), ly = top + (r + 1) * pas;
+        ctx.fillStyle = '#353d47'; ctx.fillRect(lx, ly - p.taille - 12, w, 2);
+        ctx.font = police(700, p.taille); var vw = ctx.measureText(l.v).width;
+        ctx.font = police(500, p.taille); ctx.fillStyle = PALETTE.cendre; ctx.fillText(ajusterTexte(ctx, l.n, Math.max(60, w - vw - 24)), lx, ly);
+        ctx.font = police(700, p.taille); ctx.fillStyle = PALETTE.craie; ctx.textAlign = 'right'; ctx.fillText(l.v, lx + w, ly); ctx.textAlign = 'left';
+        if (ly > fin) fin = ly;
+      });
+      if (p.records) {
+        y = fin + 90; ctx.font = police(600, 44); ctx.fillStyle = PALETTE.or;
+        lignesCoupees(ctx, p.records, L).forEach(function (l) { ctx.fillText(l, X, y); y += 58; });
+      }
+    }
+  }
   function dessiner(ctx, e, an) {
     var X = 90, L = IMG_L - 2 * X, y = 300;
     var fond = ctx.createRadialGradient(IMG_L / 2, 0, 50, IMG_L / 2, 0, IMG_H * 0.9);
@@ -692,6 +757,8 @@
         ctx.font = police(500, 38); ctx.fillStyle = PALETTE.cendre; ctx.fillText(l.n, X + 60, ly);
         ctx.font = police(700, 44); ctx.fillStyle = PALETTE.craie; ctx.textAlign = 'right'; ctx.fillText(l.v, X + L, ly); ctx.textAlign = 'left';
       });
+    } else if (e.partage) {
+      dessinerPartage(ctx, e.partage, X, L);
     } else {
       if (e.lab) ecrire(e.lab, 500, 44, PALETTE.cendre);
       if (e.titre && e.cle !== 'ouverture') { y += 20; ecrire(e.titre, 700, 84, PALETTE.craie, 1.1); }
@@ -739,7 +806,7 @@
   function partager(e, an, cle) {
     return image(e, an).then(function (blob) {
       if (!blob) return 'rien';
-      var nom = 'trainhub-' + cle + '-' + e.cle + '.png';
+      var nom = e.fichier || 'trainhub-' + cle + '-' + e.cle + '.png';   // social 2 — un record, une séance : leur nom est dans l'écran
       var nav = racine.navigator || {};
       var File_ = racine.File;
       var fichier = File_ ? new File_([blob], nom, { type: 'image/png' }) : null;
@@ -907,7 +974,7 @@
     hote.hidden = false;
   }
 
-  var api = { ecrans: ecrans, titreDe: titreDe, ouvrir: ouvrir, image: image, ajuste: ajuste, annonce: annonce };
+  var api = { ecrans: ecrans, titreDe: titreDe, ouvrir: ouvrir, image: image, partager: partager, ajuste: ajuste, annonce: annonce };
   racine.THAnnee = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof self !== 'undefined' ? self : globalThis);

@@ -262,6 +262,9 @@
         gestes.appendChild(enRoutine);
       }
 
+      // social 2 — « Partager la séance en image » sur une séance terminée.
+      if (vue.surPartagerImage) gestes.appendChild(boutonDePartage('Partager la séance en image', vue.surPartagerImage, 'discret'));
+
       var modifier = el('button', 'discret', 'Modifier');
       modifier.type = 'button';
       modifier.addEventListener('click', vue.surModifier);
@@ -6888,12 +6891,14 @@
     // Les records du jour (or) : une ligne par série médaillée, la phrase de la médaille.
     if (r.records && r.records.length) {
       groupe(r.records.length + (r.records.length > 1 ? ' records' : ' record'), 'or');
-      r.records.forEach(function (x) {
+      r.records.forEach(function (x, i) {
         var rec = el('div', 'recap-rec');
         rec.appendChild(el('div', 'l1', x.nom + ' : ' + x.mesure));
         var p = x.phrase || [];
         var texte = [p[0], p[1]].filter(Boolean).join(' ');
         if (texte) rec.appendChild(el('div', 'l2', texte));
+        // social 2 — « Partager » sur la ligne : l'image du record (l'app dit ce qui est parti).
+        if (vue.surPartagerRecord) rec.appendChild(boutonDePartage('Partager', function () { return vue.surPartagerRecord(i); }, 'discret recap-rec-partager'));
         cible.appendChild(rec);
       });
     }
@@ -6948,7 +6953,22 @@
       });
       cible.appendChild(pa);
     }
+    if (vue.surPartagerSeance) cible.appendChild(boutonDePartage('Partager la séance en image', vue.surPartagerSeance, 'discret recap-bouton recap-partager-image'));
     return cible;
+  }
+  // social 2 — le bouton de « Partager en image » : l'image se dessine sur l'appareil ; une feuille de partage ou un téléchargement.
+  // Une annulation de la feuille n'est pas une erreur ; le téléchargement se dit.
+  function boutonDePartage(libelle, surClic, classe) {
+    var b = el('button', classe, libelle);
+    b.type = 'button';
+    b.addEventListener('click', function () {
+      if (b.disabled) return;
+      b.disabled = true;
+      Promise.resolve(surClic()).then(function (res) {
+        if (res === 'telechargement') b.textContent = 'Image enregistrée';
+      }, function () {}).then(function () { b.disabled = false; });
+    });
+    return b;
   }
 
   // 250 — L'ACCORD « LIRE MES NOTES » (maquette notes-ia v4, écran A) : le même bloc sur le récap et dans la feuille du Profil.

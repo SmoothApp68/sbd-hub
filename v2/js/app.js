@@ -1972,7 +1972,7 @@
   //   · `?bilan=AAAA` (hors production, comme `?rejouer=`) : il s'ouvre au démarrage ;
   //   · l'annonce : en janvier, une fois par personne et par année, mémorisée dans le profil (`bilans_annonces`,
   //     v2_086, depuis 104) et sur l'appareil — elle ne revient pas sur un autre appareil.
-  var Bilans = racine.THBilans, Annee = racine.THAnnee;
+  var Bilans = racine.THBilans, Annee = racine.THAnnee, PartageImage = racine.THPartageImage;
   var PREMIERE_ANNEE = 2026;
   function bilanDeLAnnee(an) {
     return faits.bilanDePeriode(corpus(), Bilans.periodeDeLAnnee(an), new Date(),
@@ -5308,6 +5308,57 @@
     }
     return copier();
   }
+  // ══ social 2 — « PARTAGER EN IMAGE » : un record, une séance ══════════════════════════════════════════════════════════════════
+  //
+  // L'image est celle de « Ton année » (`annee.js` : fond, palette, police, silhouette, feuille de partage) ; l'écran `e` se construit
+  // dans `partage-image.js` (pur). Ici, un CÂBLAGE : les séries validées, les records de `faits.recordsDuJour`, le journal des records,
+  // les paris connus, les pesées. Rien n'est écrit, rien ne part sans le geste.
+  function nomDePartage(slug) {
+    var n = Modele.nomCourt(catalogueIndexe()[slug] ? catalogueIndexe()[slug].nom : slug);
+    return n.charAt(0).toUpperCase() + n.slice(1);
+  }
+  // `lignes` : des séries validées `{ exercise_slug, … }`, dans l'ordre de la séance → `[{ nom, series }]`, un par exercice.
+  function exercicesDePartage(lignes) {
+    var ordre = [], par = {};
+    (lignes || []).forEach(function (x) {
+      if (!x || !x.exercise_slug) return;
+      if (!par[x.exercise_slug]) { par[x.exercise_slug] = { nom: nomDePartage(x.exercise_slug), series: [] }; ordre.push(x.exercise_slug); }
+      par[x.exercise_slug].series.push(x);
+    });
+    return ordre.map(function (k) { return par[k]; });
+  }
+  function seriesValideesDe(finie) {
+    return Seance.toutesLesSeries(finie).filter(function (p) { return Seance.partEnBase(p.serie); })
+      .map(function (p) { return Object.assign({}, p.serie, { exercise_slug: p.exo.exercise_slug }); });
+  }
+  function ecranDeRecordPartage(finie, ligne) {
+    var d = faits.donneesDuRecordAPartager(corpus(), finie, ligne);
+    d.corps.sexe = lireSilhouette();
+    return PartageImage.ecranRecord({ debut: finie.debut, seanceId: finie.id, slug: ligne.slug, nom: ligne.nom, serie: ligne.serie,
+      record: d.record, paris: parisDeConsigneConnus(), courbe: d.courbe, pesees: local.pesees, corps: d.corps });
+  }
+  // La séance qui vient de finir (récap) : ses séries validées, ses records du jour.
+  function ecranDeSeancePartagee(finie) {
+    return PartageImage.ecranSeance({ debut: finie.debut, titre: finie.titre, exercices: exercicesDePartage(seriesValideesDe(finie)),
+      records: faits.nomsDesRecordsDeLaSeance(corpus(), finie) });
+  }
+  // Une séance de l'historique : ses séries en base (dans l'ordre de leur rang), ses records du journal.
+  function ecranDeSeanceDeLHistorique(ligne) {
+    return PartageImage.ecranSeance({ debut: ligne.debut, titre: ligne.titre,
+      exercices: exercicesDePartage(Modele.trierParRang(seriesDe(ligne.id))), records: faits.nomsDesRecordsDuJournal(corpus(), ligne.id) });
+  }
+  function partagerEnImage(e) {
+    if (!e || !Annee || !Annee.partager) return Promise.resolve(null);
+    return Annee.partager(e, e.date, 'partage');
+  }
+  function partagerUnRecordDuRecap(i) {
+    var ligne = recap && faits.recordsAPartager(corpus(), recap.seance)[i];
+    return ligne ? partagerEnImage(ecranDeRecordPartage(recap.seance, ligne)) : Promise.resolve(null);
+  }
+  function partagerLaSeanceDuRecap() {
+    return recap ? partagerEnImage(ecranDeSeancePartagee(recap.seance)) : Promise.resolve(null);
+  }
+
   function rendreRecap() {
     if (!recap) return;
     var r = faits.recapDeLaSeance(corpus(), recap.seance, parisDeConsigneConnus(), parisDeConsigneDuCompte());
@@ -5318,6 +5369,8 @@
       surFermer: fermerRecap,
       surVoir: voirLaSeanceDuRecap,
       surPartager: partagerLeRecap,
+      surPartagerRecord: partagerUnRecordDuRecap,
+      surPartagerSeance: partagerLaSeanceDuRecap,
       accord: vueAccordNotes(),
       notes: vueNotesIA()
     });
@@ -14554,6 +14607,7 @@
       surModifier: ligne ? function () { modifierSeance(ligne, blocs); } : null,
       surRefaire: ligne ? function () { refaireSeance(ligne, blocs); } : null,
       surEnFaireUneRoutine: ligne ? function () { enFaireUneRoutine(ligne); } : null,
+      surPartagerImage: ligne && ligne.statut !== 'en_cours' ? function () { return partagerEnImage(ecranDeSeanceDeLHistorique(ligne)); } : null,
       // 131 (écran 4) — « Ajouter le D+ » sous une série qui ne l'a pas.
       ajout: ajoutDuDetail(ligne, blocs)
     });

@@ -647,7 +647,7 @@
     // celle d'avant, octet pour octet.
     function recordsDuJour(c, seance, options) {
       if (!seance) return [];
-      var avecPhrase = !!(options && options.avecPhrase);
+      var avecPhrase = !!(options && options.avecPhrase), avecDetail = !!(options && options.avecDetail);
       var v = seanceDesRecords(seance), index = c.catalogue(), out = [];
       seance.exercices.forEach(function (exo, i) {
         (exo.series || []).forEach(function (s, j) {
@@ -656,10 +656,50 @@
           var nom = Modele.nomCourt(index[exo.exercise_slug] ? index[exo.exercise_slug].nom : exo.exercise_slug);
           var ligne = { nom: nom.charAt(0).toUpperCase() + nom.slice(1), mesure: Modele.formatMesure(s) };
           if (avecPhrase) ligne.phrase = Modele.phraseDeRecord(r, nom, seance.debut, nomCompletDuCatalogue(c));
+          // social 2 — « Partager en image » : la série médaillée et ses records bruts (l'écart, la courbe), jamais recalculés ailleurs.
+          if (avecDetail) { ligne.slug = exo.exercise_slug; ligne.serie = s; ligne.records = r; }
           out.push(ligne);
         });
       });
       return out;
+    }
+
+    // ── social 2 — « PARTAGER EN IMAGE » : ce que l'image d'un record et d'une séance lit des faits ──────────
+    // Rien de neuf n'est calculé : les records du jour (`recordsDuJour`), le journal des records (`recordsDuJournal`), les séries par muscle
+    // (`Semaine.volumeParMuscle`). L'écran de l'image se construit ensuite dans `partage-image.js` (pur).
+    var TYPE_DE_COURBE = { charge: 'charge_max', duree: 'duree_s', distance: 'distance_m' };
+    function recordsAPartager(c, seance) { return recordsDuJour(c, seance, { avecPhrase: true, avecDetail: true }); }
+    function nomsDesRecordsDeLaSeance(c, seance) { return recordsDuJour(c, seance).map(function (l) { return l.nom; }); }
+    // Une séance de l'historique : ses médailles, lues au journal (une par série médaillée).
+    function nomsDesRecordsDuJournal(c, seanceId) {
+      return medaillesDuSocial(c, recordsDuJournal(c, { seance: seanceId })).map(function (m) { return m.nom; });
+    }
+    // Le record brut d'une ligne : sa nature, sa valeur, l'ancien et sa date (les mêmes que la phrase de la médaille).
+    function recordDePartage(records) {
+      var de = function (t) { return (records || []).filter(function (x) { return x.type === t; })[0] || null; };
+      var r = null, kind = null;
+      if ((r = de('charge_a_reps'))) kind = 'charge';
+      else if ((r = de('reps_a_charge'))) kind = 'reps';
+      else if ((r = de('charge_max'))) kind = 'charge';
+      else if ((r = de('duree_s'))) kind = 'duree';
+      else if ((r = de('distance_m'))) kind = 'distance';
+      return r ? { kind: kind, valeur: r.valeur, ancien: r.ancien, ancien_le: r.ancien_le } : { kind: null };
+    }
+    // `ligne` : une ligne de `recordsAPartager`. Rend `{ record, courbe, corps }` : le record brut, les records de l'exercice depuis le
+    // premier (le journal, sans cette séance, puis le nouveau), et le volume par muscle de cet exercice dans la séance.
+    function donneesDuRecordAPartager(c, seance, ligne) {
+      var rec = recordDePartage(ligne.records), courbe = [], type = TYPE_DE_COURBE[rec.kind];
+      if (type) {
+        courbe = recordsDuJournal(c, { slug: ligne.slug, type: type }).filter(function (l) { return l.session_id !== seance.id; })
+          .map(function (l) { return { date: l.battu_le, valeur: l.valeur }; });
+        var nouveau = (ligne.records || []).filter(function (x) { return x.type === type; })[0];
+        if (nouveau) courbe.push({ date: seance.debut, valeur: nouveau.valeur });
+      }
+      var series = Seance.toutesLesSeries(seance).filter(function (p) { return Seance.partEnBase(p.serie) && p.exo.exercise_slug === ligne.slug; })
+        .map(function (p) { return Object.assign({}, p.serie, { exercise_slug: p.exo.exercise_slug }); });
+      var corps = { volume: {}, libelles: {} };
+      Semaine.volumeParMuscle(series, c.exercices || []).forEach(function (m) { corps.volume[m.muscle] = m.series; corps.libelles[m.muscle] = m.libelle; });
+      return { record: rec, courbe: courbe, corps: corps };
     }
 
     // ══ LE RÉCAP DE FIN DE SÉANCE (71, ECRAN-SAISIE §7 septies.4 bis) ════════
@@ -2465,6 +2505,10 @@
       journalDuJour: journalDuJour,
       journalDeLaSeance: journalDeLaSeance,
       recordsDuJournal: recordsDuJournal,
+      recordsAPartager: recordsAPartager,
+      nomsDesRecordsDeLaSeance: nomsDesRecordsDeLaSeance,
+      nomsDesRecordsDuJournal: nomsDesRecordsDuJournal,
+      donneesDuRecordAPartager: donneesDuRecordAPartager,
       vraisemblanceDeLaSerie: vraisemblanceDeLaSerie,
       questionDuRecord: questionDuRecord,
       GENRES_DE_QUESTION: GENRES_DE_QUESTION,

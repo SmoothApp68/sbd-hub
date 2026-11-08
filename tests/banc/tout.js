@@ -46,6 +46,8 @@ if (require.main === module) (async () => {
     lancer('banc des routines', [path.join(__dirname, 'routines-ecran.js')]),
     lancer('banc du service worker', [path.join(__dirname, 'sw-navigation.js')]),
     lancer('banc de la création du profil', [path.join(__dirname, 'profil-creation.js')]),
+    // 271 — l'animation du mouvement : montage, arrêt, un seul contexte WebGL sur 10 allers-retours, hors ligne, mouvement réduit
+    lancer('banc du mouvement', [path.join(__dirname, 'mouvement.js')]),
     lancer('banc d’écran de séance', [path.join(__dirname, 'seance-rapide.js')].concat(seq ? ['--sequentiel'] : []))
   ]).then((r) => [v].concat(r))).then((r) => {
     console.log('\n══ TOUT (sur l’état commité) ══');

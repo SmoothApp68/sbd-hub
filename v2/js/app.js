@@ -29,6 +29,7 @@
   var Export = racine.THExport;
   var Mentions = racine.THMentions;   // 212
   var Silhouettes = racine.THSilhouettes;   // 218
+  var Mouvement = racine.THMouvement;   // 271 — l'animation 3D du mouvement (onglet « Comment faire »)
   var Generateur = racine.THGenerateur;
   var Rejeu = racine.THRejeu, Bilan = racine.THBilan;
   // 64B — le jeu (JEU-V1 §9) : l'écran le LIT, il ne le refait pas ; le coach ne le lit jamais.
@@ -225,6 +226,9 @@
     // par « Terminer », par « Annuler » — coupe le réveil, et `rendreSeance` le
     // réarme au retour. Rien à penser à arrêter à chaque sortie.
     if (nom !== 'seance') arreterDuree();
+    // 271 — LA VUE 3D DU MOUVEMENT N'A DE SENS QUE SOUS LES YEUX : quitter la page d'un exercice (Retour, un onglet,
+    // « Reprendre », le retour d'Android) l'arrête et rend le contexte WebGL. Même porte que la durée de la barre.
+    if (nom !== 'exercice') arreterMouvement();
     Object.keys(vues).forEach(function (k) { vues[k].hidden = (k !== nom); });
     var barre = $('onglets');
     // 204 — PENDANT UNE SÉANCE EN COURS, la barre d'onglets se cache (« ⌄ » en haut la rend, en réduisant la séance) ; le
@@ -14597,6 +14601,8 @@
   }
 
   function rendreExercice(slug, onglet) {
+    // 271 — chaque rendu vide la page : la vue d'avant s'arrête AVANT (une seule vue, un seul contexte WebGL).
+    arreterMouvement();
     montrer('exercice', Routeur.EXERCICE);
     // Le « voir plus » ne survit pas à un changement d'exercice : on repart des
     // 20 dernières, sinon une page ouverte sur 60 séances en afficherait 60
@@ -14751,6 +14757,8 @@
       mesure: mesure,
       onglet: vueOnglet,
       comment: comment,
+      // 271 — la place de la vue 3D, seulement pour un exercice du catalogue des animations (`THMouvement.existe`).
+      vue3d: comment && Mouvement && Mouvement.existe(slug) ? { slug: slug } : null,
       sousTitre: sousTitreExercice(groupes),
       surOnglet: function (o) { afficherExercice(slug, o); },
       // §7 quater.1 — la séance en cours reste visible, et « Reprendre » y
@@ -14805,6 +14813,31 @@
     });
     // 89 — « Entre amis », en bas de la page, pour un exercice à la barre (mutuels, à poids de corps égal).
     entreAmis(slug, exo);
+    if (vueOnglet === Routeur.EXO_COMMENT) monterMouvement(slug, exo);
+  }
+
+  // 271 — LA VUE 3D DU MOUVEMENT. Montée APRÈS la première peinture de la fiche (deux images d'animation) : la page
+  // s'affiche d'abord, three.js et le corps se chargent ensuite. Les muscles colorés sont ceux du catalogue de l'app
+  // (une seule source, la même que le bonhomme). Un jeton : si la fiche a changé entre-temps, rien ne se monte. Un échec
+  // (hors ligne, jamais vue) retire la vue sans un mot ; rien ne s'écrit nulle part.
+  var mouvementEnCours = null, jetonMouvement = 0;
+  function arreterMouvement() {
+    jetonMouvement++;
+    if (mouvementEnCours) { var m = mouvementEnCours; mouvementEnCours = null; m.arreter(); }
+  }
+  function monterMouvement(slug, exo) {
+    var place = $('page-exercice') && $('page-exercice').querySelector('.exo-mouvement');
+    if (!place || !Mouvement || !Mouvement.existe(slug)) return;
+    var jeton = ++jetonMouvement;
+    var raf = racine.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
+    raf(function () { raf(function () {
+      if (jeton !== jetonMouvement || !place.isConnected || ecranCourant !== 'exercice') return;
+      mouvementEnCours = Mouvement.monter(place, Mouvement.url(slug), {
+        muscles: { primaires: (exo && exo.muscles_primaires) || [], secondaires: (exo && exo.muscles_secondaires) || [],
+                   stabilisateurs: (exo && exo.muscles_stabilisateurs) || [] },
+        libelles: Semaine.LIBELLES_MUSCLE
+      });
+    }); });
   }
 
   // LE RECORD QUE LA PAGE D'UN EXERCICE AFFICHE, une fonction pour deux lecteurs : la fiche (« Record de charge »,

@@ -14667,6 +14667,10 @@ const SETS_IMPORTES = [
     const JOUR_MS = 86400000;
     const DEUX_HEURES = 2 * 3600 * 1000;
     const T0 = ilYa(35 * JOUR_MS).getTime();
+    // 270 — « T0 + N jours » en JOURS CIVILS, à la même heure locale (comme `ilYa`) : en millisecondes, entre le 6 octobre et
+    // le 25 (fin de l'heure d'été) l'heure locale recule de 1 h, et un T0 posé entre 00 h et 01 h tombe la veille — le banc
+    // échouait ainsi chaque nuit où il passait minuit pendant qu'il tournait (08/11/2026, 00 h 42 à Paris).
+    const apresT0 = (n) => { const d = new Date(T0); d.setDate(d.getDate() + n); return d.getTime(); };
     const sp = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
     const violationsAvant = gardeBanc.violations;
     const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
@@ -14817,7 +14821,7 @@ const SETS_IMPORTES = [
     }, slug);
     // 96 — 2 200 ms fixes → l'état : le faux serveur s'est tu (le bloc, puis ses lignes de zone), plafond 10 s.
     const validerP = async () => { await page.click('#feuille-contenu .valider-programme'); await reseauCalme(10000); };
-    const sauter = async (jours) => { await page.clock.setSystemTime(new Date(T0 + jours * JOUR_MS)); await aller('/saisie'); };
+    const sauter = async (jours) => { await page.clock.setSystemTime(new Date(apresT0(jours))); await aller('/saisie'); };
 
     await aller('/saisie');
     // ── G (1). HORS BLOC, la barre qui stagne : « Changer de schéma ».
@@ -15058,11 +15062,11 @@ const SETS_IMPORTES = [
     // ── F. UNE SEMAINE ALLÉGÉE FINIE 5 JOURS AVANT : la décharge saute.
     const ID_ALLEGEE = '00000000-0000-5000-8533-000000000001';
     base.predictions.push({ id: ID_ALLEGEE, user_id: 'u-banc', module: 'escalier', module_version: '1',
-      emise_a: new Date(T0 + 10 * JOUR_MS).toISOString(), exercise_slug: null, grandeur: 'progres', horizon_jours: null,
+      emise_a: new Date(apresT0(10)).toISOString(), exercise_slug: null, grandeur: 'progres', horizon_jours: null,
       valeur_predite: 1, borne_basse: null, borne_haute: null,
-      fondement: { seance: 'x53', jour: jourLocal(T0 + 10 * JOUR_MS), marche: 'semaine_allegee', reponse: 'acceptee',
+      fondement: { seance: 'x53', jour: jourLocal(apresT0(10)), marche: 'semaine_allegee', reponse: 'acceptee',
                    declencheur: 'cyc-curl-u53', compteur: 4, cites: ['cyc-curl-u53'],
-                   debut: jourLocal(T0 + 10 * JOUR_MS), fin: jourLocal(T0 + 16 * JOUR_MS), phase: 'maintien' },
+                   debut: jourLocal(apresT0(10)), fin: jourLocal(apresT0(16)), phase: 'maintien' },
       valeur_observee: null, observee_a: null, set_observe: null });
     await aller('/saisie');
     await demarrerRoutine('Alpha U53');
@@ -15170,7 +15174,7 @@ const SETS_IMPORTES = [
     ok('[C53] DISCRIMINANT (53-2 ter) — l’arrêt pendant le deuxième bloc rend la zone d’avant le PROGRAMME (Lourd, la correction d’avant), origine « bloc », datée de l’arrêt',
       base.blocs.filter((b) => b.id === ajuste.id)[0].statut === 'arrete' && arretL.length === 1 &&
         arretL[0].exercise_slug === 'cyc-terre-u53' && arretL[0].zone === 'lourd' && arretL[0].origine === 'bloc' &&
-        arretL[0].bloc_id === ajuste.id && Math.abs(Date.parse(arretL[0].corrigee_a) - (T0 + 31 * JOUR_MS)) < 10 * 60000,
+        arretL[0].bloc_id === ajuste.id && Math.abs(Date.parse(arretL[0].corrigee_a) - (apresT0(31))) < 10 * 60000,
       JSON.stringify(arretL));
     const l0 = await dossier('Delta U53');
     ok('[C53] après l’arrêt : ni badge, ni carte ; « Faire de ce dossier un programme » revient',
@@ -15240,7 +15244,7 @@ const SETS_IMPORTES = [
     const avantN = base.blocs.filter((b) => b.dossier === 'Delta U53' && b.statut === 'en_cours')[0];
     const n0 = await dossier('Delta U53');
     ok('[C53] DISCRIMINANT (D3) — le début différé : « Bloc Mix · dès le lundi … », le bloc daté du lundi qui suit',
-      !!avantN && /^Bloc Mix · dès le lundi \d+ \S+$/.test(sp(n0 && n0.badge)) && avantN.debut > jourLocal(T0 + 31 * JOUR_MS),
+      !!avantN && /^Bloc Mix · dès le lundi \d+ \S+$/.test(sp(n0 && n0.badge)) && avantN.debut > jourLocal(apresT0(31)),
       JSON.stringify([n0, avantN]));
     await demarrerRoutine('Delta U53');
     await attendre(1500);

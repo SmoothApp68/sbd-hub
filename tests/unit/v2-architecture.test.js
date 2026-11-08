@@ -3406,10 +3406,20 @@ describe('architecture — la carte des écritures (73, audit 72)', () => {
     expect(AUTHENTIFICATION.raison).toBe('l’authentification exige le serveur');
   });
 
+  // 271 — une seule exception, nommée : l'animation du mouvement lit SES fichiers statiques (le corps 3D et un JSON par
+  // exercice, sous /mouvements/), jamais le serveur de données. Une lecture du site lui-même, aucune écriture.
+  const FETCH_LOCAL = { 'mouvement.js': 'lit /mouvements/*.json, fichiers statiques du site (271)' };
+  test('271 — l’exception `fetch` de mouvement.js ne lit que des chemins du site, en GET', () => {
+    const src = parNom['mouvement.js'].code;
+    expect((src.match(/\bfetch\s*\(/g) || []).length).toBe(1);
+    expect(src).toMatch(/\bfetch\s*\(\s*u\s*\)/);                 // un seul appel, sans options : un GET
+    expect(parNom['mouvement.js'].codeChaines).toMatch(/var DOSSIER = '\/mouvements\/', CORPS = '\/mouvements\/corps-glb\.json'/);
+    expect(parNom['mouvement.js'].codeChaines).not.toMatch(/https?:\/\//);
+  });
   test('aucun `fetch` dans le code de l’app ; l’adresse du serveur n’est écrite que dans `config.js`', () => {
     const fautes = [];
     FICHIERS.forEach((f) => {
-      if (/\bfetch\s*\(/.test(f.code)) fautes.push(f.nom + ' appelle fetch');
+      if (/\bfetch\s*\(/.test(f.code) && !FETCH_LOCAL[f.nom]) fautes.push(f.nom + ' appelle fetch');
       if (f.nom !== 'config.js' && /supabase\.co/.test(f.codeChaines)) fautes.push(f.nom + ' écrit l’adresse de supabase.co');
     });
     expect(fautes).toEqual([]);

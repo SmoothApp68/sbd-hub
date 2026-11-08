@@ -1773,6 +1773,31 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .etape-n{font:700 15px/1 var(--pile-c);color:var(--texte-3);font-variant-numeric:tabular-nums}
 .etape-t{font-size:14px;line-height:1.5;color:var(--texte);min-width:0}
 
+/* ── 271 — le mouvement en 3D, au-dessus de la fiche « Comment faire » (THMouvement, maquette lot 2 v4) ─────────
+   Aucun style en ligne : le module pose des classes. La place est gardée pendant le chargement (pas de saut) ; un
+   échec retire la vue et le bloc vide disparaît. Glisser horizontal = tourner, vertical = défiler (touch-action). */
+.exo-mouvement{margin:var(--e3) 0 0}
+.exo-mouvement:empty{display:none}
+.thm-vue{position:relative;border-radius:var(--r-grand);overflow:hidden;background:var(--bh-fond);min-height:200px}
+.thm-canevas,.thm-fige{display:block;width:100%;height:auto;touch-action:pan-y}
+.thm-canevas{cursor:grab}
+.thm-fige{cursor:pointer}
+.thm-attente{margin:0;padding:88px var(--e4);text-align:center;font-size:14px;color:var(--texte-3)}
+.thm-lab{position:absolute;left:10px;top:8px;font:700 12px/1.2 var(--pile);letter-spacing:.08em;color:var(--texte-3);pointer-events:none}
+.thm-annonce{position:absolute;left:10px;bottom:8px;padding:3px 8px;border-radius:8px;background:rgba(10,12,16,.78);
+  font:700 13px/1.2 var(--pile);color:var(--accent);pointer-events:none}
+.thm-cmd{display:flex;gap:6px;margin-top:var(--e2)}
+.thm-btn{flex:1;min-height:44px;border-radius:var(--r-bouton);border:1px solid var(--trait-controle);background:var(--panneau);
+  color:var(--texte);font:600 15px/1.2 var(--pile)}
+.thm-btn[aria-pressed="true"]{border-color:var(--texte);box-shadow:inset 0 0 0 1px var(--texte)}
+.thm-leg{list-style:none;margin:var(--e3) 0 0;padding:0}
+.thm-leg li{display:grid;grid-template-columns:14px 78px 1fr;gap:var(--e2);align-items:baseline;padding:3px 0;font-size:14px;line-height:1.3;color:var(--texte-2)}
+.thm-leg i{width:14px;height:14px;border-radius:4px;align-self:center}
+.thm-leg b{color:var(--texte)}
+.thm-prim{background:var(--teinte)}
+.thm-sec{background:#4F95CE}
+.thm-stab{background:#43739D}
+
 /* ── §7 quater.3 — la table par nombre de répétitions ────────────────────── */
 .table-reps{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e1) 0}
 .tr-ligne{display:grid;grid-template-columns:52px 1fr 66px 58px;gap:var(--e2);

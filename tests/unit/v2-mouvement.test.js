@@ -55,3 +55,67 @@ describe('271 — le corps et les exercices (mouvements/)', () => {
     });
   });
 });
+
+describe('271 — le module de l’app (js/mouvement.js) : le catalogue et les muscles', () => {
+  const M = require('../../v2/js/mouvement.js');
+  const Semaine = require('../../v2/js/semaine.js');
+  const exos = fs.readdirSync(path.join(V2, 'mouvements')).filter((f) => f !== 'corps-glb.json');
+
+  test('chaque slug du CATALOGUE a son JSON, et aucun JSON n’est orphelin', () => {
+    const inscrits = Object.keys(M.CATALOGUE).map((s) => M.CATALOGUE[s]).sort();
+    expect(inscrits).toEqual(exos.slice().sort());
+    Object.keys(M.CATALOGUE).forEach((s) => expect([s, M.CATALOGUE[s]]).toEqual([s, s + '.json']));
+  });
+
+  test('existe / url : une clé du catalogue, rien d’autre (pas de prototype, pas de devinette)', () => {
+    expect(M.existe('squat_barre')).toBe(true);
+    expect(M.url('squat_barre')).toBe('/mouvements/squat_barre.json');
+    ['toString', 'constructor', '__proto__', 'squat', '', null, undefined, 42].forEach((x) => {
+      expect([x, M.existe(x), M.url(x)]).toEqual([x, false, null]);
+    });
+  });
+
+  test('⚠️ chaque clé de muscle de l’app (Semaine.LIBELLES_MUSCLE) a sa table vers le corps 3D, et rien de plus', () => {
+    expect(Object.keys(M.MUSCLES_APP).sort()).toEqual(Object.keys(Semaine.LIBELLES_MUSCLE).sort());
+    const corps = JSON.parse(fs.readFileSync(path.join(V2, 'mouvements/corps-glb.json'), 'utf8'));
+    const b = Buffer.from(corps.b64, 'base64');
+    const groupes = JSON.parse(b.slice(20, 20 + b.readUInt32LE(12)).toString()).extras.muscles;
+    Object.keys(M.MUSCLES_APP).forEach((k) => M.MUSCLES_APP[k].forEach((g) => expect([k, g, groupes.indexOf(g) >= 0]).toEqual([k, g, true])));
+  });
+
+  test('les libellés par défaut sont ceux de l’app (l’app passe les siens de toute façon)', () => {
+    expect(M.commun.LIBELLES).toEqual(Semaine.LIBELLES_MUSCLE);
+  });
+
+  test('les rôles se lisent sur le catalogue ; une clé inconnue n’est jamais devinée', () => {
+    const r = M.rolesDuCatalogue({ primaires: ['quadriceps', 'fessiers'], secondaires: [], stabilisateurs: ['bas_du_dos', 'jambes'] });
+    expect(r.roles).toEqual({ prim: ['quadriceps', 'fessiers'], sec: [], stab: ['bas_du_dos'] });
+    expect(r.inconnues).toEqual(['jambes']);
+    expect(M.rolesDuCatalogue(null).roles).toEqual({ prim: [], sec: [], stab: [] });
+  });
+
+  test('aucun innerHTML, aucun attribut style, aucun console : les styles sont des classes de styles.css', () => {
+    const src = fs.readFileSync(path.join(V2, 'js/mouvement.js'), 'utf8').replace(/\/\/.*$/gm, '');
+    expect(src).not.toMatch(/innerHTML|outerHTML|insertAdjacentHTML|document\.write/);
+    expect(src).not.toMatch(/\.style\s*(\.|\[|=(?!=))|setAttribute\(\s*['"]style/);
+    expect(src).not.toMatch(/console\./);
+    const css = fs.readFileSync(path.join(V2, 'styles.css'), 'utf8');
+    ['.exo-mouvement', '.thm-vue', '.thm-canevas', '.thm-fige', '.thm-btn', '.thm-leg', '.thm-annonce'].forEach((c) => expect([c, css.indexOf(c) >= 0]).toEqual([c, true]));
+  });
+
+  test('index.html le charge avant rendu.js ; la coquille le garde ; rien d’autre du mouvement n’y entre', () => {
+    const index = fs.readFileSync(path.join(V2, 'index.html'), 'utf8');
+    expect(index.indexOf('/js/mouvement.js')).toBeGreaterThan(0);
+    expect(index.indexOf('/js/mouvement.js')).toBeLessThan(index.indexOf('/js/rendu.js'));
+    const SW = require('../../v2/service-worker.js');
+    expect(SW.SHELL).toContain('./js/mouvement.js');
+    expect(SW.SHELL.filter((f) => /mouvements\/|three|GLTF/.test(f))).toEqual([]);
+  });
+
+  test('⚠️ la CSP n’a pas bougé pour le mouvement : ni wasm, ni eval, ni blob:', () => {
+    const index = fs.readFileSync(path.join(V2, 'index.html'), 'utf8');
+    const csp = /<meta http-equiv="Content-Security-Policy" content="([^"]*)"/.exec(index)[1];
+    expect(csp).not.toMatch(/wasm-unsafe-eval|unsafe-eval|unsafe-inline|blob:/);
+    expect(csp).toMatch(/img-src 'self' data:;/);   // l'image figée de la vue est un toDataURL
+  });
+});

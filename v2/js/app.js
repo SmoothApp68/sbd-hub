@@ -16846,8 +16846,6 @@
     profil = distant;
     await sauverProfilLocal();
     if (ecranCourant === 'profil') rendreProfilEcran();
-    // 272 — le profil du serveur est lu (`debutant_fin`, `anciennete_choisie_le`) : le niveau d'entraînement peut s'évaluer.
-    niveauSuitLeProfil();                      // 272
     // Le bandeau de Saisie suit la ligne qui vient d'arriver (il ne s'ouvre pas toujours :
     // séance, feuille ou « Ranger » en cours).
     rendreBandeauQuestionnaire();
@@ -16860,6 +16858,10 @@
     // suivants. Prise sur le seul cache, elle ne routait un compte neuf qu'au
     // SECOND démarrage (relevé 60-0).
     ouvrirQuestionnaireSiDu();
+    // 272 — le profil du serveur est lu (`debutant_fin`, `anciennete_choisie_le`) : le niveau d'entraînement peut s'évaluer.
+    // APRÈS la décision d'ouvrir le questionnaire : un questionnaire qui vient de s'ouvrir bloque l'évaluation (`niveauBloque`),
+    // sinon l'ancienneté serait écrite avant que la personne y réponde (banc Q60 K, en CI : l'historique des sections d'avant).
+    niveauSuitLeProfil();
   }
 
   // ⚠️ UN SEUL ENVOI À LA FOIS, ET UNE RÉPONSE NE REMPLACE JAMAIS UN GESTE PLUS

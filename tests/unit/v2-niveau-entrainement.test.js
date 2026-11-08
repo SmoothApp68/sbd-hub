@@ -227,3 +227,12 @@ describe('272 — niveauBloque (app.js) : rien tant que l’écran du questionna
     expect(bloque({ questionnaire_fait_le: '2026-10-01T09:00:00Z' }, null)).toBe(false);
   });
 });
+
+describe('272 — l’ordre dans chargerProfil : le questionnaire décide de s’ouvrir AVANT que le niveau s’évalue', () => {
+  test('niveauSuitLeProfil() vient après ouvrirQuestionnaireSiDu() (sinon l’ancienneté s’écrit avant la réponse)', () => {
+    const APP = require('fs').readFileSync(require('path').join(__dirname, '../../v2/js/app.js'), 'utf8');
+    const f = APP.match(/^  async function chargerProfil\b[\s\S]*?^  }/m)[0];
+    expect(f.indexOf('ouvrirQuestionnaireSiDu();')).toBeGreaterThan(0);
+    expect(f.indexOf('niveauSuitLeProfil();')).toBeGreaterThan(f.indexOf('ouvrirQuestionnaireSiDu();'));
+  });
+});

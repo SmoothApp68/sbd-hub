@@ -2226,15 +2226,23 @@
   // 273 — le nom d'un jalon : les trois grandes barres par leur nom court (« Squat », « Couché », « Soulevé »), les autres
   // par le nom court du catalogue.
   function jalonNomme(l) {
+    if (l.sorte === 'niveau') return l;
     var index = corpus().catalogue(), court = Modele.NOM_DE_BARRE[l.slug];
     var nom = court ? court.charAt(0).toUpperCase() + court.slice(1) : Modele.nomCourt(Modele.nommer(index, l.slug));
     return Object.assign({}, l, { nom: nom });
   }
   // Profil › Jalons : le carnet, en lecture seule (rien n'est écrit, tout se recalcule). Les caps, les records des grandes
   // barres ; jamais la régularité. Une feuille, comme « Les mots du coach ».
+  // 273 — la ligne de niveau : le niveau actuel, daté (`debutant_fin`, sinon le franchissement calculé) ; rien de stocké.
+  function ligneDeNiveau() {
+    if (!profil) return [];
+    var maintenant = new Date(), f = faits.faitsDuNiveau(corpus(), maintenant.toISOString());
+    var j = Profil.jalonDeNiveau({ seances: f.seances, records: f.records, debutantFin: profil.debutant_fin, aujourdhui: maintenant });
+    return j && j.date ? [{ sorte: 'niveau', libelle: Profil.libelleDeNiveau(j.cle), date: j.date }] : [];
+  }
   function ouvrirJalons() {
     var lignes = [];
-    try { lignes = Jeu.carnet(faits.faitsDuJeu(corpus(), new Date())).map(jalonNomme); }
+    try { lignes = Jeu.carnet(faits.faitsDuJeu(corpus(), new Date()), ligneDeNiveau()).map(jalonNomme); }
     catch (e) { console.warn('Le carnet de jalons ne se calcule pas :', texteErreur(e)); }
     feuilleProfil = function (cible) { Rendu.rendreFeuilleJalons(cible, { lignes: lignes, surFermer: fermerVoile }); };
     ouvrirFeuilleProfil();

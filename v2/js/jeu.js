@@ -554,8 +554,9 @@
   function plaquesDuCap(exo, slug, kg) {
     return estALaPlaque(exo, slug) && kg >= CAP_PLAQUE_PREMIER ? Math.round((kg - CAP_PLAQUE_PREMIER) / CAP_PLAQUE_PAS) + 1 : null;
   }
-  function carnet(entree) {
-    var lignes = [], grandes = racine.THModele.BARRES.slice(0, NB_GRANDES_BARRES);
+  // `en_plus` : des lignes déjà faites par l'appelant (le niveau, que le jeu ne calcule pas) : `{ sorte: 'niveau', libelle, date }`.
+  function carnet(entree, enPlus) {
+    var lignes = (enPlus || []).slice(), grandes = racine.THModele.BARRES.slice(0, NB_GRANDES_BARRES);
     (entree.maximums || []).forEach(function (x) {
       if (!x) return;
       var exo = entree.catalogue ? entree.catalogue[x.slug] : null;

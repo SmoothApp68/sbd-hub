@@ -9641,6 +9641,7 @@
     return nombreFr(charge) + NBSP + 'kg' + (reps ? ' \u00d7 ' + reps : '');
   }
   function jalonEnPhrase(l) {
+    if (l.sorte === 'niveau') return 'Niveau ' + l.libelle;
     if (l.sorte === 'record') return l.nom + ' : record, ' + mesureDeJalon(l.charge, l.reps);
     if (l.plaques) return l.nom + ' : ' + l.plaques + ' ' + motJeu(l.plaques, 'plaque', 'plaques') + ' (' + mesureDeJalon(l.charge, l.reps) + ')';
     return l.nom + ' : ' + mesureDeJalon(l.charge, l.reps);

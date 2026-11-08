@@ -118,3 +118,25 @@ describe('273 — le carnet de jalons', () => {
     expect(JSON.stringify(lignes)).not.toMatch(/seances|semaines|serie/);
   });
 });
+
+describe('273 — la ligne de niveau du carnet', () => {
+  const Profil = require('../../v2/js/profil.js');
+  const ils = (n, depuis, pas) => Array.from({ length: n }, (_, i) => new Date(depuis + i * pas).toISOString());
+  const J = 86400000, DEBUT = Date.UTC(2023, 0, 9, 12);
+  test('1 an et 50 séances : daté du franchissement (le plus tard des deux), confirmé par niveauCalcule', () => {
+    const seances = ils(60, DEBUT, 10 * J);   // 60 séances sur ~590 jours : l'an est franchi à 365,25 j, la 50e séance à 490 j
+    const j = Profil.jalonDeNiveau({ seances, records: [], debutantFin: null, aujourdhui: new Date(DEBUT + 600 * J) });
+    expect(j.cle).toBe('1_a_3_ans');
+    expect(j.date).toBe(new Date(Date.parse(seances[49])).toISOString());
+  });
+  test('debutant_fin prime pour la sortie précoce ; moins d’un an : aucune ligne', () => {
+    const seances = ils(30, DEBUT, 7 * J);
+    expect(Profil.jalonDeNiveau({ seances, records: [], debutantFin: '2023-08-01', aujourdhui: new Date(DEBUT + 300 * J) }))
+      .toEqual({ cle: '1_a_3_ans', date: new Date('2023-08-01T12:00:00').toISOString() });
+    expect(Profil.jalonDeNiveau({ seances, records: [], debutantFin: null, aujourdhui: new Date(DEBUT + 300 * J) })).toBeNull();
+  });
+  test('la ligne entre dans le carnet, triée avec le reste', () => {
+    const lignes = Jeu.carnet({ maximums: [], journal: [], catalogue: {} }, [{ sorte: 'niveau', libelle: '1 à 3 ans d’entraînement', date: '2024-02-01T12:00:00Z' }]);
+    expect(lignes).toEqual([{ sorte: 'niveau', libelle: '1 à 3 ans d’entraînement', date: '2024-02-01T12:00:00Z' }]);
+  });
+});

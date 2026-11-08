@@ -75,8 +75,8 @@ function profilEcran(profil, options) {
     ligneSemaineDeTest: () => null,
     // 201 — « Les mots du coach » : la feuille qu'ouvre la ligne (lexique du moteur).
     Moteur, ouvrirMotsDuCoach: () => {},
-    // 273 — « Jalons » : la feuille qu'ouvre la ligne.
-    ouvrirJalons: () => {},
+    // 273 — « Jalons » et « Faits seulement » (le mode sobre de l'appareil : éteint ici).
+    ouvrirJalons: () => {}, basculerModeSobre: () => {},
     // 212 — « À propos » : les trois pages de textes.
     Mentions: require('../../v2/js/mentions.js'), ouvrirMentions: () => {},
     // 163 — « Ma salle » n'apparaît que si un exercice à l'élastique est dans une routine, l'historique ou la séance
@@ -99,6 +99,8 @@ function profilEcran(profil, options) {
   };
   vm.createContext(ctx);
   vm.runInContext(extraire('jeuAllume'), ctx);
+  vm.runInContext(extraire('modeSobre'), ctx);
+  vm.runInContext(extraire('jeuVisible'), ctx);
   vm.runInContext(extraire('facultative'), ctx);
   vm.runInContext(extraire('rendreProfilEcran'), ctx);
   vm.runInContext('rendreProfilEcran()', ctx);

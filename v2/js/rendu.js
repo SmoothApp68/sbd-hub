@@ -6939,7 +6939,7 @@
     // 64B (JEU-V1 §9.4) — le bloc « Le jeu », tel quel. Un rendu qui échouerait ne coûte que son bloc.
     if (vue.jeu) {
       try {
-        var bj = blocJeuFin(vue.jeu);
+        var bj = blocJeuFin(vue.jeu, vue.sobre);
         if (bj) cible.appendChild(bj);
       } catch (e) { /* pas de bloc */ }
     }
@@ -9645,6 +9645,11 @@
     if (l.plaques) return l.nom + ' : ' + l.plaques + ' ' + motJeu(l.plaques, 'plaque', 'plaques') + ' (' + mesureDeJalon(l.charge, l.reps) + ')';
     return l.nom + ' : ' + mesureDeJalon(l.charge, l.reps);
   }
+  // Au récap : « Squat : 3 plaques pour la première fois. 140 kg × 3. » — hors barre, « cap des 150 kg ».
+  function capDuRecap(l) {
+    var quoi = l.plaques ? l.plaques + ' ' + motJeu(l.plaques, 'plaque', 'plaques') : 'cap des ' + nombreFr(l.kg) + NBSP + 'kg';
+    return l.nom + ' : ' + quoi + ' pour la première fois. ' + mesureDeJalon(l.charge, l.reps) + '.';
+  }
   function rendreFeuilleJalons(cible, vue) {
     vider(cible);
     cible.appendChild(el('div', 'feuille-t', 'Jalons'));
@@ -9941,8 +9946,18 @@
   // Ce que la séance ajoute, une ligne seulement si elle a quelque chose à dire ; aucune → « Muscles · +N points » ;
   // rien du tout → `null`, pas de bloc (jamais un bloc vide). L'Ω ne se montre pas ici.
   //   jeu = { apport, succes: [descriptions, dans l'ordre de `apport.succes`] }
-  function blocJeuFin(jeu) {
+  // 273 — `sobre` (le mode « Faits seulement ») : seules les lignes de cap restent, c'est un fait. Un cap franchi pour la
+  // première fois a SA ligne (`jeu.caps`) ; il n'est plus répété en « Succès ».
+  function blocJeuFin(jeu, sobre) {
     var a = jeu.apport, lignes = [];
+    var caps = (jeu.caps || []).map(function (l) { return el('p', 'recap-voix j-cap', capDuRecap(l)); });
+    if (sobre) {
+      if (!caps.length) return null;
+      var f = blocJeu('Jalons', 'j-fin');
+      f.id = 'jeu-fin';
+      caps.forEach(function (c) { f.appendChild(c); });
+      return f;
+    }
     if (a.xp > 0) lignes.push(ligneJeu('XP', '+' + FINE + groupe(a.xp)));
     if (a.niveau) lignes.push(ligneJeu('Niveau ' + a.niveau.a, '+' + (a.niveau.a - a.niveau.de)));
     a.muscles.forEach(function (m) {
@@ -9952,13 +9967,13 @@
       lignes.push(ligneJeu(g, '+' + (m.a - m.de)));
     });
     jeu.succes.forEach(function (d) {
-      if (!d) return;
+      if (!d || (d.categorie === 'cap' && jeu.caps)) return;
       var g = el('span', 'j-avec-hex');
       g.appendChild(hexJeu(groupe(d.palier), JEU_RANG[d.rarete], 'mini'));
       g.appendChild(doc.createTextNode('Succès : ' + libelleSucces(d)));
       lignes.push(ligneJeu(g, d.rarete));
     });
-    if (!lignes.length) {
+    if (!lignes.length && !caps.length) {
       var pts = plafondJeu(a.points);
       if (pts <= 0) return null;
       lignes.push(ligneJeu('Muscles', '+' + groupe(pts) + ' ' + motJeu(pts, 'point', 'points')));
@@ -9966,6 +9981,7 @@
     var b = blocJeu('Le jeu', 'j-fin');
     b.id = 'jeu-fin';
     lignes.forEach(function (l) { b.appendChild(l); });
+    caps.forEach(function (c) { b.appendChild(c); });
     return b;
   }
 

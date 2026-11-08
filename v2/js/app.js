@@ -2008,7 +2008,7 @@
   function ouvrirBilan(periode, options) {
     var o = options || {};
     var jeu = null;
-    if (periode.type === 'annee' && jeuAllume()) {
+    if (periode.type === 'annee' && jeuVisible()) {
       var fj = faits.faitsDuJeuDeLaPeriode(corpus(), periode, new Date());
       jeu = { debut: Jeu.etatDuJeu(fj.debut), fin: Jeu.etatDuJeu(fj.fin) };
     }
@@ -2147,6 +2147,25 @@
   // Profil, et `/jeu…` s'ouvre comme une route inconnue (`rendreRoute`).
   function jeuAllume() { return Profil.jeuActif(profil); }
 
+  // 273 — LE MODE SOBRE « FAITS SEULEMENT » : une préférence de l'APPAREIL (`localStorage`, jamais en base), éteinte par
+  // défaut. ⚠️ UNE SEULE GARDE, LUE ICI : `jeuVisible()` — le jeu allumé ET le mode sobre éteint. Chaque point de RENDU du
+  // jeu (onglet, accueil, bandeau et vitrine du Profil, XP, niveau, succès du récap) la lit ; `jeuAllume()` reste
+  // l'interrupteur du COMPTE (le niveau publié, le calcul). Les records, les courbes, les paris, le carnet de jalons et la
+  // ligne de cap du récap sont des faits : ils ne la lisent pas.
+  var CLE_SOBRE = 'th-v2-faits-seulement';
+  function modeSobre() {
+    try { return racine.localStorage.getItem(CLE_SOBRE) === '1'; } catch (e) { return false; }
+  }
+  function poserModeSobre(sobre) {
+    try { racine.localStorage.setItem(CLE_SOBRE, sobre ? '1' : '0'); } catch (e) { /* tant pis : le choix ne dure pas */ }
+  }
+  function jeuVisible() { return jeuAllume() && !modeSobre(); }
+  function basculerModeSobre() {
+    poserModeSobre(!modeSobre());
+    jeuSuitLeProfil();
+    rendreProfilEcran();
+  }
+
   // La barre suit l'interrupteur : l'onglet Jeu caché quand il est éteint, et autant de colonnes que d'onglets
   // VISIBLES (pas de trou). Appelée par `montrer`, à chaque écran : l'écran suit tout de suite, hors ligne compris.
   // 87 (SOCIAL-V1) — L'ONGLET RESTE, jeu éteint : le social est volontaire et indépendant du jeu. Il se réduit
@@ -2154,8 +2173,8 @@
   function appliquerJeu() {
     var bouton = $('onglet-jeu'), barre = $('onglets'), nom = $('onglet-jeu-nom');
     if (bouton) bouton.hidden = false;
-    if (nom) nom.textContent = jeuAllume() ? 'Jeu & amis' : 'Amis';
-    ['vue-jeu', 'vue-fil', 'vue-guilde'].forEach(function (id) { Rendu.rendreEnteteSocial($(id), jeuAllume()); });
+    if (nom) nom.textContent = jeuVisible() ? 'Jeu & amis' : 'Amis';
+    ['vue-jeu', 'vue-fil', 'vue-guilde'].forEach(function (id) { Rendu.rendreEnteteSocial($(id), jeuVisible()); });
     if (barre) barre.style.setProperty('--n-onglets', String(barre.querySelectorAll('.onglet:not([hidden])').length));
   }
 
@@ -2163,7 +2182,7 @@
   // ferme si le jeu vient de s'éteindre — comme une route inconnue.
   function jeuSuitLeProfil() {
     appliquerJeu();
-    if (!jeuAllume() && Routeur.estVueDuJeu(ecranCourant)) {
+    if (!jeuVisible() && Routeur.estVueDuJeu(ecranCourant)) {
       allerA(Routeur.RACINE, {}, true);
       rendreSemaine(Semaine.bornesSemaine(new Date()).lundi);
     }
@@ -2171,7 +2190,7 @@
 
   // 87 — L'ONGLET « JEU & AMIS » : l'accueil du jeu, ou — jeu éteint — le fil.
   function ouvrirOngletJeu() {
-    if (jeuAllume()) { allerA(Routeur.JEU, {}); return rendreJeu(); }
+    if (jeuVisible()) { allerA(Routeur.JEU, {}); return rendreJeu(); }
     allerA(Routeur.FIL, {}, true);
     return rendreFil();
   }
@@ -2250,9 +2269,13 @@
       if (memoFeuilleJeu.cle === cle) return memoFeuilleJeu.jeu;
       var enCours = { seance: seance, ligne: Seance.ligneSession(Seance.terminer(seance, maintenant)),
                       lignes: Seance.lignes(seance) };
-      var apres = Jeu.etatDuJeu(faits.faitsDuJeu(c, maintenant, enCours));
+      var entreeApres = faits.faitsDuJeu(c, maintenant, enCours);
+      var apres = Jeu.etatDuJeu(entreeApres);
       var a = Jeu.apport(avant, apres);
-      var jeu = { apport: a, succes: a.succes.map(succesDecrit) };
+      // 273 — les caps franchis pour la première fois dans cette séance : un fait, avec la série qui l'a atteint.
+      var caps = Jeu.carnet(entreeApres).filter(function (l) { return l.sorte === 'cap' && a.succes.indexOf(l.id) >= 0; })
+        .map(jalonNomme);
+      var jeu = { apport: a, succes: a.succes.map(succesDecrit), caps: caps };
       memoFeuilleJeu = { cle: cle, jeu: jeu };
       return jeu;
     } catch (e) {
@@ -3691,7 +3714,7 @@
           titre: 'Ensemble' + (jour ? ' · ' + jour : ''),
           qui: r.membres.map(function (m) { return m.pseudo; }).join(' · '),
           tonnes: tonnesSociales(r.tonnage_kg), series: r.series, records: r.records,
-          xp: jeuAllume() && r.xp !== null ? '+' + Modele.nombreTexte(r.xp, 0) + ' XP ensemble' : null,
+          xp: jeuVisible() && r.xp !== null ? '+' + Modele.nombreTexte(r.xp, 0) + ' XP ensemble' : null,
           membres: r.membres.map(function (m) { return { pseudo: m.pseudo, part: Social.partDe(m, tonnesSociales) }; }),
           note: v.mode === 'recap' && Social.faiteEnGroupeAvec(r.membres)
             ? 'Ta séance garde « ' + Social.faiteEnGroupeAvec(r.membres) + ' » et ce récap.' : null
@@ -5400,6 +5423,7 @@
     Rendu.rendreRecap($('recap-corps'), {
       recap: r,
       jeu: recap.jeu,
+      sobre: modeSobre(),
       surFermer: fermerRecap,
       surVoir: voirLaSeanceDuRecap,
       surPartager: partagerLeRecap,
@@ -16662,7 +16686,7 @@
     var routeInitiale = Routeur.analyser(racine.location.pathname);
     // 64B — jeu éteint (le profil en cache le dit), `/jeu…` est une route inconnue dès le démarrage.
     if (Routeur.interditAvecSession(routeInitiale.vue) || routeInitiale.repli ||
-        (Routeur.estVueDuJeu(routeInitiale.vue) && routeInitiale.vue !== Routeur.JEU && !jeuAllume())) {
+        (Routeur.estVueDuJeu(routeInitiale.vue) && routeInitiale.vue !== Routeur.JEU && !jeuVisible())) {
       routeInitiale = { vue: Routeur.RACINE, params: {} };
       allerA(Routeur.RACINE, {}, true);
     }
@@ -18824,7 +18848,7 @@
     // 64B (JEU-V1 §9.3) — jeu allumé : l'hexagone du niveau et son cadre à la place de l'initiale, le titre et le
     // niveau sous le nom, la vitrine ; éteint, l'initiale revient et rien du jeu ne se montre.
     var jeu = null;
-    if (jeuAllume()) {
+    if (jeuVisible()) {
       try { jeu = etatDuJeuCourant(); } catch (e) { jeu = null; }
     }
     Rendu.rendreBandeauJeu($('profil-rond'), $('profil-jeu'), jeu, Profil.initiale(p.username));
@@ -18938,6 +18962,12 @@
             // 207 — la portabilité (RGPD art. 20) : une feuille, deux fichiers, construits sur l'appareil. Rien n'est écrit.
             { libelle: 'Exporter mes données', sansValeur: true, surChoix: ouvrirExport }
           ]) },
+          // 273 — « Faits seulement » : sur CET appareil, le niveau, l'XP, les succès, les titres et les cadres se masquent.
+          { titre: 'AFFICHAGE', lignes: [
+            { libelle: 'Faits seulement', sansValeur: true,
+              sous: 'Masque le niveau, l’XP, les succès, les titres et les cadres. Garde les records, les courbes, les paris et les jalons.',
+              interrupteur: { actif: modeSobre(), surBascule: basculerModeSobre } }
+          ] },
           // 69 (ECRAN-PROFIL §2.4 quater) — « MES DONNÉES ». Le jeu, quitter et supprimer suivent, dans le rendu (213 : au bas de ce groupe).
           { titre: 'MES DONNÉES', lignes: [
             { libelle: 'Importer depuis Hevy ou Strong', sansValeur: true,
@@ -20016,8 +20046,8 @@
     // 64B — LA GARDE DU JEU VIT ICI, PAS DANS LE ROUTEUR (qui reste pur et ne connaît pas l'interrupteur). Jeu
     // éteint, `/jeu…` (lien direct, rechargement, retour) s'ouvre comme une route inconnue : « / » à sa place.
     // 87 — l'onglet, jeu éteint, ouvre le fil (le social ne dépend pas de l'interrupteur).
-    if (cible.vue === Routeur.JEU && !jeuAllume()) { allerA(Routeur.FIL, {}, true); return rendreFil(); }
-    if (Routeur.estVueDuJeu(cible.vue) && !jeuAllume()) {
+    if (cible.vue === Routeur.JEU && !jeuVisible()) { allerA(Routeur.FIL, {}, true); return rendreFil(); }
+    if (Routeur.estVueDuJeu(cible.vue) && !jeuVisible()) {
       allerA(Routeur.RACINE, {}, true);
       return rendreSemaine(Semaine.bornesSemaine(new Date()).lundi);
     }

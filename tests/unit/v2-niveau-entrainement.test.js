@@ -67,20 +67,20 @@ describe('272 — niveauCalcule : les années d’entraînement', () => {
 describe('272 — la sortie précoce du statut débutant', () => {
   // 7 mois, 30 séances : « moins d’un an » par le calcul ; la sortie précoce dépend des records.
   const sept = () => seances(30, 7 / 12);
-  const plateau = (extra) => [{ barre: 'squat', fait: true, dernierRecord: '2026-08-01' }, { barre: 'couche', fait: true, dernierRecord: null },
-    { barre: 'souleve', fait: false, dernierRecord: null }].map((x, i) => (extra && extra[i]) || x);
+  const plateau = (extra) => [{ barre: 'squat', fait: true, jourDuRecord: '2026-08-01' }, { barre: 'couche', fait: true, jourDuRecord: null },
+    { barre: 'souleve', fait: false, jourDuRecord: null }].map((x, i) => (extra && extra[i]) || x);
   const calc = (o) => Profil.niveauCalcule(Object.assign({ seances: sept(), records: plateau(), debutantFin: null, aujourdhui: MAINTENANT }, o || {}));
 
   test('6 mois, 24 séances et aucun record depuis 6 semaines : 1 à 3 ans, sortiePrecoce, les barres faites', () => {
     expect(calc()).toMatchObject({ cle: '1_a_3_ans', sortiePrecoce: true, barres: ['squat', 'couche'] });
   });
   test('un record dans les 6 semaines sur une barre faite : reste débutant', () => {
-    expect(calc({ records: plateau([{ barre: 'squat', fait: true, dernierRecord: '2026-10-20' }]) })).toMatchObject({ cle: 'moins_1_an', sortiePrecoce: false });
+    expect(calc({ records: plateau([{ barre: 'squat', fait: true, jourDuRecord: '2026-10-20' }]) })).toMatchObject({ cle: 'moins_1_an', sortiePrecoce: false });
   });
   test('le record d’une barre NON faite dans les 6 semaines ne compte pas ; aucune barre faite : pas de plateau', () => {
-    expect(calc({ records: plateau([null, null, { barre: 'souleve', fait: false, dernierRecord: '2026-10-30' }]) }).sortiePrecoce).toBe(true);
+    expect(calc({ records: plateau([null, null, { barre: 'souleve', fait: false, jourDuRecord: '2026-10-30' }]) }).sortiePrecoce).toBe(true);
     expect(calc({ records: [] }).cle).toBe('moins_1_an');
-    expect(calc({ records: plateau([{ barre: 'squat', fait: false, dernierRecord: null }, { barre: 'couche', fait: false, dernierRecord: null }]) }).cle).toBe('moins_1_an');
+    expect(calc({ records: plateau([{ barre: 'squat', fait: false, jourDuRecord: null }, { barre: 'couche', fait: false, jourDuRecord: null }]) }).cle).toBe('moins_1_an');
   });
   test('moins de 6 mois ou moins de 24 séances : pas de sortie', () => {
     expect(calc({ seances: seances(30, 5 / 12) }).cle).toBe('moins_1_an');
@@ -88,7 +88,7 @@ describe('272 — la sortie précoce du statut débutant', () => {
     expect(calc({ seances: seances(24, 7 / 12) }).sortiePrecoce).toBe(true);
   });
   test('LE VERROU : `debutant_fin` posée, un nouveau record ne ramène jamais en débutant (et ce n’est plus une sortie à constater)', () => {
-    const r = calc({ debutantFin: '2026-09-01', records: plateau([{ barre: 'squat', fait: true, dernierRecord: '2026-11-07' }]) });
+    const r = calc({ debutantFin: '2026-09-01', records: plateau([{ barre: 'squat', fait: true, jourDuRecord: '2026-11-07' }]) });
     expect(r).toMatchObject({ cle: '1_a_3_ans', sortiePrecoce: false });
     // même avec trop peu de séances ou de mois : le verrou tient
     expect(calc({ debutantFin: '2026-09-01', seances: seances(10, 0.2) }).cle).toBe('1_a_3_ans');
@@ -149,9 +149,9 @@ describe('272 — faits.faitsDuNiveau : séances terminées et records des grand
   test('une barre faite dans les 6 semaines : `fait`, et le jour de son dernier record (la table des records)', () => {
     const c = corpusDe([['2026-08-01', 'squat_barre', 100], ['2026-09-01', 'squat_barre', 100], ['2026-10-20', 'squat_barre', 105], ['2026-10-25', 'developpe_couche_barre', 80]]);
     const r = Faits.creer().faitsDuNiveau(c, J).records;
-    expect(r.find((x) => x.barre === 'squat')).toEqual({ barre: 'squat', fait: true, dernierRecord: '2026-10-20' });
+    expect(r.find((x) => x.barre === 'squat')).toEqual({ barre: 'squat', fait: true, jourDuRecord: '2026-10-20' });
     expect(r.find((x) => x.barre === 'couche').fait).toBe(true);
-    expect(r.find((x) => x.barre === 'souleve')).toEqual({ barre: 'souleve', fait: false, dernierRecord: null });
+    expect(r.find((x) => x.barre === 'souleve')).toEqual({ barre: 'souleve', fait: false, jourDuRecord: null });
   });
   test('une barre pas faite depuis plus de 6 semaines n’est pas « faite » ; un accessoire n’est jamais une grande barre', () => {
     const c = corpusDe([['2026-08-01', 'squat_barre', 100], ['2026-10-25', 'curl', 15]]);

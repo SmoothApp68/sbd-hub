@@ -325,13 +325,13 @@
   function niveauDesAnnees(annees) {
     return annees >= 5 ? 'plus_5_ans' : annees >= 3 ? '3_a_5_ans' : annees >= 1 ? '1_a_3_ans' : 'moins_1_an';
   }
-  // `records` : `[{ barre: 'squat' | 'couche' | 'souleve', fait: bool (faite dans les 6 semaines), dernierRecord: 'AAAA-MM-JJ' | null }]`
+  // `records` : `[{ barre: 'squat' | 'couche' | 'souleve', fait: bool (faite dans les 6 semaines), jourDuRecord: 'AAAA-MM-JJ' | null }]`
   // (`faits.barresDuPlateau`). Le plateau : au moins une barre faite, et aucune des barres faites n'a un record des 6 dernières semaines.
   function barresDuPlateau(records, aujourdhui) {
     var faites = (records || []).filter(function (r) { return r && r.fait === true && BARRES_DU_PLATEAU.indexOf(r.barre) >= 0; });
     if (!faites.length) return null;
     var ok = faites.every(function (r) {
-      var j = r.dernierRecord ? joursDepuis(r.dernierRecord, aujourdhui) : null;
+      var j = r.jourDuRecord ? joursDepuis(r.jourDuRecord, aujourdhui) : null;
       return j === null || j >= PLATEAU_JOURS;
     });
     return ok ? BARRES_DU_PLATEAU.filter(function (b) { return faites.some(function (r) { return r.barre === b; }); }) : null;

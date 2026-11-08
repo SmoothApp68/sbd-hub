@@ -267,7 +267,7 @@
         .map(function (s) { return s.debut; });
       var G = racine.THGenerateur, cat = typeof c.catalogue === 'function' ? c.catalogue() : null;
       var barres = Modele.BARRES, cles = { squat: barres[0], couche: barres[1], souleve: barres[2] };
-      var sortie = Object.keys(cles).map(function (k) { return { barre: k, fait: false, dernierRecord: null }; });
+      var sortie = Object.keys(cles).map(function (k) { return { barre: k, fait: false, jourDuRecord: null }; });
       if (!J || !G || !cat) return { seances: seances, records: sortie };
       var tJ = Date.parse(J + 'T12:00:00');
       var plancher = Moteur.jourCivil(new Date(tJ - 42 * 86400000));
@@ -288,7 +288,7 @@
         if (!ligne) return;
         ligne.fait = true;
         var h = derniereHausseDuRecord(c, slug, J);
-        if (h && (ligne.dernierRecord === null || h > ligne.dernierRecord)) ligne.dernierRecord = h;
+        if (h && (ligne.jourDuRecord === null || h > ligne.jourDuRecord)) ligne.jourDuRecord = h;
       });
       return { seances: seances, records: sortie };
     }

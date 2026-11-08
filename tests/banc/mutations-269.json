@@ -1,0 +1,6 @@
+[
+ {"nom":"269-set-order-devine-en-travail","fichier":"v2/js/importhevy.js","ancien":"if (ordre === null || !/^\\d+$/.test(ordre)) {","nouveau":"if (ordre === null) {","banc":"aucun","unitaires":["tests/unit/v2-import-strong.test.js"]},
+ {"nom":"269-unite-ancien-devinee-en-kg","fichier":"v2/js/importhevy.js","ancien":"var uniteAbsente = unite !== 'kg' && unite !== 'lbs';","nouveau":"var uniteAbsente = false;","banc":"aucun","unitaires":["tests/unit/v2-import-strong.test.js"]},
+ {"nom":"269-lbs-sans-conversion","fichier":"v2/js/importhevy.js","ancien":"if (kg !== null && unite === 'lbs') kg = dixieme(kg * LIVRE);","nouveau":"","banc":"aucun","unitaires":["tests/unit/v2-import-strong.test.js"]},
+ {"nom":"269-distance-ancien-devinee","fichier":"v2/js/importhevy.js","ancien":"var dist = nouveau ? vide(x['Distance (meters)']) : null;","nouveau":"var dist = vide(x['Distance (meters)'] || x.Distance);","banc":"aucun","unitaires":["tests/unit/v2-import-strong.test.js"]}
+]

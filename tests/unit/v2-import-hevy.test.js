@@ -496,7 +496,7 @@ describe('69 — les records d’un import : seulement après la dernière séan
 describe('69 — les mots de l’écran (K1 et la maquette, au mot près)', () => {
   test('les erreurs et les aides', () => {
     expect(I.MESSAGES.texte).toBe('Je ne reconnais pas ce texte. Copie-le depuis Hevy : une séance → Partager → Copier.');
-    expect(I.MESSAGES.fichier).toBe('Ce fichier n’est pas un export de séances Hevy.');
+    expect(I.MESSAGES.fichier).toBe('Ce fichier n’est pas un export de séances Hevy ou Strong.');
     expect(I.MESSAGES.connexion).toBe('L’import demande une connexion.');
     expect(I.MESSAGES.souvenir).toBe('Je m’en souviendrai pour tes prochains imports.');
     expect(I.titreRattacher('Good Morning (Barre)')).toBe('« Good Morning (Barre) » chez Hevy, c’est…');

@@ -18606,7 +18606,7 @@
           ]) },
           // 69 (ECRAN-PROFIL §2.4 quater) — « MES DONNÉES ». Le jeu, quitter et supprimer suivent, dans le rendu (213 : au bas de ce groupe).
           { titre: 'MES DONNÉES', lignes: [
-            { libelle: 'Importer depuis Hevy', sansValeur: true,
+            { libelle: 'Importer depuis Hevy ou Strong', sansValeur: true,
               surChoix: function () { allerA(Routeur.IMPORT, {}); ouvrirImport(); } }
           ] }
         ]),
@@ -18914,14 +18914,37 @@
 
   function indexDeLImport() { return Import.indexDesNoms(importHevy.sources); }
 
-  async function lireImport(genre, texte) {
+  async function lireImport(genre, texte, unite) {
     var imp = importHevy;
     if (!imp || imp.occupe) return;
     var M = Import.MESSAGES;
     imp.erreur = null;
-    var lues = null, enAnglais = false;
-    try { lues = genre === 'csv' ? Import.lireCsv(texte) : Import.lireTexte(texte); }
-    catch (e) { lues = null; enAnglais = !!(e && e.enAnglais); }
+    var lues = null, enAnglais = false, strong = false;
+    // 269 — Strong : le MÊME écran. L'en-tête du CSV dit lequel c'est ; l'ancien format n'a pas d'unité de poids, on la
+    // demande (une question, une fois : l'étape « unite »), jamais devinée ; un type de série inconnu refuse le fichier.
+    if (genre === 'csv') {
+      var f = Import.formatDuCsv(texte);
+      if (f.format === 'strong-ancien' || f.format === 'strong-nouveau') {
+        strong = true;
+        try { lues = Import.lireStrong(texte, { unite: unite }); }
+        catch (e) {
+          if (e && e.uniteRequise) {
+            imp.etape = 'unite';
+            imp.texteEnAttente = texte;
+            return rendreImportEcran();
+          }
+          imp.etape = 'choix';
+          imp.erreur = e && e.typeInconnu !== undefined ? M.strongType(e.typeInconnu) : M.fichier;
+          return rendreImportEcran();
+        }
+        imp.etape = 'choix';
+        imp.texteEnAttente = null;
+      }
+    }
+    if (!strong) {
+      try { lues = genre === 'csv' ? Import.lireCsv(texte) : Import.lireTexte(texte); }
+      catch (e) { lues = null; enAnglais = !!(e && e.enAnglais); }
+    }
     // ⚠️ UNE SÉANCE COLLÉE SANS SON LIEN n'a pas de référence (`hevy:<id>`) :
     // ni l'anti-doublon ni l'identifiant tiré du nom ne la tiendraient. Le
     // texte est refusé en entier — jamais à moitié lu.
@@ -19213,8 +19236,12 @@
     var imp = importHevy, M = Import.MESSAGES;
     var v = {
       etape: imp.etape, texte: imp.texte, erreur: imp.erreur, occupe: imp.occupe,
+      questionUnite: M.strongUnite,
       surSaisie: function (t) { imp.texte = t; },
       surLireTexte: function (t) { imp.texte = t; lireImport('texte', t); },
+      // 269 — l'ancien format de Strong : « kg ou lb ? », puis la lecture reprend où elle en était.
+      surChoisirUnite: function (u) { var t = imp.texteEnAttente; if (t) lireImport('csv', t, u); },
+      surAnnulerUnite: function () { imp.etape = 'choix'; imp.texteEnAttente = null; rendreImportEcran(); },
       surChoisirFichier: function () {
         var f = $('fichier-hevy');
         if (!f) return;

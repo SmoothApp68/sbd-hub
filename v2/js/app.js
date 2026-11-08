@@ -17084,9 +17084,9 @@
   // MOTEUR : jamais pendant une décharge (la semaine allégée ou la décharge planifiée, `semaineAllegeeEnCours`), une semaine de test
   // (`testDesCartes`) ou quand « J'ai mal » est actif (une série marquée dans les 42 jours, `faits.douleursParExercice`, ou dans la
   // séance ouverte) : l'évaluation attend la prochaine ouverture.
-  // …et tant que le questionnaire n'est pas terminé (`questionnaire_fait_le` vide, ou l'écran ouvert) : la personne y répond sur son niveau.
+  // …et tant que l'écran du questionnaire est ouvert : la personne y répond sur son niveau. (`questionnaire_fait_le` vide ne bloque pas : les comptes d'avant le questionnaire l'ont vide.)
   function niveauBloque() {
-    if (questionnaire || !profil || !profil.questionnaire_fait_le) return true;
+    if (questionnaire) return true;
     var jour = jourDuJour();
     if (semaineAllegeeEnCours()) return true;
     var T = testDesCartes();

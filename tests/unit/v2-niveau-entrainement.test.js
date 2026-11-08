@@ -206,7 +206,7 @@ describe('272 — les phrases des écrans', () => {
 });
 
 // ══ LE BLOCAGE : le questionnaire d'abord ═══════════════════════════════════════════════════════════════════════════════
-describe('272 — niveauBloque (app.js) : rien tant que le questionnaire n’est pas terminé', () => {
+describe('272 — niveauBloque (app.js) : rien tant que l’écran du questionnaire est ouvert', () => {
   const fs = require('fs'), path = require('path'), vm = require('vm');
   const APP = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
   const m = APP.match(/^  function niveauBloque\b[\s\S]*?^  }/m);
@@ -218,11 +218,12 @@ describe('272 — niveauBloque (app.js) : rien tant que le questionnaire n’est
     vm.runInContext(m[0], ctx);
     return vm.runInContext('niveauBloque()', ctx);
   };
-  test('questionnaire_fait_le vide : bloqué ; l’écran du questionnaire ouvert : bloqué', () => {
-    expect(bloque({ questionnaire_fait_le: null }, null)).toBe(true);
+  test('l’écran du questionnaire ouvert : bloqué (terminé ou non)', () => {
+    expect(bloque({ questionnaire_fait_le: null }, { ecran: 'toi' })).toBe(true);
     expect(bloque({ questionnaire_fait_le: '2026-10-01T09:00:00Z' }, { ecran: 'toi' })).toBe(true);
   });
-  test('questionnaire terminé et fermé : l’évaluation passe', () => {
+  test('questionnaire_fait_le vide mais l’écran fermé (un compte d’avant le questionnaire) : l’évaluation passe', () => {
+    expect(bloque({ questionnaire_fait_le: null }, null)).toBe(false);
     expect(bloque({ questionnaire_fait_le: '2026-10-01T09:00:00Z' }, null)).toBe(false);
   });
 });

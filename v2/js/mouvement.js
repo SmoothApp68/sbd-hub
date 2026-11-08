@@ -48,7 +48,8 @@
     planche: 'planche.json',
     tapis_roulant: 'tapis_roulant.json',
     developpe_militaire_barre: 'developpe_militaire_barre.json',
-    curl_biceps_barre_ez: 'curl_biceps_barre_ez.json'
+    curl_biceps_barre_ez: 'curl_biceps_barre_ez.json',
+    shrug_barre: 'shrug_barre.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }
@@ -91,7 +92,7 @@
     var MUSCLES_APP = {
       abdominaux: ['abdominaux'], abducteurs: ['abducteurs'], adducteurs: ['adducteurs'], avant_bras: ['avant_bras'],
       bas_du_dos: ['bas_du_dos'], biceps: ['biceps'], deltoide_anterieur: ['deltoide_anterieur'], deltoide_lateral: ['deltoide_lateral'],
-      deltoide_posterieur: ['deltoide_posterieur'], fessiers: ['fessiers'], grand_dorsal: ['grand_dorsal'], haut_du_dos: ['haut_du_dos'],
+      deltoide_posterieur: ['deltoide_posterieur'], fessiers: ['fessiers'], grand_dorsal: ['grand_dorsal'], haut_du_dos: ['haut_du_dos', 'trapeze_moyen', 'trapeze_inferieur'],
       ischio_jambiers: ['ischio_jambiers'], mollets: ['mollets'], pectoraux: ['pectoraux'], quadriceps: ['quadriceps'],
       trapezes: ['trapezes'], triceps: ['triceps']
     };

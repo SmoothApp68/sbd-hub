@@ -1,0 +1,14 @@
+[
+  {"nom": "272-le-min", "fichier": "v2/js/profil.js",
+   "ancien": "var annees = Math.min(depuis / AN_MS, instants.length / SEANCES_PAR_AN);",
+   "nouveau": "var annees = Math.max(depuis / AN_MS, instants.length / SEANCES_PAR_AN);",
+   "banc": "aucun", "unitaires": ["tests/unit/v2-niveau-entrainement.test.js"]},
+  {"nom": "272-le-verrou-debutant-fin", "fichier": "v2/js/profil.js",
+   "ancien": "if (x.debutantFin) cle = '1_a_3_ans';",
+   "nouveau": "if (false) cle = '1_a_3_ans';",
+   "banc": "aucun", "unitaires": ["tests/unit/v2-niveau-entrainement.test.js"]},
+  {"nom": "272-les-182-jours", "fichier": "v2/js/profil.js",
+   "ancien": "if (j !== null && j < CHOIX_PRIME_JOURS) return null;",
+   "nouveau": "if (j !== null && j <= CHOIX_PRIME_JOURS) return null;",
+   "banc": "aucun", "unitaires": ["tests/unit/v2-niveau-entrainement.test.js"]}
+]

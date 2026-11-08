@@ -303,6 +303,127 @@
   function estDebutant(profil) {
     return !!profil && profil.anciennete === ANCIENNETE_DEBUTANT;
   }
+  // 272 — LE NIVEAU D'ENTRAÎNEMENT MONTE SEUL (« le débutant qui ne vieillit jamais »). `estDebutant` lit `anciennete` ; ce bloc
+  // décide quand `anciennete` change toute seule. UNE fonction pure par décision, aucune lecture de l'horloge ni de la base : l'app
+  // donne les faits (`faits.js` : les séances, les records) et câble le reste.
+  //
+  // RÈGLE 1 — les années d'entraînement : le MINIMUM de (les années depuis la 1re séance, le nombre de séances ÷ 50). Un an = 365,25 j.
+  // Le nombre de séances n'est jamais montré : il ne sort pas d'ici (doctrine : jamais l'assiduité).
+  var AN_MS = 365.25 * 86400000;
+  var SEANCES_PAR_AN = 50;
+  // RÈGLE 3 — la sortie précoce du statut débutant : 6 mois (182 j, comme le choix), 24 séances, 6 semaines (42 j) sans nouveau record.
+  var SORTIE_PRECOCE_JOURS = 182, SORTIE_PRECOCE_SEANCES = 24, PLATEAU_JOURS = 42;
+  // RÈGLE 5 — un choix explicite de moins de 6 mois (182 j) prime.
+  var CHOIX_PRIME_JOURS = 182;
+  var BARRES_DU_PLATEAU = ['squat', 'couche', 'souleve'];
+  var NOM_BARRE_PLATEAU = { squat: 'squat', couche: 'couché', souleve: 'soulevé' };
+
+  function rangDeLAnciennete(cle) {
+    for (var i = 0; i < ANCIENNETES.length; i++) if (ANCIENNETES[i].cle === cle) return i;
+    return 0;                                   // `null` (ou inconnue) : le rang le plus bas, celui de « moins d'un an »
+  }
+  function niveauDesAnnees(annees) {
+    return annees >= 5 ? 'plus_5_ans' : annees >= 3 ? '3_a_5_ans' : annees >= 1 ? '1_a_3_ans' : 'moins_1_an';
+  }
+  // `records` : `[{ barre: 'squat' | 'couche' | 'souleve', fait: bool (faite dans les 6 semaines), jourDuRecord: 'AAAA-MM-JJ' | null }]`
+  // (`faits.barresDuPlateau`). Le plateau : au moins une barre faite, et aucune des barres faites n'a un record des 6 dernières semaines.
+  function barresDuPlateau(records, aujourdhui) {
+    var faites = (records || []).filter(function (r) { return r && r.fait === true && BARRES_DU_PLATEAU.indexOf(r.barre) >= 0; });
+    if (!faites.length) return null;
+    var ok = faites.every(function (r) {
+      var j = r.jourDuRecord ? joursDepuis(r.jourDuRecord, aujourdhui) : null;
+      return j === null || j >= PLATEAU_JOURS;
+    });
+    return ok ? BARRES_DU_PLATEAU.filter(function (b) { return faites.some(function (r) { return r.barre === b; }); }) : null;
+  }
+  // `e` : { seances: [`debut` (ISO) ou `{ debut }`] — TOUTES les séances terminées, imports compris, records: [...], debutantFin:
+  // 'AAAA-MM-JJ' | null, aujourdhui }. Rend `{ cle, sortiePrecoce, premiere, barres }` : `cle` est un niveau de `ANCIENNETES` (`null`
+  // sans séance) ; `sortiePrecoce` est VRAI quand la sortie précoce vient d'être constatée (l'appelant pose `debutant_fin`, UNE fois) ;
+  // `barres` les barres du plateau (seulement avec `sortiePrecoce`) ; `premiere` : l'instant de la 1re séance.
+  function niveauCalcule(e) {
+    var x = e || {};
+    var maintenant = (x.aujourdhui instanceof Date ? x.aujourdhui : new Date(x.aujourdhui === undefined ? Date.now() : x.aujourdhui)).getTime();
+    var instants = (x.seances || []).map(function (s) { return Date.parse(s && typeof s === 'object' ? s.debut : s); })
+      .filter(function (t) { return !isNaN(t); });
+    if (!instants.length || isNaN(maintenant)) return { cle: null, sortiePrecoce: false, premiere: null, barres: [] };
+    var premiere = Math.min.apply(null, instants);
+    var depuis = Math.max(0, maintenant - premiere);
+    var annees = Math.min(depuis / AN_MS, instants.length / SEANCES_PAR_AN);
+    var cle = niveauDesAnnees(annees), sortie = false, barres = [];
+    if (cle === ANCIENNETE_DEBUTANT) {
+      if (x.debutantFin) cle = '1_a_3_ans';                    // posée une fois : un nouveau record ne ramène jamais en débutant
+      else if (depuis >= SORTIE_PRECOCE_JOURS * 86400000 && instants.length >= SORTIE_PRECOCE_SEANCES) {
+        var plateau = barresDuPlateau(x.records, new Date(maintenant));
+        if (plateau) { cle = '1_a_3_ans'; sortie = true; barres = plateau; }
+      }
+    }
+    return { cle: cle, sortiePrecoce: sortie, premiere: new Date(premiere).toISOString(), barres: barres };
+  }
+  // RÈGLES 4 à 6 : `null`, ou `{ de, vers }` (`de` : l'ancienneté du profil, `null` si vide). Jamais vers le bas ; le choix de moins de
+  // 182 jours prime ; `bloque` (décharge, semaine de test, « J'ai mal » : l'app les lit dans leurs prédicats) : l'évaluation attend.
+  function changementDeNiveau(profil, calcul, aujourdhui, bloque) {
+    if (bloque === true || !calcul || !calcul.cle) return null;
+    var p = profil || {};
+    var j = p.anciennete_choisie_le ? joursDepuis(p.anciennete_choisie_le, aujourdhui) : null;
+    if (j !== null && j < CHOIX_PRIME_JOURS) return null;
+    if (rangDeLAnciennete(calcul.cle) <= rangDeLAnciennete(p.anciennete)) return null;
+    return { de: p.anciennete || null, vers: calcul.cle };
+  }
+  // Les niveaux AU-DESSUS d'un niveau (« J'ai commencé avant », fin d'un import).
+  function niveauxAuDessus(cle) {
+    return ANCIENNETES.filter(function (a, i) { return i > rangDeLAnciennete(cle); });
+  }
+  // « 1 à 3 ans d'entraînement » : le libellé en minuscule après la majuscule initiale (« Plus de 5 ans d'entraînement »).
+  function libelleDeNiveau(cle) {
+    var l = libelleDe(ANCIENNETES, cle);
+    return l ? l + ' d’entraînement' : '';
+  }
+  function datePourNiveau(iso) {
+    var d = new Date(iso);
+    return isNaN(d.getTime()) ? '' : racine.THModele.jourMois(d, 0);
+  }
+  function phraseDesBarres(barres) {
+    var noms = (barres || []).map(function (b) { return NOM_BARRE_PLATEAU[b]; }).filter(Boolean);
+    if (!noms.length) return '';
+    var liste = noms.length === 1 ? 'ton ' + noms[0] : 'ton ' + noms.slice(0, -1).join(', ton ') + ' et ton ' + noms[noms.length - 1];
+    return liste.charAt(0).toUpperCase() + liste.slice(1) + (noms.length === 1 ? ' n’a pas monté' : ' n’ont pas monté') + ' depuis 6 semaines.';
+  }
+  var PHRASE_DEBUTANT_FIN = 'Le coach monte maintenant selon ta zone et ta réserve.';
+  // L'annonce de l'accueil (écran A). `a` : `{ de, vers, premiere, precoce, barres }`. Rien n'est calculé : des phrases.
+  function annonceDeNiveau(a) {
+    var x = a || {}, lib = libelleDeNiveau(x.vers);
+    var fait = x.precoce === true ? phraseDesBarres(x.barres) : 'Ta première séance notée date du ' + datePourNiveau(x.premiere) + '.';
+    var gris = null, voir = false;
+    if (x.de === ANCIENNETE_DEBUTANT) { gris = PHRASE_DEBUTANT_FIN; voir = true; }
+    else if (x.de === '1_a_3_ans' && (x.vers === '3_a_5_ans' || x.vers === 'plus_5_ans')) {
+      gris = 'Tes objectifs visent maintenant 15 % par an au lieu de 20 %.'; voir = true;
+    }
+    return { surtitre: 'Nouveau niveau', titre: lib + ', depuis aujourd’hui.', fait: fait, gris: gris, voir: voir,
+             annule: 'Entraînement : ' + (x.de ? libelleDe(ANCIENNETES, x.de) : 'non renseigné') + ', gardé.' };
+  }
+  // L'écran B : le tableau Avant / Maintenant (chaque ligne relue dans le moteur le 272), ou la ligne des objectifs.
+  var LIGNES_DEBUTANT = [
+    { quoi: 'Montée', avant: '+10 % au plus', apres: 'Selon ta zone et ta réserve' },
+    { quoi: 'Série ratée', avant: 'Aucune réaction', apres: 'Le coach propose une suite, tu choisis' },
+    { quoi: 'Programme', avant: '3 × 5 sans zone', apres: 'Zones, blocs, variantes' },
+    { quoi: 'Dégressive', avant: 'Jamais', apres: 'Proposée sur certains exercices' },
+    { quoi: 'Tes records', avant: null, apres: 'Ne bougent pas' }
+  ];
+  function lignesDeCeQuiChange(de, vers) {
+    if (de === ANCIENNETE_DEBUTANT) return LIGNES_DEBUTANT.slice();
+    if (de === '1_a_3_ans' && (vers === '3_a_5_ans' || vers === 'plus_5_ans')) {
+      return [{ quoi: 'Objectifs', avant: '20 % par an', apres: '15 % par an' }];
+    }
+    return [];
+  }
+  // L'écran C (fin d'un import) : `null`, ou la carte « Ton niveau » — seulement si le niveau calculé dépasse la déclaration.
+  function carteDeNiveauImport(profil, calcul) {
+    if (!calcul || !calcul.cle || rangDeLAnciennete(calcul.cle) <= rangDeLAnciennete((profil || {}).anciennete)) return null;
+    return { cle: calcul.cle, titre: libelleDeNiveau(calcul.cle) + ', d’après ton historique.',
+             fait: 'Ta première séance importée date du ' + datePourNiveau(calcul.premiere) + '.',
+             au_dessus: niveauxAuDessus(calcul.cle) };
+  }
+
   // 191 — LA PRUDENCE DE MONTÉE du profil : l'ancienneté (le débutant) et l'âge (`date_naissance`, l'année qu'on donne au
   // questionnaire), donnés au prédicat du moteur (`THMoteur.prudenceDeMontee`) — la seule définition ; le profil ne fait que lui
   // fournir les faits. Sans année de naissance, l'âge reste inconnu (`null`) : aucune règle d'âge, jamais un âge deviné.
@@ -679,6 +800,8 @@
   // les six réglages de visibilité : c'est du social, et rien ici ne les touche.
   var CHAMPS_ECRITS = ['username', 'bio', 'sexe', 'taille_cm', 'date_naissance',
                        'anciennete', 'intention',
+                       // 272 (v2_143) — `debutant_fin` (date, posée UNE fois : la sortie précoce du statut débutant) et `anciennete_choisie_le` (date : le dernier choix explicite de l'ancienneté).
+                       'debutant_fin', 'anciennete_choisie_le',
                        'rythme_progression', 'phase', 'phase_depuis', 'lest_reponse', 'lest_reponse_le',
                        // 127 (v2_099, MOTEUR §9.17 bis) — la réponse à la carte « marche suivante », par exercice de
                        // départ (`{ slug: { r, le, aide } }`). FACULTATIVE en lecture et en écriture tant que la migration
@@ -2475,7 +2598,7 @@
     rythmeDe: rythmeDe, phraseRythme: phraseRythme, sectionRythme: sectionRythme,
     PHASES: PHASES, RAPPEL_PHASE_JOURS: RAPPEL_PHASE_JOURS,
     rappelDePhase: rappelDePhase, phraseRappelDePhase: phraseRappelDePhase, PHASE_DEFAUT: PHASE_DEFAUT, PHASES_EN_BASE: PHASES_EN_BASE, LIBELLE_PHASE_VIDE: LIBELLE_PHASE_VIDE,
-    DUREES_DE_MOINS: DUREES_DE_MOINS, pucesDeMoins: pucesDeMoins, phaseDe: phaseDe, phaseAuJour: phaseAuJour, estDebutant: estDebutant, prudenceDuProfil: prudenceDuProfil, plus65DuProfil: plus65DuProfil, phaseGelee: phaseGelee, sectionPhase: sectionPhase, ANCIENNETE_DEBUTANT: ANCIENNETE_DEBUTANT,
+    DUREES_DE_MOINS: DUREES_DE_MOINS, pucesDeMoins: pucesDeMoins, phaseDe: phaseDe, phaseAuJour: phaseAuJour, estDebutant: estDebutant, niveauCalcule: niveauCalcule, changementDeNiveau: changementDeNiveau, annonceDeNiveau: annonceDeNiveau, lignesDeCeQuiChange: lignesDeCeQuiChange, carteDeNiveauImport: carteDeNiveauImport, niveauxAuDessus: niveauxAuDessus, libelleDeNiveau: libelleDeNiveau, rangDeLAnciennete: rangDeLAnciennete, prudenceDuProfil: prudenceDuProfil, plus65DuProfil: plus65DuProfil, phaseGelee: phaseGelee, sectionPhase: sectionPhase, ANCIENNETE_DEBUTANT: ANCIENNETE_DEBUTANT,
     objectifDe: objectifDe, objectifGele: objectifGele,
     prioritesDe: prioritesDe, prioritesGelees: prioritesGelees,
     DUREES: DUREES, SEANCES_MIN: SEANCES_MIN, SEANCES_MAX: SEANCES_MAX,

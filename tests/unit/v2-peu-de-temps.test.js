@@ -496,6 +496,8 @@ describe('51-1 ter — la séance raccourcie : la semaine allégée et la série
       apresCreationPourLeGroupe: async () => {},
       // 99 — la semaine qui déraille n'a rien ajouté à cette routine (MOTEUR §9.24).
       avecLesAjoutsDeLaSemaine: (r) => ({ routine: r, mentions: [] }),
+      // 272 — la carte « Nouveau niveau » se ferme au début de la séance : rien ici.
+      fermerLAnnonceDeNiveau: () => {},
       Routeur: { SAISIE: 'saisie' },
       // 84 — la question de l'autre appareil : aucune séance ailleurs, on commence.
       avantDeCommencer: (commencer) => commencer()

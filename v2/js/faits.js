@@ -256,6 +256,43 @@
       return dernier;
     }
 
+    // 272 (MOTEUR §2, « le niveau d'entraînement monte seul ») — LES FAITS DU NIVEAU : les débuts de TOUTES les séances terminées
+    // (imports compris ; seule la séance `en_cours` ne compte pas) et, pour chacune des trois grandes barres (squat, couché, soulevé :
+    // `Generateur.familleDeBarre`, une variante à la barre compte) FAITE dans les 42 derniers jours, le jour de son dernier record
+    // (`derniereHausseDuRecord` sur ses exercices faits dans la fenêtre : la table des records, câblée, jamais recopiée). Des faits ;
+    // la décision (`THProfil.niveauCalcule`) est au profil. Aucun nombre n'en sort pour l'écran.
+    function faitsDuNiveau(c, jour) {
+      var J = Moteur.jourCivil(jour);
+      var seances = (c.seances || []).filter(function (s) { return s && s.id && s.debut && s.statut !== 'en_cours'; })
+        .map(function (s) { return s.debut; });
+      var G = racine.THGenerateur, cat = typeof c.catalogue === 'function' ? c.catalogue() : null;
+      var barres = Modele.BARRES, cles = { squat: barres[0], couche: barres[1], souleve: barres[2] };
+      var sortie = Object.keys(cles).map(function (k) { return { barre: k, fait: false, jourDuRecord: null }; });
+      if (!J || !G || !cat) return { seances: seances, records: sortie };
+      var tJ = Date.parse(J + 'T12:00:00');
+      var plancher = Moteur.jourCivil(new Date(tJ - 42 * 86400000));
+      var slugs = {};
+      (c.seances || []).forEach(function (s) {
+        if (!s || !s.debut || s.statut === 'en_cours') return;
+        var d = Date.parse(s.debut);
+        if (isNaN(d) || d < tJ - 44 * 86400000 || d > tJ + 2 * 86400000) return;
+        var jr = jourDeLaSeance(s.debut);
+        if (!jr || jr < plancher || jr > J) return;
+        (c.seriesDe(s.id) || []).forEach(function (x) {
+          if (x && x.exercise_slug && Modele.estTravail(x)) slugs[x.exercise_slug] = true;
+        });
+      });
+      Object.keys(slugs).forEach(function (slug) {
+        var fam = G.familleDeBarre(slug, cat);
+        var ligne = sortie.filter(function (l) { return cles[l.barre] === fam; })[0];
+        if (!ligne) return;
+        ligne.fait = true;
+        var h = derniereHausseDuRecord(c, slug, J);
+        if (h && (ligne.jourDuRecord === null || h > ligne.jourDuRecord)) ligne.jourDuRecord = h;
+      });
+      return { seances: seances, records: sortie };
+    }
+
     // 245 (F3, MOTEUR §9.35) — LE PREMIER ESSAI RATÉ À ZÉRO, DEPUIS UNE AIDE : l'exercice est une marche sans aide d'une échelle
     // (`index[slug].echelle`), la personne y est venue d'une marche ASSISTÉE de la même échelle déjà faite, il n'a été fait qu'UNE
     // fois et toutes ses séries (hors chauffes) sont à 0 rep. Un fait : la décision (la marche d'en dessous) est celle du plan.
@@ -2409,6 +2446,7 @@
       premierEssaiRate: premierEssaiRate,
       semainesDeSuite: semainesDeSuite,
       derniereHausseDuRecord: derniereHausseDuRecord,
+      faitsDuNiveau: faitsDuNiveau,
       exercicesDeProgression: exercicesDeProgression,
       ceQuiAProgresse: ceQuiAProgresse,
       recordsDeLaSeance: recordsDeLaSeance,

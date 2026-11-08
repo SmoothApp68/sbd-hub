@@ -7973,6 +7973,107 @@
     return cible;
   }
 
+  // 272 — LE NIVEAU D'ENTRAÎNEMENT MONTE SEUL. Aucune phrase n'est écrite ici : `THProfil.annonceDeNiveau` les donne.
+  // L'annonce de l'accueil (écran A) : un liseré accent, un fait, « Compris », « Voir ce qui change », « Annuler ». `vue.annulee` :
+  // le fait qui remplace la carte quand on a annulé (aucun bouton).
+  function rendreAnnonceDeNiveau(cible, vue) {
+    vider(cible);
+    if (!vue || (!vue.annonce && !vue.annulee)) { cible.hidden = true; return cible; }
+    cible.hidden = false;
+    var carte = el('div', 'niveau-carte');
+    if (vue.annulee) {
+      carte.appendChild(el('p', 'niveau-fait niveau-annulee', vue.annulee));
+      cible.appendChild(carte);
+      return cible;
+    }
+    var a = vue.annonce;
+    carte.appendChild(el('div', 'prochaine-eti niveau-surtitre', a.surtitre));
+    carte.appendChild(el('div', 'niveau-titre', a.titre));
+    if (a.fait) carte.appendChild(el('p', 'niveau-fait', a.fait));
+    if (a.gris) carte.appendChild(el('p', 'niveau-gris', a.gris));
+    var pied = el('div', 'niveau-pied');
+    var ok = el('button', 'principal niveau-compris', 'Compris');
+    ok.type = 'button';
+    ok.addEventListener('click', function () { vue.surCompris(); });
+    pied.appendChild(ok);
+    if (a.voir) {
+      var voir = el('button', 'discret niveau-lien niveau-voir', 'Voir ce qui change');
+      voir.type = 'button';
+      voir.addEventListener('click', function () { vue.surVoir(); });
+      pied.appendChild(voir);
+    }
+    var annuler = el('button', 'discret niveau-lien niveau-annuler', 'Annuler');
+    annuler.type = 'button';
+    annuler.addEventListener('click', function () { vue.surAnnuler(); });
+    pied.appendChild(annuler);
+    carte.appendChild(pied);
+    cible.appendChild(carte);
+    return cible;
+  }
+
+  // « Voir ce qui change » (écran B) : le tableau Avant / Maintenant. Une ligne sans « Avant » (« Tes records ») n'a qu'une cellule.
+  function rendreFeuilleNiveau(cible, vue) {
+    vider(cible);
+    cible.appendChild(el('div', 'feuille-t', 'Ce qui change'));
+    var tab = el('div', 'niveau-tableau');
+    var tete = el('div', 'niveau-ligne niveau-tete');
+    tete.appendChild(el('span', 'niveau-q', ''));
+    tete.appendChild(el('span', 'niveau-av', 'Avant'));
+    tete.appendChild(el('span', 'niveau-ap', 'Maintenant'));
+    tab.appendChild(tete);
+    (vue.lignes || []).forEach(function (l) {
+      var r = el('div', 'niveau-ligne');
+      r.appendChild(el('span', 'niveau-q', l.quoi));
+      r.appendChild(el('span', 'niveau-av', l.avant === null ? '' : l.avant));
+      r.appendChild(el('span', 'niveau-ap', l.apres));
+      tab.appendChild(r);
+    });
+    cible.appendChild(tab);
+    var menu = el('div', 'feuille-menu');
+    entreeMenu(menu, 'Fermer', { surClic: vue.surFermer });
+    cible.appendChild(menu);
+    return cible;
+  }
+
+  // Écran C (fin d'un import) et « J'ai commencé avant » : la carte « Ton niveau ». `vue.carte` : `THProfil.carteDeNiveauImport` ;
+  // `vue.choix` : les niveaux au-dessus, quand « J'ai commencé avant » est ouvert.
+  function rendreCarteDeNiveauImport(cible, vue) {
+    vider(cible);
+    if (!vue || !vue.carte) { cible.hidden = true; return cible; }
+    cible.hidden = false;
+    var carte = el('div', 'niveau-carte niveau-import');
+    carte.appendChild(el('div', 'prochaine-eti niveau-surtitre', 'Ton niveau'));
+    carte.appendChild(el('div', 'niveau-titre', vue.carte.titre));
+    carte.appendChild(el('p', 'niveau-fait', vue.carte.fait));
+    if (vue.reponse) {
+      carte.appendChild(el('p', 'niveau-fait niveau-annulee', vue.reponse));
+    } else if (vue.choixOuvert) {
+      var menu = el('div', 'niveau-choix');
+      vue.carte.au_dessus.forEach(function (n) {
+        var b = el('button', 'discret niveau-choix-n', n.libelle);
+        b.type = 'button';
+        b.addEventListener('click', function () { vue.surChoisir(n.cle); });
+        menu.appendChild(b);
+      });
+      carte.appendChild(menu);
+    } else {
+      var pied = el('div', 'niveau-pied');
+      var ok = el('button', 'principal niveau-compris niveau-cest-ca', 'C’est ça');
+      ok.type = 'button';
+      ok.addEventListener('click', function () { vue.surAccepter(); });
+      pied.appendChild(ok);
+      if (vue.carte.au_dessus.length) {
+        var avant = el('button', 'discret niveau-lien niveau-avant', 'J’ai commencé avant');
+        avant.type = 'button';
+        avant.addEventListener('click', function () { vue.surCommenceAvant(); });
+        pied.appendChild(avant);
+      }
+      carte.appendChild(pied);
+    }
+    cible.appendChild(carte);
+    return cible;
+  }
+
   // Une routine de la bibliothèque : sa carte et ses actions.
   function rangeeDeRoutine(r, v) {
     var carte = el('button', 'routine');
@@ -9245,6 +9346,12 @@
       if (vue.fin.connexion) cible.appendChild(el('p', 'imp-ok imp-erreur', vue.fin.connexion));
       var phrase = [vue.fin.detail, vue.fin.suite].filter(Boolean).join(' ');
       if (phrase) cible.appendChild(el('p', 'imp-ok', phrase));
+      // 272 (C) — la carte « Ton niveau », avant le bouton de sortie.
+      if (vue.niveau) {
+        var zoneNiveau = el('div', 'niveau-import-zone');
+        cible.appendChild(zoneNiveau);
+        rendreCarteDeNiveauImport(zoneNiveau, vue.niveau);
+      }
       cible.appendChild(bouton(vue.libelleFin || 'Voir l\u2019historique', 'discret imp-bouton', vue.surHistorique));
       return cible;
     }
@@ -10836,6 +10943,7 @@
     rendreFeuilleExport: rendreFeuilleExport,
     rendreFeuilleSortie: rendreFeuilleSortie,
     rendreFeuilleTemps: rendreFeuilleTemps,
+    rendreAnnonceDeNiveau: rendreAnnonceDeNiveau, rendreFeuilleNiveau: rendreFeuilleNiveau, rendreCarteDeNiveauImport: rendreCarteDeNiveauImport,
     rendreCarteRaccourci: rendreCarteRaccourci,
     rendreFeuilleSeance: rendreFeuilleSeance,
     rendreFeuilleEnFaireUneRoutine: rendreFeuilleEnFaireUneRoutine,

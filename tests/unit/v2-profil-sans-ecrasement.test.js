@@ -62,7 +62,7 @@ function appareil(base, o) {
     sauverProfilLocal: async () => {},
     pseudoAInscrire: null, metadonneesDuCompte: async () => null,
     rendreBandeauQuestionnaire: () => {}, rendreBandeauPhase: () => {}, rendreCarteCycles: () => {},
-    jeuSuitLeProfil: () => {}, parcoursSuitLeProfil: () => {},
+    jeuSuitLeProfil: () => {}, parcoursSuitLeProfil: () => {}, niveauSuitLeProfil: () => {},
     ouvrirQuestionnaireSiDu: () => {},
     refusProfil: null,
     Donnees: {

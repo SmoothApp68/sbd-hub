@@ -1423,6 +1423,8 @@
       observerEscalier().catch(function () {});
       // 109 — un objectif atteint dans une séance importée, ou sur un autre appareil, s'observe ici aussi.
       observerObjectifs().catch(function () {});
+      // 272 — le niveau d'entraînement : les séances sont complètes (liste et compte), le profil du serveur peut déjà être lu.
+      if (listeComplete && commit.autorise) { niveauSeancesCompletes = true; evaluerLeNiveau(); }
     } catch (e) {
       // Une synchronisation ratée n'est jamais bloquante : on garde ce qu'on a.
       etat = Sync.deciderEtat({ syncOk: false, aDesDonnees: local.seances.length > 0 });
@@ -1543,6 +1545,7 @@
     rendreEtatSync();
 
     var sem = semaineCourante();
+    rendreNiveauAccueil();
     rendreProchaineSeance();
     demanderLesRoutinesDeLAccueil();
     Rendu.rendreBarreSemaine($('barre-seances'), barrePour(sem, true));
@@ -4520,6 +4523,8 @@
     // 99 (MOTEUR §9.24) — les exercices ajoutés par la semaine qui déraille, à la fin, avec leur mention.
     var ajoutes = avecLesAjoutsDeLaSemaine(depart);
     depart = ajoutes.routine;
+    // 272 — la carte « Nouveau niveau » reste jusqu'à « Compris » ou le début de la prochaine séance.
+    fermerLAnnonceDeNiveau();
     seance = Seance.creer({
       id: id,
       userId: sessionActive && sessionActive.user && sessionActive.user.id,
@@ -16552,6 +16557,9 @@
   // l'écran de connexion et les données restent là pour la prochaine ouverture.
   async function deconnecter() {
     departs++;
+    // 272 — le niveau d'entraînement : rien ne passe d'un compte au suivant.
+    niveauSeancesCompletes = false; niveauProfilLu = false; niveauEvalue = false; niveauImportPropose = null; niveauAnnonceEnMemoire = null;
+    departs++;
     // 59-5 — AVANT DE VIDER QUOI QUE CE SOIT : une nouvelle génération. Tout
     // écrivain asynchrone encore en vol (synchro, journal, remplissage,
     // vidange, profil) abandonnera sans écrire ; les verrous des tâches en
@@ -16850,6 +16858,10 @@
     // suivants. Prise sur le seul cache, elle ne routait un compte neuf qu'au
     // SECOND démarrage (relevé 60-0).
     ouvrirQuestionnaireSiDu();
+    // 272 — le profil du serveur est lu (`debutant_fin`, `anciennete_choisie_le`) : le niveau d'entraînement peut s'évaluer.
+    // APRÈS la décision d'ouvrir le questionnaire : un questionnaire qui vient de s'ouvrir bloque l'évaluation (`niveauBloque`),
+    // sinon l'ancienneté serait écrite avant que la personne y réponde (banc Q60 K, en CI : l'historique des sections d'avant).
+    niveauSuitLeProfil();
   }
 
   // ⚠️ UN SEUL ENVOI À LA FOIS, ET UNE RÉPONSE NE REMPLACE JAMAIS UN GESTE PLUS
@@ -17037,6 +17049,121 @@
     var promesse = poserProfil(champs);   // `profil` est à jour avant le 1er await
     rendreProfilEcran();
     return promesse;
+  }
+
+  // ══ 272 — LE NIVEAU D'ENTRAÎNEMENT MONTE SEUL (« le débutant qui ne vieillit jamais ») ═════════════
+  //
+  // La décision est pure et vit dans `profil.js` (`niveauCalcule`, `changementDeNiveau`) ; les faits (séances terminées, records des
+  // trois grandes barres) viennent de `faits.js` (`faitsDuNiveau`). Ici : QUAND on évalue, ce qui l'empêche, l'écriture par le chemin
+  // du profil (`poserProfil`) et les trois cartes (accueil, « Voir ce qui change », fin d'un import).
+  //
+  // QUAND : UNE FOIS PAR OUVERTURE, quand les deux lectures ont eu lieu — la synchronisation (séances complètes) ET le profil du serveur
+  // (ses deux colonnes `debutant_fin` et `anciennete_choisie_le` : le cache d'avant n'en a pas). Jamais à un rendu. Hors ligne : rien.
+  // LA CARTE est un drapeau local à l'appareil (`th-v2-niveau-annonce-<compte>`) : elle reste jusqu'à « Compris » ou la prochaine séance.
+  var CLE_NIVEAU_ANNONCE = 'th-v2-niveau-annonce-';   // + l'identifiant du compte
+  var niveauSeancesCompletes = false, niveauProfilLu = false, niveauEvalue = false;
+  var niveauImportPropose = null;     // le niveau proposé à la fin d'un import : pas d'annonce à l'accueil pour ce même niveau
+  var niveauAnnonceEnMemoire = null;  // la même annonce, quand le stockage est refusé
+  function annonceDeNiveauPosee() {
+    var id = userId();
+    if (!id) return null;
+    var a = niveauAnnonceEnMemoire;
+    if (!a) {
+      try { var t = racine.localStorage.getItem(CLE_NIVEAU_ANNONCE + id); a = t ? JSON.parse(t) : null; }
+      catch (e) { a = null; }
+    }
+    return a && typeof a === 'object' && a.vers ? a : null;
+  }
+  function poserAnnonceDeNiveau(a) {
+    niveauAnnonceEnMemoire = a || null;
+    var id = userId();
+    if (!id) return;
+    try {
+      if (a) racine.localStorage.setItem(CLE_NIVEAU_ANNONCE + id, JSON.stringify(a));
+      else racine.localStorage.removeItem(CLE_NIVEAU_ANNONCE + id);
+    } catch (e) { /* stockage refusé : la carte reste en mémoire pour cette ouverture */ }
+  }
+  // MOTEUR : jamais pendant une décharge (la semaine allégée ou la décharge planifiée, `semaineAllegeeEnCours`), une semaine de test
+  // (`testDesCartes`) ou quand « J'ai mal » est actif (une série marquée dans les 42 jours, `faits.douleursParExercice`, ou dans la
+  // séance ouverte) : l'évaluation attend la prochaine ouverture.
+  // …et tant que l'écran du questionnaire est ouvert : la personne y répond sur son niveau. (`questionnaire_fait_le` vide ne bloque pas : les comptes d'avant le questionnaire l'ont vide.)
+  function niveauBloque() {
+    if (questionnaire) return true;
+    var jour = jourDuJour();
+    if (semaineAllegeeEnCours()) return true;
+    var T = testDesCartes();
+    if (T && T.debut <= jour && T.fin >= jour) return true;
+    var d = faits.douleursParExercice(corpus(), new Date().toISOString());
+    if (Object.keys(d).some(function (k) { return d[k] && d[k].length > 0; })) return true;
+    return !!seance && (seriesDe(seance.id) || []).some(function (x) { return x && x.douleur === true; });
+  }
+  function evaluerLeNiveau() {
+    if (niveauEvalue || !niveauSeancesCompletes || !niveauProfilLu || !profil || !userId() || profilAEnvoyer) return;
+    if (niveauBloque()) return;
+    niveauEvalue = true;
+    var maintenant = new Date();
+    var f = faits.faitsDuNiveau(corpus(), maintenant.toISOString());
+    var calcul = Profil.niveauCalcule({ seances: f.seances, records: f.records, debutantFin: profil.debutant_fin, aujourdhui: maintenant });
+    var ch = Profil.changementDeNiveau(profil, calcul, maintenant, false);
+    if (!ch || niveauImportPropose === ch.vers) return;
+    var jour = jourDuJour();
+    var champs = { anciennete: ch.vers };
+    // LE VERROU : posée UNE fois, et seulement quand la sortie précoce change vraiment le niveau ; un nouveau record ne la défait jamais.
+    if (calcul.sortiePrecoce && !profil.debutant_fin) champs.debutant_fin = jour;
+    // jalon : niveau
+    poserAnnonceDeNiveau({ de: ch.de, vers: ch.vers, premiere: calcul.premiere, precoce: calcul.sortiePrecoce, barres: calcul.barres, le: jour });
+    poserProfil(champs).catch(function (e) { console.warn('Niveau : l’écriture est restée en attente :', texteErreur(e)); });
+    if (ecranCourant === 'liste') rendreNiveauAccueil();
+  }
+  // Le profil du serveur vient d'arriver (`chargerProfil`) : sa lecture est le second fait dont l'évaluation a besoin.
+  function niveauSuitLeProfil() { niveauProfilLu = true; evaluerLeNiveau(); }
+  function fermerLAnnonceDeNiveau() { if (annonceDeNiveauPosee()) poserAnnonceDeNiveau(null); }
+  function rendreNiveauAccueil() {
+    var cible = $('niveau-accueil');
+    if (!cible) return;
+    var a = annonceDeNiveauPosee();
+    if (!a) return Rendu.rendreAnnonceDeNiveau(cible, null);
+    if (a.annulee) return Rendu.rendreAnnonceDeNiveau(cible, { annulee: Profil.annonceDeNiveau(a).annule });
+    Rendu.rendreAnnonceDeNiveau(cible, {
+      annonce: Profil.annonceDeNiveau(a),
+      surCompris: function () { poserAnnonceDeNiveau(null); rendreNiveauAccueil(); },
+      surVoir: function () { ouvrirCeQuiChangeDuNiveau(a); },
+      surAnnuler: function () { annulerLeNiveau(a); }
+    });
+  }
+  function ouvrirCeQuiChangeDuNiveau(a) {
+    Rendu.rendreFeuilleNiveau($('feuille-contenu'), { lignes: Profil.lignesDeCeQuiChange(a.de, a.vers), surFermer: fermerVoile });
+    ouvrirVoile($('feuille-seance'));
+  }
+  // « Annuler » : l'ancienne valeur revient, le choix est daté (il prime six mois), `debutant_fin` n'est pas touché ; un fait remplace la carte.
+  function annulerLeNiveau(a) {
+    poserAnnonceDeNiveau({ de: a.de, vers: a.vers, annulee: true });
+    rendreNiveauAccueil();
+    poserProfil({ anciennete: a.de || null, anciennete_choisie_le: jourDuJour() })
+      .catch(function (e) { console.warn('Niveau : l’annulation est restée en attente :', texteErreur(e)); });
+  }
+  // L'ÉCRAN C — la fin d'un import : le niveau que dit l'historique, s'il dépasse la déclaration. Une proposition, jamais un geste fait seul.
+  function niveauDeFinDImport() {
+    if (!profil) return null;
+    var maintenant = new Date();
+    var f = faits.faitsDuNiveau(corpus(), maintenant.toISOString());
+    var calcul = Profil.niveauCalcule({ seances: f.seances, records: f.records, debutantFin: profil.debutant_fin, aujourdhui: maintenant });
+    var carte = Profil.carteDeNiveauImport(profil, calcul);
+    if (!carte) return null;
+    niveauImportPropose = carte.cle;
+    return { carte: carte, sortiePrecoce: calcul.sortiePrecoce, choixOuvert: false, reponse: null };
+  }
+  function repondreAuNiveauDImport(imp, cle, choisi) {
+    var n = imp.niveau;
+    if (!n || n.reponse) return;
+    var champs = { anciennete: cle };
+    if (choisi) champs.anciennete_choisie_le = jourDuJour();     // « J'ai commencé avant » : un choix, il prime six mois
+    else if (n.sortiePrecoce && !profil.debutant_fin) champs.debutant_fin = jourDuJour();
+    // jalon : niveau
+    n.reponse = Profil.libelleDeNiveau(cle) + '.';
+    niveauImportPropose = cle;
+    rendreImportEcran();
+    poserProfil(champs).catch(function (e) { console.warn('Niveau : l’écriture est restée en attente :', texteErreur(e)); });
   }
 
   // ══ LE QUESTIONNAIRE DU COACH (60-2a, QUESTIONNAIRE-COACH-V2) ═════════════
@@ -17957,6 +18084,12 @@
       aide: '« Non précisé » est une réponse, pas un trou.' }
   };
 
+  function champsDuChoixProfil(cle, v) {
+    var champs = defObjet(cle, v);
+    if (cle === 'anciennete') champs.anciennete_choisie_le = jourDuJour();
+    return champs;
+  }
+
   function ouvrirChoixProfil(cle) {
     var def = CHOIX[cle];
     feuilleProfil = function (cible) {
@@ -17965,9 +18098,10 @@
         aide: def.aide,
         options: listeDe(cle),
         valeur: valeurProfil(cle),
-        surChoix: function (v) { fermerVoile(); ecrireProfil(defObjet(cle, v)); },
+        // 272 (D) — un choix manuel de l'ancienneté se date : il prime six mois sur le niveau calculé (effacer en est un).
+        surChoix: function (v) { fermerVoile(); ecrireProfil(champsDuChoixProfil(cle, v)); },
         surEffacer: def.effacable
-          ? function () { fermerVoile(); ecrireProfil(defObjet(cle, null)); } : null,
+          ? function () { fermerVoile(); ecrireProfil(champsDuChoixProfil(cle, null)); } : null,
         surAnnuler: fermerVoile
       });
     };
@@ -19229,6 +19363,8 @@
     }
     imp.etape = 'fini';
     imp.resultat = resultat;
+    // 272 (C) — « Ton niveau » : seulement si des séances viennent d'entrer et que l'historique dit plus que la déclaration.
+    if (resultat.importees > 0) imp.niveau = niveauDeFinDImport();
     if (importHevy === imp && ecranCourant === 'import') rendreImportEcran();
   }
 
@@ -19275,6 +19411,14 @@
     } else if (imp.etape === 'fini') {
       v.fin = Import.phrasesDeFin(imp.resultat);
       v.fin.connexion = imp.resultat.arret ? M.connexion : null;
+      if (imp.niveau) {
+        v.niveau = {
+          carte: imp.niveau.carte, choixOuvert: imp.niveau.choixOuvert, reponse: imp.niveau.reponse,
+          surAccepter: function () { repondreAuNiveauDImport(imp, imp.niveau.carte.cle, false); },
+          surCommenceAvant: function () { imp.niveau.choixOuvert = true; rendreImportEcran(); },
+          surChoisir: function (cle) { repondreAuNiveauDImport(imp, cle, true); }
+        };
+      }
     } else if (imp.etape === 'apercu') {
       var index = indexDeLImport();
       var annee = new Date().getFullYear();

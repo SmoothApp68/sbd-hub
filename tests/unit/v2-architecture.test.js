@@ -1146,6 +1146,10 @@ const NOTIONS = [
     module: 'faits.js', fonction: 'derniereHausseDuRecord', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['variationsDuDossier'] },
     raison: 'MOTEUR §9.22 ter : un fait ; lu par la variation d’un accessoire en début de bloc (`Generateur.variationsDuBloc`).' },
+  { notion: 'les faits du niveau d’entraînement (les séances terminées, imports compris, et le jour du dernier record des trois grandes barres faites dans les 6 semaines)', pr: '272-U1',
+    module: 'faits.js', fonction: 'faitsDuNiveau', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['evaluerLeNiveau', 'niveauDeFinDImport'] },
+    raison: 'Le niveau d’entraînement monte seul : un fait lu par UNE décision pure (`Profil.niveauCalcule`) ; l’écran ne compte ni séance ni record, il les donne.' },
   { notion: 'les points d’un exercice, un par séance (le max estimé, les reps ou les secondes), pour ses courbes', pr: '206-U1',
     module: 'faits.js', fonction: 'pointsDeLExercice', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['rendreExercice', 'sommaireExercices'] },
@@ -2645,7 +2649,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/periode.js');
     require('../../v2/js/parcours.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(56);   // 266 : + semainesDeSuite, derniereHausseDuRecord ; 250 : + estUneNote ; 242 : + noteDeLaDerniereFois, noteDeLExercice ; 245-6 : + premierEssaiRate
+    expect(FAITS.length).toBe(57);   // 272 : + faitsDuNiveau ; 266 : + semainesDeSuite, derniereHausseDuRecord ; 250 : + estUneNote ; 242 : + noteDeLaDerniereFois, noteDeLExercice ; 245-6 : + premierEssaiRate
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 

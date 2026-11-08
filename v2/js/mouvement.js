@@ -97,10 +97,13 @@
 
     // ── les clés de muscles de l'app (catalogue, `Semaine.LIBELLES_MUSCLE`) → groupes du corps (Z-Anatomy) ──
     // UNE table, la seule. Une clé de l'app absente d'ici fait échouer `fabrique/test-muscles.js`.
+    // Trapèze (08/11/2026) : `trapezes` = le trapèze supérieur ; `haut_du_dos` = trapèze moyen et inférieur + sous-épineux, ronds.
+    // Moyen fessier (08/11/2026) : groupe du corps `fessier_moyen`, donné à `abducteurs` ET à `fessiers` ; un exercice qui cite les
+    // deux le colore au rôle le plus fort.
     var MUSCLES_APP = {
-      abdominaux: ['abdominaux'], abducteurs: ['abducteurs'], adducteurs: ['adducteurs'], avant_bras: ['avant_bras'],
+      abdominaux: ['abdominaux'], abducteurs: ['abducteurs', 'fessier_moyen'], adducteurs: ['adducteurs'], avant_bras: ['avant_bras'],
       bas_du_dos: ['bas_du_dos'], biceps: ['biceps'], deltoide_anterieur: ['deltoide_anterieur'], deltoide_lateral: ['deltoide_lateral'],
-      deltoide_posterieur: ['deltoide_posterieur'], fessiers: ['fessiers'], grand_dorsal: ['grand_dorsal'], haut_du_dos: ['haut_du_dos', 'trapeze_moyen', 'trapeze_inferieur'],
+      deltoide_posterieur: ['deltoide_posterieur'], fessiers: ['fessiers', 'fessier_moyen'], grand_dorsal: ['grand_dorsal'], haut_du_dos: ['haut_du_dos', 'trapeze_moyen', 'trapeze_inferieur'],
       ischio_jambiers: ['ischio_jambiers'], mollets: ['mollets'], pectoraux: ['pectoraux'], quadriceps: ['quadriceps'],
       trapezes: ['trapezes'], triceps: ['triceps']
     };
@@ -181,6 +184,7 @@
             partie({ id: id + ':poulie', type: 'poulie', solides: ps });
             var pg = m.poignee || {}, mains = pg.mains || {}, forme = pg.forme || 'simple', attache;
             var suitP = { mains: mains, axe: pg.axe, vers: A };
+            if (forme === 'corde' && pg.brin) suitP.brin = pg.brin;   // 08/11 (machines-haut) : brins de longueur fixe, la boule vers le câble
             var sp = [];
             if (forme === 'simple') { sp.push(cyl(1.5, 12, 'z', [0, 0, 0], { style: 'metal', prise: true }));
               sp.push({ forme: 'segment', de: [0, 0, 6], a: [0, 8, 0], rayon: 0.6, style: 'metal' }, { forme: 'segment', de: [0, 0, -6], a: [0, 8, 0], rayon: 0.6, style: 'metal' }); attache = [0, 8, 0]; }
@@ -206,6 +210,8 @@
               var piv = sw && sw.angle ? { piste: sw.angle.piste, pivot: appliquer(base, sw.angle.pivot), axe: qRot(base.q, sw.angle.axe || [0, 0, 1]), zero: sw.angle.zero || 0 } : null;
               partie({ id: id + ':' + (pc.nom || k), type: 'machine', suit: piv ? { angle: piv } : sw, quaternion: Tl.q, position: Tl.t, solides: [so] });
             }); break; }
+          case 'lien': {   // un élastique (ou un câble) tendu entre deux points : de/a = { monde: [x, y, z] } | { os, point } | { partie, point }
+            liens.push({ de: m.de, a: m.a, rayon: m.rayon || 0.8, style: m.style || 'elastique' }); break; }
           case 'tapis': {   // bande + montants (avant = +x)
             var Lt = m.longueur || 150, lt = m.largeur || 50, ht = m.hauteur || 8, xt = m.x || 0, st = [];
             st.push(boite([Lt, ht - 1, lt + 12], [xt, (ht - 1) / 2, 0], { style: 'machine' }));
@@ -236,6 +242,8 @@
         var y0 = s.vers ? norm(sub(s.vers, c)) : [0, 1, 0], y = sub(y0, mul(z, dot(y0, z)));
         if (len(y) < 1e-3) y = Math.abs(z[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
         y = norm(sub(y, mul(z, dot(y, z)))); var x = cross(y, z);
+        // corde à brins de longueur `brin` (point tenu → boule) : la boule (à 7 du centre) est portée à √(brin² − (écart/2)²) devant
+        if (s.brin && pd && pg) { var w2 = len(sub(pd, pg)) / 2; c = add(c, mul(y, Math.sqrt(Math.max(0, s.brin * s.brin - w2 * w2)) - 7)); }
         return { q: qBase(x, y, z), t: c };
       }
       return L;
@@ -337,9 +345,9 @@
 
   // ════════════════════════ navigateur (rien ne s'exécute au chargement : tout attend le premier `monter`) ════════════════════════
   // les couleurs du bonhomme des muscles (styles.css : --bh-fond, --bh-corps, --trait, --teinte = 0x5cb8ff) — pour WebGL, en nombres
-  var COUL = { fond: 0x10151c, noyau: 0x1b222c, noyauBras: 0x26303d, muscle: 0x2b3442, muscleBras: 0x354152, prim: 0x5cb8ff, sec: 0x4f95ce, stab: 0x43739d,
+  var COUL = { fond: 0x10151c, noyau: 0x1b222c, noyauBras: 0x26303d, muscle: 0x2b3442, muscleBras: 0x354152, prim: 0x5cb8ff, sec: 0x3786da, stab: 0x2c4d97,
     lisere: 0x7f93b2, contour: 0x56657d, sol: 0x161b23, barre: 0xc9ced6, disque: 0x8c97a6, repere: 0xffb938, banc: 0x2f3846, potence: 0x3a4556,
-    machine: 0x343d4b, coussin: 0x3b4555, fonte: 0x59636f, cable: 0x9aa3af, corde: 0xa89c80, bande: 0x1d232c };
+    machine: 0x343d4b, coussin: 0x3b4555, fonte: 0x59636f, cable: 0x9aa3af, corde: 0xa89c80, bande: 0x1d232c, elastique: 0x9b4a45 };
   function reduire() { return !!(racine.matchMedia && racine.matchMedia('(prefers-reduced-motion: reduce)').matches); }
 
   // ── chargement à la demande : vendor (une fois), corps (une fois), exercice (une fois par URL). Un échec n'est jamais gardé :
@@ -425,7 +433,7 @@
           teinterBras(o);   // les bras un ton plus clair que le tronc
           o.material = avecLisere(T3, new T3.MeshPhongMaterial({ vertexColors: true, shininess: 6, specular: 0x0d1117, skinning: true,
             polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 6 }), COUL.contour, 0.7, 0.66, 0.97);
-          if (/mains_B/.test(o.name)) mains.B = o; if (/mains_D/.test(o.name)) mains.D = o;
+          if (/mains_B/.test(o.name)) mains.B = o; if (/mains_D/.test(o.name)) mains.D = o; if (/mains_O/.test(o.name)) mains.O = o;
         }
       }
     });
@@ -439,10 +447,22 @@
     scene.add(corps.scene);
     var BRAS_M = ['biceps', 'triceps', 'avant_bras'];
     function masquer(liste) { for (var i = 0; i < 24; i++) masque[i] = (liste || []).indexOf(noms[i]) >= 0 ? 1 : 0; }
-    function colorer(roles) {
+    // un exercice à un bras (`cote: 'droit' | 'gauche'` dans son JSON) ne colore que les muscles de ce côté : le côté d'un
+    // sommet est le signe de son z au repos (repère du corps, z > 0 = droit), calculé une fois
+    var zRepos = null;
+    function zDesSommets() {
+      if (zRepos) return zRepos; var P = muscles.geometry.attributes.position, v = new T3.Vector3();
+      var dq = P.normalized ? 1 / ({ 1: 127, 2: 32767 }[P.array.BYTES_PER_ELEMENT] || 1) : 1;   // r128 : getX ne dénormalise pas
+      zRepos = new Float32Array(P.count);
+      for (var i = 0; i < P.count; i++) { v.fromBufferAttribute(P, i).multiplyScalar(dq).applyMatrix4(muscles.bindMatrix); zRepos[i] = v.z; }
+      return zRepos;
+    }
+    function colorer(roles, cote) {
       var id = muscles.geometry.attributes._muscle, col = muscles.geometry.attributes.color, c = new T3.Color(), o = ['prim', 'sec', 'stab'];
+      var sg = cote === 'droit' ? 1 : cote === 'gauche' ? -1 : 0, z = sg ? zDesSommets() : null;
+      // _muscle.y = 1 : face intérieure d'une coque ; elle ne se voit qu'à travers un trou du corps : jamais colorée
       for (var i = 0; i < id.count; i++) { var m = noms[id.getX(i)], r = null;
-        for (var k = 0; k < 3; k++) if ((roles[o[k]] || []).indexOf(m) >= 0) { r = o[k]; break; }
+        if ((!sg || z[i] * sg > 0) && !(id.getY(i) > 0.5)) for (var k = 0; k < 3; k++) if ((roles[o[k]] || []).indexOf(m) >= 0) { r = o[k]; break; }
         c.setHex(r ? COUL[r] : (BRAS_M.indexOf(m) >= 0 ? COUL.muscleBras : COUL.muscle)); col.setXYZ(i, c.r, c.g, c.b); }
       col.needsUpdate = true;
     }
@@ -550,7 +570,7 @@
       if (ex === e.donnees) return; ex = e.donnees;
       if (mat) scene.remove(mat.groupe); mat = e.materiel || (e.materiel = materiel(ex)); scene.add(mat.groupe);
       ordre = ex.os.map(function (n) { var b = os[n]; b.matrixAutoUpdate = false; return b; });
-      colorer(e.roles); masquer(ex.effacer); mains.B.visible = ex.main === 'B'; mains.D.visible = ex.main === 'D';
+      colorer(e.roles, ex.cote); masquer(ex.effacer); mains.B.visible = ex.main === 'B'; mains.D.visible = ex.main === 'D'; if (mains.O) mains.O.visible = ex.main === 'O';
       if (!e.camera) e.camera = ex.camera || cadrageAuto(e);
       cible.set(e.camera.cible[0], e.camera.cible[1], e.camera.cible[2]);
     }
@@ -685,7 +705,7 @@
       var lab = el('span', 'thm-lab', 'GLISSE POUR TOURNER'); hote.appendChild(lab);
       var bt = [];
       if (options.commandes !== false) {
-        var r1 = rangee('Vue'); [['Face', 'face'], ['Dos', 'dos']].forEach(function (x) { r1.appendChild(bouton(x[0], 'data-vue', x[1])); });
+        var r1 = rangee('Vue'); [['Profil', 'profil'], ['Face', 'face'], ['Dos', 'dos']].forEach(function (x) { r1.appendChild(bouton(x[0], 'data-vue', x[1])); });
         var r2 = rangee('Lecture'); [['Départ', 'depart'], ['Fin', 'fin'], ['▶ Lecture', 'joue']].forEach(function (x) { var b = bouton(x[0], 'data-pose', x[1]); bt.push(b); r2.appendChild(b); });
         racineVue.appendChild(r1); racineVue.appendChild(r2);
         racineVue.addEventListener('click', function (ev) { var b = ev.target.closest && ev.target.closest('button'); if (!b || !carte || fini) return;

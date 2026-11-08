@@ -1795,8 +1795,8 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .thm-leg i{width:14px;height:14px;border-radius:4px;align-self:center}
 .thm-leg b{color:var(--texte)}
 .thm-prim{background:var(--teinte)}
-.thm-sec{background:#4F95CE}
-.thm-stab{background:#43739D}
+.thm-sec{background:#3786DA}
+.thm-stab{background:#2C4D97}
 
 /* ── §7 quater.3 — la table par nombre de répétitions ────────────────────── */
 .table-reps{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e1) 0}

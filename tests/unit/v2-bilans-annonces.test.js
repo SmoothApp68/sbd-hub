@@ -218,7 +218,7 @@ function appareil(base, o) {
     sauverProfilLocal: async () => {}, effacerPseudoPris: () => {}, retenirPseudoPris: () => {},
     texteErreur: (e) => String(e && e.message || e),
     ecranCourant: 'saisie', rendreProfilEcran: () => {}, objectifsSuiventLeProfil: () => {}, rendreBandeauQuestionnaire: () => {}, rendreBandeauPhase: () => {},
-    rendreCarteCycles: () => {}, jeuSuitLeProfil: () => {}, parcoursSuitLeProfil: () => {}, ouvrirQuestionnaireSiDu: () => {},
+    rendreCarteCycles: () => {}, jeuSuitLeProfil: () => {}, parcoursSuitLeProfil: () => {}, niveauSuitLeProfil: () => {}, ouvrirQuestionnaireSiDu: () => {},
     Donnees: {
       monProfil: async () => {
         if (opt.horsReseau) throw new Error('réseau');

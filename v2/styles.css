@@ -3083,6 +3083,22 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .prochaine-go{flex:1;min-height:44px}
 .prochaine-autre{flex:none;min-height:44px;border:none;background:none;color:var(--texte-2);font-size:13px}
 
+/* 272 — le niveau d'entraînement monte seul : la carte de l'accueil (liseré accent), le tableau Avant / Maintenant, la carte « Ton niveau » de l'import. */
+.niveau-carte{background:var(--panneau);border-radius:var(--r-grand);border-left:3px solid var(--accent);padding:var(--e4);margin-bottom:var(--e3);box-shadow:inset 0 1px 0 var(--reflet)}
+.niveau-titre{font-family:var(--pile-c);font-size:22px;font-weight:700;line-height:1.15;margin-top:var(--e1);overflow-wrap:anywhere}
+.niveau-fait{font-size:14px;line-height:1.4;margin:var(--e2) 0 0;color:var(--texte)}
+.niveau-gris{font-size:13px;line-height:1.4;margin:var(--e1) 0 0;color:var(--texte-2)}
+.niveau-pied{display:flex;flex-wrap:wrap;align-items:center;gap:var(--e3);margin-top:var(--e3)}
+.niveau-compris{flex:none;min-height:44px;padding:0 var(--e4)}
+.niveau-lien{flex:none;min-height:44px;border:none;background:none;color:var(--texte-2);font-size:13px}
+.niveau-choix{display:flex;flex-direction:column;gap:var(--e1);margin-top:var(--e3)}
+.niveau-choix-n{min-height:44px;text-align:left}
+.niveau-tableau{display:flex;flex-direction:column;gap:var(--e2);margin-bottom:var(--e3)}
+.niveau-ligne{display:grid;grid-template-columns:minmax(72px,.8fr) 1fr 1.2fr;gap:var(--e2);font-size:13px;line-height:1.35}
+.niveau-tete{color:var(--texte-3);font-size:12px}
+.niveau-q{font-weight:600}
+.niveau-av{color:var(--texte-2)}
+
 /* ── 173 (« Vivant », 25/10/2026) — LE PROFIL RANGÉ PAR FRÉQUENCE : le titre d'un groupe (« Mon coach », « Mon programme », « Moi », « Mon compte »). */
 .p-grp{margin:var(--e5) 0 0;padding:0 var(--e3);font-family:var(--pile-c);font-size:22px;font-weight:700;line-height:1.1;letter-spacing:.01em;color:var(--texte)}
 .p-grp + .p-sect{padding-top:var(--e3)}

@@ -969,7 +969,7 @@
   // `THProfil.CHAMPS_ECRITS` ne les écrit plus (leurs valeurs restent en base).
   var COLONNES_PROFIL =
     'id, username, bio, sexe, taille_cm, date_naissance, ' +
-    'anciennete, intention, rythme_progression, phase, phase_depuis, materiel, ' +
+    'anciennete, debutant_fin, anciennete_choisie_le, intention, rythme_progression, phase, phase_depuis, materiel, ' +
     'lest_reponse, lest_reponse_le, ' +
     // 127 (`v2_099`, MOTEUR §9.17 bis) — la réponse à la carte « marche suivante ». FACULTATIVE : ci-dessous.
     'marche_reponses, ' +

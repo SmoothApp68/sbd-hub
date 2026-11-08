@@ -662,6 +662,15 @@
         demander(); },
       pose: function (e, m) { activer(e); e.mode = m; dernier = null; demander(); },
       active: function () { return active; },
+      // lecture seule, pour le banc : l'angle de la vue active, les mains visibles, les sommets colorés de chaque côté (z > 0 = droit)
+      diagnostic: function () {
+        var col = muscles.geometry.attributes.color, z = zDesSommets(), n = new T3.Color(COUL.muscle), nb = new T3.Color(COUL.muscleBras), d = 0, g = 0;
+        for (var i = 0; i < col.count; i++) { var r = col.getX(i), v = col.getY(i), b = col.getZ(i);
+          var neutre = (Math.abs(r - n.r) + Math.abs(v - n.g) + Math.abs(b - n.b) < 1e-3) || (Math.abs(r - nb.r) + Math.abs(v - nb.g) + Math.abs(b - nb.b) < 1e-3);
+          if (!neutre) { if (z[i] > 0) d++; else g++; } }
+        return { az: active ? active.az : null, el: active ? active.el : null, enTransition: !!(active && active.tween),
+          mains: { B: !!(mains.B && mains.B.visible), D: !!(mains.D && mains.D.visible), O: !!(mains.O && mains.O.visible) }, colores: { droit: d, gauche: g } };
+      },
       canevas: ren.domElement,
       reduire: REDUIRE
     };
@@ -746,7 +755,8 @@
   }
 
   // l'état, pour les bancs : combien de vues montées, un rendu WebGL vivant ou non
-  function etat() { return { montees: montees, atelier: !!atelier }; }
+  // `diagnostic` (lecture seule, pour le banc) : la vue active et ce que montre le corps, quand une vue est montée
+  function etat() { var e = { montees: montees, atelier: !!atelier }; if (atelier && atelier.diagnostic) e.diagnostic = atelier.diagnostic(); return e; }
 
   var api = { CATALOGUE: CATALOGUE, existe: existe, url: url, monter: monter, etat: etat, commun: Commun,
               MUSCLES_APP: Commun.MUSCLES_APP, rolesDuCatalogue: Commun.rolesDuCatalogue, version: 8 };

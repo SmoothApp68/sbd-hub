@@ -9,7 +9,10 @@
 //      (`arreter()` à chaque sortie et à chaque rendu : changer d'onglet compris) ;
 //   C. un exercice SANS animation : aucun bloc, aucune requête vers /vendor/three ni /mouvements/ ;
 //   D. hors ligne et jamais vu (les fichiers du mouvement refusés) : le bloc disparaît, sans erreur, la page reste ;
-//   E. mouvement réduit : la vue montre la pose de Fin (bouton « Fin » pressé), sans boucle.
+//   E. mouvement réduit : la vue montre la pose de Fin (bouton « Fin » pressé), sans boucle ;
+//   F. tour 9 : « Profil » ramène la vue de profil après « Dos » ; un exercice à un bras (`cote: 'droit'`) ne colore que
+//      le côté droit, un exercice à deux bras les deux ; la main O (haltère tenu à deux mains) ne s'affiche qu'au pull-over.
+//      CAPTURES=<dossier> : une capture par exercice (pull_over, tirage_vers_visage, escaliers).
 //
 //   node tests/banc/mouvement.js
 
@@ -30,7 +33,13 @@ const EXOS = [
     description: 'La barre repose sur le haut du dos.\nDescends en gardant le dos droit.\nRemonte en poussant dans le sol.' },
   { slug: 'curl_marteau', nom: 'Curl marteau (Haltères)', mesure: 'charge_reps', charge: 'externe', parent: null, equipement: 'haltere', mouvement: null, barre_charge_fixe: false,
     muscles_primaires: ['biceps'], muscles_secondaires: ['avant_bras'], muscles_stabilisateurs: [],
-    description: 'Les pouces en haut.\nLes coudes collés au corps.' }
+    description: 'Les pouces en haut.\nLes coudes collés au corps.' },
+  ...[['elevation_laterale_poulie', 'Élévation Latérale (Poulie)', 'poulie', ['deltoide_lateral'], ['trapezes'], []],
+    ['pull_over', 'Pull-Over (Haltère)', 'haltere', ['pectoraux'], ['grand_dorsal', 'triceps'], []],
+    ['tirage_vers_visage', 'Face Pull (Poulie)', 'poulie', ['deltoide_posterieur'], ['trapezes', 'haut_du_dos'], []],
+    ['escaliers', 'Escaliers', 'machine', ['quadriceps', 'fessiers'], ['ischio_jambiers', 'mollets'], []]].map((x) => ({
+    slug: x[0], nom: x[1], mesure: 'charge_reps', charge: 'externe', parent: null, equipement: x[2], mouvement: null, barre_charge_fixe: false,
+    muscles_primaires: x[3], muscles_secondaires: x[4], muscles_stabilisateurs: x[5], description: 'Première étape.\nDeuxième étape.\nTroisième étape.' }))
 ];
 
 let ko = 0;
@@ -107,7 +116,7 @@ const vivants = (p) => p.evaluate(() => window.__gl.crees - window.__gl.perdus);
       verifier(a.scripts.some((s) => s === '/vendor/three.min.js') && a.scripts.some((s) => s === '/vendor/GLTFLoader.js') && a.three === 'object', 'A · three.js et GLTFLoader injectés à la demande depuis /vendor/');
       verifier(req.indexOf('/mouvements/corps-glb.json') >= 0 && req.indexOf('/mouvements/squat_barre.json') >= 0, 'A · le corps et l’exercice lus dans /mouvements/');
       verifier(a.styleAttr === 0, 'A · aucun attribut style dans le bloc (' + a.styleAttr + ')');
-      verifier(a.boutons.join('|') === 'Face|Dos|Départ|Fin|▶ Lecture', 'A · les commandes : ' + a.boutons.join(' · '));
+      verifier(a.boutons.join('|') === 'Profil|Face|Dos|Départ|Fin|▶ Lecture', 'A · les commandes : ' + a.boutons.join(' · '));
       verifier(a.large, 'A · aucun débordement à 380 px');
       await p.click('.exo-mouvement [data-pose=fin]');
       verifier(await p.getAttribute('.exo-mouvement [data-pose=fin]', 'aria-pressed') === 'true', 'A · « Fin » : la pose de fin, bouton pressé');
@@ -187,6 +196,38 @@ const vivants = (p) => p.evaluate(() => window.__gl.crees - window.__gl.perdus);
       const e = await p.evaluate(() => [...document.querySelectorAll('.exo-mouvement [data-pose]')].map((b) => b.getAttribute('data-pose') + '=' + b.getAttribute('aria-pressed')).join(','));
       verifier(e === 'depart=false,fin=true,joue=false', 'E · mouvement réduit : la pose de Fin, sans boucle (' + e + ')');
       verifier(!errs.length, 'E · aucune erreur' + (errs.length ? ' : ' + errs.slice(0, 3).join(' | ') : ''));
+      await ctx.close();
+    }
+    // ── F : tour 9 (Profil, un seul côté, la main O) ──
+    {
+      const errs = [];
+      const ctx = await contexte(nav, port, { reducedMotion: 'reduce' }); const p = await page(ctx, port, errs);
+      const diag = () => p.evaluate(() => THMouvement.etat().diagnostic);
+      const monte = async (slug) => {
+        await ouvrirFiche(p, port, slug);
+        await p.waitForSelector('.exo-mouvement canvas.thm-canevas', { timeout: 90000 });
+        return diag();
+      };
+      let d = await monte('pull_over');
+      const bt = await p.evaluate(() => [...document.querySelectorAll('.exo-mouvement button')].map((b) => b.textContent).join('|'));
+      verifier(bt === 'Profil|Face|Dos|Départ|Fin|▶ Lecture', 'F · les commandes : ' + bt);
+      verifier(d.mains.O && !d.mains.B && !d.mains.D, 'F · pull-over : la main O seule (' + JSON.stringify(d.mains) + ')');
+      verifier(d.colores.droit > 0 && d.colores.gauche > 0, 'F · pull-over (deux bras) : les deux côtés colorés (' + d.colores.droit + ' / ' + d.colores.gauche + ')');
+      if (process.env.CAPTURES) await p.screenshot({ path: path.join(process.env.CAPTURES, 'pull_over.png'), fullPage: true });
+      await p.click('.exo-mouvement [data-vue=dos]');
+      const dos = await diag();
+      await p.click('.exo-mouvement [data-vue=profil]');
+      const pro = await diag();
+      verifier(Math.abs(dos.az - (-90)) < 0.5 && Math.abs(pro.az) < 0.5 && Math.abs(pro.el - 6) < 0.5, 'F · « Profil » répond : de dos (az ' + dos.az + ') à profil (az ' + pro.az + ', él ' + pro.el + ')');
+      d = await monte('elevation_laterale_poulie');
+      verifier(d.colores.droit > 0 && d.colores.gauche === 0, 'F · élévation latérale à un bras (cote droit) : le côté droit seul coloré (' + d.colores.droit + ' / ' + d.colores.gauche + ')');
+      verifier(!d.mains.O && d.mains.D, 'F · hors pull-over : pas de main O (' + JSON.stringify(d.mains) + ')');
+      for (const slug of ['tirage_vers_visage', 'escaliers']) {
+        d = await monte(slug);
+        verifier(!d.mains.O && d.colores.droit > 0 && d.colores.gauche > 0, 'F · ' + slug + ' : deux côtés colorés, pas de main O');
+        if (process.env.CAPTURES) await p.screenshot({ path: path.join(process.env.CAPTURES, slug + '.png'), fullPage: true });
+      }
+      verifier(!errs.length, 'F · aucune erreur' + (errs.length ? ' : ' + errs.slice(0, 3).join(' | ') : ''));
       await ctx.close();
     }
   } catch (e) { verifier(false, '[exception] ' + (e && e.stack || e)); }

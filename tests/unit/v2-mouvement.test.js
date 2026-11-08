@@ -89,7 +89,10 @@ describe('271 — le module de l’app (js/mouvement.js) : le catalogue et les m
 
   test('les rôles se lisent sur le catalogue ; une clé inconnue n’est jamais devinée', () => {
     const r = M.rolesDuCatalogue({ primaires: ['quadriceps', 'fessiers'], secondaires: [], stabilisateurs: ['bas_du_dos', 'jambes'] });
-    expect(r.roles).toEqual({ prim: ['quadriceps', 'fessiers'], sec: [], stab: ['bas_du_dos'] });
+    expect(r.roles).toEqual({ prim: ['quadriceps', 'fessiers', 'fessier_moyen'], sec: [], stab: ['bas_du_dos'] });
+    // tour 9 : le moyen fessier sert les abducteurs et les fessiers ; cité deux fois, il prend le rôle le plus fort (colorer lit prim d'abord)
+    const ab = M.rolesDuCatalogue({ primaires: ['abducteurs'], secondaires: ['fessiers'] }).roles;
+    expect(ab.prim).toEqual(['abducteurs', 'fessier_moyen']); expect(ab.sec).toEqual(['fessiers', 'fessier_moyen']);
     expect(r.inconnues).toEqual(['jambes']);
     expect(M.rolesDuCatalogue(null).roles).toEqual({ prim: [], sec: [], stab: [] });
   });

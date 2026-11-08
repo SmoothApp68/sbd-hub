@@ -49,7 +49,15 @@
     tapis_roulant: 'tapis_roulant.json',
     developpe_militaire_barre: 'developpe_militaire_barre.json',
     curl_biceps_barre_ez: 'curl_biceps_barre_ez.json',
-    shrug_barre: 'shrug_barre.json'
+    shrug_barre: 'shrug_barre.json',
+    elevation_laterale_poulie: 'elevation_laterale_poulie.json',
+    extension_triceps_poulie_haute: 'extension_triceps_poulie_haute.json',
+    extension_des_triceps_au_dessus_de_la_tete_cable: 'extension_des_triceps_au_dessus_de_la_tete_cable.json',
+    tirage_vers_visage: 'tirage_vers_visage.json',
+    rowing_poulie_assis: 'rowing_poulie_assis.json',
+    tirage_poitrine_un_bras: 'tirage_poitrine_un_bras.json',
+    ecarte_machine: 'ecarte_machine.json',
+    rowing_divergent_machine: 'rowing_divergent_machine.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

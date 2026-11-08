@@ -57,7 +57,12 @@
     rowing_poulie_assis: 'rowing_poulie_assis.json',
     tirage_poitrine_un_bras: 'tirage_poitrine_un_bras.json',
     ecarte_machine: 'ecarte_machine.json',
-    rowing_divergent_machine: 'rowing_divergent_machine.json'
+    rowing_divergent_machine: 'rowing_divergent_machine.json',
+    escaliers: 'escaliers.json',
+    rowing_inverse: 'rowing_inverse.json',
+    traction_assistee: 'traction_assistee.json',
+    tractions_elastique: 'tractions_elastique.json',
+    traction_negative: 'traction_negative.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

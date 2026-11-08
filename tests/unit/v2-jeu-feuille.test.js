@@ -84,7 +84,7 @@ function bac(o) {
     memoFeuilleJeu: { cle: null, jeu: null }
   };
   vm.createContext(ctx);
-  ['jeuAllume', 'etatDuJeuCourant', 'succesDecrit', 'jeuDeLaFeuille'].forEach((n) => vm.runInContext(extraire(n), ctx));
+  ['jeuAllume', 'etatDuJeuCourant', 'succesDecrit', 'jalonNomme', 'jeuDeLaFeuille'].forEach((n) => vm.runInContext(extraire(n), ctx));
   return { ctx, avertis, C };
 }
 

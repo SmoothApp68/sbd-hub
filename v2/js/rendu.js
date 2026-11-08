@@ -9634,6 +9634,33 @@
 
   // Le nom d'un succès (§9.2, « Libellés ») : sa catégorie et son palier ; un cap rond, le nom court de l'exercice,
   // comme la médaille. `d` : `descriptionDuSucces(id)`, et `d.nom` pour un cap (posé par l'appelant).
+  // 273 — LE CARNET DE JALONS : une phrase par jalon, un fait (jamais un « bravo »). `l` : une ligne de `Jeu.carnet` avec `nom`.
+  //   cap en plaques : « Squat : 3 plaques (140 kg × 3) » ; cap hors barre : « Presse à cuisses : 300 kg × 8 » (le cap, en or) ;
+  //   record d'une grande barre : « Couché : record, 100 kg × 3 ».
+  function mesureDeJalon(charge, reps) {
+    return nombreFr(charge) + NBSP + 'kg' + (reps ? ' \u00d7 ' + reps : '');
+  }
+  function jalonEnPhrase(l) {
+    if (l.sorte === 'record') return l.nom + ' : record, ' + mesureDeJalon(l.charge, l.reps);
+    if (l.plaques) return l.nom + ' : ' + l.plaques + ' ' + motJeu(l.plaques, 'plaque', 'plaques') + ' (' + mesureDeJalon(l.charge, l.reps) + ')';
+    return l.nom + ' : ' + mesureDeJalon(l.charge, l.reps);
+  }
+  function rendreFeuilleJalons(cible, vue) {
+    vider(cible);
+    cible.appendChild(el('div', 'feuille-t', 'Jalons'));
+    var liste = el('div', 'jalons');
+    liste.id = 'jalons';
+    if (!vue.lignes.length) liste.appendChild(el('p', 'vide', 'Pas encore de jalon.'));
+    vue.lignes.forEach(function (l) {
+      var n = el('div', 'jalon jalon-' + l.sorte + (l.sorte === 'cap' && !l.plaques ? ' j-or' : ''));
+      n.appendChild(el('span', 'jalon-t', jalonEnPhrase(l)));
+      n.appendChild(el('span', 'jalon-d', dateCourte(l.date)));
+      liste.appendChild(n);
+    });
+    cible.appendChild(liste);
+    // 215 : le « Fermer » est celui de la feuille commune (#btn-fermer-feuille), jamais un second.
+    return cible;
+  }
   // 273 — un cap en plaques (« 3 plaques », barre droite : 1 plaque = 60 kg) ou en kilos (« 150 kg »).
   function libelleDeCap(plaques, kg) {
     return plaques ? plaques + ' ' + motJeu(plaques, 'plaque', 'plaques') : nombreFr(kg) + NBSP + 'kg';
@@ -11113,7 +11140,7 @@
     carteDeVeille: carteDeVeille,
     ligneDeVeilleReprise: ligneDeVeilleReprise,
     rendreFeuilleMot: rendreFeuilleMot,
-    rendreFeuilleMots: rendreFeuilleMots, rendreFeuilleMentions: rendreFeuilleMentions,
+    rendreFeuilleMots: rendreFeuilleMots, rendreFeuilleMentions: rendreFeuilleMentions, rendreFeuilleJalons: rendreFeuilleJalons,
     rendreFeuilleSaisie: rendreFeuilleSaisie,
     rendreFeuillePesee: rendreFeuillePesee,
     rendreFeuilleObjectif: rendreFeuilleObjectif,

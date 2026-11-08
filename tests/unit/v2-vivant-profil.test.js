@@ -17,6 +17,7 @@ const LIGNES_D_AVANT = [
   'Matériel', 'Ma salle', 'Zone à ménager', 'Exercices écartés', 'Exporter mes données', 'Refaire mon programme', 'Zones raides',   // 190 : « Ma salle » toujours là
   'But d’entraînement', 'Objectifs en entretien', 'Priorités', 'Entraînement régulier', 'Tous mes exercices', 'Importer depuis Hevy ou Strong',
   'Poids', 'Taille', 'Date de naissance', 'Sexe', 'Séances par semaine', 'Durée d’une séance', 'Ton temps',
+  'Jalons',   // 273
   'Pseudo', 'Bio', 'E-mail de connexion', 'Mot de passe', 'Activer le jeu',
   'Les mots du coach',   // 201
   'Mentions légales', 'Confidentialité', 'Santé',   // 212
@@ -39,7 +40,7 @@ describe('le Profil rangé par fréquence (173)', () => {
     const sections = (g) => Array.from(cible.querySelectorAll('.p-gr[data-groupe="' + g + '"] .p-sect')).map((n) => n.textContent);
     expect(sections('Mon coach')).toEqual(['POURQUOI', 'TON RYTHME', 'TA PHASE', 'TON BUT', 'TA SEMAINE']);
     expect(sections('Mon programme')).toEqual(['CE QUE JE FAIS', 'MES EXERCICES']);
-    expect(sections('Moi')).toEqual(['TON POIDS', 'MON PROFIL', 'MA SALLE', 'MON CORPS', 'DEPUIS QUAND']);
+    expect(sections('Moi')).toEqual(['TON POIDS', 'MON PROFIL', 'MA SALLE', 'MON CORPS', 'DEPUIS QUAND', 'JALONS']);
     expect(sections('Mon compte')).toEqual(['L’APP', 'MES DONNÉES', 'LE JEU']);
     expect(sections('À propos')).toEqual(['LES MOTS DU COACH', 'MENTIONS']);
     // 213 — tout est fermé à l'arrivée, et chaque groupe a son résumé.

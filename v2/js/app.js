@@ -2204,6 +2204,23 @@
     return d;
   }
 
+  // 273 — le nom d'un jalon : les trois grandes barres par leur nom court (« Squat », « Couché », « Soulevé »), les autres
+  // par le nom court du catalogue.
+  function jalonNomme(l) {
+    var index = corpus().catalogue(), court = Modele.NOM_DE_BARRE[l.slug];
+    var nom = court ? court.charAt(0).toUpperCase() + court.slice(1) : Modele.nomCourt(Modele.nommer(index, l.slug));
+    return Object.assign({}, l, { nom: nom });
+  }
+  // Profil › Jalons : le carnet, en lecture seule (rien n'est écrit, tout se recalcule). Les caps, les records des grandes
+  // barres ; jamais la régularité. Une feuille, comme « Les mots du coach ».
+  function ouvrirJalons() {
+    var lignes = [];
+    try { lignes = Jeu.carnet(faits.faitsDuJeu(corpus(), new Date())).map(jalonNomme); }
+    catch (e) { console.warn('Le carnet de jalons ne se calcule pas :', texteErreur(e)); }
+    feuilleProfil = function (cible) { Rendu.rendreFeuilleJalons(cible, { lignes: lignes, surFermer: fermerVoile }); };
+    ouvrirFeuilleProfil();
+  }
+
   // ── La feuille « Terminer » (§9.4) : ce que la séance ajoute ─────────────
   //
   // `etatDuJeu` sans elle (la mémoire de l'onglet), puis avec elle (`faitsDuJeu` et `enCours`, par les
@@ -18902,6 +18919,10 @@
           ] },
           { titre: 'DEPUIS QUAND', lignes: [
             ligneChoix('anciennete', 'Entraînement régulier')
+          ] },
+          // 273 — le carnet de jalons : les caps et les records, datés, du plus récent au plus ancien.
+          { titre: 'JALONS', lignes: [
+            { libelle: 'Jalons', sansValeur: true, sous: 'Caps et records, du plus récent au plus ancien', surChoix: ouvrirJalons }
           ] }
         ]),
         dansLeGroupe('Mon compte', [

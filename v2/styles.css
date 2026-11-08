@@ -3232,6 +3232,12 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .src-type{display:inline-block;margin-left:4px;font-size:12px;color:var(--texte-3);white-space:nowrap}
 .carte-mot{background:var(--panneau);border-radius:14px;padding:12px;margin:var(--e2) 0}
 .carte-mot-t{font-size:16px;font-weight:600;color:var(--texte)}
+.jalons{display:grid;gap:0}
+.jalon{display:flex;justify-content:space-between;align-items:baseline;gap:var(--e3);padding:8px 0;border-top:1px solid var(--trait);font-size:14px;line-height:1.4;color:var(--texte-2)}
+.jalon:first-child{border-top:0}
+.jalon-t{min-width:0;color:var(--texte)}
+.jalon-d{flex:none;font-size:12px;color:var(--texte-3)}
+.jalon.j-or .jalon-t{color:var(--rarete-4)}
 .mots-coach{display:grid;gap:0}
 .mot-coach{padding:8px 0;border-top:1px solid var(--trait);font-size:14px;line-height:1.45;color:var(--texte-2)}
 .mot-coach:first-child{border-top:0}

@@ -1153,6 +1153,17 @@
     return (await rpc('social_calendrier', { p_user: userIdCible, p_de: de, p_a: a })) || [];
   }
   async function socialDetailSeance(id) { return (await rpc('social_detail_seance', { p_session: id })) || []; }
+  // social 3 (v2_144) — la STRUCTURE d'une séance d'un mutuel, sans aucune charge : `[{ exercise_slug, rang, type_serie, reps, duree_s,
+  // groupe_superset, repos_s }]`, par rang ; vide si la séance n'est pas d'un mutuel, pas terminée ou privée. `null` tant que la fonction
+  // n'existe pas (PGRST202 ou 42883) : « En faire une routine » ne s'affiche pas.
+  async function socialStructureSeance(id) {
+    try {
+      return (await rpc('social_structure_seance', { p_session: id })) || [];
+    } catch (e) {
+      if (e && (e.code === 'PGRST202' || e.code === '42883')) return null;
+      throw e;
+    }
+  }
   async function socialMesReactions(id) {
     var d = await rpc('social_mes_reactions', { p_session: id });
     var n = Number(Array.isArray(d) ? d[0] : d);
@@ -1366,7 +1377,7 @@
     supprimerCompte: supprimerCompte,
     socialProfil: socialProfil, socialRechercher: socialRechercher, socialFil: socialFil,
     socialLiens: socialLiens, socialRecordsSeance: socialRecordsSeance, socialCalendrier: socialCalendrier,
-    socialDetailSeance: socialDetailSeance, socialMesReactions: socialMesReactions,
+    socialDetailSeance: socialDetailSeance, socialStructureSeance: socialStructureSeance, socialMesReactions: socialMesReactions,
     sAbonner: sAbonner, retirerAbonnement: retirerAbonnement, accepterDemande: accepterDemande,
     bloquer: bloquer, debloquer: debloquer, reagir: reagir, retirerReaction: retirerReaction,
     socialExercicesAmi: socialExercicesAmi, socialSeriesExercice: socialSeriesExercice, socialPeriode: socialPeriode,

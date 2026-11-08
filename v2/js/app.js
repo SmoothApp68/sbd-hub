@@ -2763,6 +2763,15 @@
           }
           return ligne;
         });
+        // social 3 — « En faire une routine » : seulement si la base rend la structure de cette séance (un mutuel, terminée, non privée)
+        // et que la fonction existe (sinon `null` : le lien ne s'affiche pas). Une erreur ici ne coûte que le lien.
+        try {
+          var structure = await Donnees.socialStructureSeance(s.session_id);
+          if (social.ami !== a || a.choisi !== jour) return;
+          if (structure && Routines.structureDepuisLignesSociales(structure, { titre: s.titre, exercices: local.exercices })) {
+            a.resume.surEnFaireUneRoutine = function () { ouvrirApercuRoutineSociale(structure, s, a.profil); };
+          }
+        } catch (e2) { /* pas de lien */ }
       } else {
         a.resume.detailCache = 'Le détail des exercices se voit quand vous vous suivez l’un l’autre.';
       }
@@ -10649,6 +10658,8 @@
     armerDuree();
     // 91 — le groupe de séance, une ligne en haut de la séance (lue, jamais calculée par le plan).
     dessinerGroupeSeance();
+    // social 3 — « Routine créée depuis la séance de … », une fois, à la première séance de cette routine.
+    dessinerOrigineDeLaRoutine();
     // MOTEUR §14.4 (49-U14) — l'escalier en tête de la séance, lu sur le plan.
     var planEsc = planActuel();
     Rendu.rendreEscalier($('escalier-seance'), {
@@ -15127,9 +15138,19 @@
       nom: enRoutine.nom,
       dossier: enRoutine.dossier,
       erreur: enRoutine.erreur,
-      lignes: enRoutine.structure.exercices.map(function (e) {
-        return { nom: Modele.nommer(index, e.exercise_slug), series: e.series,
-                 repos: e.repos_cible_s, origine: e.repos_origine };
+      // social 3 — la routine d'un mutuel : un titre, une aide et un bouton à elle ; un exercice absent de MA salle est signalé.
+      titre: enRoutine.social ? 'En faire une routine' : undefined,
+      aide: enRoutine.social ? 'Tu pourras tout modifier ensuite, comme toute routine.' : undefined,
+      libelleCreer: enRoutine.social ? 'Enregistrer la routine' : undefined,
+      lignes: enRoutine.structure.exercices.map(function (e, i) {
+        var ligne = { nom: Modele.nommer(index, e.exercise_slug), series: e.series,
+                      repos: e.repos_cible_s, origine: e.repos_origine };
+        var hors = enRoutine.social ? horsDuMateriel(Modele.indexerExercices(local.exercices)) : null;
+        if (hors && hors(e.exercise_slug)) {
+          ligne.manque = manqueDeMaSalle(e.exercise_slug);
+          ligne.surChanger = function () { changerExerciceDeLApercu(i); };
+        }
+        return ligne;
       }),
       surNom: function (v) { enRoutine.nom = v; },
       surDossier: function () {
@@ -15172,6 +15193,70 @@
     };
   }
 
+  // ══ social 3 — « EN FAIRE UNE ROUTINE » depuis la séance d'un mutuel ═══════════════════════════════════════════════════════
+  //
+  // La structure vient de `social_structure_seance` (sans aucune charge) ; elle passe par `Routines.structureDepuisLignesSociales` (la porte :
+  // séries de travail seulement) puis par le chemin de ma séance : l'aperçu (`rendreApercuEnRoutine`), `brouillonDeStructure`,
+  // `Routines.valider`, `creerRoutineNeuve`, `ouvrirRoutine`. Les charges viennent du moteur (`planDeSeance`) ; un exercice jamais fait suit la
+  // règle de la première fois. Rien n'est écrit chez l'auteur de la séance, et la routine ne garde aucun lien vivant avec elle.
+  async function ouvrirApercuRoutineSociale(lignes, s, profilAmi) {
+    if (etatRoutines.code !== 'ok') await chargerRoutines();
+    var auteur = (profilAmi && (profilAmi.prenom || profilAmi.pseudo)) || '';
+    var st = Routines.structureDepuisLignesSociales(lignes, { titre: s.titre || 'Séance', auteur: auteur, exercices: local.exercices,
+      routines: routines, existants: nomsReserves() });
+    if (!st) return;
+    enRoutine = { ligne: null, structure: st, nom: st.nom, dossier: null, erreur: '', social: { auteur: auteur, debut: s.debut } };
+    rendreApercuEnRoutine();
+    ouvrirVoile($('feuille-seance'));
+  }
+  // Ce qui manque à MA salle pour cet exercice, en deux mots : le matériel, ou la barre de traction (la règle du prédicat `horsDuMateriel`).
+  function manqueDeMaSalle(slug) {
+    var fiche = Modele.indexerExercices(local.exercices)[slug];
+    var autorises = Profil.equipementsDe(profil && profil.materiel);
+    if (autorises && fiche && Profil.estHorsMateriel(fiche.equipement, autorises)) return String(Profil.libelleEquipement(fiche.equipement)).toLowerCase();
+    return 'une barre de traction';
+  }
+  // « Changer » : les frères et la famille de l'exercice (la feuille de « Remplacer »), jamais un remplacement en silence.
+  function changerExerciceDeLApercu(i) {
+    var e = enRoutine && enRoutine.structure.exercices[i];
+    if (!e) return;
+    var index = Modele.indexerExercices(local.exercices);
+    var presents = enRoutine.structure.exercices.map(function (x) { return x.exercise_slug; });
+    var choix = function (f) {
+      return { nom: Modele.nommer(index, f.slug), fait: f.fait, ecarte: f.ecarte,
+               surChoisir: function () { e.exercise_slug = f.slug; rendreApercuEnRoutine(); } };
+    };
+    Rendu.rendreFeuilleMachinePrise($('feuille-contenu'), {
+      titre: 'Changer', nom: Modele.nommer(index, e.exercise_slug), tard: null,
+      freres: freresDe(e.exercise_slug, presents).map(choix), cousins: cousinsDe(e.exercise_slug, presents).map(choix),
+      surAnnuler: rendreApercuEnRoutine
+    });
+  }
+  // Le fait de la première séance : « Routine créée depuis la séance de Léa du 3 nov. » — UNE fois, un drapeau local (aucune colonne).
+  var CLE_ORIGINE_ROUTINE = 'th-v2-origine-routine-';
+  var origineMontree = null;   // { seance, texte } — la séance qui le montre, tant qu'elle dure
+  function poserOrigineDeRoutine(routineId, texte) {
+    try { racine.localStorage.setItem(CLE_ORIGINE_ROUTINE + routineId, texte); } catch (e) { /* tant pis : pas de fait */ }
+  }
+  function prendreOrigineDeRoutine(routineId) {
+    try {
+      var t = racine.localStorage.getItem(CLE_ORIGINE_ROUTINE + routineId);
+      if (t) racine.localStorage.removeItem(CLE_ORIGINE_ROUTINE + routineId);
+      return t || null;
+    } catch (e) { return null; }
+  }
+  function dessinerOrigineDeLaRoutine() {
+    var noeud = $('origine-seance');
+    if (!noeud) return;
+    if (seance && seance.routine_id && !enEdition() && (!origineMontree || origineMontree.seance !== seance.id)) {
+      var t = prendreOrigineDeRoutine(seance.routine_id);
+      if (t) origineMontree = { seance: seance.id, texte: t };
+    }
+    var texte = seance && origineMontree && origineMontree.seance === seance.id ? origineMontree.texte : '';
+    noeud.textContent = texte;
+    noeud.hidden = !texte;
+  }
+
   function creerRoutineNeuve(b, rang) {
     return Routines.enregistrer(b, Donnees, {
       userId: sessionActive && sessionActive.user && sessionActive.user.id,
@@ -15183,6 +15268,8 @@
   async function creerRoutineDepuisSeance() {
     if (!enRoutine || enregistrementEnCours) return;
     var b = brouillonDeStructure(enRoutine.structure, enRoutine.nom, enRoutine.dossier);
+    var origine = enRoutine.social ? 'Routine créée depuis la séance de ' + (enRoutine.social.auteur || 'un ami') + ' du ' +
+      Modele.jourMois(new Date(enRoutine.social.debut), new Date().getFullYear()) + '.' : null;
     var verdict = Routines.valider(b, routines);
     if (!verdict.valide) { enRoutine.erreur = messageVerdict(verdict); return rendreApercuEnRoutine(); }
     enregistrementEnCours = true;
@@ -15190,6 +15277,7 @@
       var r = await creerRoutineNeuve(b, rangSuivantBibliotheque());
       if (!r.ok) { enRoutine.erreur = Routines.messageErreur(r); return rendreApercuEnRoutine(); }
       enRoutine = null;
+      if (origine) poserOrigineDeRoutine(r.routine.id, origine);
       fermerVoile();
       await chargerRoutines();
       await ouvrirRoutine(r.routine.id);

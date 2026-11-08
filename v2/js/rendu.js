@@ -6154,7 +6154,7 @@
       actions = el('div', 'feuille-menu machine-prise');
     }
     // 60-3 — l'éditeur (« Remplacer ») dit « Chercher dans le catalogue », frères ou pas.
-    if (sansFrere && !vue.chercher) entreeMenu(actions, 'Remplacer l’exercice', { surClic: vue.surCatalogue });
+    if (sansFrere && !vue.chercher && vue.surCatalogue) entreeMenu(actions, 'Remplacer l’exercice', { surClic: vue.surCatalogue });
     // ES §7 quindecies.8 (60-3) — après les frères, le sélecteur d'exercices.
     if (vue.chercher) entreeMenu(actions, vue.chercher, { classe: 'chercher-catalogue', surClic: vue.surCatalogue });
     // 60-4 — depuis l'aperçu du programme construit, « Annuler » revient à l'aperçu (sans lui, la seule sortie était de
@@ -6494,7 +6494,7 @@
   // `[{ nom, series, repos, origine }]`, la structure telle qu'elle sera écrite.
   function rendreApercuRoutine(cible, vue) {
     vider(cible);
-    cible.appendChild(el('div', 'feuille-t', 'Nouvelle routine : aperçu'));
+    cible.appendChild(el('div', 'feuille-t', vue.titre || 'Nouvelle routine : aperçu'));
     var champs = el('div', 'champs-fin');
     champs.appendChild(champTexte('Nom', vue.nom, { max: R().NOM_MAX }, vue.surNom));
     cible.appendChild(champs);
@@ -6502,15 +6502,25 @@
     var liste = el('div', 'apercu-routine');
     (vue.lignes || []).forEach(function (l) {
       ligneDApercu(liste, l.nom, resumeStructure(l.series, l.repos, l.origine));
+      // social 3 — un exercice absent de MA salle est signalé sous son nom, avec « Changer » : jamais remplacé en silence.
+      if (l.manque) {
+        var mq = el('div', 'apercu-manque');
+        mq.appendChild(el('span', null, 'Pas dans ta salle : ' + l.manque));
+        var ch = el('button', 'discret apercu-changer', 'Changer');
+        ch.type = 'button';
+        ch.addEventListener('click', l.surChanger);
+        mq.appendChild(ch);
+        liste.appendChild(mq);
+      }
     });
     cible.appendChild(liste);
-    cible.appendChild(el('p', 'feuille-aide',
+    cible.appendChild(el('p', 'feuille-aide', vue.aide ||
       'Les reps sont des repères de départ ; les charges, c\u2019est moi qui te les propose à chaque séance.'));
     var err = el('p', 'erreur', vue.erreur || '');
     err.setAttribute('role', 'alert');
     cible.appendChild(err);
     var menu = el('div', 'feuille-menu');
-    entreeMenu(menu, 'Créer la routine', { classe: 'accent-menu', surClic: vue.surCreer });
+    entreeMenu(menu, vue.libelleCreer || 'Créer la routine', { classe: 'accent-menu', surClic: vue.surCreer });
     entreeMenu(menu, 'Annuler', { surClic: vue.surAnnuler });
     cible.appendChild(menu);
     return cible;
@@ -10161,6 +10171,13 @@
       }
       d.appendChild(ex);
     });
+    // social 3 — « En faire une routine » : sous la liste, seulement quand la base rend la structure de cette séance (un mutuel, terminée).
+    if (r.surEnFaireUneRoutine && (r.detail || []).length) {
+      var rt = el('button', 's-en-routine', 'En faire une routine');
+      rt.type = 'button';
+      rt.addEventListener('click', r.surEnFaireUneRoutine);
+      d.appendChild(rt);
+    }
     if (r.detailCache) d.appendChild(el('p', 's-gris s-cache s-detail-cache', r.detailCache));
     return d;
   }

@@ -17145,8 +17145,7 @@ const SETS_IMPORTES = [
       profilBase().historique_declare === null && profilBase().sexe !== 'femme' && base.ecrituresPesees.length === ecrituresK0 &&
         JSON.stringify(base.pesees) === peseesK0 && fileK.indexOf('body_weight_log:pesee-' + (await aujourdhuiLocal())) >= 0 &&
         // 116 (audit du 16/10/2026) — ce qui attend, ce sont les COLONNES des gestes (jamais la ligne entière).
-        // 272 — `anciennete` peut être déjà posée par le niveau calculé (l'historique du banc le dit) : alors la réponse identique n'est pas réécrite.
-        !!aEnvoyerK && ['["anciennete","historique_declare","sexe"]', '["historique_declare","sexe"]'].indexOf(JSON.stringify(Object.keys(aEnvoyerK).sort())) >= 0 &&
+        !!aEnvoyerK && JSON.stringify(Object.keys(aEnvoyerK).sort()) === '["anciennete","historique_declare","sexe"]' &&
         aEnvoyerK.historique_declare === 'non_note' && aEnvoyerK.sexe === 'femme',
       JSON.stringify([fileK, aEnvoyerK, profilBase().historique_declare]));
     base.reseau = true;

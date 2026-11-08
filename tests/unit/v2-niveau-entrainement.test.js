@@ -204,3 +204,25 @@ describe('272 — les phrases des écrans', () => {
     expect(Profil.champsEcrits({ debutant_fin: '2026-11-08', anciennete_choisie_le: '2026-11-08' })).toEqual({ debutant_fin: '2026-11-08', anciennete_choisie_le: '2026-11-08' });
   });
 });
+
+// ══ LE BLOCAGE : le questionnaire d'abord ═══════════════════════════════════════════════════════════════════════════════
+describe('272 — niveauBloque (app.js) : rien tant que le questionnaire n’est pas terminé', () => {
+  const fs = require('fs'), path = require('path'), vm = require('vm');
+  const APP = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
+  const m = APP.match(/^  function niveauBloque\b[\s\S]*?^  }/m);
+  // Tout le reste est calme : ni décharge, ni test, ni douleur, aucune séance ouverte. Seul le questionnaire varie.
+  const bloque = (profil, questionnaire) => {
+    const ctx = { profil, questionnaire, seance: null, jourDuJour: () => '2026-11-08', semaineAllegeeEnCours: () => false,
+      testDesCartes: () => null, faits: { douleursParExercice: () => ({}) }, corpus: () => ({}), seriesDe: () => [] };
+    vm.createContext(ctx);
+    vm.runInContext(m[0], ctx);
+    return vm.runInContext('niveauBloque()', ctx);
+  };
+  test('questionnaire_fait_le vide : bloqué ; l’écran du questionnaire ouvert : bloqué', () => {
+    expect(bloque({ questionnaire_fait_le: null }, null)).toBe(true);
+    expect(bloque({ questionnaire_fait_le: '2026-10-01T09:00:00Z' }, { ecran: 'toi' })).toBe(true);
+  });
+  test('questionnaire terminé et fermé : l’évaluation passe', () => {
+    expect(bloque({ questionnaire_fait_le: '2026-10-01T09:00:00Z' }, null)).toBe(false);
+  });
+});

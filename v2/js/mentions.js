@@ -20,6 +20,15 @@
     'THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.'
   ].join('\n\n');
 
+  // 271 — la licence de three.js (vendor/LICENSE-three.txt, le même texte), à conserver avec la bibliothèque.
+  var LICENCE_THREE = [
+    'The MIT License',
+    'Copyright © 2010-2021 three.js authors',
+    'Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:',
+    'The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.',
+    'THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.'
+  ].join('\n\n');
+
   function contactAffichable() { return CONTACT !== A_COMPLETER && String(CONTACT).trim() !== ''; }
 
   // 250 — l'IA (Demander au coach, Lire mes notes). Hors garde de voix : texte légal, comme le reste du fichier.
@@ -87,7 +96,14 @@
       { cle: 'credits', titre: 'Crédits', blocs: [
         { titre: 'Silhouettes du bonhomme des muscles',
           texte: 'Les tracés du corps viennent de react-native-body-highlighter 3.2.0 (licence MIT, © 2022 ELABBASSI Hicham). Texte de la licence ci-dessous.' },
-        { titre: 'Licence MIT', texte: LICENCE_SILHOUETTES }
+        { titre: 'Licence MIT', texte: LICENCE_SILHOUETTES },
+        // 271 — l'animation du mouvement (onglet « Comment faire ») : le corps est une ADAPTATION d'une œuvre CC BY-SA 4.0
+        // (attribution, lien vers la licence, modifications indiquées, partage à l'identique de l'adaptation) ; three.js est MIT.
+        { titre: 'Corps des animations du mouvement',
+          texte: 'Le modèle anatomique vient de Z-Anatomy (Gauthier Kervyn, https://www.z-anatomy.com), lui-même d’après BodyParts3D (© The Database Center for Life Science, DBCLS). Licence Creative Commons Attribution - Partage dans les mêmes conditions 4.0 International (CC BY-SA 4.0, https://creativecommons.org/licenses/by-sa/4.0/deed.fr). Modifications faites pour TrainHub : muscles regroupés par groupe musculaire, maillage simplifié et compressé, squelette ajouté pour l’articuler, poses calculées image par image. Ce modèle modifié (le fichier mouvements/corps-glb.json servi par l’app) est partagé sous la même licence, CC BY-SA 4.0.' },
+        { titre: 'three.js',
+          texte: 'L’affichage 3D utilise three.js r128 et son GLTFLoader (licence MIT, © 2010-2021 three.js authors, https://threejs.org). Texte de la licence ci-dessous.' },
+        { titre: 'Licence MIT (three.js)', texte: LICENCE_THREE }
       ] }
     ];
   }
@@ -99,7 +115,8 @@
   }
 
   var api = { pages: pages, page: page, contactAffichable: contactAffichable, A_COMPLETER: A_COMPLETER,
-              CONTACT: CONTACT, AGE_MINIMUM: AGE_MINIMUM, SANTE: SANTE, LICENCE_SILHOUETTES: LICENCE_SILHOUETTES };
+              CONTACT: CONTACT, AGE_MINIMUM: AGE_MINIMUM, SANTE: SANTE, LICENCE_SILHOUETTES: LICENCE_SILHOUETTES,
+              LICENCE_THREE: LICENCE_THREE };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   racine.THMentions = api;
 })(typeof self !== 'undefined' ? self : globalThis);

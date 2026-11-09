@@ -10173,7 +10173,7 @@
     });
     // social 3 — « En faire une routine » : sous la liste, seulement quand la base rend la structure de cette séance (un mutuel, terminée).
     if (r.surEnFaireUneRoutine && (r.detail || []).length) {
-      var rt = el('button', 's-en-routine', 'En faire une routine');
+      var rt = el('button', 'discret s-en-routine', 'En faire une routine');
       rt.type = 'button';
       rt.addEventListener('click', r.surEnFaireUneRoutine);
       d.appendChild(rt);

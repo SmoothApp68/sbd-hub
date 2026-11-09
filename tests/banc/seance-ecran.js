@@ -5349,11 +5349,11 @@ const SETS_IMPORTES = [
 
   // ── §7 octies.3 — REFAIRE ───────────────────────────────────────────────
   await aller('/seance/' + idGestes);
-  // 52-1 (§7 quindecies.4) — « En faire une routine » s'ajoute aux trois gestes.
+  // 52-1 (§7 quindecies.4) — « En faire une routine » s’ajoute aux trois gestes ; 273 — « Partager la séance en image » aussi.
   ok('la séance terminée porte enfin ses gestes (les trois, et « En faire une routine »)',
-    (await compter('#vue-detail .detail-gestes button')) === 4 &&
+    (await compter('#vue-detail .detail-gestes button')) === 5 &&
     /Refaire cette séance/.test(await texte('#vue-detail .detail-gestes')) &&
-    !/Partager/.test(await texte('#vue-detail .detail-gestes')),
+    /Partager la séance en image/.test(await texte('#vue-detail .detail-gestes')),
     (await texte('#vue-detail .detail-gestes')).replace(/\s+/g, ' '));
 
   const seancesAvant = sessions().length;

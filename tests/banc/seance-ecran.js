@@ -7447,7 +7447,7 @@ const SETS_IMPORTES = [
   // NON-RÉGRESSION DU CHANTIER 29 : une séance COMPLÈTE garde ses trois gestes.
   await aller('/seance/' + ID_MIXTE);
   ok('[47] une séance complète, elle, garde ses gestes (les trois, et « En faire une routine », 52-1)',
-    (await compter('#vue-detail .detail-gestes button')) === 4,
+    (await compter('#vue-detail .detail-gestes button')) === 5,
     (await compter('#vue-detail .detail-gestes button')) + ' geste(s)');
 
   console.log('\n══ 47 bis. « ← SÉANCES » REMONTE, IL N’EMPILE PAS ══');

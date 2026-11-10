@@ -22549,7 +22549,7 @@ const SETS_IMPORTES = [
       /^Sur \d+ paris? vérifiés?, le coach en a tenu \d+\.$/.test(a.voix || '') &&
       nbR(a.paris) === nbR([['Rowing r71', '80 kg × 12, 12, 12, 12']]), nbR([a.voix, a.paris]));
     ok('[R71] (a) l’ordre de L1 : en-tête, chiffres, comparaison, muscles, records, coach… puis « Fermer » et « Voir la séance »',
-      nbR(a.boutons) === nbR(['Fermer', 'Voir la séance', 'Partager']) &&
+      nbR(a.boutons) === nbR(['Fermer', 'Voir la séance', 'Partager', 'Partager la séance en image']) &&
       a.ordre.indexOf('recap-tuiles') < a.ordre.indexOf('recap-comp') && a.ordre.indexOf('recap-comp') < a.ordre.indexOf('recap-mu') &&
       a.ordre.indexOf('recap-mu') < a.ordre.indexOf('recap-rec') && a.ordre.indexOf('recap-rec') < a.ordre.indexOf('recap-voix') &&
       a.ordre.lastIndexOf('recap-bouton') === a.ordre.length - 1, nbR(a.ordre));

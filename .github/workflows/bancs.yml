@@ -49,7 +49,7 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: ms-playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium || npx playwright install chromium   # repli : miroir Ubuntu injoignable (11/11/2026)
       - name: Banc complet (npm test + routines + service worker + création du profil + séance en parallèle)
         shell: bash
         run: |
@@ -98,7 +98,7 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: ms-playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install --with-deps chromium || npx playwright install chromium   # repli : miroir Ubuntu injoignable (11/11/2026)
       - name: Machine
         shell: bash
         run: |

@@ -49,7 +49,7 @@ describe('271 — le corps et les exercices (mouvements/)', () => {
     expect(ex.length).toBeGreaterThan(0);
     ex.forEach((f) => {
       const j = JSON.parse(fs.readFileSync(path.join(V2, 'mouvements', f), 'utf8'));
-      expect([f, j.format, j.cle]).toEqual([f, 'trainhub-mouvement/8', f.replace(/\.json$/, '')]);
+      expect([f, j.format, j.cle]).toEqual([f, 'trainhub-mouvement/8', f.replace(/(--.*)?\.json$/, '')]);   // 272 : `<slug>--<id>.json` = une version du slug
       expect([f, 'muscles' in j, 'roles' in j]).toEqual([f, false, false]);
       expect([f, j.images.length]).toEqual([f, j.boucle.N]);
     });
@@ -59,12 +59,30 @@ describe('271 — le corps et les exercices (mouvements/)', () => {
 describe('271 — le module de l’app (js/mouvement.js) : le catalogue et les muscles', () => {
   const M = require('../../v2/js/mouvement.js');
   const Semaine = require('../../v2/js/semaine.js');
-  const exos = fs.readdirSync(path.join(V2, 'mouvements')).filter((f) => f !== 'corps-glb.json');
+  const tous = fs.readdirSync(path.join(V2, 'mouvements')).filter((f) => f !== 'corps-glb.json');
+  const exos = tous.filter((f) => !f.includes('--'));          // les slugs
+  const versionsFichiers = tous.filter((f) => f.includes('--')); // 272 : une version = son fichier `<slug>--<id>.json`
 
   test('chaque slug du CATALOGUE a son JSON, et aucun JSON n’est orphelin', () => {
     const inscrits = Object.keys(M.CATALOGUE).map((s) => M.CATALOGUE[s]).sort();
     expect(inscrits).toEqual(exos.slice().sort());
     Object.keys(M.CATALOGUE).forEach((s) => expect([s, M.CATALOGUE[s]]).toEqual([s, s + '.json']));
+  });
+
+  test('272 — chaque version a son fichier, déclarée par son slug ; aucun fichier de version orphelin', () => {
+    const declares = [];
+    exos.forEach((f) => {
+      const j = JSON.parse(fs.readFileSync(path.join(V2, 'mouvements', f), 'utf8'));
+      if (!j.versions) return;
+      expect([f, j.versions.length >= 2]).toEqual([f, true]);
+      j.versions.forEach((v) => {
+        expect([f, v.fichier === f || v.fichier === f.replace(/\.json$/, '') + '--' + v.id + '.json']).toEqual([f, true]);
+        expect([v.fichier, tous.includes(v.fichier)]).toEqual([v.fichier, true]);
+        if (v.fichier !== f) declares.push(v.fichier);
+      });
+      expect([f, j.versions.some((v) => v.id === j.version)]).toEqual([f, true]);
+    });
+    expect(declares.sort()).toEqual(versionsFichiers.sort());
   });
 
   test('existe / url : une clé du catalogue, rien d’autre (pas de prototype, pas de devinette)', () => {

@@ -1785,7 +1785,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .thm-attente{margin:0;padding:88px var(--e4);text-align:center;font-size:14px;color:var(--texte-3)}
 .thm-lab{position:absolute;left:10px;top:8px;font:700 12px/1.2 var(--pile);letter-spacing:.08em;color:var(--texte-3);pointer-events:none}
 .thm-annonce{position:absolute;left:10px;bottom:8px;padding:3px 8px;border-radius:8px;background:rgba(10,12,16,.78);
-  font:700 13px/1.2 var(--pile);color:var(--accent);pointer-events:none}
+  font:700 13px/1.2 var(--pile);color:var(--texte);pointer-events:none}
 .thm-cmd{display:flex;gap:6px;margin-top:var(--e2)}
 .thm-btn{flex:1;min-height:44px;border-radius:var(--r-bouton);border:1px solid var(--trait-controle);background:var(--panneau);
   color:var(--texte);font:600 15px/1.2 var(--pile)}

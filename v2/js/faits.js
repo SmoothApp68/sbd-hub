@@ -1616,6 +1616,43 @@
         journal: (c.journal || []).filter(function (l) { return !l || l.session_id !== id; })
       };
     }
+    // 273 — LES MAXIMUMS DU JEU (les caps ronds, le carnet de jalons) : UNE ENTRÉE PAR EXERCICE CHARGÉ PRATIQUÉ — la
+    // mesure `charge_reps`, une charge qu'on soulève (ni une aide, ni un élastique) —, par la plus lourde série de travail
+    // (chauffes et reculs exclus, dès 1 rep), sans fenêtre de 12 mois : un cap franchi le reste. `paliers` : la plus lourde
+    // série à CHAQUE fois qu'elle a été dépassée, de la plus ancienne à la plus récente (`{ charge, reps, date }`, la date
+    // de la séance) ; la première série à atteindre un cap donne sa date. Les barres du questionnaire d'abord, les autres
+    // par slug. Les haltères : la charge de la paire (c'est ce qui s'écrit).
+    function maximumsDuJeu(seances, series, index, ordre) {
+      var debutDe = {};
+      seances.forEach(function (s) { debutDe[s.id] = s.debut; });
+      var parSlug = {};
+      series.forEach(function (x) {
+        if (!x || !x.exercise_slug || !Modele.estTravail(x) || Modele.estRecul(x)) return;
+        var exo = index[x.exercise_slug];
+        if (!exo || exo.mesure !== 'charge_reps' || Modele.natureDeCharge(exo) === 'aide' || exo.equipement === 'elastique') return;
+        var charge = Number(x.charge_kg), reps = Number(x.reps);
+        if (x.charge_kg === null || x.charge_kg === '' || !(charge > 0) || !(reps >= 1)) return;
+        var d = debutDe[x.session_id], t = Date.parse(d);
+        (parSlug[x.exercise_slug] = parSlug[x.exercise_slug] || []).push(
+          { charge: charge, reps: reps, date: d, t: isNaN(t) ? Infinity : t, v: String(x.validee_a || '') });
+      });
+      var slugs = Object.keys(parSlug).sort(function (a, b) {
+        var ia = ordre.indexOf(a), ib = ordre.indexOf(b);
+        if (ia >= 0 || ib >= 0) return (ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib);
+        return a < b ? -1 : a > b ? 1 : 0;
+      });
+      return slugs.map(function (slug) {
+        var faites = parSlug[slug].sort(function (a, b) { return a.t - b.t || (a.v < b.v ? -1 : a.v > b.v ? 1 : 0); });
+        var paliers = [];
+        faites.forEach(function (f) {
+          if (!paliers.length || f.charge > paliers[paliers.length - 1].charge + 1e-9) {
+            paliers.push({ charge: f.charge, reps: f.reps, date: f.date });
+          }
+        });
+        return { slug: slug, charge: paliers[paliers.length - 1].charge, paliers: paliers };
+      });
+    }
+
     function faitsDuJeu(c, aujourdhui, enCours, sans) {
       if (sans && !(enCours && enCours.seance)) {
         var dedans = (c.seances || []).some(function (s) { return s && s.id === sans; }) ||
@@ -1638,8 +1675,7 @@
         series = series.concat(ici.lignes || []);
         journal = journal.concat(journalDuJour(c, ici.seance, null));
         var corpus = corpusAvecLaSeance(c, ici), aPart = creer();
-        avec = { maximums: aPart.ceQueJeSais(corpus, aujourdhui, BARRES_DU_JEU).maximums,
-                 exercicesFaits: aPart.compterExercices(corpus).faits };
+        avec = { exercicesFaits: aPart.compterExercices(corpus).faits };
       }
       return {
         aujourdhui: aujourdhui,
@@ -1649,7 +1685,7 @@
         journal: journal,
         // 153 (D) — la plus grande distance d'une série de travail, par sport (course, nage, velo) : le jeu ne lit pas les séries.
         distances: Modele.distancesMaxParSport(series),
-        maximums: avec ? avec.maximums : ceQueJeSais(c, aujourdhui, BARRES_DU_JEU).maximums,
+        maximums: maximumsDuJeu(seances, series, c.catalogue(), BARRES_DU_JEU),
         exercicesFaits: avec ? avec.exercicesFaits : compterExercices(c).faits
       };
     }

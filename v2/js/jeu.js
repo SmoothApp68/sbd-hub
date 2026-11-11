@@ -82,7 +82,20 @@
     { id: 'velo-50', sport: 'velo', m: 50000, rarete: 'commun', libelle: 'Première sortie de 50 km à vélo' },
     { id: 'velo-100', sport: 'velo', m: 100000, rarete: 'rare', libelle: 'Première sortie de 100 km à vélo' }
   ];
-  var CAP_PREMIER = 40, CAP_PAS = 20, RARETE_CAP = 'commun';
+  // LES CAPS RONDS (273) — UN SEUL FIL, deux règles selon le matériel. Une BARRE DROITE (catalogue `equipement = 'barre'`,
+  // hors barre EZ) se charge en plaques : 60 kg (une plaque : la barre et deux disques de 20), puis +40 (un disque de plus
+  // de chaque côté) — 60, 100, 140, 180… Tout le reste (haltères au TOTAL de la paire, machines, poulies, kettlebells,
+  // Smith) : un cap tous les 50 kg. Les charges viennent de `entree.maximums` (une par exercice chargé pratiqué, la
+  // plus lourde série de travail ; chauffes et reculs exclus) ; l'id d'un succès reste `cap-<slug>-<kg>`.
+  var CAP_PLAQUE_PREMIER = 60, CAP_PLAQUE_PAS = 40, CAP_ROND_PAS = 50, RARETE_CAP = 'commun';
+  var EZ = /(^|_)ez($|_)/;
+  // Les caps d'un exercice jusqu'à une charge : `{ plaque: bool, caps: [kg…] }`.
+  function estALaPlaque(exo, slug) { return !!exo && exo.equipement === 'barre' && !EZ.test(String(slug || '')); }
+  function capsJusqua(plaque, charge) {
+    var out = [], premier = plaque ? CAP_PLAQUE_PREMIER : CAP_ROND_PAS, pas = plaque ? CAP_PLAQUE_PAS : CAP_ROND_PAS;
+    for (var k = premier; k <= charge + EPS_PLANCHER; k += pas) out.push(k);
+    return out;
+  }
 
   // §6 — les titres (le plus petit des sept niveaux) et les cadres.
   var TITRES = [[10, 'equilibre'], [20, 'polyvalent'], [30, 'athlete'], [40, 'accompli'], [50, 'complet']];
@@ -234,8 +247,8 @@
     PALIERS_TOUS.forEach(function (p) { if (mini >= p[0]) gagner('tous-' + p[0], p[1]); });
     // Les caps ronds : les maximums reçus, dans leur ordre ; aucune liste de barres ici.
     (entree.maximums || []).forEach(function (x) {
-      var charge = (x && x.charge) || 0;
-      for (var k = CAP_PREMIER; k <= charge + EPS_PLANCHER; k += CAP_PAS) gagner('cap-' + x.slug + '-' + k, RARETE_CAP);
+      var charge = (x && x.charge) || 0, exo = entree.catalogue ? entree.catalogue[x.slug] : null;
+      capsJusqua(estALaPlaque(exo, x.slug), charge).forEach(function (k) { gagner('cap-' + x.slug + '-' + k, RARETE_CAP); });
     });
     return liste;
   }
@@ -367,7 +380,10 @@
     m = /^cap-(.+)-(\d+)$/.exec(id);
     if (m) {
       var k = Number(m[2]);
-      if (String(k) !== m[2] || k < CAP_PREMIER || (k - CAP_PREMIER) % CAP_PAS !== 0) return null;
+      // Valide pour l'une ou l'autre règle (100 est à la fois la deuxième plaque et le deuxième cap de 50).
+      var rond = k >= CAP_ROND_PAS && k % CAP_ROND_PAS === 0;
+      var plaque = k >= CAP_PLAQUE_PREMIER && (k - CAP_PLAQUE_PREMIER) % CAP_PLAQUE_PAS === 0;
+      if (String(k) !== m[2] || !(rond || plaque)) return null;
       return d('cap', m[1], k, RARETE_CAP);
     }
     m = /^([a-z]+)-(\d+)$/.exec(id);
@@ -426,7 +442,7 @@
       distances: CAPS_DE_DISTANCE.map(function (c) { return { id: c.id, km: c.m / METRES_PAR_KM, rarete: c.rarete, libelle: c.libelle }; }),
       muscles: copie(PALIERS_MUSCLE),
       tous: copie(PALIERS_TOUS),
-      cap: { premier: CAP_PREMIER, pas: CAP_PAS, rarete: RARETE_CAP },
+      cap: { plaque: { premier: CAP_PLAQUE_PREMIER, pas: CAP_PLAQUE_PAS }, rond: { pas: CAP_ROND_PAS }, rarete: RARETE_CAP },
       titres: TITRES.map(function (t) { return { niveau: t[0], cle: t[1] }; }),
       collectionneur: { cle: COLLECTIONNEUR, succes: SUCCES_COLLECTIONNEUR },
       cadres: CADRES.slice(),
@@ -524,8 +540,53 @@
     return { titres: titres, cadres: cadres };
   }
 
+  // ── Le carnet de jalons (273, lecture seule) ─────────────────────────────
+  //
+  // Une liste datée, du plus récent au plus ancien, de trois sortes de lignes — jamais la régularité (ni un compte de
+  // séances, ni une série de semaines) : les CAPS (la date est celle de la première série qui les a atteints, `paliers`
+  // de chaque maximum : la plus lourde série à chaque fois qu'elle a été dépassée), les RECORDS DE CHARGE des trois
+  // grandes barres (le journal des records), et — quand #611 sera là — les changements de niveau. Rien n'est stocké.
+  //   cap    : { sorte, id, slug, kg, plaques (nombre ou null), charge, reps, date }
+  //   record : { sorte, slug, charge, reps (ou null), date }
+  // Les trois grandes barres : les trois premières de `Modele.BARRES` (squat, couché, soulevé) — aucune liste ici.
+  var NB_GRANDES_BARRES = 3;
+  function instantDe(d) { var t = Date.parse(d); return isNaN(t) ? null : t; }
+  function plaquesDuCap(exo, slug, kg) {
+    return estALaPlaque(exo, slug) && kg >= CAP_PLAQUE_PREMIER ? Math.round((kg - CAP_PLAQUE_PREMIER) / CAP_PLAQUE_PAS) + 1 : null;
+  }
+  // `en_plus` : des lignes déjà faites par l'appelant (le niveau, que le jeu ne calcule pas) : `{ sorte: 'niveau', libelle, date }`.
+  function carnet(entree, enPlus) {
+    var lignes = (enPlus || []).slice(), grandes = racine.THModele.BARRES.slice(0, NB_GRANDES_BARRES);
+    (entree.maximums || []).forEach(function (x) {
+      if (!x) return;
+      var exo = entree.catalogue ? entree.catalogue[x.slug] : null;
+      var paliers = x.paliers || [];
+      capsJusqua(estALaPlaque(exo, x.slug), x.charge || 0).forEach(function (k) {
+        var p = null;
+        for (var i = 0; i < paliers.length; i++) if (paliers[i].charge >= k - EPS_PLANCHER) { p = paliers[i]; break; }
+        if (!p) return;
+        lignes.push({ sorte: 'cap', id: 'cap-' + x.slug + '-' + k, slug: x.slug, kg: k, plaques: plaquesDuCap(exo, x.slug, k),
+                      charge: p.charge, reps: p.reps, date: p.date });
+      });
+    });
+    (entree.journal || []).forEach(function (l) {
+      if (!l || l.type !== 'charge_max' || grandes.indexOf(l.exercise_slug) < 0) return;
+      var c = Number(l.charge !== null && l.charge !== undefined ? l.charge : l.valeur);
+      if (!isFinite(c) || c <= 0) return;
+      var r = Number(l.reps);
+      lignes.push({ sorte: 'record', slug: l.exercise_slug, charge: c, reps: isFinite(r) && r > 0 ? r : null, date: l.battu_le });
+    });
+    return lignes.map(function (l, i) { return { l: l, i: i, t: instantDe(l.date) }; }).sort(function (a, b) {
+      if (a.t !== b.t) return a.t === null ? 1 : b.t === null ? -1 : b.t - a.t;
+      if (a.l.sorte !== b.l.sorte) return a.l.sorte === 'record' ? -1 : 1;
+      return (b.l.kg || b.l.charge) - (a.l.kg || a.l.charge) || a.i - b.i;
+    }).map(function (e) { return e.l; });
+  }
+
   var api = {
     etatDuJeu: etatDuJeu,
+    carnet: carnet,
+    plaquesDuCap: plaquesDuCap,
     lesPlusProches: lesPlusProches,
     parCategorie: parCategorie,
     titresEtCadresDetailles: titresEtCadresDetailles,

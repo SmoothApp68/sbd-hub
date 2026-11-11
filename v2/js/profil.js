@@ -359,6 +359,29 @@
     }
     return { cle: cle, sortiePrecoce: sortie, premiere: new Date(premiere).toISOString(), barres: barres };
   }
+  // 273 — LE JALON DE NIVEAU du carnet : rien n'est stocké, le niveau passé ne se relit pas ; on date le niveau ACTUEL. `e` : comme
+  // `niveauCalcule` (`seances`, `records`, `debutantFin`, `aujourdhui`). Rend `{ cle, date }` (`date` : instant ISO, ou `null` si le
+  // franchissement ne se retrouve pas) ou `null` (sans séance, ou encore « moins d'un an » : aucun changement à dire). Date : `debutant_fin`
+  // quand elle existe (la sortie précoce, posée une fois) ; sinon le franchissement du seuil — le plus tard de (1re séance + N ans) et de
+  // la (50 × N)e séance —, CONFIRMÉ par `niveauCalcule` appelée à cette date (sinon `null`, jamais une date devinée).
+  function jalonDeNiveau(e) {
+    var x = e || {};
+    var maintenant = x.aujourdhui instanceof Date ? x.aujourdhui : new Date(x.aujourdhui === undefined ? Date.now() : x.aujourdhui);
+    var actuel = niveauCalcule(x);
+    if (!actuel.cle || actuel.cle === ANCIENNETE_DEBUTANT) return null;
+    if (x.debutantFin && actuel.cle === '1_a_3_ans') {
+      var d = new Date(x.debutantFin + 'T12:00:00');
+      return { cle: actuel.cle, date: isNaN(d.getTime()) ? null : d.toISOString() };
+    }
+    var instants = (x.seances || []).map(function (s) { return Date.parse(s && typeof s === 'object' ? s.debut : s); })
+      .filter(function (t) { return !isNaN(t); }).sort(function (a, b) { return a - b; });
+    var n = actuel.cle === 'plus_5_ans' ? 5 : actuel.cle === '3_a_5_ans' ? 3 : 1;
+    var t = Math.max(instants[0] + n * AN_MS, instants[n * SEANCES_PAR_AN - 1] || 0);
+    if (!(t > 0) || t > maintenant.getTime()) return { cle: actuel.cle, date: null };
+    var jusque = instants.filter(function (i) { return i <= t; }).map(function (i) { return new Date(i).toISOString(); });
+    var ce = niveauCalcule({ seances: jusque, records: [], debutantFin: null, aujourdhui: new Date(t) });
+    return { cle: actuel.cle, date: rangDeLAnciennete(ce.cle) >= rangDeLAnciennete(actuel.cle) ? new Date(t).toISOString() : null };
+  }
   // RÈGLES 4 à 6 : `null`, ou `{ de, vers }` (`de` : l'ancienneté du profil, `null` si vide). Jamais vers le bas ; le choix de moins de
   // 182 jours prime ; `bloque` (décharge, semaine de test, « J'ai mal » : l'app les lit dans leurs prédicats) : l'évaluation attend.
   function changementDeNiveau(profil, calcul, aujourdhui, bloque) {
@@ -2598,7 +2621,7 @@
     rythmeDe: rythmeDe, phraseRythme: phraseRythme, sectionRythme: sectionRythme,
     PHASES: PHASES, RAPPEL_PHASE_JOURS: RAPPEL_PHASE_JOURS,
     rappelDePhase: rappelDePhase, phraseRappelDePhase: phraseRappelDePhase, PHASE_DEFAUT: PHASE_DEFAUT, PHASES_EN_BASE: PHASES_EN_BASE, LIBELLE_PHASE_VIDE: LIBELLE_PHASE_VIDE,
-    DUREES_DE_MOINS: DUREES_DE_MOINS, pucesDeMoins: pucesDeMoins, phaseDe: phaseDe, phaseAuJour: phaseAuJour, estDebutant: estDebutant, niveauCalcule: niveauCalcule, changementDeNiveau: changementDeNiveau, annonceDeNiveau: annonceDeNiveau, lignesDeCeQuiChange: lignesDeCeQuiChange, carteDeNiveauImport: carteDeNiveauImport, niveauxAuDessus: niveauxAuDessus, libelleDeNiveau: libelleDeNiveau, rangDeLAnciennete: rangDeLAnciennete, prudenceDuProfil: prudenceDuProfil, plus65DuProfil: plus65DuProfil, phaseGelee: phaseGelee, sectionPhase: sectionPhase, ANCIENNETE_DEBUTANT: ANCIENNETE_DEBUTANT,
+    DUREES_DE_MOINS: DUREES_DE_MOINS, pucesDeMoins: pucesDeMoins, phaseDe: phaseDe, phaseAuJour: phaseAuJour, estDebutant: estDebutant, niveauCalcule: niveauCalcule, jalonDeNiveau: jalonDeNiveau, changementDeNiveau: changementDeNiveau, annonceDeNiveau: annonceDeNiveau, lignesDeCeQuiChange: lignesDeCeQuiChange, carteDeNiveauImport: carteDeNiveauImport, niveauxAuDessus: niveauxAuDessus, libelleDeNiveau: libelleDeNiveau, rangDeLAnciennete: rangDeLAnciennete, prudenceDuProfil: prudenceDuProfil, plus65DuProfil: plus65DuProfil, phaseGelee: phaseGelee, sectionPhase: sectionPhase, ANCIENNETE_DEBUTANT: ANCIENNETE_DEBUTANT,
     objectifDe: objectifDe, objectifGele: objectifGele,
     prioritesDe: prioritesDe, prioritesGelees: prioritesGelees,
     DUREES: DUREES, SEANCES_MIN: SEANCES_MIN, SEANCES_MAX: SEANCES_MAX,

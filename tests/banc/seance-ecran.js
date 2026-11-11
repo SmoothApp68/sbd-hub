@@ -22443,7 +22443,7 @@ const SETS_IMPORTES = [
         premier: (c.querySelector('.recap-premier') || {}).textContent || null,
         depart: (c.querySelector('.recap-depart') || {}).textContent || null,
         paris: q('.recap-pari').map((x) => [x.querySelector('.n').textContent, x.querySelector('.v').textContent]),
-        boutons: q('button').map((b) => b.textContent),
+        boutons: q('.recap-bouton').map((b) => b.textContent),
         ordre: Array.from(c.children).map((x) => (x.classList.contains('recap-bouton') ? 'recap-bouton' : x.className.split(' ')[0] || x.id))
       };
     });
@@ -22548,11 +22548,11 @@ const SETS_IMPORTES = [
     ok('[R71] (a) la phrase des paris aux chiffres tels quels, et la ligne de l’exercice : « 80 kg × 12, 12, 12, 12 »',
       /^Sur \d+ paris? vérifiés?, le coach en a tenu \d+\.$/.test(a.voix || '') &&
       nbR(a.paris) === nbR([['Rowing r71', '80 kg × 12, 12, 12, 12']]), nbR([a.voix, a.paris]));
-    ok('[R71] (a) l’ordre de L1 : en-tête, chiffres, comparaison, muscles, records, coach… puis « Fermer » et « Voir la séance »',
+    ok('[R71] (a) l’ordre de L1 : en-tête, chiffres, comparaison, muscles, records, coach… puis « Fermer », « Voir la séance » et les partages',
       nbR(a.boutons) === nbR(['Fermer', 'Voir la séance', 'Partager', 'Partager la séance en image']) &&
       a.ordre.indexOf('recap-tuiles') < a.ordre.indexOf('recap-comp') && a.ordre.indexOf('recap-comp') < a.ordre.indexOf('recap-mu') &&
       a.ordre.indexOf('recap-mu') < a.ordre.indexOf('recap-rec') && a.ordre.indexOf('recap-rec') < a.ordre.indexOf('recap-voix') &&
-      a.ordre.lastIndexOf('recap-bouton') === a.ordre.length - 1, nbR(a.ordre));
+      a.ordre.lastIndexOf('recap-bouton') === a.ordre.length - 1, nbR([a.boutons, a.ordre]));
     // 214 — « Partager » : secondaire (pas l'ambre), la feuille de partage reçoit le texte court ; sans elle, le presse-papiers.
     if (process.env.BANC_CAPTURES_214) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_214, 'recap.png'), fullPage: true });
     await page.evaluate(() => {

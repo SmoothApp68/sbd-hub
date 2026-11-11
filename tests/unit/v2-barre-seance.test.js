@@ -457,7 +457,7 @@ describe('UN SEUL réveil de durée, jamais un second intervalle', () => {
       const ctx = {
         ecranCourant: 'seance', questionnaire: null, arrets: 0, refusProfil: null,
         fermerReorganisation: () => {}, fermerQuestionnaire: () => {}, marquerProfilVu: () => {},
-        arreterDuree: () => { ctx.arrets += 1; }, mesurerBarres: () => {}, montrerBandeauMaj: () => {},
+        arreterDuree: () => { ctx.arrets += 1; }, arreterMouvement: () => {}, mesurerBarres: () => {}, montrerBandeauMaj: () => {},
         Routeur: { ongletDe: () => null, PROFIL: 'profil', SAISIE: 'saisie' }, appliquerJeu: () => {},
         vues: { seance: { hidden: false }, saisie: { hidden: true }, progression: { hidden: true }, connexion: { hidden: true } },
         $: () => null, Rendu: { rendreOnglets: () => {} }, doc: { querySelector: () => null }, seance: null

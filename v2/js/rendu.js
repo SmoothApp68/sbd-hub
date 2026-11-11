@@ -1017,7 +1017,12 @@
     cible.appendChild(sousOngletsExo(vue));
 
     if (vue.onglet === 'historique') rendreHistoriqueExo(cible, vue);
-    else if (vue.onglet === 'comment' && vue.comment) rendreCommentExo(cible, vue);
+    else if (vue.onglet === 'comment' && vue.comment) {
+      // 271 — LE MOUVEMENT, JUSTE AU-DESSUS DU TEXTE QUI DÉCRIT L'EXERCICE. Le rendu pose la place, rien de plus : app.js y
+      // monte la vue 3D après la première peinture (`THMouvement`). Sans animation pour ce slug, aucun bloc.
+      if (vue.vue3d) cible.appendChild(el('div', 'exo-mouvement'));
+      rendreCommentExo(cible, vue);
+    }
     else rendreResumeExo(cible, vue);
     return cible;
   }

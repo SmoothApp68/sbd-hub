@@ -72,3 +72,22 @@ describe('212 — inscription', () => {
     expect(lire('js/rendu.js')).toContain('En créant ton compte, tu acceptes les conditions décrites dans ');
   });
 });
+
+describe('271 — les crédits du mouvement en 3D (Profil › À propos › Crédits)', () => {
+  const t = JSON.stringify(M.page('credits'));
+  test('Z-Anatomy : attribution, lien, licence CC BY-SA 4.0 et son lien, modifications, partage à l’identique', () => {
+    ['Z-Anatomy', 'Gauthier Kervyn', 'https://www.z-anatomy.com', 'BodyParts3D', 'CC BY-SA 4.0',
+      'https://creativecommons.org/licenses/by-sa/4.0/', 'Modifications faites pour TrainHub', 'sous la même licence'].forEach((m) => expect([m, t.indexOf(m) >= 0]).toEqual([m, true]));
+  });
+  test('three.js : MIT, son avis de copyright et le texte de la licence (le même que vendor/LICENSE-three.txt)', () => {
+    expect(t).toMatch(/three\.js r128/);
+    expect(t).toMatch(/© 2010-2021 three\.js authors/);
+    const blocs = M.page('credits').blocs;
+    expect(blocs.some((b) => b.texte === M.LICENCE_THREE)).toBe(true);
+    const norm = (x) => x.replace(/\s+/g, ' ').trim();
+    expect(norm(M.LICENCE_THREE)).toBe(norm(fs.readFileSync(path.join(__dirname, '../../v2/vendor/LICENSE-three.txt'), 'utf8')));
+  });
+  test('les crédits du bonhomme restent en tête', () => {
+    expect(M.page('credits').blocs[0].titre).toBe('Silhouettes du bonhomme des muscles');
+  });
+});

@@ -21,7 +21,12 @@ const FICHIERS = ['index.html', 'service-worker.js', 'styles.css', 'manifest.web
 const DOSSIERS = {
   js: /^[a-z0-9-]+\.js$/,                         // l'app
   fonts: /^([a-z0-9-]+\.woff2|OFL\.txt)$/,        // les polices servies et leur licence
-  vendor: /^supabase\.js$/,                       // le SDK, versé localement (aucun CDN)
+  // le SDK, versé localement (aucun CDN) ; 271 — three.js r128 et son GLTFLoader (examples/js), avec leur licence MIT,
+  // injectés à la demande par `THMouvement` (jamais par index.html). Des noms EXACTS : pas de joker.
+  vendor: /^(supabase\.js|three\.min\.js|GLTFLoader\.js|LICENSE-three\.txt)$/,
+  // 271 — les animations du mouvement : le corps (Z-Anatomy adapté, CC BY-SA 4.0) et un JSON par slug du catalogue
+  // (`THMouvement.CATALOGUE`, garde dans v2-mouvement.test.js : ni fichier orphelin, ni slug sans fichier).
+  mouvements: /^(corps-glb|[a-z0-9]+(_[a-z0-9]+)*)\.json$/,
   // les icônes du manifeste ; et celle de l'écran d'accueil de l'iPhone (134, I-15 : opaque, 180 × 180)
   icons: /^(icon-\d+|apple-touch-icon)\.png$/
 };
@@ -88,6 +93,18 @@ describe('59-1 — le dossier publié ne contient que l’app', () => {
     expect(publiables('js/notes.md')).toBe(false);
     expect(publiables('.DS_Store')).toBe(false);
     expect(publiables('js/app.js')).toBe(true);
+    // 271 — vendor/ et mouvements/ : des noms exacts, pas un joker
+    expect(publiables('vendor/three.min.js')).toBe(true);
+    expect(publiables('vendor/three.js')).toBe(false);
+    expect(publiables('vendor/meshopt_decoder.js')).toBe(false);
+    expect(publiables('vendor/README.md')).toBe(false);
+    expect(publiables('mouvements/squat_barre.json')).toBe(true);
+    expect(publiables('mouvements/corps-glb.json')).toBe(true);
+    expect(publiables('mouvements/x.js')).toBe(false);
+    expect(publiables('mouvements/sous/x.json')).toBe(false);
+    expect(publiables('mouvements/_essai_materiel.json')).toBe(false);
+    expect(publiables('mouvements/Squat.json')).toBe(false);
+    expect(publiables('mouvements/corps.glb')).toBe(false);
   });
 });
 

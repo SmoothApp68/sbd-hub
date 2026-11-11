@@ -227,6 +227,23 @@ const vivants = (p) => p.evaluate(() => window.__gl.crees - window.__gl.perdus);
         verifier(!d.mains.O && d.colores.droit > 0 && d.colores.gauche > 0, 'F · ' + slug + ' : deux côtés colorés, pas de main O');
         if (process.env.CAPTURES) await p.screenshot({ path: path.join(process.env.CAPTURES, slug + '.png'), fullPage: true });
       }
+      // 272 : la rangée « Version » (≥ 2 versions), absente sinon ; le choix est retenu après rechargement
+      const rangees = () => p.evaluate(() => [...document.querySelectorAll('.exo-mouvement [role=group]')].map((g) => g.getAttribute('aria-label')).join('|'));
+      await monte('squat_barre');
+      verifier((await rangees()) === 'Vue|Lecture', 'G · squat_barre : pas de rangée Version (' + await rangees() + ')');
+      await monte('elevation_laterale_poulie');
+      verifier((await rangees()) === 'Vue|Version|Lecture', 'G · elevation_laterale_poulie : la rangée Version entre Vue et Lecture (' + await rangees() + ')');
+      const ids = await p.evaluate(() => [...document.querySelectorAll('.exo-mouvement [data-version]')].map((b) => b.getAttribute('data-version')));
+      const avant = await p.evaluate(() => THMouvement.etat().diagnostic.colores);
+      const autre = await p.evaluate(() => { const b = [...document.querySelectorAll('.exo-mouvement [data-version]')].find((x) => x.getAttribute('aria-pressed') !== 'true'); return b && b.getAttribute('data-version'); });
+      verifier(ids.length >= 2 && !!autre, 'G · au moins deux versions (' + ids.join(',') + ')');
+      await p.click('.exo-mouvement [data-version=' + autre + ']');
+      await p.waitForFunction((v) => document.querySelector('.exo-mouvement [data-version="' + v + '"]').getAttribute('aria-pressed') === 'true', autre, { timeout: 30000 });
+      const stock = await p.evaluate(() => localStorage.getItem('th-mouvement-version-elevation_laterale_poulie'));
+      verifier(stock === autre, 'G · le choix est retenu (' + stock + ')');
+      await monte('elevation_laterale_poulie');
+      const actif = await p.evaluate(() => { const b = document.querySelector('.exo-mouvement [data-version][aria-pressed=true]'); return b && b.getAttribute('data-version'); });
+      verifier(actif === autre, 'G · après rechargement, la version retenue est celle affichée (' + actif + ')');
       verifier(!errs.length, 'F · aucune erreur' + (errs.length ? ' : ' + errs.slice(0, 3).join(' | ') : ''));
       await ctx.close();
     }

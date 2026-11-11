@@ -62,7 +62,66 @@
     rowing_inverse: 'rowing_inverse.json',
     traction_assistee: 'traction_assistee.json',
     tractions_elastique: 'tractions_elastique.json',
-    traction_negative: 'traction_negative.json'
+    traction_negative: 'traction_negative.json',
+    ecarte_haltere: 'ecarte_haltere.json',
+    developpe_couche_incline_barre: 'developpe_couche_incline_barre.json',
+    developpe_couche_decline_barre: 'developpe_couche_decline_barre.json',
+    developpe_couche_decline_haltere: 'developpe_couche_decline_haltere.json',
+    spoto_bench: 'spoto_bench.json',
+    ecartes_poulie: 'ecartes_poulie.json',
+    ecartes_poulie_basse: 'ecartes_poulie_basse.json',
+    dips_torse: 'dips_torse.json',
+    machine_dips_assis: 'machine_dips_assis.json',
+    pompes: 'pompes.json',
+    presse_mollets_machine: 'presse_mollets_machine.json',
+    presse_a_cuisses_horizontal: 'presse_a_cuisses_horizontal.json',
+    presse_a_cuisses_pieds_bas: 'presse_a_cuisses_pieds_bas.json',
+    extensions_une_jambe: 'extensions_une_jambe.json',
+    curl_biceps_haltere: 'curl_biceps_haltere.json',
+    curl_biceps_barre: 'curl_biceps_barre.json',
+    curl_biceps_poulie: 'curl_biceps_poulie.json',
+    curl_pupitre_machine: 'curl_pupitre_machine.json',
+    extension_triceps_corde: 'extension_triceps_corde.json',
+    extension_triceps_poulie: 'extension_triceps_poulie.json',
+    skullcrusher_haltere: 'skullcrusher_haltere.json',
+    curl_poignets_paumes_vers_le_haut_assis: 'curl_poignets_paumes_vers_le_haut_assis.json',
+    extension_poignets_assis_barre: 'extension_poignets_assis_barre.json',
+    souleve_de_terre_barre_hex: 'souleve_de_terre_barre_hex.json',
+    extension_dos_hyperextension: 'extension_dos_hyperextension.json',
+    extension_dos_hyperextension_lestee: 'extension_dos_hyperextension_lestee.json',
+    developpe_militaire_debout_barre: 'developpe_militaire_debout_barre.json',
+    developpe_militaire_haltere: 'developpe_militaire_haltere.json',
+    dips_triceps: 'dips_triceps.json',
+    elevation_disque_frontale: 'elevation_disque_frontale.json',
+    elevation_frontale_barre: 'elevation_frontale_barre.json',
+    elevation_frontale_haltere: 'elevation_frontale_haltere.json',
+    elevation_frontale_poulie: 'elevation_frontale_poulie.json',
+    elevation_laterale_complete: 'elevation_laterale_complete.json',
+    elevation_laterale_haltere: 'elevation_laterale_haltere.json',
+    extension_dos_machine: 'extension_dos_machine.json',
+    extension_mollets_assis: 'extension_mollets_assis.json',
+    extension_triceps_haltere: 'extension_triceps_haltere.json',
+    hack_squat_machine: 'hack_squat_machine.json',
+    oiseau_haltere: 'oiseau_haltere.json',
+    oiseau_machine: 'oiseau_machine.json',
+    oiseau_poulie: 'oiseau_poulie.json',
+    presse_epaules_assis_machine: 'presse_epaules_assis_machine.json',
+    rowing_assis_machine: 'rowing_assis_machine.json',
+    rowing_debout_barre: 'rowing_debout_barre.json',
+    rowing_divergent_un_bras_machine: 'rowing_divergent_un_bras_machine.json',
+    rowing_haltere: 'rowing_haltere.json',
+    rowing_poulie_assis_prise_large: 'rowing_poulie_assis_prise_large.json',
+    shrug_haltere: 'shrug_haltere.json',
+    shrug_poulie: 'shrug_poulie.json',
+    souleve_de_terre_avec_pause: 'souleve_de_terre_avec_pause.json',
+    souleve_de_terre_jambes_tendues: 'souleve_de_terre_jambes_tendues.json',
+    souleve_de_terre_roumain_barre: 'souleve_de_terre_roumain_barre.json',
+    squat_poids_du_corps: 'squat_poids_du_corps.json',
+    tirage_machine_convergente: 'tirage_machine_convergente.json',
+    tirage_poitrine_bras_tendus_poulie: 'tirage_poitrine_bras_tendus_poulie.json',
+    tirage_poitrine_machine: 'tirage_poitrine_machine.json',
+    tirage_poitrine_poulie: 'tirage_poitrine_poulie.json',
+    tractions_supination: 'tractions_supination.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }
@@ -647,6 +706,16 @@
         if (ex === e.donnees) { if (mat) scene.remove(mat.groupe); ex = null; mat = null; }
         if (e.materiel) liberer(e.materiel); e.materiel = null;
       },
+      // v9 : une autre version du même exercice sur la même carte : l'angle de vue (az, el) et l'instant sont gardés
+      changer: function (e, D, h) {
+        var ancien = e.donnees, bo = ancien.boucle, t = e.t;
+        if (ex === ancien) { if (mat) scene.remove(mat.groupe); ex = null; mat = null; }
+        if (e.materiel) liberer(e.materiel); e.materiel = null;
+        e.donnees = D; e.camera = null; e.vues = Commun.vuesDe(D); e.h = h; e.img.height = h;
+        e.t = (((t % bo.dur) + bo.dur) % bo.dur) / bo.dur * D.boucle.dur;
+        e.img.alt = D.nom + ', image figée. Touche pour l’animer.';
+        if (active === e) { rendre(e, e.w, e.h); e.dist = e.camera.dist; dernier = null; demander(); } else { rendre(e, e.w, e.h); e.dist = e.camera.dist; figer(e); }
+      },
       // le dernier arrêt : plus de boucle, plus d'observateur, le contexte WebGL rendu au navigateur
       detruire: function () {
         mort = true; active = null; if (rafId && racine.cancelAnimationFrame) racine.cancelAnimationFrame(rafId); enCours = false;
@@ -681,6 +750,12 @@
   function el(tag, cls, txt) { var x = document.createElement(tag); if (cls) x.className = cls; if (txt !== undefined) x.textContent = txt; return x; }
   function bouton(txt, attr, val) { var b = el('button', 'thm-btn', txt); b.type = 'button'; b.setAttribute(attr, val); return b; }
   function rangee(label) { var r = el('div', 'thm-cmd'); r.setAttribute('role', 'group'); r.setAttribute('aria-label', label); return r; }
+  // v9, versions : le dernier choix par appareil ; le stockage peut manquer (navigation privée, aperçu) : jamais d'erreur
+  var CLE_VERSION = 'th-mouvement-version-';
+  function versionRetenue(cle) { try { return racine.localStorage.getItem(CLE_VERSION + cle); } catch (e) { return null; } }
+  function retenirVersion(cle, id) { try { racine.localStorage.setItem(CLE_VERSION + cle, id); } catch (e) { /* rien */ } }
+  function versionsDe(D) { return D && D.versions && D.versions.length >= 2 ? D.versions : null; }
+  function fichierDe(u, v) { return u.replace(/[^\/]*$/, '') + v.fichier; }
   function libererSiPersonne() {
     if (montees > 0 || !atelier) return;
     atelier.detruire(); atelier = null; atelierP = null;
@@ -707,7 +782,9 @@
         var p = atelierP = chargerCorps().then(function (c) { var A = Atelier(c); if (atelierP === p) atelier = A; else A.detruire(); return A; });
         p.catch(function () { if (atelierP === p) atelierP = null; });
       }
-      return Promise.all([atelierP, json(u)]);
+      return Promise.all([atelierP, json(u).then(function (D) {   // v9 : la version retenue (ou imposée), si elle existe
+        var V = versionsDe(D), id = V && (options.version || versionRetenue(D.cle)), v = V && V.filter(function (x) { return x.id === id; })[0];
+        return v && v.id !== D.version ? json(fichierDe(u, v)) : D; })]);
     }).then(function (r) {
       if (fini || !r) { libererSiPersonne(); return null; }
       var A = r[0], D = r[1]; h.donnees = D;
@@ -717,18 +794,23 @@
       var w = hote.clientWidth || Commun.LARGEUR, hh = Math.round(w * Commun.hauteurDe(D) / Commun.LARGEUR);
       carte = A.carte(hote, D, cat.roles, w, hh, annonce); hote.appendChild(annonce);
       var lab = el('span', 'thm-lab', 'GLISSE POUR TOURNER'); hote.appendChild(lab);
-      var bt = [];
+      var bt = [], bv = [];
       if (options.commandes !== false) {
         var r1 = rangee('Vue'); [['Profil', 'profil'], ['Face', 'face'], ['Dos', 'dos']].forEach(function (x) { r1.appendChild(bouton(x[0], 'data-vue', x[1])); });
         var r2 = rangee('Lecture'); [['Départ', 'depart'], ['Fin', 'fin'], ['▶ Lecture', 'joue']].forEach(function (x) { var b = bouton(x[0], 'data-pose', x[1]); bt.push(b); r2.appendChild(b); });
-        racineVue.appendChild(r1); racineVue.appendChild(r2);
+        racineVue.appendChild(r1);
+        var V = versionsDe(D);   // v9 : la rangée « Version », seulement s'il y en a au moins deux
+        if (V) { var r3 = rangee('Version'); V.forEach(function (v) { var b = bouton(v.libelle, 'data-version', v.id); bv.push(b); r3.appendChild(b); }); racineVue.appendChild(r3); }
+        racineVue.appendChild(r2);
         racineVue.addEventListener('click', function (ev) { var b = ev.target.closest && ev.target.closest('button'); if (!b || !carte || fini) return;
+          if (b.hasAttribute('data-version')) { h.version(b.getAttribute('data-version')); return; }
           if (b.hasAttribute('data-vue')) A.vue(carte, b.getAttribute('data-vue'));
           if (b.hasAttribute('data-pose')) A.pose(carte, b.getAttribute('data-pose')); marquer(); });
       }
       function marquer() {
         lab.textContent = A.active() === carte ? 'GLISSE POUR TOURNER' : 'GLISSE POUR TOURNER · TOUCHE POUR ANIMER';
         bt.forEach(function (b) { b.setAttribute('aria-pressed', String(A.active() === carte && carte.mode === b.getAttribute('data-pose'))); });
+        bv.forEach(function (b) { b.setAttribute('aria-pressed', String(b.getAttribute('data-version') === carte.donnees.version)); });
       }
       carte.surEtat = marquer; marquer();
       if (options.legende !== false) {
@@ -741,6 +823,18 @@
       }
       h.carte = carte; h.atelier = A; h.monte = true;
       h.vue = function (n) { if (!fini) A.vue(carte, n); }; h.pose = function (m) { if (!fini) { A.pose(carte, m); marquer(); } };
+      // v9 : changer de version (le choix est retenu sur l'appareil) ; rend une promesse des nouvelles données
+      var enVol = null;
+      h.version = function (id) {
+        var V = versionsDe(carte.donnees), v = V && V.filter(function (x) { return x.id === id; })[0];
+        if (fini || !v) return Promise.resolve(carte.donnees); retenirVersion(carte.donnees.cle, id);
+        if (v.id === carte.donnees.version) return Promise.resolve(carte.donnees);
+        var p = enVol = json(fichierDe(u, v)).then(function (D2) {
+          if (fini || p !== enVol) return D2;   // arrêtée, ou un autre choix est arrivé depuis
+          A.changer(carte, D2, Math.round(carte.w * Commun.hauteurDe(D2) / Commun.LARGEUR)); h.donnees = D2; marquer();
+          if (options.surVersion) options.surVersion(D2); return D2; });
+        return p.catch(echec);
+      };
       if (options.actif !== false) A.activer(carte);
       return h;
     }).catch(echec);

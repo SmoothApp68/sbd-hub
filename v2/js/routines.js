@@ -1089,6 +1089,29 @@
     return { nom: nomLibre(o.titre, o.existants), exercices: exercices };
   }
 
+  // ══ « EN FAIRE UNE ROUTINE » depuis la séance d'un mutuel (social 3) ══════════════════════════════════════════════
+  //
+  // `lignes` : ce que rend `social_structure_seance` (v2_144) — `[{ exercise_slug, rang, type_serie, reps, duree_s,
+  // groupe_superset, repos_s }]`, jamais une charge. Le chemin est CELUI de ma séance (`routineDepuisSeance` : les blocs, les
+  // supersets, le repos par défaut, le nom libre) ; ici, seulement la porte : les séries de TRAVAIL (une chauffe, un recul ne
+  // sont pas une intention), RIEN d'autre que les champs de la structure (aucune charge ne passe, même si on en donne une).
+  // `options` : celles de `routineDepuisSeance`, plus `auteur` (« Léa ») : le nom devient « Haut du corps (Léa) ».
+  // Rend la structure, ou `null` sans série de travail : pas de routine.
+  var TYPES_HORS_STRUCTURE = ['echauffement', 'recul'];
+  function structureDepuisLignesSociales(lignes, options) {
+    var o = options || {};
+    var rows = (lignes || []).filter(function (l) {
+      return l && l.exercise_slug && TYPES_HORS_STRUCTURE.indexOf(l.type_serie) < 0;
+    }).map(function (l) {
+      return { exercise_slug: l.exercise_slug, rang: l.rang, type_serie: l.type_serie, reps: l.reps,
+               duree_s: l.duree_s, groupe_superset: l.groupe_superset };
+    });
+    if (!rows.length) return null;
+    var auteur = nomPropre(o.auteur);
+    var titre = nomPropre(o.titre) || 'Séance';
+    return routineDepuisSeance(rows, Object.assign({}, o, { titre: auteur ? titre + ' (' + auteur + ')' : titre }));
+  }
+
   // ══ LES SÉANCES QUI REVIENNENT (QUESTIONNAIRE §5, ES §7 quindecies.7, 60-3) ══
   //
   // ⚠️ LE PORTAGE DE `deduire()` (`deduit60b.py`), PROUVÉ PAR LES CAS
@@ -2206,6 +2229,7 @@
     nomLibre: nomLibre,
     copieDeRoutine: copieDeRoutine,
     routineDepuisSeance: routineDepuisSeance,
+    structureDepuisLignesSociales: structureDepuisLignesSociales,
     seancesQuiReviennent: seancesQuiReviennent,
     supersetsHabituels: supersetsHabituels,
     signatureDeSeance: signatureDeSeance,

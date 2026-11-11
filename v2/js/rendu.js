@@ -262,6 +262,9 @@
         gestes.appendChild(enRoutine);
       }
 
+      // social 2 — « Partager la séance en image » sur une séance terminée.
+      if (vue.surPartagerImage) gestes.appendChild(boutonDePartage('Partager la séance en image', vue.surPartagerImage, 'discret'));
+
       var modifier = el('button', 'discret', 'Modifier');
       modifier.type = 'button';
       modifier.addEventListener('click', vue.surModifier);
@@ -6151,7 +6154,7 @@
       actions = el('div', 'feuille-menu machine-prise');
     }
     // 60-3 — l'éditeur (« Remplacer ») dit « Chercher dans le catalogue », frères ou pas.
-    if (sansFrere && !vue.chercher) entreeMenu(actions, 'Remplacer l’exercice', { surClic: vue.surCatalogue });
+    if (sansFrere && !vue.chercher && vue.surCatalogue) entreeMenu(actions, 'Remplacer l’exercice', { surClic: vue.surCatalogue });
     // ES §7 quindecies.8 (60-3) — après les frères, le sélecteur d'exercices.
     if (vue.chercher) entreeMenu(actions, vue.chercher, { classe: 'chercher-catalogue', surClic: vue.surCatalogue });
     // 60-4 — depuis l'aperçu du programme construit, « Annuler » revient à l'aperçu (sans lui, la seule sortie était de
@@ -6491,7 +6494,7 @@
   // `[{ nom, series, repos, origine }]`, la structure telle qu'elle sera écrite.
   function rendreApercuRoutine(cible, vue) {
     vider(cible);
-    cible.appendChild(el('div', 'feuille-t', 'Nouvelle routine : aperçu'));
+    cible.appendChild(el('div', 'feuille-t', vue.titre || 'Nouvelle routine : aperçu'));
     var champs = el('div', 'champs-fin');
     champs.appendChild(champTexte('Nom', vue.nom, { max: R().NOM_MAX }, vue.surNom));
     cible.appendChild(champs);
@@ -6499,15 +6502,25 @@
     var liste = el('div', 'apercu-routine');
     (vue.lignes || []).forEach(function (l) {
       ligneDApercu(liste, l.nom, resumeStructure(l.series, l.repos, l.origine));
+      // social 3 — un exercice absent de MA salle est signalé sous son nom, avec « Changer » : jamais remplacé en silence.
+      if (l.manque) {
+        var mq = el('div', 'apercu-manque');
+        mq.appendChild(el('span', null, 'Pas dans ta salle : ' + l.manque));
+        var ch = el('button', 'discret apercu-changer', 'Changer');
+        ch.type = 'button';
+        ch.addEventListener('click', l.surChanger);
+        mq.appendChild(ch);
+        liste.appendChild(mq);
+      }
     });
     cible.appendChild(liste);
-    cible.appendChild(el('p', 'feuille-aide',
+    cible.appendChild(el('p', 'feuille-aide', vue.aide ||
       'Les reps sont des repères de départ ; les charges, c\u2019est moi qui te les propose à chaque séance.'));
     var err = el('p', 'erreur', vue.erreur || '');
     err.setAttribute('role', 'alert');
     cible.appendChild(err);
     var menu = el('div', 'feuille-menu');
-    entreeMenu(menu, 'Créer la routine', { classe: 'accent-menu', surClic: vue.surCreer });
+    entreeMenu(menu, vue.libelleCreer || 'Créer la routine', { classe: 'accent-menu', surClic: vue.surCreer });
     entreeMenu(menu, 'Annuler', { surClic: vue.surAnnuler });
     cible.appendChild(menu);
     return cible;
@@ -6888,12 +6901,14 @@
     // Les records du jour (or) : une ligne par série médaillée, la phrase de la médaille.
     if (r.records && r.records.length) {
       groupe(r.records.length + (r.records.length > 1 ? ' records' : ' record'), 'or');
-      r.records.forEach(function (x) {
+      r.records.forEach(function (x, i) {
         var rec = el('div', 'recap-rec');
         rec.appendChild(el('div', 'l1', x.nom + ' : ' + x.mesure));
         var p = x.phrase || [];
         var texte = [p[0], p[1]].filter(Boolean).join(' ');
         if (texte) rec.appendChild(el('div', 'l2', texte));
+        // social 2 — « Partager » sur la ligne : l'image du record (l'app dit ce qui est parti).
+        if (vue.surPartagerRecord) rec.appendChild(boutonDePartage('Partager', function () { return vue.surPartagerRecord(i); }, 'discret recap-rec-partager'));
         cible.appendChild(rec);
       });
     }
@@ -6948,7 +6963,22 @@
       });
       cible.appendChild(pa);
     }
+    if (vue.surPartagerSeance) cible.appendChild(boutonDePartage('Partager la séance en image', vue.surPartagerSeance, 'discret recap-bouton recap-partager-image'));
     return cible;
+  }
+  // social 2 — le bouton de « Partager en image » : l'image se dessine sur l'appareil ; une feuille de partage ou un téléchargement.
+  // Une annulation de la feuille n'est pas une erreur ; le téléchargement se dit.
+  function boutonDePartage(libelle, surClic, classe) {
+    var b = el('button', classe, libelle);
+    b.type = 'button';
+    b.addEventListener('click', function () {
+      if (b.disabled) return;
+      b.disabled = true;
+      Promise.resolve(surClic()).then(function (res) {
+        if (res === 'telechargement') b.textContent = 'Image enregistrée';
+      }, function () {}).then(function () { b.disabled = false; });
+    });
+    return b;
   }
 
   // 250 — L'ACCORD « LIRE MES NOTES » (maquette notes-ia v4, écran A) : le même bloc sur le récap et dans la feuille du Profil.
@@ -10141,6 +10171,13 @@
       }
       d.appendChild(ex);
     });
+    // social 3 — « En faire une routine » : sous la liste, seulement quand la base rend la structure de cette séance (un mutuel, terminée).
+    if (r.surEnFaireUneRoutine && (r.detail || []).length) {
+      var rt = el('button', 'discret s-en-routine', 'En faire une routine');
+      rt.type = 'button';
+      rt.addEventListener('click', r.surEnFaireUneRoutine);
+      d.appendChild(rt);
+    }
     if (r.detailCache) d.appendChild(el('p', 's-gris s-cache s-detail-cache', r.detailCache));
     return d;
   }

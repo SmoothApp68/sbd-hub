@@ -100,6 +100,7 @@ const SHELL = [
   './js/sortie.js',
   './js/cache.js',
   './js/rendu.js',
+  './js/partage-image.js',
   './js/annee.js',
   './js/rejeu.js',
   './js/quitter.js',

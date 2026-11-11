@@ -5349,11 +5349,11 @@ const SETS_IMPORTES = [
 
   // ── §7 octies.3 — REFAIRE ───────────────────────────────────────────────
   await aller('/seance/' + idGestes);
-  // 52-1 (§7 quindecies.4) — « En faire une routine » s'ajoute aux trois gestes.
+  // 52-1 (§7 quindecies.4) — « En faire une routine » s’ajoute aux trois gestes ; 273 — « Partager la séance en image » aussi.
   ok('la séance terminée porte enfin ses gestes (les trois, et « En faire une routine »)',
-    (await compter('#vue-detail .detail-gestes button')) === 4 &&
+    (await compter('#vue-detail .detail-gestes button')) === 5 &&
     /Refaire cette séance/.test(await texte('#vue-detail .detail-gestes')) &&
-    !/Partager/.test(await texte('#vue-detail .detail-gestes')),
+    /Partager la séance en image/.test(await texte('#vue-detail .detail-gestes')),
     (await texte('#vue-detail .detail-gestes')).replace(/\s+/g, ' '));
 
   const seancesAvant = sessions().length;
@@ -7447,7 +7447,7 @@ const SETS_IMPORTES = [
   // NON-RÉGRESSION DU CHANTIER 29 : une séance COMPLÈTE garde ses trois gestes.
   await aller('/seance/' + ID_MIXTE);
   ok('[47] une séance complète, elle, garde ses gestes (les trois, et « En faire une routine », 52-1)',
-    (await compter('#vue-detail .detail-gestes button')) === 4,
+    (await compter('#vue-detail .detail-gestes button')) === 5,
     (await compter('#vue-detail .detail-gestes button')) + ' geste(s)');
 
   console.log('\n══ 47 bis. « ← SÉANCES » REMONTE, IL N’EMPILE PAS ══');
@@ -22443,7 +22443,7 @@ const SETS_IMPORTES = [
         premier: (c.querySelector('.recap-premier') || {}).textContent || null,
         depart: (c.querySelector('.recap-depart') || {}).textContent || null,
         paris: q('.recap-pari').map((x) => [x.querySelector('.n').textContent, x.querySelector('.v').textContent]),
-        boutons: q('button').map((b) => b.textContent),
+        boutons: q('.recap-bouton').map((b) => b.textContent),
         ordre: Array.from(c.children).map((x) => (x.classList.contains('recap-bouton') ? 'recap-bouton' : x.className.split(' ')[0] || x.id))
       };
     });
@@ -22548,11 +22548,11 @@ const SETS_IMPORTES = [
     ok('[R71] (a) la phrase des paris aux chiffres tels quels, et la ligne de l’exercice : « 80 kg × 12, 12, 12, 12 »',
       /^Sur \d+ paris? vérifiés?, le coach en a tenu \d+\.$/.test(a.voix || '') &&
       nbR(a.paris) === nbR([['Rowing r71', '80 kg × 12, 12, 12, 12']]), nbR([a.voix, a.paris]));
-    ok('[R71] (a) l’ordre de L1 : en-tête, chiffres, comparaison, muscles, records, coach… puis « Fermer » et « Voir la séance »',
-      nbR(a.boutons) === nbR(['Fermer', 'Voir la séance', 'Partager']) &&
+    ok('[R71] (a) l’ordre de L1 : en-tête, chiffres, comparaison, muscles, records, coach… puis « Fermer », « Voir la séance » et les partages',
+      nbR(a.boutons) === nbR(['Fermer', 'Voir la séance', 'Partager', 'Partager la séance en image']) &&
       a.ordre.indexOf('recap-tuiles') < a.ordre.indexOf('recap-comp') && a.ordre.indexOf('recap-comp') < a.ordre.indexOf('recap-mu') &&
       a.ordre.indexOf('recap-mu') < a.ordre.indexOf('recap-rec') && a.ordre.indexOf('recap-rec') < a.ordre.indexOf('recap-voix') &&
-      a.ordre.lastIndexOf('recap-bouton') === a.ordre.length - 1, nbR(a.ordre));
+      a.ordre.lastIndexOf('recap-bouton') === a.ordre.length - 1, nbR([a.boutons, a.ordre]));
     // 214 — « Partager » : secondaire (pas l'ambre), la feuille de partage reçoit le texte court ; sans elle, le presse-papiers.
     if (process.env.BANC_CAPTURES_214) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_214, 'recap.png'), fullPage: true });
     await page.evaluate(() => {

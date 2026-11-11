@@ -2051,6 +2051,13 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .apercu-ligne{display:flex;justify-content:space-between;gap:var(--e2);padding:7px 2px;
   border-bottom:1px solid var(--trait);font-size:13px}
 .apercu-nom{flex:1;min-width:0;overflow-wrap:anywhere}
+/* social 3 — « Pas dans ta salle : … » sous le nom d'un exercice de l'aperçu, avec « Changer ». Un fait, pas une alerte. */
+.apercu-manque{display:flex;justify-content:space-between;align-items:center;gap:var(--e2);padding:0 2px 7px;
+  border-bottom:1px solid var(--trait);font-size:12px;color:var(--texte-2)}
+.apercu-manque .apercu-changer{padding:4px 10px;min-height:32px}
+.s-en-routine{display:block;margin-top:var(--e3)}
+.origine-seance{margin:0;padding:var(--e2) var(--e4);font-size:13px;color:var(--texte-2)}
+.origine-seance[hidden]{display:none}
 .apercu-texte{color:var(--texte-2);text-align:right;font-variant-numeric:tabular-nums;max-width:60%}
 /* + et − : un SENS (ajouté, retiré), donc les couleurs de sens — jamais
    l'accent, réservé à l'onglet actif et à la voix du coach. */

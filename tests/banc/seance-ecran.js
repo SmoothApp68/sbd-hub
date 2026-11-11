@@ -20146,9 +20146,9 @@ const SETS_IMPORTES = [
     await attendreQue(async () => !!(await lire()).nom);
     await onglet('membres', async () => { const x = await lire(); return x.lignes.length === 3 && x.invitables.length > 0; });
     const b1 = await lire();
-    ok('[guilde] jordan a reçu l’invitation (de moi) et l’a acceptée ; melodie est entrée par jordan ; les membres : « toi · Novice », ' +
+    ok('[guilde] jordan a reçu l’invitation (de moi) et l’a acceptée ; melodie est entrée par jordan ; les membres : « toi · Novice · Collectionneur » (274 : les caps sur tous les exercices franchissent les 50 succès), ' +
       '« jordan · Squatteur · Athlète », « melodie · Novice » (jeu éteint : pas de titre) ; aucun chef affiché',
-      inv.length === 1 && inv[0].invitant === 'banc' && JSON.stringify(b1.lignes) === JSON.stringify(['toi · Novice',
+      inv.length === 1 && inv[0].invitant === 'banc' && JSON.stringify(b1.lignes) === JSON.stringify(['toi · Novice · Collectionneur',
         'jordan · Squatteur · Athlète', 'melodie · Novice']) && !/admin|chef/i.test(b1.texte) && !/pas pu se faire/.test(b1.texte) &&
         JSON.stringify(b1.invitables) === JSON.stringify(['lea']), JSON.stringify(b1));
     // 107 — LE RANG CHOISI HORS LIGNE (les écritures coupées, les lectures passent), l'app RECHARGÉE, puis le retour.

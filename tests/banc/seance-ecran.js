@@ -20146,10 +20146,10 @@ const SETS_IMPORTES = [
     await attendreQue(async () => !!(await lire()).nom);
     await onglet('membres', async () => { const x = await lire(); return x.lignes.length === 3 && x.invitables.length > 0; });
     const b1 = await lire();
-    ok('[guilde] jordan a reçu l’invitation (de moi) et l’a acceptée ; melodie est entrée par jordan ; les membres : « toi · Novice · Collectionneur » (274 : les caps sur tous les exercices franchissent les 50 succès), ' +
+    ok('[guilde] jordan a reçu l’invitation (de moi) et l’a acceptée ; melodie est entrée par jordan ; les membres : « toi · Novice » (+ « · Collectionneur » selon les succès déjà gagnés plus haut dans le banc), ' +
       '« jordan · Squatteur · Athlète », « melodie · Novice » (jeu éteint : pas de titre) ; aucun chef affiché',
-      inv.length === 1 && inv[0].invitant === 'banc' && JSON.stringify(b1.lignes) === JSON.stringify(['toi · Novice · Collectionneur',
-        'jordan · Squatteur · Athlète', 'melodie · Novice']) && !/admin|chef/i.test(b1.texte) && !/pas pu se faire/.test(b1.texte) &&
+      inv.length === 1 && inv[0].invitant === 'banc' && /^toi · Novice( · Collectionneur)?$/.test(b1.lignes[0]) && JSON.stringify(b1.lignes.slice(1)) === JSON.stringify([
+        'jordan · Squatteur · Athlète', 'melodie · Novice']) && b1.lignes.length === 3 && !/admin|chef/i.test(b1.texte) && !/pas pu se faire/.test(b1.texte) &&
         JSON.stringify(b1.invitables) === JSON.stringify(['lea']), JSON.stringify(b1));
     // 107 — LE RANG CHOISI HORS LIGNE (les écritures coupées, les lectures passent), l'app RECHARGÉE, puis le retour.
     base.ecrituresSocialesCoupees = true;
@@ -20169,7 +20169,7 @@ const SETS_IMPORTES = [
     await attendreQue(async () => !(await texte('#social-guilde .s-attente')));
     ok('[guilde] je choisis mon rang (« Terreur ») : les neuf rangs, sans aucun pouvoir',
       S.membres.filter((m) => m.user_id === 'u-banc')[0].rang === 'Terreur' && (await lire()).rangs.length === 9 &&
-        (await lire()).lignes[0] === 'toi · Terreur', JSON.stringify(await lire()));
+        /^toi · Terreur( · Collectionneur)?$/.test((await lire()).lignes[0]), JSON.stringify(await lire()));
 
     // ── C. SEMAINE : mes nombres publiés, le défi choisi par moi (administrateur), la jauge commune.
     const mien = S.gscores.filter((x) => x.user_id === 'u-banc')[0];
@@ -20280,7 +20280,7 @@ const SETS_IMPORTES = [
     const t2 = await lire();
     ok('[guilde] 121 (05 #6) — DISCRIMINANT — melodie bloquée : « un membre » dans Membres (ni pseudo, ni rang, ni lien), absente de la ' +
       'Progression et du fil ; jordan ne peut pas inviter lea, qui m’a bloqué (guilde_bloque)',
-      JSON.stringify(t0.lignes) === JSON.stringify(['toi · Terreur', 'jordan · Squatteur · Athlète', 'un membre']) &&
+      /^toi · Terreur( · Collectionneur)?$/.test(t0.lignes[0]) && JSON.stringify(t0.lignes.slice(1)) === JSON.stringify(['jordan · Squatteur · Athlète', 'un membre']) &&
         !/melodie/.test(t0.texte + t1.texte + t2.texte) && t1.progression.length === 2 && t2.cartes.indexOf(SM) < 0 &&
         t2.cartes.indexOf(SJ) >= 0 && /guilde_bloque/.test(refusLea && refusLea.message) &&
         !S.invitations.some((i) => i.invite === 'u-lea'), JSON.stringify([t0.lignes, t1.progression, t2.cartes, refusLea]));

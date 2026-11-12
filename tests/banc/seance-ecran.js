@@ -26919,6 +26919,116 @@ const SETS_IMPORTES = [
       nb154([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
+  console.log('\n══ plancher-reserve. LE PLANCHER DE RÉSERVE : UN 65 ANS ET PLUS EN « ME POUSSER » VOIT « GARDE-EN 2 » ET LA PHRASE « JE VISE 2 » ; LA LIGNE DE TEST N’A NI CHIFFRE NI QUESTION ; UN PROFIL NON PROTÉGÉ NE CHANGE PAS (CHANTIER « PREMIÈRE SÉANCE SÛRE », PR 4a, MOTEUR §9.26 bis) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : un exercice à la barre, 40 kg × 9 trois séances de suite (Hypertrophie, « Me pousser » : table 0, « garde-en 0 » pour tout le monde).
+  // A — profil de 70 ans (date de naissance), « Me pousser » : « garde-en 2 » (le plancher), la phrase du Pourquoi « Pour cet exercice, je vise 2 en réserve. Tu notes ce que tu veux. » ;
+  //     « 2 » noté sur la dernière série : « …il t’en restait 2 : c’est ce que je visais. La prochaine fois, on essaie … » (jamais « Au-dessus »).
+  // B — même exercice, même historique, profil de 36 ans : « garde-en 0 » (octet pour octet comme avant), aucune phrase du plancher.
+  // C — 70 ans, 40 kg × 12 trois fois (Volume, le haut de la zone touché : le test est posé) : la ligne de test n'affiche AUCUN « garde-en » (65+), aucune question de réserve.
+  // Aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, catalogueAvant = CATALOGUE.length;
+    const routinesAvant = ROUTINES.length;
+    const profilAvant = { rythme: base.profiles[0].rythme_progression, naissance: base.profiles[0].date_naissance };
+    ['a', 'c'].forEach((k) => CATALOGUE.push({ slug: 'pl4a-' + k, nom: 'Exercice PL4A ' + k.toUpperCase() + ' (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+      muscles_primaires: ['pectoraux'], muscles_secondaires: [] }));
+    const tPL = Date.now();
+    base.sessions = [];
+    base.sets = [];
+    const poserPL = (slug, reps) => [21, 14, 7].forEach((j) => {
+      const id = 'pl4a-' + slug + '-h' + j, debut = ilYa(j * 86400000, tPL).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'PL4A — ' + id, debut, fin: finDe(debut, tPL).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      [1, 2, 3].forEach((k) => base.sets.push({ id: id + '-' + k, session_id: id, user_id: 'u-banc', exercise_slug: 'pl4a-' + slug,
+        charge_kg: 40, reps, duree_s: null, distance_m: null, type_serie: 'travail', rang: k, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    });
+    poserPL('a', 9);
+    poserPL('c', 12);
+    [['a', 9], ['c', 12]].forEach(([k, r]) => ROUTINES.push({ id: 'r-pl4a-' + k, nom: 'Plancher PL4A ' + k.toUpperCase(), note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-pl4a-' + k + '-0', routine_id: 'r-pl4a-' + k, exercise_slug: 'pl4a-' + k, rang: 0, routine_sets: progr(3, r),
+        repos_cible_s: 90, groupe_superset: null, note: null }] }));
+    const spPL = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const lirePL = (slug) => page.evaluate((sl) => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d ? d.plan.exercices.filter((e) => e.slug === sl)[0] : null;
+      const g = document.querySelector('.legende-exo .consigne[data-garde]');
+      return { garde: g ? g.getAttribute('data-garde') : null, nbGarde: document.querySelectorAll('[data-garde]').length,
+        protegee: d ? d.plan.protegee : null, affichee: x ? x.reserveAffichee : null, table: x ? x.reserveVisee : null,
+        phrase: x && x.pourquoi ? x.pourquoi.plancher || null : null, question: x ? x.questionReserve : null, effort: x ? x.effortVise : null,
+        test: x ? x.lignes.some((l) => l.role === 'test') : null,
+        erreurs: d ? window.THPlan.verifierPlan(d.plan, d.entrees).erreurs : ['aucun plan calculé'] };
+    }, slug);
+    const demarrerPL = async (nom, slug) => {
+      await page.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+      await aller('/saisie');
+      await demarrerRoutine(nom);
+      await jusqua(() => page.evaluate(() => document.querySelectorAll('.bloc-seance .ligne-serie').length >= 3), 8000);
+      await jusqua(() => page.evaluate((sl) => { const d = window.THPlan && window.THPlan.dernier; return !!d && d.plan.exercices.some((e) => e.slug === sl); }, slug), 8000);
+    };
+    const validerPL = async (j) => {
+      await casesSiVides(await ligneDuBloc(0, j));
+      await page.evaluate((k) => document.querySelectorAll('.bloc-seance')[0].querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie').click(), j);
+      await jusqua(() => page.evaluate((k) => !!document.querySelectorAll('.bloc-seance')[0].querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie.cochee'), j), 6000);
+    };
+    base.profiles[0].rythme_progression = 'franc';
+
+    // A. 70 ans, « Me pousser » : le plancher.
+    base.profiles[0].date_naissance = '1955-03-10';
+    await demarrerPL('Plancher PL4A A', 'pl4a-a');
+    const a = await lirePL('pl4a-a');
+    ok('[PL4A] DISCRIMINANT — 70 ans, « Me pousser » : l’en-tête dit « garde-en 2 » (le plancher), une seule fois ; la table reste 0',
+      a.protegee === true && a.garde !== null && spPL(a.garde) === 'garde-en 2' && a.nbGarde === 1 && a.affichee === 2 && a.table === 0, JSON.stringify(a));
+    ok('[PL4A] DISCRIMINANT — la phrase du Pourquoi : « Pour cet exercice, je vise 2 en réserve. Tu notes ce que tu veux. »',
+      spPL(a.phrase) === 'Pour cet exercice, je vise 2 en réserve. Tu notes ce que tu veux.', JSON.stringify(a.phrase));
+    ok('[PL4A] invariants du plan (I56 à I58, I160, I161 compris)', a.erreurs.length === 0, JSON.stringify(a.erreurs.slice(0, 3)));
+    await validerPL(0); await validerPL(1); await validerPL(2);
+    const barrePL = () => page.evaluate(() => {
+      const r = document.querySelector('#repos'); const q = r && !r.hidden ? r.querySelector('.repos-q') : null;
+      return q ? { texte: q.querySelector('.repos-q-t').textContent, boutons: Array.from(q.querySelectorAll('button')).map((b) => b.textContent) } : null;
+    });
+    await jusqua(async () => (await barrePL()) !== null, 6000);
+    await page.click('#repos .repos-q button[data-ressenti="reste_2"]');
+    await jusqua(() => page.evaluate(() => !!document.querySelector('.bloc-seance .effort-vise-dit')), 8000);
+    const phrasePL = await page.evaluate(() => (document.querySelector('.bloc-seance .effort-vise-dit') || {}).textContent || null);
+    ok('[PL4A] DISCRIMINANT — « 2 » noté : « …il t’en restait 2 : c’est ce que je visais. La prochaine fois, on essaie … », jamais « Au-dessus »',
+      /^40 kg × \d+, il t’en restait 2 : c’est ce que je visais\. La prochaine fois, on essaie [\d,]+ kg\.$/.test(spPL(phrasePL)) && !/Au-dessus/.test(phrasePL), JSON.stringify(phrasePL));
+    await abandonner();
+
+    // B. 36 ans : rien ne change.
+    base.profiles[0].date_naissance = '1990-03-10';
+    await demarrerPL('Plancher PL4A A', 'pl4a-a');
+    const b = await lirePL('pl4a-a');
+    ok('[PL4A] DISCRIMINANT — 36 ans, même historique, même réglage : « garde-en 0 », aucune phrase du plancher (octet pour octet comme avant)',
+      b.protegee === false && b.garde !== null && spPL(b.garde) === 'garde-en 0' && b.affichee === 0 && b.table === 0 && b.phrase === null && b.erreurs.length === 0, JSON.stringify(b));
+    await abandonner();
+
+    // C. 70 ans, le test est posé : la ligne de test n'a ni chiffre ni question.
+    base.profiles[0].date_naissance = '1955-03-10';
+    await demarrerPL('Plancher PL4A C', 'pl4a-c');
+    const c = await lirePL('pl4a-c');
+    ok('[PL4A] DISCRIMINANT — la ligne de test d’un 65+ : aucune réserve affichée, aucun effort visé, aucune question de réserve, aucun « garde-en »',
+      c.test === true && c.protegee === true && c.affichee === null && c.effort === null && !c.question && c.garde === null && c.erreurs.length === 0, JSON.stringify(c));
+    await abandonner();
+
+    // LA REMISE EN ÉTAT.
+    base.profiles[0].rythme_progression = profilAvant.rythme;
+    base.profiles[0].date_naissance = profilAvant.naissance;
+    ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    await aller('/saisie');
+    ok('[PL4A] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
   console.log('\n══ apres-decharge. PENDANT LA DÉCHARGE : NI « GARDE-EN » NI QUESTION ; LA SÉANCE D’APRÈS REPART DE LA DERNIÈRE SÉANCE NORMALE (165, MOTEUR §9.22, §9.26) ══');
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE : un exercice à la barre, 80 kg × 8 × 4 trois fois, puis une décharge 80 kg × 6 × 2 dont la

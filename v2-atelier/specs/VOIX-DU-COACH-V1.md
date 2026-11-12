@@ -27,6 +27,11 @@
 | Pas de charge répétée | Chaque série était à une charge différente : la prochaine séance repartira de mardi. |
 | Blocage | 122,5 kg depuis 4 séances, un peu plus longtemps que d'habitude chez toi. |
 | « Pourquoi » | Ta charge de travail est 30 kg, et tu la tiens à 12 reps : 30 kg × 15, 12 et 12. |
+| Une seule séance sous 3 reps (12/11/2026, PR 2) | 25 kg × 1 : une seule séance sous 3 reps. Je garde 25 kg. |
+| Une seule séance sous 3 reps, « Pourquoi » | Sous 3 reps, je ne te demande jamais une rep de plus. Une seule séance ne fait pas une habitude : je garde 25 kg, la prochaine séance dira si c'est ta zone. |
+| Zéro rep partout (12/11/2026, PR 2) | 102,5 kg × 0 : pas encore. Je baisse à 97,5 kg. |
+| Zéro rep partout, bornée par la charge d'avant | 102,5 kg × 0 : pas encore. Je reviens à 100 kg. |
+| Zéro rep, « Pourquoi » | Tes séries à 102,5 kg sont restées à 0 rep. Je repars du cran le plus proche de 95 % de cette charge : 97,5 kg × 9. Je remonte dès que les reps passent. |
 
 ## L'effort visé (154, ajouté le 24/10/2026 — décision d'Aurélien ; en vigueur dans l'app)
 

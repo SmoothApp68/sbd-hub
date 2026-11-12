@@ -521,9 +521,6 @@ const AUTORISATIONS = {
 // dernière, le rend complet (les sept PR y figurent, un test le vérifie) et
 // bloquant (chaque test ci-dessous exige zéro faute).
 const NOTIONS = [
-  { notion: 'les mots de la dernière série « Au max » (titre, bouton, étiquette ; « en gardant 2 reps » pour un 65 ans et plus connu)', pr: 'chantier 1 · PR 1',
-    module: 'moteur.js', fonction: 'motsDeLAuMax', lecteurs: ['plan.js', 'app.js'],
-    raison: 'le plan pose `x.auMaxMots` et le titre de la carte ; l’éditeur de routine, sans plan, lit la même fonction : aucun « Au max » à un 65+ connu, dans aucun écran.' },
   { notion: 'la feuille « Pourquoi » (ses paragraphes)', pr: 'PR 1',
     module: 'moteur.js', fonction: 'pourquoiConsigne', lecteurs: ['plan.js'],
     raison: 'le plan la rédige sur la consigne qu’il applique (figée, allégée, repli, série de ' +
@@ -2102,6 +2099,9 @@ const NOTIONS = [
                         raison: 'une liste de noms ne se joint que par `THModele.enumerer` (251-U1) : « A, B et C », jamais « A et B et C »' },
     raison: '251 — la carte de la forme du jour (`phraseDeRate`), les cartes, les équilibres, le générateur et le questionnaire joignaient chacun leurs noms ' +
       'à leur façon ; une notion, une fonction, « A, B et C » partout. `rendu.js` insère des nœuds DOM, pas une chaîne : il n’est pas concerné.' },
+  { notion: 'les mots de la dernière série « Au max » (titre, bouton, étiquette ; « en gardant 2 reps » pour un 65 ans et plus connu)', pr: 'correctif 12/11/2026',
+    module: 'moteur.js', fonction: 'motsDeLAuMax', lecteurs: ['plan.js', 'app.js'],
+    raison: 'le plan pose `x.auMaxMots` et le titre de la carte ; l’éditeur de routine, sans plan, lit la même fonction : aucun « Au max » à un 65+ connu, dans aucun écran.' },
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────

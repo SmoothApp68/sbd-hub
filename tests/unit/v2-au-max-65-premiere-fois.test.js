@@ -43,9 +43,9 @@ describe('Moteur.auMaxDe — plus65 et première fois', () => {
     expect(M.auMaxDe(Object.assign({}, couche, { premiereFois: false })).reserve).toBe(0);
   });
   test('les mots de la carte : 65+ connu seulement', () => {
-    expect(M.motsDeLAuMax(true)).toEqual({ titre: 'Dernière série\u00a0: en gardant 2 reps\u00a0?', bouton: 'En gardant 2 reps' });
-    expect(M.motsDeLAuMax(false)).toEqual({ titre: 'Dernière série au max\u00a0?', bouton: 'Au max' });
-    expect(M.motsDeLAuMax(null)).toEqual({ titre: 'Dernière série au max\u00a0?', bouton: 'Au max' });
+    expect(M.motsDeLAuMax(true)).toEqual({ titre: 'Dernière série\u00a0: en gardant 2 reps\u00a0?', bouton: 'En gardant 2 reps', retirer: 'Retirer la réserve de 2 reps', etiquette: 'garde\u00a02' });
+    expect(M.motsDeLAuMax(false)).toEqual({ titre: 'Dernière série au max\u00a0?', bouton: 'Au max', retirer: 'Retirer « Au max »', etiquette: 'Au max' });
+    expect(M.motsDeLAuMax(null)).toEqual(M.motsDeLAuMax(false));
   });
   test('une seule notion de « première fois » : la consigne', () => {
     expect(M.estPremiereFois({ etat: 'silence', raison: 'premiere_fois' })).toBe(true);
@@ -79,15 +79,20 @@ describe('le générateur — plus65 et première fois', () => {
     marquees({ faits: un }).forEach((x) => expect(x.exercise_slug).toBe(cible));
     expect(marquees({ faits: un }).length).toBeGreaterThan(0);
   });
-  test('70 ans en Muscle : la marque posée est « en gardant 2 », jamais l’échec (la décision lit plus65)', () => {
-    const ls = marquees({ faits: faitsDe(), plus65: true });
-    expect(ls.length).toBeGreaterThan(0);
-    ls.forEach((x) => {
-      const f = cat[x.exercise_slug];
-      const a = M.auMaxDe({ objectif: 'muscle', debutant: false, famille: G.familleDeBarre(x.exercise_slug, cat), equipement: f.equipement,
-        isolation: M.estIsolation({ prim: f.muscles_primaires, sec: f.muscles_secondaires, stab: [] }), plus65: true, zoneDePlan: x.zone || null });
-      expect(a.reserve).toBeGreaterThanOrEqual(2);
-    });
+  test('le générateur passe plus65 à la décision (auMaxDe) ; âge inconnu ou faux : rien de deviné', () => {
+    const vus = [];
+    const orig = M.auMaxDe;
+    M.auMaxDe = (e) => { vus.push(e); return orig(e); };
+    try {
+      marquees({ faits: faitsDe(), plus65: true });
+      expect(vus.length).toBeGreaterThan(0);
+      vus.forEach((e) => expect(e.plus65).toBe(true));
+      vus.length = 0;
+      marquees({ faits: faitsDe(), plus65: null });
+      marquees({ faits: faitsDe() });
+      expect(vus.length).toBeGreaterThan(0);
+      vus.forEach((e) => expect(e.plus65).toBe(false));
+    } finally { M.auMaxDe = orig; }
   });
 });
 
@@ -120,7 +125,7 @@ describe('le plan — 65 ans et plus (I150)', () => {
     expect(x.lignes[2].auMax).toMatchObject({ reserve: 2, sorte: 'garde' });
     expect(sp(x.lignes[2].auMax.consigne)).toBe('Autant que tu peux, en gardant 2 reps');
     expect(erreurs(p, e)).toBe('');
-    expect(x.auMaxMots).toEqual({ titre: 'Dernière série\u00a0: en gardant 2 reps\u00a0?', bouton: 'En gardant 2 reps' });
+    expect(x.auMaxMots).toEqual(M.motsDeLAuMax(true));
   });
   test('la carte proposée dit « en gardant 2 reps » (titre) pour un 65+, « au max » sinon', () => {
     const a = T.planDeSeance(entrees(seance(DC, 3, false, true), PROGRESSION, { plus65: true })).exercices[0];
@@ -160,6 +165,33 @@ describe('le plan — première fois (I151, D-D1)', () => {
     expect(erreurs(p, e)).toBe('');
     // la série garde sa marque : rien n'est effacé en silence
     expect(e.seance.exercices[0].series[2].au_max).toBe(true);
+  });
+  test('SANS charge de départ (silence/premiere_fois) : la marque de la personne est aussi respectée à « garde 2 », avec ou sans plus65', () => {
+    [undefined, true].forEach((plus65) => {
+      const e = entrees(seance(DC, 3, true), SILENCE, plus65 ? { plus65 } : {});
+      const p = T.planDeSeance(e);
+      const x = p.exercices[0];
+      expect(x.auMax).toMatchObject({ reserve: 2, sorte: 'garde', pose: 'main' });
+      expect(x.lignes[2].auMax).toMatchObject({ reserve: 2 });
+      expect(x.propositionAuMax).toBeNull();
+      expect(erreurs(p, e)).toBe('');
+      expect(e.seance.exercices[0].series[2].au_max).toBe(true);   // jamais effacée
+    });
+  });
+  test('sans marque, consigne silence : rien (ni carte, ni ligne)', () => {
+    const x = T.planDeSeance(entrees(seance(DC, 3, false, true), SILENCE)).exercices[0];
+    expect(x.auMax).toBeNull();
+    expect(x.propositionAuMax).toBeNull();
+  });
+  test('I150 et I151 voient une marque non respectée (consigne silence ; 65+)', () => {
+    const e = entrees(seance(DC, 3, true), SILENCE);
+    const p = T.planDeSeance(e);
+    p.exercices[0].auMax = null; p.exercices[0].lignes.forEach((l) => { delete l.auMax; });
+    expect(erreurs(p, e)).toMatch(/I151/);
+    const e2 = entrees(seance(DC, 3, true), PROGRESSION, { plus65: true });
+    const p2 = T.planDeSeance(e2);
+    p2.exercices[0].auMax = null; p2.exercices[0].lignes.forEach((l) => { delete l.auMax; });
+    expect(erreurs(p2, e2)).toMatch(/I150/);
   });
   test('même exercice avec une consigne ordinaire : l’échec reste (le témoin)', () => {
     expect(T.planDeSeance(entrees(seance(DC, 3, true), PROGRESSION)).exercices[0].lignes[2].auMax.reserve).toBe(0);

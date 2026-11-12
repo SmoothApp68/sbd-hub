@@ -10831,8 +10831,9 @@
   function motsDeLAuMax(plus65) {
     var garde = 'en gardant ' + AU_MAX_RESERVE_PAR_DEFAUT + ' reps';
     return plus65 === true
-      ? { titre: 'Dernière série' + DEUX_POINTS + garde + '\u00a0?', bouton: 'En gardant ' + AU_MAX_RESERVE_PAR_DEFAUT + ' reps' }
-      : { titre: 'Dernière série au max\u00a0?', bouton: 'Au max' };
+      ? { titre: 'Dernière série' + DEUX_POINTS + garde + '\u00a0?', bouton: 'En gardant ' + AU_MAX_RESERVE_PAR_DEFAUT + ' reps',
+          retirer: 'Retirer la réserve de ' + AU_MAX_RESERVE_PAR_DEFAUT + ' reps', etiquette: 'garde\u00a0' + AU_MAX_RESERVE_PAR_DEFAUT }
+      : { titre: 'Dernière série au max\u00a0?', bouton: 'Au max', retirer: 'Retirer « Au max »', etiquette: 'Au max' };
   }
   // La consigne sous la ligne. Le nombre de reps gardées est cité (I26 : `regle|au_max.reserve`).
   function consigneAuMax(a) {

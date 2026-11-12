@@ -1299,8 +1299,9 @@
   // la ligne et à la réserve demandée (`prevoirRepsAuMax`), jamais moins que la visée ; la réserve demandée part avec la ligne
   // (`au_max_reserve`, écrite à la validation). `faits` : `{ facts de auMaxDe, propose: bool, nom }`, ou `null`.
   function auMaxDuPlan(lignes, series, consigne, faits, o) {
-    var vide = { auMax: null, proposition: null, pari: null, phrases: [] };
-    if (!faits || !consigne || consigne.etat === 'silence' || consigne.allegee) return vide;
+    var vide = { auMax: null, proposition: null, pari: null, phrases: [], etat: null };
+    // Un silence « première fois » (aucune charge de départ) passe : la marque de la personne y est respectée à « garde 2 » (D-D1) ; tout autre silence se tait.
+    if (!faits || !consigne || (consigne.etat === 'silence' && !Moteur().estPremiereFois(consigne)) || consigne.allegee) return vide;
     var M = Moteur(), V = Voix(), Mo = racine.THModele;
     var liste = series || [];
     var dernier = null;
@@ -1313,6 +1314,8 @@
     var marquee = Mo.estAuMax(sr);
     var zdp = consigne.plan && consigne.plan.zone ? (consigne.plan.zone.cle || consigne.plan.zone) : null;
     var dec = M.auMaxDe(Object.assign({}, faits.entree, { main: marquee, zoneDePlan: zdp }));
+    // I150/I151 relisent ce que le plan a vu : la marque, l'âge, la première fois (le plan seul le sait ; la série validée est un fait figé).
+    var etat = { marquee: marquee, validee: !!dernier.validee, plus65: faits.entree.plus65 === true, premiereFois: faits.entree.premiereFois === true };
     if (!marquee) {
       // La proposition : la table pose « Au max » par défaut, la personne n'a rien dit, aucune décision n'est enregistrée.
       if (!faits.propose || dec.pose !== 'defaut' || dernier.validee) return vide;
@@ -1320,14 +1323,14 @@
         return 'Va au bout de ta dernière série de ' + (faits.nom || 'cet exercice') + ' : ' + M.consigneAuMax(dec).charAt(0).toLowerCase() +
           M.consigneAuMax(dec).slice(1) + '.';
       });
-      return { auMax: null, pari: null, phrases: [{ ou: 'au_max.proposition', texte: capP.texte, citations: capP.citations }],
+      return { auMax: null, pari: null, etat: etat, phrases: [{ ou: 'au_max.proposition', texte: capP.texte, citations: capP.citations }],
                proposition: { iSerie: dernier.iSerie, reserve: dec.reserve, sorte: dec.sorte, avecPareur: dec.avecPareur, titre: M.motsDeLAuMax(faits.entree.plus65 === true).titre,
                               phrase: capP.texte, boutons: ['Oui, dans ma routine', 'Juste aujourd’hui', 'Non merci'] } };
     }
     // Une marque sur une exercice où la table ne dit rien : garde 2 (la personne l'a posée). `pose` null ne se produit pas (main).
     var reserve = Mo.reserveDemandee(sr);
     if (reserve === null) reserve = dec.reserve;
-    if (reserve === null || reserve === undefined) return vide;
+    if (reserve === null || reserve === undefined) return Object.assign({}, vide, { etat: etat });
     // Jamais d'échec là où la décision l'interdit (zone à ménager, allégée…) : la réserve demandée est celle de la décision.
     if (dec.reserve !== null && reserve < dec.reserve && !dernier.validee) reserve = dec.reserve;
     var a = Object.assign({}, dec, { reserve: reserve, sorte: reserve === 0 ? 'echec' : 'garde',
@@ -1374,7 +1377,7 @@
       constat = { texte: capK.texte, charge: charge, reps: nombre(sr.reps), prevu: prevu };
       phrases.push({ ou: 'constat.au_max', texte: capK.texte, citations: capK.citations });
     }
-    return { proposition: null, pari: pari, phrases: phrases,
+    return { proposition: null, pari: pari, phrases: phrases, etat: etat,
              auMax: { iSerie: dernier.iSerie, reserve: reserve, sorte: a.sorte, avecPareur: a.avecPareur, classe: dec.classe, pose: dec.pose,
                       zoneDePlan: zdp, echecRecent: faits.entree.echecRecent === true,
                       consigne: capC.texte, pourquoi: pourquoi, constat: constat, prevu: prevu, max: max === null ? null : Math.round(max),
@@ -1810,7 +1813,7 @@
       // 193-1 — les séries de recul, ou `null` : I78 la relit.
       reculs: rec.reculs,
       // 193-6 — la dernière série « Au max » (réserve demandée, consigne, constat) et la carte qui la propose, ou `null` : I83 à I87 les relisent.
-      auMax: au.auMax, propositionAuMax: au.proposition,
+      auMax: au.auMax, propositionAuMax: au.proposition, auMaxEtat: au.etat || null,
       // 251 (D2) — la porte du cran fermée (`{ fermee, tente, raison, iSerie, cran, travail, serie, force, repsAuCran, zone, phrase, bouton, annuler }`), ou `null`.
       porteDuCran: porteX,
       phrases: phrases
@@ -7256,6 +7259,12 @@
       var travail = (x.lignes || []).filter(function (l) { return l && (l.type === 'travail' || l.type === 'recul'); });
       if (marquees.length > 1) erreurs.push('I83' + nom + marquees.length + ' lignes « Au max »');
       if (marquees.length && travail[travail.length - 1] !== marquees[0]) erreurs.push('I83' + nom + 'la ligne « Au max » n’est pas la dernière série de travail');
+      // Une marque de la personne que le plan n'a pas lue (non validée) chez un 65+ connu ou à la première fois : jamais silencieuse (D-D1).
+      var ee = x.auMaxEtat;
+      if (ee && ee.marquee && !ee.validee && !x.auMax) {
+        if (ee.premiereFois) erreurs.push('I151' + nom + 'la marque « Au max » de la personne n’est pas respectée à la première fois');
+        if (ee.plus65 || e65) erreurs.push('I150' + nom + 'la marque « Au max » de la personne n’est pas lue chez un 65 ans ou plus');
+      }
       var a = x.auMax || x.propositionAuMax;
       if (!a) return;
       if (!(a.reserve === 0 || a.reserve === 1 || a.reserve === 2 || a.reserve === 3)) erreurs.push('I84' + nom + 'une réserve demandée hors de 0 à 3 (' + a.reserve + ')');

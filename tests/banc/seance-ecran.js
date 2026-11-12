@@ -27329,6 +27329,114 @@ const SETS_IMPORTES = [
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
+  console.log('\n══ zero-rep-pr2. UNE SEULE SÉANCE SOUS 3 REPS : LE COACH GARDE ; UNE SÉANCE DE ZÉRO REP : PLUS LÉGER, JAMAIS LA MÊME CHARGE (CHANTIER « PREMIÈRE SÉANCE SÛRE », PR 2, MOTEUR §9.1.2, §9.42) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : l'ÉCRAN lit le plan, jamais le moteur. Trois exercices à la barre (débutant ou non, peu importe), l'historique posé tel
+  // quel dans la base :
+  //   A — UNE séance de calage (20 × 7, 25 × 2, 25 × 1) : « 25 kg × 1 : une seule séance sous 3 reps. Je garde 25 kg. », la ligne est 25 × 1, aucune à 27,5 ;
+  //   B — 100 × 8, 8, 7 puis 102,5 × 0, 0, 0 il y a 3 jours : la ligne est 97,5 × 9, le badge « plus léger », l'en-tête du zéro rep, aucune carte « Au max » ;
+  //   C — l'unique séance est 25 × 0, 0, 0 : le calage recommence (« On trouve ta charge »), aucune ligne à 25 kg.
+  // Aucune écriture, aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page. La base est vidée pour la section, puis rendue.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, predictionsAvant = base.predictions;
+    const catalogueAvant = CATALOGUE.length, routinesAvant = ROUTINES.length;
+    const rendreBlocsZR = await retirerBlocsDeLAppareil();
+    ['a', 'b', 'c'].forEach((k) => CATALOGUE.push({ slug: 'zr-' + k, nom: 'Exercice ZR ' + k.toUpperCase() + ' (Barre)',
+      mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['pectoraux'], muscles_secondaires: [] }));
+    const tZR = Date.now();
+    base.sessions = [];
+    base.sets = [];
+    base.predictions = [];
+    // Une séance : `[jours, [[kg, reps, type?]…]]`.
+    const poserZR = (slug, liste) => liste.forEach(([j, series], i) => {
+      const id = 'zr-' + slug + '-' + i, debut = ilYa(j * 86400000, tZR).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'ZR — ' + id, debut,
+        fin: finDe(debut, tZR).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      series.forEach(([kg, r, type], k) => base.sets.push({
+        id: id + '-s' + (k + 1), session_id: id, user_id: 'u-banc', exercise_slug: slug,
+        charge_kg: kg, reps: r, duree_s: null, distance_m: null, type_serie: type || 'travail',
+        rang: k + 1, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+        repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    });
+    poserZR('zr-a', [[3, [[20, 7], [25, 2], [25, 1]]]]);
+    poserZR('zr-b', [[6, [[100, 8], [100, 8], [100, 7]]], [3, [[102.5, 0], [102.5, 0], [102.5, 0]]]]);
+    poserZR('zr-c', [[3, [[25, 0], [25, 0], [25, 0]]]]);
+    ['a', 'b', 'c'].forEach((k) => ROUTINES.push({ id: 'r-zr-' + k, nom: 'ZeroRep ' + k.toUpperCase() + ' ZR', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-zr-' + k + '-0', routine_id: 'r-zr-' + k, exercise_slug: 'zr-' + k, rang: 0,
+        routine_sets: progr(3, k === 'b' ? 9 : 8), repos_cible_s: 180, groupe_superset: null, note: null }] }));
+    const spZR = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const lireZR = (slug) => page.evaluate((sl) => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d && d.plan.exercices.filter((e) => e.slug === sl)[0];
+      const i = x ? x.iExo : -1;
+      const legende = Array.from(document.querySelectorAll('.legende-exo'))[i] || null;
+      return { etat: x && x.consigne ? x.consigne.etat : null, raison: x && x.consigne ? x.consigne.raison || null : null,
+        zone: x && x.consigne ? x.consigne.zone : null,
+        badge: x ? x.cranDeMoins || null : null,
+        badgeDessine: legende && legende.querySelector('.badge-recul') ? legende.querySelector('.badge-recul').textContent : null,
+        propositionAuMax: !!(x && x.propositionAuMax),
+        calage: !!(x && x.calage),
+        charges: x ? x.lignes.filter((l) => l.type !== 'chauffe').map((l) => l.prerempli ? l.prerempli.charge_kg : null) : [],
+        jaune: legende ? Array.from(legende.querySelectorAll('.consigne')).map((n) => n.textContent) : [],
+        dit: legende && legende.querySelector('.consigne-dit') ? legende.querySelector('.consigne-dit').textContent : null,
+        erreurs: d ? window.THPlan.verifierPlan(d.plan, d.entrees).erreurs : ['aucun plan calculé'] };
+    }, slug);
+    const pretZR = () => jusqua(() => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      return !!d && d.plan.exercices.length > 0 && document.querySelectorAll('.legende-exo').length > 0;
+    }), 8000);
+
+    // ── A. Une seule séance sous 3 reps : le coach garde la charge, il ne monte pas.
+    await aller('/saisie');
+    await demarrerRoutine('ZeroRep A ZR');
+    await pretZR();
+    const za = await lireZR('zr-a');
+    ok('[ZR] A — DISCRIMINANT : une seule séance (20 × 7, 25 × 2, 25 × 1) → on garde 25 kg × 1 (jamais 27,5), et la phrase le dit',
+      za.etat === 'bord_garde' && za.zone === null && za.jaune.some((t) => /25 kg × 1/.test(spZR(t))) && !za.jaune.some((t) => /27,5/.test(spZR(t))) &&
+        spZR(za.dit) === '25 kg × 1 : une seule séance sous 3 reps. Je garde 25 kg.' && za.erreurs.length === 0, JSON.stringify(za));
+    await abandonner();
+
+    // ── B. Zéro rep sur toute la séance : plus léger, le badge, aucune carte « Au max ».
+    await aller('/saisie');
+    await demarrerRoutine('ZeroRep B ZR');
+    await pretZR();
+    const zb = await lireZR('zr-b');
+    ok('[ZR] B — DISCRIMINANT : 102,5 kg × 0, 0, 0 → 97,5 kg × 9 (jamais 102,5), l\'en-tête du zéro rep, aucune zone',
+      zb.etat === 'zero_rep' && zb.zone === null && zb.jaune.some((t) => /97,5 kg × 9/.test(spZR(t))) && !zb.jaune.some((t) => /102,5/.test(spZR(t))) &&
+        spZR(zb.dit) === '102,5 kg × 0 : pas encore. Je baisse à 97,5 kg.' && zb.charges.every((c) => c === null || c === 97.5), JSON.stringify(zb));
+    ok('[ZR] B — le badge « plus léger » est dessiné, aucune carte « Au max » n\'est proposée, la garde du plan (I153, I154) ne signale rien',
+      zb.badge === 'plus léger' && zb.badgeDessine === 'plus léger' && zb.propositionAuMax === false && zb.erreurs.length === 0, JSON.stringify([zb.badge, zb.badgeDessine, zb.propositionAuMax, zb.erreurs]));
+    await abandonner();
+
+    // ── C. Une première séance toute à zéro : le calage recommence, la charge échouée n'est pas redonnée.
+    await aller('/saisie');
+    await demarrerRoutine('ZeroRep C ZR');
+    await pretZR();
+    const zc = await lireZR('zr-c');
+    ok('[ZR] C — DISCRIMINANT : l\'unique séance est 25 kg × 0, 0, 0 → première fois (le calage recommence), aucune ligne à 25 kg',
+      zc.etat === 'silence' && zc.raison === 'premiere_fois' && zc.calage === true && !zc.charges.some((c) => c === 25) && zc.erreurs.length === 0, JSON.stringify(zc));
+    await abandonner();
+
+    // ── D. Rien ne s'écrit, rien ne casse.
+    ok('[ZR] la garde (I152 à I154 compris) n\'a rien signalé', gardeBanc.violations === violationsAvant,
+      String(gardeBanc.violations - violationsAvant) + ' ' + JSON.stringify(gardeBanc.liste.slice(-2)));
+    ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
+    CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    base.predictions = predictionsAvant;
+    rendreBlocsZR();
+    await aller('/saisie');
+    ok('[ZR] aucun refus du faux serveur, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && erreurs.length === erreursAvant,
+      JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
+  }
+
   console.log('\n══ plafond-echelle. L’ÉCHELLE PROPOSE AUSSI LA VARIANTE SANS MATÉRIEL : LA CARTE DU LEST À TROIS GESTES, LA VARIANTE SEULE APRÈS « PAS DE LEST », 30 REPS = LE PLAFOND (175, MOTEUR §9.17 bis) ══');
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE : une échelle de pompes à la taille de la vraie (la stricte, sa version lestée ET une

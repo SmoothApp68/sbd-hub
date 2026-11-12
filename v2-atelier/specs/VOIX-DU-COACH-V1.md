@@ -32,6 +32,13 @@
 | Zéro rep partout (12/11/2026, PR 2) | 102,5 kg × 0 : pas encore. Je baisse à 97,5 kg. |
 | Zéro rep partout, bornée par la charge d'avant | 102,5 kg × 0 : pas encore. Je reviens à 100 kg. |
 | Zéro rep, « Pourquoi » | Tes séries à 102,5 kg sont restées à 0 rep. Je repars du cran le plus proche de 95 % de cette charge : 97,5 kg × 9. Je remonte dès que les reps passent. |
+| Un zéro rep, le plafond mord (13/11/2026, PR 4b) | 102,5 kg × 0 : pas encore. Je garde 100 kg. |
+| Un zéro rep, « Pourquoi » (reste 2) | Ta série à 102,5 kg est restée à 0 rep : je garde 100 kg pour cette séance et la suivante. Une rep à 102,5 kg, et je reprends la montée à la séance d’après. |
+| Un zéro rep, « Pourquoi » (reste 1) | Ta série à 102,5 kg est restée à 0 rep : je garde 100 kg pour cette séance. |
+| Un zéro rep, les gestes | Tenter 102,5 kg (ou Tenter le cran au-dessus) · Annuler |
+| Un zéro rep en séance, la suite (Z1) | 30 kg est resté à 0 rep : je propose 27,5 kg pour la suite. + Prendre 27,5 kg |
+| Un zéro rep en séance, rien de plus léger (Z2) | 30 kg est resté à 0 rep. |
+(Jamais « quand même », « plafond », « encore 2 séances » ni un mot sur l’assiduité : un fait, puis ce que le coach garde.)
 
 ## L'effort visé (154, ajouté le 24/10/2026 — décision d'Aurélien ; en vigueur dans l'app)
 

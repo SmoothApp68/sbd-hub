@@ -1692,6 +1692,8 @@ Exception à « jamais le délai » : la règle d'ECRAN-SAISIE §3.5, §7 bis.15
 
 ### 9.26 L'effort visé — « garde-en N » — décidé le 23-24/10/2026 (chantier 154)
 
+**Pendant le plafond après un zéro (13/11/2026, PR 4b, §9.42 bis).** La consigne `tenue_apres_zero` n'a ni effort visé ni réserve visée (`x.reserveVisee === null`, I154/I155) : la ligne est le palier tenu, rien n'est « à viser ».
+
 **Pendant une semaine allégée ou une décharge — 24/10/2026, décision d'Aurélien (chantier 165).** Ni « garde-en N », ni « Il t'en restait combien ? » : la consigne allégée est « loin de l'échec ». Une réserve notée pendant (ressenti, RPE) **n'est jamais comptée** par cette règle, ni la semaine même ni après (la séance allégée n'est pas une référence, §9.22) : un « 3 et + » en décharge ne pose pas de test la séance suivante. I59.
 
 > **« Effort visé avant l'IA. »** (Aurélien, 23/10/2026 18 h 53 ; « ok pour tout », 24/10/2026 1 h 05)
@@ -2444,6 +2446,8 @@ Le seuil est une constante, pas un percentile personnel. Le 9-sur-10 par utilisa
 La corrélation entre l'écart médian entre séances et la durée des épisodes est de **−0,006** sur 50 exercices. Un exercice fait tous les 2 jours et un fait tous les 10 jours ont le même seuil.
 
 > **Ce qui fait progresser, c'est la séance, pas le calendrier.**
+
+**Note du 13/11/2026 (PR 4b, O18 — refusée, sans enjeu).** Le plafond après un zéro (§9.42 bis) compte ses deux séances en jours civils distincts avec au moins une série de travail, et exclut les décharges (`decharge` lue par la date) : même fragilité que `periodesAllegees` (le jour civil, pas la séance), laissée telle quelle ; aucune correction.
 
 ### 12.6 Reset après coupure — confirmé par la mesure
 

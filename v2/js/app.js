@@ -12281,6 +12281,7 @@
       // D-A3 : les mots du bouton viennent du plan (`x.auMaxMots` : « En gardant 2 reps » pour un 65+ connu), l'écran ne les décide pas.
       auMax: { possible: derniereSerieDeTravail(exo.series) === feuille.iSerie && !serie.validee_a, actif: Modele.estAuMax(serie),
                bouton: ((planDeLExercice(feuille.iExo) || {}).auMaxMots || {}).bouton || null,
+               retirer: ((planDeLExercice(feuille.iExo) || {}).auMaxMots || {}).retirer || null,
                aide: 'Pour aujourd’hui seulement : ta routine ne change pas.' },
       // 196 (MOTEUR §9.33) — « Rest-pause » : sur une isolation ou une machine, jamais une barre ni un soulevé ; hors semaine
       // allégée, hors zone à ménager ; une série de travail avec sa charge, pas déjà prolongée.
@@ -13623,6 +13624,8 @@
     Rendu.rendreBlocsSeance($('exos-routine'), null, {
       programme: true,
       blocs: blocs,
+      // Les mots du moteur (`Moteur.motsDeLAuMax`) : « garde 2 » à la place d'« Au max » pour un 65 ans et plus connu.
+      motAuMax: Moteur.motsDeLAuMax(Profil.plus65DuProfil(profil, new Date()) === true).etiquette,
       // §7 vicies — l'éditeur est la 2ᵉ surface du mode. Le repli vient du MÊME
       // `blocReplie` que la séance : l'éditeur ne l'avait simplement jamais
       // demandé (`modifier` n'était pas passé). Rien de neuf, un branchement.
@@ -13721,7 +13724,10 @@
       exercice: nomExoBrouillon(i),
       serie: l,
       // 193-6 — « Au max » dans la routine : sur la dernière série de travail seulement ; une seule par exercice.
+      // Les mêmes mots que le plan (`Moteur.motsDeLAuMax`) : aucun « Au max » à un 65 ans et plus connu, dans aucun écran.
       auMax: { possible: derniereSerieDeTravail((exoBrouillon(i) || {}).series) === j, actif: l.au_max === true,
+               bouton: Moteur.motsDeLAuMax(Profil.plus65DuProfil(profil, new Date()) === true).bouton,
+               retirer: Moteur.motsDeLAuMax(Profil.plus65DuProfil(profil, new Date()) === true).retirer,
                aide: 'Dans ta routine : le coach la lit à chaque séance, et te dit comment la mener.' },
       surAuMax: function (actif) {
         var e = exoBrouillon(i);

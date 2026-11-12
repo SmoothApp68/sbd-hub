@@ -5058,6 +5058,8 @@
     if (!vue.programme && !s.faite && typeof vue.reculDuPlan === 'function' && !/^recul/.test(motLigne || '') && vue.reculDuPlan(iExo, iSerie)) {
       motLigne = motLigne ? 'recul \u00b7 ' + motLigne : 'recul';
     }
+    // Éditeur de routine : le mot « Au max » d'un 65 ans et plus connu est celui du moteur (`vue.motAuMax`, « garde 2 »).
+    if (motLigne && vue.programme && typeof vue.motAuMax === 'string' && /(^|· )Au max$|au max$/.test(motLigne)) motLigne = motLigne.replace(/Au max$|au max$/, vue.motAuMax);
     var ea = motLigne && !vue.programme && typeof vue.etiquetteAuMax === 'function' && /(^|· )Au max$|au max$/.test(motLigne) ? vue.etiquetteAuMax(iExo, iSerie) : null;
     if (ea) motLigne = (/^recul/.test(motLigne) ? 'recul · ' : '') + ea.texte;
     if (motLigne) {
@@ -5411,7 +5413,7 @@
       if (vue.auMax && vue.auMax.possible) {
         var menuAu = el('div', 'feuille-menu');
         var motAu = vue.auMax.bouton || 'Au max';   // D-A3 : le plan donne le mot (65+ connu : « En gardant 2 reps »)
-        var bAu = el('button', vue.auMax.actif ? 'sel' : '', vue.auMax.actif ? 'Retirer « ' + motAu + ' »' : motAu);
+        var bAu = el('button', vue.auMax.actif ? 'sel' : '', vue.auMax.actif ? (vue.auMax.retirer || 'Retirer « ' + motAu + ' »') : motAu);
         bAu.appendChild(el('small', 'aide-type', vue.auMax.aide));
         bAu.type = 'button';
         bAu.addEventListener('click', function () { vue.surAuMax(!vue.auMax.actif); });

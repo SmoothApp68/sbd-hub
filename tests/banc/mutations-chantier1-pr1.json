@@ -1,14 +1,90 @@
 [
-  { "nom": "retirer-plus65", "fichier": "v2/js/moteur.js",
-    "ancien": "x.douleurRecente === true || x.plus65 === true || x.premiereFois === true)", "nouveau": "x.douleurRecente === true || x.premiereFois === true)",
-    "banc": "aucun", "unitaires": ["tests/unit/v2-au-max-65-premiere-fois.test.js"], "attendu": "tuee" },
-  { "nom": "retirer-premiere-fois", "fichier": "v2/js/moteur.js",
-    "ancien": "x.douleurRecente === true || x.plus65 === true || x.premiereFois === true)", "nouveau": "x.douleurRecente === true || x.plus65 === true)",
-    "banc": "aucun", "unitaires": ["tests/unit/v2-au-max-65-premiere-fois.test.js"], "attendu": "tuee" },
-  { "nom": "ecraser-la-marque-posee", "fichier": "v2/js/moteur.js",
-    "ancien": "if (x.premiereFois === true && !main) return rien;", "nouveau": "if (x.premiereFois === true) return rien;",
-    "banc": "aucun", "unitaires": ["tests/unit/v2-au-max-65-premiere-fois.test.js"], "attendu": "tuee" },
-  { "nom": "temoin-commentaire", "fichier": "v2/js/moteur.js",
-    "ancien": "UNE SEULE NOTION DE « PREMIÈRE FOIS » POUR « AU MAX »", "nouveau": "UNE NOTION DE « PREMIÈRE FOIS » POUR « AU MAX »",
-    "banc": "aucun", "unitaires": ["tests/unit/v2-au-max-65-premiere-fois.test.js"], "attendu": "survit" }
+  {
+    "nom": "retirer-plus65",
+    "fichier": "v2/js/moteur.js",
+    "ancien": "x.douleurRecente === true || x.plus65 === true || x.premiereFois === true)",
+    "nouveau": "x.douleurRecente === true || x.premiereFois === true)",
+    "banc": "aucun",
+    "unitaires": [
+      "tests/unit/v2-au-max-65-premiere-fois.test.js"
+    ],
+    "attendu": "tuee"
+  },
+  {
+    "nom": "retirer-premiere-fois",
+    "fichier": "v2/js/moteur.js",
+    "ancien": "x.douleurRecente === true || x.plus65 === true || x.premiereFois === true)",
+    "nouveau": "x.douleurRecente === true || x.plus65 === true)",
+    "banc": "aucun",
+    "unitaires": [
+      "tests/unit/v2-au-max-65-premiere-fois.test.js"
+    ],
+    "attendu": "tuee"
+  },
+  {
+    "nom": "ecraser-la-marque-posee",
+    "fichier": "v2/js/moteur.js",
+    "ancien": "if (x.premiereFois === true && !main) return rien;",
+    "nouveau": "if (x.premiereFois === true) return rien;",
+    "banc": "aucun",
+    "unitaires": [
+      "tests/unit/v2-au-max-65-premiere-fois.test.js"
+    ],
+    "attendu": "tuee"
+  },
+  {
+    "nom": "plan-sans-cablage",
+    "fichier": "v2/js/plan.js",
+    "ancien": "        plus65: e.plus65 === true,\n        premiereFois: M.estPremiereFois(",
+    "nouveau": "        plus65: false,\n        premiereFois: M.estPremiereFois(",
+    "banc": "aucun",
+    "unitaires": [
+      "tests/unit/v2-au-max-65-premiere-fois.test.js"
+    ],
+    "attendu": "tuee"
+  },
+  {
+    "nom": "invariants-aveugles",
+    "fichier": "v2/js/plan.js",
+    "ancien": "if (ee && ee.marquee && !ee.validee && !x.auMax) {",
+    "nouveau": "if (false) {",
+    "banc": "aucun",
+    "unitaires": [
+      "tests/unit/v2-au-max-65-premiere-fois.test.js"
+    ],
+    "attendu": "tuee"
+  },
+  {
+    "nom": "generateur-sans-plus65",
+    "fichier": "v2/js/generateur.js",
+    "ancien": "premiereFois: !dejaFait, plus65: p.plus65 === true,",
+    "nouveau": "premiereFois: !dejaFait, plus65: false,",
+    "banc": "aucun",
+    "unitaires": [
+      "tests/unit/v2-au-max-65-premiere-fois.test.js"
+    ],
+    "attendu": "tuee"
+  },
+  {
+    "nom": "silence-premiere-fois-ignore",
+    "fichier": "v2/js/plan.js",
+    "ancien": "(consigne.etat === 'silence' && !Moteur().estPremiereFois(consigne))",
+    "nouveau": "consigne.etat === 'silence'",
+    "banc": "aucun",
+    "unitaires": [
+      "tests/unit/v2-au-max-65-premiere-fois.test.js"
+    ],
+    "attendu": "tuee"
+  },
+  {
+    "nom": "temoin-commentaire",
+    "fichier": "v2/js/moteur.js",
+    "ancien": "UNE SEULE NOTION DE « PREMIÈRE FOIS » POUR « AU MAX »",
+    "nouveau": "UNE NOTION DE « PREMIÈRE FOIS » POUR « AU MAX »",
+    "banc": "aucun",
+    "unitaires": [
+      "tests/unit/v2-au-max-65-premiere-fois.test.js"
+    ],
+    "attendu": "survit"
+  }
 ]

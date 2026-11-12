@@ -6574,6 +6574,9 @@
     // 0 rep : « manquée » écrit la série comme une tentative manquée (le chemin de `echec` à 0 rep, `palier.js`), « J'ai eu mal »
     // aussi, et ouvre le geste « J'ai mal » de l'exercice.
     if (b.action === 'manquee' || b.action === 'mal') seance = Seance.changerType(seance, iExo, iSerie, 'echec');
+    // PR 2 (MOTEUR §9.42) — « J'ai eu mal » POSE LA MARQUE « douleur » DANS LE GESTE, avant la feuille : fermer la feuille laissait une
+    // série `echec` à 0 rep sans marque, que la règle du zéro rep aurait lue comme un échec. Une douleur ne devient jamais « je baisse ».
+    if (b.action === 'mal') seance = Seance.marquerDouleur(seance, iExo);
     await validerSerie(iExo, iSerie, { sansQuestion: true });
     if (b.action === 'mal') {
       var iBloc = -1;

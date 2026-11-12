@@ -888,6 +888,11 @@
     if (zmCal && (reps === null || reps < REPS_SANS_LOURD)) reps = REPS_SANS_LOURD;
     var habs = e.habituelles && typeof e.habituelles === 'object' ? e.habituelles : {};
     var habituelle = Object.prototype.hasOwnProperty.call(habs, slug) ? nombre(habs[slug]) : null;
+    // PR 2 (MOTEUR §9.42) — une première séance toute à zéro rep : le calage recommence SOUS la charge échouée. Une charge habituelle déjà
+    // déclarée à cette charge ou au-dessus ne se rejoue pas (elle vient d'échouer) : on retrouve la charge par les approches.
+    var zeroPremiere = cs.fondement && cs.fondement.zeroRep ? nombre(cs.fondement.zeroRep.charge) : null;
+    var habEcartee = zeroPremiere !== null && habituelle !== null && habituelle >= zeroPremiere - 1e-9;
+    if (habEcartee) habituelle = null;
     var r = M.calagePremiereFois({
       debutant: e.debutant === true, prudence: prudenceDuPlan(e), equipement: cat.equipement, salle: c.salle || null, mesure: cat.mesure || 'charge_reps',
       reps: reps, habituelle: habituelle, prochain: prochain,
@@ -906,7 +911,7 @@
     r.question = r.question && faites.length ? faites[faites.length - 1].j : null;
     // « Ta charge habituelle ? » : posée d'abord à qui n'est pas débutant, tant qu'il n'a ni répondu ni dit « je ne sais pas »
     // (`habituelles[slug] = 0`). En attendant, rien n'est proposé : on ne devine pas.
-    var declinee = Object.prototype.hasOwnProperty.call(habs, slug) && habs[slug] === 0;
+    var declinee = habEcartee || (Object.prototype.hasOwnProperty.call(habs, slug) && habs[slug] === 0);
     r.demandeHabituelle = e.debutant !== true && r.faites === 0 && r.habituelle === null && !declinee;
     if (r.demandeHabituelle) { r.suivante = null; r.iSerie = null; r.libelles = Object.assign({}, r.libelles, {
       // 256 — aux haltères la charge notée est la PAIRE (`THModele.chargeEstLaPaire`, MOTEUR §10.1) : la question le dit, le calcul ne change pas.
@@ -1285,7 +1290,8 @@
         figure: !!fiche && fiche.mesure === 'temps',   // 195 : jamais d'échec sur une figure
         // Chantier « première séance sûre », PR 1 : 65 ans et plus CONNUS (jamais deviné) ; première fois = la consigne (UNE notion, `Moteur.estPremiereFois`).
         plus65: e.plus65 === true,
-        premiereFois: M.estPremiereFois(Object.prototype.hasOwnProperty.call(consignes || {}, slug) && consignes[slug] ? consignes[slug].consigne : null)
+        // PR 2 (§9.42, I154) : après un zéro rep, « Au max » suit la règle de la première fois (aucune carte, « garde 2 » au moins).
+        premiereFois: (function (cz) { return M.estPremiereFois(cz) || M.estApresZero(cz); })(Object.prototype.hasOwnProperty.call(consignes || {}, slug) && consignes[slug] ? consignes[slug].consigne : null)
       },
       jourEchec: jourEchec
     };
@@ -1301,7 +1307,7 @@
   function auMaxDuPlan(lignes, series, consigne, faits, o) {
     var vide = { auMax: null, proposition: null, pari: null, phrases: [], etat: null };
     // Un silence « première fois » (aucune charge de départ) passe : la marque de la personne y est respectée à « garde 2 » (D-D1) ; tout autre silence se tait.
-    if (!faits || !consigne || (consigne.etat === 'silence' && !Moteur().estPremiereFois(consigne)) || consigne.allegee) return vide;
+    if (!faits || !consigne || (consigne.etat === 'silence' && !Moteur().estPremiereFois(consigne) && !Moteur().estApresZero(consigne)) || consigne.allegee) return vide;
     var M = Moteur(), V = Voix(), Mo = racine.THModele;
     var liste = series || [];
     var dernier = null;
@@ -1873,6 +1879,11 @@
       // ce que le plan grise puis écrit à la validation n'est jamais un « 0 kg »
       // sur un exercice en `reps` (une planche à 0 kg, la même famille de défaut).
       if (estPoidsDuCorps(consigne)) p.charge_kg = null;
+      // PR 2 (MOTEUR §9.42, I153) — UNE PREMIÈRE SÉANCE TOUTE À ZÉRO : le calage recommence, la charge qui vient d'échouer n'est pas re-grisée
+      // (la cascade lirait la séance d'avant). Les chauffes gardent leur charge ; le calage pose la sienne sur la ligne porteuse, après.
+      var zeroPremiere = consigne && consigne.etat === 'silence' && consigne.raison === 'premiere_fois' && consigne.fondement && consigne.fondement.zeroRep
+        ? nombre(consigne.fondement.zeroRep.charge) : null;
+      if (zeroPremiere !== null && !(f && f.source === 'chauffe') && nombre(p.charge_kg) !== null && nombre(p.charge_kg) >= zeroPremiere - 1e-9) p.charge_kg = null;
       l.prerempli = p;
     });
   }
@@ -2519,7 +2530,9 @@
           ? Moteur().reserveVisee({ zone: x.consigne.zone, role: roleDeLaVisee(x), reglage: reglagePlan }) : null;
         x.reserveVisee = rvX;
         // 175 — « un cran de moins » : le recul de la règle de bord (174) se dit à côté du chiffre du jour, d'un badge. Le plan le dit, l'écran le dessine.
-        x.cranDeMoins = x.consigne && (x.consigne.etat === 'bord_recul' || x.consigne.etat === 'bord_vague') ? 'un cran de moins' : null;
+        x.cranDeMoins = x.consigne && (x.consigne.etat === 'bord_recul' || x.consigne.etat === 'bord_vague') ? 'un cran de moins'
+          // PR 2 (§9.42) — après un zéro rep, le recul est de ~5 % (le cran le plus proche), pas d'« un cran » : le badge dit le fait, « plus léger ».
+          : x.consigne && x.consigne.etat === 'zero_rep' ? 'plus léger' : null;
         x.effortVise = rvX === null ? null : effortViseDuPlan(exo, rvX, suite, Seance().exerciceFini(seance, slug));
         poserLesSources(x);
         // §9.17 — LA CARTE DU LEST : UNE SEULE, en tête de l'exercice (le composant
@@ -5520,7 +5533,7 @@
   //     zone qui se présente comme celui de la zone ;
   //   · I81 — un exercice à zone de plan est hors du bloc ce jour-là.
   var ETATS_SANS_PALIER_DE_ZONE = { nouvelle_zone: true, silence: true, bord: true, bord_garde: true, bord_recul: true, bord_vague: true,
-                                    reprise_courte: true, reprise_longue: true };
+                                    reprise_courte: true, reprise_longue: true, zero_rep: true };
   function verifierOndulation(plan, erreurs) {
     if (!plan) return;
     var enBloc = (plan.programme && plan.programme.enBloc) || {};
@@ -5842,6 +5855,13 @@
       if (f.bord.reserve !== undefined) fait['bord.reserve'] = { valeur: f.bord.reserve };
       if (f.bord.depuis !== undefined) fait['bord.depuis'] = { valeur: f.bord.depuis };
       if (f.bord.vers !== undefined) fait['bord.vers'] = { charge: f.bord.vers };
+    }
+    // PR 2 (§9.42) — le zéro rep : la charge échouée (0 rep), le nombre de séries, la charge d'où l'on repart, ses reps.
+    if (f.zeroRep) {
+      fait.zero_rep = { charge: f.zeroRep.charge, reps: [0] };
+      fait['zero_rep.charge'] = { charge: f.zeroRep.charge };
+      if (f.zeroRep.vers !== undefined) fait['zero_rep.vers'] = { charge: f.zeroRep.vers };
+      if (f.zeroRep.visees !== undefined) fait['zero_rep.visees'] = { valeur: f.zeroRep.visees };
     }
     // 174 (3/3) — la zone 3-5 proposée sous 3 reps : le record (charge × reps) et le compte long.
     var eb = x.escalier && x.escalier.bord;
@@ -6244,6 +6264,7 @@
     verifierBaisseAttendue(plan, erreurs);
     verifierEffortVise(plan, entrees, erreurs);
     verifierBord(plan, erreurs);
+    verifierZeroRep(plan, erreurs);
     verifierLeviers(plan, erreurs);
     verifierHorsCalcul(plan, entrees, erreurs);
     verifierReposLong(plan, erreurs);
@@ -6895,6 +6916,76 @@
       }
     });
     verifierBordSchema(plan, erreurs);
+    verifierBordUneSeance(plan, erreurs);
+  }
+
+  // I152 (chantier « première séance sûre », PR 2, MOTEUR §9.1.2) — AUCUNE MONTÉE DE BORD SUR UNE HISTOIRE D'UNE SEULE SÉANCE LUE. Le fait relu est
+  // `_lues` de la consigne (le nombre de séances que la règle de bord a lues, `lecture.toutes`, celui qui pilote la règle — pas les séances du
+  // couple, que 180 peut réduire à une) : à 1, la consigne n'est jamais `bord` (la montée) ; la garde « unique » vaut ssi la règle a lu UNE
+  // séance, garde la charge du palier, aux reps faites, sans ligne haute.
+  function verifierBordUneSeance(plan, erreurs) {
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var k = x && x.consigne;
+      if (!k || !k.fondement) return;
+      var nom = ' — exercice ' + i + ' (' + x.slug + ') : ';
+      var lues = k._lues, b = k.fondement.bord;   // `_lues` : non énumérable, posé par la règle de bord (absent d'une copie : rien n'est alors jugé)
+      if (k.etat === 'bord' && lues === 1) erreurs.push('I152' + nom + 'une montée de bord sur une histoire d’une seule séance lue');
+      if (b && b.unique === true) {
+        if (k.etat !== 'bord_garde') erreurs.push('I152' + nom + 'une garde « unique » sur un état ' + k.etat);
+        if (lues !== undefined && lues !== 1) erreurs.push('I152' + nom + 'une garde « unique » sur ' + lues + ' séances lues (une seule attendue)');
+        if (!k.ligne || nombre(k.ligne.charge) !== nombre(k.palier) || nombre(k.ligne.vise) !== nombre(b.reps) || k.haut) {
+          erreurs.push('I152' + nom + 'une garde « unique » qui ne garde pas le palier aux reps faites, sans ligne haute');
+        }
+      }
+    });
+  }
+
+  // I153 et I154 (chantier « première séance sûre », PR 2, MOTEUR §9.42) — APRÈS UN ZÉRO REP.
+  //   · I153 — jamais la charge échouée ni au-dessus : toute consigne qui porte `fondement.zeroRep` a une ligne STRICTEMENT plus légère que la charge
+  //     échouée ; une `zero_rep` est la ligne dite (`vers`, `visees`), au plus le palier, sans ligne haute ni zone, et aucune ligne non validée
+  //     n'est préremplie au-dessus de `vers` ;
+  //   · I154 — rien d'ambitieux : sur `zero_rep` et `silence/zero_plancher`, aucune carte « Au max » proposée, aucune réserve demandée ou visée
+  //     sous « garde 2 », aucune ligne de test.
+  function verifierZeroRep(plan, erreurs) {
+    var M = Moteur();
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var k = x && x.consigne;
+      if (!k) return;
+      var nom = ' — exercice ' + i + ' (' + x.slug + ') : ';
+      var z = k.fondement ? k.fondement.zeroRep : null;
+      if (z) {
+        if (k.ligne && !(nombre(k.ligne.charge) < nombre(z.charge))) erreurs.push('I153' + nom + 'après un zéro rep à ' + z.charge + ' kg, une ligne à ' + k.ligne.charge + ' kg');
+        if (k.etat === 'zero_rep') {
+          var vers = nombre(z.vers), vi = nombre(z.visees);
+          if (!k.ligne || nombre(k.ligne.charge) !== vers) erreurs.push('I153' + nom + 'une ligne qui n’est pas la charge dite (' + (k.ligne ? k.ligne.charge : 'aucune') + ' pour ' + z.vers + ')');
+          else if (nombre(k.palier) !== null && vers > nombre(k.palier) + 1e-9) erreurs.push('I153' + nom + 'après un zéro rep, une ligne à ' + vers + ' kg au-dessus du palier ' + k.palier + ' kg');
+          if (!k.ligne || nombre(k.ligne.vise) !== vi || vi === null || vi < 1 || vi !== Math.round(vi)) erreurs.push('I153' + nom + 'une ligne dont les reps ne sont pas celles dites (' + z.visees + ')');
+          if (k.haut) erreurs.push('I153' + nom + 'une ligne haute après un zéro rep');
+          if (k.zone !== null && k.zone !== undefined) erreurs.push('I153' + nom + 'une zone (' + k.zone + ') déduite d’un zéro rep');
+          if (!(nombre(z.series) >= 1)) erreurs.push('I153' + nom + 'un zéro rep sans série');
+          (x.lignes || []).forEach(function (l) {
+            var pc = l && !l.validee && l.prerempli ? nombre(l.prerempli.charge_kg) : null;
+            if (pc !== null && pc > vers + 1e-9) erreurs.push('I153' + nom + 'une ligne préremplie à ' + pc + ' kg, au-dessus de ' + vers + ' kg après un zéro rep');
+          });
+        }
+      }
+      // La première séance toute à zéro (le calage recommence) : aucune ligne non validée n'est préremplie à la charge échouée ni au-dessus.
+      if (z && k.etat === 'silence' && k.raison === 'premiere_fois') {
+        (x.lignes || []).forEach(function (l) {
+          var pc = l && !l.validee && l.type !== 'chauffe' && l.prerempli ? nombre(l.prerempli.charge_kg) : null;
+          if (pc !== null && pc >= nombre(z.charge) - 1e-9) erreurs.push('I153' + nom + 'une ligne préremplie à ' + pc + ' kg, la charge qui vient d’échouer (calage)');
+        });
+      }
+      if (M.estApresZero(k)) {
+        if (x.propositionAuMax) erreurs.push('I154' + nom + 'une carte « Au max » proposée après un zéro rep');
+        var a = x.auMax;
+        var lAu = a ? (x.lignes || [])[a.iSerie] : null;
+        if (a && a.reserve < 2 && !(lAu && lAu.validee)) erreurs.push('I154' + nom + 'une réserve de ' + a.reserve + ' après un zéro rep (au moins 2)');
+        if (nombre(x.reserveVisee) !== null && nombre(x.reserveVisee) < 2) erreurs.push('I154' + nom + 'un effort visé à ' + x.reserveVisee + ' en réserve après un zéro rep');
+        var test = (x.planInitial || []).concat(x.lignes || []).some(function (l) { return l && l.role === 'test'; });
+        if (test) erreurs.push('I154' + nom + 'une ligne de test après un zéro rep');
+      }
+    });
   }
 
   // I68 (MOTEUR §9.7 / §10.2, 175) — LE GROS CRAN : un cran n'est gros que si (T − P) / P dépasse (haut − bas) × 2,5 % ; son test

@@ -122,9 +122,14 @@ describe('174 — une barre ratée fait reculer d\'un cran, aux reps visées', (
     expect(k.ligne.charge).toBe(142.5);
   });
 
-  test('sans consigne reçue (première séance du couple), rien n\'est jugé : la règle d\'avant', () => {
+  // PR 2 (MOTEUR §9.1.2, 12/11/2026) — avant : « la règle d'avant » (bord 142,5 × 1). Une seule séance lue ne fait pas une habitude :
+  // le coach GARDE la charge ; dès la deuxième séance lue, la règle de 180 s'applique (le test suivant).
+  test('sans consigne reçue (première séance du couple), rien n\'est jugé : une seule séance lue → le coach garde la charge', () => {
     const k = consigne([[140, [1, 1, 1]]]);
-    expect(k.etat).toBe('bord');
+    expect(k.etat).toBe('bord_garde');
+    expect(k.ligne).toEqual({ charge: 140, vise: 1 });
+    expect(k.fondement.bord.unique).toBe(true);
+    expect(consigne([[140, [1, 1, 1]], [140, [1, 1, 1]]]).etat).toBe('bord');
   });
 });
 

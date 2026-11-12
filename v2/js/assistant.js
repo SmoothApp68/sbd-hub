@@ -227,7 +227,9 @@
     silence: ['Pourquoi pas de charge proposée ?', 'Comment tu en choisiras une ensuite ?', 'Qu’est-ce que tu retiens de cette séance ?'],
     depart_routine: ['Pourquoi pas de charge proposée ?', 'Comment tu en choisiras une ensuite ?', 'Qu’est-ce que tu retiens de cette séance ?'],
     depart_leste: ['Pourquoi ce départ ?', 'Pourquoi pas plus ?', 'Et ensuite ?'],
-    nouvelle_zone: ['Pourquoi cette charge ?', 'Pourquoi ma zone change ?', 'Et ensuite ?']
+    nouvelle_zone: ['Pourquoi cette charge ?', 'Pourquoi ma zone change ?', 'Et ensuite ?'],
+    // PR 2 (MOTEUR §9.42) — après un zéro rep.
+    zero_rep: ['Pourquoi tu baisses la charge ?', 'Quand tu remontes ?', 'Et ensuite ?']
   };
   var PUCES_DEFAUT = ['Pourquoi cette charge ?', 'Pourquoi pas plus ?', 'Et ensuite ?'];
   function puces(etat) {

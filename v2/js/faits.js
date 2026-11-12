@@ -306,8 +306,8 @@
       if (!depuisUneAide) return false;
       var g = seancesDeLExercice(c, slug);
       if (g.length !== 1) return false;
-      var travail = g[0].series.filter(function (y) { return y && y.type_serie !== 'echauffement'; });
-      return travail.length > 0 && travail.every(function (y) { return Number(y.reps) === 0; });
+      // PR 2 (MOTEUR §9.42) — « toutes ses séries à 0 rep » est UNE notion, `THModele.seanceAZero` (une rep vide n'est plus un zéro).
+      return Modele.seanceAZero(g[0].series) !== null;
     }
 
     // 206 — LES POINTS D'UN EXERCICE, pour sa courbe : un point par séance, du plus ancien au plus récent.

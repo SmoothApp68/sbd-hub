@@ -44,6 +44,28 @@
   function estManquee(serie) {
     return !!serie && typeDe(serie) === 'echec' && !estAEchec(serie);
   }
+  // ⚠️ PR 2 (chantier « première séance sûre », MOTEUR §9.42) — « UNE SÉANCE DE ZÉRO REP » : UNE LECTURE, ICI. Les séries de l'exercice dans la
+  // séance, hors chauffes, hors « Non, ne compte pas » et hors séries de test (un max tenté au-dessus de la charge de travail rate par
+  // construction), sont TOUTES à 0 rep, et il y en a au moins une. Une rep vide n'est pas un zéro (152 : les reps vides sont ignorées) ;
+  // une seule rep lisible différente de 0 suffit à ne pas l'être. Rend `{ n, charge }` — `n` : le nombre de séries lues, `charge` : la
+  // plus légère charge tentée (`null` si une charge manque) — ou `null`. Lue par le moteur (`contratDe`, le drapeau `zero`) et par
+  // `faits.premierEssaiRate` ; aucune autre copie.
+  function seanceAZero(series) {
+    var n = 0, charge = null, manque = false;
+    var lues = (series || []).filter(function (s) {
+      return !!s && typeDe(s) !== 'echauffement' && !estHorsCalcul(s) && !estTest(s);
+    });
+    if (!lues.length) return null;
+    for (var i = 0; i < lues.length; i++) {
+      var r = lireNombre(lues[i].reps);
+      if (r === null || r !== 0) return null;
+      n++;
+      var c = lireNombre(lues[i].charge_kg);
+      if (c === null) manque = true;
+      else if (charge === null || c < charge) charge = c;
+    }
+    return { n: n, charge: manque ? null : charge };
+  }
   // Le mot de l'étiquette d'une ligne : « à l'échec » (ambre) ou « manquée » ; `null` sinon.
   function motDEchec(serie) {
     if (estHorsCalcul(serie)) return 'hors calcul';   // 185 — la série « Non, ne compte pas » se dit, à part
@@ -3115,6 +3137,7 @@
     estHorsCalcul: estHorsCalcul,
     estAEchec: estAEchec,
     estManquee: estManquee,
+    seanceAZero: seanceAZero,
     motDEchec: motDEchec,
     restPauseDe: restPauseDe,
     estAccentAllonge: estAccentAllonge,

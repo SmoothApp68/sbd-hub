@@ -52,6 +52,8 @@ const GARDEES = [
   { fn: 'descenteApresUnZero', module: 'moteur.js' },
   { fn: 'plafondActif', module: 'moteur.js' },
   { fn: 'plafonner', module: 'moteur.js' },
+  { fn: 'boutonsDeLaTenue', module: 'moteur.js' },
+  { fn: 'tenterApresUnZero', module: 'moteur.js' },
   { fn: 'reactionAuZero', module: 'moteur.js' },
   // moteur.js — la consigne
   { fn: 'consignePour', module: 'moteur.js' },

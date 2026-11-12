@@ -1996,6 +1996,25 @@
     return copieDeConsigne(r, { fondement: Object.assign({}, r.fondement, { plafondZero: drapeau }) });
   }
 
+  // PR 4b (R-A, SPEC §1.10) — LA SORTIE « TENTER » : la charge que le geste restitue est lue sur `sans` (la consigne d'avant plafond) : le haut (le test) s'il est
+  // à `Ch` ou au-dessus, sinon la ligne ; `null` quand cette charge est nulle (haltères : « le cran au-dessus »). Jamais `Ch` par défaut.
+  function boutonsDeLaTenue(k) {
+    var pz = k && k.etat === 'tenue_apres_zero' && k.fondement ? k.fondement.plafondZero : null;
+    if (!pz || pz.mord !== true || !pz.sans) return null;
+    var Ch = nombre(pz.charge), s = pz.sans;
+    var h = s.haut ? nombre(s.haut.charge) : null, l = s.ligne ? nombre(s.ligne.charge) : null;
+    var kg = h !== null && Ch !== null && h >= Ch - 1e-9 ? h : l;
+    return { charge: kg, bouton: kg === null ? 'Tenter le cran au-dessus' : 'Tenter ' + enKg(kg, regle('rate.charge')), annuler: 'Annuler' };
+  }
+  // Après « Tenter » : pour CETTE séance, la consigne affichée est `sans` (aucune série passée n'est touchée) ; le fondement garde le drapeau, `tente: true`.
+  function tenterApresUnZero(k) {
+    var pz = k && k.etat === 'tenue_apres_zero' && k.fondement ? k.fondement.plafondZero : null;
+    if (!pz || pz.mord !== true || !pz.sans) return k;
+    var sans = pz.sans;
+    var drapeau = { charge: pz.charge, reste: pz.reste, n: pz.n, mord: false, tente: true };
+    return copieDeConsigne(k, Object.assign({}, sans, { fondement: Object.assign({}, sans.fondement, { plafondZero: drapeau }) }));
+  }
+
   function consigneSansPlafond(seances, avant, options) {
     var opt = options || {};
     // PR 2 (MOTEUR §9.42) — une séance de zéro rep dans l'historique : la règle du zéro (`consigneApresUnZero`) passe avant tout. Elle
@@ -10286,6 +10305,10 @@
                ? frereDuBlocage(rejeu.complet.verdicts, o.freres, avant, o.mesure) : null };
     // 193-3 — la clé n'existe que pour une zone de plan : sans elle, la sortie est celle d'avant, octet pour octet.
     if (plan !== null) resultat.plan = plan;
+    // PR 4b (R-A) — « Tenter » : les libellés de la consigne d'avant plafond, posés avec elle (la phrase de la tenue ne leur survit pas). Clé absente sans tenue.
+    if (consigne && consigne.etat === 'tenue_apres_zero' && boutonsDeLaTenue(consigne)) {
+      resultat.libellesTentee = Modele().avecNoms(nomsDesCrans, function () { return libellesConsigne(tenterApresUnZero(consigne), avant); });
+    }
     return resultat;
   }
 
@@ -12939,6 +12962,8 @@
     reactionAuZero: reactionAuZero,
     plafondActif: plafondActif,
     plafonner: plafonner,
+    boutonsDeLaTenue: boutonsDeLaTenue,
+    tenterApresUnZero: tenterApresUnZero,
     SEANCES_DU_PLAFOND: SEANCES_DU_PLAFOND,
     motsDeLAuMax: motsDeLAuMax,
     // 236 (§9.39) — le coach en temps réel après un raté : UNE fonction de décision, ses mots, ses constantes

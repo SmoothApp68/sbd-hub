@@ -1450,6 +1450,16 @@
     });
     return tente;
   }
+  // PR 4b (R-A) — « Tenter 102,5 kg » (`cran_zero_tente`) sur CET exercice, non suivi d'« Annuler » (`cran_zero_tente_annule`) : la même lecture que `cranTenteDe`.
+  function zeroTenteDe(gestes, slug) {
+    var tente = false;
+    (Array.isArray(gestes) ? gestes : []).forEach(function (g) {
+      if (!g || g.slug !== slug) return;
+      if (g.geste === 'cran_zero_tente') tente = true;
+      else if (g.geste === 'cran_zero_tente_annule') tente = false;
+    });
+    return tente;
+  }
   // « Ajuster la fin à ma forme du jour » a été pris sur cet exercice ou sur un exercice qui le précède dans la séance (l'ordre de la séance : un fait
   // stable, qui ne dépend pas de « commencé »).
   function formeAjusteeAvant(seance, iExo) {
@@ -1856,7 +1866,7 @@
   // `null` : aucune limite. Le gris est alors VIDÉ, jamais remplacé par une charge plus basse devinée.
   function chargeDuZeroDuGris(exo, consigne) {
     var pz = consigne && consigne.fondement ? consigne.fondement.plafondZero : null;
-    var Ch = pz ? nombre(pz.charge) : null;
+    var Ch = pz && pz.tente !== true ? nombre(pz.charge) : null;   // « Tenter » : la personne a décidé, le gris reprend la consigne d'avant plafond
     var palier = consigne ? nombre(consigne.palier) : null;
     var valides = ((exo && exo.series) || []).filter(function (sr) { return Seance().partEnBase(sr); });
     var z = valides.length ? racine.THModele.zeroDeSeance(valides, { porte: true }) : null;
@@ -2448,6 +2458,11 @@
         if (c && c.consigne && choixReprise && choixReprise.choix === 'leger' && choixReprise.repli) {
           c = Object.assign({}, c, { consigne: Moteur().consignePlusLegere(c.consigne, choixReprise.repli) });
         }
+        // PR 4b (R-A) — « TENTER » : le plafond après un zéro mord (consigne `tenue_apres_zero`) ; le bouton se lit sur `sans`, et le geste, pris, rend à la séance la
+        // consigne d'avant plafond (jamais une série passée).
+        var tenueZ = c && c.consigne && coachee && !douloureuse && !seance.edition ? Moteur().boutonsDeLaTenue(c.consigne) : null;
+        var tenteZ = !!tenueZ && zeroTenteDe(seance.gestes, slug);
+        if (tenteZ) c = Object.assign({}, c, { consigne: Moteur().tenterApresUnZero(c.consigne), libelles: c.libellesTentee || c.libelles });
         // 253 (X2, MOTEUR §9.40) — « PLUS LÉGER AUJOURD'HUI » (la veille d'une activité dure) : la ligne de la consigne descend (× 0,95, au cran, mêmes
         // reps), la zone ne change pas, la consigne le dit (`veilleLegere`). Une barre déjà allégée (repli, « plus léger » de la reprise) n'en reçoit pas.
         var legereX = barreLegere && barreLegere.slug === slug && barreLegere.legere && coachee && !douloureuse && !salleEl && c && c.consigne &&
@@ -2485,6 +2500,11 @@
         // D-A3 (chantier « première séance sûre », PR 1) — les mots de la carte et du bouton « Au max » du menu de la série : 65+ connu →
         // « en gardant 2 reps » ; l'écran les lit ici, il ne les décide pas.
         x.auMaxMots = Moteur().motsDeLAuMax(e.plus65 === true);
+        x.tenueZero = null;
+        if (tenueZ && !(x.lignes || []).some(function (l) { return laLigneAUnSens(l) && l.validee; })) {   // une fois la 1re série de travail validée, le choix est fait
+          var lTenue = (x.lignes || []).filter(function (l) { return laLigneAUnSens(l) && !l.validee; })[0];
+          x.tenueZero = { iSerie: lTenue ? lTenue.iSerie : null, tente: tenteZ, charge: tenueZ.charge, bouton: tenueZ.bouton, annuler: tenueZ.annuler };
+        }
         x.veilleLegere = null;
         if (legereX) {
           x.veilleLegere = { charge: legereX.charge, reps: legereX.reps, reserve: legereX.reserve, plan: legereX.plan, baisse: legereX.baisse,
@@ -7190,6 +7210,26 @@
         if (x.carteForme) erreurs.push('I157' + nom + 'deux phrases après le même 0 rep (la forme du jour et la réaction au zéro)');
         if (rz.fourchette || (rz.garde !== null && rz.garde !== undefined) || rz.recalculeReculs === true) erreurs.push('I158' + nom + 'une réaction au zéro avec fourchette, garde ou recalcul des reculs');
         if (rz.cas !== 'Z1' && rz.cas !== 'Z2') erreurs.push('I158' + nom + 'une réaction au zéro de cas ' + rz.cas);
+      }
+      // I159 — le bouton « Tenter » : sa charge est celle de `sans` (haut ≥ Ch, sinon la ligne ; « le cran au-dessus » si nulle), jamais `Ch` par défaut ; pris, la consigne
+      // affichée est celle d'avant plafond (la ligne ou le haut restitués valent la charge du bouton).
+      var tz = x.tenueZero || null;
+      if (tz) {
+        if (tz.tente === true) {
+          if (!k || k.etat === 'tenue_apres_zero' || !(pz && pz.tente === true)) erreurs.push('I159' + nom + 'Tenter pris, la consigne affichée n’est pas celle d’avant plafond');
+          else if (tz.charge !== null && tz.charge !== undefined) {
+            var hT = k.haut ? nombre(k.haut.charge) : null, lT = k.ligne ? nombre(k.ligne.charge) : null;
+            var rendu = hT !== null && hT >= nombre(pz.charge) - 1e-9 ? hT : lT;
+            if (rendu === null || Math.abs(rendu - nombre(tz.charge)) > 1e-9) erreurs.push('I159' + nom + 'Tenter ' + tz.charge + ' kg restitue ' + rendu + ' kg');
+          }
+        } else {
+          var bt = M.boutonsDeLaTenue(k);
+          if (!bt) erreurs.push('I159' + nom + 'un bouton « Tenter » sans plafond qui mord');
+          else {
+            if (bt.bouton !== tz.bouton || bt.charge !== tz.charge) erreurs.push('I159' + nom + 'le bouton « ' + tz.bouton + ' » n’est pas la charge de la consigne d’avant plafond (« ' + bt.bouton + ' »)');
+            if (pz && nombre(bt.charge) !== null && nombre(bt.charge) === nombre(pz.charge) && !(pz.sans && ((pz.sans.ligne && nombre(pz.sans.ligne.charge) === nombre(pz.charge)) || (pz.sans.haut && nombre(pz.sans.haut.charge) === nombre(pz.charge))))) erreurs.push('I159' + nom + 'le bouton « Tenter » reprend la charge du zéro par défaut');
+          }
+        }
       }
       if (pz && pz.mord === true && x.parisRates && x.parisRates.carte) erreurs.push('I157' + nom + 'la carte « un cran dessous » pendant la tenue après un zéro');
       // (b) la phrase du plafond

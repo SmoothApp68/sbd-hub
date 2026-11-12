@@ -588,3 +588,78 @@ describe('T-A14 — la réaction au zéro : une branche, une table', () => {
     expect(r.x.rate.phrase).not.toMatch(/quand même|garde/);
   });
 });
+
+// ── Commit 6 : la sortie « Tenter » (T-A17, T-A17b, I159, mutations j et t9) ──
+describe('« Tenter » : le libellé se lit sur `sans` (T-A17), le geste substitue `sans` (T-A17b)', () => {
+  const OBarre = { equipement: 'barre', debutant: false };
+  function planGeste(gr, gestes, { validees } = {}) {
+    let k = 0;
+    const id = () => 'q-t' + (++k);
+    let se = S.creer({ id: 'S', userId: 'u', idSerie: id });
+    se = S.ajouterExercice(se, 'dc', id, { series: 4 });
+    se.exercices[0].series.forEach((s) => { s.reps_visees = 8; });
+    (validees || []).forEach(([kg, r], i) => Object.assign(se.exercices[0].series[i], { charge_kg: kg, reps: r, validee_a: '2026-09-20T10:00:00.000Z' }));
+    if (gestes) se.gestes = gestes;
+    const avant = avantN(gr.length);
+    const c = M.consigneDExercice(gr, undefined, avant, Object.assign({}, OPT, OBarre));
+    const e = { seance: { id: 'S', debut: avant, edition: false, exercices: se.exercices, gestes: gestes || [] }, consignes: { dc: c }, paris: [], suites: {}, reglage: 'normal', objectif: 'muscle', debutant: false,
+      catalogue: { dc: { nom: 'Développé couché', equipement: 'barre', mesure: 'charge_reps', pas: 2.5, muscles_primaires: ['pectoraux'], muscles_secondaires: ['triceps'], muscles_stabilisateurs: [] } } };
+    const p = T.planDeSeance(e);
+    return { p, e, x: p.exercices[0], c };
+  }
+  const R3b = { ressenti: 'reste_3_plus' };
+  const hist = () => [seanceN(0, [brute(24, 10, R3b), brute(24, 10, R3b), brute(24, 10, R3b)]),
+    seanceN(1, [brute(24, 10, R3b), brute(24, 10, R3b), brute(24, 10, R3b), brute(26.5, 0)])];
+  const tente = [{ geste: 'cran_zero_tente', slug: 'dc', rang: 0 }];
+
+  test('T-A17 : le bouton restitue la charge de `sans` (ligne, ou haut ≥ Ch), jamais Ch par défaut ; I159 vert', () => {
+    const { p, e, x } = planGeste(hist());
+    expect(x.consigne.etat).toBe('tenue_apres_zero');
+    const sans = x.consigne.fondement.plafondZero.sans;
+    const kg = sans.haut && Number(sans.haut.charge) >= 26.5 ? Number(sans.haut.charge) : Number(sans.ligne.charge);
+    expect(x.tenueZero.charge).toBe(kg);
+    expect(sp(x.tenueZero.bouton)).toBe('Tenter ' + String(kg).replace('.', ',') + ' kg');
+    expect(x.tenueZero.tente).toBe(false);
+    expect(T.verifierPlan(p, e).erreurs.filter((m) => /I159/.test(m))).toEqual([]);
+  });
+  test('charge nulle (haltères : cran sans chiffre) → « Tenter le cran au-dessus »', () => {
+    const k = M.consigneDExercice(hist(), undefined, avantN(2), Object.assign({}, OPT, OBarre)).consigne;
+    const sansChiffre = Object.assign({}, k, { fondement: Object.assign({}, k.fondement, { plafondZero: Object.assign({}, k.fondement.plafondZero, {
+      sans: Object.assign({}, k.fondement.plafondZero.sans, { ligne: { charge: null, vise: 8 }, haut: null }) }) }) });
+    expect(M.boutonsDeLaTenue(sansChiffre)).toEqual({ charge: null, bouton: 'Tenter le cran au-dessus', annuler: 'Annuler' });
+  });
+  test('T-A17b : le geste cran_zero_tente (noterGeste, relecture) rend à la séance la consigne d\'avant plafond ; aucune série passée touchée ; I159/I155/I156 verts', () => {
+    const base = planGeste(hist());
+    let se = S.creer({ id: 'S', userId: 'u', idSerie: () => 'q' });
+    se = S.noterGeste(se, { geste: 'cran_zero_tente', slug: 'dc', rang: 0 });
+    expect(se.gestes).toEqual([{ geste: 'cran_zero_tente', slug: 'dc', rang: 0 }]);
+    const { p, e, x } = planGeste(hist(), se.gestes);
+    expect(x.consigne.etat).not.toBe('tenue_apres_zero');
+    expect(x.consigne.fondement.plafondZero).toMatchObject({ mord: false, tente: true });
+    expect(x.consigne.ligne).toEqual(base.x.consigne.fondement.plafondZero.sans.ligne);
+    expect(x.tenueZero.tente).toBe(true);
+    expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+    // « Annuler » : le plafond revient
+    const an = planGeste(hist(), tente.concat([{ geste: 'cran_zero_tente_annule', slug: 'dc', rang: 0 }]));
+    expect(an.x.consigne.etat).toBe('tenue_apres_zero');
+    expect(an.x.tenueZero.tente).toBe(false);
+  });
+  test('un geste hors liste serait refusé par noterGeste (mutation t9) ; un geste d\'un autre exercice ne tente rien', () => {
+    let se = S.creer({ id: 'S', userId: 'u', idSerie: () => 'q' });
+    expect(S.noterGeste(se, { geste: 'cran_zero_inconnu', slug: 'dc' })).toBe(se);
+    const autre = planGeste(hist(), [{ geste: 'cran_zero_tente', slug: 'autre', rang: 0 }]);
+    expect(autre.x.consigne.etat).toBe('tenue_apres_zero');
+  });
+  test('Tenter : le gris reprend la consigne d\'avant plafond (I156 ne tient plus la charge de Ch) ; la 1re série validée retire le bouton', () => {
+    const { x } = planGeste(hist(), tente);
+    const g = (x.lignes || []).filter((l) => !l.validee && l.type !== 'chauffe').map((l) => l.prerempli && l.prerempli.charge_kg);
+    expect(g.some((v) => v !== null && v >= 26.5)).toBe(true);
+    const f = planGeste(hist(), tente, { validees: [[26.5, 6]] });
+    expect(f.x.tenueZero).toBeNull();
+  });
+  test('I159 est un vrai invariant : un bouton qui reprend Ch (ou une charge fausse) est refusé', () => {
+    const { p, e } = planGeste(hist());
+    p.exercices[0].tenueZero = Object.assign({}, p.exercices[0].tenueZero, { charge: 26.5, bouton: 'Tenter 26,5 kg' });
+    expect(T.verifierPlan(p, e).erreurs.filter((m) => /I159/.test(m)).length).toBeGreaterThan(0);
+  });
+});

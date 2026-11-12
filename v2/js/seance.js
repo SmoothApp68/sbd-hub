@@ -2309,7 +2309,10 @@
   //   253 (X2) — la veille d'une activité dure : `veille_legere` (« <barre> plus léger aujourd'hui », `{ slug }`) et `veille_legere_annulee` (« Changer ») ;
   //   une séance terminée qui garde un `veille_legere` non annulé est NEUTRE pour la suite (`Plan.veilleLegereDesGestes`), comme une séance ajustée à la forme.
   var GESTES_DU_COACH = ['rate_prise', 'rate_ignoree', 'forme_ajustee', 'forme_gardee', 'paris_cran', 'paris_retente', 'cran_tente', 'cran_tente_annule',
-                         'veille_legere', 'veille_legere_annulee'];
+                         'veille_legere', 'veille_legere_annulee',
+                         'cran_zero_tente', 'cran_zero_tente_annule'];
+  // PR 4b (R-A, SPEC §1.10) — la sortie du plafond après un zéro : `cran_zero_tente` (« Tenter 102,5 kg », `{ slug, rang }`) et `cran_zero_tente_annule`
+  // (« Annuler ») ; `plan.js` (`zeroTenteDe`) les lit : pour la séance, la consigne affichée est celle d'avant plafond. Aucune série passée n'est touchée.
   // 237 (MOTEUR §9.41) — les chauffes : `chauffes_ajoutees` (« Ajouter »), `chauffes_auto` (ajoutées d'elles-mêmes), `chauffes_annulees`
   // (« Annuler ») — `{ slug }` ; le fait que `faits.chauffesAjoutees` relit. 237-bis : `chauffes_silence` (le 2e « Non merci » met l'exercice en silence,
   // dit une fois) et `chauffes_silence_annule` (« Annuler » retire ce refus).

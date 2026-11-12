@@ -88,5 +88,27 @@
   "unitaires": [
    "tests/unit/v2-plancher-reserve.test.js"
   ]
+ },
+ {
+  "nom": "pr4a-ecran-lit-la-table",
+  "fichier": "v2/js/app.js",
+  "ancien": "return x && x.reserveAffichee !== undefined ? x.reserveAffichee : null;",
+  "nouveau": "return x && x.reserveVisee !== undefined ? x.reserveVisee : null;",
+  "banc": "seance",
+  "sections": [
+   "plancher-reserve"
+  ],
+  "unitaires": []
+ },
+ {
+  "nom": "pr4a-app-ne-donne-pas-protegee",
+  "fichier": "v2/js/app.js",
+  "ancien": "      protegee: Moteur.populationProtegee({",
+  "nouveau": "      protegee: false && Moteur.populationProtegee({",
+  "banc": "seance",
+  "sections": [
+   "plancher-reserve"
+  ],
+  "unitaires": []
  }
 ]

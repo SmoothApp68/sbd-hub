@@ -66,6 +66,42 @@
     }
     return { n: n, charge: manque ? null : charge };
   }
+  // ⚠️ PR 4b (R-A, MOTEUR §9.42 bis) — « UN ZÉRO PARTIEL » : UNE LECTURE, ICI. Sur les mêmes séries lues que `seanceAZero` (hors chauffes, hors
+  // « Non, ne compte pas », hors test), une série à 0 rep qui est de TRAVAIL ou MANQUÉE (le zéro saisi dans l'app est typé `echec` :
+  // « Oui, manquée ») — jamais un recul, une dégressive (les mini-séries du rest-pause) ni un test. `porte !== false` (le plafond, le gris,
+  // la réaction en séance) : la charge doit être STRICTEMENT plus lourde que la plus lourde série lue à 1 rep ou plus (un zéro à la charge
+  // d'un succès est une série ratée dans une séance qui a marché, pas un maximum du jour sous cette charge). `porte: false` (le calage) :
+  // toute série de travail à 0 rep, sans historique. Rend `{ charge, n }` (la plus légère charge candidate qui passe, `n` séries à cette
+  // charge) ou `null`.
+  function zeroPartiel(series, opt) {
+    var porte = !(opt && opt.porte === false);
+    var lues = (series || []).filter(function (s) {
+      return !!s && typeDe(s) !== 'echauffement' && !estHorsCalcul(s) && !estTest(s);
+    });
+    var succes = null;
+    lues.forEach(function (s) {
+      var r = lireNombre(s.reps), c = lireNombre(s.charge_kg);
+      if (r !== null && r >= 1 && c !== null && (succes === null || c > succes)) succes = c;
+    });
+    var cands = [];
+    lues.forEach(function (s) {
+      if (lireNombre(s.reps) !== 0) return;
+      if (typeDe(s) !== 'travail' && !estManquee(s)) return;
+      var c = lireNombre(s.charge_kg);
+      if (c === null || !(c > 0)) return;
+      if (porte && succes !== null && !(c > succes + 1e-9)) return;
+      cands.push(c);
+    });
+    if (!cands.length) return null;
+    var min = cands.reduce(function (m, c) { return c < m ? c : m; }, cands[0]);
+    return { charge: min, n: cands.filter(function (c) { return Math.abs(c - min) < 1e-9; }).length };
+  }
+  // LA lecture que le plan applique aux séries validées de la séance en cours : la séance entière à zéro (charge connue > 0), sinon le zéro partiel.
+  function zeroDeSeance(series, opt) {
+    var z = seanceAZero(series);
+    if (z !== null && z.charge !== null && z.charge > 0) return z;
+    return zeroPartiel(series, opt);
+  }
   // Le mot de l'étiquette d'une ligne : « à l'échec » (ambre) ou « manquée » ; `null` sinon.
   function motDEchec(serie) {
     if (estHorsCalcul(serie)) return 'hors calcul';   // 185 — la série « Non, ne compte pas » se dit, à part
@@ -3138,6 +3174,8 @@
     estAEchec: estAEchec,
     estManquee: estManquee,
     seanceAZero: seanceAZero,
+    zeroPartiel: zeroPartiel,
+    zeroDeSeance: zeroDeSeance,
     motDEchec: motDEchec,
     restPauseDe: restPauseDe,
     estAccentAllonge: estAccentAllonge,

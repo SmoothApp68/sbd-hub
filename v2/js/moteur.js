@@ -6140,18 +6140,97 @@
   // `reps`), ni une aide (charge négative), ni une charge manquante, ni une séance « douleur » (qui garde son chemin : §9.20) : ces
   // exercices gardent exactement leur comportement d'avant (I70, I133). Le drapeau ne change aucun lecteur du contrat brut ; seule
   // `consignePour` le lit. Pure : rend le même tableau si aucune séance n'est de zéro.
+  // PR 4b (R-A, MOTEUR §9.42 bis) — s'ajoute le drapeau `plafondZero: { charge, n, suivantes }` : la séance porte un zéro (entier : `zero` ; ou partiel :
+  // `Modele.zeroPartiel`, la porte « plus lourd que tout succès »). Pas sur une séance importée (`source_ref` : l'importeur lit « 0 » comme 0, un
+  // zéro fabriqué est indistinguable d'un vrai), pas sous « douleur ». `suivantes` : les séances POSTÉRIEURES de l'exercice, au plus
+  // `SUIVANTES_MAX`, arrêt au premier `atteint` — calculé à la pose, sur les séries brutes (le rôle « chauffe » du contrat n'est pas garanti).
+  var SEANCES_DU_PLAFOND = 2;
+  var SUIVANTES_MAX = 8;
+  function suivantesDuZero(groupes, i, charge) {
+    var t0 = instant(groupes[i] && groupes[i].seance ? groupes[i].seance.debut : null);
+    if (t0 === null) return [];
+    var apres = [];
+    groupes.forEach(function (g, k) {
+      var t = instant(g && g.seance ? g.seance.debut : null);
+      if (k !== i && t !== null && t > t0) apres.push({ t: t, g: g });
+    });
+    apres.sort(function (a, b) { return a.t - b.t; });
+    var M = Modele(), sortie = [];
+    for (var q = 0; q < apres.length && sortie.length < SUIVANTES_MAX; q++) {
+      var series = apres[q].g.series || [];
+      var travail = series.some(function (x) { return M.estTravail(x); });
+      var atteint = series.some(function (x) {
+        if (!x || M.typeDe(x) === 'echauffement' || M.estHorsCalcul(x)) return false;
+        var r = nombre(x.reps), c = nombre(x.charge_kg);
+        return r !== null && r >= 1 && c !== null && c >= charge - 1e-9;
+      });
+      sortie.push({ debut: apres[q].g.seance.debut, travail: travail, atteint: atteint });
+      if (atteint) break;
+    }
+    return sortie;
+  }
   function poserLesZeros(seances, groupes, mesure) {
     if (mesure !== 'charge_reps') return seances;
-    var sortie = null;
+    var sortie = null, M = Modele();
     (seances || []).forEach(function (se, i) {
       if (!se || se.douleur === true) return;
       var g = groupes && groupes[i];
-      var z = Modele().seanceAZero((g && g.series) || []);
-      if (z === null || z.charge === null || !(z.charge > 0)) return;
+      var series = (g && g.series) || [];
+      var z = M.seanceAZero(series);
+      var entier = !(z === null || z.charge === null || !(z.charge > 0));
+      var p = entier ? { charge: z.charge, n: z.n } : M.zeroPartiel(series, { porte: true });
+      if (p === null) return;
+      var ajout = {};
+      if (entier) ajout.zero = { n: z.n, charge: z.charge };
+      var importee = !!(g && g.seance && g.seance.source_ref !== undefined && g.seance.source_ref !== null);
+      if (!importee) ajout.plafondZero = { charge: p.charge, n: p.n, suivantes: suivantesDuZero(groupes, i, p.charge) };
+      if (!Object.keys(ajout).length) return;
       if (sortie === null) sortie = seances.slice();
-      sortie[i] = Object.assign({}, se, { zero: { n: z.n, charge: z.charge } });
+      sortie[i] = Object.assign({}, se, ajout);
     });
     return sortie === null ? seances : sortie;
+  }
+
+  // PR 4b (R-A, MOTEUR §9.42 bis) — LE PLAFOND ACTIF (pure). `seances` : le contrat (séances portant `plafondZero`, `decharge`) ; `avant` : le début
+  // de la séance prescrite (rien après : §9.12) ; `palier` : le palier tenu de la consigne d'avant plafond (un zéro à ou sous lui est une mauvaise
+  // journée, jamais une limite). Rend `{ charge, reste, n }` ou `null`. Un zéro est LEVÉ par (A) une séance suivante (avant `avant`) qui
+  // atteint `Ch` à 1 rep ou plus, toute zone confondue (O17) ; il est ÉCHU par (N) `SEANCES_DU_PLAFOND` séances comptées : un jour civil
+  // distinct, après celui du zéro, avant `avant`, avec au moins une série de travail, hors décharge ; et au-delà de `SUIVANTES_MAX` séances
+  // sans (A) ni (N) il est tenu pour échu (O12). `Ch` = la plus légère charge de zéro non levée ni échue ; `reste` se lit sur le zéro le plus
+  // récent de cette charge (O9 : un nouveau zéro à `Ch` relance l'horloge). Le geste « Tenter » (G) n'est pas ici : le plan le lit.
+  function plafondActif(seances, avant, palier) {
+    var coupure = instant(avant);
+    var liste = seances || [];
+    var decharges = {};
+    liste.forEach(function (se) { if (se && se.decharge === true) { var t = instant(se.debut); if (t !== null) decharges[t] = true; } });
+    var P = nombre(palier);
+    var actifs = [];
+    liste.forEach(function (se) {
+      if (!se || !se.plafondZero || se.decharge === true || se.douleur === true) return;
+      var t0 = instant(se.debut);
+      if (t0 === null || (coupure !== null && t0 >= coupure)) return;
+      var z = se.plafondZero, Ch = nombre(z.charge);
+      if (Ch === null || !(Ch > 0)) return;
+      if (P !== null && !(Ch > P + 1e-9)) return;
+      var suiv = z.suivantes || [], jours = {}, comptes = 0, leve = false, vues = 0;
+      var j0 = jourCivil(se.debut);
+      for (var q = 0; q < suiv.length; q++) {
+        var u = suiv[q], tu = instant(u && u.debut);
+        if (tu === null || (coupure !== null && tu >= coupure)) continue;
+        vues++;
+        if (u.atteint === true) { leve = true; break; }
+        var ju = jourCivil(u.debut);
+        if (u.travail === true && decharges[tu] !== true && ju !== null && j0 !== null && ju > j0 && !jours[ju]) { jours[ju] = true; comptes++; }
+      }
+      if (leve || comptes >= SEANCES_DU_PLAFOND) return;
+      if (suiv.length >= SUIVANTES_MAX && vues >= suiv.length) return;
+      actifs.push({ charge: Ch, t0: t0, n: nombre(z.n) || 1, reste: SEANCES_DU_PLAFOND - comptes });
+    });
+    if (!actifs.length) return null;
+    var Cmin = actifs.reduce(function (m, a) { return a.charge < m ? a.charge : m; }, actifs[0].charge);
+    var recent = null;
+    actifs.forEach(function (a) { if (memeCharge(a.charge, Cmin) && (recent === null || a.t0 >= recent.t0)) recent = a; });
+    return { charge: recent.charge, reste: recent.reste, n: recent.n };
   }
 
   // §9.20 (51-3) — UNE SÉANCE-EXERCICE EST DOULOUREUSE quand une de ses séries
@@ -12715,6 +12794,8 @@
     estPremiereFois: estPremiereFois,
     estApresZero: estApresZero,
     descenteApresUnZero: descenteApresUnZero,
+    plafondActif: plafondActif,
+    SEANCES_DU_PLAFOND: SEANCES_DU_PLAFOND,
     motsDeLAuMax: motsDeLAuMax,
     // 236 (§9.39) — le coach en temps réel après un raté : UNE fonction de décision, ses mots, ses constantes
     reactionAuRate: reactionAuRate,

@@ -577,12 +577,14 @@
       for (var i = 0; i < P.count; i++) { v.fromBufferAttribute(P, i).multiplyScalar(dq).applyMatrix4(muscles.bindMatrix); zRepos[i] = v.z; }
       return zRepos;
     }
+    // Les muscles du MILIEU du corps (grand droit et obliques, érecteurs du rachis) ne se coupent pas : ils gainent des deux côtés
+    var AXIAUX = ['abdominaux', 'bas_du_dos'];
     function colorer(roles, cote) {
       var id = muscles.geometry.attributes._muscle, col = muscles.geometry.attributes.color, c = new T3.Color(), o = ['prim', 'sec', 'stab'];
       var sg = cote === 'droit' ? 1 : cote === 'gauche' ? -1 : 0, z = sg ? zDesSommets() : null;
       // _muscle.y = 1 : face intérieure d'une coque ; elle ne se voit qu'à travers un trou du corps : jamais colorée
       for (var i = 0; i < id.count; i++) { var m = noms[id.getX(i)], r = null;
-        if ((!sg || z[i] * sg > 0) && !(id.getY(i) > 0.5)) for (var k = 0; k < 3; k++) if ((roles[o[k]] || []).indexOf(m) >= 0) { r = o[k]; break; }
+        if ((!sg || z[i] * sg > 0 || AXIAUX.indexOf(m) >= 0) && !(id.getY(i) > 0.5)) for (var k = 0; k < 3; k++) if ((roles[o[k]] || []).indexOf(m) >= 0) { r = o[k]; break; }
         c.setHex(r ? COUL[r] : (BRAS_M.indexOf(m) >= 0 ? COUL.muscleBras : COUL.muscle)); col.setXYZ(i, c.r, c.g, c.b); }
       col.needsUpdate = true;
     }

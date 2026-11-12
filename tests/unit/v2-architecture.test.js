@@ -48,6 +48,11 @@ const GARDEES = [
   // moteur.js — PR 4a (MOTEUR §9.26 bis) : la réserve visée AFFICHÉE (la table relevée au plancher de 2 pour la population protégée) ; seul `planDeSeance` l'appelle
   // `reserveAffichee` est AUSSI un champ du plan (`x.reserveAffichee`, que les écrans lisent) : seul l'appel qualifié par le module compte.
   { fn: 'reserveAffichee', module: 'moteur.js', motif: /(?:\bMoteur|\bMoteur\(\)|\bM|racine\.THMoteur)\s*\.\s*reserveAffichee\b/g },
+  // moteur.js — PR 4b (R-A, MOTEUR §9.42 bis) : le plafond après un zéro rep (la descente D, la levée, la réaction en séance) ; seul `planDeSeance` lit la réaction
+  { fn: 'descenteApresUnZero', module: 'moteur.js' },
+  { fn: 'plafondActif', module: 'moteur.js' },
+  { fn: 'plafonner', module: 'moteur.js' },
+  { fn: 'reactionAuZero', module: 'moteur.js' },
   // moteur.js — la consigne
   { fn: 'consignePour', module: 'moteur.js' },
   { fn: 'consigneDExercice', module: 'moteur.js' },
@@ -1724,9 +1729,12 @@ const NOTIONS = [
   { notion: 'la borne d’un champ de saisie (le chiffre de trop n’entre pas)', pr: '131-U1',
     module: 'modele.js', fonction: 'maxDeSaisie', lecteurs: ['rendu.js', 'app.js'],
     raison: 'ECRAN-SAISIE §3 ter.5 (audit 130 n°8) : le champ refuse au-delà de la borne, comme le pavé de la durée.' },
+  { notion: 'le zéro partiel et le zéro de la séance (une série restée à 0 rep, plus lourde que tout succès)', pr: '4-U1',
+    module: 'modele.js', fonction: 'zeroDeSeance', lecteurs: ['moteur.js', 'plan.js'],
+    raison: 'MOTEUR §9.42 bis (PR 4b, R-A) : le plafond, le gris, la réaction en séance et la pose du drapeau lisent la même définition, écrite une fois (`zeroPartiel`).' },
   { notion: 'le seuil d’une marche au poids du corps (le haut de la zone et 8 reps : le lest comme la marche suivante)', pr: '127-U1',
     module: 'moteur.js', fonction: 'seuilDeMarche', lecteurs: ['plan.js'],
-    par: ['consignePour', 'carteMarcheDecidee', 'phraseDeLaSuivante', 'rondsDeLaSuivante'],
+    par: ['consigneSansPlafond', 'carteMarcheDecidee', 'phraseDeLaSuivante', 'rondsDeLaSuivante'],
     raison: 'MOTEUR §9.17 et §9.17 bis (21/10/2026) : la carte du lest, la carte « marche suivante », la phrase de la page ' +
       'et les invariants I49 et I50 lisent le même seuil, écrit une fois (`SEUIL_MARCHE`).' },
   { notion: 'la marche suivante d’un exercice d’échelle (`echelle`, `echelle_rang` au catalogue)', pr: '127-U1',

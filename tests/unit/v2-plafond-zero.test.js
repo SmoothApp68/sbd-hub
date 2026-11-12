@@ -416,3 +416,175 @@ describe('T-A19 — règle de bord : deux séances tenues ne mènent pas à la v
     expect(apres.record).toBe(avant.record);
   });
 });
+
+// ── Commit 4 : la séance en cours — le gris vidé (I156), parisRates muet, le calage (T-A11, T-A13b) ──
+describe('le plan — séance en cours : gris vidé (I156), silences compris (T-A11, mutation k)', () => {
+  const OBarre = { equipement: 'barre', debutant: false };
+  function planAvec(gr, { seriesFaites, reps, parisRates } = {}) {
+    let k = 0;
+    const id = () => 'q-s' + (++k);
+    let se = S.creer({ id: 'S', userId: 'u', idSerie: id });
+    se = S.ajouterExercice(se, 'dc', id, { series: 4 });
+    se.exercices[0].series.forEach((s) => { s.reps_visees = reps || 8; });
+    (seriesFaites || []).forEach(([kg, r, extra], i) => {
+      Object.assign(se.exercices[0].series[i], { charge_kg: kg, reps: r, validee_a: '2026-09-20T10:00:00.000Z' }, extra || {});
+    });
+    const avant = avantN(gr.length);
+    const c = gr.length ? M.consigneDExercice(gr, undefined, avant, Object.assign({}, OPT, OBarre)) : null;
+    const e = { seance: { id: 'S', debut: avant, edition: false, exercices: se.exercices }, consignes: c ? { dc: c } : {}, paris: [], suites: {}, reglage: 'normal', objectif: 'muscle', debutant: false,
+      catalogue: { dc: { nom: 'Développé couché', equipement: 'barre', mesure: 'charge_reps', pas: 2.5, muscles_primaires: ['pectoraux'], muscles_secondaires: ['triceps'], muscles_stabilisateurs: [] } } };
+    if (parisRates) e.parisRates = parisRates;
+    const p = T.planDeSeance(e);
+    return { p, e, x: p.exercices[0], c };
+  }
+  const grises = (x) => (x.lignes || []).filter((l) => !l.validee && l.type !== 'chauffe').map((l) => l.prerempli && l.prerempli.charge_kg);
+  test('une tenue après un zéro : aucune ligne non validée préremplie à Ch (26,5) ni au-dessus ; aucune erreur', () => {
+    const R = (i) => seanceN(i, [brute(24, 10, R3), brute(24, 10, R3), brute(24, 10, R3)]);
+    const gr = [R(0), seanceN(1, [brute(24, 10, R3), brute(24, 10, R3), brute(24, 10, R3), brute(26.5, 0)])];
+    const { p, e, x } = planAvec(gr);
+    expect(x.consigne.etat).toBe('tenue_apres_zero');
+    grises(x).forEach((g) => expect(g === null || g < 26.5).toBe(true));
+    expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+  });
+  test('T-A11 : un silence `pas_de_palier` (20×8, 30×8, 40×8 + 60×0) porte `plafondZero` ; le gris n\'est jamais ≥ 60', () => {
+    const gr = [seanceN(0, [brute(20, 8)]), seanceN(1, [brute(30, 8)]), seanceN(2, [brute(40, 8), brute(60, 0)])];
+    const { p, e, x } = planAvec(gr);
+    expect(x.consigne.etat).toBe('silence');
+    expect(x.consigne.fondement.plafondZero).toMatchObject({ charge: 60, mord: false });
+    grises(x).forEach((g) => expect(g === null || g < 60).toBe(true));
+    expect(T.verifierPlan(p, e).erreurs.filter((m) => /I156/.test(m))).toEqual([]);
+  });
+  test('un zéro validé DANS la séance (typage `echec`, « Oui, manquée ») : les lignes suivantes ne reprennent pas la charge (plafond de la séance en cours)', () => {
+    const gr = plat([[100, [5, 5, 5]], [100, [5, 5, 5]]]);
+    const { p, e, x } = planAvec(gr, { seriesFaites: [[100, 5], [100, 5], [102.5, 0, { type_serie: 'echec' }]] });
+    grises(x).forEach((g) => expect(g === null || g < 102.5).toBe(true));
+    expect(T.verifierPlan(p, e).erreurs.filter((m) => /I156/.test(m))).toEqual([]);
+  });
+  test('I156 est un vrai invariant : une ligne préremplie à Ch après un zéro validé est refusée', () => {
+    const gr = plat([[100, [5, 5, 5]], [100, [5, 5, 5]]]);
+    const { p, e } = planAvec(gr, { seriesFaites: [[100, 5], [100, 5], [102.5, 0, { type_serie: 'echec' }]] });
+    const l = p.exercices[0].lignes.filter((x) => !x.validee && x.type !== 'chauffe')[0];
+    l.prerempli = Object.assign({}, l.prerempli, { charge_kg: 102.5 });
+    expect(T.verifierPlan(p, e).erreurs.filter((m) => /I156/.test(m)).length).toBeGreaterThan(0);
+  });
+  test('sans zéro : le gris est celui d\'avant (octet pour octet)', () => {
+    const gr = plat([[100, [5, 5, 5]], [100, [5, 5, 5]]]);
+    const a = planAvec(gr, { seriesFaites: [[100, 5], [100, 5]] });
+    expect(grises(a.x).some((g) => g !== null)).toBe(true);
+  });
+  test('parisRates muet quand le plafond mord (mutation l) : plan-level, `entrees.parisRates` posé', () => {
+    const R = (i) => seanceN(i, [brute(24, 10, R3), brute(24, 10, R3), brute(24, 10, R3)]);
+    const gr = [R(0), seanceN(1, [brute(24, 10, R3), brute(24, 10, R3), brute(24, 10, R3), brute(26.5, 0)])];
+    const avecPari = planAvec(gr, { parisRates: { dc: { n: 2, charge: 24, reps: 10 } } });
+    expect(avecPari.x.consigne.etat).toBe('tenue_apres_zero');
+    expect(avecPari.x.parisRates || null).toBeNull();
+    // le témoin : sans plafond, la même entrée parle
+    const R2 = [R(0), R(1)];
+    const sans = planAvec(R2, { parisRates: { dc: { n: 2, charge: 24, reps: 10 } } });
+    expect(sans.x.consigne.etat).not.toBe('tenue_apres_zero');
+  });
+});
+
+describe('T-A13b — le calage garde la porte `false` : toute série de travail à 0 rep borne (PR 3)', () => {
+  test('20×8 puis 20×0 : le calage borne à 20 (le plancher : il se tait) ; le plafond ne pose rien (porte)', () => {
+    const r = M.calagePremiereFois({ equipement: 'barre', reps: 8, debutant: false, habituelle: null, prochain: 'travail',
+      series: [{ charge: 20, reps: 8, ressenti: null, chauffe: false }, { charge: 20, reps: 0, ressenti: null, chauffe: false }] });
+    expect(r.suivante === null || r.suivante.charge < 20 || r.suivante.bornee === true).toBe(true);
+    expect(Modele.zeroPartiel([brute(20, 8), brute(20, 0)])).toBeNull();
+    expect(Modele.zeroPartiel([brute(20, 8), brute(20, 0)], { porte: false })).toEqual({ charge: 20, n: 1 });
+  });
+});
+
+// ── Commit 5 : la réaction en séance après un 0 rep (Z1 / Z2, O7, O8, I157, I158) ──
+describe('T-A14 — la réaction au zéro : une branche, une table', () => {
+  const OB = { equipement: 'barre' };
+  const histo = () => plat([[100, [5, 5, 5]], [100, [5, 5, 5]]]);
+  function planZ(faites, { opt, gestes, reglage, debutant, gr, reps } = {}) {
+    let k = 0;
+    const id = () => 'q-s' + (++k);
+    let se = S.creer({ id: 'S', userId: 'u', idSerie: id });
+    se = S.ajouterExercice(se, 'dc', id, { series: 4 });
+    se.exercices[0].series.forEach((s) => { s.reps_visees = reps || 5; });
+    faites.forEach(([kg, r, extra], i) => Object.assign(se.exercices[0].series[i], { charge_kg: kg, reps: r, validee_a: '2026-09-20T10:0' + i + ':00.000Z' }, extra || {}));
+    const g = gr || histo();
+    const avant = avantN(g.length);
+    const c = M.consigneDExercice(g, undefined, avant, Object.assign({}, OPT, OB, { reglage: reglage || 'normal', debutant: !!debutant }, opt || {}));
+    const e = { seance: { id: 'S', debut: avant, edition: false, exercices: se.exercices, gestes: gestes || [] }, consignes: { dc: c }, paris: [], suites: {},
+      reglage: reglage || 'normal', objectif: 'muscle', debutant: !!debutant,
+      catalogue: { dc: { nom: 'Développé couché', equipement: 'barre', mesure: 'charge_reps', pas: 2.5, muscles_primaires: ['pectoraux'], muscles_secondaires: ['triceps'], muscles_stabilisateurs: [] } } };
+    const p = T.planDeSeance(e);
+    return { p, e, x: p.exercices[0], c };
+  }
+  const echec0 = { type_serie: 'echec' };
+  const vrai = (r) => T.verifierPlan(r.p, r.e).erreurs;
+  test('Z1 : 102,5 × 0 manquée (typage `echec`, le vrai chemin « Oui, manquée ») → « je propose 97,5 kg pour la suite. » + « Prendre 97,5 kg » ; aucune erreur', () => {
+    const r = planZ([[100, 5], [102.5, 0, echec0]]);
+    expect(r.x.rate).toMatchObject({ cas: 'Z1', niveau: 'zero', iSerie: 1 });
+    expect(sp(r.x.rate.phrase)).toBe('102,5 kg est resté à 0 rep : je propose 97,5 kg pour la suite.');
+    expect(r.x.rate.boutons.map((b) => sp(b.texte))).toEqual(['Prendre 97,5 kg']);
+    expect(r.x.rate.fourchette).toBeNull();
+    expect(vrai(r)).toEqual([]);
+  });
+  test('O8 : même réaction avec le typage `travail` (les deux typages)', () => {
+    const a = planZ([[100, 5], [102.5, 0, echec0]]).x.rate, b = planZ([[100, 5], [102.5, 0, { type_serie: 'travail' }]]).x.rate;
+    expect(b.cas).toBe(a.cas);
+    expect(b.phrase).toBe(a.phrase);
+  });
+  test('indépendante du réglage (Franc, Prudent) et du débutant hors calage', () => {
+    ['normal', 'prudent', 'franc'].forEach((reglage) => {
+      const r = planZ([[100, 5], [102.5, 0, echec0]], { reglage });
+      expect(r.x.rate && r.x.rate.cas).toBe('Z1');
+      expect(vrai(r)).toEqual([]);
+    });
+    const d = planZ([[100, 5], [102.5, 0, echec0]], { debutant: true });
+    expect(d.x.rate && d.x.rate.cas).toBe('Z1');
+  });
+  test('Z2 : dernière ligne (aucune ligne non validée plus lourde que D) → « 105 kg est resté à 0 rep. », sans bouton', () => {
+    const r = planZ([[100, 5], [100, 5], [100, 5], [105, 0, echec0]]);
+    expect(r.x.rate).toMatchObject({ cas: 'Z2', charge: null });
+    expect(sp(r.x.rate.phrase)).toBe('105 kg est resté à 0 rep.');
+    expect(r.x.rate.boutons).toEqual([]);
+    expect(vrai(r)).toEqual([]);
+  });
+  test('muet : 20×8 puis 20×0 en séance ordinaire n\'est pas un zéro (porte) ; un zéro à ou sous le palier non plus', () => {
+    expect(planZ([[100, 5], [100, 0, echec0]]).x.rate || null).toBeNull();
+    expect(planZ([[100, 5], [90, 0, echec0]]).x.rate || null).toBeNull();
+  });
+  test('une voix (O7) : aucun x.message ; la porte du cran se tait sur un 0 rep (mutation t7)', () => {
+    const r = planZ([[100, 5], [102.5, 0, echec0]]);
+    expect(r.x.message || null).toBeNull();
+    expect(r.x.porteDuCran && r.x.porteDuCran.fermee).toBeFalsy();
+    expect(M.decisionDeLaPorte({ zone: { bas: 3, haut: 5 }, cran: { charge: 110, vise: 3 }, travail: 100, series: [{ iSerie: 0, charge: 105, reps: 0, vise: 5, reserve: null }] }).fermee).toBeFalsy();
+  });
+  test('« Prendre 97,5 kg » : les lignes non validées plus lourdes passent à D, une ligne plus légère garde sa charge ; I116 vert avec le geste', () => {
+    const g = [{ geste: 'rate_prise', slug: 'dc', rang: 1, bouton: 'prendre', kg: 97.5 }];
+    const r = planZ([[100, 5], [102.5, 0, echec0]], { gestes: g });
+    const restantes = r.x.lignes.filter((l) => !l.validee && l.type !== 'chauffe');
+    restantes.forEach((l) => expect(l.charge === null || l.charge <= 97.5).toBe(true));
+    expect(r.x.rate.boutons[0].pris).toBe(true);
+    expect(vrai(r)).toEqual([]);
+  });
+  test('I157 / I158 sont de vrais invariants : une seconde phrase, une réaction manquante, un D faux sont refusés', () => {
+    const r = planZ([[100, 5], [102.5, 0, echec0]]);
+    const avec = (patch) => { const p = Object.assign({}, r.p, { exercices: r.p.exercices.map((q, i) => (i === 0 ? Object.assign({}, q, patch) : q)) }); return T.verifierPlan(p, r.e).erreurs.filter((m) => /I157|I158/.test(m)); };
+    expect(avec({ message: { iSerie: 1, phrase: 'x' } }).length).toBeGreaterThan(0);
+    expect(avec({ carteForme: { phrase: 'x' } }).length).toBeGreaterThan(0);
+    expect(avec({ rate: null }).length).toBeGreaterThan(0);
+    expect(avec({ rate: Object.assign({}, r.x.rate, { charge: { kg: 95, action: 'baisse' } }) }).length).toBeGreaterThan(0);
+    expect(avec({}).length).toBe(0);
+  });
+  test('Moteur.reactionAuZero (table) : rôles grosse / test / au_max / haut → Z2 ; plancher (D nul) → Z2 ; ligne sans chiffre → Z1 (O20)', () => {
+    const base = { charge: 30, descente: 27.5, role: 'travail', restantes: [30] };
+    expect(M.reactionAuZero(base)).toMatchObject({ cas: 'Z1', charge: { kg: 27.5 } });
+    ['grosse', 'test', 'au_max', 'haut'].forEach((role) => expect(M.reactionAuZero(Object.assign({}, base, { role })).cas).toBe('Z2'));
+    expect(M.reactionAuZero(Object.assign({}, base, { descente: null })).cas).toBe('Z2');
+    expect(M.reactionAuZero(Object.assign({}, base, { restantes: [null] })).cas).toBe('Z1');
+    expect(M.reactionAuZero(Object.assign({}, base, { restantes: [25] })).cas).toBe('Z2');
+    expect(M.reactionAuZero(Object.assign({}, base, { muet: true })).silence).toBe(true);
+  });
+  test('I26 : « 0 » est cité ; aucune « quand même », aucune fourchette', () => {
+    const r = planZ([[100, 5], [102.5, 0, echec0]]);
+    expect(r.x.phrases.filter((q) => q.ou === 'rate').length).toBe(1);
+    expect(r.x.rate.phrase).not.toMatch(/quand même|garde/);
+  });
+});

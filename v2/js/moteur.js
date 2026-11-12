@@ -1881,6 +1881,18 @@
       return sens < 0 && r !== null && plancher !== null && plancher !== undefined && r < plancher - 1e-9 ? null : r;
     }, Ch, Ch * BORD_VAGUE);
   }
+  // La MÊME descente pour B, pour la réaction en séance (`contexteReaction.descenteDe`) : la grille de l'exercice (crans connus, salle en vigueur sur `P`, le
+  // palier ; sinon sur la charge elle-même), jamais sous le plus petit cran du matériel (`plancherDuCalage`).
+  function fabriqueDeDescente(vues, avant, equipement, salleDeclaree, P) {
+    return function (Ch) {
+      var c = nombre(Ch);
+      if (c === null || !(c > 0)) return null;
+      var ref = nombre(P);
+      var salle = salleEnVigueur(salleDeclaree || null, ref !== null && ref > 0 ? ref : c);
+      return descenteApresUnZero(c, function (depuis, sens) { return voisineSalleComprise(vues, avant, depuis, equipement, sens, salle); },
+        plancherDuCalage(equipement, salle));
+    };
+  }
   function consigneApresUnZero(seances, avant, opt) {
     var coupure = instant(avant);
     var liste = seances || [];
@@ -1913,9 +1925,7 @@
     if (P === null || !(P > 0) || charge0 === null || !(charge0 > 0) || vise0 === null || !(vise0 >= 1)) return base;
     var vuesBase = neutres.map(vueDeSeance);
     var salle = salleEnVigueur(salleDeclaree, P);
-    var plancher = plancherDuCalage(opt.equipement, salle);
-    var vf = function (depuis, sens) { return voisineSalleComprise(vuesBase, avant, depuis, opt.equipement, sens, salle); };
-    var dessous = descenteApresUnZero(Ch, vf, plancher);
+    var dessous = fabriqueDeDescente(vuesBase, avant, opt.equipement, salleDeclaree, P)(Ch);
     if (dessous === null) {
       return { etat: 'silence', raison: 'zero_plancher', fondement: { date: Z.debut, zeroRep: { charge: Ch, series: Z.zero.n } } };
     }
@@ -2947,6 +2957,9 @@
     // §14.4 (49-U14) — PENDANT UNE SEMAINE ALLÉGÉE, RIEN NE MONTE : ni test, ni
     // proposition en séance (§9.14). La ligne reste la ligne.
     if (c.allegee) return sortie;
+    // PR 4b (R-A, O7) — UNE SEULE VOIX APRÈS UN 0 REP : la dernière série lue est restée à 0 rep, la réaction au zéro (`reactionAuZero`) parle seule.
+    var derniereLue = faites && faites.length ? faites[faites.length - 1] : null;
+    if (derniereLue && nombre(derniereLue.reps) === 0 && nombre(derniereLue.charge_kg) !== null && nombre(derniereLue.charge_kg) > 0) return sortie;
     // `zone` : une clé chez `consignePour` ; la table des zones donne les bornes.
     var z = typeof c.zone === 'string' ? zoneParCle(c.zone) : null;
     var P = c.ligne ? nombre(c.ligne.charge) : null;
@@ -3397,6 +3410,17 @@
   // rien au-delà de la charge proposée, `salleMax` : la réaction se tait (aucune
   // charge introuvable, aucun « cran au-dessus » sans chiffre).
   function contexteReaction(seances, avant, consigne, equipement, programme, salleDeclaree) {
+    var r = contexteReactionBrut(seances, avant, consigne, equipement, programme, salleDeclaree);
+    // PR 4b (R-A, MOTEUR §9.42 bis) — `descenteDe(charge)` : la descente `D` de la règle B sur la grille de CET exercice, pour la réaction en séance (Z1).
+    // Non énumérable (le contexte reste une donnée : aucune clé de plus pour qui le compare ou le sérialise) ; absent, la réaction se tait sur la proposition.
+    var vues = null, P = consigne ? nombre(consigne.palier) : null;
+    Object.defineProperty(r, 'descenteDe', { enumerable: false, value: function (Ch) {
+      if (vues === null) vues = (seances || []).map(vueDeSeance);
+      return fabriqueDeDescente(vues, avant, equipement, salleDeclaree, P)(Ch);
+    } });
+    return r;
+  }
+  function contexteReactionBrut(seances, avant, consigne, equipement, programme, salleDeclaree) {
     var vide = { cran: null, haut: null };
     if (!consigne || !consigne.ligne) return vide;
     var base = nombre(consigne.ligne.charge);
@@ -12511,8 +12535,32 @@
   function rateReps(v) { return nombreFr(v, regle('rate.reps')); }
   function rateGarde(v) { return nombreFr(v, regle('rate.garde')); }
   function rateEntre(f) { return 'entre ' + rateReps(f[0]) + ' et ' + rateReps(f[1]); }
+  // PR 4b (R-A, MOTEUR §9.42 bis) — LA RÉACTION APRÈS UN ZÉRO REP, UNE BRANCHE DÉDIÉE, UNE TABLE (pure ; lue par `plan.js` seul).
+  //   c = { muet, charge (la charge restée à 0 rep), descente (`D`, ou null : rien de plus léger), role, restantes (les charges des lignes non validées, null = sans
+  //   chiffre), derniere }
+  //   Muet : entretien, décharge, semaine de test, calage, douleur, figure, veille légère, édition, poids du corps / aide / lest, mesure ≠ charge × reps.
+  //   Z1 : rôle travail ou recul et au moins une ligne non validée plus lourde que `D` (une ligne sans chiffre compte plus lourde : O20) → « 30 kg est resté à
+  //        0 rep : je propose 27,5 kg pour la suite. » + « Prendre 27,5 kg » (le geste `rate_prise` : on propose, la personne tape).
+  //   Z2 : tout le reste (dernière ligne, grosse série, test, haut, « Au max », plancher du matériel) → « 30 kg est resté à 0 rep. »
+  //   Indépendante du réglage, de l'objectif, du rang et du débutant (hors calage). Aucune fourchette, aucun « garde N », aucun recalcul des reculs.
+  function reactionAuZero(c) {
+    var x = c || {};
+    var Ch = nombre(x.charge);
+    if (x.muet === true || Ch === null || !(Ch > 0)) return { silence: true };
+    var D = nombre(x.descente);
+    var role = x.role || 'travail';
+    var plusLourde = D !== null && (x.restantes || []).some(function (q) { var v = nombre(q); return v === null || v > D + 1e-9; });
+    if ((role === 'travail' || role === 'recul') && plusLourde) {
+      return { silence: false, niveau: 'zero', cas: 'Z1', role: role, zero: Ch, charge: { kg: D, action: 'baisse' }, leviers: ['prendre'] };
+    }
+    return { silence: false, niveau: 'zero', cas: 'Z2', role: role, zero: Ch, charge: null, leviers: [] };
+  }
   function phraseDeRate(d) {
     if (!d || d.silence) return null;
+    if (d.niveau === 'zero') {
+      var dit = enKg(d.zero, regle('rate.charge')) + ' est resté à ' + nombreFr(0, cite(FAIT, { quoi: 'rate_zero', champ: 'reps' })) + ' rep';
+      return d.cas === 'Z1' ? dit + DEUX_POINTS + 'je propose ' + enKg(d.charge.kg, regle('rate.charge')) + ' pour la suite.' : dit + '.';
+    }
     if (d.niveau === 'seance') {
       var t = '';
       if (d.nSous > 0) {
@@ -12566,6 +12614,8 @@
     (x.series || []).forEach(function (s) {
       if (fermante !== null || !s) return;
       var reps = nombre(s.reps), vise = nombre(s.vise);
+      // PR 4b (R-A, O7) — la porte se tait sur une série à 0 rep (la réaction au zéro propose déjà `D` ; jamais « Tenter … quand même » en séance sur un 0).
+      if (reps === 0) return;
       var lu = rateSousLaZone({ reps: reps, bas: zone.bas, objectif: x.objectif, barre: x.barre, reserve: s.reserve, charge: s.charge });
       if (lu.sousZone) { fermante = s; raison = 'sous_la_zone'; }
       else if (lu.echec && reps !== null && vise !== null && reps < vise) { fermante = s; raison = 'echec'; }
@@ -12886,6 +12936,7 @@
     estPremiereFois: estPremiereFois,
     estApresZero: estApresZero,
     descenteApresUnZero: descenteApresUnZero,
+    reactionAuZero: reactionAuZero,
     plafondActif: plafondActif,
     plafonner: plafonner,
     SEANCES_DU_PLAFOND: SEANCES_DU_PLAFOND,

@@ -133,7 +133,8 @@ describe('195-3 — « Au max, en gardant 1 » ; une figure jamais', () => {
     expect(M.auMaxDe({ objectif: 'calisthenie', famille: null, figure: true }).pose).toBeNull();
   });
   test('le programme marque la dernière série des exercices, pas la figure', () => {
-    const r = G.generer(CAT, entree());
+    const faits = {}; Object.keys(CAT).forEach((s) => { faits[s] = 4; });   // déjà faits : la première fois ne reçoit aucune marque (PR 1)
+    const r = G.generer(CAT, entree({ faits }));
     expect(r[0].exercices.filter((l) => l.au_max).length).toBeGreaterThan(0);
     expect(r[0].exercices[0].au_max).toBeUndefined();
   });

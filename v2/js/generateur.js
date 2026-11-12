@@ -444,7 +444,12 @@
         var fam = familleDeBarre(a.exercise_slug, catalogue);
         return fam === B[0] || fam === B[2];
       });
+      // Chantier « première séance sûre », PR 1 : un exercice sans historique (`p.faits`) est une première fois — le générateur n'y écrit AUCUNE
+      // marque ; il n'a pas la consigne (la notion du plan, `Moteur.estPremiereFois`), il lit l'absence d'historique, plus prudent : le plan
+      // reste la barrière (il relit la consigne, y compris sur une routine déjà écrite). 65+ : `p.plus65 === true` seulement, jamais deviné.
+      var dejaFait = possede(p.faits || {}, l.exercise_slug) || possede(p.faits || {}, barreDeLaPause(l.exercise_slug) || l.exercise_slug);
       var a = Moteur.auMaxDe({
+        premiereFois: !dejaFait, plus65: p.plus65 === true,
         // 266 — la version à pause d'une barre se décide comme sa barre (la même place, la même zone : jamais « au max » de plus).
         objectif: p.objectif, debutant: debutant, famille: familleDeBarre(barreDeLaPause(l.exercise_slug) || l.exercise_slug, catalogue),
         equipement: fiche.equipement || null,

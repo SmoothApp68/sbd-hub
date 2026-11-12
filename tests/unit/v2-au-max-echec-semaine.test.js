@@ -145,7 +145,7 @@ describe('le générateur (193-2) : la même fonction, une entrée de plus', () 
     M.auMaxDe = (e) => { const r = orig(e); vus.push({ e, r }); return r; };
     try {
       const rs = G.generer(cat, { materiel: 'salle_complete', anciennete: '3_a_5_ans', phase: 'maintien', priorites: [], menager: [],
-        ecartes: [], faits: {}, objectif: 'les_deux', jours: 4 });
+        ecartes: [], faits: Object.keys(cat).reduce((f, s) => { f[s] = 5; return f; }, {}), objectif: 'les_deux', jours: 4 });   // des exercices déjà faits : la première fois ne reçoit aucune marque (chantier « première séance sûre », PR 1)
       const barres = vus.filter((v) => v.e.famille === SQ || v.e.famille === DC);
       expect(barres.length).toBeGreaterThan(0);
       const zones = {};

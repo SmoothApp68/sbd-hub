@@ -10771,7 +10771,10 @@
   }
   // `e` : { objectif, debutant, famille (la barre, `familleDeBarre`), equipement, isolation, allegee, menagee, douleurRecente,
   //         barreDeJambesApres, main, zoneDePlan (193-6b : la zone que la ligne porte, ou null), echecRecent (193-6b : une série à
-  //         l'échec sur cette barre dans les 6 jours précédents) }. `pose` : 'defaut' (le coach la pose), 'main' (la personne l'a posée), ou null (rien).
+  //         l'échec sur cette barre dans les 6 jours précédents), plus65 (chantier « première séance sûre », PR 1 : `true` SEULEMENT si l'âge
+  //         est connu et de 65 ans ou plus, jamais deviné), premiereFois (le même chantier : `estPremiereFois` de la consigne ; le
+  //         générateur, sans consigne, la lit sur l'absence d'historique) }. `pose` : 'defaut' (le coach la pose), 'main' (la personne
+  //         l'a posée), ou null (rien).
   function auMaxDe(e) {
     var x = e || {};
     var rien = { pose: null, reserve: null, sorte: null, avecPareur: false, classe: null };
@@ -10796,6 +10799,8 @@
       if (gros) reserve = 2;
     }
     var pose = 'defaut';
+    // Une première fois : le coach ne pose RIEN (aucune charge de travail n'est encore trouvée). Une marque de la personne, elle, reste.
+    if (x.premiereFois === true && !main) return rien;
     if (reserve === null) {
       if (!main) return rien;
       reserve = AU_MAX_RESERVE_PAR_DEFAUT; pose = 'main';
@@ -10808,10 +10813,27 @@
       var zdp = x.zoneDePlan || null;
       if (zdp ? zdp !== 'lourd' : x.echecRecent === true) reserve = 1;
     }
-    // une zone à ménager, un « J'ai mal » récent : jamais d'échec, au plus « en gardant 2 reps »
-    if ((x.menagee || x.douleurRecente === true) && reserve < AU_MAX_RESERVE_PAR_DEFAUT) reserve = AU_MAX_RESERVE_PAR_DEFAUT;
+    // une zone à ménager, un « J'ai mal » récent, 65 ans et plus connus, une première fois : jamais d'échec ni « garde 1 », au plus « en
+    // gardant 2 reps » (un seul plancher, un seul prédicat ; une marque de la personne n'est jamais effacée, elle passe au plancher)
+    if ((x.menagee || x.douleurRecente === true || x.plus65 === true || x.premiereFois === true) && reserve < AU_MAX_RESERVE_PAR_DEFAUT) reserve = AU_MAX_RESERVE_PAR_DEFAUT;
     return { pose: pose, reserve: reserve, sorte: reserve === 0 ? 'echec' : 'garde',
              avecPareur: reserve === 0 && (classe === 'squat' || classe === 'couche'), classe: classe };
+  }
+  // UNE SEULE NOTION DE « PREMIÈRE FOIS » POUR « AU MAX » (chantier « première séance sûre », PR 1) : la consigne du coach, celle que lit déjà
+  // le calage : aucune séance non neutre avant (`silence/premiere_fois`) ou la charge de départ de la routine qui la remplace
+  // (`depart_routine`, posée la toute première fois). Pas `jamaisFait` (éditeur) ni la fenêtre de 84 jours du générateur : d'autres notions.
+  function estPremiereFois(consigne) {
+    var c = consigne || null;
+    return !!c && ((c.etat === 'silence' && c.raison === 'premiere_fois') || c.etat === 'depart_routine');
+  }
+  // D-A3 — les mots de la carte de la dernière série et du bouton du menu : pour un 65+ connu, « en gardant 2 reps » (le plancher), pas « au max ».
+  // Le plan les pose (`x.auMaxMots`, `proposition.titre`) ; l'écran les lit.
+  function motsDeLAuMax(plus65) {
+    var garde = 'en gardant ' + AU_MAX_RESERVE_PAR_DEFAUT + ' reps';
+    return plus65 === true
+      ? { titre: 'Dernière série' + DEUX_POINTS + garde + '\u00a0?', bouton: 'En gardant ' + AU_MAX_RESERVE_PAR_DEFAUT + ' reps',
+          retirer: 'Retirer la réserve de ' + AU_MAX_RESERVE_PAR_DEFAUT + ' reps', etiquette: 'garde\u00a0' + AU_MAX_RESERVE_PAR_DEFAUT }
+      : { titre: 'Dernière série au max\u00a0?', bouton: 'Au max', retirer: 'Retirer « Au max »', etiquette: 'Au max' };
   }
   // La consigne sous la ligne. Le nombre de reps gardées est cité (I26 : `regle|au_max.reserve`).
   function consigneAuMax(a) {
@@ -12451,6 +12473,8 @@
     maxDuJour: maxDuJour,
     reculAuMax: reculAuMax,
     auMaxDe: auMaxDe,
+    estPremiereFois: estPremiereFois,
+    motsDeLAuMax: motsDeLAuMax,
     // 236 (§9.39) — le coach en temps réel après un raté : UNE fonction de décision, ses mots, ses constantes
     reactionAuRate: reactionAuRate,
     phraseDeRate: phraseDeRate,

@@ -175,7 +175,22 @@
     developpe_incline_prise_neutre_haltere: 'developpe_incline_prise_neutre_haltere.json',
     developpe_incline_prise_serree_barre: 'developpe_incline_prise_serree_barre.json',
     presse_au_sol_barre: 'presse_au_sol_barre.json',
-    presse_au_sol_haltere: 'presse_au_sol_haltere.json'
+    presse_au_sol_haltere: 'presse_au_sol_haltere.json',
+    chaise_murale: 'chaise_murale.json',
+    squat_avant: 'squat_avant.json',
+    squat_avant_machine_smith: 'squat_avant_machine_smith.json',
+    squat_barre_basse_barre: 'squat_barre_basse_barre.json',
+    squat_barre_elastique: 'squat_barre_elastique.json',
+    squat_box_barre: 'squat_box_barre.json',
+    squat_chaines_barre: 'squat_chaines_barre.json',
+    squat_goblet_haltere: 'squat_goblet_haltere.json',
+    squat_haltere: 'squat_haltere.json',
+    squat_machine_smith: 'squat_machine_smith.json',
+    squat_pin: 'squat_pin.json',
+    squat_sumo_barre: 'squat_sumo_barre.json',
+    squat_sumo_poids_corps: 'squat_sumo_poids_corps.json',
+    squat_talons_sureleves_haltere: 'squat_talons_sureleves_haltere.json',
+    squat_zercher_barre: 'squat_zercher_barre.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

@@ -151,7 +151,9 @@
     tractions_prise_serree: 'tractions_prise_serree.json',
     tractions_sautees: 'tractions_sautees.json',
     tractions_scapulaires: 'tractions_scapulaires.json',
-    tractions_supination_lestees: 'tractions_supination_lestees.json'
+    tractions_supination_lestees: 'tractions_supination_lestees.json',
+    burpee: 'burpee.json',
+    epaule_jete: 'epaule_jete.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

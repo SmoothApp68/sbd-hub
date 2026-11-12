@@ -1,0 +1,14 @@
+[
+  { "nom": "retirer-plus65", "fichier": "v2/js/moteur.js",
+    "ancien": "x.douleurRecente === true || x.plus65 === true || x.premiereFois === true)", "nouveau": "x.douleurRecente === true || x.premiereFois === true)",
+    "banc": "aucun", "unitaires": ["tests/unit/v2-au-max-65-premiere-fois.test.js"], "attendu": "tuee" },
+  { "nom": "retirer-premiere-fois", "fichier": "v2/js/moteur.js",
+    "ancien": "x.douleurRecente === true || x.plus65 === true || x.premiereFois === true)", "nouveau": "x.douleurRecente === true || x.plus65 === true)",
+    "banc": "aucun", "unitaires": ["tests/unit/v2-au-max-65-premiere-fois.test.js"], "attendu": "tuee" },
+  { "nom": "ecraser-la-marque-posee", "fichier": "v2/js/moteur.js",
+    "ancien": "if (x.premiereFois === true && !main) return rien;", "nouveau": "if (x.premiereFois === true) return rien;",
+    "banc": "aucun", "unitaires": ["tests/unit/v2-au-max-65-premiere-fois.test.js"], "attendu": "tuee" },
+  { "nom": "temoin-commentaire", "fichier": "v2/js/moteur.js",
+    "ancien": "UNE SEULE NOTION DE « PREMIÈRE FOIS » POUR « AU MAX »", "nouveau": "UNE NOTION DE « PREMIÈRE FOIS » POUR « AU MAX »",
+    "banc": "aucun", "unitaires": ["tests/unit/v2-au-max-65-premiere-fois.test.js"], "attendu": "survit" }
+]

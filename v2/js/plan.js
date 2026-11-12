@@ -1282,7 +1282,10 @@
         equipement: fiche ? fiche.equipement || null : null, isolation: fiche ? M.estIsolation(musclesDe(fiche)) : false,
         allegee: false, menagee: !!(zm && !zm.choisie), douleurRecente: M.douleurRecente(douleurs, jour),
         barreDeJambesApres: jambesApres, echecRecent: jourEchec !== null,
-        figure: !!fiche && fiche.mesure === 'temps'   // 195 : jamais d'échec sur une figure
+        figure: !!fiche && fiche.mesure === 'temps',   // 195 : jamais d'échec sur une figure
+        // Chantier « première séance sûre », PR 1 : 65 ans et plus CONNUS (jamais deviné) ; première fois = la consigne (UNE notion, `Moteur.estPremiereFois`).
+        plus65: e.plus65 === true,
+        premiereFois: M.estPremiereFois(Object.prototype.hasOwnProperty.call(consignes || {}, slug) && consignes[slug] ? consignes[slug].consigne : null)
       },
       jourEchec: jourEchec
     };
@@ -1318,7 +1321,7 @@
           M.consigneAuMax(dec).slice(1) + '.';
       });
       return { auMax: null, pari: null, phrases: [{ ou: 'au_max.proposition', texte: capP.texte, citations: capP.citations }],
-               proposition: { iSerie: dernier.iSerie, reserve: dec.reserve, sorte: dec.sorte, avecPareur: dec.avecPareur, titre: 'Dernière série au max ?',
+               proposition: { iSerie: dernier.iSerie, reserve: dec.reserve, sorte: dec.sorte, avecPareur: dec.avecPareur, titre: M.motsDeLAuMax(faits.entree.plus65 === true).titre,
                               phrase: capP.texte, boutons: ['Oui, dans ma routine', 'Juste aujourd’hui', 'Non merci'] } };
     }
     // Une marque sur une exercice où la table ne dit rien : garde 2 (la personne l'a posée). `pose` null ne se produit pas (main).
@@ -2435,6 +2438,9 @@
             ? { tente: cranTenteDe(seance.gestes, slug), formeAjustee: formeAjusteeAvant(seance, i), prise: priseDe(seance.gestes, slug) } : null);
         // 253 (X2) — ce jour-là, sur cette barre : pas de « Au max », pas d'échec, pas de pari (donc ni pari perdu, ni compteur, ni escalier), pas de
         // réserve visée ni d'effort visé (la réserve affichée est celle de la variante), pas de réaction au raté (voir `reactionDExercice`).
+        // D-A3 (chantier « première séance sûre », PR 1) — les mots de la carte et du bouton « Au max » du menu de la série : 65+ connu →
+        // « en gardant 2 reps » ; l'écran les lit ici, il ne les décide pas.
+        x.auMaxMots = Moteur().motsDeLAuMax(e.plus65 === true);
         x.veilleLegere = null;
         if (legereX) {
           x.veilleLegere = { charge: legereX.charge, reps: legereX.reps, reserve: legereX.reserve, plan: legereX.plan, baisse: legereX.baisse,
@@ -6243,7 +6249,7 @@
     verifierGrosCran(plan, erreurs);
     verifierAlleger(plan, erreurs);
     verifierFatigue(plan, entrees, erreurs);
-    verifierAuMax(plan, erreurs);
+    verifierAuMax(plan, erreurs, entrees);
     verifierMobilite(plan, entrees, erreurs);
     verifierVeilleActivite(plan, entrees, erreurs);
     verifierVeilleReprise(plan, entrees, erreurs);
@@ -7241,8 +7247,8 @@
   //   · I99 (193-6b) — sur une barre, l’échec n’est demandé que le jour Lourd, ou sans zone de plan si la barre n’est pas allée à l’échec dans les 6 jours ;
   //   · I86 — aucun dépassement (« Passer en… ») sur un exercice dont la seule série de travail est « Au max ».
   // (I87, la fatigue, vit dans `faits.entreeFatigue` : l'arrivée ou le retrait de « Au max » exclut l'exercice des fenêtres.)
-  function verifierAuMax(plan, erreurs) {
-    var M = Moteur();
+  function verifierAuMax(plan, erreurs, entrees) {
+    var M = Moteur(), e65 = entrees && entrees.plus65 === true;
     ((plan && plan.exercices) || []).forEach(function (x, i) {
       if (!x) return;
       var nom = ' — exercice ' + i + ' (' + x.slug + ') : ';
@@ -7265,6 +7271,16 @@
           if (x.auMax.zoneDePlan ? x.auMax.zoneDePlan !== 'lourd' : x.auMax.echecRecent === true)
             erreurs.push('I99' + nom + 'l’échec demandé sur une barre ' + (x.auMax.zoneDePlan ? 'un jour ' + x.auMax.zoneDePlan : 'déjà allée à l’échec dans les 6 jours'));
         }
+      }
+      // I150 (chantier « première séance sûre », PR 1, MOTEUR §9.30) — 65 ans et plus CONNUS : aucune réserve d'échec sur la ligne « Au max »
+      // (une série déjà validée est un fait figé : on ne la juge pas).
+      var lAu = x.auMax ? (x.lignes || [])[x.auMax.iSerie] : null;
+      if (e65 && a.reserve < 2 && !(lAu && lAu.validee)) erreurs.push('I150' + nom + 'une réserve de ' + a.reserve + ' chez un 65 ans ou plus (jamais l’échec)');
+      // I151 (idem) — une première fois d'un exercice (la consigne, `Moteur.estPremiereFois`) : aucune carte « au max » proposée et aucune réserve
+      // < 2 ; la marque de la personne est respectée à « garde 2 », jamais effacée.
+      if (M.estPremiereFois(x.consigne)) {
+        if (x.propositionAuMax) erreurs.push('I151' + nom + 'une carte « Au max » proposée à la première fois');
+        if (a.reserve < 2 && !(lAu && lAu.validee)) erreurs.push('I151' + nom + 'une réserve de ' + a.reserve + ' à la première fois (au moins 2)');
       }
       var texte = x.auMax ? x.auMax.consigne : null;
       if (texte && (a.reserve === 0) !== /^Jusqu/.test(texte)) erreurs.push('I84' + nom + 'la consigne « ' + texte + ' » ne dit pas la réserve ' + a.reserve);

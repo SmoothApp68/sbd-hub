@@ -33,7 +33,10 @@ const catalogue = () => {
 };
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const BASE = { materiel: 'salle_complete', anciennete: '3_a_5_ans', phase: 'maintien', priorites: [], menager: [], ecartes: [], faits: {} };
-const entree = (o) => Object.assign(clone(BASE), o);
+// Chantier « première séance sûre », PR 1 : un exercice sans historique est une première fois, le générateur n'y marque rien. Ces cas jouent
+// la décision sur des exercices DÉJÀ FAITS (tous ceux du catalogue) ; la première fois est dans v2-au-max-65-premiere-fois.test.js.
+const faitsDeTout = () => { const f = {}; Object.keys(cat).forEach((s) => { f[s] = 5; }); return f; };
+const entree = (o) => Object.assign(clone(BASE), { faits: faitsDeTout() }, o);
 const lignes = (rs) => [].concat.apply([], rs.map((rt) => rt.exercices));
 const cat = catalogue();
 const SQUAT = 'squat_barre', COUCHE = 'developpe_couche_barre', SOULEVE = 'souleve_de_terre_barre', MILITAIRE = 'developpe_militaire_barre';

@@ -196,3 +196,203 @@ describe('T-A5/T-A6/T-A7/T-A16 — la levée : (A) une rep à Ch, (N) deux séan
     expect(actif([Z0, { series: [[102.5, 12]] }])).toBeNull();
   });
 });
+
+// ── Commit 3 : l'effet — plafonner, tenue_apres_zero, compteur neutre, rvX nul, estApresZero, I155 ──
+const S = require('../../v2/js/seance.js');
+const T = require('../../v2/js/plan.js');
+const A = require('../../v2/js/assistant.js');
+const OPT = { mesure: 'charge_reps', equipement: 'machine', intention: 'progresser', reglage: 'normal', edition: false, debutant: false };
+const R3 = { ressenti: 'reste_3_plus' };
+const seanceN = (i, series, seance) => ({ seance: Object.assign({ id: 'H' + i, debut: jourN(i) }, seance || {}), series });
+// séances de série plate : [kg, reps | [reps…], extra?] tous les 3 jours
+const plat = (liste) => liste.map(([kg, reps, extra], i) => seanceN(i, (Array.isArray(reps) ? reps : [reps, reps, reps]).map((x) => brute(kg, x, extra))));
+const avantN = (k, jours) => new Date(Date.parse(jourN(k - 1)) + (jours || 3) * 864e5).toISOString();
+const consigne = (gr, k, opt) => M.consigneDExercice(gr.slice(0, k), undefined, avantN(k), Object.assign({}, OPT, opt || {}));
+const pz = (c) => c.fondement && c.fondement.plafondZero;
+
+describe('T-A1 / T-A1b — le yo-yo : machine pas 5, 20×2 ; 25×0 ; 20×2 …', () => {
+  const suite = (typage) => plat([[20, 2], [25, [0, 0, 0], typage ? { type_serie: typage } : undefined], [20, 2], [20, 2], [20, 2]]);
+  [undefined, 'travail', 'echec'].forEach((typage) => {
+    test('typage ' + (typage || 'défaut') + ' : B (zero_rep) puis tenue 20×2 « pas encore. Je garde 20 kg. », puis levé par (N) → bord 25', () => {
+      const gr = suite(typage);
+      const z = consigne(gr, 2);
+      expect(z.consigne.etat).toBe('zero_rep');
+      expect(pz(z.consigne).mord).toBe(false);
+      const t = consigne(gr, 3);
+      expect(t.consigne.etat).toBe('tenue_apres_zero');
+      expect(t.consigne.ligne).toEqual({ charge: 20, vise: 2 });
+      expect(t.consigne.haut).toBeNull();
+      expect(sp(t.libelles.gris)).toBe('25 kg × 0 : pas encore. Je garde 20 kg.');
+      expect(pz(t.consigne)).toMatchObject({ charge: 25, mord: true, reste: 1 });
+      expect(consigne(gr, 4).consigne.etat).toBe('bord');          // la 2e séance comptée : échu
+      expect(consigne(gr, 4).consigne.ligne.charge).toBe(25);
+    });
+  });
+  test('Pourquoi : reste 2 → « cette séance et la suivante » ; reste 1 → « pour cette séance » (O21)', () => {
+    // un zéro isolé dans une séance qui a réussi à 20 : zeroPartiel, reste 2 sur la séance d'après
+    const gr = plat([[20, 2], [20, [2, 2, 2]]]);
+    gr[1].series.push(brute(25, 0));
+    const t = consigne(gr, 2);
+    expect(t.consigne.etat).toBe('tenue_apres_zero');
+    expect(pz(t.consigne).reste).toBe(2);
+    const p = M.consigneDExercice(gr.slice(0, 2), undefined, avantN(2), OPT);
+    expect(p.consigne.etat).toBe('tenue_apres_zero');
+  });
+  test('un echec à ≥ 1 rep (menée à l\'échec) ne pose rien (T-A1b)', () => {
+    const gr = plat([[20, 2], [25, [3, 3, 3], { type_serie: 'echec' }]]);
+    expect(pz(consigne(gr, 2).consigne)).toBeFalsy();
+  });
+  test('pas 2,5 : la base 22,5 < Ch → mord faux (la tenue ne plafonne rien de plus)', () => {
+    const gr = plat([[20, 2], [25, [0, 0, 0]], [20, 2]]);
+    const c = consigne(gr, 3, { equipement: 'barre' });
+    expect(c.consigne.etat).not.toBe('tenue_apres_zero');
+  });
+});
+
+describe('T-A2 / T-A2b / T-A3 / T-A3b — ce que remplace le plafond', () => {
+  const histoireDuTest = (z) => {
+    const t = (i) => seanceN(i, [brute(24, 10, R3), brute(24, 10, R3), brute(24, 10, R3)]);
+    return [t(0), seanceN(1, [brute(24, 10, R3), brute(24, 10, R3), brute(24, 10, R3), brute(z, 0)])];
+  };
+  const O = { equipement: 'barre' };
+  test('T-A2 : un test proposé à 26,5 après un zéro à 26,5 → tenue 24 ; haut nul ; fondement minimal (I57/I61/I62/I68 par construction)', () => {
+    const gr = histoireDuTest(26.5);
+    const k = consigne(gr, 2, O).consigne;
+    expect(k.etat).toBe('tenue_apres_zero');
+    expect(k.haut).toBeNull();
+    expect(k.ligne.charge).toBe(24);
+    expect(pz(k).sans.etat).toBe('test_propose');
+    ['effortVise', 'approchee', 'cranGros', 'preuve', 'test'].forEach((cle) => expect(k.fondement[cle]).toBeUndefined());
+    expect(Object.keys(k.fondement).every((c) => ['date', 'reps', 'seance', 'habitude', 'deuxSeances', 'plafondZero'].includes(c))).toBe(true);
+  });
+  test('T-A2 : un test plus léger que Ch (zéro à 27 pour un test à 26,5) reste — ni mord, ni changement d\'état', () => {
+    const k = consigne(histoireDuTest(27), 2, O).consigne;
+    expect(k.etat).toBe('test_propose');
+    expect(pz(k).mord).toBe(false);
+  });
+  test('T-A3 : une faute de frappe sous le palier (87,5×0) = octet pour octet celle du témoin ; 102,5×0 pose ; la séance suivante ne lève pas', () => {
+    const base = plat([[100, 5], [100, 5]]);
+    const avecFaute = plat([[100, 5], [100, 5]]); avecFaute[1].series.push(brute(87.5, 0));
+    const O2 = { equipement: 'barre' };
+    const a = consigne(avecFaute, 2, O2).consigne, b = consigne(base, 2, O2).consigne;
+    ['etat', 'ligne', 'haut', 'zone', 'palier', 'niveau'].forEach((cle) => expect(a[cle]).toEqual(b[cle]));
+    expect(JSON.stringify(a)).not.toMatch(/plafondZero/);
+    const avecZero = plat([[100, 5], [100, 5], [100, 5]]); avecZero[1].series.push(brute(102.5, 0));
+    expect(pz(consigne(avecZero, 2, O2).consigne)).toMatchObject({ charge: 102.5, mord: true, reste: 2 });
+    expect(pz(consigne(avecZero, 3, O2).consigne)).toMatchObject({ charge: 102.5, reste: 1 });   // 100×5 du jour suivant ne lève pas
+  });
+  test('T-A3b (O1, mutation t1) : `_bord` et `_lues` survivent au plafond, non énumérables', () => {
+    const gr = plat([[20, 2], [25, [0, 0, 0]], [20, 2]]);
+    gr[1].series = [brute(20, 2), brute(20, 2), brute(25, 0)];
+    const c = consigne(gr, 2).consigne;
+    expect(c.etat).toBe('tenue_apres_zero');
+    ['_bord', '_lues'].forEach((cle) => { const d = Object.getOwnPropertyDescriptor(c, cle); expect(d).toBeDefined(); expect(d.enumerable).toBe(false); });
+  });
+  test('T-A2b (O3, mutation t3) : `nouvelle_zone` à 112,5 (≥ Ch 105) avec un palier 100 traverse consigneDExercice → palier 100, jamais 107,5', () => {
+    const lourd = [brute(100, 4), brute(100, 4), brute(100, 4)];
+    const gr = [seanceN(0, lourd), seanceN(1, lourd.map((s) => brute(100, 4)).concat([brute(105, 0)]))];
+    const c = M.consigneDExercice(gr, undefined, avantN(2), Object.assign({}, OPT, { equipement: 'barre', correction: 'volume' })).consigne;
+    expect(c.etat === 'tenue_apres_zero' || pz(c) === undefined || pz(c).mord === false).toBe(true);
+    if (c.etat === 'tenue_apres_zero') expect(c.ligne.charge).toBe(100);
+    expect(c.ligne && c.ligne.charge < 105).toBe(true);
+  });
+});
+
+describe('T-A15 / T-A18 — idempotence, non-régression, jamais « mord toujours »', () => {
+  test('sans zéro, la consigne est octet pour octet celle d\'avant (aucune clé ajoutée)', () => {
+    const gr = plat([[100, [8, 8, 7]], [100, [8, 8, 8]]]);
+    const c = consigne(gr, 2, { equipement: 'barre' });
+    expect(JSON.stringify(c)).not.toMatch(/plafondZero|tenue_apres_zero/);
+  });
+  test('T-A18 : une personne avec un zéro LEVÉ n\'a pas de tenue ; un zéro à ou sous le palier non plus', () => {
+    const gr = plat([[20, 2], [25, [0, 0, 0]], [20, 2], [25, 1]]);
+    expect(consigne(gr, 4).consigne.etat).not.toBe('tenue_apres_zero');
+    expect(JSON.stringify(consigne(gr, 4).consigne)).not.toMatch(/"mord":true/);
+  });
+  test('idempotence : plafonner(tenue) = la tenue (même objet)', () => {
+    const gr = plat([[20, 2], [25, [0, 0, 0]], [20, 2]]);
+    const c = consigne(gr, 3).consigne;
+    expect(c.etat).toBe('tenue_apres_zero');
+    expect(M.plafonner(c, M.contratDe(plat([[20, 2], [25, [0, 0, 0]], [20, 2]]), undefined, 'charge_reps', { reglage: 'normal', equipement: 'machine' }), avantN(3), {})).toBe(c);
+  });
+  test('B octet pour octet : zero_rep (séance entière à zéro) = ce que livrait la PR 3, flaggé `mord: false`', () => {
+    const k = consigne(plat([[100, [8, 8, 7]], [102.5, 0]]), 2, { equipement: 'barre' }).consigne;
+    expect(k.etat).toBe('zero_rep');
+    expect(k.ligne).toMatchObject({ charge: 97.5, vise: 9 });
+    expect(pz(k).mord).toBe(false);
+  });
+});
+
+describe('T-A10 (I2) — le compteur de stagnation : une tenue imposée ne compte pas (mutation n)', () => {
+  const R = (i) => seanceN(i, [brute(24, 10, R3), brute(24, 10, R3), brute(24, 10, R3)]);
+  const gr = [R(0), seanceN(1, [brute(24, 10, R3), brute(24, 10, R3), brute(24, 10, R3), brute(26.5, 0)]), R(2), R(3), R(4)];
+  const cpt = (k) => M.compteurDe(M.contratDe(gr.slice(0, k), undefined, 'charge_reps', { reglage: 'normal', equipement: 'barre' }), avantN(k),
+    { reglage: 'normal', equipement: 'barre', toutes: true });
+  test('la consigne reçue par les séances 2 et 3 est la tenue (fixture qui déclenche le chemin)', () => {
+    expect(consigne(gr, 2, { equipement: 'barre' }).consigne.etat).toBe('tenue_apres_zero');
+    expect(consigne(gr, 3, { equipement: 'barre' }).consigne.etat).toBe('tenue_apres_zero');
+  });
+  test('deux séances tenues sans progrès → compteur inchangé', () => {
+    const avant = cpt(2).compteur;
+    expect(cpt(4).compteur).toBe(avant);
+  });
+});
+
+describe('le plan — pendant la tenue après un zéro : I155, I154 étendu, puces (T-A2, T-A12)', () => {
+  const erreursDe = (p, e) => T.verifierPlan(p, e).erreurs;
+  function planDe(gr, optionsDeConsigne, extra) {
+    let k = 0;
+    const id = () => 'q-s' + (++k);
+    let se = S.creer({ id: 'S', userId: 'u', idSerie: id });
+    se = S.ajouterExercice(se, 'dc', id, { series: 3 });
+    se.exercices[0].series.forEach((s) => { s.reps_visees = 10; });
+    se.exercices[0].series[2].au_max = true;
+    const avant = avantN(gr.length);
+    const c = M.consigneDExercice(gr, undefined, avant, Object.assign({}, OPT, { equipement: 'barre' }, optionsDeConsigne || {}));
+    const e = Object.assign({
+      seance: { id: 'S', debut: avant, edition: false, exercices: se.exercices },
+      consignes: { dc: c }, paris: [], suites: {}, reglage: 'normal', objectif: 'muscle', debutant: false,
+      catalogue: { dc: { nom: 'Développé couché', equipement: 'barre', mesure: 'charge_reps', pas: 2.5,
+        muscles_primaires: ['pectoraux'], muscles_secondaires: ['triceps'], muscles_stabilisateurs: [] } }
+    }, extra || {});
+    const p = T.planDeSeance(e);
+    return { p, e, x: p.exercices[0], c };
+  }
+  const R = (i) => seanceN(i, [brute(24, 10, R3), brute(24, 10, R3), brute(24, 10, R3)]);
+  const gr = [R(0), seanceN(1, [brute(24, 10, R3), brute(24, 10, R3), brute(24, 10, R3), brute(26.5, 0)])];
+  test('T-A2 : un test proposé puis plafond → verifierPlan vert (I57/I61/I62/I68/I155), aucune ligne de test, aucun effort visé, aucune carte « Au max »', () => {
+    const { p, e, x } = planDe(gr);
+    expect(x.consigne.etat).toBe('tenue_apres_zero');
+    expect(erreursDe(p, e)).toEqual([]);
+    expect(x.propositionAuMax || null).toBeNull();
+    expect(x.reserveVisee === null || x.reserveVisee === undefined).toBe(true);
+    expect((x.planInitial || []).concat(x.lignes || []).some((l) => l && l.role === 'test')).toBe(false);
+  });
+  test('T-A12 (mutation o) : estApresZero reconnaît la tenue ; une personne sans zéro, jamais', () => {
+    expect(M.estApresZero(consigne(gr, 2, { equipement: 'barre' }).consigne)).toBe(true);
+    expect(M.estApresZero(consigne([R(0), R(1)], 2, { equipement: 'barre' }).consigne)).toBe(false);
+  });
+  test('I155 est un vrai invariant : une tenue fabriquée avec une ligne à Ch, un haut ou un effortVise est refusée', () => {
+    const { p, e } = planDe(gr);
+    const c = e.consignes.dc.consigne;
+    const faux = (patch) => {
+      const e2 = Object.assign({}, e, { consignes: { dc: Object.assign({}, e.consignes.dc, { consigne: Object.assign({}, c, patch) }) } });
+      return erreursDe(T.planDeSeance(e2), e2).filter((m) => /I155|I154/.test(m));
+    };
+    expect(faux({ ligne: { charge: 26.5, vise: 10 } }).length).toBeGreaterThan(0);
+    expect(faux({ haut: { charge: 26.5, vise: 3, k: 1 } }).length).toBeGreaterThan(0);
+    expect(faux({ fondement: Object.assign({}, c.fondement, { effortVise: { x: 1 } }) }).length).toBeGreaterThan(0);
+    expect(faux({}).length).toBe(0);
+  });
+  test('assistant : les puces de la tenue', () => {
+    expect(A.puces('tenue_apres_zero')).toEqual(['Pourquoi tu tiens la charge ?', 'Quand tu remontes ?', 'Et ensuite ?']);
+  });
+  test('Pourquoi : la phrase de la tenue (reste 2 : « cette séance et la suivante »)', () => {
+    const { x } = planDe(gr);
+    const texte = sp(JSON.stringify(x.pourquoi || x.consigne));
+    expect(x.consigne.etat).toBe('tenue_apres_zero');
+    expect(texte).toContain('Ta série à 26,5 kg est restée à 0 rep');
+    expect(texte).toContain('je garde 24 kg pour cette séance et la suivante. Une rep à 26,5 kg, et je reprends la montée à la séance d’après.');
+    expect(texte).not.toMatch(/plafond|quand même|encore 2 séances/);
+  });
+});

@@ -2545,6 +2545,8 @@
         // protégée (ce que l'écran affiche, ce que le pari écrit). Sur une ligne de test protégée : aucune réserve affichée, donc aucun effort
         // visé ni question de réserve.
         var rvTable = rvElig ? Moteur().reserveVisee(rvOptions) : null;
+        // PR 4b (R-A, O5) — pendant le plafond, aucun effort visé (jamais « garde 1 » juste après un zéro : I154) : ni la table ni l'affichée.
+        if (x.consigne.fondement && x.consigne.fondement.plafondZero && x.consigne.fondement.plafondZero.mord === true) { rvElig = false; rvTable = null; }
         var rvX = rvElig ? Moteur().reserveAffichee(Object.assign({ protegee: protegee }, rvOptions)) : null;
         x.reserveVisee = rvTable;
         x.reserveAffichee = rvX;
@@ -5893,6 +5895,11 @@
       if (f.zeroRep.vers !== undefined) fait['zero_rep.vers'] = { charge: f.zeroRep.vers };
       if (f.zeroRep.visees !== undefined) fait['zero_rep.visees'] = { valeur: f.zeroRep.visees };
     }
+    // PR 4b (R-A) — le plafond après un zéro : la charge restée à 0 rep (jamais écrite autrement que citée, I26).
+    if (f.plafondZero && f.plafondZero.mord === true) {
+      fait.plafond_zero = { charge: f.plafondZero.charge, reps: [0] };
+      fait['plafond_zero.charge'] = { charge: f.plafondZero.charge };
+    }
     // 174 (3/3) — la zone 3-5 proposée sous 3 reps : le record (charge × reps) et le compte long.
     var eb = x.escalier && x.escalier.bord;
     if (eb) {
@@ -7041,6 +7048,27 @@
           var pc = l && !l.validee && l.type !== 'chauffe' && l.prerempli ? nombre(l.prerempli.charge_kg) : null;
           if (pc !== null && pc >= nombre(z.charge) - 1e-9) erreurs.push('I153' + nom + 'une ligne préremplie à ' + pc + ' kg, la charge qui vient d’échouer (calage)');
         });
+      }
+      // I155 (PR 4b, R-A, MOTEUR §9.42 bis) — LE PLAFOND APRÈS UN ZÉRO : quand il mord, la consigne est `tenue_apres_zero`, la ligne EST le palier,
+      // aucune ligne ni haut n'est à `Ch` ou au-dessus, il n'y a pas de haut, palier/niveau/n/zone sont ceux de la consigne d'avant plafond (`sans`),
+      // la ligne n'est jamais au-dessus de la sienne, et le fondement ne porte plus rien de ce qu'une ligne remplacée justifiait (I57, I61, I62, I68).
+      var pz = k.fondement ? k.fondement.plafondZero : null;
+      if (pz && pz.mord === true) {
+        var Ch = nombre(pz.charge), sans = pz.sans || {};
+        if (k.etat !== 'tenue_apres_zero') erreurs.push('I155' + nom + 'un plafond qui mord sans l’état tenue_apres_zero (' + k.etat + ')');
+        if (k.ligne && nombre(k.ligne.charge) !== null && nombre(k.ligne.charge) >= Ch - 1e-9) erreurs.push('I155' + nom + 'une ligne à ' + k.ligne.charge + ' kg, au-dessus de la charge restée à 0 rep (' + Ch + ' kg)');
+        if (k.haut) erreurs.push('I155' + nom + 'une ligne haute pendant le plafond');
+        if (!k.ligne || nombre(k.ligne.charge) !== nombre(k.palier)) erreurs.push('I155' + nom + 'une ligne qui n’est pas le palier tenu (' + (k.ligne ? k.ligne.charge : 'aucune') + ' pour ' + k.palier + ')');
+        ['palier', 'niveau', 'n', 'zone'].forEach(function (cle) {
+          if (sans[cle] !== undefined && k[cle] !== sans[cle]) erreurs.push('I155' + nom + cle + ' modifié par le plafond (' + k[cle] + ' pour ' + sans[cle] + ')');
+        });
+        if (sans.ligne && nombre(sans.ligne.charge) !== null && k.ligne && nombre(k.ligne.charge) > nombre(sans.ligne.charge) + 1e-9) erreurs.push('I155' + nom + 'une ligne plafonnée plus lourde que celle d’avant plafond');
+        ['effortVise', 'approchee', 'cranGros', 'preuve', 'test'].forEach(function (cle) {
+          if (k.fondement[cle] !== undefined) erreurs.push('I155' + nom + 'le fondement d’une tenue après un zéro porte « ' + cle + ' »');
+        });
+        if (x.reserveVisee !== null && x.reserveVisee !== undefined) erreurs.push('I154' + nom + 'un effort visé à ' + x.reserveVisee + ' pendant la tenue après un zéro');
+      } else if (k.etat === 'tenue_apres_zero') {
+        erreurs.push('I155' + nom + 'une tenue après un zéro sans plafond qui mord');
       }
       if (M.estApresZero(k)) {
         if (x.propositionAuMax) erreurs.push('I154' + nom + 'une carte « Au max » proposée après un zéro rep');

@@ -1928,7 +1928,63 @@
     return { etat: 'zero_rep', zone: null, palier: base.palier, niveau: base.niveau, n: base.n, ligne: ligne, haut: null, fondement: fondement };
   }
 
+  // PR 4b (R-A, MOTEUR §9.42 bis) — LE PLAFOND APRÈS UN ZÉRO REP, UN SEUL ENVELOPPEUR. `consignePour` = `plafonner(consigneSansPlafond(…))` ; il
+  // s'applique de nouveau, EN DERNIER, dans `consigneDExerciceCalcul` (le pipeline continue après `consignePour` : report de zone, départs, salle).
+  // Sur une `tenue_apres_zero`, il rend l'objet (idempotence) ; sinon il recalcule depuis la consigne reçue. Jamais dans la récursion `sansZero` de
+  // la règle B (elle est la base de B : B décide seule sur sa séance de zéro entière).
   function consignePour(seances, avant, options) {
+    var r = consigneSansPlafond(seances, avant, options);
+    return plafonner(r, seances, avant, options);
+  }
+  // Les états que le plafond ne touche jamais (leur charge est déjà au palier ou n'est pas une proposition) : ils portent le drapeau (`mord: false`).
+  var ETATS_SANS_PLAFOND = { zero_rep: true, reprise_courte: true, reprise_longue: true, silence: true, fini: true, arret: true,
+                             depart_routine: true, depart_leste: true, tenue_apres_zero: true };
+  function copieDeConsigne(r, ajout) {
+    var c = Object.assign({}, r, ajout);
+    // `_bord` (le compte long de la règle de bord) et `_lues` (les séances lues, I152) sont non énumérables : ils suivent la consigne remplacée (O1).
+    ['_bord', '_lues'].forEach(function (cle) {
+      var d = Object.getOwnPropertyDescriptor(r, cle);
+      if (d) Object.defineProperty(c, cle, { value: d.value, enumerable: false });
+    });
+    return c;
+  }
+  function plafonner(r, seances, avant, options) {
+    var opt = options || {};
+    if (!r || typeof r !== 'object' || opt.sansZero === true || r.etat === 'tenue_apres_zero') return r;
+    var liste = seances || [];
+    if (!liste.some(function (se) { return !!se && !!se.plafondZero; })) return r;
+    if (r.allegee) return r;
+    var salleDeclaree = opt.salle ? avecRallonge(opt.salle, opt.rallonge) : null;
+    if (salleDElastiques(salleDeclaree)) return r;
+    var palier = nombre(r.palier);
+    var act = plafondActif(liste, avant, palier);
+    if (act === null) return r;
+    var Ch = act.charge;
+    var cL = r.ligne ? nombre(r.ligne.charge) : null, cH = r.haut ? nombre(r.haut.charge) : null;
+    // `mord` : la ligne ou le haut vaut Ch ou plus ; une ligne sans chiffre (haltères : « le cran au-dessus ») est supposée au-dessus (prudent).
+    var mord = ETATS_SANS_PLAFOND[r.etat] !== true && palier !== null && palier > 0 &&
+      ((!!r.ligne && (cL === null || cL >= Ch - 1e-9)) || (!!r.haut && (cH === null || cH >= Ch - 1e-9)));
+    var drapeau = { charge: Ch, reste: act.reste, n: act.n, mord: false };
+    if (mord) {
+      var zone = r.zone ? zoneParCle(r.zone) : null;
+      var niveau = nombre(r.niveau);
+      var vise = niveau !== null && niveau >= 1 ? (zone !== null ? Math.min(niveau, zone.haut) : niveau)
+        : (r.ligne && memeCharge(nombre(r.ligne.charge), palier) ? nombre(r.ligne.vise) : (zone !== null ? zone.bas : null));
+      if (vise !== null && vise >= 1) {
+        // O4 — le fondement est RECONSTRUIT minimal : ni `effortVise`, `approchee`, `cranGros`, `preuve` ni `test` ne survivent à une ligne
+        // remplacée (I57, I61, I62, I68 passent par construction).
+        var fo = r.fondement || {}, fm = {};
+        ['date', 'reps', 'seance', 'habitude', 'deuxSeances'].forEach(function (cle) { if (fo[cle] !== undefined) fm[cle] = fo[cle]; });
+        drapeau.mord = true;
+        drapeau.sans = Object.assign({}, r);
+        fm.plafondZero = drapeau;
+        return copieDeConsigne(r, { etat: 'tenue_apres_zero', ligne: { charge: palier, vise: vise }, haut: null, fondement: fm });
+      }
+    }
+    return copieDeConsigne(r, { fondement: Object.assign({}, r.fondement, { plafondZero: drapeau }) });
+  }
+
+  function consigneSansPlafond(seances, avant, options) {
     var opt = options || {};
     // PR 2 (MOTEUR §9.42) — une séance de zéro rep dans l'historique : la règle du zéro (`consigneApresUnZero`) passe avant tout. Elle
     // se rappelle SANS les zéros (`sansZero`) : le compteur, les paris rejoués et la consigne vivante passent tous par ici.
@@ -2761,7 +2817,9 @@
   var ETATS_MUETS_REACTION = {
     silence: true, bord: true, bord_garde: true, bord_recul: true, bord_vague: true,
     // PR 2 (§9.42) — après un zéro rep, le coach ne réagit pas en temps réel : rien à pousser, la ligne est un retour en arrière.
-    zero_rep: true
+    zero_rep: true,
+    // PR 4b (R-A, O6) — pendant le plafond, la réaction §9.14 ne propose pas le cran au-dessus (après « Tenter », la consigne affichée est `sans` : elle reprend).
+    tenue_apres_zero: true
   };
 
   // §9.9 (delta 49-13, 27/09/2026) — LE REPLI DE LA REPRISE LONGUE, PLAFONNÉ.
@@ -4687,6 +4745,20 @@
     return chargeFois(z.charge, 0, cF) + DEUX_POINTS + 'pas encore. ' + (z.bornee === true ? 'Je reviens à ' : 'Je baisse à ') +
       enKg(z.vers, cite(FAIT, { quoi: 'zero_rep.vers' })) + '.';
   }
+  // PR 4b (R-A, MOTEUR §9.42 bis) — LES PHRASES DU PLAFOND (VOIX : « je » quand le coach décide, un fait, jamais « plafond » ni un nombre de séances en chiffres ; O21).
+  function phraseDeLaTenueApresZero(z, c) {
+    return chargeFois(z.charge, 0, cite(FAIT, { quoi: 'plafond_zero' })) + DEUX_POINTS + 'pas encore. Je garde ' +
+      enKg(c.ligne.charge, cite(CIBLE, { role: 'ligne' })) + '.';
+  }
+  function pourquoiDeLaTenueApresZero(z, c) {
+    var cC = cite(FAIT, { quoi: 'plafond_zero.charge' });
+    var zero = nombreFr(0, cite(FAIT, { quoi: 'plafond_zero', champ: 'reps' }));
+    var un = !(z.n > 1);
+    var garde = enKg(c.ligne.charge, cite(CIBLE, { role: 'ligne' }));
+    return (un ? 'Ta série à ' : 'Tes séries à ') + enKg(z.charge, cC) + (un ? ' est restée à ' : ' sont restées à ') + zero + ' rep' + DEUX_POINTS +
+      'je garde ' + garde + (z.reste >= 2 ? ' pour cette séance et la suivante. Une rep à ' + enKg(z.charge, cC) + ', et je reprends la montée à la séance d\u2019après.'
+                                          : ' pour cette séance.');
+  }
   // Le Pourquoi : le fait, d'où l'on repart (le cran le plus proche de 95 % ; ou la charge d'avant), et quand on remonte.
   function pourquoiDeZeroRep(z, palier) {
     var cC = cite(FAIT, { quoi: 'zero_rep.charge' });
@@ -4922,6 +4994,10 @@
 
       case 'zero_rep':
         return f.zeroRep ? phraseDeZeroRep(f.zeroRep) : '';
+
+      // PR 4b (R-A) — le plafond après un zéro : « 102,5 kg × 0 : pas encore. Je garde 100 kg. » (la ligne EST le palier, par construction).
+      case 'tenue_apres_zero':
+        return f.plafondZero ? phraseDeLaTenueApresZero(f.plafondZero, c) : '';
 
       // §9.17 — AU POIDS DU CORPS, au haut de la zone, deux séances de suite :
       // la ligne tient, et la carte du lest parle (une fois). Le coach ne dit
@@ -5460,6 +5536,8 @@
           ' reps, une réserve sous ma visée garde la charge une séance.';
       case 'zero_rep':
         return f.zeroRep ? pourquoiDeZeroRep(f.zeroRep, c.palier) : '';
+      case 'tenue_apres_zero':
+        return f.plafondZero ? pourquoiDeLaTenueApresZero(f.plafondZero, c) : '';
       case 'bord_vague':
         return !f.bord ? '' : phraseDeBord(c.etat, f.bord) + ' Trois séances sans passer au-dessus de ton meilleur : je baisse d\'environ ' +
           nombreFr(Math.round((1 - BORD_VAGUE) * 100), regle('constante')) + INSECABLE + '%.';
@@ -6521,7 +6599,9 @@
       // dernière fois) n'a pas de zone, et le compteur ne le comptait jamais — une personne qui rate sa cible en reps à chaque
       // séance n'avait aucune sortie (30 séances sur 30, compteur 0). Un progrès en reps (le niveau monte) le remet à zéro.
       var sansZoneMaisCompte = !!k && k.etat === 'etirement_reps' && nombre(k.palier) === 0;
-      if (se.neutre === true || se.decharge === true || !k || k.etat === 'silence' ||
+      // PR 4b (R-A, I2) — une séance dont la consigne reçue était la tenue après un zéro est traitée comme une décharge : ni comptée ni jugée (le coach
+      // tenait la charge ; suivre sans progrès ne ferait pas monter la stagnation), une présence pour la reprise.
+      if (se.neutre === true || se.decharge === true || !k || k.etat === 'silence' || k.etat === 'tenue_apres_zero' ||
           ((k.zone === null || k.zone === undefined) && !sansZoneMaisCompte) || P === null) {
         if (!premiere && k && repriseDe(liste.slice(0, i), se.debut) !== AUCUNE_REPRISE) repriseEnAttente = true;
         return;
@@ -10104,6 +10184,8 @@
     // charge que la salle fait. La salle en vigueur se fige avec la consigne.
     var salle = salleDeLaConsigne(consigne, o.salle);
     consigne = consigneDansLaSalle(consigne, salle);
+    // PR 4b (R-A, O3) — le plafond, EN DERNIER : ce qui précède (report de zone, départs, salle) a pu poser une charge au-dessus de Ch.
+    consigne = plafonner(consigne, seances, avant, o);
     var rejeu = rejeuDuCompteur(seances, groupes, avant, o);
     var marquees = rejeu.marquees;
     var compteur = compteurFige(rejeu.complet);
@@ -11138,11 +11220,11 @@
     var c = consigne || null;
     return !!c && ((c.etat === 'silence' && c.raison === 'premiere_fois') || c.etat === 'depart_routine');
   }
-  // PR 2 (MOTEUR §9.42, I154) — APRÈS UN ZÉRO REP, RIEN D'AMBITIEUX : la consigne est `zero_rep` ou le silence `zero_plancher`. « Au max » suit
+  // PR 2 (MOTEUR §9.42, I154) — APRÈS UN ZÉRO REP, RIEN D'AMBITIEUX : la consigne est `zero_rep`, le silence `zero_plancher` ou (PR 4b, R-A) la `tenue_apres_zero`. « Au max » suit
   // la règle de la première fois : aucune carte proposée, jamais en dessous de « garde 2 » ; la marque de la personne reste respectée.
   function estApresZero(consigne) {
     var c = consigne || null;
-    return !!c && (c.etat === 'zero_rep' || (c.etat === 'silence' && c.raison === 'zero_plancher'));
+    return !!c && (c.etat === 'zero_rep' || c.etat === 'tenue_apres_zero' || (c.etat === 'silence' && c.raison === 'zero_plancher'));
   }
   // D-A3 — les mots de la carte de la dernière série et du bouton du menu : pour un 65+ connu, « en gardant 2 reps » (le plancher), pas « au max ».
   // Le plan les pose (`x.auMaxMots`, `proposition.titre`) ; l'écran les lit.
@@ -12795,6 +12877,7 @@
     estApresZero: estApresZero,
     descenteApresUnZero: descenteApresUnZero,
     plafondActif: plafondActif,
+    plafonner: plafonner,
     SEANCES_DU_PLAFOND: SEANCES_DU_PLAFOND,
     motsDeLAuMax: motsDeLAuMax,
     // 236 (§9.39) — le coach en temps réel après un raté : UNE fonction de décision, ses mots, ses constantes

@@ -663,3 +663,14 @@ describe('« Tenter » : le libellé se lit sur `sans` (T-A17), le geste substit
     expect(T.verifierPlan(p, e).erreurs.filter((m) => /I159/.test(m)).length).toBeGreaterThan(0);
   });
 });
+
+describe('t10 — `suivantes` est borné à SUIVANTES_MAX (le contrat ne grossit pas avec l\'histoire)', () => {
+  test('un zéro suivi de 30 séances sans atteindre Ch : au plus 8 suivantes, et le plafond échu (O12)', () => {
+    const liste = [{ series: [[100, 5], [100, 5], [102.5, 0]] }];
+    for (let i = 0; i < 30; i++) liste.push({ series: [[90, 5], [90, 5], [90, 5]] });
+    const c = contrat(liste);
+    expect(c[0].plafondZero.suivantes.length).toBeLessThanOrEqual(8);
+    expect(c[0].plafondZero.suivantes.length).toBe(8);
+    expect(actif(liste, 100)).toBeNull();
+  });
+});

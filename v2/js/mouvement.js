@@ -153,7 +153,29 @@
     tractions_scapulaires: 'tractions_scapulaires.json',
     tractions_supination_lestees: 'tractions_supination_lestees.json',
     burpee: 'burpee.json',
-    epaule_jete: 'epaule_jete.json'
+    epaule_jete: 'epaule_jete.json',
+    developpe_couche_alterne_haltere: 'developpe_couche_alterne_haltere.json',
+    developpe_couche_avec_pause: 'developpe_couche_avec_pause.json',
+    developpe_couche_barre_elastique: 'developpe_couche_barre_elastique.json',
+    developpe_couche_butees_barre: 'developpe_couche_butees_barre.json',
+    developpe_couche_chaines_barre: 'developpe_couche_chaines_barre.json',
+    developpe_couche_guillotine_barre: 'developpe_couche_guillotine_barre.json',
+    developpe_couche_incline_machine_smith: 'developpe_couche_incline_machine_smith.json',
+    developpe_couche_larsen: 'developpe_couche_larsen.json',
+    developpe_couche_machine_smith: 'developpe_couche_machine_smith.json',
+    developpe_couche_planches: 'developpe_couche_planches.json',
+    developpe_couche_prise_inversee: 'developpe_couche_prise_inversee.json',
+    developpe_couche_prise_large: 'developpe_couche_prise_large.json',
+    developpe_couche_prise_neutre_haltere: 'developpe_couche_prise_neutre_haltere.json',
+    developpe_couche_prise_serree: 'developpe_couche_prise_serree.json',
+    developpe_couche_prise_serree_haltere: 'developpe_couche_prise_serree_haltere.json',
+    developpe_couche_prise_serree_machine_smith: 'developpe_couche_prise_serree_machine_smith.json',
+    developpe_couche_un_bras_haltere: 'developpe_couche_un_bras_haltere.json',
+    developpe_decline_machine_smith: 'developpe_decline_machine_smith.json',
+    developpe_incline_prise_neutre_haltere: 'developpe_incline_prise_neutre_haltere.json',
+    developpe_incline_prise_serree_barre: 'developpe_incline_prise_serree_barre.json',
+    presse_au_sol_barre: 'presse_au_sol_barre.json',
+    presse_au_sol_haltere: 'presse_au_sol_haltere.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

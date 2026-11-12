@@ -528,6 +528,7 @@
           o.material = avecLisere(T3, new T3.MeshPhongMaterial({ vertexColors: true, shininess: 6, specular: 0x0d1117, skinning: true,
             polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 6 }), COUL.contour, 0.7, 0.66, 0.97);
           if (/mains_B/.test(o.name)) mains.B = o; if (/mains_D/.test(o.name)) mains.D = o; if (/mains_O/.test(o.name)) mains.O = o;
+          if (/mains_P_g/.test(o.name)) mains.Pg = o; if (/mains_P_d/.test(o.name)) mains.Pd = o;   // v10 : la main d'appui à plat, un maillage par côté
         }
       }
     });
@@ -539,6 +540,29 @@
       g.setAttribute('color', new T3.BufferAttribute(col, 3)); }
     if (!mains.B || !mains.D) { var s0 = []; corps.scene.traverse(function (o) { if (o.isSkinnedMesh && o !== muscles) s0.push(o); }); mains.B = s0[1]; mains.D = s0[2]; }
     scene.add(corps.scene);
+    // v10 : la main d'appui à plat « P » se choisit par côté (`mainG: 'P'`, `mainD: 'P'` dans l'exercice). De ce côté, la main de
+    // `main` (B, D ou O : un seul maillage pour les deux mains) ne se dessine pas : on ne trace que les triangles de l'autre
+    // côté (un triangle est du côté de l'os `main_g` ou `main_d` que suit son premier sommet). Un exercice sans main P ne passe
+    // jamais ici tant qu'aucun exercice à main P n'a été chargé, et retrouve ensuite l'étendue complète.
+    function cotesDeMain(o) {
+      if (o.userData.cotesMain) return o.userData.cotesMain;
+      var g = o.geometry, ix = g.index, si = g.attributes.skinIndex, n = ix.count / 3, estG = [], t, k, nG = 0;
+      for (t = 0; t < n; t++) { estG[t] = o.skeleton.bones[si.getX(ix.getX(3 * t))] === os.main_g; if (estG[t]) nG++; }
+      var contigu = true; for (t = 1; t < n; t++) if (estG[t] && !estG[t - 1] && t !== n - nG) contigu = false;
+      if (!contigu || (nG && nG < n && !estG[0])) {   // on range les triangles : la main gauche d'abord
+        var a = new ix.array.constructor(ix.count), w = 0;
+        [true, false].forEach(function (cote) { for (t = 0; t < n; t++) if (estG[t] === cote) for (k = 0; k < 3; k++) a[w++] = ix.getX(3 * t + k); });
+        g.setIndex(new T3.BufferAttribute(a, 1)); }
+      return (o.userData.cotesMain = { g: [0, 3 * nG], d: [3 * nG, 3 * (n - nG)] });
+    }
+    function mainsPlates(ex) {
+      var pG = ex.mainG === 'P', pD = ex.mainD === 'P';
+      if (mains.Pg) mains.Pg.visible = pG; if (mains.Pd) mains.Pd.visible = pD;
+      [mains.B, mains.D, mains.O].forEach(function (o) {
+        if (!o || (!pG && !pD && !o.userData.cotesMain)) return;
+        var c = cotesDeMain(o), r = pG && pD ? [0, 0] : pG ? c.d : pD ? c.g : [0, Infinity];
+        o.geometry.setDrawRange(r[0], r[1]); });
+    }
     var BRAS_M = ['biceps', 'triceps', 'avant_bras'];
     function masquer(liste) { for (var i = 0; i < 24; i++) masque[i] = (liste || []).indexOf(noms[i]) >= 0 ? 1 : 0; }
     // un exercice à un bras (`cote: 'droit' | 'gauche'` dans son JSON) ne colore que les muscles de ce côté : le côté d'un
@@ -664,7 +688,7 @@
       if (ex === e.donnees) return; ex = e.donnees;
       if (mat) scene.remove(mat.groupe); mat = e.materiel || (e.materiel = materiel(ex)); scene.add(mat.groupe);
       ordre = ex.os.map(function (n) { var b = os[n]; b.matrixAutoUpdate = false; return b; });
-      colorer(e.roles, ex.cote); masquer(ex.effacer); mains.B.visible = ex.main === 'B'; mains.D.visible = ex.main === 'D'; if (mains.O) mains.O.visible = ex.main === 'O';
+      colorer(e.roles, ex.cote); masquer(ex.effacer); mains.B.visible = ex.main === 'B'; mains.D.visible = ex.main === 'D'; if (mains.O) mains.O.visible = ex.main === 'O'; mainsPlates(ex);
       if (!e.camera) e.camera = ex.camera || cadrageAuto(e);
       cible.set(e.camera.cible[0], e.camera.cible[1], e.camera.cible[2]);
     }

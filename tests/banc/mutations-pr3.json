@@ -1,0 +1,5 @@
+[
+ {"nom": "pr3-sans-routine-id", "fichier": "v2/js/app.js", "ancien": "                routine_id: seance.routine_id || null,\n                // §9.20", "nouveau": "                // §9.20", "banc": "seance", "sections": ["au-max-pr3"], "unitaires": ["tests/unit/v2-au-max-routine-id-pr3.test.js"]},
+ {"nom": "pr3-calage-sans-borne", "fichier": "v2/js/plan.js", "ancien": "      borne: zeroPremiere,\n", "nouveau": "", "banc": "aucun", "unitaires": ["tests/unit/v2-calage-borne-pr3.test.js", "tests/unit/v2-zero-rep-plan.test.js"]},
+ {"nom": "pr3-phrase-je-garde-sur-un-zero", "fichier": "v2/js/moteur.js", "ancien": "{ charge: c, pourquoi: 'borne', bornee: true, borne: borne }", "nouveau": "{ charge: c, pourquoi: 'tenue', bornee: true, borne: borne }", "banc": "aucun", "unitaires": ["tests/unit/v2-calage-borne-pr3.test.js"]}
+]

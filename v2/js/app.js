@@ -8243,6 +8243,8 @@
     }
     return {
       seance: { id: seance.id, debut: seance.debut, edition: edition, exercices: exos,
+                // PR 3 (B5-01) — la routine d'où la séance est partie : sans elle la carte « Dernière série au max ? » (plan.js, `auMaxFaitsDe`) ne vient jamais.
+                routine_id: seance.routine_id || null,
                 // §9.20 — les choix de la carte de reprise, dans le brouillon.
                 reprises: seance.reprises || null,
                 // 236 — les gestes de la séance (réponses du coach en temps réel) : le plan les lit, jamais l'écran.

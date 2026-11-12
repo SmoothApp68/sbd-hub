@@ -9251,6 +9251,19 @@
     var pas = repliDe(equipement, charge, 1);
     return pas === null || pas === undefined ? null : Math.round((charge + pas) * 100) / 100;
   }
+  // PR 3 (B5-03, MOTEUR §9.42.4) — le cran du calage STRICTEMENT SOUS une charge : le symétrique de `cranDuCalage`. `null` quand la salle (ou le
+  // repli du matériel) n'a rien de plus léger. Même source de crans que la montée : jamais un pas recopié.
+  function cranDuCalageEnDessous(equipement, salle, charge) {
+    var l = chargesDeLaSalle(salle);
+    if (l.length) {
+      for (var i = l.length - 1; i >= 0; i--) if (l[i] < charge - 1e-9) return l[i];
+      return null;
+    }
+    var pas = repliDe(equipement, charge, -1);
+    if (pas === null || pas === undefined) return null;
+    var c = Math.round((charge - pas) * 100) / 100;
+    return c > 0 ? c : null;
+  }
   // Le plus petit cran du matériel : la barre vide à la barre ; la plus légère charge de la salle déclarée ; sinon le
   // premier cran du repli (une machine : 5 kg, une poulie : 2,5 kg…). Matériel inconnu : `null`, le calage se tait.
   function plancherDuCalage(equipement, salle) {
@@ -9301,6 +9314,14 @@
     o.prudence = prudence;
     var mode = debutant ? 'debutant' : hab !== null ? 'habituelle' : 'approches';
     var chauffeProchaine = o.prochain === 'chauffe';
+    // PR 3 (B5-03, MOTEUR §9.42.4) — LA BORNE : la plus légère charge de travail restée à 0 rep (la séance d'avant, `entree.borne`, ou une série de
+    // travail de cette séance). Le calage ne propose jamais cette charge ni une plus lourde : il la ramène au cran du matériel juste sous elle, ou se tait.
+    var borne = nombre(o.borne);
+    borne = borne !== null && borne > 0 ? borne : null;
+    faites.forEach(function (s) {
+      var c0 = nombre(s.charge);
+      if (!s.chauffe && nombre(s.reps) === 0 && c0 !== null && c0 > 0) borne = borne === null ? c0 : Math.min(borne, c0);
+    });
     var r = { mode: mode, n: n, faites: k, plancher: o.plancher, equipement: o.equipement || null, plafond: plafondDuCalage(prudence), unCran: prudence.unCran, prudence: null,
               habituelle: hab, suivante: null, question: false, plusLourdeReussie: null };
     var travaillees = faites.filter(function (s) { return !s.chauffe; });
@@ -9313,7 +9334,7 @@
       // La première série : la charge habituelle donnée (série de travail), sinon le plus petit cran du matériel.
       if (hab !== null && !chauffeProchaine) r.suivante = { charge: hab, reps: reps, role: CALAGE_ROLE_HABITUELLE, pourquoi: 'habituelle' };
       else r.suivante = { charge: o.plancher, reps: reps, role: role, pourquoi: 'plancher' };
-      return r;
+      return bornerLeCalage(o, r, borne);
     }
     var derniere = faites[k - 1];
     var charge = nombre(derniere.charge);
@@ -9337,6 +9358,17 @@
       if (ord.crans > mont.crans) { pourquoi = 'plafonne'; r.prudence = { quoi: 'plafond', raison: prudence.raison }; }
     }
     r.suivante = { charge: mont.charge, reps: reps, role: role, pourquoi: pourquoi, crans: mont.crans, depuis: charge };
+    return bornerLeCalage(o, r, borne);
+  }
+
+  // PR 3 (B5-03) — la proposition du calage ne touche jamais la charge restée à 0 rep : au cran juste dessous (`bornee`, `borne` : le chiffre
+  // dont la phrase part) ; sans cran au-dessus du plus petit du matériel, `suivante = null` (le calage se tait, la personne a la main).
+  function bornerLeCalage(o, r, borne) {
+    var s = r.suivante;
+    if (!s || borne === null || !(s.charge >= borne - 1e-9)) return r;
+    var c = cranDuCalageEnDessous(o.equipement, o.salle, borne);
+    if (c === null || c < o.plancher - 1e-9) { r.suivante = null; r.question = false; return r; }
+    r.suivante = Object.assign({}, s, { charge: c, pourquoi: 'borne', bornee: true, borne: borne });
     return r;
   }
 
@@ -9360,6 +9392,7 @@
       else if (s.pourquoi === 'facile_un_cran') pourquoi = 'Facile : je monte d’un cran. ' + PHRASE_UN_CRAN;
       else if (s.pourquoi === 'plafonne') pourquoi = 'Facile : je monte aussi haut que le plafond le permet. ' + PHRASE_PLAFOND;
       else if (s.pourquoi === 'un_cran') pourquoi = 'Il t’en restait 2 : je monte d’un cran.';
+      else if (s.pourquoi === 'borne') pourquoi = enKg(s.borne) + ' est resté à 0 rep : je propose ' + enKg(s.charge) + '.';
       else if (s.pourquoi === 'tenue') pourquoi = 'Il t’en restait peu : je garde cette charge.';
       else if (s.pourquoi === 'sans_reponse') pourquoi = 'Sans ta réponse, je garde cette charge.';
     }

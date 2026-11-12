@@ -896,6 +896,8 @@
     var r = M.calagePremiereFois({
       debutant: e.debutant === true, prudence: prudenceDuPlan(e), equipement: cat.equipement, salle: c.salle || null, mesure: cat.mesure || 'charge_reps',
       reps: reps, habituelle: habituelle, prochain: prochain,
+      // PR 3 (B5-03) — la charge restée à 0 rep à la séance d'avant : le calage ne la reprend ni ne la dépasse (I153).
+      borne: zeroPremiere,
       series: faites.map(function (f) {
         var sr = series[f.j];
         return { charge: nombre(sr.charge_kg), reps: nombre(sr.reps), ressenti: sr.ressenti || null, chauffe: f.chauffe };
@@ -6348,7 +6350,9 @@
       if (s) {
         if (s.role !== 'approche' && s.reps !== k.n) erreurs.push('I73' + nom + 'des reps proposées différentes des ' + k.n + ' de la routine');
         if (s.depuis !== undefined && s.depuis !== null) {
-          if (!(s.charge >= s.depuis - 1e-9)) erreurs.push('I73' + nom + 'une proposition plus légère que la série d’avant');
+          // PR 3 (B5-03) — sauf la proposition BORNÉE : une charge restée à 0 rep ne se reprend pas, la suivante peut être plus légère que la série d'avant (I153 prime).
+          if (!(s.charge >= s.depuis - 1e-9) && s.bornee !== true) erreurs.push('I73' + nom + 'une proposition plus légère que la série d’avant');
+          if (s.bornee === true && !(nombre(s.borne) !== null && s.charge < s.borne - 1e-9)) erreurs.push('I73' + nom + 'une proposition bornée qui n’est pas sous sa borne');
           var surLePlancher = s.depuis <= k.plancher + 1e-9;
           if (!surLePlancher && s.crans > 1 && s.charge > s.depuis * (1 + k.plafond) + 1e-9) {
             erreurs.push('I73' + nom + s.charge + ' kg dépasse le plafond de ' + Math.round(k.plafond * 100) + ' % sur ' + s.depuis + ' kg');

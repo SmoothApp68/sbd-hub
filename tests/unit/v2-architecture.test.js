@@ -45,6 +45,9 @@ const GARDEES = [
   { fn: 'reactionAuRate', module: 'moteur.js' },
   // moteur.js — 251 (MOTEUR §9.39) : la porte du cran (un cran de test se mérite dans la séance) ; une décision, seul `planDeSeance` l'appelle
   { fn: 'decisionDeLaPorte', module: 'moteur.js' },
+  // moteur.js — PR 4a (MOTEUR §9.26 bis) : la réserve visée AFFICHÉE (la table relevée au plancher de 2 pour la population protégée) ; seul `planDeSeance` l'appelle
+  // `reserveAffichee` est AUSSI un champ du plan (`x.reserveAffichee`, que les écrans lisent) : seul l'appel qualifié par le module compte.
+  { fn: 'reserveAffichee', module: 'moteur.js', motif: /(?:\bMoteur|\bMoteur\(\)|\bM|racine\.THMoteur)\s*\.\s*reserveAffichee\b/g },
   // moteur.js — la consigne
   { fn: 'consignePour', module: 'moteur.js' },
   { fn: 'consigneDExercice', module: 'moteur.js' },
@@ -2099,6 +2102,11 @@ const NOTIONS = [
                         raison: 'une liste de noms ne se joint que par `THModele.enumerer` (251-U1) : « A, B et C », jamais « A et B et C »' },
     raison: '251 — la carte de la forme du jour (`phraseDeRate`), les cartes, les équilibres, le générateur et le questionnaire joignaient chacun leurs noms ' +
       'à leur façon ; une notion, une fonction, « A, B et C » partout. `rendu.js` insère des nœuds DOM, pas une chaîne : il n’est pas concerné.' },
+  { notion: 'la population protégée (65 ans et plus connus, débutants, objectif Forme) : le plancher de réserve visée à 2', pr: 'correctif 13/11/2026',
+    module: 'moteur.js', fonction: 'populationProtegee', lecteurs: ['app.js', 'plan.js'],
+    parAilleurs: { 'app.js': ['optionsDeConsigne'] },
+    raison: 'un seul prédicat, calculé par le plan (`plan.protegee`) et donné au moteur par l’app (`options.protegee`) : la garde de la consigne et ' +
+      'la réserve affichée ne redécident pas qui est protégé (MOTEUR §9.26 bis ; `plus65` jamais deviné).' },
   { notion: 'les mots de la dernière série « Au max » (titre, bouton, étiquette ; « en gardant 2 reps » pour un 65 ans et plus connu)', pr: 'correctif 12/11/2026',
     module: 'moteur.js', fonction: 'motsDeLAuMax', lecteurs: ['plan.js', 'app.js'],
     raison: 'le plan pose `x.auMaxMots` et le titre de la carte ; l’éditeur de routine, sans plan, lit la même fonction : aucun « Au max » à un 65+ connu, dans aucun écran.' },

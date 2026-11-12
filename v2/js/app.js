@@ -7458,6 +7458,10 @@
       })(),
       // 180 (C-F5, D3) — le débutant (`anciennete = moins_1_an`) : sa réserve basse (R < V) n'arrête pas la montée (le moteur).
       debutant: Profil.estDebutant(profil),
+      // PR 4a (MOTEUR §9.26 bis) — la population protégée (65 ans et plus CONNUS, débutant, objectif Forme) : la garde de la consigne lit la visée
+      // relevée au plancher de 2. Le même prédicat que le plan (`Moteur.populationProtegee`), jamais deviné (`plus65` : `true` seulement).
+      protegee: Moteur.populationProtegee({ plus65: Profil.plus65DuProfil(profil, new Date(instant)) === true, debutant: Profil.estDebutant(profil),
+                                            objectif: Profil.objectifDe(profil) }),
       // 191 — la prudence de montée (le plafond d'un saut ; « un cran à la fois »), au jour du calcul.
       prudence: Profil.prudenceDuProfil(profil, new Date(instant)),
       // 187 (A4) — l'exercice charge une zone à ménager (profil + la table du générateur) : aucune série lourde.
@@ -10831,7 +10835,7 @@
       // 154 (MOTEUR §9.26) — l'effort visé : « garde-en N » dans l'en-tête, les puces sous la dernière série.
       reserveVisee: function (iExo) {
         var x = planDeLExercice(iExo);
-        return x && x.reserveVisee !== undefined ? x.reserveVisee : null;
+        return x && x.reserveAffichee !== undefined ? x.reserveAffichee : null;
       },
       // 200-3 — UNE PUCE D'INTENTION par exercice : « 6-8 reps · garde 1 » (la fourchette de la zone, la réserve visée) ; `null` quand
       // l'étiquette de zone ne dit pas une zone chiffrée (zone à ménager, entretien). Les deux valeurs viennent de la consigne et du plan.
@@ -10839,7 +10843,7 @@
         var eti = etiquetteDe(slug, iExo), c = eti ? consigneDe(slug) : null;
         var z = c && c.consigne ? Moteur.zoneParCle(c.consigne.zone) : null;
         if (!z || /m\u00e9nager/.test(eti)) return null;
-        var x = planDeLExercice(iExo), g = x && x.reserveVisee !== undefined ? x.reserveVisee : null;
+        var x = planDeLExercice(iExo), g = x && x.reserveAffichee !== undefined ? x.reserveAffichee : null;
         var reps = z.bas + '-' + z.haut + '\u00a0reps';
         return { texte: reps + (g !== null ? ' \u00b7 garde\u00a0' + g : ''), aria: z.bas + ' \u00e0 ' + z.haut + ' reps' + (g !== null ? ', garde ' + g + ' en r\u00e9serve' : '') };
       },
@@ -11994,7 +11998,7 @@
   function motDeLaPuce(slug) {
     var i = seance && seance.exercices ? seance.exercices.map(function (x) { return x.exercise_slug; }).indexOf(slug) : -1;
     var x = i >= 0 ? planDeLExercice(i) : null;
-    var g = x && x.reserveVisee !== undefined ? x.reserveVisee : null;
+    var g = x && x.reserveAffichee !== undefined ? x.reserveAffichee : null;
     return g !== null && g >= 1 ? Moteur.motDuLexique('garde', g) : Moteur.motDuLexique('zone');
   }
   function ouvrirMot(cle) {

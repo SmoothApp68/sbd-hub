@@ -5577,6 +5577,8 @@
     if (p.frere) cible.appendChild(el('p', 'pq-p', p.frere));
     // 188-2 — le repos d'un gros mouvement qui stagne : une ligne, jamais une carte.
     if (p.repos) cible.appendChild(el('p', 'pq-p', p.repos));
+    // PR 4a (§9.26 bis) — « Pour cet exercice, je vise 2 en réserve » : le plancher écrase « Me pousser », dit une fois.
+    if (p.plancher) cible.appendChild(el('p', 'pq-p pq-plancher', p.plancher));
     // 251 (D2) — la porte du cran : pourquoi le test n'est pas là aujourd'hui (une ligne, avec ta force du jour quand la table répond).
     if (p.porte) cible.appendChild(el('p', 'pq-p pq-porte', p.porte));
     // 193-1 — comment les séries de recul suivent la grosse série (du plan).

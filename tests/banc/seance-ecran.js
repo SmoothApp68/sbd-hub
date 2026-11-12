@@ -27437,7 +27437,7 @@ const SETS_IMPORTES = [
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
-  console.log('\n══ au-max-pr3. LA CARTE « DERNIÈRE SÉRIE AU MAX ? » VIENT DÈS LA 2e SÉANCE D\'UN EXERCICE DE ROUTINE (CHANTIER « PREMIÈRE SÉANCE SÛRE », PR 3, B5-01, MOTEUR §9.30) ══');
+  console.log('\n══ au-max-pr3. LA CARTE « DERNIÈRE SÉRIE AU MAX ? » VIENT DÈS LA 2e SÉANCE D’UN EXERCICE DE ROUTINE (CHANTIER « PREMIÈRE SÉANCE SÛRE », PR 3, B5-01, MOTEUR §9.30) ══');
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE : la séance part d'une ROUTINE (`seance.routine_id`), l'objectif est « les deux » (la table de §9.30 ne dit rien sans objectif).
   // Avant la PR 3, `entreesDuPlan` ne passait pas `routine_id` au plan : `propositionAuMax` restait vide, la carte n'a jamais été vue sur un appareil. Trois exercices :

@@ -1885,7 +1885,9 @@
     var coupure = instant(avant);
     var liste = seances || [];
     var neutres = liste.map(function (se) {
-      return se && se.zero ? { debut: se.debut, palier: null, neutre: true, series: se.series || [] } : se;
+      // PR 4b — le drapeau du plafond suit la séance neutralisée : les consignes REJOUÉES dans `base` (la règle de bord relit la consigne que sa dernière
+      // séance a reçue) doivent voir la même tenue que la consigne vivante.
+      return se && se.zero ? { debut: se.debut, palier: null, neutre: true, series: se.series || [], plafondZero: se.plafondZero, decharge: se.decharge } : se;
     });
     var base = consignePour(neutres, avant, Object.assign({}, opt, { sansZero: true }));
     // La séance la plus récente avant `avant`, neutres comprises : un zéro plus ancien ne parle plus.
@@ -2403,8 +2405,14 @@
       // ⚠️ SUR LES REPS SAISIES, pas les comptées : « à fond » compte une rep de moins (§17.4), et ce n'est pas une barre ratée.
       var ratee = visees !== null && plusBas !== null && plusBas < visees;
       var prec = rk && rk._bord ? rk._bord : null;
+      // PR 4b (R-A, O2, « 3b ») — UNE TENUE IMPOSÉE PAR LE COACH N'EST NI UNE STAGNATION NI UN RECUL : quand la consigne reçue était la `tenue_apres_zero` et que
+      // la barre n'a pas été ratée, la séance est neutre pour le compte (`etatSuite = prec`, comme une décharge) — sinon deux séances suivies à la lettre
+      // mèneraient à `bord_vague` (−5 %) alors que le coach tenait la charge. (`zero_rep`, livré avec la règle B, est hors PR : noté comme dette.)
+      var tenueNeutre = rk !== null && rk.etat === 'tenue_apres_zero' && prec !== null && !ratee;
       var meilleur, sans, recul;
-      if (prec === null || rk.etat === 'bord_vague') {
+      if (tenueNeutre) {
+        meilleur = prec.meilleur; sans = prec.sans; recul = prec.recul;
+      } else if (prec === null || rk.etat === 'bord_vague') {
         meilleur = ratee ? null : P; sans = 0; recul = ratee;
       } else if (!ratee && (prec.meilleur === null || (P > prec.meilleur && !memeCharge(P, prec.meilleur)))) {
         meilleur = P; sans = 0; recul = false;
@@ -2418,7 +2426,9 @@
       // zéro (`sans` repart à chaque vague). `record` : la charge la plus haute de la série ; `aRecule` : un recul ou une
       // vague a eu lieu depuis le dernier record. Retrouver son record après un recul ne compte pas, comme pour `sans`.
       var record, total, aRecule, repsRecord, depuisRecord;
-      if (prec === null) {
+      if (tenueNeutre) {
+        record = prec.record; total = prec.total; aRecule = prec.aRecule; repsRecord = prec.repsRecord; depuisRecord = prec.depuisRecord;
+      } else if (prec === null) {
         record = P; total = 0; aRecule = ratee; repsRecord = niv; depuisRecord = L.debut;
       } else if (!ratee && P > prec.record && !memeCharge(P, prec.record)) {
         record = P; total = 0; aRecule = false; repsRecord = niv; depuisRecord = L.debut;

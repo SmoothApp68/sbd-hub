@@ -396,3 +396,23 @@ describe('le plan — pendant la tenue après un zéro : I155, I154 étendu, puc
     expect(texte).not.toMatch(/plafond|quand même|encore 2 séances/);
   });
 });
+
+// ── Commit 3b : la règle de bord — une tenue imposée est neutre (O2, mutation t2) ──
+describe('T-A19 — règle de bord : deux séances tenues ne mènent pas à la vague (−5 %)', () => {
+  const seq = plat([[20, 2], [20, 2], [25, [0, 0, 0]], [20, 2], [20, 2], [20, 2]]);
+  test('la fixture déclenche le chemin : la consigne reçue par la séance 5 (index 4) est la tenue', () => {
+    expect(consigne(seq, 4).consigne.etat).toBe('tenue_apres_zero');
+  });
+  test('séances 20×2 ×2, 25×0, 20×2 ×2 → la consigne suivante est `bord` 25 (reprise de la montée), pas `bord_vague` 15', () => {
+    const c = consigne(seq, 5).consigne;
+    expect(c.etat).toBe('bord');
+    expect(c.ligne.charge).toBe(25);
+    expect(consigne(seq, 6).consigne.etat).not.toBe('bord_vague');
+  });
+  test('le compte de bord de la tenue est repris tel quel (sans, total, record inchangés par la séance tenue)', () => {
+    const avant = consigne(seq, 4).consigne._bord, apres = consigne(seq, 5).consigne._bord;
+    expect(apres.sans).toBe(avant.sans);
+    expect(apres.total).toBe(avant.total);
+    expect(apres.record).toBe(avant.record);
+  });
+});

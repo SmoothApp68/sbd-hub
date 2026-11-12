@@ -5410,7 +5410,8 @@
       // dernière série de travail ; en séance il ne vaut que pour aujourd'hui, la routine ne change pas.
       if (vue.auMax && vue.auMax.possible) {
         var menuAu = el('div', 'feuille-menu');
-        var bAu = el('button', vue.auMax.actif ? 'sel' : '', vue.auMax.actif ? 'Retirer « Au max »' : 'Au max');
+        var motAu = vue.auMax.bouton || 'Au max';   // D-A3 : le plan donne le mot (65+ connu : « En gardant 2 reps »)
+        var bAu = el('button', vue.auMax.actif ? 'sel' : '', vue.auMax.actif ? 'Retirer « ' + motAu + ' »' : motAu);
         bAu.appendChild(el('small', 'aide-type', vue.auMax.aide));
         bAu.type = 'button';
         bAu.addEventListener('click', function () { vue.surAuMax(!vue.auMax.actif); });

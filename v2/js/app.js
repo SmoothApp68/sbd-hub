@@ -12278,7 +12278,9 @@
       // donc ce qui s'écrira si on ne tape rien.
       noteExercice: exo.note,
       // 193-6 — « Au max » pour aujourd'hui : la dernière série de travail, pas encore validée ; la routine ne change pas.
+      // D-A3 : les mots du bouton viennent du plan (`x.auMaxMots` : « En gardant 2 reps » pour un 65+ connu), l'écran ne les décide pas.
       auMax: { possible: derniereSerieDeTravail(exo.series) === feuille.iSerie && !serie.validee_a, actif: Modele.estAuMax(serie),
+               bouton: ((planDeLExercice(feuille.iExo) || {}).auMaxMots || {}).bouton || null,
                aide: 'Pour aujourd’hui seulement : ta routine ne change pas.' },
       // 196 (MOTEUR §9.33) — « Rest-pause » : sur une isolation ou une machine, jamais une barre ni un soulevé ; hors semaine
       // allégée, hors zone à ménager ; une série de travail avec sa charge, pas déjà prolongée.

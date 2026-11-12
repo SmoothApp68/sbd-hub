@@ -288,13 +288,15 @@ describe('T-A2 / T-A2b / T-A3 / T-A3b — ce que remplace le plafond', () => {
     expect(c.etat).toBe('tenue_apres_zero');
     ['_bord', '_lues'].forEach((cle) => { const d = Object.getOwnPropertyDescriptor(c, cle); expect(d).toBeDefined(); expect(d.enumerable).toBe(false); });
   });
-  test('T-A2b (O3, mutation t3) : `nouvelle_zone` à 112,5 (≥ Ch 105) avec un palier 100 traverse consigneDExercice → palier 100, jamais 107,5', () => {
-    const lourd = [brute(100, 4), brute(100, 4), brute(100, 4)];
-    const gr = [seanceN(0, lourd), seanceN(1, lourd.map((s) => brute(100, 4)).concat([brute(105, 0)]))];
-    const c = M.consigneDExercice(gr, undefined, avantN(2), Object.assign({}, OPT, { equipement: 'barre', correction: 'volume' })).consigne;
-    expect(c.etat === 'tenue_apres_zero' || pz(c) === undefined || pz(c).mord === false).toBe(true);
-    if (c.etat === 'tenue_apres_zero') expect(c.ligne.charge).toBe(100);
-    expect(c.ligne && c.ligne.charge < 105).toBe(true);
+  test('T-A2b (O3, mutation t3) : `nouvelle_zone` à 65 (≥ Ch 62,5) avec un palier 60 traverse consigneDExercice → tenue au palier 60, jamais 65', () => {
+    const base = [brute(60, 15), brute(60, 15), brute(60, 15)];
+    const gr = [seanceN(0, base), seanceN(1, base.map((s) => brute(60, 15)).concat([brute(62.5, 0)]))];
+    const o = Object.assign({}, OPT, { equipement: 'barre', correction: 'volume', zoneAvantDuPlan: 'lourd' });
+    const c = M.consigneDExercice(gr, undefined, avantN(2), o).consigne;
+    expect(c.etat).toBe('tenue_apres_zero');
+    expect(c.ligne.charge).toBe(60);
+    expect(pz(c).sans.etat).toBe('nouvelle_zone');
+    expect(Number(pz(c).sans.ligne.charge)).toBeGreaterThanOrEqual(62.5);
   });
 });
 
@@ -672,5 +674,20 @@ describe('t10 — `suivantes` est borné à SUIVANTES_MAX (le contrat ne grossit
     expect(c[0].plafondZero.suivantes.length).toBeLessThanOrEqual(8);
     expect(c[0].plafondZero.suivantes.length).toBe(8);
     expect(actif(liste, 100)).toBeNull();
+  });
+});
+
+describe('t6 — §9.14 : la réaction série par série se tait pendant la tenue après un zéro', () => {
+  test('la même série (24 × 16) : la consigne d\'avant plafond réagit, la tenue ne dit rien', () => {
+    const R = (i) => seanceN(i, [brute(24, 10, { ressenti: 'reste_3_plus' }), brute(24, 10, { ressenti: 'reste_3_plus' }), brute(24, 10, { ressenti: 'reste_3_plus' })]);
+    const gr = [R(0), seanceN(1, [brute(24, 10, { ressenti: 'reste_3_plus' }), brute(24, 10, { ressenti: 'reste_3_plus' }), brute(24, 10, { ressenti: 'reste_3_plus' }), brute(26.5, 0)])];
+    const k = M.consigneDExercice(gr, undefined, avantN(2), Object.assign({}, OPT, { equipement: 'barre' })).consigne;
+    expect(k.etat).toBe('tenue_apres_zero');
+    const faites = [{ charge_kg: 24, reps: 18, rpe: null, ressenti: 'reste_3_plus' }];
+    const ctx = { cran: 26, haut: null };
+    const tenue = M.reactionPour(k, faites, ctx);
+    const sans = M.reactionPour(pz(k).sans, faites, ctx);
+    expect(tenue.message).toBeNull();
+    expect(sans.message).not.toBeNull();
   });
 });

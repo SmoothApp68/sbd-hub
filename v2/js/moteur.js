@@ -1872,6 +1872,15 @@
   // déduit pas). Jamais pour le poids du corps, une aide ni un élastique (le drapeau n'y est pas posé / `base` est rendue).
   // La première séance de l'exercice, toute à zéro : le calage recommence (`silence/premiere_fois`, avec `fondement.zeroRep` : ni la
   // charge de départ de la routine, ni la charge habituelle déjà déclarée ne la redonnent).
+  // PR 4b (R-A, MOTEUR §9.42 bis) — UNE SEULE DESCENTE `D` après un zéro : le cran sous `Ch` le plus proche de 95 % (`BORD_VAGUE`) de `Ch`, au moins
+  // un cran sous elle, jamais sous `plancher` (`null` : rien de plus léger). `voisineFn(charge, sens)` est la grille de l'appelant : la règle B
+  // (`consigneApresUnZero`, historique de l'exercice), le calage (`bornerLeCalage`, grille de la salle) et, plus loin, la réaction en séance.
+  function descenteApresUnZero(Ch, voisineFn, plancher) {
+    return cranSousProcheDe(function (depuis, sens) {
+      var r = voisineFn(depuis, sens);
+      return sens < 0 && r !== null && plancher !== null && plancher !== undefined && r < plancher - 1e-9 ? null : r;
+    }, Ch, Ch * BORD_VAGUE);
+  }
   function consigneApresUnZero(seances, avant, opt) {
     var coupure = instant(avant);
     var liste = seances || [];
@@ -1903,11 +1912,8 @@
     var vuesBase = neutres.map(vueDeSeance);
     var salle = salleEnVigueur(salleDeclaree, P);
     var plancher = plancherDuCalage(opt.equipement, salle);
-    var vf = function (depuis, sens) {
-      var r = voisineSalleComprise(vuesBase, avant, depuis, opt.equipement, sens, salle);
-      return sens < 0 && r !== null && plancher !== null && r < plancher - 1e-9 ? null : r;
-    };
-    var dessous = cranSousProcheDe(vf, Ch, Ch * BORD_VAGUE);
+    var vf = function (depuis, sens) { return voisineSalleComprise(vuesBase, avant, depuis, opt.equipement, sens, salle); };
+    var dessous = descenteApresUnZero(Ch, vf, plancher);
     if (dessous === null) {
       return { etat: 'silence', raison: 'zero_plancher', fondement: { date: Z.debut, zeroRep: { charge: Ch, series: Z.zero.n } } };
     }
@@ -9416,8 +9422,11 @@
   function bornerLeCalage(o, r, borne) {
     var s = r.suivante;
     if (!s || borne === null || !(s.charge >= borne - 1e-9)) return r;
-    var c = cranDuCalageEnDessous(o.equipement, o.salle, borne);
-    if (c === null || c < o.plancher - 1e-9) { r.suivante = null; r.question = false; return r; }
+    // PR 4b — la décision est celle de la règle B (`descenteApresUnZero`) ; `cranDuCalageEnDessous` n'est plus que la primitive de grille.
+    var c = descenteApresUnZero(borne, function (depuis, sens) {
+      return sens < 0 ? cranDuCalageEnDessous(o.equipement, o.salle, depuis) : cranDuCalage(o.equipement, o.salle, depuis);
+    }, o.plancher);
+    if (c === null) { r.suivante = null; r.question = false; return r; }
     r.suivante = Object.assign({}, s, { charge: c, pourquoi: 'borne', bornee: true, borne: borne });
     return r;
   }
@@ -12705,6 +12714,7 @@
     auMaxDe: auMaxDe,
     estPremiereFois: estPremiereFois,
     estApresZero: estApresZero,
+    descenteApresUnZero: descenteApresUnZero,
     motsDeLAuMax: motsDeLAuMax,
     // 236 (§9.39) — le coach en temps réel après un raté : UNE fonction de décision, ses mots, ses constantes
     reactionAuRate: reactionAuRate,

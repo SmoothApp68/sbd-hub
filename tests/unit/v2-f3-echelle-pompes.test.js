@@ -180,6 +180,12 @@ describe('245 F3 (b) — depuis une aide, 0 rep stricte au premier essai : la ma
     expect(Faits.premierEssaiRate(corpus({ A: aide, B: [serie('tractions', 1)] }), 'tractions', IDX)).toBe(false);
     expect(Faits.premierEssaiRate(corpus({ A: aide, B: [serie('tractions', 5, 'echauffement'), serie('tractions', 0)] }), 'tractions', IDX)).toBe(true);
   });
+  test('PR 2 (MOTEUR §9.42) — une notion « toutes à 0 rep » (`THModele.seanceAZero`) : une rep vide n’est pas un zéro', () => {
+    const aide = [serie('tractions_assistees', 8)];
+    expect(Faits.premierEssaiRate(corpus({ A: aide, B: [serie('tractions', null), serie('tractions', null)] }), 'tractions', IDX)).toBe(false);
+    expect(Faits.premierEssaiRate(corpus({ A: aide, B: [serie('tractions', 0), serie('tractions', null)] }), 'tractions', IDX)).toBe(false);
+    expect(Faits.premierEssaiRate(corpus({ A: aide, B: [serie('tractions', 0), Object.assign(serie('tractions', 4), { hors_calcul: true })] }), 'tractions', IDX)).toBe(true);
+  });
   test('l’aide elle-même, un exercice sans échelle, ou sans catalogue : faux', () => {
     const c = corpus({ A: [serie('tractions_assistees', 0)] });
     expect(Faits.premierEssaiRate(c, 'tractions_assistees', IDX)).toBe(false);

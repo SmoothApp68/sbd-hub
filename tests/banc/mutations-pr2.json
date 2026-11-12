@@ -1,0 +1,5 @@
+[
+ {"nom": "pr2-bord-sur-une-seance", "fichier": "v2/js/moteur.js", "ancien": "      if (lues === 1) {\n        return fin('bord_garde', ligneDe(P, niv), { bord: { charge: P, reps: niv, unique: true } });", "nouveau": "      if (false) {\n        return fin('bord_garde', ligneDe(P, niv), { bord: { charge: P, reps: niv, unique: true } });", "banc": "seance", "sections": ["zero-rep-pr2"], "unitaires": ["tests/unit/v2-bord-une-seance.test.js", "tests/unit/v2-coach-recule.test.js"]},
+ {"nom": "pr2-zero-sans-neutre", "fichier": "v2/js/moteur.js", "ancien": "      return se && se.zero ? { debut: se.debut, palier: null, neutre: true, series: se.series || [] } : se;", "nouveau": "      return se && se.zero ? se : se;", "banc": "seance", "sections": ["zero-rep-pr2"], "unitaires": ["tests/unit/v2-seance-de-zero-rep.test.js"]},
+ {"nom": "pr2-zero-sans-borne", "fichier": "v2/js/moteur.js", "ancien": "    var C = Math.min(dessous, charge0, P);", "nouveau": "    var C = dessous;", "banc": "seance", "sections": ["zero-rep-pr2"], "unitaires": ["tests/unit/v2-seance-de-zero-rep.test.js", "tests/unit/v2-zero-rep-plan.test.js"]}
+]

@@ -240,7 +240,8 @@
       if (p.length && o.occurrence) p[0].fondement.occurrence = o.occurrence;
       // 154 (MOTEUR §9.26) — la RÉSERVE VISÉE de la ligne, dans le fondement de chaque pari qu'elle couvre.
       if (p.length && o.reglage !== undefined) {
-        var rvLigne = M.reserveVisee({ zone: consigne ? consigne.zone : null, role: roles[j], reglage: o.reglage });
+        // PR 4a (§9.26 bis) — le pari écrit la visée AFFICHÉE (le plancher pour la population protégée) ; une ligne de test protégée n'en écrit aucune.
+        var rvLigne = M.reserveAffichee({ zone: consigne ? consigne.zone : null, role: roles[j], reglage: o.reglage, protegee: o.protegee === true });
         if (rvLigne !== null) p[0].fondement.reserve_visee = rvLigne;
       }
       paris[l.iSerie] = p.length ? p[0] : null;
@@ -500,7 +501,7 @@
     if (!c) return cles;
     if (c.zone) cles.push('zone.bas');
     if (c.allegee) cles.push('allegee', 'bloc.semaines');
-    if (x.reserveVisee !== null && x.reserveVisee !== undefined && x.reserveVisee >= 1) cles.push('reserve');
+    if (x.reserveAffichee !== null && x.reserveAffichee !== undefined && x.reserveAffichee >= 1) cles.push('reserve');
     if (x.reculs && x.reculs.mode === 'max_du_jour') {
       cles.push('recul.max');
       if (x.reculs.derniere) cles.push('recul.correction');
@@ -1462,7 +1463,7 @@
     return tete >= 0 && iExo >= tete;
   }
 
-  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase, allegee, seriesRoutine, marche, routinePlus, fini, precedent, objectif, allege, moins, reculPrec, auMaxFaits, porteCtx) {
+  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase, allegee, seriesRoutine, marche, routinePlus, fini, precedent, objectif, allege, moins, reculPrec, auMaxFaits, porteCtx, protegee) {
     var S = Seance(), M = Moteur();
     var series = (exo && exo.series) || [];
     var c = consigneDuSlug && consigneDuSlug.consigne ? consigneDuSlug : null;
@@ -1537,7 +1538,7 @@
     var r = planDesLignes(series, consigne, c.contexte || null, figees, {
       sansTest: !!(porte && porte.fermee && !porte.tente),
       slug: base.slug, seance: seanceId === undefined ? null : seanceId,
-      reglage: reglage === undefined ? null : reglage, phase: phase, objectif: objectif,
+      reglage: reglage === undefined ? null : reglage, phase: phase, objectif: objectif, protegee: protegee === true,
       compteur: compteurOuverture, allegee: !!consigne.allegee,
       occurrence: base.occurrence || undefined,
       // I8 (122) — les rangs que des séries faites ont quittés (supprimées, ou passées hors du travail) : leurs
@@ -2188,8 +2189,14 @@
     var l = k.ligne, ch = l ? nombre(l.charge) : null, reps = l ? nombre(l.vise) : null;
     if (ch === null || reps === null) return null;
     var cat = (e.catalogue || {})[slug] || {};
-    var rv = Moteur().reserveVisee({ zone: k.zone, role: 'ligne', reglage: reglageDe(e) });
+    var rv = Moteur().reserveAffichee({ zone: k.zone, role: 'ligne', reglage: reglageDe(e), protegee: protegeeDeEntrees(e) });
     return Moteur().veilleLegere({ charge: ch, reps: reps, reserve: rv === null || rv === undefined ? 0 : rv, pas: entree.pas, equipement: cat.equipement || null, salle: entree.salle || null });
+  }
+  // PR 4a (§9.26 bis) — LA POPULATION PROTÉGÉE, un seul prédicat (`Moteur.populationProtegee`), calculé une fois par le plan sur ses entrées
+  // (le profil gelé de la séance) ; `plus65` n'est vrai que si l'âge est connu.
+  function protegeeDeEntrees(e) {
+    var x = e || {};
+    return Moteur().populationProtegee({ plus65: x.plus65 === true, debutant: x.debutant === true, objectif: objectifDuPlan(x.objectif) });
   }
   function reglageDe(e) { return e.reglage === 'franc' || e.reglage === 'prudent' ? e.reglage : 'normal'; }
   function nomParleDe(cat, slug) {
@@ -2314,6 +2321,7 @@
     // §14 (111) — le DÉBUTANT (« moins d'un an », `Profil.estDebutant`), gelé
     // pour la séance par l'app : la dégressive proposée ne lui est jamais faite.
     var debutant = e.debutant === true;
+    var protegee = protegeeDeEntrees(e);
     var isoles = marchesIsolees(e, seance, consignes, esc, phase, intentionProfil);
     // PR 3 (relevé du 01/10) — la dernière séance de chaque exercice, pour le
     // pré-remplissage des lignes que le plan ne couvre pas.
@@ -2353,6 +2361,8 @@
       edition: !!seance.edition,
       intention: intentionProfil,
       debutant: debutant,
+      // PR 4a (§9.26 bis) — la population protégée : le plancher de réserve (2) s'applique à l'affichage, au pari, à la garde, à la veille légère.
+      protegee: protegee,
       // 191 — la prudence de montée (plafond, un cran à la fois), lue par les invariants I71 et I73.
       prudence: prudenceDuPlan(e),
       lestReponse: lestReponse,
@@ -2386,7 +2396,7 @@
           var exo = salleEl ? exoPourLeMoteur(exoBrut, salleEl) : exoBrut;
           return avecDureeDeMobilite(sansParis(enNoms(planDeLOccurrence(exo, i, salleEl), salleEl), salleEl), exoBrut && exoBrut.exercise_slug);
         });
-      }), e.reserve, seance)
+      }), e.reserve, seance, protegee)
     };
     // 236 (MOTEUR §9.39) — le coach en temps réel après un raté : lu sur le plan fini, posé sur lui.
     return reactionsDuPlan(plan236, e, seance);
@@ -2451,7 +2461,8 @@
           auMaxFaitsDe(e, seance, exos, i, coachee, douloureuse, intentionX, !!esc.allegee || !!jourDeTest, consignes),
           // 251 (D2) — la porte du cran (ses gestes), sauf là où le coach se tait. (Un 22e argument : aucun objet d'options existant ne porte ces faits.)
           coachee && c && !douloureuse && intentionX !== 'entretien' && !seance.edition && !esc.allegee && !jourDeTest && !legereX
-            ? { tente: cranTenteDe(seance.gestes, slug), formeAjustee: formeAjusteeAvant(seance, i), prise: priseDe(seance.gestes, slug) } : null);
+            ? { tente: cranTenteDe(seance.gestes, slug), formeAjustee: formeAjusteeAvant(seance, i), prise: priseDe(seance.gestes, slug) } : null,
+          protegee);
         // 253 (X2) — ce jour-là, sur cette barre : pas de « Au max », pas d'échec, pas de pari (donc ni pari perdu, ni compteur, ni escalier), pas de
         // réserve visée ni d'effort visé (la réserve affichée est celle de la variante), pas de réaction au raté (voir `reactionDExercice`).
         // D-A3 (chantier « première séance sûre », PR 1) — les mots de la carte et du bouton « Au max » du menu de la série : 65+ connu →
@@ -2528,14 +2539,28 @@
         x.mode = modeX;
         x.intention = intentionX;
         // 154 (MOTEUR §9.26) — L'EFFORT VISÉ : « garde-en N » dans l'en-tête, les puces sous la dernière série, la phrase.
-        var rvX = aUnPari(x) && !seance.edition && !legereX && Moteur().effortViseEligible(x.consigne.palier) && (x.mesure === null || x.mesure === undefined || x.mesure === 'charge_reps')
-          ? Moteur().reserveVisee({ zone: x.consigne.zone, role: roleDeLaVisee(x), reglage: reglagePlan }) : null;
-        x.reserveVisee = rvX;
+        var rvElig = aUnPari(x) && !seance.edition && !legereX && Moteur().effortViseEligible(x.consigne.palier) && (x.mesure === null || x.mesure === undefined || x.mesure === 'charge_reps');
+        var rvOptions = { zone: x.consigne ? x.consigne.zone : null, role: rvElig ? roleDeLaVisee(x) : 'ligne', reglage: reglagePlan };
+        // PR 4a (§9.26 bis) — DEUX valeurs : `reserveVisee`, la table (le déclencheur du test) ; `reserveAffichee`, le plancher pour la population
+        // protégée (ce que l'écran affiche, ce que le pari écrit). Sur une ligne de test protégée : aucune réserve affichée, donc aucun effort
+        // visé ni question de réserve.
+        var rvTable = rvElig ? Moteur().reserveVisee(rvOptions) : null;
+        var rvX = rvElig ? Moteur().reserveAffichee(Object.assign({ protegee: protegee }, rvOptions)) : null;
+        x.reserveVisee = rvTable;
+        x.reserveAffichee = rvX;
         // 175 — « un cran de moins » : le recul de la règle de bord (174) se dit à côté du chiffre du jour, d'un badge. Le plan le dit, l'écran le dessine.
         x.cranDeMoins = x.consigne && (x.consigne.etat === 'bord_recul' || x.consigne.etat === 'bord_vague') ? 'un cran de moins'
           // PR 2 (§9.42) — après un zéro rep, le recul est de ~5 % (le cran le plus proche), pas d'« un cran » : le badge dit le fait, « plus léger ».
           : x.consigne && x.consigne.etat === 'zero_rep' ? 'plus léger' : null;
         x.effortVise = rvX === null ? null : effortViseDuPlan(exo, rvX, suite, Seance().exerciceFini(seance, slug));
+        // PR 4a (§9.26 bis, D-B3) — « Me pousser » écrasé par le plancher : une ligne du « Pourquoi », rédigée sous capture (I26).
+        x.plancher = null;
+        if (protegee && reglagePlan === 'franc' && rvX !== null && rvTable !== null && rvX > rvTable && x.pourquoi) {
+          var capPl = Voix().capturer(function () { return Moteur().phraseDuPlancher(rvX); });
+          x.pourquoi.plancher = capPl.texte;
+          x.plancher = { visee: rvX, table: rvTable, phrase: capPl.texte };
+          x.phrases.push({ ou: 'pourquoi.plancher', texte: capPl.texte, citations: capPl.citations });
+        }
         poserLesSources(x);
         // §9.17 — LA CARTE DU LEST : UNE SEULE, en tête de l'exercice (le composant
         // des propositions d'exercice). Quand le moteur la dit (`carte_lest`) et
@@ -2832,14 +2857,17 @@
     return { visee: visee, serie: j, reponse: R, demande: !!fini && R === null, effet: effet, phrase: phrase };
   }
 
-  function questionsDuPlan(xs, reserve, seance) {
+  function questionsDuPlan(xs, reserve, seance, protegee) {
     var jour = reserve && !seance.edition ? Moteur().jourCivil(seance.debut) : null;
     var exos = seance.exercices || [];
     var questions = {};
     if (jour) {
       var passes = reserve.passes || {};
       var entree = { lancement: reserve.lancement, jour: jour, exercices: xs.map(function (x, i) {
-        var pari = aUnPari(x) && derniereSerieDeTravail(exos[i]) !== null;
+        // PR 4a (§9.26 bis, C3) — LA QUESTION SUIT LA CIBLE AFFICHÉE : la ligne de test d'une population protégée n'affiche aucune réserve visée,
+        // donc ne pose aucune question de réserve (la réserve notée sur une série de travail hors test alimente toujours la consigne).
+        var sansCible = protegee === true && roleDeLaVisee(x) === 'test';
+        var pari = aUnPari(x) && !sansCible && derniereSerieDeTravail(exos[i]) !== null;
         return { slug: String(i), pari: pari,
                  passe: pari && Object.prototype.hasOwnProperty.call(passes, x.slug) ? passes[x.slug] : [] };
       }) };
@@ -6763,7 +6791,7 @@
       if (!k || k.etat === 'silence') return;
       if (k.allegee) {
         if (x.effortVise) erreurs.push('I59' + nom + 'un effort visé sur une consigne allégée');
-        if (x.reserveVisee !== null && x.reserveVisee !== undefined) erreurs.push('I59' + nom + 'une réserve visée sur une consigne allégée');
+        if ((x.reserveVisee !== null && x.reserveVisee !== undefined) || (x.reserveAffichee !== null && x.reserveAffichee !== undefined)) erreurs.push('I59' + nom + 'une réserve visée sur une consigne allégée');
         if (x.questionReserve) erreurs.push('I59' + nom + 'une question de réserve sur une consigne allégée');
       }
       var d = k.fondement && k.fondement.date ? M.jourCivil(k.fondement.date) : null;
@@ -6785,14 +6813,17 @@
     var xs = (plan && plan.exercices) || [];
     xs.forEach(function (x, i) {
       var nom = ' — exercice ' + i + ' (' + x.slug + ') : ';
-      var rv = x.reserveVisee === undefined ? null : x.reserveVisee;
+      var rv = x.reserveAffichee === undefined ? null : x.reserveAffichee;
+      var rvT = x.reserveVisee === undefined ? null : x.reserveVisee;
       if (rv === null) {
         if (x.effortVise) erreurs.push('I56' + nom + 'un effort visé sans réserve visée');
       } else {
         if (!aUnPari(x)) erreurs.push('I56' + nom + 'une réserve visée sans pari');
         if (plan.edition) erreurs.push('I56' + nom + 'une réserve visée en Édition');
-        var attendu = x.consigne ? Moteur().reserveVisee({ zone: x.consigne.zone, role: roleDeLaVisee(x), reglage: plan.reglage }) : null;
-        if (rv !== attendu) erreurs.push('I56' + nom + 'la réserve visée est ' + rv + ', la table donne ' + attendu);
+        var attendu = x.consigne ? Moteur().reserveAffichee({ zone: x.consigne.zone, role: roleDeLaVisee(x), reglage: plan.reglage, protegee: plan.protegee === true }) : null;
+        var attenduT = x.consigne ? Moteur().reserveVisee({ zone: x.consigne.zone, role: roleDeLaVisee(x), reglage: plan.reglage }) : null;
+        if (rv !== attendu) erreurs.push('I56' + nom + 'la réserve visée affichée est ' + rv + ', la règle donne ' + attendu);
+        if (rvT !== attenduT) erreurs.push('I56' + nom + 'la table de la réserve visée est ' + rvT + ', la table donne ' + attenduT);
         var exos = entrees && entrees.seance && entrees.seance.exercices ? entrees.seance.exercices : null;
         // 221 — dans un bloc Hypertrophie à grosse série, le plan lit les séries suivantes comme des reculs : l'invariant fait de même.
         var exoI = exos ? exos[i] : null;
@@ -6809,8 +6840,9 @@
         if (ev.effet === 'test') {
           if (nombre(ev.charge) === null || nombre(ev.reps) === null || nombre(ev.reserve) === null || nombre(ev.visee) === null) {
             erreurs.push('I57' + nom + 'un test par la réserve sans sa série ou sa réserve dans le fondement');
-          } else if (ev.sortie !== true && ev.reserve < ev.visee + Moteur().RESERVE_ECART) {
-            erreurs.push('I57' + nom + 'un test par la réserve avec ' + ev.reserve + ' en réserve pour ' + ev.visee + ' visées');
+          } else if (ev.sortie !== true && ev.reserve < (ev.viseeTable !== undefined ? ev.viseeTable : ev.visee) + Moteur().RESERVE_ECART) {
+            // PR 4a — le test se déclenche sur la TABLE, jamais sur le plancher.
+            erreurs.push('I57' + nom + 'un test par la réserve avec ' + ev.reserve + ' en réserve pour ' + (ev.viseeTable !== undefined ? ev.viseeTable : ev.visee) + ' visées (table)');
           }
           if (x.consigne.etat !== 'test_propose') erreurs.push('I57' + nom + 'un test par la réserve dans l’état « ' + x.consigne.etat + ' »');
         } else if (ev.effet === 'garde') {
@@ -6838,11 +6870,41 @@
       }
       if (ev && x.consigne) {
         var tableLigne = Moteur().reserveVisee({ zone: x.consigne.zone, role: 'ligne', reglage: plan.reglage });
-        if (ev.visee !== tableLigne) erreurs.push('I64' + nom + 'la visée du fondement est ' + ev.visee + ', la table donne ' + tableLigne);
+        // PR 4a — une consigne figée avant le plancher n'a ni `protegee` ni `viseeTable` (sa visée est la table) : seule une consigne qui les porte se compare.
+        var protegeeEv = ev.protegee === true;
+        var afficheeLigne = Moteur().reserveAffichee({ zone: x.consigne.zone, role: 'ligne', reglage: plan.reglage, protegee: protegeeEv });
+        if (ev.visee !== afficheeLigne && !(plan.protegee === true && !protegeeEv && ev.visee === tableLigne)) {
+          erreurs.push('I64' + nom + 'la visée du fondement est ' + ev.visee + ', la règle donne ' + afficheeLigne);
+        }
+        if (protegeeEv && ev.viseeTable !== tableLigne) erreurs.push('I64' + nom + 'la table du fondement est ' + ev.viseeTable + ', la table donne ' + tableLigne);
         if (nombre(ev.charge) !== nombre(x.consigne.palier)) erreurs.push('I64' + nom + 'l’effort visé porte ' + ev.charge + ' kg, le palier est ' + x.consigne.palier);
       }
-      if (x.effortVise && x.effortVise.effet === 'garde' && x.effortVise.reponse !== null && x.effortVise.reponse >= x.reserveVisee) {
-        erreurs.push('I58' + nom + 'une garde pour une réserve de ' + x.effortVise.reponse + ' (visée ' + x.reserveVisee + ')');
+      // PR 4a (§9.26 bis) — I160 : le plancher. Population protégée : aucune réserve visée affichée sous 2 sur une ligne qui n'est pas de test, aucune sur
+      // une ligne de test (donc aucune question de réserve, C3) ; `plan.protegee` est le prédicat unique ; hors population, l'affichée est la table.
+      var protegeP = plan.protegee === true;
+      if (entrees && plan.protegee !== Moteur().populationProtegee({ plus65: entrees && entrees.plus65 === true, debutant: plan.debutant === true, objectif: plan.objectif })) {
+        erreurs.push('I160' + nom + 'plan.protegee n’est pas la population protégée des entrées');
+      }
+      if (protegeP) {
+        if (rv !== null && roleDeLaVisee(x) !== 'test' && rv < Moteur().RESERVE_PLANCHER) erreurs.push('I160' + nom + 'une réserve visée de ' + rv + ' pour la population protégée (plancher ' + Moteur().RESERVE_PLANCHER + ')');
+        if (x.consigne && roleDeLaVisee(x) === 'test' && (rv !== null || x.effortVise || x.questionReserve)) erreurs.push('I160' + nom + 'une réserve affichée ou une question sur la ligne de test d’une population protégée');
+      } else if (rv !== rvT) {
+        erreurs.push('I160' + nom + 'hors population protégée, la réserve affichée (' + rv + ') n’est pas la table (' + rvT + ')');
+      }
+      if (ev && ev.protegee !== undefined && ev.protegee !== protegeP) erreurs.push('I160' + nom + 'le fondement dit protegee=' + ev.protegee + ', le plan ' + protegeP);
+      // I161 — le test se déclenche sur la TABLE ; « Au-dessus de ce que je visais » seulement si R > la visée affichée, « c'est ce que je visais » si R = elle.
+      // Lu sur ce que l'écran lit (`x.effortVise` : la réponse, la visée, la phrase de la suite).
+      var evx = x.effortVise;
+      if (evx && evx.effet === 'test' && nombre(evx.reponse) !== null && nombre(evx.visee) !== null) {
+        var phrE = evx.phrase ? String(evx.phrase) : '';
+        if (rvT !== null && evx.reponse < rvT + Moteur().RESERVE_ECART && !/Deux fois|au haut de ta zone/.test(phrE)) {
+          erreurs.push('I161' + nom + 'un test avec ' + evx.reponse + ' en réserve pour une table de ' + rvT);
+        }
+        if (/Au-dessus de ce que je visais/.test(phrE) && !(evx.reponse > evx.visee)) erreurs.push('I161' + nom + '« Au-dessus de ce que je visais » pour ' + evx.reponse + ' en réserve et une visée de ' + evx.visee);
+        if (/c.est ce que je visais/.test(phrE) && evx.reponse !== evx.visee) erreurs.push('I161' + nom + '« c’est ce que je visais » pour ' + evx.reponse + ' en réserve et une visée de ' + evx.visee);
+      }
+      if (x.effortVise && x.effortVise.effet === 'garde' && x.effortVise.reponse !== null && x.effortVise.reponse >= x.reserveAffichee) {
+        erreurs.push('I58' + nom + 'une garde pour une réserve de ' + x.effortVise.reponse + ' (visée ' + x.reserveAffichee + ')');
       }
     });
   }
@@ -6985,7 +7047,7 @@
         var a = x.auMax;
         var lAu = a ? (x.lignes || [])[a.iSerie] : null;
         if (a && a.reserve < 2 && !(lAu && lAu.validee)) erreurs.push('I154' + nom + 'une réserve de ' + a.reserve + ' après un zéro rep (au moins 2)');
-        if (nombre(x.reserveVisee) !== null && nombre(x.reserveVisee) < 2) erreurs.push('I154' + nom + 'un effort visé à ' + x.reserveVisee + ' en réserve après un zéro rep');
+        if (nombre(x.reserveAffichee) !== null && nombre(x.reserveAffichee) < 2) erreurs.push('I154' + nom + 'un effort visé à ' + x.reserveAffichee + ' en réserve après un zéro rep');
         var test = (x.planInitial || []).concat(x.lignes || []).some(function (l) { return l && l.role === 'test'; });
         if (test) erreurs.push('I154' + nom + 'une ligne de test après un zéro rep');
       }

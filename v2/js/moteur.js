@@ -64,16 +64,22 @@
   // sous-estime sa réserve (son « 0 » vaut souvent 3-4, Steele 2017) : sa réserve HAUTE reste un signal sûr (le test), sa
   // réserve BASSE n'arrête pas la montée.
   var debutantEnCours = false;
+  // CHANTIER « PREMIÈRE SÉANCE SÛRE » PR 4a (MOTEUR §9.26 bis) — LA POPULATION PROTÉGÉE (65 ans et plus connus, débutants, objectif Forme),
+  // un drapeau du module comme `debutantEnCours`, pour la même raison : la garde par réserve se lit sur des chemins que la consigne traverse
+  // en profondeur (le rejeu du compteur, la consigne de chaque séance passée). L'app le donne une fois (`options.protegee`).
+  var protegeeEnCours = false;
   // 191 — LA PRUDENCE DE MONTÉE, donnée avec le débutant (`options.prudence`, cf. `prudenceDeMontee`), même drapeau de module, même raison.
   var prudenceEnCours = null;
   function avecDebutant(options, calcul) {
     var aDeb = !!options && typeof options.debutant === 'boolean';
     var aPru = !!options && !!options.prudence && typeof options.prudence === 'object';
-    if (!aDeb && !aPru) return calcul();
-    var avant = debutantEnCours, avantPru = prudenceEnCours;
+    var aProt = !!options && typeof options.protegee === 'boolean';
+    if (!aDeb && !aPru && !aProt) return calcul();
+    var avant = debutantEnCours, avantPru = prudenceEnCours, avantProt = protegeeEnCours;
     if (aDeb) debutantEnCours = options.debutant;
     if (aPru) prudenceEnCours = options.prudence;
-    try { return calcul(); } finally { debutantEnCours = avant; prudenceEnCours = avantPru; }
+    if (aProt) protegeeEnCours = options.protegee;
+    try { return calcul(); } finally { debutantEnCours = avant; prudenceEnCours = avantPru; protegeeEnCours = avantProt; }
   }
 
   // §9.1.2 — 8 séances avant de conclure. Mesuré (banc M12) : sur tout
@@ -1568,6 +1574,31 @@
     return Math.min(3, Math.max(0, v));
   }
 
+  // PR 4a (MOTEUR §9.26 bis, décision d'Aurélien du 12/11/2026) — LE PLANCHER DE RÉSERVE. Pour les 65 ans et plus connus, les débutants et
+  // l'objectif Forme, la réserve visée AFFICHÉE ne descend jamais sous 2. « 2 » est un choix de prudence, non prouvé pour ces populations
+  // (une seule constante). DEUX fonctions : `reserveVisee` reste la table (le déclencheur du test, les marges d'estimation, le report de zone) ;
+  // `reserveAffichee` est ce que la consigne affiche, parie et garde. Un seul prédicat : `populationProtegee`, calculé une fois par le plan.
+  var RESERVE_PLANCHER = 2;
+  // `plus65` : `true` SEULEMENT si l'âge est connu (jamais deviné) ; `debutant` : `anciennete = moins_1_an` ; `objectif` : la clé du profil.
+  function populationProtegee(o) {
+    var x = o || {};
+    return x.plus65 === true || x.debutant === true || x.objectif === 'forme';
+  }
+  // Le plancher seul : une table `v` (ou `null`), rendue telle quelle hors population protégée, sinon dans [2, 3].
+  function plancherDeReserve(v, protegee) {
+    if (protegee !== true || v === null || v === undefined) return v === undefined ? null : v;
+    return Math.min(3, Math.max(RESERVE_PLANCHER, v));
+  }
+  // `o` : comme `reserveVisee`, plus `protegee`. Hors population : la table, octet pour octet (une ligne de test comprise). Protégée : `null`
+  // sur une ligne de test ou haute (la ligne de test n'affiche aucun chiffre de réserve : D-B1), sinon la table relevée au plancher.
+  function reserveAffichee(o) {
+    var x = o || {};
+    var t = reserveVisee(x);
+    if (x.protegee !== true || t === null) return t;
+    if (x.role === 'test' || x.role === 'haut') return null;
+    return plancherDeReserve(t, true);
+  }
+
   function cible(v) { return Math.min(v, PLAFOND_CIBLE); }
 
   // `hasOwnProperty` et non une lecture directe : `role` vient de la base, et
@@ -1898,6 +1929,9 @@
     if (opt.sansZero !== true && (seances || []).some(function (se) { return !!se && !!se.zero; })) return consigneApresUnZero(seances, avant, opt);
     var reglage = opt.reglage || 'normal';
     var debutant = debutantEnCours || opt.debutant === true;
+    // PR 4a (§9.26 bis) — la population protégée : la GARDE (bord, effort visé) se lit sur la visée relevée au plancher ; le DÉCLENCHEUR du test
+    // reste sur la table (`reserveVisee`).
+    var protegee = protegeeEnCours || opt.protegee === true;
     var prudence = prudenceEffective(debutant, prudenceEnCours || opt.prudence);
     var equipement = opt.equipement;
     var correction = opt.correction;
@@ -2369,7 +2403,7 @@
       var derniere = L.retenues && L.retenues.length ? L.retenues[L.retenues.length - 1] : null;
       if (derniere !== null && A.length && A[A.length - 1] === derniere && effortViseEligible(P)) {
         var Rb = Palier().reserveDeSerie(derniere);
-        var Vb = reserveVisee({ zone: 'lourd', role: 'ligne', reglage: reglage });
+        var Vb = plancherDeReserve(reserveVisee({ zone: 'lourd', role: 'ligne', reglage: reglage }), protegee);
         if (Rb !== null && Vb !== null && Rb < Vb && !debutant && !precedenteAuHautSansMarge(precedente, P, vise, Vb)) {
           return fin('bord_garde', ligneDe(P, vise), { bord: { charge: P, reps: nombre(derniere.reps), reserve: Rb } });
         }
@@ -2559,11 +2593,14 @@
     var derniereRetenue = L.retenues && L.retenues.length ? L.retenues[L.retenues.length - 1] : null;
     if (derniereRetenue !== null && A.length && A[A.length - 1] === derniereRetenue && effortViseEligible(P)) {
       var Rn = Palier().reserveDeSerie(derniereRetenue);
-      var Vn = reserveVisee({ zone: zone.cle, role: 'ligne', reglage: reglage });
+      var VnT = reserveVisee({ zone: zone.cle, role: 'ligne', reglage: reglage });
+      // PR 4a — `Vn` : la visée AFFICHÉE (la table relevée au plancher pour la population protégée) ; `VnT` : la table, qui seule déclenche le test.
+      var Vn = plancherDeReserve(VnT, protegee);
       var repsN = comptees(derniereRetenue);
       if (Rn !== null && Vn !== null && repsN !== null && repsN >= lo) {
-        if (Rn >= Vn + RESERVE_ECART) {
+        if (Rn >= VnT + RESERVE_ECART) {
           effortVise = { effet: 'test', charge: P, reps: nombre(derniereRetenue.reps), reserve: Rn, visee: Vn };
+          if (protegee) { effortVise.viseeTable = VnT; effortVise.protegee = true; }
         } else if (Rn < Vn && !debutant) {
           // 169 — LA SORTIE : la garde ne dure qu'une séance au haut de la zone. Si la séance d'avant, à la même charge,
           // finissait déjà au haut avec R < V, la garde a déjà eu lieu : le coach pose le test, quelle que soit la réserve.
@@ -2571,6 +2608,7 @@
           effortVise = { effet: deja ? 'test' : 'garde', charge: P, reps: nombre(derniereRetenue.reps), reserve: Rn, visee: Vn,
                          auHaut: repsN >= hi, deja: deja };
           if (deja) effortVise.sortie = true;
+          if (protegee) { effortVise.viseeTable = VnT; effortVise.protegee = true; }
         }
       }
     }
@@ -4691,10 +4729,19 @@
     var charge = haut !== null && typeof haut === 'object' ? haut.charge : haut;
     if (ev.effet !== 'test' || charge === null || charge === undefined) return null;
     if (ev.sortie === true) return phraseDeLaSortie(ev, haut);
+    // PR 4a (§9.26 bis) — la réserve notée ÉGALE à la visée affichée (le plancher à 2 sur une table à 0 ou 1 : le test se déclenche sur la
+    // table) : « c'est ce que je visais », jamais « au-dessus » (I161).
+    var egale = ev.reserve === ev.visee;
     return chargeFois(ev.charge, ev.reps, cite(FAIT, { quoi: 'effort_vise' })) + ', il t’en restait ' +
       nombreFr(ev.reserve, cite(FAIT, { quoi: 'effort_vise.reserve' })) +
-      '. Au-dessus de ce que je visais' + DEUX_POINTS + 'la prochaine fois, on essaie ' +
+      (egale ? DEUX_POINTS + 'c’est ce que je visais. La prochaine fois, on essaie '
+             : '. Au-dessus de ce que je visais' + DEUX_POINTS + 'la prochaine fois, on essaie ') +
       enKg(charge, cite(FAIT, { quoi: 'effort_vise.haut' })) + '.';
+  }
+  // PR 4a (§9.26 bis) — « Me pousser » écrasé par le plancher : une ligne du « Pourquoi », une fois par exercice. Honnête : elle dit la visée et que la
+  // personne note ce qu'elle veut ; elle ne promet pas de protéger de la montée. `n` : la réserve visée affichée (le plancher).
+  function phraseDuPlancher(n) {
+    return 'Pour cet exercice, je vise ' + nombreFr(n, regle('constante')) + ' en réserve. Tu notes ce que tu veux.';
   }
   function phraseGrise(c, reference) {
     var f = c.fondement || {};
@@ -5227,8 +5274,11 @@
         } else if (f.effortVise && f.effortVise.effet === 'test') {
           dit = 'Ta dernière série, ' + chargeFois(f.effortVise.charge, f.effortVise.reps, cite(FAIT, { quoi: 'effort_vise' })) +
             ', laissait ' + nombreFr(f.effortVise.reserve, cite(FAIT, { quoi: 'effort_vise.reserve' })) +
-            ' en réserve, plus que les ' + nombreFr(f.effortVise.visee, cite(FAIT, { quoi: 'effort_vise.visee' })) +
-            ' visées : on teste le cran au-dessus sur la dernière série.';
+            (f.effortVise.reserve === f.effortVise.visee
+              // PR 4a — le plancher : la réserve notée égale la visée affichée, elle ne la dépasse pas.
+              ? ' en réserve, ce que je visais : on teste le cran au-dessus sur la dernière série.'
+              : ' en réserve, plus que les ' + nombreFr(f.effortVise.visee, cite(FAIT, { quoi: 'effort_vise.visee' })) +
+                ' visées : on teste le cran au-dessus sur la dernière série.');
         }
         if (f.preuve) {
           var ecart = c.haut.charge === null ? null : c.haut.charge - c.ligne.charge;
@@ -6042,7 +6092,7 @@
   function cleDuContrat(groupes, etat, mesure, options) {
     var o = options || {};
     try {
-      return JSON.stringify([mesure, o.reglage, o.equipement, o.charge, o.correction, o.salle, etat, prudent, debutantEnCours, prudenceEffective(debutantEnCours, prudenceEnCours), groupes],
+      return JSON.stringify([mesure, o.reglage, o.equipement, o.charge, o.correction, o.salle, etat, prudent, debutantEnCours, protegeeEnCours, o.protegee === true, prudenceEffective(debutantEnCours, prudenceEnCours), groupes],
         function (k, v) { return v === undefined ? '\u0000u' : v; });
     } catch (e) { return null; }
   }
@@ -12725,7 +12775,12 @@
     ZONE_PERIMEE_JOURS: ZONE_PERIMEE_JOURS,
     niveauValide: niveauValide,
     reserveVisee: reserveVisee,
+    reserveAffichee: reserveAffichee,
+    plancherDeReserve: plancherDeReserve,
+    populationProtegee: populationProtegee,
+    RESERVE_PLANCHER: RESERVE_PLANCHER,
     phraseEffortVise: phraseEffortVise,
+    phraseDuPlancher: phraseDuPlancher,
     effortViseEligible: effortViseEligible,
     RESERVE_ECART: RESERVE_ECART,
     formatDe: formatDe,

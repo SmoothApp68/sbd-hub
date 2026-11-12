@@ -1,0 +1,114 @@
+[
+ {
+  "nom": "pr4a-declencheur-sur-le-plancher",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "if (Rn >= VnT + RESERVE_ECART) {",
+  "nouveau": "if (Rn >= Vn + RESERVE_ECART) {",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-plancher-reserve.test.js"
+  ]
+ },
+ {
+  "nom": "pr4a-ligne-de-test-chiffree",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "    if (x.role === 'test' || x.role === 'haut') return null;\n    return plancherDeReserve(t, true);",
+  "nouveau": "    return plancherDeReserve(t, true);",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-plancher-reserve.test.js"
+  ]
+ },
+ {
+  "nom": "pr4a-visee-du-fondement-sur-la-table",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "effortVise = { effet: 'test', charge: P, reps: nombre(derniereRetenue.reps), reserve: Rn, visee: Vn };",
+  "nouveau": "effortVise = { effet: 'test', charge: P, reps: nombre(derniereRetenue.reps), reserve: Rn, visee: VnT };",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-plancher-reserve.test.js"
+  ]
+ },
+ {
+  "nom": "pr4a-toujours-au-dessus",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var egale = ev.reserve === ev.visee;",
+  "nouveau": "var egale = false;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-plancher-reserve.test.js"
+  ]
+ },
+ {
+  "nom": "pr4a-question-sur-la-ligne-de-test",
+  "fichier": "v2/js/plan.js",
+  "ancien": "var sansCible = protegee === true && roleDeLaVisee(x) === 'test';",
+  "nouveau": "var sansCible = false;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-plancher-reserve.test.js"
+  ]
+ },
+ {
+  "nom": "pr4a-pari-sur-la-table",
+  "fichier": "v2/js/plan.js",
+  "ancien": "var rvLigne = M.reserveAffichee({ zone: consigne ? consigne.zone : null, role: roles[j], reglage: o.reglage, protegee: o.protegee === true });",
+  "nouveau": "var rvLigne = M.reserveVisee({ zone: consigne ? consigne.zone : null, role: roles[j], reglage: o.reglage });",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-plancher-reserve.test.js"
+  ]
+ },
+ {
+  "nom": "pr4a-sans-phrase-du-plancher",
+  "fichier": "v2/js/plan.js",
+  "ancien": "if (protegee && reglagePlan === 'franc' && rvX !== null",
+  "nouveau": "if (false && reglagePlan === 'franc' && rvX !== null",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-plancher-reserve.test.js"
+  ]
+ },
+ {
+  "nom": "pr4a-garde-de-bord-sans-plancher",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var Vb = plancherDeReserve(reserveVisee({ zone: 'lourd', role: 'ligne', reglage: reglage }), protegee);",
+  "nouveau": "var Vb = reserveVisee({ zone: 'lourd', role: 'ligne', reglage: reglage });",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-plancher-reserve.test.js"
+  ]
+ },
+ {
+  "nom": "pr4a-population-trop-large",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "return x.plus65 === true || x.debutant === true || x.objectif === 'forme';",
+  "nouveau": "return x.plus65 === true || x.debutant === true || x.objectif === 'forme' || x.objectif === 'muscle';",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-plancher-reserve.test.js"
+  ]
+ },
+ {
+  "nom": "pr4a-ecran-lit-la-table",
+  "fichier": "v2/js/app.js",
+  "ancien": "return x && x.reserveAffichee !== undefined ? x.reserveAffichee : null;",
+  "nouveau": "return x && x.reserveVisee !== undefined ? x.reserveVisee : null;",
+  "banc": "seance",
+  "sections": [
+   "plancher-reserve"
+  ],
+  "unitaires": []
+ },
+ {
+  "nom": "pr4a-app-ne-donne-pas-protegee",
+  "fichier": "v2/js/app.js",
+  "ancien": "      protegee: Moteur.populationProtegee({",
+  "nouveau": "      protegee: false && Moteur.populationProtegee({",
+  "banc": "seance",
+  "sections": [
+   "plancher-reserve"
+  ],
+  "unitaires": []
+ }
+]

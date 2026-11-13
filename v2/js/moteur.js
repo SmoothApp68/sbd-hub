@@ -6159,6 +6159,8 @@
     }
     if (cf.etat === 'test_non_fait') {
       // Le test proposé n'est pas une ligne de la séance (I26 : une cible citée doit être une ligne) : sa charge se cite comme règle.
+      // Charge du test inconnue (« le cran au-dessus ») : le test se nomme sans chiffre, jamais un repli cité comme une charge.
+      if (nombre(cf.haut.charge) === null) return 'Aujourd\'hui' + DEUX_POINTS + faitDuJour() + '. Le test n\'a pas été fait.';
       return 'Aujourd\'hui' + DEUX_POINTS + faitDuJour() + '. Le test à ' +
         enKg(cf.haut.charge, regle('cible.test_non_fait')) + ' n\'a pas été fait.';
     }

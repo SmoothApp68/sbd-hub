@@ -92,6 +92,11 @@ describe('I163 — Cible faite : niveau validé ≥ cible, même charge, toutes 
     expect(sans.cf.etat).toBe('test_non_fait');
     expect(sans.texte).toBe('Aujourd\'hui : 70 kg × 8, 8, 8. Le test à 72,5 kg n\'a pas été fait.');
   });
+  test('un test proposé à charge inconnue (« le cran au-dessus ») se nomme sans chiffre', () => {
+    const r = cas([8, 8, 8], { niveau: 8, n: 3, haut: { charge: null, vise: 5, k: 1 } });
+    expect(r.cf.etat).toBe('test_non_fait');
+    expect(r.texte).toBe('Aujourd\'hui : 70 kg × 8, 8, 8. Le test n\'a pas été fait.');
+  });
   test('un zéro rep ou une histoire d\'une seule séance : jamais « Pas encore »', () => {
     expect(cas([7, 7, 7], { niveau: 7, lues: 1 }).texte).not.toMatch(/^Pas encore/);
   });

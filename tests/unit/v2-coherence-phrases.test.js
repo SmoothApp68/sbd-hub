@@ -472,7 +472,7 @@ describe('49-U19 — la séance du 01/10 : la garde retrouve les phrases d’ava
     expect(k.etat).toBe('rejoint');
     expect(esp(x.entete.jaune.join(' / '))).toBe('92 kg × 11');
     expect(esp(x.entete.gris)).toBe('Ta première série à 88 kg passe à 92 kg.');
-    expect(esp(x.constat.verdict)).toBe('Pas encore : 92 kg × 10, 9, 9.');
+    expect(esp(x.constat.verdict)).toBe('Pas encore : 92 kg × 10, 9, 9 pour une cible de 11.');
     expect(esp(x.constat.suite)).toBe('Prochaine séance : 92 kg × 10.');
   });
 

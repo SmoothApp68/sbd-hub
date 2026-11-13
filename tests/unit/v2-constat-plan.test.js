@@ -92,10 +92,10 @@ describe('49-U4 — le cas du 26/09, reconstitué sous l’ancienne règle', () 
   test('prémisse : l’ancien constat, calculé à part sur les séries brutes, ne disait pas la montée', () => {
     // Avant 49-U8, il disait « Pas de palier aujourd'hui » ; depuis le §7.6,
     // la séance prend 130, sa plus lourde charge tenue dans la zone, et le
-    // calcul à part dit « Pas encore : 130 kg × 4. » — toujours pas la montée.
+    // calcul à part dit « Aujourd'hui : 130 kg × 4. » (avant « Les mots disent vrai » PR 2 : « Pas encore ») — toujours pas la montée.
     const ancien = constatBrut(HISTOIRE, { seance: { debut: AVANT }, series: SEANCE_26 },
       ETAT.terre, AVANT, APRES, OPTS);
-    expect(ancien.constat.verdict.replace(/[\u00a0\u202f]/g, ' ')).toBe('Pas encore : 130 kg × 4.');
+    expect(ancien.constat.verdict.replace(/[\u00a0\u202f]/g, ' ')).toBe('Aujourd\'hui : 130 kg × 4.');
   });
 
   test('⚠️ DISCRIMINANT — le constat du plan ne dit plus « Pas de palier » : il dit la montée tenue', () => {

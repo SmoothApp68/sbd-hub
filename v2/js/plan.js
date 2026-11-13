@@ -4820,6 +4820,53 @@
       }
     }
 
+    // I163 — LE VERDICT NE CONTREDIT JAMAIS LE CHIFFRE (« Les mots disent vrai », PR 2, MOTEUR §9.44), DANS LES DEUX SENS. Relu ici sur les
+    // lignes du plan, par une arithmétique à part de `Moteur.cibleFaite` (qui décide la phrase) :
+    //   (a) « Pas encore » ⇒ les séries faites à la charge de la ligne sont au moins aussi nombreuses que celles qu'elle couvre,
+    //       et l'une d'elles est sous la cible — jamais à qui a fait toutes ses séries à la cible ; la phrase dit la même cible
+    //       que la ligne (« pour une cible de N ») ;
+    //   (b) « Cible faite » ⇒ la ligne est complète à sa charge, aucune série n'est à plus d'une rep sous la cible (la tolérance du
+    //       moteur, nommée), et aucun test proposé n'est laissé de côté ; la meilleure série du réglage Franc ne suffit jamais ;
+    //   (c) le jugement du moteur (`constat.cible`, posé quand le verdict tombe sur la dernière branche) et la phrase se disent la même chose.
+    if (k10) {
+      var texte163 = String(k10.verdict || '').replace(/[\u00a0\u202f]/g, ' ');
+      var pas163 = /^Pas encore/.test(texte163), faite163 = /^Cible faite/.test(texte163);
+      var jug163 = k10.cible && k10.cible.etat ? k10.cible.etat : null;
+      if (pas163 || faite163) {
+        // Une consigne sans ligne (« tout passe », « rejoint » : le test seul) se juge sur son test, comme `Moteur.cibleFaite`.
+        var cons163 = x.consigne || null;
+        var lg163 = cons163 && cons163.ligne ? cons163.ligne : (cons163 && cons163.haut ? cons163.haut : null);
+        // (la ligne haute compte même à charge inconnue — « le cran au-dessus » : elle est dans `n`, comme pour `Moteur.cibleFaite`)
+        var hautK163 = cons163 && cons163.ligne && cons163.haut && cons163.haut.charge !== undefined
+          ? (nombre(cons163.haut.k) === null ? 1 : nombre(cons163.haut.k)) : 0;
+        var n163 = cons163 ? nombre(cons163.n) : null;
+        var vise163 = lg163 ? nombre(lg163.vise) : null;
+        if (!lg163 || vise163 === null || n163 === null) {
+          err('I163', '« ' + texte163 + ' » sans ligne ni cible chiffrée à juger');
+        } else {
+          var nL163 = n163 - hautK163;
+          var reps163 = couvertes.filter(function (l) {
+            return l.validee && l.faite && nombre(l.faite.reps) !== null && memeChargeOuVides(nombre(l.faite.charge), nombre(lg163.charge));
+          }).map(function (l) { return nombre(l.faite.reps); }).slice(0, Math.max(nL163, 0));
+          var complete163 = reps163.length >= nL163 && nL163 >= 1;
+          var sous163 = reps163.filter(function (r) { return r < vise163; }).length;
+          if (pas163) {
+            if (!complete163) err('I163', '« Pas encore » alors que la ligne n\'est pas faite en entier à sa charge : ' + texte163);
+            else if (sous163 === 0) err('I163', '« Pas encore » alors que toutes les séries sont à la cible (' + vise163 + ') : ' + texte163);
+            var dit163 = /pour une cible de (\d+)\.$/.exec(texte163);
+            if (!dit163 || Number(dit163[1]) !== vise163) err('I163', '« Pas encore » ne dit pas la cible de la ligne (' + vise163 + ') : ' + texte163);
+            if (jug163 !== null && jug163 !== 'pas_encore') err('I163', '« Pas encore » mais le jugement du moteur est « ' + jug163 + ' »');
+          } else {
+            if (!complete163) err('I163', '« Cible faite » alors que la ligne n\'est pas faite en entier à sa charge : ' + texte163);
+            else if (reps163.some(function (r) { return r < vise163 - 1; })) err('I163', '« Cible faite » alors qu\'une série est à plus d\'une rep sous la cible (' + vise163 + ') : ' + texte163);
+            if (hautK163 > 0) err('I163', '« Cible faite » alors qu\'un test est proposé : ' + texte163);
+            if (sous163 > 0 && !/tolérée/.test(texte163)) err('I163', '« Cible faite » sans nommer la tolérance d\'une rep : ' + texte163);
+            if (jug163 !== null && jug163 !== 'faite') err('I163', '« Cible faite » mais le jugement du moteur est « ' + jug163 + ' »');
+          }
+        }
+      }
+    }
+
     // I8 — les rangs sont uniques par exercice : aucune ligne ne reprend le
     // rang d'une autre, figée ou non ; ni celui qu'une série faite a quitté
     // (supprimée, ou passée hors du travail : son pari reste — 122).
@@ -6065,6 +6112,8 @@
       'allegee.routine': k.allegee && k.allegee.routine !== null && k.allegee.routine !== undefined ? { valeur: k.allegee.routine } : null,
       // « Les mots disent vrai » PR 1 — la cible d'avant la décharge (la consigne normale), dite au « Pourquoi » : « 52,5 kg × 6 au lieu de 52,5 kg × 8 ».
       'allegee.avant': k.allegee && k.allegee.avant ? { charge: k.allegee.avant.charge, reps: [k.allegee.avant.vise] } : null,
+      // « Les mots disent vrai » PR 2 (I163) — le test proposé et laissé de côté (« Le test à 127,5 kg n'a pas été fait ») : la charge de la ligne haute de la consigne.
+      'cible.test_non_fait': k.haut && k.haut.charge !== null && k.haut.charge !== undefined ? { charge: k.haut.charge } : null,
       // 165 — « Décharge, semaine k sur N » : le rang de la semaine dans le bloc.
       'bloc.semaine': k.allegee && k.allegee.decharge && nombre(k.allegee.semaine) !== null ? { valeur: k.allegee.semaine } : null,
       'bloc.semaines': k.allegee && k.allegee.decharge && nombre(k.allegee.semaines) !== null ? { valeur: k.allegee.semaines } : null,

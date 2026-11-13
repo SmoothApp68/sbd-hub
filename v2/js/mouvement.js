@@ -294,7 +294,27 @@
     skullcrusher_barre: 'skullcrusher_barre.json',
     extension_triceps_dessus_tete_barre_ez: 'extension_triceps_dessus_tete_barre_ez.json',
     extension_triceps_dessus_tete_un_bras_haltere: 'extension_triceps_dessus_tete_un_bras_haltere.json',
-    pompes_prise_serree: 'pompes_prise_serree.json'
+    pompes_prise_serree: 'pompes_prise_serree.json',
+    developpe_militaire_assis_haltere: 'developpe_militaire_assis_haltere.json',
+    developpe_militaire_prise_neutre_haltere: 'developpe_militaire_prise_neutre_haltere.json',
+    developpe_arnold_haltere: 'developpe_arnold_haltere.json',
+    developpe_militaire_assis_barre: 'developpe_militaire_assis_barre.json',
+    developpe_militaire_machine_smith: 'developpe_militaire_machine_smith.json',
+    developpe_militaire_barre_elastique: 'developpe_militaire_barre_elastique.json',
+    developpe_militaire_un_bras_haltere: 'developpe_militaire_un_bras_haltere.json',
+    developpe_militaire_kettlebell: 'developpe_militaire_kettlebell.json',
+    developpe_bottoms_up_kettlebell: 'developpe_bottoms_up_kettlebell.json',
+    developpe_epaules_elastique: 'developpe_epaules_elastique.json',
+    developpe_epaules_poulie: 'developpe_epaules_poulie.json',
+    presse_epaules_convergente_machine: 'presse_epaules_convergente_machine.json',
+    elevation_laterale_un_bras_poulie: 'elevation_laterale_un_bras_poulie.json',
+    elevation_laterale_derriere_dos_poulie: 'elevation_laterale_derriere_dos_poulie.json',
+    elevation_laterale_un_bras_haltere: 'elevation_laterale_un_bras_haltere.json',
+    elevation_laterale_assis_haltere: 'elevation_laterale_assis_haltere.json',
+    elevation_laterale_appui_poitrine_haltere: 'elevation_laterale_appui_poitrine_haltere.json',
+    elevation_laterale_elastique: 'elevation_laterale_elastique.json',
+    elevation_laterale_kettlebell: 'elevation_laterale_kettlebell.json',
+    elevation_y: 'elevation_y.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

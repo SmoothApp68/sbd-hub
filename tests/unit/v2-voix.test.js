@@ -95,6 +95,8 @@ const motifDe = (i, attendu) => {
   const motif = r.motif.replace(/^\\b/, '(?<!' + lettre + ')').replace(/\\b$/, '(?!' + lettre + ')').replace(/\\w\*/g, lettre + '*');
   return new RegExp(motif, r.drapeaux);
 };
+// PR 4a (MOTEUR §9.47) — le lexique FERMÉ du verbe de la consigne : les motifs interdits (fixtures/voix-verbes-162.json), balayés sur CHAQUE phrase produite.
+const VERBES_162 = require('./fixtures/voix-verbes-162.json').interdits.map((r) => ({ nom: 'le verbe : ' + r.regle, re: new RegExp(r.motif, r.drapeaux) }));
 const AUTRES_REGLES = [
   { nom: 'un compliment (« bravo », principe 5 : un fait)', re: motifDe(2, 'bravo') },
   { nom: 'du jargon du moteur (« rampe », « bascule », « étirement », « niveau validé »)', re: motifDe(3, 'rampe') },
@@ -133,6 +135,7 @@ function reglesViolees(phrase, famille, dates, reference) {
   // 181 (B-M4) — les règles de VOIX-V1 et du CADRAGE que la garde ne lisait pas : les motifs et leurs faux positifs
   // réels sont dans fixtures/voix-regles-181.json (audit du 28/10/2026). « cran » (index 4) est un mot du produit (D2).
   AUTRES_REGLES.forEach((r) => { if (r.re.test(t)) v.push(r.nom); });
+  VERBES_162.forEach((r) => { if (r.re.test(t)) v.push(r.nom); });
   for (let i = t.indexOf('×'); i >= 0; i = t.indexOf('×', i + 1)) {
     const avant = t.slice(0, i).replace(/[\s ]+$/, '');
     // 50-1 : « Poids du corps × 8 » — au poids du corps, la charge est le corps.
@@ -854,5 +857,20 @@ describe('§20.2 — les lignes de la feuille en séance, et l\'en-tête de form
     const d = Object.assign({}, c, { haut: { charge: null, vise: 4, k: 1 } });
     expect(M.enteteDeDisposition(d, ['haut', 'ligne']).jaune.map(esp))
       .toEqual(['Le cran au-dessus × 4 sur une série', 'puis 125 kg × 5 sur une série']);
+  });
+});
+
+// PR 4a — le lexique fermé du verbe n'est pas vide : un verbe interdit est attrapé, les verbes admis passent.
+describe('PR 4a — le lexique fermé du verbe de la consigne (fixtures/voix-verbes-162.json)', () => {
+  const dit = (t) => reglesViolees(t, 'consigne', [], null).filter((x) => /^le verbe/.test(x));
+  test('les verbes admis passent', () => {
+    ['Mardi : 70 kg × 8, 8, 8. Une rep de plus : 70 kg × 9.', 'Mardi : 70 kg × 8, 8, 8, la dernière sans marge. Tu restes à 70 kg × 8.',
+      '130 kg × 5, sans marge. Je garde 130 kg la prochaine fois.', '102,5 kg × 0 : pas encore. Je baisse à 97,5 kg.',
+      'Pour cet exercice, je vise 2 en réserve. Tu notes ce que tu veux.'].forEach((t) => expect([t, dit(t)]).toEqual([t, []]));
+  });
+  test('⚠️ DISCRIMINANT — les verbes refusés sont attrapés', () => {
+    ['Je garde 8 reps.', '125 kg × 5, sans marge : on ne rajoute pas de rep.', 'Ta dernière série est allée jusqu\'au bout.', 'On garde 130 kg la prochaine fois.',
+      'Je ne compte pas la dernière série : on tient 80 kg × 10.', 'Ta zone Lourd va jusqu\'à 5 : je vise 5.', 'Une rep de plus sur chaque série.']
+      .forEach((t) => expect([t, dit(t).length > 0]).toEqual([t, true]));
   });
 });

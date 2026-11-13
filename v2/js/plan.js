@@ -7349,11 +7349,11 @@
         var t = norm(p[1]);
         if (!t) return;
         var lieu = p[0];
-        var dePlus = /(?:^|[^a-zéèêàùâîô])((?:sans|pas de|jamais|ne te demande|ne demande jamais|ne te propose)\s+)?(?:une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|\d+)\s+reps?\s+de\s+plus/gi, q;
+        var dePlus = /(?:^|[^a-zéèêàùâîô])((?:sans|pas de|jamais|ne te demande|ne demande jamais|ne te propose)\s+)?((?:une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|\d+)\s+)?reps?\s+de\s+plus/gi, q;
         while ((q = dePlus.exec(t))) {
           var neg = !!q[1] || /(?:sans|pas de|jamais)(?:\s+\w+){0,2}\s*$/i.test(t.slice(Math.max(0, q.index - 24), q.index + 1));
           if (neg) { if (v.verbe === 'monte_reps') erreurs.push('I162' + nom + lieu + ' nie « une rep de plus » devant une ligne qui monte : ' + t); }
-          else if (v.famille === 'progression' || v.famille === 'reprise') {
+          else if (q[2] && (v.famille === 'progression' || v.famille === 'reprise')) {
             if (v.verbe !== 'monte_reps') erreurs.push('I162' + nom + lieu + ' dit « ' + q[0].trim() + ' » alors que le verbe est « ' + v.verbe + ' » : ' + t);
           }
         }

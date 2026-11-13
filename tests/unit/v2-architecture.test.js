@@ -57,6 +57,8 @@ const GARDEES = [
   { fn: 'reactionAuZero', module: 'moteur.js' },
   // moteur.js — « Les mots disent vrai » PR 2 (MOTEUR §9.44, I163) : « Cible faite » / « Pas encore » se décident par UN prédicat ; seul `verdictDuJour` (le moteur) l'appelle, le plan relit son jugement (`constat.cible`) par I163
   { fn: 'cibleFaite', module: 'moteur.js' },
+  // moteur.js — « Les mots disent vrai » PR 4a (MOTEUR §9.47, I162) : le verbe de la consigne (monte_reps, garde_cible, garde_charge, recule…) se décide par UNE fonction sur la consigne FINALE ; le moteur la lit pour le gris et le Pourquoi, le plan la pose (`x.verbe`), les écrans lisent `x.verbe`
+  { fn: 'verbeDeLaConsigne', module: 'moteur.js' },
   // moteur.js — la consigne
   { fn: 'consignePour', module: 'moteur.js' },
   { fn: 'consigneDExercice', module: 'moteur.js' },

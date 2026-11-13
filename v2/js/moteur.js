@@ -4956,6 +4956,8 @@
     t = t + (n === 1 ? ' rep de plus' : ' reps de plus');
     return majuscule ? t.charAt(0).toUpperCase() + t.slice(1) : t;
   }
+  // « tu restes à 80 kg × 10 » : le verbe de la cible gardée (une seule écriture, dans cette région).
+  function tuRestes(c) { return 'tu restes à ' + ligneDeLaConsigne(c); }
   function ligneDeLaConsigne(c) { return chargeFois(c.ligne.charge, c.ligne.vise, cite(CIBLE, { role: 'ligne' })); }
   // Le gris d'une consigne qui progresse ou garde à la même charge : la série du jour, la cause (si le verbe la rend vraie), puis le verbe.
   function grisDuVerbe(c, v, tete, zoneBas, zoneHaut) {
@@ -4966,7 +4968,7 @@
       }
       return tete + '. ' + dePlus(v.plus, true) + ' : ' + ligneDeLaConsigne(c) + '.';
     }
-    if (v.verbe === VERBES.GARDE_CIBLE) return tete + cause + '. Tu restes à ' + ligneDeLaConsigne(c) + '.';
+    if (v.verbe === VERBES.GARDE_CIBLE) return tete + cause + '. ' + tuRestes(c).charAt(0).toUpperCase() + tuRestes(c).slice(1) + '.';
     if (v.verbe === VERBES.BORNE) return tete + cause + '. Ta cible : ' + ligneDeLaConsigne(c) + '.';
     return tete + '.';
   }
@@ -4977,7 +4979,7 @@
     if (v.verbe === VERBES.GARDE_CIBLE) {
       // « sans marge » est DÉFINI ici, une fois : il ne t'en restait aucune (ce que la personne a noté).
       return (v.cause ? (v.sansMarge.derniere ? 'ta dernière série était sans marge, il ne t\'en restait aucune' : 'une de tes séries était sans marge, il ne t\'en restait aucune') + DEUX_POINTS : '') +
-        'tu restes à ' + ligne + '.';
+        tuRestes(c) + '.';
     }
     if (v.verbe === VERBES.BORNE) return 'ta cible : ' + ligne + '.';
     return null;
@@ -5004,7 +5006,7 @@
     var v = verbeDeLaConsigne(c);
     var tete = 'Au poids du corps, il n\'y a pas de cran à monter' + DEUX_POINTS;
     if (v.verbe === VERBES.MONTE_REPS) return tete + 'tu gagnes des reps, ' + dePlus(v.plus) + ' que la dernière fois, ' + ligneDeLaConsigne(c) + '.';
-    if (v.verbe === VERBES.GARDE_CIBLE) return tete + 'tu restes à ' + ligneDeLaConsigne(c) + '.';
+    if (v.verbe === VERBES.GARDE_CIBLE) return tete + tuRestes(c) + '.';
     return tete + ligneDeLaConsigne(c) + '.';
   }
   // ══ FIN DU VERBE UNIQUE ══════════════════════════════════════════════════════════════════════════════════════════════════════════════
@@ -5132,8 +5134,7 @@
         // 74 — sans chute sur les reps faites (l'état vient du calcul prudent,
         // la ligne des reps faites) : la phrase de la rep de plus, qui est vraie.
         if (!f.chute) return grisDuVerbe(c, verbeDeLaConsigne(c), jour() + DEUX_POINTS + auPalier(), null, null);
-        return jour() + DEUX_POINTS + auPalier() + '. Je ne compte pas la dernière série' + DEUX_POINTS +
-               'tu restes à ' + ligneDeLaConsigne(c) + '.';
+        return jour() + DEUX_POINTS + auPalier() + '. Je ne compte pas la dernière série' + DEUX_POINTS + tuRestes(c) + '.';
 
       case 'etirement':
         return ditPasDePlusPetitCran(f.equipement, true) + DEUX_POINTS + 'ta zone s\'étire. ' +
@@ -5602,8 +5603,7 @@
         // 74 — sans chute sur les reps faites : le paragraphe de la rep de plus.
         if (!f.chute) return pourquoiDeLaProgression(c);
         return 'Ta dernière série a chuté après des séries stables' + DEUX_POINTS +
-               'c\'est la fatigue, pas ton niveau. Je ne la compte pas, et tu restes à ' +
-               chargeFois(c.ligne.charge, c.ligne.vise, cL) + ' avant de tester plus lourd.';
+               'c\'est la fatigue, pas ton niveau. Je ne la compte pas, et ' + tuRestes(c) + ' avant de tester plus lourd.';
 
       case 'retest_un_cran':
         return rateDit() + ' Ta charge de travail est au haut' + DEUX_POINTS +

@@ -438,7 +438,9 @@
     }).map(function (x) {
       return { date: debutDe[x.seance], seance: x.seance, exercice: x.l.exercise_slug, emise: x.l.emise_a || null,
                predite: Number(x.l.valeur_predite), observee: Number(x.l.valeur_observee),
-               charge: x.l.fondement && x.l.fondement.charge !== undefined && x.l.fondement.charge !== null ? Number(x.l.fondement.charge) : null };
+               charge: x.l.fondement && x.l.fondement.charge !== undefined && x.l.fondement.charge !== null ? Number(x.l.fondement.charge) : null,
+               // MOTEUR §9.46 : le pari de Décharge se lit (`parisRatesALaSuite`) mais ne se compte pas (`Bilan.compteLe`).
+               allegee: !!(x.l.fondement && x.l.fondement.allegee === true) };
     });
   }
 
@@ -452,7 +454,7 @@
     });
     return Object.keys(parId).map(function (k) { return parId[k]; }).filter(function (x) {
       return x.l.module === Moteur.MODULE_CONSIGNE && x.seance;
-    }).map(function (x) { return { seance: x.seance }; });
+    }).map(function (x) { return { seance: x.seance, allegee: !!(x.l.fondement && x.l.fondement.allegee === true) }; });
   }
 
   // 211 — « Mon premier pari : 60 kg × 9. … », UNE fois : tant que le compte n'a aucun pari de consigne, sous la consigne du

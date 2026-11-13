@@ -8023,7 +8023,7 @@
         change: !memeCharge(premiere[0], derniere[0]) || premiere[1] !== derniere[1] };
     });
     (paris || []).forEach(function (q) {
-      if (!q || exos.indexOf(q.exercice) < 0 || !dans(q.date)) return;
+      if (!q || !racine.THBilan.compteLe(q) || exos.indexOf(q.exercice) < 0 || !dans(q.date)) return;
       var pr = nombre(q.predite), ob = nombre(q.observee);
       if (pr === null || ob === null) return;
       sortie.paris++;

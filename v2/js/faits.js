@@ -737,7 +737,7 @@
         return n.charAt(0).toUpperCase() + n.slice(1);
       };
       // Les paris de CETTE séance, et la phrase aux chiffres tels quels.
-      var siens = (paris || []).filter(function (q) { return q && q.seance === seance.id; });
+      var siens = (paris || []).filter(function (q) { return q && q.seance === seance.id && Bilan.compteLe(q); });
       var comptes = Bilan.compterParis(siens);
       var lignesParis = [];
       if (comptes.verifies) {
@@ -808,7 +808,7 @@
       (c.seances || []).forEach(function (s) { if (s && s.id) debutDe[s.id] = Date.parse(s.debut); });
       var meilleur = null;
       (paris || []).forEach(function (q) {
-        if (!q || !q.seance) return;
+        if (!q || !q.seance || !Bilan.compteLe(q)) return;
         var d = debutDe[q.seance];
         if (d === undefined || isNaN(d)) d = Infinity;   // une séance pas encore connue du cache passe après les autres
         if (meilleur === null || d < meilleur.d) meilleur = { d: d, seance: q.seance };
@@ -1858,7 +1858,7 @@
           return { jour: Moteur.jourCivil(p.date), poids: p.poids };
         }),
         paris: (o.paris || []).filter(function (q) { return q && q.date; }).map(function (q) {
-          return { jour: Moteur.jourCivil(q.date), predite: q.predite, observee: q.observee };
+          return { jour: Moteur.jourCivil(q.date), predite: q.predite, observee: q.observee, allegee: q.allegee === true };
         })
       };
     }

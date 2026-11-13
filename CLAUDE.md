@@ -188,6 +188,7 @@ trappe `/__sw-off` pendrait avec lui.
   d'un mois, du jour, le dernier record, la semaine affichée, les exercices faits) vit dans
   `v2/js/faits.js`, avec ses mémos ; les écrans — et le jeu — le **lisent**, aucun autre fichier ne
   déclare un de ces faits (garde « un fait ne se déclare que dans `faits.js` », registre `NOTIONS`).
+- **Les paris de Décharge ne se comptent pas** (« Les mots disent vrai » PR 3 bis, MOTEUR §9.46) : le compte « le coach en a tenu N sur M » passe par `Bilan.compteLe` (un pari `allegee` n'est pas une vérification), à la lecture seulement ; `faits.parisRatesALaSuite` les lit toujours. Un lecteur du compte qui filtre à sa façon est un doublon.
 - **Le journal des records** (58-2, MOTEUR §9.23, table `records`) : il ne calcule rien — ses lignes
   sortent de `faits.js` (`journalDuJour`, `journalDeLaSeance`) et il se **lit** par `recordsDuJournal`.
   Il ne s'**écrit** que par la file (`poserJournal` → `executer` → `THDonnees.ajouterRecords`, un ajout

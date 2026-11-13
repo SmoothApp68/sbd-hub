@@ -1,0 +1,83 @@
+[
+ {
+  "nom": "p1-min-devient-max",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "if (ch === null || (ch > p && !memeCharge(ch, p))) return { charge: p, approchee: false };",
+  "nouveau": "if (ch === null || (ch < p && !memeCharge(ch, p))) return { charge: p, approchee: false };",
+  "unitaires": [
+   "tests/unit/v2-mots-decharge-palier.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "p2-ciblesDifferent-sans-charge",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "if (v0 !== null && v1 !== null && v0 !== v1) return true;\n    return c0 !== null && c1 !== null && !memeCharge(c0, c1);",
+  "nouveau": "if (v0 !== null && v1 !== null && v0 !== v1) return true;\n    return false;",
+  "unitaires": [
+   "tests/unit/v2-mots-decharge-palier.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "p3-marge-sans-baisse",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var t = d ? 'moins de séries' + (marge ? ', avec de la marge.' : '.')",
+  "nouveau": "var t = d ? 'moins de séries' + ', avec de la marge.'",
+  "unitaires": [
+   "tests/unit/v2-mots-decharge-palier.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "p4-approchee-perimee",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "if (ch === null || (ch > p && !memeCharge(ch, p))) return { charge: p, approchee: false };",
+  "nouveau": "if (ch === null || (ch > p && !memeCharge(ch, p))) return { charge: p, approchee: src.approchee === true };",
+  "unitaires": [
+   "tests/unit/v2-mots-decharge-palier.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "p5-I19-sans-a-series",
+  "fichier": "v2/js/plan.js",
+  "ancien": "var attendu = Math.min(a.series, travail);",
+  "nouveau": "var attendu = Math.min(M.seriesAllegees(a.routine), travail);",
+  "unitaires": [
+   "tests/unit/v2-mots-decharge-palier.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "p6-zero-est-nul",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "if (ch === null || (ch > p && !memeCharge(ch, p)))",
+  "nouveau": "if (!ch || (ch > p && !memeCharge(ch, p)))",
+  "unitaires": [
+   "tests/unit/v2-mots-decharge-palier.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "p7-hors-routine-1-serie",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var base = routine !== null ? routine : (cn !== null && cn >= 1 ? cn : null);",
+  "nouveau": "var base = routine !== null ? routine : null;",
+  "unitaires": [
+   "tests/unit/v2-mots-decharge-palier.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "t-temoin-commentaire",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var retenue = chargeDeLaDecharge(c, src);",
+  "nouveau": "var retenue = chargeDeLaDecharge(c, src); /* témoin */",
+  "unitaires": [
+   "tests/unit/v2-mots-decharge-palier.test.js"
+  ],
+  "banc": "aucun",
+  "attendu": "survit"
+ }
+]

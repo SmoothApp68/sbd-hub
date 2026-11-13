@@ -7120,11 +7120,10 @@
     return Math.max(1, Math.round(k * PART_ALLEGEE + 1e-9));
   }
 
-  // LA CONSIGNE ALLÉGÉE : la même charge que la ligne de la consigne normale
-  // (sans ligne basse, celle de la ligne haute — §12.9, 49-30), 2 reps de
-  // moins (au moins 1), aucune ligne haute, et ne COUVRE que les premières
-  // séries (`couvre`). `allegee` porte de quoi écrire l'en-tête et l'invariant.
-  // `decharge` : la semaine est la décharge planifiée d'un programme (§9.22).
+  // LA CONSIGNE ALLÉGÉE : la charge de la ligne de la consigne normale (sans ligne basse, celle de la ligne haute — §12.9, 49-30)
+  // PLAFONNÉE AU PALIER (« Les mots disent vrai » PR 3, §9.45 : une décharge ne demande jamais plus lourd que la dernière charge tenue),
+  // 2 reps de moins (au moins 1), aucune ligne haute, et ne COUVRE que les premières séries (`couvre`). `allegee` porte de quoi écrire
+  // l'en-tête et l'invariant. `decharge` : la semaine est la décharge planifiée d'un programme (§9.22).
   // 163 — le fondement d'une consigne RECONSTRUITE (allégée, repli) dit « approchée » exactement quand sa ligne la porte
   // (I61) : l'allégée garde la charge de sa source, le repli repart d'une charge tenue (connue).
   function fondementApproche(c, approchee) {
@@ -7134,29 +7133,49 @@
     return f;
   }
 
+  // PR 3 — LE PALIER QUI PLAFONNE LA DÉCHARGE : le palier de la consigne normale, SEULEMENT s'il est celui de la zone de la ligne. En
+  // `nouvelle_zone` (ou avec un report), la ligne est une charge reportée d'une autre zone : son palier est celui de l'ancienne zone
+  // (I80), il ne plafonne rien (aucune charge d'une autre zone n'est forcée). Sinon `null` : pas de plafond.
+  function palierQuiPlafonne(c) {
+    if (!c || c.etat === 'nouvelle_zone' || (c.fondement && typeof c.fondement === 'object' && c.fondement.report)) return null;
+    return nombre(c.palier);
+  }
+  // La charge d'une décharge : `min(charge de la source, palier)` au sens du moteur (une aide est codée négative : −25 < −22,5, la plus
+  // légère). Une charge INCONNUE (`null`, jamais « falsy » : 0 est le poids du corps et « sans aide ») prend le palier, la charge réellement
+  // tenue ; sans palier, rien n'est plafonné. `approchee` suit la charge retenue : un palier est une charge FAITE, jamais « approchée ».
+  function chargeDeLaDecharge(c, src) {
+    var p = palierQuiPlafonne(c), ch = nombre(src.charge);
+    if (p === null) return { charge: src.charge, approchee: src.approchee === true };
+    if (ch === null || (ch > p && !memeCharge(ch, p))) return { charge: p, approchee: false };
+    return { charge: src.charge, approchee: src.approchee === true };
+  }
+
   function consigneAllegee(consigne, seriesRoutine, decharge, rang) {
     var c = consigne || null;
     if (!c || c.etat === 'silence') return c;
     var src = c.ligne || c.haut;
     if (!src) return c;
     // « Les mots disent vrai » PR 1 — HORS ROUTINE (aucun compte de séries de routine, ou 0 : un exercice ajouté avant ses séries), la routine est
-    // INCONNUE (`null`) : aucune phrase ne la cite. Le nombre de séries gardées reste celui d'avant (1), les chiffres ne changent pas (PR 3).
+    // INCONNUE (`null`) : aucune phrase ne la cite. PR 3 (D3) : sa base est le nombre de séries que la consigne normale demande (`c.n`) ; sans lui, 1 série et aucune base (`null`).
     var lue = nombre(seriesRoutine);
     var routine = lue !== null && lue >= 1 ? lue : null;
-    var series = seriesAllegees(routine === null ? 1 : routine);
+    var cn = nombre(c.n);
+    var base = routine !== null ? routine : (cn !== null && cn >= 1 ? cn : null);   // `null` : aucune base connue, 1 série, rien n'est dit des séries
+    var series = seriesAllegees(base);
     var vise = nombre(src.vise);
+    var retenue = chargeDeLaDecharge(c, src);
     return Object.assign({}, c, {
-      ligne: Object.assign({ charge: src.charge, vise: vise === null ? null : Math.max(1, vise - REPS_EN_MOINS) },
-        src.approchee === true ? { approchee: true } : {}),
+      ligne: Object.assign({ charge: retenue.charge, vise: vise === null ? null : Math.max(1, vise - REPS_EN_MOINS) },
+        retenue.approchee ? { approchee: true } : {}),
       haut: null,
-      fondement: fondementApproche(c, src.approchee === true),
+      fondement: fondementApproche(c, retenue.approchee),
       n: series,
       couvre: series,
       allegee: decharge === true
-        ? { series: series, routine: routine, avant: { charge: src.charge, vise: vise }, decharge: true,
+        ? { series: series, routine: routine, base: base, avant: { charge: src.charge, vise: vise }, decharge: true,
             semaine: rang && nombre(rang.semaine) !== null ? nombre(rang.semaine) : null,
             semaines: rang && nombre(rang.semaines) !== null ? nombre(rang.semaines) : null }
-        : { series: series, routine: routine, avant: { charge: src.charge, vise: vise } }
+        : { series: series, routine: routine, base: base, avant: { charge: src.charge, vise: vise } }
     });
   }
 
@@ -7168,29 +7187,49 @@
     var l = c && c.ligne;
     return l ? Modele().chargeFois(nombre(l.charge), nombre(l.vise), undefined, cite(CIBLE, { role: 'ligne' })) : null;
   }
-  // La clause des séries : « 2 séries au lieu de 3 » — seulement si la routine est CONNUE et que les deux nombres diffèrent (I165) ; sinon rien.
+  // La clause des séries : « 2 séries au lieu de 3 » — seulement si la routine est CONNUE et que les deux nombres diffèrent (I165) ; hors
+  // routine (D3, PR 3), « 2 séries » seul : la base est la consigne normale, aucune routine n'est citée.
   function detailAllegee(c) {
     var a = c && c.allegee;
     if (!a || !seriesRetirees(a)) return null;
-    return nombreFr(a.series, regle('allegee.series')) + (a.series > 1 ? ' séries' : ' série') + ' au lieu de ' +
-           nombreFr(a.routine, regle('allegee.routine'));
+    var t = nombreFr(a.series, regle('allegee.series')) + (a.series > 1 ? ' séries' : ' série');
+    return a.routine === null || a.routine === undefined ? t : t + ' au lieu de ' + nombreFr(a.routine, regle('allegee.routine'));
+  }
+  // La base de comparaison des séries : la routine quand elle est connue, sinon les séries que la consigne normale demande (`base`, PR 3).
+  function baseDesSeries(a) {
+    if (a.routine !== null && a.routine !== undefined) return a.routine;
+    return nombre(a.base) !== null ? a.base : null;
   }
   function seriesRetirees(a) {
-    return !!a && a.routine !== null && a.routine !== undefined && a.series < a.routine;
+    if (!a) return false;
+    var b = baseDesSeries(a);
+    return b !== null && a.series < b;
   }
-  // Les cibles de la décharge diffèrent de la consigne normale (la visée baisse) : la feuille « Pourquoi » dit les deux, chiffrées.
+  // Les cibles de la décharge diffèrent de la consigne normale (reps OU charge) : la feuille « Pourquoi » dit les deux, chiffrées. UNE
+  // fonction, lue par le texte et par l'invariant I165/I166 (PR 3, N6). Une charge inconnue d'un côté ne se compare pas : seules les reps.
   function ciblesDifferent(c) {
     var a = c && c.allegee, l = c && c.ligne;
     if (!a || !a.avant || !l) return false;
-    var v0 = nombre(a.avant.vise), v1 = nombre(l.vise);
-    return v0 !== null && v1 !== null && v0 !== v1;
+    var v0 = nombre(a.avant.vise), v1 = nombre(l.vise), c0 = nombre(a.avant.charge), c1 = nombre(l.charge);
+    if (v0 !== null && v1 !== null && v0 !== v1) return true;
+    return c0 !== null && c1 !== null && !memeCharge(c0, c1);
   }
-  // « Cet exercice ne change pas » si et seulement si séries, reps et charge sont ceux de la consigne normale (I165). La routine inconnue ne
-  // peut pas le prouver : jamais dit.
+  // La décharge BAISSE vraiment une cible (reps ou charge, au sens du moteur : l'aide est négative) : la seule condition de « avec de la
+  // marge » (PR 3, B4). Sur un simple au palier, seules les séries baissent.
+  function cibleBaisse(c) {
+    var a = c && c.allegee, l = c && c.ligne;
+    if (!a || !a.avant || !l) return false;
+    var v0 = nombre(a.avant.vise), v1 = nombre(l.vise), c0 = nombre(a.avant.charge), c1 = nombre(l.charge);
+    if (v0 !== null && v1 !== null && v1 < v0) return true;
+    return c0 !== null && c1 !== null && c1 < c0 && !memeCharge(c0, c1);
+  }
+  // « Cet exercice ne change pas » si et seulement si séries, reps et charge sont ceux de la consigne normale (I165). Hors routine, la
+  // base est la consigne normale elle-même (PR 3) ; une charge inconnue d'un côté ne se compare pas.
   function allegeeSansChangement(c) {
     var a = c && c.allegee, l = c && c.ligne;
-    if (!a || !a.avant || !l || a.routine === null || a.routine === undefined) return false;
-    return a.series === a.routine && !ciblesDifferent(c) && nombre(a.avant.charge) === nombre(l.charge);
+    if (!a || !a.avant || !l) return false;
+    var b = baseDesSeries(a);
+    return b !== null && a.series === b && !ciblesDifferent(c);
   }
   // « , semaine 4 sur 4 » — la décharge planifiée seulement, quand son rang est connu.
   function rangDeLaDecharge(a) {
@@ -7198,19 +7237,27 @@
     return ', semaine ' + nombreFr(a.semaine, regle('bloc.semaine')) + ' sur ' + nombreFr(a.semaines, regle('bloc.semaines'));
   }
   // Le corps du « Pourquoi » : « moins de séries, avec de la marge. 2 séries au lieu de 3. 52,5 kg × 6 au lieu de 52,5 kg × 8. »
+  // « Avec de la marge » seulement si une cible baisse (reps ou charge) : sur un simple au palier, « moins de séries. » (B4).
   function corpsDuPourquoiDeLaDecharge(c) {
     if (allegeeSansChangement(c)) return 'cet exercice ne change pas.';
-    var d = detailAllegee(c), cibles = ciblesDifferent(c);
-    var t = d ? 'moins de séries, avec de la marge.' : cibles ? 'des cibles plus basses, avec de la marge.' : 'avec de la marge.';
+    var d = detailAllegee(c), cibles = ciblesDifferent(c), marge = cibleBaisse(c);
+    var t = d ? 'moins de séries' + (marge ? ', avec de la marge.' : '.')
+      : cibles ? 'des cibles plus basses, avec de la marge.' : (marge ? 'avec de la marge.' : 'cet exercice ne change pas.');
     if (d) t += ' ' + d.charAt(0).toUpperCase() + d.slice(1) + '.';
-    if (cibles) {
-      // Au poids du corps (charge 0), le nom ne se répète pas : « Poids du corps × 3 au lieu de × 5 » ; une barre garde ses deux charges.
-      var corps = nombre(c.ligne.charge) === 0 && nombre(c.allegee.avant.charge) === 0;
-      var avant = corps ? '\u00d7' + INSECABLE + nombreFr(c.allegee.avant.vise, regle('allegee.avant'))
-                        : chargeFois(c.allegee.avant.charge, c.allegee.avant.vise, regle('allegee.avant'));
-      t += ' ' + chargeFois(c.ligne.charge, c.ligne.vise, cite(CIBLE, { role: 'ligne' })) + ' au lieu de ' + avant + '.';
-    }
+    if (cibles) t += ' ' + clauseDesCibles(c);
     return t;
+  }
+  // « 140 kg × 1 au lieu de 142,5 kg × 2. » Au poids du corps (charge 0), le nom ne se répète pas : « Poids du corps × 3 au lieu de × 5 ».
+  // Une charge inconnue (`null`) ne s'écrit jamais « le cran au-dessus » : une décharge ne monte pas (PR 3, N3) — « 3 reps au lieu de 5 ».
+  function clauseDesCibles(c) {
+    var l = c.ligne, av = c.allegee.avant;
+    var reps = function (v, cle) { return nombreFr(v, regle(cle)) + (nombre(v) > 1 ? ' reps' : ' rep'); };
+    var corps = nombre(l.charge) === 0 && nombre(av.charge) === 0;
+    var avant = corps ? '\u00d7' + INSECABLE + nombreFr(av.vise, regle('allegee.avant'))
+      : nombre(av.charge) === null ? reps(av.vise, 'allegee.avant')
+      : chargeFois(av.charge, av.vise, regle('allegee.avant'));
+    var ligne = nombre(l.charge) === null ? reps(l.vise, 'allegee.ligne') : chargeFois(l.charge, l.vise, cite(CIBLE, { role: 'ligne' }));
+    return ligne + ' au lieu de ' + avant + '.';
   }
 
   // La phrase grise de l'exercice : « Décharge, semaine 4 sur 4 : 2 séries au lieu de 3. » (planifiée) ; « Décharge : 2 séries au lieu de 3. »
@@ -7226,15 +7273,17 @@
 
   // Le dernier jour (J+6) et le bandeau : « Semaine allégée jusqu'au 7 oct. : … ».
   function finAllegee(jour) { return ajouterJours(jourCivil(jour), DUREE_ALLEGEE_JOURS - 1); }
-  function bandeauAllegee(fin) {
+  // `marge === false` : aucune cible ne baisse dans la séance (que des simples au palier) — « avec de la marge » ne se dit pas (PR 3, B4).
+  function bandeauAllegee(fin, marge) {
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(fin || ''));
     if (!m) return null;
     return 'Décharge jusqu’au ' + Modele().jourCourt(String(fin), regle('allegee.fin')) +
-      ' : ' + FIN_ALLEGEE;
+      ' : ' + (marge === false ? FIN_ALLEGEE_SANS_MARGE : FIN_ALLEGEE);
   }
   // Ce que la semaine allégée change, dit UNE fois : le bandeau et la feuille
   // « Pourquoi » le lisent.
   var FIN_ALLEGEE = 'moins de séries, avec de la marge.';
+  var FIN_ALLEGEE_SANS_MARGE = 'moins de séries.';
 
   // Les cartes passées, lues dans les paris de l'escalier : `{ jour, seance,
   // declencheur, compteur, reponse, debut, fin }`.
@@ -8135,9 +8184,10 @@
   // Le bandeau de la décharge planifiée — jamais présentée comme
   // scientifiquement requise.
   var FIN_DECHARGE = 'Moins de séries, avec de la marge.';
-  function bandeauDecharge(semaine, semaines) {
+  var FIN_DECHARGE_SANS_MARGE = 'Moins de séries.';
+  function bandeauDecharge(semaine, semaines, marge) {
     return 'Décharge, semaine ' + nombreFr(semaine, regle('bloc.semaine')) + ' sur ' + nombreFr(semaines, regle('bloc.semaines')) +
-      DEUX_POINTS + 'prévue par ton programme. ' + FIN_DECHARGE;
+      DEUX_POINTS + 'prévue par ton programme. ' + (marge === false ? FIN_DECHARGE_SANS_MARGE : FIN_DECHARGE);
   }
   // La carte de fin de bloc, en faits : le titre, une ligne par exercice
   // (`{ nom, valeur }` : deux colonnes, maquette cycles v1), les paris, le pari de programme s'il y en avait un, et le bloc suivant.
@@ -12395,7 +12445,7 @@
   // bouton, les deux bandeaux, la durée de la routine, le lexique et les sources. Une constante n'échappe plus à `verifierPlan`.
   function textesFixesDeLaDecharge() {
     var t = [detailAllegeeProposee(), libelleAlleger(), bandeauAllegee('2026-01-07'), bandeauDecharge(4, 4), texteDureeAllegee(2400),
-             FIN_ALLEGEE, FIN_DECHARGE];
+             bandeauAllegee('2026-01-07', false), bandeauDecharge(4, 4, false), FIN_ALLEGEE, FIN_DECHARGE];
     LEXIQUE.forEach(function (e) { if (e.cle === 'allegee' || e.cle === 'phase') t.push(e.mot, e.phrase); });
     sourcesDe('allegee').concat(sourcesDe('bloc.semaines')).forEach(function (s) { t.push(s.texte); });
     return t;
@@ -12933,6 +12983,9 @@
     consigneAllegee: consigneAllegee,
     phraseAllegee: phraseAllegee,
     detailAllegee: detailAllegee,
+    // PR 3 (§9.45) — la décharge au palier : l'UNIQUE lecteur de « les cibles diffèrent » et de « une cible baisse ».
+    ciblesDifferent: ciblesDifferent,
+    cibleBaisse: cibleBaisse,
     textesFixesDeLaDecharge: textesFixesDeLaDecharge,
     grisAllegee: grisAllegee,
     finAllegee: finAllegee,

@@ -153,6 +153,9 @@ const GARDEES = [
   { fn: 'consigneAllegee', module: 'moteur.js' },
   { fn: 'phraseAllegee', module: 'moteur.js' },
   { fn: 'detailAllegee', module: 'moteur.js' },
+  // « Les mots disent vrai » PR 3 (§9.45) — la décharge au palier : « les cibles diffèrent » et « une cible baisse », lus par le texte et par I165/I166
+  { fn: 'ciblesDifferent', module: 'moteur.js' },
+  { fn: 'cibleBaisse', module: 'moteur.js' },
   { fn: 'bandeauAllegee', module: 'moteur.js' },
   { fn: 'periodeAllegee', module: 'moteur.js' },
   { fn: 'carteAutorisee', module: 'moteur.js' },

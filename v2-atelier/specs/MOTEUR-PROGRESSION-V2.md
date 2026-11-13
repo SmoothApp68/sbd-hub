@@ -2146,6 +2146,23 @@ Sur une **barre** (squat, couché, militaire — `familleDeBarre`), la consigne 
 - **Ce qui ne change pas** : les identifiants (`consigneAllegee`, `plan.allegee`, `fondement.allegee`, `MARCHE_SEMAINE_ALLEGEE = 'semaine_allegee'`, les clés du lexique et des sources) et tout ce qui est stocké (`predictions.fondement`, `sessions.gestes`) : aucune chaîne renommée n'est lue comme une donnée.
 - **I165** (`verifierDecharge`, dans `verifierPlan`) : jamais « N … au lieu de N » (séries ou cibles) ; une clause de séries seulement si la routine est connue et que les nombres diffèrent ; « cet exercice ne change pas » si et seulement si séries, reps et charge sont ceux de la consigne normale ; la clause des cibles au « Pourquoi » seulement si elles diffèrent ; aucun « mêmes charges », « reps de moins », « loin de l'échec », « Rien ne monte », « cette semaine » ni « semaine allégée » dans un texte de décharge affiché — le gris, le « Pourquoi », le bandeau, la carte et son bouton, **et les textes fixes** (`Moteur.textesFixesDeLaDecharge` : constantes, lexique, sources), que `verifierPlan` ne balayait pas avant. Garde : `tests/unit/v2-mots-decharge.test.js`.
 
+### 9.44 « Cible faite » et « Pas encore » : le verdict ne contredit jamais le chiffre — décidé le 13/11/2026 (chantier « Les mots disent vrai », PR 2) (I163)
+
+**Les chiffres, les charges et les montées ne changent pas** ; seul le mot du verdict de fin d'exercice change. Avant, la dernière branche du verdict disait « Pas encore » pour tout ce qu'elle ne savait pas dire autrement : 8, 8, 8 pour une cible de 8 (niveau abaissé par la prudence d'une série à fond), une charge plus lourde que la ligne, un test proposé et jamais tenté. Désormais **une seule fonction décide**, `Moteur.cibleFaite(consigneAvant, consigneApres, séries)`, lue par `verdictDuJour` (la phrase) et rendue dans `constat.cible` (`{ etat, charge, vise }`) pour I163.
+
+| Situation (ligne 70 kg × 8, 3 séries, réglage normal) | Phrase |
+|---|---|
+| 8, 8, 8 | `Cible faite : 70 kg × 8, 8, 8.` |
+| 8, 8, 7 (tolérance du moteur : la 3e série et les suivantes à −1) | `Cible faite : 70 kg × 8, 8, 7. Une série à une rep sous la cible est tolérée.` |
+| 8, 8, 6 · 7, 7, 7 | `Pas encore : 70 kg × 8, 8, 6 pour une cible de 8.` |
+| Franc : 8, 4, 4 | jamais « Cible faite » (le niveau validé est 4, pas la meilleure série) ; `Pas encore : 70 kg × 8, 4, 4 pour une cible de 8.` |
+| 72,5 kg × 6, 6, 6 · 2 séries sur 3 · 8, 8, 8, 6 · aide inversée | `Aujourd'hui : …` (aucun jugement) |
+| Test proposé non fait | `Aujourd'hui : 70 kg × 8, 8, 8. Le test à 72,5 kg n'a pas été fait.` |
+
+**Règle.** « Cible faite » seulement si (1) le niveau VALIDÉ de la consigne d'après ≥ la cible de la LIGNE du jour ; (2) les séries jugées sont à la MÊME charge que la ligne (la seule comparaison sûre : une aide inverse « plus lourd ») ; (3) TOUTES les séries que la ligne couvre (`n` moins celles de la ligne haute) sont faites à cette charge — une série en plus ne juge pas ; (4) aucune série n'est à plus d'une rep sous la cible, et celles à −1 sont NOMMÉES ; (5) aucune ligne haute (test) n'est proposée et laissée de côté. « Pas encore » demande qu'une série couverte ait réellement été sous la cible, jamais après un zéro rep (§9.42) ni sur une histoire d'une seule séance lue (I152). Tout le reste se dit « Aujourd'hui », sans jugement. La branche 68B « tenu, sans marge » et « La montée du coach a tenu » (PR 4) ne changent pas.
+
+**I163** (`verifierPlan`), dans les deux sens, par une arithmétique à part de `cibleFaite` : « Pas encore » ⇒ la ligne est faite en entier à sa charge, une série est sous la cible, la phrase dit la cible de la ligne, le jugement du moteur est `pas_encore` ; « Cible faite » ⇒ la ligne est complète, aucune série à plus d'une rep sous la cible, aucun test proposé laissé de côté, la tolérance nommée si elle joue, le jugement du moteur est `faite`. Tests : `v2-cible-faite.test.js`, `v2-cible-faite-plan.test.js`.
+
 ### 10.1 Règle
 
 > **Aux haltères, la charge notée est la PAIRE, les deux ensemble (05/11/2026, 245)** — ce que tous les comptes tapent depuis toujours. Aucune conversion en base ; aucun lecteur ne double ni ne divise (l'image de l'année écrit la charge notée, « 40 kg », depuis le 06/11/2026). Dégressive : voir §9.15.3. Une seule notion, `Modele.chargeEstLaPaire`.

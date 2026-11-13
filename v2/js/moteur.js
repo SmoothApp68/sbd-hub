@@ -5673,14 +5673,20 @@
       : consigneApres.niveau;
 
     var V = Modele();
+    // `repli` : le verdict est tombé sur la dernière branche — celle où « Pas encore » se disait avant le prédicat (I163).
+    var sortie = { repli: false };
     return { verdict: V.capturer(function () {
                return verdictDuJour(consigneAvant, consigneApres, z, repsDuJour,
-                                    testDuJour, faitAujourdHui, av, ap, reference, seriesDuJour);
+                                    testDuJour, faitAujourdHui, av, ap, reference, seriesDuJour, sortie);
              }),
+             repli: sortie.repli === true,
              suite: V.capturer(function () {
                return suiteDuJour(consigneAvant, consigneApres, z, reglage,
                                   faitAujourdHui, cranSuivant, cranApproche === true);
-             }) };
+             }),
+             // I163 — le jugement de la cible, tel que le verdict l'a lu (jamais un second calcul) : seulement quand le verdict est tombé
+             // sur la dernière branche, celle qui le lit ; les autres branches (« 9 reps aujourd'hui », un test…) ne le lisent pas.
+             cible: sortie.repli ? cibleFaite(consigneAvant, consigneApres, seriesDuJour) : null };
   }
 
   // Ce qui s'est passé. L'ordre des cas EST la règle : le silence d'abord — il
@@ -5972,7 +5978,76 @@
     return tete + 'ta nouvelle charge tient sur ' + combien + (dit ? ', ' + dit : '') + '.';
   }
 
-  function verdictDuJour(cAvant, cApres, z, repsDuJour, t, fait, av, ap, reference, seriesDuJour) {
+  // ══ « LES MOTS DISENT VRAI », PR 2 (MOTEUR §9.44, I163) — LA CIBLE FAITE, UN SEUL PRÉDICAT ══════════════════════════════
+  //
+  // Le verdict de fin d'exercice (« Cible faite » / « Pas encore ») ne contredit jamais le chiffre que la personne a sous les
+  // yeux. UNE fonction le décide, lue par `verdictDuJour` (la phrase) et rendue dans `constat.cible` (l'invariant I163 la relit
+  // des DEUX côtés, sur le plan, par une arithmétique indépendante) :
+  //
+  //   · la cible est celle de la LIGNE du jour (`cAvant.ligne`), à SA charge : une charge différente (72,5 kg pour 70 kg × 8) ou
+  //     une aide (où « plus lourd » est inversé) ne se juge pas — `neutre` (l'égalité de charge est la seule comparaison sûre) ;
+  //   · le niveau est le niveau VALIDÉ du jour (`cApres.niveau`), JAMAIS la meilleure série du réglage Franc : 8, 4, 4 pour une
+  //     cible de 8 n'est pas « faite » ;
+  //   · TOUTES les séries couvertes par la ligne (`n` moins celles du haut) sont faites à la charge : 2 séries sur 3 ne sont
+  //     jamais « faites » ; une série en plus qui fait tomber le niveau (8, 8, 8, 6 : niveau 7) ne se juge pas non plus ;
+  //   · la ligne HAUTE (le test) n'est jamais comptée : un test proposé et pas fait est nommé (`test_non_fait`) ;
+  //   · la tolérance du moteur (la 3e série et les suivantes à −1, `niveauValide`) est NOMMÉE quand elle joue (`toleres`) ; une
+  //     chute (plus d'une rep sous la cible) ne se juge pas ;
+  //   · « Pas encore » demande qu'une série couverte AIT été sous la cible (jamais 8, 8, 8 « pas encore pour une cible de 8 »,
+  //     même quand la prudence d'une série à fond a baissé le niveau) ; jamais après un zéro rep ni sur une histoire d'une seule séance.
+  //
+  // `seriesDuJour` : les séries de travail faites (le plan) ; à défaut, celles de la séance du fondement. Rend
+  // `{ etat, charge, vise, reps, toleres, haut }` — `etat` : `faite`, `pas_encore`, `test_non_fait` ou `neutre`. Pure : ne
+  // rédige rien, n'écrit rien.
+  function cibleFaite(cAvant, cApres, seriesDuJour) {
+    var neutre = { etat: 'neutre', charge: null, vise: null, reps: [], toleres: 0, haut: null };
+    if (!cAvant || !cApres) return neutre;
+    // Une consigne sans ligne (« tout passe » : le test seul) se juge sur son test, comme sur une ligne ; sans aucune série à la
+    // charge du test, le test non fait se nomme.
+    var sansLigne = !cAvant.ligne;
+    if (sansLigne && !(cAvant.haut && nombre(cAvant.haut.charge) !== null)) return neutre;
+    var l = sansLigne ? cAvant.haut : cAvant.ligne, vise = nombre(l.vise), n = nombre(cAvant.n);
+    if (vise === null || n === null) return neutre;
+    var charge = nombre(l.charge);
+    var haut = !sansLigne && cAvant.haut && cAvant.haut.charge !== undefined ? cAvant.haut : null;
+    var k = haut ? (nombre(haut.k) === null ? 1 : nombre(haut.k)) : 0;
+    var nL = n - k;
+    if (nL < 1) return neutre;
+    var ap = cApres.fondement || {};
+    var jour = Array.isArray(seriesDuJour) && seriesDuJour.length ? seriesDuJour : parRole(ap.seance, ROLES_VOTANTS);
+    if (!jour.length) return neutre;
+    var egale = function (a, b) { return (a === null && b === null) || memeCharge(a, b); };
+    // Seules les séries FAITES À LA CHARGE de la ligne se jugent contre elle : une rampe plus légère ou une montée du coach ne
+    // comptent pas, et sans assez de séries à cette charge (72,5 kg × 6, 6, 6 pour 70 kg × 8) le verdict reste neutre.
+    var aLaCharge = jour.filter(function (q) { return egale(nombre(q.charge_kg), charge); });
+    if (sansLigne && !aLaCharge.length) return { etat: 'test_non_fait', charge: charge, vise: vise, reps: [], toleres: 0, haut: cAvant.haut };
+    // La consigne d'après se lit à la même charge que la ligne : sinon son niveau parle d'une autre barre.
+    if (nombre(cApres.palier) !== null && charge !== null && !egale(nombre(cApres.palier), charge)) return neutre;
+    var reps = aLaCharge.map(function (q) { return nombre(q.reps); });
+    if (reps.some(function (r) { return r === null; })) return neutre;
+    var rendu = { etat: 'neutre', charge: charge, vise: vise, reps: reps, toleres: 0, haut: haut };
+    if (aLaCharge.length < nL) return rendu;
+    var couvertes = reps.slice(0, nL);
+    var enPlus = reps.length > nL && !haut;
+    var niveau = nombre(cApres.niveau);
+    if (niveau === null) return rendu;
+    var sous = couvertes.filter(function (r) { return r < vise; });
+    if (niveau >= vise) {
+      // Une chute (plus d'une rep sous la cible) : le niveau l'écarte, le verdict ne la juge pas.
+      if (couvertes.some(function (r) { return r < vise - 1; })) return rendu;
+      rendu.toleres = sous.length;
+      rendu.etat = haut ? 'test_non_fait' : 'faite';
+      return rendu;
+    }
+    // Le niveau est sous la cible : « Pas encore » seulement si une série couverte l'était vraiment, sans série en plus, hors
+    // zéro rep et hors histoire d'une seule séance (I152, I153).
+    if (!sous.length || enPlus) return rendu;
+    if (estApresZero(cAvant) || (typeof cAvant._lues === 'number' && cAvant._lues <= 1)) return rendu;
+    rendu.etat = 'pas_encore';
+    return rendu;
+  }
+
+  function verdictDuJour(cAvant, cApres, z, repsDuJour, t, fait, av, ap, reference, seriesDuJour, sortie) {
     // ⚠️ Plus de « pas de palier » (§20.2, 49-U9) : depuis le §7.6, la chaîne
     // complète ne rend plus de consigne d'après en silence. Un contrat brut
     // qui y tombe encore n'a pas de verdict.
@@ -6073,7 +6148,24 @@
     if (nivAvant !== null && nivFaitJour !== null && nivFaitJour > nivAvant) {
       return faitDuJour() + DEUX_POINTS + 'tenu, sans marge.';
     }
-    return 'Pas encore' + DEUX_POINTS + faitDuJour() + '.';
+    // « Les mots disent vrai », PR 2 (I163) — « Cible faite » et « Pas encore » se décident par UN prédicat (`cibleFaite`) ; ce que
+    // le prédicat ne tranche pas se dit sans jugement : « Aujourd'hui », comme une séance plus légère.
+    var cf = cibleFaite(cAvant, cApres, seriesDuJour);
+    if (sortie) sortie.repli = true;
+    if (cf.etat === 'faite') {
+      return 'Cible faite' + DEUX_POINTS + faitDuJour() + '.' +
+        (cf.toleres === 1 ? ' Une série à une rep sous la cible est tolérée.'
+          : cf.toleres > 1 ? ' Les séries à une rep sous la cible sont tolérées.' : '');
+    }
+    if (cf.etat === 'test_non_fait') {
+      return 'Aujourd\'hui' + DEUX_POINTS + faitDuJour() + '. Le test à ' +
+        enKg(cf.haut.charge, cite(CIBLE, { role: 'haut' })) + ' n\'a pas été fait.';
+    }
+    if (cf.etat === 'pas_encore') {
+      return 'Pas encore' + DEUX_POINTS + faitDuJour() + ' pour une cible de ' +
+        nombreFr(cf.vise, cite(CIBLE, { role: 'ligne', champ: 'reps' })) + '.';
+    }
+    return 'Aujourd\'hui' + DEUX_POINTS + faitDuJour() + '.';
   }
 
   // Ce qui vient. La consigne d'après le dit déjà en jaune : on la reprend
@@ -10537,16 +10629,18 @@
     var base = { verdict: d.verdict.texte, suite: d.suite.texte };
     Modele().reporter(d.suite.citations);
     var m = j.montee || null;
-    var contredit = !!m && (/^Pas de palier/.test(base.verdict || '') || /^Pas encore/.test(base.verdict || ''));
+    // (I163 : la place de l'ancien « Pas encore » — la dernière branche du verdict — reste celle que la montée remplace.)
+    var contredit = !!m && (/^Pas de palier/.test(base.verdict || '') || /^Pas encore/.test(base.verdict || '') || d.repli === true);
     if (!contredit) Modele().reporter(d.verdict.citations);
+    var cible = d.cible ? { etat: d.cible.etat, charge: d.cible.charge, vise: d.cible.vise } : null;
     if (m) {
       return { verdict: contredit
                  ? 'La montée du coach a tenu' + DEUX_POINTS + chargeFois(m.charge, m.reps, cite(FAIT, { quoi: 'du_jour' })) +
                    ', dans ta zone. Elle compte comme un test tenu.'
                  : base.verdict,
-               suite: base.suite, montee: { charge: m.charge, reps: m.reps } };
+               suite: base.suite, montee: { charge: m.charge, reps: m.reps }, cible: cible };
     }
-    return { verdict: base.verdict, suite: base.suite, montee: null };
+    return { verdict: base.verdict, suite: base.suite, montee: null, cible: cible };
   }
 
   // ══ §9.15 — LES CHAUFFES ET LES DÉGRESSIVES (49-U10, 30/09/2026) ═════════
@@ -13004,6 +13098,7 @@
     auMaxDe: auMaxDe,
     estPremiereFois: estPremiereFois,
     estApresZero: estApresZero,
+    cibleFaite: cibleFaite,
     descenteApresUnZero: descenteApresUnZero,
     reactionAuZero: reactionAuZero,
     plafondActif: plafondActif,

@@ -8068,7 +8068,7 @@ const SETS_IMPORTES = [
       !!fini.verdict && (await enTete()).length === 0,
       JSON.stringify(fini).replace(/\u00a0/g, '·'));
     ok('[C6] il porte un verdict ET une suite',
-      /aujourd’hui|aujourd'hui|Pas encore|Premier|Reprise|toutes tes séries/.test(fini.verdict) &&
+      /aujourd’hui|aujourd'hui|Cible faite|Pas encore|Premier|Reprise|toutes tes séries/.test(fini.verdict) &&
       !!fini.suite,
       JSON.stringify(fini).replace(/\u00a0/g, '·'));
     ok('[C6] l’étiquette de zone, elle, reste',

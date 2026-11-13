@@ -1329,7 +1329,9 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
     rien.seanceDuJour = uneSeance('2026-09-20T18:00:00+00:00', 90,
       [auPalier(90, 10), auPalier(90, 10), auPalier(90, 10)]);
     expect(constatDe(rien).constat).toEqual({
-      verdict: 'Pas encore' + NB + ': 90' + NB + 'kg' + NB + '×' + NB + '10, 10, 10.',
+      // « Les mots disent vrai » PR 2 (I163) — « tout passe » annoncé et la charge du test jamais prise : aucun « Pas encore »
+      // (il n'y a pas de cible faite à juger), le test non fait se nomme.
+      verdict: 'Aujourd\'hui' + NB + ': 90' + NB + 'kg' + NB + '×' + NB + '10, 10, 10. Le test à 92,5' + NB + 'kg n\'a pas été fait.',
       // 49-U18 (principe ii) — la cible du jour n'était pas celle-ci : « Même
       // cible » ne se dit que si la ligne jaune d'après est celle du jour.
       suite: 'Prochaine séance' + NB + ': 90' + NB + 'kg' + NB + '×' + NB + '11.'
@@ -1369,7 +1371,7 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
     c.seanceDuJour = uneSeance('2026-09-20T18:00:00+00:00', 125,
       [auPalier(125, 4), auPalier(125, 3), auPalier(125, 3)]);
     expect(constatDe(c).constat).toEqual({
-      verdict: 'Pas encore' + NB + ': 125' + NB + 'kg' + NB + '×' + NB + '4, 3, 3.',
+      verdict: 'Pas encore' + NB + ': 125' + NB + 'kg' + NB + '×' + NB + '4, 3, 3 pour une cible de 4.',
       suite: 'Même cible la prochaine fois' + NB + ': 125' + NB + 'kg' + NB + '×' + NB + '4.'
     });
     // La jumelle, à la même séance : le réglage seul change le constat.
@@ -1475,7 +1477,8 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
       { etat: 'monte' }, jour('09-20'), '2026-09-20T21:30:00+00:00',
       { mesure: 'charge_reps', equipement: 'barre', intention: 'progresser',
         reglage: 'normal', edition: false });
-    expect(r.constat.verdict).toBe('Pas encore' + NB + ': 130' + NB + 'kg' + NB + '×' + NB + '5, 4, 4.');
+    // PR 2 (I163) — la cible du jour était 125 kg × 5 : 130 kg est une autre charge, elle ne se juge pas (aucun « Pas encore »).
+    expect(r.constat.verdict).toBe('Aujourd\'hui' + NB + ': 130' + NB + 'kg' + NB + '×' + NB + '5, 4, 4.');
     expect(r.constat.verdict).not.toMatch(/4, 5, 4/);
     // Et le 120 reste la RAMPE, pas une descente de fin : l'ordre décide aussi
     // du rôle, donc de la phrase qui suit.

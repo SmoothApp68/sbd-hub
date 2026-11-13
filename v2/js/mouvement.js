@@ -190,7 +190,18 @@
     squat_sumo_barre: 'squat_sumo_barre.json',
     squat_sumo_poids_corps: 'squat_sumo_poids_corps.json',
     squat_talons_sureleves_haltere: 'squat_talons_sureleves_haltere.json',
-    squat_zercher_barre: 'squat_zercher_barre.json'
+    squat_zercher_barre: 'squat_zercher_barre.json',
+    squat_barre_haute: 'squat_barre_haute.json',
+    squat_safety_bar: 'squat_safety_bar.json',
+    squat_barre_hex: 'squat_barre_hex.json',
+    sumo_squat_kettlebell: 'sumo_squat_kettlebell.json',
+    sumo_squat_haltere: 'sumo_squat_haltere.json',
+    squat_goblet_kettlebell: 'squat_goblet_kettlebell.json',
+    squat_avant_haltere: 'squat_avant_haltere.json',
+    squat_avant_kettlebell: 'squat_avant_kettlebell.json',
+    squat_overhead_barre: 'squat_overhead_barre.json',
+    squat_landmine_barre: 'squat_landmine_barre.json',
+    squat_machine: 'squat_machine.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

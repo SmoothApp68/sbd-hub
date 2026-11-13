@@ -6111,6 +6111,8 @@
       'allegee.routine': k.allegee && k.allegee.routine !== null && k.allegee.routine !== undefined ? { valeur: k.allegee.routine } : null,
       // « Les mots disent vrai » PR 1 — la cible d'avant la décharge (la consigne normale), dite au « Pourquoi » : « 52,5 kg × 6 au lieu de 52,5 kg × 8 ».
       'allegee.avant': k.allegee && k.allegee.avant ? { charge: k.allegee.avant.charge, reps: [k.allegee.avant.vise] } : null,
+      // « Les mots disent vrai » PR 2 (I163) — le test proposé et laissé de côté (« Le test à 127,5 kg n'a pas été fait ») : la charge de la ligne haute de la consigne.
+      'cible.test_non_fait': k.haut && k.haut.charge !== null && k.haut.charge !== undefined ? { charge: k.haut.charge } : null,
       // 165 — « Décharge, semaine k sur N » : le rang de la semaine dans le bloc.
       'bloc.semaine': k.allegee && k.allegee.decharge && nombre(k.allegee.semaine) !== null ? { valeur: k.allegee.semaine } : null,
       'bloc.semaines': k.allegee && k.allegee.decharge && nombre(k.allegee.semaines) !== null ? { valeur: k.allegee.semaines } : null,

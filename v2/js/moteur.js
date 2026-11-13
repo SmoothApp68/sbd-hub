@@ -6158,8 +6158,9 @@
           : cf.toleres > 1 ? ' Les séries à une rep sous la cible sont tolérées.' : '');
     }
     if (cf.etat === 'test_non_fait') {
+      // Le test proposé n'est pas une ligne de la séance (I26 : une cible citée doit être une ligne) : sa charge se cite comme règle.
       return 'Aujourd\'hui' + DEUX_POINTS + faitDuJour() + '. Le test à ' +
-        enKg(cf.haut.charge, cite(CIBLE, { role: 'haut' })) + ' n\'a pas été fait.';
+        enKg(cf.haut.charge, regle('cible.test_non_fait')) + ' n\'a pas été fait.';
     }
     if (cf.etat === 'pas_encore') {
       return 'Pas encore' + DEUX_POINTS + faitDuJour() + ' pour une cible de ' +

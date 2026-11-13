@@ -55,6 +55,17 @@
   "banc": "aucun"
  },
  {
+  "nom": "c6-test-non-fait-cite-comme-ligne",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "enKg(cf.haut.charge, regle('cible.test_non_fait'))",
+  "nouveau": "enKg(cf.haut.charge, cite(CIBLE, { role: 'haut' }))",
+  "unitaires": [
+   "tests/unit/v2-cible-faite.test.js",
+   "tests/unit/v2-cible-faite-plan.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
   "nom": "c0-temoin-equivalent",
   "fichier": "v2/js/moteur.js",
   "ancien": "if (nL < 1) return neutre;",

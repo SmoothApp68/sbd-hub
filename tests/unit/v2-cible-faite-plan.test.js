@@ -29,11 +29,11 @@ const CONS0 = M.consigneDExercice(HISTOIRE, ETAT.terre, AVANT, OPTS);
 const CONS = JSON.parse(JSON.stringify(CONS0));
 CONS.consigne.haut = null;
 
-function planDe(reps) {
+function planDe(reps, cons) {
   const series = reps.map((r, i) => serie('t' + (i + 1), 125, r));
   const suite = M.suiteDExercice(HISTOIRE, { seance: { debut: AVANT }, series: series }, ETAT.terre, APRES, OPTS);
   const entrees = { seance: { id: 'S', debut: AVANT, edition: false, exercices: [{ exercise_slug: 'terre', series }] },
-    consignes: { terre: CONS }, reglage: 'normal', paris: [],
+    consignes: { terre: cons || CONS }, reglage: 'normal', paris: [],
     suites: suite ? { terre: { consigne: suite.apres.consigne, cranSuivant: suite.cranSuivant } } : {} };
   return { entrees, plan: T.planDeSeance(entrees) };
 }
@@ -75,5 +75,15 @@ describe('I163 — le plan vrai passe, le plan faux est vu', () => {
     const { entrees, plan } = planDe([5, 5, 3]);
     plan.exercices[0].constat.verdict = 'Pas encore : 125 kg × 5, 5, 3 pour une cible de 6.';
     expect(i163(plan, entrees).join(' ')).toMatch(/ne dit pas la cible/);
+  });
+});
+
+describe('I163 — un test proposé et laissé de côté se nomme, sans que le plan viole aucun invariant (I26 compris)', () => {
+  test('5, 5, 5 sur une consigne avec test à 127,5 kg : « Aujourd\'hui … Le test à 127,5 kg n\'a pas été fait. »', () => {
+    const { entrees, plan } = planDe([5, 5, 5], CONS0);
+    const k = plan.exercices[0].constat;
+    expect(esp(k.verdict)).toBe('Aujourd\'hui : 125 kg × 5, 5, 5. Le test à 127,5 kg n\'a pas été fait.');
+    expect(k.cible.etat).toBe('test_non_fait');
+    expect(T.verifierPlan(plan, entrees).erreurs).toEqual([]);
   });
 });

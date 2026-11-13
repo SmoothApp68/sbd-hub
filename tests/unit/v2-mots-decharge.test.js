@@ -172,3 +172,18 @@ describe('I165 — aucun nom ancien dans le code affiché', () => {
     expect(trouves).toEqual([]);
   });
 });
+
+describe('I165 — la clause des cibles au poids du corps ne répète pas le nom', () => {
+  const kCorps = (vise, n) => ({ etat: 'progression', zone: 'lourd', palier: 0, niveau: vise, n: n, ligne: { charge: 0, vise: vise }, haut: null,
+    fondement: { date: '2026-10-26T17:00:00.000Z', reps: [vise, vise, vise, vise] } });
+  test('« Poids du corps × 3 au lieu de × 5 » (jamais « Poids du corps × 3 au lieu de Poids du corps × 5 »)', () => {
+    const a = M.consigneAllegee(kCorps(5, 4), 4);
+    const t = esp(M.pourquoiConsigne(a, 'normal', '2026-11-03T10:00:00+00:00').etat);
+    expect(t).toContain('Poids du corps × 3 au lieu de × 5.');
+    expect(t).not.toMatch(/Poids du corps.*Poids du corps/i);
+  });
+  test('à la barre, les deux charges restent dites (125 kg × 3 au lieu de 125 kg × 5)', () => {
+    const a = M.consigneAllegee(kDe(5, 4), 4);
+    expect(esp(M.pourquoiConsigne(a, 'normal', '2026-11-03T10:00:00+00:00').etat)).toContain('125 kg × 3 au lieu de 125 kg × 5.');
+  });
+});

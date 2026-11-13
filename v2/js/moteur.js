@@ -7109,8 +7109,11 @@
     var t = d ? 'moins de séries, avec de la marge.' : cibles ? 'des cibles plus basses, avec de la marge.' : 'avec de la marge.';
     if (d) t += ' ' + d.charAt(0).toUpperCase() + d.slice(1) + '.';
     if (cibles) {
-      t += ' ' + chargeFois(c.ligne.charge, c.ligne.vise, cite(CIBLE, { role: 'ligne' })) + ' au lieu de ' +
-        chargeFois(c.allegee.avant.charge, c.allegee.avant.vise, regle('allegee.avant')) + '.';
+      // Au poids du corps (charge 0), le nom ne se répète pas : « Poids du corps × 3 au lieu de × 5 » ; une barre garde ses deux charges.
+      var corps = nombre(c.ligne.charge) === 0 && nombre(c.allegee.avant.charge) === 0;
+      var avant = corps ? '\u00d7' + INSECABLE + nombreFr(c.allegee.avant.vise, regle('allegee.avant'))
+                        : chargeFois(c.allegee.avant.charge, c.allegee.avant.vise, regle('allegee.avant'));
+      t += ' ' + chargeFois(c.ligne.charge, c.ligne.vise, cite(CIBLE, { role: 'ligne' })) + ' au lieu de ' + avant + '.';
     }
     return t;
   }

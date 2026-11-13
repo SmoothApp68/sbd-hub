@@ -1588,7 +1588,9 @@
     var citesGris = capG && capG.texte === gris ? capG.citations : null;
     // PR 4a (B2) — LE GRIS SE RÉDIGE SUR LA CONSIGNE FINALE : une variante du jour qui a changé la ligne après coup (« plus léger aujourd'hui »)
     // ne garde pas le gris de la consigne d'avant. Les autres transformations (décharge, repli, alléger) posent leur propre gris plus bas.
-    if (gris && consigne.veilleLegere) {
+    // Le gris que la consigne d'AVANT a posé (`c.libelles`) ne dit plus la ligne quand la consigne appliquée a changé de ligne (une consigne figée, « Arrêter
+    // cet exercice ») : il se rédige alors, lui aussi, sur la finale. Sans changement de ligne, le texte re-rédigé EST le gris posé (aucun effet).
+    if (gris && (consigne.veilleLegere || !capG || capG.texte !== gris)) {
       try { capG = V.capturer(function () { return M.libellesConsigne(consigne, debut).gris; }); } catch (exV) { capG = null; }
       if (capG) { gris = capG.texte; citesGris = capG.citations; }
     }

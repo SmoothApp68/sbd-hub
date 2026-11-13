@@ -4836,7 +4836,8 @@
         // Une consigne sans ligne (« tout passe », « rejoint » : le test seul) se juge sur son test, comme `Moteur.cibleFaite`.
         var cons163 = x.consigne || null;
         var lg163 = cons163 && cons163.ligne ? cons163.ligne : (cons163 && cons163.haut ? cons163.haut : null);
-        var hautK163 = cons163 && cons163.ligne && cons163.haut && nombre(cons163.haut.charge) !== null
+        // (la ligne haute compte même à charge inconnue — « le cran au-dessus » : elle est dans `n`, comme pour `Moteur.cibleFaite`)
+        var hautK163 = cons163 && cons163.ligne && cons163.haut && cons163.haut.charge !== undefined
           ? (nombre(cons163.haut.k) === null ? 1 : nombre(cons163.haut.k)) : 0;
         var n163 = cons163 ? nombre(cons163.n) : null;
         var vise163 = lg163 ? nombre(lg163.vise) : null;

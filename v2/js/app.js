@@ -9635,6 +9635,21 @@
     }
     await apresGeste();
   }
+  // PR 4b (R-A) — « Tenter 102,5 kg » / « Annuler » : la sortie du plafond après un zéro. Le plan décide (`x.tenueZero`) ; ici, seulement le geste, écrit par
+  // `Seance.noterGeste` (`cran_zero_tente`, `cran_zero_tente_annule`), jamais dans une série.
+  async function repondreTenue(iExo, cle) {
+    if (!seance || enEdition() || reponseEnCours) return;
+    var x = planDeLExercice(iExo);
+    var t = x && x.tenueZero;
+    if (!t || t.iSerie === null || t.iSerie === undefined) return;
+    reponseEnCours = true;
+    try {
+      seance = Seance.noterGeste(seance, { geste: cle === 'tenter' ? 'cran_zero_tente' : 'cran_zero_tente_annule', slug: x.slug, rang: t.iSerie });
+    } finally {
+      reponseEnCours = false;
+    }
+    await apresGeste();
+  }
   async function repondreForme(iExo, cle) {
     if (!seance || enEdition() || reponseEnCours) return;
     var x = planDeLExercice(iExo);
@@ -11049,6 +11064,13 @@
         return x && x.porteDuCran && x.porteDuCran.iSerie === j && x.porteDuCran.phrase ? x.porteDuCran : null;
       },
       surPorte: function (i, cle) { return repondrePorte(i, cle); },
+      // PR 4b (R-A) — « Tenter » après un zéro : au-dessus de la première ligne de travail à faire, lue sur le plan.
+      tenue: function (i, j) {
+        if (enEdition()) return null;
+        var x = planDeLExercice(i);
+        return x && x.tenueZero && x.tenueZero.iSerie === j ? x.tenueZero : null;
+      },
+      surTenue: function (i, cle) { return repondreTenue(i, cle); },
       carteForme: function (i) {
         if (enEdition()) return null;
         var x = planDeLExercice(i);

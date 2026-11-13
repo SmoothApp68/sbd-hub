@@ -1450,6 +1450,16 @@
     });
     return tente;
   }
+  // PR 4b (R-A) — « Tenter 102,5 kg » (`cran_zero_tente`) sur CET exercice, non suivi d'« Annuler » (`cran_zero_tente_annule`) : la même lecture que `cranTenteDe`.
+  function zeroTenteDe(gestes, slug) {
+    var tente = false;
+    (Array.isArray(gestes) ? gestes : []).forEach(function (g) {
+      if (!g || g.slug !== slug) return;
+      if (g.geste === 'cran_zero_tente') tente = true;
+      else if (g.geste === 'cran_zero_tente_annule') tente = false;
+    });
+    return tente;
+  }
   // « Ajuster la fin à ma forme du jour » a été pris sur cet exercice ou sur un exercice qui le précède dans la séance (l'ordre de la séance : un fait
   // stable, qui ne dépend pas de « commencé »).
   function formeAjusteeAvant(seance, iExo) {
@@ -1850,11 +1860,26 @@
   //   · la durée et la distance, qu'aucune consigne ne porte : la cascade.
   // `precedent` : la dernière séance de l'exercice (`Seance.precedent`), une
   // ENTRÉE (`entrees.precedents`) — le plan n'a pas l'historique.
+  // PR 4b (R-A, I156, MOTEUR §9.42 bis) — LA CHARGE QUE LE GRIS NE REPREND PAS : `Ch`, la charge restée à 0 rep que le plafond garde (la consigne porte
+  // `fondement.plafondZero`, qu'il mord ou non : c'est ce que lisent aussi les silences) ou le zéro de la séance EN COURS (`Modele.zeroDeSeance`, sur les
+  // séries VALIDÉES de l'exercice : la même lecture que l'historique, le plan seul l'applique). Un zéro à ou sous le palier tenu n'est pas une limite.
+  // `null` : aucune limite. Le gris est alors VIDÉ, jamais remplacé par une charge plus basse devinée.
+  function chargeDuZeroDuGris(exo, consigne) {
+    var pz = consigne && consigne.fondement ? consigne.fondement.plafondZero : null;
+    var Ch = pz && pz.tente !== true ? nombre(pz.charge) : null;   // « Tenter » : la personne a décidé, le gris reprend la consigne d'avant plafond
+    var palier = consigne ? nombre(consigne.palier) : null;
+    var valides = ((exo && exo.series) || []).filter(function (sr) { return Seance().partEnBase(sr); });
+    var z = valides.length ? racine.THModele.zeroDeSeance(valides, { porte: true }) : null;
+    if (z && nombre(z.charge) !== null && !(palier !== null && !(nombre(z.charge) > palier + 1e-9))) Ch = Ch === null ? nombre(z.charge) : Math.min(Ch, nombre(z.charge));
+    return Ch;
+  }
+
   function preremplir(exo, lignes, consigne, r, precedent) {
     var S = Seance();
     var series = (exo && exo.series) || [];
     var seule = { exercices: [exo] };
     var grille = consigne && r ? S.planDe(series, consigne, r.reaction ? r.reaction.plan : null, r.figees || null) : null;
+    var ChZero = chargeDuZeroDuGris(exo, consigne);
     (lignes || []).forEach(function (l, i) {
       var cascade = S.fantome(seule, 0, i, precedent || null, grille);
       var f = l.fantome;
@@ -1887,6 +1912,8 @@
       var zeroPremiere = consigne && consigne.etat === 'silence' && consigne.raison === 'premiere_fois' && consigne.fondement && consigne.fondement.zeroRep
         ? nombre(consigne.fondement.zeroRep.charge) : null;
       if (zeroPremiere !== null && !(f && f.source === 'chauffe') && nombre(p.charge_kg) !== null && nombre(p.charge_kg) >= zeroPremiere - 1e-9) p.charge_kg = null;
+      // PR 4b (R-A, I156) — après un zéro isolé : le gris d'une ligne de travail non validée ne reprend jamais la charge restée à 0 rep ni une plus lourde.
+      if (ChZero !== null && !l.validee && !(f && f.source === 'chauffe') && l.type !== 'chauffe' && nombre(p.charge_kg) !== null && nombre(p.charge_kg) >= ChZero - 1e-9) p.charge_kg = null;
       l.prerempli = p;
     });
   }
@@ -2431,6 +2458,11 @@
         if (c && c.consigne && choixReprise && choixReprise.choix === 'leger' && choixReprise.repli) {
           c = Object.assign({}, c, { consigne: Moteur().consignePlusLegere(c.consigne, choixReprise.repli) });
         }
+        // PR 4b (R-A) — « TENTER » : le plafond après un zéro mord (consigne `tenue_apres_zero`) ; le bouton se lit sur `sans`, et le geste, pris, rend à la séance la
+        // consigne d'avant plafond (jamais une série passée).
+        var tenueZ = c && c.consigne && coachee && !douloureuse && !seance.edition ? Moteur().boutonsDeLaTenue(c.consigne) : null;
+        var tenteZ = !!tenueZ && zeroTenteDe(seance.gestes, slug);
+        if (tenteZ) c = Object.assign({}, c, { consigne: Moteur().tenterApresUnZero(c.consigne), libelles: c.libellesTentee || c.libelles });
         // 253 (X2, MOTEUR §9.40) — « PLUS LÉGER AUJOURD'HUI » (la veille d'une activité dure) : la ligne de la consigne descend (× 0,95, au cran, mêmes
         // reps), la zone ne change pas, la consigne le dit (`veilleLegere`). Une barre déjà allégée (repli, « plus léger » de la reprise) n'en reçoit pas.
         var legereX = barreLegere && barreLegere.slug === slug && barreLegere.legere && coachee && !douloureuse && !salleEl && c && c.consigne &&
@@ -2468,6 +2500,11 @@
         // D-A3 (chantier « première séance sûre », PR 1) — les mots de la carte et du bouton « Au max » du menu de la série : 65+ connu →
         // « en gardant 2 reps » ; l'écran les lit ici, il ne les décide pas.
         x.auMaxMots = Moteur().motsDeLAuMax(e.plus65 === true);
+        x.tenueZero = null;
+        if (tenueZ && !(x.lignes || []).some(function (l) { return laLigneAUnSens(l) && l.validee; })) {   // une fois la 1re série de travail validée, le choix est fait
+          var lTenue = (x.lignes || []).filter(function (l) { return laLigneAUnSens(l) && !l.validee; })[0];
+          x.tenueZero = { iSerie: lTenue ? lTenue.iSerie : null, tente: tenteZ, charge: tenueZ.charge, bouton: tenueZ.bouton, annuler: tenueZ.annuler };
+        }
         x.veilleLegere = null;
         if (legereX) {
           x.veilleLegere = { charge: legereX.charge, reps: legereX.reps, reserve: legereX.reserve, plan: legereX.plan, baisse: legereX.baisse,
@@ -2545,6 +2582,8 @@
         // protégée (ce que l'écran affiche, ce que le pari écrit). Sur une ligne de test protégée : aucune réserve affichée, donc aucun effort
         // visé ni question de réserve.
         var rvTable = rvElig ? Moteur().reserveVisee(rvOptions) : null;
+        // PR 4b (R-A, O5) — pendant le plafond, aucun effort visé (jamais « garde 1 » juste après un zéro : I154) : ni la table ni l'affichée.
+        if (x.consigne && x.consigne.fondement && x.consigne.fondement.plafondZero && x.consigne.fondement.plafondZero.mord === true) { rvElig = false; rvTable = null; }
         var rvX = rvElig ? Moteur().reserveAffichee(Object.assign({ protegee: protegee }, rvOptions)) : null;
         x.reserveVisee = rvTable;
         x.reserveAffichee = rvX;
@@ -2963,6 +3002,54 @@
     };
   }
 
+  // PR 4b — voir `Moteur.reactionAuZero`. Rend vrai quand la réaction au zéro parle (x.rate posé) ; faux : le reste du pipeline joue.
+  function reactionAuZeroDuPlan(plan, x, exo, e, seance, gs, travail) {
+    var M = Moteur(), V = Voix(), S = Seance(), T = racine.THModele;
+    var k = x.consigne;
+    if (!exo || !k) return false;
+    var series = exo.series || [];
+    var valides = [];
+    series.forEach(function (sr, i) { if (S.partEnBase(sr)) valides.push(i); });
+    var derniere = null;
+    valides.forEach(function (i) { var sr = series[i]; if (T.typeDe(sr) !== 'echauffement' && !T.estHorsCalcul(sr) && !T.estTest(sr)) derniere = i; });
+    if (derniere === null) return false;
+    var sr = series[derniere], Ch = nombre(sr.charge_kg);
+    if (nombre(sr.reps) !== 0 || Ch === null || !(Ch > 0)) return false;
+    // Le zéro se lit sur les séries validées, mêmes portes que l'historique (« plus lourd que tout succès jusqu'ici ») ; sous le palier tenu ce n'est pas une limite.
+    var z = T.zeroDeSeance(valides.map(function (i) { return series[i]; }), { porte: true });
+    if (z === null) return false;
+    var palier = nombre(k.palier);
+    if (palier !== null && !(Ch > palier + 1e-9)) return false;
+    var mesureOk = x.mesure === null || x.mesure === undefined || x.mesure === 'charge_reps';
+    var muet = plan.intention === 'entretien' || x.intention === 'entretien' || x.mode === 'entretien' || !!plan.allegee || !!k.allegee || !!seance.edition ||
+      !!plan.semaineDeTest || !!x.semaineDeTest || !!x.calage || !!x.douleur || !!x.figure || !!x.veilleLegere || !mesureOk;
+    var ligne = (x.lignes || []).filter(function (l) { return l.iSerie === derniere; })[0] || null;
+    var role = T.estRecul(sr) ? 'recul' : (ligne && (ligne.auMax || ligne.role === 'au_max')) || sr.au_max === true ? 'au_max'
+      : ligne && ligne.role === 'test' ? 'test' : ligne && ligne.role === 'haut' ? 'haut'
+      : (x.reculs && travail[0] && travail[0].iSerie === derniere) ? 'grosse' : 'travail';
+    var restantes = (x.lignes || []).filter(function (l) { return laLigneAUnSens(l) && !l.validee && l.iSerie !== derniere; });
+    var D = x.contexte && typeof x.contexte.descenteDe === 'function' ? x.contexte.descenteDe(Ch) : null;
+    var d = M.reactionAuZero({ muet: muet, charge: Ch, descente: D, role: role,
+      restantes: restantes.map(function (l) { return nombre(l.charge); }) });
+    if (d.silence) return false;
+    var prises = gs.filter(function (g) { return g.geste === 'rate_prise' && g.slug === x.slug && g.rang === derniere; });
+    var pris = prises.map(function (g) { return g.bouton; });
+    var cap = V.capturer(function () { return M.phraseDeRate(d); });
+    var chiffres = { reps: [], garde: [], charge: [Ch].concat(d.charge ? [d.charge.kg] : []) };
+    x.rate = {
+      iSerie: derniere, niveau: 'zero', cas: d.cas, base: null, phrase: cap.texte,
+      boutons: (d.leviers || []).map(function (cle) { return { cle: cle, texte: M.boutonDeRate(cle, d), pris: pris.indexOf(cle) >= 0 }; }),
+      charge: d.charge || null, garde: null, fourchette: null, recale: false, pasDAuMax: false, approche: false, recalculeReculs: false,
+      faites: 0, visees: null, fait: false, pris: pris, chiffres: chiffres, role: d.role, zero: Ch
+    };
+    x.phrases.push({ ou: 'rate', texte: cap.texte, citations: cap.citations });
+    // « Prendre D kg » : un geste. Chaque ligne non validée PLUS LOURDE que D passe à D ; une ligne plus légère garde sa charge (jamais un recul léger qui remonte).
+    if (d.cas === 'Z1' && pris.indexOf('prendre') >= 0) {
+      restantes.forEach(function (l) { poserSurLaLigne(x, l, { charge: nombre(l.charge) !== null && nombre(l.charge) <= d.charge.kg ? undefined : d.charge.kg }); });
+    }
+    return true;
+  }
+
   function reactionDExercice(plan, x, exo, e, seance, gs, resumes) {
     var M = Moteur(), V = Voix(), P = Palier();
     var k = x.consigne;
@@ -2979,6 +3066,10 @@
     if (premiere || x.calage) resume.premiere = true;
     if (!mesureOk || x.douleur || x.figure || x.veilleLegere) resume = null;   // 253 (X2) — une séance volontairement plus légère ne compte pas pour la forme du jour
     resumes.push(resume ? Object.assign(resume, { iExo: x.iExo }) : null);
+    // PR 4b (R-A, O7, MOTEUR §9.42 bis) — APRÈS UN 0 REP, UNE BRANCHE DÉDIÉE, AVANT les sorties anticipées ci-dessous (elles contiennent le débutant, la première fois, la
+    // zone et le pari : le zéro les traverse toutes). Elle lit les séries VALIDÉES de l'exercice (`Modele.zeroDeSeance`, O8) : une série manquée (`echec` à 0 rep,
+    // « Oui, manquée ») n'est pas une ligne de travail pour le plan.
+    if (reactionAuZeroDuPlan(plan, x, exo, e, seance, gs, travail)) return;
     if (silence || premiere || !zone || !mesureOk || !faites.length || !aUnPari(x) || x.veilleLegere) return;
     var cx = contexteDuRate(plan, x, exo, e, seance, gs);
     var chauffeValidee = (x.lignes || []).some(function (l) { return l.type === 'echauffement' && l.validee; });
@@ -3119,6 +3210,8 @@
   // fait de `faits.js`). En tête de l'exercice, tant qu'aucune série n'est validée et qu'aucun choix n'est fait.
   function parisRatesDeLExercice(plan, x, exo, e, seance, gs) {
     var M = Moteur(), V = Voix();
+    // PR 4b (R-A) — muette pendant la tenue après un zéro : le « retente » est le geste « Tenter ».
+    if (x.consigne && x.consigne.fondement && x.consigne.fondement.plafondZero && x.consigne.fondement.plafondZero.mord === true) return;
     if (!exo || !x.consigne || x.consigne.etat === 'silence' || !e.parisRates || !Object.prototype.hasOwnProperty.call(e.parisRates, x.slug)) return;
     if (plan.intention === 'entretien' || !!plan.allegee || !!seance.edition || plan.debutant === true || x.veilleLegere) return;
     var fait = e.parisRates[x.slug] || {};
@@ -5893,6 +5986,13 @@
       if (f.zeroRep.vers !== undefined) fait['zero_rep.vers'] = { charge: f.zeroRep.vers };
       if (f.zeroRep.visees !== undefined) fait['zero_rep.visees'] = { valeur: f.zeroRep.visees };
     }
+    // PR 4b (R-A) — la réaction au zéro : le « 0 » de « … est resté à 0 rep » est un fait de la série (I26).
+    if (x.rate && x.rate.niveau === 'zero') fait.rate_zero = { charge: x.rate.zero, reps: [0] };
+    // PR 4b (R-A) — le plafond après un zéro : la charge restée à 0 rep (jamais écrite autrement que citée, I26).
+    if (f.plafondZero && f.plafondZero.mord === true) {
+      fait.plafond_zero = { charge: f.plafondZero.charge, reps: [0] };
+      fait['plafond_zero.charge'] = { charge: f.plafondZero.charge };
+    }
     // 174 (3/3) — la zone 3-5 proposée sous 3 reps : le record (charge × reps) et le compte long.
     var eb = x.escalier && x.escalier.bord;
     if (eb) {
@@ -6294,7 +6394,8 @@
     verifierBaisseAttendue(plan, erreurs);
     verifierEffortVise(plan, entrees, erreurs);
     verifierBord(plan, erreurs);
-    verifierZeroRep(plan, erreurs);
+    verifierZeroRep(plan, entrees, erreurs);
+    verifierVoixDuZero(plan, entrees, erreurs);
     verifierLeviers(plan, erreurs);
     verifierHorsCalcul(plan, entrees, erreurs);
     verifierReposLong(plan, erreurs);
@@ -7012,7 +7113,7 @@
   //     n'est préremplie au-dessus de `vers` ;
   //   · I154 — rien d'ambitieux : sur `zero_rep` et `silence/zero_plancher`, aucune carte « Au max » proposée, aucune réserve demandée ou visée
   //     sous « garde 2 », aucune ligne de test.
-  function verifierZeroRep(plan, erreurs) {
+  function verifierZeroRep(plan, e, erreurs) {
     var M = Moteur();
     ((plan && plan.exercices) || []).forEach(function (x, i) {
       var k = x && x.consigne;
@@ -7042,6 +7143,38 @@
           if (pc !== null && pc >= nombre(z.charge) - 1e-9) erreurs.push('I153' + nom + 'une ligne préremplie à ' + pc + ' kg, la charge qui vient d’échouer (calage)');
         });
       }
+      // I156 (PR 4b, R-A) — aucun gris : aucune ligne de travail non validée n'est préremplie à la charge restée à 0 rep (plafond actif, silences compris, ou zéro validé
+      // dans la séance en cours) ni au-dessus.
+      var exoZero = e && e.seance && e.seance.exercices ? e.seance.exercices[x.iExo] : null;
+      var ChG = chargeDuZeroDuGris(exoZero, k);
+      if (ChG !== null) {
+        (x.lignes || []).forEach(function (l) {
+          var pg = l && !l.validee && l.type !== 'chauffe' && l.prerempli ? nombre(l.prerempli.charge_kg) : null;
+          var src = l && l.fantome ? l.fantome.source : null;
+          if (pg !== null && src !== 'chauffe' && pg >= ChG - 1e-9) erreurs.push('I156' + nom + 'une ligne préremplie à ' + pg + ' kg, la charge restée à 0 rep (' + ChG + ' kg) ou au-dessus');
+        });
+      }
+      // I155 (PR 4b, R-A, MOTEUR §9.42 bis) — LE PLAFOND APRÈS UN ZÉRO : quand il mord, la consigne est `tenue_apres_zero`, la ligne EST le palier,
+      // aucune ligne ni haut n'est à `Ch` ou au-dessus, il n'y a pas de haut, palier/niveau/n/zone sont ceux de la consigne d'avant plafond (`sans`),
+      // la ligne n'est jamais au-dessus de la sienne, et le fondement ne porte plus rien de ce qu'une ligne remplacée justifiait (I57, I61, I62, I68).
+      var pz = k.fondement ? k.fondement.plafondZero : null;
+      if (pz && pz.mord === true) {
+        var Ch = nombre(pz.charge), sans = pz.sans || {};
+        if (k.etat !== 'tenue_apres_zero') erreurs.push('I155' + nom + 'un plafond qui mord sans l’état tenue_apres_zero (' + k.etat + ')');
+        if (k.ligne && nombre(k.ligne.charge) !== null && nombre(k.ligne.charge) >= Ch - 1e-9) erreurs.push('I155' + nom + 'une ligne à ' + k.ligne.charge + ' kg, au-dessus de la charge restée à 0 rep (' + Ch + ' kg)');
+        if (k.haut) erreurs.push('I155' + nom + 'une ligne haute pendant le plafond');
+        if (!k.ligne || nombre(k.ligne.charge) !== nombre(k.palier)) erreurs.push('I155' + nom + 'une ligne qui n’est pas le palier tenu (' + (k.ligne ? k.ligne.charge : 'aucune') + ' pour ' + k.palier + ')');
+        ['palier', 'niveau', 'n', 'zone'].forEach(function (cle) {
+          if (sans[cle] !== undefined && k[cle] !== sans[cle]) erreurs.push('I155' + nom + cle + ' modifié par le plafond (' + k[cle] + ' pour ' + sans[cle] + ')');
+        });
+        if (sans.ligne && nombre(sans.ligne.charge) !== null && k.ligne && nombre(k.ligne.charge) > nombre(sans.ligne.charge) + 1e-9) erreurs.push('I155' + nom + 'une ligne plafonnée plus lourde que celle d’avant plafond');
+        ['effortVise', 'approchee', 'cranGros', 'preuve', 'test'].forEach(function (cle) {
+          if (k.fondement[cle] !== undefined) erreurs.push('I155' + nom + 'le fondement d’une tenue après un zéro porte « ' + cle + ' »');
+        });
+        if (x.reserveVisee !== null && x.reserveVisee !== undefined) erreurs.push('I154' + nom + 'un effort visé à ' + x.reserveVisee + ' pendant la tenue après un zéro');
+      } else if (k.etat === 'tenue_apres_zero') {
+        erreurs.push('I155' + nom + 'une tenue après un zéro sans plafond qui mord');
+      }
       if (M.estApresZero(k)) {
         if (x.propositionAuMax) erreurs.push('I154' + nom + 'une carte « Au max » proposée après un zéro rep');
         var a = x.auMax;
@@ -7050,6 +7183,85 @@
         if (nombre(x.reserveAffichee) !== null && nombre(x.reserveAffichee) < 2) erreurs.push('I154' + nom + 'un effort visé à ' + x.reserveAffichee + ' en réserve après un zéro rep');
         var test = (x.planInitial || []).concat(x.lignes || []).some(function (l) { return l && l.role === 'test'; });
         if (test) erreurs.push('I154' + nom + 'une ligne de test après un zéro rep');
+      }
+    });
+  }
+
+  // I157 et I158 (PR 4b, R-A, MOTEUR §9.42 bis) — UNE VOIX APRÈS UN 0 REP.
+  //   · I157 (a) — jamais deux phrases après la même série à 0 rep : quand la réaction au zéro parle, ni `x.message`, ni la porte du cran, ni la carte « un cran
+  //     dessous », ni la carte de la forme du jour ne parlent pour cet exercice ; et quand le plafond mord, `parisRates` est muet ;
+  //     (b) — la phrase du plafond n'existe que s'il mord, dit sa charge, et n'écrit aucun nombre de séances ;
+  //   · I158 — toute série validée à 0 rep (la dernière de l'exercice, hors cas muets, au-dessus du palier tenu, plus lourde que tout succès) a une réaction `Z1` ou
+  //     `Z2` ; Z1 : la charge est `D(charge)` et au moins une ligne non validée est plus lourde que `D` ; Z1 et Z2 : aucune fourchette, aucun `garde`, aucun
+  //     `recalculeReculs` ; les cas muets : aucune réaction au zéro.
+  function verifierVoixDuZero(plan, e, erreurs) {
+    var M = Moteur(), S = Seance(), T = racine.THModele;
+    var exos = e && e.seance && Array.isArray(e.seance.exercices) ? e.seance.exercices : [];
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      if (!x) return;
+      var nom = ' — exercice ' + i + ' (' + x.slug + ') : ';
+      var k = x.consigne, r = x.rate;
+      var pz = k && k.fondement ? k.fondement.plafondZero : null;
+      var rz = r && r.niveau === 'zero' ? r : null;
+      if (rz) {
+        if (x.message) erreurs.push('I157' + nom + 'deux phrases après le même 0 rep (la réaction au zéro et la réaction §9.14)');
+        if (x.porteDuCran && x.porteDuCran.fermee && x.porteDuCran.iSerie === rz.iSerie) erreurs.push('I157' + nom + 'deux phrases après le même 0 rep (la porte du cran et la réaction au zéro)');
+        if (x.parisRates && x.parisRates.carte) erreurs.push('I157' + nom + 'deux phrases après le même 0 rep (la carte « un cran dessous » et la réaction au zéro)');
+        if (x.carteForme) erreurs.push('I157' + nom + 'deux phrases après le même 0 rep (la forme du jour et la réaction au zéro)');
+        if (rz.fourchette || (rz.garde !== null && rz.garde !== undefined) || rz.recalculeReculs === true) erreurs.push('I158' + nom + 'une réaction au zéro avec fourchette, garde ou recalcul des reculs');
+        if (rz.cas !== 'Z1' && rz.cas !== 'Z2') erreurs.push('I158' + nom + 'une réaction au zéro de cas ' + rz.cas);
+      }
+      // I159 — le bouton « Tenter » : sa charge est celle de `sans` (haut ≥ Ch, sinon la ligne ; « le cran au-dessus » si nulle), jamais `Ch` par défaut ; pris, la consigne
+      // affichée est celle d'avant plafond (la ligne ou le haut restitués valent la charge du bouton).
+      var tz = x.tenueZero || null;
+      if (tz) {
+        if (tz.tente === true) {
+          if (!k || k.etat === 'tenue_apres_zero' || !(pz && pz.tente === true)) erreurs.push('I159' + nom + 'Tenter pris, la consigne affichée n’est pas celle d’avant plafond');
+          else if (tz.charge !== null && tz.charge !== undefined) {
+            var hT = k.haut ? nombre(k.haut.charge) : null, lT = k.ligne ? nombre(k.ligne.charge) : null;
+            var rendu = hT !== null && hT >= nombre(pz.charge) - 1e-9 ? hT : lT;
+            if (rendu === null || Math.abs(rendu - nombre(tz.charge)) > 1e-9) erreurs.push('I159' + nom + 'Tenter ' + tz.charge + ' kg restitue ' + rendu + ' kg');
+          }
+        } else {
+          var bt = M.boutonsDeLaTenue(k);
+          if (!bt) erreurs.push('I159' + nom + 'un bouton « Tenter » sans plafond qui mord');
+          else {
+            if (bt.bouton !== tz.bouton || bt.charge !== tz.charge) erreurs.push('I159' + nom + 'le bouton « ' + tz.bouton + ' » n’est pas la charge de la consigne d’avant plafond (« ' + bt.bouton + ' »)');
+            if (pz && nombre(bt.charge) !== null && nombre(bt.charge) === nombre(pz.charge) && !(pz.sans && ((pz.sans.ligne && nombre(pz.sans.ligne.charge) === nombre(pz.charge)) || (pz.sans.haut && nombre(pz.sans.haut.charge) === nombre(pz.charge))))) erreurs.push('I159' + nom + 'le bouton « Tenter » reprend la charge du zéro par défaut');
+          }
+        }
+      }
+      if (pz && pz.mord === true && x.parisRates && x.parisRates.carte) erreurs.push('I157' + nom + 'la carte « un cran dessous » pendant la tenue après un zéro');
+      // (b) la phrase du plafond
+      var gris = ((x.phrases || []).filter(function (q) { return q.ou === 'entete.gris'; })[0] || {}).texte || '';
+      var pourquoiP = ((x.phrases || []).filter(function (q) { return q.ou === 'pourquoi'; })[0] || {}).texte || '';
+      var parle = /pas encore\. Je garde/.test(String(gris)) && k && k.etat === 'tenue_apres_zero';
+      if (parle && !(pz && pz.mord === true)) erreurs.push('I157' + nom + 'la phrase du plafond sans plafond qui mord');
+      if (k && k.etat === 'tenue_apres_zero') {
+        var dit = String(gris) + ' ' + String(pourquoiP);
+        if (pz && nombre(pz.charge) !== null && String(gris).replace(/\s/g, ' ').replace(/(\d),(\d)/g, '$1.$2').indexOf(String(pz.charge)) < 0) erreurs.push('I157' + nom + 'la phrase du plafond ne dit pas la charge restée à 0 rep (' + pz.charge + ')');
+        if (/\b\d+\s+séances?\b/.test(dit) || /quand même|plafond|assidu/i.test(dit)) erreurs.push('I157' + nom + 'la phrase du plafond écrit un nombre de séances, « plafond » ou « quand même »');
+      }
+      // I158 — la lecture indépendante du plan : la dernière série validée de l'exercice à 0 rep
+      var exo = exos[x.iExo];
+      if (!exo || !k) return;
+      var series = exo.series || [], valides = [], derniere = null;
+      series.forEach(function (sr, j) { if (S.partEnBase(sr)) { valides.push(sr); if (T.typeDe(sr) !== 'echauffement' && !T.estHorsCalcul(sr) && !T.estTest(sr)) derniere = j; } });
+      if (derniere === null) return;
+      var sr = series[derniere], Ch = nombre(sr.charge_kg);
+      var muet = plan.intention === 'entretien' || x.intention === 'entretien' || x.mode === 'entretien' || !!plan.allegee || !!k.allegee || !!plan.semaineDeTest || !!x.semaineDeTest ||
+        !!x.calage || !!x.douleur || !!x.figure || !!x.veilleLegere || !(x.mesure === null || x.mesure === undefined || x.mesure === 'charge_reps') || plan.edition === true || !!(e && e.seance && e.seance.edition);
+      var palier = nombre(k.palier);
+      var zeroLu = nombre(sr.reps) === 0 && Ch !== null && Ch > 0 && T.zeroDeSeance(valides, { porte: true }) !== null && !(palier !== null && !(Ch > palier + 1e-9));
+      if (zeroLu && muet && rz) erreurs.push('I158' + nom + 'une réaction au zéro dans un contexte où le coach se tait');
+      if (zeroLu && !muet) {
+        if (!rz) { erreurs.push('I158' + nom + 'un 0 rep à ' + Ch + ' kg sans réaction au zéro'); return; }
+        if (rz.cas === 'Z1') {
+          var D = x.contexte && typeof x.contexte.descenteDe === 'function' ? x.contexte.descenteDe(Ch) : null;
+          if (D === null || !rz.charge || nombre(rz.charge.kg) !== D) erreurs.push('I158' + nom + 'Z1 propose ' + (rz.charge ? rz.charge.kg : 'rien') + ' kg, la descente D de ' + Ch + ' kg est ' + D);
+          var plusLourde = (x.lignes || []).some(function (l) { return (l.type === 'travail' || l.type === 'recul') && l.role !== 'hors' && !l.validee && l.iSerie !== derniere && (nombre(l.charge) === null || nombre(l.charge) > (D === null ? Infinity : D) + 1e-9); });
+          if (!plusLourde && (rz.pris || []).indexOf('prendre') < 0) erreurs.push('I158' + nom + 'Z1 sans ligne non validée plus lourde que D');
+        }
       }
     });
   }

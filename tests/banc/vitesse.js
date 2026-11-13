@@ -52,7 +52,7 @@ const GESTES = [
 let x = 548; const alea = () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; };
 const uuid = (p, n) => p + '-0000-4000-8000-' + String(n).padStart(12, '0');
 const NOMS=['Squat (Barre)','Développé couché (Barre)','Soulevé de terre (Barre)','Tractions','Développé militaire (Barre)','Rowing buste penché (Barre)','Curl biceps (Haltères)','Dips'];
-function historique() {
+function historique(zeros) {
   const exos = []; const MUS=['quadriceps','pectoraux','grand_dorsal','deltoide_lateral','biceps','triceps','ischio_jambiers','fessiers','deltoide_posterieur','abdominaux','mollets','bas_du_dos'];
   for (let i = 0; i < 153; i++) exos.push({ slug: 'exo-' + i, nom: (NOMS[i]||('Exercice ' + i)), mesure: i < 8 ? 'charge_reps' : i % 11 === 0 ? 'reps' : i % 29 === 0 ? 'temps' : 'charge_reps',
     charge: 'externe', parent: null, equipement: i % 2 ? 'haltere' : 'barre', muscles_primaires: [MUS[i % MUS.length]], muscles_secondaires: [], mouvement: null, barre_charge_fixe: false });
@@ -75,10 +75,18 @@ function historique() {
         duree_s: ex.mesure === 'temps' ? 30 + Math.floor(alea() * 40) : null, distance_m: null, type_serie: s === 0 && alea() < .2 ? 'echauffement' : 'travail', rang: ++rang, groupe_superset: null,
         validee_a: null, rpe: null, ressenti: null, repos_s: null, note: null, source: 'hevy', created_at: debut, modifie_a: null, tempo: null, elastique: null, douleur: null, occurrence: null });
     });
+    // PROFIL N°2 (PR 4b, R-A, O12) — UN ZÉRO TOUTES LES 10 SÉANCES : la dernière série de la 1re barre de la séance, plus lourde que tout succès, à 0 rep, typée `echec`
+    // (comme « Oui, manquée » l'écrit). Le plafond après un zéro lit l'historique à chaque consigne ; ce profil mesure son coût sur 627 séances.
+    if (zeros && k % 10 === 9) {
+      const ex0 = exos[[...vus][0]], dernieres = series.filter((q) => q.session_id === id && q.exercise_slug === ex0.slug);
+      const q = dernieres[dernieres.length - 1];
+      if (q && ex0.mesure === 'charge_reps') { q.reps = 0; q.type_serie = 'echec'; q.charge_kg = Math.round(q.charge_kg * 1.25 / 2.5) * 2.5 + 20; }
+    }
   }
   return { exos, seances, series };
 }
-const H = historique();
+const ZEROS = process.argv.indexOf('--zeros') >= 0;   // le profil n°2 : un zéro rep toutes les 10 séances (PR 4b, O12)
+const H = historique(ZEROS);
 const PESEES = []; { for (let k = 0; k < 160; k++) { const d = new Date(Date.parse('2025-05-01T07:00:00Z') + k * 3.2 * 86400000); PESEES.push({ id: 'p' + k, date: d.toISOString().slice(0, 10), poids_kg: Math.round((82 + Math.sin(k / 9) * 2 + k * 0.01) * 10) / 10, source: 'manuel' }); } }
 const T0 = '2026-09-01T10:00:00.000Z';
 const rs = (reId, k, type, reps) => ({ id: reId + '-s' + k, routine_exercise_id: reId, user_id: 'u-mesure', rang: k, type_serie: type, reps_visees: reps, charge_cible_kg: null, duree_cible_s: null, distance_cible_m: null, au_max: false, created_at: T0 });
@@ -181,7 +189,7 @@ async function passage(port, errs) {
   } finally { serveur.close(); rendre(); }
   const etalon = Math.round(mediane(passages.map((p) => p.etalon)));
   if (process.argv.indexOf('--json') >= 0) console.log(JSON.stringify({ passages, second }));
-  console.log('\n══ VITESSE (627 séances, processeur ×' + RALENTI + ', médiane de ' + PASSAGES + ' · étalon ' + etalon + ' ms) ══');
+  console.log('\n══ VITESSE (627 séances' + (ZEROS ? ', un zéro toutes les 10 séances' : '') + ', processeur ×' + RALENTI + ', médiane de ' + PASSAGES + ' · étalon ' + etalon + ' ms) ══');
   let echec = 0;
   GESTES.forEach(([k, nom]) => {
     const plafond = PLAFONDS[k], s1 = stat(passages, k), ok1 = s1.med > 0 && s1.rap <= plafond;

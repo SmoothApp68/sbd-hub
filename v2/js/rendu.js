@@ -3573,6 +3573,9 @@
       if (info && info.message && info.message.gestes && typeof vue.surDegressiveVide === 'function') {
         hote.appendChild(propositionDeDegressiveVide(info.message, s._iExo, s._iSerie, vue));
       } else if (info && info.message) hote.appendChild(phraseDeReaction(info.message, s.debutTour));
+      // PR 4b (R-A) — « Tenter 102,5 kg » / « Annuler », au-dessus de la première ligne de travail à faire : le texte vient du plan.
+      var tn = !vue.programme && typeof vue.tenue === 'function' ? vue.tenue(s._iExo, s._iSerie) : null;
+      if (tn) hote.appendChild(dessinerLaTenue(tn, s._iExo, vue));
       var rangee = rangeeDeSerie(bloc, s, complets, vue, info);
       hote.appendChild(rangee);
       // 236 (MOTEUR §9.39) — la réaction du coach sous la série validée (une phrase, des gestes d'un toucher), lue sur le plan.
@@ -4261,6 +4264,20 @@
       rang.appendChild(bt);
       n.appendChild(rang);
     }
+    return n;
+  }
+  // PR 4b (R-A) — la sortie du plafond après un zéro : un seul geste, sur sa propre rangée (même classes que la porte du cran : une seule voix).
+  function dessinerLaTenue(tn, iExo, vue) {
+    var n = el('div', 'rate-reaction rate-porte rate-tenue');
+    n.setAttribute('data-iexo', String(iExo));
+    n.setAttribute('data-tenue', tn.tente ? 'tente' : 'proposee');
+    var rang = el('div', 'rate-boutons');
+    var bt = el('button', 'rate-bouton', tn.tente ? tn.annuler : tn.bouton);
+    bt.type = 'button';
+    bt.setAttribute('data-cle', tn.tente ? 'annuler' : 'tenter');
+    bt.addEventListener('click', function () { vue.surTenue(iExo, tn.tente ? 'annuler' : 'tenter'); });
+    rang.appendChild(bt);
+    n.appendChild(rang);
     return n;
   }
   // 236 — une carte du plan (forme du jour, paris ratés) : la phrase, deux gestes. Le premier est le principal.

@@ -1,0 +1,154 @@
+[
+ {
+  "nom": "t1-plafonner-perd-bord",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "['_bord', '_lues'].forEach(function (cle) {",
+  "nouveau": "['_lues'].forEach(function (cle) {",
+  "unitaires": [
+   "tests/unit/v2-plafond-zero.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "t2-bord-compte-la-tenue",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var tenueNeutre = rk !== null && rk.etat === 'tenue_apres_zero' && prec !== null && !ratee;",
+  "nouveau": "var tenueNeutre = false;",
+  "unitaires": [
+   "tests/unit/v2-plafond-zero.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "t3-pas-de-rappel-final",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "consigne = plafonner(consigne, seances, avant, o);",
+  "nouveau": "consigne = consigne;",
+  "unitaires": [
+   "tests/unit/v2-plafond-zero.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "t4-fondement-non-reconstruit",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var fo = r.fondement || {}, fm = {};",
+  "nouveau": "var fo = r.fondement || {}, fm = Object.assign({}, fo);",
+  "unitaires": [
+   "tests/unit/v2-plafond-zero.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "t5-rvX-non-nul",
+  "fichier": "v2/js/plan.js",
+  "ancien": "x.consigne.fondement.plafondZero.mord === true) rvX = null;",
+  "nouveau": "x.consigne.fondement.plafondZero.mord === true) rvX = rvX;",
+  "unitaires": [
+   "tests/unit/v2-plafond-zero.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "t6-tenue-hors-des-muets",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "    tenue_apres_zero: true\n  };",
+  "nouveau": "    tenue_apres_zero: false\n  };",
+  "unitaires": [
+   "tests/unit/v2-plafond-zero.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "t7-porte-parle-a-zero-rep",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "      if (reps === 0) return;\n      var lu = rateSousLaZone",
+  "nouveau": "      var lu = rateSousLaZone",
+  "unitaires": [
+   "tests/unit/v2-plafond-zero.test.js"
+  ],
+  "banc": "seance",
+  "sections": [
+   "zero-rep-pr2"
+  ]
+ },
+ {
+  "nom": "t8-Z-lit-faites-sans-echec",
+  "fichier": "v2/js/plan.js",
+  "ancien": "series.forEach(function (sr, i) { if (S.partEnBase(sr)) valides.push(i); });",
+  "nouveau": "series.forEach(function (sr, i) { if (S.partEnBase(sr) && T.typeDe(sr) === 'travail') valides.push(i); });",
+  "unitaires": [
+   "tests/unit/v2-plafond-zero.test.js"
+  ],
+  "banc": "seance",
+  "sections": [
+   "zero-rep-pr2"
+  ]
+ },
+ {
+  "nom": "t9-geste-hors-liste",
+  "fichier": "v2/js/seance.js",
+  "ancien": "'veille_legere', 'veille_legere_annulee',\n                         'cran_zero_tente', 'cran_zero_tente_annule'];",
+  "nouveau": "'veille_legere', 'veille_legere_annulee'];",
+  "unitaires": [
+   "tests/unit/v2-plafond-zero.test.js"
+  ],
+  "banc": "seance",
+  "sections": [
+   "zero-rep-pr2"
+  ]
+ },
+ {
+  "nom": "t10-suivantes-non-borne",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "q < apres.length && sortie.length < SUIVANTES_MAX; q++",
+  "nouveau": "q < apres.length; q++",
+  "unitaires": [
+   "tests/unit/v2-plafond-zero.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "f2-atteint-avec-zero-rep",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "return r !== null && r >= 1 && c !== null && c >= charge - 1e-9;",
+  "nouveau": "return r !== null && r >= 0 && c !== null && c >= charge - 1e-9;",
+  "unitaires": [
+   "tests/unit/v2-plafond-zero.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "n-compteur-compte-la-tenue",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "|| k.etat === 'silence' || k.etat === 'tenue_apres_zero' ||",
+  "nouveau": "|| k.etat === 'silence' ||",
+  "unitaires": [
+   "tests/unit/v2-plafond-zero.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "l-parisRates-parle-pendant-la-tenue",
+  "fichier": "v2/js/plan.js",
+  "ancien": "    if (x.consigne && x.consigne.fondement && x.consigne.fondement.plafondZero && x.consigne.fondement.plafondZero.mord === true) return;\n    if (!exo || !x.consigne || x.consigne.etat === 'silence' || !e.parisRates",
+  "nouveau": "    if (!exo || !x.consigne || x.consigne.etat === 'silence' || !e.parisRates",
+  "unitaires": [
+   "tests/unit/v2-plafond-zero.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "j-bouton-tenter-reprend-Ch",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var kg = h !== null && Ch !== null && h >= Ch - 1e-9 ? h : l;",
+  "nouveau": "var kg = Ch;",
+  "unitaires": [
+   "tests/unit/v2-plafond-zero.test.js"
+  ],
+  "banc": "seance",
+  "sections": [
+   "zero-rep-pr2"
+  ]
+ }
+]

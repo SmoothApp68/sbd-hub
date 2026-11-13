@@ -27532,6 +27532,101 @@ const SETS_IMPORTES = [
       zc.etat === 'silence' && zc.raison === 'premiere_fois' && zc.calage === true && !zc.charges.some((c) => c === 25) && zc.erreurs.length === 0, JSON.stringify(zc));
     await abandonner();
 
+    // ── E. PR 4b (R-A) — LE PLAFOND APRÈS UN ZÉRO, avec le vrai plan et la vraie page : 24 × 10 trois fois, puis 24 × 10 ×3 et 26,5 × 0 (typé `echec`, comme « Oui, manquée »
+    //    l'écrit) il y a 3 jours → la ligne reste au palier (24), « Tenter … » est proposé, tenté il rend la consigne d'avant plafond, « Annuler » rend le plafond.
+    const tentePoser = (slug, liste) => liste.forEach(([j, series], i) => {
+      const id = 'zr-' + slug + '-t' + i, debut = ilYa(j * 86400000, tZR).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'ZR — ' + id, debut, fin: finDe(debut, tZR).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+      series.forEach(([kg, r, type, res], k) => base.sets.push({ id: id + '-s' + (k + 1), session_id: id, user_id: 'u-banc', exercise_slug: slug,
+        charge_kg: kg, reps: r, duree_s: null, distance_m: null, type_serie: type || 'travail', rang: k + 1, groupe_superset: null, validee_a: debut, rpe: null,
+        ressenti: res || null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    });
+    ['d', 'e'].forEach((k) => CATALOGUE.push({ slug: 'zr-' + k, nom: 'Exercice ZR ' + k.toUpperCase() + ' (Barre)', mesure: 'charge_reps', charge: 'externe',
+      equipement: 'barre', muscles_primaires: ['pectoraux'], muscles_secondaires: [] }));
+    const R3 = 'reste_3_plus';
+    tentePoser('zr-d', [[7, [[24, 10, 'travail', R3], [24, 10, 'travail', R3], [24, 10, 'travail', R3]]],
+      [3, [[24, 10, 'travail', R3], [24, 10, 'travail', R3], [24, 10, 'travail', R3], [26.5, 0, 'echec']]]]);
+    tentePoser('zr-e', [[11, [[100, 8], [100, 8], [100, 8]]], [7, [[100, 8], [100, 8], [100, 8]]], [3, [[100, 8], [100, 8], [100, 8]]]]);
+    ['d', 'e'].forEach((k) => ROUTINES.push({ id: 'r-zr-' + k, nom: 'ZeroRep ' + k.toUpperCase() + ' ZR', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-zr-' + k + '-0', routine_id: 'r-zr-' + k, exercise_slug: 'zr-' + k, rang: 0,
+        routine_sets: progr(3, 8), repos_cible_s: 180, groupe_superset: null, note: null }] }));
+    const lireTenue = (slug) => page.evaluate((sl) => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d && d.plan.exercices.filter((e) => e.slug === sl)[0];
+      const bt = Array.from(document.querySelectorAll('.rate-tenue button'));
+      return { etat: x && x.consigne ? x.consigne.etat : null, pz: x && x.consigne && x.consigne.fondement ? x.consigne.fondement.plafondZero || null : null,
+        charges: x ? x.lignes.filter((l) => l.type !== 'chauffe').map((l) => l.prerempli ? l.prerempli.charge_kg : null) : [],
+        tz: x ? x.tenueZero || null : null, boutons: bt.map((b) => b.textContent), dit: ((x && x.phrases || []).filter((q) => q.ou === 'entete.gris')[0] || {}).texte || null,
+        erreurs: d ? window.THPlan.verifierPlan(d.plan, d.entrees).erreurs : ['aucun plan calculé'] };
+    }, slug);
+    const cliquerTenue = async (cle) => {
+      const depart = await departGeste();
+      await page.evaluate((c) => document.querySelector('.rate-tenue button[data-cle="' + c + '"]').click(), cle);
+      await calmeApres(depart, 0);
+    };
+    await aller('/saisie');
+    await demarrerRoutine('ZeroRep D ZR');
+    await pretZR();
+    const zd = await lireTenue('zr-d');
+    ok('[ZR] E — DISCRIMINANT : 26,5 kg × 0 (typé échec) → tenue_apres_zero, aucune ligne à 26,5 ou plus, en-tête « pas encore. Je garde », bouton « Tenter … » dessiné, la garde ne signale rien',
+      zd.etat === 'tenue_apres_zero' && zd.pz && zd.pz.mord === true && zd.charges.every((c) => c === null || c < 26.5) && /pas encore\. Je garde/.test(spZR(zd.dit)) &&
+        !!zd.tz && !zd.tz.tente && zd.boutons.length === 1 && /^Tenter /.test(spZR(zd.boutons[0])) && spZR(zd.boutons[0]) === spZR(zd.tz.bouton) && zd.erreurs.length === 0, JSON.stringify(zd));
+    await cliquerTenue('tenter');
+    const zdt = await lireTenue('zr-d');
+    ok('[ZR] E — « Tenter » : la consigne d\'avant plafond revient pour la séance, le bouton devient « Annuler », I155 à I159 verts, aucune série passée touchée',
+      zdt.etat !== 'tenue_apres_zero' && zdt.pz && zdt.pz.tente === true && !!zdt.tz && zdt.tz.tente === true && zdt.boutons.length === 1 && spZR(zdt.boutons[0]) === 'Annuler' &&
+        zdt.erreurs.length === 0 && base.sets.filter((q) => q.exercise_slug === 'zr-d' && q.session_id.indexOf('-t') < 0).length === 0, JSON.stringify(zdt));
+    await cliquerTenue('annuler');
+    const zda = await lireTenue('zr-d');
+    ok('[ZR] E — « Annuler » : le plafond revient (tenue_apres_zero, « Tenter … » de nouveau)',
+      zda.etat === 'tenue_apres_zero' && !!zda.tz && !zda.tz.tente && zda.erreurs.length === 0, JSON.stringify(zda));
+    await abandonner();
+
+    // ── F. PR 4b (R-A) — LE VRAI CHEMIN EN SÉANCE : taper 102,5 × 0 sur la 1re ligne, « Oui, manquée » (typé échec), une réaction Z1 (« je propose 97,5 kg pour la suite. », « Prendre 97,5 kg »),
+    //    une seule voix, les lignes suivantes ne reprennent pas 102,5, la garde ne signale rien.
+    await aller('/saisie');
+    await demarrerRoutine('ZeroRep E ZR');
+    await pretZR();
+    const tapeZ = async (i, champ, v) => { const inp = await champsDe(i, champ); await inp[0].fill(String(v)); await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))); };
+    await tapeZ(0, 'charge_kg', 102.5); await tapeZ(0, 'reps', 0);
+    {
+      const depart = await departGeste();
+      await page.evaluate(() => document.querySelectorAll('.ligne-serie')[0].querySelector('.ok-serie').click());
+      await calmeApres(depart, 0);
+    }
+    {
+      const depart = await departGeste();
+      const trouve = await page.evaluate(() => {
+        const l = document.querySelectorAll('.ligne-serie')[0];
+        let q = l ? l.nextElementSibling : null;
+        while (q && !q.classList.contains('question-saisie') && !q.classList.contains('ligne-serie')) q = q.nextElementSibling;
+        const b = q && Array.from(q.querySelectorAll('button')).filter((x) => /manquée/.test(x.textContent))[0];
+        if (b) b.click();
+        return !!b;
+      });
+      await calmeApres(depart, 0);
+      ok('[ZR] F — le 0 rep pose la question « Oui, manquée », et le bouton est touché', trouve, '');
+    }
+    await jusqua(() => base.sets.filter((q) => q.exercise_slug === 'zr-e' && q.session_id.indexOf('-t') < 0).length >= 1, 5000, 'écriture ZR');
+    const ecrZ = base.sets.filter((q) => q.exercise_slug === 'zr-e' && q.session_id.indexOf('-t') < 0);
+    const zf = await page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      const x = d && d.plan.exercices.filter((e) => e.slug === 'zr-e')[0];
+      const rz = x && x.rate && x.rate.niveau === 'zero' ? x.rate : null;
+      const dom = document.querySelector('.rate-reaction[data-cas]');
+      return { rz: rz ? { cas: rz.cas, phrase: rz.phrase, boutons: rz.boutons.map((b) => b.texte) } : null, dom: dom ? dom.textContent : null, message: !!(x && x.message),
+        charges: x ? x.lignes.filter((l) => l.type !== 'chauffe' && !l.validee).map((l) => l.prerempli ? l.prerempli.charge_kg : null) : [],
+        erreurs: d ? window.THPlan.verifierPlan(d.plan, d.entrees).erreurs : ['aucun plan calculé'] };
+    });
+    ok('[ZR] F — DISCRIMINANT : « Oui, manquée » écrit un `echec` à 0 rep, et la réaction Z1 parle seule : « 102,5 kg est resté à 0 rep : je propose 97,5 kg pour la suite. » + « Prendre 97,5 kg »',
+      ecrZ.length === 1 && ecrZ[0].type_serie === 'echec' && ecrZ[0].reps === 0 && !!zf.rz && zf.rz.cas === 'Z1' &&
+        spZR(zf.rz.phrase) === '102,5 kg est resté à 0 rep : je propose 97,5 kg pour la suite.' && spZR(zf.rz.boutons[0]) === 'Prendre 97,5 kg' && !zf.message && /0 rep/.test(spZR(zf.dom)), JSON.stringify([ecrZ.map((q) => [q.type_serie, q.reps]), zf]));
+    ok('[ZR] F — les lignes suivantes ne reprennent pas 102,5 kg (le gris est vidé ou plus bas), la garde du plan (I155 à I159) ne signale rien',
+      zf.charges.every((c) => c === null || c < 102.5) && zf.erreurs.length === 0, JSON.stringify(zf));
+    await abandonner();
+
     // ── D. Rien ne s'écrit, rien ne casse.
     ok('[ZR] la garde (I152 à I154 compris) n\'a rien signalé', gardeBanc.violations === violationsAvant,
       String(gardeBanc.violations - violationsAvant) + ' ' + JSON.stringify(gardeBanc.liste.slice(-2)));

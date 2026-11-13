@@ -1,0 +1,69 @@
+[
+ {
+  "nom": "c1-toutes-les-series-pas-exigees",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "if (aLaCharge.length < nL) return rendu;",
+  "nouveau": "if (aLaCharge.length < 1) return rendu;",
+  "unitaires": [
+   "tests/unit/v2-cible-faite.test.js",
+   "tests/unit/v2-cible-faite-plan.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "c2-niveau-franc-meilleure-serie",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var niveau = nombre(cApres.niveau);\n    if (niveau === null) return rendu;",
+  "nouveau": "var niveau = Math.max.apply(null, reps);\n    if (niveau === null) return rendu;",
+  "unitaires": [
+   "tests/unit/v2-cible-faite.test.js",
+   "tests/unit/v2-cible-faite-plan.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "c3-charge-differente-toleree",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var aLaCharge = jour.filter(function (q) { return egale(nombre(q.charge_kg), charge); });",
+  "nouveau": "var aLaCharge = jour.filter(function (q) { return true; });",
+  "unitaires": [
+   "tests/unit/v2-cible-faite.test.js",
+   "tests/unit/v2-cible-faite-plan.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "c4-ligne-haute-comptee",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "rendu.etat = haut ? 'test_non_fait' : 'faite';",
+  "nouveau": "rendu.etat = 'faite';",
+  "unitaires": [
+   "tests/unit/v2-cible-faite.test.js",
+   "tests/unit/v2-cible-faite-plan.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "c5-serie-couverte-ignoree",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var couvertes = reps.slice(0, nL);",
+  "nouveau": "var couvertes = reps.slice(0, Math.max(nL - 1, 1));",
+  "unitaires": [
+   "tests/unit/v2-cible-faite.test.js",
+   "tests/unit/v2-cible-faite-plan.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "c0-temoin-equivalent",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "if (nL < 1) return neutre;",
+  "nouveau": "if (nL <= 0) return neutre;",
+  "unitaires": [
+   "tests/unit/v2-cible-faite.test.js",
+   "tests/unit/v2-cible-faite-plan.test.js"
+  ],
+  "banc": "aucun",
+  "attendu": "survit"
+ }
+]

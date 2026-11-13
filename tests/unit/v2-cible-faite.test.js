@@ -57,6 +57,10 @@ describe('I163 — Cible faite : niveau validé ≥ cible, même charge, toutes 
     expect(r.cf.etat).toBe('neutre');
     expect(r.texte).not.toMatch(/Pas encore|Cible faite/);
   });
+  test('des séries faites à une AUTRE charge que la ligne ne se jugent pas, même si la consigne d\'après reste à la charge de la ligne', () => {
+    const r = cas([8, 8, 8], { niveau: 8, serieDe: [72.5, 72.5, 72.5].map((c) => ({ charge_kg: c, reps: 8 })) });
+    expect(r.cf.etat).toBe('neutre');
+  });
   test('2 séries sur 3 : jamais « Cible faite » ni « Pas encore »', () => {
     const r = cas([8, 8], { niveau: 8 });
     expect(r.cf.etat).toBe('neutre');

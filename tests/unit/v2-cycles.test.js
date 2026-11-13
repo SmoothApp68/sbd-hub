@@ -191,7 +191,7 @@ describe('53-2 — ce que le programme dit', () => {
   });
   test('le bandeau de la décharge : sans carte, jamais « requise »', () => {
     const b = norm(M.bandeauDecharge(4, 4));
-    expect(b).toBe('Semaine 4 sur 4 : la décharge prévue par ton programme. Mêmes charges, moins de séries, loin de l’échec.');
+    expect(b).toBe('Décharge, semaine 4 sur 4 : prévue par ton programme. Moins de séries, avec de la marge.');
     expect(/scienti|requis|obligatoire|il faut/i.test(b)).toBe(false);
   });
   test('la carte de fin de bloc : le bilan en faits, les paris, le bloc suivant et ses trois gestes', () => {
@@ -252,13 +252,13 @@ describe('53-2 — la décharge planifiée, dans le plan', () => {
     expect(p.carte).toBe(null);
     expect([p.allegee.source, p.allegee.debut, p.allegee.fin, p.allegee.semaine, p.allegee.semaines])
       .toEqual(['decharge_planifiee', '2026-11-02', '2026-11-08', 4, 4]);
-    expect(norm(p.allegee.bandeau)).toBe('Semaine 4 sur 4 : la décharge prévue par ton programme. ' +
-      'Mêmes charges, moins de séries, loin de l’échec.');
+    expect(norm(p.allegee.bandeau)).toBe('Décharge, semaine 4 sur 4 : prévue par ton programme. ' +
+      'Moins de séries, avec de la marge.');
     const x = p.exercices[0];
-    expect(x.consigne.allegee).toEqual({ series: 2, routine: 4, decharge: true, semaine: 4, semaines: 4 });
+    expect(x.consigne.allegee).toEqual({ series: 2, routine: 4, avant: { charge: 125, vise: 5 }, decharge: true, semaine: 4, semaines: 4 });
     // La décharge du programme se nomme (maquette cycles v1, « Semaine de décharge »).
     expect(norm(x.entete.gris)).toBe(
-      'Semaine de décharge : mêmes charges, moins de séries. 2 séries au lieu de 4, cette semaine.');
+      'Décharge, semaine 4 sur 4 : 2 séries au lieu de 4.');
     expect(x.lignes.filter((l) => l.role !== 'hors').length).toBe(2);
     expect([x.consigne.ligne.charge, x.consigne.ligne.vise, x.consigne.haut]).toEqual([125, 3, null]);
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);

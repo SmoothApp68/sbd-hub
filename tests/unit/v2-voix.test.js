@@ -629,8 +629,9 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     expect(parFamille.chauffes).toBe(36);
     // 6 phrases des 14 cas (les 8 autres sont à 0-3 : rien) + 24 synthétiques.
     expect(parFamille.compteur).toBe(30);
-    // 6 cartes × 2 phrases + 14 consignes allégées × 2 + 3 bandeaux + le refus.
-    expect(parFamille.escalier).toBe(44);
+    // 6 cartes × 2 phrases + 14 consignes allégées × 2 (moins les 2 à 1 série de routine, dont la clause des séries n'existe plus : « Les mots
+    // disent vrai » PR 1) + 3 bandeaux + le refus.
+    expect(parFamille.escalier).toBe(42);
     // 3 cartes × 4 textes + la sèche + le silence + 2 replis × 2 références,
     // puis (49-U17) 4 cartes de série de plus × 4 textes + le gris d'après.
     // 49-U18 : R004 n'est plus un repli atteint (l'écart habituel sur les 8
@@ -670,7 +671,7 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     expect(prog).toContain('Bloc Mix terminé');
     expect(prog.filter((t) => t === 'Le suivant, comme le font les programmes de force : Lourd (3-5) sur tes mouvements ' +
       'à la barre, 4 semaines, décharge la dernière semaine. Les autres exercices gardent leur zone.').length).toBe(3);
-    expect(prog).toContain('Semaine de décharge : mêmes charges, moins de séries. 2 séries au lieu de 4, cette semaine.');
+    expect(prog).toContain('Décharge : 2 séries au lieu de 4.');   // le rang de la semaine n'est pas connu de ce décor
     expect(vues.filter((v) => v.famille === 'programme' && /^Le coach avait fait 4 paris sur ce bloc : 2 ont tenu\.$/
       .test(v.phrase.replace(/[\u00a0\u202f]/g, ' '))).length).toBe(3);
     expect(vues.filter((v) => v.famille === 'nouvelle zone' && /^Nouvelle zone : Mix\. Ta charge déjà tenue en Mix, le 20 août : 90 kg × 7\.$/

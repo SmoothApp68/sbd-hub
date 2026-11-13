@@ -130,7 +130,7 @@ describe('60-1 — le bandeau de décharge planifiée et la fenêtre de semaine 
   test('témoin : en Progresser, le bandeau de décharge du programme est là', () => {
     const p = T.planDeSeance(entrees('progresser', { escalier: ESCALIER_VIDE, programme: { blocs: [BLOC], lignes: [] } }));
     expect(p.allegee).not.toBeNull();
-    expect(p.allegee.bandeau).toMatch(/^Semaine 3 sur 3/);
+    expect(p.allegee.bandeau).toMatch(/^Décharge, semaine 3 sur 3/);
   });
 
   test('Entretenir : ni bandeau de décharge, ni carte', () => {

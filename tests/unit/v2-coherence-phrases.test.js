@@ -534,7 +534,7 @@ describe('PR 7 — les derniers écarts de la liste d’attente, tranchés', () 
     const noms = ['A', 'B', 'C', 'D', 'E'];
     const juste = { exercices: [], allegee: { fin: '2026-10-07', bandeau: M.bandeauAllegee('2026-10-07') },
       carte: { cites: noms, phrase: M.phraseCarte(noms), detail: M.detailCarte() } };
-    expect(esp(juste.allegee.bandeau)).toMatch(/^Semaine allégée jusqu’au 7 oct\. : /);
+    expect(esp(juste.allegee.bandeau)).toMatch(/^Décharge jusqu’au 7 oct\. : /);
     expect(juste.carte.phrase).toBe('A, B, C et 2 autres exercices : aucun n\'a progressé depuis 4 séances.');
     expect(M.detailCarte()).toBe(M.DETAIL_CARTE);
     expect(T.verifierPhrases(juste)).toEqual([]);

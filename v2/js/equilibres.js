@@ -998,7 +998,7 @@
       propose + ' min : la durée réelle de tes séances écourtées. Pour tenir dedans, je groupe d’abord des exercices en supersets, puis je raccourcis ' +
         'les repos des isolations, puis je retire une série aux exercices secondaires (jamais sous 2), et seulement ensuite une isolation en double. ' +
         'Jamais une priorité ni un grand mouvement (squat, soulevé, poussée, tirage).',
-      'Une séance longue ne déclenche rien ; seule une séance écourtée compte. Les semaines allégées ne comptent pas.'
+      'Une séance longue ne déclenche rien ; seule une séance écourtée compte. Les décharges ne comptent pas.'
     ];
     c.repere = c.reperes.join(' ');
     c.garni = true;

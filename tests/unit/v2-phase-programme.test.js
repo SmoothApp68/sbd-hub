@@ -71,7 +71,7 @@ describe('la carte de fin d’une phase', () => {
     expect(carte.ajuster).toBeNull();
     expect(carte.suivantZone).toBeNull();
     expect(carte.commencer).toBe('Commencer une phase de 5 semaines');
-    expect(carte.suivant).toMatch(/dernière allégée/);
+    expect(carte.suivant).toMatch(/dernière de décharge/);
     expect(carte.suivant).toMatch(/Tes zones restent celles de tes routines/);
     expect(carte.arreter).toBe('Arrêter le programme');
   });

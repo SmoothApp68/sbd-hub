@@ -932,7 +932,7 @@
         ' se fait avec une pause\u00a0: marque un temps d’arrêt en bas. Même mouvement, plus de contrôle au point le plus dur\u00a0; retire-la si tu préfères la barre.');
     }
     if (total <= 2 && sq <= 1 && co <= 1) phrases.push('Avec ' + total + ' séances, chaque barre passe une fois.');
-    phrases.push('Une semaine allégée toutes les 5 semaines\u00a0: mêmes charges, moins de séries.');
+    phrases.push('Une décharge toutes les 5 semaines\u00a0: moins de séries.');
     if (sq >= 2 || co >= 2) {
       phrases.push('Fréquence\u00a0: environ 3\u00a0% de force de plus par séance hebdomadaire ajoutée sur un mouvement (Pelland 2026).');
     }

@@ -159,7 +159,7 @@ describe('193-2 (commit 4) — l’aperçu dit le programme de famille', () => {
       'Dans la semaine : squat 2 fois, couché 3 fois, soulevé 1 fois lourd.',
       'Chaque jour a sa zone : la même barre passe de Lourd à Mix ou à Hypertrophie.',
       'Ta deuxième séance de squat et de couché se fait avec une pause\u00a0: marque un temps d’arrêt en bas. Même mouvement, plus de contrôle au point le plus dur\u00a0; retire-la si tu préfères la barre.',
-      'Une semaine allégée toutes les 5 semaines : mêmes charges, moins de séries.',
+      'Une décharge toutes les 5 semaines\u00a0: moins de séries.',
       'Fréquence : environ 3 % de force de plus par séance hebdomadaire ajoutée sur un mouvement (Pelland 2026).']);
   });
 

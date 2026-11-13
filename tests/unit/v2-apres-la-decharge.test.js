@@ -98,13 +98,13 @@ describe('165 — pendant la décharge, le coach ne demande pas l’effort', () 
 
   test('la feuille « Pourquoi » dit « Décharge », avec sa semaine', () => {
     const x = decor('2026-11-03T10:00:00+00:00').p.exercices[0];
-    expect(esp(x.pourquoi.etat)).toBe('Décharge, semaine 4 sur 4 : mêmes charges, moins de séries, loin de l’échec. ' +
-      'Rien ne monte. 2 séries au lieu de 4, cette semaine.');
+    expect(esp(x.pourquoi.etat)).toBe('Décharge, semaine 4 sur 4 : moins de séries, avec de la marge. ' +
+      '2 séries au lieu de 4. 125 kg × 3 au lieu de 125 kg × 5.');
   });
 
-  test('une semaine allégée acceptée garde « Semaine allégée »', () => {
+  test('la décharge acceptée s’appelle aussi « Décharge », sans sa semaine', () => {
     const a = M.consigneAllegee(K, 4);
-    expect(esp(M.pourquoiConsigne(a, 'normal', '2026-11-03T10:00:00+00:00').etat)).toMatch(/^Semaine allégée : /);
+    expect(esp(M.pourquoiConsigne(a, 'normal', '2026-11-03T10:00:00+00:00').etat)).toMatch(/^Décharge : /);
   });
 
   test('I59 forgé — un effort visé sur une consigne allégée', () => {

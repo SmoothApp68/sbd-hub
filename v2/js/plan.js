@@ -1509,9 +1509,9 @@
     // La consigne figée (§9.9, delta 49-13) : c'est elle que lisent les lignes
     // figées, l'en-tête, le constat et les invariants.
     var consigne = M.consigneFigee(c.consigne);
-    // MOTEUR §14.4 (49-U14) — PENDANT UNE SEMAINE ALLÉGÉE, la consigne de
+    // MOTEUR §14.4 (49-U14) — PENDANT UNE DÉCHARGE, la consigne de
     // l'exercice est la consigne allégée : même charge, 2 reps de moins, 60 %
-    // des séries de la routine, rien ne monte. C'est elle que lisent les
+    // des séries de la routine, rien ne monte (les chiffres : PR 3 « les mots disent vrai »). C'est elle que lisent les
     // lignes, l'en-tête, les paris, les chauffes et les invariants.
     if (allegee && consigne && consigne.etat !== 'silence') consigne = M.consigneAllegee(consigne, seriesRoutine, allegee.decharge === true, allegee);
     // MOTEUR §14.5 (49-U15) — LE REPLI (deuxième déclenchement isolé) : la
@@ -1587,14 +1587,14 @@
     }
     var citesGris = capG && capG.texte === gris ? capG.citations : null;
     if (consigne.allegee) {
-      // « 125 kg × 3 », et en gris « 2 séries au lieu de 4, cette semaine ».
+      // « 125 kg × 3 », et en gris « Décharge : 2 séries au lieu de 4. ».
       var capA = V.capturer(function () { return M.phraseAllegee(consigne); });
       entete = { jaune: [capA.texte], segments: entete.segments };
       citesJaune = capA.citations;
       jauneDonc = entete.jaune;
       citesDonc = citesJaune;
-      // §9.22 (53-2 bis) — la décharge du programme se nomme : « Semaine de
-      // décharge : mêmes charges, moins de séries. 2 séries au lieu de 4, cette semaine. »
+      // §9.22 (53-2 bis) — la décharge du programme se nomme : « Décharge,
+      // semaine 4 sur 4 : 2 séries au lieu de 4. » (« Les mots disent vrai » PR 1)
       var capDA = V.capturer(function () { return M.grisAllegee(consigne); });
       gris = capDA.texte;
       citesGris = capDA.citations;
@@ -5410,7 +5410,7 @@
       if (c && typeof c.seriesRoutine === 'number' && c.seriesRoutine > 0 && c.seriesRoutine !== tr) {
         erreurs.push(nom + 'la consigne lit ' + c.seriesRoutine + ' séries de routine, la routine complète en a ' + tr);
       }
-      if (x.consigne.allegee && x.consigne.allegee.routine !== tr) {
+      if (x.consigne.allegee && x.consigne.allegee.routine !== null && x.consigne.allegee.routine !== tr) {
         erreurs.push(nom + 'la semaine allégée part de ' + x.consigne.allegee.routine + ' séries, la routine complète en a ' + tr);
       }
       if (x.consigne.serieDePlus && x.consigne.serieDePlus.routine !== tr) {
@@ -5770,7 +5770,7 @@
         var f = num(c.fin);
         if (d0 !== null && f !== null && f > d0 - M.SANS_CUMUL_JOURS && f < d0 + 7) {
           erreurs.push('I38 — la décharge planifiée du ' + a.debut + ' suit de moins de ' + M.SANS_CUMUL_JOURS +
-            ' jours la semaine allégée finie le ' + c.fin);
+            ' jours la décharge finie le ' + c.fin);
         }
       });
     }
@@ -6062,7 +6062,9 @@
       seuil: f.seuil === undefined ? null : { valeur: f.seuil },
       cible: f.cible === undefined ? null : { valeur: f.cible },
       'allegee.series': k.allegee ? { valeur: k.allegee.series } : null,
-      'allegee.routine': k.allegee ? { valeur: k.allegee.routine } : null,
+      'allegee.routine': k.allegee && k.allegee.routine !== null && k.allegee.routine !== undefined ? { valeur: k.allegee.routine } : null,
+      // « Les mots disent vrai » PR 1 — la cible d'avant la décharge (la consigne normale), dite au « Pourquoi » : « 52,5 kg × 6 au lieu de 52,5 kg × 8 ».
+      'allegee.avant': k.allegee && k.allegee.avant ? { charge: k.allegee.avant.charge, reps: [k.allegee.avant.vise] } : null,
       // 165 — « Décharge, semaine k sur N » : le rang de la semaine dans le bloc.
       'bloc.semaine': k.allegee && k.allegee.decharge && nombre(k.allegee.semaine) !== null ? { valeur: k.allegee.semaine } : null,
       'bloc.semaines': k.allegee && k.allegee.decharge && nombre(k.allegee.semaines) !== null ? { valeur: k.allegee.semaines } : null,
@@ -6395,6 +6397,7 @@
     verifierEffortVise(plan, entrees, erreurs);
     verifierBord(plan, erreurs);
     verifierZeroRep(plan, entrees, erreurs);
+    verifierDecharge(plan, erreurs);
     verifierVoixDuZero(plan, entrees, erreurs);
     verifierLeviers(plan, erreurs);
     verifierHorsCalcul(plan, entrees, erreurs);
@@ -7103,6 +7106,57 @@
         if (!k.ligne || nombre(k.ligne.charge) !== nombre(k.palier) || nombre(k.ligne.vise) !== nombre(b.reps) || k.haut) {
           erreurs.push('I152' + nom + 'une garde « unique » qui ne garde pas le palier aux reps faites, sans ligne haute');
         }
+      }
+    });
+  }
+
+  // I165 (chantier « Les mots disent vrai », PR 1, MOTEUR §9.43) — LA DÉCHARGE DIT CE QU'ELLE FAIT, ET RIEN D'AUTRE.
+  //   · jamais « N … au lieu de N » (séries, cibles) ;
+  //   · une clause de séries (« 2 séries au lieu de 3 ») seulement si la routine est connue et que les deux nombres diffèrent ;
+  //   · « cet exercice ne change pas » si et seulement si séries, reps et charge sont ceux de la consigne normale ;
+  //   · la clause des cibles (« 52,5 kg × 6 au lieu de 52,5 kg × 8 ») au « Pourquoi » seulement si les deux cibles diffèrent ;
+  //   · aucun « mêmes charges », « 2 reps de moins », « loin de l'échec », « Rien ne monte », « cette semaine » ni « semaine allégée » dans un
+  //     texte affiché — le gris, le « Pourquoi », les bandeaux, la carte, son bouton, et les textes fixes (`Moteur.textesFixesDeLaDecharge`).
+  var BANNIS_DECHARGE = /semaines?\s+allégées?|mêmes\s+charges|reps?\s+de\s+moins|loin\s+de\s+l[’']échec|rien\s+ne\s+monte|cette\s+semaine/i;
+  function verifierDecharge(plan, erreurs) {
+    var M = Moteur();
+    var nombres = function (t) { return (String(t).match(/\d+(?:,\d+)?/g) || []).join('|'); };
+    var texte = function (ou, t) {
+      if (typeof t !== 'string' || !t) return;
+      var m = BANNIS_DECHARGE.exec(t);
+      if (m) erreurs.push('I165 — ' + ou + ' : « ' + m[0] + ' » dans un texte de décharge');
+      var re = /([^.]*?)\s+au\s+lieu\s+de\s+([^.]*)/g, q;
+      while ((q = re.exec(t))) {
+        var gauche = q[1].split(/\s:\s|\u00a0:\s/).pop();
+        if (nombres(gauche) !== '' && nombres(gauche) === nombres(q[2])) erreurs.push('I165 — ' + ou + ' : « ' + gauche.trim() + ' au lieu de ' + q[2].trim() + ' », deux nombres égaux');
+      }
+    };
+    M.textesFixesDeLaDecharge().forEach(function (t, i) { texte('texte fixe ' + i, t); });
+    if (plan && plan.allegee) texte('le bandeau', plan.allegee.bandeau);
+    if (plan && plan.carte && plan.carte.oui === M.libelleAlleger()) texte('la carte', plan.carte.detail);
+    if (plan && plan.carte) texte('le bouton de la carte', plan.carte.oui);
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var k = x && x.consigne, a = k && k.allegee;
+      if (!a) return;
+      var nom = 'exercice ' + i + ' (' + x.slug + ')';
+      var gris = x.entete && typeof x.entete.gris === 'string' ? x.entete.gris : '';
+      var pq = x.pourquoi && typeof x.pourquoi.etat === 'string' ? x.pourquoi.etat : '';
+      texte(nom + ', le gris', gris);
+      texte(nom + ', le « Pourquoi »', pq);
+      var connue = a.routine !== null && a.routine !== undefined;
+      var retirees = connue && a.series < a.routine;
+      var avant = a.avant || null, l = k.ligne || null;
+      var cibles = !!(avant && l && nombre(avant.vise) !== null && nombre(l.vise) !== null && nombre(avant.vise) !== nombre(l.vise));
+      var sans = connue && a.series === a.routine && !cibles && !!(avant && l) && nombre(avant.charge) === nombre(l.charge);
+      [['le gris', gris], ['le « Pourquoi »', pq]].forEach(function (p) {
+        if (!p[1]) return;
+        if (/\bséries?\s+au\s+lieu\s+de\b/.test(p[1]) !== retirees) erreurs.push('I165 — ' + nom + ', ' + p[0] + ' : ' + (retirees ? 'la clause des séries manque' : 'une clause de séries sans routine connue ou sans séries retirées'));
+        if (/ne\s+change\s+pas/.test(p[1]) !== sans) erreurs.push('I165 — ' + nom + ', ' + p[0] + ' : « cet exercice ne change pas » ' + (sans ? 'manque alors que rien ne change' : 'alors que quelque chose change'));
+        if (!/^Décharge\b/.test(p[1]) && p[0] === 'le gris') erreurs.push('I165 — ' + nom + ', le gris ne nomme pas « Décharge »');
+      });
+      if (pq) {
+        var dit = /kg\s*×\s*[^.]*\s+au\s+lieu\s+de\s+/.test(pq) || /×\s*\d+\s+au\s+lieu\s+de\s+/.test(pq);
+        if (dit !== cibles && !(dit && !l)) erreurs.push('I165 — ' + nom + ', le « Pourquoi » : la clause des cibles ' + (cibles ? 'manque' : 'alors que les deux cibles sont égales'));
       }
     });
   }

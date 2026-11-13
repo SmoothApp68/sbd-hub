@@ -17727,7 +17727,7 @@ const SETS_IMPORTES = [
       ap.voix[0] === 'Je te propose tes charges à chaque séance. Touche un exercice pour le changer.' &&
         ap.voix[1] === 'Dans la semaine : squat 2 fois, couché 3 fois.' &&
         ap.voix[2] === 'Chaque jour a sa zone : la même barre passe de Lourd à Mix ou à Hypertrophie.' &&
-        ap.voix[3] === 'Une décharge toutes les 5 semaines\u00a0: moins de séries.' &&
+        ap.voix[3] === 'Une décharge toutes les 5 semaines : moins de séries.' &&
         /^Fréquence : environ 3 % de force de plus par séance hebdomadaire ajoutée sur un mouvement \(Pelland 2026\)\.$/.test(ap.voix[4] || '') &&
         /^Tu ménages ton dos : .+, sans série lourde\. Toutes leurs séries restent ; 8 répétitions au plus au soulevé\.$/.test(ap.voix[5] || ''),
       JSON.stringify(ap.voix));

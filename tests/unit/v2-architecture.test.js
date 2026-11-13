@@ -1225,6 +1225,12 @@ const NOTIONS = [
     raison: 'MOTEUR §9.22 : le bilan d’une période (le mois, la saison, l’année) et le récap de fin de séance comptent ' +
       'les paris par la même boucle (extraite de `bilanDuMois`, 71). 124 (audit du 16/10/2026, 04 #14) : le bilan du mois ' +
       'n’en compte plus — les paris du mois ont un fil, celui de la période (`bilan.coach`).' },
+  { notion: 'un pari de Décharge ne se compte pas (« le coach en a tenu N sur M »)', pr: 'correctif 13/11/2026',
+    module: 'bilan.js', fonction: 'compteLe', lecteurs: ['faits.js', 'bilans.js', 'moteur.js'],
+    par: ['compterParis'],
+    parAilleurs: { 'faits.js': ['recapDeLaSeance', 'premierPariDuCompte'], 'bilans.js': ['bilanDeLaPeriode'], 'moteur.js': ['bilanDuBloc'] },
+    raison: 'MOTEUR §9.46 : un pari de Décharge (`fondement.allegee`) est tenu par construction ; il est lu (`parisRatesALaSuite`) ' +
+      'mais jamais compté. Un seul prédicat, à la lecture seulement : rien n’est supprimé ni écrit.' },
   { notion: 'un pari tenu (observé ≥ prédit)', pr: '124-U4',
     module: 'bilan.js', fonction: 'estTenu', lecteurs: ['faits.js', 'moteur.js'],
     par: ['compterParis'],

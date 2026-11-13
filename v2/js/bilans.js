@@ -504,11 +504,11 @@
 
     // Le coach : les paris tenus sur les paris vérifiés de la période ; « depuis » si le premier est venu en cours.
     var comptes = Bi().compterParis((e.paris || []).map(function (q) {
-      return { date: q.jour, predite: q.predite, observee: q.observee };
+      return { date: q.jour, predite: q.predite, observee: q.observee, allegee: q.allegee };
     }), function (q) { return q.date >= periode.debut && q.date <= fin; });
     var premierPari = null;
     (e.paris || []).forEach(function (q) {
-      if (q && q.jour >= periode.debut && q.jour <= fin && q.observee !== null && q.observee !== undefined &&
+      if (q && Bi().compteLe(q) && q.jour >= periode.debut && q.jour <= fin && q.observee !== null && q.observee !== undefined &&
           (!premierPari || q.jour < premierPari)) premierPari = q.jour;
     });
     sortie.coach = comptes.verifies ? { tenus: comptes.tenus, faits: comptes.verifies,

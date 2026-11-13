@@ -1,0 +1,43 @@
+[
+ {
+  "nom": "m1-exclusion-retiree",
+  "fichier": "v2/js/bilan.js",
+  "ancien": "function compteLe(q) { return !!q && q.allegee !== true; }",
+  "nouveau": "function compteLe(q) { return !!q; }",
+  "unitaires": [
+   "tests/unit/v2-paris-decharge-hors-compte.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "m2-rates-filtre-a-tort",
+  "fichier": "v2/js/faits.js",
+  "ancien": "        if (!q || !q.exercice || !q.seance || q.seance === saufSeance || !q.date || neutres.indexOf(q.seance) >= 0) return;",
+  "nouveau": "        if (!q || !q.exercice || !q.seance || q.seance === saufSeance || !q.date || neutres.indexOf(q.seance) >= 0 || q.allegee === true) return;",
+  "unitaires": [
+   "tests/unit/v2-paris-decharge-hors-compte.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "m3-drapeau-inverse",
+  "fichier": "v2/js/bilan.js",
+  "ancien": "function compteLe(q) { return !!q && q.allegee !== true; }",
+  "nouveau": "function compteLe(q) { return !!q && q.allegee === true; }",
+  "unitaires": [
+   "tests/unit/v2-paris-decharge-hors-compte.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "t0-temoin-equivalent",
+  "fichier": "v2/js/bilan.js",
+  "ancien": "function compteLe(q) { return !!q && q.allegee !== true; }",
+  "nouveau": "function compteLe(q) { return !!q && !(q.allegee === true); }",
+  "unitaires": [
+   "tests/unit/v2-paris-decharge-hors-compte.test.js"
+  ],
+  "banc": "aucun",
+  "attendu": "survit"
+ }
+]

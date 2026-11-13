@@ -255,7 +255,7 @@ describe('53-2 — la décharge planifiée, dans le plan', () => {
     expect(norm(p.allegee.bandeau)).toBe('Décharge, semaine 4 sur 4 : prévue par ton programme. ' +
       'Moins de séries, avec de la marge.');
     const x = p.exercices[0];
-    expect(x.consigne.allegee).toEqual({ series: 2, routine: 4, avant: { charge: 125, vise: 5 }, decharge: true, semaine: 4, semaines: 4 });
+    expect(x.consigne.allegee).toEqual({ series: 2, routine: 4, base: 4, avant: { charge: 125, vise: 5 }, decharge: true, semaine: 4, semaines: 4 });
     // La décharge du programme se nomme (maquette cycles v1, « Semaine de décharge »).
     expect(norm(x.entete.gris)).toBe(
       'Décharge, semaine 4 sur 4 : 2 séries au lieu de 4.');

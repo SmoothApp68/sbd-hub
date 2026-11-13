@@ -205,7 +205,14 @@ describe('163 + 165 — la consigne allégée garde le « ≈ » (I61) et porte 
     const src = c;
     const approchee = Object.assign({}, src, { ligne: Object.assign({}, src.haut || src.ligne, { approchee: true }), haut: null,
       fondement: Object.assign({}, src.fondement, { approchee: true }) });
-    const a = M.consigneAllegee(approchee, 4, true, { semaine: 4, semaines: 4 });
+    // PR 3 (B3) — le « ≈ » suit la charge RETENUE : la ligne approchée garde son drapeau tant qu'elle n'est pas ramenée au palier ; ramenée au
+    // palier (une charge déjà faite), elle ne le porte plus.
+    const sous = Object.assign({}, approchee, { palier: approchee.ligne.charge + 10 });
+    const dessus = M.consigneAllegee(Object.assign({}, approchee, { palier: approchee.ligne.charge - 2.5 }), 4, true, { semaine: 4, semaines: 4 });
+    expect(dessus.ligne.charge).toBe(approchee.ligne.charge - 2.5);
+    expect(dessus.ligne.approchee).toBeUndefined();
+    expect(dessus.fondement.approchee).toBeUndefined();
+    const a = M.consigneAllegee(sous, 4, true, { semaine: 4, semaines: 4 });
     expect(a.ligne.approchee).toBe(true);
     expect(a.fondement.approchee).toBe(true);
     expect(a.allegee).toMatchObject({ decharge: true, semaine: 4, semaines: 4 });

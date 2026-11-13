@@ -70,17 +70,17 @@ describe('I165 — la décharge du programme, trois formes du gris', () => {
     const { e, p } = decor({ routine: undefined });
     const x = p.exercices[0];
     expect(x.consigne.allegee.routine).toBeNull();
-    expect(x.consigne.allegee.series).toBe(1);   // inchangé (la charge et le compte sont la PR 3)
-    expect(esp(x.entete.gris)).toBe('Décharge, semaine 4 sur 4.');
+    expect(x.consigne.allegee.series).toBe(2);   // PR 3 (D3) : 60 % des séries de la consigne normale (4), plus l'ancien défaut inventé « 1 »
+    expect(esp(x.entete.gris)).toBe('Décharge, semaine 4 sur 4 : 2 séries.');
     expect(esp(x.entete.gris) + esp(x.pourquoi.etat)).not.toMatch(/au lieu de \d+ ?(?:\.|$)|routine|séries? au lieu/);
-    expect(esp(x.pourquoi.etat)).toBe('Décharge, semaine 4 sur 4 : des cibles plus basses, avec de la marge. 125 kg × 3 au lieu de 125 kg × 5.');
+    expect(esp(x.pourquoi.etat)).toBe('Décharge, semaine 4 sur 4 : moins de séries, avec de la marge. 2 séries. 125 kg × 3 au lieu de 125 kg × 5.');
     expect(i165(p, e)).toEqual([]);
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
   });
 
-  test('hors routine, même une cible × 1 ne dit pas « ne change pas » (la routine inconnue ne le prouve pas)', () => {
+  test('hors routine : « ne change pas » seulement si la consigne normale le prouve (PR 3 : sa base est ses propres séries, c.n)', () => {
     const { e, p } = decor({ routine: undefined, vise: 1, series: 1 });
-    expect(esp(p.exercices[0].entete.gris)).toBe('Décharge, semaine 4 sur 4.');
+    expect(esp(p.exercices[0].entete.gris)).toBe('Décharge, semaine 4 sur 4 : cet exercice ne change pas.');
     expect(i165(p, e)).toEqual([]);
   });
 });

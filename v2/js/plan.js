@@ -2425,6 +2425,8 @@
         });
       }), e.reserve, seance, protegee)
     };
+    // PR 3 (§9.45, B4) — le bandeau ne dit « avec de la marge » que si une cible baisse dans la séance.
+    margeDuBandeau(plan236);
     // 236 (MOTEUR §9.39) — le coach en temps réel après un raté : lu sur le plan fini, posé sur lui.
     return reactionsDuPlan(plan236, e, seance);
     function planDeLOccurrence(exo, i, salleEl) {
@@ -4112,6 +4114,19 @@
     return sortie;
   }
 
+  // PR 3 (B4, MOTEUR §9.45) — « avec de la marge » au bandeau d'une décharge seulement si une cible (reps ou charge) baisse sur au moins un
+  // exercice ; une séance que de simples au palier dit « Moins de séries. » (`plan.allegee.marge === false`, relu par la refabrication des
+  // textes et par I166). Sans exercice allégé (rien de chiffré), le bandeau garde sa phrase générale.
+  function margeDuBandeau(plan) {
+    var a = plan && plan.allegee;
+    if (!a || !a.bandeau) return;
+    var M = Moteur();
+    var allegees = (plan.exercices || []).filter(function (x) { return x && x.consigne && x.consigne.allegee; });
+    if (!allegees.length || allegees.some(function (x) { return M.cibleBaisse(x.consigne); })) return;
+    a.marge = false;
+    a.bandeau = a.source === SOURCE_DECHARGE ? M.bandeauDecharge(a.semaine, a.semaines, false) : M.bandeauAllegee(a.fin, false);
+  }
+
   function escalierDuPlan(e, seance, consignes) {
     var vide = { allegee: null, carte: null };
     var esc = e.escalier;
@@ -5686,9 +5701,13 @@
       });
       var travail = (x.lignes || []).filter(function (l) { return l.type === 'travail'; }).length;
       var couvertes = (x.lignes || []).filter(function (l) { return l.role !== 'hors'; }).length;
-      var attendu = Math.min(M.seriesAllegees(a.routine), travail);
+      // PR 3 (B1) — la base est la donnée que la consigne porte : la routine quand elle est connue, sinon les séries de la consigne normale
+      // (`a.base`) ; jamais le défaut inventé « 1 » d'une routine nulle.
+      var base = a.routine !== null && a.routine !== undefined ? a.routine : (nombre(a.base) !== null ? a.base : null);
+      if (a.series !== M.seriesAllegees(base)) err('une consigne à ' + a.series + ' série(s), pour 60 % de ' + base + ' (' + M.seriesAllegees(base) + ')');
+      var attendu = Math.min(a.series, travail);
       if (couvertes !== attendu) {
-        err(couvertes + ' ligne(s) couverte(s), pour ' + attendu + ' attendue(s) (60 % de ' + a.routine + ')');
+        err(couvertes + ' ligne(s) couverte(s), pour ' + attendu + ' attendue(s) (60 % de ' + base + ')');
       }
       (x.paris || []).forEach(function (q, i) {
         if (q && !(q.fondement && q.fondement.allegee === true)) err('le pari de la série ' + i + ' ne dit pas « allégée »');
@@ -6111,7 +6130,12 @@
       'allegee.series': k.allegee ? { valeur: k.allegee.series } : null,
       'allegee.routine': k.allegee && k.allegee.routine !== null && k.allegee.routine !== undefined ? { valeur: k.allegee.routine } : null,
       // « Les mots disent vrai » PR 1 — la cible d'avant la décharge (la consigne normale), dite au « Pourquoi » : « 52,5 kg × 6 au lieu de 52,5 kg × 8 ».
-      'allegee.avant': k.allegee && k.allegee.avant ? { charge: k.allegee.avant.charge, reps: [k.allegee.avant.vise] } : null,
+      // Quand la phrase ne cite que les reps (poids du corps : « × 8 » ; charge inconnue : « 5 reps »), la règle est une valeur seule.
+      'allegee.avant': k.allegee && k.allegee.avant
+        ? (nombre(k.allegee.avant.charge) === null || (nombre(k.allegee.avant.charge) === 0 && k.ligne && nombre(k.ligne.charge) === 0)
+          ? { valeur: k.allegee.avant.vise } : { charge: k.allegee.avant.charge, reps: [k.allegee.avant.vise] }) : null,
+      // PR 3 — la ligne de la décharge quand sa charge est inconnue : « 3 reps au lieu de 5 reps » (jamais « le cran au-dessus » dans une décharge).
+      'allegee.ligne': k.allegee && k.ligne ? { valeur: k.ligne.vise } : null,
       // « Les mots disent vrai » PR 2 (I163) — le test proposé et laissé de côté (« Le test à 127,5 kg n'a pas été fait ») : la charge de la ligne haute de la consigne.
       'cible.test_non_fait': k.haut && k.haut.charge !== null && k.haut.charge !== undefined ? { charge: k.haut.charge } : null,
       // 165 — « Décharge, semaine k sur N » : le rang de la semaine dans le bloc.
@@ -6260,8 +6284,8 @@
       var b = plan.allegee.bandeau;
       refaite('allegee.bandeau', b, function () {
         return plan.allegee.source === SOURCE_DECHARGE
-          ? Moteur().bandeauDecharge(plan.allegee.semaine, plan.allegee.semaines)
-          : Moteur().bandeauAllegee(plan.allegee.fin);
+          ? Moteur().bandeauDecharge(plan.allegee.semaine, plan.allegee.semaines, plan.allegee.marge)
+          : Moteur().bandeauAllegee(plan.allegee.fin, plan.allegee.marge);
       }, function (t) { return t === b; });
     }
     if (plan && plan.carte) {
@@ -7193,21 +7217,52 @@
       texte(nom + ', le gris', gris);
       texte(nom + ', le « Pourquoi »', pq);
       var connue = a.routine !== null && a.routine !== undefined;
-      var retirees = connue && a.series < a.routine;
+      var base = connue ? a.routine : nombre(a.base);
+      var retirees = base !== null && a.series < base;
       var avant = a.avant || null, l = k.ligne || null;
-      var cibles = !!(avant && l && nombre(avant.vise) !== null && nombre(l.vise) !== null && nombre(avant.vise) !== nombre(l.vise));
-      var sans = connue && a.series === a.routine && !cibles && !!(avant && l) && nombre(avant.charge) === nombre(l.charge);
+      // PR 3 (N6) — UNE fonction dit « les cibles diffèrent » : `Moteur.ciblesDifferent` (reps OU charge), lue par le texte et par ici.
+      var cibles = M.ciblesDifferent(k);
+      var sans = base !== null && a.series === base && !cibles;
       [['le gris', gris], ['le « Pourquoi »', pq]].forEach(function (p) {
         if (!p[1]) return;
-        if (/\bséries?\s+au\s+lieu\s+de\b/.test(p[1]) !== retirees) erreurs.push('I165 — ' + nom + ', ' + p[0] + ' : ' + (retirees ? 'la clause des séries manque' : 'une clause de séries sans routine connue ou sans séries retirées'));
+        if (/\bséries?\s+au\s+lieu\s+de\b/.test(p[1]) !== (connue && retirees)) erreurs.push('I165 — ' + nom + ', ' + p[0] + ' : ' + (connue && retirees ? 'la clause des séries manque' : 'une clause de séries sans routine connue ou sans séries retirées'));
+        if (/\b\d+\s+séries?\b/.test(p[1]) !== retirees) erreurs.push('I165 — ' + nom + ', ' + p[0] + ' : ' + (retirees ? 'le nombre de séries gardées manque' : 'un nombre de séries alors que rien n\u2019est retiré'));
         if (/ne\s+change\s+pas/.test(p[1]) !== sans) erreurs.push('I165 — ' + nom + ', ' + p[0] + ' : « cet exercice ne change pas » ' + (sans ? 'manque alors que rien ne change' : 'alors que quelque chose change'));
         if (!/^Décharge\b/.test(p[1]) && p[0] === 'le gris') erreurs.push('I165 — ' + nom + ', le gris ne nomme pas « Décharge »');
       });
+      var dit = false;
       if (pq) {
-        var dit = /kg\s*×\s*[^.]*\s+au\s+lieu\s+de\s+/.test(pq) || /×\s*\d+\s+au\s+lieu\s+de\s+/.test(pq);
+        dit = /kg\s*×\s*[^.]*\s+au\s+lieu\s+de\s+/.test(pq) || /×\s*\d+\s+au\s+lieu\s+de\s+/.test(pq) || /\d\s+reps?\s+au\s+lieu\s+de\s+/.test(pq);
         if (dit !== cibles && !(dit && !l)) erreurs.push('I165 — ' + nom + ', le « Pourquoi » : la clause des cibles ' + (cibles ? 'manque' : 'alors que les deux cibles sont égales'));
       }
+      // I166 (PR 3, MOTEUR §9.45) — LA CHARGE DE LA DÉCHARGE NE DÉPASSE NI LE PALIER NI CELLE D'AVANT. Arithmétique à part, jamais relue de
+      // `consigneAllegee` : le sens est celui du moteur (une aide est codée négative : −25 est plus léger que −22,5), `null` n'est jamais
+      // comparé (en JS `125 > null` vaut vrai), et le palier d'une autre zone (nouvelle zone, report) ne plafonne rien.
+      if (l && avant) {
+        var lc = nombre(l.charge), ac = nombre(avant.charge), v1 = nombre(l.vise), v0 = nombre(avant.vise);
+        var pal = k.etat === 'nouvelle_zone' || (k.fondement && k.fondement.report) ? null : nombre(k.palier);
+        var memeC = function (x, y) { return Math.abs(x - y) < 1e-9; };
+        if (pal !== null && lc === null) erreurs.push('I166 — ' + nom + ' : une décharge sans charge alors que le palier est ' + pal + ' kg');
+        if (pal !== null && lc !== null && lc > pal && !memeC(lc, pal)) erreurs.push('I166 — ' + nom + ' : une décharge à ' + lc + ' kg, au-dessus du palier ' + pal + ' kg');
+        if (lc !== null && ac !== null && lc > ac && !memeC(lc, ac)) erreurs.push('I166 — ' + nom + ' : une décharge à ' + lc + ' kg, plus lourde que la consigne normale (' + ac + ' kg)');
+        var chargeChange = lc !== null && ac !== null && !memeC(lc, ac);
+        if (pq && chargeChange && !dit) erreurs.push('I166 — ' + nom + ' : la charge change (' + ac + ' → ' + lc + ' kg), le « Pourquoi » ne le dit pas');
+        var baisse = (v0 !== null && v1 !== null && v1 < v0) || (lc !== null && ac !== null && lc < ac && !memeC(lc, ac));
+        if (pq && /avec\s+de\s+la\s+marge/.test(pq) !== baisse) erreurs.push('I166 — ' + nom + ', le « Pourquoi » : « avec de la marge » ' + (baisse ? 'manque alors qu\u2019une cible baisse' : 'alors qu\u2019aucune cible ne baisse'));
+        if (/avec\s+de\s+la\s+marge/.test(gris)) erreurs.push('I166 — ' + nom + ', le gris : « avec de la marge » n\u2019y a pas sa place');
+        if (!(l.vise === null || l.vise === undefined) && v1 !== null && v0 !== null && v1 > v0) erreurs.push('I166 — ' + nom + ' : une décharge à plus de reps (' + v1 + ') que la consigne normale (' + v0 + ')');
+      }
     });
+    // Le bandeau : « avec de la marge » seulement si une cible baisse quelque part (ou si rien n'est chiffré : phrase générale).
+    var bandeau = plan && plan.allegee && typeof plan.allegee.bandeau === 'string' ? plan.allegee.bandeau : '';
+    if (bandeau) {
+      var chiffrees = ((plan && plan.exercices) || []).filter(function (x) { return x && x.consigne && x.consigne.allegee && x.consigne.ligne && x.consigne.allegee.avant; });
+      var quelqueBaisse = chiffrees.some(function (x) {
+        var a2 = x.consigne.allegee, l2 = x.consigne.ligne, w0 = nombre(a2.avant.vise), w1 = nombre(l2.vise), d0 = nombre(a2.avant.charge), d1 = nombre(l2.charge);
+        return (w0 !== null && w1 !== null && w1 < w0) || (d0 !== null && d1 !== null && d1 < d0 - 1e-9);
+      });
+      if (/avec\s+de\s+la\s+marge/i.test(bandeau) !== (quelqueBaisse || !chiffrees.length)) erreurs.push('I166 — le bandeau : « avec de la marge » ' + (quelqueBaisse ? 'manque alors qu\u2019une cible baisse' : 'alors qu\u2019aucune cible ne baisse'));
+    }
   }
 
   // I153 et I154 (chantier « première séance sûre », PR 2, MOTEUR §9.42) — APRÈS UN ZÉRO REP.
@@ -7227,9 +7282,11 @@
         if (k.ligne && !(nombre(k.ligne.charge) < nombre(z.charge))) erreurs.push('I153' + nom + 'après un zéro rep à ' + z.charge + ' kg, une ligne à ' + k.ligne.charge + ' kg');
         if (k.etat === 'zero_rep') {
           var vers = nombre(z.vers), vi = nombre(z.visees);
-          if (!k.ligne || nombre(k.ligne.charge) !== vers) erreurs.push('I153' + nom + 'une ligne qui n’est pas la charge dite (' + (k.ligne ? k.ligne.charge : 'aucune') + ' pour ' + z.vers + ')');
+          // PR 3 (N4) — en Décharge, la ligne est l'allègement de la ligne dite : au plus `vers` (le palier ne la remonte jamais), 2 reps de moins.
+          var alleg = !!k.allegee;
+          if (!k.ligne || (alleg ? !(nombre(k.ligne.charge) <= vers + 1e-9) : nombre(k.ligne.charge) !== vers)) erreurs.push('I153' + nom + 'une ligne qui n’est pas la charge dite (' + (k.ligne ? k.ligne.charge : 'aucune') + ' pour ' + z.vers + ')');
           else if (nombre(k.palier) !== null && vers > nombre(k.palier) + 1e-9) erreurs.push('I153' + nom + 'après un zéro rep, une ligne à ' + vers + ' kg au-dessus du palier ' + k.palier + ' kg');
-          if (!k.ligne || nombre(k.ligne.vise) !== vi || vi === null || vi < 1 || vi !== Math.round(vi)) erreurs.push('I153' + nom + 'une ligne dont les reps ne sont pas celles dites (' + z.visees + ')');
+          if (!k.ligne || (!alleg && nombre(k.ligne.vise) !== vi) || vi === null || vi < 1 || vi !== Math.round(vi)) erreurs.push('I153' + nom + 'une ligne dont les reps ne sont pas celles dites (' + z.visees + ')');
           if (k.haut) erreurs.push('I153' + nom + 'une ligne haute après un zéro rep');
           if (k.zone !== null && k.zone !== undefined) erreurs.push('I153' + nom + 'une zone (' + k.zone + ') déduite d’un zéro rep');
           if (!(nombre(z.series) >= 1)) erreurs.push('I153' + nom + 'un zéro rep sans série');
@@ -7268,6 +7325,7 @@
         if (k.haut) erreurs.push('I155' + nom + 'une ligne haute pendant le plafond');
         if (!k.ligne || nombre(k.ligne.charge) !== nombre(k.palier)) erreurs.push('I155' + nom + 'une ligne qui n’est pas le palier tenu (' + (k.ligne ? k.ligne.charge : 'aucune') + ' pour ' + k.palier + ')');
         ['palier', 'niveau', 'n', 'zone'].forEach(function (cle) {
+          if (cle === 'n' && k.allegee) return;   // PR 3 (N4) : la Décharge réduit `n` (60 % des séries), le plafond n'y est pour rien
           if (sans[cle] !== undefined && k[cle] !== sans[cle]) erreurs.push('I155' + nom + cle + ' modifié par le plafond (' + k[cle] + ' pour ' + sans[cle] + ')');
         });
         if (sans.ligne && nombre(sans.ligne.charge) !== null && k.ligne && nombre(k.ligne.charge) > nombre(sans.ligne.charge) + 1e-9) erreurs.push('I155' + nom + 'une ligne plafonnée plus lourde que celle d’avant plafond');
@@ -7338,9 +7396,10 @@
       // (b) la phrase du plafond
       var gris = ((x.phrases || []).filter(function (q) { return q.ou === 'entete.gris'; })[0] || {}).texte || '';
       var pourquoiP = ((x.phrases || []).filter(function (q) { return q.ou === 'pourquoi'; })[0] || {}).texte || '';
+      // PR 3 (N4) — en Décharge, le gris est celui de la Décharge : la phrase du plafond ne s'y dit pas (la ligne est déjà le palier, allégée).
       var parle = /pas encore\. Je garde/.test(String(gris)) && k && k.etat === 'tenue_apres_zero';
       if (parle && !(pz && pz.mord === true)) erreurs.push('I157' + nom + 'la phrase du plafond sans plafond qui mord');
-      if (k && k.etat === 'tenue_apres_zero') {
+      if (k && k.etat === 'tenue_apres_zero' && !k.allegee) {
         var dit = String(gris) + ' ' + String(pourquoiP);
         if (pz && nombre(pz.charge) !== null && String(gris).replace(/\s/g, ' ').replace(/(\d),(\d)/g, '$1.$2').indexOf(String(pz.charge)) < 0) erreurs.push('I157' + nom + 'la phrase du plafond ne dit pas la charge restée à 0 rep (' + pz.charge + ')');
         if (/\b\d+\s+séances?\b/.test(dit) || /quand même|plafond|assidu/i.test(dit)) erreurs.push('I157' + nom + 'la phrase du plafond écrit un nombre de séances, « plafond » ou « quand même »');

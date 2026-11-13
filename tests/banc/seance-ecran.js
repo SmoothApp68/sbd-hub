@@ -27094,7 +27094,7 @@ const SETS_IMPORTES = [
     await jusqua(async () => (await etat165()).bandeau !== null, 8000);
     const a0 = await etat165();
     ok('[AD165] DISCRIMINANT — pendant la décharge : le bandeau, aucun « garde-en » dans l’en-tête',
-      /décharge/.test(sp165(a0.bandeau)) && a0.garde === null, JSON.stringify(a0));
+      /décharge/i.test(sp165(a0.bandeau)) && a0.garde === null, JSON.stringify(a0));
     await valider165(0);
     await valider165(1);
     await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));

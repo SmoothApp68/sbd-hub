@@ -4252,7 +4252,7 @@
   function minutesDe(s) { return Math.round((Number(s) || 0) / SECONDES_PAR_MINUTE); }
   function minutesFr(s, cle) { return nombreFr(minutesDe(s), regle(cle || 'estimation')); }
   function texteDureeEstimee(s) { return 'Environ ' + minutesFr(s) + ' min (estimation)'; }
-  function texteDureeAllegee(s) { return 'Semaine allégée : environ ' + minutesFr(s) + ' min (estimation)'; }
+  function texteDureeAllegee(s) { return 'Décharge : environ ' + minutesFr(s) + ' min (estimation)'; }
   // 60-4 — la durée d'une routine du PROGRAMME CONSTRUIT, sur sa carte : « ≈ 69 min » (insécables). La même
   // minute que les phrases ci-dessus (`minutesDe`) : l'aperçu ne l'arrondit pas à part.
   function texteDureeCourte(s) { return '\u2248\u00a0' + minutesFr(s) + '\u00a0min'; }
@@ -5339,15 +5339,9 @@
   // (elle plantait dessus). La série de plus garde l'état, et s'y ajoute.
   function etatDuPourquoi(c, reglage, reference) {
     if (c.allegee) {
-      var d = detailAllegee(c);
-      // 165 — la décharge planifiée se nomme « Décharge » (et sa semaine) ; la semaine allégée acceptée, « Semaine allégée ».
-      if (c.allegee.decharge === true) {
-        var k = c.allegee.semaine !== null && c.allegee.semaine !== undefined && c.allegee.semaines !== null && c.allegee.semaines !== undefined
-          ? ', semaine ' + nombreFr(c.allegee.semaine, regle('bloc.semaine')) + ' sur ' + nombreFr(c.allegee.semaines, regle('bloc.semaines')) : '';
-        return 'Décharge' + k + DEUX_POINTS + FIN_ALLEGEE + (d ? ' ' + d.charAt(0).toUpperCase() + d.slice(1) + '.' : '');
-      }
-      return 'Semaine allégée' + DEUX_POINTS + FIN_ALLEGEE +
-             (d ? ' ' + d.charAt(0).toUpperCase() + d.slice(1) + '.' : '');
+      // « Les mots disent vrai » PR 1 — UN SEUL NOM, « Décharge » (la planifiée avec sa semaine, l'acceptée sans) ; la phrase ne dit que ce
+      // qui change, avec les chiffres que la personne recompte (`detailAllegee`, `corpsDuPourquoiDeLaDecharge`).
+      return 'Décharge' + rangDeLaDecharge(c.allegee) + DEUX_POINTS + corpsDuPourquoiDeLaDecharge(c);
     }
     if (c.repli) return phraseRepli(c.repli, reference);
     // 174 — la marche « alléger » en cours : la feuille dit ce que la ligne fait, pas « une rep de plus ».
@@ -6926,14 +6920,12 @@
   }
   // 189 — la proposition de la semaine allégée, dite UNE fois : le blocage généralisé et la baisse générale la lisent.
   function detailAllegeeProposee() {
-    return 'Je te propose une ' +
-      'semaine allégée : mêmes exercices, mêmes charges, ' +
-      nombreFr(Math.round(PART_ALLEGEE * 100), regle('constante')) + ' % des séries, ' +
-      nombreFr(REPS_EN_MOINS, regle('constante')) + ' reps de moins, pendant ' +
-      nombreFr(DUREE_ALLEGEE_JOURS, regle('constante')) + ' jours. Rien ne monte.';
+    return 'Je te propose une décharge : mêmes exercices, ' +
+      nombreFr(Math.round(PART_ALLEGEE * 100), regle('constante')) + ' % des séries, des cibles plus basses, pendant ' +
+      nombreFr(DUREE_ALLEGEE_JOURS, regle('constante')) + ' jours.';
   }
   // 179 (B-B4) — le bouton de la carte dit la durée que la règle porte (`DUREE_ALLEGEE_JOURS`) : le plan le donne avec la carte.
-  function libelleAlleger() { return 'Alléger ' + DUREE_ALLEGEE_JOURS + ' jours'; }
+  function libelleAlleger() { return 'Décharge ' + DUREE_ALLEGEE_JOURS + ' jours'; }
   var PHRASE_REFUS = 'Séance normale. Au prochain blocage, je regarderai exercice par exercice.';
 
   function estDeclenchement(c) {
@@ -7052,8 +7044,11 @@
     if (!c || c.etat === 'silence') return c;
     var src = c.ligne || c.haut;
     if (!src) return c;
-    var routine = Math.max(1, nombre(seriesRoutine) || 1);
-    var series = seriesAllegees(routine);
+    // « Les mots disent vrai » PR 1 — HORS ROUTINE (aucun compte de séries de routine, ou 0 : un exercice ajouté avant ses séries), la routine est
+    // INCONNUE (`null`) : aucune phrase ne la cite. Le nombre de séries gardées reste celui d'avant (1), les chiffres ne changent pas (PR 3).
+    var lue = nombre(seriesRoutine);
+    var routine = lue !== null && lue >= 1 ? lue : null;
+    var series = seriesAllegees(routine === null ? 1 : routine);
     var vise = nombre(src.vise);
     return Object.assign({}, c, {
       ligne: Object.assign({ charge: src.charge, vise: vise === null ? null : Math.max(1, vise - REPS_EN_MOINS) },
@@ -7063,10 +7058,10 @@
       n: series,
       couvre: series,
       allegee: decharge === true
-        ? { series: series, routine: routine, decharge: true,
+        ? { series: series, routine: routine, avant: { charge: src.charge, vise: vise }, decharge: true,
             semaine: rang && nombre(rang.semaine) !== null ? nombre(rang.semaine) : null,
             semaines: rang && nombre(rang.semaines) !== null ? nombre(rang.semaines) : null }
-        : { series: series, routine: routine }
+        : { series: series, routine: routine, avant: { charge: src.charge, vise: vise } }
     });
   }
 
@@ -7078,20 +7073,57 @@
     var l = c && c.ligne;
     return l ? Modele().chargeFois(nombre(l.charge), nombre(l.vise), undefined, cite(CIBLE, { role: 'ligne' })) : null;
   }
+  // La clause des séries : « 2 séries au lieu de 3 » — seulement si la routine est CONNUE et que les deux nombres diffèrent (I165) ; sinon rien.
   function detailAllegee(c) {
     var a = c && c.allegee;
-    if (!a) return null;
+    if (!a || !seriesRetirees(a)) return null;
     return nombreFr(a.series, regle('allegee.series')) + (a.series > 1 ? ' séries' : ' série') + ' au lieu de ' +
-           nombreFr(a.routine, regle('allegee.routine')) + ', cette semaine';
+           nombreFr(a.routine, regle('allegee.routine'));
+  }
+  function seriesRetirees(a) {
+    return !!a && a.routine !== null && a.routine !== undefined && a.series < a.routine;
+  }
+  // Les cibles de la décharge diffèrent de la consigne normale (la visée baisse) : la feuille « Pourquoi » dit les deux, chiffrées.
+  function ciblesDifferent(c) {
+    var a = c && c.allegee, l = c && c.ligne;
+    if (!a || !a.avant || !l) return false;
+    var v0 = nombre(a.avant.vise), v1 = nombre(l.vise);
+    return v0 !== null && v1 !== null && v0 !== v1;
+  }
+  // « Cet exercice ne change pas » si et seulement si séries, reps et charge sont ceux de la consigne normale (I165). La routine inconnue ne
+  // peut pas le prouver : jamais dit.
+  function allegeeSansChangement(c) {
+    var a = c && c.allegee, l = c && c.ligne;
+    if (!a || !a.avant || !l || a.routine === null || a.routine === undefined) return false;
+    return a.series === a.routine && !ciblesDifferent(c) && nombre(a.avant.charge) === nombre(l.charge);
+  }
+  // « , semaine 4 sur 4 » — la décharge planifiée seulement, quand son rang est connu.
+  function rangDeLaDecharge(a) {
+    if (!a || a.decharge !== true || nombre(a.semaine) === null || nombre(a.semaines) === null) return '';
+    return ', semaine ' + nombreFr(a.semaine, regle('bloc.semaine')) + ' sur ' + nombreFr(a.semaines, regle('bloc.semaines'));
+  }
+  // Le corps du « Pourquoi » : « moins de séries, avec de la marge. 2 séries au lieu de 3. 52,5 kg × 6 au lieu de 52,5 kg × 8. »
+  function corpsDuPourquoiDeLaDecharge(c) {
+    if (allegeeSansChangement(c)) return 'cet exercice ne change pas.';
+    var d = detailAllegee(c), cibles = ciblesDifferent(c);
+    var t = d ? 'moins de séries, avec de la marge.' : cibles ? 'des cibles plus basses, avec de la marge.' : 'avec de la marge.';
+    if (d) t += ' ' + d.charAt(0).toUpperCase() + d.slice(1) + '.';
+    if (cibles) {
+      t += ' ' + chargeFois(c.ligne.charge, c.ligne.vise, cite(CIBLE, { role: 'ligne' })) + ' au lieu de ' +
+        chargeFois(c.allegee.avant.charge, c.allegee.avant.vise, regle('allegee.avant')) + '.';
+    }
+    return t;
   }
 
-  // La phrase grise de l'exercice : le détail ; pendant la décharge d'un
-  // programme, nommée — « Semaine de décharge : mêmes charges, moins de
-  // séries. 2 séries au lieu de 4, cette semaine. » (maquette cycles v1).
+  // La phrase grise de l'exercice : « Décharge, semaine 4 sur 4 : 2 séries au lieu de 3. » (planifiée) ; « Décharge : 2 séries au lieu de 3. »
+  // (acceptée) ; sans clause de séries, « Décharge, semaine 4 sur 4. » ; et « … : cet exercice ne change pas. » quand rien ne change.
   function grisAllegee(c) {
+    var a = c && c.allegee;
+    if (!a) return null;
+    var tete = 'Décharge' + rangDeLaDecharge(a);
+    if (allegeeSansChangement(c)) return tete + DEUX_POINTS + 'cet exercice ne change pas.';
     var d = detailAllegee(c);
-    if (!d || !c.allegee.decharge) return d;
-    return 'Semaine de décharge' + DEUX_POINTS + 'mêmes charges, moins de séries. ' + d + '.';
+    return d ? tete + DEUX_POINTS + d + '.' : tete + '.';
   }
 
   // Le dernier jour (J+6) et le bandeau : « Semaine allégée jusqu'au 7 oct. : … ».
@@ -7099,12 +7131,12 @@
   function bandeauAllegee(fin) {
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(fin || ''));
     if (!m) return null;
-    return 'Semaine allégée jusqu’au ' + Modele().jourCourt(String(fin), regle('allegee.fin')) +
+    return 'Décharge jusqu’au ' + Modele().jourCourt(String(fin), regle('allegee.fin')) +
       ' : ' + FIN_ALLEGEE;
   }
   // Ce que la semaine allégée change, dit UNE fois : le bandeau et la feuille
   // « Pourquoi » le lisent.
-  var FIN_ALLEGEE = 'mêmes charges, moins de séries, loin de l’échec. Rien ne monte.';
+  var FIN_ALLEGEE = 'moins de séries, avec de la marge.';
 
   // Les cartes passées, lues dans les paris de l'escalier : `{ jour, seance,
   // declencheur, compteur, reponse, debut, fin }`.
@@ -8004,10 +8036,10 @@
   }
   // Le bandeau de la décharge planifiée — jamais présentée comme
   // scientifiquement requise.
-  var FIN_DECHARGE = 'Mêmes charges, moins de séries, loin de l’échec.';
+  var FIN_DECHARGE = 'Moins de séries, avec de la marge.';
   function bandeauDecharge(semaine, semaines) {
-    return 'Semaine ' + nombreFr(semaine, regle('bloc.semaine')) + ' sur ' + nombreFr(semaines, regle('bloc.semaines')) +
-      DEUX_POINTS + 'la décharge prévue par ton programme. ' + FIN_DECHARGE;
+    return 'Décharge, semaine ' + nombreFr(semaine, regle('bloc.semaine')) + ' sur ' + nombreFr(semaines, regle('bloc.semaines')) +
+      DEUX_POINTS + 'prévue par ton programme. ' + FIN_DECHARGE;
   }
   // La carte de fin de bloc, en faits : le titre, une ligne par exercice
   // (`{ nom, valeur }` : deux colonnes, maquette cycles v1), les paris, le pari de programme s'il y en avait un, et le bloc suivant.
@@ -8039,7 +8071,7 @@
         titre: 'Ta phase est terminée.',
         entete: 'Pendant cette phase',
         lignes: lignes, paris: phraseParis, pari: phrasePari,
-        suivant: suivant ? 'La suivante' + DEUX_POINTS + nS + ' semaines, la dernière allégée. Tes zones restent celles de tes routines.' : null,
+        suivant: suivant ? 'La suivante' + DEUX_POINTS + nS + ' semaines, la dernière de décharge. Tes zones restent celles de tes routines.' : null,
         suivantZone: null,
         commencer: suivant ? 'Commencer une phase de ' + nS + ' semaines' : null,
         ajuster: null,
@@ -11978,7 +12010,7 @@
     if (!e) return null;
     if (e.voie === 'alleger') return 'Pour tester, allège d’abord une semaine : après des semaines dures, la fatigue masque ta force. Tu peux quand même la faire.';
     if (e.voie === 'bibliotheque') return 'Tes quatre barres, un mouvement par jour, sur une semaine. Tu choisis, barre par barre, de viser ton max ou de faire une série au max.';
-    return 'Deux phases sont faites, la semaine allégée aussi. Je te propose de tester tes quatre barres, un mouvement par jour ; ta prochaine phase commence une semaine plus tard.';
+    return 'Deux phases sont faites, la décharge aussi. Je te propose de tester tes quatre barres, un mouvement par jour ; ta prochaine phase commence une semaine plus tard.';
   }
   // La feuille du Profil : pourquoi pas encore, ou la proposition.
   function phraseTestPropose(prop) {
@@ -12209,9 +12241,9 @@
       texte: 'Garthe 2011 (24 athlètes en sèche) : perdre 0,7 % du poids par semaine a permis de gagner du muscle (environ +2 %), contre 0 % pour 1,4 % par semaine.' },
     // La semaine allégée, la phase.
     allegee: { type: 'coachs', auteur: 'Calgary Barbell, Candito',
-      texte: 'La semaine allégée planifiée : la pratique de Calgary Barbell et de Candito.' },
+      texte: 'La décharge planifiée : la pratique de Calgary Barbell et de Candito.' },
     'bloc.semaines': { type: 'convention',
-      texte: 'La phase de 5 semaines (4 de travail, 1 allégée) : un choix de l’app.' },
+      texte: 'La phase de 5 semaines (4 de travail, 1 de décharge) : un choix de l’app.' },
     // La zone : ses fourchettes de reps.
     'zone.bas': { type: 'convention',
       texte: 'Les fourchettes de reps des zones (Lourd 3-5, Mix 6-8…) : un choix de l’app.' },
@@ -12259,6 +12291,16 @@
     return sortie;
   }
 
+  // « Les mots disent vrai » PR 1 (I165) — TOUS LES TEXTES FIXES DE LA DÉCHARGE, rassemblés pour que l'invariant les balaie : la carte, son
+  // bouton, les deux bandeaux, la durée de la routine, le lexique et les sources. Une constante n'échappe plus à `verifierPlan`.
+  function textesFixesDeLaDecharge() {
+    var t = [detailAllegeeProposee(), libelleAlleger(), bandeauAllegee('2026-01-07'), bandeauDecharge(4, 4), texteDureeAllegee(2400),
+             FIN_ALLEGEE, FIN_DECHARGE];
+    LEXIQUE.forEach(function (e) { if (e.cle === 'allegee' || e.cle === 'phase') t.push(e.mot, e.phrase); });
+    sourcesDe('allegee').concat(sourcesDe('bloc.semaines')).forEach(function (s) { t.push(s.texte); });
+    return t;
+  }
+
   // LE LEXIQUE : une liste fixe de mots, une phrase chacun (la voix du coach). Il se LIT : aucun calcul, aucun chiffre qui ne soit
   // celui de la règle (les zones sont lues sur ZONES). `source` : la clé de SOURCES du mot, s'il en a une.
   var LEXIQUE = [
@@ -12278,10 +12320,10 @@
       phrase: '5 reps ou plus : tu t’arrêtes quand la série te le dit.' },
     { cle: 'garde', mot: 'Garde N', source: 'reserve',
       phrase: 'Arrête la série quand il te reste N reps possibles. C’est la marge que vise ta zone aujourd’hui.' },
-    { cle: 'allegee', mot: 'Semaine allégée', source: 'allegee',
-      phrase: 'Mêmes charges, moins de séries, pour récupérer.' },
+    { cle: 'allegee', mot: 'Décharge', source: 'allegee',
+      phrase: 'Moins de séries et des cibles plus basses, pour récupérer.' },
     { cle: 'phase', mot: 'Phase', source: 'bloc.semaines',
-      phrase: '5 semaines : 4 de travail, 1 allégée.' },
+      phrase: '5 semaines : 4 de travail, 1 de décharge.' },
     { cle: 'semaine_de_test', mot: 'Semaine de test', source: 'test',
       phrase: 'Une semaine où tu testes tes barres sur une série lourde, pour recaler tes charges. Ta charge de travail ne change pas.' },
     { cle: 'marche', mot: 'Marche', source: 'marche.seuil',
@@ -12791,6 +12833,7 @@
     consigneAllegee: consigneAllegee,
     phraseAllegee: phraseAllegee,
     detailAllegee: detailAllegee,
+    textesFixesDeLaDecharge: textesFixesDeLaDecharge,
     grisAllegee: grisAllegee,
     finAllegee: finAllegee,
     bandeauAllegee: bandeauAllegee,

@@ -318,7 +318,7 @@ describe('51-1 — la carte, et la cible inatteignable qui ne se promet pas', ()
     const allegee = M.structureAllegee(e01);
     // 60 % des séries de travail des exercices coachés ; le cardio ne change pas.
     expect(allegee.map((e) => e.tr)).toEqual([1, 2, 2, 2, 2, 2, 2, 1]);
-    expect(sp(M.texteDureeAllegee(M.dureeEstimee(allegee)))).toMatch(/^Semaine allégée : environ \d+ min \(estimation\)$/);
+    expect(sp(M.texteDureeAllegee(M.dureeEstimee(allegee)))).toMatch(/^Décharge : environ \d+ min \(estimation\)$/);
   });
 });
 
@@ -453,7 +453,7 @@ describe('51-1 ter — « J’ai peu de temps » se tait pendant une semaine all
     const attendu = sp(M.texteDureeEstimee(M.dureeEstimee(M.structureDeRoutine(ROUTINE.exercices, CATALOGUE))));
     // Le témoin : le même bac, en Progresser, dit bien la durée allégée.
     const parle = vm.runInContext('tempsDeLaRoutine(r)', Object.assign(bac(true, { intention: 'progresser' }), { r: ROUTINE }));
-    expect(sp(parle.texte)).toMatch(/^Semaine allégée/);
+    expect(sp(parle.texte)).toMatch(/^Décharge/);
     const c = bac(true, { intention: 'entretien' });
     const t = vm.runInContext('tempsDeLaRoutine(r)', Object.assign(c, { r: ROUTINE }));
     expect(sp(t.texte)).toBe(attendu);
@@ -471,7 +471,7 @@ describe('51-1 ter — « J’ai peu de temps » se tait pendant une semaine all
     const c = bac(true);
     const t = vm.runInContext('tempsDeLaRoutine(r)', Object.assign(c, { r: ROUTINE }));
     expect(t.peuDeTemps).toBe(false);
-    expect(sp(t.texte)).toMatch(/^Semaine allégée : environ \d+ min \(estimation\)$/);
+    expect(sp(t.texte)).toMatch(/^Décharge : environ \d+ min \(estimation\)$/);
   });
 
   test('une routine qui tient déjà en 45 min n’a pas de geste (aucune durée plus courte à proposer)', () => {

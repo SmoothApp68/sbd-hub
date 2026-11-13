@@ -1,0 +1,63 @@
+[
+ {
+  "nom": "m1-semaine-allegee-revient",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "    var tete = 'Décharge' + rangDeLaDecharge(a);",
+  "nouveau": "    var tete = 'Semaine allégée' + rangDeLaDecharge(a);",
+  "unitaires": [
+   "tests/unit/v2-mots-decharge.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "m2-au-lieu-de-egal",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "return !!a && a.routine !== null && a.routine !== undefined && a.series < a.routine;",
+  "nouveau": "return !!a && a.routine !== null && a.routine !== undefined && a.series <= a.routine;",
+  "unitaires": [
+   "tests/unit/v2-mots-decharge.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "m3-routine-non-nulle-hors-routine",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "    var routine = lue !== null && lue >= 1 ? lue : null;",
+  "nouveau": "    var routine = Math.max(1, lue || 1);",
+  "unitaires": [
+   "tests/unit/v2-mots-decharge.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "m4-memes-charges-revient",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var FIN_ALLEGEE = 'moins de séries, avec de la marge.';",
+  "nouveau": "var FIN_ALLEGEE = 'mêmes charges, moins de séries, avec de la marge.';",
+  "unitaires": [
+   "tests/unit/v2-mots-decharge.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "m5-ne-change-pas-a-tort",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "return a.series === a.routine && !ciblesDifferent(c) && nombre(a.avant.charge) === nombre(l.charge);",
+  "nouveau": "return a.series === a.routine && nombre(a.avant.charge) === nombre(l.charge);",
+  "unitaires": [
+   "tests/unit/v2-mots-decharge.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "t0-temoin-equivalent",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "return !!a && a.routine !== null && a.routine !== undefined && a.series < a.routine;",
+  "nouveau": "return !!a && a.routine !== null && a.routine !== undefined && a.routine > a.series;",
+  "attendu": "survit",
+  "unitaires": [
+   "tests/unit/v2-mots-decharge.test.js"
+  ],
+  "banc": "aucun"
+ }
+]

@@ -256,8 +256,8 @@
     t.push('');
     t.push('── ' + etape.titre + ' ──');
     var p = etape.plan || {};
-    if (p.allegee) t.push('semaine allégée : ' + phrasesDe(p.allegee, '', []).join(' · '));
-    if (p.carte) t.push('carte de semaine allégée : ' + phrasesDe(p.carte, '', []).join(' · '));
+    if (p.allegee) t.push('décharge : ' + phrasesDe(p.allegee, '', []).join(' · '));
+    if (p.carte) t.push('carte de décharge : ' + phrasesDe(p.carte, '', []).join(' · '));
     var blocs = etape.blocs || [];
     var inchanges = [];
     var precedents = {};

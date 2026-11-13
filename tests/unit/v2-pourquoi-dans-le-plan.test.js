@@ -92,8 +92,7 @@ describe('PR 1 — sous une semaine allégée, un repli, une série de plus : la
     const x = planDe(R, allegee(4)).exercices[0];
     expect(x.consigne.allegee).toBeTruthy();
     expect(x.pourquoi.indisponible).toBeUndefined();
-    expect(esp(x.pourquoi.etat)).toBe('Semaine allégée : mêmes charges, moins de séries, loin de l’échec. ' +
-      'Rien ne monte. 2 séries au lieu de 4, cette semaine.');
+    expect(esp(x.pourquoi.etat)).toMatch(/^Décharge : moins de séries, avec de la marge\. 2 séries au lieu de 4\. /);
     // « Donc » dit la consigne allégée, comme l'en-tête — plus « une rep de plus ».
     expect(esp(x.pourquoi.donc)).toBe('Donc 92 kg × 9.');
     expect(esp(x.pourquoi.donc)).toBe('Donc ' + esp(x.entete.jaune.join(', ')) + '.');
@@ -106,7 +105,7 @@ describe('PR 1 — sous une semaine allégée, un repli, une série de plus : la
     expect(brute.pourquoi.etat).toMatch(/une rep de plus/);
     const x = planDe(P, allegee(4)).exercices[0];
     expect(x.pourquoi.etat).not.toMatch(/une rep de plus/);
-    expect(esp(x.pourquoi.etat)).toMatch(/2 séries au lieu de 4, cette semaine\.$/);
+    expect(esp(x.pourquoi.etat)).toMatch(/2 séries au lieu de 4\. [\d, ]+ kg × \d+ au lieu de [\d, ]+ kg × \d+\.$/);
   });
 
   test('⚠️ DISCRIMINANT — « attend » sous un repli : la feuille se rédige, et dit le repli comme le gris', () => {

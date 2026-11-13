@@ -23,6 +23,7 @@ const T = require('../../v2/js/plan.js');
 const F = require('./fixtures/cas-49u14-semaine-allegee.json');
 // Le × du formateur (chargeFois) est entouré d'insécables.
 const surFormateur = (s) => s.replace(/ × /g, '\u00a0×\u00a0');
+const norm = (t) => String(t).replace(/[\u00a0\u202f]/g, ' ');
 const octets = (s) => (s === null || s === undefined ? s : Buffer.from(s, 'utf8').toString('hex'));
 const consigneDuCas = (k) => ({ etat: k.etat, zone: k.zone[0], ligne: { charge: k.ligne[0], vise: k.ligne[1] },
   haut: k.haut ? { charge: k.haut[0], vise: k.haut[1], k: k.haut[2] } : null });
@@ -227,10 +228,10 @@ describe('§14.4 — la semaine allégée, dans le plan', () => {
     [DEBUT, '2026-10-02T10:00:00+00:00', '2026-10-07T19:00:00+00:00'].forEach((debut) => {
       const { e, p } = decor({ debut, seance: 'S2', cartes: [acceptee('2026-10-01')] });
       expect(p.carte).toBeNull();
-      expect(p.allegee.bandeau).toBe('Semaine allégée jusqu’au 7 oct. : mêmes charges, moins de séries, loin de l’échec. Rien ne monte.');
+      expect(norm(p.allegee.bandeau)).toBe('Décharge jusqu’au 7 oct. : moins de séries, avec de la marge.');
       const x = p.exercices[0];
       expect(x.entete.jaune).toEqual(['125\u00a0kg\u00a0×\u00a03']);
-      expect(x.entete.gris).toBe('2 séries au lieu de 4, cette semaine');
+      expect(norm(x.entete.gris)).toBe('Décharge : 2 séries au lieu de 4.');
       expect(x.lignes.map((l) => l.role)).toEqual(['ligne', 'ligne', 'hors', 'hors']);
       expect(x.lignes.slice(0, 2).map((l) => [l.charge, l.vise])).toEqual([[125, 3], [125, 3]]);
       expect(x.paris.filter(Boolean).every((q) => q.fondement.allegee === true && q.fondement.compteur === 4)).toBe(true);

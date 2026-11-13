@@ -11967,8 +11967,8 @@ const SETS_IMPORTES = [
     const MOIS_U14 = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
     const bandeauAttendu = (jourDebut) => {
       const f = new Date(jourDebut.getFullYear(), jourDebut.getMonth(), jourDebut.getDate() + 6);
-      return 'Semaine allégée jusqu’au ' + f.getDate() + ' ' + MOIS_U14[f.getMonth()] +
-        ' : mêmes charges, moins de séries, loin de l’échec. Rien ne monte.';
+      return 'Décharge jusqu’au ' + f.getDate() + ' ' + MOIS_U14[f.getMonth()] +
+        ' : moins de séries, avec de la marge.';
     };
     const lireEscalier = () => page.evaluate(() => {
       const z = document.querySelector('#escalier-seance');
@@ -12016,9 +12016,9 @@ const SETS_IMPORTES = [
     await page.click('#escalier-seance .ce-alleger');
     await attendre(900);
     const d2 = await lireEscalier();
-    ok('[U14] 0 — « Alléger 7 jours » : le bandeau, la séance allégée, et AUCUN pari écrit',
-      d2.carte === null && /^Semaine allégée jusqu’au /.test(esp(d2.bandeau)) && base.predictions.length === parisAvant &&
-      esp(d2.gris) === '2 séries au lieu de 3, cette semaine',
+    ok('[U14] 0 — « Décharge 7 jours » : le bandeau, la séance allégée, et AUCUN pari écrit',
+      d2.carte === null && /^Décharge jusqu’au /.test(esp(d2.bandeau)) && base.predictions.length === parisAvant &&
+      esp(d2.gris) === 'Décharge : 2 séries au lieu de 3.',
       JSON.stringify({ bandeau: d2.bandeau, gris: d2.gris, paris: base.predictions.length - parisAvant }));
     await abandonner();
     await aller('/saisie?escalier=0');
@@ -12041,8 +12041,8 @@ const SETS_IMPORTES = [
     const a = await lireEscalier();
     ok('[U14] A — acceptée hier : le bandeau en tête de la séance, et pas de carte',
       a.visible && a.carte === null && esp(a.bandeau) === esp(bandeauAttendu(hier)), JSON.stringify(a));
-    ok('[U14] A — la consigne allégée : la charge de la consigne normale, 2 reps de moins (« 125 kg × 3 » au décor seul), « 2 séries au lieu de 4, cette semaine »',
-      a.jaune.length === 1 && a.jaune[0] === jauneAttendu(a) && esp(a.gris) === '2 séries au lieu de 4, cette semaine',
+    ok('[U14] A — la consigne allégée : la charge de la consigne normale, 2 reps de moins (« 125 kg × 3 » au décor seul), « Décharge : 2 séries au lieu de 4. »',
+      a.jaune.length === 1 && a.jaune[0] === jauneAttendu(a) && esp(a.gris) === 'Décharge : 2 séries au lieu de 4.',
       JSON.stringify([a.jaune, a.gris, a.normale]));
     // Décision d'Aurélien (01/10/2026, #345) : pendant la période, la séance
     // ne contient QUE les lignes allégées — les 2 séries en trop de la routine
@@ -12097,7 +12097,7 @@ const SETS_IMPORTES = [
     });
     ok('[U14] A — PR 4, DISCRIMINANT : un remplacement pendant la semaine n’allège qu’une fois (2 lignes couvertes sur la routine de 4 du couché)',
       a4.couche === 0 && a4.allegee && a4.series === 2 && JSON.stringify(a4.roles) === JSON.stringify(['ligne', 'ligne']) &&
-      esp(a4.gris) === '2 séries au lieu de 4, cette semaine' && (await compter('.ligne-serie')) === 2,
+      esp(a4.gris) === 'Décharge : 2 séries au lieu de 4.' && (await compter('.ligne-serie')) === 2,
       JSON.stringify(a4));
     await abandonner();
     base.predictions = base.predictions.filter((l) => l.module !== 'escalier');
@@ -12116,7 +12116,7 @@ const SETS_IMPORTES = [
     await attendre(1500);
     const c = await lireEscalier();
     const aujourdhui = new Date();
-    ok('[U14] B — « Alléger 7 jours » : le bandeau remplace la carte',
+    ok('[U14] B — « Décharge 7 jours » : le bandeau remplace la carte',
       c.carte === null && esp(c.bandeau) === esp(bandeauAttendu(aujourdhui)), JSON.stringify(c));
     ok('[U14] B — la séance même passe en allégée : la charge normale, 2 reps de moins, sur 2 séries, aucun test',
       deuxLignes(c) && c.jaune[0] === jauneAttendu(c), JSON.stringify(c));
@@ -15050,12 +15050,12 @@ const SETS_IMPORTES = [
     const bandeau = await texte('#escalier-seance');
     ok('[C53] DISCRIMINANT — la semaine 4 : la décharge prévue par le programme, son bandeau, aucune carte',
       e0 && e0.allegee && e0.allegee.source === 'decharge_planifiee' && e0.carte === null &&
-        sp(bandeau) === 'Semaine 4 sur 4 : la décharge prévue par ton programme. Mêmes charges, moins de séries, loin de l’échec.',
+        sp(bandeau) === 'Décharge, semaine 4 sur 4 : prévue par ton programme. Moins de séries, avec de la marge.',
       JSON.stringify([e0 && e0.allegee, bandeau]));
     ok('[C53] DISCRIMINANT — 60 % des séries : 2 lignes sur 3, mêmes charges', e0 && e0.x.couvertes === 2 && e0.x.travail === 2,
       JSON.stringify(e0 && e0.x));
-    ok('[C53] la phrase de l’exercice nomme la décharge (maquette) : « Semaine de décharge : … 2 séries au lieu de 3, cette semaine. »',
-      e0 && sp(e0.x.gris) === 'Semaine de décharge : mêmes charges, moins de séries. 2 séries au lieu de 3, cette semaine.',
+    ok('[C53] la phrase de l’exercice nomme la décharge (maquette) : « Décharge, semaine 4 sur 4 : 2 séries au lieu de 3. »',
+      e0 && sp(e0.x.gris) === 'Décharge, semaine 4 sur 4 : 2 séries au lieu de 3.',
       JSON.stringify(e0 && e0.x));
     await abandonner();
 
@@ -17727,7 +17727,7 @@ const SETS_IMPORTES = [
       ap.voix[0] === 'Je te propose tes charges à chaque séance. Touche un exercice pour le changer.' &&
         ap.voix[1] === 'Dans la semaine : squat 2 fois, couché 3 fois.' &&
         ap.voix[2] === 'Chaque jour a sa zone : la même barre passe de Lourd à Mix ou à Hypertrophie.' &&
-        ap.voix[3] === 'Une semaine allégée toutes les 5 semaines : mêmes charges, moins de séries.' &&
+        ap.voix[3] === 'Une décharge toutes les 5 semaines\u00a0: moins de séries.' &&
         /^Fréquence : environ 3 % de force de plus par séance hebdomadaire ajoutée sur un mouvement \(Pelland 2026\)\.$/.test(ap.voix[4] || '') &&
         /^Tu ménages ton dos : .+, sans série lourde\. Toutes leurs séries restent ; 8 répétitions au plus au soulevé\.$/.test(ap.voix[5] || ''),
       JSON.stringify(ap.voix));

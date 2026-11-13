@@ -30,8 +30,8 @@ describe('179 (C-F6) — « peut relancer », jamais « relance souvent »', () 
 
 describe('179 (B-B4) — « Alléger N jours » vient du moteur', () => {
   test('libelleAlleger lit la constante de durée', () => {
-    expect(M.libelleAlleger()).toMatch(/^Alléger \d+ jours$/);
-    expect(M.libelleAlleger()).toBe('Alléger 7 jours');   // la durée vit dans le moteur (DUREE_ALLEGEE_JOURS)
+    expect(M.libelleAlleger()).toMatch(/^Décharge \d+ jours$/);
+    expect(M.libelleAlleger()).toBe('Décharge 7 jours');   // la durée vit dans le moteur (DUREE_ALLEGEE_JOURS)
   });
 });
 

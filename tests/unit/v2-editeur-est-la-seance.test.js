@@ -967,8 +967,8 @@ describe('⚠️ la carte dit le volume de travail, et rien d’autre', () => {
     expect(appels).toEqual(['r1']);
   });
   test('sans geste proposé (semaine allégée, routine courte) : la durée seule, aucun bouton', () => {
-    const { cible } = rangee({ texte: 'Semaine allégée : environ 50 min (estimation)', peuDeTemps: false });
-    expect(cible.querySelector('.routine-duree').textContent).toBe('Semaine allégée : environ 50 min (estimation)');
+    const { cible } = rangee({ texte: 'Décharge : environ 50 min (estimation)', peuDeTemps: false });
+    expect(cible.querySelector('.routine-duree').textContent).toBe('Décharge : environ 50 min (estimation)');
     expect(cible.querySelector('.peu-de-temps')).toBe(null);
   });
 });

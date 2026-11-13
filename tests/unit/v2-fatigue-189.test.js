@@ -253,8 +253,8 @@ describe('§14.11 — la carte, dans le plan', () => {
     expect(p.carte.source).toBe('baisse');
     expect(p.carte.titre).toBe('Tes séries baissent depuis 3 semaines');
     expect(p.carte.phrase).toBe('Aa, Bb, Cc et 2 autres exercices sont plus bas que les 3 semaines d’avant : −10 % en moyenne.');
-    expect(p.carte.detail).toMatch(/^Quand plusieurs exercices baissent ensemble, c’est souvent de la fatigue\. Je te propose une semaine allégée/);
-    expect(p.carte.oui).toBe('Alléger 7 jours');
+    expect(p.carte.detail).toMatch(/^Quand plusieurs exercices baissent ensemble, c’est souvent de la fatigue\. Je te propose une décharge/);
+    expect(p.carte.oui).toBe('Décharge 7 jours');
     expect(p.carte.serieDeMoins).toBeNull();
     expect(p.carte.pourquoi.lignes).toHaveLength(5);
     expect(p.carte.pourquoi.stables).toBe('4 exercices sur 9');

@@ -104,11 +104,11 @@ describe('169 — Normal, Hypertrophie : 30 kg × 10 à l’échec', () => {
     const k = hyper({ ressenti: 'reste_0' });
     expect(k.zone).toBe('hypertrophie');
     expect(fond(k)).toMatchObject({ effet: 'garde', auHaut: true, deja: false });
-    expect(plat(M.libellesConsigne(k).gris)).toBe('30 kg × 10, sans marge. On garde 30 kg : encore une fois au haut de ta zone et je teste plus lourd.');
+    expect(plat(M.libellesConsigne(k).gris)).toBe('30 kg × 10, sans marge. Je garde 30 kg : encore une fois au haut de ta zone et je teste plus lourd.');
   });
   test('avec 1 en réserve pour 2 visées (Prudent) : la phrase 1 dit la réserve notée', () => {
     const k = lourd({ ressenti: 'reste_1' });
-    expect(plat(M.libellesConsigne(k).gris)).toBe('100 kg × 5, avec 1 en réserve. On garde 100 kg : encore une fois au haut de ta zone et je teste plus lourd.');
+    expect(plat(M.libellesConsigne(k).gris)).toBe('100 kg × 5, avec 1 en réserve. Je garde 100 kg : encore une fois au haut de ta zone et je teste plus lourd.');
   });
   test('2e fois : le test est posé, la phrase le dit', () => {
     const k = hyper({ ressenti: 'reste_0' }, { ressenti: 'reste_0' });
@@ -120,7 +120,7 @@ describe('169 — Normal, Hypertrophie : 30 kg × 10 à l’échec', () => {
   });
   test('le « Pourquoi » dit la même chose, sans jargon', () => {
     const premiere = M.pourquoiConsigne(hyper({ ressenti: 'reste_0' }), 'normal', AVANT);
-    expect(plat(premiere.etat)).toMatch(/On garde 30 kg : encore une fois au haut de ta zone et je teste plus lourd\./);
+    expect(plat(premiere.etat)).toMatch(/Je garde 30 kg : encore une fois au haut de ta zone et je teste plus lourd\./);
     const k = hyper({ ressenti: 'reste_0' }, { ressenti: 'reste_0' });
     const p = plat(M.pourquoiConsigne(k, 'normal', AVANT).etat);
     expect(p).toMatch(/Deux séances de suite, 30 kg × 10 au haut de ta zone, sans la marge visée : on teste le cran au-dessus/);
@@ -132,7 +132,7 @@ describe('169 — Normal, Hypertrophie : 30 kg × 10 à l’échec', () => {
     if (fond(k)) {
       expect(fond(k).sortie).toBeUndefined();
       expect(fond(k).auHaut).toBe(false);
-      expect(plat(M.phraseEffortVise(fond(k), null))).toBe('30 kg × 9, sans marge. On garde 30 kg la prochaine fois.');
+      expect(plat(M.phraseEffortVise(fond(k), null))).toBe('30 kg × 9, sans marge. Je garde 30 kg la prochaine fois.');
     }
   });
   test('Franc, Hypertrophie (V = 0) : rien ne bloque, la sortie ne joue jamais', () => {

@@ -1332,10 +1332,17 @@ describe('§9.13 / ECRAN-SAISIE §3.12 et §3.10 — le fondement, les phrases e
     X6: (c) => { c.pourquoi.palier = c.pourquoi.palier.replace('validée à 4 reps', 'validée à 5 reps'); },
     X10: (c) => { c.pourquoi.palier = c.pourquoi.palier.replace('validée à 4 reps', 'validée à 5 reps'); }
   };
+  // PR 4a (MOTEUR §9.47) — le verbe unique : le gris et le « Pourquoi » de ces cas lisent la LIGNE (« Une rep de plus : 125 kg × 5 », « Tu restes à
+  // 125 kg × 5 », la cause « sans marge » dite avec son rang). Les chiffres, les jaunes et le fondement (hors `sansMarge`) ne changent pas.
+  const VERBE_4A = require('./fixtures/verbe-4a-48b7.json');
   const CAS = require('./fixtures/consigne-48b7.json').map((c) => {
-    if (!INVERSES_74[c.id]) return c;
+    if (!INVERSES_74[c.id] && !VERBE_4A[c.id]) return c;
     const k = JSON.parse(JSON.stringify(c));
-    INVERSES_74[c.id](k);
+    if (INVERSES_74[c.id]) INVERSES_74[c.id](k);
+    if (VERBE_4A[c.id]) {
+      if (VERBE_4A[c.id].gris) k.phrases.gris = VERBE_4A[c.id].gris;
+      if (VERBE_4A[c.id].etat) k.pourquoi.etat = VERBE_4A[c.id].etat;
+    }
     return k;
   });
   // Les cinq corrections de 48b-7 : sans elles, `correction` serait toujours
@@ -1392,6 +1399,8 @@ describe('§9.13 / ECRAN-SAISIE §3.12 et §3.10 — le fondement, les phrases e
       // 163 — la clé `approchee` du fondement (une charge jamais faite, « ≈ ») est testée à part.
       const fond = Object.assign({}, rendu.fondement);
       delete fond.approchee;
+      // PR 4a — `sansMarge` : la cause « sans marge » lue sur la ligne finale (une série faite à fond à la charge de la ligne) ; testée à part (v2-verbe-unique-4a).
+      delete fond.sansMarge;
       // 186 — un saut de plusieurs crans dit combien (crans), de combien le haut est dépassé (depasse), son plafond et le matériel.
       if (fond.preuve) { delete fond.crans; delete fond.depasse; delete fond.plafond; delete fond.materiel; }
       expect(Object.keys(fond).sort()).toEqual(Object.keys(c.fondement).sort());

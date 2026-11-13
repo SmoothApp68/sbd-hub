@@ -121,13 +121,13 @@ describe('§9.2 bis — la séance d’Aurélien du 29/09 : 80 × 10, 10, 6 à R
     const l = M.libellesConsigne(k, AVANT);
     expect(l.jaune).toEqual(['80' + NB + 'kg' + NB + '×' + NB + '10']);
     expect(l.gris).toBe('Mardi' + NB + ': 80' + NB + 'kg' + NB + '×' + NB + '10, 10, 6. ' +
-      'Je ne compte pas la dernière série' + NB + ': on tient 80' + NB + 'kg' + NB + '×' + NB + '10.');
+      'Je ne compte pas la dernière série' + NB + ': tu restes à 80' + NB + 'kg' + NB + '×' + NB + '10.');
   });
 
   test('la feuille « Pourquoi » l’explique en une phrase', () => {
     const p = M.pourquoiConsigne(k, 'normal', AVANT);
     expect(p.etat).toBe('Ta dernière série a chuté après des séries stables' + NB + ': c\'est la fatigue, ' +
-      'pas ton niveau. Je ne la compte pas, et on tient 80' + NB + 'kg' + NB + '×' + NB + '10 avant de tester plus lourd.');
+      'pas ton niveau. Je ne la compte pas, et tu restes à 80' + NB + 'kg' + NB + '×' + NB + '10 avant de tester plus lourd.');
   });
 
   test('sans la chute (10-10-10), le coach testait plus lourd : c’est bien la règle qui tient', () => {

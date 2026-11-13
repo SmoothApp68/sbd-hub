@@ -807,8 +807,8 @@ describe('§20.2 — les lignes de la feuille en séance, et l\'en-tête de form
     expect(s.exo().pourquoi.lignes.map(ligne)).toEqual([
       'consigne',
       'proposée par le coach · proposée après 50 kg × 12',
-      'retour à ta charge de travail · on revient à 50 kg après 52,5 kg × 6',
-      'retour à ta charge de travail · on revient à 50 kg après 52,5 kg × 6'
+      'retour à ta charge de travail · je reviens à 50 kg après 52,5 kg × 6',
+      'retour à ta charge de travail · je reviens à 50 kg après 52,5 kg × 6'
     ]);
     expect(s.verifier()).toEqual([]);
   });

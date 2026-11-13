@@ -224,9 +224,8 @@ describe('68B — les phrases sur les reps faites : « sans marge », jamais « 
       const c = de(id);
       const k = pour(c.seances, c.avant);
       expect(k.fondement.serieAFond).toMatchObject({ charge: 125, reps: 5, niveauFait: 5 });
-      expect(esp(M.libellesConsigne(k, c.avant).gris)).toBe(id === 'X1'
-        ? '125 kg × 5, sans marge : on ne rajoute pas de rep.'
-        : '125 kg × 5, sans marge : on ne rajoute pas de rep.');
+      // PR 4a — la phrase lit la ligne (verbeDeLaConsigne) : « Tu restes à 125 kg × 5 », la cause dite avant (une série à fond, pas la dernière).
+      expect(esp(M.libellesConsigne(k, c.avant).gris)).toBe('Le 13 sept. : 125 kg × 5, 5, 4, une série sans marge. Tu restes à 125 kg × 5.');
     });
   });
 
@@ -236,7 +235,8 @@ describe('68B — les phrases sur les reps faites : « sans marge », jamais « 
       { charge_kg: 125, reps: 4, rpe: 10, role: 'palier' }];
     const k = pour(c.seances, c.avant);
     expect(k.fondement.serieAFond).toBeUndefined();
-    expect(esp(M.libellesConsigne(k, c.avant).gris)).toBe('Le 13 sept. : 125 kg × 4, 4, 4. Une rep de plus.');
+    // PR 4a (B1) — la dernière série À FOND borne la ligne à 125 × 4 (plafond 3) : « Une rep de plus » serait faux. Le verbe lit la ligne.
+    expect(esp(M.libellesConsigne(k, c.avant).gris)).toBe('Le 13 sept. : 125 kg × 4, 4, 4, la dernière sans marge. Tu restes à 125 kg × 4.');
   });
 
   // ── 74 (11/10/2026) — INVERSÉS. Les quatre tests suivants prouvaient « une
@@ -308,7 +308,7 @@ describe('68B — les phrases sur les reps faites : « sans marge », jamais « 
     // … mais pas de test plus lourd (plafond 2) : la note « sans marge » de 68B.
     expect([apres.etat, apres.haut, apres.ligne]).toEqual(['progression', null, { charge: 125, vise: 5 }]);
     expect(esp(M.libellesConsigne(apres, '2026-09-27T10:00:00+00:00').gris))
-      .toBe('125 kg × 5, sans marge : on ne rajoute pas de rep.');
+      .toBe('Le 20 sept. : 125 kg × 5, 5, 5, une série sans marge. Tu restes à 125 kg × 5.');
     // Témoin : sans effort noté, le même constat, et le test du cran au-dessus.
     const sans = pour(c.seances.concat([jour(null)]), '2026-09-27T10:00:00+00:00');
     expect([sans.etat, sans.haut]).toEqual(['test_propose', { charge: 127.5, vise: 3, k: 1 }]);

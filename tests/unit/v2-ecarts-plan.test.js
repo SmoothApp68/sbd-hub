@@ -138,7 +138,7 @@ describe('68A — les phrases de l’écart, au mot près', () => {
     expect(phrase('N05', 1)).toBe('84 kg × 9 : pas encore. La suite reste à 79 kg × 12.');
   });
   test('N06 — la suggestion d’effort', () => {
-    expect(phrase('N06', 1)).toBe('84 kg × 10, pile au bas de ta fourchette. Si c\'était à fond, note-le : on revient à 79 kg pour la série suivante. Sinon, on garde 84 kg.');
+    expect(phrase('N06', 1)).toBe('84 kg × 10, pile au bas de ta fourchette. Si c\'était à fond, note-le : je reviens à 79 kg pour la série suivante. Sinon, je garde 84 kg.');
   });
   test('N07 — à fond : jamais « pas encore » à côté d’un chiffre dans la fourchette', () => {
     expect(phrase('N07', 1)).toBe('84 kg × 10 à fond : la suite reste à 79 kg × 12.');
@@ -147,7 +147,7 @@ describe('68A — les phrases de l’écart, au mot près', () => {
     expect(phrase('N08', 1)).toBe('135 kg × 5, au-dessus de ta charge de travail : une série de plus à 135 kg.');
   });
   test('N17 — la suggestion revient à 82, la charge d’avant cette série', () => {
-    expect(phrase('N17', 2)).toBe('84 kg × 10, pile au bas de ta fourchette. Si c\'était à fond, note-le : on revient à 82 kg pour la série suivante. Sinon, on garde 84 kg.');
+    expect(phrase('N17', 2)).toBe('84 kg × 10, pile au bas de ta fourchette. Si c\'était à fond, note-le : je reviens à 82 kg pour la série suivante. Sinon, je garde 84 kg.');
   });
   test('plusieurs séries de plus, pas toutes ; « la suite » d’une ligne d’élan ; sans chiffre (décision 7)', () => {
     const z = 'volume';

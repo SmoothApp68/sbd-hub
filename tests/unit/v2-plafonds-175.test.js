@@ -211,14 +211,14 @@ describe('175 / 1 — 30 reps au poids du corps : le plafond sans lest', () => {
     expect(g).toMatch(/\. Vise 30 sur toutes tes séries\.$/);
     expect(g).not.toMatch(/rep de plus/);
   });
-  test('20 reps : « Une rep de plus. », comme avant', () => {
-    expect(gris(20).gris).toMatch(/\. Une rep de plus\.$/);
+  test('20 reps : « Une rep de plus : Poids du corps × 21. », avec sa ligne (PR 4a)', () => {
+    expect(gris(20).gris).toMatch(/\. Une rep de plus : Poids du corps × 21\.$/);
   });
   test('la feuille « Pourquoi » dit le plafond à 30, pas la rep de plus', () => {
     const c = consignePompes([30, 30, 30, 30], 'non');
     const etat = esp(M.pourquoiConsigne(c.consigne, 'normal', AVANT).etat);
     expect(etat).toMatch(/30 reps est le plafond sans lest/);
-    expect(etat).not.toMatch(/une de plus que la dernière fois/);
+    expect(etat).not.toMatch(/de plus que la dernière fois/);
   });
 });
 

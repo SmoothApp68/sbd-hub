@@ -228,8 +228,8 @@ describe('74 — les phrases : plus aucun « compté », « sans marge » pour u
     const c = cas('u1|adduction_hanche', 12);
     expect(consigneDuCas(c)).toMatchObject({ etat: 'tenue_apres_chute', niveau: 16, ligne: { charge: 73, vise: 17 } });
     const p = phrasesDuCas(c);
-    expect(p.gris).toMatch(/: 73 kg × 20, 20, 15\. Une rep de plus\.$/);
-    expect(p.etat).toBe('Ta charge de travail n\'est pas encore au haut de ta zone : une rep de plus sur chaque série.');
+    expect(p.gris).toMatch(/: 73 kg × 20, 20, 15\. Une rep de plus : 73 kg × 17\.$/);
+    expect(p.etat).toBe('Ta charge de travail n\'est pas encore au haut de ta zone : je te demande une rep de plus, 73 kg × 17.');
     expect(p.tout).not.toMatch(/Je ne (la )?compte pas/);
   });
 });

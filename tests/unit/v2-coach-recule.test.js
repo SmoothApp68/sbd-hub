@@ -57,7 +57,7 @@ describe('174 — la séance d\'avant a fait toutes les reps visées', () => {
     const k1 = consigne(MONTEE.concat([[140, 2, 'reste_0']]));
     expect(k1.etat).toBe('bord_garde');
     expect(k1.ligne).toEqual({ charge: 140, vise: 2 });
-    expect(plat(GRIS(k1))).toBe('140 kg × 2, sans marge. On garde 140 kg ; la prochaine fois, on retente au-dessus.');
+    expect(plat(GRIS(k1))).toBe('140 kg × 2, sans marge. Je garde 140 kg ; la prochaine fois, on retente au-dessus.');
     const k2 = consigne(MONTEE.concat([[140, 2, 'reste_0'], [140, 2, 'reste_0']]));
     expect(k2.etat).toBe('bord');
     expect(k2.ligne).toEqual({ charge: 142.5, vise: 2 });

@@ -448,10 +448,10 @@
         }
       } else if (l.role === 'retour') {
         var montee = premiereCoach || couvertes.filter(function (c) { return c.role === 'coach'; })[0];
-        raison = 'on revient à ' + kg(l.charge, cL) +
+        raison = 'je reviens à ' + kg(l.charge, cL) +
           (montee && montee.faite ? ' après ' + kgFois(montee.faite.charge, montee.faite.reps, DU_JOUR) : '');
       } else if (l.role === 'elan') {
-        // §9.14 bis (68A) — sur le patron de la ligne revenue : « on garde
+        // §9.14 bis (68A) — sur le patron de la ligne revenue : « je garde
         // 84 kg après 84 kg × 12 ». La série dite est celle qui a porté
         // l'élan : la dernière faite à cette charge qui ne le suivait pas.
         var porteuse = null;
@@ -461,7 +461,7 @@
           if (!porteuse) porteuse = v;
           if (!(v.role === 'elan' && memeChargeOuVides(nombre(v.charge), nombre(l.charge)))) { porteuse = v; break; }
         }
-        raison = 'on garde ' + kg(l.charge, cL) +
+        raison = 'je garde ' + kg(l.charge, cL) +
           (porteuse ? ' après ' + kgFois(porteuse.faite.charge, porteuse.faite.reps, DU_JOUR) : '');
       }
       return {
@@ -1586,6 +1586,12 @@
       try { capG = V.capturer(function () { return M.libellesConsigne(c.consigne, debut).gris; }); } catch (ex) { capG = null; }
     }
     var citesGris = capG && capG.texte === gris ? capG.citations : null;
+    // PR 4a (B2) — LE GRIS SE RÉDIGE SUR LA CONSIGNE FINALE : une variante du jour qui a changé la ligne après coup (« plus léger aujourd'hui »)
+    // ne garde pas le gris de la consigne d'avant. Les autres transformations (décharge, repli, alléger) posent leur propre gris plus bas.
+    if (gris && consigne.veilleLegere) {
+      try { capG = V.capturer(function () { return M.libellesConsigne(consigne, debut).gris; }); } catch (exV) { capG = null; }
+      if (capG) { gris = capG.texte; citesGris = capG.citations; }
+    }
     if (consigne.allegee) {
       // « 125 kg × 3 », et en gris « Décharge : 2 séries au lieu de 4. ».
       var capA = V.capturer(function () { return M.phraseAllegee(consigne); });
@@ -1807,6 +1813,8 @@
       planInitial: r.planInitial, faites: r.faites, reaction: r.reaction,
       lignes: r.lignes, message: r.message, paris: r.paris,
       constat: constat,
+      // PR 4a (MOTEUR §9.47) — LE VERBE UNIQUE, calculé une fois sur la consigne finale : le gris, le Pourquoi et le constat le disent, I162 le relit.
+      verbe: M.verbeDeLaConsigne(consigne),
       entete: Object.assign({ jaune: entete.jaune, gris: gris, segments: entete.segments, compteur: phraseDuCompteur, plus: grisPlus, moins: grisMoins },
                             phraseDuFrere ? { frere: phraseDuFrere } : {}, enteteAlleger ? { alleger: enteteAlleger } : {}),
       // §14.5 (49-U15) — la marche de l'escalier de cet exercice, ou `null` :
@@ -6471,6 +6479,7 @@
     verifierBord(plan, erreurs);
     verifierZeroRep(plan, entrees, erreurs);
     verifierDecharge(plan, erreurs);
+    verifierVerbe(plan, erreurs);
     verifierVoixDuZero(plan, entrees, erreurs);
     verifierLeviers(plan, erreurs);
     verifierHorsCalcul(plan, entrees, erreurs);
@@ -7263,6 +7272,120 @@
       });
       if (/avec\s+de\s+la\s+marge/i.test(bandeau) !== (quelqueBaisse || !chiffrees.length)) erreurs.push('I166 — le bandeau : « avec de la marge » ' + (quelqueBaisse ? 'manque alors qu\u2019une cible baisse' : 'alors qu\u2019aucune cible ne baisse'));
     }
+  }
+
+  // I162 (chantier « Les mots disent vrai », PR 4a, MOTEUR §9.47) — LE VERBE DE LA CONSIGNE NE CONTREDIT JAMAIS LE CHIFFRE, ET LES TROIS CHAMPS LE DISENT.
+  //   Sens 1 : le verbe suit la LIGNE (arithmétique à part de `Moteur.verbeDeLaConsigne`, jamais relue de lui) : sur l'axe de la charge d'abord, sur
+  //     l'axe des reps seulement à charge égale ; une aide, un élastique, une variante du jour : `neutre` (exclus, listés au MOTEUR §9.47).
+  //   Sens 2 : le TEXTE du gris, du Pourquoi et du constat (jamais `x.verbe`, ce serait tautologique) ne dit que ce que le verbe fait : « N reps de plus »
+  //     seulement si la ligne monte de N reps, « tu restes à C × R » seulement si elle garde, « je garde C kg » à la charge de la ligne, « je baisse à »
+  //     devant une charge plus légère, la cause « sans marge » seulement si le verbe la rend vraie ; une négation (« sans rep de plus ») jamais devant
+  //     une ligne qui monte. Population protégée : jamais « sans marge » ni « il ne t'en restait aucune ».
+  //   Sens 3 : la cause « sans marge » n'est jamais imprimée devant une ligne qui monte ; le cas existe (`Plan.causesTues`) et se COMPTE (dette
+  //     « Le coach monte et recule » : une série à fond, une ligne qui monte quand même).
+  var CAUSE_SANS_MARGE = /(?:la dernière|une série|une de tes séries) sans marge|(?:dernière série|séries?) (?:était|étaient) sans marge|il ne t[’']en restait aucune/;
+  function verifierVerbe(plan, erreurs) {
+    var M = Moteur();
+    var memeC = function (x, y) { return Math.abs(x - y) < 1e-9; };
+    var norm = function (t) { return String(t || '').replace(/[  ]/g, ' '); };
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var k = x && x.consigne;
+      if (!k || k.etat === 'silence' && !k.ligne) return;
+      var nom = ' — exercice ' + i + ' (' + x.slug + ') : ';
+      var v = x.verbe;
+      if (!v || typeof v.verbe !== 'string') { erreurs.push('I162' + nom + 'aucun verbe sur la consigne finale'); return; }
+      var fond = k.fondement || {};
+      var l = k.ligne || null;
+      var P = nombre(k.palier), niv = nombre(k.niveau);
+      var ch = l ? nombre(l.charge) : null, vise = l ? nombre(l.vise) : null;
+      // — Sens 1 —
+      if (k.allegee || k.repli || k.alleger) {
+        var attendu = k.allegee ? 'allege' : k.repli ? 'repli' : 'alleger';
+        if (v.verbe !== attendu) erreurs.push('I162' + nom + 'une consigne ' + attendu + ' dit « ' + v.verbe + ' »');
+      } else if (k.veilleLegere || k.plusLegere) {
+        if (v.verbe !== 'neutre') erreurs.push('I162' + nom + 'une variante du jour dit « ' + v.verbe + ' »');
+      } else if (!l || ch === null || P === null) {
+        if (v.verbe !== 'neutre' && v.verbe !== 'garde_charge') erreurs.push('I162' + nom + 'sans ligne chiffrée, le verbe est « ' + v.verbe + ' »');
+      } else {
+        var elastique = P < 0 || ch < 0 || !!(fond.salle && (fond.salle.sens === 'aide' || fond.salle.sens === 'resistance')) || !!fond.elastique;
+        var refCharge = k.etat === 'zero_rep' && fond.zeroRep && nombre(fond.zeroRep.charge) !== null ? nombre(fond.zeroRep.charge) : P;
+        var meme = memeC(ch, refCharge);
+        var simple = (k.etat === 'progression' && !(fond.effortVise && fond.effortVise.effet === 'garde')) ||
+                     (k.etat === 'tenue_apres_chute' && !fond.chute) || (k.etat === 'etirement_reps' && !fond.plafondReps) ||
+                     k.etat === 'reprise_courte' || k.etat === 'reprise_longue';
+        var dit = v.verbe;
+        if (!meme) {
+          if (!elastique && ch < refCharge && (simple || k.etat === 'zero_rep' || k.etat === 'bord_recul' || k.etat === 'bord_vague')) {
+            if (dit !== 'recule' && dit !== 'reprend') erreurs.push('I162' + nom + 'la ligne baisse (' + ch + ' kg < ' + refCharge + ' kg), le verbe est « ' + dit + ' »');
+          } else if (!elastique && ch > refCharge && simple) {
+            if (dit !== 'monte_charge') erreurs.push('I162' + nom + 'la ligne monte en charge (' + ch + ' kg > ' + refCharge + ' kg), le verbe est « ' + dit + ' »');
+          } else if (elastique && /^(?:recule|reprend|monte_charge)$/.test(dit)) {
+            erreurs.push('I162' + nom + 'une aide ou un élastique dont la charge change n’a pas de verbe de charge (« ' + dit + ' »)');
+          }
+        } else if (simple) {
+          if (niv !== null && vise !== null) {
+            var plus = vise - niv;
+            var attenduR = plus > 0 ? 'monte_reps' : plus === 0 ? 'garde_cible' : 'borne';
+            if (dit !== attenduR) erreurs.push('I162' + nom + 'la ligne ' + ch + ' kg × ' + vise + ' contre un niveau de ' + niv + ' : le verbe devrait être « ' + attenduR + ' », il est « ' + dit + ' »');
+            if (dit === 'monte_reps' && v.plus !== plus) erreurs.push('I162' + nom + 'le verbe dit ' + v.plus + ' rep(s) de plus, la ligne en demande ' + plus);
+          }
+        } else if (k.etat === 'bord_garde' || k.etat === 'tenue_apres_zero') {
+          if (dit !== 'garde_charge') erreurs.push('I162' + nom + 'la charge est gardée (' + k.etat + '), le verbe est « ' + dit + ' »');
+        }
+        if ((k.etat === 'test_propose' || k.etat === 'retest' || k.etat === 'retest_un_cran') && k.haut) {
+          var hc = nombre(k.haut.charge);
+          var teste = hc !== null && hc > P && !memeC(hc, P);
+          if (teste !== (dit === 'teste')) erreurs.push('I162' + nom + 'une ligne haute à ' + hc + ' kg contre le palier ' + P + ' kg : le verbe est « ' + dit + ' »');
+        }
+        if (dit === 'recule' && !(ch < refCharge)) erreurs.push('I162' + nom + '« recule » alors que la ligne (' + ch + ' kg) n’est pas sous ' + refCharge + ' kg');
+        if (dit === 'monte_reps' && !meme) erreurs.push('I162' + nom + '« monte_reps » à une autre charge que le palier');
+      }
+      // — Sens 2 et 3 —
+      var textes = [['le gris', x.entete && x.entete.gris], ['le « Pourquoi »', x.pourquoi && x.pourquoi.etat],
+                    ['le constat', x.constat && ((x.constat.verdict || '') + ' ' + (x.constat.suite || ''))]];
+      var ligneDite = l && ch !== null && vise !== null ? norm(Voix().chargeFois(ch, vise)) : null;
+      if (v.famille === 'variante') return;   // décharge, repli, alléger, « plus léger aujourd'hui » : leurs phrases sont celles d'I165, I166, I140
+      textes.forEach(function (p) {
+        var t = norm(p[1]);
+        if (!t) return;
+        var lieu = p[0];
+        var dePlus = /(?:^|[^a-zéèêàùâîô])((?:sans|pas de|jamais|ne te demande|ne demande jamais|ne te propose)\s+)?(?:une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|\d+)\s+reps?\s+de\s+plus/gi, q;
+        while ((q = dePlus.exec(t))) {
+          var neg = !!q[1] || /(?:sans|pas de|jamais)(?:\s+\w+){0,2}\s*$/i.test(t.slice(Math.max(0, q.index - 24), q.index + 1));
+          if (neg) { if (v.verbe === 'monte_reps') erreurs.push('I162' + nom + lieu + ' nie « une rep de plus » devant une ligne qui monte : ' + t); }
+          else if (v.famille === 'progression' || v.famille === 'reprise') {
+            if (v.verbe !== 'monte_reps') erreurs.push('I162' + nom + lieu + ' dit « ' + q[0].trim() + ' » alors que le verbe est « ' + v.verbe + ' » : ' + t);
+          }
+        }
+        var reste = /[Tt]u restes à ([^.]*?)\./.exec(t);
+        if (reste) {
+          if (v.verbe !== 'garde_cible') erreurs.push('I162' + nom + lieu + ' dit « tu restes à » alors que le verbe est « ' + v.verbe + ' » : ' + t);
+          else if (ligneDite !== null && reste[1].trim() !== ligneDite && reste[1].trim().indexOf(ligneDite) !== 0) {
+            erreurs.push('I162' + nom + lieu + ' dit « tu restes à ' + reste[1].trim() + ' », la ligne est ' + ligneDite);
+          }
+        }
+        var garde = /[Jj]e garde (\d+(?:,\d+)?) kg/.exec(t);
+        var chGarde = garde ? Voix().lireNombre(garde[1]) : null;
+        if (garde && ch !== null && chGarde !== ch && !(fond.bord && chGarde === nombre(fond.bord.charge)) &&
+            !(fond.effortVise && chGarde === nombre(fond.effortVise.charge))) {
+          erreurs.push('I162' + nom + lieu + ' dit « je garde ' + garde[1] + ' kg », la ligne est à ' + ch + ' kg : ' + t);
+        }
+        var baisse = /[Jj]e baisse à (\d+(?:,\d+)?) kg/.exec(t);
+        if (baisse && v.verbe !== 'recule') erreurs.push('I162' + nom + lieu + ' dit « je baisse à » alors que le verbe est « ' + v.verbe + ' » : ' + t);
+        var cause = CAUSE_SANS_MARGE.test(t);
+        if (cause) {
+          if (v.famille !== 'progression' && v.famille !== 'reprise') { /* un autre état dit son propre fait */ }
+          else if (!v.cause) erreurs.push('I162' + nom + lieu + ' imprime la cause « sans marge » alors que le verbe ne la rend pas vraie (' + v.verbe + (v.sansMarge ? ', une série à fond' : ', aucune série à fond') + ') : ' + t);
+          if (plan && plan.protegee === true) erreurs.push('I162' + nom + lieu + ' : « sans marge » dit à une population protégée : ' + t);
+          if (/la dernière sans marge|dernière série était sans marge/.test(t) && !(v.sansMarge && v.sansMarge.derniere)) erreurs.push('I162' + nom + lieu + ' dit « la dernière » alors que la série à fond n’est pas la dernière de la séance : ' + t);
+        }
+        if (/jusqu[’']à l[’']échec|à l[’']échec/.test(t) && lieu !== 'le constat' && v.cause) erreurs.push('I162' + nom + lieu + ' dit « échec » : le verbe ne le dit jamais (aucune marque d’échec posée) : ' + t);
+      });
+    });
+  }
+  // I162, sens 3 — les exercices du plan dont la cause « sans marge » existe devant une ligne qui monte (comptés, jamais imprimés).
+  function causesTues(plan) {
+    return ((plan && plan.exercices) || []).filter(function (x) { return x && x.verbe && x.verbe.causeTue === true; }).length;
   }
 
   // I153 et I154 (chantier « première séance sûre », PR 2, MOTEUR §9.42) — APRÈS UN ZÉRO REP.
@@ -8578,7 +8701,7 @@
     REFUS_DEFINITIFS: REFUS_DEFINITIFS,
     refuserChauffes: refuserChauffes,
     accepterChauffes: accepterChauffes,
-    veilleDuJour: veilleDuJour, noterVeilleDuJour: noterVeilleDuJour, veilleLegereDesGestes: veilleLegereDesGestes,
+    veilleDuJour: veilleDuJour, noterVeilleDuJour: noterVeilleDuJour, veilleLegereDesGestes: veilleLegereDesGestes, causesTues: causesTues,
     refusChauffesDe: refusChauffesDe, miseEnSilence: miseEnSilence, annulerRefusChauffes: annulerRefusChauffes,
     SERIES_DEPART_PROGRESSER: SERIES_DEPART_PROGRESSER,
     SERIES_DEPART_ENTRETIEN: SERIES_DEPART_ENTRETIEN,

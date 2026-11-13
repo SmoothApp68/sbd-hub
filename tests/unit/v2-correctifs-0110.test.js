@@ -118,21 +118,21 @@ describe('49-U18 — l’écart habituel se lit sur les 8 derniers écarts (§9.
 
 // ── A2 — UNE REPRISE RESTE DANS LA ZONE ──────────────────────────────────
 describe('49-U18 — une reprise ne vise jamais au-dessus du haut de la zone (§9.9)', () => {
-  test('la borne se dit : « Ta zone Volume va jusqu’à 12 : je vise 12. »', () => {
+  test('la borne se dit : « Ta zone Volume va jusqu’à 12 reps : 24,8 kg × 12. »', () => {
     const c = F.cas.filter((x) => x.id === 'B03')[0];
     const k = consigneDuCas(c);
     expect(k.fondement.borneZone).toEqual({ zone: 'volume', haut: 12, niveau: 15 });
     const l = M.libellesConsigne(k, c.avant);
     expect(l.jaune).toEqual(['24,8' + NB + 'kg' + NB + '×' + NB + '12']);
     expect(l.gris).toBe('Reprise après une pause' + NB + ': ta charge de travail, sans rep de plus.' +
-      ' Ta zone Volume va jusqu\'à 12' + NB + ': je vise 12.');
-    expect(M.pourquoiConsigne(k, 'normal', c.avant).etat).toContain('Ta zone Volume va jusqu\'à 12' + NB + ': je vise 12.');
+      ' Ta zone Volume va jusqu\'à 12 reps' + NB + ': 24,8' + NB + 'kg' + NB + '×' + NB + '12.');
+    expect(M.pourquoiConsigne(k, 'normal', c.avant).etat).toContain('Ta zone Volume va jusqu\'à 12 reps' + NB + ': 24,8' + NB + 'kg' + NB + '×' + NB + '12.');
   });
 
   test('la reprise longue aussi, avec sa propre phrase', () => {
     const c = F.cas.filter((x) => x.id === 'B01')[0];
     const l = M.libellesConsigne(consigneDuCas(c), c.avant);
-    expect(l.gris).toMatch(/Le test te ramènera à 65.kg\. Ta zone Mix va jusqu'à 8.: je vise 8\.$/);
+    expect(l.gris).toMatch(/Le test te ramènera à 65.kg\. Ta zone Mix va jusqu'à 8 reps.: 62,5.kg.×.8\.$/);
   });
 
   test('sans dépassement, ni borne ni phrase (E02 : reprise à 15, zone 15-20)', () => {

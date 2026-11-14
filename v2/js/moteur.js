@@ -5016,6 +5016,11 @@
     if (cApres.etat === 'silence') return null;
     // Rédigée à la demande : seule la branche qui l'écrit la déclare (§20 bis).
     var prochaine = function () { return 'Prochaine séance' + DEUX_POINTS + lignesJaunes(cApres, SUIVANTE).join(', ') + '.'; };
+    // La ligne vraie de la consigne suivante, dite par le verbe de son en-tête (PR 5a, A1) ; sans ligne seule à dire, « Prochaine séance ».
+    var laLigneVraie = function () {
+      var dit = cApres.haut || !cApres.ligne ? null : verbeDeLaSuite(cApres, verbeDeLaConsigne(cApres));
+      return dit !== null ? 'La prochaine fois' + DEUX_POINTS + dit + '.' : prochaine();
+    };
 
     if (cApres.etat === 'etirement') {
       return ditPasDePlusPetitCran(cApres.fondement.equipement, true) + DEUX_POINTS + 'ta zone s\'étire. ' +
@@ -5033,8 +5038,7 @@
       if (nivAvant !== null && fait !== null && fait <= nivAvant &&
           sansDeclarer(function () { return lignesJaunes(cAvant).join(', '); }) ===
           sansDeclarer(function () { return lignesJaunes(cApres).join(', '); })) {
-        var dit = cApres.haut || !cApres.ligne ? null : verbeDeLaSuite(cApres, verbeDeLaConsigne(cApres));
-        return dit !== null ? 'La prochaine fois' + DEUX_POINTS + dit + '.' : prochaine();
+        return laLigneVraie();
       }
       if (nivAvant !== null && fait !== null && fait <= nivAvant) return prochaine();
       // ⚠️ PRUDENT NE COMPTE PAS LES REPS QUI MANQUENT. Son déclencheur demande TOUTES les séries au haut, DEUX séances de suite.
@@ -5042,7 +5046,11 @@
       if (reglage !== 'prudent' && z !== null && fait !== null && fait < z.haut && nombre(cApres.palier) !== 0) {
         // PR 5a (A7, B2) — « il te manque N reps pour tester X » n'est vraie que si le moteur, rejouant la condition avec la réserve réellement notée,
         // propose le test à la fois d'après (49 % de fausses sinon : la zone change au lieu du test). Sinon : silence.
-        if (d.testConfirme !== true) return null;
+        // PR 5a-bis (arbitrage du 14/11/2026) — mais le silence est PERDU pour la personne : quand le moteur ne confirme pas le test, l'annonce retombe sur la LIGNE
+        // VRAIE de la consigne suivante, dite par le même verbe que son en-tête (« La prochaine fois : une rep de plus, 90 kg × 6. »), jamais sur rien.
+        if (d.testConfirme !== true) {
+          return laLigneVraie();
+        }
         var manque = z.haut - fait;
         return 'Il te manque ' + (manque === 1 ? 'une rep' : nombreFr(manque, regle('manque')) + ' reps') +
                ' pour tester ' + (d.cranApproche === true ? '≈' + INSECABLE : '') + enKg(d.cranSuivant, regle('cran_suivant')) + '.';

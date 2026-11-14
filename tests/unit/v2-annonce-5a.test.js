@@ -71,9 +71,12 @@ describe('« Il te manque N reps pour tester X kg » : confirmée par le moteur,
     expect(esp(M.annonceDe('suite', { cAvant: prog(9, { niveau: 7 }), cApres: prog(9, { niveau: 8 }), z: ZONE, reglage: 'normal', fait: 8, cranSuivant: 72.5, testConfirme: true })))
       .toBe('Il te manque 2 reps pour tester 72,5 kg.');
   });
-  test('non confirmée : SILENCE (null), jamais une phrase de repli qui promette un test', () => {
-    expect(M.annonceDe('suite', { cAvant: cA, cApres: Object.assign({}, cB), z: ZONE, reglage: 'normal', fait: 9, cranSuivant: 72.5, testConfirme: false })).toBeNull();
-    expect(M.annonceDe('suite', { cAvant: cA, cApres: Object.assign({}, cB), z: ZONE, reglage: 'normal', fait: 9, cranSuivant: 72.5 })).toBeNull();
+  test('non confirmée : jamais « Il te manque » ni un test promis ; la LIGNE VRAIE de la consigne suivante (arbitrage PR 5a-bis), jamais le silence', () => {
+    [{ testConfirme: false }, {}].forEach((x) => {
+      const t = esp(M.annonceDe('suite', Object.assign({ cAvant: cA, cApres: Object.assign({}, cB), z: ZONE, reglage: 'normal', fait: 9, cranSuivant: 72.5 }, x)));
+      expect(t).toMatch(/^(La prochaine fois|Prochaine séance) : /);
+      expect(t).not.toMatch(/Il te manque|tester/);
+    });
   });
   test('la condition est REJOUÉE par `suiteDExercice` avec la réserve réellement notée : sans marge, le test ne vient pas (jamais une réserve favorable inventée)', () => {
     const o = { mesure: 'charge_reps', equipement: 'poulie', intention: 'progresser', reglage: 'normal', edition: false };

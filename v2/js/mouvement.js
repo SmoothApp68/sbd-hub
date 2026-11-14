@@ -375,7 +375,11 @@
     oiseau_un_bras_poulie: 'oiseau_un_bras_poulie.json',
     face_pull_elastique: 'face_pull_elastique.json',
     ecarte_inverse_elastique: 'ecarte_inverse_elastique.json',
-    elevation_y_incline_haltere: 'elevation_y_incline_haltere.json'
+    elevation_y_incline_haltere: 'elevation_y_incline_haltere.json',
+    leg_curl_allonge_une_jambe: 'leg_curl_allonge_une_jambe.json',
+    leg_curl_assis_une_jambe: 'leg_curl_assis_une_jambe.json',
+    leg_curl_haltere: 'leg_curl_haltere.json',
+    leg_extension_elastique: 'leg_extension_elastique.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

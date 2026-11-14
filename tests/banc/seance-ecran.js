@@ -10629,7 +10629,10 @@ const SETS_IMPORTES = [
     CATALOGUE.splice(CATALOGUE.length - 1, 1);
     base.sessions = sessionsAvant; base.sets = setsAvant; base.predictions = predictionsAvant;
     base.profiles[0].objectif = profilAvant.objectif; base.profiles[0].objectif_depuis = profilAvant.depuis; base.profiles[0].cartes_semaine = profilAvant.cartes;
+    // LA REMISE EN ÉTAT DE L'APPAREIL : le bloc est aussi dans le cache de l'app (il y reste après le serveur : sans ce nettoyage, la carte « semaine allégée »
+    // de la section 7 G undecies se tait, la décharge de ce bloc étant à moins de 14 jours).
     base.blocs = base.blocs.filter((b) => b.id !== 'b-dr');
+    await retirerBlocsDeLAppareil();
     rendreBlocs5b1();
     await aller('/saisie');
     ok('[5b-1] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));

@@ -87,3 +87,40 @@ describe('I163 — un test proposé et laissé de côté se nomme, sans que le p
     expect(T.verifierPlan(plan, entrees).erreurs).toEqual([]);
   });
 });
+
+// PR 4b (MOTEUR §9.47) — la branche 68B fusionnée : une série à fond qui tient la cible se dit dans « Cible faite », sa cause lue sur le jugement du
+// moteur ; I162 relit « sans marge » dans le verdict contre ce jugement (jamais contre le verbe de la consigne du jour, qui parle de la séance d'avant).
+describe('PR 4b — « Cible faite … sans marge » : I162 lit le verdict contre le jugement de la cible', () => {
+  const planFond = (rpes) => {
+    const series = [5, 5, 5].map((r, i) => Object.assign(serie('t' + (i + 1), 125, r), rpes[i] ? { rpe: rpes[i] } : {}));
+    const suite = M.suiteDExercice(HISTOIRE, { seance: { debut: AVANT }, series: series }, ETAT.terre, APRES, OPTS);
+    const entrees = { seance: { id: 'S', debut: AVANT, edition: false, exercices: [{ exercise_slug: 'terre', series }] },
+      consignes: { terre: CONS }, reglage: 'normal', paris: [],
+      suites: suite ? { terre: { consigne: suite.apres.consigne, cranSuivant: suite.cranSuivant } } : {} };
+    return { entrees, plan: T.planDeSeance(entrees) };
+  };
+  const i16x = (p, e) => T.verifierPlan(p, e).erreurs.filter((m) => /^I16[23]/.test(m));
+  test('5, 5, 5 dont la première à fond : « Cible faite : …, une série sans marge. », le jugement porte la cause, rien à signaler', () => {
+    const { entrees, plan } = planFond([10, null, null]);
+    const k = plan.exercices[0].constat;
+    expect(esp(k.verdict)).toBe('Cible faite : 125 kg × 5, 5, 5, une série sans marge.');
+    expect(k.cible.sansMarge).toEqual({ derniere: false });
+    expect(i16x(plan, entrees)).toEqual([]);
+  });
+  test('⚠️ DISCRIMINANT — le même verdict sans que le jugement porte la cause : I162 le voit', () => {
+    const { entrees, plan } = planFond([10, null, null]);
+    plan.exercices[0].constat.cible.sansMarge = null;
+    expect(i16x(plan, entrees).join(' ')).toMatch(/I162 .*le constat imprime la cause « sans marge » alors que le jugement de la cible n’en porte aucune/);
+  });
+  test('⚠️ DISCRIMINANT — « la dernière » dit devant une série à fond qui n\'est pas la dernière : I162 le voit', () => {
+    const { entrees, plan } = planFond([10, null, null]);
+    plan.exercices[0].constat.verdict = 'Cible faite : 125 kg × 5, 5, 5, la dernière sans marge.';
+    expect(i16x(plan, entrees).join(' ')).toMatch(/I162 .*le constat dit « la dernière » alors que la série à fond n’est pas la dernière/);
+  });
+  test('sans série à fond : « Cible faite » sans cause', () => {
+    const { entrees, plan } = planFond([null, null, null]);
+    expect(esp(plan.exercices[0].constat.verdict)).toBe('Cible faite : 125 kg × 5, 5, 5.');
+    expect(plan.exercices[0].constat.cible.sansMarge).toBeNull();
+    expect(i16x(plan, entrees)).toEqual([]);
+  });
+});

@@ -6250,7 +6250,7 @@
     if (nombre(cApres.palier) !== null && charge !== null && !egale(nombre(cApres.palier), charge)) return neutre;
     var reps = aLaCharge.map(function (q) { return nombre(q.reps); });
     if (reps.some(function (r) { return r === null; })) return neutre;
-    var rendu = { etat: 'neutre', charge: charge, vise: vise, reps: reps, toleres: 0, haut: haut };
+    var rendu = { etat: 'neutre', charge: charge, vise: vise, reps: reps, toleres: 0, haut: haut, sansMarge: null };
     if (aLaCharge.length < nL) return rendu;
     var couvertes = reps.slice(0, nL);
     var enPlus = reps.length > nL && !haut;
@@ -6262,6 +6262,13 @@
       if (couvertes.some(function (r) { return r < vise - 1; })) return rendu;
       rendu.toleres = sous.length;
       rendu.etat = haut ? 'test_non_fait' : 'faite';
+      // PR 4b (68B fusionnée, MOTEUR §9.47) — la cause « sans marge » d'une cible faite : une série À FOND a tenu la cible. Elle se lit sur le verbe
+      // de la consigne d'après (le même prédicat que le gris et le Pourquoi, `verbeDeLaConsigne`) : jamais devant une ligne qui monte, jamais pour
+      // une population protégée (`cause`), et seulement à la charge de la ligne.
+      if (rendu.etat === 'faite' && cApres.ligne && egale(nombre(cApres.ligne.charge), charge)) {
+        var vSm = verbeDeLaConsigne(cApres);
+        if (vSm.cause && vSm.sansMarge) rendu.sansMarge = { derniere: vSm.sansMarge.derniere === true };
+      }
       return rendu;
     }
     // Le niveau est sous la cible : « Pas encore » seulement si une série couverte l'était vraiment, sans série en plus, hors
@@ -6364,21 +6371,15 @@
              quand(av.date, reference, false, cite(FAIT, { quoi: 'palier' })) +
              ', ' + nombreFr(fait, regle('niveau.jour')) + ' aujourd\'hui' + haut + '.';
     }
-    // §17.4 révisé (68B) — la rep en moins d'une série à fond fait manquer la
-    // rep de plus, mais les reps faites l'ont : « tenu, sans marge », jamais
-    // « pas encore » pour des reps faites.
-    var nivFaitJour = ap.serieAFond ? nombre(ap.serieAFond.niveauFait) : null;
-    // (En Franc, le fait du jour est déjà la meilleure série en reps faites :
-    // arrivé ici, ses reps faites n'ont pas dépassé non plus.)
-    if (nivAvant !== null && nivFaitJour !== null && nivFaitJour > nivAvant) {
-      return faitDuJour() + DEUX_POINTS + 'tenu, sans marge.';
-    }
+    // « Les mots disent vrai », PR 4b (I163, MOTEUR §9.47) — la branche 68B (« tenu, sans marge ») n'existe plus : une série à fond dont les reps
+    // faites tiennent la cible est « Cible faite », avec sa cause (`cibleFaite.sansMarge`), le même prédicat que les autres cibles.
     // « Les mots disent vrai », PR 2 (I163) — « Cible faite » et « Pas encore » se décident par UN prédicat (`cibleFaite`) ; ce que
     // le prédicat ne tranche pas se dit sans jugement : « Aujourd'hui », comme une séance plus légère.
     var cf = cibleFaite(cAvant, cApres, seriesDuJour);
     if (sortie) sortie.repli = true;
     if (cf.etat === 'faite') {
-      return 'Cible faite' + DEUX_POINTS + faitDuJour() + '.' +
+      return 'Cible faite' + DEUX_POINTS + faitDuJour() +
+        (cf.sansMarge ? (cf.sansMarge.derniere ? ', la dernière sans marge' : ', une série sans marge') : '') + '.' +
         (cf.toleres === 1 ? ' Une série à une rep sous la cible est tolérée.'
           : cf.toleres > 1 ? ' Les séries à une rep sous la cible sont tolérées.' : '');
     }
@@ -10932,7 +10933,7 @@
     // (I163 : la place de l'ancien « Pas encore » — la dernière branche du verdict — reste celle que la montée remplace.)
     var contredit = !!m && (/^Pas de palier/.test(base.verdict || '') || /^Pas encore/.test(base.verdict || '') || d.repli === true);
     if (!contredit) Modele().reporter(d.verdict.citations);
-    var cible = d.cible ? { etat: d.cible.etat, charge: d.cible.charge, vise: d.cible.vise } : null;
+    var cible = d.cible ? { etat: d.cible.etat, charge: d.cible.charge, vise: d.cible.vise, sansMarge: d.cible.sansMarge || null } : null;
     if (m) {
       return { verdict: contredit
                  ? 'La montée du coach a tenu' + DEUX_POINTS + chargeFois(m.charge, m.reps, cite(FAIT, { quoi: 'du_jour' })) +

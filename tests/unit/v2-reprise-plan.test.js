@@ -156,16 +156,16 @@ describe('49-U5 — règle 1 à la source : la consigne d’une reprise longue g
     const k = M.consignePour(H, AVANT, { reglage: 'normal', equipement: 'machine' });
     expect([k.etat, k.palier, k.ligne]).toEqual(['reprise_longue', 32, { charge: 32, vise: 12 }]);
     // §20.2 (49-U9) — la reprise longue plafonnée se distingue enfin de la courte.
-    expect(esp(M.libellesConsigne(k).gris)).toBe('Longue pause : on reprend à ta charge de travail, sans rep de plus.');
+    expect(esp(M.libellesConsigne(k).gris)).toBe('Reprise après une pause : on reprend à ta charge de travail, sans rep de plus.');
     expect(esp(M.pourquoiConsigne(k, 'normal').etat))
-      .toBe('Longue pause : on reprend à ta charge de travail, sans rep de plus. Le cran d\'en dessous descendait de plus de 10 %.');
+      .toBe('Reprise après une pause : on reprend à ta charge de travail, sans rep de plus. Le cran d\'en dessous descendait de plus de 10 %.');
   });
 
   test('témoin — un petit cran (125 → 122,5, −2 %) reste un cran sous le palier', () => {
     const B = [se('2026-03-01T18:00:00+00:00', 122.5), se('2026-03-08T18:00:00+00:00', 125), se('2026-03-15T18:00:00+00:00', 125)];
     const k = M.consignePour(B, AVANT, { reglage: 'normal', equipement: 'barre' });
     expect([k.etat, k.ligne.charge]).toEqual(['reprise_longue', 122.5]);
-    expect(esp(M.libellesConsigne(k).gris)).toMatch(/^Longue pause : on reprend un cran en dessous, à 122,5 kg/);
+    expect(esp(M.libellesConsigne(k).gris)).toMatch(/^Reprise après une pause : un cran en dessous, à 122,5 kg/);
   });
 
   test('la limite : 10 % tout rond reste permis, au-delà le palier', () => {

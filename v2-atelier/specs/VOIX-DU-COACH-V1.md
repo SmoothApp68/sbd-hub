@@ -26,6 +26,7 @@
 | Zone étirée | Impossible de monter moins de 4 kg ici : tu restes à 28 kg jusqu'à 16 reps, puis tu essaies 32 kg. |
 | Proposition en séance | 125 kg × 8, 3 de plus que prévu : tu passes à 130 kg dès la série 2 ? Vise 3 à 5. |
 | Montée tenue | 130 kg × 5, dans ta zone : ton test arrive une série plus tôt. |
+| Reprise après une pause | Reprise après une pause : un cran en dessous, à 122,5 kg. — ou : Reprise après une pause : on reprend à ta charge de travail, sans rep de plus. (jamais « Longue pause », jamais la durée de l'absence) |
 | Montée pas encore tenue | 130 kg × 2 : pas encore. On revient à 125 kg pour la suite. |
 | Pas de charge répétée | Chaque série était à une charge différente : la prochaine séance repartira de mardi. |
 | Blocage | 122,5 kg depuis 4 séances, un peu plus longtemps que d'habitude chez toi. |

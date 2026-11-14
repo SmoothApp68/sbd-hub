@@ -458,7 +458,12 @@
     fente_marchee_haltere: 'fente_marchee_haltere.json',
     fente_marchee_barre: 'fente_marchee_barre.json',
     fente_laterale: 'fente_laterale.json',
-    fente_montee_de_genou: 'fente_montee_de_genou.json'
+    fente_montee_de_genou: 'fente_montee_de_genou.json',
+    kickbacks_poulie: 'kickbacks_poulie.json',
+    rear_kick_machine: 'rear_kick_machine.json',
+    kickback_fessier_quatre_pattes: 'kickback_fessier_quatre_pattes.json',
+    kickback_fessier_quatre_pattes_lest_cheville: 'kickback_fessier_quatre_pattes_lest_cheville.json',
+    dead_bug: 'dead_bug.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

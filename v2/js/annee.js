@@ -92,7 +92,7 @@
     var plage = saison ? M().MOIS_LONGS[Number(p.debut.slice(5, 7)) - 1] + (p.debut.slice(0, 4) !== p.fin.slice(0, 4) ? ' ' + p.debut.slice(0, 4) : '') +
       ' → ' + M().MOIS_LONGS[Number(p.fin.slice(5, 7)) - 1] + ' ' + p.fin.slice(0, 4) : titre;
     if (b.vide) {
-      out.push({ cle: 'vide', d: 0, lab: titre, titre: 'Pas encore de série de travail ' + nommee(vue) + '.' });
+      out.push({ cle: 'vide', d: 0, lab: titre, titre: 'Aucune série de travail ' + nommee(vue) + '.' });
       return out;
     }
     // Les tonnes, et la seule comparaison de la saison et du mois (jamais les heures ni les jours).
@@ -216,7 +216,7 @@
     out.push({ cle: 'ouverture', d: 4480, lab: 'TrainHub', chiffre: { v: p.libelle, craie: true },
                titre: 'Ton année sous la barre.', note: 'Ça défile seul. Garde le doigt posé pour lire.' });
     if (b.vide) {
-      out.push({ cle: 'vide', d: 0, lab: 'Ton année ' + p.libelle, titre: 'Pas encore de série de travail ' + nommee(vue) + '.' });
+      out.push({ cle: 'vide', d: 0, lab: 'Ton année ' + p.libelle, titre: 'Aucune série de travail ' + nommee(vue) + '.' });
       return out;
     }
     // Les tonnes.

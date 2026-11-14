@@ -1643,10 +1643,10 @@
     var bouts = [];
     // 98 (BILANS-V1) — jamais le nombre de séances : le mois dit ses tonnes ; il s'ouvre sur la story du mois.
     // 119 (audit du 16/10/2026, F8) — UN MOIS SANS TONNES N'EST PAS UN MOIS SANS SÉRIE : au poids du corps (tractions,
-    // pompes, dips), le mois dit ses séries de travail ; « Pas encore » seulement quand il n'en a aucune (les sorties
+    // pompes, dips), le mois dit ses séries de travail ; « Aucune série de travail » seulement quand il n'en a aucune (les sorties
     // seules n'en sont pas, comme la story du mois).
     bouts.push(v.kg ? tonnes(v.kg) + ' soulevées'
-      : (v.series ? grand(v.series) + ' série' + (v.series > 1 ? 's' : '') + ' de travail' : 'Pas encore de série de travail'));
+      : (v.series ? grand(v.series) + ' série' + (v.series > 1 ? 's' : '') + ' de travail' : 'Aucune série de travail'));
     if (v.records) bouts.push(pluriel(v.records, 'record'));
     if (v.paris && v.paris.verifies) bouts.push(grand(v.paris.tenus) + ' pari' + (v.paris.tenus > 1 ? 's' : '') +
       ' tenu' + (v.paris.tenus > 1 ? 's' : '') + ' sur ' + grand(v.paris.verifies));

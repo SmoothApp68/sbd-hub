@@ -116,6 +116,7 @@ describe('rejeu — la même sortie, deux fois de suite', () => {
     exercices: [{
       iExo: 0, slug: 'militaire',
       consigne: { etat: 'reprise_courte', zone: 'mix', palier: 52.5, niveau: 10, n: 4, ligne: { charge: 52.5, vise: 10 }, haut: null },
+      verbe: { verbe: 'garde_cible', famille: 'reprise', plus: 0, sansMarge: { derniere: true, protegee: false }, cause: true },
       entete: { jaune: ['52,5 kg × 10'], gris: 'Reprise après une pause.', compteur: null, plus: null },
       compteur: { compteur: 0, meilleur: null },
       chauffes: { phrase: 'Chauffes calées sur 52,5 kg : 20 · 45 kg.', situation: 'barre_legere', reference: 52.5 },
@@ -155,6 +156,8 @@ describe('rejeu — la même sortie, deux fois de suite', () => {
     expect(t.indexOf('═══ Rejeu de la séance S ═══')).toBe(0);
     expect(t).toContain('Ce qui n’est pas reconstruit exactement :');
     expect(t).toContain('consigne reprise_courte · zone mix · palier 52,5 · niveau 10 · n 4 · ligne 52,5 × 10');
+    // PR 4b — le verbe du plan (`x.verbe`) : ce que le gris, le Pourquoi et le constat disent, et la cause dite ou tue.
+    expect(t).toContain('  verbe : garde_cible · sans marge (la dernière) dite');
     expect(t).toContain('en-tête (jaune) : « 52,5 kg × 10 »');
     expect(t).toContain('chauffes : « Chauffes calées sur 52,5 kg : 20 · 45 kg. »');
     expect(t).toContain('proposition de chauffes : « Chauffe : 56 kg × 8 » → 56 × 8');

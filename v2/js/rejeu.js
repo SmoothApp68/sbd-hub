@@ -177,6 +177,11 @@
       tete += ' · sans consigne';
     }
     t.push(tete);
+    // PR 4b (MOTEUR §9.47) — le verbe unique de la consigne finale, tel que le plan le porte (`x.verbe`) : le gris, le Pourquoi et le constat le disent.
+    if (x && x.verbe && typeof x.verbe.verbe === 'string') {
+      t.push('  verbe : ' + x.verbe.verbe + (x.verbe.plus ? ' (+' + x.verbe.plus + ')' : '') +
+        (x.verbe.sansMarge ? ' · sans marge' + (x.verbe.sansMarge.derniere ? ' (la dernière)' : '') + (x.verbe.cause ? ' dite' : ' tue') : ''));
+    }
     if (x && x.entete) {
       if ((x.entete.jaune || []).length) t.push('  en-tête (jaune) : ' + x.entete.jaune.map(cite).join(' · '));
       if (x.entete.gris) t.push('  en-tête (gris) : ' + cite(x.entete.gris));

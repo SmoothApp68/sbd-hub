@@ -15758,7 +15758,8 @@ const SETS_IMPORTES = [
         exoP.force.length === 1 && /^Force estimée/.test(exoP.force[0]) && /d’après 125\s*kg\s*×\s*5/.test(sp(exoP.force[0])) &&
         /≈\s*146\s*kg/.test(sp(exoP.force[0])) && !exoP.forceDansRecords, JSON.stringify(exoP));
     ok('[P55] le tableau à reps égales : 1, 3, 5 reps à 125 kg (8 et 10 reps jamais faits) ; rien il y a 6 mois ni 1 an, aucun écart',
-      exoP && exoP.tete.join('|') === 'Au moins|Record|Le|Il y a 6 mois|Il y a 1 an' &&
+      exoP && exoP.tete.map((t) => t.replace(/^(Il y a (?:6 mois|1 an)).*$/, '$1')).join('|') === 'Au moins|Record|Le|Il y a 6 mois|Il y a 1 an' &&
+        /^Il y a 6 mois14 mai$/.test(exoP.tete[3]) && /^Il y a 1 an14 nov\. 2025$/.test(exoP.tete[4]) &&   // mots PR 6 : la date de chaque colonne dessous
         JSON.stringify(exoP.lignes.map((l) => [l[0], sp(l[1]), l[3], l[4]])) ===
           JSON.stringify([['1 rep', '125 kg', '—', '—'], ['3 reps', '125 kg', '—', '—'], ['5 reps', '125 kg', '—', '—']]) &&
         exoP.plus === 0, JSON.stringify(exoP));

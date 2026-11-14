@@ -8901,7 +8901,8 @@
       });
       var r = Moteur.suiteDExercice(
         anterieures,
-        { seance: { debut: seance.debut }, series: faites },
+        // PR 5a-bis (MOTEUR §9.48 bis, I167) — le groupe du jour porte son `routine_id` (`faits.groupeDuJour`, la fabrique que lisent aussi les campagnes).
+        faits.groupeDuJour(seance, faites),
         etatDuMoteur(slug, options.salle, anterieures), rejeuEnCours ? rejeuEnCours.instant : new Date().toISOString(),
         options);
       var parSlug = Object.assign({}, constats.parSlug);

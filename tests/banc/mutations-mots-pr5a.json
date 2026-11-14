@@ -10,8 +10,8 @@
  {
   "nom": "mots-5a-il-te-manque-sans-simulation",
   "fichier": "v2/js/moteur.js",
-  "ancien": "if (d.testConfirme !== true) return null;",
-  "nouveau": "if (false) return null;",
+  "ancien": "if (d.testConfirme !== true) {",
+  "nouveau": "if (false) {",
   "banc": "aucun",
   "unitaires": ["tests/unit/v2-annonce-5a.test.js", "tests/unit/v2-annonces-campagne.test.js", "tests/unit/v2-moteur-parle.test.js"]
  },

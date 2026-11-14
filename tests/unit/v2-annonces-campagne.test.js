@@ -13,8 +13,12 @@ require('../../v2/js/palier.js');
 require('../../v2/js/profil.js');
 require('../../v2/js/semaine.js');
 const M = require('../../v2/js/moteur.js');
+const Faits = require('../../v2/js/faits.js').creer();
 
-const O = { mesure: 'charge_reps', equipement: 'poulie', intention: 'progresser', reglage: 'normal', edition: false };
+// PR 5a-bis — comme l'app (`suiteDe`) : la zone du plan et celle des routines sont PASSÉES (la 5a n'en passait aucune : la zone se lisait par l'habitude, et le défaut
+// de la séance du jour sans `routine_id` y était invisible), et le groupe du jour sort de `faits.groupeDuJour`, la fabrique de l'app — un jour SANS `routine_id`
+// n'existe plus dans l'app, et la campagne ne le fabrique pas non plus.
+const O = { mesure: 'charge_reps', equipement: 'poulie', intention: 'progresser', reglage: 'normal', edition: false, zonePlan: 'hypertrophie', zonesDeRoutine: { R: 'hypertrophie' } };
 const esp = (t) => String(t == null ? '' : t).replace(/[\u00a0\u202f]/g, ' ');
 let g = 20261114;
 const al = () => { g = (g * 1664525 + 1013904223) >>> 0; return g / 4294967296; };
@@ -25,7 +29,7 @@ const lg = (c) => (c && c.ligne ? c.ligne.charge + 'x' + c.ligne.vise : '-');
 
 function campagne(reglage) {
   const o = Object.assign({}, O, { reglage: reglage });
-  const C = { seances: 0, annonces: 0, silence: 0, meme_cible: 0, verbe: 0, verbe_faux: 0, prochaine: 0, prochaine_fausse: 0, manque: 0, manque_non_tenue: 0, manque_candidates: 0, ligne_des_annonces: [] };
+  const C = { seances: 0, suite_datee_avant: 0, annonces: 0, silence: 0, meme_cible: 0, verbe: 0, verbe_faux: 0, prochaine: 0, prochaine_fausse: 0, manque: 0, manque_non_tenue: 0, manque_candidates: 0, ligne_des_annonces: [] };
   g = 20261114;
   for (let a = 0; a < 80; a++) {
     const slug = ['rowing_poulie_assis', 'leg_curl_assis', 'elevation_laterale_poulie'][a % 3];
@@ -45,9 +49,12 @@ function campagne(reglage) {
       const jr = [jour, Array.from({ length: nn }, (_, i) => [ch, Math.max(1, reps - (i === nn - 1 && al() < 0.3 ? 1 : 0)),
         i === nn - 1 ? (al() < pFond ? 'reste_0' : al() < 0.5 ? 'reste_1' : 'reste_2') : null])];
       const gj = groupes(slug, [jr])[0];
-      const su = M.suiteDExercice(gr, gj, undefined, jour.replace('17:00', '20:00'), o);
+      const gjApp = Faits.groupeDuJour({ debut: jr[0], routine_id: 'R' }, gj.series);
+      const su = M.suiteDExercice(gr, gjApp, undefined, jour.replace('17:00', '20:00'), o);
       C.seances++;
       if (!su) { hist.push(jr); continue; }
+      // I167 : la suite est écrite sur la consigne d'APRÈS la séance du jour (sa date est le jour civil de la séance), jamais sur celle d'avant.
+      if (!su.apres.consigne.fondement || !su.apres.consigne.fondement.date || M.jourCivil(su.apres.consigne.fondement.date) !== M.jourCivil(jour)) C.suite_datee_avant++;
       const k = M.constatDuJour(c, su.apres.consigne, reglage, su.cranSuivant,
         { series: gj.series.map((x) => ({ charge_kg: x.charge_kg, reps: x.reps })) }, jour, su.cranSuivantApprochee === true, su.testConfirme === true);
       const ann = k && k.suite ? esp(k.suite) : null;
@@ -109,13 +116,18 @@ describe('la campagne des annonces : l’annonce dit la fois suivante RÉELLE (P
       test('aucune annonce démentie par la consigne suivante (verbe, ligne, « Prochaine séance »)', () => {
         expect(C.ligne_des_annonces).toEqual([]);
         expect([C.verbe_faux, C.prochaine_fausse]).toEqual([0, 0]);
-        // Normal : les 283 anciens « Même cible » sont devenus 283 annonces de verbe ; les 520 « Prochaine séance » sont inchangées.
-        expect([C.verbe, C.prochaine]).toEqual(reglage === 'normal' ? [283, 520] : [212, 608]);
+        // PR 5a-bis : la zone du plan et celle des routines sont passées comme l'app le fait (la 5a lisait la zone par l'habitude : 283 verbes et 520
+        // « Prochaine séance » en Normal), et la candidate « Il te manque » non confirmée retombe sur la ligne vraie au lieu du silence.
+        expect([C.verbe, C.prochaine]).toEqual(reglage === 'normal' ? [252, 591] : [132, 707]);
+        // I167 : aucune suite n'est écrite sur la consigne d'AVANT la séance du jour.
+        expect(C.suite_datee_avant).toBe(0);
       });
       test('« Il te manque N reps » : toujours tenue quand la personne fait pile ce qui manque ; les candidates non confirmées se taisent', () => {
         expect(C.manque_non_tenue).toBe(0);
-        // Avant la PR : 77 « Il te manque » en Normal, dont 38 démenties ; aujourd'hui 18 dites (toutes tenues) et 59 tues. En Franc : 60 candidates, 30 confirmées, 30 tues.
-        expect([C.manque, C.manque_candidates]).toEqual(reglage === 'normal' ? [18, 59] : [30, 30]);
+        // Avant la 5a : 77 « Il te manque » en Normal, dont 38 démenties. Zone du plan passée (5a-bis) : Normal 37 dites (toutes tenues) et 21 candidates non
+        // confirmées, Franc 41 dites et 1 candidate ; chaque candidate dit désormais la ligne vraie (aucun silence : `silence` = 0 dans les deux réglages).
+        expect([C.manque, C.manque_candidates]).toEqual(reglage === 'normal' ? [37, 21] : [41, 1]);
+        expect(C.silence).toBe(0);
       });
       test('le silence reste rare (C6 : alerte à 15 % des séances-exercices)', () => {
         expect(C.silence / C.seances).toBeLessThan(0.15);

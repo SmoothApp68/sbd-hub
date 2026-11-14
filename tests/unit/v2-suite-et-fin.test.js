@@ -119,7 +119,7 @@ describe('PR 2 — la suite du constat suit la zone en vigueur', () => {
       cleConsignes: () => 'k', empreinteValidations: () => 'e', exerciceFini: () => true,
       seriesDeTravailDe: () => [],
       // 58-1 : les séances d'un exercice viennent du module des faits.
-      faits: { seancesDeLExercice: () => [] }, corpus: () => ({}),
+      faits: { seancesDeLExercice: () => [], groupeDuJour: (s, series) => ({ seance: { debut: s.debut, routine_id: s.routine_id || null }, series }) }, corpus: () => ({}),
       zoneDe: () => etat.zone, seancesSousConsigne: () => [],
       // 193-3 : la zone que la routine fixe pour le jour (aucune ici : Automatique).
       zonePlanDe: () => null, zonePlanOrigineDe: () => null, zonesDeRoutineDe: () => null,

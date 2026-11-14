@@ -358,6 +358,19 @@
     var k = suite.consigne;
     c.suiteCharges = [k.ligne ? k.ligne.charge : null, k.haut ? k.haut.charge : null];
     c.suiteEtat = k.etat || null;
+    // PR 5a-bis (I167, MOTEUR §9.48 bis) — LA SUITE LIT AUJOURD'HUI : le jour civil de la consigne dont l'annonce est écrite, le jour civil de la séance, et
+    // « une charge est répétée aujourd'hui » (§7.6 : au moins deux séries de travail faites à la même charge). `verifierSuiteAujourdhui` les relit.
+    var M167 = Moteur();
+    var charges167 = {}, repetee167 = false;
+    faitsDuJour(lignes, consigne).series.forEach(function (q) {
+      if (q.charge_kg === null || q.charge_kg === undefined) return;
+      var cle = String(q.charge_kg);
+      charges167[cle] = (charges167[cle] || 0) + 1;
+      if (charges167[cle] >= 2) repetee167 = true;
+    });
+    c.suiteDate = k.fondement && k.fondement.date ? M167.jourCivil(k.fondement.date) : null;
+    c.jourDuConstat = reference ? M167.jourCivil(reference) : null;
+    c.chargeRepetee = repetee167;
     // §20 bis (49-U19) — les lignes de la prochaine séance, telles que la
     // consigne suivante les donne : la source des cibles suivantes (I26).
     var ft = k.fondement && k.fondement.test ? k.fondement.test : null;
@@ -6485,6 +6498,7 @@
     verifierDecharge(plan, erreurs);
     verifierVerbe(plan, erreurs);
     verifierAnnonce(plan, erreurs);
+    verifierSuiteAujourdhui(plan, erreurs);
     verifierVoixDuZero(plan, entrees, erreurs);
     verifierLeviers(plan, erreurs);
     verifierHorsCalcul(plan, entrees, erreurs);
@@ -7387,6 +7401,19 @@
         }
         if (/jusqu[’']à l[’']échec|à l[’']échec/.test(t) && lieu !== 'le constat' && v.cause) erreurs.push('I162' + nom + lieu + ' dit « échec » : le verbe ne le dit jamais (aucune marque d’échec posée) : ' + t);
       });
+    });
+  }
+  // I167 (chantier « Les mots disent vrai », PR 5a-bis, MOTEUR §9.48 bis) — LA SUITE LIT AUJOURD'HUI. Quand une charge est répétée aujourd'hui (au moins deux
+  // séries de travail faites à la même charge, §7.6), la consigne dont l'annonce est écrite (`suite.consigne`) est celle d'APRÈS la séance du jour : sa date
+  // (`fondement.date`) est le jour civil de la séance. Une annonce écrite sur une consigne plus ancienne redit la fois d'AVANT (« une rep de plus, 90 kg × 5 »
+  // après 5, 5, 5, 5 à 90 kg, quand la suite vraie est 90 kg × 6) : I162 et I164 ne la voient pas, la ligne et le niveau dits sortent du même objet périmé.
+  // Une date INCONNUE (une consigne sans fondement daté) n'est pas jugée : seule une date ANTÉRIEURE est une erreur.
+  function verifierSuiteAujourdhui(plan, erreurs) {
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var c = x && x.constat;
+      if (!c || typeof c.suite !== 'string' || c.suite === '' || c.chargeRepetee !== true) return;
+      if (typeof c.suiteDate !== 'string' || typeof c.jourDuConstat !== 'string') return;
+      if (c.suiteDate < c.jourDuConstat) erreurs.push('I167 — exercice ' + i + ' (' + x.slug + ') : l\'annonce « ' + c.suite + ' » est écrite sur la consigne du ' + c.suiteDate + ', pas sur la séance du ' + c.jourDuConstat);
     });
   }
   // I164 (chantier « Les mots disent vrai », PR 5a, MOTEUR §9.48) — UNE ANNONCE NE PROMET QUE CE QUE LE MOTEUR FERA. Relue sur `x.constat.suite` (le texte,

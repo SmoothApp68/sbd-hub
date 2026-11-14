@@ -1457,9 +1457,13 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
         // jamais une promesse de test que le moteur ne tiendrait pas). Les cas du fichier dont la phrase n'est pas confirmée sont listés ici.
         const confirme = ID_CONFIRMES.indexOf(c.id) >= 0;
         const dit = /^Il te manque/.test(attendu.constat.suite || '');
+        // PR 5a-bis : la candidate non confirmée dit la LIGNE VRAIE de la consigne suivante (jamais « Il te manque », jamais le silence).
         const constat = dit && !confirme ? Object.assign({}, attendu.constat, { suite: null }) : attendu.constat;
         if (dit) expect([quoi, c.id, r.testConfirme === true]).toEqual([quoi, c.id, confirme]);
-        expect([quoi, c.id, r.constat]).toEqual([quoi, c.id, constat]);
+        if (dit && !confirme) {
+          expect([quoi, c.id, /^(La prochaine fois|Prochaine séance) : .*\d/.test(String(r.constat.suite).replace(/[\u00a0\u202f]/g, ' ')) && !/Il te manque/.test(r.constat.suite)]).toEqual([quoi, c.id, true]);
+          expect([quoi, c.id, Object.assign({}, r.constat, { suite: null })]).toEqual([quoi, c.id, constat]);
+        } else expect([quoi, c.id, r.constat]).toEqual([quoi, c.id, constat]);
         expect([quoi, c.id, r.cranSuivant]).toEqual([quoi, c.id, attendu.cranSuivant]);
       });
     });

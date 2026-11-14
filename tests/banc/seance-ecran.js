@@ -10479,6 +10479,80 @@ const SETS_IMPORTES = [
     ok('[SP] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
+  console.log('\n══ 5a-bis. LA SUITE LIT AUJOURD’HUI : 90 × 5 ×4, DERNIÈRE « AU MAX » RÉSERVE 0, SOUS UNE ROUTINE EN HYPERTROPHIE (MOTEUR §9.48 bis, I167) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE (diagnostic « live contre rechargé », 14/11/2026). Une routine qui FIXE la zone Hypertrophie (8-10) ; deux séances d'avant à
+  // 90 kg × 5 (routine_id posé) ; aujourd'hui 90 × 5 quatre fois, la dernière « Au max » à réserve 0. En séance, `suiteDe` passait la séance du jour SANS
+  // `routine_id` : 5 reps sous une zone 8-10 tombait dans Lourd, le jour sortait de la zone du plan et l'annonce redisait la fois d'HIER (« une rep de plus,
+  // 90 kg × 5 ») ; la vraie suite est 90 kg × 6. Le rechargement (F2, les routines non chargées à la reprise) est une autre PR : il n'est pas joué ici.
+  {
+    const rendreBlocs5ab = await retirerBlocsDeLAppareil();
+    CATALOGUE.push({ slug: 'dl-a', nom: 'Développé Couché DL (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['pectoraux'], muscles_secondaires: [] });
+    const t5ab = Date.now();
+    const sessionsAvant = base.sessions, setsAvant = base.sets, predictionsAvant = base.predictions, routinesAvant = ROUTINES.length;
+    const profilAvant = { objectif: base.profiles[0].objectif, depuis: base.profiles[0].objectif_depuis, cartes: base.profiles[0].cartes_semaine };
+    const violationsAvant = gardeBanc.violations;
+    base.sessions = []; base.sets = []; base.predictions = [];
+    base.profiles[0].objectif = 'les_deux'; base.profiles[0].objectif_depuis = '2026-01-01'; base.profiles[0].cartes_semaine = null;
+    [[10, [[90, 5], [90, 5], [90, 5]]], [3, [[90, 5], [90, 4]]]].forEach(([j, series], i) => {
+      const id = 'dl-' + i, debut = ilYa(j * 86400000, t5ab).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'DL — ' + id, debut, fin: finDe(debut, t5ab).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: 'r-dl', source: 'app', created_at: debut });
+      series.forEach(([kg, r], k) => base.sets.push({ id: id + '-s' + (k + 1), session_id: id, user_id: 'u-banc', exercise_slug: 'dl-a',
+        charge_kg: kg, reps: r, duree_s: null, distance_m: null, type_serie: 'travail', rang: k + 1, groupe_superset: null, validee_a: debut,
+        rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    });
+    ROUTINES.push({ id: 'r-dl', nom: 'Haut B DL', note: null, archivee_a: null, created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-dl-0', routine_id: 'r-dl', exercise_slug: 'dl-a', rang: 0, zone: 'hypertrophie', routine_sets: progr(4, 8), repos_cible_s: 180, groupe_superset: null, note: null }] });
+    const esp = (t) => String(t || '').replace(/[  ]/g, ' ');
+    const lire5ab = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier, x = d && d.plan.exercices[0];
+      return { verdict: (document.querySelector('.legende-exo .constat') || {}).textContent || null,
+        suite: (document.querySelector('.legende-exo .constat-suite') || {}).textContent || null,
+        planConstat: x && x.constat ? { suite: x.constat.suite, suiteLignes: x.constat.suiteLignes, suiteDate: x.constat.suiteDate, jourDuConstat: x.constat.jourDuConstat, chargeRepetee: x.constat.chargeRepetee } : null,
+        erreurs: d ? window.THPlan.verifierPlan(d.plan, d.entrees).erreurs : ['aucun plan'] };
+    });
+    await aller('/saisie');
+    await demarrerRoutine('Haut B DL');
+    await attendreQue(() => page.evaluate(() => document.querySelectorAll('.ligne-serie').length >= 4 && !!(window.THPlan && window.THPlan.dernier)), 15000, '5a-bis · la séance est ouverte');
+    await saisirSerie(0, 90, 5);
+    await saisirSerie(1, 90, 5);
+    await saisirSerie(2, 90, 5);
+    // 4e série en « Au max » (menu de la série), puis la grille d'effort : réserve 0.
+    gardeBanc.suspendue = true;
+    await page.evaluate(() => document.querySelectorAll('.ligne-serie')[3].querySelector('.no-serie').click());
+    await feuilleOuverte('.feuille-menu button');
+    await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => /^Au max/.test(b.textContent.trim()))[0].click());
+    await feuilleFermee().catch(() => {});
+    await saisirSerie(3, 90, 5);
+    await page.evaluate(() => { const e = document.querySelectorAll('.ligne-serie')[3].querySelector('.eff-serie'); if (e) e.click(); });
+    await feuilleOuverte('.grille-rir, .grille-rpe');
+    const departReserve = await departGeste();
+    await page.evaluate(() => { const b = Array.from(document.querySelectorAll('#feuille-contenu button')).filter((x) => x.textContent.trim().charAt(0) === '0')[0]; if (b) b.click(); });
+    await calmeApres(departReserve);
+    await attendreQue(() => page.evaluate(() => !!(document.querySelector('.legende-exo .constat-suite') || {}).textContent), 8000, '5a-bis · le constat de fin de bloc paraît');
+    const live = await lire5ab();
+    const autres = (live.erreurs || []).filter((e) => !/^I4\b/.test(e));
+    const etatApp = await page.evaluate(() => { const e = window.THPlan.garde.etat(); return { plans: e.plans, violations: e.violations.length }; });
+    gardeBanc.app = etatApp; gardeBanc.suspendue = false; gardeBanc.avant = null;
+    ok('[5a-bis] DISCRIMINANT — EN SÉANCE, après 5, 5, 5, 5 à 90 kg, l’annonce est la vraie suite : « La prochaine fois : une rep de plus, 90 kg × 6. » (avant : « … 90 kg × 5 », la fois d’hier)',
+      esp(live.suite) === 'La prochaine fois : une rep de plus, 90 kg × 6.', esp(JSON.stringify(live)));
+    ok('[5a-bis] la suite du plan est la ligne 90 × 6 (niveau 5), datée du jour de la séance (I167) — pas la fois d’avant (niveau 4)',
+      !!live.planConstat && live.planConstat.suiteLignes.ligne.charge === 90 && live.planConstat.suiteLignes.ligne.vise === 6 && live.planConstat.suiteLignes.niveau === 5 &&
+      live.planConstat.chargeRepetee === true && live.planConstat.suiteDate === live.planConstat.jourDuConstat, esp(JSON.stringify(live.planConstat)));
+    ok('[5a-bis] le verdict du jour dit la séance du jour (5 reps aujourd’hui), pas une séance neutre', /5 aujourd.hui/.test(esp(live.verdict)), esp(live.verdict));
+    ok('[5a-bis] verifierPlan ne parle pas (hors I4 de la grille d’effort) : ni I164, ni I167', autres.length === 0, JSON.stringify(autres.slice(0, 2)));
+    ok('[5a-bis] la garde (C6) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant, JSON.stringify(gardeBanc.liste.slice(-2)));
+    await abandonner();
+    ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
+    CATALOGUE.splice(CATALOGUE.length - 1, 1);
+    base.sessions = sessionsAvant; base.sets = setsAvant; base.predictions = predictionsAvant;
+    base.profiles[0].objectif = profilAvant.objectif; base.profiles[0].objectif_depuis = profilAvant.depuis; base.profiles[0].cartes_semaine = profilAvant.cartes;
+    rendreBlocs5ab();
+    await aller('/saisie');
+    ok('[5a-bis] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
   console.log('\n══ 7 G sexies. LE DÉVERROUILLAGE EN PLEINE SÉANCE NE PERD PLUS RIEN (29-30/09/2026) ══');
   //
   // La séance du 29/09, rejouée. Hors réseau, chaque validation « armée » se

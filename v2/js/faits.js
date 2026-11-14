@@ -216,6 +216,14 @@
       }).filter(Boolean);
     }
 
+    // PR 5a-bis (MOTEUR §9.48 bis, I167) — LE GROUPE DU JOUR que `app.js suiteDe` donne au moteur : la séance en cours et ses séries faites. UNE fabrique, lue par
+    // l'app ET par les campagnes (« la campagne appelle la même fabrique que l'app, elle ne la recopie pas »). Il porte le `routine_id` de la séance : la zone
+    // d'une séance se lit par sa routine, sinon par la médiane de ses reps (`Moteur.zonesDeLaSeanceDePlan`) — sans lui, 5, 5, 5, 5 sous une routine en
+    // Hypertrophie tombait dans Lourd et la suite redonnait la consigne d'HIER. Pas de `neutre` : « J'ai mal » se lit sur les séries (`sets.douleur`).
+    function groupeDuJour(seance, series) {
+      return { seance: { debut: seance.debut, routine_id: seance.routine_id || null }, series: series };
+    }
+
     // 266 (MOTEUR §9.22 ter) — LES SEMAINES DE SUITE d'un exercice : les semaines civiles (le lundi) où il a une série de travail ; la
     // série COURANTE remonte de la dernière semaine, un trou de 2 semaines au plus (trois semaines sans lui la coupent). Rend
     // `{ semaines, derniere }` (`derniere` : le lundi de la dernière semaine, jour civil) ou `null` : jamais fait, ou sa dernière
@@ -2514,6 +2522,7 @@
       TYPES_DE_LA_GUILDE: TYPES_DE_LA_GUILDE,
       seancesDuSlug: seancesDuSlug,
       seancesDeLExercice: seancesDeLExercice,
+      groupeDuJour: groupeDuJour,
       tenuesDeLExercice: tenuesDeLExercice,
       noteDeLaDerniereFois: noteDeLaDerniereFois,
       estUneNote: estUneNote,

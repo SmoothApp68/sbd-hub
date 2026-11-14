@@ -2137,6 +2137,10 @@ const NOTIONS = [
     interditAilleurs: { motif: /\bjours\s*:\s*92\b/, raison: '« 3 mois » = 90 jours (`THPeriode.JOURS_DE`), jamais 92 : la courbe, le radar et le moteur disent la même durée' },
     raison: 'MAQUETTE-PR6 R-FENETRE / R-NOMMEES : la courbe comptait en millisecondes (92 j), « ce qui a progressé » en mois pile, le Parcours en jours ' +
       'à part ; une fenêtre se compte en jours civils locaux, par la même fonction, et son nom (3 / 6 / 12 mois) se lit dans `JOURS_DE`.' },
+  { notion: 'le nom d’une période (« du 12 avr. au 11 oct. », « sept. 2026 », « cette semaine » seulement si elle contient aujourd’hui)', pr: 'correctif 14/11/2026',
+    module: 'modele.js', fonction: 'libelleDePeriode', lecteurs: ['annee.js', 'app.js', 'bilans.js', 'courbe.js', 'equilibres.js', 'rendu.js'],
+    interditAilleurs: { motif: /['"]ce mois-ci['"]|['"]cette semaine['"]/, raison: '« ce mois-ci » et « cette semaine » ne s’écrivent qu’ici, derrière `THPeriode.contient` : une période passée ne se dit jamais « ce / cette »' },
+    raison: 'MAQUETTE-PR6 R-ENCOURS / R-DATE : un écran ne choisit pas lui-même « ce mois-ci » ; il nomme la période par `Modele.libelleDePeriode`, qui lit `contient`.' },
   { notion: 'une date « il y a N mois » (calendaire, jour plafonné à la fin du mois, fin de journée locale)', pr: 'correctif 14/11/2026',
     module: 'periode.js', fonction: 'moisAvant', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['rendreExercice'] },

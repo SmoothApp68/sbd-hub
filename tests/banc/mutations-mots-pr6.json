@@ -1,0 +1,73 @@
+[
+ {
+  "nom": "pr6-M1-moisAvant-deborde",
+  "fichier": "v2/js/periode.js",
+  "ancien": "deux(Math.min(jr, dernier))",
+  "nouveau": "deux(jr)",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-periode.test.js",
+   "tests/unit/v2-periodes-mots-pr6.test.js",
+   "tests/unit/v2-parcours-mots-pr6.test.js",
+   "tests/unit/v2-courbe.test.js",
+   "tests/unit/v2-periodes-garde-pr6.test.js"
+  ]
+ },
+ {
+  "nom": "pr6-M2-courbe-3-mois-en-92-jours",
+  "fichier": "v2/js/courbe.js",
+  "ancien": "var jours = per.cle === 'tout' ? null : P.JOURS_DE[per.cle];",
+  "nouveau": "var jours = per.cle === 'tout' ? null : P.JOURS_DE[per.cle] + 2;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-periode.test.js",
+   "tests/unit/v2-periodes-mots-pr6.test.js",
+   "tests/unit/v2-parcours-mots-pr6.test.js",
+   "tests/unit/v2-courbe.test.js",
+   "tests/unit/v2-periodes-garde-pr6.test.js"
+  ]
+ },
+ {
+  "nom": "pr6-M3-contient-sans-fin",
+  "fichier": "v2/js/periode.js",
+  "ancien": "return d <= j && j <= f;",
+  "nouveau": "return d <= j;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-periode.test.js",
+   "tests/unit/v2-periodes-mots-pr6.test.js",
+   "tests/unit/v2-parcours-mots-pr6.test.js",
+   "tests/unit/v2-courbe.test.js",
+   "tests/unit/v2-periodes-garde-pr6.test.js"
+  ]
+ },
+ {
+  "nom": "pr6-M4-meilleur-dernier-mois-du-max",
+  "fichier": "v2/js/parcours.js",
+  "ancien": "return h[m] === max; })[0];",
+  "nouveau": "return h[m] === max; }).pop();",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-periode.test.js",
+   "tests/unit/v2-periodes-mots-pr6.test.js",
+   "tests/unit/v2-parcours-mots-pr6.test.js",
+   "tests/unit/v2-courbe.test.js",
+   "tests/unit/v2-periodes-garde-pr6.test.js"
+  ]
+ },
+ {
+  "nom": "pr6-temoin",
+  "fichier": "v2/js/periode.js",
+  "ancien": "  function dans(date, fenetre) {",
+  "nouveau": "  function dans(date, fenetre) {",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-periode.test.js",
+   "tests/unit/v2-periodes-mots-pr6.test.js",
+   "tests/unit/v2-parcours-mots-pr6.test.js",
+   "tests/unit/v2-courbe.test.js",
+   "tests/unit/v2-periodes-garde-pr6.test.js"
+  ],
+  "attendu": "survit"
+ }
+]

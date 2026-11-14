@@ -66,7 +66,7 @@ function constatBrut(groupes, groupeDuJour, etat, avant, apres, options) {
   const s = Moteur.suiteDExercice(groupes, groupeDuJour, etat, apres, o);
   if (!s) return null;
   return { avant: cAvant, apres: s.apres, cranSuivant: s.cranSuivant,
-    constat: Moteur.constatDe(cAvant.consigne, s.apres.consigne, o.reglage, s.cranSuivant) };
+    constat: Moteur.constatDe(cAvant.consigne, s.apres.consigne, o.reglage, s.cranSuivant, undefined, undefined, s.testConfirme === true), testConfirme: s.testConfirme };
 }
 let n = 0;
 const uuid = () => 'id-' + (++n);
@@ -1248,7 +1248,8 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
         : Moteur.chargeVoisine(c.seances.concat([c.seanceDuJour]), c.apres,
                                apres.palier, c.equipement, 1);
       expect(cran).toBe(c.cranSuivant);
-      expect(Moteur.constatDe(avant, apres, c.reglage, cran, c.seanceDuJour.debut)).toEqual(c.constat);
+      // PR 5a — « Il te manque » n'est dite que si le moteur a rejoué la condition (`testConfirme`) : le fichier le déclare par cas.
+      expect(Moteur.constatDe(avant, apres, c.reglage, cran, c.seanceDuJour.debut, undefined, c.testConfirme === true)).toEqual(c.constat);
     });
   });
 
@@ -1271,7 +1272,7 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
     const cran = apres.palier === null || apres.palier === undefined ? null
       : Moteur.chargeVoisine(c.seances.concat([c.seanceDuJour]), c.apres,
                              apres.palier, c.equipement, 1);
-    return { cran: cran, constat: Moteur.constatDe(avant, apres, c.reglage, cran) };
+    return { cran: cran, constat: Moteur.constatDe(avant, apres, c.reglage, cran, undefined, undefined, c.testConfirme === true) };
   };
 
   // ── 48b-6b-2 ─────────────────────────────────────────────────────────────
@@ -1320,6 +1321,7 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
     const gagne = K('K8');
     gagne.seanceDuJour = uneSeance('2026-09-20T18:00:00+00:00', 90,
       [auPalier(90, 11), auPalier(90, 11), auPalier(90, 11)]);
+    gagne.testConfirme = true;   // PR 5a — le moteur a rejoué la condition (A7)
     expect(constatDe(gagne).constat).toEqual({
       verdict: '90' + NB + 'kg' + NB + ': 10 reps le 13' + NB + 'sept., 11 aujourd\'hui.',
       suite: 'Il te manque une rep pour tester 92,5' + NB + 'kg.'
@@ -1372,10 +1374,11 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
       [auPalier(125, 4), auPalier(125, 3), auPalier(125, 3)]);
     expect(constatDe(c).constat).toEqual({
       verdict: 'Pas encore' + NB + ': 125' + NB + 'kg' + NB + '×' + NB + '4, 3, 3 pour une cible de 4.',
-      suite: 'Même cible la prochaine fois' + NB + ': 125' + NB + 'kg' + NB + '×' + NB + '4.'
+      // PR 5a (A1) — « Même cible » n'existe plus : la fois suivante dira « Une rep de plus : 125 kg × 4 » (même ligne, même verbe).
+      suite: 'La prochaine fois' + NB + ': une rep de plus, 125' + NB + 'kg' + NB + '×' + NB + '4.'
     });
     // La jumelle, à la même séance : le réglage seul change le constat.
-    expect(constatDe(Object.assign(c, { reglage: 'franc' })).constat).toEqual({
+    expect(constatDe(Object.assign(c, { reglage: 'franc', testConfirme: true })).constat).toEqual({
       verdict: '125' + NB + 'kg' + NB + ': 3 reps le 13' + NB + 'sept., 4 aujourd\'hui.',
       suite: 'Il te manque une rep pour tester 127,5' + NB + 'kg.'
     });
@@ -1391,6 +1394,7 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
       [auPalier(40, r), auPalier(40, r), auPalier(40, r)]);
     c.seances = ['07-19', '07-26', '08-02', '08-09', '09-13'].map((d) => trois(d, 8));
     c.seanceDuJour = trois('09-20', 9);
+    c.testConfirme = true;
     const r = constatDe(c);
     // 163 (24/10/2026) — INVERSÉ (avant : `cran` nul, « tester le cran au-dessus ») : la machine a son pas (5 kg), le
     // cran suivant est 45, et jamais fait : « ≈ » devant lui dès que l'app le dit approché.
@@ -1414,6 +1418,8 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
            cranSuivant: 112.5 }
   };
 
+  // Les cas dont « Il te manque N reps » est CONFIRMÉE par la simulation du moteur (les autres du fichier : silence).
+  const ID_CONFIRMES = ['K6', 'K13'];
   test('DISCRIMINANT — l’orchestrateur part des séries BRUTES, comme l’app', () => {
     // le pont (`constatBrut`, ex-`constatDExercice`) part des séries brutes : l'app lui passe ce qu'elle a
     // en mémoire, pas le contrat du moteur. Sans ce test, le pont pourrait
@@ -1447,7 +1453,13 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
             reglage: c.reglage, edition: false });
         const attendu = Object.prototype.hasOwnProperty.call(PAR_LA_CHAINE_49U8, c.id)
           ? PAR_LA_CHAINE_49U8[c.id] : c;
-        expect([quoi, c.id, r.constat]).toEqual([quoi, c.id, attendu.constat]);
+        // PR 5a (A7) — par la chaîne complète, le moteur REJOUE « il te manque N reps » : confirmée, elle se dit ; sinon SILENCE (la suite tombe,
+        // jamais une promesse de test que le moteur ne tiendrait pas). Les cas du fichier dont la phrase n'est pas confirmée sont listés ici.
+        const confirme = ID_CONFIRMES.indexOf(c.id) >= 0;
+        const dit = /^Il te manque/.test(attendu.constat.suite || '');
+        const constat = dit && !confirme ? Object.assign({}, attendu.constat, { suite: null }) : attendu.constat;
+        if (dit) expect([quoi, c.id, r.testConfirme === true]).toEqual([quoi, c.id, confirme]);
+        expect([quoi, c.id, r.constat]).toEqual([quoi, c.id, constat]);
         expect([quoi, c.id, r.cranSuivant]).toEqual([quoi, c.id, attendu.cranSuivant]);
       });
     });

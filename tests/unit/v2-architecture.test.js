@@ -59,6 +59,8 @@ const GARDEES = [
   { fn: 'cibleFaite', module: 'moteur.js' },
   // moteur.js — « Les mots disent vrai » PR 4a (MOTEUR §9.47, I162) : le verbe de la consigne (monte_reps, garde_cible, garde_charge, recule…) se décide par UNE fonction sur la consigne FINALE ; le moteur la lit pour le gris et le Pourquoi, le plan la pose (`x.verbe`), les écrans lisent `x.verbe`
   { fn: 'verbeDeLaConsigne', module: 'moteur.js' },
+  // moteur.js — « Les mots disent vrai » PR 5a (MOTEUR §9.48, I164) : UNE source pour toute annonce (la suite d'un exercice, les phrases de l'effort visé) ; le moteur la lit pour le constat et le gris, le plan pour `effortVise.phrase` ; aucun écran n'écrit d'annonce
+  { fn: 'annonceDe', module: 'moteur.js' },
   // moteur.js — la consigne
   { fn: 'consignePour', module: 'moteur.js' },
   { fn: 'consigneDExercice', module: 'moteur.js' },

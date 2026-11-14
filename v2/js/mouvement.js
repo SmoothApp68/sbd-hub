@@ -343,7 +343,17 @@
     presse_cuisses_verticale_machine: 'presse_cuisses_verticale_machine.json',
     developpe_couche_poulie: 'developpe_couche_poulie.json',
     developpe_couche_sol_kettlebell: 'developpe_couche_sol_kettlebell.json',
-    developpe_debout_poulie: 'developpe_debout_poulie.json'
+    developpe_debout_poulie: 'developpe_debout_poulie.json',
+    extension_mollets_machine: 'extension_mollets_machine.json',
+    extension_mollets_une_jambe: 'extension_mollets_une_jambe.json',
+    extension_mollets_debout_poids_du_corps: 'extension_mollets_debout_poids_du_corps.json',
+    extension_mollets_une_jambe_poids_du_corps: 'extension_mollets_une_jambe_poids_du_corps.json',
+    extension_mollets_debout_haltere: 'extension_mollets_debout_haltere.json',
+    extension_mollets_une_jambe_haltere: 'extension_mollets_une_jambe_haltere.json',
+    descente_excentrique_mollet: 'descente_excentrique_mollet.json',
+    extension_mollets_debout_barre: 'extension_mollets_debout_barre.json',
+    extension_mollets_debout_machine_smith: 'extension_mollets_debout_machine_smith.json',
+    extension_mollets_hack_squat_machine: 'extension_mollets_hack_squat_machine.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

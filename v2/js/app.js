@@ -7253,6 +7253,10 @@
         exo = consignes.index[slug];
       }
       var options = optionsDeConsigne(slug, exo, instantDuCalcul());
+      // F2 (MOTEUR §9.49, B1) — UNE CONSIGNE À ZONE DE PLAN NE SE FIGE PAS SANS LES ROUTINES : `zonesDeRoutine` serait vide, aucune séance passée ne
+      // serait « dans la zone » et le moteur rendrait un report de zone faux — figé pour la séance et écrit sur le disque. Rien n'est mis en cache : elle se
+      // calcule à l'arrivée des routines (le re-rendu de `chargerRoutines`).
+      if (options.zonePlan && !routinesPretes()) return null;
       // MOTEUR §13.6 (49-U20) — LES FRÈRES, à la demande : le moteur ne les
       // demande (et ne rejoue leur compteur) que si celui de l'exercice est à 4
       // ou plus. Seule la consigne de la séance les reçoit, figés avec elle —
@@ -7401,6 +7405,12 @@
   function instantDuCalcul() {
     var i = rejeuEnCours && rejeuEnCours.instant ? Date.parse(rejeuEnCours.instant) : NaN;
     return new Date(isFinite(i) ? i : Date.now()).toISOString();
+  }
+  // F2 (MOTEUR §9.49) — LES ROUTINES SONT-ELLES PRÊTES ? Lues (`etatRoutines` ok) ou gardées en mémoire d'une lecture réussie (un échec tardif ne les
+  // vide pas). Tant qu'elles ne le sont pas, la zone d'une séance passée par sa routine ne se lit pas : le moteur se tait sur ce qu'elle déciderait
+  // (la consigne d'un exercice à zone de plan, sa suite) au lieu de le décider sur `zonesDeRoutine = {}`. Une seule fonction, lue partout.
+  function routinesPretes() {
+    return etatRoutines.code === 'ok' || (routines || []).length > 0;
   }
   // 193-3 — la zone de plan du jour pour cet exercice : celle de sa PREMIÈRE ligne dans la séance en cours (la consigne est par
   // exercice, D6), `null` sans séance, sans ligne de routine ou en Automatique. Rien n'est lu dans une séance terminée.
@@ -8269,6 +8279,8 @@
                 // 236 — les gestes de la séance (réponses du coach en temps réel) : le plan les lit, jamais l'écran.
                 gestes: Array.isArray(seance.gestes) ? seance.gestes : [] },
       consignes: cs,
+      // F2 (MOTEUR §9.49, I168) — les routines sont-elles prêtes ? Un plan qui ne l'est pas ne porte ni consigne figée à zone de plan ni suite.
+      routinesPretes: routinesPretes(),
       // MOTEUR §9.16 — la phase GELÉE de la séance (lue après les consignes :
       // elle se fige avec elles).
       phase: phaseDeLaSeance(),
@@ -8714,7 +8726,9 @@
         planMemo.marches === (profil && profil.marche_reponses) && planMemo.demoMarche === demoMarche &&
         planMemo.blocs === local.blocs && planMemo.disque === Profil.plusPetitDisqueDe(profil) &&
         planMemo.moins === serieDeMoinsActive() && planMemo.cartes === (profil && profil.cartes_semaine) &&
-        planMemo.raides === (profil && profil.zones_raides) && planMemo.menager === (profil && profil.zones_a_menager)) return planMemo.plan;
+        planMemo.raides === (profil && profil.zones_raides) && planMemo.menager === (profil && profil.zones_a_menager) &&
+        // F2 (MOTEUR §9.49) — LES ROUTINES ARRIVENT APRÈS LE PREMIER PLAN : leur génération et leur état « prêtes » font la clé.
+        planMemo.routinesGen === generationRoutines && planMemo.routinesPretes === routinesPretes()) return planMemo.plan;
     var entrees = entreesDuPlan();
     var plan = Plan.planDeSeance(entrees);
     planMemo = { seance: seance, paris: local.predictions, version: versionConsignes,
@@ -8724,7 +8738,8 @@
                  modes: local.modes, lest: lestReponseDe(), demoLest: demoLest, blocs: local.blocs, plan: plan,
                  marches: profil && profil.marche_reponses, demoMarche: demoMarche, disque: Profil.plusPetitDisqueDe(profil),
                  moins: serieDeMoinsActive(), cartes: profil && profil.cartes_semaine,
-                 raides: profil && profil.zones_raides, menager: profil && profil.zones_a_menager };
+                 raides: profil && profil.zones_raides, menager: profil && profil.zones_a_menager,
+                 routinesGen: generationRoutines, routinesPretes: routinesPretes() };
     // Le banc lit le dernier plan et ses entrées pour vérifier les invariants
     // après chaque geste (§9.13 bis) ; rien d'autre ne le relit. Un plan du
     // REJEU (développement) n'y entre pas : il vérifie ses invariants lui-même.
@@ -8777,6 +8792,8 @@
     var c = consigneDe(slug);
     if (!c) return null;
     var x = planDuSlug(slug);
+    // F2 (MOTEUR §9.49) — l'exercice fini dont la suite se tait (routines pas prêtes) : ni constat, ni la consigne d'AVANT qui prescrirait ce qui vient d'être fait.
+    if (x && x.suiteMuette === true) return null;
     // 187 — le calage de la première séance : « On trouve ta charge » et la consigne de la suivante, lus sur le plan.
     if (x && x.calage && x.calage.libelles) {
       var lc = x.calage.libelles;
@@ -8896,6 +8913,9 @@
     var exo = catalogueIndexe()[slug];
     // Les MÊMES options que la consigne de la séance (49-U18).
     var options = optionsDeConsigne(slug, exo, instantDuCalcul());
+    // F2 (MOTEUR §9.49) — LA SUITE D'UN EXERCICE À ZONE DE PLAN SE TAIT TANT QUE LES ROUTINES NE SONT PAS PRÊTES : sans elles la zone d'une séance passée
+    // n'est pas lisible, et la suite redirait la fois d'AVANT (« Prochaine séance : 80 kg × 8 »). Rien n'est mis en cache.
+    if (options.zonePlan && !routinesPretes()) return null;
     var cleOptions = JSON.stringify(options);
     var vu = constats.parSlug[slug];
     if (!vu || vu.options !== cleOptions) {

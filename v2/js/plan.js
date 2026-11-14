@@ -2541,6 +2541,17 @@
           x.premierPari = null;
           if (x.pourquoi) x.pourquoi.veille = x.veilleLegere.phrase;
         }
+        // F2 (MOTEUR §9.49, I168) — LES ROUTINES NE SONT PAS PRÊTES (`entrees.routinesPretes === false` ; absent = prêtes) : l'app ne donne ni suite ni consigne
+        // figée à un exercice à zone de plan. Un exercice FINI dont la suite se tait ne montre ni constat ni l'en-tête d'avant (`x.suiteMuette`, lu par
+        // l'écran) ; et la carte « Dernière série au max ? » ne se propose pas (« dans ma routine » ne s'écrirait nulle part).
+        x.suiteMuette = false;
+        if (e.routinesPretes === false) {
+          if (x.zonePlan && Seance().exerciceFini(seance, slug)) x.suiteMuette = true;
+          if (seance.routine_id && x.propositionAuMax) {
+            x.propositionAuMax = null;
+            x.phrases = (x.phrases || []).filter(function (p) { return p.ou !== 'au_max.proposition'; });
+          }
+        }
         x.blocHypertrophie = stBloc ? { zone: stBloc.zone, grosse: stBloc.grosse === true,
           reculs: stBloc.grosse ? (exo.series || []).filter(function (q) { return racine.THModele.typeDe(q) === 'recul'; }).length : 0 } : null;
         x.semaineDeTest = semaineDeTestDExercice(jourDeTest, e, seance, exos, i, x,
@@ -6499,6 +6510,7 @@
     verifierVerbe(plan, erreurs);
     verifierAnnonce(plan, erreurs);
     verifierSuiteAujourdhui(plan, erreurs);
+    verifierRoutinesPretes(plan, entrees, erreurs);
     verifierVoixDuZero(plan, entrees, erreurs);
     verifierLeviers(plan, erreurs);
     verifierHorsCalcul(plan, entrees, erreurs);
@@ -7414,6 +7426,23 @@
       if (!c || typeof c.suite !== 'string' || c.suite === '' || c.chargeRepetee !== true) return;
       if (typeof c.suiteDate !== 'string' || typeof c.jourDuConstat !== 'string') return;
       if (c.suiteDate < c.jourDuConstat) erreurs.push('I167 — exercice ' + i + ' (' + x.slug + ') : l\'annonce « ' + c.suite + ' » est écrite sur la consigne du ' + c.suiteDate + ', pas sur la séance du ' + c.jourDuConstat);
+    });
+  }
+  // I168 (F2, MOTEUR §9.49) — LES ROUTINES PAS PRÊTES, LE COACH SE TAIT SUR CE QU'ELLES DÉCIDENT. `entrees.routinesPretes === false` (lecture pas faite ou en échec
+  // sans routine en mémoire ; INDÉFINI = prêtes, et « lues puis échec tardif » reste prêtes : le témoin S5) ET une zone de plan posée sur l'exercice : la suite
+  // (`entrees.suites[slug]`) est nulle, le plan ne porte aucun `constat` (verdict et suite sortent de la même suite), et et — côté app, hors du plan — aucune consigne
+  // n'a été calculée puis figée sur `zonesDeRoutine = {}` (`consigneDe` rend `null` sans rien mettre en cache : banc f2, brouillon `consignes` effacé).
+  function verifierRoutinesPretes(plan, entrees, erreurs) {
+    if (!entrees || entrees.routinesPretes !== false) return;
+    var suites = entrees.suites || {};
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      if (!x) return;
+      var nom = 'I168 — exercice ' + i + ' (' + x.slug + ') : ';
+      // La carte « Dernière série au max ? » promet « dans ma routine » : routines pas prêtes, sur une séance partie d'une routine, elle ne se propose pas.
+      if (x.propositionAuMax && entrees.seance && entrees.seance.routine_id) erreurs.push(nom + 'la carte « Au max » est proposée alors que les routines ne sont pas prêtes');
+      if (!x.zonePlan) return;
+      if (suites[x.slug]) erreurs.push(nom + 'une suite est donnée alors que les routines ne sont pas prêtes');
+      if (x.constat && (x.constat.suite || x.constat.verdict)) erreurs.push(nom + 'un constat est dit alors que les routines ne sont pas prêtes');
     });
   }
   // I164 (chantier « Les mots disent vrai », PR 5a, MOTEUR §9.48) — UNE ANNONCE NE PROMET QUE CE QUE LE MOTEUR FERA. Relue sur `x.constat.suite` (le texte,

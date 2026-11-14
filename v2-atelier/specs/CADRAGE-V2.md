@@ -684,6 +684,10 @@ Le schéma v2 n'est pas de la plomberie : **il fixe le plafond de ce que le syst
 
 ---
 
+## 6 bis. Une période se compte en jours civils — 14/11/2026 (mots PR 6, R-FUSEAU)
+
+Une période (fenêtre glissante, mois, semaine) se compte en **jours civils locaux** (`THPeriode`, `Moteur.jourCivil`), jamais en millisecondes ni par `setMonth` : « 3 mois » = 90 jours, « 6 mois » = 183, « 1 an » = 366 ; « il y a 6 mois » est une DATE (`moisAvant`, jour plafonné à la fin du mois). Le fuseau est celui de l'appareil ; la guilde et le SQL restent en Paris / UTC (écrit, rien à coder). Un écran ne nomme une période que par `Modele.libelleDePeriode` (lexique fermé : VOIX principe 2).
+
 ## 7. Note de forme
 
 Les visuels sont demandés et pertinents : l'essentiel de ce qui est manipulé (distributions, positions relatives, seuils) se comprend en une seconde sur un graphique et mal en texte. **Illustrer par défaut** dès qu'il s'agit d'une distribution ou d'un flux.

@@ -415,7 +415,8 @@ function bac(options) {
     },
     // 66D — sans historique par défaut (`habitudes` nul) : le gabarit, comme en 60-4.
     faits: { historiqueDesExercices: () => (o.faits || {}), habitudes: () => o.habitudes || null,
-             programmeDeduit: () => o.deduit || [], derniereSeance: () => o.derniere || null },
+             programmeDeduit: () => o.deduit || [], derniereSeance: () => o.derniere || null,
+             datesDeLaFenetre: () => o.fenetre || null },
     Semaine: globalThis.THSemaine,
     Questionnaire: { joursValides: (n) => typeof n === 'number' && n >= 2 && n <= 6 && Math.floor(n) === n },
     volumeDuCoach: () => o.volume || {},
@@ -1253,6 +1254,12 @@ const HISTORIQUE = () => ({
 });
 
 describe('66D — « Construis-le-moi » avec un historique : le choix, l’aperçu, Retirer / Remettre', () => {
+  test('mots PR 6 : la voix dit les DATES de la fenêtre quand le fait les donne', async () => {
+    const o = HISTORIQUE(); o.fenetre = { debut: '2026-07-19', fin: '2026-10-10' };
+    const b = bac(o);
+    await b.appel('ouvrirApercuProgramme()');
+    expect(b.vue().voix[0]).toBe('Ce sont tes séances du 19 juil. au 10 oct.');
+  });
   test('le programme déduit complété : le titre, la voix des 12 semaines, « Ce que j’ai changé · 2 », la reprise marquée ; rien n’est écrit', async () => {
     const b = bac(HISTORIQUE());
     await b.appel('ouvrirApercuProgramme()');

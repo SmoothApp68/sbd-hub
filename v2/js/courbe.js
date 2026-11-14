@@ -13,16 +13,16 @@
 (function (racine) {
   'use strict';
 
-  var JOUR_MS = 86400000;
   // Les noms de mois sont ceux du formateur (`modele.js`) : lus à l'usage, jamais recopiés ici.
   function mois(i) { return racine.THModele.MOIS_COURTS[i]; }
 
-  // Les quatre périodes. `jours: null` : tout l'historique.
+  // Les quatre périodes. Leur longueur en jours (3 mois = 90, 6 mois = 183, 1 an = 366 ; `null` : tout l'historique) n'est
+  // PAS écrite ici : elle se lit dans `THPeriode.JOURS_DE`, la même que le Parcours et le radar (PR 6 des mots, R-NOMMEES).
   var PERIODES = [
-    { cle: '3m', libelle: '3 mois', jours: 92, long: '3 mois' },
-    { cle: '6m', libelle: '6 mois', jours: 183, long: '6 mois' },
-    { cle: '1a', libelle: '1 an', jours: 366, long: '1 an' },
-    { cle: 'tout', libelle: 'Tout', jours: null, long: 'tout l’historique' }
+    { cle: '3m', libelle: '3 mois', long: '3 mois' },
+    { cle: '6m', libelle: '6 mois', long: '6 mois' },
+    { cle: '1a', libelle: '1 an', long: '1 an' },
+    { cle: 'tout', libelle: 'Tout', long: 'tout l’historique' }
   ];
   var PERIODE_PAR_DEFAUT = '6m';
 
@@ -41,14 +41,18 @@
     return isNaN(t) ? null : t;
   }
 
-  // Les points de la période qui finit à `maintenant` (ceux sans date lisible sont écartés).
+  // Les points de la période qui finit à `maintenant` (ceux sans date lisible sont écartés). PR 6 des mots : la période est une
+  // FENÊTRE EN JOURS CIVILS LOCAUX (`THPeriode.fenetres`, minuit du premier jour à 23:59:59.999 du jour de `maintenant`), la
+  // même que le radar — plus `maintenant − N × 24 h`, qui coupait « à 13 h » au changement d'heure et tolérait un jour de futur.
   function dansLaPeriode(points, cle, maintenant) {
-    var per = periodeDe(cle);
-    var fin = (maintenant instanceof Date ? maintenant : new Date()).getTime();
-    var debut = per.jours === null ? -Infinity : fin - per.jours * JOUR_MS;
+    var per = periodeDe(cle), P = racine.THPeriode;
+    var ref = maintenant instanceof Date ? maintenant : new Date();
+    var jours = per.cle === 'tout' ? null : P.JOURS_DE[per.cle];
+    var f = P.fenetres(jours === null ? 1 : jours, ref).courante;
+    var debut = jours === null ? -Infinity : f.debut.getTime(), fin = f.fin.getTime();
     return (points || []).filter(function (p) {
       var t = temps(p);
-      return t !== null && t >= debut && t <= fin + JOUR_MS;
+      return t !== null && t >= debut && t <= fin;
     });
   }
 
@@ -94,7 +98,8 @@
     var l = points || [];
     if (!l.length) return null;
     var debut = l[0].valeur, fin = l[l.length - 1].valeur;
-    return { debut: debut, fin: fin, ecart: l.length > 1 ? fin - debut : null, n: l.length };
+    // `du` / `au` (PR 6 des mots) : les dates des DEUX séances que l'écart compare (la 1re et la dernière de la fenêtre) — le texte les dit.
+    return { debut: debut, fin: fin, ecart: l.length > 1 ? fin - debut : null, n: l.length, du: l[0].debut || null, au: l[l.length - 1].debut || null };
   }
 
   // La géométrie complète d'une courbe de page : points (pâles), trait (moyenne glissante), graduations, repères de mois.
@@ -130,12 +135,15 @@
     });
     var trait = lisse.map(function (p) { return { x: arrondi(x(temps(p)), 2), y: arrondi(y(p.valeur), 2) }; });
 
-    // Les repères de mois : le premier de chaque mois dans la fenêtre, éclaircis à 4 au plus.
+    // Les repères de mois : le premier de chaque mois dans la fenêtre, éclaircis à 4 au plus. PR 6 des mots : si la fenêtre CHEVAUCHE deux
+    // années, chaque repère porte son année (« avr. 2024 · déc. 2024 · août 2025 ») — plus seulement le 1er janvier ; sinon aucune année.
     var reperes = [];
+    var avecAnnee = new Date(t0).getFullYear() !== new Date(t1).getFullYear();
     var d = new Date(new Date(t0).getFullYear(), new Date(t0).getMonth(), 1);
     if (d.getTime() < t0) d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
     while (d.getTime() <= t1) {
-      reperes.push({ t: d.getTime(), libelle: mois(d.getMonth()) + (d.getMonth() === 0 ? ' ' + d.getFullYear() : '') });
+      var cle = d.getFullYear() + '-' + (d.getMonth() < 9 ? '0' : '') + (d.getMonth() + 1);
+      reperes.push({ t: d.getTime(), libelle: avecAnnee ? racine.THModele.libelleDePeriode({ genre: 'mois', cle: cle, forme: 'axe' }) : mois(d.getMonth()) });
       d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
     }
     var pasM = Math.max(1, Math.ceil(reperes.length / 4));

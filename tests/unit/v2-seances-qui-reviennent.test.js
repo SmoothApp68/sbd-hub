@@ -174,7 +174,7 @@ function bac(options) {
   const ctx = {
     Routines, Modele, Donnees,
     Rendu: { rendreFeuilleSeancesQuiReviennent: (c, v) => { journal.feuilles.push(v); ctx.__vue = v; } },
-    faits: { programmeDeduit: () => (o.deduites || LEA).map((d) => JSON.parse(JSON.stringify(d))) },
+    faits: { programmeDeduit: () => (o.deduites || LEA).map((d) => JSON.parse(JSON.stringify(d))), datesDeLaFenetre: () => o.fenetre || null },
     corpus: () => ({}),
     catalogueIndexe: () => Modele.indexerExercices(CATALOGUE),
     local: { exercices: CATALOGUE },

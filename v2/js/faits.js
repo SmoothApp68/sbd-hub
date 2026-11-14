@@ -1269,6 +1269,15 @@
       return datees.reduce(function (m, s) { return new Date(s.debut) > new Date(m) ? s.debut : m; }, datees[0].debut);
     }
 
+    // PR 6 des mots — LES DATES de la fenêtre de la personne (« du 19 juil. au 10 oct. ») : la fenêtre de `Routines.fenetreDeLaPersonne`, les
+    // 84 jours qui finissent à SA dernière séance, rendue en jours « AAAA-MM-JJ » ; `null` sans séance datée. Un fait : l'écran la nomme.
+    function datesDeLaFenetre(c) {
+      var derniere = derniereSeance(c);
+      if (!derniere) return null;
+      var f = racine.THRoutines.fenetreDeLaPersonne(derniere), P = racine.THPeriode;
+      return { debut: P.jourISO(f.debut), fin: P.jourISO(f.fin) };
+    }
+
     // ── L'historique du programme construit (60-4, QUESTIONNAIRE-COACH-V2 §5 bis) ──
     //
     // Par exercice, le nombre de SÉANCES où il a au moins une série de travail, sur la fenêtre de la personne : les
@@ -2575,6 +2584,7 @@
       reposReelsDe: reposReelsDe,
       habitudes: habitudes,
       derniereSeance: derniereSeance,
+      datesDeLaFenetre: datesDeLaFenetre,
       seancesDesRoutines: seancesDesRoutines,
       semaineDuProgramme: semaineDuProgramme,
       oublierDates: oublierDates,

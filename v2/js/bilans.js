@@ -52,10 +52,10 @@
   // Les saisons MÉTÉOROLOGIQUES (décision du 14/10/2026) : l'hiver AAAA va du 1er décembre AAAA à la fin de
   // février AAAA+1. `en` : la préposition (« plus lourd qu’en été », « comme au printemps ») ; `ce` : « cet hiver ».
   var SAISONS = {
-    hiver: { mois: 12, libelle: 'hiver', le: 'l’hiver', en: 'en hiver', ce: 'cet hiver', avant: 'automne', decale: 0 },
-    printemps: { mois: 3, libelle: 'printemps', le: 'le printemps', en: 'au printemps', ce: 'ce printemps', avant: 'hiver', decale: -1 },
-    ete: { mois: 6, libelle: 'été', le: 'l’été', en: 'en été', ce: 'cet été', avant: 'printemps', decale: 0 },
-    automne: { mois: 9, libelle: 'automne', le: 'l’automne', en: 'en automne', ce: 'cet automne', avant: 'ete', decale: 0 }
+    hiver: { mois: 12, libelle: 'hiver', le: 'l’hiver', en: 'en hiver', ce: 'cet hiver', a: 'à l’hiver', avant: 'automne', decale: 0 },
+    printemps: { mois: 3, libelle: 'printemps', le: 'le printemps', en: 'au printemps', ce: 'ce printemps', a: 'au printemps', avant: 'hiver', decale: -1 },
+    ete: { mois: 6, libelle: 'été', le: 'l’été', en: 'en été', ce: 'cet été', a: 'à l’été', avant: 'printemps', decale: 0 },
+    automne: { mois: 9, libelle: 'automne', le: 'l’automne', en: 'en automne', ce: 'cet automne', a: 'à l’automne', avant: 'ete', decale: 0 }
   };
   // Le nom d'une saison (décision du 14/10/2026) : l'hiver est « Winter Arc » pour tout le monde ; les autres
   // suivent la phase du profil au début de la saison (`profiles.phase` : `prise_de_masse`, `seche`, `maintien` ;
@@ -103,21 +103,18 @@
   // 220 — LES `n` DERNIERS MOIS jusqu'à `jour` (« Ce qui a le plus progressé » de Progression) : une période de type `annee` (même
   // comparaison que l'année : contre les `n` mois d'avant s'il y a 12 mois de données, sinon son début contre sa fin), la même
   // notion « ce qui a le plus avancé » que « Ton année » — `bilanDeLaPeriode(…).avance`. Rien n'est recopié.
+  // PR 6 des mots : « N derniers mois » est une FENÊTRE EN JOURS (`THPeriode.fenetres`, 6 mois = 183 jours), jamais « N mois pile »
+  // du calendrier : la même fenêtre que la courbe et le Parcours. Les deux fenêtres se touchent, de même longueur.
+  var CLE_DES_MOIS = { 3: '3m', 6: '6m', 12: '1a' };
   function periodeDesDerniersMois(n, jour) {
-    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(jour || ''));
-    if (!m) return null;
-    var f = function (a, mo, j) { return a + '-' + deux(mo) + '-' + deux(j); };
-    var borne = function (k) {   // le lendemain du jour d'il y a k mois (k mois pile avant, jour compris)
-      var d = new Date(Date.UTC(+m[1], +m[2] - 1 - k, +m[3] + 1));
-      return f(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
-    };
-    var veille = function (iso) {
-      var d = new Date(Date.parse(iso + 'T00:00:00Z') - 864e5);
-      return f(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
-    };
-    var debut = borne(n), debutAvant = borne(2 * n);
-    return { type: 'annee', cle: 'derniers-' + n + '-mois-' + jour, libelle: n + ' derniers mois', debut: debut, fin: jour,
-             precedente: { debut: debutAvant, fin: veille(debut), libelle: n + ' mois d’avant' } };
+    var P = racine.THPeriode;
+    var j = P.jourISO(jour);
+    if (!j || !/^\d{4}-\d{2}-\d{2}$/.test(String(jour || ''))) return null;
+    var jours = P.JOURS_DE[CLE_DES_MOIS[n]] || Math.round(n * 30.5);
+    var f = P.fenetres(jours, P.debutDeJournee(j));
+    return { type: 'annee', cle: 'derniers-' + n + '-mois-' + jour, libelle: n + ' derniers mois',
+             debut: P.jourISO(f.courante.debut), fin: j,
+             precedente: { debut: P.jourISO(f.precedente.debut), fin: P.jourISO(f.precedente.fin), libelle: n + ' mois d’avant' } };
   }
   // Le mois (98) : « octobre 2026 », comparé à septembre.
   function periodeDuMois(cle) {
@@ -130,7 +127,7 @@
              debut: cle + '-01', fin: cle + '-' + deux(dernierJour(a, n)),
              precedente: { cle: pa + '-' + deux(pn), debut: pa + '-' + deux(pn) + '-01',
                            fin: pa + '-' + deux(pn) + '-' + deux(dernierJour(pa, pn)),
-                           libelle: nomAvant, en: 'en ' + nomAvant } };
+                           libelle: nomAvant, en: 'en ' + nomAvant, a: 'à ' + nomAvant } };
   }
   // La saison (98) : `AAAA-hiver|printemps|ete|automne`. L'hiver 2026 = décembre 2026 → février 2027.
   function bornesDeLaSaison(an, cle) {
@@ -142,9 +139,11 @@
     if (!m) return null;
     var an = +m[1], sa = m[2], s = SAISONS[sa], b = bornesDeLaSaison(an, sa);
     var av = s.avant, anAv = an + s.decale, ba = bornesDeLaSaison(anAv, av);
-    return { type: 'saison', cle: cle, saison: sa, an: an, libelle: s.libelle + ' ' + an, ce: s.ce,
+    // `ce` et `en` : « cet été » / « en été » — la période se dit `ce` SEULEMENT si J y est (`Modele.libelleDePeriode`, PR 6 des mots) ;
+    // `a` de la précédente : « par rapport à l'été ».
+    return { type: 'saison', cle: cle, saison: sa, an: an, libelle: s.libelle + ' ' + an, ce: s.ce, en: s.en,
              debut: b.debut, fin: b.fin,
-             precedente: { cle: anAv + '-' + av, debut: ba.debut, fin: ba.fin, libelle: SAISONS[av].le, en: SAISONS[av].en } };
+             precedente: { cle: anAv + '-' + av, debut: ba.debut, fin: ba.fin, libelle: SAISONS[av].le, en: SAISONS[av].en, a: SAISONS[av].a } };
   }
   // La saison d'un jour `AAAA-MM-JJ` : janvier et février sont l'hiver de l'année d'avant.
   function saisonDuJour(jour) {
@@ -204,7 +203,8 @@
       }
       var pr = periode.precedente;
       return { mode: 'precedente', moisDeDonnees: moisDeDonnees, semainesDeDonnees: nSem, avant: pr, apres: periode,
-               libelle: pr.libelle, qu: 'qu’' + pr.en, comme: 'comme ' + pr.en };
+               libelle: pr.libelle, qu: 'qu’' + pr.en, comme: 'comme ' + pr.en,
+               par: 'par rapport ' + (pr.a || 'à ' + pr.libelle) };
     }
     if (moisDeDonnees < MOIS_MIN) return { mode: 'aucune', moisDeDonnees: moisDeDonnees };
     if (moisDeDonnees >= MOIS_PLEIN && avantAussi && periode.precedente) {
@@ -352,7 +352,10 @@
     while (lu <= luFin) {
       var finSem = deNumero(numero(lu) + 6), lesSiennesS = [];
       ici.forEach(function (s) { if (s.jour >= lu && s.jour <= finSem) (s.series || []).forEach(function (x) { if (x) lesSiennesS.push(x); }); });
-      parSemaine.push({ lundi: lu, kg: Bi().volumeKg(lesSiennesS) });
+      // PR 6 des mots : les JOURS COMPTÉS d'une semaine (`du` → `au`) — une semaine à cheval sur deux périodes (ou sur aujourd'hui)
+      // ne compte que ceux de la période ; `tronquee` dit qu'elle n'est pas entière (le libellé ne dira jamais « semaine du … » alors).
+      var du = lu < periode.debut ? periode.debut : lu, au = finSem > fin ? fin : finSem;
+      parSemaine.push({ lundi: lu, kg: Bi().volumeKg(lesSiennesS), du: du, au: au, tronquee: du !== lu || au !== finSem });
       lu = deNumero(numero(lu) + 7);
     }
     var lourdeS = null;
@@ -501,6 +504,7 @@
     }
     sortie.versus.qu = cmp.qu || null;
     sortie.versus.comme = cmp.comme || null;
+    sortie.versus.par = cmp.par || null;   // « par rapport à août » : l'écart de tonnes se dit contre QUOI (PR 6 des mots)
 
     // Le coach : les paris tenus sur les paris vérifiés de la période ; « depuis » si le premier est venu en cours.
     var comptes = Bi().compterParis((e.paris || []).map(function (q) {

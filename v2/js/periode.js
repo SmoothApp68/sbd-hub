@@ -58,6 +58,53 @@
     };
   }
 
+  // ── PR 6 des mots (« les périodes disent vrai », 14/11/2026) — LES NOMS DES PÉRIODES, UNE FOIS ─────────────
+  //
+  // « 3 mois » = 90 jours, « 6 mois » = 183, « 1 an / 12 mois » = 366 : la courbe, « ce qui a progressé », le Parcours et
+  // le radar lisent ces trois nombres ICI et nulle part ailleurs (R-NOMMEES). Le Poids garde son 365, autre écran.
+  var JOURS_DE = Object.freeze({ '3m': 90, '6m': 183, '1a': 366 });
+
+  function deux(n) { return (n < 10 ? '0' : '') + n; }
+  // Le jour civil « AAAA-MM-JJ » d'une date (heure LOCALE) ou d'un jour déjà écrit ; `null` si illisible.
+  function jourISO(x) {
+    if (typeof x === 'string') {
+      var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(x);
+      return m ? m[1] + '-' + m[2] + '-' + m[3] : null;
+    }
+    if (x instanceof Date && !isNaN(x.getTime())) return x.getFullYear() + '-' + deux(x.getMonth() + 1) + '-' + deux(x.getDate());
+    return null;
+  }
+  // Le début (minuit local) et la FIN (23:59:59.999 locale) d'un jour civil : jamais `new Date('AAAA-MM-JJ')`, qui se lit en
+  // UTC et exclurait une série de 18 h de ce jour-là.
+  function debutDeJournee(jour) {
+    var j = jourISO(jour);
+    return j ? new Date(+j.slice(0, 4), +j.slice(5, 7) - 1, +j.slice(8, 10), 0, 0, 0, 0) : null;
+  }
+  function finDeJournee(jour) {
+    var j = jourISO(jour);
+    return j ? new Date(+j.slice(0, 4), +j.slice(5, 7) - 1, +j.slice(8, 10), 23, 59, 59, 999) : null;
+  }
+  // « Il y a `n` mois » : une DATE CALENDAIRE (jamais une fenêtre), le jour plafonné à la fin du mois d'arrivée — 31 août − 6 mois =
+  // 28 février, 29 février 2028 − 12 mois = 28 février 2027. Rend un jour « AAAA-MM-JJ » (`null` si `jour` est illisible).
+  function moisAvant(jour, n) {
+    var j = jourISO(jour);
+    if (!j) return null;
+    var an = +j.slice(0, 4), mo = +j.slice(5, 7) - 1, jr = +j.slice(8, 10);
+    var k = Math.round(Number(n) || 0);
+    var total = an * 12 + mo - k;
+    var a = Math.floor(total / 12), m = total - a * 12;
+    var dernier = new Date(Date.UTC(a, m + 1, 0)).getUTCDate();
+    return a + '-' + deux(m + 1) + '-' + deux(Math.min(jr, dernier));
+  }
+  // Un jour est-il dans la période `{ debut, fin }` (jours « AAAA-MM-JJ » ou dates, bornes comprises) ? C'est LA question
+  // derrière « ce mois-ci », « cette semaine », « (en cours) » : ils ne s'écrivent que si elle répond oui.
+  function contient(periode, jour) {
+    if (!periode) return false;
+    var d = jourISO(periode.debut), f = jourISO(periode.fin), j = jourISO(jour);
+    if (!d || !f || !j) return false;
+    return d <= j && j <= f;
+  }
+
   function dans(date, fenetre) {
     if (!fenetre) return false;
     var d = date instanceof Date ? date : new Date(date);
@@ -182,6 +229,12 @@
     ORDRE: ORDRE,
     periodeDe: periodeDe,
     fenetres: fenetres,
+    JOURS_DE: JOURS_DE,
+    jourISO: jourISO,
+    debutDeJournee: debutDeJournee,
+    finDeJournee: finDeJournee,
+    moisAvant: moisAvant,
+    contient: contient,
     dans: dans,
     decouper: decouper,
     comparerZones: comparerZones,

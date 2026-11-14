@@ -178,7 +178,7 @@ zones de MUSCLES ; celles du moteur, `lourd` 3-5 / `mix` 6-8 / …, rangent autr
    paris vérifiés, le coach en a tenu 38. », jamais « Sur 10… » sous « 41 · 38 ») ; les paris du mois ont un seul fil,
    ceux de la période — le bloc de Progression les lit aussi.
 6. **La semaine** : du lundi au dimanche ; seules les séances de la période comptent (la première et la dernière
-   semaine peuvent être partielles). « La plus lourde : semaine du 12 octobre, 52 t. »
+   semaine peuvent être partielles). « La plus lourde : semaine du 12 oct., 52 t. » (**14/11/2026, mots PR 6** : une semaine à cheval sur deux périodes ne compte que les jours de la période et se dit par eux seuls — « La plus lourde : du 28 au 30 sept., 19,8 t » —, jamais « semaine du … » ni « comptés »)
 7. **L'annonce** : du 1er au 7 du mois (le seul premier jour manquerait qui n'ouvre pas l'app ce jour-là), une fois par
    personne et par période, sur l'appareil (`localStorage`) — *dans le profil aussi depuis le 16/10/2026 (104, §1)*. Le même jour, un seul message : l'année (en janvier),
    sinon la saison (1er déc., mars, juin, sept.), sinon le mois ; les autres sont notés vus et restent dans
@@ -199,7 +199,7 @@ zones de MUSCLES ; celles du moteur, `lourd` 3-5 / `mix` 6-8 / …, rangent autr
 | L'ancien bilan du mois | La story du mois |
 |---|---|
 | Le nombre de séances | **Retiré** — décision du 14/10 : « Jamais : le nombre de séances » |
-| Les séries de travail du mois | Écran « Ton muscle du mois » : « Sur N séries de travail ce mois-ci. » |
+| Les séries de travail du mois | Écran « Ton muscle du mois » : « Sur N séries de travail en septembre. » (« ce mois-ci » seulement si le mois contient aujourd'hui — mots PR 6) |
 | Le volume soulevé | Écran des tonnes (et l'équivalence) |
 | Le nombre de records | Écran « Tes records d'… » et la plaque |
 | Le temps d'entraînement | Écran « À la salle » (heures et jours, jamais comparés) |
@@ -210,3 +210,19 @@ zones de MUSCLES ; celles du moteur, `lourd` 3-5 / `mix` 6-8 / …, rangent autr
 | Les exercices les plus faits (cinq, chacun ouvre sa page) | L'exercice du mois et les deux suivants (en reps), chacun ouvre sa page — trois au lieu de cinq |
 | Les paris du coach : vérifiés, tenus, la phrase | Écran « Le coach » : « N / M », et au toucher les vérifiés, les tenus et la phrase |
 | ‹ › mois précédent, mois suivant | L'adresse `/progression/mois/AAAA-MM` ouvre n'importe quel mois ; Progression porte le mois écoulé ; la liste des records garde ‹ › |
+
+
+### Delta du 14/11/2026 (mots PR 6, « les périodes disent vrai ») — une story nomme sa période
+
+MAQUETTE-PR6 (validée par Aurélien). « Ton année » s'ouvre l'année suivante durant, la saison la saison d'après, le mois le mois d'après : un
+mot déictique est donc FAUX tant qu'on ne sait pas si la période contient aujourd'hui. **`Modele.libelleDePeriode`** (le seul endroit qui écrit
+« ce mois-ci », « cette semaine », « cet été », « cette année ») répond par `THPeriode.contient(période, J)` ; `vue.aujourdhui` porte J.
+- Mois : « en septembre » (« en septembre 2025 » si l'année n'est pas celle de J), « ce mois-ci » seulement s'il contient J. Saison : « en été » /
+  « cet été » ; l'hiver à cheval sur deux années se lit pareil. Année : « en 2025 » / « cette année ». Les vides : « Pas encore de série de travail en
+  septembre. », « … en été. », « … en 2025. » ; les succès : « N succès gagnés en 2025 ».
+- L'écart de tonnes se dit contre quoi : « +31 t par rapport à août » (`versus.par` ; plus de « +31 t sur août »).
+- Records d'un mois navigué : « Aucun record en septembre. » ; la vue Volume vide : « Aucune séance cette semaine. » seulement si la semaine affichée contient
+  aujourd'hui, sinon « Aucune séance du 6 au 12 juil. » (`Modele.phraseDeSemaineVide`, les trois endroits : relevé par zones, journal par jours, bloc du sommaire).
+- Exception écrite : le bloc « Septembre » du sommaire (le mois écoulé, toujours celui d'avant J) garde le nom nu.
+- Hors périmètre, noté : le classement « la plus lourde » n'écarte pas la semaine tronquée (question de règle) ; le jour civil est celui de l'appareil
+  (R-FUSEAU : une séance passée change de mois si l'appareil change de fuseau ; le serveur de la guilde coupe en Paris, le reste en UTC).

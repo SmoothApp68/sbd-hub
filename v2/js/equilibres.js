@@ -154,6 +154,23 @@
     return c;
   }
 
+  // ── PR 6 des mots — LES DATES DES SEMAINES D'ENTRAÎNEMENT ─────────────────────────────────────────────────────────
+  // « Tes 12 dernières semaines » compte des semaines NON NULLES (`prep.semaines`) : avec une pause, elles couvrent plus que 12 semaines
+  // du calendrier. Le texte dit donc ses DATES : du lundi de la plus ancienne au dimanche de la plus récente, plafonné à `jour` (J).
+  // La plage montre un trou sans le commenter (VOIX principe 5 : aucune phrase sur une pause). `ws` : les semaines, la plus récente d'abord.
+  function plageDesSemaines(ws, jour) {
+    if (!ws || !ws.length) return null;
+    var debut = ws[ws.length - 1].lundi, dim = ws[0].lundi;
+    var d = new Date(Date.UTC(+dim.slice(0, 4), +dim.slice(5, 7) - 1, +dim.slice(8, 10) + 6));
+    var fin = cleDeJour(new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+    if (jour && jour < fin) fin = String(jour).slice(0, 10);
+    return { debut: debut, fin: fin };
+  }
+  function quandDesSemaines(ws, jour) {
+    var p = plageDesSemaines(ws, jour);
+    return p ? Modele().libelleDePeriode({ genre: 'fenetre', debut: p.debut, fin: p.fin }, jour || null) : '';
+  }
+
   // ── La préparation : les semaines non nulles et ce que chacune contient ─────────────────────────────────────────
   // Une séance compte si elle a au moins une série de musculation (`Semaine.estSeanceDeMusculation`) : une marche seule
   // ne fait pas une semaine d'entraînement. Les séries comptées sont les séries de travail qui portent du volume.
@@ -702,7 +719,8 @@
     var nom = libelleDuMuscle(muscle);
     return { cle: 'zero:' + muscle, famille: 'equilibre', kind: 'zero', titre: 'Un muscle sans série', ecart: ec.ecart, muscle: muscle,
              nomA: nom, fenetre: ec.fenetre,
-             fait: '0 série ' + de(nom) + ' sur tes ' + SEMAINES_ZERO + ' dernières semaines.',
+             fait: '0 série ' + de(nom) + ' sur tes ' + SEMAINES_ZERO + ' dernières semaines d’entraînement (' +
+               quandDesSemaines(prep.semaines.slice(0, SEMAINES_ZERO), prep.e.jour) + ').',
              repere: 'En musculation, beaucoup de coachs gardent des séries chaque semaine sur chaque muscle principal.',
              prevu: { a: prevuPourMuscle(prep, muscle), b: 0 } };
   }
@@ -891,8 +909,9 @@
     var visee = Generateur().bornerJours(viseeBrute);
     c.vers = visee;
     if (visee === prevu) { c.ecart = false; return c; }
-    c.fait = 'Ton programme est prévu pour ' + prevu + ' ' + pluriel(prevu, 'jour') + '. Tes ' + ws.length + ' dernières semaines d’entraînement en comptent ' +
-      nb(moy) + ' en moyenne.';
+    var duAu = quandDesSemaines(ws, e.jour);
+    c.fait = 'Ton programme est prévu pour ' + prevu + ' ' + pluriel(prevu, 'jour') + '. ' + (duAu ? duAu.charAt(0).toUpperCase() + duAu.slice(1) + ', tes ' : 'Tes ') +
+      ws.length + ' semaines d’entraînement en comptent ' + nb(moy) + ' en moyenne.';
     var causes = [];
     if (sens === 'moins') {
       var qui = sauts.filter(function (x) { return x.n >= FOIS_MIN && x.n >= PART_MIN * ws.length; }).slice(0, 2);
@@ -966,7 +985,9 @@
     c.ecart = true;
     c.minutes = propose;
     c.fait = (Number(e.dureeSeanceMin) > 0 ? 'Ta durée est réglée sur ' + Number(e.dureeSeanceMin) + ' min. ' : '') +
-      'Depuis ' + ws.length + ' semaines, ' + ecourtees.length + ' de tes ' + comptees.length + ' séances ont été écourtées.';
+      // « Depuis le 17 août » : une DATE, jamais « depuis 8 semaines » (R-DEPUIS).
+      (ws.length ? Modele().libelleDePeriode({ genre: 'jour', debut: plageDesSemaines(ws, e.jour).debut }, e.jour || null).replace(/^le /, 'Depuis le ') + ', ' : 'Parmi tes séances, ') +
+      ecourtees.length + ' de tes ' + comptees.length + ' séances ont été écourtées.';
     // Ce qui saute dans les séances écourtées : les exercices de la routine absents, ou ramenés à moins de séries.
     var manques = {};
     ecourtees.forEach(function (s) {
@@ -1242,6 +1263,8 @@
     var sortie = { etat: carnet ? 'carnet' : 'ok', reglage: reglage, constats: [], cartes: [], calmes: [], ligne: null, quand: null };
     if (!f0.valide) { sortie.etat = 'peu'; return sortie; }
     sortie.quand = 'Tes ' + f0.semaines.length + ' dernières semaines · ' + f0.nbSeances + ' ' + pluriel(f0.nbSeances, 'séance');
+    // PR 6 des mots : la sous-ligne datée (« du 20 juil. au 11 oct. ») — les semaines non nulles, plafonnées à J.
+    sortie.quandDates = quandDesSemaines(f0.semaines, e.jour);
 
     var mesures = [];
     var evaluateurs = {};
@@ -1293,7 +1316,7 @@
     });
     // Un muscle sans série : une seule ligne calme quand aucun n'est en écart.
     if (!mesures.some(function (c) { return c.kind === 'zero' && c.ecart; }) && mesures.some(function (c) { return c.kind === 'zero'; })) {
-      sortie.calmes.push({ cle: 'zero', kind: 'zero', titre: 'Un muscle sans série', texte: 'Aucun sur les ' + SEMAINES_ZERO + ' dernières semaines.' });
+      sortie.calmes.push({ cle: 'zero', kind: 'zero', titre: 'Un muscle sans série', texte: 'Aucun sur les ' + SEMAINES_ZERO + ' dernières semaines d’entraînement (' + quandDesSemaines(prep.semaines.slice(0, SEMAINES_ZERO), e.jour) + ').' });
     }
     // Les calmes de zéro par muscle ne se listent pas un par un.
     sortie.calmes = sortie.calmes.filter(function (x) { return !(x.kind === 'zero' && x.cle !== 'zero'); });

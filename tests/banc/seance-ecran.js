@@ -15858,7 +15858,8 @@ const SETS_IMPORTES = [
         exoP.force.length === 1 && /^Force estimée/.test(exoP.force[0]) && /d’après 125\s*kg\s*×\s*5/.test(sp(exoP.force[0])) &&
         /≈\s*146\s*kg/.test(sp(exoP.force[0])) && !exoP.forceDansRecords, JSON.stringify(exoP));
     ok('[P55] le tableau à reps égales : 1, 3, 5 reps à 125 kg (8 et 10 reps jamais faits) ; rien il y a 6 mois ni 1 an, aucun écart',
-      exoP && exoP.tete.join('|') === 'Au moins|Record|Le|Il y a 6 mois|Il y a 1 an' &&
+      exoP && exoP.tete.map((t) => t.replace(/^(Il y a (?:6 mois|1 an)).*$/, '$1')).join('|') === 'Au moins|Record|Le|Il y a 6 mois|Il y a 1 an' &&
+        /^Il y a 6 mois14 mai$/.test(exoP.tete[3]) && /^Il y a 1 an14 nov\. 2025$/.test(exoP.tete[4]) &&   // mots PR 6 : la date de chaque colonne dessous
         JSON.stringify(exoP.lignes.map((l) => [l[0], sp(l[1]), l[3], l[4]])) ===
           JSON.stringify([['1 rep', '125 kg', '—', '—'], ['3 reps', '125 kg', '—', '—'], ['5 reps', '125 kg', '—', '—']]) &&
         exoP.plus === 0, JSON.stringify(exoP));
@@ -17674,9 +17675,9 @@ const SETS_IMPORTES = [
     await attendre(1500);
     let f = await feuilleR();
     const vues = await visible();
-    ok('[R60] B — « Commencer » : le questionnaire se termine, Saisie s’ouvre, et la feuille arrive PAR-DESSUS',
+    ok('[R60] B — « Commencer » : le questionnaire se termine, Saisie s’ouvre, et la feuille arrive PAR-DESSUS (le titre dit les dates de la fenêtre : mots PR 6)',
       vues.indexOf('vue-saisie') >= 0 && vues.indexOf('vue-questionnaire') < 0 && f.ouverte &&
-        f.titre === 'Tes séances qui reviennent, sur tes 12 dernières semaines.', JSON.stringify([vues, f.ouverte, f.titre]));
+        /^Tes séances qui reviennent, du \d{1,2}\s\S+?\.?(?:\s\d{4})? au \d{1,2}\s\S+?\.?(?:\s\d{4})?\.$/.test(f.titre || ''), JSON.stringify([vues, f.ouverte, f.titre]));
     const haut = f.cartes.filter((c) => c.nom === 'Haut U603')[0], bas = f.cartes.filter((c) => c.nom === 'Bas U603')[0];
     ok('[R60] B — les deux séances qui reviennent, cochées, avec leur compte et leurs exercices (séries × reps)',
       !!haut && !!bas && haut.cochee && bas.cochee && /^4 fois · dernière fois /.test(haut.ligne) &&
@@ -17726,7 +17727,7 @@ const SETS_IMPORTES = [
     await attendre(900);
     f = await feuilleR();
     ok('[R60] D — elle ouvre la MÊME feuille, sur les mêmes séances qui reviennent (rien n’est écrit à l’ouverture)',
-      f.ouverte && f.titre === 'Tes séances qui reviennent, sur tes 12 dernières semaines.' &&
+      f.ouverte && /^Tes séances qui reviennent, du \d{1,2}\s\S+?\.?(?:\s\d{4})? au \d{1,2}\s\S+?\.?(?:\s\d{4})?\.$/.test(f.titre || '') &&
         f.cartes.some((c) => c.nom === 'Haut U603') && f.cartes.some((c) => c.nom === 'Bas U603') && ROUTINES.length === 2,
       JSON.stringify([f.titre, f.cartes.map((c) => c.nom), ROUTINES.length]));
     await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))
@@ -21364,9 +21365,9 @@ const SETS_IMPORTES = [
     ok('[R66D] prémisse : aucune routine, un historique — l’aperçu s’ouvre sur le programme DÉDUIT : « 2 séances par semaine. », jamais « Ton programme de départ »',
       ap.ouverte && ROUTINES.length === 0 && ap.titre === '2 séances par semaine.' &&
         ap.cartes.map((k) => k.nom).join('|') === 'Haut U66D|Bas U66D', JSON.stringify([ap.ouverte, ap.titre, ap.cartes.map((k) => k.nom)]));
-    ok('[R66D] la voix (maquette v2) : « Ce sont tes séances des 12 dernières semaines. », puis celle d’aujourd’hui',
-      JSON.stringify(ap.voix.slice(0, 2)) === JSON.stringify(['Ce sont tes séances des 12 dernières semaines.',
-        'Je te propose tes charges à chaque séance. Touche un exercice pour le changer.']), JSON.stringify(ap.voix));
+    ok('[R66D] la voix (maquette v2) : « Ce sont tes séances du … au …. » (les dates de la fenêtre : mots PR 6), puis celle d’aujourd’hui',
+      /^Ce sont tes séances du \d{1,2}\s\S+?\.?(?:\s\d{4})? au \d{1,2}\s\S+?\.?(?:\s\d{4})?\.$/.test(ap.voix[0] || '') &&
+        ap.voix[1] === 'Je te propose tes charges à chaque séance. Touche un exercice pour le changer.', JSON.stringify(ap.voix));
     // À 45 min, une paire ne suffit pas : la plus grosse économie d'abord (le rowing, 3 × (120 − 15) s), puis le curl
     // et l'extension (3 × (90 − 15) s) ; jamais le couché à la barre (premier, barre lourde).
     const paireHaut = 'Rowing Poulie Assis et développé Couché (Haltère) en superset dans Haut U66D : ≈ 5 min de moins.';
@@ -22838,7 +22839,7 @@ const SETS_IMPORTES = [
     seances75('p75-incline', P, [[8, 30], [10, 28]]); seances75('p75-incline', R, [[8, 30], [10, 28]]);
     seances75('p75-lat-h', P, [[12, 12]]); seances75('p75-lat-h', [20], [[12, 12]]);
     seances75('p75-lat-p', [300], [[12, 9]]); seances75('p75-lat-p', [10, 40, 70, 100, 130, 160], [[12, 13.6]]);
-    const PHRASE = 'Tes six derniers mois : les deux groupes que tu suis progressent. Poitrine : ce qui avance le plus ' +
+    const PHRASE = 'Tes 6 derniers mois : les deux groupes que tu suis progressent. Poitrine : ce qui avance le plus ' +
       'lentement. Ton couché tire devant ton squat.';
     const ecritures = () => base.journal.filter((j) => j.op !== 'refus').length;
     const file = () => page.evaluate(() => (window.THCache ? window.THCache.lireAttente() : Promise.resolve([])))
@@ -22895,9 +22896,9 @@ const SETS_IMPORTES = [
         JSON.stringify(pageP.sections) === JSON.stringify(['Ta semaine et tes équilibres', 'Tes grands mouvements', 'Par muscle · 6 derniers mois',
           'Tes équilibres', 'Ton levier', 'Ta phase', 'Tous tes exercices']) && pageP.courbes === 2,
       JSON.stringify(pageP));
-    ok('[P75] les six groupes, fermés ; jambes « ↑ progresse », poitrine « ↗ le plus lent », épaules sans verdict',
+    ok('[P75] les six groupes, fermés ; jambes « ↑ progresse », poitrine « ↗ progresse légèrement · le plus lentement » (PR 6 des mots), épaules sans verdict',
       pageP.groupes.length === 6 && pageP.groupes.every((g) => !g.ouvert) &&
-        sp(pageP.groupes[0].resume) === 'Jambes↑ progresse' && sp(pageP.groupes[4].resume) === 'Poitrine↗ le plus lent' &&
+        sp(pageP.groupes[0].resume) === 'Jambes↑ progresse' && sp(pageP.groupes[4].resume) === 'Poitrine↗ progresse légèrement · le plus lentement' &&
         sp(pageP.groupes[3].resume) === 'Épaulespas assez de séances comparables', JSON.stringify(pageP.groupes));
     ok('[P75] les équilibres : le fait, « Ton squat vaut 1,11 × ton couché ; repère de pratiquants 1,21 » (179, D1) ; le levier : Poitrine',
       /^Squat \/ couché1,11/.test(sp(pageP.rapport)) && /Ton squat vaut 1,11 × ton couché ; repère de pratiquants 1,21\./.test(sp(pageP.rapport)) &&
@@ -22914,7 +22915,7 @@ const SETS_IMPORTES = [
     });
     await capturer75('2-page');
     ok('[P75] DISCRIMINANT — un groupe s’ouvre au toucher : « Élévation latérale P75 (Haltère) — moins pratiqué → Élévation latérale P75 (Poulie) »',
-      epaules.ouvert && epaules.lignes.map(sp).indexOf('Élévation latérale P75 (Haltère)moins pratiqué → Élévation latérale P75 (Poulie)') >= 0,
+      epaules.ouvert && epaules.lignes.map(sp).indexOf('Élévation latérale P75 (Haltère)moins pratiqué · relais : Élévation latérale P75 (Poulie)') >= 0,
       JSON.stringify(epaules));
 
     // ── D. RIEN N'EST ÉCRIT : deux affichages (le sommaire, la page, puis un rechargement de la page).
@@ -23237,9 +23238,9 @@ const SETS_IMPORTES = [
       mo.visible && mo.periode === MOIS && mo.ecran === 'tonnes' &&
         JSON.stringify(mo.cles.slice(0, 6)) === '["tonnes","salle","semaines","muscle","exercice","records"]' &&
         mo.cles[mo.cles.length - 1] === 'plaque', JSON.stringify(mo.cles));
-    ok('[B98] DISCRIMINANT — la seule comparaison : les tonnes, « … t sur ' + avantMois + ' » ; « À la salle » jamais comparé',
-      new RegExp('t sur ' + avantMois).test(tonnesMois.replace(/ /g, ' ')) &&
-        !new RegExp('[+−→]|sur ' + avantMois + '|comme|qu’').test((mo.ecrans.filter((x) => x.cle === 'salle')[0] || {}).texte || '+'),
+    ok('[B98] DISCRIMINANT — la seule comparaison : les tonnes, « … t par rapport à ' + avantMois + ' » (mots PR 6) ; « À la salle » jamais comparé',
+      new RegExp('t par rapport à ' + avantMois).test(tonnesMois.replace(/ /g, ' ')) &&
+        !new RegExp('[+−→]|sur ' + avantMois + '|par rapport à|comme|qu’').test((mo.ecrans.filter((x) => x.cle === 'salle')[0] || {}).texte || '+'),
       JSON.stringify(mo.ecrans.slice(0, 2)));
     ok('[B98] jamais le nombre de séances ; la plaque sans le coach',
       !mo.ecrans.some((x) => x.cle !== 'exercice' && /\d+\s*séances?/.test(x.texte)) &&

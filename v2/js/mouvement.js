@@ -421,7 +421,10 @@
     extension_triceps_elastique: 'extension_triceps_elastique.json',
     elevation_frontale_elastique: 'elevation_frontale_elastique.json',
     pull_over_barre: 'pull_over_barre.json',
-    extension_mollets_assis_haltere: 'extension_mollets_assis_haltere.json'
+    extension_mollets_assis_haltere: 'extension_mollets_assis_haltere.json',
+    hack_squat_inverse_machine: 'hack_squat_inverse_machine.json',
+    rowing_debout_barre_ez: 'rowing_debout_barre_ez.json',
+    extension_triceps_dessus_tete_un_bras_poulie: 'extension_triceps_dessus_tete_un_bras_poulie.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

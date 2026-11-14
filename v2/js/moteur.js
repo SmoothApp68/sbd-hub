@@ -10936,8 +10936,7 @@
     var cible = d.cible ? { etat: d.cible.etat, charge: d.cible.charge, vise: d.cible.vise, sansMarge: d.cible.sansMarge || null } : null;
     if (m) {
       return { verdict: contredit
-                 ? 'La montée du coach a tenu' + DEUX_POINTS + chargeFois(m.charge, m.reps, cite(FAIT, { quoi: 'du_jour' })) +
-                   ', dans ta zone. Elle compte comme un test tenu.'
+                 ? chargeFois(m.charge, m.reps, cite(FAIT, { quoi: 'du_jour' })) + ', dans ta zone' + DEUX_POINTS + 'la montée a tenu. Elle compte comme un test tenu.'
                  : base.verdict,
                suite: base.suite, montee: { charge: m.charge, reps: m.reps }, cible: cible };
     }

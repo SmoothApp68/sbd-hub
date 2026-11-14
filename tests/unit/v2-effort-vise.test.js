@@ -175,13 +175,13 @@ describe('154 C — la règle, dans la consigne', () => {
 
   test('les phrases d’après la réponse (VOIX-DU-COACH)', () => {
     const f = (s) => s.replace(/[\u00a0\u202f]/g, ' ');
-    expect(f(M.phraseEffortVise({ effet: 'test', charge: 34, reps: 9, reserve: 3, visee: 1 }, 36)))
+    expect(f(M.annonceDe('effort', { ev: { effet: 'test', charge: 34, reps: 9, reserve: 3, visee: 1 }, haut: 36, moment: 'apres' })))
       .toBe('34 kg × 9, il t’en restait 3. Au-dessus de ce que je visais : la prochaine fois, on essaie 36 kg.');
-    expect(f(M.phraseEffortVise({ effet: 'garde', charge: 130, reps: 5, reserve: 0, visee: 2 }, null)))
+    expect(f(M.annonceDe('effort', { ev: { effet: 'garde', charge: 130, reps: 5, reserve: 0, visee: 2 }, haut: null, moment: 'apres' })))
       .toBe('130 kg × 5, sans marge. Je garde 130 kg : encore une fois au haut de ta zone et je teste plus lourd.');
-    expect(f(M.phraseEffortVise({ effet: 'garde', charge: 130, reps: 4, reserve: 0, visee: 2, auHaut: false }, null)))
+    expect(f(M.annonceDe('effort', { ev: { effet: 'garde', charge: 130, reps: 4, reserve: 0, visee: 2, auHaut: false }, haut: null, moment: 'apres' })))
       .toBe('130 kg × 4, sans marge. Je garde 130 kg la prochaine fois.');
-    expect(M.phraseEffortVise(null, 36)).toBeNull();
+    expect(M.annonceDe('effort', { ev: null, haut: 36, moment: 'apres' })).toBeNull();
   });
 });
 

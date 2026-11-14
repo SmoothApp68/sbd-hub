@@ -4820,47 +4820,7 @@
     }
     return debut + d + 'Je remonte dès que les reps passent.';
   }
-  // 154 — « 130 kg × 5, sans marge. Je garde 130 kg la prochaine fois. » (R < V, la montée n'a pas lieu).
-  function phraseDeLaGarde(e) {
-    var cF = cite(FAIT, { quoi: 'effort_vise' });
-    var cR = cite(FAIT, { quoi: 'effort_vise.reserve' });
-    var cC = cite(FAIT, { quoi: 'effort_vise.charge' });
-    var debut = chargeFois(e.charge, e.reps, cF) +
-      (e.reserve === 0 ? ', sans marge' : ', avec ' + nombreFr(e.reserve, cR) + ' en réserve') + '. Je garde ' +
-      enKg(e.charge, cC);
-    // 169 — au haut de la zone, la garde ne dure qu'une fois, et la phrase le dit ; sous le haut, la rep de plus reste la voie.
-    return e.auHaut === false ? debut + ' la prochaine fois.'
-      : debut + ' : encore une fois au haut de ta zone et je teste plus lourd.';
-  }
-  // 169 — LA SORTIE DITE : « Deux fois 30 kg × 10 au haut de ta zone. Prochaine fois : on teste 32,5 kg × 8. » `haut` : la
-  // ligne haute de la consigne (`{ charge, vise, approchee }`), ou une charge seule.
-  function phraseDeLaSortie(ev, haut, aujourdhui) {
-    var h = haut !== null && typeof haut === 'object' ? haut : { charge: haut, vise: null };
-    var cH = cite(FAIT, { quoi: 'effort_vise.haut' });
-    var test = h.vise === null || h.vise === undefined ? enKg(h.charge, cH) : ligneFois(h.charge, h.vise, false, false, cH, h.approchee === true);
-    // Dite à la fin de la séance : « Prochaine fois ». Dite en tête de la séance suivante, le test est pour aujourd'hui.
-    return 'Deux fois ' + chargeFois(ev.charge, ev.reps, cite(FAIT, { quoi: 'effort_vise' })) + ' au haut de ta zone' +
-      (aujourdhui === true ? DEUX_POINTS + 'aujourd’hui, on teste ' : '. Prochaine fois' + DEUX_POINTS + 'on teste ') + test + '.';
-  }
-  // 154 — LA PHRASE APRÈS LA RÉPONSE (VOIX-DU-COACH) : « 34 kg × 9, il t'en restait 3. Au-dessus de ce que je visais : la
-  // prochaine fois, on essaie 36 kg. » / « 130 kg × 5, sans marge. Je garde 130 kg : encore une fois au haut de ta zone et
-  // je teste plus lourd. » `ev` : le fait `effortVise` de la consigne suivante ; `haut` : la ligne haute du test qu'elle
-  // pose (ou sa charge). `null` : rien à dire.
-  function phraseEffortVise(ev, haut) {
-    if (!ev) return null;
-    if (ev.effet === 'garde') return phraseDeLaGarde(ev);
-    var charge = haut !== null && typeof haut === 'object' ? haut.charge : haut;
-    if (ev.effet !== 'test' || charge === null || charge === undefined) return null;
-    if (ev.sortie === true) return phraseDeLaSortie(ev, haut);
-    // PR 4a (§9.26 bis) — la réserve notée ÉGALE à la visée affichée (le plancher à 2 sur une table à 0 ou 1 : le test se déclenche sur la
-    // table) : « c'est ce que je visais », jamais « au-dessus » (I161).
-    var egale = ev.reserve === ev.visee;
-    return chargeFois(ev.charge, ev.reps, cite(FAIT, { quoi: 'effort_vise' })) + ', il t’en restait ' +
-      nombreFr(ev.reserve, cite(FAIT, { quoi: 'effort_vise.reserve' })) +
-      (egale ? DEUX_POINTS + 'c’est ce que je visais. La prochaine fois, on essaie '
-             : '. Au-dessus de ce que je visais' + DEUX_POINTS + 'la prochaine fois, on essaie ') +
-      enKg(charge, cite(FAIT, { quoi: 'effort_vise.haut' })) + '.';
-  }
+  // PR 5a (MOTEUR §9.48) — les phrases de l'effort visé (« Je garde 130 kg la prochaine fois », « on essaie 36 kg ») vivent dans la région « L'ANNONCE » (`annonceDe`, genre `effort`).
   // PR 4a (§9.26 bis) — « Me pousser » écrasé par le plancher : une ligne du « Pourquoi », une fois par exercice. Honnête : elle dit la visée et que la
   // personne note ce qu'elle veut ; elle ne promet pas de protéger de la montée. `n` : la réserve visée affichée (le plancher).
   function phraseDuPlancher(n) {
@@ -4957,8 +4917,20 @@
     return majuscule ? t.charAt(0).toUpperCase() + t.slice(1) : t;
   }
   // « tu restes à 80 kg × 10 » : le verbe de la cible gardée (une seule écriture, dans cette région).
-  function tuRestes(c) { return 'tu restes à ' + ligneDeLaConsigne(c); }
-  function ligneDeLaConsigne(c) { return chargeFois(c.ligne.charge, c.ligne.vise, cite(CIBLE, { role: 'ligne' })); }
+  function tuRestes(c, nature) { return 'tu restes à ' + ligneDeLaConsigne(c, nature); }
+  function ligneDeLaConsigne(c, nature) { return chargeFois(c.ligne.charge, c.ligne.vise, cite(nature || CIBLE, { role: 'ligne' }), nature !== undefined && c.ligne.approchee === true); }
+  // PR 5a — le verbe de la consigne SUIVANTE dit en une proposition (sans majuscule ni point) pour l'annonce de fin d'exercice, ou `null` quand le verbe n'a pas
+  // de phrase de suite (neutre, test, charge qui monte…). La cause (A3) ne s'ajoute que si le verbe GARDE ou BORNE la ligne, jamais devant « une rep de plus ».
+  function verbeDeLaSuite(c, v) {
+    var nat = 'cible_suivante';
+    var cause = v.cause ? (v.sansMarge.derniere ? ', la dernière sans marge' : ', une série sans marge') : '';
+    if (v.verbe === VERBES.MONTE_REPS) return dePlus(v.plus) + ', ' + ligneDeLaConsigne(c, nat);
+    if (v.verbe === VERBES.GARDE_CIBLE) return tuRestes(c, nat) + cause;
+    if (v.verbe === VERBES.BORNE) return 'ta cible, ' + ligneDeLaConsigne(c, nat) + cause;
+    if (v.verbe === VERBES.GARDE_CHARGE) return 'je garde ' + enKg(c.ligne.charge, cite(nat, { role: 'ligne' }));
+    return null;
+  }
+
   // Le gris d'une consigne qui progresse ou garde à la même charge : la série du jour, la cause (si le verbe la rend vraie), puis le verbe.
   function grisDuVerbe(c, v, tete, zoneBas, zoneHaut) {
     var cause = v.cause ? (v.sansMarge.derniere ? ', la dernière sans marge' : ', une série sans marge') : '';
@@ -5011,6 +4983,130 @@
   }
   // ══ FIN DU VERBE UNIQUE ══════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
+  // ══ PR 5a (chantier « Les mots disent vrai », MOTEUR §9.48) — L'ANNONCE ═══════════════════════════════════════════════════════════════
+  //
+  // UNE annonce = tout texte affiché qui parle d'un état FUTUR de l'exercice (« la prochaine fois », « prochaine séance », « il te manque N reps
+  // pour tester », « je garde 130 kg la prochaine fois »). Elle s'écrit ICI et nulle part ailleurs (garde `v2-annonce-litteraux-5a.test.js`) : le plan la
+  // lit (`x.constat.suite`, `effortVise.phrase`), aucun écran ne l'écrit. Deux genres :
+  //   suite   la fin d'un exercice : « Prochaine séance : 70 kg × 10, … » / « La prochaine fois : une rep de plus, 65 kg × 9. » (le verbe de la consigne
+  //           SUIVANTE, `verbeDeLaConsigne` : plus de « Même cible », ambigu) / « Il te manque 2 reps pour tester 55 kg. »
+  //   effort  la phrase après la réponse à la question d'effort (« Je garde 130 kg la prochaine fois. », « la prochaine fois, on essaie 36 kg. »)
+  // « Il te manque N reps » n'est dite que si le moteur, rejouant la condition (`suiteDExercice` → `testConfirme`), propose bien le test ; sinon SILENCE
+  // (`null`) : la phrase ne promet jamais ce que le moteur ne fera pas. Ni date ni régime (décharge, bloc, zone suivante, pause) : la PR 5b.
+  function annonceDe(genre, d) {
+    if (genre === 'suite') return annonceDeLaSuite(d || {});
+    if (genre === 'effort') return annonceDEffort(d || {});
+    return null;
+  }
+
+  // Le niveau « fait aujourd'hui » : le niveau validé, sauf en Franc, dont le déclencheur est UNE série — la meilleure. UNE définition (le constat et la
+  // simulation de « Il te manque » la lisent).
+  function faitDuJourDe(c, reglage) {
+    if (!c) return null;
+    var ap = c.fondement || {};
+    return reglage === 'franc'
+      ? (ap.reps || []).reduce(function (m, r) { return r !== null && r > m ? r : m; }, 0)
+      : c.niveau;
+  }
+
+  // Ce qui vient. La consigne d'après le dit déjà en jaune : on la reprend telle quelle plutôt que de la réécrire.
+  // `d` : { cAvant, cApres, z, reglage, fait, cranSuivant, cranApproche, testConfirme }.
+  function annonceDeLaSuite(d) {
+    var cAvant = d.cAvant, cApres = d.cApres, z = d.z, reglage = d.reglage, fait = d.fait;
+    if (cApres.etat === 'silence') return null;
+    // Rédigée à la demande : seule la branche qui l'écrit la déclare (§20 bis).
+    var prochaine = function () { return 'Prochaine séance' + DEUX_POINTS + lignesJaunes(cApres, SUIVANTE).join(', ') + '.'; };
+
+    if (cApres.etat === 'etirement') {
+      return ditPasDePlusPetitCran(cApres.fondement.equipement, true) + DEUX_POINTS + 'ta zone s\'étire. ' +
+             prochaine() + ' On retestera ' + enKg(cApres.fondement.test.charge, cite(FAIT, { quoi: 'test_du_jour' })) +
+             ' quand tu feras ' + nombreFr(cApres.fondement.cible, regle('suite.cible')) + ' reps à ' +
+             enKg(cApres.ligne.charge, cite(SUIVANTE, { role: 'ligne' })) + '.';
+    }
+    if (cApres.etat === 'retest_un_cran') return prochaine() + ' On reteste d\'un seul cran.';
+
+    if (cApres.etat === 'progression') {
+      var nivAvant = nombre(cAvant.niveau);
+      // Rien de gagné : la cible ne bouge pas. ⚠️ « MÊME CIBLE » EST RETIRÉ (PR 5a, A1) : il comparait cible à cible alors que « une rep de plus » compare
+      // à ce qui a été FAIT (« Même cible : 65 kg × 9 » puis, à la fois suivante, « Une rep de plus : 65 kg × 9 »). L'annonce redit le VERBE de la consigne
+      // suivante, par la même fonction que son en-tête : elle ne peut pas être démentie par elle.
+      if (nivAvant !== null && fait !== null && fait <= nivAvant &&
+          sansDeclarer(function () { return lignesJaunes(cAvant).join(', '); }) ===
+          sansDeclarer(function () { return lignesJaunes(cApres).join(', '); })) {
+        var dit = cApres.haut || !cApres.ligne ? null : verbeDeLaSuite(cApres, verbeDeLaConsigne(cApres));
+        return dit !== null ? 'La prochaine fois' + DEUX_POINTS + dit + '.' : prochaine();
+      }
+      if (nivAvant !== null && fait !== null && fait <= nivAvant) return prochaine();
+      // ⚠️ PRUDENT NE COMPTE PAS LES REPS QUI MANQUENT. Son déclencheur demande TOUTES les séries au haut, DEUX séances de suite.
+      // §17.4 — Au poids du corps il n'y a pas de cran à tester : la phrase « pour tester le cran au-dessus » ne se dit pas.
+      if (reglage !== 'prudent' && z !== null && fait !== null && fait < z.haut && nombre(cApres.palier) !== 0) {
+        // PR 5a (A7, B2) — « il te manque N reps pour tester X » n'est vraie que si le moteur, rejouant la condition avec la réserve réellement notée,
+        // propose le test à la fois d'après (49 % de fausses sinon : la zone change au lieu du test). Sinon : silence.
+        if (d.testConfirme !== true) return null;
+        var manque = z.haut - fait;
+        return 'Il te manque ' + (manque === 1 ? 'une rep' : nombreFr(manque, regle('manque')) + ' reps') +
+               ' pour tester ' + (d.cranApproche === true ? '≈' + INSECABLE : '') + enKg(d.cranSuivant, regle('cran_suivant')) + '.';
+      }
+    }
+    return prochaine();
+  }
+
+  // 154, 169 — LES PHRASES DE L'EFFORT VISÉ. `d` : { ev, haut, moment }. `moment` : `apres` (à la fin de l'exercice, après la réponse : « la prochaine
+  // fois ») ou `aujourdhui` (lue dans le gris ou le « Pourquoi » de la consigne qui en résulte : la garde et le test du jour).
+  function annonceDEffort(d) {
+    var ev = d.ev, haut = d.haut;
+    if (!ev) return null;
+    if (d.moment === 'aujourdhui') {
+      if (ev.effet === 'garde') return phraseDeLaGarde(ev);
+      if (ev.sortie === true) return phraseDeLaSortie(ev, haut, true);
+      return null;
+    }
+    return phraseEffortVise(ev, haut);
+  }
+
+  // 154 — « 130 kg × 5, sans marge. Je garde 130 kg la prochaine fois. » (R < V, la montée n'a pas lieu).
+  function phraseDeLaGarde(e) {
+    var cF = cite(FAIT, { quoi: 'effort_vise' });
+    var cR = cite(FAIT, { quoi: 'effort_vise.reserve' });
+    var cC = cite(FAIT, { quoi: 'effort_vise.charge' });
+    var debut = chargeFois(e.charge, e.reps, cF) +
+      (e.reserve === 0 ? ', sans marge' : ', avec ' + nombreFr(e.reserve, cR) + ' en réserve') + '. Je garde ' +
+      enKg(e.charge, cC);
+    // 169 — au haut de la zone, la garde ne dure qu'une fois, et la phrase le dit ; sous le haut, la rep de plus reste la voie.
+    return e.auHaut === false ? debut + ' la prochaine fois.'
+      : debut + ' : encore une fois au haut de ta zone et je teste plus lourd.';
+  }
+  // 169 — LA SORTIE DITE : « Deux fois 30 kg × 10 au haut de ta zone. Prochaine fois : on teste 32,5 kg × 8. » `haut` : la
+  // ligne haute de la consigne (`{ charge, vise, approchee }`), ou une charge seule.
+  function phraseDeLaSortie(ev, haut, aujourdhui) {
+    var h = haut !== null && typeof haut === 'object' ? haut : { charge: haut, vise: null };
+    var cH = cite(FAIT, { quoi: 'effort_vise.haut' });
+    var test = h.vise === null || h.vise === undefined ? enKg(h.charge, cH) : ligneFois(h.charge, h.vise, false, false, cH, h.approchee === true);
+    // Dite à la fin de la séance : « Prochaine fois ». Dite en tête de la séance suivante, le test est pour aujourd'hui.
+    return 'Deux fois ' + chargeFois(ev.charge, ev.reps, cite(FAIT, { quoi: 'effort_vise' })) + ' au haut de ta zone' +
+      (aujourdhui === true ? DEUX_POINTS + 'aujourd’hui, on teste ' : '. Prochaine fois' + DEUX_POINTS + 'on teste ') + test + '.';
+  }
+  // 154 — LA PHRASE APRÈS LA RÉPONSE (VOIX-DU-COACH) : « 34 kg × 9, il t'en restait 3. Au-dessus de ce que je visais : la
+  // prochaine fois, on essaie 36 kg. » / « 130 kg × 5, sans marge. Je garde 130 kg : encore une fois au haut de ta zone et
+  // je teste plus lourd. » `ev` : le fait `effortVise` de la consigne suivante ; `haut` : la ligne haute du test qu'elle
+  // pose (ou sa charge). `null` : rien à dire.
+  function phraseEffortVise(ev, haut) {
+    if (!ev) return null;
+    if (ev.effet === 'garde') return phraseDeLaGarde(ev);
+    var charge = haut !== null && typeof haut === 'object' ? haut.charge : haut;
+    if (ev.effet !== 'test' || charge === null || charge === undefined) return null;
+    if (ev.sortie === true) return phraseDeLaSortie(ev, haut);
+    // PR 4a (§9.26 bis) — la réserve notée ÉGALE à la visée affichée (le plancher à 2 sur une table à 0 ou 1 : le test se déclenche sur la
+    // table) : « c'est ce que je visais », jamais « au-dessus » (I161).
+    var egale = ev.reserve === ev.visee;
+    return chargeFois(ev.charge, ev.reps, cite(FAIT, { quoi: 'effort_vise' })) + ', il t’en restait ' +
+      nombreFr(ev.reserve, cite(FAIT, { quoi: 'effort_vise.reserve' })) +
+      (egale ? DEUX_POINTS + 'c’est ce que je visais. La prochaine fois, on essaie '
+             : '. Au-dessus de ce que je visais' + DEUX_POINTS + 'la prochaine fois, on essaie ') +
+      enKg(charge, cite(FAIT, { quoi: 'effort_vise.haut' })) + '.';
+  }
+  // ══ FIN DE L'ANNONCE ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
   function phraseGrise(c, reference) {
     var f = c.fondement || {};
     var z = zoneParCle(c.zone);
@@ -5060,7 +5156,7 @@
         // 79 (12/10/2026) — les chiffres d'abord et pas de jargon : « 125 kg × 5, sans marge : … », la même
         // phrase pour un RPE et pour un ressenti (« reste 0 »).
         // 154 (§9.26) — la montée retenue par la réserve : « 130 kg × 5, sans marge. Je garde 130 kg la prochaine fois. »
-        if (f.effortVise && f.effortVise.effet === 'garde') return phraseDeLaGarde(f.effortVise);
+        if (f.effortVise && f.effortVise.effet === 'garde') return annonceDe('effort', { ev: f.effortVise, moment: 'aujourdhui' });
         // PR 4a — LE VERBE VIENT DE LA LIGNE (`verbeDeLaConsigne`), plus de l'état : « sans marge » ne se dit que si le verbe le rend vrai.
         // 200b — la cible (dernière fois + 1) encore sous le bas de la zone : « vers tes 6-8 » (VOIX, I26).
         return grisDuVerbe(c, verbeDeLaConsigne(c), jour() + DEUX_POINTS + auPalier(), z === null ? null : z.bas, z === null ? null : z.haut);
@@ -5068,7 +5164,7 @@
       case 'test_propose':
         // 154 (§9.26) — le test posé « par la réserve » dit la réserve notée, pas le haut de la zone.
         if (f.effortVise && f.effortVise.sortie === true && c.haut && c.haut.charge !== null && c.haut.charge !== undefined) {
-          return phraseDeLaSortie(f.effortVise, c.haut, true);
+          return annonceDe('effort', { ev: f.effortVise, haut: c.haut, moment: 'aujourdhui' });
         }
         if (f.effortVise && f.effortVise.effet === 'test' && c.haut && c.haut.charge !== null && c.haut.charge !== undefined) {
           return 'On essaie ' + enKg(c.haut.charge, cite(FAIT, { quoi: 'effort_vise.haut' })) + DEUX_POINTS + 'la dernière fois, ' +
@@ -5160,7 +5256,9 @@
         }
         return 'Longue pause' + DEUX_POINTS + 'on reprend un cran en dessous' +
                (c.ligne && nombre(c.ligne.charge) !== null ? ', à ' + enKg(c.ligne.charge, cite(CIBLE, { role: 'ligne' })) : '') +
-               '. Le test te ramènera à ' + enKg(c.palier, cite(FAIT, { quoi: 'palier' })) + '.' + phraseBorneZone(f, c);
+               // PR 5a (3g) — « Le test te ramènera à X » est RETIRÉ : après la ligne tenue la fois suivante est « une rep de plus », le test vient deux séances plus tard
+               // (simulé : reprise 97,5 kg × 7, puis 97,5 kg × 8, puis le test à 100 kg). Une promesse non datée ne se dit pas (MOTEUR §9.48).
+               '.' + phraseBorneZone(f, c);
 
       // Le « 3 » se lit sur la table du rangement, il ne se recopie pas : sous
       // la première borne, il n'y a plus de zone (§9.1.2).
@@ -5513,7 +5611,7 @@
           : null;
 
       case 'progression':
-        if (f.effortVise && f.effortVise.effet === 'garde') return phraseDeLaGarde(f.effortVise);
+        if (f.effortVise && f.effortVise.effet === 'garde') return annonceDe('effort', { ev: f.effortVise, moment: 'aujourdhui' });
         return (t !== null ? rateDit() + ' ' : '') + pourquoiDeLaProgression(c);
 
       case 'test_propose':
@@ -5683,7 +5781,7 @@
         }
         return 'Longue pause' + DEUX_POINTS + 'un cran en dessous' +
                (c.ligne && nombre(c.ligne.charge) !== null ? ', ' + enKg(c.ligne.charge, cL) : '') +
-               ', sans rep de plus. Le test te ramènera à ' + enKg(c.palier, cite(FAIT, { quoi: 'palier' })) + '.' + phraseBorneZone(f, c);
+               ', sans rep de plus.' + phraseBorneZone(f, c);
 
       case 'bord':
         return 'Tu travailles sous ' + nombreFr(RANGEMENT[0].jusqua + 1, regle('constante')) + ' reps' + DEUX_POINTS +
@@ -5763,8 +5861,8 @@
   //
   // `reference` : la date de la séance du jour — « 3 reps mardi » se lit contre
   // elle, jamais contre l'horloge.
-  function constatDe(consigneAvant, consigneApres, reglage, cranSuivant, reference, cranApproche) {
-    var d = constatEnDeux(consigneAvant, consigneApres, reglage, cranSuivant, reference, cranApproche);
+  function constatDe(consigneAvant, consigneApres, reglage, cranSuivant, reference, cranApproche, testConfirme) {
+    var d = constatEnDeux(consigneAvant, consigneApres, reglage, cranSuivant, reference, cranApproche, null, testConfirme);
     if (!d) return null;
     Modele().reporter(d.verdict.citations);
     Modele().reporter(d.suite.citations);
@@ -5774,7 +5872,7 @@
   // §20 bis (49-U19) — le verdict et la suite, chacun RÉDIGÉ DANS SA CAPTURE
   // (`{ texte, citations }`) : un verdict remplacé (la montée tenue) ne laisse
   // pas ses citations derrière lui.
-  function constatEnDeux(consigneAvant, consigneApres, reglage, cranSuivant, reference, cranApproche, seriesDuJour) {
+  function constatEnDeux(consigneAvant, consigneApres, reglage, cranSuivant, reference, cranApproche, seriesDuJour, testConfirme) {
     if (!consigneAvant || !consigneApres) return null;
     var ap = consigneApres.fondement || {};
     var av = consigneAvant.fondement || {};
@@ -5789,9 +5887,7 @@
     // Ce qui compte comme « fait aujourd'hui » : le niveau validé, sauf en
     // Franc, dont le déclencheur est UNE série — le constat se lit donc sur la
     // meilleure, comme la règle qui le suit (§9.8).
-    var faitAujourdHui = reglage === 'franc'
-      ? (ap.reps || []).reduce(function (m, r) { return r !== null && r > m ? r : m; }, 0)
-      : consigneApres.niveau;
+    var faitAujourdHui = faitDuJourDe(consigneApres, reglage);
 
     var V = Modele();
     // `repli` : le verdict est tombé sur la dernière branche — celle où « Pas encore » se disait avant le prédicat (I163).
@@ -5802,8 +5898,8 @@
              }),
              repli: sortie.repli === true,
              suite: V.capturer(function () {
-               return suiteDuJour(consigneAvant, consigneApres, z, reglage,
-                                  faitAujourdHui, cranSuivant, cranApproche === true);
+               return annonceDe('suite', { cAvant: consigneAvant, cApres: consigneApres, z: z, reglage: reglage, fait: faitAujourdHui,
+                                           cranSuivant: cranSuivant, cranApproche: cranApproche === true, testConfirme: testConfirme === true });
              }),
              // I163 — le jugement de la cible, tel que le verdict l'a lu (jamais un second calcul) : seulement quand le verdict est tombé
              // sur la dernière branche, celle qui le lit ; les autres branches (« 9 reps aujourd'hui », un test…) ne le lisent pas.
@@ -6292,53 +6388,7 @@
     return 'Aujourd\'hui' + DEUX_POINTS + faitDuJour() + '.';
   }
 
-  // Ce qui vient. La consigne d'après le dit déjà en jaune : on la reprend
-  // telle quelle plutôt que de la réécrire.
-  function suiteDuJour(cAvant, cApres, z, reglage, fait, cranSuivant, cranApproche) {
-    if (cApres.etat === 'silence') return null;
-    // Rédigée à la demande : seule la branche qui l'écrit la déclare (§20 bis).
-    var prochaine = function () { return 'Prochaine séance' + DEUX_POINTS + lignesJaunes(cApres, SUIVANTE).join(', ') + '.'; };
-
-    if (cApres.etat === 'etirement') {
-      return ditPasDePlusPetitCran(cApres.fondement.equipement, true) + DEUX_POINTS + 'ta zone s\'étire. ' +
-             prochaine() + ' On retestera ' + enKg(cApres.fondement.test.charge, cite(FAIT, { quoi: 'test_du_jour' })) +
-             ' quand tu feras ' + nombreFr(cApres.fondement.cible, regle('suite.cible')) + ' reps à ' +
-             enKg(cApres.ligne.charge, cite(SUIVANTE, { role: 'ligne' })) + '.';
-    }
-    if (cApres.etat === 'retest_un_cran') return prochaine() + ' On reteste d\'un seul cran.';
-
-    if (cApres.etat === 'progression') {
-      var nivAvant = nombre(cAvant.niveau);
-      // Rien de gagné : la cible ne bouge pas, et on le dit comme tel plutôt
-      // que d'annoncer un manque qui n'a pas changé depuis la dernière fois.
-      // ⚠️ « MÊME CIBLE » SEULEMENT SI C'EST LA MÊME (49-U18, principe ii) :
-      // la cible d'après vient de la consigne de la séance suivante, et elle
-      // se COMPARE à celle du jour. « Même cible : 92 kg × 10 » après une
-      // séance qui visait 92 kg × 11 disait le contraire de ce qu'il montrait.
-      if (nivAvant !== null && fait !== null && fait <= nivAvant &&
-          sansDeclarer(function () { return lignesJaunes(cAvant).join(', '); }) ===
-          sansDeclarer(function () { return lignesJaunes(cApres).join(', '); })) {
-        // « Même cible » DIT que ce sont les cibles du jour : elles se
-        // déclarent comme telles, et la garde les compare à l'en-tête.
-        return 'Même cible la prochaine fois' + DEUX_POINTS + lignesJaunes(cApres, CIBLE).join(', ') + '.';
-      }
-      if (nivAvant !== null && fait !== null && fait <= nivAvant) return prochaine();
-      // ⚠️ PRUDENT NE COMPTE PAS LES REPS QUI MANQUENT. Son déclencheur
-      // demande TOUTES les séries au haut, DEUX séances de suite : « il te
-      // manque une rep » y serait faux la moitié du temps — il en manquerait
-      // une, puis une séance entière. La phrase générale ne promet rien.
-      // §9.17 — Au poids du corps il n'y a pas de cran à tester : la phrase
-      // « pour tester le cran au-dessus » ne se dit pas, la suite est celle du
-      // jaune.
-      if (reglage !== 'prudent' && z !== null && fait !== null && fait < z.haut &&
-          nombre(cApres.palier) !== 0) {
-        var manque = z.haut - fait;
-        return 'Il te manque ' + (manque === 1 ? 'une rep' : nombreFr(manque, regle('manque')) + ' reps') +
-               ' pour tester ' + (cranApproche === true ? '\u2248' + INSECABLE : '') + enKg(cranSuivant, regle('cran_suivant')) + '.';
-      }
-    }
-    return prochaine();
-  }
+  // PR 5a (MOTEUR §9.48) — la suite du constat (« Prochaine séance : … », « La prochaine fois : une rep de plus, … », « Il te manque N reps pour tester … ») est écrite par `annonceDe` (région « L'ANNONCE »).
 
   // ── §3.8 — L'ÉTIQUETTE DE ZONE ───────────────────────────────────────────
   //
@@ -10777,7 +10827,63 @@
     var cran = contrat === null ? null : voisineSalleComprise(contrat, apres, P, o.equipement, 1, salleDuCran);
     // 163 — le cran suivant jamais fait se dit « ≈ » (« Il te manque une rep pour tester ≈ 45 kg »).
     var approche = cran !== null && !salleDuCran && estApprochee(contrat, apres, cran, o.equipement);
-    return { apres: cApres, cranSuivant: cran, cranSuivantApprochee: approche };
+    // PR 5a (A7, B2) — « il te manque N reps pour tester X » : le moteur REJOUE la condition (`testApresLeManque`) ; la suite ne le dit que s'il confirme.
+    var ap = cApres.consigne;
+    var testConfirme = null;
+    if (cran !== null && ap.etat === 'progression' && o.reglage !== 'prudent') {
+      var zS = zoneParCle(ap.zone), faitS = faitDuJourDe(ap, o.reglage);
+      if (zS !== null && faitS !== null && faitS < zS.haut) testConfirme = testApresLeManque(tous, etat, apres, o, ap, zS, faitS, cran);
+    }
+    return { apres: cApres, cranSuivant: cran, cranSuivantApprochee: approche, testConfirme: testConfirme };
+  }
+  // ── PR 5a (MOTEUR §9.48) — LA CONDITION DE « IL TE MANQUE N REPS » REJOUÉE ──────────────────────────────────────────────────────────────
+  // La personne revient à son rythme habituel (médiane de ses derniers écarts, 1 à 14 jours, 7 sans histoire) et fait EXACTEMENT ce qui manque :
+  //   · Normal : toutes les séries de la consigne suivante, à sa charge, au HAUT de la zone (`niveau` = la plus faible des séries) ;
+  //   · Franc : UNE série au haut (son déclencheur), les autres à ce qui a été fait ;
+  // avec la réserve que la personne a RÉELLEMENT notée sur la dernière série du jour (rpe, ressenti, « Au max » : sur la dernière série seulement, comme la
+  // question d'effort). Sans réserve notée, rien n'est inventé. Le test est proposé au retour suivant si `consigneDExercice` rend `test_propose` au cran annoncé.
+  function ecartDuRythme(groupes) {
+    var dates = (groupes || []).map(function (g) { return instant(g && g.seance ? g.seance.debut : null); })
+      .filter(function (t) { return t !== null; }).sort(function (a, b) { return a - b; });
+    if (dates.length < 2) return 7;
+    var ec = [];
+    for (var i = 1; i < dates.length; i++) ec.push((dates[i] - dates[i - 1]) / JOUR);
+    var m = mediane(ec.slice(-ECARTS_HABITUELS));
+    return Math.min(14, Math.max(1, m === null ? 7 : m));
+  }
+  function testApresLeManque(tous, etat, apres, o, ap, z, fait, cran) {
+    var T = Modele();
+    var aujourdhui = tous[tous.length - 1];
+    var series = (aujourdhui && aujourdhui.series || []).filter(function (x) { return x && T.estTravail(x); });
+    if (!series.length || !ap.ligne) return false;
+    var gabarit = series[series.length - 1];
+    var n = typeof ap.n === 'number' && ap.n >= 1 ? ap.n : series.length;
+    var jours = ecartDuRythme(tous);
+    var t0 = instant(apres);
+    if (t0 === null) return false;
+    var debut = new Date(t0 + jours * JOUR).toISOString();
+    var retour = new Date(t0 + 2 * jours * JOUR).toISOString();
+    // Une variante = le nombre de séries au haut ; le reste de la séance reste à ce qui a été fait (Franc). En Normal, la condition est que TOUTES y soient.
+    var joue = function (auHaut) {
+      var sim = [];
+      for (var i = 0; i < n; i++) {
+        var derniere = i === n - 1;
+        sim.push(Object.assign({}, gabarit, {
+          id: 'simulation-' + i, rang: i + 1, type_serie: 'travail', hors_calcul: false, charge_kg: ap.ligne.charge,
+          reps: i < auHaut ? z.haut : fait,
+          rpe: derniere && gabarit.rpe !== undefined ? gabarit.rpe : null,
+          ressenti: derniere && gabarit.ressenti !== undefined ? gabarit.ressenti : null,
+          au_max_reserve: derniere && gabarit.au_max_reserve !== undefined ? gabarit.au_max_reserve : null
+        }));
+      }
+      var rejoue = consigneDExercice(tous.concat([{ seance: Object.assign({}, aujourdhui.seance, { id: 'simulation', debut: debut }), series: sim }]), etat, retour, o);
+      var c = rejoue && rejoue.consigne;
+      if (!c || c.etat !== 'test_propose') return false;
+      var cible = c.haut ? nombre(c.haut.charge) : c.test ? nombre(c.test.charge) : nombre(c.ligne && c.ligne.charge);
+      return cible !== null && memeCharge(cible, nombre(cran));
+    };
+    // Franc : UNE série au haut suffit (son déclencheur) ; on exige aussi que « toutes au haut » ne change pas la réponse (faire plus ne retire jamais le test).
+    return o.reglage === 'franc' ? joue(1) && joue(n) : joue(n);
   }
 
   // ── §3.9, §9.13 bis (49-U4) — LE CONSTAT LU SUR LE PLAN (I10) ────────────
@@ -10808,9 +10914,9 @@
   // règle. Rend `{ verdict, suite, montee }`, ou `null`.
   //
   // `reference` : la date de la séance du jour (le plan la tient de sa séance).
-  function constatDuJour(consigneAvant, consigneApres, reglage, cranSuivant, jour, reference, cranApproche) {
+  function constatDuJour(consigneAvant, consigneApres, reglage, cranSuivant, jour, reference, cranApproche, testConfirme) {
     var j = jour || {};
-    var d = constatEnDeux(consigneAvant, consigneApres, reglage, cranSuivant, reference, cranApproche, j.series || null);
+    var d = constatEnDeux(consigneAvant, consigneApres, reglage, cranSuivant, reference, cranApproche, j.series || null, testConfirme);
     if (!d) return null;
     var base = { verdict: d.verdict.texte, suite: d.suite.texte };
     Modele().reporter(d.suite.citations);
@@ -13370,7 +13476,7 @@
     verbeDeLaConsigne: verbeDeLaConsigne, VERBES: VERBES,
     populationProtegee: populationProtegee,
     RESERVE_PLANCHER: RESERVE_PLANCHER,
-    phraseEffortVise: phraseEffortVise,
+    annonceDe: annonceDe,
     phraseDuPlancher: phraseDuPlancher,
     effortViseEligible: effortViseEligible,
     RESERVE_ECART: RESERVE_ECART,

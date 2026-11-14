@@ -364,7 +364,18 @@
     hip_thrust_poids_corps: 'hip_thrust_poids_corps.json',
     hip_thrust_une_jambe_poids_corps: 'hip_thrust_une_jambe_poids_corps.json',
     pont_fessier: 'pont_fessier.json',
-    pont_fessier_une_jambe: 'pont_fessier_une_jambe.json'
+    pont_fessier_une_jambe: 'pont_fessier_une_jambe.json',
+    shrug_machine_smith: 'shrug_machine_smith.json',
+    shrug_kettlebell: 'shrug_kettlebell.json',
+    shrug_barre_hex: 'shrug_barre_hex.json',
+    shrug_kelso_haltere: 'shrug_kelso_haltere.json',
+    oiseau_buste_appuye_haltere: 'oiseau_buste_appuye_haltere.json',
+    rowing_oiseau_barre: 'rowing_oiseau_barre.json',
+    rowing_oiseau_haltere: 'rowing_oiseau_haltere.json',
+    oiseau_un_bras_poulie: 'oiseau_un_bras_poulie.json',
+    face_pull_elastique: 'face_pull_elastique.json',
+    ecarte_inverse_elastique: 'ecarte_inverse_elastique.json',
+    elevation_y_incline_haltere: 'elevation_y_incline_haltere.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

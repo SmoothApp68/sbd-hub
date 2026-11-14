@@ -7,6 +7,7 @@ require('../../v2/js/semaine.js');
 require('../../v2/js/palier.js');
 require('../../v2/js/profil.js');
 require('../../v2/js/moteur.js');
+require('../../v2/js/periode.js');
 const Courbe = require('../../v2/js/courbe.js');
 require('../../v2/js/rendu.js');
 

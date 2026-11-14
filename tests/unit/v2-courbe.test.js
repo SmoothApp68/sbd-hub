@@ -6,6 +6,7 @@
 process.env.TZ = 'Europe/Paris';
 global.self = global;
 require('../../v2/js/modele.js');
+require('../../v2/js/periode.js');
 const C = require('../../v2/js/courbe.js');
 
 const J = (a, m, j) => new Date(a, m, j, 18, 0, 0);
@@ -25,6 +26,24 @@ describe('206 — THCourbe', () => {
     expect(C.dansLaPeriode(pts, '1a', now).map((p) => p.valeur)).toEqual([2, 3, 4]);
     expect(C.dansLaPeriode(pts, 'tout', now).map((p) => p.valeur)).toEqual([1, 2, 3, 4]);
     expect(C.dansLaPeriode(pts, 'inconnue', now).map((p) => p.valeur)).toEqual([3, 4]);
+  });
+
+  // PR 6 des mots — la période est une FENÊTRE EN JOURS CIVILS LOCAUX (`THPeriode.fenetres`) : « 3 mois » = 90 jours (et non plus
+  // 92 × 24 h), la veille du premier jour est dehors, la fin de journée de J est dedans, le lendemain dehors.
+  test('dansLaPeriode : 3 mois = 90 jours civils (J = 11/10/2026 : le 14 juil. dedans, le 13 dehors)', () => {
+    const now = new Date(2026, 9, 11, 18, 0, 0);
+    const pts = [P(new Date(2026, 6, 13, 23, 59), 1), P(new Date(2026, 6, 14, 0, 0), 2), P(new Date(2026, 9, 11, 23, 30), 3), P(new Date(2026, 9, 12, 0, 30), 4)];
+    expect(C.dansLaPeriode(pts, '3m', now).map((p) => p.valeur)).toEqual([2, 3]);
+    // 6 mois = du 12 avr. ; 1 an = du 11 oct. 2025 (366 jours).
+    const bords = [P(new Date(2026, 3, 11, 23, 59), 1), P(new Date(2026, 3, 12, 0, 0), 2), P(new Date(2025, 9, 10, 23, 59), 3), P(new Date(2025, 9, 11, 0, 0), 4)];
+    expect(C.dansLaPeriode(bords, '6m', now).map((p) => p.valeur)).toEqual([2]);
+    expect(C.dansLaPeriode(bords, '1a', now).map((p) => p.valeur)).toEqual([1, 2, 4]);
+  });
+
+  test('dansLaPeriode : le changement d’heure du 25/10/2026 ne coupe pas la fenêtre « à 13 h » (J = 26/10, 3 mois = du 29 juil. à minuit)', () => {
+    const now = new Date(2026, 9, 26, 12, 0, 0);
+    const pts = [P(new Date(2026, 6, 28, 23, 30), 1), P(new Date(2026, 6, 29, 0, 30), 2)];
+    expect(C.dansLaPeriode(pts, '3m', now).map((p) => p.valeur)).toEqual([2]);
   });
 
   test('geometrie : espacée par la DATE, jamais par le rang', () => {

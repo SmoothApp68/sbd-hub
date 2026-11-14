@@ -103,21 +103,18 @@
   // 220 — LES `n` DERNIERS MOIS jusqu'à `jour` (« Ce qui a le plus progressé » de Progression) : une période de type `annee` (même
   // comparaison que l'année : contre les `n` mois d'avant s'il y a 12 mois de données, sinon son début contre sa fin), la même
   // notion « ce qui a le plus avancé » que « Ton année » — `bilanDeLaPeriode(…).avance`. Rien n'est recopié.
+  // PR 6 des mots : « N derniers mois » est une FENÊTRE EN JOURS (`THPeriode.fenetres`, 6 mois = 183 jours), jamais « N mois pile »
+  // du calendrier : la même fenêtre que la courbe et le Parcours. Les deux fenêtres se touchent, de même longueur.
+  var CLE_DES_MOIS = { 3: '3m', 6: '6m', 12: '1a' };
   function periodeDesDerniersMois(n, jour) {
-    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(jour || ''));
-    if (!m) return null;
-    var f = function (a, mo, j) { return a + '-' + deux(mo) + '-' + deux(j); };
-    var borne = function (k) {   // le lendemain du jour d'il y a k mois (k mois pile avant, jour compris)
-      var d = new Date(Date.UTC(+m[1], +m[2] - 1 - k, +m[3] + 1));
-      return f(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
-    };
-    var veille = function (iso) {
-      var d = new Date(Date.parse(iso + 'T00:00:00Z') - 864e5);
-      return f(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
-    };
-    var debut = borne(n), debutAvant = borne(2 * n);
-    return { type: 'annee', cle: 'derniers-' + n + '-mois-' + jour, libelle: n + ' derniers mois', debut: debut, fin: jour,
-             precedente: { debut: debutAvant, fin: veille(debut), libelle: n + ' mois d’avant' } };
+    var P = racine.THPeriode;
+    var j = P.jourISO(jour);
+    if (!j || !/^\d{4}-\d{2}-\d{2}$/.test(String(jour || ''))) return null;
+    var jours = P.JOURS_DE[CLE_DES_MOIS[n]] || Math.round(n * 30.5);
+    var f = P.fenetres(jours, P.debutDeJournee(j));
+    return { type: 'annee', cle: 'derniers-' + n + '-mois-' + jour, libelle: n + ' derniers mois',
+             debut: P.jourISO(f.courante.debut), fin: j,
+             precedente: { debut: P.jourISO(f.precedente.debut), fin: P.jourISO(f.precedente.fin), libelle: n + ' mois d’avant' } };
   }
   // Le mois (98) : « octobre 2026 », comparé à septembre.
   function periodeDuMois(cle) {

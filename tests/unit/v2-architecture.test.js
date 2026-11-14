@@ -2130,6 +2130,18 @@ const NOTIONS = [
     parAilleurs: { 'app.js': ['optionsDeConsigne'] },
     raison: 'un seul prédicat, calculé par le plan (`plan.protegee`) et donné au moteur par l’app (`options.protegee`) : la garde de la consigne et ' +
       'la réserve affichée ne redécident pas qui est protégé (MOTEUR §9.26 bis ; `plus65` jamais deviné).' },
+  // ── PR 6 DES MOTS (14/11/2026) — « les périodes disent vrai » ──────────────────────────────────────────────────
+  { notion: 'une fenêtre glissante en jours civils (« 3 derniers mois » = 90 j, « 6 derniers mois » = 183 j, « 12 mois » = 366 j)', pr: 'correctif 14/11/2026',
+    module: 'periode.js', fonction: 'fenetres', lecteurs: ['app.js', 'bilans.js', 'faits.js', 'routines.js', 'courbe.js'],
+    parAilleurs: { 'courbe.js': ['dansLaPeriode'], 'bilans.js': ['periodeDesDerniersMois'] },
+    interditAilleurs: { motif: /\bjours\s*:\s*92\b/, raison: '« 3 mois » = 90 jours (`THPeriode.JOURS_DE`), jamais 92 : la courbe, le radar et le moteur disent la même durée' },
+    raison: 'MAQUETTE-PR6 R-FENETRE / R-NOMMEES : la courbe comptait en millisecondes (92 j), « ce qui a progressé » en mois pile, le Parcours en jours ' +
+      'à part ; une fenêtre se compte en jours civils locaux, par la même fonction, et son nom (3 / 6 / 12 mois) se lit dans `JOURS_DE`.' },
+  { notion: 'une date « il y a N mois » (calendaire, jour plafonné à la fin du mois, fin de journée locale)', pr: 'correctif 14/11/2026',
+    module: 'periode.js', fonction: 'moisAvant', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['rendreExercice'] },
+    raison: 'MAQUETTE-PR6 R-IL-Y-A : « il y a 6 mois » est une DATE (31 août − 6 mois = 28 février), jamais une fenêtre ; `setMonth` la déborde sur le mois suivant. ' +
+      'Les colonnes « Il y a 6 mois / 1 an » des records la lisent ici.' },
   { notion: 'les mots de la dernière série « Au max » (titre, bouton, étiquette ; « en gardant 2 reps » pour un 65 ans et plus connu)', pr: 'correctif 12/11/2026',
     module: 'moteur.js', fonction: 'motsDeLAuMax', lecteurs: ['plan.js', 'app.js'],
     raison: 'le plan pose `x.auMaxMots` et le titre de la carte ; l’éditeur de routine, sans plan, lit la même fonction : aucun « Au max » à un 65+ connu, dans aucun écran.' },

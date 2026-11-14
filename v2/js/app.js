@@ -14843,8 +14843,11 @@
     var teteRecords = null;
     // 132 — pas de records en kg pour un exercice noté par nom (MOTEUR §10 ter) : son meilleur, par son nom, suffit.
     if (mesure === 'charge_reps' && groupes.length && !rp.nommes) {
-      var il6 = new Date(maintenant.getTime()); il6.setMonth(il6.getMonth() - 6);
-      var il12 = new Date(maintenant.getTime()); il12.setFullYear(il12.getFullYear() - 1);
+      // PR 6 des mots : « il y a 6 mois » / « il y a 1 an » sont des DATES CALENDAIRES (`THPeriode.moisAvant`, le jour plafonné à la
+      // fin du mois), l'état « à cette date » = la FIN de cette journée locale. Plus `setMonth` (31 août − 6 mois = 3 mars).
+      var jourDeReference = Periode.jourISO(maintenant);
+      var il6 = Periode.finDeJournee(Periode.moisAvant(jourDeReference, 6));
+      var il12 = Periode.finDeJournee(Periode.moisAvant(jourDeReference, 12));
       var travail = null;
       Moteur.chargesDeTravailDe(faits.seancesDeLExercice(corpus(), slug), etatsExercices[slug], optionsDeConsigne(slug, exo, instantDuCalcul()))
         .forEach(function (x) { if (!travail || String(x.date) > String(travail.date)) travail = x; });

@@ -79,3 +79,21 @@ describe('Q7 — Modele.quand : une date d’une autre année porte son année',
     expect(Modele.quand('2025-12-30T10:00:00+01:00', '2026-01-02T10:00:00+01:00')).toBe('mardi');   // 3 jours : le nom du jour
   });
 });
+
+describe('Bilans.periodeDesDerniersMois : « 6 derniers mois » = la fenêtre de 183 jours de `THPeriode`', () => {
+  require('../../v2/js/bilans.js');
+  const Bilans = global.THBilans;
+  test('à J = 11/10/2026 : du 12 avr. au 11 oct., contre du 11 oct. 2025 au 11 avr. 2026', () => {
+    const p = Bilans.periodeDesDerniersMois(6, '2026-10-11');
+    expect([p.debut, p.fin]).toEqual(['2026-04-12', '2026-10-11']);
+    expect([p.precedente.debut, p.precedente.fin]).toEqual(['2025-10-11', '2026-04-11']);
+    expect(p.libelle).toBe('6 derniers mois');
+  });
+  test('un 31 : plus de « N mois pile » — la fenêtre reste de 183 jours (J = 31/08/2026 : du 2 mars)', () => {
+    const p = Bilans.periodeDesDerniersMois(6, '2026-08-31');
+    expect([p.debut, p.precedente.fin]).toEqual(['2026-03-02', '2026-03-01']);
+  });
+  test('un jour illisible : rien', () => {
+    expect(Bilans.periodeDesDerniersMois(6, 'demain')).toBeNull();
+  });
+});

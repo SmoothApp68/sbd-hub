@@ -160,7 +160,7 @@ describe('49-U6 — la feuille décrit exactement les lignes de la grille (plans
         .toEqual([ou, grille.map((l) => [l.rang, l.role, l.charge === undefined ? null : l.charge, l.vise === undefined ? null : l.vise])]);
       x.pourquoi.lignes.forEach((f, k) => {
         if (f.role === 'coach') { vu.coach++; if (/^proposée après /.test(f.raison)) vu.raisonCoach++; }
-        if (f.role === 'retour') { vu.retour++; expect(f.raison).toMatch(/^on revient à /); }
+        if (f.role === 'retour') { vu.retour++; expect(f.raison).toMatch(/^je reviens à /); }
         if (grille[k].figee) vu.figees++;
       });
       // Le `n` de la consigne brute ne décrit pas la séance quand elle en diffère.

@@ -1,0 +1,14 @@
+{
+ "note": "PR 4a (MOTEUR §9.47, I162) — le lexique FERMÉ du verbe de la consigne : motifs INTERDITS, balayés sur toutes les phrases produites par `v2-voix.test.js`. Les verbes admis sont ceux de `Moteur.verbeDeLaConsigne` (« N rep(s) de plus : C × R », « Tu restes à C × R », « Je garde C kg », « Je baisse à C », « Je reviens à C », « On essaie C »). « je » = le coach décide la charge ; « tu » = ce que fait la personne ; « on » = un essai à deux, rien d'autre.",
+ "interdits": [
+  { "motif": "\\bgarde\\s+\\d+(?:,\\d+)?\\s+reps?\\b", "drapeaux": "i", "regle": "D1 : « garde » dit la charge, jamais des reps (« je garde 8 reps » est refusé)" },
+  { "motif": "\\bon ne rajoute pas\\b", "drapeaux": "i", "regle": "l'ancienne phrase « sans marge : on ne rajoute pas de rep » (PR 4a : « Tu restes à C × R »)" },
+  { "motif": "\\bjusqu['’]au bout\\b", "drapeaux": "i", "regle": "C3 : un mot, un fait — « sans marge », défini au Pourquoi par « il ne t'en restait aucune »" },
+  { "motif": "\\bOn garde\\s+\\d", "drapeaux": "", "regle": "C4 : « je » = le coach décide la charge (« Je garde 130 kg »)" },
+  { "motif": "\\bon tient\\s+\\d", "drapeaux": "i", "regle": "C4 : « tu restes à C × R »" },
+  { "motif": "\\bje vise\\s+(?!\\d+\\s+en réserve)", "drapeaux": "i", "regle": "C5 : « viser » est pris par la réserve (« je vise 2 en réserve ») ; les reps se disent par le chiffre de la ligne" },
+  { "motif": "\\bje ne te demande pas de rep de plus\\b", "drapeaux": "i", "regle": "C3 : phrases positives (une négation devant l'affirmation qui dit la même chose)" },
+  { "motif": "\\bsur chaque série\\b", "drapeaux": "i", "regle": "C4 : « une rep de plus sur chaque série » est faux pour 9, 9, 8 (la ligne seule porte le nombre)" },
+  { "motif": "\\b(?:tu conserves|on continue à|même chose qu)", "drapeaux": "i", "regle": "D6 : vocabulaire fermé — des synonymes de « tu restes à » que rien ne calcule" }
+ ]
+}

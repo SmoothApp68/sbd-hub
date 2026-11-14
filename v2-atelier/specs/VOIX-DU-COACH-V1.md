@@ -8,6 +8,7 @@
 2. **Les dates proches en jours** : « mardi » plutôt que « le 22 sept. » quand c'est dans les 7 derniers jours ; au-delà, la date (« le 15 sept. »).
 3. **Pas de jargon du moteur** : « palier » devient **« ta charge de travail »**. On garde **« zone »** (affichée sur l'étiquette) et **« test »**. Jamais « niveau validé », « bascule », « étirement », « rampe » dans une phrase affichée. *(28/10/2026, audit 181 D2 : « cran » est ADOPTÉ, c'est l'usage du produit — voir MOTEUR §20.2 règle 7.)*
 4. **Des phrases courtes, au « tu »** : le fait, puis la suite. *(28/10/2026, 181 D2 : « je » partout où le coach décide — « je garde », « je teste », « je visais » ; les aides des réglages restent neutres, sans « je » ni « le coach ».)*
+   *(13/11/2026, « Les mots disent vrai » PR 4a, MOTEUR §9.47 : la règle des personnes — **je** = le coach décide la charge (« Je garde 130 kg », « Je baisse à 97,5 kg ») ; **tu** = ce que fait la personne (« Tu restes à 70 kg × 8 », jamais « Je garde 8 reps ») ; **on** = l'essai à deux seulement (« On essaie 72,5 kg »). Le lexique du verbe est fermé : « Une rep de plus : 70 kg × 9 » (toujours avec son chiffre), « Tu restes à … », « sans marge » (défini au Pourquoi : « il ne t'en restait aucune »), « la dernière » seulement pour la dernière série de la séance.)*
 5. **Un fait, jamais un « bravo »** ; aucun rouge, aucun vocabulaire de risque ; jamais la durée d'une absence ni un commentaire d'assiduité (inchangé).
 6. **Une question seulement quand le coach propose** (« tu passes à 130 kg ? »).
 
@@ -47,8 +48,8 @@
 | En-tête d'un exercice | garde-en 1 |
 | Question dans la barre de repos, après la dernière série de travail (259 : une seule fois ; la case « Effort » de la ligne répond aussi) | Il t’en restait combien ? — 0 · 1 · 2 · 3 ou + · Passer |
 | Réserve au-dessus de la visée (R ≥ V + 2) | 34 kg × 9, il t'en restait 3. Au-dessus de ce que je visais : la prochaine fois, on essaie 36 kg. |
-| Réserve sous la visée, à fond (R = 0 < V) | 130 kg × 5, sans marge. On garde 130 kg la prochaine fois. |
-| Réserve sous la visée (0 < R < V) | 130 kg × 5, avec 1 en réserve. On garde 130 kg la prochaine fois. |
+| Réserve sous la visée, à fond (R = 0 < V) | 130 kg × 5, sans marge. Je garde 130 kg la prochaine fois. |
+| Réserve sous la visée (0 < R < V) | 130 kg × 5, avec 1 en réserve. Je garde 130 kg la prochaine fois. |
 | R = V ou V + 1 | (rien) |
 | « Pourquoi » du test à la séance suivante | On essaie 36 kg : la dernière fois, 34 kg × 9 avec 3 en réserve. |
 

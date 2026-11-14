@@ -11385,8 +11385,8 @@ const SETS_IMPORTES = [
       cons.ligne.charge === 80 && cons.ligne.vise === 10, JSON.stringify(cons));
     ok('[U12] l’en-tête dit « 80 kg × 10 », et rien de plus lourd',
       jaune.length === 1 && jaune[0] === '80 kg × 10', JSON.stringify(jaune));
-    ok('[U12] la phrase grise : « … : 80 kg × 10, 10, 6. Je ne compte pas la dernière série : on tient 80 kg × 10. »',
-      /^\S+ : 80 kg × 10, 10, 6\. Je ne compte pas la dernière série : on tient 80 kg × 10\.$/.test(gris), gris);
+    ok('[U12] la phrase grise : « … : 80 kg × 10, 10, 6. Je ne compte pas la dernière série : tu restes à 80 kg × 10. »',
+      /^\S+ : 80 kg × 10, 10, 6\. Je ne compte pas la dernière série : tu restes à 80 kg × 10\.$/.test(gris), gris);
     // La réaction en séance n'est pas touchée : 13 reps sur la première série, le coach réagit.
     await saisirSerie(0, 80, 13);
     await attendre(900);
@@ -27212,7 +27212,7 @@ const SETS_IMPORTES = [
     await jusqua(async () => (await entete169()).dit !== null, 6000);
     const a1 = await entete169();
     ok('[JB169] DISCRIMINANT — 1re fois (A : seule la dernière séance a échoué), 30 kg × 10 à l’échec : on garde, et la phrase annonce le test (« encore une fois au haut de ta zone et je teste plus lourd »)',
-      sp169(a1.dit) === '30 kg × 10, sans marge. On garde 30 kg : encore une fois au haut de ta zone et je teste plus lourd.' &&
+      sp169(a1.dit) === '30 kg × 10, sans marge. Je garde 30 kg : encore une fois au haut de ta zone et je teste plus lourd.' &&
         a1.garde !== null && !a1.jaune.some((t) => /32,5/.test(sp169(t))), JSON.stringify(a1));
     await abandonner();
 
@@ -27380,7 +27380,7 @@ const SETS_IMPORTES = [
     const b = await lire174('cr174-b');
     ok('[CR174] B — DISCRIMINANT : 140 kg × 2 à 0 en réserve → on garde 140 kg (jamais un recul : aller à l\'échec n\'est pas un motif)',
       b.etat === 'bord_garde' && b.jaune.some((t) => /140 kg × 2/.test(sp174(t))) && !b.jaune.some((t) => /137,5/.test(sp174(t))) &&
-        /^140 kg × 2, sans marge\. On garde 140 kg/.test(sp174(b.dit)), JSON.stringify(b));
+        /^140 kg × 2, sans marge\. Je garde 140 kg/.test(sp174(b.dit)), JSON.stringify(b));
     await abandonner();
 
     // ── C. Six séances sans monter : la carte du schéma, vers 3-5.
@@ -29631,7 +29631,7 @@ const SETS_IMPORTES = [
       avant193.fantomes.every((c) => String(c).replace('.', ',') === String(phAvant[1]).replace(/\s/g, '') ), nb193([avant193.fantomes, phAvant]));
     // 200b — la cible (130 × 5) est sous le bas de la zone Mix (6-8) : la phrase datée le dit.
     const grise200 = await page.evaluate(() => { const g = document.querySelector('.consigne-grise, .consigne .gris, .gris-consigne'); return g ? g.textContent : document.body.innerText; });
-    ok('[RM193] 200b — cible sous la zone : « Une rep de plus, vers tes 6-8. »', /130 kg × 4\. Une rep de plus, vers tes 6-8\./.test(sp193(grise200)), nb193(sp193(grise200).slice(0, 300)));
+    ok('[RM193] 200b — cible sous la zone : « Une rep de plus : 130 kg × 5, vers tes 6-8. »', /130 kg × 4\. Une rep de plus : 130 kg × 5, vers tes 6-8\./.test(sp193(grise200)), nb193(sp193(grise200).slice(0, 300)));
     // 200b — au repos, aucun pixel du fond « Supprimer » ne se voit : sous la rangée comme sous l'étiquette, l'élément au point n'est pas le fond.
     const fond200 = await page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).map((l) => {
       const r = l.getBoundingClientRect(), pts = [];

@@ -1,0 +1,55 @@
+[
+ {
+  "nom": "mots-4a-verbe-lu-sur-la-serie-a-fond",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "r.plus = vise - niv;",
+  "nouveau": "r.plus = f.sansMarge ? 0 : vise - niv;",
+  "banc": "seance",
+  "sections": ["sans-marge", "7-G-nonies"],
+  "unitaires": ["tests/unit/v2-verbe-unique-4a.test.js", "tests/unit/v2-mots-campagne.test.js"]
+ },
+ {
+  "nom": "mots-4a-verbe-sur-l-etat-brut",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "vise = nombre(c.ligne.vise), P = nombre(c.palier)",
+  "nouveau": "vise = nombre(c.niveau), P = nombre(c.palier)",
+  "banc": "seance",
+  "sections": ["sans-marge"],
+  "unitaires": ["tests/unit/v2-verbe-unique-4a.test.js"]
+ },
+ {
+  "nom": "mots-4a-plus-sans-charge",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "dePlus(v.plus, true) + ' : ' + ligneDeLaConsigne(c) + '.';",
+  "nouveau": "dePlus(v.plus, true) + '.';",
+  "banc": "seance",
+  "sections": ["sans-marge"],
+  "unitaires": ["tests/unit/v2-verbe-unique-4a.test.js", "tests/unit/v2-mots-campagne.test.js"]
+ },
+ {
+  "nom": "mots-4a-sans-marge-devant-une-ligne-qui-monte",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "dePlus(v.plus, true) + ' : ' + ligneDeLaConsigne(c) + '.';",
+  "nouveau": "dePlus(v.plus, true) + ', sans marge : ' + ligneDeLaConsigne(c) + '.';",
+  "banc": "seance",
+  "sections": ["sans-marge"],
+  "unitaires": ["tests/unit/v2-verbe-unique-4a.test.js"]
+ },
+ {
+  "nom": "mots-4a-i162-sens-2-retire",
+  "fichier": "v2/js/plan.js",
+  "ancien": "textes.forEach(function (p) {",
+  "nouveau": "[].forEach(function (p) {",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-verbe-unique-4a.test.js"]
+ },
+ {
+  "nom": "mots-4a-temoin-famille",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "r.famille = fam;",
+  "nouveau": "r.famille = '' + fam;",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-verbe-unique-4a.test.js"],
+  "attendu": "survit"
+ }
+]

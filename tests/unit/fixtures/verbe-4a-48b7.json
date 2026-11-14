@@ -1,0 +1,36 @@
+{
+ "N1": {
+  "gris": "Le 13 sept. : 125 kg × 4, 4, 4. Une rep de plus : 125 kg × 5.",
+  "etat": "Ta charge de travail n'est pas encore au haut de ta zone : je te demande une rep de plus, 125 kg × 5."
+ },
+ "P1": {
+  "gris": "Le 13 sept. : 125 kg × 5, 5, 5. Tu restes à 125 kg × 5.",
+  "etat": "Ta charge de travail n'est pas encore au haut de ta zone : tu restes à 125 kg × 5."
+ },
+ "X1": {
+  "gris": "Le 13 sept. : 125 kg × 5, 5, 4, une série sans marge. Tu restes à 125 kg × 5.",
+  "etat": "Une de tes séries était sans marge, il ne t'en restait aucune : tu restes à 125 kg × 5."
+ },
+ "X6": {
+  "gris": "Le 13 sept. : 125 kg × 5, 5, 4, une série sans marge. Tu restes à 125 kg × 5.",
+  "etat": "Une de tes séries était sans marge, il ne t'en restait aucune : tu restes à 125 kg × 5."
+ },
+ "X7": {
+  "etat": "Ton test à 127,5 kg a fait 2 reps : pas encore dans ta zone. Ta charge de travail n'est pas encore au haut de ta zone : je te demande une rep de plus, 125 kg × 5."
+ },
+ "X8": {
+  "etat": "Ton test à 130 kg a fait 2 reps : pas encore dans ta zone. Ta charge de travail n'est pas encore au haut de ta zone : je te demande une rep de plus, 125 kg × 5."
+ },
+ "X10": {
+  "gris": "Le 13 sept. : 125 kg × 5, 5, 4, une série sans marge. Tu restes à 125 kg × 5.",
+  "etat": "Une de tes séries était sans marge, il ne t'en restait aucune : tu restes à 125 kg × 5."
+ },
+ "C2": {
+  "gris": "Le 13 sept. : 90 kg × 10, 10, 10. Une rep de plus : 90 kg × 11.",
+  "etat": "Ta charge de travail n'est pas encore au haut de ta zone : je te demande une rep de plus, 90 kg × 11."
+ },
+ "C5": {
+  "gris": "Le 13 sept. : 150 kg × 2, 2, 2. Une rep de plus : 150 kg × 3.",
+  "etat": "Ta charge de travail n'est pas encore au haut de ta zone : je te demande une rep de plus, 150 kg × 3."
+ }
+}

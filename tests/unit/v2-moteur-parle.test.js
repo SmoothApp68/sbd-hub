@@ -229,8 +229,8 @@ describe('le pont depuis analyser (MOTEUR §9.13)', () => {
       expect(c.consigne.haut).toBeNull();
       expect(c.consigne.niveau).toBe(5);
       // 79 — RPE ou ressenti, la même phrase : les chiffres d'abord (« 125 kg × 5, sans marge »).
-      expect(c.libelles.gris).toBe('125' + NB + 'kg' + NB + '×' + NB + '5' +
-        ', sans marge' + NB + ': on ne rajoute pas de rep.');
+      // PR 4a — le verbe lit la LIGNE : 125 kg × 5 gardée, la cause dite (une série à fond, pas la dernière), « Tu restes à ».
+      expect(c.libelles.gris.replace(/[\u00a0\u202f]/g, ' ')).toBe('Le 13 sept. : 125 kg × 5, 5, 5, une série sans marge. Tu restes à 125 kg × 5.');
     };
 
     test('à RPE 10, le pont garde le rpe : le test compte ses 5 reps, le haut vise 5 (74)', () => {

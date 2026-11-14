@@ -193,7 +193,7 @@ describe('I26 — la garde laisse passer ce qui est juste', () => {
     const p = planDe(k);
     const x = p.exercices[0];
     expect(esp(x.entete.jaune[0])).toBe('52,5 kg × 8');
-    expect(esp(x.entete.gris)).toBe('Reprise après une pause : ta charge de travail, sans rep de plus. Ta zone Mix va jusqu\'à 8 : je vise 8.');
+    expect(esp(x.entete.gris)).toBe('Reprise après une pause : ta charge de travail, sans rep de plus. Ta zone Mix va jusqu\'à 8 reps : 52,5 kg × 8.');
     // La visée bornée est une ligne ; les deux « 8 » de la borne passent par
     // le formateur depuis la PR 1 de la consolidation (la feuille les dit
     // aussi) : la borne de la zone, une règle, égale à sa source.

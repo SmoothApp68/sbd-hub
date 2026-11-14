@@ -1,0 +1,38 @@
+{
+ "gris": [
+  "D : N kg × N, N, N, la dernière sans marge. Tu restes à N kg × N.",
+  "D : N kg × N, N, N, le haut de ta zone. On teste le cran au-dessus.",
+  "D : N kg × N, N, N. Une rep de plus : N kg × N.",
+  "De N à N kg, c'est +N % : environ N reps d'écart. À N kg, N reps suffisent pour t'y installer.",
+  "Deux fois N kg × N au haut de ta zone : aujourd’hui, on teste ≈ N kg × N.",
+  "N kg × N, avec N en réserve. Je garde N kg : encore une fois au haut de ta zone et je teste plus lourd.",
+  "N kg × N, avec N en réserve. Je garde N kg la prochaine fois.",
+  "N kg × N, sans marge. Je garde N kg : encore une fois au haut de ta zone et je teste plus lourd.",
+  "N kg × N, sans marge. Je garde N kg la prochaine fois.",
+  "Nouvelle zone : Hypertrophie. Estimée depuis ton N kg × N, un peu en dessous pour démarrer.",
+  "Nouvelle zone : Hypertrophie. Ta charge déjà tenue en Hypertrophie, le N nov. : N kg × N.",
+  "Nouvelle zone : Hypertrophie. Ta charge déjà tenue en Hypertrophie, le N oct. : N kg × N.",
+  "Nouvelle zone : Hypertrophie. Ta charge déjà tenue en Hypertrophie, le N sept. : N kg × N.",
+  "Nouvelle zone : Volume. Estimée depuis ton N kg × N, un peu en dessous pour démarrer.",
+  "Nouvelle zone : Volume. Ta charge déjà tenue en Volume, le N nov. : N kg × N.",
+  "Nouvelle zone : Volume. Ta charge déjà tenue en Volume, le N oct. : N kg × N.",
+  "Nouvelle zone : Volume. Ta charge déjà tenue en Volume, le N sept. : N kg × N."
+ ],
+ "pourquoi": [
+  "Deux séances de suite, N kg × N au haut de ta zone, sans la marge visée : on teste le cran au-dessus sur la dernière série.",
+  "Deux séances de suite, N kg × N au haut de ta zone, sans la marge visée : on teste le cran au-dessus sur la dernière série. De N à N kg, c'est +N % : environ N reps d'écart. À N kg, N reps suffisent pour t'y installer.",
+  "N kg × N, avec N en réserve. Je garde N kg : encore une fois au haut de ta zone et je teste plus lourd.",
+  "N kg × N, avec N en réserve. Je garde N kg la prochaine fois.",
+  "N kg × N, sans marge. Je garde N kg : encore une fois au haut de ta zone et je teste plus lourd.",
+  "N kg × N, sans marge. Je garde N kg la prochaine fois.",
+  "Ta charge de travail a touché le haut de ta zone : on teste le cran au-dessus sur la dernière série.",
+  "Ta charge de travail a touché le haut de ta zone : on teste le cran au-dessus sur la dernière série. De N à N kg, c'est +N % : environ N reps d'écart. À N kg, N reps suffisent pour t'y installer.",
+  "Ta charge de travail n'est pas encore au haut de ta zone : je te demande une rep de plus, N kg × N.",
+  "Ta dernière série était sans marge, il ne t'en restait aucune : tu restes à N kg × N.",
+  "Ta zone passe de Hypertrophie à Volume : j'estime ta charge depuis N kg × N, et je la prends un peu en dessous pour démarrer. On vise le bas de ta zone, N reps ; la progression reprend à la séance suivante.",
+  "Ta zone passe de Hypertrophie à Volume : je reprends la charge que tu y as déjà tenue, N kg × N, plutôt qu'une estimation. On vise le bas de ta zone, N reps ; la progression reprend à la séance suivante.",
+  "Ta zone passe de Mix à Hypertrophie : j'estime ta charge depuis N kg × N, et je la prends un peu en dessous pour démarrer. On vise le bas de ta zone, N reps ; la progression reprend à la séance suivante.",
+  "Ta zone passe de Mix à Hypertrophie : je reprends la charge que tu y as déjà tenue, N kg × N, plutôt qu'une estimation. On vise le bas de ta zone, N reps ; la progression reprend à la séance suivante."
+ ],
+ "empreinteDesLignes": "360eb81ba5d3c688"
+}

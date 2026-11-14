@@ -3712,8 +3712,8 @@
       case 'effort_suggere':
         return fait + ', pile au bas de ta fourchette. Si c\'était à fond, note-le' + DEUX_POINTS +
           (m.retour === null || m.retour === undefined
-            ? 'on revient au cran au-dessus' : 'on revient à ' + enKg(m.retour, regle('reaction.retour'))) +
-          ' pour la série suivante. Sinon, on garde ' + enKg(m.charge, cite(CIBLE, { role: 'elan' })) + '.';
+            ? 'je reviens au cran au-dessus' : 'je reviens à ' + enKg(m.retour, regle('reaction.retour'))) +
+          ' pour la série suivante. Sinon, je garde ' + enKg(m.charge, cite(CIBLE, { role: 'elan' })) + '.';
       case 'pas_encore_soi':
         return m.a_fond
           ? fait + ' à fond' + DEUX_POINTS + 'la suite reste ' + laSuite(m.suite, z) + '.'
@@ -4719,14 +4719,6 @@
   // un contrat brut, sans la règle, y tombe encore — et il n'a rien à dire.
   // §9.9 (delta 49-36) — LA RAISON D'UNE VISÉE BORNÉE, dite avec elle (C,
   // principe iii : un chiffre qui change sans raison visible porte sa raison).
-  // « Ta zone Mix va jusqu'à 8 : je vise 8. » Rien quand la borne ne joue pas.
-  function phraseBorneZone(f) {
-    var b = f && f.borneZone;
-    var z = b ? zoneParCle(b.zone) : null;
-    if (!z) return '';
-    return ' Ta zone ' + z.libelle + ' va jusqu\'à ' + nombreFr(z.haut, regle('zone.haut')) + DEUX_POINTS +
-           'je vise ' + nombreFr(z.haut, regle('zone.haut')) + '.';
-  }
 
   // §20 (49-U18, principe i) — LE MOT D'ORDRE SE DÉDUIT DU RANG, JAMAIS
   // D'UNE HYPOTHÈSE. La série restée à l'ancien palier (« rejoint », une seule)
@@ -4763,7 +4755,7 @@
   }
   // 174 (MOTEUR §9.1.2) — LES TROIS PHRASES DE LA RÈGLE DE BORD QUI RECULE. Le fait : `f.bord`.
   //   recul  : « 140 kg × 1 sur 2 visées. On repart d'un cran plus bas, aux mêmes reps ; on remonte dès que les deux passent. »
-  //   garde  : « 140 kg × 2, sans marge. On garde 140 kg ; la prochaine fois, on retente au-dessus. »
+  //   garde  : « 140 kg × 2, sans marge. Je garde 140 kg ; la prochaine fois, on retente au-dessus. »
   //   vague  : « 140 kg × 2 depuis 3 séances. On repart de 132,5 kg pour reprendre de l'élan. »
   function phraseDeBord(etat, b) {
     var cF = cite(FAIT, { quoi: 'bord' });
@@ -4786,7 +4778,7 @@
     if (etat === 'bord_garde') {
       return chargeFois(b.charge, b.reps, cF) +
         (b.reserve === 0 ? ', sans marge' : ', avec ' + nombreFr(b.reserve, cite(FAIT, { quoi: 'bord.reserve' })) + ' en réserve') +
-        '. On garde ' + enKg(b.charge, cite(FAIT, { quoi: 'bord.charge' })) + ' ; la prochaine fois, on retente au-dessus.';
+        '. Je garde ' + enKg(b.charge, cite(FAIT, { quoi: 'bord.charge' })) + ' ; la prochaine fois, on retente au-dessus.';
     }
     return chargeFois(b.charge, b.reps, cF) + ' depuis ' + nombreFr(b.depuis, cite(FAIT, { quoi: 'bord.depuis' })) +
       ' séances. On repart de ' + enKg(b.vers, cite(FAIT, { quoi: 'bord.vers' })) + ' pour reprendre de l\'élan.';
@@ -4828,13 +4820,13 @@
     }
     return debut + d + 'Je remonte dès que les reps passent.';
   }
-  // 154 — « 130 kg × 5, sans marge. On garde 130 kg la prochaine fois. » (R < V, la montée n'a pas lieu).
+  // 154 — « 130 kg × 5, sans marge. Je garde 130 kg la prochaine fois. » (R < V, la montée n'a pas lieu).
   function phraseDeLaGarde(e) {
     var cF = cite(FAIT, { quoi: 'effort_vise' });
     var cR = cite(FAIT, { quoi: 'effort_vise.reserve' });
     var cC = cite(FAIT, { quoi: 'effort_vise.charge' });
     var debut = chargeFois(e.charge, e.reps, cF) +
-      (e.reserve === 0 ? ', sans marge' : ', avec ' + nombreFr(e.reserve, cR) + ' en réserve') + '. On garde ' +
+      (e.reserve === 0 ? ', sans marge' : ', avec ' + nombreFr(e.reserve, cR) + ' en réserve') + '. Je garde ' +
       enKg(e.charge, cC);
     // 169 — au haut de la zone, la garde ne dure qu'une fois, et la phrase le dit ; sous le haut, la rep de plus reste la voie.
     return e.auHaut === false ? debut + ' la prochaine fois.'
@@ -4851,7 +4843,7 @@
       (aujourdhui === true ? DEUX_POINTS + 'aujourd’hui, on teste ' : '. Prochaine fois' + DEUX_POINTS + 'on teste ') + test + '.';
   }
   // 154 — LA PHRASE APRÈS LA RÉPONSE (VOIX-DU-COACH) : « 34 kg × 9, il t'en restait 3. Au-dessus de ce que je visais : la
-  // prochaine fois, on essaie 36 kg. » / « 130 kg × 5, sans marge. On garde 130 kg : encore une fois au haut de ta zone et
+  // prochaine fois, on essaie 36 kg. » / « 130 kg × 5, sans marge. Je garde 130 kg : encore une fois au haut de ta zone et
   // je teste plus lourd. » `ev` : le fait `effortVise` de la consigne suivante ; `haut` : la ligne haute du test qu'elle
   // pose (ou sa charge). `null` : rien à dire.
   function phraseEffortVise(ev, haut) {
@@ -4874,6 +4866,151 @@
   function phraseDuPlancher(n) {
     return 'Pour cet exercice, je vise ' + nombreFr(n, regle('constante')) + ' en réserve. Tu notes ce que tu veux.';
   }
+  // ══ PR 4a (chantier « Les mots disent vrai », MOTEUR §9.47) — LE VERBE UNIQUE DE LA CONSIGNE ═══════════════════════════════════════════
+  //
+  // UN verbe par consigne, calculé UNE fois sur la consigne PASSÉE EN ARGUMENT (la finale du plan, jamais un état brut), et lu par les trois champs
+  // qui le disent (le gris, le Pourquoi, le constat). Il lit la LIGNE affichée (la même que l'écran), jamais `serieAFond` : sur l'axe de la CHARGE
+  // d'abord, sur l'axe des REPS seulement à charge égale. La table des états dit dans quelle famille chacun parle ; le chiffre tranche à l'intérieur
+  // de la famille. Ni la fonction ni les phrases ne changent un chiffre, un pari ou un plafond. Les littéraux « rep de plus », « Tu restes à »
+  // et les « je garde » de la consigne ne s'écrivent QUE dans cette région (garde `v2-verbe-unique-4a.test.js`).
+  //   monte_reps  même charge, la ligne vise plus que le niveau   « Une rep de plus : 70 kg × 9. »
+  //   garde_cible même charge, la ligne vise le niveau            « Tu restes à 70 kg × 8. »
+  //   borne       même charge, la ligne vise moins que le niveau  (la zone borne : « Ta zone Lourd va jusqu'à 5 reps : 160 kg × 5. »)
+  //   garde_charge  la charge tenue (bord, zéro, effort visé)     « Je garde 130 kg. »
+  //   monte_charge / recule / reprend   la charge monte / baisse (décision) / revient     « Je baisse à 97,5 kg. »
+  //   teste       une ligne haute plus lourde que le palier       « On essaie 72,5 kg. »
+  //   allege / repli / alleger   les transformations (I165, I166)      neutre   tout le reste (zone, échelle, départ, calage, aide, silence)
+  // Exclus de I162 (verbe `neutre`, phrases inchangées) : les aides et élastiques dont la charge change, les marches d'exercice (I133, I70),
+  // le départ, la nouvelle zone, le calage, la suite « Même cible » (PR 5), les cartes de réaction (I115 à I122), la décharge et le repli.
+  var VERBES = Object.freeze({ MONTE_REPS: 'monte_reps', GARDE_CIBLE: 'garde_cible', BORNE: 'borne', GARDE_CHARGE: 'garde_charge',
+    MONTE_CHARGE: 'monte_charge', RECULE: 'recule', REPREND: 'reprend', TESTE: 'teste', ALLEGE: 'allege', REPLI: 'repli', ALLEGER: 'alleger', NEUTRE: 'neutre' });
+  var FAMILLE_DES_ETATS = Object.freeze({
+    progression: 'progression', tenue_apres_chute: 'progression', etirement_reps: 'progression',
+    reprise_courte: 'reprise', reprise_longue: 'reprise',
+    bord: 'bord', bord_garde: 'bord', bord_recul: 'bord', bord_vague: 'bord',
+    zero_rep: 'zero', tenue_apres_zero: 'zero',
+    test_propose: 'test', retest: 'test', retest_un_cran: 'test', etirement: 'test',
+    garde: 'echelle', etend: 'echelle', rejoint: 'echelle', attend: 'echelle', tout_passe: 'echelle',
+    nouvelle_zone: 'depart', depart_leste: 'depart', depart_routine: 'depart', carte_lest: 'depart', salle_max: 'salle',
+    silence: 'silence' });
+  var MOTS_DE_PLUS = ['', 'une', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix'];
+
+  // `{ verbe, famille, plus, de: { charge, reps }, vers: { charge, reps }, sansMarge, cause }`. `plus` : les reps de plus de la ligne (même charge) ;
+  // `sansMarge` : `{ derniere, protegee }` quand une série faite à la charge de la ligne était à fond ; `cause` : la phrase le DIT (le verbe garde ou
+  // borne la ligne, jamais une population protégée) ; `causeTue` : la cause existe et la ligne monte — le cas compté par I162 (sens 3).
+  function verbeDeLaConsigne(c) {
+    var r = { verbe: VERBES.NEUTRE, famille: 'neutre', plus: null, de: null, vers: null, sansMarge: null, cause: false, causeTue: false };
+    if (!c || !c.etat) return r;
+    var f = c.fondement || {};
+    var fam = FAMILLE_DES_ETATS[c.etat] || 'neutre';
+    r.famille = fam;
+    if (c.allegee) { r.verbe = VERBES.ALLEGE; r.famille = 'variante'; return r; }
+    if (c.repli) { r.verbe = VERBES.REPLI; r.famille = 'variante'; return r; }
+    if (c.alleger) { r.verbe = VERBES.ALLEGER; r.famille = 'variante'; return r; }
+    if (c.veilleLegere || c.plusLegere) { r.famille = 'variante'; return r; }
+    if (!c.ligne) return r;
+    var ch = nombre(c.ligne.charge), vise = nombre(c.ligne.vise), P = nombre(c.palier), niv = nombre(c.niveau);
+    // Un zéro rep : « je baisse » se lit contre la charge ÉCHOUÉE (la ligne peut être le palier tenu, « Je reviens à 100 kg »).
+    if (c.etat === 'zero_rep' && f.zeroRep && nombre(f.zeroRep.charge) !== null) P = nombre(f.zeroRep.charge);
+    r.vers = { charge: ch, reps: vise };
+    r.de = { charge: P, reps: niv };
+    if (ch === null || P === null) return r;
+    var meme = memeCharge(ch, P);
+    // L'axe de la CHARGE d'abord. Une aide (charge négative) ou un élastique nommé : aucun verbe de charge (le sens d'« aide 27,5 » se lit à l'envers).
+    if (!meme) {
+      if (P < 0 || ch < 0 || f.salle && (f.salle.sens === 'aide' || f.salle.sens === 'resistance') || f.elastique) return r;
+      if (fam === 'progression' || fam === 'reprise' || fam === 'bord' || fam === 'zero') {
+        r.verbe = ch < P ? (c.etat === 'zero_rep' && f.zeroRep && f.zeroRep.bornee === true ? VERBES.REPREND : VERBES.RECULE) : VERBES.MONTE_CHARGE;
+      }
+      return r;
+    }
+    if (fam === 'progression' || fam === 'reprise') {
+      if (f.plafondReps) return r;                                                    // le plafond sans lest : un fait, pas un verbe
+      if (c.etat === 'tenue_apres_chute' && f.chute) { r.verbe = VERBES.GARDE_CIBLE; }
+      else if (c.etat === 'progression' && f.effortVise && f.effortVise.effet === 'garde') { r.verbe = VERBES.GARDE_CHARGE; }
+      else if (vise === null || niv === null) { return r; }
+      else {
+        r.plus = vise - niv;
+        r.verbe = r.plus > 0 ? VERBES.MONTE_REPS : r.plus === 0 ? VERBES.GARDE_CIBLE : VERBES.BORNE;
+      }
+    } else if (c.etat === 'bord_garde' || c.etat === 'tenue_apres_zero') {
+      r.verbe = VERBES.GARDE_CHARGE;
+    } else if (c.etat === 'zero_rep' && f.zeroRep && f.zeroRep.bornee === true) {
+      r.verbe = VERBES.REPREND;
+    } else if (fam === 'test' && c.haut && nombre(c.haut.charge) !== null && nombre(c.haut.charge) > P && !memeCharge(nombre(c.haut.charge), P)) {
+      r.verbe = VERBES.TESTE;
+    }
+    var m = f.sansMarge;
+    if (m && typeof m === 'object' && (fam === 'progression' || fam === 'reprise')) {
+      r.sansMarge = { derniere: m.derniere === true, protegee: m.protegee === true };
+      r.cause = !r.sansMarge.protegee && (r.verbe === VERBES.GARDE_CIBLE || r.verbe === VERBES.BORNE);
+      r.causeTue = !r.sansMarge.protegee && r.verbe === VERBES.MONTE_REPS;
+    }
+    return r;
+  }
+
+  // « Une rep de plus », « Deux reps de plus » : le nombre en mots (la formule `plus`, jamais « une » écrit à la main).
+  function dePlus(n, majuscule) {
+    var m = MOTS_DE_PLUS[n];
+    var t = m !== undefined && m !== '' ? m : nombreFr(n, regle('constante'));
+    t = t + (n === 1 ? ' rep de plus' : ' reps de plus');
+    return majuscule ? t.charAt(0).toUpperCase() + t.slice(1) : t;
+  }
+  // « tu restes à 80 kg × 10 » : le verbe de la cible gardée (une seule écriture, dans cette région).
+  function tuRestes(c) { return 'tu restes à ' + ligneDeLaConsigne(c); }
+  function ligneDeLaConsigne(c) { return chargeFois(c.ligne.charge, c.ligne.vise, cite(CIBLE, { role: 'ligne' })); }
+  // Le gris d'une consigne qui progresse ou garde à la même charge : la série du jour, la cause (si le verbe la rend vraie), puis le verbe.
+  function grisDuVerbe(c, v, tete, zoneBas, zoneHaut) {
+    var cause = v.cause ? (v.sansMarge.derniere ? ', la dernière sans marge' : ', une série sans marge') : '';
+    if (v.verbe === VERBES.MONTE_REPS) {
+      if (zoneBas !== null && v.vers.reps < zoneBas) {
+        return tete + '. ' + dePlus(v.plus, true) + ' : ' + ligneDeLaConsigne(c) + ', vers tes ' + nombreFr(zoneBas, regle('zone.bas')) + '-' + nombreFr(zoneHaut, regle('zone.haut')) + '.';
+      }
+      return tete + '. ' + dePlus(v.plus, true) + ' : ' + ligneDeLaConsigne(c) + '.';
+    }
+    if (v.verbe === VERBES.GARDE_CIBLE) return tete + cause + '. ' + tuRestes(c).charAt(0).toUpperCase() + tuRestes(c).slice(1) + '.';
+    if (v.verbe === VERBES.BORNE) return tete + cause + '. Ta cible : ' + ligneDeLaConsigne(c) + '.';
+    return tete + '.';
+  }
+  // Le Pourquoi (`tete` : la phrase qui précède, ses deux-points compris).
+  function pourquoiDuVerbe(c, v) {
+    var ligne = ligneDeLaConsigne(c);
+    if (v.verbe === VERBES.MONTE_REPS) return 'je te demande ' + dePlus(v.plus) + ', ' + ligne + '.';
+    if (v.verbe === VERBES.GARDE_CIBLE) {
+      // « sans marge » est DÉFINI ici, une fois : il ne t'en restait aucune (ce que la personne a noté).
+      return (v.cause ? (v.sansMarge.derniere ? 'ta dernière série était sans marge, il ne t\'en restait aucune' : 'une de tes séries était sans marge, il ne t\'en restait aucune') + DEUX_POINTS : '') +
+        tuRestes(c) + '.';
+    }
+    if (v.verbe === VERBES.BORNE) return 'ta cible : ' + ligne + '.';
+    return null;
+  }
+  // « Ta zone Lourd va jusqu'à 5 reps : 160 kg × 5. » — le chiffre de la ligne, sans verbe (« viser » est pris par la réserve).
+  function phraseBorneZone(f, c) {
+    var b = f && f.borneZone;
+    var z = b ? zoneParCle(b.zone) : null;
+    if (!z) return '';
+    return ' Ta zone ' + z.libelle + ' va jusqu\'à ' + nombreFr(z.haut, regle('zone.haut')) + ' reps' + DEUX_POINTS +
+           (c && c.ligne ? ligneDeLaConsigne(c) : nombreFr(z.haut, regle('zone.haut')) + ' reps') + '.';
+  }
+  // Le Pourquoi d'une progression à la même charge : le fait de la zone, puis le verbe (`pourquoiDuVerbe`).
+  function pourquoiDeLaProgression(c) {
+    var dit = pourquoiDuVerbe(c, verbeDeLaConsigne(c));
+    var v = verbeDeLaConsigne(c);
+    if (dit === null) return 'Ta charge de travail n\'est pas encore au haut de ta zone' + DEUX_POINTS + ligneDeLaConsigne(c) + '.';
+    // Le fait de la zone ne se dit que devant une montée de reps ou une cible gardée sans cause : une cause (« sans marge ») s'explique seule.
+    if (v.verbe === VERBES.GARDE_CIBLE && v.cause) return dit.charAt(0).toUpperCase() + dit.slice(1);
+    return 'Ta charge de travail n\'est pas encore au haut de ta zone' + DEUX_POINTS + dit;
+  }
+  // Au poids du corps : « tu gagnes des reps » seulement quand la ligne en demande plus.
+  function pourquoiDesRepsAuPoidsDuCorps(c) {
+    var v = verbeDeLaConsigne(c);
+    var tete = 'Au poids du corps, il n\'y a pas de cran à monter' + DEUX_POINTS;
+    if (v.verbe === VERBES.MONTE_REPS) return tete + 'tu gagnes des reps, ' + dePlus(v.plus) + ' que la dernière fois, ' + ligneDeLaConsigne(c) + '.';
+    if (v.verbe === VERBES.GARDE_CIBLE) return tete + tuRestes(c) + '.';
+    return tete + ligneDeLaConsigne(c) + '.';
+  }
+  // ══ FIN DU VERBE UNIQUE ══════════════════════════════════════════════════════════════════════════════════════════════════════════════
+
   function phraseGrise(c, reference) {
     var f = c.fondement || {};
     var z = zoneParCle(c.zone);
@@ -4922,19 +5059,11 @@
         // montre jamais des reps comptées pour des reps faites.
         // 79 (12/10/2026) — les chiffres d'abord et pas de jargon : « 125 kg × 5, sans marge : … », la même
         // phrase pour un RPE et pour un ressenti (« reste 0 »).
-        // 154 (§9.26) — la montée retenue par la réserve : « 130 kg × 5, sans marge. On garde 130 kg la prochaine fois. »
+        // 154 (§9.26) — la montée retenue par la réserve : « 130 kg × 5, sans marge. Je garde 130 kg la prochaine fois. »
         if (f.effortVise && f.effortVise.effet === 'garde') return phraseDeLaGarde(f.effortVise);
-        if (f.serieAFond) {
-          var a = f.serieAFond;
-          return chargeFois(a.charge, a.reps, cite(FAIT, { quoi: 'a_fond' })) +
-                 ', sans marge' + DEUX_POINTS + 'on ne rajoute pas de rep.';
-        }
-        // 200b — la cible (dernière fois + 1) est encore sous le bas de la zone : on rejoint la zone une rep à la fois, et
-        // le coach le dit (VOIX, I26), pour que la puce « 6-8 reps » et la cible « × 5 » ne se contredisent pas.
-        if (z !== null && c.ligne && typeof c.ligne.vise === 'number' && c.ligne.vise < z.bas) {
-          return jour() + DEUX_POINTS + auPalier() + '. Une rep de plus, vers tes ' + nombreFr(z.bas, regle('zone.bas')) + '-' + nombreFr(z.haut, regle('zone.haut')) + '.';
-        }
-        return jour() + DEUX_POINTS + auPalier() + '. Une rep de plus.';
+        // PR 4a — LE VERBE VIENT DE LA LIGNE (`verbeDeLaConsigne`), plus de l'état : « sans marge » ne se dit que si le verbe le rend vrai.
+        // 200b — la cible (dernière fois + 1) encore sous le bas de la zone : « vers tes 6-8 » (VOIX, I26).
+        return grisDuVerbe(c, verbeDeLaConsigne(c), jour() + DEUX_POINTS + auPalier(), z === null ? null : z.bas, z === null ? null : z.haut);
 
       case 'test_propose':
         // 154 (§9.26) — le test posé « par la réserve » dit la réserve notée, pas le haut de la zone.
@@ -5000,13 +5129,12 @@
         return rate() + ' On reteste d\'un seul cran.';
 
       // §9.2 bis (49-U12) — un fait, puis sa conséquence : « Mardi : 80 kg ×
-      // 10, 10, 6. Je ne compte pas la dernière série : on tient 80 kg × 10. »
+      // 10, 10, 6. Je ne compte pas la dernière série : tu restes à 80 kg × 10. »
       case 'tenue_apres_chute':
         // 74 — sans chute sur les reps faites (l'état vient du calcul prudent,
         // la ligne des reps faites) : la phrase de la rep de plus, qui est vraie.
-        if (!f.chute) return jour() + DEUX_POINTS + auPalier() + '. Une rep de plus.';
-        return jour() + DEUX_POINTS + auPalier() + '. Je ne compte pas la dernière série' + DEUX_POINTS +
-               'on tient ' + chargeFois(c.ligne.charge, c.ligne.vise, cite(CIBLE, { role: 'ligne' })) + '.';
+        if (!f.chute) return grisDuVerbe(c, verbeDeLaConsigne(c), jour() + DEUX_POINTS + auPalier(), null, null);
+        return jour() + DEUX_POINTS + auPalier() + '. Je ne compte pas la dernière série' + DEUX_POINTS + tuRestes(c) + '.';
 
       case 'etirement':
         return ditPasDePlusPetitCran(f.equipement, true) + DEUX_POINTS + 'ta zone s\'étire. ' +
@@ -5019,7 +5147,7 @@
 
       case 'reprise_courte':
         return 'Reprise après une pause' + DEUX_POINTS + 'ta charge de travail, sans rep de plus.' +
-               phraseBorneZone(f);
+               phraseBorneZone(f, c);
 
       // Et RIEN sur la durée de l'absence (CADRAGE §3.1 bis).
       case 'reprise_longue':
@@ -5028,11 +5156,11 @@
         // phrase le distingue enfin de la reprise courte.
         if (c.ligne && memeCharge(nombre(c.ligne.charge), nombre(c.palier))) {
           return 'Longue pause' + DEUX_POINTS + 'on reprend à ta charge de travail, sans rep de plus.' +
-                 phraseBorneZone(f);
+                 phraseBorneZone(f, c);
         }
         return 'Longue pause' + DEUX_POINTS + 'on reprend un cran en dessous' +
                (c.ligne && nombre(c.ligne.charge) !== null ? ', à ' + enKg(c.ligne.charge, cite(CIBLE, { role: 'ligne' })) : '') +
-               '. Le test te ramènera à ' + enKg(c.palier, cite(FAIT, { quoi: 'palier' })) + '.' + phraseBorneZone(f);
+               '. Le test te ramènera à ' + enKg(c.palier, cite(FAIT, { quoi: 'palier' })) + '.' + phraseBorneZone(f, c);
 
       // Le « 3 » se lit sur la table du rangement, il ne se recopie pas : sous
       // la première borne, il n'y a plus de zone (§9.1.2).
@@ -5065,7 +5193,7 @@
         // 175 — au plafond sans lest (30 reps), plus jamais « une rep de plus ».
         if (f.plafondReps === 'atteint') return jour() + DEUX_POINTS + auPalier() + '. Ton plafond sans lest.';
         if (f.plafondReps === 'vise') return jour() + DEUX_POINTS + auPalier() + '. Vise ' + nombreFr(PLAFOND_CIBLE, regle('constante')) + ' sur toutes tes séries.';
-        return jour() + DEUX_POINTS + auPalier() + '. Une rep de plus.';
+        return grisDuVerbe(c, verbeDeLaConsigne(c), jour() + DEUX_POINTS + auPalier(), null, null);
 
       // §10 bis (108, décidé le 15/10/2026) — « 30 kg, la plus lourde de ta
       // salle : on monte en reps. » La charge citée est celle de la ligne : la
@@ -5386,9 +5514,7 @@
 
       case 'progression':
         if (f.effortVise && f.effortVise.effet === 'garde') return phraseDeLaGarde(f.effortVise);
-        return (t !== null ? rateDit() + ' ' : '') +
-          'Ta charge de travail n\'est pas encore au haut de ta zone' + DEUX_POINTS +
-          'une rep de plus sur chaque série.';
+        return (t !== null ? rateDit() + ' ' : '') + pourquoiDeLaProgression(c);
 
       case 'test_propose':
         var tete = reglage === 'prudent'
@@ -5475,13 +5601,9 @@
       // pourquoi pas de test tout de suite.
       case 'tenue_apres_chute':
         // 74 — sans chute sur les reps faites : le paragraphe de la rep de plus.
-        if (!f.chute) {
-          return 'Ta charge de travail n\'est pas encore au haut de ta zone' + DEUX_POINTS +
-            'une rep de plus sur chaque série.';
-        }
+        if (!f.chute) return pourquoiDeLaProgression(c);
         return 'Ta dernière série a chuté après des séries stables' + DEUX_POINTS +
-               'c\'est la fatigue, pas ton niveau. Je ne la compte pas, et on tient ' +
-               chargeFois(c.ligne.charge, c.ligne.vise, cL) + ' avant de tester plus lourd.';
+               'c\'est la fatigue, pas ton niveau. Je ne la compte pas, et ' + tuRestes(c) + ' avant de tester plus lourd.';
 
       case 'retest_un_cran':
         return rateDit() + ' Ta charge de travail est au haut' + DEUX_POINTS +
@@ -5511,15 +5633,14 @@
           return 'Au poids du corps, il n\'y a pas de cran à monter, et ' + nombreFr(PLAFOND_CIBLE, regle('constante')) +
                  ' reps est le plafond sans lest.';
         }
-        return 'Au poids du corps, il n\'y a pas de cran à monter' + DEUX_POINTS +
-               'tu gagnes des reps, une de plus que la dernière fois.';
+        return pourquoiDesRepsAuPoidsDuCorps(c);
 
       // §10 bis (108) — la salle déclarée n'a rien de plus lourd.
       case 'salle_max':
         return 'Ta salle n\'a pas plus lourd que ' + enKg(c.ligne.charge, cL) + DEUX_POINTS +
                'je ne te propose jamais une charge qu\'elle n\'a pas. ' +
                (f.salle && f.salle.maintien === true
-                 ? 'Tu es au haut de ta fourchette' + DEUX_POINTS + 'on garde la charge.'
+                 ? 'Tu es au haut de ta fourchette' + DEUX_POINTS + 'je garde la charge.'
                  : 'Tu gagnes des reps, une de plus que la dernière fois.');
 
       case 'depart_leste':
@@ -5552,17 +5673,17 @@
 
       case 'reprise_courte':
         return 'Reprise après une pause' + DEUX_POINTS + 'ta charge de travail, sans rep de plus. ' +
-               'La progression repart à la séance suivante.' + phraseBorneZone(f);
+               'La progression repart à la séance suivante.' + phraseBorneZone(f, c);
 
       case 'reprise_longue':
         if (c.ligne && memeCharge(nombre(c.ligne.charge), nombre(c.palier))) {
           return 'Longue pause' + DEUX_POINTS + 'on reprend à ta charge de travail, sans rep de plus. ' +
                  'Le cran d\'en dessous descendait de plus de ' + nombreFr(Math.round(REPLI_MAX_REPRISE * 100), regle('constante')) +
-                 INSECABLE + '%.' + phraseBorneZone(f);
+                 INSECABLE + '%.' + phraseBorneZone(f, c);
         }
         return 'Longue pause' + DEUX_POINTS + 'un cran en dessous' +
                (c.ligne && nombre(c.ligne.charge) !== null ? ', ' + enKg(c.ligne.charge, cL) : '') +
-               ', sans rep de plus. Le test te ramènera à ' + enKg(c.palier, cite(FAIT, { quoi: 'palier' })) + '.' + phraseBorneZone(f);
+               ', sans rep de plus. Le test te ramènera à ' + enKg(c.palier, cite(FAIT, { quoi: 'palier' })) + '.' + phraseBorneZone(f, c);
 
       case 'bord':
         return 'Tu travailles sous ' + nombreFr(RANGEMENT[0].jusqua + 1, regle('constante')) + ' reps' + DEUX_POINTS +
@@ -10248,6 +10369,18 @@
       Object.keys(r.fondement).forEach(function (k) { if (k !== 'approchee') sansApprochee[k] = r.fondement[k]; });
       r.fondement = sansApprochee;
     }
+    // PR 4a (MOTEUR §9.47, B1) — LA CAUSE « SANS MARGE » SE LIT SUR LA LIGNE FINALE : une série de travail faite à la charge de la ligne
+    // est « à fond » (`cranDeSerie === 'max'`, le seul prédicat), et `derniere` dit si la dernière série de la SÉANCE est celle-là (jamais le
+    // rang parmi les séries au palier : faux en superset et avec des séries en plus). Aucun chiffre ne change ; le verbe lit la ligne,
+    // la phrase n'imprime la cause que si le verbe la rend vraie (`verbeDeLaConsigne`).
+    var chL = r.ligne ? nombre(r.ligne.charge) : null;
+    if (chL !== null && aFondA(chL)) {
+      var derniereV = V.length ? V[V.length - 1] : null;
+      r.fondement = Object.assign({}, r.fondement || {}, { sansMarge: {
+        charge: chL, reps: plusDeReps(chL),
+        derniere: !!derniereV && Palier().cranDeSerie(derniereV) === 'max' && memeCharge(nombre(derniereV.charge_kg), chL),
+        protegee: protegeeEnCours === true } });
+    }
     r.niveau = faite.niveau;
     r.palier = faite.palier;
     return r;
@@ -13234,6 +13367,7 @@
     reserveVisee: reserveVisee,
     reserveAffichee: reserveAffichee,
     plancherDeReserve: plancherDeReserve,
+    verbeDeLaConsigne: verbeDeLaConsigne, VERBES: VERBES,
     populationProtegee: populationProtegee,
     RESERVE_PLANCHER: RESERVE_PLANCHER,
     phraseEffortVise: phraseEffortVise,

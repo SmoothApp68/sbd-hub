@@ -122,9 +122,9 @@ describe('PR 1 — sous une semaine allégée, un repli, une série de plus : la
 
   test('une série de plus : l’état, puis la phrase de la série de plus', () => {
     const k = M.consigneSerieDePlus({ etat: 'progression', zone: 'volume', palier: 27, niveau: 12, n: 3,
-      ligne: { charge: 27, vise: 12 }, haut: null, fondement: { reps: [12, 12, 12] } }, 3);
+      ligne: { charge: 27, vise: 13 }, haut: null, fondement: { reps: [12, 12, 12] } }, 3);
     expect(esp(M.pourquoiConsigne(k, 'normal', DEBUT).etat)).toBe('Ta charge de travail n\'est pas encore au haut de ta zone : ' +
-      'une rep de plus sur chaque série. Une série de plus, jusqu\'à ton prochain progrès.');
+      'je te demande une rep de plus, 27 kg × 13. Une série de plus, jusqu\'à ton prochain progrès.');
   });
 
   test('⚠️ BALAYAGE — chaque consigne des fichiers de cas, brute, allégée, en repli, avec une série de plus : jamais de plantage', () => {

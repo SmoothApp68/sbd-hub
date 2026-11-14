@@ -7253,6 +7253,10 @@
         exo = consignes.index[slug];
       }
       var options = optionsDeConsigne(slug, exo, instantDuCalcul());
+      // F2 (MOTEUR §9.49, B1) — UNE CONSIGNE À ZONE DE PLAN NE SE FIGE PAS SANS LES ROUTINES : `zonesDeRoutine` serait vide, aucune séance passée ne
+      // serait « dans la zone » et le moteur rendrait un report de zone faux — figé pour la séance et écrit sur le disque. Rien n'est mis en cache : elle se
+      // calcule à l'arrivée des routines (le re-rendu de `chargerRoutines`).
+      if (options.zonePlan && !routinesPretes()) return null;
       // MOTEUR §13.6 (49-U20) — LES FRÈRES, à la demande : le moteur ne les
       // demande (et ne rejoue leur compteur) que si celui de l'exercice est à 4
       // ou plus. Seule la consigne de la séance les reçoit, figés avec elle —
@@ -7401,6 +7405,12 @@
   function instantDuCalcul() {
     var i = rejeuEnCours && rejeuEnCours.instant ? Date.parse(rejeuEnCours.instant) : NaN;
     return new Date(isFinite(i) ? i : Date.now()).toISOString();
+  }
+  // F2 (MOTEUR §9.49) — LES ROUTINES SONT-ELLES PRÊTES ? Lues (`etatRoutines` ok) ou gardées en mémoire d'une lecture réussie (un échec tardif ne les
+  // vide pas). Tant qu'elles ne le sont pas, la zone d'une séance passée par sa routine ne se lit pas : le moteur se tait sur ce qu'elle déciderait
+  // (la consigne d'un exercice à zone de plan, sa suite) au lieu de le décider sur `zonesDeRoutine = {}`. Une seule fonction, lue partout.
+  function routinesPretes() {
+    return etatRoutines.code === 'ok' || (routines || []).length > 0;
   }
   // 193-3 — la zone de plan du jour pour cet exercice : celle de sa PREMIÈRE ligne dans la séance en cours (la consigne est par
   // exercice, D6), `null` sans séance, sans ligne de routine ou en Automatique. Rien n'est lu dans une séance terminée.
@@ -8269,6 +8279,8 @@
                 // 236 — les gestes de la séance (réponses du coach en temps réel) : le plan les lit, jamais l'écran.
                 gestes: Array.isArray(seance.gestes) ? seance.gestes : [] },
       consignes: cs,
+      // F2 (MOTEUR §9.49, I168) — les routines sont-elles prêtes ? Un plan qui ne l'est pas ne porte ni consigne figée à zone de plan ni suite.
+      routinesPretes: routinesPretes(),
       // MOTEUR §9.16 — la phase GELÉE de la séance (lue après les consignes :
       // elle se fige avec elles).
       phase: phaseDeLaSeance(),
@@ -8714,7 +8726,9 @@
         planMemo.marches === (profil && profil.marche_reponses) && planMemo.demoMarche === demoMarche &&
         planMemo.blocs === local.blocs && planMemo.disque === Profil.plusPetitDisqueDe(profil) &&
         planMemo.moins === serieDeMoinsActive() && planMemo.cartes === (profil && profil.cartes_semaine) &&
-        planMemo.raides === (profil && profil.zones_raides) && planMemo.menager === (profil && profil.zones_a_menager)) return planMemo.plan;
+        planMemo.raides === (profil && profil.zones_raides) && planMemo.menager === (profil && profil.zones_a_menager) &&
+        // F2 (MOTEUR §9.49) — LES ROUTINES ARRIVENT APRÈS LE PREMIER PLAN : leur génération et leur état « prêtes » font la clé.
+        planMemo.routinesGen === generationRoutines && planMemo.routinesPretes === routinesPretes()) return planMemo.plan;
     var entrees = entreesDuPlan();
     var plan = Plan.planDeSeance(entrees);
     planMemo = { seance: seance, paris: local.predictions, version: versionConsignes,
@@ -8724,7 +8738,8 @@
                  modes: local.modes, lest: lestReponseDe(), demoLest: demoLest, blocs: local.blocs, plan: plan,
                  marches: profil && profil.marche_reponses, demoMarche: demoMarche, disque: Profil.plusPetitDisqueDe(profil),
                  moins: serieDeMoinsActive(), cartes: profil && profil.cartes_semaine,
-                 raides: profil && profil.zones_raides, menager: profil && profil.zones_a_menager };
+                 raides: profil && profil.zones_raides, menager: profil && profil.zones_a_menager,
+                 routinesGen: generationRoutines, routinesPretes: routinesPretes() };
     // Le banc lit le dernier plan et ses entrées pour vérifier les invariants
     // après chaque geste (§9.13 bis) ; rien d'autre ne le relit. Un plan du
     // REJEU (développement) n'y entre pas : il vérifie ses invariants lui-même.
@@ -8777,6 +8792,8 @@
     var c = consigneDe(slug);
     if (!c) return null;
     var x = planDuSlug(slug);
+    // F2 (MOTEUR §9.49) — l'exercice fini dont la suite se tait (routines pas prêtes) : ni constat, ni la consigne d'AVANT qui prescrirait ce qui vient d'être fait.
+    if (x && x.suiteMuette === true) return null;
     // 187 — le calage de la première séance : « On trouve ta charge » et la consigne de la suivante, lus sur le plan.
     if (x && x.calage && x.calage.libelles) {
       var lc = x.calage.libelles;
@@ -8896,6 +8913,9 @@
     var exo = catalogueIndexe()[slug];
     // Les MÊMES options que la consigne de la séance (49-U18).
     var options = optionsDeConsigne(slug, exo, instantDuCalcul());
+    // F2 (MOTEUR §9.49) — LA SUITE D'UN EXERCICE À ZONE DE PLAN SE TAIT TANT QUE LES ROUTINES NE SONT PAS PRÊTES : sans elles la zone d'une séance passée
+    // n'est pas lisible, et la suite redirait la fois d'AVANT (« Prochaine séance : 80 kg × 8 »). Rien n'est mis en cache.
+    if (options.zonePlan && !routinesPretes()) return null;
     var cleOptions = JSON.stringify(options);
     var vu = constats.parSlug[slug];
     if (!vu || vu.options !== cleOptions) {
@@ -9401,6 +9421,9 @@
   // d'escalier : le nouvel exercice a ses paris ordinaires.
   async function remplacerAuPlafond(iExo, slug, vers) {
     if (!seance || !vers) return;
+    // F2 (MOTEUR §9.49) — une séance partie d'une routine que l'app n'a pas lue : une lecture d'abord, pour que le frère prenne aussi la place DANS la routine.
+    if (!demoEscalier() && seance.routine_id && !routineDeLaSeance() && etatRoutines.code !== 'ok') await chargerRoutines().catch(function () { return false; });
+    if (!seance) return;
     var routine = demoEscalier() ? null : routineDeLaSeance();
     var exo = (seance.exercices || [])[iExo];
     var idLigne = null;
@@ -9593,6 +9616,9 @@
         // la carte ne revient pas aujourd'hui : la marque est sur la ligne, `propositionAuMax` se tait d'elle-même
       } else {
         var rt = seance.routine_id ? routines.filter(function (r) { return r.id === seance.routine_id; })[0] : null;
+        // F2 (MOTEUR §9.49) — « dans ma routine » ne se dit que si la routine se voit : le plan ne propose pas la carte routines pas prêtes ; ce garde-fou
+        // refuse un geste tardif (la carte vue avant le retour du réseau) plutôt que de poser la marque sur la ligne sans rien écrire dans la routine.
+        if (seance.routine_id && !rt) return;
         var voulues = rt ? Routines.marquerAuMax(rt, x.slug, true) : null;
         if (voulues) {
           await poserRoutineVoulue(rt, voulues);
@@ -10593,6 +10619,7 @@
     ecouteSortie = true;
     doc.addEventListener('focusout', function () {
       if (reactionPerimee) setTimeout(redessinerSiSaisieFinie, 0);
+      if (routinesATardivesEnAttente) setTimeout(reprendreLeRedessinDesRoutines, 0);   // F2
     });
   }
 
@@ -10719,6 +10746,7 @@
   function rendreSeance() {
     montrer('seance', Routeur.SAISIE);
     reactionPerimee = false;
+    routinesATardivesEnAttente = false;   // F2 — ce rendu lit les routines d'à présent
     ecouterSortieDesChamps();
     var index = Modele.indexerExercices(local.exercices);
     var c = Seance.compter(seance, local.exercices);
@@ -10756,6 +10784,7 @@
     // durée repart de l'heure juste.
     mesurerBarres();
     armerDuree();
+    retenterLesRoutines(false);   // F2 — des routines non lues (hors ligne au chargement) : une relecture, au plus toutes les 20 s
     // 91 — le groupe de séance, une ligne en haut de la séance (lue, jamais calculée par le plan).
     dessinerGroupeSeance();
     // social 3 — « Routine créée depuis la séance de … », une fois, à la première séance de cette routine.
@@ -12078,6 +12107,8 @@
     };
     Rendu.rendreFeuilleZonePlan($('feuille-contenu'), {
       nom: nom, mot: motDeLaPuce(slug), libelle: z.libelle, bornes: z.bas + '-' + z.haut,
+      // F2 (MOTEUR §9.49) — la routine ne se change pas sans la voir : le choix « dans la routine » se dit indisponible plutôt que de promettre ce qui ne s'écrira pas.
+      routineIndisponible: ligneDeRoutineDe(slug) ? null : PHRASE_ROUTINE_ILLISIBLE,
       surRoutine: function () { choisir('routine'); },
       surAujourdhui: function () { choisir('aujourdhui'); },
       surFermer: fermerVoile
@@ -12088,6 +12119,15 @@
     });
   }
 
+  // F2 (MOTEUR §9.49) — LA LIGNE DE ROUTINE de cet exercice dans la séance, ou `null` : routine pas lue (hors ligne), absente, ou ligne introuvable.
+  function ligneDeRoutineDe(slug) {
+    var exo = seance ? (seance.exercices || []).filter(function (x) { return x && x.exercise_slug === slug; })[0] : null;
+    var routine = routineDeLaSeance();
+    var id = exo && exo.routine_exercise_id;
+    return routine && id ? (routine.exercices || []).filter(function (e) { return e && e.id === id; })[0] || null : null;
+  }
+  var PHRASE_ROUTINE_ILLISIBLE = 'Je ne vois pas ta routine pour l\u2019instant\u00a0: je ne peux pas la changer d\u2019ici. Juste pour aujourd\u2019hui reste possible.';
+
   async function poserZoneDePlanDe(slug, cle, dansLaRoutine) {
     var i = (seance.exercices || []).map(function (x) { return x.exercise_slug; }).indexOf(slug);
     if (i < 0) return;
@@ -12095,12 +12135,12 @@
     if (dansLaRoutine) {
       var routine = routineDeLaSeance();
       var idLigne = seance.exercices[i].routine_exercise_id;
-      var ligne = routine && idLigne ? (routine.exercices || []).filter(function (e) { return e && e.id === idLigne; })[0] : null;
-      if (ligne) {
-        await poserRoutineVoulue(routine, routine.exercices.map(function (e) {
-          return e.id === idLigne ? Object.assign({}, e, { zone: zone }) : e;
-        }));
-      }
+      var ligne = ligneDeRoutineDe(slug);
+      // F2 — jamais « La routine change » sans qu'elle change : routine illisible ou ligne introuvable, rien n'est posé (la feuille l'a dit avant le geste).
+      if (!ligne) return;
+      await poserRoutineVoulue(routine, routine.exercices.map(function (e) {
+        return e.id === idLigne ? Object.assign({}, e, { zone: zone }) : e;
+      }));
     }
     seance = Seance.poserZoneDePlan(seance, i, zone);
     // La consigne de CET exercice se recalcule, lui seul (la seule exception au gel, comme `poserZone`).
@@ -12885,7 +12925,40 @@
     }
   }
 
+  // F2 (MOTEUR §9.49) — LA SÉANCE EN COURS RELIT LES ROUTINES QUI ARRIVENT. Un SEUL point : le succès de `chargerRoutines`, quel que soit le chargeur
+  // (rendu de Saisie, accueil, profil, questionnaire, retour du réseau). Elle ne redessine que si les routines n'étaient PAS prêtes avant cette lecture
+  // (sinon rien n'a changé pour le plan), que la séance est celle qu'on regarde, et jamais sous les doigts : pas pendant la frappe dans un champ du
+  // journal (`reactionPerimee`, `redessinerSiSaisieFinie` — le clavier se fermerait), pas sous une feuille ouverte (sa fermeture redessine déjà la séance),
+  // pas pendant « Il t'en restait combien ? ». Le redessin remis attend la fin de la frappe (`focusout`) ou tout autre rendu de la séance. Il n'écrit rien :
+  // ce n'est ni `apresGeste` ni `redessinerSiSaisieFinie`.
+  var routinesATardivesEnAttente = false;
+  function champDuJournalActif() {
+    var a = doc.activeElement;
+    return !!(a && a.tagName === 'INPUT' && a.closest && a.closest('#blocs-seance'));
+  }
+  function relireLaSeanceAvecLesRoutines() {
+    if (!seance || !vues.seance || vues.seance.hidden) { routinesATardivesEnAttente = false; return; }
+    if (feuille || voileOuvert) return;
+    if (champDuJournalActif() || (chrono && chrono.question)) { routinesATardivesEnAttente = true; return; }
+    routinesATardivesEnAttente = false;
+    rendreSeance();
+  }
+  function reprendreLeRedessinDesRoutines() {
+    if (routinesATardivesEnAttente) relireLaSeanceAvecLesRoutines();
+  }
+  // Hors ligne au chargement, puis le réseau revient (ou on rouvre la séance) : une relecture de plus, jamais en boucle.
+  var derniereRetentativeRoutines = 0;
+  var RETENTATIVE_ROUTINES_MS = 20000;
+  function retenterLesRoutines(sansDelai) {
+    if (!seance || etatRoutines.code !== 'echec' || routinesPretes()) return;
+    var t = Date.now();
+    if (!sansDelai && t - derniereRetentativeRoutines < RETENTATIVE_ROUTINES_MS) return;
+    derniereRetentativeRoutines = t;
+    chargerRoutines().catch(function () { /* hors ligne : la séance reste muette sur ce qui dépend des routines */ });
+  }
+
   async function chargerRoutines() {
+    var etaientPretes = routinesPretes();
     etatRoutines = { code: 'charge', message: '' };
     // Sans routines, pas de « Démarrer » : attendre ici la vérification de la
     // séance en cours en base garantit qu'une séance ouverte ailleurs est
@@ -12897,6 +12970,7 @@
       generationRoutines++;
       etatRoutines = { code: 'ok', message: '' };
       derniereLectureRoutines = Date.now();
+      if (!etaientPretes) relireLaSeanceAvecLesRoutines();
       return true;
     } catch (e) {
       // On ne vide pas `routines` : ce qu'on avait affiché reste affiché. Un
@@ -20312,6 +20386,8 @@
     // chaque retour du réseau écraserait, avec un cache périmé, ce qu'un autre appareil
     // a répondu entre-temps (`questionnaire_fait_le`, objectif, priorités).
     racine.addEventListener('online', renvoyerCeQuiAttend);
+    // F2 — les routines qui n'ont pas pu se lire hors ligne : le réseau revient, la séance en cours les relit (et se redessine, sans écrire).
+    racine.addEventListener('online', function () { retenterLesRoutines(true); });
     // 134 (I-13, audit iPhone) — LE RETOUR AU PREMIER PLAN, PAR LE MÊME CHEMIN. iOS n'a pas de Background Sync, et ne
     // délivre pas toujours `online` à la reprise : une séance finie hors ligne, l'app rouverte plus tard avec du
     // réseau, n'attendait plus que le prochain geste. Hors ligne, rien : `online` s'en chargera.

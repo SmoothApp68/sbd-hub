@@ -960,6 +960,7 @@ button.puce-zone::after{content:"";position:absolute;left:0;right:0;top:50%;heig
   align-items:center;width:100%;padding:10px 8px;border:0;border-radius:var(--r-petit);
   background:none;color:var(--texte);font:inherit;font-size:14px;text-align:left}
 .option-zone + .option-zone{margin-top:1px}
+.option-indisponible,.option-indisponible:disabled{opacity:.6;cursor:default}
 .option-zone .oz-rond{width:16px;height:16px;border-radius:50%;
   border:1.5px solid var(--texte-3)}
 .option-zone.active{background:var(--panneau-2)}

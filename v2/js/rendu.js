@@ -5907,7 +5907,13 @@
       b.dataset.choix = c[0];
       b.appendChild(el('span', 'oz-nom', c[1]));
       b.appendChild(el('span', 'oz-sous', c[2]));
-      b.addEventListener('click', function () { c[3](); });
+      // F2 (MOTEUR §9.49) — la routine qu'on ne voit pas ne se change pas : le choix reste là, grisé, avec la raison (jamais la promesse « elle change »).
+      if (c[0] === 'routine' && vue.routineIndisponible) {
+        b.disabled = true;
+        b.setAttribute('aria-disabled', 'true');
+        b.classList.add('option-indisponible');
+        b.lastChild.textContent = vue.routineIndisponible;
+      } else b.addEventListener('click', function () { c[3](); });
       cible.appendChild(b);
     });
     // 215 : le « Fermer » est celui de la feuille commune (#btn-fermer-feuille), jamais un second.

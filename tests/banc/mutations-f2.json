@@ -1,0 +1,89 @@
+[
+ {
+  "nom": "f2-cle-du-memo-sans-generationRoutines",
+  "fichier": "v2/js/app.js",
+  "ancien": "planMemo.routinesGen === generationRoutines && planMemo.routinesPretes === routinesPretes()) return planMemo.plan;",
+  "nouveau": "true) return planMemo.plan;",
+  "banc": "seance",
+  "sections": ["f2"],
+  "unitaires": ["tests/unit/v2-reprise-routines-f2.test.js"]
+ },
+ {
+  "nom": "f2-rerendu-retire",
+  "fichier": "v2/js/app.js",
+  "ancien": "if (!etaientPretes) relireLaSeanceAvecLesRoutines();",
+  "nouveau": "",
+  "banc": "seance",
+  "sections": ["f2"],
+  "unitaires": ["tests/unit/v2-reprise-routines-f2.test.js"]
+ },
+ {
+  "nom": "f2-rerendu-sous-la-frappe-focus-ignore",
+  "fichier": "v2/js/app.js",
+  "ancien": "if (champDuJournalActif() || (chrono && chrono.question)) { routinesATardivesEnAttente = true; return; }",
+  "nouveau": "if (chrono && chrono.question) { routinesATardivesEnAttente = true; return; }",
+  "banc": "seance",
+  "sections": ["f2"],
+  "unitaires": ["tests/unit/v2-reprise-routines-f2.test.js"]
+ },
+ {
+  "nom": "f2-routinesPretes-absent-traite-comme-faux",
+  "fichier": "v2/js/plan.js",
+  "ancien": "        if (e.routinesPretes === false) {\n          if (x.zonePlan",
+  "nouveau": "        if (!e.routinesPretes) {\n          if (x.zonePlan",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-reprise-routines-f2.test.js"]
+ },
+ {
+  "nom": "f2-refus-de-poserZoneDePlanDe-retire",
+  "fichier": "v2/js/app.js",
+  "ancien": "      if (!ligne) return;\n      await poserRoutineVoulue(routine, routine.exercices.map(function (e) {",
+  "nouveau": "      await poserRoutineVoulue(routine || { id: null, exercices: [] }, (routine ? routine.exercices : []).map(function (e) {",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-reprise-routines-f2.test.js"]
+ },
+ {
+  "nom": "f2-choix-routine-toujours-propose",
+  "fichier": "v2/js/app.js",
+  "ancien": "routineIndisponible: ligneDeRoutineDe(slug) ? null : PHRASE_ROUTINE_ILLISIBLE,",
+  "nouveau": "routineIndisponible: null,",
+  "banc": "seance",
+  "sections": ["f2"],
+  "unitaires": ["tests/unit/v2-reprise-routines-f2.test.js"]
+ },
+ {
+  "nom": "f2-i168-retire",
+  "fichier": "v2/js/plan.js",
+  "ancien": "    verifierRoutinesPretes(plan, entrees, erreurs);\n",
+  "nouveau": "",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-reprise-routines-f2.test.js"]
+ },
+ {
+  "nom": "f2-consigne-figee-sans-routines",
+  "fichier": "v2/js/app.js",
+  "ancien": "      if (options.zonePlan && !routinesPretes()) return null;\n      // MOTEUR §13.6",
+  "nouveau": "      // MOTEUR §13.6",
+  "banc": "seance",
+  "sections": ["f2"],
+  "unitaires": ["tests/unit/v2-reprise-routines-f2.test.js"]
+ },
+ {
+  "nom": "f2-suite-dite-sans-routines",
+  "fichier": "v2/js/app.js",
+  "ancien": "    if (options.zonePlan && !routinesPretes()) return null;\n    var cleOptions",
+  "nouveau": "    var cleOptions",
+  "banc": "seance",
+  "sections": ["f2"],
+  "unitaires": ["tests/unit/v2-reprise-routines-f2.test.js"]
+ },
+ {
+  "nom": "f2-temoin-routinesPretes-ordre-equivalent",
+  "fichier": "v2/js/app.js",
+  "ancien": "return etatRoutines.code === 'ok' || (routines || []).length > 0;",
+  "nouveau": "return (routines || []).length > 0 || etatRoutines.code === 'ok';",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-reprise-routines-f2.test.js"],
+  "attendu": "survit"
+ }
+]

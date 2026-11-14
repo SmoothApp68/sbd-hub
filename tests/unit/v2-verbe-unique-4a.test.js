@@ -147,8 +147,8 @@ describe('les phrases disent le verbe, avec la ligne (C2 : jamais le nombre nu)'
   });
   test('« Je garde » est la charge seulement ; « On » n’est plus un verbe de consigne (je = le coach décide)', () => {
     const e = { effet: 'garde', charge: 130, reps: 5, reserve: 0, visee: 2, auHaut: false };
-    expect(esp(M.phraseEffortVise(e, null))).toBe('130 kg × 5, sans marge. Je garde 130 kg la prochaine fois.');
-    expect(esp(M.phraseEffortVise(e, null))).not.toMatch(/\bOn garde\b/);
+    expect(esp(M.annonceDe('effort', { ev: e, haut: null, moment: 'apres' }))).toBe('130 kg × 5, sans marge. Je garde 130 kg la prochaine fois.');
+    expect(esp(M.annonceDe('effort', { ev: e, haut: null, moment: 'apres' }))).not.toMatch(/\bOn garde\b/);
   });
 });
 

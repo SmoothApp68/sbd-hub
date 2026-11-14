@@ -349,8 +349,10 @@
     if (consigne && consigne.allegee) return null;
     var c = Moteur().constatDuJour(consigne, suite.consigne, reglage || null,
       suite.cranSuivant === undefined ? null : suite.cranSuivant, faitsDuJour(lignes, consigne),
-      reference === undefined ? null : reference, suite.cranSuivantApprochee === true);
+      reference === undefined ? null : reference, suite.cranSuivantApprochee === true, suite.testConfirme === true);
     if (!c) return null;
+    // PR 5a (I164, sens 4) — la condition de « Il te manque N reps » a été REJOUÉE par le moteur (`suiteDExercice`) : le plan la porte pour que I164 la relise.
+    c.testConfirme = suite.testConfirme === true;
     // Ce que la prochaine séance proposera, en charges : de quoi vérifier
     // qu'elle ne propose pas moins qu'une montée tenue (I10 b).
     var k = suite.consigne;
@@ -2903,7 +2905,7 @@
     var effet = null, phrase = null;
     if (R !== null && ev && ev.reserve === R && ev.visee === visee && memeChargeOuVides(ev.charge, s.charge_kg)) {
       effet = ev.effet;
-      phrase = Moteur().phraseEffortVise(ev, k.haut || null);
+      phrase = Moteur().annonceDe('effort', { ev: ev, haut: k.haut || null, moment: 'apres' });
     }
     return { visee: visee, serie: j, reponse: R, demande: !!fini && R === null, effet: effet, phrase: phrase };
   }
@@ -6482,6 +6484,7 @@
     verifierZeroRep(plan, entrees, erreurs);
     verifierDecharge(plan, erreurs);
     verifierVerbe(plan, erreurs);
+    verifierAnnonce(plan, erreurs);
     verifierVoixDuZero(plan, entrees, erreurs);
     verifierLeviers(plan, erreurs);
     verifierHorsCalcul(plan, entrees, erreurs);
@@ -7344,7 +7347,8 @@
       }
       // — Sens 2 et 3 —
       var textes = [['le gris', x.entete && x.entete.gris], ['le « Pourquoi »', x.pourquoi && x.pourquoi.etat],
-                    ['le constat', x.constat && ((x.constat.verdict || '') + ' ' + (x.constat.suite || ''))]];
+                    ['le constat', x.constat && (x.constat.verdict || '')]];
+      // PR 5a — la SUITE du constat parle de la consigne suivante : I164 la lit, pas I162.
       var ligneDite = l && ch !== null && vise !== null ? norm(Voix().chargeFois(ch, vise)) : null;
       if (v.famille === 'variante') return;   // décharge, repli, alléger, « plus léger aujourd'hui » : leurs phrases sont celles d'I165, I166, I140
       textes.forEach(function (p) {
@@ -7385,6 +7389,81 @@
       });
     });
   }
+  // I164 (chantier « Les mots disent vrai », PR 5a, MOTEUR §9.48) — UNE ANNONCE NE PROMET QUE CE QUE LE MOTEUR FERA. Relue sur `x.constat.suite` (le texte,
+  // jamais un champ du verbe), par une arithmétique à part de `Moteur.verbeDeLaConsigne` et de `Moteur.annonceDe`.
+  //   Sens 1 (source) : l'annonce naît de `Moteur.annonceDe` seul — gardé par `v2-annonce-litteraux-5a.test.js` ; ici le lexique fermé : jamais « Même cible »
+  //     (ambigu), jamais « la séance d'après / suivante » dans la suite.
+  //   Sens 2 (chiffre et verbe) : « La prochaine fois : … » dit la LIGNE de la consigne suivante (`suiteLignes.ligne`, jamais une ligne haute) et un verbe
+  //     que l'écart `vise − niveau` recalculé ICI rend vrai (N reps de plus ⇔ N = vise − niveau > 0 ; « tu restes à » ⇔ 0 ; « ta cible » ⇔ < 0 ; « je garde »
+  //     à la charge de la ligne) ; la cause « sans marge » jamais devant « de plus ». Aveu : la ligne et le niveau sortent du même objet que le texte ; le
+  //     contrôle indépendant de la fois SUIVANTE RÉELLE est celui de la campagne (`v2-mots-campagne.test.js`) et de la section de banc de la clé du mémo.
+  //   Sens 4 (condition simulée) : « Il te manque N reps pour tester X kg » ⇒ `constat.testConfirme` (le moteur l'a rejouée) ET N = haut de la zone − niveau
+  //     du jour (Franc : la meilleure série) ET X = le cran suivant.
+  // Hors périmètre (PR 5b) : la date (sens 3), les régimes à venir (décharge, bloc, zone suivante, pause).
+  function verifierAnnonce(plan, erreurs) {
+    var norm = function (t) { return String(t || '').replace(/[\u00a0\u202f]/g, ' '); };
+    var memeC = function (a, b) { return Math.abs(a - b) < 1e-9; };
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var c = x && x.constat;
+      if (!c || typeof c.suite !== 'string' || c.suite === '') return;
+      var nom = ' — exercice ' + i + ' (' + x.slug + ') : ';
+      var t = norm(c.suite);
+      var sl = c.suiteLignes || null;
+      if (/Même cible|la séance (?:d['’]après|suivante)|\bProchaine fois\b/.test(t)) erreurs.push('I164' + nom + 'un mot hors du lexique des annonces : ' + t);
+      var vers = /^La prochaine fois : (.*)\.$/.exec(t);
+      if (vers) {
+        var corps = vers[1];
+        var l = sl ? sl.ligne : null;
+        var ch = l ? nombre(l.charge) : null, vi = l ? nombre(l.vise) : null;
+        if (!sl || !l || sl.haut || ch === null) { erreurs.push('I164' + nom + 'une annonce de verbe sans ligne chiffrée seule : ' + t); return; }
+        var ligne = vi === null ? null : norm(Voix().chargeFois(ch, vi));
+        var plus = vi !== null && typeof sl.niveau === 'number' ? vi - sl.niveau : null;
+        var mDe = /^(une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|\d+) reps? de plus, (.*)$/.exec(corps);
+        var mReste = /^tu restes à (.*?)(?:, (?:la dernière|une série) sans marge)?$/.exec(corps);
+        var mCible = /^ta cible, (.*?)(?:, (?:la dernière|une série) sans marge)?$/.exec(corps);
+        var mGarde = /^je garde (\d+(?:,\d+)?) kg$/.exec(corps);
+        if (mDe) {
+          var mots = ['', 'une', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix'];
+          var n = mots.indexOf(mDe[1]);
+          n = n > 0 ? n : Number(mDe[1]);
+          if (plus === null || plus <= 0) erreurs.push('I164' + nom + '« de plus » alors que la ligne ne monte pas (vise ' + vi + ', niveau ' + (sl.niveau === undefined ? '?' : sl.niveau) + ') : ' + t);
+          else if (n !== plus) erreurs.push('I164' + nom + 'l’annonce dit ' + n + ' rep(s) de plus, la ligne en demande ' + plus + ' : ' + t);
+          if (ligne !== null && mDe[2].trim() !== ligne) erreurs.push('I164' + nom + 'l’annonce dit « ' + mDe[2] + ' », la ligne suivante est ' + ligne + ' : ' + t);
+          if (CAUSE_SANS_MARGE.test(corps)) erreurs.push('I164' + nom + 'la cause « sans marge » devant une rep de plus : ' + t);
+        } else if (mReste) {
+          if (plus !== 0) erreurs.push('I164' + nom + '« tu restes à » alors que la ligne vise ' + vi + ' pour un niveau de ' + (sl.niveau === undefined ? '?' : sl.niveau) + ' : ' + t);
+          if (ligne !== null && mReste[1].trim() !== ligne) erreurs.push('I164' + nom + 'l’annonce dit « ' + mReste[1] + ' », la ligne suivante est ' + ligne + ' : ' + t);
+        } else if (mCible) {
+          if (plus === null || plus >= 0) erreurs.push('I164' + nom + '« ta cible » alors que la ligne ne borne pas (vise ' + vi + ') : ' + t);
+          if (ligne !== null && mCible[1].trim() !== ligne) erreurs.push('I164' + nom + 'l’annonce dit « ' + mCible[1] + ' », la ligne suivante est ' + ligne + ' : ' + t);
+        } else if (mGarde) {
+          if (corps !== 'je garde ' + norm(Voix().charge(ch))) erreurs.push('I164' + nom + '« je garde ' + mGarde[1] + ' kg », la ligne suivante est à ' + ch + ' kg : ' + t);
+        } else {
+          erreurs.push('I164' + nom + 'un verbe hors du lexique : ' + t);
+        }
+        return;
+      }
+      var manque = /^Il te manque (une rep|\S+ reps) pour tester (?:≈ )?(\d+(?:,\d+)?) kg\.$/.exec(t);
+      if (manque) {
+        // Sens 4 — le moteur a rejoué la condition ; le nombre et le cran sont recalculés ici.
+        if (c.testConfirme !== true) erreurs.push('I164' + nom + '« il te manque » sans que le moteur ait confirmé le test : ' + t);
+        var zh = sl ? sl.zoneHaut : null;
+        var MOTS = ['', 'une', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix'];
+        var mot = manque[1] === 'une rep' ? 'une' : manque[1].replace(/ reps$/, '');
+        var mN = MOTS.indexOf(mot) > 0 ? MOTS.indexOf(mot) : Number(mot);
+        // Le niveau du jour : celui de la consigne suivante (Normal), ou la meilleure série (Franc, son déclencheur est UNE série).
+        var niveaux = [];
+        if (sl && typeof sl.niveau === 'number') niveaux.push(sl.niveau);
+        if (sl && typeof sl.repsMax === 'number' && sl.repsMax > 0) niveaux.push(sl.repsMax);
+        if (typeof zh !== 'number' || !niveaux.length) erreurs.push('I164' + nom + '« il te manque » sans zone ni niveau à compter : ' + t);
+        else if (!niveaux.some(function (n) { return mN === zh - n; })) erreurs.push('I164' + nom + 'il manque ' + niveaux.map(function (n) { return zh - n; }).join(' ou ') + ' rep(s), l’annonce en dit ' + mN + ' : ' + t);
+        if (sl && typeof sl.cran === 'number' && manque[2] + ' kg' !== norm(Voix().charge(sl.cran))) erreurs.push('I164' + nom + 'le cran annoncé (' + manque[2] + ' kg) n’est pas le cran suivant (' + sl.cran + ' kg) : ' + t);
+      } else if (c.testConfirme !== true && /Il te manque/.test(t)) {
+        erreurs.push('I164' + nom + '« il te manque » mal formée ou non confirmée : ' + t);
+      }
+    });
+  }
+
   // I162, sens 3 — les exercices du plan dont la cause « sans marge » existe devant une ligne qui monte (comptés, jamais imprimés).
   function causesTues(plan) {
     return ((plan && plan.exercices) || []).filter(function (x) { return x && x.verbe && x.verbe.causeTue === true; }).length;

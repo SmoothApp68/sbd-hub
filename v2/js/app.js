@@ -8842,8 +8842,11 @@
   // donc le constat en cache — vu sur appareil. Les quatre colonnes que le
   // moteur lit : la charge, les reps, et l'effort sous ses deux formes (un RPE
   // de 10 vaut une rep de moins, §17.4).
+  // PR 5a (B4, MOTEUR §9.48) — ET LE TYPE : `Seance.changerType` (menu « ⋯ ») retype une série DÉJÀ validée (travail → test, recul…) sans toucher ni charge ni
+  // reps ni effort ; la clé restait identique et l'annonce de fin d'exercice, périmée (démontré au moteur : « … puis 105 kg × 4 » contre « … ≈ 102,5 kg × 3 »).
+  // `au_max_reserve` (la réserve notée sur une dernière série « Au max ») et `hors_calcul` y sont aussi : le moteur les lit.
   function empreinteSerie(s) {
-    return [s.charge_kg, s.reps, s.rpe, s.ressenti].join('|');
+    return [s.charge_kg, s.reps, s.rpe, s.ressenti, s.type_serie, s.au_max_reserve, s.hors_calcul === true ? 1 : 0].join('|');
   }
 
   function empreinteValidations() {
@@ -8903,7 +8906,7 @@
         options);
       var parSlug = Object.assign({}, constats.parSlug);
       parSlug[slug] = { options: cleOptions,
-                        valeur: r ? { consigne: r.apres.consigne, cranSuivant: r.cranSuivant, cranSuivantApprochee: r.cranSuivantApprochee === true } : null };
+                        valeur: r ? { consigne: r.apres.consigne, cranSuivant: r.cranSuivant, cranSuivantApprochee: r.cranSuivantApprochee === true, testConfirme: r.testConfirme === true } : null };
       constats = { cle: cle, parSlug: parSlug };
     }
     return constats.parSlug[slug].valeur;

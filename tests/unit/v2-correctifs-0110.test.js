@@ -132,7 +132,9 @@ describe('49-U18 — une reprise ne vise jamais au-dessus du haut de la zone (§
   test('la reprise longue aussi, avec sa propre phrase', () => {
     const c = F.cas.filter((x) => x.id === 'B01')[0];
     const l = M.libellesConsigne(consigneDuCas(c), c.avant);
-    expect(l.gris).toMatch(/Le test te ramènera à 65.kg\. Ta zone Mix va jusqu'à 8 reps.: 62,5.kg.×.8\.$/);
+    // PR 5a (3g) — « Le test te ramènera à 65 kg » est retiré (promesse non datée, fausse pour la fois suivante).
+    expect(l.gris).not.toMatch(/Le test te ramènera/);
+    expect(l.gris).toMatch(/un cran en dessous, à 62,5.kg\. Ta zone Mix va jusqu'à 8 reps.: 62,5.kg.×.8\.$/);
   });
 
   test('sans dépassement, ni borne ni phrase (E02 : reprise à 15, zone 15-20)', () => {
@@ -282,9 +284,10 @@ describe('49-U18 — « Même cible » seulement si c’est la même (principe i
     expect(c.suite).toMatch(/^Prochaine séance/);
   });
 
-  test('et quand la cible est vraiment la même, « Même cible » reste (K7, le cas livré)', () => {
+  test('PR 5a (A1) — quand la cible est vraiment la même, « Même cible » n\u2019existe plus : l\u2019annonce redit le verbe de la fois suivante (K7)', () => {
     const K7 = require('./fixtures/constat-48b6b.json').filter((c) => c.id === 'K7')[0];
-    expect(K7.constat.suite).toMatch(/^Même cible/);
+    expect(K7.constat.suite).toMatch(/^La prochaine fois/);
+    expect(K7.constat.suite).not.toMatch(/Même cible/);
     const c = M.constatDe(M.consignePour(K7.seances, K7.avant, { reglage: K7.reglage, equipement: K7.equipement }),
       M.consignePour(K7.seances.concat([K7.seanceDuJour]), K7.apres, { reglage: K7.reglage, equipement: K7.equipement }),
       K7.reglage, K7.cranSuivant);

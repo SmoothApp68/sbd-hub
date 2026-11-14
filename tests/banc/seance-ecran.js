@@ -10446,6 +10446,32 @@ const SETS_IMPORTES = [
     ok('[SP] le constat de fin de bloc paraît', !!k.verdict, esp(JSON.stringify(k)));
     ok('[SP] DISCRIMINANT — il annonce une suite chiffrée (avant : aucune suite après trois charges différentes)',
       /^Prochaine séance : .*\d.* kg/.test(esp(k.suite)), esp(JSON.stringify(k)));
+    // PR 5a (B4, MOTEUR §9.48, la « sonde C-2 ») — LA CLÉ DU MÉMO PORTE LE TYPE. Retyper une série DÉJÀ validée (travail → test, par la feuille de la série)
+    // ne touche ni la charge, ni les reps, ni l'effort : la clé du mémo de la suite restait identique et l'annonce, périmée (le moteur, lui, en donne une autre).
+    {
+      const avantTest = esp(k.suite);
+      gardeBanc.suspendue = true;   // le retypage d'une série validée est vu par I4 (une ligne figée change) : on lit ce que la garde dirait, plus bas
+      await page.evaluate(() => document.querySelectorAll('.ligne-serie')[2].querySelector('.no-serie').click());
+      await feuilleOuverte('.feuille-menu button:nth-child(5)');
+      const departT = await departGeste();
+      await page.click('#feuille-contenu .feuille-menu button:nth-child(5)');   // Série de test
+      await feuilleFermee();
+      await calmeApres(departT);
+      await page.waitForFunction((av) => { const e = document.querySelector('.legende-exo .constat-suite'); return !!e && e.textContent !== av; }, k.suite, { timeout: 5000 }).catch(() => {});
+      const kT = await constatSP();
+      ok('[SP] DISCRIMINANT (B4) — retyper la 3e série en « test » recalcule l’annonce (la clé du mémo porte le type ; avant : la même phrase, périmée)',
+        !!kT.suite && esp(kT.suite) !== avantTest && /^Prochaine séance : 110 kg × 5\./.test(esp(kT.suite)), esp(JSON.stringify({ avantTest, apres: kT.suite })));
+      // Retyper une série VALIDÉE change une ligne figée : I4 (« figée avant, plus maintenant ») le voit, c'est attendu et c'est le geste lui-même, hors
+      // périmètre de la PR 5a. Aucun autre invariant (I164 compris) ne doit parler : on lit ce que la garde dirait, et on ne retient que ce qui n'est pas I4.
+      const dits = await page.evaluate(() => { const P = window.THPlan, d = P && P.dernier; return d && d.plan ? P.verifierPlan(d.plan, d.entrees).erreurs : null; });
+      // La garde de l'app a, elle aussi, gardé l'I4 du retypage : le compteur du banc avance pour ne pas le rapporter plus tard (déjà lu ci-dessus).
+      const etatApp = await page.evaluate(() => { const e = window.THPlan.garde.etat(); return { plans: e.plans, violations: e.violations.length }; });
+      gardeBanc.app = etatApp;
+      gardeBanc.suspendue = false;
+      gardeBanc.avant = null;
+      const autres = (dits || []).filter((e) => !/^I4\b/.test(e));
+      ok('[SP] le retypage ne déclenche que I4 (la ligne figée), jamais I164 ni un autre invariant', dits !== null && autres.length === 0, JSON.stringify(autres.slice(0, 2)));
+    }
     ok('[SP] la garde (C6) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant,
       JSON.stringify(gardeBanc.liste.slice(-2)));
     await abandonner();

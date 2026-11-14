@@ -1,0 +1,76 @@
+[
+ {
+  "nom": "mots-5a-annonce-lit-la-consigne-d-avant",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "cAvant: consigneAvant, cApres: consigneApres,",
+  "nouveau": "cAvant: consigneAvant, cApres: consigneAvant,",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-annonces-campagne.test.js", "tests/unit/v2-moteur-parle.test.js"]
+ },
+ {
+  "nom": "mots-5a-il-te-manque-sans-simulation",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "if (d.testConfirme !== true) return null;",
+  "nouveau": "if (false) return null;",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-annonce-5a.test.js", "tests/unit/v2-annonces-campagne.test.js", "tests/unit/v2-moteur-parle.test.js"]
+ },
+ {
+  "nom": "mots-5a-la-simulation-prend-une-reserve-favorable",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "ressenti: derniere && gabarit.ressenti !== undefined ? gabarit.ressenti : null,",
+  "nouveau": "ressenti: derniere ? 'reste_2' : null,",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-annonce-5a.test.js", "tests/unit/v2-annonces-campagne.test.js"]
+ },
+ {
+  "nom": "mots-5a-la-cause-sur-une-rep-de-plus",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "if (v.verbe === VERBES.MONTE_REPS) return dePlus(v.plus) + ', ' + ligneDeLaConsigne(c, nat);",
+  "nouveau": "if (v.verbe === VERBES.MONTE_REPS) return dePlus(v.plus) + ', ' + ligneDeLaConsigne(c, nat) + (v.sansMarge ? ', la dernière sans marge' : '');",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-annonce-5a.test.js"]
+ },
+ {
+  "nom": "mots-5a-plus-est-vise-moins-le-palier",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "r.plus = vise - niv;",
+  "nouveau": "r.plus = vise - P;",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-annonce-5a.test.js", "tests/unit/v2-verbe-unique-4a.test.js", "tests/unit/v2-annonces-campagne.test.js"]
+ },
+ {
+  "nom": "mots-5a-meme-cible-reintroduit",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "return dit !== null ? 'La prochaine fois' + DEUX_POINTS + dit + '.' : prochaine();",
+  "nouveau": "return 'Même cible la prochaine fois' + DEUX_POINTS + lignesJaunes(cApres, CIBLE).join(', ') + '.';",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-annonce-5a.test.js", "tests/unit/v2-annonce-litteraux-5a.test.js", "tests/unit/v2-annonces-campagne.test.js"]
+ },
+ {
+  "nom": "mots-5a-cle-du-memo-sans-type",
+  "fichier": "v2/js/app.js",
+  "ancien": "return [s.charge_kg, s.reps, s.rpe, s.ressenti, s.type_serie, s.au_max_reserve, s.hors_calcul === true ? 1 : 0].join('|');",
+  "nouveau": "return [s.charge_kg, s.reps, s.rpe, s.ressenti, s.au_max_reserve, s.hors_calcul === true ? 1 : 0].join('|');",
+  "banc": "seance",
+  "sections": ["7-G-quinquies"],
+  "unitaires": ["tests/unit/v2-annonce-5a.test.js"]
+ },
+ {
+  "nom": "mots-5a-i164-sens-4-retire",
+  "fichier": "v2/js/plan.js",
+  "ancien": "if (c.testConfirme !== true) erreurs.push('I164' + nom + '« il te manque » sans que le moteur ait confirmé le test : ' + t);",
+  "nouveau": "if (false) erreurs.push('I164' + nom + '« il te manque » sans que le moteur ait confirmé le test : ' + t);",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-annonce-5a.test.js"]
+ },
+ {
+  "nom": "mots-5a-temoin-cite-suivante",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var nat = 'cible_suivante';",
+  "nouveau": "var nat = 'cible' + '_suivante';",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-annonce-5a.test.js"],
+  "attendu": "survit"
+ }
+]

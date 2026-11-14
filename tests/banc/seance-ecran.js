@@ -23137,9 +23137,9 @@ const SETS_IMPORTES = [
       mo.visible && mo.periode === MOIS && mo.ecran === 'tonnes' &&
         JSON.stringify(mo.cles.slice(0, 6)) === '["tonnes","salle","semaines","muscle","exercice","records"]' &&
         mo.cles[mo.cles.length - 1] === 'plaque', JSON.stringify(mo.cles));
-    ok('[B98] DISCRIMINANT — la seule comparaison : les tonnes, « … t sur ' + avantMois + ' » ; « À la salle » jamais comparé',
-      new RegExp('t sur ' + avantMois).test(tonnesMois.replace(/ /g, ' ')) &&
-        !new RegExp('[+−→]|sur ' + avantMois + '|comme|qu’').test((mo.ecrans.filter((x) => x.cle === 'salle')[0] || {}).texte || '+'),
+    ok('[B98] DISCRIMINANT — la seule comparaison : les tonnes, « … t par rapport à ' + avantMois + ' » (mots PR 6) ; « À la salle » jamais comparé',
+      new RegExp('t par rapport à ' + avantMois).test(tonnesMois.replace(/ /g, ' ')) &&
+        !new RegExp('[+−→]|sur ' + avantMois + '|par rapport à|comme|qu’').test((mo.ecrans.filter((x) => x.cle === 'salle')[0] || {}).texte || '+'),
       JSON.stringify(mo.ecrans.slice(0, 2)));
     ok('[B98] jamais le nombre de séances ; la plaque sans le coach',
       !mo.ecrans.some((x) => x.cle !== 'exercice' && /\d+\s*séances?/.test(x.texte)) &&

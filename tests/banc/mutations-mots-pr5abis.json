@@ -1,0 +1,54 @@
+[
+ {
+  "nom": "5abis-routine-id-retire-de-la-fabrique",
+  "fichier": "v2/js/faits.js",
+  "ancien": "return { seance: { debut: seance.debut, routine_id: seance.routine_id || null }, series: series };",
+  "nouveau": "return { seance: { debut: seance.debut, routine_id: null }, series: series };",
+  "banc": "seance",
+  "sections": ["5a-bis"],
+  "unitaires": ["tests/unit/v2-suite-aujourdhui.test.js", "tests/unit/v2-annonces-campagne.test.js"]
+ },
+ {
+  "nom": "5abis-suiteDe-sans-la-fabrique",
+  "fichier": "v2/js/app.js",
+  "ancien": "faits.groupeDuJour(seance, faites),",
+  "nouveau": "{ seance: { debut: seance.debut }, series: faites },",
+  "banc": "seance",
+  "sections": ["5a-bis"],
+  "unitaires": ["tests/unit/v2-suite-aujourdhui.test.js"]
+ },
+ {
+  "nom": "5abis-i167-retire",
+  "fichier": "v2/js/plan.js",
+  "ancien": "if (c.suiteDate < c.jourDuConstat) erreurs.push(",
+  "nouveau": "if (false) erreurs.push(",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-suite-aujourdhui.test.js"]
+ },
+ {
+  "nom": "5abis-date-de-la-suite-non-lue",
+  "fichier": "v2/js/plan.js",
+  "ancien": "c.suiteDate = k.fondement && k.fondement.date ? M167.jourCivil(k.fondement.date) : null;",
+  "nouveau": "c.suiteDate = null;",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-suite-aujourdhui.test.js"]
+ },
+ {
+  "nom": "5abis-retombee-sur-le-silence",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "          return laLigneVraie();\n        }\n        var manque",
+  "nouveau": "          return null;\n        }\n        var manque",
+  "banc": "seance",
+  "sections": ["5a-bis"],
+  "unitaires": ["tests/unit/v2-annonce-5a.test.js", "tests/unit/v2-suite-aujourdhui.test.js", "tests/unit/v2-annonces-campagne.test.js"]
+ },
+ {
+  "nom": "5abis-temoin-routine-id-equivalent",
+  "fichier": "v2/js/faits.js",
+  "ancien": "routine_id: seance.routine_id || null }, series: series };",
+  "nouveau": "routine_id: seance.routine_id === undefined ? null : seance.routine_id }, series: series };",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-suite-aujourdhui.test.js"],
+  "attendu": "survit"
+ }
+]

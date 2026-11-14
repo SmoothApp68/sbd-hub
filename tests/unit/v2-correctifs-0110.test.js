@@ -330,7 +330,7 @@ describe('49-U18 — la cible du constat : un seul calcul (« le coach ne fait q
       cleConsignes: () => 'k', empreinteValidations: () => 'e', exerciceFini: () => true,
       seriesDeTravailDe: () => [],
       // 58-1 : les séances d'un exercice viennent du module des faits.
-      faits: { seancesDeLExercice: () => [] }, corpus: () => ({}),
+      faits: { seancesDeLExercice: () => [], groupeDuJour: (s, series) => ({ seance: { debut: s.debut, routine_id: s.routine_id || null }, series }) }, corpus: () => ({}),
       zoneDe: () => 'mix', seancesSousConsigne: () => ['s1'],
       // 193-3 : la zone que la routine fixe pour le jour (aucune ici : Automatique).
       zonePlanDe: () => null, zonePlanOrigineDe: () => null, zonesDeRoutineDe: () => null,

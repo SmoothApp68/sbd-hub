@@ -10613,6 +10613,7 @@
     ecouteSortie = true;
     doc.addEventListener('focusout', function () {
       if (reactionPerimee) setTimeout(redessinerSiSaisieFinie, 0);
+      if (routinesATardivesEnAttente) setTimeout(reprendreLeRedessinDesRoutines, 0);   // F2
     });
   }
 
@@ -10739,6 +10740,7 @@
   function rendreSeance() {
     montrer('seance', Routeur.SAISIE);
     reactionPerimee = false;
+    routinesATardivesEnAttente = false;   // F2 — ce rendu lit les routines d'à présent
     ecouterSortieDesChamps();
     var index = Modele.indexerExercices(local.exercices);
     var c = Seance.compter(seance, local.exercices);
@@ -10776,6 +10778,7 @@
     // durée repart de l'heure juste.
     mesurerBarres();
     armerDuree();
+    retenterLesRoutines(false);   // F2 — des routines non lues (hors ligne au chargement) : une relecture, au plus toutes les 20 s
     // 91 — le groupe de séance, une ligne en haut de la séance (lue, jamais calculée par le plan).
     dessinerGroupeSeance();
     // social 3 — « Routine créée depuis la séance de … », une fois, à la première séance de cette routine.
@@ -12905,7 +12908,40 @@
     }
   }
 
+  // F2 (MOTEUR §9.49) — LA SÉANCE EN COURS RELIT LES ROUTINES QUI ARRIVENT. Un SEUL point : le succès de `chargerRoutines`, quel que soit le chargeur
+  // (rendu de Saisie, accueil, profil, questionnaire, retour du réseau). Elle ne redessine que si les routines n'étaient PAS prêtes avant cette lecture
+  // (sinon rien n'a changé pour le plan), que la séance est celle qu'on regarde, et jamais sous les doigts : pas pendant la frappe dans un champ du
+  // journal (`reactionPerimee`, `redessinerSiSaisieFinie` — le clavier se fermerait), pas sous une feuille ouverte (sa fermeture redessine déjà la séance),
+  // pas pendant « Il t'en restait combien ? ». Le redessin remis attend la fin de la frappe (`focusout`) ou tout autre rendu de la séance. Il n'écrit rien :
+  // ce n'est ni `apresGeste` ni `redessinerSiSaisieFinie`.
+  var routinesATardivesEnAttente = false;
+  function champDuJournalActif() {
+    var a = doc.activeElement;
+    return !!(a && a.tagName === 'INPUT' && a.closest && a.closest('#blocs-seance'));
+  }
+  function relireLaSeanceAvecLesRoutines() {
+    if (!seance || !vues.seance || vues.seance.hidden) { routinesATardivesEnAttente = false; return; }
+    if (feuille || voileOuvert) return;
+    if (champDuJournalActif() || (chrono && chrono.question)) { routinesATardivesEnAttente = true; return; }
+    routinesATardivesEnAttente = false;
+    rendreSeance();
+  }
+  function reprendreLeRedessinDesRoutines() {
+    if (routinesATardivesEnAttente) relireLaSeanceAvecLesRoutines();
+  }
+  // Hors ligne au chargement, puis le réseau revient (ou on rouvre la séance) : une relecture de plus, jamais en boucle.
+  var derniereRetentativeRoutines = 0;
+  var RETENTATIVE_ROUTINES_MS = 20000;
+  function retenterLesRoutines(sansDelai) {
+    if (!seance || etatRoutines.code !== 'echec' || routinesPretes()) return;
+    var t = Date.now();
+    if (!sansDelai && t - derniereRetentativeRoutines < RETENTATIVE_ROUTINES_MS) return;
+    derniereRetentativeRoutines = t;
+    chargerRoutines().catch(function () { /* hors ligne : la séance reste muette sur ce qui dépend des routines */ });
+  }
+
   async function chargerRoutines() {
+    var etaientPretes = routinesPretes();
     etatRoutines = { code: 'charge', message: '' };
     // Sans routines, pas de « Démarrer » : attendre ici la vérification de la
     // séance en cours en base garantit qu'une séance ouverte ailleurs est
@@ -12917,6 +12953,7 @@
       generationRoutines++;
       etatRoutines = { code: 'ok', message: '' };
       derniereLectureRoutines = Date.now();
+      if (!etaientPretes) relireLaSeanceAvecLesRoutines();
       return true;
     } catch (e) {
       // On ne vide pas `routines` : ce qu'on avait affiché reste affiché. Un
@@ -20332,6 +20369,8 @@
     // chaque retour du réseau écraserait, avec un cache périmé, ce qu'un autre appareil
     // a répondu entre-temps (`questionnaire_fait_le`, objectif, priorités).
     racine.addEventListener('online', renvoyerCeQuiAttend);
+    // F2 — les routines qui n'ont pas pu se lire hors ligne : le réseau revient, la séance en cours les relit (et se redessine, sans écrire).
+    racine.addEventListener('online', function () { retenterLesRoutines(true); });
     // 134 (I-13, audit iPhone) — LE RETOUR AU PREMIER PLAN, PAR LE MÊME CHEMIN. iOS n'a pas de Background Sync, et ne
     // délivre pas toujours `online` à la reprise : une séance finie hors ligne, l'app rouverte plus tard avec du
     // réseau, n'attendait plus que le prochain geste. Hors ligne, rien : `online` s'en chargera.

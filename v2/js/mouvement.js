@@ -382,7 +382,23 @@
     leg_extension_elastique: 'leg_extension_elastique.json',
     abduction_hanche_penche_machine: 'abduction_hanche_penche_machine.json',
     abduction_hanche_assis_elastique: 'abduction_hanche_assis_elastique.json',
-    planche_laterale_abduction_elastique: 'planche_laterale_abduction_elastique.json'
+    planche_laterale_abduction_elastique: 'planche_laterale_abduction_elastique.json',
+    releve_de_jambes_allonge: 'releve_de_jambes_allonge.json',
+    releve_de_jambes_suspendu: 'releve_de_jambes_suspendu.json',
+    releve_jambes_suspendu_leste_lest_cheville: 'releve_jambes_suspendu_leste_lest_cheville.json',
+    battements_jambes: 'battements_jambes.json',
+    planche_bras_tendus: 'planche_bras_tendus.json',
+    planche_levee_de_jambe: 'planche_levee_de_jambe.json',
+    gainage_rkc: 'gainage_rkc.json',
+    planche_laterale_montee_de_hanches: 'planche_laterale_montee_de_hanches.json',
+    planche_laterale_genoux: 'planche_laterale_genoux.json',
+    crunch_leste: 'crunch_leste.json',
+    crunch_jambes_surelevees: 'crunch_jambes_surelevees.json',
+    crunch_decline: 'crunch_decline.json',
+    crunch_decline_disque: 'crunch_decline_disque.json',
+    rotation_russe: 'rotation_russe.json',
+    rotation_russe_disque: 'rotation_russe_disque.json',
+    rotation_russe_medecine_ball: 'rotation_russe_medecine_ball.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

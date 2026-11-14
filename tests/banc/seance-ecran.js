@@ -17601,9 +17601,9 @@ const SETS_IMPORTES = [
     await attendre(1500);
     let f = await feuilleR();
     const vues = await visible();
-    ok('[R60] B — « Commencer » : le questionnaire se termine, Saisie s’ouvre, et la feuille arrive PAR-DESSUS',
+    ok('[R60] B — « Commencer » : le questionnaire se termine, Saisie s’ouvre, et la feuille arrive PAR-DESSUS (le titre dit les dates de la fenêtre : mots PR 6)',
       vues.indexOf('vue-saisie') >= 0 && vues.indexOf('vue-questionnaire') < 0 && f.ouverte &&
-        f.titre === 'Tes séances qui reviennent, sur tes 12 dernières semaines.', JSON.stringify([vues, f.ouverte, f.titre]));
+        /^Tes séances qui reviennent, du \d{1,2}\s\S+?\.?(?:\s\d{4})? au \d{1,2}\s\S+?\.?(?:\s\d{4})?\.$/.test(f.titre || ''), JSON.stringify([vues, f.ouverte, f.titre]));
     const haut = f.cartes.filter((c) => c.nom === 'Haut U603')[0], bas = f.cartes.filter((c) => c.nom === 'Bas U603')[0];
     ok('[R60] B — les deux séances qui reviennent, cochées, avec leur compte et leurs exercices (séries × reps)',
       !!haut && !!bas && haut.cochee && bas.cochee && /^4 fois · dernière fois /.test(haut.ligne) &&
@@ -17653,7 +17653,7 @@ const SETS_IMPORTES = [
     await attendre(900);
     f = await feuilleR();
     ok('[R60] D — elle ouvre la MÊME feuille, sur les mêmes séances qui reviennent (rien n’est écrit à l’ouverture)',
-      f.ouverte && f.titre === 'Tes séances qui reviennent, sur tes 12 dernières semaines.' &&
+      f.ouverte && /^Tes séances qui reviennent, du \d{1,2}\s\S+?\.?(?:\s\d{4})? au \d{1,2}\s\S+?\.?(?:\s\d{4})?\.$/.test(f.titre || '') &&
         f.cartes.some((c) => c.nom === 'Haut U603') && f.cartes.some((c) => c.nom === 'Bas U603') && ROUTINES.length === 2,
       JSON.stringify([f.titre, f.cartes.map((c) => c.nom), ROUTINES.length]));
     await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu button'))

@@ -102,7 +102,7 @@ describe('49-U4 — le cas du 26/09, reconstitué sous l’ancienne règle', () 
     expect(x.constat.verdict).not.toMatch(/Pas de palier/);
     expect(x.constat.montee).toEqual({ charge: 127.5, reps: 4 });
     expect(x.constat.verdict.replace(/[\u00a0\u202f]/g, ' ')).toBe(
-      'La montée du coach a tenu : 127,5 kg × 4, dans ta zone. Elle compte comme un test tenu.');
+      '127,5 kg × 4, dans ta zone : la montée a tenu. Elle compte comme un test tenu.');
   });
 
   test('⚠️ DISCRIMINANT — 49-U8 (MOTEUR §7.6) : la suite propose une charge, I10 ne signale plus rien', () => {

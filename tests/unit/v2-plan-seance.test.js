@@ -359,7 +359,7 @@ describe('49-U1 — plans générés : les invariants tiennent après chaque ges
               if (k10.montee) constats.montee++;
               // La montée ne remplace que le verdict qui la contredisait ; les
               // autres verdicts restent tels qu'ils étaient (décidé le 27/09).
-              if (k10.montee) constats[/^La montée du coach a tenu/.test(k10.verdict) ? 'remplace' : 'garde']++;
+              if (k10.montee) constats[/la montée a tenu\. Elle compte comme un test tenu\.$/.test(esp(k10.verdict)) ? 'remplace' : 'garde']++;
               if (/^Pas de palier/.test(k10.verdict)) constats.pasDePalier++;
             }
             const xU5 = sim.exo();

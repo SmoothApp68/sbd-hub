@@ -7406,10 +7406,17 @@
         if (baisse && v.verbe !== 'recule') erreurs.push('I162' + nom + lieu + ' dit « je baisse à » alors que le verbe est « ' + v.verbe + ' » : ' + t);
         var cause = CAUSE_SANS_MARGE.test(t);
         if (cause) {
-          if (v.famille !== 'progression' && v.famille !== 'reprise') { /* un autre état dit son propre fait */ }
+          // Le verdict du constat raconte la séance FAITE : sa cause est celle du jugement du moteur (`constat.cible.sansMarge`, PR 4b), pas
+          // celle du verbe de la consigne du jour (elle parle de la séance d'avant). Le gris et le Pourquoi lisent le verbe.
+          var dansLeConstat = lieu === 'le constat';
+          var smC = dansLeConstat ? (x.constat && x.constat.cible && x.constat.cible.sansMarge) || null : null;
+          if (dansLeConstat) {
+            if (!smC) erreurs.push('I162' + nom + lieu + ' imprime la cause « sans marge » alors que le jugement de la cible n’en porte aucune : ' + t);
+          } else if (v.famille !== 'progression' && v.famille !== 'reprise') { /* un autre état dit son propre fait */ }
           else if (!v.cause) erreurs.push('I162' + nom + lieu + ' imprime la cause « sans marge » alors que le verbe ne la rend pas vraie (' + v.verbe + (v.sansMarge ? ', une série à fond' : ', aucune série à fond') + ') : ' + t);
           if (plan && plan.protegee === true) erreurs.push('I162' + nom + lieu + ' : « sans marge » dit à une population protégée : ' + t);
-          if (/la dernière sans marge|dernière série était sans marge/.test(t) && !(v.sansMarge && v.sansMarge.derniere)) erreurs.push('I162' + nom + lieu + ' dit « la dernière » alors que la série à fond n’est pas la dernière de la séance : ' + t);
+          var derniereRef = dansLeConstat ? !!(smC && smC.derniere) : !!(v.sansMarge && v.sansMarge.derniere);
+          if (/la dernière sans marge|dernière série était sans marge/.test(t) && !derniereRef) erreurs.push('I162' + nom + lieu + ' dit « la dernière » alors que la série à fond n’est pas la dernière de la séance : ' + t);
         }
         if (/jusqu[’']à l[’']échec|à l[’']échec/.test(t) && lieu !== 'le constat' && v.cause) erreurs.push('I162' + nom + lieu + ' dit « échec » : le verbe ne le dit jamais (aucune marque d’échec posée) : ' + t);
       });

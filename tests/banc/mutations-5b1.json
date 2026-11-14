@@ -64,10 +64,10 @@
   ]
  },
  {
-  "nom": "5b1-m6-i169-sens2-retire",
+  "nom": "5b1-m6-i169-sens4-retire",
   "fichier": "v2/js/plan.js",
-  "ancien": "if (debutN === null || debutN < jn + 1 || debutN > jn + 14) erreurs.push(",
-  "nouveau": "if (false) erreurs.push(",
+  "ancien": "if (dit) erreurs.push(nom + 'une date de régime sans régime : ' + t);",
+  "nouveau": "if (false) erreurs.push(nom + 'une date de régime sans régime : ' + t);",
   "banc": "aucun",
   "unitaires": [
    "tests/unit/v2-regimes-5b1.test.js"

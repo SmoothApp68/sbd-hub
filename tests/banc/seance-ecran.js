@@ -21291,9 +21291,9 @@ const SETS_IMPORTES = [
     ok('[R66D] prémisse : aucune routine, un historique — l’aperçu s’ouvre sur le programme DÉDUIT : « 2 séances par semaine. », jamais « Ton programme de départ »',
       ap.ouverte && ROUTINES.length === 0 && ap.titre === '2 séances par semaine.' &&
         ap.cartes.map((k) => k.nom).join('|') === 'Haut U66D|Bas U66D', JSON.stringify([ap.ouverte, ap.titre, ap.cartes.map((k) => k.nom)]));
-    ok('[R66D] la voix (maquette v2) : « Ce sont tes séances des 12 dernières semaines. », puis celle d’aujourd’hui',
-      JSON.stringify(ap.voix.slice(0, 2)) === JSON.stringify(['Ce sont tes séances des 12 dernières semaines.',
-        'Je te propose tes charges à chaque séance. Touche un exercice pour le changer.']), JSON.stringify(ap.voix));
+    ok('[R66D] la voix (maquette v2) : « Ce sont tes séances du … au …. » (les dates de la fenêtre : mots PR 6), puis celle d’aujourd’hui',
+      /^Ce sont tes séances du \d{1,2}\s\S+?\.?(?:\s\d{4})? au \d{1,2}\s\S+?\.?(?:\s\d{4})?\.$/.test(ap.voix[0] || '') &&
+        ap.voix[1] === 'Je te propose tes charges à chaque séance. Touche un exercice pour le changer.', JSON.stringify(ap.voix));
     // À 45 min, une paire ne suffit pas : la plus grosse économie d'abord (le rowing, 3 × (120 − 15) s), puis le curl
     // et l'extension (3 × (90 − 15) s) ; jamais le couché à la barre (premier, barre lourde).
     const paireHaut = 'Rowing Poulie Assis et développé Couché (Haltère) en superset dans Haut U66D : ≈ 5 min de moins.';

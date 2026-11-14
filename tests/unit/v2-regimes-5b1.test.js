@@ -248,6 +248,8 @@ describe('I169 — verifierRegimes relit l’annonce du plan (DISCRIMINANTS)', (
     expect(x0.constat.regime).toEqual({ genre: 'decharge', debut: '2026-09-28' });
     expect(i169(P)).toEqual([]);
     expect(i164(P)).toEqual([]);
+    // Aucun invariant ne parle (I26 comprise : la date citée a sa source, `regime.debut`).
+    expect(T.verifierPlan(P.plan, P.entrees).erreurs.filter((e) => !/^I4\b/.test(e))).toEqual([]);
     // I10 relit toujours la suite chiffrée : elle reste posée.
     expect(x0.constat.suiteCharges.some((v) => v !== null)).toBe(true);
   });

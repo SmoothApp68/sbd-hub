@@ -1,0 +1,98 @@
+[
+ {
+  "nom": "5b1-m1-fenetre-ignoree",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "hi: Math.min(FENETRE_BORNE_HAUTE, e + FENETRE_APRES) };",
+  "nouveau": "hi: 0 };",
+  "banc": "seance",
+  "sections": [
+   "5b-1"
+  ],
+  "unitaires": [
+   "tests/unit/v2-regimes-5b1.test.js",
+   "tests/unit/v2-regimes-campagne.test.js"
+  ]
+ },
+ {
+  "nom": "5b1-m2-fin-du-bloc-au-lieu-du-debut",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var dd = dechargePlanifiee(b, o.finsAllegees) ? debutDecharge(b) : null;",
+  "nouveau": "var dd = dechargePlanifiee(b, o.finsAllegees) ? finDuBloc(b) : null;",
+  "banc": "seance",
+  "sections": [
+   "5b-1"
+  ],
+  "unitaires": [
+   "tests/unit/v2-regimes-5b1.test.js",
+   "tests/unit/v2-regimes-campagne.test.js"
+  ]
+ },
+ {
+  "nom": "5b1-m3-effort-ignore-le-regime",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var sans = !!regime;",
+  "nouveau": "var sans = false;",
+  "banc": "seance",
+  "sections": [
+   "5b-1"
+  ],
+  "unitaires": [
+   "tests/unit/v2-regimes-5b1.test.js",
+   "tests/unit/v2-regimes-campagne.test.js"
+  ]
+ },
+ {
+  "nom": "5b1-m4-decharge-true-au-lieu-de-planifiee",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var dd = dechargePlanifiee(b, o.finsAllegees) ? debutDecharge(b) : null;",
+  "nouveau": "var dd = b.decharge === true ? debutDecharge(b) : null;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-regimes-5b1.test.js",
+   "tests/unit/v2-regimes-campagne.test.js"
+  ]
+ },
+ {
+  "nom": "5b1-m5-bloc-sans-test-de-la-zone",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "if (posee && posee.zone !== o.zone) ajouter('bloc', db);",
+  "nouveau": "if (posee) ajouter('bloc', db);",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-regimes-5b1.test.js",
+   "tests/unit/v2-regimes-campagne.test.js"
+  ]
+ },
+ {
+  "nom": "5b1-m6-i169-sens2-retire",
+  "fichier": "v2/js/plan.js",
+  "ancien": "if (debutN === null || debutN < jn + 1 || debutN > jn + 14) erreurs.push(",
+  "nouveau": "if (false) erreurs.push(",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-regimes-5b1.test.js"
+  ]
+ },
+ {
+  "nom": "5b1-b2-ecart-du-rythme-non-clampe",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "return Math.min(14, Math.max(1, ecartDeLExercice(groupes)));",
+  "nouveau": "return ecartDeLExercice(groupes);",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-regimes-5b1.test.js"
+  ]
+ },
+ {
+  "nom": "5b1-temoin-borne-basse-equivalente",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "lo: Math.max(FENETRE_BORNE_BASSE, e - FENETRE_AVANT)",
+  "nouveau": "lo: Math.max(1, e - 2)",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-regimes-5b1.test.js",
+   "tests/unit/v2-regimes-campagne.test.js"
+  ],
+  "attendu": "survit"
+ }
+]

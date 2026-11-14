@@ -6192,6 +6192,8 @@
           ? { valeur: k.allegee.avant.vise } : { charge: k.allegee.avant.charge, reps: [k.allegee.avant.vise] }) : null,
       // PR 3 — la ligne de la décharge quand sa charge est inconnue : « 3 reps au lieu de 5 reps » (jamais « le cran au-dessus » dans une décharge).
       'allegee.ligne': k.allegee && k.ligne ? { valeur: k.ligne.vise } : null,
+      // PR 5b-1 — la date du régime à venir dite par l'annonce (« Ta décharge commence le 16 nov. ») : le jour que le plan porte (`constat.regime.debut`) ; I169 le recalcule depuis les entrées.
+      'regime.debut': x.constat && x.constat.regime ? { date: x.constat.regime.debut } : null,
       // « Les mots disent vrai » PR 2 (I163) — le test proposé et laissé de côté (« Le test à 127,5 kg n'a pas été fait ») : la charge de la ligne haute de la consigne.
       'cible.test_non_fait': k.haut && k.haut.charge !== null && k.haut.charge !== undefined ? { charge: k.haut.charge } : null,
       // 165 — « Décharge, semaine k sur N » : le rang de la semaine dans le bloc.

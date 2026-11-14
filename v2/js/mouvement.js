@@ -335,7 +335,15 @@
     chest_press_incline_machine: 'chest_press_incline_machine.json',
     chest_press_incline_convergent_machine: 'chest_press_incline_convergent_machine.json',
     chest_press_decline_machine: 'chest_press_decline_machine.json',
-    chest_press_un_bras_machine: 'chest_press_un_bras_machine.json'
+    chest_press_un_bras_machine: 'chest_press_un_bras_machine.json',
+    presse_a_cuisses_une_jambe: 'presse_a_cuisses_une_jambe.json',
+    presse_cuisses_pieds_ecartes_machine: 'presse_cuisses_pieds_ecartes_machine.json',
+    presse_cuisses_pieds_hauts_machine: 'presse_cuisses_pieds_hauts_machine.json',
+    presse_cuisses_pieds_serres_machine: 'presse_cuisses_pieds_serres_machine.json',
+    presse_cuisses_verticale_machine: 'presse_cuisses_verticale_machine.json',
+    developpe_couche_poulie: 'developpe_couche_poulie.json',
+    developpe_couche_sol_kettlebell: 'developpe_couche_sol_kettlebell.json',
+    developpe_debout_poulie: 'developpe_debout_poulie.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

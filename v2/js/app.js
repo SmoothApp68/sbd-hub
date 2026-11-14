@@ -9421,6 +9421,9 @@
   // d'escalier : le nouvel exercice a ses paris ordinaires.
   async function remplacerAuPlafond(iExo, slug, vers) {
     if (!seance || !vers) return;
+    // F2 (MOTEUR §9.49) — une séance partie d'une routine que l'app n'a pas lue : une lecture d'abord, pour que le frère prenne aussi la place DANS la routine.
+    if (!demoEscalier() && seance.routine_id && !routineDeLaSeance() && etatRoutines.code !== 'ok') await chargerRoutines().catch(function () { return false; });
+    if (!seance) return;
     var routine = demoEscalier() ? null : routineDeLaSeance();
     var exo = (seance.exercices || [])[iExo];
     var idLigne = null;
@@ -9613,6 +9616,9 @@
         // la carte ne revient pas aujourd'hui : la marque est sur la ligne, `propositionAuMax` se tait d'elle-même
       } else {
         var rt = seance.routine_id ? routines.filter(function (r) { return r.id === seance.routine_id; })[0] : null;
+        // F2 (MOTEUR §9.49) — « dans ma routine » ne se dit que si la routine se voit : le plan ne propose pas la carte routines pas prêtes ; ce garde-fou
+        // refuse un geste tardif (la carte vue avant le retour du réseau) plutôt que de poser la marque sur la ligne sans rien écrire dans la routine.
+        if (seance.routine_id && !rt) return;
         var voulues = rt ? Routines.marquerAuMax(rt, x.slug, true) : null;
         if (voulues) {
           await poserRoutineVoulue(rt, voulues);
@@ -12101,6 +12107,8 @@
     };
     Rendu.rendreFeuilleZonePlan($('feuille-contenu'), {
       nom: nom, mot: motDeLaPuce(slug), libelle: z.libelle, bornes: z.bas + '-' + z.haut,
+      // F2 (MOTEUR §9.49) — la routine ne se change pas sans la voir : le choix « dans la routine » se dit indisponible plutôt que de promettre ce qui ne s'écrira pas.
+      routineIndisponible: ligneDeRoutineDe(slug) ? null : PHRASE_ROUTINE_ILLISIBLE,
       surRoutine: function () { choisir('routine'); },
       surAujourdhui: function () { choisir('aujourdhui'); },
       surFermer: fermerVoile
@@ -12111,6 +12119,15 @@
     });
   }
 
+  // F2 (MOTEUR §9.49) — LA LIGNE DE ROUTINE de cet exercice dans la séance, ou `null` : routine pas lue (hors ligne), absente, ou ligne introuvable.
+  function ligneDeRoutineDe(slug) {
+    var exo = seance ? (seance.exercices || []).filter(function (x) { return x && x.exercise_slug === slug; })[0] : null;
+    var routine = routineDeLaSeance();
+    var id = exo && exo.routine_exercise_id;
+    return routine && id ? (routine.exercices || []).filter(function (e) { return e && e.id === id; })[0] || null : null;
+  }
+  var PHRASE_ROUTINE_ILLISIBLE = 'Je ne vois pas ta routine pour l\u2019instant\u00a0: je ne peux pas la changer d\u2019ici. Juste pour aujourd\u2019hui reste possible.';
+
   async function poserZoneDePlanDe(slug, cle, dansLaRoutine) {
     var i = (seance.exercices || []).map(function (x) { return x.exercise_slug; }).indexOf(slug);
     if (i < 0) return;
@@ -12118,12 +12135,12 @@
     if (dansLaRoutine) {
       var routine = routineDeLaSeance();
       var idLigne = seance.exercices[i].routine_exercise_id;
-      var ligne = routine && idLigne ? (routine.exercices || []).filter(function (e) { return e && e.id === idLigne; })[0] : null;
-      if (ligne) {
-        await poserRoutineVoulue(routine, routine.exercices.map(function (e) {
-          return e.id === idLigne ? Object.assign({}, e, { zone: zone }) : e;
-        }));
-      }
+      var ligne = ligneDeRoutineDe(slug);
+      // F2 — jamais « La routine change » sans qu'elle change : routine illisible ou ligne introuvable, rien n'est posé (la feuille l'a dit avant le geste).
+      if (!ligne) return;
+      await poserRoutineVoulue(routine, routine.exercices.map(function (e) {
+        return e.id === idLigne ? Object.assign({}, e, { zone: zone }) : e;
+      }));
     }
     seance = Seance.poserZoneDePlan(seance, i, zone);
     // La consigne de CET exercice se recalcule, lui seul (la seule exception au gel, comme `poserZone`).

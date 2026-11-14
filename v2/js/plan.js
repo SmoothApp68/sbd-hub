@@ -349,8 +349,11 @@
     if (consigne && consigne.allegee) return null;
     var c = Moteur().constatDuJour(consigne, suite.consigne, reglage || null,
       suite.cranSuivant === undefined ? null : suite.cranSuivant, faitsDuJour(lignes, consigne),
-      reference === undefined ? null : reference, suite.cranSuivantApprochee === true, suite.testConfirme === true);
+      reference === undefined ? null : reference, suite.cranSuivantApprochee === true, suite.testConfirme === true, suite.regime || null);
     if (!c) return null;
+    // PR 5b-1 (I169) — le régime à venir dont l'annonce dit la date (`{ genre, debut }`), calculé au rendu, jamais écrit ; `suiteEcart` : l'écart habituel dont la fenêtre est tirée.
+    c.regime = suite.regime || null;
+    c.suiteEcart = typeof suite.ecart === 'number' ? suite.ecart : null;
     // PR 5a (I164, sens 4) — la condition de « Il te manque N reps » a été REJOUÉE par le moteur (`suiteDExercice`) : le plan la porte pour que I164 la relise.
     c.testConfirme = suite.testConfirme === true;
     // Ce que la prochaine séance proposera, en charges : de quoi vérifier
@@ -2500,6 +2503,7 @@
         }
         var suites = e.suites || {};
         var suite = Object.prototype.hasOwnProperty.call(suites, slug) ? suites[slug] : null;
+        suite = suiteSousRegime(suite, e, seance, slug);
         var m = coachee && Object.prototype.hasOwnProperty.call(isoles, slug) ? isoles[slug] : null;
         if (m && portee[slug]) m = m.repli ? { marche: m.marche, repli: m.repli, copie: true } : null;
         if (m) portee[slug] = true;
@@ -2929,7 +2933,7 @@
     var effet = null, phrase = null;
     if (R !== null && ev && ev.reserve === R && ev.visee === visee && memeChargeOuVides(ev.charge, s.charge_kg)) {
       effet = ev.effet;
-      phrase = Moteur().annonceDe('effort', { ev: ev, haut: k.haut || null, moment: 'apres' });
+      phrase = Moteur().annonceDe('effort', { ev: ev, haut: k.haut || null, moment: 'apres', regime: suite.regime || null });
     }
     return { visee: visee, serie: j, reponse: R, demande: !!fini && R === null, effet: effet, phrase: phrase };
   }
@@ -4094,6 +4098,22 @@
     });
     return enBloc;
   }
+  // PR 5b-1 (MOTEUR §9.50) — LE RÉGIME À VENIR d'un exercice, calculé AU RENDU depuis les entrées (blocs du programme, cartes allégées acceptées, semaine de test
+  // acceptée) : la suite que l'app donne est copiée avec son `regime` ; le moteur écrit la date ou se tait. Rien n'est écrit, rien n'est mémorisé. Un exercice
+  // sans suite, ou dont la suite se tait, n'a pas de régime : le régime ne crée jamais d'annonce.
+  function suiteSousRegime(suite, e, seance, slug) {
+    if (!suite || !suite.consigne || seance.edition) return suite;
+    var M = Moteur(), G = racine.THGenerateur;
+    var jour = M.jourCivil(seance.debut);
+    if (!jour) return suite;
+    var famille = G && G.familleDeBarre ? G.familleDeBarre(slug, e.catalogue || {}) : null;
+    var T = e.semaineDeTest;
+    var r = M.regimeAVenir({ jour: jour, ecart: suite.ecart, blocs: blocsDuProgramme(e), finsAllegees: finsAllegees((e.escalier || {}).cartes),
+      test: T && T.debut && T.fin ? { debut: T.debut, fin: T.fin } : null, slug: slug, famille: famille === undefined ? null : famille,
+      zone: suite.consigne.zone === undefined ? null : suite.consigne.zone });
+    return r ? Object.assign({}, suite, { regime: r }) : suite;
+  }
+
   function blocsDuProgramme(e) { return (e && e.programme && e.programme.blocs) || []; }
   function finsAllegees(cartes) {
     return (cartes || []).filter(function (c) { return c && c.reponse === 'acceptee' && c.fin; })
@@ -6509,6 +6529,7 @@
     verifierDecharge(plan, erreurs);
     verifierVerbe(plan, erreurs);
     verifierAnnonce(plan, erreurs);
+    verifierRegimes(plan, entrees, erreurs);
     verifierSuiteAujourdhui(plan, erreurs);
     verifierRoutinesPretes(plan, entrees, erreurs);
     verifierVoixDuZero(plan, entrees, erreurs);
@@ -7525,6 +7546,79 @@
         erreurs.push('I164' + nom + '« il te manque » mal formée ou non confirmée : ' + t);
       }
     });
+  }
+
+  // I169 (chantier « Les mots disent vrai », PR 5b-1, MOTEUR §9.50) — UNE ANNONCE NE PROMET PAS CE QU'UN RÉGIME À VENIR DÉMENTIRA. Quand la fois suivante peut tomber dans une
+  // décharge planifiée, une semaine de test acceptée ou un bloc qui pose une autre zone, l'annonce dit la DATE du régime (absolue) ou se tait.
+  //   Sens 1 (rien de chiffré) : `constat.regime` posé ⇒ `suite` est exactement l'une des trois phrases, sans `kg`, `×`, `rep`, ni « la prochaine fois » ; l'effort sans « je garde » ni « on essaie/teste ».
+  //   Sens 2 (la date est celle du moteur) : la date dite est RECALCULÉE depuis les entrées (blocs, cartes, semaine de test : `debutDecharge`, `dechargePlanifiee`), jamais lue du champ du plan, et tombe dans [jour + 1, jour + 14].
+  //   Sens 3 (fenêtre) : la décharge ou le test dont la période recoupe la fenêtre recalculée de l'écart posé est DIT (si l'annonce existe) ; un régime dit sans période qui recoupe est une erreur.
+  //   Sens 4 (pas de spam) : « commence le » ne se dit jamais sans régime.
+  //   Sens 5 (lexique) : aucune date relative, « jusqu'au », « repos », « semaine allégée », « séances plus légères », sur la suite et la phrase d'effort, tous plans.
+  //   Sens 6 (le silence ne crée rien) : tenu par construction (`annonceDeLaSuite` rend `null` avant de lire le régime) et par le test unitaire.
+  // Aveu : le contrôle indépendant de la fois suivante RÉELLE est la campagne (`v2-mots-campagne.test.js`) ; le bloc (zone posée) n'est recontrôlé ici que par sa date.
+  var LEXIQUE_DES_DATES = /demain|semaine prochaine|bientôt|plus tard|dans \d+ (?:jours?|séances?)|jusqu.au|séances? plus légères|semaine allégée|repos/i;
+  var PHRASE_DE_REGIME = /^(?:Ta décharge commence le (\d{1,2} [^\s,.]+\.?), prévue par ton programme\.|Ta semaine de test commence le (\d{1,2} [^\s,.]+\.?)|Ton bloc commence le (\d{1,2} [^\s,.]+\.?))$/;
+  function verifierRegimes(plan, entrees, erreurs) {
+    var M = Moteur(), e = entrees || {};
+    var norm = function (t) { return String(t || '').replace(/[\u00a0\u202f]/g, ' '); };
+    var seance = e.seance || {};
+    var jour = M.jourCivil(seance.debut);
+    var jn = jour ? M.numeroDuJour(jour) : null;
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      if (!x) return;
+      var nom = 'I169 — exercice ' + i + ' (' + x.slug + ') : ';
+      var c = x.constat || null;
+      var phraseEffort = x.effortVise && typeof x.effortVise.phrase === 'string' ? norm(x.effortVise.phrase) : '';
+      var t = c && typeof c.suite === 'string' ? norm(c.suite) : '';
+      if (LEXIQUE_DES_DATES.test(t)) erreurs.push(nom + 'un mot hors du lexique des dates dans la suite : ' + t);
+      if (LEXIQUE_DES_DATES.test(phraseEffort)) erreurs.push(nom + 'un mot hors du lexique des dates dans la phrase d’effort : ' + phraseEffort);
+      var dit = /commence le/.test(t);
+      if (!c || !c.regime) {
+        if (dit) erreurs.push(nom + 'une date de régime sans régime : ' + t);
+        // Sens 3 : un régime ENTIÈREMENT recalculé depuis les entrées (décharge, test) qui recoupe la fenêtre doit être dit.
+        if (t !== '' && jn !== null && !seance.edition) {
+          var attendu = regimesRecalcules(e, M, jn, c ? c.suiteEcart : null);
+          if (attendu.length) erreurs.push(nom + 'un ' + attendu[0].genre + ' commence le ' + attendu[0].debut + ' dans la fenêtre de la fois suivante, l’annonce est restée chiffrée : ' + t);
+        }
+        return;
+      }
+      var m = PHRASE_DE_REGIME.exec(t);
+      if (c.suite !== null && c.suite !== undefined) {
+        if (!m) erreurs.push(nom + 'sous un régime, l’annonce n’est pas la phrase de la date : ' + t);
+        if (/kg|×|\brep|la prochaine fois/i.test(t)) erreurs.push(nom + 'une charge, des reps ou « la prochaine fois » sous un régime : ' + t);
+      }
+      if (/la prochaine fois|je garde|on essaie|on teste/i.test(phraseEffort)) erreurs.push(nom + 'la phrase d’effort promet sous un régime : ' + phraseEffort);
+      if (jn === null) return;
+      var f = M.fenetreDeLaProchaineFois(c.suiteEcart);
+      var debutN = M.numeroDuJour(c.regime.debut);
+      if (debutN === null || debutN < jn + 1 || debutN > jn + 14) erreurs.push(nom + 'la date du régime (' + c.regime.debut + ') hors de [jour + 1, jour + 14]');
+      var trouve = regimesRecalcules(e, M, jn, c.suiteEcart).some(function (r) { return r.genre === c.regime.genre && r.debut === c.regime.debut; });
+      // Le bloc ne se recalcule pas ici (zone posée) : seule sa date, dans la fenêtre haute, est vérifiée.
+      if (c.regime.genre === 'bloc') trouve = (e.programme && e.programme.blocs || []).some(function (b) { return b && b.statut === 'en_cours' && M.jourCivil(b.debut) === c.regime.debut; }) && debutN <= jn + f.hi;
+      if (!trouve) erreurs.push(nom + 'le régime ' + c.regime.genre + ' du ' + c.regime.debut + ' n’est pas celui que les entrées donnent (fenêtre ' + f.lo + ' à ' + f.hi + ' jours)');
+      if (m && t !== '') {
+        var dateDite = m[1] || m[2] || m[3];
+        if (dateDite !== norm(racine.THModele.jourCourt(String(c.regime.debut)))) erreurs.push(nom + 'la date dite (' + dateDite + ') n’est pas celle du régime (' + c.regime.debut + ')');
+      }
+    });
+  }
+  // Décharge planifiée et semaine de test dont la période recoupe la fenêtre de la fois suivante, d'après les ENTRÉES (jamais le champ du plan).
+  function regimesRecalcules(e, M, jn, ecart) {
+    var f = M.fenetreDeLaProchaineFois(ecart);
+    var lo = jn + f.lo, hi = jn + f.hi, sortie = [];
+    var fins = finsAllegees(((e.escalier || {}).cartes));
+    blocsDuProgramme(e).forEach(function (b) {
+      if (!b || b.statut !== 'en_cours' || !M.dechargePlanifiee(b, fins)) return;
+      var d = M.debutDecharge(b), n = d === null ? null : M.numeroDuJour(d);
+      if (n !== null && n > jn && n <= hi && n + 6 >= lo) sortie.push({ genre: 'decharge', debut: d });
+    });
+    var T = e.semaineDeTest;
+    if (T && T.debut && T.fin) {
+      var nt = M.numeroDuJour(T.debut), nf = M.numeroDuJour(T.fin);
+      if (nt !== null && nf !== null && nt > jn && nt <= hi && nf >= lo) sortie.push({ genre: 'test', debut: T.debut });
+    }
+    return sortie;
   }
 
   // I162, sens 3 — les exercices du plan dont la cause « sans marge » existe devant une ligne qui monte (comptés, jamais imprimés).

@@ -424,7 +424,16 @@
     extension_mollets_assis_haltere: 'extension_mollets_assis_haltere.json',
     hack_squat_inverse_machine: 'hack_squat_inverse_machine.json',
     rowing_debout_barre_ez: 'rowing_debout_barre_ez.json',
-    extension_triceps_dessus_tete_un_bras_poulie: 'extension_triceps_dessus_tete_un_bras_poulie.json'
+    extension_triceps_dessus_tete_un_bras_poulie: 'extension_triceps_dessus_tete_un_bras_poulie.json',
+    etirement_adducteurs: 'etirement_adducteurs.json',
+    etirement_ischios: 'etirement_ischios.json',
+    etirement_mollet_mur: 'etirement_mollet_mur.json',
+    etirement_soleaire: 'etirement_soleaire.json',
+    etirement_cou_lateral: 'etirement_cou_lateral.json',
+    etirement_ischios_allonge_elastique: 'etirement_ischios_allonge_elastique.json',
+    pike_flexion: 'pike_flexion.json',
+    etirement_flechisseurs_hanche: 'etirement_flechisseurs_hanche.json',
+    etirement_lateral_tronc: 'etirement_lateral_tronc.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

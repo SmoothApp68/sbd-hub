@@ -2536,7 +2536,7 @@
     // 10 % : `repliDeReprise` est la SEULE règle, que le plan réapplique à
     // toute consigne qu'il reçoit (`consigneFigee`).
     // §9.17 — ET PAS DE REPLI SOUS UN CORPS, NI SOUS UNE AIDE : une reprise
-    // longue garde la charge de travail, sans rep de plus (« Longue pause : on
+    // longue garde la charge de travail, sans rep de plus (« Reprise après une pause : on
     // reprend à ta charge de travail »). Le cran en dessous d'un corps n'existe
     // pas, et celui d'une aide — plus d'aide — serait un repli que la règle
     // refuse (I30).
@@ -5259,10 +5259,10 @@
         // 10 % : la consigne garde la charge de travail. §20.2 (49-U9) — la
         // phrase le distingue enfin de la reprise courte.
         if (c.ligne && memeCharge(nombre(c.ligne.charge), nombre(c.palier))) {
-          return 'Longue pause' + DEUX_POINTS + 'on reprend à ta charge de travail, sans rep de plus.' +
+          return 'Reprise après une pause' + DEUX_POINTS + 'on reprend à ta charge de travail, sans rep de plus.' +
                  phraseBorneZone(f, c);
         }
-        return 'Longue pause' + DEUX_POINTS + 'on reprend un cran en dessous' +
+        return 'Reprise après une pause' + DEUX_POINTS + 'un cran en dessous' +
                (c.ligne && nombre(c.ligne.charge) !== null ? ', à ' + enKg(c.ligne.charge, cite(CIBLE, { role: 'ligne' })) : '') +
                // PR 5a (3g) — « Le test te ramènera à X » est RETIRÉ : après la ligne tenue la fois suivante est « une rep de plus », le test vient deux séances plus tard
                // (simulé : reprise 97,5 kg × 7, puis 97,5 kg × 8, puis le test à 100 kg). Une promesse non datée ne se dit pas (MOTEUR §9.48).
@@ -5783,11 +5783,11 @@
 
       case 'reprise_longue':
         if (c.ligne && memeCharge(nombre(c.ligne.charge), nombre(c.palier))) {
-          return 'Longue pause' + DEUX_POINTS + 'on reprend à ta charge de travail, sans rep de plus. ' +
+          return 'Reprise après une pause' + DEUX_POINTS + 'on reprend à ta charge de travail, sans rep de plus. ' +
                  'Le cran d\'en dessous descendait de plus de ' + nombreFr(Math.round(REPLI_MAX_REPRISE * 100), regle('constante')) +
                  INSECABLE + '%.' + phraseBorneZone(f, c);
         }
-        return 'Longue pause' + DEUX_POINTS + 'un cran en dessous' +
+        return 'Reprise après une pause' + DEUX_POINTS + 'un cran en dessous' +
                (c.ligne && nombre(c.ligne.charge) !== null ? ', ' + enKg(c.ligne.charge, cL) : '') +
                ', sans rep de plus.' + phraseBorneZone(f, c);
 

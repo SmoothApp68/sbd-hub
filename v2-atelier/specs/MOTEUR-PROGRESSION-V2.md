@@ -3391,7 +3391,7 @@ Conforme au cadrage : **descriptif, jamais prescriptif sur l'historique.**
 | Test réussi dedans | « 130 kg : 3 reps mardi, 4 aujourd'hui, dans ta zone. » + « Prochaine séance : … » |
 | Test raté | « 130 kg × 2 : pas encore dans ta zone. » + « Prochaine séance : 125 kg × 5, puis 127,5 kg × 3 sur la dernière série. » |
 | Zone étirée | « Ta machine ne permet pas un plus petit cran : ta zone s'étire. On retestera 32 kg quand tu feras 16 reps à 28 kg. » |
-| Reprise | « Reprise après une pause : ta charge de travail, sans rep de plus. » — longue : « Longue pause : … » — jamais la durée de l'absence |
+| Reprise | « Reprise après une pause : ta charge de travail, sans rep de plus. » — même préfixe pour la reprise d'un cran en dessous (« Reprise après une pause : un cran en dessous, à 122,5 kg. ») ou à la charge de travail (« Reprise après une pause : on reprend à ta charge de travail, sans rep de plus. ») : la suite de la phrase distingue les deux, jamais le mot « longue » — jamais la durée de l'absence |
 | Proposition en séance (§9.14) | « 125 kg × 8, 3 de plus que visé : je passe ta série 2 à 130 kg, vise 3 à 5. » — appliquée d'office, **sans question** ; à 5 reps de marge : « … ta série 2 passe à 125 kg, vise 3 à 5. Ou 130 kg, si tu te sens bien ? » (**la seule question du coach**) — en jaune, dans la grille |
 | Montée tenue | « 130 kg × 5, dans ta zone : ton test a avancé d'une série. » — sans test prévu : « 125 kg × 9, dans ta zone : tu montes dès aujourd'hui. » — au haut de la zone : « 130 kg × 5 : le haut de ta zone. » **Un fait, jamais un « bravo »** |
 | Montée pas encore tenue | « 130 kg × 2 : pas encore. On revient à 125 kg. » — en gris |

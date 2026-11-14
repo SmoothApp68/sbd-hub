@@ -393,7 +393,7 @@
       var k = avec.filter(function (z) { return z.verdict === '↑' || z.verdict === '↗'; }).length, m = avec.length;
       if (k === m) phrases.push(m > 1 ? 'Tes 6 derniers mois : les ' + MOTS[m] + ' groupes que tu suis progressent.'
                                       : 'Tes 6 derniers mois : le groupe que tu suis progresse.');
-      else if (k === 0) phrases.push('Tes 6 derniers mois : pas encore de groupe en hausse.');
+      else if (k === 0) phrases.push('Tes 6 derniers mois : aucun groupe en hausse.');
       else phrases.push(k > 1 ? 'Tes 6 derniers mois : ' + MOTS[k] + ' groupes sur ' + MOTS[m] + ' progressent.'
                               : 'Tes 6 derniers mois : un groupe sur ' + MOTS[m] + ' progresse.');
     }

@@ -332,10 +332,10 @@ describe('PR 6 — la story nomme sa période (B1 à B9)', () => {
   });
 
   test('un mois ou une saison vides disent leur période (« en septembre », « en été »), pas « ce mois-ci » / « cette saison »', () => {
-    expect(lire(sept, [], '2026-10-11').find((x) => x.cle === 'vide').titre).toBe('Pas encore de série de travail en septembre.');
-    expect(lire(sept, [], '2026-09-20').find((x) => x.cle === 'vide').titre).toBe('Pas encore de série de travail ce mois-ci.');
-    expect(lire(Bilans.periodeDeLaSaison('2026-ete'), [], '2026-10-11').find((x) => x.cle === 'vide').titre).toBe('Pas encore de série de travail en été.');
-    expect(lire(Bilans.periodeDeLaSaison('2026-ete'), [], '2026-07-15').find((x) => x.cle === 'vide').titre).toBe('Pas encore de série de travail cet été.');
+    expect(lire(sept, [], '2026-10-11').find((x) => x.cle === 'vide').titre).toBe('Aucune série de travail en septembre.');
+    expect(lire(sept, [], '2026-09-20').find((x) => x.cle === 'vide').titre).toBe('Aucune série de travail ce mois-ci.');
+    expect(lire(Bilans.periodeDeLaSaison('2026-ete'), [], '2026-10-11').find((x) => x.cle === 'vide').titre).toBe('Aucune série de travail en été.');
+    expect(lire(Bilans.periodeDeLaSaison('2026-ete'), [], '2026-07-15').find((x) => x.cle === 'vide').titre).toBe('Aucune série de travail cet été.');
   });
 
   test('une saison écoulée : « soulevées en été » ; pendant la saison : « cet été » (et « cet hiver » à cheval sur deux années)', () => {
@@ -351,8 +351,8 @@ describe('PR 6 — la story nomme sa période (B1 à B9)', () => {
 
   test('l’année : la story 2025 ouverte en 2026 dit « en 2025 » (jamais « cette année »), la 2026 ouverte en 2026 dit « cette année »', () => {
     const e25 = lire(Bilans.periodeDeLAnnee(2025), [], '2026-02-10');
-    expect(e25.find((x) => x.cle === 'vide').titre).toBe('Pas encore de série de travail en 2025.');
-    expect(lire(Bilans.periodeDeLAnnee(2026), [], '2026-12-20').find((x) => x.cle === 'vide').titre).toBe('Pas encore de série de travail cette année.');
+    expect(e25.find((x) => x.cle === 'vide').titre).toBe('Aucune série de travail en 2025.');
+    expect(lire(Bilans.periodeDeLAnnee(2026), [], '2026-12-20').find((x) => x.cle === 'vide').titre).toBe('Aucune série de travail cette année.');
     const s = semaines('2025-01-02', '2025-03-01', () => [['squat_barre', 100, 5]]);
     const jeu = { debut: { niveau: { niveau: 3 }, succes: { nombre: 4 } }, fin: { niveau: { niveau: 7 }, succes: { nombre: 10 } } };
     expect(JSON.stringify(lire(Bilans.periodeDeLAnnee(2025), s, '2026-02-10', { jeu }).find((x) => x.cle === 'jeu').lignes)).toMatch(/6 succès gagnés en 2025/);

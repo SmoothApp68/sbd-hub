@@ -10076,7 +10076,7 @@ const SETS_IMPORTES = [
     ok('[RP1] DISCRIMINANT — la consigne garde le dernier palier : 32 sur les trois séries (avant : 23, −28 %)',
       g.length === 3 && g.every((l) => nr(l.charge) === 32), nbR(g));
     ok('[RP1] …et le dit, sans « un cran en dessous »',
-      (await griseR()) === 'Longue pause : on reprend à ta charge de travail, sans rep de plus.',
+      (await griseR()) === 'Reprise après une pause : on reprend à ta charge de travail, sans rep de plus.',
       nbR(await griseR()));
     ok('[RP1] invariants du plan (le repli compris)', r.erreurs.length === 0, nbR(r.erreurs.slice(0, 3)));
     await abandonner();

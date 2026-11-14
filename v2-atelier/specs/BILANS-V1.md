@@ -79,7 +79,7 @@ calculés en temps, il ne faut pas mettre les reps ».
   lisent sur les séries de musculation (`THSemaine.estSerieDeMusculation`) — un mois de randonnées n'a pas de story
   (« 0 t soulevées ») et ne s'annonce pas ; trois semaines de sorties n'ouvrent pas de comparaison.
 - **Le bloc du mois écoulé** (Progression) : sans tonnes, il dit ses séries de travail (« 24 séries de travail », un
-  mois au poids du corps), et « Pas encore de série de travail » seulement quand il n'en a aucune.
+  mois au poids du corps), et « Aucune série de travail » (un fait, vrai d'un mois fini comme d'un mois en cours) seulement quand il n'en a aucune.
 
 ## 2. Où cela vit (implémentation des prompts 95, 97 et 98)
 
@@ -218,7 +218,7 @@ MAQUETTE-PR6 (validée par Aurélien). « Ton année » s'ouvre l'année suivant
 mot déictique est donc FAUX tant qu'on ne sait pas si la période contient aujourd'hui. **`Modele.libelleDePeriode`** (le seul endroit qui écrit
 « ce mois-ci », « cette semaine », « cet été », « cette année ») répond par `THPeriode.contient(période, J)` ; `vue.aujourdhui` porte J.
 - Mois : « en septembre » (« en septembre 2025 » si l'année n'est pas celle de J), « ce mois-ci » seulement s'il contient J. Saison : « en été » /
-  « cet été » ; l'hiver à cheval sur deux années se lit pareil. Année : « en 2025 » / « cette année ». Les vides : « Pas encore de série de travail en
+  « cet été » ; l'hiver à cheval sur deux années se lit pareil. Année : « en 2025 » / « cette année ». Les vides : « Aucune série de travail en
   septembre. », « … en été. », « … en 2025. » ; les succès : « N succès gagnés en 2025 ».
 - L'écart de tonnes se dit contre quoi : « +31 t par rapport à août » (`versus.par` ; plus de « +31 t sur août »).
 - Records d'un mois navigué : « Aucun record en septembre. » ; la vue Volume vide : « Aucune séance cette semaine. » seulement si la semaine affichée contient

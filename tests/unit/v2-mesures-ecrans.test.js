@@ -21,8 +21,8 @@ describe('119 — F8 : le bloc du mois écoulé, sans tonnes', () => {
     expect(sommaire({ kg: 0, series: 24 })).toBe('24 séries de travail');
     expect(sommaire({ kg: 0, series: 1 })).toBe('1 série de travail');
   });
-  test('sans série de travail (rien, ou des sorties seules) : « Pas encore de série de travail »', () => {
-    expect(sommaire({ kg: 0, series: 0 })).toBe('Pas encore de série de travail');
+  test('sans série de travail (rien, ou des sorties seules) : « Aucune série de travail »', () => {
+    expect(sommaire({ kg: 0, series: 0 })).toBe('Aucune série de travail');
   });
   test('avec des tonnes : les tonnes, comme avant', () => {
     expect(sommaire({ kg: 52000, series: 80 })).toMatch(/soulevées$/);

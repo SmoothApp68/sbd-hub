@@ -433,7 +433,32 @@
     etirement_ischios_allonge_elastique: 'etirement_ischios_allonge_elastique.json',
     pike_flexion: 'pike_flexion.json',
     etirement_flechisseurs_hanche: 'etirement_flechisseurs_hanche.json',
-    etirement_lateral_tronc: 'etirement_lateral_tronc.json'
+    etirement_lateral_tronc: 'etirement_lateral_tronc.json',
+    split_squat: 'split_squat.json',
+    split_squat_haltere: 'split_squat_haltere.json',
+    split_squat_barre: 'split_squat_barre.json',
+    fente_machine_smith: 'fente_machine_smith.json',
+    split_squat_bulgare: 'split_squat_bulgare.json',
+    split_squat_bulgare_poids_du_corps: 'split_squat_bulgare_poids_du_corps.json',
+    split_squat_bulgare_barre: 'split_squat_bulgare_barre.json',
+    split_squat_bulgare_machine_smith: 'split_squat_bulgare_machine_smith.json',
+    squat_bulgare_kettlebell: 'squat_bulgare_kettlebell.json',
+    step_up: 'step_up.json',
+    step_up_haltere: 'step_up_haltere.json',
+    step_up_barre: 'step_up_barre.json',
+    fente_arriere: 'fente_arriere.json',
+    fente_arriere_haltere: 'fente_arriere_haltere.json',
+    fente_arriere_barre: 'fente_arriere_barre.json',
+    fente_arriere_deficit_haltere: 'fente_arriere_deficit_haltere.json',
+    fente_avant: 'fente_avant.json',
+    fente_avant_haltere: 'fente_avant_haltere.json',
+    fente_avant_barre: 'fente_avant_barre.json',
+    fente_avant_kettlebell: 'fente_avant_kettlebell.json',
+    fente_marchee: 'fente_marchee.json',
+    fente_marchee_haltere: 'fente_marchee_haltere.json',
+    fente_marchee_barre: 'fente_marchee_barre.json',
+    fente_laterale: 'fente_laterale.json',
+    fente_montee_de_genou: 'fente_montee_de_genou.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

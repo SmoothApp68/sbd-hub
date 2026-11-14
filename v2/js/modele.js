@@ -655,6 +655,9 @@
     if (d === null) return '';
     var dit = 'le ' + d.getDate() + INSECABLE + MOIS_COURTS[d.getMonth()];
     var r = jourLocal(reference);
+    // PR 6 des mots (Q7) : une date d'une AUTRE année que la référence porte son année (« le 12 mars 2025 »), comme
+    // `dateDeLaMedaille` ; sans référence, inchangé (aucune horloge dans une fonction pure).
+    if (r !== null && d.getFullYear() !== r.getFullYear()) dit += ' ' + d.getFullYear();
     if (r !== null) {
       var ecart = Math.round((Date.UTC(r.getFullYear(), r.getMonth(), r.getDate()) -
                               Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000);
@@ -1638,6 +1641,69 @@
     if (!(lundi instanceof Date) || !(dimanche instanceof Date) || isNaN(lundi.getTime()) || isNaN(dimanche.getTime())) return '';
     var memeMois = lundi.getMonth() === dimanche.getMonth() && lundi.getFullYear() === dimanche.getFullYear();
     return (memeMois ? String(lundi.getDate()) : jourMois(lundi)) + ' au ' + jourMois(dimanche);
+  }
+
+  // ══ PR 6 DES MOTS (14/11/2026) — LES NOMS DES PÉRIODES S'ÉCRIVENT ICI, ET NULLE PART AILLEURS ═══════════════════════
+  //
+  // « Les périodes disent vrai » : un écran ne dit « ce mois-ci », « cette semaine », « (en cours) » que si la période
+  // CONTIENT le jour J ; sinon il la nomme (« en septembre », « du 28 au 30 sept. »). `THPeriode.contient` répond, ce module
+  // écrit. Aucun « depuis N mois », aucun commentaire sur une pause : une plage de dates le dit, une date seule.
+  //
+  //   p.genre : 'fenetre' | 'jours'  — `{ debut, fin }` (jours « AAAA-MM-JJ ») : « du 12 avr. au 11 oct. » ;
+  //             'semaine'            — `{ debut, fin }` (lundi → dimanche) : « cette semaine » si J y est, sinon la plage ;
+  //             'mois'               — `{ cle: 'AAAA-MM' }` : « ce mois-ci » / « en septembre » (« en septembre 2025 » si l'année
+  //                                     n'est pas celle de J) ; `forme: 'pied'` : « sept. 2026 » (+ « (en cours) » si J y est) ;
+  //                                     `forme: 'axe'` : « sept. 2026 », jamais « (en cours) » ;
+  //             'annee'              — `{ cle: 'AAAA' }` : « cette année » / « en 2025 » ;
+  //             'saison'             — `{ ce: 'cet été', en: 'en été', debut, fin }` : `ce` si J y est, sinon `en`.
+  // `J` : la date du jour, un `Date` ou « AAAA-MM-JJ ». Sans J lisible : jamais « ce/cette », toujours la période nommée.
+  function jourDeLaReference(J) {
+    var P = racine.THPeriode;
+    return P ? P.jourISO(J) : null;
+  }
+  function jourEtMois(iso, avecAnnee) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+    if (!m) return '';
+    return (m[3] === '01' ? '1er' : String(Number(m[3]))) + ' ' + MOIS_COURTS[Number(m[2]) - 1] + (avecAnnee ? ' ' + m[1] : '');
+  }
+  // « du 12 avr. au 11 oct. » · « du 28 au 30 sept. » · « du 11 oct. 2025 au 11 avr. 2026 » · « le 6 oct. » (un seul jour).
+  function plageDeJours(debut, fin, J) {
+    var d = String(debut || '').slice(0, 10), f = String(fin || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || !/^\d{4}-\d{2}-\d{2}$/.test(f)) return '';
+    var ref = jourDeLaReference(J);
+    var anRef = ref ? ref.slice(0, 4) : null;
+    var autre = anRef !== null && (d.slice(0, 4) !== anRef || f.slice(0, 4) !== anRef);
+    if (d === f) return 'le ' + jourEtMois(d, autre);
+    if (d.slice(0, 7) === f.slice(0, 7)) {
+      return 'du ' + (d.slice(8) === '01' ? '1er' : String(Number(d.slice(8)))) + ' au ' + jourEtMois(f, autre);
+    }
+    return 'du ' + jourEtMois(d, autre) + ' au ' + jourEtMois(f, autre);
+  }
+  function libelleDePeriode(p, J) {
+    if (!p) return '';
+    var ref = jourDeLaReference(J), P = racine.THPeriode;
+    var contientJ = !!(ref && P && p.debut && p.fin && P.contient(p, ref));
+    var genre = p.genre;
+    if (genre === 'fenetre' || genre === 'jours') return plageDeJours(p.debut, p.fin, J);
+    if (genre === 'semaine') return contientJ ? 'cette semaine' : plageDeJours(p.debut, p.fin, J);
+    if (genre === 'mois') {
+      var m = /^(\d{4})-(\d{2})$/.exec(String(p.cle || ''));
+      if (!m) return '';
+      var finDuMois = new Date(Date.UTC(+m[1], +m[2], 0)).getUTCDate();
+      var dansLeMois = !!(ref && P && P.contient({ debut: p.cle + '-01', fin: p.cle + '-' + (finDuMois < 10 ? '0' : '') + finDuMois }, ref));
+      if (p.forme === 'pied' || p.forme === 'axe') {
+        return MOIS_COURTS[+m[2] - 1] + ' ' + m[1] + (p.forme === 'pied' && dansLeMois ? ' (en cours)' : '');
+      }
+      if (dansLeMois) return 'ce mois-ci';
+      return 'en ' + MOIS_LONGS[+m[2] - 1] + (ref && ref.slice(0, 4) !== m[1] ? ' ' + m[1] : '');
+    }
+    if (genre === 'annee') {
+      var a = String(p.cle || '');
+      if (!/^\d{4}$/.test(a)) return '';
+      return ref && ref.slice(0, 4) === a ? 'cette année' : 'en ' + a;
+    }
+    if (genre === 'saison') return contientJ ? p.ce : p.en;
+    return '';
   }
 
   // « mardi » (sur les 7 derniers jours, `quandTexte`), sinon le mois (« mars » ; « mars 2025 » une autre année) :
@@ -3266,6 +3332,8 @@
     marcheLaPlusHaute: marcheLaPlusHaute,
     estPlusHaute: estPlusHaute,
     libelleDeLaSemaine: libelleDeLaSemaine,
+    libelleDePeriode: libelleDePeriode,
+    plageDeJours: plageDeJours,
     texteMeilleure: texteMeilleure,
     quandDeLEchelle: quandDeLEchelle,
     construireBlocs: construireBlocs,

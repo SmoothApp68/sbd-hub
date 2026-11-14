@@ -305,6 +305,10 @@ describe('I169 — verifierRegimes relit l’annonce du plan (DISCRIMINANTS)', (
   });
   test('sens 4 — « commence le » sans régime', () => {
     expect(forger({ regime: null, suite: 'Ta décharge commence le 28 sept., prévue par ton programme.' }).length).toBeGreaterThan(0);
+    // Sans bloc dans les entrées, seul ce sens peut parler.
+    const sansBloc = plan();
+    sansBloc.plan.exercices[0].constat.suite = 'Ta décharge commence le 28 sept., prévue par ton programme.';
+    expect(i169(sansBloc).filter((e) => /sans régime/.test(e)).length).toBe(1);
   });
   test('sens 5 — lexique relatif, sur la suite et sur l’effort', () => {
     ['demain', 'la semaine prochaine', 'bientôt', 'dans 3 jours', 'jusqu’au 4 oct.', 'semaine allégée', 'séances plus légères'].forEach((m) => {

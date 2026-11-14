@@ -1516,6 +1516,11 @@
     return faits.semaineDe(corpus(), lundiAffiche);
   }
 
+  // PR 6 des mots — « Aucune séance cette semaine. » seulement si la semaine affichée contient aujourd'hui (`Modele.phraseDeSemaineVide`).
+  function phraseVideDeLaSemaine(sem) {
+    return Modele.phraseDeSemaineVide(sem.bornes.lundi, sem.bornes.dimanche, new Date());
+  }
+
   function barrePour(sem, avecSeances) {
     // La barre est IDENTIQUE dans Séances et dans la vue Volume : une seule
     // définition, deux emplacements. « Cette semaine » n'est fourni que si on a
@@ -1565,7 +1570,7 @@
     });
     Rendu.rendreJours($('liste-seances'), Semaine.joursAvecSeances(sem.jours), function (s) {
       return Modele.resumerSeance(s, seriesDe(s.id), local.exercices, Palier, etatsExercices, meilleurNomme);
-    }, afficherDetail, ouvrirMenuSeance);
+    }, afficherDetail, ouvrirMenuSeance, phraseVideDeLaSemaine(sem));
     // 91 — mes invitations à un groupe, et le groupe qui finit.
     dessinerGroupeAccueil();
     rafraichirGroupe();
@@ -1623,6 +1628,7 @@
       volume: {
         quand: Rendu.libelleSemaine(sem.bornes.lundi, sem.bornes.dimanche),
         zones: sem.zones,
+        vide: phraseVideDeLaSemaine(sem),
         surChoix: function () { allerA(Routeur.VOLUME, {}); rendreVolume(); }
       },
       poids: {
@@ -2016,6 +2022,7 @@
     }
     var vue = {
       bilan: bilanPeriode(periode),
+      aujourdhui: Moteur.jourCivil(new Date()),   // PR 6 des mots : « ce mois-ci », « cet été » ne se disent que si la période contient ce jour
       qui: profil && profil.username ? profil.username : '',
       sexe: lireSilhouette(),   // 268 (F) — le sexe du dessin du mois : la préférence de l'appareil
       jeu: jeu,
@@ -4092,6 +4099,8 @@
     var courant = Bilan.cleMois(new Date());
     Rendu.rendreRecordsDuMois($('records-mois'), {
       titre: nomDuMois(mois, true).replace(/^./, function (c) { return c.toUpperCase(); }),
+      // PR 6 des mots : « Aucun record ce mois-ci. » seulement pour le mois qui contient aujourd'hui, sinon « en septembre ».
+      vide: 'Aucun record ' + Modele.libelleDePeriode({ genre: 'mois', cle: mois }, new Date()) + '.',
       records: faits.recordsDuMois(corpus(), mois).map(function (r) {
         return { seanceId: r.seanceId, texte: r.nom + ' ' + r.mesure,
                  date: Modele.jourMois(new Date(r.debut), new Date().getFullYear()) };
@@ -14566,7 +14575,7 @@
         zoneOuverte = (zoneOuverte === cle) ? null : cle;
         rendreVolume();
       },
-      ouvrirFenetreMuscle);
+      ouvrirFenetreMuscle, phraseVideDeLaSemaine(sem));
 
     rendreRadar();
   }

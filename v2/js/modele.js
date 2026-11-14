@@ -1679,6 +1679,12 @@
     }
     return 'du ' + jourEtMois(d, autre) + ' au ' + jourEtMois(f, autre);
   }
+  // « Aucune séance cette semaine. » seulement si la semaine affichée contient J ; sinon « Aucune séance du 6 au 12 juil. ».
+  function phraseDeSemaineVide(lundi, dimanche, J) {
+    var P = racine.THPeriode;
+    var t = libelleDePeriode({ genre: 'semaine', debut: P ? P.jourISO(lundi) : null, fin: P ? P.jourISO(dimanche) : null }, J);
+    return t ? 'Aucune séance ' + t + (/\.$/.test(t) ? '' : '.') : 'Aucune séance.';   // « du 6 au 12 juil. » porte déjà son point
+  }
   function libelleDePeriode(p, J) {
     if (!p) return '';
     var ref = jourDeLaReference(J), P = racine.THPeriode;
@@ -1686,6 +1692,11 @@
     var genre = p.genre;
     if (genre === 'fenetre' || genre === 'jours') return plageDeJours(p.debut, p.fin, J);
     if (genre === 'semaine') return contientJ ? 'cette semaine' : plageDeJours(p.debut, p.fin, J);
+    if (genre === 'semaineDu') {   // « semaine du 14 sept. » (une semaine ENTIÈRE, repérée par son lundi)
+      var lun = String(p.debut || '').slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(lun)) return '';
+      return 'semaine du ' + jourEtMois(lun, !!(ref && ref.slice(0, 4) !== lun.slice(0, 4)));
+    }
     if (genre === 'mois') {
       var m = /^(\d{4})-(\d{2})$/.exec(String(p.cle || ''));
       if (!m) return '';
@@ -3335,6 +3346,7 @@
     libelleDeLaSemaine: libelleDeLaSemaine,
     libelleDePeriode: libelleDePeriode,
     plageDeJours: plageDeJours,
+    phraseDeSemaineVide: phraseDeSemaineVide,
     texteMeilleure: texteMeilleure,
     quandDeLEchelle: quandDeLEchelle,
     construireBlocs: construireBlocs,

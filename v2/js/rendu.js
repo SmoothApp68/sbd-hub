@@ -1227,11 +1227,12 @@
   // Trois niveaux, UN SEUL cran d'indentation : la zone déplie ses muscles en
   // place, le muscle ouvre une fenêtre. Trois indentations écrasent les noms à
   // 360 px — c'est l'erreur des trois premières tentatives.
-  function rendreReleveZones(cible, zones, ouverte, surZone, surMuscle) {
+  function rendreReleveZones(cible, zones, ouverte, surZone, surMuscle, vide) {
     if (!cible) return;
     vider(cible);
     if (!zones || !zones.length) {
-      cible.appendChild(el('p', 'semaine-vide', 'Aucune séance cette semaine.'));
+      // `vide` : la phrase de la semaine affichée (`Modele.phraseDeSemaineVide`) — « cette semaine » seulement si elle contient aujourd'hui.
+      cible.appendChild(el('p', 'semaine-vide', vide || 'Aucune séance.'));
       return;
     }
     var releve = el('div', 'releve');
@@ -1395,7 +1396,7 @@
   // ⚠️ `surMenu` EST FACULTATIF : sans lui, la carte reste exactement ce qu'elle
   // était. C'est ce qui permet d'ajouter le menu sans toucher aux appelants qui
   // n'en veulent pas.
-  function rendreJours(cible, jours, resumeDe, surChoix, surMenu) {
+  function rendreJours(cible, jours, resumeDe, surChoix, surMenu, vide) {
     vider(cible);
 
     // Une semaine entièrement vide dit qu'elle est vide, plutôt que de rendre
@@ -1403,7 +1404,7 @@
     // de « l'app a échoué ». Un constat, rien d'autre — le système ne commente
     // jamais l'assiduité (CADRAGE-V2 §3.1 bis).
     if (!jours.length) {
-      cible.appendChild(el('p', 'semaine-vide', 'Aucune séance cette semaine.'));
+      cible.appendChild(el('p', 'semaine-vide', vide || 'Aucune séance.'));
       return;
     }
 
@@ -1497,7 +1498,7 @@
       });
       bloc.appendChild(grille);
     } else {
-      bloc.appendChild(el('div', 'bloc-rien', 'Aucune séance cette semaine.'));
+      bloc.appendChild(el('div', 'bloc-rien', v.vide || 'Aucune séance.'));
     }
     bloc.addEventListener('click', v.surChoix);
     return bloc;
@@ -2308,7 +2309,7 @@
     vider(cible);
     cible.appendChild(navMois(vue, 'Records \u2014 ' + vue.titre));
     if (!vue.records.length) {
-      cible.appendChild(el('p', 'vide', 'Aucun record ce mois-ci.'));
+      cible.appendChild(el('p', 'vide', vue.vide || 'Aucun record.'));
       return;
     }
     var c = carteMois(null);

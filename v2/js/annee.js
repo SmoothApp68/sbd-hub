@@ -26,6 +26,14 @@
     var t = tonnes(kgs);
     return (t.dec ? M().nombreTexte(t.v, 1) : milliers(t.v)) + ' t';
   }
+  // PR 6 des mots — LE NOM DE LA PÉRIODE DE LA STORY, une fois : « ce mois-ci » / « en septembre » (un mois), « cet été » / « en été » (une
+  // saison), « cette année » / « en 2025 » (une année). `vue.aujourdhui` : le jour J ; sans lui, jamais « ce / cette », toujours le nom.
+  function nommee(vue) {
+    var p = vue.bilan.periode, J = vue.aujourdhui || null;
+    if (p.type === 'saison') return M().libelleDePeriode({ genre: 'saison', ce: p.ce, en: p.en, debut: p.debut, fin: p.fin }, J);
+    if (p.type === 'mois') return M().libelleDePeriode({ genre: 'mois', cle: p.cle }, J);
+    return M().libelleDePeriode({ genre: 'annee', cle: p.cle }, J);
+  }
   function moisNom(cle) { return M().MOIS_LONGS[Number(String(cle).slice(5, 7)) - 1]; }
   function jourTexte(j) {
     var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(j || ''));
@@ -84,7 +92,7 @@
     var plage = saison ? M().MOIS_LONGS[Number(p.debut.slice(5, 7)) - 1] + (p.debut.slice(0, 4) !== p.fin.slice(0, 4) ? ' ' + p.debut.slice(0, 4) : '') +
       ' → ' + M().MOIS_LONGS[Number(p.fin.slice(5, 7)) - 1] + ' ' + p.fin.slice(0, 4) : titre;
     if (b.vide) {
-      out.push({ cle: 'vide', d: 0, lab: titre, titre: saison ? 'Pas encore de série de travail cette saison.' : 'Pas encore de série de travail ce mois-ci.' });
+      out.push({ cle: 'vide', d: 0, lab: titre, titre: 'Pas encore de série de travail ' + nommee(vue) + '.' });
       return out;
     }
     // Les tonnes, et la seule comparaison de la saison et du mois (jamais les heures ni les jours).
@@ -93,14 +101,14 @@
     if (ec !== null && ec !== undefined) {
       var te = texteTonnes(Math.abs(ec));
       note = te === '0 t' || te === '0,0 t' ? majuscule(cmp.comme) + '.'
-        : (ec > 0 ? '+' : '−') + te + ' sur ' + cmp.libelle;
+        : (ec > 0 ? '+' : '−') + te + ' ' + (cmp.par || 'sur ' + cmp.libelle);
     }
     // 226 — l'équivalent des tonnes, un seul fil : la story et la plaque le lisent.
     var equivalent = b.tonnes.elephants ? { avant: '≈ ', quoi: milliers(b.tonnes.elephants) + ' éléphant' + (b.tonnes.elephants > 1 ? 's' : '') + ' d’Afrique' }
       : (b.tonnes.objet ? { avant: 'à peu près ', quoi: b.tonnes.objet } : null);
     out.push({ cle: 'tonnes', d: 7699, lab: plage, titre: saison ? vue.nom || null : null,
                chiffre: { v: t.v, dec: t.dec, unite: 't' }, pile: true,
-               txt: ['soulevées ' + p.ce].concat(equivalent ? [' · ' + equivalent.avant, g(equivalent.quoi)] : [], ['.']),
+               txt: ['soulevées ' + nommee(vue)].concat(equivalent ? [' · ' + equivalent.avant, g(equivalent.quoi)] : [], ['.']),
                note: note });
     var sal = ecranSalle(b);
     if (sal) out.push(sal);
@@ -108,7 +116,9 @@
     if (b.semaines && b.semaines.plusLourde) {
       var pl = b.semaines.plusLourde;
       out.push({ cle: 'semaines', d: 7699, lab: 'Semaine par semaine', semaines: b.semaines,
-                 txt: ['La plus lourde : ', g('semaine du ' + jourTexte(pl.lundi) + ', ' + texteTonnes(pl.kg)), '.'] });
+                 // Une semaine ENTIÈRE : « semaine du 14 sept. » ; une semaine tronquée : seulement les jours comptés, « du 28 au 30 sept. ».
+                 txt: ['La plus lourde : ', g((pl.tronquee ? M().libelleDePeriode({ genre: 'jours', debut: pl.du, fin: pl.au }, vue.aujourdhui || null)
+                   : M().libelleDePeriode({ genre: 'semaineDu', debut: pl.lundi }, vue.aujourdhui || null)) + ', ' + texteTonnes(pl.kg)), '.'] });
     }
     var seriesTxt = function (n) { return milliers(n) + ' série' + (n > 1 ? 's' : ''); };
     // 119 (F10) — l'accord de « rep », une fois (`THModele.repsTexte`).
@@ -119,7 +129,7 @@
       out.push({ cle: 'muscle', d: 7699, lab: 'Ton muscle du mois', titre: mu[0].libelle,
                  chiffre: { v: Math.round(mu[0].series), unite: 'séries', moyen: true, espace: true },
                  lignes: mu.slice(1).map(function (x, i) { return { n: i === 0 ? 'Puis' : null, v: x.libelle + ' · ' + seriesTxt(x.series) }; }),
-                 txt: ['Sur ', g(seriesTxt(b.reps.series) + ' de travail'), ' ce mois-ci.'] });
+                 txt: ['Sur ', g(seriesTxt(b.reps.series) + ' de travail'), ' ' + nommee(vue) + '.'] });
     }
     // L'exercice de la saison (du mois) : ses reps, puis les deux suivants. Chaque nom ouvre sa page.
     if (b.exercices.length) {
@@ -137,7 +147,7 @@
       if (rs.length) {
         out.push({ cle: 'records', d: 8400, lab: 'Nouvelles charges max',
                    lignes: rs.slice(0, 3).map(function (r) { return { n: r.nom, v: kg(r.charge) }; }),
-                   txt: [g(nRec + ' record' + (nRec > 1 ? 's' : '') + ' de charge'), ' ' + p.ce + '.'] });
+                   txt: [g(nRec + ' record' + (nRec > 1 ? 's' : '') + ' de charge'), ' ' + nommee(vue) + '.'] });
       }
     } else {
       var rm = vue.records || [];
@@ -158,7 +168,7 @@
       var det = [{ n: 'Paris vérifiés', v: String(b.coach.faits) }, { n: 'Tenus', v: String(b.coach.tenus) }];
       out.push({ cle: 'coach', d: 8400, lab: 'Le coach', chiffre: { v: b.coach.tenus, unite: '/ ' + b.coach.faits },
                  jauge: Math.round(b.coach.tenus * 100 / b.coach.faits),
-                 txt: ['paris tenus ' + (saison ? p.ce : 'ce mois-ci') + '.'],
+                 txt: ['paris tenus ' + nommee(vue) + '.'],
                  detail: { lignes: det, phrase: vue.paris && vue.paris.phrase ? vue.paris.phrase : null },
                  bouton: { action: 'paris', texte: 'Le détail des paris' } });
     }
@@ -206,7 +216,7 @@
     out.push({ cle: 'ouverture', d: 4480, lab: 'TrainHub', chiffre: { v: p.libelle, craie: true },
                titre: 'Ton année sous la barre.', note: 'Ça défile seul. Garde le doigt posé pour lire.' });
     if (b.vide) {
-      out.push({ cle: 'vide', d: 0, lab: 'Ton année ' + p.libelle, titre: 'Pas encore de série de travail cette année.' });
+      out.push({ cle: 'vide', d: 0, lab: 'Ton année ' + p.libelle, titre: 'Pas encore de série de travail ' + nommee(vue) + '.' });
       return out;
     }
     // Les tonnes.
@@ -302,7 +312,7 @@
       var gagnes = vue.jeu.fin.succes.nombre - (vue.jeu.debut ? vue.jeu.debut.succes.nombre : 0);
       out.push({ cle: 'jeu', d: 7699, lab: 'Et le jeu', chiffre: { v: nf, avant: 'Niveau ', moyen: true },
                  txt: nd !== nf ? ['Tu as commencé l’année au ', g('niveau ' + nd), '.'] : null,
-                 lignes: gagnes > 0 ? [{ v: gagnes + ' succès gagné' + (gagnes > 1 ? 's' : '') + ' cette année' }] : [] });
+                 lignes: gagnes > 0 ? [{ v: gagnes + ' succès gagné' + (gagnes > 1 ? 's' : '') + ' ' + nommee(vue) }] : [] });
     }
     // La plaque finale, sans le coach.
     var cases = [{ k: 'Soulevé', g: texteTonnes(b.tonnes.kg) }];

@@ -71,6 +71,21 @@ describe('G2 — Modele.libelleDePeriode : un nom de période ne s’écrit qu�
   });
 });
 
+describe('B7 — Modele.phraseDeSemaineVide : « cette semaine » seulement si la semaine contient J', () => {
+  const J = new Date(2026, 10, 14, 10);   // samedi 14/11/2026 : la semaine du lundi 9 au dimanche 15
+  test('la semaine courante : « Aucune séance cette semaine. »', () => {
+    expect(Modele.phraseDeSemaineVide(new Date(2026, 10, 9), new Date(2026, 10, 15), J)).toBe('Aucune séance cette semaine.');
+  });
+  test('une semaine passée : ses dates (même mois, mois différents, autre année)', () => {
+    expect(Modele.phraseDeSemaineVide(new Date(2026, 6, 6), new Date(2026, 6, 12), J)).toBe('Aucune séance du 6 au 12 juil.');
+    expect(Modele.phraseDeSemaineVide(new Date(2026, 8, 28), new Date(2026, 9, 4), J)).toBe('Aucune séance du 28 sept. au 4 oct.');
+    expect(Modele.phraseDeSemaineVide(new Date(2025, 11, 29), new Date(2026, 0, 4), J)).toBe('Aucune séance du 29 déc. 2025 au 4 janv. 2026.');
+  });
+  test('la semaine de J, vue le lundi suivant : plus « cette semaine »', () => {
+    expect(Modele.phraseDeSemaineVide(new Date(2026, 10, 9), new Date(2026, 10, 15), new Date(2026, 10, 16, 8))).toBe('Aucune séance du 9 au 15 nov.');
+  });
+});
+
 describe('Q7 — Modele.quand : une date d’une autre année porte son année', () => {
   test('« le 12 mars 2025 » pour une référence de 2026 ; sans référence, inchangé', () => {
     expect(Modele.quand('2025-03-12T10:00:00+01:00', '2026-10-11T10:00:00+02:00')).toBe('le 12' + NB + 'mars 2025');

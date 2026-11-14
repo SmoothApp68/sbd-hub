@@ -10,6 +10,7 @@ process.env.TZ = 'Europe/Paris';
 global.self = global;
 require('../../v2/js/modele.js');
 require('../../v2/js/semaine.js');
+require('../../v2/js/periode.js');
 require('../../v2/js/palier.js');
 require('../../v2/js/moteur.js');   // 136 (F5) — la fenêtre de la médaille (`plancherDuMateriel`), comme dans index.html
 const Bilan = require('../../v2/js/bilan.js');
@@ -111,11 +112,11 @@ describe('98 — la saison : comparaison, semaines, records', () => {
   });
   test('les écrans de la saison, dans l’ordre de la maquette ; « À la salle » juste après les tonnes', () => {
     const bs = bilan(p, ETE.concat(AUTOMNE), null, { salle: { jours: 13, minutes: 13 * 75 }, paris: [{ jour: '2026-10-01', predite: 5, observee: 5 }] });
-    const e = Annee.ecrans({ bilan: bs, qui: 'aurel_br', nom: 'Fall Arc', jeu: null });
+    const e = Annee.ecrans({ bilan: bs, qui: 'aurel_br', nom: 'Fall Arc', jeu: null, aujourdhui: '2026-11-20' });   // PR 6 : la saison est en cours → « cet automne »
     expect(e.map((x) => x.cle)).toEqual(['tonnes', 'salle', 'semaines', 'exercice', 'records', 'avance', 'coach', 'plaque']);
     expect(e[0].titre).toBe('Fall Arc');
     expect(e[0].lab).toBe('septembre → novembre 2026');
-    expect(e[0].note).toMatch(/^\+[\d,]+\st sur l’été$/);
+    expect(e[0].note).toMatch(/^\+[\d,]+\st par rapport à l’été$/);
     expect(JSON.stringify(e[0].txt)).toMatch(/soulevées cet automne/);
     // À la salle : un fait, jamais comparé.
     expect(JSON.stringify(e[1])).not.toMatch(/[+−→]|l’été|comme|qu’/);
@@ -150,7 +151,7 @@ describe('98 — le mois', () => {
     expect(b.avance).toBeNull();
     const e = Annee.ecrans({ bilan: b, qui: '', jeu: null, records: [], paris: null });
     expect(e[0].note).toBeNull();
-    expect(JSON.stringify(e)).not.toMatch(/sur septembre|qu’en septembre|comme en septembre/);
+    expect(JSON.stringify(e)).not.toMatch(/sur septembre|par rapport à septembre|qu’en septembre|comme en septembre/);
   });
   test('3 semaines de données : contre le mois d’avant', () => {
     const p = Bilans.periodeDuMois('2026-10');
@@ -159,7 +160,7 @@ describe('98 — le mois', () => {
     expect(b.versus.mode).toBe('precedente');
     expect(b.versus.libelle).toBe('septembre');
     const e = Annee.ecrans({ bilan: b, qui: '', jeu: null, records: [], paris: null });
-    expect(e[0].note).toMatch(/^[+−][\d,]+\st sur septembre$/);
+    expect(e[0].note).toMatch(/^[+−][\d,]+\st par rapport à septembre$/);
   });
   test('janvier se compare à décembre de l’année d’avant', () => {
     const p = Bilans.periodeDuMois('2027-01');
@@ -297,5 +298,80 @@ describe('136 — F5 : la saison et la médaille, un seul périmètre de record'
   test('la saison passe par la fonction de la médaille (`Modele.recordsDeLExercice`), pas une seconde règle', () => {
     const src = require('fs').readFileSync(require('path').join(__dirname, '../../v2/js/bilans.js'), 'utf8');
     expect(src).toMatch(/Mo\(\)\.recordsDeLExercice\(pour, jour, Mo\(\)\.optionsDeRecord\(index\[slug\] \|\| null\)\)\.lourde/);
+  });
+});
+
+
+// ══ PR 6 des mots (14/11/2026) — LA STORY NOMME SA PÉRIODE : « ce mois-ci » / « cet été » / « cette année » seulement si la période
+// contient aujourd'hui (`vue.aujourdhui`). CONFIGURATIONS DISCRIMINANTES : le même mois lu le mois d'après (J = 11/10/2026 pour
+// septembre, J = 20/09/2026 pendant), une saison écoulée, une année écoulée (la story 2025 s'ouvre toute l'année 2026), une semaine
+// à cheval sur deux mois (du 28 sept. au 4 oct.).
+describe('PR 6 — la story nomme sa période (B1 à B9)', () => {
+  const txt = (x) => (x ? JSON.stringify(x.txt) : '');
+  const lire = (periode, seances, J, vue) => {
+    const b = bilan(periode, seances, J < periode.fin ? J : periode.fin);
+    return Annee.ecrans(Object.assign({ bilan: b, qui: '', jeu: null, records: [], paris: null, aujourdhui: J }, vue || {}));
+  };
+  const SEPT = semaines('2026-09-03', '2026-09-24', () => [['squat_barre', 120, 5], ['developpe_couche_barre', 100, 5]]);
+  const AOUT = semaines('2026-08-06', '2026-08-27', () => [['squat_barre', 110, 5]]);
+  const sept = Bilans.periodeDuMois('2026-09');
+
+  test('septembre ouvert le 11/10 : « en septembre » partout, jamais « ce mois-ci » ; tonnes « par rapport à août »', () => {
+    const e = lire(sept, AOUT.concat(SEPT), '2026-10-11', { paris: { phrase: null } });
+    const tout = JSON.stringify(e);
+    expect(tout).not.toMatch(/ce mois-ci|cette saison|cette année/);
+    expect(txt(e.find((x) => x.cle === 'tonnes'))).toMatch(/soulevées en septembre/);
+    expect(txt(e.find((x) => x.cle === 'muscle'))).toMatch(/de travail.*en septembre\./);
+    expect(e[0].note).toMatch(/par rapport à août$/);
+  });
+
+  test('septembre ouvert PENDANT septembre (J = 20/09) : « ce mois-ci »', () => {
+    const e = lire(sept, AOUT.concat(SEPT), '2026-09-20');
+    expect(txt(e.find((x) => x.cle === 'tonnes'))).toMatch(/soulevées ce mois-ci/);
+    expect(txt(e.find((x) => x.cle === 'muscle'))).toMatch(/ce mois-ci/);
+  });
+
+  test('un mois ou une saison vides disent leur période (« en septembre », « en été »), pas « ce mois-ci » / « cette saison »', () => {
+    expect(lire(sept, [], '2026-10-11').find((x) => x.cle === 'vide').titre).toBe('Pas encore de série de travail en septembre.');
+    expect(lire(sept, [], '2026-09-20').find((x) => x.cle === 'vide').titre).toBe('Pas encore de série de travail ce mois-ci.');
+    expect(lire(Bilans.periodeDeLaSaison('2026-ete'), [], '2026-10-11').find((x) => x.cle === 'vide').titre).toBe('Pas encore de série de travail en été.');
+    expect(lire(Bilans.periodeDeLaSaison('2026-ete'), [], '2026-07-15').find((x) => x.cle === 'vide').titre).toBe('Pas encore de série de travail cet été.');
+  });
+
+  test('une saison écoulée : « soulevées en été » ; pendant la saison : « cet été » (et « cet hiver » à cheval sur deux années)', () => {
+    const ete = Bilans.periodeDeLaSaison('2026-ete');
+    const s = semaines('2026-06-04', '2026-08-27', () => [['squat_barre', 120, 5]]);
+    expect(txt(lire(ete, s, '2026-10-11').find((x) => x.cle === 'tonnes'))).toMatch(/soulevées en été/);
+    expect(txt(lire(ete, s, '2026-08-27').find((x) => x.cle === 'tonnes'))).toMatch(/soulevées cet été/);
+    const hiver = Bilans.periodeDeLaSaison('2026-hiver');
+    const h = semaines('2026-12-03', '2027-02-25', () => [['squat_barre', 150, 3]]);
+    expect(txt(lire(hiver, h, '2027-01-20').find((x) => x.cle === 'tonnes'))).toMatch(/soulevées cet hiver/);
+    expect(txt(lire(hiver, h, '2027-03-02').find((x) => x.cle === 'tonnes'))).toMatch(/soulevées en hiver/);
+  });
+
+  test('l’année : la story 2025 ouverte en 2026 dit « en 2025 » (jamais « cette année »), la 2026 ouverte en 2026 dit « cette année »', () => {
+    const e25 = lire(Bilans.periodeDeLAnnee(2025), [], '2026-02-10');
+    expect(e25.find((x) => x.cle === 'vide').titre).toBe('Pas encore de série de travail en 2025.');
+    expect(lire(Bilans.periodeDeLAnnee(2026), [], '2026-12-20').find((x) => x.cle === 'vide').titre).toBe('Pas encore de série de travail cette année.');
+    const s = semaines('2025-01-02', '2025-03-01', () => [['squat_barre', 100, 5]]);
+    const jeu = { debut: { niveau: { niveau: 3 }, succes: { nombre: 4 } }, fin: { niveau: { niveau: 7 }, succes: { nombre: 10 } } };
+    expect(JSON.stringify(lire(Bilans.periodeDeLAnnee(2025), s, '2026-02-10', { jeu }).find((x) => x.cle === 'jeu').lignes)).toMatch(/6 succès gagnés en 2025/);
+  });
+
+  test('B6 — la semaine la plus lourde : « semaine du 14 sept. » (entière) ; à cheval : les jours comptés seuls, « du 28 au 30 sept. »', () => {
+    const lourde = (jours) => {
+      const seances = jours.map(([j, kg]) => seance(j, [['squat_barre', kg, 5]]));
+      const b = bilan(sept, seances, '2026-09-30');
+      return { b, e: Annee.ecrans({ bilan: b, qui: '', jeu: null, records: [], paris: null, aujourdhui: '2026-10-11' }) };
+    };
+    // Semaine entière du 14 au 20 : la plus lourde.
+    const a = lourde([['2026-09-15', 200], ['2026-09-17', 200], ['2026-09-22', 100]]);
+    expect(a.b.semaines.plusLourde.tronquee).toBe(false);
+    expect(txt(a.e.find((x) => x.cle === 'semaines'))).toMatch(/semaine du 14 sept\., /);
+    // La semaine du 28 sept. au 4 oct. : seuls 28, 29 et 30 comptent dans septembre.
+    const c = lourde([['2026-09-08', 100], ['2026-09-28', 200], ['2026-09-30', 200]]);
+    expect(c.b.semaines.plusLourde).toMatchObject({ lundi: '2026-09-28', du: '2026-09-28', au: '2026-09-30', tronquee: true });
+    expect(txt(c.e.find((x) => x.cle === 'semaines'))).toMatch(/La plus lourde : \\?"?.*du 28 au 30 sept\., /);
+    expect(txt(c.e.find((x) => x.cle === 'semaines'))).not.toMatch(/semaine du|comptés/);
   });
 });

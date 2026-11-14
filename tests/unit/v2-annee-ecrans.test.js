@@ -9,6 +9,7 @@ process.env.TZ = 'Europe/Paris';
 global.self = global;
 require('../../v2/js/modele.js');
 require('../../v2/js/semaine.js');
+require('../../v2/js/periode.js');
 require('../../v2/js/palier.js');
 require('../../v2/js/moteur.js');   // 136 (F5) — la fenêtre de la médaille (`plancherDuMateriel`), comme dans index.html
 require('../../v2/js/bilan.js');
@@ -101,7 +102,11 @@ describe('95 — le jeu, le coach, une année vide', () => {
                                                      fin: { niveau: { niveau: 7 }, succes: { nombre: 10 } } } });
     const j = e.find((x) => x.cle === 'jeu');
     expect(j.chiffre).toMatchObject({ v: 7, avant: 'Niveau ' });
-    expect(j.lignes[0].v).toBe('6 succès gagnés cette année');
+    // PR 6 des mots : sans jour J, la période est NOMMÉE (« en 2026 ») ; « cette année » seulement si J est dans l'année.
+    expect(j.lignes[0].v).toBe('6 succès gagnés en 2026');
+    const pendant = Annee.ecrans({ bilan: bilan(s), aujourdhui: '2026-06-15', jeu: { debut: { niveau: { niveau: 3 }, succes: { nombre: 4 } },
+                                                                                  fin: { niveau: { niveau: 7 }, succes: { nombre: 10 } } } });
+    expect(pendant.find((x) => x.cle === 'jeu').lignes[0].v).toBe('6 succès gagnés cette année');
   });
   test('une année sans série : un seul écran après l’ouverture', () => {
     const e = Annee.ecrans({ bilan: bilan([]), jeu: null });

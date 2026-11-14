@@ -9932,7 +9932,7 @@ const SETS_IMPORTES = [
     const k1 = await constatC();
     const cmFr = String(cm).replace('.', ',');
     ok('[C4] DISCRIMINANT — le constat dit la montée du coach tenue',
-      /La montée du coach a tenu/.test(k1.verdict || '') && (k1.verdict || '').indexOf(cmFr) >= 0, nbC(k1));
+      /dans ta zone\s?: la montée a tenu\. Elle compte comme un test tenu\./.test(k1.verdict || '') && (k1.verdict || '').indexOf(cmFr) >= 0, nbC(k1));
     ok('[C4] …et la suite propose cette charge', (k1.suite || '').indexOf(cmFr) >= 0, nbC(k1));
     await abandonner();
 

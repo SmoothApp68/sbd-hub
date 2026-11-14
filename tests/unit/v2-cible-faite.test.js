@@ -21,7 +21,8 @@ function cas(reps, o) {
   const cAv = { etat: 'progression', zone: null, palier: o.charge, niveau: o.vise, n: o.n, ligne: { charge: o.charge, vise: o.vise },
     haut: o.haut, _lues: o.lues, fondement: { date: '2026-09-13T18:00:00+00:00', reps: [o.vise, o.vise, o.vise] } };
   const cAp = { etat: 'progression', zone: null, palier: palierApres, niveau: o.niveau, n: o.n, ligne: { charge: palierApres, vise: o.niveau + 1 }, haut: null,
-    fondement: { date: D, reps: reps, seance: series } };
+    fondement: Object.assign({ date: D, reps: reps, seance: series }, o.fondApres || {}) };
+  if (o.viseApres !== undefined) cAp.ligne = { charge: palierApres, vise: o.viseApres };
   const c = M.constatDuJour(cAv, cAp, o.reglage, null, { series: series, montee: null }, D, false);
   return { texte: c && esp(c.verdict), cible: c && c.cible, cf: M.cibleFaite(cAv, cAp, series) };
 }
@@ -102,5 +103,38 @@ describe('I163 — Cible faite : niveau validé ≥ cible, même charge, toutes 
   });
   test('une chute (plus d\'une rep sous la cible) ne se juge pas en « Cible faite »', () => {
     expect(cas([8, 8, 5], { niveau: 8 }).cf.etat).not.toBe('faite');
+  });
+});
+
+// PR 4b (MOTEUR §9.47) — la branche 68B (« tenu, sans marge ») est FUSIONNÉE dans « Cible faite » : le verdict dit la cible faite, puis la cause si le verbe
+// de la consigne d'après (le même prédicat que le gris et le Pourquoi) garde la ligne.
+describe('PR 4b — Cible faite, la dernière sans marge (68B fusionnée)', () => {
+  const aFond = (derniere, protegee) => ({ serieAFond: { rang: 3, charge: 70, reps: 8, comptees: 7, cause: 'rpe', niveauFait: 8 },
+    sansMarge: { charge: 70, reps: 8, derniere: derniere, protegee: protegee === true } });
+  test('8, 8, 8 dont la dernière à fond, la ligne d\'après garde 70 kg × 8 : « Cible faite : …, la dernière sans marge. »', () => {
+    const r = cas([8, 8, 8], { niveau: 8, viseApres: 8, fondApres: aFond(true) });
+    expect(r.texte).toBe('Cible faite : 70 kg × 8, 8, 8, la dernière sans marge.');
+    expect(r.cible.etat).toBe('faite');
+    expect(r.cible.sansMarge).toEqual({ derniere: true });
+    expect(r.texte).not.toMatch(/tenu, sans marge/);
+  });
+  test('une série à fond qui n\'est pas la dernière : « une série sans marge », jamais « la dernière »', () => {
+    expect(cas([8, 8, 8], { niveau: 8, viseApres: 8, fondApres: aFond(false) }).texte).toBe('Cible faite : 70 kg × 8, 8, 8, une série sans marge.');
+  });
+  test('la tolérance et la cause se disent ensemble', () => {
+    expect(cas([8, 8, 7], { niveau: 8, viseApres: 8, fondApres: aFond(true) }).texte)
+      .toBe('Cible faite : 70 kg × 8, 8, 7, la dernière sans marge. Une série à une rep sous la cible est tolérée.');
+  });
+  test('population protégée : « Cible faite » sans la cause (I160, I161)', () => {
+    const r = cas([8, 8, 8], { niveau: 8, viseApres: 8, fondApres: aFond(true, true) });
+    expect(r.texte).toBe('Cible faite : 70 kg × 8, 8, 8.');
+    expect(r.cible.sansMarge).toBeNull();
+  });
+  test('devant une ligne qui monte, la cause ne s\'imprime pas (la cause tuée de I162)', () => {
+    const r = cas([8, 8, 8], { niveau: 8, fondApres: aFond(true) });   // ligne d'après vise 9
+    expect(r.texte).toBe('Cible faite : 70 kg × 8, 8, 8.');
+  });
+  test('sans série à fond : le verdict n\'a pas de cause', () => {
+    expect(cas([8, 8, 8], { niveau: 8, viseApres: 8 }).texte).toBe('Cible faite : 70 kg × 8, 8, 8.');
   });
 });

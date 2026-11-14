@@ -379,7 +379,10 @@
     leg_curl_allonge_une_jambe: 'leg_curl_allonge_une_jambe.json',
     leg_curl_assis_une_jambe: 'leg_curl_assis_une_jambe.json',
     leg_curl_haltere: 'leg_curl_haltere.json',
-    leg_extension_elastique: 'leg_extension_elastique.json'
+    leg_extension_elastique: 'leg_extension_elastique.json',
+    abduction_hanche_penche_machine: 'abduction_hanche_penche_machine.json',
+    abduction_hanche_assis_elastique: 'abduction_hanche_assis_elastique.json',
+    planche_laterale_abduction_elastique: 'planche_laterale_abduction_elastique.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

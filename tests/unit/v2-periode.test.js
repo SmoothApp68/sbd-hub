@@ -393,3 +393,75 @@ describe('une période précédente vide laisse la courante seule, sans erreur',
     expect(k[0].precedente).toBe(0);
   });
 });
+
+// ══ PR 6 des mots (14/11/2026) — G1 : LES NOMS DES PÉRIODES ET L'ARITHMÉTIQUE DU CALENDRIER ═════════════════════
+//
+// CONFIGURATIONS DISCRIMINANTES : un 29 février, un 31 du mois et un 31 décembre (là où « il y a N mois » et « N × 30
+// jours » se séparent), et J = 11/10/2026 (la date du fixture du Parcours : R = 12 avr. → 11 oct., P = 11 oct. 2025 → 11 avr.).
+describe('G1 — JOURS_DE, fenetres, moisAvant, contient : une seule arithmétique de période', () => {
+  const jourDe = (d) => Periode.jourISO(d);
+
+  test('« 3 mois » = 90 jours, « 6 mois » = 183, « 1 an » = 366 — et la courbe, le Parcours, le radar les lisent ici', () => {
+    expect(Periode.JOURS_DE).toEqual({ '3m': 90, '6m': 183, '1a': 366 });
+    expect(Object.isFrozen(Periode.JOURS_DE)).toBe(true);
+  });
+
+  test('à J = 11/10/2026, les 6 derniers mois et les 6 mois d’avant sont ceux de la maquette (183 jours chacun)', () => {
+    const f = Periode.fenetres(Periode.JOURS_DE['6m'], new Date(2026, 9, 11));
+    expect([jourDe(f.courante.debut), jourDe(f.courante.fin)]).toEqual(['2026-04-12', '2026-10-11']);
+    expect([jourDe(f.precedente.debut), jourDe(f.precedente.fin)]).toEqual(['2025-10-11', '2026-04-11']);
+    const f3 = Periode.fenetres(Periode.JOURS_DE['3m'], new Date(2026, 9, 11));
+    expect(jourDe(f3.courante.debut)).toBe('2026-07-14');
+    const f12 = Periode.fenetres(Periode.JOURS_DE['1a'], new Date(2026, 9, 11));
+    expect(jourDe(f12.courante.debut)).toBe('2025-10-11');
+  });
+
+  test('les bornes du Parcours (R = J−182…J, P = J−365…J−183) sont celles de `fenetres(183, J)`', () => {
+    const Parcours = require('../../v2/js/parcours.js');
+    ['2026-10-11', '2026-11-14', '2026-08-31', '2028-02-29', '2026-03-01', '2027-01-01'].forEach((j) => {
+      const f = Periode.fenetres(Periode.JOURS_DE['6m'], Periode.debutDeJournee(j));
+      expect(Parcours.fenetresDeJours(j)).toEqual({
+        R: [jourDe(f.courante.debut), jourDe(f.courante.fin)],
+        P: [jourDe(f.precedente.debut), jourDe(f.precedente.fin)]
+      });
+    });
+  });
+
+  test('moisAvant : une date calendaire, le jour plafonné à la fin du mois d’arrivée', () => {
+    expect(Periode.moisAvant('2026-10-11', 6)).toBe('2026-04-11');
+    expect(Periode.moisAvant('2026-10-11', 12)).toBe('2025-10-11');
+    expect(Periode.moisAvant('2026-08-31', 6)).toBe('2026-02-28');      // pas le 3 mars
+    expect(Periode.moisAvant('2026-03-31', 1)).toBe('2026-02-28');
+    expect(Periode.moisAvant('2028-03-31', 1)).toBe('2028-02-29');      // année bissextile
+    expect(Periode.moisAvant('2028-02-29', 12)).toBe('2027-02-28');
+    expect(Periode.moisAvant('2026-12-31', 6)).toBe('2026-06-30');
+    expect(Periode.moisAvant('2026-01-31', 2)).toBe('2025-11-30');      // chevauche le 1er janvier
+    expect(Periode.moisAvant('2026-05-15', 0)).toBe('2026-05-15');
+    expect(Periode.moisAvant('n’importe quoi', 6)).toBeNull();
+  });
+
+  test('moisAvant et une fenêtre de jours sont DEUX notions : le 14/11, « il y a 6 mois » = le 14 mai, la fenêtre de 183 jours = le 16 mai', () => {
+    expect(Periode.moisAvant('2026-11-14', 6)).toBe('2026-05-14');
+    expect(jourDe(Periode.fenetres(183, new Date(2026, 10, 14)).courante.debut)).toBe('2026-05-16');
+  });
+
+  test('« à cette date » = la FIN de la journée locale : une série de 18 h de ce jour-là y entre (jamais `new Date("AAAA-MM-JJ")`, lu en UTC)', () => {
+    const fin = Periode.finDeJournee('2026-04-11');
+    expect([fin.getHours(), fin.getMinutes(), fin.getSeconds(), fin.getMilliseconds()]).toEqual([23, 59, 59, 999]);
+    expect(new Date(2026, 3, 11, 18, 0) <= fin).toBe(true);
+    expect(new Date(2026, 3, 12, 0, 0) <= fin).toBe(false);
+    const debut = Periode.debutDeJournee('2026-04-11');
+    expect([debut.getHours(), debut.getDate()]).toEqual([0, 11]);
+  });
+
+  test('contient : les bornes comptent, un jour hors période ne compte pas, une période illisible ne contient rien', () => {
+    const sept = { debut: '2026-09-01', fin: '2026-09-30' };
+    expect(Periode.contient(sept, '2026-09-01')).toBe(true);
+    expect(Periode.contient(sept, '2026-09-30')).toBe(true);
+    expect(Periode.contient(sept, '2026-10-01')).toBe(false);
+    expect(Periode.contient(sept, '2026-08-31')).toBe(false);
+    expect(Periode.contient({ debut: new Date(2026, 9, 5), fin: new Date(2026, 9, 11, 23, 59) }, '2026-10-11')).toBe(true);
+    expect(Periode.contient(null, '2026-10-11')).toBe(false);
+    expect(Periode.contient({ debut: 'x', fin: 'y' }, '2026-10-11')).toBe(false);
+  });
+});

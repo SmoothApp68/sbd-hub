@@ -26,8 +26,10 @@
 
   // ── Les constantes, une fois ─────────────────────────────────────────────
   var MIN_SEANCES = 5;
-  var JOURS_R = 182;   // R : du jour J−182 à J inclus
-  var JOURS_A = 365;   // P : de J−365 à J−183 inclus
+  // PR 6 des mots : « 6 mois » = 183 jours, lus dans `THPeriode.JOURS_DE` (une seule définition, R-NOMMEES). R : du jour J−182
+  // à J inclus ; P : de J−365 à J−183 inclus — les bornes EXACTES de `THPeriode.fenetres(183, J)` (le test G1 le prouve).
+  // Lus À L'USAGE (comme `Modele()`) : le module ne plante pas au chargement si `periode.js` n'est pas encore là.
+  function jours6m() { return racine.THPeriode.JOURS_DE['6m']; }
   // Hausse au-delà de × 1,025, baisse en deçà de × 0,975 : en millièmes.
   var HAUSSE = 1025, BAISSE = 975, MILLE = 1000;
   // Les quatre grands mouvements : ils comptent double dans un groupe, ils ont leur courbe.
@@ -210,7 +212,7 @@
   function parcours(entree) {
     var ZONES = Semaine().ZONES;
     var J = entree.aujourdhui;
-    var debutR = moinsJours(J, JOURS_R), debutP = moinsJours(J, JOURS_A);
+    var debutR = moinsJours(J, jours6m() - 1), debutP = moinsJours(J, 2 * jours6m() - 1);
     var index = Modele().indexerExercices(entree.catalogue || []);
     var cles = {};
     ZONES.forEach(function (z) { cles[z.cle] = z; });
@@ -416,8 +418,14 @@
     };
   }
 
+  // Les bornes R et P d'un jour J, en jours « AAAA-MM-JJ » : `{ R: [début, fin], P: [début, fin] }`.
+  function fenetresDeJours(J) {
+    return { R: [moinsJours(J, jours6m() - 1), J], P: [moinsJours(J, 2 * jours6m() - 1), moinsJours(J, jours6m())] };
+  }
+
   var api = {
     parcours: parcours,
+    fenetresDeJours: fenetresDeJours,
     repereSquatCouche: repereSquatCouche,
     pratique: pratique,
     aRepsEgales: aRepsEgales,

@@ -27862,6 +27862,192 @@ const SETS_IMPORTES = [
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
+  console.log('\n══ f2. LA REPRISE D’UNE SÉANCE EN COURS RELIT LES ROUTINES : LIVE, RECHARGÉE EN LIGNE, RETOUR PAR L’ONGLET, HORS LIGNE, FRAPPE EN COURS, CONSIGNE NON FIGÉE, ZONE DE ROUTINE EN AVION (MOTEUR §9.49, I168) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : une séance REPRISE (page rechargée) dont l'exercice, passé par une ZONE DE ROUTINE (`zone_plan`), est FINI,
+  // l'historique ne se lisant que par la routine (`zonesDeRoutine`). Le premier rendu part AVANT l'arrivée des routines : sans correctif la suite redit la
+  // fois d'avant (« Prochaine séance : 80 kg × 8 »), et la vue visible est la SÉANCE (jamais `vues.saisie`) — aucun re-rendu ne la guérit. Le contrôle
+  // négatif (le LIVE : 90 kg × 6) prouve que la fixture déclenche bien le chemin ; l'état est lu à l'écran, jamais sur le plan seul.
+  {
+    const rendreBlocsF2 = await retirerBlocsDeLAppareil();
+    CATALOGUE.push({ slug: 'dl-a', nom: 'Développé Couché DL (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['pectoraux'], muscles_secondaires: [] });
+    const tDL = Date.now();
+    const sessionsAvant = base.sessions, setsAvant = base.sets, predictionsAvant = base.predictions, routinesAvant = ROUTINES.length;
+    const profilAvant = { objectif: base.profiles[0].objectif, depuis: base.profiles[0].objectif_depuis, cartes: base.profiles[0].cartes_semaine };
+    base.sessions = []; base.sets = []; base.predictions = [];
+    base.profiles[0].objectif = 'les_deux'; base.profiles[0].objectif_depuis = '2026-01-01'; base.profiles[0].cartes_semaine = null;
+    const poserDL = (liste) => liste.forEach(([j, series], i) => {
+      const id = 'dl-' + i, debut = ilYa(j * 86400000, tDL).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'DL — ' + id, debut, fin: finDe(debut, tDL).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: 'r-dl', source: 'app', created_at: debut });
+      series.forEach(([kg, r], k) => base.sets.push({ id: id + '-s' + (k + 1), session_id: id, user_id: 'u-banc', exercise_slug: 'dl-a',
+        charge_kg: kg, reps: r, duree_s: null, distance_m: null, type_serie: 'travail', rang: k + 1, groupe_superset: null, validee_a: debut,
+        rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    });
+    poserDL([[10, [[90, 5], [90, 5], [90, 5]]], [3, [[90, 5], [90, 4]]]]);
+    ROUTINES.push({ id: 'r-dl', nom: 'Haut B DL', note: null, archivee_a: null, created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-dl-0', routine_id: 'r-dl', exercise_slug: 'dl-a', rang: 0, zone: 'hypertrophie', routine_sets: progr(4, 8), repos_cible_s: 180, groupe_superset: null, note: null }] });
+    const esp = (t) => String(t || '').replace(/[\u00a0\u202f]/g, ' ');
+    const zoneRoutine = () => ROUTINES.filter((r) => r.id === 'r-dl')[0].routine_exercises[0].zone;
+    const lireF2 = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier, x = d && d.plan.exercices[0];
+      const a = document.activeElement;
+      return { entete: Array.from(document.querySelectorAll('.legende-exo .consigne, .legende-exo .consigne-dit')).map((e) => e.textContent),
+        verdict: (document.querySelector('.legende-exo .constat') || {}).textContent || null,
+        suite: (document.querySelector('.legende-exo .constat-suite') || {}).textContent || null,
+        cons: x && x.consigne ? { etat: x.consigne.etat, ligne: x.consigne.ligne } : null,
+        muet: x ? x.suiteMuette === true : null, routinesPretes: d ? d.entrees.routinesPretes : null,
+        puce: Array.from(document.querySelectorAll('.legende-exo .puce-zone')).map((e) => e.textContent),
+        champ: !!(a && a.tagName === 'INPUT' && a.closest && a.closest('#blocs-seance')),
+        marque: !!document.querySelector('.ligne-serie input.f2-marque'),
+        erreurs: d ? window.THPlan.verifierPlan(d.plan, d.entrees).erreurs : ['aucun plan'] };
+    });
+    let nRoutinesGET = 0;
+    const ecouteRoutinesF2 = (rq) => { if (rq.method() === 'GET' && /\/rest\/v1\/routines/.test(rq.url())) nRoutinesGET++; };
+    page.on('request', ecouteRoutinesF2);
+    const dit = (v) => esp(JSON.stringify(v));
+    const suiteDite = (e) => /^La prochaine fois : une rep de plus, 90 kg × 6\.$/.test(esp(e.suite));
+    const avoirSuite = (nom) => attendreQue(async () => suiteDite(await lireF2()), 10000, nom);
+    const recharger = async () => { await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {}); await ecranPose(); };
+    const evenementOnline = () => page.evaluate(() => window.dispatchEvent(new Event('online')));
+    const ouvrirPuce = async () => {
+      await attendreQue(() => page.evaluate(() => !!document.querySelector('.legende-exo .puce-zone')), 8000, 'f2 puce de zone');
+      await page.evaluate(() => document.querySelector('.legende-exo .puce-zone').click());
+      await feuilleOuverte('.option-zone');
+    };
+    const faireLaSeance = async () => {
+      await aller('/saisie');
+      await demarrerRoutine('Haut B DL');
+      await saisirSerie(0, 90, 5); await saisirSerie(1, 90, 5); await saisirSerie(2, 90, 5);
+      await page.evaluate(() => document.querySelectorAll('.ligne-serie')[3].querySelector('.no-serie').click());
+      await feuilleOuverte('.feuille-menu button');
+      await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => /^Au max/.test(b.textContent.trim()))[0].click());
+      await feuilleFermee();
+      await saisirSerie(3, 90, 5);
+      await attendreQue(() => page.evaluate(() => !!document.querySelectorAll('.ligne-serie')[3].querySelector('.eff-serie')), 8000, 'f2 l’effort de la 4e série');
+      await page.evaluate(() => document.querySelectorAll('.ligne-serie')[3].querySelector('.eff-serie').click());
+      await feuilleOuverte('.grille-rir, .grille-rpe');
+      await page.evaluate(() => { const b = Array.from(document.querySelectorAll('#feuille-contenu .grille-rir button, #feuille-contenu button')).filter((x) => x.textContent.trim().charAt(0) === '0')[0]; if (b) b.click(); });
+      await feuilleFermee();
+    };
+
+    // ── 1. LIVE : le CONTRÔLE NÉGATIF (la fixture déclenche le chemin) ─────────────────────────────────────────────────────────────
+    await faireLaSeance();
+    await avoirSuite('f2 LIVE : la suite');
+    let e = await lireF2();
+    ok('[f2 LIVE — contrôle négatif] la séance en cours dit « La prochaine fois : une rep de plus, 90 kg × 6. » (routines lues avant la séance)', suiteDite(e), dit(e));
+    ok('[f2 LIVE] le verdict du jour et les invariants : « 90 kg : 4 reps mercredi, 5 aujourd\'hui. », aucune erreur', /5 aujourd/.test(esp(e.verdict)) && e.erreurs.length === 0 && e.routinesPretes === true, dit(e));
+
+    // ── 2. RECHARGEMENT EN LIGNE : la suite redevient juste SANS aucun geste (le défaut : « Prochaine séance : 80 kg × 8 ») ─────────
+    await recharger();
+    const surLaSeance = await vueAffichee('vue-seance').catch(() => false);
+    const apresRecharge = await avoirSuite('f2 rechargement en ligne : la suite');
+    e = await lireF2();
+    ok('[f2 rechargé en ligne] la vue visible est la séance et la suite redit « une rep de plus, 90 kg × 6 » — plus « Prochaine séance : 80 kg × 8 »',
+      surLaSeance && apresRecharge && suiteDite(e) && !/80/.test(esp(e.suite)), dit(e));
+    ok('[f2 rechargé en ligne] le verdict reste, l\'en-tête d\'avant ne revient pas sur l\'exercice fini, aucun invariant en échec',
+      /5 aujourd/.test(esp(e.verdict)) && e.entete.length === 0 && e.erreurs.length === 0, dit(e));
+
+    // ── 3. RETOUR PAR L'ONGLET : Séances puis Saisie, sans rechargement ──────────────────────────────────────────────────────────────
+    await page.click('#onglet-seances'); await vueAffichee('vue-liste');
+    await page.click('#onglet-saisie'); await vueAffichee('vue-seance');
+    await avoirSuite('f2 retour par l’onglet Saisie : la suite');
+    e = await lireF2();
+    ok('[f2 retour par l’onglet Saisie] la suite est toujours juste', suiteDite(e) && e.erreurs.length === 0, dit(e));
+
+    // ── 4. HORS LIGNE (avion) : l'app se tait sur la suite, au lieu de la dire fausse ──────────────────────────────────────────────
+    base.reseau = false;
+    await recharger();
+    await vueAffichee('vue-seance');
+    await attendreQue(async () => (await lireF2()).routinesPretes === false, 10000, 'f2 hors ligne : le plan sait que les routines ne sont pas prêtes');
+    e = await lireF2();
+    ok('[f2 hors ligne, rechargée] AUCUNE suite dite (ni « 80 kg × 8 », ni la bonne, qu\'elle ne peut pas connaître) : silence, et l\'en-tête d\'avant ne revient pas',
+      e.suite === null && !/80/.test(esp(e.verdict)) && e.entete.length === 0 && e.muet === true, dit(e));
+    ok('[f2 hors ligne, rechargée] I168 tient (suite et constat nuls, routines pas prêtes) et la garde de développement ne lève rien', e.erreurs.length === 0, dit(e));
+
+    // ── 5. LA ZONE D'UNE ROUTINE QU'ON NE VOIT PAS NE SE CHANGE PAS : refus clair, jamais la promesse ──────────────────────────────
+    await ouvrirPuce();
+    const options = await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .option-zone')).map((b) => ({ choix: b.dataset.choix, off: b.disabled, texte: b.textContent.replace(/\s+/g, ' ').trim() })));
+    const optRoutine = options.filter((o) => o.choix === 'routine')[0], optJour = options.filter((o) => o.choix === 'aujourdhui')[0];
+    ok('[f2 zone de routine en avion] « Changer la zone de cette routine » est grisé et dit pourquoi — jamais « Elle change pour les prochaines fois »',
+      !!optRoutine && optRoutine.off === true && /Je ne vois pas ta routine/.test(optRoutine.texte) && !/Elle change pour les prochaines fois/.test(optRoutine.texte), dit(options));
+    ok('[f2 zone de routine en avion] « Juste pour aujourd\'hui » reste possible', !!optJour && optJour.off === false, dit(options));
+    await page.evaluate(() => { const b = document.querySelector('#feuille-contenu .option-zone[data-choix="routine"]'); if (b) b.click(); });
+    const titre = await page.evaluate(() => (document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || '');
+    ok('[f2 zone de routine en avion] le toucher n\'ouvre pas le choix d\'une zone (aucune promesse) et la routine en base ne bouge pas', titre === 'Zone de travail' && zoneRoutine() === 'hypertrophie', titre + ' · ' + zoneRoutine());
+    await page.click('#btn-fermer-feuille'); await feuilleFermee();
+
+    // ── 6. LE RÉSEAU REVIENT : la séance relit les routines et redevient juste, sans geste ───────────────────────────────────────────
+    base.reseau = true;
+    await evenementOnline();
+    const revenue = await avoirSuite('f2 retour du réseau : la suite');
+    e = await lireF2();
+    ok('[f2 retour du réseau] l\'évènement `online` relit les routines : la séance se redessine et redit « une rep de plus, 90 kg × 6 »', revenue && suiteDite(e) && e.routinesPretes === true && e.muet === false && e.erreurs.length === 0, dit(e));
+
+    // ── 7. JAMAIS SOUS LA FRAPPE : un champ du journal a le focus quand les routines arrivent ─────────────────────────────────────────
+    base.reseau = false;
+    await recharger();
+    await vueAffichee('vue-seance');
+    await attendreQue(async () => (await lireF2()).routinesPretes === false, 10000, 'f2 frappe : hors ligne');
+    await page.evaluate(() => { const c = document.querySelectorAll('.ligne-serie')[3].querySelector('input'); c.dataset.f2 = '1'; c.classList.add('f2-marque'); c.focus(); });
+    const lecturesAvant = nRoutinesGET;
+    base.reseau = true;
+    await evenementOnline();
+    // les routines arrivent PENDANT que le champ a le focus : on attend que la lecture soit partie ET finie (réseau calme), puis on lit l'écran
+    await attendreQue(() => nRoutinesGET > lecturesAvant && reseauBanc.enVol === 0, 10000, 'f2 frappe : la lecture des routines est partie');
+    await reseauCalme();
+    e = await lireF2();
+    ok('[f2 frappe en cours] le champ gardé sous le doigt n\'est PAS détruit : même élément, toujours le focus, le clavier ne se ferme pas',
+      e.champ === true && e.marque === true, dit(e));
+    await page.evaluate(() => document.activeElement && document.activeElement.blur());
+    const apresFrappe = await avoirSuite('f2 frappe : la suite après le focusout');
+    e = await lireF2();
+    ok('[f2 frappe finie] le focus quitté, le redessin remis a lieu : la suite redevient juste', apresFrappe && suiteDite(e) && e.erreurs.length === 0, dit(e));
+    await abandonner();
+
+    // ── 8. LA CONSIGNE NE SE FIGE PAS SANS LES ROUTINES (B1) : brouillon `consignes` effacé, rechargé hors ligne ────────────────────
+    ROUTINES.filter((r) => r.id === 'r-dl')[0].routine_exercises[0].zone = 'hypertrophie';
+    await aller('/saisie'); await demarrerRoutine('Haut B DL');
+    await page.evaluate(() => window.THCache.ecrireBrouillon('consignes', null));
+    base.reseau = false;
+    await recharger();
+    await vueAffichee('vue-seance');
+    await attendreQue(async () => (await lireF2()).routinesPretes === false, 10000, 'f2 B1 : hors ligne');
+    e = await lireF2();
+    const disque = await page.evaluate(() => window.THCache.lireBrouillon('consignes')).catch(() => null);
+    const figeeSansRoutines = !!(disque && disque.parSlug && disque.parSlug['dl-a']);
+    ok('[f2 B1, brouillon des consignes effacé, hors ligne] le coach se tait : aucune consigne de zone fausse (« Nouvelle zone », 77,5 kg), RIEN n\'est figé sur le disque',
+      e.cons === null && e.entete.every((t) => !/Nouvelle zone|Premier repère/.test(t)) && !figeeSansRoutines && e.erreurs.length === 0, dit(e) + ' · disque=' + figeeSansRoutines);
+    base.reseau = true;
+    await evenementOnline();
+    await attendreQue(async () => { const x = await lireF2(); return x.cons !== null && x.routinesPretes === true; }, 10000, 'f2 B1 : la consigne revient avec les routines');
+    e = await lireF2();
+    ok('[f2 B1, le réseau revient] la consigne se calcule avec les routines : l\'histoire de la zone (90 kg × 5), jamais le report « nouvelle zone »',
+      !!e.cons && e.cons.etat !== 'nouvelle_zone' && !!e.cons.ligne && e.cons.ligne.charge === 90 && e.erreurs.length === 0, dit(e));
+    await abandonner();
+
+    // ── 9. TÉMOIN : routines LUES puis un échec tardif — elles restent en mémoire, le geste « dans la routine » marche (S5) ──────────
+    ROUTINES.filter((r) => r.id === 'r-dl')[0].routine_exercises[0].zone = 'hypertrophie';
+    await aller('/saisie'); await demarrerRoutine('Haut B DL');
+    base.reseau = false;
+    await page.evaluate(() => window.dispatchEvent(new Event('offline')));
+    await ouvrirPuce();
+    const optS5 = await page.evaluate(() => { const b = document.querySelector('#feuille-contenu .option-zone[data-choix="routine"]'); return b ? { off: b.disabled, texte: b.textContent.replace(/\s+/g, ' ').trim() } : null; });
+    ok('[f2 témoin, routines en mémoire, réseau coupé] « Changer la zone de cette routine » reste proposé (la file écrit hors ligne) : routinesPretes ne se lit pas sur le seul état',
+      !!optS5 && optS5.off === false && /Elle change pour les prochaines fois/.test(optS5.texte), dit(optS5));
+    await page.click('#btn-fermer-feuille'); await feuilleFermee();
+    base.reseau = true;
+    await abandonner();
+
+    ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
+    CATALOGUE.splice(CATALOGUE.length - 1, 1);
+    base.sessions = sessionsAvant; base.sets = setsAvant; base.predictions = predictionsAvant;
+    base.profiles[0].objectif = profilAvant.objectif; base.profiles[0].objectif_depuis = profilAvant.depuis; base.profiles[0].cartes_semaine = profilAvant.cartes;
+    rendreBlocsF2();
+    page.off('request', ecouteRoutinesF2);
+    await aller('/saisie');
+  }
+
   console.log('\n══ plafond-echelle. L’ÉCHELLE PROPOSE AUSSI LA VARIANTE SANS MATÉRIEL : LA CARTE DU LEST À TROIS GESTES, LA VARIANTE SEULE APRÈS « PAS DE LEST », 30 REPS = LE PLAFOND (175, MOTEUR §9.17 bis) ══');
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE : une échelle de pompes à la taille de la vraie (la stricte, sa version lestée ET une

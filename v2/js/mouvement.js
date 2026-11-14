@@ -398,7 +398,30 @@
     crunch_decline_disque: 'crunch_decline_disque.json',
     rotation_russe: 'rotation_russe.json',
     rotation_russe_disque: 'rotation_russe_disque.json',
-    rotation_russe_medecine_ball: 'rotation_russe_medecine_ball.json'
+    rotation_russe_medecine_ball: 'rotation_russe_medecine_ball.json',
+    pompes_diamant: 'pompes_diamant.json',
+    dips_torse_assiste: 'dips_torse_assiste.json',
+    dips_triceps_elastique: 'dips_triceps_elastique.json',
+    curl_inverse_cable: 'curl_inverse_cable.json',
+    pompes_negatives: 'pompes_negatives.json',
+    gainage_pompe_basse: 'gainage_pompe_basse.json',
+    dips_negatif: 'dips_negatif.json',
+    dips_torse_lestes: 'dips_torse_lestes.json',
+    dips_triceps_lestes: 'dips_triceps_lestes.json',
+    dips_torse_elastique: 'dips_torse_elastique.json',
+    dips_triceps_assiste: 'dips_triceps_assiste.json',
+    rowing_debout_haltere: 'rowing_debout_haltere.json',
+    rowing_debout_machine_smith: 'rowing_debout_machine_smith.json',
+    rowing_debout_poulie: 'rowing_debout_poulie.json',
+    curl_poignets_haltere: 'curl_poignets_haltere.json',
+    extension_poignets_haltere: 'extension_poignets_haltere.json',
+    curl_poignets_poulie: 'curl_poignets_poulie.json',
+    skullcrusher_barre_ez: 'skullcrusher_barre_ez.json',
+    extension_triceps_allonge_poulie: 'extension_triceps_allonge_poulie.json',
+    extension_triceps_elastique: 'extension_triceps_elastique.json',
+    elevation_frontale_elastique: 'elevation_frontale_elastique.json',
+    pull_over_barre: 'pull_over_barre.json',
+    extension_mollets_assis_haltere: 'extension_mollets_assis_haltere.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

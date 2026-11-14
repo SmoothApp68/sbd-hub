@@ -92,6 +92,8 @@ function histoire(kg, repsHabituelles, derniere) {
     return { seance: { id: 'H' + i, debut: jour(d) }, series };
   });
 }
+// PR 5a-bis (I167) : la suite simulée dit la fois d'APRÈS la séance du jour — sa consigne est datée du jour, comme `suiteDExercice` la rend.
+const suiteDuJour = (c) => Object.assign({}, c, { fondement: Object.assign({}, c.fondement, { date: AVANT }) });
 const consigne = (groupes, options) =>
   M.consigneDExercice(groupes, undefined, AVANT, Object.assign({}, OPTIONS, options || {})).consigne;
 
@@ -202,7 +204,7 @@ function simulateur(consigneObj, ressentiFinal, options) {
       if (fini) {
         const dernier = travail[travail.length - 1];
         const groupes = histoire(40, 9, { reps: dernier.reps, ressenti: dernier.ressenti });
-        e.suites = { dc: { consigne: consigne(groupes, { reglage: o.reglage }), cranSuivant: 42.5 } };
+        e.suites = { dc: { consigne: suiteDuJour(consigne(groupes, { reglage: o.reglage })), cranSuivant: 42.5 } };
       }
       return e;
     },

@@ -10581,8 +10581,8 @@ const SETS_IMPORTES = [
       routine_exercises: [{ id: 'r-dr-0', routine_id: 'r-dr', exercise_slug: 'dl-a', rang: 0, zone: 'hypertrophie', routine_sets: progr(4, 8), repos_cible_s: 180, groupe_superset: null, note: null }] });
     // Le bloc de 4 semaines commencé il y a 14 jours : sa décharge (semaine 4) commence dans 7 jours. L'exercice n'est pas du bloc (la décharge vaut pour tout exercice).
     base.blocs.push({ id: 'b-dr', user_id: 'u-banc', dossier: 'DR', zone: 'lourd', semaines: 4, decharge: true, statut: 'en_cours', precedent: null, exercices: [],
-      debut: jourLocal(t5b1 - 14 * 86400000), created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z' });
-    const jourDecharge = jourLocal(t5b1 + 7 * 86400000);
+      debut: jourLocal(ilYa(14 * 86400000, t5b1).getTime()), created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z' });
+    const jourDecharge = (() => { const d = new Date(t5b1); d.setDate(d.getDate() + 7); return jourLocal(d.getTime()); })();
     const esp = (t) => String(t || '').replace(/[\u00a0\u202f]/g, ' ');
     const lire5b1 = () => page.evaluate((jd) => {
       const d = window.THPlan && window.THPlan.dernier, x = d && d.plan.exercices[0];

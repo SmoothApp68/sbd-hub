@@ -353,7 +353,18 @@
     descente_excentrique_mollet: 'descente_excentrique_mollet.json',
     extension_mollets_debout_barre: 'extension_mollets_debout_barre.json',
     extension_mollets_debout_machine_smith: 'extension_mollets_debout_machine_smith.json',
-    extension_mollets_hack_squat_machine: 'extension_mollets_hack_squat_machine.json'
+    extension_mollets_hack_squat_machine: 'extension_mollets_hack_squat_machine.json',
+    hip_thrust_barre: 'hip_thrust_barre.json',
+    hip_thrust_haltere: 'hip_thrust_haltere.json',
+    hip_thrust_machine_smith: 'hip_thrust_machine_smith.json',
+    hip_thrust_barre_elastique: 'hip_thrust_barre_elastique.json',
+    hip_thrust_une_jambe_haltere: 'hip_thrust_une_jambe_haltere.json',
+    pont_fessier_barre: 'pont_fessier_barre.json',
+    pont_fessier_kas_barre: 'pont_fessier_kas_barre.json',
+    hip_thrust_poids_corps: 'hip_thrust_poids_corps.json',
+    hip_thrust_une_jambe_poids_corps: 'hip_thrust_une_jambe_poids_corps.json',
+    pont_fessier: 'pont_fessier.json',
+    pont_fessier_une_jambe: 'pont_fessier_une_jambe.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

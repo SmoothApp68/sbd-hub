@@ -756,7 +756,7 @@
     if (p.record) bouts.push('record');
     return bouts.join(' \u00b7 ');
   }
-  function jour2(d) { return d.getFullYear() + '-' + (d.getMonth() < 9 ? '0' : '') + (d.getMonth() + 1) + '-' + (d.getDate() < 10 ? '0' : '') + d.getDate(); }
+  function jour2(d) { return racine.THPeriode.jourISO(d); }
   function rendreCourbeExo(cible, c) {
     var carte = el('div', 'courbe-carte');
     var geo = c.geo;
@@ -7602,7 +7602,7 @@
     var v = vue || {};
     // PR 6 des mots : la fenêtre est celle de la PERSONNE (84 jours qui finissent à sa dernière séance, `Routines.fenetreDeLaPersonne`) : le titre la
     // dit par ses dates (`v.titre`, écrit par l'app), jamais « 12 dernières semaines » en dur.
-    cible.appendChild(el('div', 'feuille-t', v.titre || 'Tes séances qui reviennent.'));
+    cible.appendChild(el('div', 'feuille-t', v.titre || 'Tes séances qui reviennent, sur tes 12 dernières semaines.'));
     var routines = v.routines || [];
     if (!routines.length) {
       cible.appendChild(el('p', 'retrouver-rien',

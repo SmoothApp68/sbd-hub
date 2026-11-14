@@ -15906,7 +15906,7 @@
     // `Routines.DEDUIT`) ; sans, le titre dit que c'est un point de départ.
     var h = c.historique;
     var fenetreH = h ? faits.datesDeLaFenetre(corpus()) : null;
-    var voix = (h ? ['Ce sont tes séances' + (fenetreH ? ' ' + Modele.libelleDePeriode({ genre: 'fenetre', debut: fenetreH.debut, fin: fenetreH.fin }, new Date()) : '').replace(/\.?$/, '.')] : [])
+    var voix = (h ? ['Ce sont tes séances' + (fenetreH ? ' ' + Modele.libelleDePeriode({ genre: 'fenetre', debut: fenetreH.debut, fin: fenetreH.fin }, new Date()) : ' des 12 dernières semaines').replace(/\.?$/, '.')] : [])
       .concat(['Je te propose tes charges à chaque séance. Touche un exercice pour le changer.']).concat(phrases.famille || [])
       .concat(phrases.zones);
     if (phrases.barreFixe) voix.push(phrases.barreFixe);

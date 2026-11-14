@@ -17,6 +17,7 @@ const RESTE = {
   'moteur.js': { n: 1, raison: 'LA définition : `jourCivil`.' },
   'calendrier.js': { n: 2, raison: 'clés de cellule internes à la grille (mois de 0 à 11, sans zéro) : jamais un jour civil échangé avec un autre module.' },
   'equilibres.js': { n: 1, raison: 'dette signalée (208) : `cleDeJour` rend « NaN-NaN-NaN » d’une date illisible, `jourCivil` rendrait null.' },
+  'periode.js': { n: 1, raison: 'mots PR 6 : `jourISO`, le jour civil d’une période (« AAAA-MM-JJ » lu ou formaté en local) — module pur chargé sans le moteur (comme `semaine.js`) ; `Moteur.jourCivil` en est la même définition.' },
   'routeur.js': { n: 1, raison: 'dette signalée (208) : `versDate`, module chargé sans le moteur.' },
   'routines.js': { n: 1, raison: 'dette signalée (208) : `jourCle`.' },
   'semaine.js': { n: 1, raison: 'dette signalée (208) : module chargé avant le moteur, testé sans lui.' }

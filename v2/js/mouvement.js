@@ -314,7 +314,28 @@
     elevation_laterale_appui_poitrine_haltere: 'elevation_laterale_appui_poitrine_haltere.json',
     elevation_laterale_elastique: 'elevation_laterale_elastique.json',
     elevation_laterale_kettlebell: 'elevation_laterale_kettlebell.json',
-    elevation_y: 'elevation_y.json'
+    elevation_y: 'elevation_y.json',
+    pompes_prise_large: 'pompes_prise_large.json',
+    pompes_inclinees: 'pompes_inclinees.json',
+    pompes_declinees: 'pompes_declinees.json',
+    pompes_deficit: 'pompes_deficit.json',
+    pompes_lestees: 'pompes_lestees.json',
+    pompes_gilet_leste: 'pompes_gilet_leste.json',
+    pompes_genoux: 'pompes_genoux.json',
+    pompes_elastique: 'pompes_elastique.json',
+    pompes_contre_mur: 'pompes_contre_mur.json',
+    ecarte_incline_haltere: 'ecarte_incline_haltere.json',
+    ecarte_decline_haltere: 'ecarte_decline_haltere.json',
+    ecarte_couche_poulie: 'ecarte_couche_poulie.json',
+    ecarte_incline_poulie: 'ecarte_incline_poulie.json',
+    ecarte_assis_poulie: 'ecarte_assis_poulie.json',
+    ecarte_un_bras_poulie: 'ecarte_un_bras_poulie.json',
+    chest_press_machine: 'chest_press_machine.json',
+    chest_press_convergent_machine: 'chest_press_convergent_machine.json',
+    chest_press_incline_machine: 'chest_press_incline_machine.json',
+    chest_press_incline_convergent_machine: 'chest_press_incline_convergent_machine.json',
+    chest_press_decline_machine: 'chest_press_decline_machine.json',
+    chest_press_un_bras_machine: 'chest_press_un_bras_machine.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

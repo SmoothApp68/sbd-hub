@@ -1220,7 +1220,7 @@ et les records ne le sont pas. Elle vit dans la vue Volume.
 
 ### 7 bis.14 ter « Ton parcours » — décidé le 11/10/2026 (chantier 75)
 
-> **Delta du 30/10/2026 (188-1) — l'ordre des sections.** La page garde sa phrase en tête, puis s'ouvre sur « Ta semaine et tes équilibres » (MOTEUR §9.27, maquette `maquette-semaine-equilibres-v6.html`), puis le reste dans l'ordre d'origine : Tes grands mouvements · Par muscle · 6 derniers mois · Tes équilibres (les barres sur douze mois, inchangée) · Ton levier · Ta phase · Tous tes exercices. Le rendu reste pur : la section lit, n'écrit rien.
+> **Delta du 30/10/2026 (188-1) — l'ordre des sections.** La page garde sa phrase en tête, puis s'ouvre sur « Ta semaine et tes équilibres » (MOTEUR §9.27, maquette `maquette-semaine-equilibres-v6.html`), puis le reste dans l'ordre d'origine : Tes grands mouvements · Par muscle · 6 derniers mois · Tes équilibres (les barres sur 12 mois, datées : delta du 14/11/2026) · Ton levier · Ta phase · Tous tes exercices. Le rendu reste pur : la section lit, n'écrit rien.
 
 > **Le bilan de toute ta progression, pas du mois.** Un bloc du sommaire de Progression, juste après « Le mois
 > écoulé » : sa phrase en deux lignes, et il s'ouvre sur la page « Ton parcours ». Il se recalcule à chaque
@@ -1296,22 +1296,45 @@ morphologie, mouvement travaillé plus tôt et plus souvent, priorités passées
 
 **Les courbes des grands mouvements** : pour chacun des quatre, tout l'historique jusqu'à J, mois par mois, la charge la
 plus lourde à 5 reps ou plus (de 5 à 15) ; une ligne dorée pour « ton meilleur » (le plus haut atteint jusque-là), un
-point par mois ; sous la courbe, « au début », « ton meilleur », « en ce moment » (le dernier mois) ; en titre, le
-verdict de l'exercice. **Aucun e1RM, aucun score, aucune comparaison à d'autres, rien sur l'assiduité.**
+point par mois ; sous la courbe, trois cellules **mois / valeur** (le premier mois, « ton meilleur », le dernier mois ;
+voir le delta du 14/11/2026 ci-dessous) ; en titre, le verdict de l'exercice. **Aucun e1RM, aucun score, aucune comparaison à
+d'autres, rien sur l'assiduité.**
 
 **La phrase** (le bloc du sommaire et le haut de la page) : sur les groupes à verdict, m en tout, k en ↑ ou ↗ —
-« Tes six derniers mois : les {k en lettres} groupes que tu suis progressent. » si k = m (« le groupe que tu suis
+« Tes 6 derniers mois : les {k en lettres} groupes que tu suis progressent. » si k = m (« le groupe que tu suis
 progresse. » si m = 1) ; « {k} groupes sur {m} progressent. » sinon (« un groupe sur {m} progresse. » si k = 1 ; « pas
 encore de groupe en hausse. » si k = 0) ; puis, s'il y a un levier et au moins deux groupes à verdict,
-« {Groupe} : ce qui avance le plus lentement. » ; puis, si un rapport est en dessous, celui qui en est le plus loin
+« {Groupe} : ce qui avance le plus lentement. » (**14/11/2026 : seulement si le levier avance, ↑ ou ↗ ; sinon « {Groupe} : le moins bien des groupes. »**) ; puis, si un rapport est en dessous, celui qui en est le plus loin
 (rapport / repère le plus petit ; à égalité, l'ordre du tableau) : « Ton {second} tire devant ton {premier}. »
 (squat, couché, soulevé, militaire).
 
 **L'ordre de la page** : la phrase · les courbes · par muscle (les six groupes, puis au toucher les lignes de chaque
-exercice : verdict, méthode, et les charges à reps égales « 79 → 107 à 8 reps », ou « sur ta courbe », ou « moins
-pratiqué → … ») · tes équilibres · ton levier · ta phase (la phase du profil, et les pesées : « pas assez de pesées »
+exercice : verdict, méthode, et les charges à reps égales « 79 → 107 kg à 8 reps », ou « lu sur ta courbe charge-reps », ou « moins
+pratiqué · relais : … ») · tes équilibres · ton levier · ta phase (la phase du profil, et les pesées : « pas assez de pesées »
 sous quatre pesées dans les huit dernières semaines) · tous tes exercices (replié ; chacun ouvre sa page d'exercice
 par la porte habituelle, §7 quater).
+
+> **Delta du 14/11/2026 (mots PR 6, « les périodes disent vrai ») — Ton parcours dit ce qu'il compare.** MAQUETTE-PR6, validée par
+> Aurélien (« Ok avec tes recos »). Le verdict ne change pas (R = J−182…J, P = J−365…J−183 : les 183 jours de `THPeriode.JOURS_DE['6m']`,
+> les bornes de `THPeriode.fenetres(183, J)`, prouvé par le test G1) ; ce qui change, ce sont les MOTS, tous écrits d'une période
+> que l'écran sait nommer.
+> - **Dates visibles sous la phrase** (jamais au toucher) : « 6 derniers mois : du 12 avr. au 11 oct. » et « 6 mois d'avant : du 11 oct.
+>   2025 au 11 avr. 2026 » (`Modele.libelleDePeriode`, J = `parcours.aujourdhui`). Phrase vide : « Pas assez de séances comparables sur les
+>   6 derniers mois. », sans date ni verbe de progression.
+> - **Le pied d'une courbe = trois cellules mois / valeur** (`courbe.reperes = { debut, meilleur, dernier }`, chacun `{ mois, kg }`,
+>   champ additif : `debut / meilleur / maintenant` restent ceux de `parcours75.py`) : « mars 2024 · 60 kg », « sept. 2026 · 130 kg · ton
+>   meilleur », « oct. 2026 (en cours) · 125 kg ». « Ton meilleur » = le PREMIER mois qui a atteint le maximum (A12), seulement avec au
+>   moins deux mois distincts ; deux repères sur un même mois = une cellule ; « (en cours) » = le mois qui contient J, jamais lu dans un
+>   verdict. Plus de « au début », « en ce moment », « × 5+ » : la plage est dite une fois (« Meilleure charge, 5 à 15 reps, mois par mois »).
+> - **Verdicts en phrases** : « ↗ progresse légèrement », « ↘ recule légèrement », « ↑ progresse · le plus lentement » ; le levier qui ne
+>   progresse pas : « ▬ stable · le moins bien des groupes » / « ↓ recule · le moins bien des groupes » (la même phrase en tête de page
+>   et sous « Ton levier »). États : « aucune séance avant » (nP = 0), « moins de 5 séances avant » (nP de 1 à 4), « moins de 5 séances sur
+>   une période », « pas les mêmes reps qu'avant » ; « moins pratiqué · relais : X » (plus de « → »), « Nom · compte double » (plus de « ×2 »),
+>   « Reps différentes d'avant : lu sur ta courbe charge-reps. » (plus de « sur ta courbe »). Le détail à reps égales porte « kg ».
+> - **« Aucun exercice suivi » n'est vrai que s'il n'y en a aucun** : un groupe dont tous les exercices sont « moins de 5 séances sur une période »
+>   les nomme (trois au plus, puis « et N autres »). « Tes équilibres » : « sur 12 mois (du 11 oct. 2025 au 11 oct. 2026) ».
+> - **Doctrine (VOIX principe 5)** : aucun « depuis N mois », aucune phrase sur une pause ; une date seule (« depuis le 17 août »).
+> Lexique fermé : MAQUETTE-PR6 §3.2 ; `tests/unit/v2-periodes-garde-pr6.test.js` le balaie sur le texte rendu.
 
 **Écarté, avec la raison** : l'e1RM comme verdict (il dit « squat stable » quand la barre a pris 10 kg à 5 reps : il
 mélange les fourchettes) ; un exercice fait 3 ou 4 fois (verdicts fragiles, mesuré : rowing prise large −8 % sur 3

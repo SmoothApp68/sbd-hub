@@ -22738,7 +22738,7 @@ const SETS_IMPORTES = [
     seances75('p75-incline', P, [[8, 30], [10, 28]]); seances75('p75-incline', R, [[8, 30], [10, 28]]);
     seances75('p75-lat-h', P, [[12, 12]]); seances75('p75-lat-h', [20], [[12, 12]]);
     seances75('p75-lat-p', [300], [[12, 9]]); seances75('p75-lat-p', [10, 40, 70, 100, 130, 160], [[12, 13.6]]);
-    const PHRASE = 'Tes six derniers mois : les deux groupes que tu suis progressent. Poitrine : ce qui avance le plus ' +
+    const PHRASE = 'Tes 6 derniers mois : les deux groupes que tu suis progressent. Poitrine : ce qui avance le plus ' +
       'lentement. Ton couché tire devant ton squat.';
     const ecritures = () => base.journal.filter((j) => j.op !== 'refus').length;
     const file = () => page.evaluate(() => (window.THCache ? window.THCache.lireAttente() : Promise.resolve([])))
@@ -22795,9 +22795,9 @@ const SETS_IMPORTES = [
         JSON.stringify(pageP.sections) === JSON.stringify(['Ta semaine et tes équilibres', 'Tes grands mouvements', 'Par muscle · 6 derniers mois',
           'Tes équilibres', 'Ton levier', 'Ta phase', 'Tous tes exercices']) && pageP.courbes === 2,
       JSON.stringify(pageP));
-    ok('[P75] les six groupes, fermés ; jambes « ↑ progresse », poitrine « ↗ le plus lent », épaules sans verdict',
+    ok('[P75] les six groupes, fermés ; jambes « ↑ progresse », poitrine « ↗ progresse légèrement · le plus lentement » (PR 6 des mots), épaules sans verdict',
       pageP.groupes.length === 6 && pageP.groupes.every((g) => !g.ouvert) &&
-        sp(pageP.groupes[0].resume) === 'Jambes↑ progresse' && sp(pageP.groupes[4].resume) === 'Poitrine↗ le plus lent' &&
+        sp(pageP.groupes[0].resume) === 'Jambes↑ progresse' && sp(pageP.groupes[4].resume) === 'Poitrine↗ progresse légèrement · le plus lentement' &&
         sp(pageP.groupes[3].resume) === 'Épaulespas assez de séances comparables', JSON.stringify(pageP.groupes));
     ok('[P75] les équilibres : le fait, « Ton squat vaut 1,11 × ton couché ; repère de pratiquants 1,21 » (179, D1) ; le levier : Poitrine',
       /^Squat \/ couché1,11/.test(sp(pageP.rapport)) && /Ton squat vaut 1,11 × ton couché ; repère de pratiquants 1,21\./.test(sp(pageP.rapport)) &&
@@ -22814,7 +22814,7 @@ const SETS_IMPORTES = [
     });
     await capturer75('2-page');
     ok('[P75] DISCRIMINANT — un groupe s’ouvre au toucher : « Élévation latérale P75 (Haltère) — moins pratiqué → Élévation latérale P75 (Poulie) »',
-      epaules.ouvert && epaules.lignes.map(sp).indexOf('Élévation latérale P75 (Haltère)moins pratiqué → Élévation latérale P75 (Poulie)') >= 0,
+      epaules.ouvert && epaules.lignes.map(sp).indexOf('Élévation latérale P75 (Haltère)moins pratiqué · relais : Élévation latérale P75 (Poulie)') >= 0,
       JSON.stringify(epaules));
 
     // ── D. RIEN N'EST ÉCRIT : deux affichages (le sommaire, la page, puis un rechargement de la page).

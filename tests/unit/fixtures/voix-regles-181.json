@@ -89,8 +89,8 @@
    "regle": "VOIX-V1 principe 1 ; v2-voix.test.js:101-106 (« × » précédé de kg)",
    "gravite": "moyenne",
    "sauf": "séries × reps des cartes de routine (rendu.js:4449 « 3 × 8 », app.js:12117, 12465) ; noms d'élastique (« Rouge × 15 ») ; colonnes du social (app.js:2219 « 62,5 × 8 », sans kg — signalé)",
-   "exemple_reel": "rendu.js:1564 «  × 5+ »",
-   "occurrences_litteraux_v2": 1
+   "exemple_reel": null,
+   "occurrences_litteraux_v2": 0
   },
   {
    "motif": "\\?[\\s\\u00a0\\u202f]*$",

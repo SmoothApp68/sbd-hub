@@ -1677,7 +1677,8 @@
   // · les courbes des grands mouvements · par muscle (les six groupes, leurs exercices au toucher) · tes équilibres ·
   // ton levier · ta phase · tous tes exercices (replié). L'écran LIT le parcours (`THParcours`, par `faits.js`) : il
   // ne calcule aucun verdict, aucun rapport. Ambre pour le coach, or pour « ton meilleur », aucun rouge.
-  var PHRASE_VIDE = 'Pas encore assez de séances comparables sur douze mois.';
+  // PR 6 des mots : la phrase vide dit la fenêtre qu'elle regarde (6 derniers mois), sans verbe de progression.
+  var PHRASE_VIDE = 'Pas assez de séances comparables sur les 6 derniers mois.';
   function blocParcours(v) {
     var bloc = coquilleBloc('Ton parcours', '', false);
     bloc.classList.add('neuf', 'bloc-parcours');
@@ -1701,9 +1702,17 @@
     bloc.addEventListener('click', v.surChoix);
     return bloc;
   }
-  var MOTS_DU_VERDICT = { '↑': '↑ progresse', '↗': '↗ légèrement', '▬': '▬ stable', '↘': '↘ en léger recul',
-                          '↓': '↓ recule', moins: 'moins pratiqué', nouveau: 'nouveau', peu: 'peu de séances',
-                          'pas comparable': 'tu as changé de fourchette' };
+  // PR 6 des mots (lexique fermé, MAQUETTE-PR6 §3.2) : un verdict est une PHRASE LISIBLE seule (« ↗ progresse légèrement »,
+  // jamais « ↗ légèrement »), un état d'exercice dit ce qu'il compte (« moins de 5 séances sur une période », pas « peu de séances »).
+  var MOTS_DU_VERDICT = { '↑': '↑ progresse', '↗': '↗ progresse légèrement', '▬': '▬ stable', '↘': '↘ recule légèrement',
+                          '↓': '↓ recule', moins: 'moins pratiqué', peu: 'moins de 5 séances sur une période',
+                          'pas comparable': 'pas les mêmes reps qu’avant' };
+  // « nouveau » (nR >= 5, nP < 5) se dit par ce qui MANQUE avant : aucune séance (nP = 0) ou moins de 5.
+  function motDeLEtat(o) {
+    if (o.etat === 'nouveau') return o.nP === 0 ? 'aucune séance avant' : 'moins de 5 séances avant';
+    return MOTS_DU_VERDICT[o.etat] || '';
+  }
+  var PHRASE_COURBE = 'Reps différentes d’avant : lu sur ta courbe charge-reps.';
   function classeDuVerdict(etat) { return etat === '↑' || etat === '↗' ? 'pc-monte' : 'pc-neutre'; }
   function kg(n) { return M().nombreTexte(n) + ' kg'; }
   function majuscule(t) { return t ? t.charAt(0).toUpperCase() + t.slice(1) : t; }
@@ -1712,7 +1721,7 @@
 
   // La courbe d'un grand mouvement : un point par mois (placé à sa date), la ligne dorée du meilleur atteint
   // jusque-là, le dernier mois en blanc.
-  function courbeDuParcours(c) {
+  function courbeDuParcours(c, J) {
     var L = 300, H = 90, marge = 8;
     var rang = function (m) { var p = m.split('-'); return Number(p[0]) * 12 + Number(p[1]) - 1; };
     var r0 = rang(c.mois[0][0]), r1 = rang(c.mois[c.mois.length - 1][0]);
@@ -1721,7 +1730,8 @@
     var x = function (m) { return r1 === r0 ? L / 2 : marge + (rang(m) - r0) / (r1 - r0) * (L - 2 * marge); };
     var y = function (v) { return haut === bas ? H / 2 : H - marge - (v - bas) / (haut - bas) * (H - 2 * marge); };
     var dessin = svg('svg', 'pc-courbe', { viewBox: '0 0 ' + L + ' ' + H, preserveAspectRatio: 'none', role: 'img',
-      'aria-label': NOMS_DES_GRANDS[c.slug] + ', ' + c.mois.length + ' mois' });
+      'aria-label': NOMS_DES_GRANDS[c.slug] + ', de ' + M().libelleDePeriode({ genre: 'mois', cle: c.mois[0][0], forme: 'long' }, J) +
+        ' à ' + M().libelleDePeriode({ genre: 'mois', cle: c.mois[c.mois.length - 1][0], forme: 'long' }, J) });
     var meilleur = -Infinity, ligne = [];
     c.mois.forEach(function (m) {
       meilleur = Math.max(meilleur, m[1]);
@@ -1734,20 +1744,18 @@
     return dessin;
   }
 
-  // La ligne d'un exercice dans un groupe : son nom (× 2 pour une barre qui compte double), et ce qu'il dit.
+  // La ligne d'un exercice dans un groupe : son nom (« · compte double » pour une barre), et ce qu'il dit.
   function ligneDExercice(o, noms) {
     var l = el('div', 'pc-exo');
-    var gauche = el('span', 'pc-exo-nom', o.nom + (o.poids > 1 ? ' ×2' : ''));
+    var gauche = el('span', 'pc-exo-nom', o.nom + (o.poids > 1 ? ' · compte double' : ''));
     var droite;
     if (o.etat === 'moins') {
       var relais = (o.relais || []).map(function (s) { return noms[s] || s; });
-      droite = el('span', 'pc-gris', 'moins pratiqué' + (relais.length ? ' → ' + relais.join(', ') : ''));
-    } else if (o.methode === 'courbe') {
-      droite = el('span', classeDuVerdict(o.etat), 'sur ta courbe ' + o.etat);
-    } else if (o.methode === 'reps') {
+      droite = el('span', 'pc-gris', MOTS_DU_VERDICT.moins + (relais.length ? ' · relais : ' + relais.join(', ') : ''));
+    } else if (o.methode === 'courbe' || o.methode === 'reps') {
       droite = el('span', classeDuVerdict(o.etat), MOTS_DU_VERDICT[o.etat]);
     } else {
-      droite = el('span', 'pc-gris', MOTS_DU_VERDICT[o.etat] || '');
+      droite = el('span', 'pc-gris', motDeLEtat(o));
     }
     var haut = el('div', 'pc-exo-haut');
     haut.appendChild(gauche);
@@ -1755,10 +1763,34 @@
     l.appendChild(haut);
     if (o.methode === 'reps' && o.detail.length) {
       l.appendChild(el('div', 'pc-exo-detail', o.detail.map(function (d) {
-        return M().nombreTexte(d[1]) + ' → ' + M().nombreTexte(d[2]) + ' à ' + M().repsTexte(d[0]);
+        return M().nombreTexte(d[1]) + ' → ' + M().nombreTexte(d[2]) + ' kg à ' + M().repsTexte(d[0]);
       }).join(' · ')));
+    } else if (o.methode === 'courbe') {
+      l.appendChild(el('div', 'pc-exo-detail', PHRASE_COURBE));
     }
     return l;
+  }
+
+  // Le pied d'une courbe : un MOIS et sa valeur par cellule (au plus trois : le début, le meilleur, le dernier mois). Un mois qui
+  // porte deux repères n'est écrit qu'une fois ; « ton meilleur » n'existe qu'avec au moins deux mois distincts ; « (en cours) »
+  // vient de `libelleDePeriode` (le mois qui contient J), jamais d'un verdict.
+  function piedDeLaCourbe(c, J) {
+    var r = c.reperes;
+    var cellules = [];
+    [['debut', r.debut], ['meilleur', r.meilleur], ['dernier', r.dernier]].forEach(function (x) {
+      var cell = cellules.filter(function (k) { return k.mois === x[1].mois; })[0];
+      if (!cell) { cell = { mois: x[1].mois, kg: x[1].kg, meilleur: false }; cellules.push(cell); }
+      if (x[0] === 'meilleur') cell.meilleur = true;
+    });
+    var plusieurs = cellules.length > 1;
+    var pied = el('div', 'pc-lift-pied');
+    cellules.forEach(function (k) {
+      var cel = el('span', 'pc-cell' + (k.meilleur && plusieurs ? ' pc-or' : ''));
+      cel.appendChild(el('span', 'pc-mois', M().libelleDePeriode({ genre: 'mois', cle: k.mois, forme: 'pied' }, J)));
+      cel.appendChild(el('span', 'pc-val', ' ' + kg(k.kg) + (k.meilleur && plusieurs ? ' · ton meilleur' : '')));
+      pied.appendChild(cel);
+    });
+    return pied;
   }
 
   // ══ 188-1 — « TA SEMAINE ET TES ÉQUILIBRES » (MOTEUR §9.27, maquette-semaine-equilibres-v6) ═══════════════════════════
@@ -2071,8 +2103,16 @@
 
     // La phrase.
     cible.appendChild(el('div', 'pc-phrase', p.phrase || PHRASE_VIDE));
+    var J = p.aujourdhui;
+    // PR 6 des mots : les deux fenêtres du verdict, DATÉES, visibles (jamais au toucher). Sans verdict, aucune fenêtre à dire.
+    if (p.phrase && p.fenetres) {
+      var datees = el('div', 'pc-dates');
+      datees.appendChild(el('div', null, '6 derniers mois : ' + M().libelleDePeriode({ genre: 'fenetre', debut: p.fenetres.R[0], fin: p.fenetres.R[1] }, J)));
+      datees.appendChild(el('div', null, '6 mois d’avant : ' + M().libelleDePeriode({ genre: 'fenetre', debut: p.fenetres.P[0], fin: p.fenetres.P[1] }, J)));
+      cible.appendChild(datees);
+    }
 
-    // 188-1 — « Ta semaine et tes équilibres » : en tête, au-dessus de « Tes équilibres » (les barres sur douze mois).
+    // 188-1 — « Ta semaine et tes équilibres » : en tête, au-dessus de « Tes équilibres » (les barres sur 12 mois).
     rendreSemaineForme(cible, vue.forme);
     rendreEquilibres(cible, vue.equilibres);
     // 189 — « Juste un carnet » : le constat de la baisse, une carte sans proposition (aucune section de plus).
@@ -2093,20 +2133,19 @@
         tete.appendChild(el('span', 'pc-lift-nom', NOMS_DES_GRANDS[c.slug]));
         if (c.etat) tete.appendChild(el('span', classeDuVerdict(c.etat), MOTS_DU_VERDICT[c.etat] || ''));
         carte.appendChild(tete);
-        carte.appendChild(courbeDuParcours(c));
-        var pied = el('div', 'pc-lift-pied');
-        pied.appendChild(el('span', null, 'au début ' + kg(c.debut)));
-        pied.appendChild(el('span', 'pc-or', 'ton meilleur ' + kg(c.meilleur) + ' × 5+'));
-        pied.appendChild(el('span', null, 'en ce moment ' + kg(c.maintenant)));
-        carte.appendChild(pied);
+        carte.appendChild(courbeDuParcours(c, J));
+        carte.appendChild(piedDeLaCourbe(c, J));
         cible.appendChild(carte);
       });
-      cible.appendChild(el('p', 'pc-note', 'Ligne dorée : ton meilleur, à 5 reps ou plus. Points : ton meilleur de chaque mois.'));
+      // La plage de reps est celle du calcul (`REPS_HISTO_MIN` à `REPS_CELLULE_MAX`) ; le verdict et la courbe n'ont pas la même durée.
+      cible.appendChild(el('p', 'pc-note', 'Meilleure charge, 5 à 15 reps, mois par mois. La ligne dorée garde ton meilleur atteint ' +
+        'jusque-là. Le verdict compare tes 6 derniers mois aux 6 mois d’avant ; la courbe montre tout ton historique.'));
     }
 
     // Par muscle.
     cible.appendChild(el('div', 'section-t', 'Par muscle · 6 derniers mois'));
-    cible.appendChild(el('p', 'pc-note', 'Chaque exercice comparé à lui-même, au même nombre de reps. Touche un groupe pour le détail.'));
+    cible.appendChild(el('p', 'pc-note', 'Chaque exercice est comparé à lui-même, au même nombre de reps. Au détail : la charge la plus ' +
+      'lourde à N reps, 6 mois d’avant → 6 derniers mois. Touche un groupe pour le détail.'));
     var avec = p.zones.filter(function (z) { return z.verdict; }).length;
     p.zones.forEach(function (z) {
       var groupe = el('details', 'pc-groupe');
@@ -2114,9 +2153,11 @@
       var resume = el('summary', null);
       resume.appendChild(el('span', null, z.libelle));
       if (z.verdict) {
+        // Le levier : « le plus lentement » s'il avance, « le moins bien des groupes » sinon (jamais « le plus lent » pour un groupe qui recule).
         var lent = p.levier === z.zone && avec > 1;
+        var avance = z.verdict === '↑' || z.verdict === '↗';
         resume.appendChild(el('span', classeDuVerdict(z.verdict),
-          lent ? z.verdict + ' le plus lent' : MOTS_DU_VERDICT[z.verdict]));
+          MOTS_DU_VERDICT[z.verdict] + (lent ? (avance ? ' · le plus lentement' : ' · le moins bien des groupes') : '')));
       } else {
         resume.appendChild(el('span', 'pc-gris', z.raison));
       }
@@ -2124,7 +2165,14 @@
       var corps = el('div', 'pc-groupe-corps');
       var siens = p.exercices.filter(function (o) { return o.zone === z.zone && o.etat !== 'peu'; });
       siens.forEach(function (o) { corps.appendChild(ligneDExercice(o, noms)); });
-      if (!siens.length) corps.appendChild(el('div', 'pc-gris', 'Aucun exercice suivi en charge sur douze mois.'));
+      if (!siens.length) {
+        // « Aucun exercice suivi » n'est vrai que s'il n'y en a aucun : un exercice « peu » (moins de 5 séances sur une période) est suivi.
+        var peu = p.exercices.filter(function (o) { return o.zone === z.zone; });
+        if (peu.length) {
+          peu.slice(0, 3).forEach(function (o) { corps.appendChild(el('div', 'pc-gris', o.nom + ' : ' + MOTS_DU_VERDICT.peu + '.')); });
+          if (peu.length > 3) corps.appendChild(el('div', 'pc-gris', 'et ' + (peu.length - 3) + (peu.length - 3 > 1 ? ' autres' : ' autre') + '.'));
+        } else corps.appendChild(el('div', 'pc-gris', 'Aucun exercice suivi en charge.'));
+      }
       groupe.appendChild(corps);
       cible.appendChild(groupe);
     });
@@ -2132,7 +2180,9 @@
     // Tes équilibres.
     if (p.rapports.length) {
       cible.appendChild(el('div', 'section-t', 'Tes équilibres'));
-      cible.appendChild(el('p', 'pc-note', 'Tes vraies barres, au même nombre de reps, sur douze mois.'));
+      // 12 mois = les deux fenêtres ensemble (P ∪ R), dites par leurs dates.
+      cible.appendChild(el('p', 'pc-note', 'Tes vraies barres, au même nombre de reps, sur 12 mois' + (p.fenetres
+        ? ' (' + M().libelleDePeriode({ genre: 'fenetre', debut: p.fenetres.P[0], fin: p.fenetres.R[1] }, J) + ')' : '') + '.'));
       p.rapports.forEach(function (r) {
         var carte = el('div', 'carte-mois pc-rapport');
         carte.appendChild(ligneMois(majuscule(vue.nomsCourts[r.num]) + ' / ' + vue.nomsCourts[r.den],
@@ -2158,9 +2208,14 @@
     var zLevier = p.zones.filter(function (z) { return z.zone === p.levier; })[0];
     if (zLevier) {
       lev.appendChild(el('b', null, zLevier.libelle + '.'));
-      lev.appendChild(doc.createTextNode(' ' + (vue.priorites.length
-        ? 'De tes priorités (' + vue.priorites.join(', ') + '), c’est celle qui avance le plus lentement.'
-        : 'De tes groupes, c’est celui qui avance le plus lentement.')));
+      var leviersAvance = zLevier.verdict === '↑' || zLevier.verdict === '↗';
+      lev.appendChild(doc.createTextNode(' ' + (leviersAvance
+        ? (vue.priorites.length
+          ? 'De tes priorités (' + vue.priorites.join(', ') + '), c’est celle qui avance le plus lentement.'
+          : 'De tes groupes, c’est celui qui avance le plus lentement.')
+        : (vue.priorites.length
+          ? 'De tes priorités (' + vue.priorites.join(', ') + '), c’est le moins bien des groupes.'
+          : 'C’est le moins bien des groupes.'))));
     } else {
       lev.appendChild(doc.createTextNode('Pas encore de groupe à comparer.'));
     }
@@ -2187,7 +2242,7 @@
       b.setAttribute('data-slug', o.slug);
       b.appendChild(el('span', null, o.nom));
       b.appendChild(el('span', o.methode ? classeDuVerdict(o.etat) : 'pc-gris',
-        (o.methode === 'courbe' ? 'sur ta courbe ' + o.etat : MOTS_DU_VERDICT[o.etat]) || ''));
+        (o.methode ? MOTS_DU_VERDICT[o.etat] : (o.etat === 'moins' ? MOTS_DU_VERDICT.moins : motDeLEtat(o))) || ''));
       b.addEventListener('click', function () { vue.surExercice(o.slug); });
       tous.appendChild(b);
     });

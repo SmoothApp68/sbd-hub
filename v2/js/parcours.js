@@ -375,22 +375,33 @@
       var mois = Object.keys(h).sort();
       var max = 0;
       mois.forEach(function (m) { if (h[m] > max) max = h[m]; });
+      // PR 6 des mots — D'OÙ VIENT CHAQUE CHIFFRE DU PIED : le mois qui le porte. `debut` : le 1er mois avec 5 à 15 reps ;
+      // `meilleur` : le PREMIER mois qui a atteint le maximum (A12) ; `dernier` : le dernier mois avec une donnée. Champ additif :
+      // les trois nombres `debut / meilleur / maintenant` ci-dessous restent ceux de la référence (`parcours75.py`).
+      var moisDuMax = mois.filter(function (m) { return h[m] === max; })[0];
       courbes.push({ slug: slug, mois: mois.map(function (m) { return [m, h[m] / 100]; }), debut: h[mois[0]] / 100,
                      meilleur: max / 100, maintenant: h[mois[mois.length - 1]] / 100,
+                     reperes: { debut: { mois: mois[0], kg: h[mois[0]] / 100 },
+                                meilleur: { mois: moisDuMax, kg: max / 100 },
+                                dernier: { mois: mois[mois.length - 1], kg: h[mois[mois.length - 1]] / 100 } },
                      etat: ex[slug] ? ex[slug].etat : null });
     });
 
-    // La phrase.
+    // La phrase. « 6 derniers mois » en chiffres (R-CHIFFRES) ; « six », « douze » seulement dans une phrase comptée.
     var phrases = [];
     if (avec.length) {
       var k = avec.filter(function (z) { return z.verdict === '↑' || z.verdict === '↗'; }).length, m = avec.length;
-      if (k === m) phrases.push(m > 1 ? 'Tes six derniers mois : les ' + MOTS[m] + ' groupes que tu suis progressent.'
-                                      : 'Tes six derniers mois : le groupe que tu suis progresse.');
-      else if (k === 0) phrases.push('Tes six derniers mois : pas encore de groupe en hausse.');
-      else phrases.push(k > 1 ? 'Tes six derniers mois : ' + MOTS[k] + ' groupes sur ' + MOTS[m] + ' progressent.'
-                              : 'Tes six derniers mois : un groupe sur ' + MOTS[m] + ' progresse.');
+      if (k === m) phrases.push(m > 1 ? 'Tes 6 derniers mois : les ' + MOTS[m] + ' groupes que tu suis progressent.'
+                                      : 'Tes 6 derniers mois : le groupe que tu suis progresse.');
+      else if (k === 0) phrases.push('Tes 6 derniers mois : pas encore de groupe en hausse.');
+      else phrases.push(k > 1 ? 'Tes 6 derniers mois : ' + MOTS[k] + ' groupes sur ' + MOTS[m] + ' progressent.'
+                              : 'Tes 6 derniers mois : un groupe sur ' + MOTS[m] + ' progresse.');
     }
-    if (levier && avec.length > 1) phrases.push(levier.libelle + ' : ce qui avance le plus lentement.');
+    // Le levier est « ce qui avance le plus lentement » seulement s'il avance ; sinon c'est « le moins bien des groupes » (jamais
+    // « avance le plus lentement » pour un groupe qui stagne ou recule). `levier` = la plus petite moyenne, TOUT verdict.
+    if (levier && avec.length > 1) {
+      phrases.push(levier.libelle + ' : ' + (levier.verdict === '↑' || levier.verdict === '↗' ? 'ce qui avance le plus lentement' : 'le moins bien des groupes') + '.');
+    }
     var plusLoin = null;
     rapports.forEach(function (r) {
       if (r.lecture !== 'en dessous') return;
@@ -414,6 +425,9 @@
         return sortie;
       }),
       courbes: courbes,
+      // PR 6 des mots : le jour J et les deux fenêtres (R, P), pour que l'écran DATE sa phrase (« du 12 avr. au 11 oct. »).
+      aujourdhui: J,
+      fenetres: fenetresDeJours(J),
       phrase: phrases.join(' ')
     };
   }

@@ -66,6 +66,26 @@ function ecarts(obtenu, attendu, chemin, sortie) {
   return sortie;
 }
 
+// PR 6 des mots (14/11/2026) — LA RÉFÉRENCE PYTHON FAIT FOI POUR LES VERDICTS ET LES CHIFFRES, PAS POUR LES MOTS. Deux écarts, déclarés ici :
+//   · des CHAMPS ADDITIFS que la référence ne connaît pas (`aujourdhui`, `fenetres`, et `reperes` sur chaque courbe : le mois qui porte
+//     chaque chiffre du pied) — ils sont retirés avant la comparaison, et testés à part (« PR 6 »);
+//   · la PHRASE, réécrite : « six » → « 6 » (R-CHIFFRES) et le levier qui ne progresse pas se dit « le moins bien des groupes »
+//     (jamais « ce qui avance le plus lentement » pour un groupe qui stagne ou recule). `motsDeLaPhrase` traduit l'attendu de la
+//     référence ; tout le reste de la phrase doit rester identique.
+function sansAdditifs(p) {
+  const c = JSON.parse(JSON.stringify(p));
+  delete c.aujourdhui; delete c.fenetres;
+  c.courbes.forEach((x) => { delete x.reperes; });
+  return c;
+}
+function motsDeLaPhrase(attendu) {
+  const a = JSON.parse(JSON.stringify(attendu));
+  a.phrase = a.phrase.replace(/^Tes six derniers mois/, 'Tes 6 derniers mois');
+  const lev = a.zones.filter((z) => z.zone === a.levier)[0];
+  if (lev && lev.verdict !== '↑' && lev.verdict !== '↗') a.phrase = a.phrase.replace(' : ce qui avance le plus lentement.', ' : le moins bien des groupes.');
+  return a;
+}
+
 describe('75 — la concordance avec `parcours75.py`', () => {
   test('les fixtures : dix-sept cas synthétiques et le cas réel', () => {
     expect(SYNTHETIQUES).toHaveLength(17);
@@ -73,11 +93,11 @@ describe('75 — la concordance avec `parcours75.py`', () => {
   });
 
   test.each(TOUS.map((c) => [c.nom, c]))('⚠️ %s : 0 écart, champ par champ', (nom, c) => {
-    expect(ecarts(Parcours.parcours(c.entree), c.attendu, nom, [])).toEqual([]);
+    expect(ecarts(sansAdditifs(Parcours.parcours(c.entree)), motsDeLaPhrase(c.attendu), nom, [])).toEqual([]);
   });
 
   test('⚠️ le cas réel : la phrase qu’affiche l’app pour aurel_br', () => {
-    expect(Parcours.parcours(entreeReelle()).phrase).toBe('Tes six derniers mois : les cinq groupes que tu suis ' +
+    expect(Parcours.parcours(entreeReelle()).phrase).toBe('Tes 6 derniers mois : les cinq groupes que tu suis ' +
       'progressent. Épaules : ce qui avance le plus lentement. Ton couché tire devant ton squat.');
   });
 

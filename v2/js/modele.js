@@ -1691,6 +1691,7 @@
       if (!m) return '';
       var finDuMois = new Date(Date.UTC(+m[1], +m[2], 0)).getUTCDate();
       var dansLeMois = !!(ref && P && P.contient({ debut: p.cle + '-01', fin: p.cle + '-' + (finDuMois < 10 ? '0' : '') + finDuMois }, ref));
+      if (p.forme === 'long') return MOIS_LONGS[+m[2] - 1] + ' ' + m[1];   // « octobre 2026 » (une étiquette d'accessibilité)
       if (p.forme === 'pied' || p.forme === 'axe') {
         return MOIS_COURTS[+m[2] - 1] + ' ' + m[1] + (p.forme === 'pied' && dansLeMois ? ' (en cours)' : '');
       }

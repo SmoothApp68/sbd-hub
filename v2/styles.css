@@ -2614,6 +2614,11 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .pc-lift-pied{display:flex;justify-content:space-between;gap:6px;font-size:12px;color:var(--texte-2);
   font-variant-numeric:tabular-nums}
 .pc-or{color:var(--medaille)}
+/* PR 6 des mots : une cellule du pied = le mois (au-dessus) et la valeur (dessous), pour tenir à 380 px (« oct. 2026 (en cours) »). */
+.pc-cell{display:flex;flex-direction:column;min-width:0}
+.pc-cell:last-child:not(:only-child){text-align:right;align-items:flex-end}
+.pc-mois,.pc-val{display:block}
+.pc-dates{font-size:12px;line-height:1.5;color:var(--texte-2);margin:-8px 0 var(--e3);font-variant-numeric:tabular-nums}
 .pc-groupe{background:var(--panneau);border-radius:var(--r-petit);margin-bottom:6px}
 .pc-groupe summary{list-style:none;display:flex;justify-content:space-between;gap:var(--e2);padding:10px 12px;
   cursor:pointer;font-size:15px}

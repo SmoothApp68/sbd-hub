@@ -4146,7 +4146,11 @@
         mini: Courbe.mini(fenetre, 92, 36, p.mesure)
       });
     });
-    return { legende: 'Max estimé, 6 derniers mois', lignes: lignes, surExercice: surExercice, surTous: surTous };
+    // PR 6 des mots : la légende dit la FENÊTRE (183 jours civils, `THPeriode`), datée. Aucune plage de reps n'est écrite ici (PR 6 bis).
+    var f6 = Periode.fenetres(Periode.JOURS_DE['6m'], maintenant).courante;
+    return { legende: 'Max estimé \u00b7 6 derniers mois (' + Modele.libelleDePeriode({ genre: 'fenetre', debut: Periode.jourISO(f6.debut),
+               fin: Periode.jourISO(f6.fin) }, maintenant) + ')',
+             lignes: lignes, surExercice: surExercice, surTous: surTous };
   }
 
   // ══ LA SÉANCE EN COURS ═══════════════════════════════════════════════════
@@ -14861,6 +14865,8 @@
       Moteur.chargesDeTravailDe(faits.seancesDeLExercice(corpus(), slug), etatsExercices[slug], optionsDeConsigne(slug, exo, instantDuCalcul()))
         .forEach(function (x) { if (!travail || String(x.date) > String(travail.date)) travail = x; });
       teteRecords = {
+        // Les DATES des deux colonnes d'avant (« 11 avr. », « 11 oct. 2025 ») : l'année seulement si elle n'est pas celle d'aujourd'hui.
+        colonnes: { il6: Modele.jourMois(il6, maintenant.getFullYear()), il12: Modele.jourMois(il12, maintenant.getFullYear()) },
         douzeMois: recordsExo.douzeMois,
         lourde: record && record.charge !== null ? record : null,
         unRM: recordsExo.unRM,
@@ -14884,6 +14890,7 @@
         geo: Courbe.geometrie(fenetre, null, pts.mesure),
         resume: Courbe.resume(fenetre),
         periode: per.cle,
+        aujourdhui: Periode.jourISO(maintenant),   // PR 6 des mots : l'année des dates du sous-titre
         periodeLongue: per.long,
         periodes: Courbe.PERIODES,
         surPeriode: function (cle) { periodeCourbe = cle; rendreExercice(slug, vueOnglet); }
@@ -15486,7 +15493,9 @@
     if (!f) return;
     var index = catalogueIndexe(), aujourdhui = new Date();
     var restantes = f.routines.filter(function (x) { return !x.faite; });
+    var fenetreP = faits.datesDeLaFenetre(corpus());
     Rendu.rendreFeuilleSeancesQuiReviennent($('feuille-contenu'), {
+      titre: fenetreP ? 'Tes séances qui reviennent, ' + Modele.libelleDePeriode({ genre: 'fenetre', debut: fenetreP.debut, fin: fenetreP.fin }, aujourdhui).replace(/\.?$/, '.') : null,   // « oct. » porte déjà son point
       routines: restantes.map(function (x) { return carteDeduite(x, index, aujourdhui); }),
       erreur: f.erreur,
       enCours: f.enCours,
@@ -15896,7 +15905,8 @@
     // 66D (maquette v2) : avec un historique, la voix dit d'où viennent les séances (la fenêtre du programme déduit,
     // `Routines.DEDUIT`) ; sans, le titre dit que c'est un point de départ.
     var h = c.historique;
-    var voix = (h ? ['Ce sont tes séances des ' + (Routines.DEDUIT.jours / 7) + ' dernières semaines.'] : [])
+    var fenetreH = h ? faits.datesDeLaFenetre(corpus()) : null;
+    var voix = (h ? ['Ce sont tes séances' + (fenetreH ? ' ' + Modele.libelleDePeriode({ genre: 'fenetre', debut: fenetreH.debut, fin: fenetreH.fin }, new Date()) : '').replace(/\.?$/, '.')] : [])
       .concat(['Je te propose tes charges à chaque séance. Touche un exercice pour le changer.']).concat(phrases.famille || [])
       .concat(phrases.zones);
     if (phrases.barreFixe) voix.push(phrases.barreFixe);

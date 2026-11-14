@@ -427,7 +427,7 @@
       courbes: courbes,
       // PR 6 des mots : le jour J et les deux fenêtres (R, P), pour que l'écran DATE sa phrase (« du 12 avr. au 11 oct. »).
       aujourdhui: J,
-      fenetres: fenetresDeJours(J),
+      bornes: fenetresDeJours(J),
       phrase: phrases.join(' ')
     };
   }

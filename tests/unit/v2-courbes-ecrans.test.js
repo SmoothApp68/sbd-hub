@@ -101,7 +101,7 @@ describe('206 — la courbe de la page d\'exercice', () => {
   test('en tête du Résumé : la valeur, le sens, l\'écart sur la période', () => {
     const c = page();
     expect(c.querySelector('.courbe-val').textContent).toBe('152 kg');
-    expect(c.querySelector('.courbe-sous').textContent).toBe('max estimé · +11 kg en 6 mois');
+    expect(c.querySelector('.courbe-sous').textContent).toBe('max estimé · +11 kg du 20 mai au 28 oct.');
     expect(c.querySelector('.courbe-carte').compareDocumentPosition(c.querySelector('.section-t')) & 4).toBeTruthy();
   });
 
@@ -140,7 +140,7 @@ describe('206 — la courbe de la page d\'exercice', () => {
     const base = Courbe.dansLaPeriode([P(J(2026, 4, 20), 12, { reps: 12 }), P(J(2026, 9, 28), 14, { reps: 14 })], '6m', J(2026, 10, 1));
     const c = page({ courbe: { nom: 'Tractions', genre: 'reps', geo: Courbe.geometrie(base), resume: Courbe.resume(base), periode: '6m',
       periodeLongue: '6 mois', periodes: Courbe.PERIODES, surPeriode: () => {} } });
-    expect(c.querySelector('.courbe-sous').textContent).toBe('meilleures reps · +2 reps en 6 mois');
+    expect(c.querySelector('.courbe-sous').textContent).toBe('meilleures reps · +2 reps du 20 mai au 28 oct.');
     expect(c.querySelector('.courbe-note').textContent).not.toMatch(/10 reps ou moins/);
   });
 

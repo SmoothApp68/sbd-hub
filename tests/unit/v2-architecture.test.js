@@ -2142,6 +2142,9 @@ const NOTIONS = [
     parAilleurs: { 'app.js': ['rendreExercice'] },
     raison: 'MAQUETTE-PR6 R-IL-Y-A : « il y a 6 mois » est une DATE (31 août − 6 mois = 28 février), jamais une fenêtre ; `setMonth` la déborde sur le mois suivant. ' +
       'Les colonnes « Il y a 6 mois / 1 an » des records la lisent ici.' },
+  { notion: 'les dates de la fenêtre de la personne (les 84 jours qui finissent à sa dernière séance)', pr: 'correctif 14/11/2026',
+    module: 'faits.js', fonction: 'datesDeLaFenetre', lecteurs: ['app.js'],
+    raison: 'MAQUETTE-PR6 Q1-Q6 : « tes 12 dernières semaines » devient « du 19 juil. au 10 oct. » ; l’écran nomme la fenêtre de `Routines.fenetreDeLaPersonne`, il ne la recalcule pas.' },
   { notion: 'les mots de la dernière série « Au max » (titre, bouton, étiquette ; « en gardant 2 reps » pour un 65 ans et plus connu)', pr: 'correctif 12/11/2026',
     module: 'moteur.js', fonction: 'motsDeLAuMax', lecteurs: ['plan.js', 'app.js'],
     raison: 'le plan pose `x.auMaxMots` et le titre de la carte ; l’éditeur de routine, sans plan, lit la même fonction : aucun « Au max » à un 65+ connu, dans aucun écran.' },
@@ -2695,7 +2698,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/periode.js');
     require('../../v2/js/parcours.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(57);   // 272 : + faitsDuNiveau ; 266 : + semainesDeSuite, derniereHausseDuRecord ; 250 : + estUneNote ; 242 : + noteDeLaDerniereFois, noteDeLExercice ; 245-6 : + premierEssaiRate
+    expect(FAITS.length).toBe(58);   // mots PR 6 : + datesDeLaFenetre ; 272 : + faitsDuNiveau ; 266 : + semainesDeSuite, derniereHausseDuRecord ; 250 : + estUneNote ; 242 : + noteDeLaDerniereFois, noteDeLExercice ; 245-6 : + premierEssaiRate
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 

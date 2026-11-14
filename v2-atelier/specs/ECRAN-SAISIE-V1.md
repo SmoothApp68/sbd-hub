@@ -1335,6 +1335,12 @@ par la porte habituelle, §7 quater).
 >   les nomme (trois au plus, puis « et N autres »). « Tes équilibres » : « sur 12 mois (du 11 oct. 2025 au 11 oct. 2026) ».
 > - **Doctrine (VOIX principe 5)** : aucun « depuis N mois », aucune phrase sur une pause ; une date seule (« depuis le 17 août »).
 > Lexique fermé : MAQUETTE-PR6 §3.2 ; `tests/unit/v2-periodes-garde-pr6.test.js` le balaie sur le texte rendu.
+> - **Courbe, équilibres, séances qui reviennent, colonnes (commit 6)** : le sous-titre d'une courbe dit ses dates (« max estimé · +11 kg
+> du 20 mai au 28 oct. ») et l'écart est la DIFFÉRENCE DES DEUX CHIFFRES AFFICHÉS ; la courbe « 3 mois » compte 90 jours civils
+> (`THPeriode.fenetres`), pas 3 mois calendaires. Les phrases d'équilibres (Q1 à Q6) nomment leurs semaines (« sur tes 4 dernières semaines
+> d'entraînement (du 5 au 28 oct.). ») ; la fenêtre de la personne s'écrit par `Faits.datesDeLaFenetre` (les 84 jours qui finissent à sa
+> dernière séance). Les colonnes « Il y a 6 mois / 1 an » des records sont des DATES (`THPeriode.moisAvant`, fin de journée locale),
+> étiquetées de leur date dans le tableau.
 
 **Écarté, avec la raison** : l'e1RM comme verdict (il dit « squat stable » quand la barre a pris 10 kg à 5 reps : il
 mélange les fourchettes) ; un exercice fait 3 ou 4 fois (verdicts fragiles, mesuré : rowing prise large −8 % sur 3

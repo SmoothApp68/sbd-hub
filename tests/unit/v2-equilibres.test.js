@@ -137,7 +137,7 @@ describe('un muscle principal à 0 série sur 4 semaines', () => {
   test('les ischios à zéro sur 4 semaines : le constat, avec le fait', () => {
     const a = Eq.analyser(sansIschios());
     const c = constat(a, 'zero:ischio_jambiers');
-    expect(c.fait).toBe('0 série d’ischio-jambiers sur tes 4 dernières semaines.');
+    expect(c.fait).toBe('0 série d’ischio-jambiers sur tes 4 dernières semaines d’entraînement (du 5 au 28 oct.).');
     expect(c.ecart).toBe(true);
   });
   test('l’épaule arrière et le côté comptent', () => {
@@ -152,7 +152,7 @@ describe('un muscle principal à 0 série sur 4 semaines', () => {
   });
   test('tous les muscles servis : « Aucun sur les 4 dernières semaines »', () => {
     const a = Eq.analyser(entree(construire(equilibrees(14))));
-    expect(a.calmes.filter((c) => c.cle === 'zero')[0].texte).toBe('Aucun sur les 4 dernières semaines.');
+    expect(a.calmes.filter((c) => c.cle === 'zero')[0].texte).toBe('Aucun sur les 4 dernières semaines d’entraînement (du 5 au 28 oct.).');
   });
 });
 

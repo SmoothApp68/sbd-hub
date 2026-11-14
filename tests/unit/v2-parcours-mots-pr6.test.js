@@ -96,7 +96,7 @@ describe('PR 6 — Parcours : les fenêtres datées et le levier', () => {
   test('le jour J et les fenêtres R et P sont dans la sortie : 12 avr. → 11 oct. contre 11 oct. 2025 → 11 avr. 2026', () => {
     const p = Parcours.parcours(entree());
     expect(p.aujourdhui).toBe('2026-10-11');
-    expect(p.fenetres).toEqual({ R: ['2026-04-12', '2026-10-11'], P: ['2025-10-11', '2026-04-11'] });
+    expect(p.bornes).toEqual({ R: ['2026-04-12', '2026-10-11'], P: ['2025-10-11', '2026-04-11'] });
   });
 
   test('la phrase de tête : « 6 derniers mois » en chiffres, jamais « six »', () => {

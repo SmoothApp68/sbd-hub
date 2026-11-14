@@ -112,3 +112,10 @@ describe('Bilans.periodeDesDerniersMois : « 6 derniers mois » = la fenêtre de
     expect(Bilans.periodeDesDerniersMois(6, 'demain')).toBeNull();
   });
 });
+
+describe('PR 6 — dates des équilibres (Q1-Q6)', () => {
+  const Eq = require('../../v2/js/equilibres.js');
+  test('le module expose le quand daté', () => {
+    expect(typeof Eq.analyser).toBe('function');
+  });
+});

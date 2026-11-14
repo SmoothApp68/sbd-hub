@@ -1692,6 +1692,11 @@
     var genre = p.genre;
     if (genre === 'fenetre' || genre === 'jours') return plageDeJours(p.debut, p.fin, J);
     if (genre === 'semaine') return contientJ ? 'cette semaine' : plageDeJours(p.debut, p.fin, J);
+    if (genre === 'jour') {   // « le 17 août » (une date seule, l'année si elle n'est pas celle de J) : « Depuis le 17 août »
+      var un = String(p.debut || '').slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(un)) return '';
+      return 'le ' + jourEtMois(un, !!(ref && ref.slice(0, 4) !== un.slice(0, 4)));
+    }
     if (genre === 'semaineDu') {   // « semaine du 14 sept. » (une semaine ENTIÈRE, repérée par son lundi)
       var lun = String(p.debut || '').slice(0, 10);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(lun)) return '';

@@ -473,8 +473,14 @@
     if (lignes.length) {
       var tab = el('table', 'tableau-records num');
       var tete = el('tr');
-      ['Au moins', t.douzeMois ? 'Record ' + SUR_DOUZE_MOIS : 'Record', 'Le', 'Il y a 6 mois', 'Il y a 1 an']
-        .forEach(function (x) { tete.appendChild(el('th', null, x)); });
+      // PR 6 des mots : « Il y a 6 mois » / « Il y a 1 an » sont des DATES (`THPeriode.moisAvant`) — la date sous chaque en-tête (« 11 avr. », « 11 oct. 2025 »).
+      var colonnes = t.colonnes || {};
+      ['Au moins', t.douzeMois ? 'Record ' + SUR_DOUZE_MOIS : 'Record', 'Le', 'Il y a 6 mois', 'Il y a 1 an'].forEach(function (x) {
+        var th = el('th', null, x);
+        var sous = x === 'Il y a 6 mois' ? colonnes.il6 : (x === 'Il y a 1 an' ? colonnes.il12 : null);
+        if (sous) th.appendChild(el('span', 'th-date', sous));
+        tete.appendChild(th);
+      });
       tab.appendChild(tete);
       lignes.forEach(function (l) {
         var tr = el('tr');
@@ -750,6 +756,7 @@
     if (p.record) bouts.push('record');
     return bouts.join(' \u00b7 ');
   }
+  function jour2(d) { return d.getFullYear() + '-' + (d.getMonth() < 9 ? '0' : '') + (d.getMonth() + 1) + '-' + (d.getDate() < 10 ? '0' : '') + d.getDate(); }
   function rendreCourbeExo(cible, c) {
     var carte = el('div', 'courbe-carte');
     var geo = c.geo;
@@ -758,8 +765,18 @@
     if (fin !== null) {
       tete.appendChild(el('span', 'courbe-val num', valeurCourbe(c.genre, fin)));
       var sous = ETIQUETTES_COURBE[c.genre];
-      if (c.resume.ecart) sous += ' \u00b7 ' + signe(Math.round(c.resume.ecart)) + (c.genre === 'charge' ? ' kg' : c.genre === 'reps' ? ' reps' : ' s') + ' en ' + c.periodeLongue;
-      else if (c.resume.ecart === 0) sous += ' \u00b7 inchangé sur ' + c.periodeLongue;
+      // PR 6 des mots : l'écart dit ce qu'il compare — DEUX DATES (la 1re et la dernière séance de la fenêtre), jamais « en 6 mois » pour 49 jours ;
+      // et c'est la différence des deux chiffres AFFICHÉS (149 → 147 : −2 kg), pas un −1,2 arrondi à côté.
+      var quand = function (r) {
+        var d0 = r.du ? new Date(r.du) : null, d1 = r.au ? new Date(r.au) : null;
+        if (!d0 || !d1 || isNaN(d0.getTime()) || isNaN(d1.getTime())) return '';
+        return M().plageDeJours(jour2(d0), jour2(d1), c.aujourdhui);   // « du 13 avr. au 6 oct. », « le 6 oct. » (un seul jour)
+      };
+      var ecartAffiche = c.resume.n > 1 ? Math.round(c.resume.fin) - Math.round(c.resume.debut) : null;
+      var dates = quand(c.resume);
+      if (ecartAffiche) sous += ' \u00b7 ' + signe(ecartAffiche) + (c.genre === 'charge' ? ' kg' : c.genre === 'reps' ? ' reps' : ' s') + (dates ? ' ' + dates : '');
+      else if (ecartAffiche === 0) sous += ' \u00b7 inchangé' + (dates ? ' ' + dates : '');
+      else if (dates) sous += ' \u00b7 ' + dates;
       tete.appendChild(el('span', 'courbe-sous', sous));
     } else {
       tete.appendChild(el('span', 'courbe-sous', 'Aucune séance sur cette période.'));
@@ -1869,6 +1886,7 @@
     var section = el('div', 'eq-section');
     section.setAttribute('data-equilibres', a.etat);
     if (a.quand) section.appendChild(el('div', 'eq-quand', a.quand));
+    if (a.quandDates) section.appendChild(el('div', 'eq-quand-dates', a.quandDates));   // PR 6 des mots : les dates des semaines comptées
     if (vue.fait) {
       var f = el('div', 'eq-fait-pose');
       f.appendChild(el('span', null, vue.fait.texte));
@@ -2106,10 +2124,10 @@
     cible.appendChild(el('div', 'pc-phrase', p.phrase || PHRASE_VIDE));
     var J = p.aujourdhui;
     // PR 6 des mots : les deux fenêtres du verdict, DATÉES, visibles (jamais au toucher). Sans verdict, aucune fenêtre à dire.
-    if (p.phrase && p.fenetres) {
+    if (p.phrase && p.bornes) {
       var datees = el('div', 'pc-dates');
-      datees.appendChild(el('div', null, '6 derniers mois : ' + M().libelleDePeriode({ genre: 'fenetre', debut: p.fenetres.R[0], fin: p.fenetres.R[1] }, J)));
-      datees.appendChild(el('div', null, '6 mois d’avant : ' + M().libelleDePeriode({ genre: 'fenetre', debut: p.fenetres.P[0], fin: p.fenetres.P[1] }, J)));
+      datees.appendChild(el('div', null, '6 derniers mois : ' + M().libelleDePeriode({ genre: 'fenetre', debut: p.bornes.R[0], fin: p.bornes.R[1] }, J)));
+      datees.appendChild(el('div', null, '6 mois d’avant : ' + M().libelleDePeriode({ genre: 'fenetre', debut: p.bornes.P[0], fin: p.bornes.P[1] }, J)));
       cible.appendChild(datees);
     }
 
@@ -2182,8 +2200,8 @@
     if (p.rapports.length) {
       cible.appendChild(el('div', 'section-t', 'Tes équilibres'));
       // 12 mois = les deux fenêtres ensemble (P ∪ R), dites par leurs dates.
-      cible.appendChild(el('p', 'pc-note', 'Tes vraies barres, au même nombre de reps, sur 12 mois' + (p.fenetres
-        ? ' (' + M().libelleDePeriode({ genre: 'fenetre', debut: p.fenetres.P[0], fin: p.fenetres.R[1] }, J) + ')' : '') + '.'));
+      cible.appendChild(el('p', 'pc-note', 'Tes vraies barres, au même nombre de reps, sur 12 mois' + (p.bornes
+        ? ' (' + M().libelleDePeriode({ genre: 'fenetre', debut: p.bornes.P[0], fin: p.bornes.R[1] }, J) + ')' : '') + '.'));
       p.rapports.forEach(function (r) {
         var carte = el('div', 'carte-mois pc-rapport');
         carte.appendChild(ligneMois(majuscule(vue.nomsCourts[r.num]) + ' / ' + vue.nomsCourts[r.den],
@@ -7582,7 +7600,9 @@
   function rendreFeuilleSeancesQuiReviennent(cible, vue) {
     vider(cible);
     var v = vue || {};
-    cible.appendChild(el('div', 'feuille-t', 'Tes séances qui reviennent, sur tes 12 dernières semaines.'));
+    // PR 6 des mots : la fenêtre est celle de la PERSONNE (84 jours qui finissent à sa dernière séance, `Routines.fenetreDeLaPersonne`) : le titre la
+    // dit par ses dates (`v.titre`, écrit par l'app), jamais « 12 dernières semaines » en dur.
+    cible.appendChild(el('div', 'feuille-t', v.titre || 'Tes séances qui reviennent.'));
     var routines = v.routines || [];
     if (!routines.length) {
       cible.appendChild(el('p', 'retrouver-rien',

@@ -98,7 +98,8 @@
     var l = points || [];
     if (!l.length) return null;
     var debut = l[0].valeur, fin = l[l.length - 1].valeur;
-    return { debut: debut, fin: fin, ecart: l.length > 1 ? fin - debut : null, n: l.length };
+    // `du` / `au` (PR 6 des mots) : les dates des DEUX séances que l'écart compare (la 1re et la dernière de la fenêtre) — le texte les dit.
+    return { debut: debut, fin: fin, ecart: l.length > 1 ? fin - debut : null, n: l.length, du: l[0].debut || null, au: l[l.length - 1].debut || null };
   }
 
   // La géométrie complète d'une courbe de page : points (pâles), trait (moyenne glissante), graduations, repères de mois.
@@ -134,12 +135,15 @@
     });
     var trait = lisse.map(function (p) { return { x: arrondi(x(temps(p)), 2), y: arrondi(y(p.valeur), 2) }; });
 
-    // Les repères de mois : le premier de chaque mois dans la fenêtre, éclaircis à 4 au plus.
+    // Les repères de mois : le premier de chaque mois dans la fenêtre, éclaircis à 4 au plus. PR 6 des mots : si la fenêtre CHEVAUCHE deux
+    // années, chaque repère porte son année (« avr. 2024 · déc. 2024 · août 2025 ») — plus seulement le 1er janvier ; sinon aucune année.
     var reperes = [];
+    var avecAnnee = new Date(t0).getFullYear() !== new Date(t1).getFullYear();
     var d = new Date(new Date(t0).getFullYear(), new Date(t0).getMonth(), 1);
     if (d.getTime() < t0) d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
     while (d.getTime() <= t1) {
-      reperes.push({ t: d.getTime(), libelle: mois(d.getMonth()) + (d.getMonth() === 0 ? ' ' + d.getFullYear() : '') });
+      var cle = d.getFullYear() + '-' + (d.getMonth() < 9 ? '0' : '') + (d.getMonth() + 1);
+      reperes.push({ t: d.getTime(), libelle: avecAnnee ? racine.THModele.libelleDePeriode({ genre: 'mois', cle: cle, forme: 'axe' }) : mois(d.getMonth()) });
       d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
     }
     var pasM = Math.max(1, Math.ceil(reperes.length / 4));

@@ -87,7 +87,7 @@ describe('188-2 — Ta semaine prévue et ta semaine réelle', () => {
     const c = carte(a, 'jours');
     expect(c).not.toBeNull();
     expect(c.famille).toBe('jours');
-    expect(c.fait).toBe('Ton programme est prévu pour 4 jours. Tes 8 dernières semaines d’entraînement en comptent 2 en moyenne.');
+    expect(c.fait).toBe('Ton programme est prévu pour 4 jours. Du 31 août au 25 oct., tes 8 semaines d’entraînement en comptent 2 en moyenne.');
     expect(c.propositions.map((p) => [p.type, p.libelle, p.jours])).toEqual([['refaire_jours', 'Refaire mon programme sur 2 jours', 2]]);
     expect(c.libelleRefus).toBe('Garder 4 jours');
     expect(c.repere).toMatch(/Les semaines sans aucune séance .* ne comptent pas/);
@@ -212,7 +212,7 @@ describe('188-2 — Le temps de tes séances', () => {
     expect(c).not.toBeNull();
     expect(c.famille).toBe('temps');
     expect(c.minutes).toBe(70);
-    expect(c.fait).toBe('Ta durée est réglée sur 90 min. Depuis 8 semaines, 16 de tes 16 séances ont été écourtées.');
+    expect(c.fait).toBe('Ta durée est réglée sur 90 min. Depuis le 31 août, 16 de tes 16 séances ont été écourtées.');
     expect(c.propositions.map((p) => [p.type, p.libelle, p.minutes])).toEqual([['duree', 'Régler mes séances sur 70 min', 70]]);
     expect(c.libelleRefus).toBe('Garder 90 min');
     expect(c.causes[0].texte).toMatch(/derniers exercices qui sautent/);

@@ -67,14 +67,14 @@ function ecarts(obtenu, attendu, chemin, sortie) {
 }
 
 // PR 6 des mots (14/11/2026) — LA RÉFÉRENCE PYTHON FAIT FOI POUR LES VERDICTS ET LES CHIFFRES, PAS POUR LES MOTS. Deux écarts, déclarés ici :
-//   · des CHAMPS ADDITIFS que la référence ne connaît pas (`aujourdhui`, `fenetres`, et `reperes` sur chaque courbe : le mois qui porte
+//   · des CHAMPS ADDITIFS que la référence ne connaît pas (`aujourdhui`, `bornes`, et `reperes` sur chaque courbe : le mois qui porte
 //     chaque chiffre du pied) — ils sont retirés avant la comparaison, et testés à part (« PR 6 »);
 //   · la PHRASE, réécrite : « six » → « 6 » (R-CHIFFRES) et le levier qui ne progresse pas se dit « le moins bien des groupes »
 //     (jamais « ce qui avance le plus lentement » pour un groupe qui stagne ou recule). `motsDeLaPhrase` traduit l'attendu de la
 //     référence ; tout le reste de la phrase doit rester identique.
 function sansAdditifs(p) {
   const c = JSON.parse(JSON.stringify(p));
-  delete c.aujourdhui; delete c.fenetres;
+  delete c.aujourdhui; delete c.bornes;
   c.courbes.forEach((x) => { delete x.reperes; });
   return c;
 }

@@ -2303,6 +2303,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .tableau-records th{color:var(--texte-3);font-weight:600;font-size:12px;line-height:1.2;text-align:right;
   padding:6px 4px;border-bottom:1px solid var(--trait);vertical-align:bottom}
 .tableau-records th:first-child,.tableau-records td:first-child{text-align:left}
+.tableau-records .th-date{display:block;font-weight:400;font-size:11px;white-space:nowrap}
 .tableau-records td{text-align:right;padding:8px 4px;border-bottom:1px solid var(--trait);white-space:nowrap}
 .tableau-records td.tr-date{color:var(--texte-2);font-size:12px}
 .plus-record{color:var(--accent);font-weight:650}

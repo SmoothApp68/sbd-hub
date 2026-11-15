@@ -25,7 +25,7 @@ const { creer } = require(path.join(R, 'v2-atelier/banc/serveur-pages.js'));
 const Verrou = require(path.join(R, 'tests/banc/verrou.js'));
 const CHROME = process.env.CHROME_BIN || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 // WebGL logiciel (une machine de CI n'a pas de carte graphique)
-const ARGS = ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
+const ARGS = ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--disable-dev-shm-usage'];   // /dev/shm de la CI sature avec plusieurs Chromium ; limité à CE banc (ARGS propre à chaque banc)
 
 const EXOS = [
   { slug: 'squat_barre', nom: 'Squat (Barre)', mesure: 'charge_reps', charge: 'externe', parent: null, equipement: 'barre', mouvement: null, barre_charge_fixe: false,

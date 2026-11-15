@@ -9739,7 +9739,9 @@
     var gs = Array.isArray(seance.gestes) ? seance.gestes : [];
     var dejaIgn = function (rang) { return gs.some(function (g) { return g.slug === x.slug && g.rang === rang && (g.geste === 'rate_prise' || g.geste === 'rate_ignoree'); }); };
     if (x.rate && x.rate.iSerie < iSerie && !x.rate.fait && !dejaIgn(x.rate.iSerie)) {
-      seance = Seance.noterGeste(seance, { geste: 'rate_ignoree', slug: x.slug, rang: x.rate.iSerie });
+      // `boutons` : les clés proposées sous la réaction (vide = une phrase seule, rien à prendre ni à refuser) ; MOTEUR §9.39.
+      seance = Seance.noterGeste(seance, { geste: 'rate_ignoree', slug: x.slug, rang: x.rate.iSerie, cas: x.rate.cas,
+        boutons: (x.rate.boutons || []).map(function (b) { return b.cle; }) });
     }
     if (x.carteForme) seance = Seance.noterGeste(seance, { geste: 'forme_gardee', slug: x.slug, implicite: true });
     if (x.parisRates && x.parisRates.carte) seance = Seance.noterGeste(seance, { geste: 'paris_retente', slug: x.slug, implicite: true });

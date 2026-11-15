@@ -20,6 +20,8 @@
   'use strict';
 
   function Modele() { return racine.THModele; }
+  // MOTEUR §9.51 ter : toute date « il y a / dans N mois » vient de `THPeriode` (lue tardivement, comme le formateur).
+  function THPeriode() { return racine.THPeriode; }
 
   var GRANDEUR = 'jours';
   // 120 (D12) — '2' : le plafond « moins d'un an » en deux temps ; un pari dit la règle qui l'a posé.
@@ -200,7 +202,7 @@
 
     // La référence : le record d'il y a un an — ou le plus ancien, avec moins d'un an d'historique (ou rien à N
     // reps ou plus il y a un an).
-    var unAn = new Date(t0); unAn.setFullYear(unAn.getFullYear() - 1);
+    var unAn = THPeriode().instantMoisAvant(t0, 12);   // MOTEUR §9.51 ter : « il y a un an » est une date calendaire
     var ref = null;
     if (premiere <= unAn.getTime()) {
       var r = recordA(seances, n, unAn.getTime(), options);
@@ -230,7 +232,7 @@
     } else {
       tProjete = t0 + reste / rythme * JOURS_PAR_MOIS * JOUR_MS;
     }
-    var limite = new Date(t0); limite.setMonth(limite.getMonth() + MOIS_MAX);
+    var limite = THPeriode().instantMoisApres(t0, MOIS_MAX);
     if (tProjete > limite.getTime()) return Object.assign(base, calcul, { etat: 'plus_d_un_an' });
     var d = new Date(tProjete);
     var echeance = jourCivil(new Date(d.getFullYear(), d.getMonth() + 1, 0));
@@ -388,7 +390,8 @@
 
   var PAS_ENCORE = 'Pas encore de date.';
   // 266 (07/11/2026, MOTEUR §9.25) — l'objectif sans date reste suivi : « je te dis dès que ça passe sous les 6 mois » (réglage d'Aurélien).
-  var JOURS_POUR_PARIER = 183;
+  // « 6 mois » est une DURÉE de 183 jours, nommée une fois dans `THPeriode.JOURS_DE` (lue tardivement : `jourPourParier()`).
+  function jourPourParier() { return THPeriode().JOURS_DE['6m']; }
   var PLUS_D_UN_AN = 'Pas de date\u00a0: à ton rythme actuel, plus d\u2019un an.';
   var VEILLE = 'Je te dis dès que ça passe sous les 6 mois. Pas de pari tant qu\u2019il n\u2019y a pas de date.';
   var VEILLE_PAS_ENCORE = 'Je te dis dès qu\u2019une date passe sous les 6 mois.';
@@ -426,7 +429,7 @@
         if (o.projection === 'plus_d_un_an' || o.projection === 'pas_encore') {
           var pr = projection({ seances: e.seances, charge: charge, reps: n, maintenant: e.maintenant,
             anciennete: e.anciennete || null, options: e.options, carnet: false, salle: e.salle || null });
-          if (pr && pr.etat === 'date' && pr.jours <= JOURS_POUR_PARIER) {
+          if (pr && pr.etat === 'date' && pr.jours <= jourPourParier()) {
             var fin = finDeMois(pr.echeance, e.maintenant);
             if (fin) {
               ligne = 'Au rythme d\u2019aujourd\u2019hui\u00a0: ' + fin + '. Ça passe sous les 6 mois.';
@@ -490,7 +493,6 @@
     GRANDEUR: GRANDEUR, VERSION: VERSION, PLAFONDS: PLAFONDS, PLAFOND_PAR_DEFAUT: PLAFOND_PAR_DEFAUT,
     JOURS_PAR_MOIS: JOURS_PAR_MOIS, SEMAINES_MIN: SEMAINES_MIN, RECORDS_MIN: RECORDS_MIN, MOIS_MAX: MOIS_MAX,
     PAS_ENCORE: PAS_ENCORE, PLUS_D_UN_AN: PLUS_D_UN_AN, PARI: PARI, VEILLE: VEILLE, VEILLE_PAS_ENCORE: VEILLE_PAS_ENCORE,
-    JOURS_POUR_PARIER: JOURS_POUR_PARIER,
     projection: projection, pariDe: pariDe, ligneDe: ligneDe, ligneAuRetour: ligneAuRetour, ligneQuandUneDateArrive: ligneQuandUneDateArrive, atteinte: atteinte,
     observationDe: observationDe,
     vue: vue, phraseDeSaisie: phraseDeSaisie, lireSaisie: lireSaisie, phraseDejaFait: phraseDejaFait,
@@ -498,6 +500,8 @@
     PHRASE_ELASTIQUE: PHRASE_ELASTIQUE,
     possible: possible, haussesDuRecord: haussesDuRecord, plafondDe: plafondDe, joursEntre: joursEntre
   };
+  Object.defineProperty(api, 'JOURS_POUR_PARIER', { enumerable: true, get: jourPourParier });
+
   racine.THObjectif = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof self !== 'undefined' ? self : globalThis);

@@ -24,7 +24,7 @@ const PAGE = '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta n
   '<link rel="stylesheet" href="/styles.css"></head><body>' +
   '<div id="feuille-seance" class="voile"><div class="fen feuille" role="dialog"><div id="feuille-contenu"></div>' +
   '<button id="btn-fermer-feuille" type="button" class="fermer">Fermer</button></div></div><div id="corps"></div>' +
-  '<script src="/js/modele.js"></script><script src="/js/semaine.js"></script><script src="/js/moteur.js"></script>' +
+  '<script src="/js/modele.js"></script><script src="/js/semaine.js"></script><script src="/js/periode.js"></script><script src="/js/moteur.js"></script>' +
   '<script src="/js/bilan.js"></script><script src="/js/seance.js"></script><script src="/js/rendu.js"></script><script src="/js/profil.js"></script></body></html>';
 
 (async () => {

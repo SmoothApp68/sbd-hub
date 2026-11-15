@@ -1,0 +1,26 @@
+[
+ {
+  "nom": "CR-A-borne-lourde-stricte",
+  "fichier": "v2/js/modele.js",
+  "ancien": "if (n <= C.lourdMax) return 'lourdes';",
+  "nouveau": "if (n < C.lourdMax) return 'lourdes';",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-coupures-de-reps.test.js"]
+ },
+ {
+  "nom": "CR-B-hautMax-13-rompt-le-lien",
+  "fichier": "v2/js/modele.js",
+  "ancien": "var COUPURES_DE_REPS = Object.freeze({ lourdMax: 5, milieuMax: 8, hautMax: 12 });",
+  "nouveau": "var COUPURES_DE_REPS = Object.freeze({ lourdMax: 5, milieuMax: 8, hautMax: 13 });",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-coupures-de-reps.test.js"]
+ },
+ {
+  "nom": "CR-C-nouveau-litteral-de-coupure-hors-table",
+  "fichier": "v2/js/jeu.js",
+  "ancien": "  'use strict';",
+  "nouveau": "  'use strict'; var REPS_LOURDES_MAX = 5;",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-architecture.test.js"]
+ }
+]

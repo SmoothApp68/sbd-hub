@@ -196,6 +196,7 @@ trappe `/__sw-off` pendrait avec lui.
   Il ne s'**écrit** que par la file (`poserJournal` → `executer` → `THDonnees.ajouterRecords`, un ajout
   `ON CONFLICT DO NOTHING`, jamais un upsert qui modifie : `records_immuable`) ; la garde « un seul
   écrivain » (`v2-architecture.test.js`) refuse tout autre chemin.
+- **Les coupures de reps** (PR A, MOTEUR §9.51 quinquies) : une série se DÉCRIT par ses reps par `Modele.bandeDeReps` / `libelleDeBande` / `estSerieLourde` (`COUPURES_DE_REPS` : ≤ 5 · 6 à 8 · 9 à 12 · 13+), jamais par un littéral recopié (garde `NOTIONS`, trois exceptions nommées à retirer : plan, bilans, faits) ; la prescription (`ZONES`, `RANGEMENT`) ne la lit pas, `v2-coupures-de-reps.test.js` les relie.
 - **La garde de développement** (C6, `THPlan.creerGarde`) vérifie chaque plan que
   l'app calcule, hors production : `localhost`, les aperçus `*.pages.dev`, ou
   `?garde=1`. Le banc de saisie vérifie les invariants après chaque geste.

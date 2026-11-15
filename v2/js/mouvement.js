@@ -481,7 +481,10 @@
     muscle_up_elastique: 'muscle_up_elastique.json',
     muscle_up_assiste: 'muscle_up_assiste.json',
     l_sit_hold: 'l_sit_hold.json',
-    l_sit_parallettes: 'l_sit_parallettes.json'
+    l_sit_parallettes: 'l_sit_parallettes.json',
+    v_sit: 'v_sit.json',
+    poirier: 'poirier.json',
+    poirier_contre_mur: 'poirier_contre_mur.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

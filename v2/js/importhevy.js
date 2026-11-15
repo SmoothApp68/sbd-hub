@@ -665,7 +665,7 @@
     });
     if (!muscu) return null;
     var m = Math.round((f - d) / 60000);
-    return (Math.floor(m / 60)) + ' h ' + deux(m % 60);
+    return Mo().dureeEnMinutes(m);
   }
   // Le signal d'une ligne, et son choix : `sans_fin` garde la valeur déjà choisie.
   function signalDeDuree(ligne, catalogue, avant) {
@@ -887,8 +887,7 @@
     };
   }
   function jourCourt(iso) {
-    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
-    return m ? Number(m[3]) + ' ' + Mo().MOIS_COURTS[Number(m[2]) - 1] + ' ' + m[1] : '';
+    return Mo().jourDit(String(iso || ''), { annee: true });
   }
   // Les phrases de l'écran, au mot près de la maquette (écran C).
   function phrasesDesMesures(a) {
@@ -916,14 +915,12 @@
     return { a: Number(m[1]), mo: Number(m[2]), j: Number(m[3]), h: Number(m[4]), mi: Number(m[5]),
              js: new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))).getUTCDay() };
   }
-  function heureDite(h, mi) { return h + ' h ' + deux(mi); }
 
   // « samedi 19 sept. · 19 h 31 » (l'année si elle n'est pas `anneeRef`).
   function jourEtHeure(local, anneeRef) {
     var d = lireLocal(local);
     if (!d) return '';
-    return Mo().JOURS[d.js] + ' ' + d.j + ' ' + Mo().MOIS_COURTS[d.mo - 1] + (d.a !== anneeRef ? ' ' + d.a : '') +
-      ' · ' + heureDite(d.h, d.mi);
+    return Mo().jourDit(d.a + '-' + deux(d.mo) + '-' + deux(d.j), { nom: true, annee: anneeRef }) + ' · ' + Mo().heureDite(d.h, d.mi);
   }
 
   // « Du samedi 19 au vendredi 25 septembre » ; une seule date : « Le samedi 19 septembre ».
@@ -931,7 +928,7 @@
     var locs = (lignes || []).map(function (l) { return l.seance.debut_local; }).filter(Boolean).sort();
     if (!locs.length) return '';
     var a = lireLocal(locs[0]), b = lireLocal(locs[locs.length - 1]);
-    var jour = function (d) { return Mo().JOURS[d.js] + ' ' + d.j; };
+    var jour = function (d) { return Mo().JOURS[d.js] + ' ' + Mo().quantieme(d.j); };
     var annee = function (d) { return d.a !== anneeRef ? ' ' + d.a : ''; };
     if (locs[0].slice(0, 10) === locs[locs.length - 1].slice(0, 10)) {
       return 'Le ' + jour(a) + ' ' + Mo().MOIS_LONGS[a.mo - 1] + annee(a);
@@ -949,7 +946,7 @@
     if (isNaN(t)) return '';
     var p = {};
     formatDe(fuseau || fuseauDuTelephone()).formatToParts(new Date(t)).forEach(function (x) { p[x.type] = x.value; });
-    return heureDite(Number(p.hour) % 24, Number(p.minute));
+    return Mo().heureDite(Number(p.hour) % 24, Number(p.minute));
   }
 
   // La sous-ligne d'une séance de l'aperçu : ses exercices, ou son verdict.

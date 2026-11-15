@@ -384,8 +384,7 @@
   }
   function ligneAtteint(debut, aujourdhui) {
     var d = new Date(instant(debut)), auj = new Date(instant(aujourdhui));
-    return 'Atteint le ' + d.getDate() + ' ' + moisLong(d.getMonth()) +
-      (d.getFullYear() !== auj.getFullYear() ? ' ' + d.getFullYear() : '') + '.';
+    return 'Atteint le ' + Modele().jourDit(d, { mois: 'long', annee: auj.getFullYear() }) + '.';
   }
 
   var PAS_ENCORE = 'Pas encore de date.';
@@ -444,7 +443,7 @@
       titre: M.chargeFois(charge, n),
       jauge: jauge,
       aujourdhui: maintenant ? 'Aujourd\u2019hui\u00a0: ' + M.chargeFois(maintenant.charge, n) : null,
-      chemin: a ? null : Math.round(jauge * 100) + ' % du chemin',
+      chemin: a ? null : Modele().pourcentTexte(Math.round(jauge * 100)) + ' du chemin',
       ligne: ligne, pari: pari, rythme: rythme, veille: veille, parier: parier, atteint: !!a
     };
   }

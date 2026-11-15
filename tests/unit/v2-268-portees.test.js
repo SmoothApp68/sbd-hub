@@ -50,9 +50,9 @@ describe('la saisie et le journal', () => {
     expect(Modele.formatPrecedent({ charge_kg: 64 }, 'charge_distance')).toBe('64');
     expect(Modele.formatPrecedent({}, 'charge_temps')).toBe('—');
   });
-  test('le journal : « 64 kg · 40 m », « 20 kg · 45 s » (lu sur les colonnes, comme avant)', () => {
-    expect(Modele.formatMesure({ charge_kg: 64, distance_m: 40 })).toBe('64 kg · 40 m');
-    expect(Modele.formatMesure({ charge_kg: 20, duree_s: 45 })).toBe('20 kg · 45 s');
+  test('le journal : « 64\u00a0kg · 40 m », « 20\u00a0kg · 45 s » (lu sur les colonnes, comme avant)', () => {
+    expect(Modele.formatMesure({ charge_kg: 64, distance_m: 40 })).toBe('64\u00a0kg · 40 m');
+    expect(Modele.formatMesure({ charge_kg: 20, duree_s: 45 })).toBe('20\u00a0kg · 45 s');
   });
   test('une série sans distance reste en cases manquantes ; sans charge aussi (rouge au ✓)', () => {
     const g = Modele.grilleDe(FERMIER);
@@ -86,7 +86,7 @@ describe('le coach ne suit pas ces mesures', () => {
     const s = (kg, m) => ({ exercise_slug: 'marche_fermier', type_serie: 'travail', charge_kg: kg, distance_m: m });
     const m = Modele.meilleureSerieDe('marche_fermier', [s(20, 80), s(64, 40), s(64, 60)], [FERMIER], null, {});
     expect(m.valeur).toBe('60 m');
-    expect(m.libelle).toBe('Plus longue distance, à 64 kg');
-    expect(Modele.texteMeilleure(m)).toBe('60 m · 64 kg');
+    expect(m.libelle).toBe('Plus longue distance, à 64\u00a0kg');
+    expect(Modele.texteMeilleure(m)).toBe('60 m · 64\u00a0kg');
   });
 });

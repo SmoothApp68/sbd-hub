@@ -246,8 +246,8 @@ describe('⚠️ le Résumé lit, il ne recalcule pas', () => {
       volume: { nbSeries: 312, nbSeances: 123 }
     });
     const v = [...c.querySelectorAll('.exo-li-v')].map((n) => n.textContent);
-    expect(v[0]).toBe('122,5 kg × 6');
-    expect(v[1]).toBe('140 kg × 1');
+    expect(v[0]).toBe('122,5\u00a0kg × 6');
+    expect(v[1]).toBe('140\u00a0kg × 1');
     expect(v[2]).toBe('312');
     const k = [...c.querySelectorAll('.exo-li-k em')].map((n) => n.textContent);
     expect(k[2]).toBe('sur 123 séances');
@@ -430,7 +430,7 @@ describe('⚠️ l’Historique réutilise le rendu du détail de séance', () =
     // La chauffe est en retrait — la classe du détail, pas une seconde règle.
     expect(lignes[0].classList.contains('hors-travail')).toBe(true);
     expect(lignes[1].classList.contains('hors-travail')).toBe(false);
-    expect(lignes[1].querySelector('.mesure').textContent).toBe('122,5 kg × 6');
+    expect(lignes[1].querySelector('.mesure').textContent).toBe('122,5\u00a0kg × 6');
   });
 
   test('le titre de la séance mène au détail complet', () => {
@@ -518,7 +518,7 @@ describe('⚠️ le nom d’un exercice mène à sa page (§2.8)', () => {
     Rendu().rendreSommaire(cible, {
       volume: { quand: '', zones: [] }, poids: {},
       exercices: { quand: '2 exercices', surExercice: (slug) => vus.push(slug),
-        lignes: [{ slug: 'dc', nom: 'Développé Couché (Barre)', mesure: '122,5 kg × 6', jour: null }] }
+        lignes: [{ slug: 'dc', nom: 'Développé Couché (Barre)', mesure: '122,5\u00a0kg × 6', jour: null }] }
     });
     const b = cible.querySelector('.bloc-exo');
     expect(b.tagName).toBe('BUTTON');

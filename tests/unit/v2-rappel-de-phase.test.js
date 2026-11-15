@@ -117,7 +117,7 @@ describe('§9.16 — la phrase : « Sèche depuis le 28 sept. »', () => {
     expect(Profil.phraseRappelDePhase({ phase: 'prise_de_masse', phase_depuis: new Date(2026, 0, 3, 12).toISOString() }))
       .toBe('Prise de masse depuis le 3' + NB + 'janv.');
     expect(Profil.phraseRappelDePhase({ phase: 'maintien', phase_depuis: new Date(2026, 5, 1, 12).toISOString() }))
-      .toBe('Maintien ou recomposition depuis le 1' + NB + 'juin');
+      .toBe('Maintien ou recomposition depuis le 1er' + NB + 'juin');
   });
 
   test('sans `phase_depuis` (la phase vient du questionnaire) : la phase seule — pas de « depuis » inventé', () => {

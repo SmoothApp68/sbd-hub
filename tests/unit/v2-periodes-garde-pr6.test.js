@@ -69,8 +69,8 @@ describe('G3 — le lexique fermé, sur le texte rendu de Parcours', () => {
 describe('G4 — les noms de période (Modele.libelleDePeriode) aux cas limites', () => {
   const M = global.THModele, J = '2026-11-14';
   test('la fenêtre se date ; le mois en cours se dit « (en cours) » ; une semaine tronquée se dit par ses jours', () => {
-    expect(M.libelleDePeriode({ genre: 'fenetre', debut: '2026-04-12', fin: '2026-10-11' }, '2026-10-11')).toBe('du 12 avr. au 11 oct.');
-    expect(M.libelleDePeriode({ genre: 'fenetre', debut: '2025-10-11', fin: '2026-04-11' }, '2026-10-11')).toBe('du 11 oct. 2025 au 11 avr. 2026');
+    expect(M.libelleDePeriode({ genre: 'fenetre', debut: '2026-04-12', fin: '2026-10-11' }, '2026-10-11')).toBe('du 12\u00a0avr. au 11\u00a0oct.');
+    expect(M.libelleDePeriode({ genre: 'fenetre', debut: '2025-10-11', fin: '2026-04-11' }, '2026-10-11')).toBe('du 11\u00a0oct.\u00a02025 au 11\u00a0avr.\u00a02026');
     expect(M.libelleDePeriode({ genre: 'mois', cle: '2026-11', forme: 'pied' }, J)).toBe('nov. 2026 (en cours)');
     expect(M.libelleDePeriode({ genre: 'mois', cle: '2026-09', forme: 'pied' }, J)).toBe('sept. 2026');
   });

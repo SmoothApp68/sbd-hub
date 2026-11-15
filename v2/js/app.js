@@ -2410,7 +2410,8 @@
     console.warn('Social :', texteErreur(e));
     return phraseDuReseau('voir ' + (quoi || 'le social'));
   }
-  function tonnesSociales(kg) { return Bilan.tonnesDuRecap(Number(kg) || 0); }
+  // Le volume d'un ami, d'un groupe : le formateur unique des tonnes (MOTEUR §9.51 quater).
+  var tonnesSociales = Modele.tonnesTexte;
   function allerAmi(pseudo) { allerA(Routeur.AMI, { pseudo: pseudo }); rendreAmi(pseudo); }
 
   // ══ 107 — UN GESTE SOCIAL FAIT HORS LIGNE N'EST PLUS PERDU (SOCIAL-V1 §8, décision du 15/10/2026) ═══════════════
@@ -2710,7 +2711,7 @@
     return index[slug] ? index[slug].nom : slug;
   }
   function aLaBarreSocial(slug) { return Social.aLaBarre((corpus().catalogue() || {})[slug]); }
-  function kgSocial(v) { return Modele.nombreTexte(v) + ' kg'; }
+  function kgSocial(v) { return Modele.kgTexte(v); }
   function dessinerAmi() {
     if (ecranCourant !== 'ami') return;
     var a = social.ami;
@@ -11918,8 +11919,8 @@
     return Rendu.rendreFeuilleDisques(cible, {
       nom: Modele.nommer(index, seance.exercices[iExo].exercise_slug),
       charge: feuille.charge, barre: barre, decomposition: dec(feuille.charge), charges: charges,
-      phraseIntrouvable: 'Je ne trouve pas ' + Modele.nombreSigne(feuille.charge) + ' kg avec tes disques et une barre de ' +
-        Modele.nombreSigne(barre) + ' kg.',
+      phraseIntrouvable: 'Je ne trouve pas ' + Modele.kgTexte(feuille.charge) + ' avec tes disques et une barre de ' +
+        Modele.kgTexte(barre) + '.',
       choixBarre: feuille.choixBarre, barresProposees: Moteur.BARRES_PROPOSEES,
       surChoixBarre: function () { feuille.choixBarre = !feuille.choixBarre; feuille.choixDisques = false; rendreFeuille(); },
       // 215 — « Mes disques › » : les puces de « Ma salle » (`Profil.lignesMateriel`), le même geste (`Profil.champsDisque`).
@@ -18721,7 +18722,7 @@
         surAjouter: function (type, texte) {
           var v = Modele.lireNombre(texte);
           if (!(v >= Profil.SALLE_BARRE_MIN && v <= Profil.SALLE_BARRE_MAX) || Math.round(v * 2) !== v * 2) {
-            erreur = 'Un poids de barre entre ' + Profil.SALLE_BARRE_MIN + ' et ' + Profil.SALLE_BARRE_MAX + ' kg, au demi-kilo.';
+            erreur = 'Un poids de barre entre ' + Profil.SALLE_BARRE_MIN + ' et ' + Modele.kgTexte(Profil.SALLE_BARRE_MAX) + ', au demi-kilo.';
             return redessiner();
           }
           if ((brouillon[type] || []).indexOf(v) < 0) brouillon = Profil.basculerBarre(brouillon, type, v);
@@ -19101,7 +19102,7 @@
           // SAISIT une pesée, par `poserPesee`, le chemin du questionnaire ; la courbe reste sous Progression.
           { titre: 'TON POIDS', lignes: [
             { libelle: 'Poids',
-              valeur: resumePoids ? Modele.nombreSigne(resumePoids.poids) + ' kg · ' +
+              valeur: resumePoids ? Modele.kgTexte(resumePoids.poids) + ' · ' +
                 Modele.quand(resumePoids.date, jourDuJour()) : null,
               surChoix: ouvrirPeseeProfil }
           ] },
@@ -19171,7 +19172,7 @@
       surGroupe: function (nom) { groupeProfilOuvert = nom; },
       groupeCompte: 'Mon compte',
       resumes: Profil.resumesDesGroupes(p, {
-        poids: resumePoids ? Modele.nombreSigne(resumePoids.poids) + ' kg' : null,
+        poids: resumePoids ? Modele.kgTexte(resumePoids.poids) : null,
         routines: Routines.visibles(routines).filter(function (r) { return r && !r.archivee_a; }).length,
         email: (sessionActive && sessionActive.user && sessionActive.user.email) || null,
         pages: Mentions.pages().map(function (pg) { return pg.titre; })

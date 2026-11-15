@@ -542,7 +542,7 @@ describe('PR 7 — les derniers écarts de la liste d’attente, tranchés', () 
     // Un bandeau dont la date n'est pas celle de la fin, un détail retouché :
     // la capture refaite ne redonne pas le texte, la garde le dit.
     const faux = JSON.parse(JSON.stringify(juste));
-    faux.allegee.bandeau = faux.allegee.bandeau.replace('7 oct.', '8 oct.');
+    faux.allegee.bandeau = faux.allegee.bandeau.replace('7\u00a0oct.', '8\u00a0oct.');
     faux.carte.detail = faux.carte.detail.replace('60 %', '50 %');
     expect(T.verifierPhrases(faux).map((e) => e.ou + ' · ' + e.cause)).toEqual(
       ['allegee.bandeau · sans_citations', 'carte.detail · sans_citations']);

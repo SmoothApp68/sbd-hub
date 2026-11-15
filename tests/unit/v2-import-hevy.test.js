@@ -511,8 +511,8 @@ describe('69 — les mots de l’écran (K1 et la maquette, au mot près)', () =
     expect(I.phrasesDeFin({ importees: 3, dejaLa: 0, deCote: 0 }).detail).toBeNull();
   });
   test('le jour, l’heure et la période (dans l’année : sans l’année)', () => {
-    expect(I.jourEtHeure('2026-09-19T19:31', 2026)).toBe('samedi 19 sept. · 19 h 31');
-    expect(I.jourEtHeure('2026-09-23T08:05', 2026)).toBe('mercredi 23 sept. · 8 h 05');
+    expect(I.jourEtHeure('2026-09-19T19:31', 2026)).toBe('samedi 19\u00a0sept. · 19 h 31');
+    expect(I.jourEtHeure('2026-09-23T08:05', 2026)).toBe('mercredi 23\u00a0sept. · 8 h 05');
     const lignes = I.lireTexte(CAS.texte.source).map((s) => ({ seance: s }));
     expect(I.periode(lignes, 2026)).toBe('Du samedi 19 au vendredi 25 septembre');
   });

@@ -116,7 +116,7 @@ describe('faits.medaillesDuSocial — une médaille par série médaillée', () 
       { set_id: 's1', battu_le: '2026-10-11T10:00:00Z', exercise_slug: 'squat-barre', type: 'charge_max', valeur: 80 },
       { set_id: 's1', battu_le: '2026-10-11T10:00:00Z', exercise_slug: 'squat-barre', type: 'charge_a_reps', valeur: 80, reps: 5 },
       { set_id: 's2', battu_le: '2026-10-11T10:00:00Z', exercise_slug: 'hip-thrust', type: 'reps_a_charge', valeur: 8, charge: 100 }]);
-    expect(m.map((x) => [x.serieId, x.mesure])).toEqual([['s1', '80 kg × 5'], ['s2', '100 kg × 8']]);
+    expect(m.map((x) => [x.serieId, x.mesure])).toEqual([['s1', '80\u00a0kg × 5'], ['s2', '100\u00a0kg × 8']]);
     expect(m[0].types).toEqual(['charge_a_reps', 'charge_max']);
     expect(m[0].nom).toMatch(/^Squat/);
   });

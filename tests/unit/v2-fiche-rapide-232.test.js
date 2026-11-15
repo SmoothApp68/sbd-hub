@@ -105,7 +105,8 @@ const copie = (v) => JSON.parse(JSON.stringify(v));
 // PR 4a (« Les mots disent vrai ») : `fondement.sansMarge` est le marqueur NEUF que la ligne finale porte pour le verbe (MOTEUR §9.47) ; l'ancien code
 // (232) ne le connaît pas ; et `libelles.gris` est la phrase que le verbe unique réécrit (« Une rep de plus. » devenue « Ta cible : 67,5 kg × 5. »
 // devant une ligne qui ne monte pas). Ce test compare les chiffres et l'état de la consigne : ces deux clés sont écartées des deux côtés, rien d'autre.
-const dire = (v) => JSON.stringify(v, (k, x) => (k === 'sansMarge' || k === 'gris' ? undefined : x));
+// « Un seul formateur » (§9.51 quater) met l'espace insécable avant l'unité ; l'ANCIEN code écrit l'espace ordinaire — la comparaison est à l'espace près.
+const dire = (v) => JSON.stringify(v, (k, x) => (k === 'sansMarge' || k === 'gris' ? undefined : typeof x === 'string' ? x.replace(/[\u00a0\u202f]/g, ' ') : x));
 
 // 243 (inventaire du 04/11) : ce test comparait, sans bruit, à RIEN quand le commit d'avant (AVANT_232) manquait — une copie sans .git, ou
 // le checkout superficiel de GitHub (profondeur 1, avant que les workflows ne demandent l'historique entier). Il échoue maintenant,

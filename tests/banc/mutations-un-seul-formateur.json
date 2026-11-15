@@ -1,0 +1,17 @@
+[
+  { "nom": "M-A-tonnes-arrondies-a-l-entier", "fichier": "v2/js/modele.js",
+    "ancien": "return arrondi(n === null ? 0 : n / 1000, 1);",
+    "nouveau": "return arrondi(n === null ? 0 : n / 1000, 0);",
+    "banc": "aucun", "unitaires": ["tests/unit/v2-un-seul-formateur.test.js"] },
+  { "nom": "M-B-le-premier-sans-er", "fichier": "v2/js/modele.js",
+    "ancien": "function quantieme(n) { return Number(n) === 1 ? '1er' : String(Number(n)); }",
+    "nouveau": "function quantieme(n) { return String(Number(n)); }",
+    "banc": "aucun", "unitaires": ["tests/unit/v2-un-seul-formateur.test.js"] },
+  { "nom": "M-C-charge-au-dixieme", "fichier": "v2/js/modele.js",
+    "ancien": "var d = o.decimales === undefined ? 2 : o.decimales;",
+    "nouveau": "var d = o.decimales === undefined ? 1 : o.decimales;",
+    "banc": "aucun", "unitaires": ["tests/unit/v2-un-seul-formateur.test.js"] },
+  { "nom": "T-temoin-css-trajet", "fichier": "v2/styles.css",
+    "ancien": ".courbe-trajet,.courbe-pic{font-size:14px;", "nouveau": ".courbe-trajet,.courbe-pic{font-size:15px;",
+    "banc": "aucun", "unitaires": ["tests/unit/v2-un-seul-formateur.test.js"], "attendu": "survit" }
+]

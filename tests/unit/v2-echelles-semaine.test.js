@@ -205,8 +205,8 @@ describe('145 — la vue `vueEchellesDeLaSemaine`', () => {
     expect(v[0].marche.slug).toBe('pompes');
   });
 
-  test('la semaine se dit « 12 au 18 oct. »', () => {
-    expect(Modele.libelleDeLaSemaine(new Date(2026, 9, 12), new Date(2026, 9, 18))).toBe('12 au 18 oct.');
-    expect(Modele.libelleDeLaSemaine(new Date(2026, 8, 28), new Date(2026, 9, 4))).toBe('28 sept. au 4 oct.');
+  test('la semaine se dit « 12 au 18\u00a0oct. »', () => {
+    expect(Modele.libelleDeLaSemaine(new Date(2026, 9, 12), new Date(2026, 9, 18))).toBe('12 au 18\u00a0oct.');
+    expect(Modele.libelleDeLaSemaine(new Date(2026, 8, 28), new Date(2026, 9, 4))).toBe('28\u00a0sept. au 4\u00a0oct.');
   });
 });

@@ -42,7 +42,7 @@ describe('175 — « 1 265 t » : l\'espace fine insécable des milliers', () =>
     expect(c.querySelector('.bloc-zone b').textContent).toBe('1' + FINE + '100');
   });
   test('le bilan : « 1 265,3 t » passe par le même formateur', () => {
-    expect(window.THBilan.tonnesDuRecap(1265300)).toBe('1' + FINE + '265,3 t');
-    expect(window.THBilan.tonnesDuRecap(14200)).toBe('14,2 t');
+    expect(window.THModele.tonnesTexte(1265300)).toBe('1' + FINE + '265,3\u00a0t');
+    expect(window.THModele.tonnesTexte(14200)).toBe('14,2\u00a0t');
   });
 });

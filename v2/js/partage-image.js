@@ -24,7 +24,7 @@
   // « 8 nov. 2026 »
   function dateTexte(iso) {
     var d = jourDe(iso);
-    return d ? d.getDate() + ' ' + M().MOIS_COURTS[d.getMonth()] + ' ' + d.getFullYear() : '';
+    return d ? M().jourDit(d, { annee: true }) : '';
   }
   // « 2026-11-08 » — pour le nom du fichier.
   function dateFichier(iso) {
@@ -88,7 +88,7 @@
 
   // ── Le record ────────────────────────────────────────────────────────────
   var UNITES = {
-    charge: function (v) { return M().nombreTexte(v, 1) + ' kg'; },
+    charge: function (v) { return M().kgTexte(v); },
     reps: function (v) { return M().nombreTexte(v, 0) + (Math.abs(Number(v)) >= 2 ? ' reps' : ' rep'); },
     duree: function (v) { return M().formatDuree(v); },
     distance: function (v) { return M().formatDistance(v); }

@@ -244,7 +244,7 @@ describe('123 — la feuille : une ligne par tranche, « + Une tranche », « Pa
     f.vue.surValider();
     expect(f.ecrits).toEqual([]);
     expect(f.fermes).toBe(0);
-    expect(f.vue.erreur).toBe('« Jusqu’à » vide ou illisible : je remets 10 kg.');
+    expect(f.vue.erreur).toBe('« Jusqu’à » vide ou illisible : je remets 10\u00a0kg.');
     expect(f.vue.brouillon.halteres[0]).toMatchObject({ jusqua: 10, pas: 1 });
     f.vue.surValider();
     expect(f.ecrits).toEqual([{ ma_salle: SALLE_AUREL }]);
@@ -277,7 +277,7 @@ describe('123 — la feuille : une ligne par tranche, « + Une tranche », « Pa
     g.vue.surPasHalteres(2, 1);
     g.vue.surValider();
     expect(g.ecrits).toEqual([]);
-    expect(g.vue.erreur).toBe('Haltères : chaque « jusqu’à » entre 1 et 100 kg, plus lourd que le précédent ; un écart de 0,5 à 10 kg, pas plus grand que sa tranche.');
+    expect(g.vue.erreur).toBe('Haltères : chaque « jusqu’à » entre 1 et 100\u00a0kg, plus lourd que le précédent ; un écart de 0,5 à 10\u00a0kg, pas plus grand que sa tranche.');
   });
 });
 

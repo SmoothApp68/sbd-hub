@@ -37,14 +37,14 @@ describe('119 — une fonction d’affichage par mesure', () => {
     expect(Modele.affichageDeMesure('inconnue')).toBeNull();
   });
   test('la valeur suit les colonnes que la série porte', () => {
-    expect(Modele.formatMesure({ charge_kg: 52, reps: 12 })).toBe('52 kg × 12');
+    expect(Modele.formatMesure({ charge_kg: 52, reps: 12 })).toBe('52\u00a0kg × 12');
     expect(Modele.formatMesure({ charge_kg: -22.5, reps: 8 })).toBe('Aide 22,5 kg × 8');
     expect(Modele.formatMesure({ reps: 15 })).toBe('15 reps');
     expect(Modele.formatMesure({ duree_s: 90 })).toBe('1 min 30');
     expect(Modele.formatMesure({ duree_s: 1200, distance_m: 3200 })).toBe('3,2 km · 20 min');  // 131 : distance, puis durée
-    expect(Modele.formatMesure({ charge_kg: 40, distance_m: 50 })).toBe('40 kg · 50 m');
-    expect(Modele.formatMesure({ charge_kg: 10, duree_s: 60 })).toBe('10 kg · 1 min');
-    expect(Modele.formatMesure({ charge_kg: 52 })).toBe('52 kg');
+    expect(Modele.formatMesure({ charge_kg: 40, distance_m: 50 })).toBe('40\u00a0kg · 50 m');
+    expect(Modele.formatMesure({ charge_kg: 10, duree_s: 60 })).toBe('10\u00a0kg · 1 min');
+    expect(Modele.formatMesure({ charge_kg: 52 })).toBe('52\u00a0kg');
     expect(Modele.formatMesure({})).toBe('—');
   });
   test('ce qu’un bilan classe « en reps » : charge × reps et reps seules, rien d’autre', () => {
@@ -63,12 +63,12 @@ describe('119 — E9 : la médaille écrit comme le journal', () => {
       { type: 'distance_m', valeur: 3200, ancien: 1170, ancien_le: '2026-09-01' }
     ], 'tapis', '2026-09-08');
     expect(p[0]).toBe('Plus longue durée : 12 min. Plus longue distance : 3,2 km.');
-    expect(p[1]).toBe('Avant : 10 min, le 1er sept.');
+    expect(p[1]).toBe('Avant : 10 min, le 1er\u00a0sept.');
   });
   test('une distance seule : « Avant : 850 m » sous 1 000 m', () => {
     const p = Modele.phraseDeRecord([{ type: 'distance_m', valeur: 1300, ancien: 850, ancien_le: '2026-09-01' }],
       'tapis', '2026-09-08');
-    expect(p).toEqual(['Plus longue distance : 1,3 km.', 'Avant : 850 m, le 1er sept.']);
+    expect(p).toEqual(['Plus longue distance : 1,3 km.', 'Avant : 850 m, le 1er\u00a0sept.']);
   });
 });
 

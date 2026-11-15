@@ -1258,7 +1258,7 @@ describe('66D — « Construis-le-moi » avec un historique : le choix, l’aper
     const o = HISTORIQUE(); o.fenetre = { debut: '2026-07-19', fin: '2026-10-10' };
     const b = bac(o);
     await b.appel('ouvrirApercuProgramme()');
-    expect(b.vue().voix[0]).toBe('Ce sont tes séances du 19 juil. au 10 oct.');
+    expect(b.vue().voix[0]).toBe('Ce sont tes séances du 19\u00a0juil. au 10\u00a0oct.');
   });
   test('le programme déduit complété : le titre, la voix des 12 semaines, « Ce que j’ai changé · 2 », la reprise marquée ; rien n’est écrit', async () => {
     const b = bac(HISTORIQUE());

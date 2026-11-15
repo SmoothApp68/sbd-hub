@@ -300,9 +300,9 @@ describe('formatDistance — bornes incluses', () => {
 });
 
 describe('formatMesure', () => {
-  test('charge et reps : « 52 kg × 12 », virgule pour les décimaux', () => {
-    expect(Modele.formatMesure(serie({ charge_kg: 52, reps: 12 }))).toBe('52 kg × 12');
-    expect(Modele.formatMesure(serie({ charge_kg: 122.5, reps: 5 }))).toBe('122,5 kg × 5');
+  test('charge et reps : « 52\u00a0kg × 12 », virgule pour les décimaux', () => {
+    expect(Modele.formatMesure(serie({ charge_kg: 52, reps: 12 }))).toBe('52\u00a0kg × 12');
+    expect(Modele.formatMesure(serie({ charge_kg: 122.5, reps: 5 }))).toBe('122,5\u00a0kg × 5');
   });
 
   test('une sortie : plus jamais « 23715 s 22660 m »', () => {

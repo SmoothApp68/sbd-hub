@@ -512,7 +512,7 @@
         var r = el('div', 'exo-fiche');
         ligneFiche(r, 'Ta charge de travail', null, M().chargeFois(t.travail.palier, t.travail.niveau));
         ligneFiche(r, 'Ton poids', 'pesée du ' + dateCourte(t.rapport.pesee.date),
-          nombreFr(t.rapport.pesee.poids) + '\u00a0kg');
+          M().kgTexte(t.rapport.pesee.poids));
         ligneFiche(r, 'Rapport', null, nombreFr(t.rapport.rapport));
         carte.appendChild(r);
       } else {
@@ -756,7 +756,7 @@
     if (genre === 'charge') {
       var l = M().libelleDeForce(p);
       if (p.mesure) return l.dit;
-      if (p.charge !== null && p.reps !== null) bouts.push(nombreFr(p.charge) + ' kg \u00d7 ' + p.reps);
+      if (p.charge !== null && p.reps !== null) bouts.push(M().kgTexte(p.charge) + ' \u00d7 ' + p.reps);
       bouts.push(l.dit);
     } else bouts.push(valeurCourbe(genre, p.valeur));
     if (p.record) bouts.push('record');
@@ -1200,14 +1200,12 @@
   // ── Vue hebdomadaire ────────────────────────────────────────────────────
 
 
-  function MOIS() { return M().MOIS_COURTS; }
-
   // « 7 – 13 sept. 2026 », ou « 31 août – 6 sept. 2026 » à cheval sur deux mois.
   function libelleSemaine(lundi, dimanche) {
     if (!lundi || !dimanche) return '';
     var memeMois = lundi.getMonth() === dimanche.getMonth() && lundi.getFullYear() === dimanche.getFullYear();
-    var g = lundi.getDate() + (memeMois ? '' : ' ' + MOIS()[lundi.getMonth()]);
-    return g + ' – ' + dimanche.getDate() + ' ' + MOIS()[dimanche.getMonth()] + ' ' + dimanche.getFullYear();
+    var g = memeMois ? M().quantieme(lundi.getDate()) : M().jourDit(lundi);
+    return g + ' – ' + M().jourDit(dimanche, { annee: true });
   }
 
   // Bilan : le compte brut, puis le volume par muscle. Strictement descriptif —
@@ -1364,7 +1362,7 @@
       if (a.stabilisateur) stabilisateur = true;
       var ligne = el('div', 'fen-exo');
       var nom = el('span', 'fen-nom', a.nom);
-      var ou = a.jour ? M().JOURS_COURTS[(a.jour.getDay() + 6) % 7] + ' ' + a.jour.getDate() + ' \u00b7 ' : '';
+      var ou = a.jour ? M().JOURS_COURTS[(a.jour.getDay() + 6) % 7] + ' ' + M().quantieme(a.jour.getDate()) + ' \u00b7 ' : '';
       nom.appendChild(el('em', null, ou + a.seriesReelles + ' série' +
         (a.seriesReelles > 1 ? 's' : '') +
         (a.secondaire ? ', muscle secondaire' : a.stabilisateur ? ', muscle stabilisateur' : '')));
@@ -1587,7 +1585,7 @@
       // 173 — ligne 1 : le poids à gauche, la variation à droite (même ligne de base) ; ligne 2 : « depuis le … · N pesées », pleine largeur.
       var an = r.date.getFullYear();
       // 222 — une variation nulle ne se colore pas (couleur neutre) : pas de bleu pour « 0 kg ».
-      ligne.appendChild(el('span', 'pesee-var' + (r.variation && !Number(r.variation.valeur) ? ' nulle' : ''), r.variation ? signe(r.variation.valeur) + ' kg' : ''));
+      ligne.appendChild(el('span', 'pesee-var' + (r.variation && !Number(r.variation.valeur) ? ' nulle' : ''), r.variation ? M().kgTexte(r.variation.valeur, { plus: true }) : ''));
       bloc.appendChild(ligne);
       bloc.appendChild(el('div', 'pesee-depuis',
         (r.variation ? 'depuis le ' + jour(r.variation.depuis, an) + ' \u00b7 ' : '') +
@@ -1697,7 +1695,7 @@
     // 119 (audit du 16/10/2026, F8) — UN MOIS SANS TONNES N'EST PAS UN MOIS SANS SÉRIE : au poids du corps (tractions,
     // pompes, dips), le mois dit ses séries de travail ; « Aucune série de travail » seulement quand il n'en a aucune (les sorties
     // seules n'en sont pas, comme la story du mois).
-    bouts.push(v.kg ? tonnes(v.kg) + ' soulevées'
+    bouts.push(v.kg ? M().tonnesTexte(v.kg) + ' soulevées'
       : (v.series ? grand(v.series) + ' série' + (v.series > 1 ? 's' : '') + ' de travail' : 'Aucune série de travail'));
     if (v.records) bouts.push(pluriel(v.records, 'record'));
     if (v.paris && v.paris.verifies) bouts.push(grand(v.paris.tenus) + ' pari' + (v.paris.tenus > 1 ? 's' : '') +
@@ -1784,7 +1782,7 @@
   }
   var PHRASE_COURBE = 'Reps différentes d’avant : lu sur ta courbe charge-reps.';
   function classeDuVerdict(etat) { return etat === '↑' || etat === '↗' ? 'pc-monte' : 'pc-neutre'; }
-  function kg(n) { return M().nombreTexte(n) + ' kg'; }
+  function kg(n) { return M().kgTexte(n); }
   function majuscule(t) { return t ? t.charAt(0).toUpperCase() + t.slice(1) : t; }
   var NOMS_DES_GRANDS = { squat_barre: 'Squat', developpe_couche_barre: 'Couché',
                           souleve_de_terre_barre: 'Soulevé de terre', developpe_militaire_barre: 'Militaire' };
@@ -1833,7 +1831,7 @@
     l.appendChild(haut);
     if (o.methode === 'reps' && o.detail.length) {
       l.appendChild(el('div', 'pc-exo-detail', o.detail.map(function (d) {
-        return M().nombreTexte(d[1]) + ' → ' + M().nombreTexte(d[2]) + ' kg à ' + M().repsTexte(d[0]);
+        return M().nombreTexte(d[1]) + ' → ' + M().kgTexte(d[2]) + ' à ' + M().repsTexte(d[0]);
       }).join(' · ')));
     } else if (o.methode === 'courbe') {
       l.appendChild(el('div', 'pc-exo-detail', PHRASE_COURBE));
@@ -2365,10 +2363,6 @@
     l.appendChild(typeof droite === 'string' ? el('span', null, droite) : droite);
     return l;
   }
-  function tonnes(kg) {
-    var t = (Number(kg) || 0) / 1000;
-    return grand(Math.round(t * (t < 10 ? 10 : 1)) / (t < 10 ? 10 : 1)) + '\u00a0t';
-  }
   // 98 (BILANS-V1) — l'ancien bilan du mois (`rendreBilanMois`) n'existe plus : la story du mois le remplace
   // (`annee.js`), et en reprend les records et les paris.
 
@@ -2518,7 +2512,7 @@
     var cadre = el('div', 'graphe');
     var tete = el('div', 'graphe-tete');
     tete.appendChild(el('span', 'graphe-q', 'Poids de corps'));
-    var v = el('span', 'graphe-v', nombreFr(Math.round(courbe.points[courbe.points.length - 1].poids * 10) / 10));
+    var v = el('span', 'graphe-v', M().nombreTexte(courbe.points[courbe.points.length - 1].poids, 1));
     v.appendChild(el('small', null, 'kg'));
     tete.appendChild(v);
     cadre.appendChild(tete);
@@ -2530,8 +2524,8 @@
     var dessin = svg('svg', null, {
       viewBox: '0 0 ' + courbe.largeur + ' ' + courbe.hauteur,
       preserveAspectRatio: 'none', role: 'img',
-      'aria-label': courbe.points.length + ' pesées, de ' + nombreFr(courbe.min) +
-        ' à ' + nombreFr(courbe.max) + ' kg'
+      'aria-label': courbe.points.length + ' pesées, de ' + M().nombreTexte(courbe.min) +
+        ' à ' + M().kgTexte(courbe.max)
     });
     dessin.appendChild(svg('polyline', 'courbe-trait', { points: listePoints(courbe.points) }));
     var dernier = courbe.points[courbe.points.length - 1];
@@ -2541,7 +2535,7 @@
     var axe = el('div', 'graphe-axe');
     axe.appendChild(el('span', null, jour(courbe.debut, -1)));
     axe.appendChild(el('span', 'graphe-ampl',
-      nombreFr(courbe.min) + ' \u2013 ' + nombreFr(courbe.max) + ' kg'));
+      M().nombreTexte(courbe.min) + ' \u2013 ' + M().kgTexte(courbe.max)));
     axe.appendChild(el('span', null, jour(courbe.fin, -1)));
     cadre.appendChild(axe);
     cible.appendChild(cadre);
@@ -2566,7 +2560,7 @@
     pesees.forEach(function (p) {
       var ligne = el('div', 'pesee-l');
       ligne.appendChild(el('span', 'pesee-d', jour(p.date, -1)));
-      ligne.appendChild(el('span', 'pesee-p', nombreFr(p.poids) + ' kg'));
+      ligne.appendChild(el('span', 'pesee-p', M().kgTexte(p.poids)));
       ligne.appendChild(el('span', 'pesee-e', p.ecart === null ? '' : signe(p.ecart)));
       liste.appendChild(ligne);
     });
@@ -2580,10 +2574,9 @@
 
   function S() { return racine.THSeance; }
 
-  // « 47 min » sous une heure, « 1 h 12 » au-delà (« 1 h 00 » à l'heure pile).
-  // C'est le format du bilan du mois (`Bilan.texteTemps`), pas un second : « 72 min »
-  // ne se lit pas d'un coup d'œil entre deux séries.
-  function libelleDuree(minutes) { return racine.THBilan.texteTemps(minutes); }
+  // « 47 min » sous une heure, « 1 h 12 » au-delà (« 1 h » à l'heure pile). Le formateur unique des durées
+  // (`Modele.dureeEnMinutes`, MOTEUR §9.51 quater) : « 72 min » ne se lit pas d'un coup d'œil entre deux séries.
+  function libelleDuree(minutes) { return M().dureeEnMinutes(minutes); }
 
   // La durée de la barre, réécrite SUR PLACE : le texte du nœud, rien d'autre. On
   // ne touche au DOM que si la valeur change (un nœud réécrit pour rien fait
@@ -4031,7 +4024,7 @@
               chargeHero.classList.add('c-charge-disques');
               chargeHero.setAttribute('role', 'button');
               chargeHero.tabIndex = 0;
-              chargeHero.setAttribute('aria-label', chargeHero.textContent + ' kg : voir les disques');
+              chargeHero.setAttribute('aria-label', M().kgTexte(nbHero) + ' : voir les disques');
               chargeHero.addEventListener('click', function (e) { e.stopPropagation(); vue.surDisques(x._iExo, nbHero); });
             }
           }
@@ -4721,7 +4714,7 @@
     if (t.consigne) n.appendChild(el('div', 'pc-detail test-consigne', t.consigne.texte));
     if (t.arret) n.appendChild(el('div', 'pc-detail test-arret', ARRETS_DU_TEST[t.arret] || 'On s’arrête là.'));
     if (t.mesure) n.appendChild(el('div', 'pc-detail test-mesure', 'Mesuré : ' + M().chargeFois(t.mesure.charge, t.mesure.reps) +
-      (t.mesure.vrai ? '' : ', max lu ' + nombreFr(Math.round(t.mesure.valeur)) + ' kg') + '.'));
+      (t.mesure.vrai ? '' : ', max lu ' + M.kgTexte(Math.round(t.mesure.valeur))) + '.'));
     if (t.pourquoi && t.etat === 'a_faire') n.appendChild(el('div', 'pc-detail test-pourquoi', t.pourquoi.texte));
     var gestes = el('div', 'pc-gestes pc-choix');
     var bouton = function (classe, texte, cle) {
@@ -4751,7 +4744,7 @@
     (vue.barres || []).forEach(function (b) {
       var autre = b.mode === 'max' ? 'serie' : 'max';
       var etat = b.mesure ? (b.mesure.valeur !== null && b.mesure.valeur !== undefined
-        ? 'mesuré ' + nombreFr(Math.round(b.mesure.valeur * 10) / 10) + ' kg' : 'pas testé') : (b.mode === 'max' ? 'viser mon max' : 'série au max');
+        ? 'mesuré ' + M().kgTexte(b.mesure.valeur, 1) : 'pas testé') : (b.mode === 'max' ? 'viser mon max' : 'série au max');
       entreeMenu(menu, b.nom + ' · ' + etat, b.mesure ? { desactive: true } : { surClic: function () { vue.surMode(b.slug, autre); } });
       // 202 — la raison du défaut prudent (la phrase du coach, sa source repliée) ; l'autre choix reste à un toucher.
       if (b.raison && !b.mesure) {
@@ -6153,11 +6146,11 @@
     t.appendChild(el('em', '', vue.nom));
     cible.appendChild(t);
     var carte = el('div', 'dq-carte');
-    carte.appendChild(el('h3', 'dq-charge', M.nombreSigne(vue.charge) + ' kg'));
+    carte.appendChild(el('h3', 'dq-charge', M.kgTexte(vue.charge)));
     if (vue.decomposition.ok) {
       carte.appendChild(el('div', 'dq-aide', 'Par côté, du plus lourd au plus léger'));
       var dessin = dessinBarre(vue.decomposition.parCote, M);
-      dessin.setAttribute('aria-label', 'Barre de ' + M.nombreSigne(vue.barre) + ' kg chargée : ' + texteDecomposition(vue.decomposition, M) + ' par côté');
+      dessin.setAttribute('aria-label', 'Barre de ' + M.kgTexte(vue.barre) + ' chargée : ' + texteDecomposition(vue.decomposition, M) + ' par côté');
       carte.appendChild(dessin);
       carte.appendChild(el('div', 'dq-texte', texteDecomposition(vue.decomposition, M)));
     } else {
@@ -6166,7 +6159,7 @@
     var ligneBarre = el('button', 'dq-ligne dq-barre-choix', '');
     ligneBarre.type = 'button';
     ligneBarre.appendChild(el('span', '', 'Barre'));
-    ligneBarre.appendChild(el('span', 'dq-val', M.nombreSigne(vue.barre) + ' kg ›'));
+    ligneBarre.appendChild(el('span', 'dq-val', M.kgTexte(vue.barre) + ' ›'));
     ligneBarre.addEventListener('click', vue.surChoixBarre);
     carte.appendChild(ligneBarre);
     // 215 — « Mes disques › » : le résumé, et au toucher les mêmes puces que « Ma salle » (`Profil.lignesMateriel`).
@@ -6185,7 +6178,7 @@
       var g = el('div', 'q-puces dq-barres');
       vue.barresProposees.forEach(function (kg) {
         var on = kg === vue.barre;
-        var n = el('button', 'q-puce' + (on ? ' on' : ''), M.nombreSigne(kg) + ' kg');
+        var n = el('button', 'q-puce' + (on ? ' on' : ''), M.kgTexte(kg));
         n.type = 'button';
         n.dataset.cle = kg;
         n.setAttribute('aria-pressed', on ? 'true' : 'false');
@@ -7002,7 +6995,7 @@
     };
     // La durée en minutes (« 45 min »), en heures au-delà (« 1 h 03 ») — jamais en secondes.
     var dm = r.duree_min;
-    tuile(dm === null || dm === undefined ? '\u2014' : dm < 60 ? dm + ' min' : M().formatDuree(dm * 60), 'durée');
+    tuile(dm === null || dm === undefined ? '\u2014' : M().dureeEnMinutes(dm), 'durée');
     tuile(String(r.series || 0), 'séries');
     tuile(r.volume_texte, 'volume');
     tuile(String(r.exercices || 0), 'exercices');
@@ -9177,7 +9170,7 @@
         r.appendChild(poignee);
         r.appendChild(pastille(e.nom));
         r.appendChild(el('span', 'el-nom', e.nom));
-        r.appendChild(el('span', 'el-kg num', avecKg ? (e.kg !== undefined && e.kg !== null ? M.nombreSigne(e.kg) + '\u00a0kg' : '\u2014') : ''));
+        r.appendChild(el('span', 'el-kg num', avecKg ? (e.kg !== undefined && e.kg !== null ? M.kgTexte(e.kg) : '\u2014') : ''));
         var x = el('button', 'el-retirer', '\u00d7');
         x.type = 'button';
         x.setAttribute('aria-label', 'Retirer ' + e.nom);
@@ -9797,7 +9790,7 @@
   //   cap en plaques : « Squat : 3 plaques (140 kg × 3) » ; cap hors barre : « Presse à cuisses : 300 kg × 8 » (le cap, en or) ;
   //   record d'une grande barre : « Couché : record, 100 kg × 3 ».
   function mesureDeJalon(charge, reps) {
-    return nombreFr(charge) + NBSP + 'kg' + (reps ? ' \u00d7 ' + reps : '');
+    return M().kgTexte(charge) + (reps ? ' \u00d7 ' + reps : '');
   }
   function jalonEnPhrase(l) {
     if (l.sorte === 'niveau') return 'Niveau ' + l.libelle;
@@ -9807,7 +9800,7 @@
   }
   // Au récap : « Squat : 3 plaques pour la première fois. 140 kg × 3. » — hors barre, « cap des 150 kg ».
   function capDuRecap(l) {
-    var quoi = l.plaques ? l.plaques + ' ' + motJeu(l.plaques, 'plaque', 'plaques') : 'cap des ' + nombreFr(l.kg) + NBSP + 'kg';
+    var quoi = l.plaques ? l.plaques + ' ' + motJeu(l.plaques, 'plaque', 'plaques') : 'cap des ' + M().kgTexte(l.kg);
     return l.nom + ' : ' + quoi + ' pour la première fois. ' + mesureDeJalon(l.charge, l.reps) + '.';
   }
   function rendreFeuilleJalons(cible, vue) {
@@ -9828,7 +9821,7 @@
   }
   // 273 — un cap en plaques (« 3 plaques », barre droite : 1 plaque = 60 kg) ou en kilos (« 150 kg »).
   function libelleDeCap(plaques, kg) {
-    return plaques ? plaques + ' ' + motJeu(plaques, 'plaque', 'plaques') : nombreFr(kg) + NBSP + 'kg';
+    return plaques ? plaques + ' ' + motJeu(plaques, 'plaque', 'plaques') : M().kgTexte(kg);
   }
   function libelleSucces(d) {
     var p = d.palier;

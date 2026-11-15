@@ -23,7 +23,7 @@ const outils = {
     const p = Modele.phraseDeRecord([r], nom, null, (x) => x);
     return { nom: nom.charAt(0).toUpperCase() + nom.slice(1), phrase: p ? p[0] : null };
   },
-  tonnes: (kg) => Bilan.tonnesDuRecap(kg), duree: Modele.formatDuree, nombre: (n) => Modele.nombreTexte(n, 0),
+  tonnes: (kg) => Modele.tonnesTexte(kg), duree: Modele.formatDuree, nombre: (n) => Modele.nombreTexte(n, 0),
   jour: () => 'mercredi 28 oct.', heure: Modele.heureMinute
 };
 const ex = (slug, series, extra) => Object.assign({ slug, series, charge_kg: null, reps: null, duree_s: null, distance_m: null }, extra || {});
@@ -117,7 +117,7 @@ describe('182 — recapDetaille : l’en-tête, les tuiles, « ensemble », les 
   test('quatre tuiles : volume, séries, exercices, ensemble (le recouvrement, en minutes)', () => {
     const r = Social.recapDetaille([moi(a), alexis(b)], outils);
     expect(r.tuiles.map((t) => t.cle)).toEqual(['volume', 'series', 'exercices', 'ensemble']);
-    expect(r.tuiles[0].valeur).toBe(Bilan.tonnesDuRecap(26500));
+    expect(r.tuiles[0].valeur).toBe(Modele.tonnesTexte(26500));
     expect(r.tuiles[1].valeur).toBe('24');
     expect(r.tuiles[3].valeur).toBe('44 min');   // 14 h 35 → 15 h 19
   });
@@ -144,7 +144,7 @@ describe('182 — recapDetaille : l’en-tête, les tuiles, « ensemble », les 
     expect(r.chacun.map((x) => x.pseudo)).toEqual(['toi', 'alexis']);
     expect(r.chacun[0].xp).toBe('+140 XP');
     expect(r.chacun[1].xp).toBeNull();
-    expect(r.chacun[1].texte).toBe(Bilan.tonnesDuRecap(12500) + ' · 12 séries');
+    expect(r.chacun[1].texte).toBe(Modele.tonnesTexte(12500) + ' · 12 séries');
   });
   test('un ancien membre (compte supprimé) se dit « un ancien membre », ses chiffres restent', () => {
     const r = Social.recapDetaille([moi(a), alexis(b, { pseudo: '' })], outils);

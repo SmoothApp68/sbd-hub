@@ -126,7 +126,7 @@ describe('147 — l’aperçu de l’import signale une séance de plus de 5 h',
 
   test('un nom pas encore rattaché compte comme muscu ; rattaché à une sortie, le signal disparaît (recalculer)', () => {
     const [l] = I.apercu([lue('Marche', 7, 0)], ctx);
-    expect(l.duree_longue).toBe('7 h 00');
+    expect(l.duree_longue).toBe('7 h');
     const sources2 = Object.assign({}, sources, { miens: [{ alias: 'Marche', exercise_slug: 'rando' }] });
     const [m] = I.recalculer([l], { sources: sources2, base: [] });
     expect(m.duree_longue).toBeNull();

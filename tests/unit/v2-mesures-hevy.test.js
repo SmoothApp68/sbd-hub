@@ -69,7 +69,7 @@ describe('apercuDesMesures — les jours déjà pesés gardent leur valeur', () 
     expect(a.aImporter.map((p) => p.date)).toEqual(['2025-10-01', '2025-10-03']);
     expect(a).toMatchObject({ trouvees: 3, dejaLa: 1, ecartees: 1, du: '2025-10-01', au: '2025-10-03' });
     expect(I.phrasesDesMesures(a)).toEqual([
-      '3 pesées trouvées · du 1 oct. 2025 au 3 oct. 2025',
+      '3 pesées trouvées · du 1er oct. 2025 au 3 oct. 2025',
       '1 jour déjà pesé dans TrainHub : ta pesée est gardée telle quelle.',
       '1 ligne écartée : valeur hors des bornes, ou date illisible ou hors période.',
       'Seul le poids est importé.'

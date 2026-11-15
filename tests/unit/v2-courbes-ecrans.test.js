@@ -25,7 +25,7 @@ function sommaire(extra) {
     parcours: { phrase: 'Ta phrase.', surChoix: () => {} },
     annee: { an: 2026, surChoix: () => {} },
     saison: { titre: 'Fall Arc 2026', surChoix: () => {} },
-    exercices: { legende: 'Max estimé, 6 derniers mois', lignes: [
+    exercices: { legende: 'Force estimée par séance, 6 derniers mois', lignes: [
       { slug: 'squat', nom: 'Squat', mesure: '141 → 152 kg', mini: Courbe.mini(pts) },
       { slug: 'dc', nom: 'Développé couché', mesure: '102 kg', mini: Courbe.mini([P(J(2026, 9, 1), 102)]) }
     ], surExercice: () => {}, surTous: () => {} }
@@ -90,7 +90,8 @@ function page(extra, nb) {
   const vue = Object.assign({
     nom: 'Squat', mesure: 'charge_reps', onglet: 'resume', historique: [],
     courbe: { nom: 'Squat', genre: 'charge', geo: Courbe.geometrie(fenetre), resume: Courbe.resume(fenetre), periode: '6m',
-      periodeLongue: '6 mois', periodes: Courbe.PERIODES, surPeriode: () => {} },
+      force: { valeur: 152, charge: 130, reps: 5, date: J(2026, 9, 28).toISOString(), mode: 'projection' }, trajet: Courbe.trajet(fenetre, 'charge', maintenant),
+      aujourdhui: '2026-11-01', periodeLongue: '6 mois', periodes: Courbe.PERIODES, surPeriode: () => {} },
     volume: {}, table: []
   }, extra || {});
   window.THRendu.rendrePageExercice(cible, vue);
@@ -98,10 +99,12 @@ function page(extra, nb) {
 }
 
 describe('206 — la courbe de la page d\'exercice', () => {
-  test('en tête du Résumé : la valeur, le sens, l\'écart sur la période', () => {
+  test('en tête du Résumé : la force de la fiche, d\'où elle vient, le trajet sur la période', () => {
     const c = page();
-    expect(c.querySelector('.courbe-val').textContent).toBe('152 kg');
-    expect(c.querySelector('.courbe-sous').textContent).toBe('max estimé · +11 kg du 20 mai au 28 oct.');
+    const n = (e) => e.textContent.replace(/\u00a0/g, ' ');
+    expect(n(c.querySelector('.courbe-val'))).toBe('≈ 152 kg');
+    expect(n(c.querySelector('.courbe-sous'))).toBe('force estimée · d’après 130 kg × 5, le 28 oct.');
+    expect(n(c.querySelector('.courbe-trajet'))).toBe('141 → 152 kg, du 20 mai au 28 oct.');
     expect(c.querySelector('.courbe-carte').compareDocumentPosition(c.querySelector('.section-t')) & 4).toBeTruthy();
   });
 
@@ -109,7 +112,7 @@ describe('206 — la courbe de la page d\'exercice', () => {
     const choisies = [];
     const base = Courbe.dansLaPeriode([P(J(2026, 4, 20), 141), P(J(2026, 9, 28), 152)], '6m', J(2026, 10, 1));
     const c2 = page({ courbe: { nom: 'Squat', genre: 'charge', geo: Courbe.geometrie(base), resume: Courbe.resume(base), periode: '6m',
-      periodeLongue: '6 mois', periodes: Courbe.PERIODES, surPeriode: (k) => choisies.push(k) } });
+      force: null, trajet: Courbe.trajet(base, 'charge', J(2026, 10, 1)), periodeLongue: '6 mois', periodes: Courbe.PERIODES, surPeriode: (k) => choisies.push(k) } });
     const b = [...c2.querySelectorAll('.courbe-per-b')];
     expect(b.map((x) => x.textContent)).toEqual(['3 mois', '6 mois', '1 an', 'Tout']);
     expect(b.map((x) => x.getAttribute('aria-pressed'))).toEqual(['false', 'true', 'false', 'false']);
@@ -122,17 +125,17 @@ describe('206 — la courbe de la page d\'exercice', () => {
     expect(c.querySelectorAll('.courbe-pale').length).toBe(4);
     expect(c.querySelectorAll('polyline.courbe-trait').length).toBe(1);
     expect(c.querySelectorAll('.courbe-rec').length).toBe(2);
-    expect(c.querySelector('svg.courbe-svg').getAttribute('aria-label')).toMatch(/de 141\s?kg à 152\s?kg ; 2 records/);
+    expect(c.querySelector('svg.courbe-svg').getAttribute('aria-label')).toMatch(/^Force estimée par séance, Squat, sur 6 mois, de 141\s?kg à 152\s?kg ; 2 records$/);
   });
 
-  test('toucher un point : la bulle dit la date, la meilleure série, le max estimé et le record', () => {
+  test('toucher un point : la bulle dit la date, la meilleure série, la force estimée et le record', () => {
     const c = page();
     const bulle = c.querySelector('.courbe-bulle');
     expect(bulle.classList.contains('on')).toBe(false);
     const cibles = [...c.querySelectorAll('.courbe-cible')];
     expect(cibles).toHaveLength(4);
     cibles[3].dispatchEvent(new window.Event('click'));
-    expect(bulle.textContent).toBe('Le 28 oct. · 130 kg × 5 · max estimé 152 kg · record');
+    expect(bulle.textContent.replace(/\u00a0/g, ' ')).toBe('Le 28 oct. · 130 kg × 5 · force estimée 152 kg · record');
     expect(bulle.classList.contains('on')).toBe(true);
   });
 
@@ -147,6 +150,7 @@ describe('206 — la courbe de la page d\'exercice', () => {
   test('une seule séance sur la période : on le dit, les périodes restent', () => {
     const un = Courbe.dansLaPeriode([P(J(2026, 9, 28), 152)], '6m', J(2026, 10, 1));
     const c = page({ courbe: { nom: 'Squat', genre: 'charge', geo: Courbe.geometrie(un), resume: Courbe.resume(un), periode: '6m',
+      force: { valeur: 152, charge: 130, reps: 5, date: J(2026, 9, 28).toISOString(), mode: 'projection' }, trajet: Courbe.trajet(un, 'charge', J(2026, 10, 1)),
       periodeLongue: '6 mois', periodes: Courbe.PERIODES, surPeriode: () => {} } });
     expect(c.querySelector('.courbe-vide').textContent).toBe('Une seule séance sur cette période.');
     expect(c.querySelectorAll('.courbe-per-b')).toHaveLength(4);

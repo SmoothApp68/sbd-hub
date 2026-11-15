@@ -108,15 +108,45 @@
              mode: l[l.length - 1].mode || null, modeDebut: l[0].mode || null };
   }
 
-  // Le PIC ANCIEN (§9.51.6.5, I176) : le plus haut point gris de la vue — `null` sans point gris. Avec un dernier point plein, il n'est
-  // retenu que s'il le DÉPASSE tel qu'il est affiché (les deux arrondis au kg : jamais « Pic ancien 187 kg » sous un « 187 kg »).
-  function picAncien(points) {
+  // LE TRAJET (§9.51 bis, I181) — « 87 → 92 kg, du 18 mai au 18 oct. » : le premier et le dernier point PLEIN de la vue, avec leurs deux
+  // chiffres et leurs deux dates. Il n'est ÉCRIT que si les DEUX bouts sont des projections et qu'il y a deux points pleins ou plus :
+  // un plancher (« au moins 150 kg », une charge nue) ne se soustrait jamais d'une projection (150 × 1 contre 140 donnait « −10 kg »,
+  // une baisse qui n'existe pas), et deux bornes basses ne font pas une tendance. Le chiffre de TÊTE n'est pas lu ici : c'est la `force`
+  // de la fiche (`Modele.libelleDeForce`). `null` hors charge × reps (reps et temps gardent `resume`) ou sans point plein.
+  //   · `court` : ce que dit Progression (« 87 → 92 kg » ; « 92 kg » si les deux chiffres affichés sont égaux ; sans trajet, le dernier
+  //     point plein dans son mode : « 140 kg », « au moins 150 kg ») ; `texte` : la phrase de la page (`court` + les deux dates), « » sans trajet.
+  function trajet(points, genre, aujourdhui) {
+    if (genre !== undefined && genre !== 'charge') return null;
+    var l = pleins(points);
+    if (!l.length) return null;
+    var M = racine.THModele, P = racine.THPeriode;
+    var prem = l[0], der = l[l.length - 1];
+    var lp = M.libelleDeForce(prem, aujourdhui), lf = M.libelleDeForce(der, aujourdhui);
+    if (!lp || !lf) return null;
+    var ecrit = l.length > 1 && lp.mode === 'projection' && lf.mode === 'projection';
+    var egaux = ecrit && lp.nombre === lf.nombre;
+    var court = ecrit && !egaux ? M.nombreTexte(lp.nombre) + ' \u2192 ' + lf.chiffre : lf.texteCourt;
+    var plage = '';
+    if (ecrit && prem.debut && der.debut) plage = M.plageDeJours(P.jourISO(new Date(prem.debut)), P.jourISO(new Date(der.debut)), aujourdhui);
+    return { n: l.length, debut: prem.valeur, fin: der.valeur, du: prem.debut || null, au: der.debut || null, mode: lf.mode, modeDebut: lp.mode,
+             ecrit: ecrit, ecart: ecrit ? arrondi(lf.nombre - lp.nombre, 1) : null, debutTexte: lp.chiffre, finTexte: lf.chiffre, court: court,
+             texte: ecrit ? court + (egaux ? ', inchangé' : '') + (plage ? ', ' + plage : '') : '' };
+  }
+
+  // Le PIC ANCIEN (§9.51.6.5, I176, I182) : le plus haut point gris de la vue — `null` sans point gris. Il est retenu s'il DÉPASSE la
+  // force AFFICHÉE (`force`, celle de la fiche : les deux nombres tels que `Modele.libelleDeForce` les écrit — au kg une projection, au
+  // dixième un plancher : jamais « Pic ancien 187 kg » sous un « ≈ 187 kg », jamais 152,5 arrondi vers le haut) ; sans force à comparer
+  // (aucun point plein dans la vue), il est dit seul. Il rend son MODE (un pic plancher se dit « au moins »), sa charge et ses reps.
+  function picAncien(points, force, aujourdhui) {
     var pic = null;
     (points || []).forEach(function (p) { if (p.gris && (pic === null || p.valeur > pic.valeur)) pic = p; });
     if (!pic) return null;
-    var l = pleins(points);
-    if (l.length && !(arrondi(pic.valeur, 0) > arrondi(l[l.length - 1].valeur, 0))) return null;
-    return { valeur: pic.valeur, debut: pic.debut };
+    if (force) {
+      var M = racine.THModele, lp = M.libelleDeForce(pic, aujourdhui), lf = M.libelleDeForce(force, aujourdhui);
+      if (lp && lf && !(lp.nombre > lf.nombre)) return null;
+    }
+    return { valeur: pic.valeur, debut: pic.debut, mode: pic.mode || null,
+             charge: pic.charge === undefined ? null : pic.charge, reps: pic.reps === undefined ? null : pic.reps };
   }
 
   // La géométrie complète d'une courbe de page : points (pâles), trait (moyenne glissante), graduations, repères de mois.
@@ -221,6 +251,7 @@
     pasRond: pasRond,
     etendueMinimale: etendueMinimale,
     resume: resume,
+    trajet: trajet,
     picAncien: picAncien,
     geometrie: geometrie,
     mini: mini

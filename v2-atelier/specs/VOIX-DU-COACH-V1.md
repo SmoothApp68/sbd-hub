@@ -47,6 +47,14 @@
 | Force estimée, 1 à 2 reps (15/11/2026, « Un seul max ») | au moins 150 kg · d'après 150 kg × 1 |
 | Force estimée, 3 à 10 reps (inchangé) | ≈ 145 kg · d'après 124 kg × 5 |
 | Courbe, un pic d'avant la fenêtre | Pic ancien 233 kg, le 18 sept. 2025, hors fenêtre. |
+| Courbe, un pic d'avant la fenêtre qui est un plancher (15/11/2026, « Un seul chiffre de force ») | Pic ancien au moins 152,5 kg, le 18 sept. 2025, hors fenêtre. |
+| Courbe, la tête (la force de la fiche) | ≈ 93 kg · force estimée · d'après 73,5 kg × 8, le 12 juil. |
+| Courbe, la tête d'une borne basse | au moins 150 kg · force estimée · d'après 150 kg × 1, le 1er oct. |
+| Courbe, la tête d'un max mesuré | 150 kg · max mesuré · à ta semaine de test, 150 kg × 1, le 3 nov. |
+| Courbe, le trajet (deux projections, deux dates) | 87 → 92 kg, du 18 mai au 18 oct. |
+| Courbe, le trajet, deux chiffres égaux | 92 kg, inchangé, du 18 mai au 18 oct. |
+| Courbe, la bulle d'un point | Le 18 sept. 2025 · 200 kg × 5 · force estimée 233 kg |
+| Progression, la légende de « Tes exercices » | Force estimée par séance · 6 derniers mois (du 18 mai au 18 nov.) |
 | Courbe, la fenêtre du matériel | Barre : tout l'historique. · Machine : 12 derniers mois. |
 (Jamais « quand même », « plafond », « encore 2 séances » ni un mot sur l’assiduité : un fait, puis ce que le coach garde.)
 

@@ -4123,8 +4123,8 @@
   function sommaireExercices(surExercice, surTous) {
     // 206/220 — « TES EXERCICES » : `faits.exercicesDeProgression` choisit (charge × reps seulement ; les mouvements prioritaires du
     // profil, puis les exercices à la barre les plus faits sur 8 semaines ; la dernière ligne : ce qui a le plus progressé sur
-    // 6 mois, `faits.ceQuiAProgresse`), chacun avec ses points des 6 derniers mois (`faits.pointsDeLExercice`, le max estimé des
-    // records) et sa mini-courbe (`THCourbe.mini`). L'écran ne choisit rien.
+    // 6 mois, `faits.ceQuiAProgresse`), chacun avec ses points des 6 derniers mois (`faits.pointsDeLExercice`, la force estimée par
+    // séance) et sa mini-courbe (`THCourbe.mini`). L'écran ne choisit rien.
     var c = corpus(), maintenant = new Date();
     var index = Modele.indexerExercices(local.exercices);
     var lignes = [];
@@ -4136,19 +4136,20 @@
     choisis.forEach(function (slug) {
       var p = faits.pointsDeLExercice(c, slug, maintenant);
       var fenetre = Courbe.dansLaPeriode(p.points, '6m', maintenant);
-      var r = Courbe.resume(fenetre);
+      // « Un seul chiffre de force » (MOTEUR §9.51 bis, I181) : le TRAJET de la page d'exercice, par la même fonction (« 87 → 92 kg » entre deux
+      // projections ; sinon le dernier point plein dans son mode — « 140 kg », « au moins 150 kg » —, jamais une borne basse soustraite d'une projection).
+      var r = Courbe.trajet(fenetre, p.mesure, maintenant);
       if (!r) return;
-      var d = Math.round(r.debut), f = Math.round(r.fin);
       lignes.push({
         slug: slug,
         nom: (index[slug] && index[slug].nom) || slug,
-        mesure: (r.n > 1 && d !== f ? Modele.nombreTexte(d) + ' \u2192 ' : '') + Modele.nombreTexte(f) + ' kg',
+        mesure: r.court,
         mini: Courbe.mini(fenetre, 92, 36, p.mesure)
       });
     });
     // PR 6 des mots : la légende dit la FENÊTRE (183 jours civils, `THPeriode`), datée. Aucune plage de reps n'est écrite ici (PR 6 bis).
     var f6 = Periode.fenetres(Periode.JOURS_DE['6m'], maintenant).courante;
-    return { legende: 'Max estimé \u00b7 6 derniers mois (' + Modele.libelleDePeriode({ genre: 'fenetre', debut: Periode.jourISO(f6.debut),
+    return { legende: Modele.MOTS_DE_FORCE.parSeance + ' \u00b7 6 derniers mois (' + Modele.libelleDePeriode({ genre: 'fenetre', debut: Periode.jourISO(f6.debut),
                fin: Periode.jourISO(f6.fin) }, maintenant) + ')',
              lignes: lignes, surExercice: surExercice, surTous: surTous };
   }
@@ -14973,8 +14974,12 @@
         nom: exo ? exo.nom : slug,
         genre: pts.mesure,
         geo: Courbe.geometrie(fenetre, null, pts.mesure, mesuresVue),
-        resume: Courbe.resume(fenetre),
-        picAncien: pts.mesure === 'charge' ? Courbe.picAncien(fenetre) : null,
+        resume: Courbe.resume(fenetre),   // reps et temps : leur tête reste le dernier point (hors périmètre, §9.51 bis)
+        // « Un seul chiffre de force » (MOTEUR §9.51 bis, I179) : la TÊTE est la `force` de la fiche — le MÊME objet que `teteRecords.force`,
+        // jamais recalculée depuis les points, quelle que soit la période ; le trajet et le pic ancien sont lus de THCourbe.
+        force: pts.mesure === 'charge' ? recordsExo.force : null,
+        trajet: Courbe.trajet(fenetre, pts.mesure, maintenant),
+        picAncien: pts.mesure === 'charge' ? Courbe.picAncien(fenetre, recordsExo.force, maintenant) : null,
         fenetre: pts.mesure === 'charge' ? Modele.phraseDeFenetre(exo ? exo.equipement : null, pts.plancher !== null) : null,
         periode: per.cle,
         aujourdhui: Periode.jourISO(maintenant),   // PR 6 des mots : l'année des dates du sous-titre

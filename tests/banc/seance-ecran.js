@@ -10924,7 +10924,8 @@ const SETS_IMPORTES = [
     // La proposition d'UN exercice (par son indice) : le biceps à la barre de
     // la routine, sans chauffe, a aussi la sienne (20 kg × 10 · 35 kg × 2).
     const propositionU = (iExo) => page.evaluate((i) => {
-      const p = document.querySelector('.proposition-chauffes[data-iexo="' + i + '"] .pc-texte');
+      // 15/11/2026 — la ligne « Montée posée… / Annuler » (.chauffes-auto) n'est pas la proposition.
+      const p = document.querySelector('.proposition-chauffes:not(.chauffes-auto)[data-iexo="' + i + '"] .pc-texte');
       return p ? p.textContent : null;
     }, iExo);
     const planU = (slug) => page.evaluate((sl) => {
@@ -11054,6 +11055,8 @@ const SETS_IMPORTES = [
       (await compter('.ligne-serie')) === avantAjout + 2 && JSON.stringify(f.slice(13, 15)) === JSON.stringify(['45', '70']),
       JSON.stringify(f.slice(13)));
     ok('[U10] et la proposition disparaît', (await propositionU(3)) === null, '');
+    ok('[U10] 15/11/2026 — « Ajouter » expose « Annuler » (la ligne du plan, bouton secondaire)',
+      await page.evaluate(() => { const b = document.querySelector('.proposition-chauffes.chauffes-posees[data-iexo="3"] button'); return !!b && b.textContent === 'Annuler' && /pc-refuser/.test(b.className); }), '');
     const memoire2 = await page.evaluate(() => localStorage.getItem('th-v2-refus-chauffes'));
     ok('[U10] « Ajouter » remet le compte à zéro', !/militaire-u10/.test(memoire2 || ''), memoire2);
     // PR 4 de la consolidation — « + Série » sur la machine, dont la

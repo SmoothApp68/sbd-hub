@@ -2595,6 +2595,53 @@ La bulle d'un point : « Le 18 sept. 2025 · 200 kg × 5 · force estimée 233 k
 **6. Lecteurs.** Touchés : `modele.js` (`libelleDeForce`, `MOTS_DE_FORCE`), `courbe.js` (`trajet`, `picAncien`), `rendu.js` (la fiche, la tête, la bulle, l'aria-label, « Pic ancien »), `app.js` (la courbe de la page reçoit `force` et `trajet`, Progression lit `Courbe.trajet`). Laissés : `partage-image.js`, `export.js`, `jeu.js`, `annee.js`, `social.js`, `routines.js`, `bilans.js` (aucune lecture de `force` ni de point de courbe), `unRM` et tout ce que lit le coach (autre notion, §9.51.4), `recordsDeLExercice().lourde` et la table (records en vraies barres), reps et temps.
 
 
+### 9.51 quater Un seul formateur : un nombre, une date, une durée s'écrivent par UNE fonction — décidé le 15/11/2026 (chantier « Un seul formateur », audit des doublons F-01, F-02, F-05, F-10) (I197 à I201)
+
+*Décision d'Aurélien : « une notion = une seule fonction câblée partout, jamais une copie ». Suite de §9.51 bis, point 8 (« les autres formateurs : chantier suivant »). Les mots de la voix du coach ne changent pas ; ce chantier ne change ni une décision, ni un calcul, ni un seuil.*
+
+**1. La cause.** La couche d'affichage avait écrit ses nombres, ses dates et ses durées par une quinzaine de chemins : trois formateurs de tonnes (`rendu.tonnes`, `Bilan.tonnesDuRecap`, `annee.tonnes`), six helpers `kg()` (0, 1 ou 2 décimales, espace sécable ou insécable), des `Math.round(x * 10) / 10` natifs (asymétriques sur les négatifs), le « 1er » géré par 3 formateurs de date sur 10, sept formateurs de durée. Le bloc du mois de Progression disait « 12 t soulevées » ; la story du même mois, « 12,3 t ». Une charge de 127,25 kg s'écrivait « 127,25 kg » au journal et « 127,3 kg » dans la story et l'image de partage (un disque de 0,25 kg disparaissait).
+
+**2. Arrondi d'AFFICHAGE contre arrondi de CALCUL (la ligne qu'on ne franchit pas).** Ce chantier ne touche que ce que l'écran écrit. Un arrondi qui alimente une décision, une donnée écrite ou un seuil est un arrondi de CALCUL et reste où il est : `Moteur.auDixieme` (le pas d'une série d'approche), `arrondiMin` (les minutes d'un plan), `faits.js` (valeur du record au dixième), `moteur.js` (`meilleur.valeur`), `seance.js` (borne d'une colonne de pente), `importhevy.dixieme` (lecture d'un fichier), `plan.js` (message d'un invariant : une erreur de développement, jamais lue par la personne). Chacun est dans la liste blanche motivée de la garde. Un formateur d'affichage ne rend jamais un nombre à un calcul : il rend du texte.
+
+**3. La règle de chaque type** (la convention majoritaire déjà documentée — « 130 kg × 4 » de VOIX-DU-COACH-V1, le commentaire de `Modele` sur l'espace insécable « entre le nombre et kg, autour du × et dans la date » — et la typographie française, §5) :
+
+| Type | Fonction (modele.js) | Règle |
+|---|---|---|
+| Une charge, un poids, un écart en kilos | `kgTexte(v, { decimales = 2, fixe, plus })` | virgule décimale ; l'arrondi symétrique `arrondi` (jamais `Math.round` natif) ; au plus 2 décimales, zéros finals retirés (0,25 kg se lit 0,25 kg : un disque de micro-charge ne disparaît pas) ; espace INSÉCABLE (U+00A0) entre le nombre et « kg » ; le vrai signe moins U+2212 ; `plus` écrit « + » devant un positif ; `fixe` garde les zéros (« +0,30 kg ») ; vide pour `null`, `''`, `NaN`. `chargeTexte` (la voix : zéro = poids du corps, négatif = aide) l'appelle. Un chiffre DÉRIVÉ (force estimée, tendance de poids) garde la précision que sa spec fixe, passée en paramètre (§9.51 bis : projection au kg, plancher au dixième ; la tendance de poids au dixième fixe) |
+| Un volume soulevé | `tonnesTexte(kg)` (`tonnesValeur(kg)` pour un compteur) | en tonnes, TOUJOURS au dixième (« 12,3 t », « 123,4 t », « 0,0 t » jamais écrit : sous 50 kg, « 0 t ») ; espace fine insécable U+202F entre milliers (« 1 234,5 t ») ; espace insécable avant « t ». La règle du récap (la tuile de séance, « 10,1 t soulevées », ECRAN-SAISIE §7 bis) devient celle de tous : Progression, story (mois, saison, année), bilan, plaque, image de partage, fil social |
+| Un pourcentage | `pourcentTexte(v, decimales = 0)` | « 71 % » : espace insécable avant « % » (typographie française et usage déjà posé par `moteur.js`, `pente`) |
+| Un jour | `jourDit(jour, { annee, mois, nom })` | « 1er nov. » seulement pour le PREMIER du mois, « 2 nov. » ensuite (jamais « 01 nov. ») ; mois abrégés du lexique (`MOIS_COURTS`, « mars », « août » entiers) ou longs (`mois: 'long'`, « 1er novembre ») ; l'année seulement quand `annee` la demande (`true` : toujours ; un nombre : hors de cette année) ; `nom: true` : « lundi 2 nov. » ; espace insécable entre le jour, le mois et l'année. Tous les formateurs de date (`jourMois`, `jourCourt`, `jourNomme`, `jourCourtDeNote`, `plageDeSeance`, `quandTexte`, `jourEtMois`, `dateDeLaMedaille`, `dateCourte`, `importhevy`, `partage-image`, `objectif`, `annee.jourTexte`) gardent leur CONTEXTE (« le 13 sept. », « du 12 avr. au 11 oct. », « il y a… ») et ne dessinent plus le jour : ils l'appellent. `dateCourte` n'écrit plus « 02 oct. 2026 » mais « 2 oct. 2026 » (« 1er nov. 2026 ») |
+| Une durée | `formatDuree(secondes)` (+ `heureDite(h, min)` pour une heure du jour) | « 45 s », « 12 min 30 », « 1 h 05 », « 6 h » ; minutes à deux chiffres derrière l'heure ; jamais de secondes au-delà d'une heure ; espace insécable à l'intérieur (une durée ne se coupe pas). `dureeDite`, `Bilan.texteTemps`, `importhevy.dureeLongue`, les branches « sous l'heure » recopiées de `texteDePartage` et du récap l'appellent. Le chronomètre (`mmss`, « 1:30 ») reste l'horloge d'un repos ou d'une tenue ; un repos se dit « 90 s » dans une liste et « 1:30 » seulement sur un chrono (`libelleRepos` lit `formatDuree` sous la minute) |
+| Le milliers | `nombreGroupe` | espace fine insécable U+202F (inchangé) |
+
+**4. Avant → après** (exemples chiffrés ; la colonne « lit » dit si la personne lit une autre VALEUR que la typographie) :
+
+| Écran | Avant | Après | Lit |
+|---|---|---|---|
+| Progression, bloc du mois (12 345 kg) | « 12 t soulevées » | « 12,3 t soulevées » | oui, l'unification voulue : un mois, un chiffre |
+| Story du mois, récap de séance, fil, plaque | « 12,3 t » | « 12,3 t » | non |
+| Story de l'année (123 456 kg) | « 123 t » | « 123,5 t » | oui, même raison |
+| Image de partage, story de l'année, charge 0,25 kg près | « 127,3 kg » (127,25) | « 127,25 kg » | oui : plus rien n'est perdu |
+| Journal, fiche | « 127,25 kg » | « 127,25 kg » | non |
+| Carte sociale `kgSocial`, `kg()` de Progression, poids du corps | « 72,5 kg » (espace ordinaire) | « 72,5 kg » (insécable) | non |
+| Le 1er novembre, fiche d'exercice | « 01 nov. 2026 » | « 1er nov. 2026 » | typographie |
+| Le 1er novembre, phrase du coach, bilan, importation | « 1 nov. » | « 1er nov. » | typographie |
+| Un volume de 12 345,6 kg | « 12 t » / « 12,3 t » / « 12 346 kg » selon l'écran | « 12,3 t » | voir plus haut |
+| Une pente de 0 % à 35,5 % | « 35,5 % » (ordinaire ou insécable) | « 35,5 % » (insécable) | non |
+| « Dure 6 h 00 » (alerte de séance longue, import) | « 6 h 00 » | « 6 h » | typographie (même durée) |
+
+**5. Sources de la typographie** (consultées le 15/11/2026) : l'Office québécois de la langue française, *Banque de dépannage / Vitrine linguistique — Espace insécable* (https://vitrinelinguistique.oqlf.gouv.qc.ca/fiche-gdt/fiche/8360213/espace-insecable) et sa liste des *Abréviations des noms de mois* (https://vitrinelinguistique.oqlf.gouv.qc.ca/23619/les-abreviations-et-les-symboles/les-abreviations/listes-dabreviations/abreviation-des-noms-de-mois) ; les règles d'écriture des nombres et des symboles « élaborées, pour l'essentiel, par l'Imprimerie nationale de France » (https://axl.cefan.ulaval.ca/monde/regles-4CHIFFRES.htm : « on doit toujours laisser une espace entre le dernier chiffre d'un nombre et la première lettre d'un symbole », « 2 kg », « le 2 février » et non « le 02 février », l'espace pour les milliers) ; les règles d'orthotypographie (https://travail-emploi.gouv.fr/sites/travail-emploi/files/2024-09/Pr%C3%A9sentation-Orthotypo.pdf). Le « 1er » du premier du mois et les mois abrégés sont ceux de BILANS-V1 (« 1er déc., mars, juin, sept. ») et de §9.51 bis, point 4. Aucune règle n'est inventée : là où la spec se taisait (l'espace insécable dans une durée, la précision des tonnes), on a pris la convention la plus fréquente de l'écran (le récap) et on l'écrit ici.
+
+**6. Invariants** (vérifiés par `tests/unit/v2-un-seul-formateur.test.js` ; la garde d'architecture refuse la copie) :
+- **I197** — une même charge s'écrit par le même texte sur chaque écran qui l'affiche (fiche, journal, carte sociale, Progression, story, image de partage, poids) : `Modele.kgTexte` ; 0,25 kg reste 0,25 kg ; −0,5 kg écrit U+2212 ; vide pour `null` et `NaN`.
+- **I198** — un volume soulevé s'écrit par `Modele.tonnesTexte` : Progression, story du mois, de la saison et de l'année, bilan, plaque, image de partage, récap, fil social disent le même texte pour le même nombre de kilos (12 345,6 kg → « 12,3 t »).
+- **I199** — le premier du mois s'écrit « 1er » dans tout formateur de date, jamais « 1 » ni « 01 ».
+- **I200** — une durée s'écrit par `Modele.formatDuree` (ou `heureDite`) : une même valeur, le même texte partout.
+- **I201** — aucun formateur recopié : ni suffixe « kg » ou « t » écrit à la main sur un nombre, ni `Math.round(x * 10) / 10` d'affichage, ni `getDate()` suivi d'un mois, ni « 1er » hors de `modele.js`, ni liste de mois (garde d'architecture : registre `NOTIONS`, `interditAilleurs`) ; la liste blanche est celle du §2, chaque entrée avec sa raison.
+
+**7. Ce qui n'est PAS fait** (noté, hors périmètre) : les mois en arithmétique (PR « mois », §9.51 ter) ; les pluriels recopiés (F-16) ; les zones de reps du bilan (F-06) ; les autres doublons de l'audit.
+
+
 ### 12.1 Ce que le compteur déclenche — et ce qu'il ne déclenche pas
 
 > **Le compteur ne déclenche pas l'action, il déclenche le changement de méthode.**

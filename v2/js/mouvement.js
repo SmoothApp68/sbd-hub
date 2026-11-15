@@ -484,7 +484,8 @@
     l_sit_parallettes: 'l_sit_parallettes.json',
     v_sit: 'v_sit.json',
     poirier: 'poirier.json',
-    poirier_contre_mur: 'poirier_contre_mur.json'
+    poirier_contre_mur: 'poirier_contre_mur.json',
+    abdos_ciseaux: 'abdos_ciseaux.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

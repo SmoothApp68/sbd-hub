@@ -130,7 +130,7 @@
     if (ecrit && prem.debut && der.debut) plage = M.plageDeJours(P.jourISO(new Date(prem.debut)), P.jourISO(new Date(der.debut)), aujourdhui);
     return { n: l.length, debut: prem.valeur, fin: der.valeur, du: prem.debut || null, au: der.debut || null, mode: lf.mode, modeDebut: lp.mode,
              ecrit: ecrit, ecart: ecrit ? arrondi(lf.nombre - lp.nombre, 1) : null, debutTexte: lp.chiffre, finTexte: lf.chiffre, court: court,
-             texte: ecrit ? (egaux ? 'inchangé à ' + lf.chiffre : court) + (plage ? ', ' + plage : '') : '' };
+             texte: ecrit ? court + (egaux ? ', inchangé' : '') + (plage ? ', ' + plage : '') : '' };
   }
 
   // Le PIC ANCIEN (§9.51.6.5, I176, I182) : le plus haut point gris de la vue — `null` sans point gris. Il est retenu s'il DÉPASSE la

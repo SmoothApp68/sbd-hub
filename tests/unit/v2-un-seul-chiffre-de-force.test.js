@@ -138,10 +138,10 @@ describe('I181 — Courbe.trajet : deux projections, deux chiffres, deux dates',
     const deux = Courbe.trajet([plan(J(2026, 8, 1), 140, 1), plan(J(2026, 9, 12), 150, 1)], 'charge', MAINT);
     expect(deux.ecrit).toBe(false);                                                       // deux bornes basses : pas une tendance
   });
-  test('deux chiffres égaux à l’affichage : « inchangé à 92 kg, du … au … » ; Progression : « 92 kg »', () => {
+  test('deux chiffres égaux à l’affichage : « 92 kg, inchangé, du … au … » ; Progression : « 92 kg » (le début de la phrase)', () => {
     const t = Courbe.trajet([proj(J(2026, 4, 18), 76.4, 6), proj(J(2026, 9, 18), 76.5, 6)], 'charge', MAINT);
     expect(t.ecrit).toBe(true);
-    expect(t.texte.replace(NBSP, ' ')).toBe('inchangé à 92 kg, du 18 mai au 18 oct.');
+    expect(t.texte.replace(NBSP, ' ')).toBe('92 kg, inchangé, du 18 mai au 18 oct.');
     expect(t.court.replace(NBSP, ' ')).toBe('92 kg');
   });
   test('ne lit que les points PLEINS ; rien à lire : null ; la page et Progression disent le même trajet', () => {

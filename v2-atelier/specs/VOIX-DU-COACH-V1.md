@@ -52,7 +52,7 @@
 | Courbe, la tête d'une borne basse | au moins 150 kg · force estimée · d'après 150 kg × 1, le 1er oct. |
 | Courbe, la tête d'un max mesuré | 150 kg · max mesuré · à ta semaine de test, 150 kg × 1, le 3 nov. |
 | Courbe, le trajet (deux projections, deux dates) | 87 → 92 kg, du 18 mai au 18 oct. |
-| Courbe, le trajet, deux chiffres égaux | inchangé à 92 kg, du 18 mai au 18 oct. |
+| Courbe, le trajet, deux chiffres égaux | 92 kg, inchangé, du 18 mai au 18 oct. |
 | Courbe, la bulle d'un point | Le 18 sept. 2025 · 200 kg × 5 · force estimée 233 kg |
 | Progression, la légende de « Tes exercices » | Force estimée par séance · 6 derniers mois (du 18 mai au 18 nov.) |
 | Courbe, la fenêtre du matériel | Barre : tout l'historique. · Machine : 12 derniers mois. |

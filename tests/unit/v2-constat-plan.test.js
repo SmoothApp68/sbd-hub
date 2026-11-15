@@ -14,6 +14,7 @@
 require('../../v2/js/modele.js');
 require('../../v2/js/profil.js');
 const P = require('../../v2/js/palier.js');
+require('../../v2/js/periode.js');   // MOTEUR §9.51 ter : le moteur lit `THPeriode` (comme index.html, qui le charge avant lui)
 const M = require('../../v2/js/moteur.js');
 
 // `constatDExercice` est partie en 49-U6 (plus d'appelant depuis 49-U4 : le

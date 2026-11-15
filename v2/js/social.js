@@ -263,7 +263,7 @@
   // (jours civils, inclus). Pas la meilleure charge de toute une vie, à côté d'une pesée d'aujourd'hui.
   function bornesDouzeMois(maintenant) {
     var m = maintenant || new Date();
-    return { de: jourIso(new Date(m.getFullYear() - 1, m.getMonth(), m.getDate() + 1)), a: jourIso(m) };
+    return { de: racine.THPeriode.debutDeFenetreDeMois(jourIso(m), 12), a: jourIso(m) };   // MOTEUR §9.51 ter : le calendrier, plafonné
   }
 
   // « Entre amis » : les lignes de `social_scores_force` (le score, jamais affiché ; plus aucune charge depuis v2_091),
@@ -286,8 +286,8 @@
 
   // ── « 6 MOIS » : le mois en cours et les 5 d'avant (la même fenêtre que la base) ──
   function debutSixMois(maintenant) {
-    var m = maintenant || new Date();
-    return new Date(m.getFullYear(), m.getMonth() - 5, 1);
+    var m = maintenant || new Date(), P = racine.THPeriode;
+    return P.debutDeJournee(P.moisAvant(m.getFullYear() + '-' + deux(m.getMonth() + 1) + '-01', 5));   // MOTEUR §9.51 ter
   }
   function cleMois(d) { return d.getFullYear() + '-' + deux(d.getMonth() + 1); }
 
@@ -328,7 +328,7 @@
   function bornesDePeriode(cle, maintenant) {
     var m = maintenant || new Date(), de;
     if (cle === 'annee') de = new Date(m.getFullYear(), 0, 1);
-    else if (cle === '3mois') de = new Date(m.getFullYear(), m.getMonth() - 3, m.getDate() + 1);
+    else if (cle === '3mois') return { de: racine.THPeriode.debutDeFenetreDeMois(jourIso(m), 3), a: jourIso(m) };   // MOTEUR §9.51 ter
     else de = new Date(m.getFullYear(), m.getMonth(), 1);
     return { de: jourIso(de), a: jourIso(m) };
   }

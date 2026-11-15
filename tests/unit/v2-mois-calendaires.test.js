@@ -94,8 +94,8 @@ const jour = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2,
         expect(jour(P.instantMoisAvant(t.getTime(), 1))).toBe('2027-02-01');
       });
       test('le dimanche du changement d’heure : même heure locale avant et après', () => {
-        // 29 mars 2026 (passage à l'heure d'été en Europe) et 25 octobre 2026 (passage à l'heure d'hiver)
-        [new Date(2026, 2, 29, 15, 0), new Date(2026, 9, 25, 15, 0), new Date(2026, 4, 29, 15, 0), new Date(2026, 3, 25, 15, 0)].forEach((t) => {
+        // −1 mois ramène au 29 mars 2026 (passage à l'heure d'été en Europe) et au 25 octobre 2026 (passage à l'heure d'hiver)
+        [new Date(2026, 3, 29, 15, 0), new Date(2026, 10, 25, 15, 0), new Date(2026, 4, 29, 15, 0), new Date(2026, 3, 25, 15, 0)].forEach((t) => {
           const d = P.instantMoisAvant(t.getTime(), 1);
           expect(d.getHours()).toBe(15);
           expect(d.getDate()).toBe(t.getDate());
@@ -125,20 +125,20 @@ const jour = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2,
     describe('I185 — le moteur : le plancher des 12 mois et le pas de salle', () => {
       test('plancherDuMateriel : 29 février 2028 à 12 h − 12 mois = 28 février 2027 à 12 h (setUTCMonth : 1er mars)', () => {
         const t = new Date(2028, 1, 29, 12, 0).getTime();
-        const p = Mo.plancherDuMateriel('machine', t);
+        const p = Mo.plancherDuMateriel('machine', new Date(t));
         expect(new Date(p).getTime()).toBe(new Date(2027, 1, 28, 12, 0).getTime());
       });
       test('plancherDuMateriel : 31 mai 2026 − 12 mois : le 31 mai 2025, aucun déplacement', () => {
         const t = new Date(2026, 4, 31, 9, 0).getTime();
-        expect(Mo.plancherDuMateriel('haltere', t)).toBe(new Date(2025, 4, 31, 9, 0).getTime());
+        expect(Mo.plancherDuMateriel('haltere', new Date(t))).toBe(new Date(2025, 4, 31, 9, 0).getTime());
       });
       test('plancherDuMateriel : la barre n’a pas de fenêtre', () => {
-        expect(Mo.plancherDuMateriel('barre', new Date(2026, 4, 31).getTime())).toBeNull();
+        expect(Mo.plancherDuMateriel('barre', new Date(2026, 4, 31))).toBeNull();
       });
       test('le plancher tombe sur le jour de THPeriode.moisAvant, pour toutes les dates du lot', () => {
         [new Date(2028, 1, 29, 12), new Date(2026, 4, 31, 9), new Date(2026, 2, 29, 15), new Date(2026, 11, 31, 23, 59), new Date(2027, 2, 1, 0, 30)]
           .forEach((d) => {
-            expect(jour(new Date(Mo.plancherDuMateriel('poulie', d.getTime())))).toBe(P.moisAvant(jour(d), 12));
+            expect(jour(new Date(Mo.plancherDuMateriel('poulie', d)))).toBe(P.moisAvant(jour(d), 12));
           });
       });
       test('pasDeSalle : une séance du 28 février 2026 est dans la fenêtre de 24 mois du 29 février 2028 (setUTCMonth l’en sortait)', () => {
@@ -211,24 +211,22 @@ const jour = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2,
     });
 
     describe('I185 — le Poids : « 3 mois » et « 1 an » sont des mois civils, comme le social', () => {
-      const pesees = (jours) => jours.map((j) => ({ date: j, poids: 80 }));
-      const lignes = (js) => js.map((j) => { const [a, m, d] = j.split('-').map(Number); return { date: new Date(a, m - 1, d, 8, 0), poids: 80, jour: j }; });
+      const lignes = (js) => js.map((j) => ({ date: j, poids_kg: 80 }));
       test('PERIODES : les mois, pas les jours', () => {
         expect(Poids.PERIODES.map((p) => [p.cle, p.mois])).toEqual([['3mois', 3], ['1an', 12], ['tout', null]]);
         Poids.PERIODES.forEach((p) => expect(p.jours).toBeUndefined());
       });
       test('1 an au 29 février 2028 : la fenêtre commence le 1er mars 2027', () => {
-        const dedans = Poids.filtrer(lignes(['2027-02-28', '2027-03-01', '2028-02-29']), 12, new Date(2028, 1, 29, 12, 0));
+        const dedans = Poids.filtrerParMois(lignes(['2027-02-28', '2027-03-01', '2028-02-29']), 12, new Date(2028, 1, 29, 12, 0));
         expect(dedans.map((p) => jour(p.date))).toEqual(['2027-03-01', '2028-02-29']);
       });
       test('3 mois au 31 mai 2026 : la fenêtre commence le 1er mars 2026', () => {
-        const dedans = Poids.filtrer(lignes(['2026-02-28', '2026-03-01', '2026-05-31']), 3, new Date(2026, 4, 31, 12, 0));
+        const dedans = Poids.filtrerParMois(lignes(['2026-02-28', '2026-03-01', '2026-05-31']), 3, new Date(2026, 4, 31, 12, 0));
         expect(dedans.map((p) => jour(p.date))).toEqual(['2026-03-01', '2026-05-31']);
       });
       test('« Tout » ne filtre rien', () => {
-        expect(Poids.filtrer(lignes(['2000-01-01', '2026-05-31']), null, new Date(2026, 4, 31, 12, 0))).toHaveLength(2);
+        expect(Poids.filtrerParMois(lignes(['2000-01-01', '2026-05-31']), null, new Date(2026, 4, 31, 12, 0))).toHaveLength(2);
       });
-      void pesees;
     });
   });
 });

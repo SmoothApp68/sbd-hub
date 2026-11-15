@@ -14,6 +14,7 @@
 //   5. le pré-remplissage.
 
 require('../../v2/js/modele.js');
+require('../../v2/js/periode.js');   // MOTEUR §9.51 ter : le moteur lit `THPeriode` (comme index.html, qui le charge avant lui)
 const M = require('../../v2/js/moteur.js');
 const S = require('../../v2/js/seance.js');
 require('../../v2/js/palier.js');

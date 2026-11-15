@@ -1029,7 +1029,7 @@
   // Elle lit les définitions existantes, elle ne les recopie pas : la série de travail (`Modele.estTravail`), les
   // poids 1 / ½ / ¼ (`Semaine.musclesPonderes`), le polyarticulaire (`Moteur.estPolyarticulaire`), ce qui ne porte pas
   // de volume (`Semaine.porteDuVolume`, 133b — plus la sortie), l'accord des muscles (`Moteur.motsDesMuscles`), les nombres (`Modele.nombre`, la face exportée de
-  // `nombreTexte`) et les dates (`Modele`), l'écart en jours (`Profil.joursDepuis`), les variantes à la barre (les
+  // `nombreTexte`) et les dates (`Modele`), les mois calendaires (`Periode.moisAvant`), les variantes à la barre (les
   // frères à la barre, `Modele.freresDe` : la seule lecture de `mouvement`).
   //
   // La référence est `tests/unit/fixtures/relire66.py` (Claude.ai, 10/10/2026) ; ses dix cas, `cas-66-relire.json`,
@@ -1045,7 +1045,7 @@
   // Squat ÷ couché : le repère et sa lecture sont ceux de « Ton parcours » (`THParcours.repereSquatCouche`,
   // carnets de pratiquants ; 76, 12/10/2026 — plus les moyennes de compétition). Aucune table ici.
   var DISCIPLINES_RATIO = ['force', 'les_deux'];
-  var JOURS_PLAT = 365;             // « pas encore dépassé » : un record d'au moins 12 mois, sur une barre travaillée
+  var MOIS_PLAT = 12;               // « pas encore dépassé » : un record d'au moins 12 mois (calendaires, `THPeriode.moisAvant`), sur une barre travaillée
   var SECHE_DEPASSEMENT = 1.3;      // en sèche, un muscle à plus de 1,3 × son plus haut volume (N3)
   var PAR_SEANCE = 11;              // ~11 séries d'un muscle par séance (Remmert, Pelland et al. 2025)
   var PEU_TRAVAILLE = 2;            // Muscle / Forme : sous 2 séries par semaine, même à son plus haut
@@ -1087,7 +1087,7 @@
 
   // Les définitions des autres modules, lues À L'APPEL (ils se chargent avant celui-ci ; un test charge les siens).
   function relecture() {
-    var Modele = racine.THModele, Semaine = racine.THSemaine, Moteur = racine.THMoteur, Profil = racine.THProfil;
+    var Modele = racine.THModele, Semaine = racine.THSemaine, Moteur = racine.THMoteur, Profil = racine.THProfil, Periode = racine.THPeriode;
 
     var ficheDe = ficheDu;
     var primaires = function (f) { return liste(f && f.muscles_primaires); };
@@ -1134,7 +1134,7 @@
       var lignes = presentes.map(function (bn) {
         var b = barres[bn[0]], r = b.record, recent = b.recent;
         var travaillee = (b.semaines || 0) > 0;
-        var plat = travaillee && Profil.joursDepuis(r.date, auj) >= JOURS_PLAT;
+        var plat = travaillee && Moteur.jourCivil(r.date) <= Periode.moisAvant(auj, MOIS_PLAT);   // MOTEUR §9.51 ter : 12 mois civils
         var detail = [Modele.moisAnnee(jourLocal(r.date)) + (plat ? ', pas encore dépassé' : '')];
         if (recent) detail.push(Modele.chargeFois(recent.charge, recent.reps) + ' ' + Modele.quand(jourLocal(recent.date), jourLocal(auj)));
         if (travaillee) {

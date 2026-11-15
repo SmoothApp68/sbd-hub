@@ -9,6 +9,7 @@ process.env.TZ = 'Europe/Paris';
 require('../../v2/js/modele.js');
 require('../../v2/js/profil.js');
 require('../../v2/js/palier.js');
+require('../../v2/js/periode.js');   // MOTEUR §9.51 ter : le moteur lit `THPeriode` (comme index.html, qui le charge avant lui)
 const M = require('../../v2/js/moteur.js');
 
 // Lundis : 5, 12, 19 oct. (normales), 26 oct. (décharge), 2 nov. (la reprise).

@@ -23,6 +23,7 @@ require('../../v2/js/modele.js');
 // tables pour un seul réglage. `profil.js` charge après `moteur.js` dans
 // `index.html` ; la lecture, elle, n'a lieu qu'au rendu.
 require('../../v2/js/profil.js');
+require('../../v2/js/periode.js');   // MOTEUR §9.51 ter : le moteur lit `THPeriode` (comme index.html, qui le charge avant lui)
 const M = require('../../v2/js/moteur.js');
 const P = require('../../v2/js/palier.js');
 

@@ -6930,6 +6930,7 @@ const SETS_IMPORTES = [
   // tardivement, sans repli — un module absent casse bruyamment, et c'est voulu.
   require(path.join(R, 'v2/js/modele.js'));
   require(path.join(R, 'v2/js/palier.js'));
+  require(path.join(R, 'v2/js/periode.js'));   // MOTEUR §9.51 ter : `moteur.js` lit `THPeriode`
   const Moteur = require(path.join(R, 'v2/js/moteur.js'));
   const SeanceM = require(path.join(R, 'v2/js/seance.js'));
   const PalierM = require(path.join(R, 'v2/js/palier.js'));
@@ -13095,6 +13096,7 @@ const SETS_IMPORTES = [
     require(path.join(R, 'v2/js/modele.js'));
     require(path.join(R, 'v2/js/profil.js'));
     require(path.join(R, 'v2/js/palier.js'));
+    require(path.join(R, 'v2/js/periode.js'));
     const MoteurP = require(path.join(R, 'v2/js/moteur.js'));
     const sp = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
     const poserP = (id, jours, slug, lignes /* [[kg|null, reps], …] */) => {
@@ -13601,6 +13603,7 @@ const SETS_IMPORTES = [
     require(path.join(R, 'v2/js/semaine.js'));
     require(path.join(R, 'v2/js/profil.js'));
     require(path.join(R, 'v2/js/palier.js'));
+    require(path.join(R, 'v2/js/periode.js'));
     const MoteurR = require(path.join(R, 'v2/js/moteur.js'));
     const sp = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
     const poserR = (id, jours, slug, lignes /* [[kg, reps], …] */) => {

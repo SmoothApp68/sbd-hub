@@ -553,7 +553,7 @@
     var rts = Routines.visibles(routines).filter(function (r) { return Routines.dossierPropre(r.dossier) === dossier; })
       .map(function (r) { return { id: r.id, nom: r.nom, exercices: r.exercices || [] }; });
     var c = corpus(), fs = {}, dates = faits.datesDesExercices(c);
-    var plancher = new Date(new Date(jour + 'T12:00:00').getTime() - 365 * 86400000).toISOString();
+    var plancher = Periode.debutDeJournee(Periode.moisAvant(jour, 12)).toISOString();   // MOTEUR §9.51 ter : 12 mois civils, pas 365 jours
     Object.keys(dates).forEach(function (slug) { if (dates[slug] && String(dates[slug]) >= plancher) fs[slug] = { faitDans12Mois: true }; });
     rts.forEach(function (rt) {
       rt.exercices.forEach(function (l) {
@@ -14694,7 +14694,7 @@
   function rendrePoids() {
     montrer('poids', Routeur.POIDS);
     var p = Poids.periodeDe(periodePoids);
-    var fenetre = Poids.filtrer(local.pesees, p.jours, new Date());
+    var fenetre = Poids.filtrerParMois(local.pesees, p.mois, new Date());
 
     Rendu.rendrePeriodes($('periodes-poids'), Poids.PERIODES, periodePoids, function (cle) {
       periodePoids = cle;

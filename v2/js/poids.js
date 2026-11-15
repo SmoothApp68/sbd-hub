@@ -93,9 +93,11 @@
   // un suivi irrégulier, et c'est le trajet complet qui répond à « où j'en
   // suis ». Les deux autres restent offertes pour un suivi dense.
   var PERIODES = [
-    { cle: '3mois', libelle: '3 mois', jours: 90 },
-    { cle: '1an', libelle: '1 an', jours: 365 },
-    { cle: 'tout', libelle: 'Tout', jours: null }
+    // MOTEUR §9.51 ter : « 3 mois » et « 1 an » sont des MOIS CIVILS (le lendemain du même jour il y a 3 / 12 mois, `THPeriode`), plus des
+    // nombres de jours (90, 365) : le même « 12 mois » que le social, le moteur et la fiche.
+    { cle: '3mois', libelle: '3 mois', mois: 3 },
+    { cle: '1an', libelle: '1 an', mois: 12 },
+    { cle: 'tout', libelle: 'Tout', mois: null }
   ];
   var PERIODE_DEFAUT = 'tout';
 
@@ -113,6 +115,16 @@
     if (!jours) return liste;
     var ref = aujourdhui instanceof Date ? aujourdhui : new Date();
     var debut = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate() - jours + 1, 0, 0, 0, 0);
+    return liste.filter(function (p) { return p.date >= debut; });
+  }
+
+  // La même fenêtre, en MOIS CIVILS (`PERIODES`) : de minuit le lendemain du même jour il y a `mois` mois à aujourd'hui. `mois` nul : tout.
+  function filtrerParMois(lignes, mois, aujourdhui) {
+    var liste = normaliser(lignes);
+    if (!mois) return liste;
+    var P = racine.THPeriode;
+    var ref = aujourdhui instanceof Date ? aujourdhui : new Date();
+    var debut = P.debutDeJournee(P.debutDeFenetreDeMois(P.jourISO(ref), mois));
     return liste.filter(function (p) { return p.date >= debut; });
   }
 
@@ -410,6 +422,7 @@
     normaliser: normaliser,
     resume: resume,
     periodeDe: periodeDe,
+    filtrerParMois: filtrerParMois,
     filtrer: filtrer,
     courbe: courbe,
     dernieres: dernieres

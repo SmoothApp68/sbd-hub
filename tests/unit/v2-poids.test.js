@@ -12,6 +12,7 @@
 // PR 7 de la consolidation — les nombres, les dates et les mois s'écrivent
 // dans le formateur unique, `modele.js`, lu à l'appel.
 require('../../v2/js/modele.js');
+require('../../v2/js/periode.js');   // MOTEUR §9.51 ter : le moteur lit `THPeriode` (comme index.html, qui le charge avant lui)
 const Poids = require('../../v2/js/poids.js');
 
 const pesee = (date, poids, source) => ({ id: date, date, poids_kg: poids, source: source || 'import_hevy' });
@@ -200,12 +201,12 @@ describe('PERIODES — trois choix, « Tout » par défaut', () => {
   test('les trois périodes de la spec, dans l’ordre, avec leurs durées', () => {
     expect(Poids.PERIODES.map((p) => p.cle)).toEqual(['3mois', '1an', 'tout']);
     expect(Poids.PERIODES.map((p) => p.libelle)).toEqual(['3 mois', '1 an', 'Tout']);
-    expect(Poids.PERIODES.map((p) => p.jours)).toEqual([90, 365, null]);
+    expect(Poids.PERIODES.map((p) => p.mois)).toEqual([3, 12, null]);   // MOTEUR §9.51 ter : des mois civils, plus 90 / 365 jours
   });
 
   test('« Tout » est le défaut : c’est la seule qui montre quelque chose sur un suivi irrégulier', () => {
     expect(Poids.PERIODE_DEFAUT).toBe('tout');
-    expect(Poids.periodeDe(Poids.PERIODE_DEFAUT).jours).toBeNull();
+    expect(Poids.periodeDe(Poids.PERIODE_DEFAUT).mois).toBeNull();
     expect(Poids.periodeDe('inconnue').cle).toBe('tout');
   });
 });

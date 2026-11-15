@@ -333,12 +333,15 @@
   // 127 — le formateur vit dans `modele.js` (`texteMeilleure`) : « Ton échelle » écrit le même meilleur que la fiche.
   function texteMeilleure(m) { return M().texteMeilleure(m); }
 
-  function ligneFiche(fiche, libelle, sous, valeur) {
+  function ligneFiche(fiche, libelle, sous, valeur, devant) {
     var li = el('div', 'exo-li');
     var k = el('span', 'exo-li-k', libelle);
     if (sous) k.appendChild(el('em', null, sous));
     li.appendChild(k);
-    li.appendChild(el('span', 'exo-li-v num', valeur || '—'));
+    var v = el('span', 'exo-li-v num');
+    if (devant) { v.appendChild(el('span', 'au', devant)); v.appendChild(doc.createTextNode(' ')); }   // « au moins » : un mot en petit devant le chiffre
+    v.appendChild(doc.createTextNode(valeur || '—'));
+    li.appendChild(v);
     fiche.appendChild(li);
   }
 
@@ -520,17 +523,23 @@
     // 120 (D1, audit du 16/10/2026) — LA FORCE ESTIMÉE, HORS DES RECORDS : « La force estimée reste, comme progression
     // (page de l'exercice : « Force estimée ≈ 157 kg, d'après 140 × 5 », sa courbe) ; elle sort des records, des
     // médailles, du fil et de l'XP ; les records sont les vraies barres. » La meilleure estimation du périmètre des
-    // records (12 mois pour un matériel de salle), de 3 à 10 reps (`Modele.recordsDeLExercice(...).unRM`), avec la série
-    // qui la donne. Pas de courbe : la page n'en a pas (une courbe demanderait une maquette).
-    if (t.unRM) {
+    // records (12 mois pour un matériel de salle), avec la série qui la donne. « Un seul max » (MOTEUR §9.51) : elle se lit
+    // sur `force` (`Modele.recordsDeLExercice(...).force`), l'éligibilité unique — de 3 à 10 reps, Epley (« ≈ 145 kg ») ; à 1 ou
+    // 2 reps, la charge nue, une borne basse (« au moins 150 kg ») ; jamais pour un exercice lesté, assisté, aux élastiques ou
+    // au poids du corps.
+    if (t.force) {
       var force = el('div', 'exo-fiche exo-force');
+      var f = t.force;
       // 193-4 : un max MESURÉ par une semaine de test se dit mesuré, sans « ≈ » (c'est une mesure, pas une estimation).
-      if (t.unRM.mesure) {
-        ligneFiche(force, 'Max mesuré', 'à ta semaine de test, ' + M().chargeFois(t.unRM.charge, t.unRM.reps),
-          nombreFr(Math.round(t.unRM.valeur * 10) / 10) + '\u00a0kg');
+      if (f.mode === 'mesure') {
+        ligneFiche(force, 'Max mesuré', 'à ta semaine de test, ' + M().chargeFois(f.charge, f.reps),
+          nombreFr(Math.round(f.valeur * 10) / 10) + '\u00a0kg');
+      } else if (f.mode === 'plancher') {
+        ligneFiche(force, 'Force estimée', 'd\u2019après ' + M().chargeFois(f.charge, f.reps),
+          nombreFr(Math.round(f.valeur * 10) / 10) + '\u00a0kg', 'au moins');
       } else {
-        ligneFiche(force, 'Force estimée', 'd\u2019après ' + M().chargeFois(t.unRM.charge, t.unRM.reps),
-          '\u2248\u00a0' + nombreFr(Math.round(t.unRM.valeur)) + '\u00a0kg');
+        ligneFiche(force, 'Force estimée', 'd\u2019après ' + M().chargeFois(f.charge, f.reps),
+          '\u2248\u00a0' + nombreFr(Math.round(f.valeur)) + '\u00a0kg');
       }
       cible.appendChild(force);
     }
@@ -746,12 +755,17 @@
   var UNITES_COURBE = { charge: 'kg', reps: 'reps', temps: 's' };
   var ETIQUETTES_COURBE = { charge: 'max estimé', reps: 'meilleures reps', temps: 'meilleur temps' };
   function valeurCourbe(genre, v) { return nombreFr(Math.round(v)) + '\u00a0' + UNITES_COURBE[genre]; }
+  // « Un seul max » (MOTEUR §9.51.6.8) : un point à 1 ou 2 reps vaut la CHARGE NUE, une borne basse — « 152,5 kg » ne s'arrondit pas à 153.
+  function valeurDuPoint(genre, p) {
+    return p && p.mode === 'plancher' ? nombreFr(Math.round(p.valeur * 10) / 10) + '\u00a0kg' : valeurCourbe(genre, p.valeur);
+  }
   function texteDuPoint(genre, p) {
     var d = p.debut ? new Date(p.debut) : null;
     var bouts = [(d && !isNaN(d.getTime()) ? 'Le ' + jour(d) : 'Séance')];
+    if (p.mesure) return 'Max mesuré ' + valeurCourbe(genre, p.valeur) + ', à ta semaine de test';
     if (genre === 'charge') {
       if (p.charge !== null && p.reps !== null) bouts.push(nombreFr(p.charge) + ' kg \u00d7 ' + p.reps);
-      bouts.push('max estimé ' + valeurCourbe(genre, p.valeur));
+      bouts.push((p.mode === 'plancher' ? 'au moins ' : 'max estimé ') + valeurDuPoint(genre, p));
     } else bouts.push(valeurCourbe(genre, p.valeur));
     if (p.record) bouts.push('record');
     return bouts.join(' \u00b7 ');
@@ -763,7 +777,11 @@
     var tete = el('div', 'courbe-tete');
     var fin = c.resume ? c.resume.fin : null;
     if (fin !== null) {
-      tete.appendChild(el('span', 'courbe-val num', valeurCourbe(c.genre, fin)));
+      var val = el('span', 'courbe-val num');
+      var plancherEnTete = c.genre === 'charge' && c.resume.mode === 'plancher';
+      if (plancherEnTete) { val.appendChild(el('span', 'au', 'au moins')); val.appendChild(doc.createTextNode(' ')); }
+      val.appendChild(doc.createTextNode(plancherEnTete ? nombreFr(Math.round(fin * 10) / 10) + '\u00a0kg' : valeurCourbe(c.genre, fin)));
+      tete.appendChild(val);
       var sous = ETIQUETTES_COURBE[c.genre];
       // PR 6 des mots : l'écart dit ce qu'il compare — DEUX DATES (la 1re et la dernière séance de la fenêtre), jamais « en 6 mois » pour 49 jours ;
       // et c'est la différence des deux chiffres AFFICHÉS (149 → 147 : −2 kg), pas un −1,2 arrondi à côté.
@@ -772,9 +790,12 @@
         if (!d0 || !d1 || isNaN(d0.getTime()) || isNaN(d1.getTime())) return '';
         return M().plageDeJours(jour2(d0), jour2(d1), c.aujourdhui);   // « du 13 avr. au 6 oct. », « le 6 oct. » (un seul jour)
       };
-      var ecartAffiche = c.resume.n > 1 ? Math.round(c.resume.fin) - Math.round(c.resume.debut) : null;
+      // Les deux chiffres AFFICHÉS : entiers, sauf un plancher (au dixième : la charge nue ne s'arrondit pas).
+      var affiche = function (v, mode) { return c.genre === 'charge' && mode === 'plancher' ? Math.round(v * 10) / 10 : Math.round(v); };
+      var ecartAffiche = c.resume.n > 1 ? Math.round((affiche(c.resume.fin, c.resume.mode) - affiche(c.resume.debut, c.resume.modeDebut)) * 10) / 10 : null;
       var dates = quand(c.resume);
-      if (ecartAffiche) sous += ' \u00b7 ' + signe(ecartAffiche) + (c.genre === 'charge' ? ' kg' : c.genre === 'reps' ? ' reps' : ' s') + (dates ? ' ' + dates : '');
+      // « Pic ancien » (§9.51.6.5) : un pic d'avant la fenêtre qui dépasse le dernier point plein prend la place de l'écart signé.
+      if (c.picAncien) { /* la phrase est écrite sous l'en-tête */ } else if (ecartAffiche) sous += ' \u00b7 ' + signe(ecartAffiche) + (c.genre === 'charge' ? ' kg' : c.genre === 'reps' ? ' reps' : ' s') + (dates ? ' ' + dates : '');
       else if (ecartAffiche === 0) sous += ' \u00b7 inchangé' + (dates ? ' ' + dates : '');
       else if (dates) sous += ' \u00b7 ' + dates;
       tete.appendChild(el('span', 'courbe-sous', sous));
@@ -782,6 +803,13 @@
       tete.appendChild(el('span', 'courbe-sous', 'Aucune séance sur cette période.'));
     }
     carte.appendChild(tete);
+    if (c.picAncien) {
+      // La DATE ABSOLUE, jamais « il y a N mois » : le lexique des périodes est fermé (VOIX, principe 2).
+      var dp = new Date(c.picAncien.debut);
+      var quandPic = isNaN(dp.getTime()) ? '' : ', ' + M().plageDeJours(jour2(dp), jour2(dp), c.aujourdhui);
+      carte.appendChild(el('div', 'courbe-pic num', 'Pic ancien ' + nombreFr(Math.round(c.picAncien.valeur)) + '\u00a0kg' + quandPic + ', hors fenêtre.'));
+    }
+    if (c.fenetre) carte.appendChild(el('div', 'courbe-fen', c.fenetre));
 
     var per = el('div', 'courbe-per');
     per.setAttribute('role', 'group');
@@ -802,7 +830,7 @@
       var dessin = svg('svg', 'courbe-svg', {
         viewBox: '0 0 ' + geo.largeur + ' ' + geo.hauteur, role: 'img',
         'aria-label': ETIQUETTES_COURBE[c.genre].charAt(0).toUpperCase() + ETIQUETTES_COURBE[c.genre].slice(1) + ', ' + c.nom + ', sur ' +
-          c.periodeLongue + ', de ' + valeurCourbe(c.genre, geo.points[0].valeur) + ' à ' + valeurCourbe(c.genre, geo.points[geo.points.length - 1].valeur) +
+          c.periodeLongue + (c.resume ? ', de ' + valeurCourbe(c.genre, c.resume.debut) + ' à ' + valeurCourbe(c.genre, c.resume.fin) : '') +
           (nbRec ? ' ; ' + pluriel(nbRec, 'record') : '')
       });
       geo.graduations.forEach(function (g) {
@@ -816,19 +844,25 @@
         t.textContent = m.libelle;
         dessin.appendChild(t);
       });
+      // Un point GRIS (d'avant la fenêtre de la fiche) est un anneau creux : hors du trait, du dernier chiffre et de l'écart.
       geo.points.forEach(function (p) {
-        dessin.appendChild(svg('circle', 'courbe-pale', { cx: p.x, cy: p.y, r: 2.5 }));
+        dessin.appendChild(p.gris ? svg('circle', 'courbe-gris', { cx: p.x, cy: p.y, r: 3.2 })
+                                  : svg('circle', 'courbe-pale', { cx: p.x, cy: p.y, r: 2.5 }));
       });
       dessin.appendChild(svg('polyline', 'courbe-trait courbe-trait-page', { points: listePoints(geo.trait) }));
       geo.points.forEach(function (p) {
         if (p.record) dessin.appendChild(svg('circle', 'courbe-rec', { cx: p.x, cy: p.y, r: 4.5 }));
+      });
+      // Le max MESURÉ d'une semaine de test : un losange à part (§9.51.6.7), jamais un point Epley.
+      (geo.mesures || []).forEach(function (m) {
+        dessin.appendChild(svg('polygon', 'courbe-mesure', { points: listePoints([{ x: m.x, y: m.y - 5.5 }, { x: m.x + 5.5, y: m.y }, { x: m.x, y: m.y + 5.5 }, { x: m.x - 5.5, y: m.y }]) }));
       });
       var anneau = svg('circle', 'courbe-choix', { cx: -10, cy: -10, r: 7 });
       dessin.appendChild(anneau);
       // La cible tactile de chaque point : un disque transparent plus large que le point (260-a : le disque est dessiné à 25 pour tenir 44 px une fois la courbe réduite à 360 px (échelle ~0,91); le point dessiné ne grossit pas).
       // Les disques voisins se recouvrent quand la courbe est dense : au toucher, c'est le point le plus proche (en x) qui est choisi.
       var choisirLe = [];
-      geo.points.forEach(function (p) {
+      geo.points.concat((geo.mesures || []).map(function (m) { return Object.assign({ mesure: true }, m); })).forEach(function (p) {
         var cib = svg('circle', 'courbe-cible', { cx: p.x, cy: p.y, r: 25, tabindex: 0, role: 'button',
                                                   'aria-label': texteDuPoint(c.genre, p) });
         var choisir = function () {
@@ -855,8 +889,19 @@
       carte.appendChild(dessin);
       var note = el('div', 'courbe-note');
       note.appendChild(el('span', 'courbe-note-rec', '\u25cf'));
+      // §9.51.6.8 : la plage est celle de l'éligibilité (`Modele.phraseDesReps`), jamais recopiée ici.
       note.appendChild(doc.createTextNode(' record \u00b7 trait : la moyenne de tes séances \u00b7 points pâles : chaque séance.' +
-        (c.genre === 'charge' ? ' Seules les séries de 10 reps ou moins comptent.' : '')));
+        (c.genre === 'charge' ? ' ' + M().phraseDesReps() : '')));
+      if (geo.points.some(function (p) { return p.gris; })) {
+        note.appendChild(doc.createTextNode(' '));
+        note.appendChild(el('span', 'creux'));
+        note.appendChild(doc.createTextNode(' creux : avant les 12 mois, hors de la tendance.'));
+      }
+      if ((geo.mesures || []).length) {
+        note.appendChild(doc.createTextNode(' '));
+        note.appendChild(el('span', 'mes'));
+        note.appendChild(doc.createTextNode('max mesuré.'));
+      }
       carte.appendChild(note);
     } else if (geo.points.length === 1) {
       carte.appendChild(el('p', 'courbe-vide', 'Une seule séance sur cette période.'));

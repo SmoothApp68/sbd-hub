@@ -1,0 +1,17 @@
+[
+  { "nom": "M1-assiste-revient", "fichier": "v2/js/modele.js",
+    "ancien": "gabaritDe(exo).mesure === 'charge_reps' && natureDeCharge(exo) === null && ",
+    "nouveau": "gabaritDe(exo).mesure === 'charge_reps' && ",
+    "banc": "aucun", "unitaires": ["tests/unit/v2-un-seul-max.test.js"] },
+  { "nom": "M2-egalite-plancher-gagne", "fichier": "v2/js/modele.js",
+    "ancien": "plancher.valeur <= unRM.valeur + EPS_RECORD",
+    "nouveau": "plancher.valeur < unRM.valeur - EPS_RECORD",
+    "banc": "aucun", "unitaires": ["tests/unit/v2-un-seul-max.test.js"] },
+  { "nom": "M3-ancre-derniere-seance", "fichier": "v2/js/faits.js",
+    "ancien": "Moteur.plancherDuMateriel(exo.equipement, ref)",
+    "nouveau": "Moteur.plancherDuMateriel(exo.equipement, (c.seances[0] && c.seances[0].debut) || ref)",
+    "banc": "aucun", "unitaires": ["tests/unit/v2-un-seul-max.test.js"] },
+  { "nom": "T-temoin-css-pic", "fichier": "v2/styles.css",
+    "ancien": ".courbe-pic{font-size:14px;", "nouveau": ".courbe-pic{font-size:15px;",
+    "banc": "aucun", "unitaires": ["tests/unit/v2-un-seul-max.test.js", "tests/unit/v2-un-seul-max-rendu.test.js"], "attendu": "survit" }
+]

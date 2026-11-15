@@ -4134,7 +4134,7 @@
       avance: faits.ceQuiAProgresse(c, maintenant, 6, { pesees: local.pesees || [], paris: parisDeConsigneConnus() })
     });
     choisis.forEach(function (slug) {
-      var p = faits.pointsDeLExercice(c, slug);
+      var p = faits.pointsDeLExercice(c, slug, maintenant);
       var fenetre = Courbe.dansLaPeriode(p.points, '6m', maintenant);
       var r = Courbe.resume(fenetre);
       if (!r) return;
@@ -14949,7 +14949,7 @@
         colonnes: { il6: Modele.jourMois(il6, maintenant.getFullYear()), il12: Modele.jourMois(il12, maintenant.getFullYear()) },
         douzeMois: recordsExo.douzeMois,
         lourde: record && record.charge !== null ? record : null,
-        unRM: recordsExo.unRM,
+        force: recordsExo.force,   // « Un seul max » (MOTEUR §9.51) : la force AFFICHÉE (plancher, projection ou mesure), jamais `unRM`, que seul le coach lit
         tableau: Modele.tableauDesRecords(pourRecords, [maintenant, il6, il12], optionsRecords),
         travail: travail && travail.palier > 0 && !optionsRecords.corps ? travail : null,
         rapport: travail && travail.palier > 0 && !optionsRecords.corps
@@ -14958,17 +14958,24 @@
     }
 
     // 206 — LA COURBE EN TÊTE : les points sont un fait (`faits.pointsDeLExercice`), la géométrie est pure (`THCourbe`), la
-    // période choisie ne vit que le temps de la page. Elle ne dit pas un autre chiffre que la fiche : même Epley que les records.
-    var pts = faits.pointsDeLExercice(corpus(), slug);
+    // période choisie ne vit que le temps de la page. « Un seul max » (MOTEUR §9.51) : elle juge une série comme la fiche
+    // (`Modele.eligibilite1RM`), ancre sa fenêtre sur AUJOURD'HUI (un point d'avant la fenêtre de la fiche est creux, hors de la
+    // tendance), dit cette fenêtre sous le titre, et montre le max mesuré d'une semaine de test à part.
+    var mesureDeTestCourbe = testDesCartes() && testDesCartes().mesures ? testDesCartes().mesures[slug] : null;
+    var pts = faits.pointsDeLExercice(corpus(), slug, maintenant,
+      { mesures: mesureDeTestCourbe && mesureDeTestCourbe.valeur !== null && mesureDeTestCourbe.valeur !== undefined ? [mesureDeTestCourbe] : [] });
     var courbe = null;
     if (pts.mesure && pts.points.length) {
       var per = Courbe.periodeDe(periodeCourbe);
       var fenetre = Courbe.dansLaPeriode(pts.points, per.cle, maintenant);
+      var mesuresVue = Courbe.dansLaPeriode(pts.mesures, per.cle, maintenant);
       courbe = {
         nom: exo ? exo.nom : slug,
         genre: pts.mesure,
-        geo: Courbe.geometrie(fenetre, null, pts.mesure),
+        geo: Courbe.geometrie(fenetre, null, pts.mesure, mesuresVue),
         resume: Courbe.resume(fenetre),
+        picAncien: pts.mesure === 'charge' ? Courbe.picAncien(fenetre) : null,
+        fenetre: pts.mesure === 'charge' ? Modele.phraseDeFenetre(exo ? exo.equipement : null, pts.plancher !== null) : null,
         periode: per.cle,
         aujourdhui: Periode.jourISO(maintenant),   // PR 6 des mots : l'année des dates du sous-titre
         periodeLongue: per.long,

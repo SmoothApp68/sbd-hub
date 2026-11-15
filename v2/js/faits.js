@@ -319,68 +319,95 @@
     }
 
     // 206 — LES POINTS D'UN EXERCICE, pour sa courbe : un point par séance, du plus ancien au plus récent.
-    //   · charge_reps → le MAX ESTIMÉ (Epley, `Moteur.unRMEpley`, celui des records) de la meilleure série de travail
-    //     de 1 à 10 reps (au-delà l'estimation se trompe trop, Reynolds 2006) ; une série notée par nom ou sans charge n'y est pas ;
+    //   · charge_reps → le MAX ESTIMÉ de la meilleure série de travail de la séance, jugée par `Modele.eligibilite1RM` — la MÊME
+    //     éligibilité que la fiche (« Un seul max », MOTEUR §9.51, I170) : 3 à 10 reps = Epley (`projection`), 1 ou 2 reps = la
+    //     charge nue (`plancher`, « au moins ») ; une série notée par nom, sans charge, au poids du corps, lestée ou assistée n'y est
+    //     pas (un exercice lesté ou assisté n'a AUCUN point : il quitte aussi « Tes exercices » de Progression) ;
     //   · reps (poids du corps) → les meilleures reps ; temps / distance_temps → les meilleures secondes ;
-    //   · `record` : la séance a battu un record de cet exercice (`recordsDeLaSeance`, la médaille de la séance) ;
-    //   · `charge`, `reps` : la meilleure série elle-même (la bulle la dit).
-    // Rend `{ mesure: 'charge' | 'reps' | 'temps' | null, points: [{ seance, debut, valeur, charge, reps, record }] }`.
-    // Un fait : rien n'est lissé, formaté ni projeté ici.
+    //   · `record` : la séance a battu un record de cet exercice (`recordsCalcules`, la médaille de la séance) ;
+    //   · `charge`, `reps` : la meilleure série elle-même (la bulle la dit) ; `mode` : `plancher` | `projection` (charge seulement) ;
+    //   · `gris` : le point est d'AVANT la fenêtre de la fiche (`Moteur.plancherDuMateriel(matériel, maintenant)`, ancrée sur
+    //     AUJOURD'HUI, jamais sur la dernière séance) — un matériel de salle seulement ; une barre n'en a jamais. La courbe
+    //     le montre creux, hors de sa tendance, de son dernier chiffre et de son écart (I175).
+    // Rend `{ mesure: 'charge' | 'reps' | 'temps' | null, points, mesures, plancher }` : `plancher` est l'instant de la fenêtre
+    // (`null` : tout l'historique) ; `mesures` : le max MESURÉ par une semaine de test encore valable (`o.mesures`, ce que le profil
+    // a rangé), à part des points — jamais un point Epley (I177). Un fait : rien n'est lissé, formaté ni projeté ici.
     var memoPoints = { cle: null, parSlug: {} };
-    var POINTS_REPS_MAX = 10;
-    function pointsDeLExercice(c, slug) {
-      var cle = (c.seances || []).length + '|' + (c.series || []).length;
+    function pointsDeLExercice(c, slug, maintenant, o) {
+      var ref = maintenant instanceof Date && !isNaN(maintenant.getTime()) ? maintenant : new Date();
+      var cle = (c.seances || []).length + '|' + (c.series || []).length + '|' + Periode.jourISO(ref);
       if (memoPoints.cle !== cle) memoPoints = { cle: cle, parSlug: {} };
-      if (memoPoints.parSlug[slug]) return memoPoints.parSlug[slug];
-      var exo = c.catalogue()[slug] || null;
-      var m = exo ? exo.mesure : null;
-      var genre = m === 'charge_reps' ? 'charge' : m === 'reps' ? 'reps' : (m === 'temps' || m === 'distance_temps') ? 'temps' : null;
-      var avecSeries = null;
-      var points = [];
-      if (genre) {
-        seancesDeLExercice(c, slug).forEach(function (g) {
-          var meilleur = null;
-          g.series.forEach(function (x) {
-            if (!x || !Modele.estTravail(x) || x.elastique) return;
-            var ch = Number(x.charge_kg), rp = Number(x.reps), du = Number(x.duree_s);
-            var v = null;
+      var memo = memoPoints.parSlug[slug];
+      if (!memo) {
+        var exo = c.catalogue()[slug] || null;
+        var m = exo ? exo.mesure : null;
+        var genre = m === 'charge_reps' ? 'charge' : m === 'reps' ? 'reps' : (m === 'temps' || m === 'distance_temps') ? 'temps' : null;
+        var plancher = genre === 'charge' ? Moteur.plancherDuMateriel(exo.equipement, ref) : null;
+        var avecSeries = null;
+        var points = [];
+        if (genre) {
+          seancesDeLExercice(c, slug).forEach(function (g) {
+            var meilleur = null;
+            g.series.forEach(function (x) {
+              if (!x || !Modele.estTravail(x)) return;
+              var rp = Number(x.reps), du = Number(x.duree_s);
+              var v = null, mode = null, ch = null;
+              if (genre === 'charge') {
+                var q = Modele.eligibilite1RM(x, exo);
+                if (q.mode === null) return;
+                v = q.valeur; mode = q.mode; ch = q.charge;
+              } else {
+                if (x.elastique) return;
+                if (genre === 'reps') {
+                  if (!(rp > 0)) return;
+                  v = rp;
+                } else {
+                  if (!(du > 0)) return;
+                  v = du;
+                }
+              }
+              // À égalité, la projection l'emporte sur le plancher (le libellé d'avant, §9.51.3) ; entre deux séries égales, la première.
+              if (meilleur === null || v > meilleur.valeur + 1e-6 ||
+                  (Math.abs(v - meilleur.valeur) <= 1e-6 && meilleur.mode === 'plancher' && mode === 'projection')) {
+                meilleur = { valeur: v, charge: genre === 'charge' ? ch : null, reps: rp > 0 ? rp : null, mode: mode };
+              }
+            });
+            if (meilleur === null) return;
+            if (avecSeries === null) {
+              avecSeries = {};
+              seancesAvecSeries(c).forEach(function (s) { avecSeries[s.id] = s; });
+            }
+            var se = avecSeries[g.seance.id];
+            var tDebut = new Date(g.seance.debut).getTime();
+            // 216 — `record` se lit À LA DEMANDE (le calcul d'une séance, une fois, mémoïsé sur le point) : l'onglet Progression
+            // n'en lit qu'un par exercice (le dernier point), la page d'exercice les lit tous.
+            var pt = { seance: g.seance.id, debut: g.seance.debut, valeur: meilleur.valeur, charge: meilleur.charge, reps: meilleur.reps };
             if (genre === 'charge') {
-              if (!(ch > 0) || !(rp >= 1) || rp > POINTS_REPS_MAX) return;
-              v = Moteur.unRMEpley(ch, rp);
-            } else if (genre === 'reps') {
-              if (!(rp > 0)) return;
-              v = rp;
-            } else {
-              if (!(du > 0)) return;
-              v = du;
+              pt.mode = meilleur.mode;
+              pt.gris = plancher !== null && !isNaN(tDebut) && tDebut < plancher;
             }
-            if (meilleur === null || v > meilleur.valeur) {
-              meilleur = { valeur: v, charge: genre === 'charge' ? ch : null, reps: rp > 0 ? rp : null };
-            }
+            (function (pt, se) {
+              Object.defineProperty(pt, 'record', { enumerable: true, configurable: true, get: function () {
+                var r = !!se && recordsCalcules(c, se, slug).length > 0;
+                Object.defineProperty(pt, 'record', { enumerable: true, configurable: true, writable: true, value: r });
+                return r;
+              } });
+            })(pt, se);
+            points.push(pt);
           });
-          if (meilleur === null) return;
-          if (avecSeries === null) {
-            avecSeries = {};
-            seancesAvecSeries(c).forEach(function (s) { avecSeries[s.id] = s; });
-          }
-          var se = avecSeries[g.seance.id];
-          // 216 — `record` se lit À LA DEMANDE (le calcul d'une séance, une fois, mémoïsé sur le point) : l'onglet Progression
-          // n'en lit qu'un par exercice (le dernier point), la page d'exercice les lit tous.
-          var pt = { seance: g.seance.id, debut: g.seance.debut, valeur: meilleur.valeur, charge: meilleur.charge, reps: meilleur.reps };
-          (function (pt, se) {
-            Object.defineProperty(pt, 'record', { enumerable: true, configurable: true, get: function () {
-              var r = !!se && recordsCalcules(c, se, slug).length > 0;
-              Object.defineProperty(pt, 'record', { enumerable: true, configurable: true, writable: true, value: r });
-              return r;
-            } });
-          })(pt, se);
-          points.push(pt);
-        });
-        points.reverse();
+          points.reverse();
+        }
+        memo = memoPoints.parSlug[slug] = { mesure: genre, points: points, mesures: [], plancher: plancher };
       }
-      var out = { mesure: genre, points: points };
-      memoPoints.parSlug[slug] = out;
-      return out;
+      // 193-4 / §9.51.6.7 — le max mesuré encore valable (90 jours) : un point À PART, jamais dans `points`.
+      if (memo.mesure === 'charge' && memo.points.length && o && Array.isArray(o.mesures) && o.mesures.length) {
+        var mv = Moteur.testMesureValable(o.mesures, ref);
+        if (mv) {
+          return { mesure: memo.mesure, points: memo.points, plancher: memo.plancher,
+                   mesures: [{ valeur: Number(mv.valeur), charge: Number(mv.charge), reps: Number(mv.reps), debut: mv.date, mesure: true }] };
+        }
+      }
+      return memo;
     }
 
     // 206/220 — « TES EXERCICES » de Progression : au plus `combien` (4) exercices, des SLUGS, jamais un calcul d'écran.
@@ -416,7 +443,7 @@
         var exo = catalogue[slug];
         var ok = !!exo && exo.mesure === 'charge_reps';
         if (ok) {
-          var pts = pointsDeLExercice(c, slug).points;
+          var pts = pointsDeLExercice(c, slug, maintenant).points;
           ok = (o.fenetre ? o.fenetre(pts) : pts).length >= 2;
         }
         return (admis[slug] = ok);

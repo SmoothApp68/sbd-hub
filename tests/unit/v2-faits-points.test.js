@@ -91,7 +91,7 @@ describe('206 — Faits.pointsDeLExercice', () => {
 
   test('exercice inconnu ou jamais fait : rien', () => {
     const c = corpus([{ debut: jour(2026, 9, 28), series: [S('squat_barre', 100, 5)] }]);
-    expect(Faits.creer().pointsDeLExercice(c, 'inconnu')).toEqual({ mesure: null, points: [] });
+    expect(Faits.creer().pointsDeLExercice(c, 'inconnu')).toEqual({ mesure: null, points: [], mesures: [], plancher: null });
     expect(Faits.creer().pointsDeLExercice(c, 'tractions').points).toEqual([]);
   });
 });

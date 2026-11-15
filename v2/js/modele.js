@@ -2487,8 +2487,6 @@
   // `THMoteur.unRMEpley`, ceux du §10.2 et du report (§9.10). Lecture TARDIVE,
   // comme `THSeance` plus bas : `moteur.js` se charge après `modele.js`.
   var EPS_RECORD = 1e-6;
-  var UN_RM_REPS_MIN = 3;
-  var UN_RM_REPS_MAX = 10;
   var CAP_ROND = 10;
 
   // 216 — les instants déjà lus (chaîne ISO -> ms) : un historique est reparsé des milliers de fois par un onglet.
@@ -2576,11 +2574,48 @@
     return best;
   }
 
-  // La force estimée (le 1RM d'Epley) n'est fiable qu'entre 3 et 10 reps
-  // (ECRAN §7 bis.15), sur une charge qu'on soulève, jamais au poids du corps.
-  // Une règle, ici : la page d'exercice la lit (120, D1 : plus la médaille).
-  function estimable1RM(reps, charge, corps) {
-    return !corps && charge > 0 && reps >= UN_RM_REPS_MIN && reps <= UN_RM_REPS_MAX;
+  // ══ « UN SEUL MAX » (MOTEUR §9.51, I170) — L'ÉLIGIBILITÉ AU MAX ESTIMÉ, UNE SEULE FOIS ═══════════════════════
+  //
+  // Une série compte (ou non) pour le max estimé d'un exercice par CETTE fonction, et par aucune autre : la fiche
+  // (`recordsDeLExercice`), la courbe (`faits.pointsDeLExercice`) et Progression la lisent. Trois étages, dans l'ordre :
+  //   1. L'EXERCICE : mesuré en charge × reps (une mesure inconnue se lit `charge_reps`, le repli de `gabaritDe` ; un `exo`
+  //      absent aussi), sans lest ni aide (`natureDeCharge`), et pas au poids du corps (`equipement: 'aucun'`) ;
+  //   2. LA SÉRIE : du travail (`estTravail`, « Non, ne compte pas » l'emporte), une charge > 0, pas un élastique nommé ;
+  //   3. LES REPS : 1 ou 2 → `plancher` (la charge nue, une borne basse : « au moins ») ; 3 à 10 → `projection` (Epley,
+  //      `Moteur.unRMEpley`, lu TARDIVEMENT) ; sinon rien.
+  // `{ mode: 'plancher' | 'projection' | null, charge, reps, valeur }`. La fenêtre de 12 mois reste l'affaire du périmètre.
+  var ELIGIBILITE_1RM = Object.freeze({ plancherMin: 1, plancherMax: 2, projectionMin: 3, projectionMax: 10 });
+  function exerciceAUnMax(exo) {
+    return gabaritDe(exo).mesure === 'charge_reps' && natureDeCharge(exo) === null && !(exo && exo.equipement === 'aucun');
+  }
+  function eligibilite1RM(serie, exo) {
+    var rien = { mode: null, charge: null, reps: null, valeur: null };
+    if (!exerciceAUnMax(exo)) return rien;
+    if (!serie || !estTravail(serie) || serie.elastique) return rien;
+    var c = valeurNumerique(serie, 'charge_kg'), r = valeurNumerique(serie, 'reps');
+    if (c === null || !(c > 0) || r === null) return rien;
+    var E = ELIGIBILITE_1RM;
+    if (r >= E.plancherMin && r <= E.plancherMax) return { mode: 'plancher', charge: c, reps: r, valeur: c };
+    if (r >= E.projectionMin && r <= E.projectionMax) {
+      return { mode: 'projection', charge: c, reps: r, valeur: racine.THMoteur.unRMEpley(c, r) };
+    }
+    return rien;
+  }
+
+  // La note de pied de la courbe (§9.51.6.8) : la plage vient de `ELIGIBILITE_1RM`, jamais recopiée ailleurs.
+  function phraseDesReps() {
+    var E = ELIGIBILITE_1RM;
+    return 'Séries de ' + E.plancherMin + ' à ' + E.projectionMax + ' reps ; à ' + E.plancherMin + ' ou ' + E.plancherMax + ' reps, la charge elle-même.';
+  }
+
+  // LA LIGNE DE FENÊTRE d'une courbe (MOTEUR §9.51.6.3, VOIX) : le matériel, puis ce que la courbe lit. Un lexique FERMÉ :
+  // « Barre : tout l'historique. », « Machine : 12 derniers mois. » (haltères, poulie, Smith de même) ; un autre matériel sans
+  // fenêtre : « Tout l'historique. ». `douzeMois` : `Moteur.plancherDuMateriel(...) !== null` (le même prédicat que la fiche et les points gris).
+  var MOTS_DE_FENETRE = { barre: 'Barre', machine: 'Machine', machine_smith: 'Smith', poulie: 'Poulie', haltere: 'Haltères' };
+  function phraseDeFenetre(equipement, douzeMois) {
+    var mot = Object.prototype.hasOwnProperty.call(MOTS_DE_FENETRE, equipement) ? MOTS_DE_FENETRE[equipement] : null;
+    if (douzeMois) return (mot || 'Matériel') + ' : 12 derniers mois.';
+    return mot ? mot + ' : tout l\u2019historique.' : 'Tout l\u2019historique.';
   }
 
   // LES SÉANCES DU PÉRIMÈTRE D'UN RECORD, à une date : celles d'avant elle, et,
@@ -2610,24 +2645,42 @@
       (h.series || []).forEach(function (x) { series.push(Object.assign({}, x, { _debut: h.debut })); });
     });
     var table = tableCumulee(series, function (x) { return x._debut; }, { corps: o.corps });
-    var unRM = null;
+    // §9.51 — UNE éligibilité (`eligibilite1RM`), DEUX champs : `unRM` (la meilleure PROJECTION de 3 à 10 reps, ou le max mesuré
+    // actif) est ce que lit le COACH (semaine de test, chauffes, paris) — il ne change pas ; `force` (le plus grand de `unRM` et de
+    // la plus lourde charge à 1 ou 2 reps) est ce que lit l'AFFICHAGE (fiche, courbe). `force` = `unRM` dès que le plancher ne le
+    // dépasse pas : à l'égalité, le libellé d'avant est tenu.
+    var unRM = null, plancher = null;
     series.forEach(function (x) {
-      if (!estTravail(x)) return;
-      var r = valeurNumerique(x, 'reps'), c = valeurNumerique(x, 'charge_kg');
-      if (r === null || c === null || !estimable1RM(r, c, !!o.corps)) return;
-      var e = racine.THMoteur.unRMEpley(c, r);
-      if (!unRM || e > unRM.valeur + EPS_RECORD ||
-          (Math.abs(e - unRM.valeur) <= EPS_RECORD && plusTot(x._debut, unRM.date))) {
-        unRM = { valeur: e, charge: c, reps: r, date: x._debut };
+      if (o.corps) return;
+      var q = eligibilite1RM(x, o.exo);
+      if (q.mode === 'projection') {
+        if (!unRM || q.valeur > unRM.valeur + EPS_RECORD ||
+            (Math.abs(q.valeur - unRM.valeur) <= EPS_RECORD && plusTot(x._debut, unRM.date))) {
+          unRM = { valeur: q.valeur, charge: q.charge, reps: q.reps, date: x._debut };
+        }
+      } else if (q.mode === 'plancher') {
+        if (!plancher || q.valeur > plancher.valeur + EPS_RECORD ||
+            (Math.abs(q.valeur - plancher.valeur) <= EPS_RECORD && plusTot(x._debut, plancher.date))) {
+          plancher = { valeur: q.valeur, charge: q.charge, reps: q.reps, date: x._debut };
+        }
       }
     });
+    var force = null;
+    if (unRM && (!plancher || plancher.valeur <= unRM.valeur + EPS_RECORD)) {
+      force = { valeur: unRM.valeur, charge: unRM.charge, reps: unRM.reps, date: unRM.date, mode: 'projection' };
+    } else if (plancher) {
+      force = { valeur: plancher.valeur, charge: plancher.charge, reps: plancher.reps, date: plancher.date, mode: 'plancher' };
+    }
     // 193-4 (MOTEUR §9.32) — LE MAX MESURÉ PAR UNE SEMAINE DE TEST prime sur l'estimation pendant 90 jours : `o.mesures`
     // (`[{ valeur, date, charge, reps }]`, ce que le profil a rangé), jamais une ligne du journal des records.
-    if (Array.isArray(o.mesures) && o.mesures.length) {
+    if (Array.isArray(o.mesures) && o.mesures.length && !o.corps && exerciceAUnMax(o.exo)) {
       var mv = racine.THMoteur.testMesureValable(o.mesures, aDate);
-      if (mv) unRM = { valeur: Number(mv.valeur), charge: Number(mv.charge), reps: Number(mv.reps), date: mv.date, mesure: true };
+      if (mv) {
+        unRM = { valeur: Number(mv.valeur), charge: Number(mv.charge), reps: Number(mv.reps), date: mv.date, mesure: true };
+        force = { valeur: unRM.valeur, charge: unRM.charge, reps: unRM.reps, date: unRM.date, mode: 'mesure' };
+      }
     }
-    return { table: table, lourde: recordDeLaTable(table), unRM: unRM,
+    return { table: table, lourde: recordDeLaTable(table), unRM: unRM, force: force,
              douzeMois: racine.THMoteur.plancherDuMateriel(o.equipement, aDate) !== null };
   }
 
@@ -2939,6 +2992,8 @@
   function optionsDeRecord(exo) {
     var e = exo || {};
     return { equipement: e.equipement || null,
+             // §9.51 — l'exercice lui-même, pour `eligibilite1RM` (étage 1) : le catalogue seul dit lesté, assisté, au poids du corps.
+             exo: exo || null,
              corps: e.mesure === 'reps' || natureDeCharge(e) === 'lest' || e.equipement === 'aucun',
              // 194-1 (MOTEUR §9.31) — une série de mobilité (étirement, mobilité en mouvement) ne fait AUCUN record : une tenue plus longue n'est pas un progrès.
              sansRecord: e.nature === 'mobilite' };
@@ -3376,6 +3431,10 @@
     phraseDuMeilleur: phraseDuMeilleur,
     optionsDeRecord: optionsDeRecord,
     recordsDeLExercice: recordsDeLExercice,
+    eligibilite1RM: eligibilite1RM,
+    phraseDeFenetre: phraseDeFenetre,
+    phraseDesReps: phraseDesReps,
+    ELIGIBILITE_1RM: ELIGIBILITE_1RM,
     seancesDuPerimetre: seancesDuPerimetre,
     tableauDesRecords: tableauDesRecords,
     REPS_DU_TABLEAU: REPS_DU_TABLEAU,

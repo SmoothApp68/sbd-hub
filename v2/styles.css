@@ -1756,6 +1756,8 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   opacity:.8;margin-top:1px}
 .exo-li-v{margin-left:auto;font-size:15px;font-weight:700;line-height:1.2;
   letter-spacing:-.01em;white-space:nowrap;font-family:var(--pile-c)}
+/* « Un seul max » (MOTEUR §9.51) : « au moins » devant une borne basse (1 ou 2 reps). */
+.exo-li-v .au{font:500 12px/1 var(--pile);color:var(--texte-2)}
 /* La phrase qui dit pourquoi il n'y a pas de palier, et celle qui explique les
    lignes grisées : du texte, pas un code de moteur. */
 .exo-note{font-size:12px;line-height:1.5;color:var(--texte-3);padding:var(--e2) var(--e1) 0}
@@ -1827,6 +1829,9 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .courbe-tete{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--e2)}
 .courbe-val{font-size:28px;font-weight:700;line-height:1.1}
 .courbe-sous{font-size:14px;line-height:1.3;color:var(--texte-2)}
+.courbe-val .au{font:500 14px/1 var(--pile);color:var(--texte-2)}
+.courbe-pic{font-size:14px;line-height:1.4;color:var(--texte-2);margin-top:var(--e1)}
+.courbe-fen{font-size:12px;line-height:1.4;color:var(--texte-3);margin-top:var(--e1)}
 .courbe-per{display:flex;gap:6px;margin:var(--e2) 0}
 .courbe-per-b{flex:1;min-height:44px;border:1px solid var(--trait);border-radius:var(--r-bouton);background:transparent;
   color:var(--texte-2);font:500 14px/1 var(--pile);padding:0}
@@ -1835,6 +1840,8 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .courbe-grille{stroke:var(--trait);stroke-width:1}
 .courbe-lib{fill:var(--texte-3);font-size:12px;font-family:var(--pile)}
 .courbe-pale{fill:var(--texte-3);opacity:.55}
+.courbe-gris{fill:var(--panneau);stroke:var(--texte-3);stroke-width:1.5}
+.courbe-mesure{fill:var(--texte);stroke:var(--panneau);stroke-width:1.5}
 .courbe-trait-page{stroke-width:2.5}
 .courbe-rec{fill:var(--accent)}
 .courbe-choix{fill:none;stroke:var(--texte);stroke-width:1.5;visibility:hidden}
@@ -1843,6 +1850,8 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .courbe-cible:focus-visible{stroke:var(--texte);stroke-width:1.5}
 .courbe-note{font-size:13px;line-height:1.4;color:var(--texte-2);margin-top:6px}
 .courbe-note-rec{color:var(--accent)}
+.courbe-note .creux{display:inline-block;width:9px;height:9px;border:1.5px solid var(--texte-3);border-radius:50%;vertical-align:-1px;margin:0 1px}
+.courbe-note .mes{display:inline-block;width:8px;height:8px;background:var(--texte);transform:rotate(45deg);vertical-align:0;margin:0 3px 0 2px}
 .courbe-vide{font-size:13px;color:var(--texte-2);margin:var(--e2) 0}
 .courbe-bulle{display:none;margin-top:var(--e2);padding-top:var(--e2);border-top:1px solid var(--trait);font-size:15px;line-height:1.4}
 .courbe-bulle.on{display:block}

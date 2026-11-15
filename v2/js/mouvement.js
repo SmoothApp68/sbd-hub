@@ -477,7 +477,11 @@
     v_up: 'v_up.json',
     crunch_inverse: 'crunch_inverse.json',
     hollow_hold: 'hollow_hold.json',
-    hollow_rocks: 'hollow_rocks.json'
+    hollow_rocks: 'hollow_rocks.json',
+    muscle_up_elastique: 'muscle_up_elastique.json',
+    muscle_up_assiste: 'muscle_up_assiste.json',
+    l_sit_hold: 'l_sit_hold.json',
+    l_sit_parallettes: 'l_sit_parallettes.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

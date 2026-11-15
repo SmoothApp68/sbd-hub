@@ -25,7 +25,7 @@ const { creer } = require(path.join(R, 'v2-atelier/banc/serveur-pages.js'));
 const Verrou = require(path.join(R, 'tests/banc/verrou.js'));
 const CHROME = process.env.CHROME_BIN || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 // WebGL logiciel (une machine de CI n'a pas de carte graphique)
-const ARGS = ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'];
+const ARGS = ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--disable-dev-shm-usage'];   // /dev/shm de la CI sature avec plusieurs Chromium ; limité à CE banc (ARGS propre à chaque banc)
 
 const EXOS = [
   { slug: 'squat_barre', nom: 'Squat (Barre)', mesure: 'charge_reps', charge: 'externe', parent: null, equipement: 'barre', mouvement: null, barre_charge_fixe: false,
@@ -91,8 +91,11 @@ const vivants = (p) => p.evaluate(() => window.__gl.crees - window.__gl.perdus);
   const rendre = await Verrou.prendre();
   const serveur = creer({ racine: path.join(R, 'v2'), gzip: true });
   const port = await Verrou.ecouter(serveur, 0);
-  const nav = await Garde.lancer(chromium, { executablePath: CHROME, args: ARGS });
+  let nav = null;
   try {
+    // Le lancement du navigateur est DANS le try (un échec devient un contrôle en échec, avec son bilan) ; UNE relance, et seulement si le lancement échoue — jamais sur une assertion.
+    try { nav = await Garde.lancer(chromium, { executablePath: CHROME, args: ARGS }); }
+    catch (e) { console.error('lancement du navigateur échoué, une relance : ' + (e && e.message || e)); nav = await Garde.lancer(chromium, { executablePath: CHROME, args: ARGS }); }
     // ── A et B ──
     {
       const errs = [], req = [];
@@ -248,7 +251,7 @@ const vivants = (p) => p.evaluate(() => window.__gl.crees - window.__gl.perdus);
       await ctx.close();
     }
   } catch (e) { verifier(false, '[exception] ' + (e && e.stack || e)); }
-  finally { await nav.close(); serveur.close(); rendre(); }
+  finally { if (nav) await nav.close().catch(() => {}); serveur.close(); rendre(); }   // une fermeture qui échoue ne masque pas le résultat
   console.log(ko ? '\n   ' + ko + ' contrôle(s) en échec' : '\n   tout passe');
   process.exit(ko ? 1 : 0);
 })().catch((e) => { console.error(e && e.stack || e); process.exit(1); });

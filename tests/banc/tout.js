@@ -55,6 +55,11 @@ if (require.main === module) (async () => {
     r.forEach((x) => {
       console.log('   ' + (x.code === 0 ? '✅' : '❌') + ' ' + x.nom + ' · ' + Math.round(x.duree / 1000) + ' s · ' +
         x.fin.join(' · ').replace(/\s+/g, ' ').trim() + (x.code === 0 ? '' : '\n        journal : ' + x.journal));
+      // Un banc en échec SANS résumé (le processus est mort avant son bilan) : les 8 dernières lignes du journal disent pourquoi, dans le journal GitHub.
+      if (x.code !== 0 && !x.fin.length) {
+        console.log('        (aucun résumé — 8 dernières lignes du journal)');
+        x.texte.split('\n').filter((l) => l.trim()).slice(-8).forEach((l) => console.log('        | ' + l));
+      }
     });
     // 231 : un banc de vitesse en échec montre son tableau (geste / médiane / plafond) dans la sortie, donc dans le journal GitHub.
     r.filter((x) => x.code !== 0 && x.nom.indexOf('banc de vitesse') === 0).forEach((x) => {

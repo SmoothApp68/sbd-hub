@@ -1072,11 +1072,24 @@ const NOTIONS = [
     parAilleurs: { 'app.js': ['rendreExercice'] },
     raison: 'MOTEUR §9.23 et ECRAN §7 quater.3 (H3, #371) : le tableau des records, le record de charge et la ' +
       'table par reps d’une page lisent le même périmètre — une page n’en montre jamais deux.' },
-  { notion: 'le 1RM estimable (3 à 10 reps, une charge soulevée, jamais au poids du corps)', pr: '55-U1',
-    module: 'modele.js', fonction: 'estimable1RM', lecteurs: [],
+  { notion: 'l’éligibilité d’une série au max estimé (l’exercice, la série, les reps : plancher à 1 ou 2 reps, projection de 3 à 10)', pr: 'correctif 15/11/2026',
+    module: 'modele.js', fonction: 'eligibilite1RM', lecteurs: ['faits.js'],
     par: ['recordsDeLExercice'],
-    raison: 'ECRAN §7 bis.15 : hors de 3 à 10 reps, l’estimation n’est pas fiable. 120 (D1, 16/10/2026) : la force ' +
-      'estimée n’est plus un record — la médaille ne la lit plus ; la page seule la dit.' },
+    parAilleurs: { 'faits.js': ['pointsDeLExercice'] },
+    interditAilleurs: {
+      motif: /\bPOINTS_REPS_MAX\b|\bUN_RM_REPS_|\bELIGIBILITE_1RM\b|\b(?:reps|rp)\s*[<>]=?\s*10\b/,
+      raison: 'une série ne se juge pas pour le max estimé hors de `Modele.eligibilite1RM` (§9.51, I170) : aucune borne de reps recopiée ' +
+        '(`POINTS_REPS_MAX`, `UN_RM_REPS_*`, ni une comparaison de reps contre 10)'
+    },
+    raison: 'MOTEUR §9.51 (« Un seul max », 15/11/2026, I170) : la fiche (`recordsDeLExercice`) et la courbe (`pointsDeLExercice`) ' +
+      'jugent une série d’un max par UNE fonction, en trois étages (l’exercice : charge × reps, ni lest ni aide ni poids du corps ; la ' +
+      'série : du travail, une charge, pas un élastique nommé ; les reps : 1 ou 2 = plancher, 3 à 10 = Epley). Trois définitions ' +
+      'éparses (`estimable1RM`, `UN_RM_REPS_*`, `POINTS_REPS_MAX`) disaient trois max.' },
+  { notion: 'la valeur de fatigue d’une série (une CAPACITÉ de 1 à 12 reps, la réserve ajoutée aux reps : la baisse générale, pas un max estimé)', pr: 'correctif 15/11/2026',
+    module: 'moteur.js', fonction: 'valeurDeFatigue', lecteurs: [],
+    par: ['meilleuresDeFatigue'],
+    raison: 'MOTEUR §9.51.9 : une AUTRE notion que le max estimé (`Modele.eligibilite1RM`) — la réserve s’ajoute aux reps, Epley dès 1 rep, ' +
+      'lest et assisté inclus (§14.11). Son texte ne dit jamais « max estimé » ; la brancher sur l’éligibilité est un chantier à part.' },
   { notion: 'les records battus par une série (et l’ancien record, avec sa date)', pr: '55-U1',
     module: 'modele.js', fonction: 'recordsBattus', lecteurs: ['faits.js', 'plan.js'],
     parAilleurs: { 'faits.js': ['recordsDeLaSerie', 'recordsCalcules'], 'plan.js': ['verifierElastiques'] },
@@ -1116,15 +1129,15 @@ const NOTIONS = [
     parAilleurs: { 'rendu.js': ['boutonResultat'] },
     raison: '268 (lot 2, E) : on sait avant d’ajouter l’exercice ce qu’on va taper ; une table, ici.' },
   { notion: 'le 1RM estimé (Epley)', pr: '55-U1',
-    module: 'moteur.js', fonction: 'unRMEpley', lecteurs: ['modele.js', 'faits.js', 'plan.js'],
+    module: 'moteur.js', fonction: 'unRMEpley', lecteurs: ['modele.js', 'plan.js'],
     par: ['reportDeZone'],
-    parAilleurs: { 'modele.js': ['recordsDeLExercice'], 'faits.js': ['pointsDeLExercice'], 'plan.js': ['verifierReportDeZone'] },
+    parAilleurs: { 'modele.js': ['eligibilite1RM'], 'plan.js': ['verifierReportDeZone'] },
     raison: 'MOTEUR §9.10 et §9.23 : l’estimation du report et la force estimée de la page (120, D1 : une ' +
       'progression, plus un record) lisent la même formule — jamais recopiée. 255 : l’invariant I143 la relit (il vérifie, il ne décide pas).' },
   { notion: 'la fenêtre des 12 mois d’un matériel (machines, poulies, haltères, Smith)', pr: '55-U1',
-    module: 'moteur.js', fonction: 'plancherDuMateriel', lecteurs: ['modele.js'],
+    module: 'moteur.js', fonction: 'plancherDuMateriel', lecteurs: ['modele.js', 'faits.js'],
     par: ['chargeVoisine'],
-    parAilleurs: { 'modele.js': ['recordsBattus', 'seancesDuPerimetre'] },
+    parAilleurs: { 'modele.js': ['recordsBattus', 'seancesDuPerimetre'], 'faits.js': ['pointsDeLExercice'] },
     raison: 'MOTEUR §10.2 et §9.23 : la charge voisine du coach et les records comparent sur la même ' +
       'liste de matériels et la même fenêtre — un seul câblage.' },
   { notion: 'l’occurrence coachée d’un exercice (la première, ou celle qui porte ses paris)', pr: 'correctif 04/10/2026',
@@ -1964,9 +1977,17 @@ const NOTIONS = [
     raison: '202 (MOTEUR §9.20) : même fenêtre que `douleursParExercice`, la séance en cours exclue ; le plan lit le compte, `Moteur.douleurRepetee` ' +
       'décide (2 ou plus), I113 le vérifie. L’écran passe le fait, il ne décide rien.' },
   { notion: 'le max mesuré par une semaine de test (prioritaire 90 jours sur l’estimation)', pr: '193-U4',
-    module: 'moteur.js', fonction: 'testMesureValable', lecteurs: ['modele.js'],
+    module: 'moteur.js', fonction: 'testMesureValable', lecteurs: ['modele.js', 'faits.js'],
+    parAilleurs: { 'faits.js': ['pointsDeLExercice'] },
     raison: '193-4 (MOTEUR §9.32) : `recordsDeLExercice` expose le max mesuré comme `unRM` daté « mesuré » pendant 90 jours ; la règle de ' +
-      'validité est au moteur, `modele.js` la lit, l’écran montre « Max mesuré ». Jamais une ligne du journal des records.' },
+      'validité est au moteur, `modele.js` la lit, l’écran montre « Max mesuré ». Jamais une ligne du journal des records. ' +
+      '275 (§9.51.6.7) : la courbe montre ce même max mesuré, à part de ses points (`pointsDeLExercice`), par la même règle des 90 jours.' },
+  { notion: 'le max estimé d’avant la semaine de test (ce que lisent la montée, le pari et les chauffes : `unRM`, jamais le plancher)', pr: 'correctif 15/11/2026',
+    module: 'faits.js', fonction: 'maxEstimesAvantLeTest', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['e1rmsDesExercices', 'semaineDeTestDesEntrees', 'poserLesParisDeTest', 'ouvrirSemaineDeTest'] },
+    raison: 'MOTEUR §9.51.4 : le coach lit `unRM` (la meilleure projection de 3 à 10 reps, ou le max mesuré) et jamais `force` : un single ' +
+      'ou un double lourd ne pilote ni la semaine de test, ni le pari, ni les chauffes (I172). Les chauffes (`e1rms` du plan), la semaine de ' +
+      'test et les paris la lisent par cette seule fonction.' },
   // ── 188-1 — « TA SEMAINE ET TES ÉQUILIBRES » (MOTEUR §9.27) ──
   { notion: 'le sens d’un tirage ou d’une poussée (horizontal, vertical : le `schema_mouvement` du catalogue)', pr: '188-U1',
     module: 'modele.js', fonction: 'sensDuMouvement', lecteurs: ['equilibres.js'],
@@ -2711,7 +2732,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/periode.js');
     require('../../v2/js/parcours.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(58);   // mots PR 6 : + datesDeLaFenetre ; 272 : + faitsDuNiveau ; 266 : + semainesDeSuite, derniereHausseDuRecord ; 250 : + estUneNote ; 242 : + noteDeLaDerniereFois, noteDeLExercice ; 245-6 : + premierEssaiRate
+    expect(FAITS.length).toBe(59);   // un seul max (§9.51) : + maxEstimesAvantLeTest ; mots PR 6 : + datesDeLaFenetre ; 272 : + faitsDuNiveau ; 266 : + semainesDeSuite, derniereHausseDuRecord ; 250 : + estUneNote ; 242 : + noteDeLaDerniereFois, noteDeLExercice ; 245-6 : + premierEssaiRate
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 

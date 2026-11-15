@@ -93,31 +93,55 @@
     return e >= mini ? [min, max] : [c - mini / 2, c + mini / 2];
   }
 
-  // Le départ et la fin affichés d'une fenêtre : premier et dernier point, avec l'écart. `null` sous deux points.
+  // « UN SEUL MAX » (MOTEUR §9.51, I175) — un point GRIS est d'avant la fenêtre de la fiche (`faits.pointsDeLExercice`, `gris`) :
+  // il se dessine creux, mais le trait, le dernier chiffre, le sommet et l'écart ne lisent QUE les points pleins.
+  function pleins(points) { return (points || []).filter(function (p) { return !p.gris; }); }
+
+  // Le départ et la fin affichés d'une fenêtre : premier et dernier point PLEIN, avec l'écart. `null` sans point plein.
   function resume(points) {
-    var l = points || [];
+    var l = pleins(points);
     if (!l.length) return null;
     var debut = l[0].valeur, fin = l[l.length - 1].valeur;
     // `du` / `au` (PR 6 des mots) : les dates des DEUX séances que l'écart compare (la 1re et la dernière de la fenêtre) — le texte les dit.
-    return { debut: debut, fin: fin, ecart: l.length > 1 ? fin - debut : null, n: l.length, du: l[0].debut || null, au: l[l.length - 1].debut || null };
+    // `mode` : celui du dernier point (un plancher se dit « au moins », §9.51.6.8).
+    return { debut: debut, fin: fin, ecart: l.length > 1 ? fin - debut : null, n: l.length, du: l[0].debut || null, au: l[l.length - 1].debut || null,
+             mode: l[l.length - 1].mode || null, modeDebut: l[0].mode || null };
+  }
+
+  // Le PIC ANCIEN (§9.51.6.5, I176) : le plus haut point gris de la vue — `null` sans point gris. Avec un dernier point plein, il n'est
+  // retenu que s'il le DÉPASSE tel qu'il est affiché (les deux arrondis au kg : jamais « Pic ancien 187 kg » sous un « 187 kg »).
+  function picAncien(points) {
+    var pic = null;
+    (points || []).forEach(function (p) { if (p.gris && (pic === null || p.valeur > pic.valeur)) pic = p; });
+    if (!pic) return null;
+    var l = pleins(points);
+    if (l.length && !(arrondi(pic.valeur, 0) > arrondi(l[l.length - 1].valeur, 0))) return null;
+    return { valeur: pic.valeur, debut: pic.debut };
   }
 
   // La géométrie complète d'une courbe de page : points (pâles), trait (moyenne glissante), graduations, repères de mois.
   //   cadre : { largeur, hauteur, gauche, droite, haut, bas } (valeurs par défaut : le 340 × 150 de la maquette).
-  function geometrie(points, cadre, genre) {
+  //   mesures : les max MESURÉS d'une semaine de test dans la vue (`[{ debut, valeur, charge, reps }]`) — des repères à part, sur la
+  //   même échelle, jamais dans le trait (I177).
+  function geometrie(points, cadre, genre, mesures) {
     var c = cadre || {};
     var L = c.largeur > 0 ? c.largeur : 340, H = c.hauteur > 0 ? c.hauteur : 150;
     var gauche = c.gauche !== undefined ? c.gauche : 34, droite = c.droite !== undefined ? c.droite : L - 6;
     var haut = c.haut !== undefined ? c.haut : 14, bas = c.bas !== undefined ? c.bas : 110;
     var liste = (points || []).filter(function (p) { return temps(p) !== null; });
-    var vide = { largeur: L, hauteur: H, points: [], trait: [], graduations: [], mois: [], min: null, max: null };
+    var vide = { largeur: L, hauteur: H, points: [], trait: [], graduations: [], mois: [], min: null, max: null, mesures: [] };
     if (!liste.length) return vide;
 
-    var lisse = lisser(liste, 3);
-    var min = Infinity, max = -Infinity;
-    liste.forEach(function (p) { if (p.valeur < min) min = p.valeur; if (p.valeur > max) max = p.valeur; });
+    // Le trait et les bornes (`min`, `max`) ne lisent que les points pleins ; l'ÉCHELLE contient aussi les points creux et les
+    // mesures (sans quoi ils sortiraient du cadre).
+    var lisse = lisser(pleins(liste), 3);
+    var min = Infinity, max = -Infinity, bas0 = Infinity, haut0 = -Infinity;
+    var repMesures = (mesures || []).filter(function (p) { return temps(p) !== null; });
+    liste.concat(repMesures).forEach(function (p) { if (p.valeur < bas0) bas0 = p.valeur; if (p.valeur > haut0) haut0 = p.valeur; });
+    pleins(liste).forEach(function (p) { if (p.valeur < min) min = p.valeur; if (p.valeur > max) max = p.valeur; });
+    if (min === Infinity) { min = null; max = null; }
     // 3 graduations rondes qui encadrent la fenêtre.
-    var large = encadrer(genre, min, max, liste.map(function (p) { return p.valeur; }));
+    var large = encadrer(genre, bas0, haut0, liste.concat(repMesures).map(function (p) { return p.valeur; }));
     var pas = pasRond(large[1] - large[0], 3);
     var bornBas = Math.floor(large[0] / pas + 1e-9) * pas, bornHaut = Math.ceil(large[1] / pas - 1e-9) * pas;
     if (bornHaut === bornBas) bornHaut = bornBas + pas;
@@ -125,13 +149,16 @@
     for (var g = bornBas; g <= bornHaut + pas / 1000; g += pas) graduations.push(arrondi(g, 4));
 
     var t0 = temps(liste[0]), t1 = temps(liste[liste.length - 1]);
+    repMesures.forEach(function (p) { var t = temps(p); if (t < t0) t0 = t; if (t > t1) t1 = t; });
     var etendue = t1 - t0;
     function x(t) { return etendue > 0 ? gauche + ((t - t0) / etendue) * (droite - gauche) : (gauche + droite) / 2; }
     function y(v) { return bas - ((v - bornBas) / (bornHaut - bornBas)) * (bas - haut); }
 
     var pts = liste.map(function (p, i) {
+      // Un point creux ne porte jamais l'anneau « record » (et n'en calcule pas : `record` se lit à la demande).
       return { x: arrondi(x(temps(p)), 2), y: arrondi(y(p.valeur), 2), valeur: p.valeur, debut: p.debut,
-               record: !!p.record, charge: p.charge === undefined ? null : p.charge, reps: p.reps === undefined ? null : p.reps, i: i };
+               record: p.gris ? false : !!p.record, charge: p.charge === undefined ? null : p.charge, reps: p.reps === undefined ? null : p.reps,
+               mode: p.mode || null, gris: !!p.gris, i: i };
     });
     var trait = lisse.map(function (p) { return { x: arrondi(x(temps(p)), 2), y: arrondi(y(p.valeur), 2) }; });
 
@@ -154,6 +181,10 @@
     return {
       largeur: L, hauteur: H, gauche: gauche, droite: droite, haut: haut, bas: bas,
       points: pts, trait: trait,
+      mesures: repMesures.map(function (p) {
+        return { x: arrondi(x(temps(p)), 2), y: arrondi(y(p.valeur), 2), valeur: p.valeur, debut: p.debut,
+                 charge: p.charge === undefined ? null : p.charge, reps: p.reps === undefined ? null : p.reps };
+      }),
       graduations: graduations.map(function (v) { return { valeur: v, y: arrondi(y(v), 2) }; }),
       mois: reperesMois, min: min, max: max
     };
@@ -163,7 +194,7 @@
   // (ambre quand la dernière séance est un record). Cadre 92 × 36 de la maquette.
   function mini(points, largeur, hauteur, genre) {
     var L = largeur > 0 ? largeur : 92, H = hauteur > 0 ? hauteur : 36, marge = 3;
-    var liste = (points || []).filter(function (p) { return temps(p) !== null; });
+    var liste = pleins(points).filter(function (p) { return temps(p) !== null; });
     if (liste.length < 2) return { largeur: L, hauteur: H, trait: [], dernier: null };
     var lisse = lisser(liste, 3);
     var min = Infinity, max = -Infinity;
@@ -190,6 +221,7 @@
     pasRond: pasRond,
     etendueMinimale: etendueMinimale,
     resume: resume,
+    picAncien: picAncien,
     geometrie: geometrie,
     mini: mini
   };

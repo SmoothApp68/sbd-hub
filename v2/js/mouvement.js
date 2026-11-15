@@ -488,7 +488,11 @@
     abdos_ciseaux: 'abdos_ciseaux.json',
     belt_squat_machine: 'belt_squat_machine.json',
     crunch_machine: 'crunch_machine.json',
-    kickback_triceps_poulie: 'kickback_triceps_poulie.json'
+    kickback_triceps_poulie: 'kickback_triceps_poulie.json',
+    flexion_laterale_haltere: 'flexion_laterale_haltere.json',
+    flexion_laterale: 'flexion_laterale.json',
+    flexion_laterale_kettlebell: 'flexion_laterale_kettlebell.json',
+    flexion_laterale_poulie: 'flexion_laterale_poulie.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

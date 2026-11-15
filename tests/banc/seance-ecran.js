@@ -23,6 +23,8 @@
 //   node tests/banc/seance-ecran.js
 
 const path = require('path');
+// « Un seul formateur » (§9.51 quater) : l'espace avant l'unité est insécable ; le banc compare à l'espace près là où la valeur est le sujet.
+const SPB = (t) => String(t == null ? '' : t).replace(/[\u00a0\u202f]/g, ' ');
 const R = path.join(__dirname, '../..');
 // 96 — l'heure du banc : décalée si `BANC_HORLOGE` est posée (Node ici, la page plus bas), réelle sinon.
 const Horloge = require(path.join(R, 'tests/banc/horloge.js'));
@@ -15964,7 +15966,7 @@ const SETS_IMPORTES = [
       const total = maintenant55.getFullYear() * 12 + maintenant55.getMonth() - n;
       const a = Math.floor(total / 12), m = total - a * 12;
       const j = Math.min(maintenant55.getDate(), new Date(a, m + 1, 0).getDate());
-      return j + ' ' + MOIS55[m] + (a === maintenant55.getFullYear() ? '' : ' ' + a);
+      return (j === 1 ? '1er' : j) + '\u00a0' + MOIS55[m] + (a === maintenant55.getFullYear() ? '' : '\u00a0' + a);
     };
     ok('[P55] DISCRIMINANT — en tête de la vue : la charge la plus lourde (125 kg × 5) ; la force estimée (≈ 146 kg, d’après 125 kg × 5) À PART, hors des records (120, D1)',
       exoP && exoP.fiche.length === 1 && /^Charge la plus lourde/.test(exoP.fiche[0]) && /125\s*kg\s*×\s*5/.test(sp(exoP.fiche[0])) &&
@@ -18860,14 +18862,14 @@ const SETS_IMPORTES = [
 
     // ── E. LE FORMAT : « 47 min » sous une heure, « 1 h 12 » au-delà.
     const formats = [];
-    for (const [minutes, attendu] of [[47, /^47 min · /], [59, /^59 min · /], [60, /^1 h 00 · /],
+    for (const [minutes, attendu] of [[47, /^47 min · /], [59, /^59 min · /], [60, /^1 h · /],
       [72, /^1 h 12 · /], [125, /^2 h 05 · /]]) {
       await decaler(minutes * MIN - ecouleReel());
       await revenir();
       const d = await lireDuree();
       formats.push([minutes, d, attendu.test(d) && !/\b72 min\b/.test(d)]);
     }
-    ok('[barre] 47 → « 47 min », 59 → « 59 min », 60 → « 1 h 00 », 72 → « 1 h 12 » (jamais « 72 min »), 125 → « 2 h 05 »',
+    ok('[barre] 47 → « 47 min », 59 → « 59 min », 60 → « 1 h », 72 → « 1 h 12 » (jamais « 72 min »), 125 → « 2 h 05 »',
       formats.every((f) => f[2]), JSON.stringify(formats));
 
     // ── F. LE RETOUR D'ARRIÈRE-PLAN : recalculé depuis le départ, pas un compteur.
@@ -19499,7 +19501,7 @@ const SETS_IMPORTES = [
         !/Séance masquée|Séance en cours/.test(JSON.stringify(f1)), JSON.stringify(f1));
     ok('[social] la carte : le tonnage (séries de travail seulement), UNE médaille pour une série à deux records, aucune pour la série que seule l’estimation médaillait (120, D1), « Tu es à jour »',
       f1.cartes[0].tonnes === '3 t' && f1.cartes[0].records === '1' && f1.cartes[0].meds.length === 1 &&
-        /100 kg × 10/.test(f1.cartes[0].meds[0]) && f1.fin === 'Tu es à jour · les 30 derniers jours', JSON.stringify(f1.cartes[0]));
+        /100\skg × 10/.test(f1.cartes[0].meds[0]) && f1.fin === 'Tu es à jour · les 30 derniers jours', JSON.stringify(f1.cartes[0]));
     ok('[social] le sous-onglet Fil, à côté du jeu, dans « Jeu & amis »', await page.evaluate(() =>
       document.querySelector('#vue-fil .s-titre').textContent === 'Jeu & amis' &&
       !document.querySelector('#vue-fil .s-onglet[data-social="jeu"]').hidden &&
@@ -19586,7 +19588,7 @@ const SETS_IMPORTES = [
     const c1 = await ami();
     ok('[social] DISCRIMINANT — mutuel : « Vous vous suivez », le détail des exercices (séries, charges), sans message de détail caché',
       lien('u-lea', 'u-banc').statut === 'accepte' && c1.etat === 'Vous vous suivez' && c1.ex === 1 && c1.detailCache === null &&
-        /100 kg × 10, 10, 10/.test(await texte('#social-ami')) && !/rpe|ressenti|genou/i.test(await texte('#social-ami')),
+        /100\skg × 10, 10, 10/.test(await texte('#social-ami')) && !/rpe|ressenti|genou/i.test(await texte('#social-ami')),
       JSON.stringify([c1, await texte('#social-ami')]));
     ok('[social] 121 — mutuel : plus de « Inviter dans un groupe · Bientôt »', c1.inviter === false && c1.inviterSous === null &&
       !/Bientôt/.test(await texte('#social-ami')), JSON.stringify(c1));
@@ -20074,7 +20076,7 @@ const SETS_IMPORTES = [
     const b0 = await lire();
     const sq = b0.exos.filter((x) => x.slug === 'squat-barre')[0];
     ok('[social-2] mutuel : son mois en deux chiffres (2 séances, ses tonnes), « Ses exercices » (squat 210 kg · 2 séances, en tête), « Se comparer sur la période »',
-      b0.mois === '2' && /^\d/.test(b0.tonnes || '') && b0.exos[0].slug === 'squat-barre' && !!sq && /210 kg · 2 séances/.test(sq.texte) &&
+      b0.mois === '2' && /^\d/.test(b0.tonnes || '') && b0.exos[0].slug === 'squat-barre' && !!sq && /210\skg · 2 séances/.test(sq.texte) &&
         b0.exos.some((x) => x.slug === 'dc-barre') && b0.comparer, JSON.stringify(b0));
     await mesurer('profil mutuel');
 
@@ -20085,7 +20087,7 @@ const SETS_IMPORTES = [
     await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     const c0 = await lire();
     ok('[social-2] son exercice : meilleure charge 210 kg, meilleure série 180 kg × 5 (le plus gros charge × reps), sa courbe sur 6 mois ; l’adresse /a/jordan/exercice/squat-barre',
-      (await chemin()) === '/a/jordan/exercice/squat-barre' && c0.charge === '210 kg' && String(c0.serie).replace(/[\u00a0\u202f]/g, ' ') === '180 kg × 5' && c0.lui === 1 &&
+      (await chemin()) === '/a/jordan/exercice/squat-barre' && SPB(c0.charge) === '210 kg' && String(c0.serie).replace(/[\u00a0\u202f]/g, ' ') === '180 kg × 5' && c0.lui === 1 &&
         c0.moiCourbe === 0 && c0.btnExo && c0.retour === '← Retour' && appelsDepuis(n0).indexOf('social_series_exercice') >= 0,
       JSON.stringify(c0));
     await page.click('#social-comparer-exo');
@@ -20093,7 +20095,7 @@ const SETS_IMPORTES = [
     await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     const c1 = await lire();
     ok('[social-2] « Se comparer » : ma courbe en pointillés or par-dessus la sienne, et côte à côte meilleure charge, meilleure série, séances (6 mois)',
-      c1.moiCourbe === 1 && c1.lui === 1 && c1.duoMoi[0] === monSquat + ' kg' && c1.duoLui[0] === '210 kg' && String(c1.duoLui[1]).replace(/[\u00a0\u202f]/g, ' ') === '180 kg × 5' &&
+      c1.moiCourbe === 1 && c1.lui === 1 && SPB(c1.duoMoi[0]) === monSquat + ' kg' && SPB(c1.duoLui[0]) === '210 kg' && String(c1.duoLui[1]).replace(/[\u00a0\u202f]/g, ' ') === '180 kg × 5' &&
         c1.duoLui[2] === '2' && !c1.btnExo && !/rpe|ressenti|genou|89,5|89\.5/i.test(c1.texte), JSON.stringify(c1));
     await mesurer('son exercice, comparé');
     await page.click('#btn-retour-ami');
@@ -20149,7 +20151,7 @@ const SETS_IMPORTES = [
     const e0 = await entre();
     ok('[social-2] DISCRIMINANT — « Entre amis » au couché : à kilos égaux (' + monCouche + ' kg), jordan (plus léger) PREMIER ; alexis, qui n’est pas mutuel, absent',
       e0.rangs.length === 2 && e0.rangs[0].t === 'jordan' && e0.rangs[1].t === 'toi' && e0.rangs[1].moi &&
-        e0.rangs[0].kg === monCouche + ' kg' && e0.rangs[0].kg === e0.rangs[1].kg && !/alexis/.test(e0.texte), JSON.stringify(e0));
+        SPB(e0.rangs[0].kg) === monCouche + ' kg' && e0.rangs[0].kg === e0.rangs[1].kg && !/alexis/.test(e0.texte), JSON.stringify(e0));
     if (await compter('#entre-amis-info')) await page.click('#entre-amis-info');
     const e1 = await entre();
     ok('[social-2] le « i » : la phrase validée le 16/10/2026, au mot près', e0.infoCache && !e1.infoCache && e1.info === 'On compare la force ' +
@@ -20161,7 +20163,7 @@ const SETS_IMPORTES = [
     await reseauCalme();   // 135 — l'état complet : toutes les réponses reçues, l'écran redessiné
     const e2 = await entre();
     ok('[social-2] « Entre amis » au squat : jordan (210 kg, lus dans ses séances), puis toi — les vrais kilos', e2.rangs.length === 2 &&
-      e2.rangs[0].t === 'jordan' && e2.rangs[0].kg === '210 kg' && e2.rangs[1].kg === monSquat + ' kg', JSON.stringify(e2));
+      e2.rangs[0].t === 'jordan' && SPB(e2.rangs[0].kg) === '210 kg' && SPB(e2.rangs[1].kg) === monSquat + ' kg', JSON.stringify(e2));
     const mesScores = S.scores.filter((x) => x.user_id === 'u-banc');
     const envois = S.journal.filter((j) => j.op === 'scores');
     const vuParMoi = fauxSocial.rpc('u-banc', 'social_scores_force', { p_slug: 'dc-barre' });
@@ -20652,7 +20654,7 @@ const SETS_IMPORTES = [
     ok('[groupe] le direct : « Groupe · 2 », une pastille par membre — jordan au point vert (série il y a 1 min) — et sa dernière série ' +
       '(« jordan · Squat (Barre) 170 kg × 4 ») ; jamais sa note, son RPE ni son poids',
       b0.titre === 'Groupe · 2' && JSON.stringify(b0.pastilles) === JSON.stringify(['jordan+', 'banc']) &&
-        /^jordan · Squat \(Barre\) 170 kg × 4 · il y a 1 min$/.test(b0.lignes[0]) && b0.lignes.length === 2 && b0.tout === 'Tout voir (3)' &&
+        /^jordan · Squat \(Barre\) 170\skg × 4 · il y a 1 min$/.test(b0.lignes[0]) && b0.lignes.length === 2 && b0.tout === 'Tout voir (3)' &&
         !/dur|89|note privée|RPE/.test(b0.texte), JSON.stringify(b0));
     S.sets.push({ id: 'gj-3', session_id: SJ, user_id: 'u-jordan', exercise_slug: 'dc-barre', rang: 3, charge_kg: 100, reps: 6, type_serie: 'travail',
       validee_a: iso(new Date()) });
@@ -22788,7 +22790,7 @@ const SETS_IMPORTES = [
         texte: window.__p214.recu && window.__p214.recu.text, copie: window.__p214.copie, libelle: b.textContent };
     });
     ok('[R214] « Partager » : bouton secondaire ; le texte court (titre, séries de travail, tonnage, records) part à la feuille de partage',
-      partage.present && partage.secondaire && /^.+\n4 séries de travail · 3,8.t\n2 records :\n• Rowing r71 : 80 kg × 12\n• Rowing r71 : 80 kg × 12$/.test(partage.texte || '') &&
+      partage.present && partage.secondaire && /^.+\n4 séries de travail · 3,8.t\n2 records :\n• Rowing r71 : 80\skg × 12\n• Rowing r71 : 80\skg × 12$/.test(partage.texte || '') &&
       !/coach|http/i.test(partage.texte || ''), nbR(partage));
     ok('[R214] sans feuille de partage : copié dans le presse-papiers, le bouton dit « Copié »', partage.copie === partage.texte && partage.libelle === 'Copié', nbR(partage));
     // (g) — attendre que tout soit monté, puis l'espion : rien n'a été écrit PAR le récap.
@@ -26735,8 +26737,8 @@ const SETS_IMPORTES = [
     await jusqua(async () => (await feuille147()).choix.length > 0, 6000);
     const f1 = await feuille147();
     ok('[L147] DISCRIMINANT — dernière série vieille de 2 h : « Ta séance dure 2 h 0x. Ta dernière série date de <heure>. », trois choix',
-      f1.visible && /^Ta séance dure 2 h 0\d\./.test(sp147(f1.texte)) && sp147(f1.texte).indexOf('Ta dernière série date de ' + heure147(t0) + '.') > 0 &&
-        f1.choix.length === 3 && f1.choix[0] === 'terminer-a:Terminer à ' + heure147(t0) && /^garder:Garder 2 h 0\d$/.test(f1.choix[1]) &&
+      f1.visible && /^Ta séance dure 2 h( 0\d)?\./.test(sp147(f1.texte)) && sp147(f1.texte).indexOf('Ta dernière série date de ' + heure147(t0) + '.') > 0 &&
+        f1.choix.length === 3 && f1.choix[0] === 'terminer-a:Terminer à ' + heure147(t0) && /^garder:Garder 2 h( 0\d)?$/.test(f1.choix[1]) &&
         f1.choix[2] === 'revenir:Revenir à la séance', JSON.stringify(f1));
     await cliquer147('revenir');
     await jusqua(async () => !(await feuille147()).visible, 6000);
@@ -30877,7 +30879,7 @@ const SETS_IMPORTES = [
       phrases: Array.from(document.querySelectorAll('#import-hevy .imp-mesure')).map((n) => n.textContent),
       boutons: Array.from(document.querySelectorAll('#import-hevy button')).map((n) => [n.textContent, Math.round(n.getBoundingClientRect().height)]) }));
     ok('[P246] (c) l’aperçu dit les chiffres : trouvées, période, jour déjà pesé gardé tel quel, valeur écartée, « Seul le poids est importé. »',
-      sp246(c246.titre) === '3 pesées trouvées · du 1 oct. 2025 au 3 oct. 2025' && nb246(c246.phrases.map(sp246)) === nb246([
+      sp246(c246.titre) === '3 pesées trouvées · du 1er oct. 2025 au 3 oct. 2025' && nb246(c246.phrases.map(sp246)) === nb246([
         '1 jour déjà pesé dans TrainHub : ta pesée est gardée telle quelle.', '1 ligne écartée : valeur hors des bornes, ou date illisible ou hors période.', 'Seul le poids est importé.']), nb246(c246));
     ok('[P246] (c) deux boutons « Importer 2 pesées » / « Annuler », de 44 px au moins',
       c246.boutons.some((b) => sp246(b[0]) === 'Importer 2 pesées' && b[1] >= 44) && c246.boutons.some((b) => sp246(b[0]) === 'Annuler' && b[1] >= 44), nb246(c246.boutons));

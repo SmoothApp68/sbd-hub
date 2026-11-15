@@ -1605,7 +1605,7 @@ function ok(nom, cond, detail) {
       // 135 — le refus est local : la phrase dans la feuille (ce que lit le contrôle).
       await attendreQue(page, () => page.evaluate(() => !!(document.querySelector('#feuille-contenu .feuille-err') || {}).textContent), 5000);
       const refus = await page.evaluate(() => (document.querySelector('#feuille-contenu .feuille-err') || {}).textContent || '');
-      ok('[92] un poids hors bornes reste dans la feuille, avec la phrase du questionnaire', /^Un poids entre 20 et 400 kg\.$/.test(refus), refus);
+      ok('[92] un poids hors bornes reste dans la feuille, avec la phrase du questionnaire', /^Un poids entre 20 et 400\u00a0kg\.$/.test(refus), refus);
       await page.fill('#feuille-contenu input[data-cle="poids"]', '96,8');
       await valider();
       const ecrit = await attendreQue(page, () => bd.pesees.length > 0, 10000);
@@ -1616,7 +1616,7 @@ function ok(nom, cond, detail) {
           .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Poids') === 0)[0];
         return l ? (l.querySelector('.p-val') || {}).textContent || '' : null;
       });
-      ok('[92] la ligne montre la dernière pesée datée : « 96,8 kg · aujourd’hui »', ligne === '96,8 kg · aujourd\'hui', String(ligne));
+      ok('[92] la ligne montre la dernière pesée datée : « 96,8 kg · aujourd’hui »', ligne === '96,8\u00a0kg · aujourd\'hui', String(ligne));
       ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
       await ctx.close();
     }

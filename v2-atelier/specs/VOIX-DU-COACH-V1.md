@@ -6,7 +6,7 @@
 
 1. **Les chiffres comme on les dit, charge d'abord** : « 130 kg × 4 ». Plusieurs séries : « 125 kg × 5, 5 et 4 ». Toujours l'unité sur la charge.
 2. **Les dates proches en jours** : « mardi » plutôt que « le 22 sept. » quand c'est dans les 7 derniers jours ; au-delà, la date (« le 15 sept. »).
-   *(14/11/2026, mots PR 6, MAQUETTE-PR6 §3.2 : le lexique des périodes est FERMÉ — « 3 / 6 derniers mois », « 12 mois », « du 12 avr. au 11 oct. », « sept. 2026 », « oct. 2026 (en cours) » ; « ce mois-ci », « cette semaine », « cette année » ne se disent que si la période contient aujourd'hui (`Periode.contient`) ; aucun « depuis N mois », « récemment », « en ce moment » sur un écran de période ; une date seule (« depuis le 17 août ») est permise, jamais une durée d'absence. `tests/unit/v2-periodes-garde-pr6.test.js` balaie le texte rendu.)*
+   *(14/11/2026, mots PR 6, MAQUETTE-PR6 §3.2 : le lexique des périodes est FERMÉ — « 3 / 6 derniers mois », « 12 mois », « 12 derniers mois » (15/11/2026, la fenêtre d'un matériel de salle ; « Pic ancien … le 18 sept. 2025 » : une date, jamais « il y a 14 mois »), « du 12 avr. au 11 oct. », « sept. 2026 », « oct. 2026 (en cours) » ; « ce mois-ci », « cette semaine », « cette année » ne se disent que si la période contient aujourd'hui (`Periode.contient`) ; aucun « depuis N mois », « récemment », « en ce moment » sur un écran de période ; une date seule (« depuis le 17 août ») est permise, jamais une durée d'absence. `tests/unit/v2-periodes-garde-pr6.test.js` balaie le texte rendu.)*
 3. **Pas de jargon du moteur** : « palier » devient **« ta charge de travail »**. On garde **« zone »** (affichée sur l'étiquette) et **« test »**. Jamais « niveau validé », « bascule », « étirement », « rampe » dans une phrase affichée. *(28/10/2026, audit 181 D2 : « cran » est ADOPTÉ, c'est l'usage du produit — voir MOTEUR §20.2 règle 7.)*
 4. **Des phrases courtes, au « tu »** : le fait, puis la suite. *(28/10/2026, 181 D2 : « je » partout où le coach décide — « je garde », « je teste », « je visais » ; les aides des réglages restent neutres, sans « je » ni « le coach ».)*
    *(13/11/2026, « Les mots disent vrai » PR 4a, MOTEUR §9.47 : la règle des personnes — **je** = le coach décide la charge (« Je garde 130 kg », « Je baisse à 97,5 kg ») ; **tu** = ce que fait la personne (« Tu restes à 70 kg × 8 », jamais « Je garde 8 reps ») ; **on** = l'essai à deux seulement (« On essaie 72,5 kg »). Le lexique du verbe est fermé : « Une rep de plus : 70 kg × 9 » (toujours avec son chiffre), « Tu restes à … », « sans marge » (défini au Pourquoi : « il ne t'en restait aucune »), « la dernière » seulement pour la dernière série de la séance.)*
@@ -44,6 +44,10 @@
 | Un zéro rep, les gestes | Tenter 102,5 kg (ou Tenter le cran au-dessus) · Annuler |
 | Un zéro rep en séance, la suite (Z1) | 30 kg est resté à 0 rep : je propose 27,5 kg pour la suite. + Prendre 27,5 kg |
 | Un zéro rep en séance, rien de plus léger (Z2) | 30 kg est resté à 0 rep. |
+| Force estimée, 1 à 2 reps (15/11/2026, « Un seul max ») | au moins 150 kg · d'après 150 kg × 1 |
+| Force estimée, 3 à 10 reps (inchangé) | ≈ 145 kg · d'après 124 kg × 5 |
+| Courbe, un pic d'avant la fenêtre | Pic ancien 233 kg, le 18 sept. 2025, hors fenêtre. |
+| Courbe, la fenêtre du matériel | Barre : tout l'historique. · Machine : 12 derniers mois. |
 (Jamais « quand même », « plafond », « encore 2 séances » ni un mot sur l’assiduité : un fait, puis ce que le coach garde.)
 
 ## L'effort visé (154, ajouté le 24/10/2026 — décision d'Aurélien ; en vigueur dans l'app)

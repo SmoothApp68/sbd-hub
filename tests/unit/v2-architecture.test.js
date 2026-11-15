@@ -2258,10 +2258,35 @@ const NOTIONS = [
     interditAilleurs: { motif: /['"]ce mois-ci['"]|['"]cette semaine['"]/, raison: '« ce mois-ci » et « cette semaine » ne s’écrivent qu’ici, derrière `THPeriode.contient` : une période passée ne se dit jamais « ce / cette »' },
     raison: 'MAQUETTE-PR6 R-ENCOURS / R-DATE : un écran ne choisit pas lui-même « ce mois-ci » ; il nomme la période par `Modele.libelleDePeriode`, qui lit `contient`.' },
   { notion: 'une date « il y a N mois » (calendaire, jour plafonné à la fin du mois, fin de journée locale)', pr: 'correctif 14/11/2026',
-    module: 'periode.js', fonction: 'moisAvant', lecteurs: ['app.js'],
-    parAilleurs: { 'app.js': ['rendreExercice'] },
+    module: 'periode.js', fonction: 'moisAvant', lecteurs: ['app.js', 'social.js', 'generateur.js'],
+    parAilleurs: { 'app.js': ['rendreExercice', 'variationsDuDossier'], 'social.js': ['debutSixMois'], 'generateur.js': ['relecture'] },
+    interditAilleurs: {
+      // I194 (MOTEUR §9.51 ter) — UNE SEULE ARITHMÉTIQUE DE MOIS : aucun `setMonth` / `setFullYear` (UTC ou non), aucun `getMonth() − k`, aucun
+      // `getMonth() + k` (k ≥ 2) hors de `periode.js` ; `+ 1` reste l'étiquette « mois suivant » (le premier du mois, le dernier jour par `0`).
+      motif: /\.\s*set(?:UTC)?(?:Month|FullYear)\s*\(|\bget(?:UTC)?Month\(\)\s*-\s*\d|\bget(?:UTC)?Month\(\)\s*\+\s*(?:[2-9]|\d\d)\b/,
+      raison: 'I194 : un `setMonth` DÉBORDE (31 mai − 3 mois = 3 mars) ; « il y a N mois » et « dans N mois » ne s’écrivent que par `THPeriode` (`moisAvant`, `moisApres`, `instantMoisAvant`, `instantMoisApres`, `debutDeFenetreDeMois`)'
+    },
     raison: 'MAQUETTE-PR6 R-IL-Y-A : « il y a 6 mois » est une DATE (31 août − 6 mois = 28 février), jamais une fenêtre ; `setMonth` la déborde sur le mois suivant. ' +
-      'Les colonnes « Il y a 6 mois / 1 an » des records la lisent ici.' },
+      'Les colonnes « Il y a 6 mois / 1 an » des records la lisent ici ; depuis la PR B (MOTEUR §9.51 ter), la carte de variations (12 mois), le générateur ' +
+      '(« pas encore dépassé »), le social (6 mois) aussi, et toutes les autres entrées de mois (`instantMois…`, `debutDeFenetreDeMois`) sont bâties dessus.' },
+  { notion: 'une date « dans N mois » (le symétrique de « il y a N mois » : 31 janvier + 1 mois = 28 février)', pr: 'correctif 15/11/2026',
+    module: 'periode.js', fonction: 'moisApres', lecteurs: [],
+    raison: 'MOTEUR §9.51 ter : `moisApres(j, n) = moisAvant(j, −n)` ; aucun écran ne l’appelle seul aujourd’hui (la limite « plus d’un an » de l’objectif passe par ' +
+      '`instantMoisApres`), mais c’est LA fonction à lire quand une date future se calcule : jamais `setMonth(+ n)`.' },
+  { notion: 'un instant « il y a N mois » (le jour calendaire de `moisAvant`, la même heure locale)', pr: 'correctif 15/11/2026',
+    module: 'periode.js', fonction: 'instantMoisAvant', lecteurs: ['moteur.js', 'faits.js', 'objectif.js'],
+    parAilleurs: { 'moteur.js': ['plancherDuMateriel', 'pasDeSalle'], 'faits.js': ['exercicesRecents'], 'objectif.js': ['projection'] },
+    raison: 'MOTEUR §9.51 ter, I195 : la fenêtre de 12 mois d’un matériel (`plancherDuMateriel`, lue par la fiche, les points gris et la médaille), le pas de salle ' +
+      '(24 mois), les « plus faits » (3 mois) et la référence « il y a un an » de l’objectif disent la même date, calendaire et plafonnée, jamais un `setMonth` qui déborde.' },
+  { notion: 'un instant « dans N mois » (la limite « plus d’un an » de l’objectif)', pr: 'correctif 15/11/2026',
+    module: 'periode.js', fonction: 'instantMoisApres', lecteurs: ['objectif.js'],
+    parAilleurs: { 'objectif.js': ['projection'] },
+    raison: 'MOTEUR §9.51 ter : la limite de 12 mois de la projection est une date calendaire (29 février 2028 + 12 mois = 28 février 2029), même heure locale.' },
+  { notion: 'le début d’une fenêtre de N mois civils qui finit aujourd’hui (le lendemain du même jour il y a N mois)', pr: 'correctif 15/11/2026',
+    module: 'periode.js', fonction: 'debutDeFenetreDeMois', lecteurs: ['social.js', 'poids.js'],
+    parAilleurs: { 'social.js': ['bornesDouzeMois', 'bornesDePeriode'], 'poids.js': ['filtrerParMois'] },
+    raison: 'MOTEUR §9.51 ter : « 3 mois » et « 12 mois » du social (la même fenêtre que `social_meilleures_charges` et `social_periode`) et du Poids sont des mois civils, ' +
+      'plus 90 / 365 jours : une seule fonction, un seul jour de début.' },
   { notion: 'les dates de la fenêtre de la personne (les 84 jours qui finissent à sa dernière séance)', pr: 'correctif 14/11/2026',
     module: 'faits.js', fonction: 'datesDeLaFenetre', lecteurs: ['app.js'],
     raison: 'MAQUETTE-PR6 Q1-Q6 : « tes 12 dernières semaines » devient « du 19 juil. au 10 oct. » ; l’écran nomme la fenêtre de `Routines.fenetreDeLaPersonne`, il ne la recalcule pas.' },
@@ -3962,5 +3987,53 @@ describe('architecture — 250 : « Lire mes notes » ne décide rien et n’éc
     const a = src.indexOf('function lancerNotesIA(');
     const bloc = src.slice(a, a + 1500);
     expect(bloc).toMatch(/notesIAPossibles\(\)/);
+  });
+});
+
+// ── I196 (MOTEUR §9.51 ter, 15/11/2026) — AUCUNE DURÉE DE MOIS OU D'ANNÉE EN JOURS HORS DE `THPeriode` ─────────────────────────────────
+// « 3 mois » = 90 j, « 6 mois » = 183 j, « 1 an » = 366 j sont des DURÉES de fenêtres contiguës de même longueur, nommées une fois dans
+// `THPeriode.JOURS_DE` ; « il y a N mois » est une DATE (`THPeriode.moisAvant`). Un littéral de durée de mois ou d'année multiplié par un jour
+// en millisecondes (365 × 86400000, 30 × 864e5, 31557600000, 365,25) ou un `jours: 365` est refusé hors de `periode.js`, sauf les durées nommées
+// ci-dessous, chacune avec sa raison, et la liste blanche doit servir (une exception sans objet se retire).
+describe('I196 — aucune durée de mois en jours hors de THPeriode', () => {
+  const FICHIERS = perimetre().filter((f) => f.nom.endsWith('.js'));
+  const MOTIF = /\b36[56]\s*\*\s*(?:864e5|86400000|JOUR(?:_MS)?\b)|(?:864e5|86400000|JOUR(?:_MS)?)\s*\*\s*36[56]\b|\b31557600000\b|\b2592000000\b|\b30\s*\*\s*(?:864e5|86400000)\b|\b365\.25\b|\bjours\s*:\s*36[56]\b/;
+  const SAUF = {
+    'profil.js': 'AN_MS = 365,25 × un jour : l’ANCIENNETÉ d’entraînement (années depuis la 1re séance, MOTEUR §9.16), une durée et non une date « il y a N mois »',
+    'objectif.js': 'JOURS_PAR_MOIS = 365,25 / 12 (un TAUX en kg par mois, §9.25) et les plafonds `jours: 365` (« 20 % par an ») : des durées nommées, pas des dates'
+  };
+  test('⚠️ aucune durée de mois ou d’année littérale hors de periode.js et de la liste blanche', () => {
+    const fautes = [];
+    FICHIERS.forEach((f) => {
+      if (f.nom === 'periode.js' || SAUF[f.nom]) return;
+      const code = nettoyer(f.src, false);
+      const m = new RegExp(MOTIF.source, 'g').exec(code);
+      if (m) fautes.push(f.nom + ', ligne ' + ligneDe(code, m.index) + ' : « ' + m[0] + ' » — une date « il y a N mois » passe par `THPeriode`');
+    });
+    expect(fautes).toEqual([]);
+  });
+  test('la liste blanche sert encore, et chaque exception a sa raison', () => {
+    Object.keys(SAUF).forEach((nom) => {
+      const f = FICHIERS.filter((x) => x.nom === nom)[0];
+      expect([nom, !!f && MOTIF.test(nettoyer(f.src, false)), SAUF[nom].length > 20]).toEqual([nom, true, true]);
+    });
+  });
+  test('le motif se lit : les formes refusées se voient, les durées en jours courtes non', () => {
+    expect(MOTIF.test('var plancher = t - 365 * 86400000;')).toBe(true);
+    expect(MOTIF.test('var d = x - 864e5 * 366;')).toBe(true);
+    expect(MOTIF.test('var AN = 365.25 * 864e5;')).toBe(true);
+    expect(MOTIF.test('{ cle: \'1an\', jours: 365 }')).toBe(true);
+    expect(MOTIF.test('var s = 7 * 864e5;')).toBe(false);
+    expect(MOTIF.test('var CHAUFFES = 42 * JOUR;')).toBe(false);
+  });
+  test('I194 : le motif de l’arithmétique de mois se lit (setMonth, getMonth() − k se voient ; l’étiquette + 1 non)', () => {
+    const n = NOTIONS.filter((x) => x.fonction === 'moisAvant')[0].interditAilleurs.motif;
+    expect(n.test('d.setMonth(d.getMonth() - 3);')).toBe(true);
+    expect(n.test('d.setUTCFullYear(2020);')).toBe(true);
+    expect(n.test('new Date(a, m.getMonth() - 3, 1)')).toBe(true);
+    expect(n.test('new Date(a, m.getMonth() + 12, 1)')).toBe(true);
+    expect(n.test('new Date(a, m.getMonth() + 1, 0)')).toBe(false);
+    expect(n.test('var etiquette = d.getMonth() + 1;')).toBe(false);
+    expect(n.test('ref.getMonth() - d.getMonth()')).toBe(false);
   });
 });

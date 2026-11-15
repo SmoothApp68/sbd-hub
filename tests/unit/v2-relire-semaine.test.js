@@ -201,7 +201,7 @@ describe('66A — relireSemaine est pure', () => {
     const code = SOURCE.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
     ['Modele.estTravail', 'Semaine.musclesPonderes', 'Semaine.libelleMuscle', 'Moteur.estPolyarticulaire',
       'Semaine.porteDuVolume', 'Moteur.motsDesMuscles', 'Modele.nombre', 'Modele.arrondi',
-      'Modele.chargeFois', 'Modele.quand', 'Modele.moisAnnee', 'Modele.freresDe', 'Profil.joursDepuis']
+      'Modele.chargeFois', 'Modele.quand', 'Modele.moisAnnee', 'Modele.freresDe', 'Periode.moisAvant']   // MOTEUR §9.51 ter : « un record d'au moins 12 mois » est une date calendaire, `THPeriode.moisAvant`
       .forEach((f) => expect([f, code.indexOf(f + '(') >= 0]).toEqual([f, true]));
     // Ni les poids, ni les mois, ni les libellés, ni les singuliers recopiés.
     ['0.25', "'janvier'", "'sept.'", "'Deltoïde latéral'", 'SINGULIERS', 'LIBELLES'].forEach((x) =>

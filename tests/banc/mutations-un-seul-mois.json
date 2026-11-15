@@ -1,0 +1,45 @@
+[
+ {
+  "nom": "M-A-moisAvant-ne-plafonne-pas",
+  "fichier": "v2/js/periode.js",
+  "ancien": "return a + '-' + deux(m + 1) + '-' + deux(Math.min(jr, dernier));",
+  "nouveau": "return a + '-' + deux(m + 1) + '-' + deux(jr);",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-mois-calendaires.test.js"
+  ]
+ },
+ {
+  "nom": "M-B-plancher-retombe-sur-setUTCMonth",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "return racine.THPeriode.instantMoisAvant(t, FENETRE_VOISINE_MOIS).getTime();",
+  "nouveau": "var depuis = new Date(t); depuis.setUTCMonth(depuis.getUTCMonth() - FENETRE_VOISINE_MOIS); return depuis.getTime();",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-mois-calendaires.test.js",
+   "tests/unit/v2-architecture.test.js"
+  ]
+ },
+ {
+  "nom": "M-C-social-3-mois-retombe-sur-le-debordement",
+  "fichier": "v2/js/social.js",
+  "ancien": "else if (cle === '3mois') return { de: racine.THPeriode.debutDeFenetreDeMois(jourIso(m), 3), a: jourIso(m) };   // MOTEUR §9.51 ter",
+  "nouveau": "else if (cle === '3mois') return { de: jourIso(new Date(m.getFullYear(), m.getMonth() - 3, m.getDate() + 1)), a: jourIso(m) };",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-mois-calendaires.test.js",
+   "tests/unit/v2-architecture.test.js"
+  ]
+ },
+ {
+  "nom": "T-temoin-arrondi-du-nombre-de-mois",
+  "fichier": "v2/js/periode.js",
+  "ancien": "function moisApres(jour, n) { return moisAvant(jour, -Math.round(Number(n) || 0)); }",
+  "nouveau": "function moisApres(jour, n) { return moisAvant(jour, -(Number(n) || 0)); }",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-mois-calendaires.test.js"
+  ],
+  "attendu": "survit"
+ }
+]

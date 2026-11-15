@@ -28,6 +28,7 @@ require('../../v2/js/palier.js');
 // Depuis 48b-6a, `moteur.js` lit aussi `THProfil` — le libellé du rythme que
 // la feuille « Pourquoi » énonce vit dans `profil.js`, une seule fois.
 require('../../v2/js/profil.js');
+require('../../v2/js/periode.js');   // MOTEUR §9.51 ter : le moteur lit `THPeriode` (comme index.html, qui le charge avant lui)
 require('../../v2/js/moteur.js');
 require('../../v2/js/rendu.js');
 const Modele = window.THModele;

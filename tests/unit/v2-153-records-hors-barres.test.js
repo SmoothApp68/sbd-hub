@@ -4,6 +4,7 @@
 global.self = global;
 const Modele = require('../../v2/js/modele.js');
 require('../../v2/js/palier.js');
+require('../../v2/js/periode.js');   // MOTEUR §9.51 ter : le moteur lit `THPeriode` (comme index.html, qui le charge avant lui)
 require('../../v2/js/moteur.js');
 
 const esp = (t) => String(t).replace(/[  ]/g, ' ');

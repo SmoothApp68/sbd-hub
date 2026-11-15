@@ -189,7 +189,8 @@ describe('I179 — la tête de la courbe est la force de la fiche : les trois te
     expect(texte(c.querySelector('.courbe-carte'))).not.toMatch(/max estimé|Dernière séance/i);
     // La ligne de la fiche, sur la même force : le même chiffre, la même série.
     expect(texte(c.querySelector('.exo-force .exo-li-v'))).toBe('≈ 93 kg');
-    expect(texte(c.querySelector('.exo-force .exo-li-k'))).toBe('Force estimée d’après 73,5 kg × 8');
+    expect(c.querySelector('.exo-force .exo-li-k').firstChild.textContent).toBe('Force estimée');
+    expect(texte(c.querySelector('.exo-force .exo-li-k em'))).toBe('d’après 73,5 kg × 8');
   });
   test('Squat avec un single : « au moins 150 kg » · « … d’après 150 kg × 1, le 1er oct. » · aucun trajet', () => {
     const pts = [plan(J(2026, 9, 1), 150, 1), proj(J(2026, 10, 12), 120, 5)];
@@ -212,7 +213,8 @@ describe('I179 — la tête de la courbe est la force de la fiche : les trois te
     const c = page(pts, F(J(2026, 10, 3), 150, 1, 'mesure'));
     expect(texte(c.querySelector('.courbe-val'))).toBe('150 kg');
     expect(texte(c.querySelector('.courbe-sous'))).toBe('max mesuré · à ta semaine de test, 150 kg × 1, le 3 nov.');
-    expect(texte(c.querySelector('.exo-force .exo-li-k'))).toBe('Max mesuré à ta semaine de test, 150 kg × 1');
+    expect(c.querySelector('.exo-force .exo-li-k').firstChild.textContent).toBe('Max mesuré');
+    expect(texte(c.querySelector('.exo-force .exo-li-k em'))).toBe('à ta semaine de test, 150 kg × 1');
     expect(texte(c.querySelector('.exo-force .exo-li-v'))).toBe('150 kg');
   });
   test('le plancher se dit au dixième partout : tête, fiche, bulle, pic ancien (152,5 jamais 153)', () => {

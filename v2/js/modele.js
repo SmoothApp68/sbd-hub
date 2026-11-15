@@ -2618,6 +2618,38 @@
     return mot ? mot + ' : tout l\u2019historique.' : 'Tout l\u2019historique.';
   }
 
+  // ══ « UN SEUL CHIFFRE DE FORCE » (MOTEUR §9.51 bis, I180) — LE FORMATEUR UNIQUE DU CHIFFRE DE FORCE ═══════════
+  //
+  // La fiche (« Force estimée »), la tête de la courbe, la bulle d'un point, l'aria-label, « Pic ancien » et la carte de Progression
+  // écrivaient le même chiffre par huit chemins (dixième ici, entier là, avec ou sans « ≈ », « max » ou « force »). Un seul : il lit la
+  // `force` de `recordsDeLExercice` (ou un point de courbe, de même forme : `valeur`, `mode`, `charge`, `reps`, `date` ou `debut`) et rend
+  //   · `mode` : `projection` (« ≈ 93 kg », au kg), `plancher` (« au moins 150 kg », AU DIXIÈME — 152,5 ne devient jamais 153),
+  //              `mesure` (« Max mesuré », sans ≈ : une mesure, pas une estimation) ;
+  //   · `mot`, `devant`, `nombre` (le nombre tel qu'AFFICHÉ, pour comparer), `chiffre` (« 93 kg »), `valeur` (avec son ≈), `texteCourt`
+  //     (« au moins 152,5 kg » : bulle, aria, « Pic ancien », Progression) ;
+  //   · `sous` (« d'après 73,5 kg × 8 »), `quand` (« le 1er oct. » : date absolue, l'année hors de celle de `aujourdhui`), `dit`.
+  // Les mots ne s'écrivent QU'ICI (`MOTS_DE_FORCE`) : la garde (NOTIONS) refuse un « Force estimée » ou un « au moins » recopiés ailleurs.
+  var MOTS_DE_FORCE = Object.freeze({ force: 'Force estimée', mesure: 'Max mesuré', parSeance: 'Force estimée par séance', devant: 'au moins' });
+  function libelleDeForce(f, aujourdhui) {
+    if (!f || f.valeur === null || f.valeur === undefined || f.valeur === '' || !isFinite(Number(f.valeur))) return null;
+    var mode = f.mesure === true || f.mode === 'mesure' ? 'mesure' : f.mode === 'plancher' ? 'plancher' : 'projection';
+    var nombre = arrondi(Number(f.valeur), mode === 'projection' ? 0 : 1);
+    var chiffre = nombreTexte(nombre, 1) + INSECABLE + 'kg';
+    var devant = mode === 'plancher' ? MOTS_DE_FORCE.devant : null;
+    var serie = chargeOuNul(f.charge) !== null && f.reps !== null && f.reps !== undefined && f.reps !== '' ? chargeFois(f.charge, f.reps) : '';
+    var sous = mode === 'mesure' ? 'à ta semaine de test' + (serie ? ', ' + serie : '') : (serie ? 'd\u2019après ' + serie : '');
+    var quand = '', iso = f.date || f.debut, d = iso ? new Date(iso) : null;
+    if (d && !isNaN(d.getTime())) {
+      var P = racine.THPeriode, jour = P ? P.jourISO(d) : null;
+      quand = jour ? plageDeJours(jour, jour, aujourdhui) : '';
+    }
+    var dit = mode === 'mesure' ? MOTS_DE_FORCE.mesure + ' ' + chiffre + ', à ta semaine de test'
+      : mode === 'plancher' ? devant + ' ' + chiffre : MOTS_DE_FORCE.force.toLowerCase() + ' ' + chiffre;
+    return { mode: mode, mot: mode === 'mesure' ? MOTS_DE_FORCE.mesure : MOTS_DE_FORCE.force, devant: devant, nombre: nombre, chiffre: chiffre,
+             valeur: mode === 'projection' ? '\u2248' + INSECABLE + chiffre : chiffre, texteCourt: devant ? devant + ' ' + chiffre : chiffre,
+             sous: sous, quand: quand, dit: dit };
+  }
+
   // LES SÉANCES DU PÉRIMÈTRE D'UN RECORD, à une date : celles d'avant elle, et,
   // pour un matériel de salle (§10.2), des 12 mois d'avant `ancre` seulement
   // (`ancre` : la date elle-même par défaut).
@@ -3433,6 +3465,8 @@
     recordsDeLExercice: recordsDeLExercice,
     eligibilite1RM: eligibilite1RM,
     phraseDeFenetre: phraseDeFenetre,
+    libelleDeForce: libelleDeForce,
+    MOTS_DE_FORCE: MOTS_DE_FORCE,
     phraseDesReps: phraseDesReps,
     ELIGIBILITE_1RM: ELIGIBILITE_1RM,
     seancesDuPerimetre: seancesDuPerimetre,

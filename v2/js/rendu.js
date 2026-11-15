@@ -529,18 +529,11 @@
     // au poids du corps.
     if (t.force) {
       var force = el('div', 'exo-fiche exo-force');
-      var f = t.force;
-      // 193-4 : un max MESURÉ par une semaine de test se dit mesuré, sans « ≈ » (c'est une mesure, pas une estimation).
-      if (f.mode === 'mesure') {
-        ligneFiche(force, 'Max mesuré', 'à ta semaine de test, ' + M().chargeFois(f.charge, f.reps),
-          nombreFr(Math.round(f.valeur * 10) / 10) + '\u00a0kg');
-      } else if (f.mode === 'plancher') {
-        ligneFiche(force, 'Force estimée', 'd\u2019après ' + M().chargeFois(f.charge, f.reps),
-          nombreFr(Math.round(f.valeur * 10) / 10) + '\u00a0kg', 'au moins');
-      } else {
-        ligneFiche(force, 'Force estimée', 'd\u2019après ' + M().chargeFois(f.charge, f.reps),
-          '\u2248\u00a0' + nombreFr(Math.round(f.valeur)) + '\u00a0kg');
-      }
+      // « Un seul chiffre de force » (MOTEUR §9.51 bis, I180) — le mot, le « au moins », l'arrondi (au kg une projection, au dixième un
+      // plancher), la série : `Modele.libelleDeForce`, le même que la tête de la courbe. 193-4 : un max MESURÉ par une semaine de test
+      // se dit mesuré, sans « ≈ » (c'est une mesure, pas une estimation).
+      var lf = M().libelleDeForce(t.force);
+      if (lf) ligneFiche(force, lf.mot, lf.sous, lf.valeur, lf.devant);
       cible.appendChild(force);
     }
   }
@@ -751,21 +744,20 @@
 
   // 206 — LA COURBE D'UN EXERCICE, en tête du Résumé. L'app envoie la géométrie faite (THCourbe.geometrie) ; l'écran la dessine :
   // points pâles (chaque séance), trait (moyenne glissante sur 3 séances), records en ambre. Toucher un point : la bulle dit
-  // sa date, sa meilleure série et son max estimé. Rien ne prolonge la courbe.
+  // sa date, sa meilleure série et sa force estimée. Rien ne prolonge la courbe.
   var UNITES_COURBE = { charge: 'kg', reps: 'reps', temps: 's' };
-  var ETIQUETTES_COURBE = { charge: 'max estimé', reps: 'meilleures reps', temps: 'meilleur temps' };
+  // « Un seul chiffre de force » (§9.51 bis) : la charge × reps ne s'étiquette plus ici — son mot, son arrondi et sa série sortent de
+  // `Modele.libelleDeForce` ; seuls les reps et les secondes gardent leur étiquette (hors périmètre de ce chantier).
+  var ETIQUETTES_COURBE = { reps: 'meilleures reps', temps: 'meilleur temps' };
   function valeurCourbe(genre, v) { return nombreFr(Math.round(v)) + '\u00a0' + UNITES_COURBE[genre]; }
-  // « Un seul max » (MOTEUR §9.51.6.8) : un point à 1 ou 2 reps vaut la CHARGE NUE, une borne basse — « 152,5 kg » ne s'arrondit pas à 153.
-  function valeurDuPoint(genre, p) {
-    return p && p.mode === 'plancher' ? nombreFr(Math.round(p.valeur * 10) / 10) + '\u00a0kg' : valeurCourbe(genre, p.valeur);
-  }
   function texteDuPoint(genre, p) {
     var d = p.debut ? new Date(p.debut) : null;
     var bouts = [(d && !isNaN(d.getTime()) ? 'Le ' + jour(d) : 'Séance')];
-    if (p.mesure) return 'Max mesuré ' + valeurCourbe(genre, p.valeur) + ', à ta semaine de test';
     if (genre === 'charge') {
+      var l = M().libelleDeForce(p);
+      if (p.mesure) return l.dit;
       if (p.charge !== null && p.reps !== null) bouts.push(nombreFr(p.charge) + ' kg \u00d7 ' + p.reps);
-      bouts.push((p.mode === 'plancher' ? 'au moins ' : 'max estimé ') + valeurDuPoint(genre, p));
+      bouts.push(l.dit);
     } else bouts.push(valeurCourbe(genre, p.valeur));
     if (p.record) bouts.push('record');
     return bouts.join(' \u00b7 ');
@@ -775,27 +767,38 @@
     var carte = el('div', 'courbe-carte');
     var geo = c.geo;
     var tete = el('div', 'courbe-tete');
-    var fin = c.resume ? c.resume.fin : null;
-    if (fin !== null) {
+    var enCharge = c.genre === 'charge';
+    var fin = enCharge ? null : (c.resume ? c.resume.fin : null);
+    if (enCharge) {
+      // « Un seul chiffre de force » (MOTEUR §9.51 bis, I179) — LA TÊTE EST LA FORCE DE LA FICHE : l'objet `c.force` (le même que la
+      // ligne « Force estimée » de la page), jamais le dernier point ni un sommet recalculé, à toute période. Elle se masque quand la
+      // vue n'a aucun point plein (`c.trajet` nul : « Aucune séance sur cette période. »). Ligne 2 : d'où elle vient et sa DATE absolue.
+      var lf = c.trajet && c.force ? M().libelleDeForce(c.force, c.aujourdhui) : null;
+      if (lf) {
+        var valF = el('span', 'courbe-val num');
+        if (lf.devant) { valF.appendChild(el('span', 'au', lf.devant)); valF.appendChild(doc.createTextNode(' ')); }
+        valF.appendChild(doc.createTextNode(lf.valeur));
+        tete.appendChild(valF);
+        tete.appendChild(el('span', 'courbe-sous', lf.mot.toLowerCase() + ' \u00b7 ' + (lf.sous ? lf.sous + (lf.quand ? ', ' + lf.quand : '') : lf.quand)));
+      } else if (!c.trajet) {
+        tete.appendChild(el('span', 'courbe-sous', 'Aucune séance sur cette période.'));
+      }
+    } else if (fin !== null) {
       var val = el('span', 'courbe-val num');
-      var plancherEnTete = c.genre === 'charge' && c.resume.mode === 'plancher';
-      if (plancherEnTete) { val.appendChild(el('span', 'au', 'au moins')); val.appendChild(doc.createTextNode(' ')); }
-      val.appendChild(doc.createTextNode(plancherEnTete ? nombreFr(Math.round(fin * 10) / 10) + '\u00a0kg' : valeurCourbe(c.genre, fin)));
+      val.appendChild(doc.createTextNode(valeurCourbe(c.genre, fin)));
       tete.appendChild(val);
       var sous = ETIQUETTES_COURBE[c.genre];
       // PR 6 des mots : l'écart dit ce qu'il compare — DEUX DATES (la 1re et la dernière séance de la fenêtre), jamais « en 6 mois » pour 49 jours ;
-      // et c'est la différence des deux chiffres AFFICHÉS (149 → 147 : −2 kg), pas un −1,2 arrondi à côté.
+      // et c'est la différence des deux chiffres AFFICHÉS (149 → 147 : −2), pas un −1,2 arrondi à côté. (Reps et temps seulement : la charge
+      // dit son TRAJET, plus bas — §9.51 bis.)
       var quand = function (r) {
         var d0 = r.du ? new Date(r.du) : null, d1 = r.au ? new Date(r.au) : null;
         if (!d0 || !d1 || isNaN(d0.getTime()) || isNaN(d1.getTime())) return '';
         return M().plageDeJours(jour2(d0), jour2(d1), c.aujourdhui);   // « du 13 avr. au 6 oct. », « le 6 oct. » (un seul jour)
       };
-      // Les deux chiffres AFFICHÉS : entiers, sauf un plancher (au dixième : la charge nue ne s'arrondit pas).
-      var affiche = function (v, mode) { return c.genre === 'charge' && mode === 'plancher' ? Math.round(v * 10) / 10 : Math.round(v); };
-      var ecartAffiche = c.resume.n > 1 ? Math.round((affiche(c.resume.fin, c.resume.mode) - affiche(c.resume.debut, c.resume.modeDebut)) * 10) / 10 : null;
+      var ecartAffiche = c.resume.n > 1 ? Math.round(Math.round(c.resume.fin) - Math.round(c.resume.debut)) : null;
       var dates = quand(c.resume);
-      // « Pic ancien » (§9.51.6.5) : un pic d'avant la fenêtre qui dépasse le dernier point plein prend la place de l'écart signé.
-      if (c.picAncien) { /* la phrase est écrite sous l'en-tête */ } else if (ecartAffiche) sous += ' \u00b7 ' + signe(ecartAffiche) + (c.genre === 'charge' ? ' kg' : c.genre === 'reps' ? ' reps' : ' s') + (dates ? ' ' + dates : '');
+      if (ecartAffiche) sous += ' \u00b7 ' + signe(ecartAffiche) + (c.genre === 'reps' ? ' reps' : ' s') + (dates ? ' ' + dates : '');
       else if (ecartAffiche === 0) sous += ' \u00b7 inchangé' + (dates ? ' ' + dates : '');
       else if (dates) sous += ' \u00b7 ' + dates;
       tete.appendChild(el('span', 'courbe-sous', sous));
@@ -803,11 +806,13 @@
       tete.appendChild(el('span', 'courbe-sous', 'Aucune séance sur cette période.'));
     }
     carte.appendChild(tete);
+    // Le TRAJET (§9.51 bis, I181) : « 87 → 92 kg, du 18 mai au 18 oct. » — seulement entre deux projections, sur sa propre ligne.
+    if (enCharge && c.trajet && c.trajet.texte) carte.appendChild(el('div', 'courbe-trajet num', c.trajet.texte));
     if (c.picAncien) {
-      // La DATE ABSOLUE, jamais « il y a N mois » : le lexique des périodes est fermé (VOIX, principe 2).
-      var dp = new Date(c.picAncien.debut);
-      var quandPic = isNaN(dp.getTime()) ? '' : ', ' + M().plageDeJours(jour2(dp), jour2(dp), c.aujourdhui);
-      carte.appendChild(el('div', 'courbe-pic num', 'Pic ancien ' + nombreFr(Math.round(c.picAncien.valeur)) + '\u00a0kg' + quandPic + ', hors fenêtre.'));
+      // La DATE ABSOLUE, jamais « il y a N mois » : le lexique des périodes est fermé (VOIX, principe 2). Le pic dit son MODE
+      // (« au moins 152,5 kg » : un plancher ne s'arrondit pas vers le haut) — `Modele.libelleDeForce` (I182).
+      var lp = M().libelleDeForce(c.picAncien, c.aujourdhui);
+      carte.appendChild(el('div', 'courbe-pic num', 'Pic ancien ' + (lp ? lp.texteCourt : '') + (lp && lp.quand ? ', ' + lp.quand : '') + ', hors fenêtre.'));
     }
     if (c.fenetre) carte.appendChild(el('div', 'courbe-fen', c.fenetre));
 
@@ -829,8 +834,10 @@
       var nbRec = geo.points.filter(function (p) { return p.record; }).length;
       var dessin = svg('svg', 'courbe-svg', {
         viewBox: '0 0 ' + geo.largeur + ' ' + geo.hauteur, role: 'img',
-        'aria-label': ETIQUETTES_COURBE[c.genre].charAt(0).toUpperCase() + ETIQUETTES_COURBE[c.genre].slice(1) + ', ' + c.nom + ', sur ' +
-          c.periodeLongue + (c.resume ? ', de ' + valeurCourbe(c.genre, c.resume.debut) + ' à ' + valeurCourbe(c.genre, c.resume.fin) : '') +
+        'aria-label': (enCharge ? M().MOTS_DE_FORCE.parSeance : ETIQUETTES_COURBE[c.genre].charAt(0).toUpperCase() + ETIQUETTES_COURBE[c.genre].slice(1)) +
+          ', ' + c.nom + ', sur ' + c.periodeLongue +
+          (enCharge ? (c.trajet && c.trajet.ecrit ? ', de ' + c.trajet.debutTexte + ' à ' + c.trajet.finTexte : '')
+                    : (c.resume ? ', de ' + valeurCourbe(c.genre, c.resume.debut) + ' à ' + valeurCourbe(c.genre, c.resume.fin) : '')) +
           (nbRec ? ' ; ' + pluriel(nbRec, 'record') : '')
       });
       geo.graduations.forEach(function (g) {

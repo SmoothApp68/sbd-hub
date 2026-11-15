@@ -99,10 +99,12 @@ function page(extra, nb) {
 }
 
 describe('206 — la courbe de la page d\'exercice', () => {
-  test('en tête du Résumé : la valeur, le sens, l\'écart sur la période', () => {
+  test('en tête du Résumé : la force de la fiche, d\'où elle vient, le trajet sur la période', () => {
     const c = page();
-    expect(c.querySelector('.courbe-val').textContent).toBe('152 kg');
-    expect(c.querySelector('.courbe-sous').textContent).toBe('max estimé · +11 kg du 20 mai au 28 oct.');
+    const n = (e) => e.textContent.replace(/\u00a0/g, ' ');
+    expect(n(c.querySelector('.courbe-val'))).toBe('≈ 152 kg');
+    expect(n(c.querySelector('.courbe-sous'))).toBe('force estimée · d’après 130 kg × 5, le 28 oct.');
+    expect(n(c.querySelector('.courbe-trajet'))).toBe('141 → 152 kg, du 20 mai au 28 oct.');
     expect(c.querySelector('.courbe-carte').compareDocumentPosition(c.querySelector('.section-t')) & 4).toBeTruthy();
   });
 
@@ -133,7 +135,7 @@ describe('206 — la courbe de la page d\'exercice', () => {
     const cibles = [...c.querySelectorAll('.courbe-cible')];
     expect(cibles).toHaveLength(4);
     cibles[3].dispatchEvent(new window.Event('click'));
-    expect(bulle.textContent).toBe('Le 28 oct. · 130 kg × 5 · max estimé 152 kg · record');
+    expect(bulle.textContent.replace(/\u00a0/g, ' ')).toBe('Le 28 oct. · 130 kg × 5 · force estimée 152 kg · record');
     expect(bulle.classList.contains('on')).toBe(true);
   });
 

@@ -1830,7 +1830,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .courbe-val{font-size:28px;font-weight:700;line-height:1.1}
 .courbe-sous{font-size:14px;line-height:1.3;color:var(--texte-2)}
 .courbe-val .au{font:500 14px/1 var(--pile);color:var(--texte-2)}
-.courbe-pic{font-size:14px;line-height:1.4;color:var(--texte-2);margin-top:var(--e1)}
+.courbe-trajet,.courbe-pic{font-size:14px;line-height:1.4;color:var(--texte-2);margin-top:var(--e1)}
 .courbe-fen{font-size:12px;line-height:1.4;color:var(--texte-3);margin-top:var(--e1)}
 .courbe-per{display:flex;gap:6px;margin:var(--e2) 0}
 .courbe-per-b{flex:1;min-height:44px;border:1px solid var(--trait);border-radius:var(--r-bouton);background:transparent;

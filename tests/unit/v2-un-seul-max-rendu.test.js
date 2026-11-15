@@ -46,7 +46,7 @@ describe('la courbe : fenêtre, pic ancien, point creux', () => {
     expect(texte(c.querySelector('.courbe-fen'))).toBe('Machine : 12 derniers mois.');
     expect(texte(c.querySelector('.courbe-pic'))).toMatch(/^Pic ancien 233 kg, le 18 sept\. 2025, hors fenêtre\.$/);
     expect(texte(c.querySelector('.courbe-carte'))).not.toMatch(/il y a/i);
-    expect(texte(c.querySelector('.courbe-sous'))).toBe('force estimée · d’après 160 kg × 5, le 29 sept.');   // le sommet des pleins, la force de la fiche
+    expect(texte(c.querySelector('.courbe-sous'))).toBe('force estimée · d’après 160 kg × 5, le 29 oct.');   // le sommet des pleins, la force de la fiche
     expect(texte(c.querySelector('.courbe-val'))).toBe('≈ 187 kg');
   });
   test('deux points creux, trois pleins ; le trait ne lit que les pleins ; la note dit « creux »', () => {

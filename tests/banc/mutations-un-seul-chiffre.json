@@ -1,0 +1,17 @@
+[
+  { "nom": "M-A-tete-relit-resume-fin", "fichier": "v2/js/rendu.js",
+    "ancien": "var lf = c.trajet && c.force ? M().libelleDeForce(c.force, c.aujourdhui) : null;",
+    "nouveau": "var lf = c.trajet && c.force ? M().libelleDeForce({ valeur: c.resume.fin, mode: c.resume.mode || 'projection', charge: null, reps: null, date: c.resume.au }, c.aujourdhui) : null;",
+    "banc": "aucun", "unitaires": ["tests/unit/v2-un-seul-chiffre-de-force.test.js"] },
+  { "nom": "M-B-ecart-sans-test-du-mode", "fichier": "v2/js/courbe.js",
+    "ancien": "var ecrit = l.length > 1 && lp.mode === 'projection' && lf.mode === 'projection';",
+    "nouveau": "var ecrit = l.length > 1;",
+    "banc": "aucun", "unitaires": ["tests/unit/v2-un-seul-chiffre-de-force.test.js"] },
+  { "nom": "M-C-plancher-arrondi-a-l-entier", "fichier": "v2/js/modele.js",
+    "ancien": "var nombre = arrondi(Number(f.valeur), mode === 'projection' ? 0 : 1);",
+    "nouveau": "var nombre = arrondi(Number(f.valeur), 0);",
+    "banc": "aucun", "unitaires": ["tests/unit/v2-un-seul-chiffre-de-force.test.js"] },
+  { "nom": "T-temoin-css-trajet", "fichier": "v2/styles.css",
+    "ancien": ".courbe-trajet,.courbe-pic{font-size:14px;", "nouveau": ".courbe-trajet,.courbe-pic{font-size:15px;",
+    "banc": "aucun", "unitaires": ["tests/unit/v2-un-seul-chiffre-de-force.test.js", "tests/unit/v2-un-seul-max-rendu.test.js"], "attendu": "survit" }
+]

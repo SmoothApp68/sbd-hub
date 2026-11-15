@@ -97,7 +97,7 @@
     return a + '-' + deux(m + 1) + '-' + deux(Math.min(jr, dernier));
   }
   // « Dans `n` mois » : la même arithmétique, dans l'autre sens (31 janvier + 1 mois = 28 février, 29 février 2028 + 12 mois = 28 février 2029).
-  // C'est `moisAvant` d'un nombre négatif : UNE seule arithmétique de mois dans l'app (MOTEUR §9.51 ter, I178, I184).
+  // C'est `moisAvant` d'un nombre négatif : UNE seule arithmétique de mois dans l'app (MOTEUR §9.51 ter, I178, I194).
   function moisApres(jour, n) { return moisAvant(jour, -Math.round(Number(n) || 0)); }
 
   // « Il y a `n` mois » pour un INSTANT (une horodatée, une date) : le JOUR calendaire local de `moisAvant`, à la même HEURE LOCALE que l'instant

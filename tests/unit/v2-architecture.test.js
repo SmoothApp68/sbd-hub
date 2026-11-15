@@ -2203,10 +2203,10 @@ const NOTIONS = [
     module: 'periode.js', fonction: 'moisAvant', lecteurs: ['app.js', 'social.js', 'generateur.js'],
     parAilleurs: { 'app.js': ['rendreExercice', 'variationsDuDossier'], 'social.js': ['debutSixMois'], 'generateur.js': ['relecture'] },
     interditAilleurs: {
-      // I184 (MOTEUR §9.51 ter) — UNE SEULE ARITHMÉTIQUE DE MOIS : aucun `setMonth` / `setFullYear` (UTC ou non), aucun `getMonth() − k`, aucun
+      // I194 (MOTEUR §9.51 ter) — UNE SEULE ARITHMÉTIQUE DE MOIS : aucun `setMonth` / `setFullYear` (UTC ou non), aucun `getMonth() − k`, aucun
       // `getMonth() + k` (k ≥ 2) hors de `periode.js` ; `+ 1` reste l'étiquette « mois suivant » (le premier du mois, le dernier jour par `0`).
       motif: /\.\s*set(?:UTC)?(?:Month|FullYear)\s*\(|\bget(?:UTC)?Month\(\)\s*-\s*\d|\bget(?:UTC)?Month\(\)\s*\+\s*(?:[2-9]|\d\d)\b/,
-      raison: 'I184 : un `setMonth` DÉBORDE (31 mai − 3 mois = 3 mars) ; « il y a N mois » et « dans N mois » ne s’écrivent que par `THPeriode` (`moisAvant`, `moisApres`, `instantMoisAvant`, `instantMoisApres`, `debutDeFenetreDeMois`)'
+      raison: 'I194 : un `setMonth` DÉBORDE (31 mai − 3 mois = 3 mars) ; « il y a N mois » et « dans N mois » ne s’écrivent que par `THPeriode` (`moisAvant`, `moisApres`, `instantMoisAvant`, `instantMoisApres`, `debutDeFenetreDeMois`)'
     },
     raison: 'MAQUETTE-PR6 R-IL-Y-A : « il y a 6 mois » est une DATE (31 août − 6 mois = 28 février), jamais une fenêtre ; `setMonth` la déborde sur le mois suivant. ' +
       'Les colonnes « Il y a 6 mois / 1 an » des records la lisent ici ; depuis la PR B (MOTEUR §9.51 ter), la carte de variations (12 mois), le générateur ' +
@@ -2218,7 +2218,7 @@ const NOTIONS = [
   { notion: 'un instant « il y a N mois » (le jour calendaire de `moisAvant`, la même heure locale)', pr: 'correctif 15/11/2026',
     module: 'periode.js', fonction: 'instantMoisAvant', lecteurs: ['moteur.js', 'faits.js', 'objectif.js'],
     parAilleurs: { 'moteur.js': ['plancherDuMateriel', 'pasDeSalle'], 'faits.js': ['exercicesRecents'], 'objectif.js': ['projection'] },
-    raison: 'MOTEUR §9.51 ter, I185 : la fenêtre de 12 mois d’un matériel (`plancherDuMateriel`, lue par la fiche, les points gris et la médaille), le pas de salle ' +
+    raison: 'MOTEUR §9.51 ter, I195 : la fenêtre de 12 mois d’un matériel (`plancherDuMateriel`, lue par la fiche, les points gris et la médaille), le pas de salle ' +
       '(24 mois), les « plus faits » (3 mois) et la référence « il y a un an » de l’objectif disent la même date, calendaire et plafonnée, jamais un `setMonth` qui déborde.' },
   { notion: 'un instant « dans N mois » (la limite « plus d’un an » de l’objectif)', pr: 'correctif 15/11/2026',
     module: 'periode.js', fonction: 'instantMoisApres', lecteurs: ['objectif.js'],
@@ -3909,12 +3909,12 @@ describe('architecture — 250 : « Lire mes notes » ne décide rien et n’éc
   });
 });
 
-// ── I186 (MOTEUR §9.51 ter, 15/11/2026) — AUCUNE DURÉE DE MOIS OU D'ANNÉE EN JOURS HORS DE `THPeriode` ─────────────────────────────────
+// ── I196 (MOTEUR §9.51 ter, 15/11/2026) — AUCUNE DURÉE DE MOIS OU D'ANNÉE EN JOURS HORS DE `THPeriode` ─────────────────────────────────
 // « 3 mois » = 90 j, « 6 mois » = 183 j, « 1 an » = 366 j sont des DURÉES de fenêtres contiguës de même longueur, nommées une fois dans
 // `THPeriode.JOURS_DE` ; « il y a N mois » est une DATE (`THPeriode.moisAvant`). Un littéral de durée de mois ou d'année multiplié par un jour
 // en millisecondes (365 × 86400000, 30 × 864e5, 31557600000, 365,25) ou un `jours: 365` est refusé hors de `periode.js`, sauf les durées nommées
 // ci-dessous, chacune avec sa raison, et la liste blanche doit servir (une exception sans objet se retire).
-describe('I186 — aucune durée de mois en jours hors de THPeriode', () => {
+describe('I196 — aucune durée de mois en jours hors de THPeriode', () => {
   const FICHIERS = perimetre().filter((f) => f.nom.endsWith('.js'));
   const MOTIF = /\b36[56]\s*\*\s*(?:864e5|86400000|JOUR(?:_MS)?\b)|(?:864e5|86400000|JOUR(?:_MS)?)\s*\*\s*36[56]\b|\b31557600000\b|\b2592000000\b|\b30\s*\*\s*(?:864e5|86400000)\b|\b365\.25\b|\bjours\s*:\s*36[56]\b/;
   const SAUF = {
@@ -3945,7 +3945,7 @@ describe('I186 — aucune durée de mois en jours hors de THPeriode', () => {
     expect(MOTIF.test('var s = 7 * 864e5;')).toBe(false);
     expect(MOTIF.test('var CHAUFFES = 42 * JOUR;')).toBe(false);
   });
-  test('I184 : le motif de l’arithmétique de mois se lit (setMonth, getMonth() − k se voient ; l’étiquette + 1 non)', () => {
+  test('I194 : le motif de l’arithmétique de mois se lit (setMonth, getMonth() − k se voient ; l’étiquette + 1 non)', () => {
     const n = NOTIONS.filter((x) => x.fonction === 'moisAvant')[0].interditAilleurs.motif;
     expect(n.test('d.setMonth(d.getMonth() - 3);')).toBe(true);
     expect(n.test('d.setUTCFullYear(2020);')).toBe(true);

@@ -7,9 +7,9 @@
 // `THPeriode` (calendaire, fuseau local, jour plafonné à la fin du mois) ; une durée reste en jours.
 //
 //   I178  les bornes de mois : `moisAvant` / `moisApres` plafonnent à la fin du mois d'arrivée ;
-//   I185  une date, un résultat : le moteur, la fiche (faits), l'objectif, le social et le Poids lisent le même jour.
+//   I195  une date, un résultat : le moteur, la fiche (faits), l'objectif, le social et le Poids lisent le même jour.
 //
-// (I184 et I186 — aucune arithmétique de mois, aucune durée de mois hors `periode.js` — sont dans `v2-architecture.test.js`.)
+// (I194 et I196 — aucune arithmétique de mois, aucune durée de mois hors `periode.js` — sont dans `v2-architecture.test.js`.)
 // Chaque cas est joué sous DEUX fuseaux (Europe/Paris et UTC) : un bord de mois qui ne tient qu'à l'un des deux est un défaut.
 
 global.self = global;
@@ -122,7 +122,7 @@ const jour = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2,
       });
     });
 
-    describe('I185 — le moteur : le plancher des 12 mois et le pas de salle', () => {
+    describe('I195 — le moteur : le plancher des 12 mois et le pas de salle', () => {
       test('plancherDuMateriel : 29 février 2028 à 12 h − 12 mois = 28 février 2027 à 12 h (setUTCMonth : 1er mars)', () => {
         const t = new Date(2028, 1, 29, 12, 0).getTime();
         const p = Mo.plancherDuMateriel('machine', new Date(t));
@@ -154,7 +154,7 @@ const jour = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2,
       });
     });
 
-    describe('I185 — faits.exercicesRecents (« les plus faits » sur 3 mois) lit la même borne', () => {
+    describe('I195 — faits.exercicesRecents (« les plus faits » sur 3 mois) lit la même borne', () => {
       const CAT = [{ slug: 'squat_barre', nom: 'Squat (Barre)', mesure: 'charge_reps', equipement: 'barre', muscles_primaires: ['quadriceps'] }];
       const corpus = (debut) => {
         const index = M.indexerExercices(CAT);
@@ -172,7 +172,7 @@ const jour = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2,
       });
     });
 
-    describe('I185 — l’objectif : la référence « il y a un an »', () => {
+    describe('I195 — l’objectif : la référence « il y a un an »', () => {
       let n = 0;
       const seance = (j, series) => {
         const id = 'o' + (++n); const [a, m, d] = j.split('-').map(Number);
@@ -190,7 +190,7 @@ const jour = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2,
       });
     });
 
-    describe('I185 — le social : la fenêtre « 12 mois » et « 3 mois » comme la base (le lendemain du même jour)', () => {
+    describe('I195 — le social : la fenêtre « 12 mois » et « 3 mois » comme la base (le lendemain du même jour)', () => {
       test('bornesDouzeMois : 29 février 2028 → du 1er mars 2027', () => {
         expect(Social.bornesDouzeMois(new Date(2028, 1, 29, 12, 0))).toEqual({ de: '2027-03-01', a: '2028-02-29' });
       });
@@ -210,7 +210,7 @@ const jour = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2,
       });
     });
 
-    describe('I185 — le Poids : « 3 mois » et « 1 an » sont des mois civils, comme le social', () => {
+    describe('I195 — le Poids : « 3 mois » et « 1 an » sont des mois civils, comme le social', () => {
       const lignes = (js) => js.map((j) => ({ date: j, poids_kg: 80 }));
       test('PERIODES : les mois, pas les jours', () => {
         expect(Poids.PERIODES.map((p) => [p.cle, p.mois])).toEqual([['3mois', 3], ['1an', 12], ['tout', null]]);

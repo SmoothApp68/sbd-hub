@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="fr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TrainHub — un seul max estimé</title>
+<style>
+/* Maquette « Un seul max » (MOTEUR §9.51, ECRAN-SAISIE §7 bis.15). Les jetons sont ceux de v2/styles.css ; les polices Barlow
+   sont lues dans v2/fonts quand le fichier est ouvert depuis le dépôt, sinon la pile système prend le relais.
+   Largeur de lecture : 380 px (l'appareil est peut-être à 360). Les chiffres sont des exemples ; « aujourd'hui » = le 15 nov. 2026. */
+@font-face{font-family:"Barlow";font-weight:400;src:url("../../v2/fonts/barlow-400.woff2") format("woff2")}
+@font-face{font-family:"Barlow";font-weight:500;src:url("../../v2/fonts/barlow-500.woff2") format("woff2")}
+@font-face{font-family:"Barlow";font-weight:600;src:url("../../v2/fonts/barlow-600.woff2") format("woff2")}
+@font-face{font-family:"Barlow";font-weight:700;src:url("../../v2/fonts/barlow-700.woff2") format("woff2")}
+@font-face{font-family:"Barlow Condensed";font-weight:700;src:url("../../v2/fonts/barlow-condensed-700.woff2") format("woff2")}
+:root{
+  --fond:#0A0C10; --panneau:#171C25; --panneau-2:#222A37; --trait:#2B3442;
+  --texte:#F2F4F7; --texte-2:#A9B3C1; --texte-3:#8C97A6;
+  --accent:#FFB938; --donnees:#6AA8FF; --reflet:rgba(255,255,255,.07);
+  --e1:4px; --e2:8px; --e3:12px; --e4:16px; --e5:24px; --e6:32px;
+  --r-petit:8px; --r-grand:14px; --r-bouton:10px;
+  --pile:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --pile-c:"Barlow Condensed","Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--fond);color:var(--texte);font:400 16px/1.4 var(--pile);padding:var(--e4);-webkit-font-smoothing:antialiased}
+.page{max-width:420px;margin:0 auto}
+.num{font-variant-numeric:tabular-nums}
+
+/* ── Le décor de la maquette (pas dans l'app) ── */
+h1{font:700 22px/1.2 var(--pile);margin:var(--e2) 0 var(--e2)}
+.intro{font-size:14px;line-height:1.5;color:var(--texte-2);margin-bottom:var(--e4)}
+.cas{margin-top:var(--e6)}
+.cas-t{font:600 12px/1.3 var(--pile);letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:var(--e1)}
+.cas-h{font:700 20px/1.25 var(--pile);margin-bottom:var(--e2)}
+.vue{font:600 12px/1.3 var(--pile);letter-spacing:.06em;text-transform:uppercase;color:var(--texte-3);margin:var(--e4) 0 var(--e1)}
+.annot{border:1px dashed var(--trait);border-radius:var(--r-petit);padding:var(--e2) var(--e3);font-size:13px;line-height:1.45;color:var(--texte-3);margin:var(--e2) 0}
+.annot b{color:var(--texte-2);font-weight:600}
+.section-t{font:600 12px/1.3 var(--pile);letter-spacing:.08em;text-transform:uppercase;color:var(--texte-3);margin:var(--e4) 0 var(--e2)}
+
+/* ── La fiche d'exercice (v2/styles.css : .exo-fiche, .exo-li) ── */
+.exo-fiche{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e1) var(--e4);box-shadow:inset 0 1px 0 var(--reflet);margin-bottom:var(--e2)}
+.exo-li{display:flex;align-items:baseline;gap:var(--e2);padding:9px 0}
+.exo-li + .exo-li{border-top:1px solid var(--trait)}
+.exo-li-k{font-size:12px;line-height:1.4;color:var(--texte-3);min-width:0}
+.exo-li-k em{display:block;font-style:normal;font-size:12px;color:var(--texte-3);opacity:.8;margin-top:1px}
+.exo-li-v{margin-left:auto;font-size:15px;font-weight:700;line-height:1.2;letter-spacing:-.01em;white-space:nowrap;font-family:var(--pile-c)}
+.exo-li-v .au{font:500 12px/1 var(--pile);color:var(--texte-2);margin-right:4px}
+.sep{font:600 11px/1.3 var(--pile);color:var(--texte-3);margin:var(--e3) 0 var(--e1)}
+
+/* ── La courbe d'un exercice (v2/styles.css : .courbe-*) ── */
+.courbe-carte{background:var(--panneau);border-radius:var(--r-grand);padding:var(--e3);box-shadow:inset 0 1px 0 var(--reflet)}
+.courbe-tete{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--e2)}
+.courbe-val{font-size:28px;font-weight:700;line-height:1.1}
+.courbe-val .au{font:500 14px/1 var(--pile);color:var(--texte-2);margin-right:5px}
+.courbe-sous{font-size:14px;line-height:1.3;color:var(--texte-2)}
+.courbe-pic{font-size:14px;line-height:1.4;color:var(--texte-2);margin-top:var(--e1)}
+.courbe-fen{font-size:12px;line-height:1.4;color:var(--texte-3);margin-top:var(--e1)}
+.courbe-per{display:flex;gap:6px;margin:var(--e2) 0}
+.courbe-per-b{flex:1;min-height:44px;border:1px solid var(--trait);border-radius:var(--r-bouton);background:transparent;color:var(--texte-2);font:500 14px/1 var(--pile);padding:0}
+.courbe-per-b.on{border-color:var(--accent);color:var(--accent)}
+.courbe-svg{display:block;width:100%;height:auto;overflow:visible}
+.courbe-grille{stroke:var(--trait);stroke-width:1}
+.courbe-lib{fill:var(--texte-3);font-size:12px;font-family:var(--pile)}
+.courbe-pale{fill:var(--texte-3);opacity:.55}
+.courbe-gris{fill:var(--panneau);stroke:var(--texte-3);stroke-width:1.5}
+.courbe-trait{fill:none;stroke:var(--donnees);stroke-width:2.5;stroke-linejoin:round;stroke-linecap:round}
+.courbe-rec{fill:var(--accent)}
+.courbe-note{font-size:13px;line-height:1.4;color:var(--texte-2);margin-top:6px}
+.courbe-note-rec{color:var(--accent)}
+.courbe-note .creux{display:inline-block;width:9px;height:9px;border:1.5px solid var(--texte-3);border-radius:50%;vertical-align:-1px;margin:0 1px}
+</style>
+<body>
+<div class="page">
+
+<h1>Un seul max estimé</h1>
+<p class="intro">Maquette de la fiche d'exercice et de sa courbe (MOTEUR §9.51). Les cadres en tirets sont des annotations de la maquette, pas des écrans de l'app. Les chiffres sont des exemples ; « aujourd'hui » est le 15 nov. 2026.</p>
+
+<!-- ═════════ CAS 1 — LA BARRE ═════════ -->
+<section class="cas">
+  <div class="cas-t">Cas 1 · Barre</div>
+  <h2 class="cas-h">Squat (Barre)</h2>
+
+  <div class="annot"><b>Fiche : trois historiques.</b> 1 à 2 reps = la charge nue, « au moins » ; 3 à 10 reps = Epley, comme avant. Quand le single égale la projection, le libellé d'avant reste.</div>
+
+  <div class="sep">A · 140 kg × 1 et 120 kg × 5 dans la même séance (égalité : 140 et 140)</div>
+  <div class="exo-fiche"><div class="exo-li"><span class="exo-li-k">Force estimée<em>d’après 120 kg × 5</em></span><span class="exo-li-v num">≈&nbsp;140&nbsp;kg</span></div></div>
+
+  <div class="sep">B · 140 kg × 1 et 124 kg × 5 (le single est plus bas que la projection)</div>
+  <div class="exo-fiche"><div class="exo-li"><span class="exo-li-k">Force estimée<em>d’après 124 kg × 5</em></span><span class="exo-li-v num">≈&nbsp;145&nbsp;kg</span></div></div>
+
+  <div class="sep">C · 150 kg × 1 et 120 kg × 5 (le single dépasse la projection : la borne basse, dite)</div>
+  <div class="exo-fiche"><div class="exo-li"><span class="exo-li-k">Force estimée<em>d’après 150 kg × 1</em></span><span class="exo-li-v num"><span class="au">au moins</span>150&nbsp;kg</span></div></div>
+
+  <div class="annot"><b>Barre : jamais de point gris.</b> Aucune fenêtre de 12 mois sur la barre : tout l'historique compte, dans les trois vues. La dernière séance (3 nov.) est le cas C ; ses deux points valent 150 (1 rep, charge nue) et 140 (120 × 5) : la courbe garde le meilleur.</div>
+
+  <div class="vue">Vue 3 mois</div>
+  <div id="barre-3m"></div>
+  <div class="vue">Vue 1 an</div>
+  <div id="barre-1a"></div>
+  <div class="vue">Vue Tout</div>
+  <div id="barre-tout"></div>
+</section>
+
+<!-- ═════════ CAS 2 — LA MACHINE ═════════ -->
+<section class="cas">
+  <div class="cas-t">Cas 2 · Machine</div>
+  <h2 class="cas-h">Presse à cuisses (Machine)</h2>
+
+  <div class="annot"><b>Fiche : 12 mois.</b> La fiche d'un matériel de salle lit les 12 derniers mois. Le 233 d'il y a 14 mois n'y est plus : la fiche le dit déjà (« sur 12 mois »), la courbe doit dire la même chose.</div>
+  <div class="section-t">Tes records</div>
+  <div class="exo-fiche"><div class="exo-li"><span class="exo-li-k">Charge la plus lourde<em>29 oct. 2026 · sur 12 mois</em></span><span class="exo-li-v num">160&nbsp;kg&nbsp;×&nbsp;5</span></div></div>
+  <div class="exo-fiche"><div class="exo-li"><span class="exo-li-k">Force estimée<em>d’après 160 kg × 5</em></span><span class="exo-li-v num">≈&nbsp;187&nbsp;kg</span></div></div>
+
+  <div class="vue">Vue 3 mois</div>
+  <div id="machine-3m"></div>
+  <div class="annot"><b>3 mois : tout est en couleur.</b> Les 3 et 6 mois tiennent dans les 12 mois : aucun point creux, aucune ligne en plus.</div>
+  <div class="vue">Vue 1 an</div>
+  <div id="machine-1a"></div>
+  <div class="annot"><b>1 an = 366 jours, la fiche = 12 mois civils.</b> Le point du 14 nov. 2025 est dans la vue et hors de la fiche (la fiche commence le 15 nov. 2025) : il est creux, et comme il dépasse le dernier point plein, l'écart signé cède sa place à « Pic ancien ».</div>
+  <div class="vue">Vue Tout</div>
+  <div id="machine-tout"></div>
+  <div class="annot"><b>Tout.</b> Deux points creux ; le plus haut (233, il y a 14 mois) est le pic nommé. Le trait lisse et le dernier chiffre (187) ne lisent que les points pleins : même sommet que la fiche.</div>
+</section>
+
+<!-- ═════════ CAS 3 — LE LESTÉ ═════════ -->
+<section class="cas">
+  <div class="cas-t">Cas 3 · Lesté</div>
+  <h2 class="cas-h">Tractions lestées</h2>
+
+  <div class="annot"><b>Aucun max estimé.</b> Epley sur le seul lest se trompe d'un facteur 2 à 3 (le poids du corps manque), et sur une charge d'aide il va dans le mauvais sens. Ni ligne « Force estimée », ni courbe : la meilleure série et les records en vraies barres suffisent. Même règle pour un exercice assisté et pour les élastiques.</div>
+
+  <div class="section-t">Tes records</div>
+  <div class="exo-fiche"><div class="exo-li"><span class="exo-li-k">Charge la plus lourde<em>3 nov. 2026</em></span><span class="exo-li-v num">25&nbsp;kg&nbsp;×&nbsp;6</span></div></div>
+
+  <div class="annot"><b>Ici, avant : </b>la courbe traçait « max estimé » à partir du lest seul (25 kg × 6 : 30 kg « estimés »). <b>Après : </b>rien ne se dessine, et l'exercice n'entre plus dans « Tes exercices » de Progression (il lui faut deux points).</div>
+</section>
+
+<p class="intro" style="margin-top:32px">Phrases nouvelles : « au moins 150 kg », « d’après 150 kg × 1 », « Pic ancien 233 kg, le 18 sept. 2025, hors fenêtre. », « Machine : 12 derniers mois. », « Barre : tout l’historique. » (VOIX-DU-COACH-V1).</p>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var AUJOURDHUI = '2026-11-15';
+  var PLANCHER_12M = '2025-11-15';           // 12 mois civils avant aujourd'hui (THPeriode.moisAvant)
+  var JOURS = { '3m': 90, '6m': 183, '1a': 366, 'tout': null };
+  var MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+  var NS = 'http://www.w3.org/2000/svg';
+
+  function t(d) { return Date.parse(d + 'T12:00:00Z'); }
+  function jourMs(n) { return n * 86400000; }
+  function epley(c, r) { return c * (1 + r / 30); }
+  function nombre(v) { return String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
+  function dateCourte(d, avecAnnee) {
+    var a = +d.slice(0, 4), m = +d.slice(5, 7) - 1, j = +d.slice(8, 10);
+    return (j === 1 ? '1er' : j) + ' ' + MOIS[m] + (avecAnnee && a !== 2026 ? ' ' + a : '');
+  }
+  function svg(nom, classe, attrs) {
+    var e = document.createElementNS(NS, nom);
+    if (classe) e.setAttribute('class', classe);
+    Object.keys(attrs || {}).forEach(function (k) { e.setAttribute(k, attrs[k]); });
+    return e;
+  }
+  function el(nom, classe, texte) {
+    var e = document.createElement(nom);
+    if (classe) e.className = classe;
+    if (texte !== undefined) e.textContent = texte;
+    return e;
+  }
+
+  // Un point = une séance : { d, ch, r, mode }. mode 'plancher' (1 à 2 reps : la charge nue) ou 'projection' (3 à 10 : Epley).
+  function pt(d, ch, r) {
+    var plancher = r <= 2;
+    return { d: d, ch: ch, r: r, mode: plancher ? 'plancher' : 'projection', v: plancher ? ch : epley(ch, r) };
+  }
+
+  // ── Les données de la barre : un squat toutes les deux semaines, du 5 sept. 2024 au 3 nov. 2026 ──
+  function histoireBarre() {
+    var pts = [], d0 = t('2024-09-05'), i = 0, d, v, ch, base;
+    while (true) {
+      d = d0 + jourMs(14 * i);
+      if (d > t('2026-10-20')) break;
+      base = 108 + 36 * (i / 55) + 3.2 * Math.sin(i * 1.7);
+      ch = Math.round(base / (1 + 5 / 30) / 2.5) * 2.5;
+      if (i % 8 === 5) pts.push(pt(new Date(d).toISOString().slice(0, 10), Math.round((base - 4) / 2.5) * 2.5, 1 + (i % 2)));
+      else pts.push(pt(new Date(d).toISOString().slice(0, 10), ch, 5));
+      i++;
+    }
+    pts.push(pt('2026-11-03', 150, 1));        // la séance du cas C : 150 × 1 (150) et 120 × 5 (140) → 150
+    return pts;
+  }
+
+  // ── Les données de la presse (machine) ──
+  function histoirePresse() {
+    return [
+      pt('2025-09-18', 200, 5),                // 233 : il y a 14 mois, hors des 12 mois
+      pt('2025-10-09', 190, 5),                // 222
+      pt('2025-11-14', 185, 6),                // 222 : 366 jours avant aujourd'hui, un jour avant les 12 mois civils
+      pt('2025-12-04', 150, 5), pt('2026-01-22', 155, 5), pt('2026-03-12', 155, 6), pt('2026-04-09', 155, 6),
+      pt('2026-05-07', 160, 5), pt('2026-06-11', 160, 5), pt('2026-07-16', 160, 6), pt('2026-08-27', 160, 5),
+      pt('2026-09-24', 160, 5), pt('2026-10-29', 160, 5)
+    ];
+  }
+
+  // ── Le calcul d'une vue : ce que fait faits.pointsDeLExercice + Courbe (la maquette le rejoue en JS) ──
+  function vue(points, cle, plancher) {
+    var debut = JOURS[cle] === null ? -Infinity : t(AUJOURDHUI) - jourMs(JOURS[cle]);
+    var liste = points.filter(function (p) { return t(p.d) >= debut && t(p.d) <= t(AUJOURDHUI); });
+    var run = -Infinity;
+    points.forEach(function (p) {              // un record = un nouveau sommet, dans l'histoire entière
+      p.rec = p.v > run + 2.5;
+      if (p.v > run) run = p.v;
+    });
+    liste.forEach(function (p) { p.gris = plancher !== null && t(p.d) < t(plancher); });
+    return liste;
+  }
+
+  function moyenne(pleins, n) {
+    return pleins.map(function (p, i) {
+      var a = pleins.slice(Math.max(0, i - n + 1), i + 1);
+      return { d: p.d, v: a.reduce(function (s, q) { return s + q.v; }, 0) / a.length };
+    });
+  }
+
+  function carte(cible, cfg) {
+    var liste = vue(cfg.points, cfg.periode, cfg.plancher);
+    var pleins = liste.filter(function (p) { return !p.gris; });
+    var gris = liste.filter(function (p) { return p.gris; });
+    var c = el('div', 'courbe-carte');
+
+    // L'en-tête : le dernier point plein, et l'écart entre le premier et le dernier point plein.
+    var tete = el('div', 'courbe-tete');
+    var fin = pleins.length ? pleins[pleins.length - 1] : null;
+    var pic = null;
+    gris.forEach(function (p) { if (!pic || p.v > pic.v) pic = p; });
+    var picAffiche = !!(pic && fin && pic.v > fin.v + 1e-6);
+    if (fin) {
+      var val = el('span', 'courbe-val num');
+      if (fin.mode === 'plancher') val.appendChild(el('span', 'au', 'au moins'));
+      val.appendChild(document.createTextNode(nombre(fin.v) + ' kg'));
+      tete.appendChild(val);
+      var sous = 'max estimé';
+      var ecart = pleins.length > 1 ? Math.round(fin.v) - Math.round(pleins[0].v) : null;
+      var dates = pleins.length > 1 ? 'du ' + dateCourte(pleins[0].d, true) + ' au ' + dateCourte(fin.d, true) : 'le ' + dateCourte(fin.d, true);
+      if (!picAffiche) {
+        if (ecart) sous += ' · ' + (ecart > 0 ? '+' : '−') + Math.abs(ecart) + ' kg ' + dates;
+        else if (ecart === 0) sous += ' · inchangé ' + dates;
+        else sous += ' · ' + dates;
+      }
+      tete.appendChild(el('span', 'courbe-sous', sous));
+    } else {
+      tete.appendChild(el('span', 'courbe-sous', 'Aucune séance sur cette période.'));
+    }
+    c.appendChild(tete);
+    if (picAffiche) {
+      c.appendChild(el('div', 'courbe-pic num', 'Pic ancien ' + nombre(pic.v) + ' kg, le ' + dateCourte(pic.d, true) + ', hors fenêtre.'));
+    }
+    c.appendChild(el('div', 'courbe-fen', cfg.fenetre));
+
+    var per = el('div', 'courbe-per');
+    [['3m', '3 mois'], ['6m', '6 mois'], ['1a', '1 an'], ['tout', 'Tout']].forEach(function (p) {
+      var b = el('div', 'courbe-per-b' + (p[0] === cfg.periode ? ' on' : ''), p[1]);
+      b.style.display = 'flex'; b.style.alignItems = 'center'; b.style.justifyContent = 'center';
+      per.appendChild(b);
+    });
+    c.appendChild(per);
+
+    // Le dessin : l'échelle contient aussi les points creux (sinon ils sortiraient du cadre), le trait ne lit que les pleins.
+    var W = 340, H = 150, G = 34, D = 8, HA = 8, BA = 122;
+    var tous = liste;
+    if (tous.length > 1) {
+      var vmin = Math.min.apply(null, tous.map(function (p) { return p.v; })), vmax = Math.max.apply(null, tous.map(function (p) { return p.v; }));
+      var pas = (vmax - vmin) > 80 ? 50 : (vmax - vmin) > 40 ? 20 : 10;
+      var bas = Math.floor((vmin - 2) / pas) * pas, haut = Math.ceil((vmax + 2) / pas) * pas;
+      var t0 = t(tous[0].d), t1 = t(tous[tous.length - 1].d);
+      var X = function (d) { return t1 > t0 ? G + ((t(d) - t0) / (t1 - t0)) * (W - G - D) : (G + W - D) / 2; };
+      var Y = function (v) { return BA - ((v - bas) / (haut - bas)) * (BA - HA); };
+      var s = svg('svg', 'courbe-svg', { viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': cfg.nom });
+      for (var g = bas; g <= haut + 1e-6; g += pas) {
+        s.appendChild(svg('line', 'courbe-grille', { x1: G, y1: Y(g), x2: W - D, y2: Y(g) }));
+        var l = svg('text', 'courbe-lib', { x: 0, y: Y(g) + 4 }); l.textContent = g; s.appendChild(l);
+      }
+      var nl = 4;
+      for (var k = 0; k < nl; k++) {
+        var tm = t0 + (t1 - t0) * (k / (nl - 1)), dm = new Date(tm);
+        var lab = MOIS[dm.getUTCMonth()] + (cfg.periode === 'tout' || cfg.periode === '1a' ? ' ' + String(dm.getUTCFullYear()).slice(2) : '');
+        var tx = svg('text', 'courbe-lib', { x: G + (W - G - D) * (k / (nl - 1)), y: BA + 24, 'text-anchor': k === 0 ? 'start' : k === nl - 1 ? 'end' : 'middle' });
+        tx.textContent = lab; s.appendChild(tx);
+      }
+      liste.forEach(function (p) {
+        if (p.gris) s.appendChild(svg('circle', 'courbe-gris', { cx: X(p.d), cy: Y(p.v), r: 3.2 }));
+        else s.appendChild(svg('circle', 'courbe-pale', { cx: X(p.d), cy: Y(p.v), r: 2.5 }));
+      });
+      var lisse = moyenne(pleins, 3);
+      if (lisse.length > 1) {
+        s.appendChild(svg('polyline', 'courbe-trait', { points: lisse.map(function (p) { return X(p.d).toFixed(1) + ',' + Y(p.v).toFixed(1); }).join(' ') }));
+      }
+      pleins.forEach(function (p) { if (p.rec) s.appendChild(svg('circle', 'courbe-rec', { cx: X(p.d), cy: Y(p.v), r: 4.5 })); });
+      c.appendChild(s);
+    }
+    var note = el('div', 'courbe-note');
+    var rec = el('span', 'courbe-note-rec', '●');
+    note.appendChild(rec);
+    var texte = ' record · trait : la moyenne de tes séances · points pâles : chaque séance. Séries de 1 à 10 reps ; à 1 ou 2 reps, la charge elle-même.';
+    note.appendChild(document.createTextNode(texte));
+    if (gris.length) {
+      note.appendChild(document.createTextNode(' '));
+      note.appendChild(el('span', 'creux'));
+      note.appendChild(document.createTextNode(' creux : avant les 12 mois, hors de la tendance.'));
+    }
+    c.appendChild(note);
+    cible.appendChild(c);
+  }
+
+  var barre = histoireBarre(), presse = histoirePresse();
+  [['3m', 'barre-3m'], ['1a', 'barre-1a'], ['tout', 'barre-tout']].forEach(function (x) {
+    carte(document.getElementById(x[1]), { nom: 'Squat (Barre)', points: barre, periode: x[0], plancher: null, fenetre: 'Barre : tout l’historique.' });
+  });
+  [['3m', 'machine-3m'], ['1a', 'machine-1a'], ['tout', 'machine-tout']].forEach(function (x) {
+    carte(document.getElementById(x[1]), { nom: 'Presse à cuisses (Machine)', points: presse, periode: x[0], plancher: PLANCHER_12M, fenetre: 'Machine : 12 derniers mois.' });
+  });
+})();
+</script>
+</body>
+</html>

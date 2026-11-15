@@ -10553,6 +10553,91 @@ const SETS_IMPORTES = [
     ok('[5a-bis] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
+  console.log('\n══ 5b-1. LES RÉGIMES À VENIR : LA DÉCHARGE COMMENCE DANS 7 JOURS, L’ANNONCE DIT LA DATE ET AUCUNE CHARGE (MOTEUR §9.50, I169) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : la séance de 5a-bis (90 × 5 ×4, la dernière « Au max » à réserve 0, sous une routine en Hypertrophie), mais un bloc de 4 semaines
+  // commencé il y a 14 jours : sa décharge (semaine 4) commence dans 7 jours, dans la fenêtre de la fois suivante (écart habituel : 7 jours). Avant : « La prochaine
+  // fois : une rep de plus, 90 kg × 6. » — démentie par la décharge (moins de reps, moins de séries). Après : « Ta décharge commence le <date>, prévue par ton programme. »,
+  // et la phrase d'effort sans « je garde ». La séance est jouée en entier, en séance : aucun délai fixe.
+  {
+    const rendreBlocs5b1 = await retirerBlocsDeLAppareil();
+    CATALOGUE.push({ slug: 'dl-a', nom: 'Développé Couché DL (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['pectoraux'], muscles_secondaires: [] });
+    const t5b1 = Date.now();
+    const sessionsAvant = base.sessions, setsAvant = base.sets, predictionsAvant = base.predictions, routinesAvant = ROUTINES.length;
+    const profilAvant = { objectif: base.profiles[0].objectif, depuis: base.profiles[0].objectif_depuis, cartes: base.profiles[0].cartes_semaine };
+    const violationsAvant = gardeBanc.violations;
+    const jourLocal = (t) => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+    base.sessions = []; base.sets = []; base.predictions = [];
+    base.profiles[0].objectif = 'les_deux'; base.profiles[0].objectif_depuis = '2026-01-01'; base.profiles[0].cartes_semaine = null;
+    [[10, [[90, 5], [90, 5], [90, 5]]], [3, [[90, 5], [90, 4]]]].forEach(([j, series], i) => {
+      const id = 'dr-' + i, debut = ilYa(j * 86400000, t5b1).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'DR — ' + id, debut, fin: finDe(debut, t5b1).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: 'r-dr', source: 'app', created_at: debut });
+      series.forEach(([kg, r], k) => base.sets.push({ id: id + '-s' + (k + 1), session_id: id, user_id: 'u-banc', exercise_slug: 'dl-a',
+        charge_kg: kg, reps: r, duree_s: null, distance_m: null, type_serie: 'travail', rang: k + 1, groupe_superset: null, validee_a: debut,
+        rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
+    });
+    ROUTINES.push({ id: 'r-dr', nom: 'Haut B DR', note: null, archivee_a: null, created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-dr-0', routine_id: 'r-dr', exercise_slug: 'dl-a', rang: 0, zone: 'hypertrophie', routine_sets: progr(4, 8), repos_cible_s: 180, groupe_superset: null, note: null }] });
+    // Le bloc de 4 semaines commencé il y a 14 jours : sa décharge (semaine 4) commence dans 7 jours. L'exercice n'est pas du bloc (la décharge vaut pour tout exercice).
+    base.blocs.push({ id: 'b-dr', user_id: 'u-banc', dossier: 'DR', zone: 'lourd', semaines: 4, decharge: true, statut: 'en_cours', precedent: null, exercices: [],
+      debut: jourLocal(ilYa(14 * 86400000, t5b1).getTime()), created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z' });
+    const jourDecharge = (() => { const d = new Date(t5b1); d.setDate(d.getDate() + 7); return jourLocal(d.getTime()); })();
+    const esp = (t) => String(t || '').replace(/[\u00a0\u202f]/g, ' ');
+    const lire5b1 = () => page.evaluate((jd) => {
+      const d = window.THPlan && window.THPlan.dernier, x = d && d.plan.exercices[0];
+      return { suite: (document.querySelector('.legende-exo .constat-suite') || {}).textContent || null,
+        dit: Array.from(document.querySelectorAll('.effort-vise-dit')).map((n) => n.textContent),
+        date: window.THModele.jourCourt(jd),
+        regime: x && x.constat ? x.constat.regime : null,
+        effort: x && x.effortVise ? x.effortVise.phrase : null,
+        erreurs: d ? window.THPlan.verifierPlan(d.plan, d.entrees).erreurs : ['aucun plan'] };
+    }, jourDecharge);
+    await aller('/saisie');
+    await demarrerRoutine('Haut B DR');
+    await attendreQue(() => page.evaluate(() => document.querySelectorAll('.ligne-serie').length >= 4 && !!(window.THPlan && window.THPlan.dernier)), 15000, '5b-1 · la séance est ouverte');
+    await saisirSerie(0, 90, 5);
+    await saisirSerie(1, 90, 5);
+    await saisirSerie(2, 90, 5);
+    gardeBanc.suspendue = true;
+    await page.evaluate(() => document.querySelectorAll('.ligne-serie')[3].querySelector('.no-serie').click());
+    await feuilleOuverte('.feuille-menu button');
+    await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => /^Au max/.test(b.textContent.trim()))[0].click());
+    await feuilleFermee().catch(() => {});
+    await saisirSerie(3, 90, 5);
+    await page.evaluate(() => { const e = document.querySelectorAll('.ligne-serie')[3].querySelector('.eff-serie'); if (e) e.click(); });
+    await feuilleOuverte('.grille-rir, .grille-rpe');
+    const departReserve5b1 = await departGeste();
+    await page.evaluate(() => { const b = Array.from(document.querySelectorAll('#feuille-contenu button')).filter((x) => x.textContent.trim().charAt(0) === '0')[0]; if (b) b.click(); });
+    await calmeApres(departReserve5b1);
+    await attendreQue(() => page.evaluate(() => !!(document.querySelector('.legende-exo .constat-suite') || {}).textContent), 8000, '5b-1 · le constat de fin de bloc paraît');
+    const live = await lire5b1();
+    const autres = (live.erreurs || []).filter((e) => !/^I4\b/.test(e));
+    const etatApp = await page.evaluate(() => { const e = window.THPlan.garde.etat(); return { plans: e.plans, violations: e.violations.length }; });
+    gardeBanc.app = etatApp; gardeBanc.suspendue = false; gardeBanc.avant = null;
+    ok('[5b-1] DISCRIMINANT — EN SÉANCE, la décharge commence dans 7 jours : « Ta décharge commence le <date>, prévue par ton programme. » (avant : « La prochaine fois : une rep de plus, 90 kg × 6. »)',
+      esp(live.suite) === 'Ta décharge commence le ' + esp(live.date) + ', prévue par ton programme.', esp(JSON.stringify(live)));
+    ok('[5b-1] aucune charge ni rep dans l’annonce, et la date est absolue (jamais « dans 7 jours », « la semaine prochaine »)',
+      !/kg|×|rep|la prochaine fois|jours|prochaine/i.test(esp(live.suite)), esp(live.suite));
+    ok('[5b-1] le plan porte le régime (décharge, le jour calculé depuis le bloc) ; la phrase d’effort, quand elle est dite, ne promet rien',
+      !!live.regime && live.regime.genre === 'decharge' && live.regime.debut === jourDecharge &&
+      live.dit.concat(live.effort ? [live.effort] : []).every((t) => !/je garde|on essaie|on teste|la prochaine fois/i.test(esp(t))), esp(JSON.stringify(live)));
+    ok('[5b-1] verifierPlan ne parle pas (hors I4 de la grille d’effort) : ni I164, ni I169', autres.length === 0, JSON.stringify(autres.slice(0, 2)));
+    ok('[5b-1] la garde (C6) n’a rien signalé dans cette section', gardeBanc.violations === violationsAvant, JSON.stringify(gardeBanc.liste.slice(-2)));
+    await abandonner();
+    ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
+    CATALOGUE.splice(CATALOGUE.length - 1, 1);
+    base.sessions = sessionsAvant; base.sets = setsAvant; base.predictions = predictionsAvant;
+    base.profiles[0].objectif = profilAvant.objectif; base.profiles[0].objectif_depuis = profilAvant.depuis; base.profiles[0].cartes_semaine = profilAvant.cartes;
+    // LA REMISE EN ÉTAT DE L'APPAREIL : le bloc est aussi dans le cache de l'app (il y reste après le serveur : sans ce nettoyage, la carte « semaine allégée »
+    // de la section 7 G undecies se tait, la décharge de ce bloc étant à moins de 14 jours).
+    base.blocs = base.blocs.filter((b) => b.id !== 'b-dr');
+    await retirerBlocsDeLAppareil();
+    rendreBlocs5b1();
+    await aller('/saisie');
+    ok('[5b-1] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
+  }
+
   console.log('\n══ 7 G sexies. LE DÉVERROUILLAGE EN PLEINE SÉANCE NE PERD PLUS RIEN (29-30/09/2026) ══');
   //
   // La séance du 29/09, rejouée. Hors réseau, chaque validation « armée » se

@@ -8940,7 +8940,9 @@
         options);
       var parSlug = Object.assign({}, constats.parSlug);
       parSlug[slug] = { options: cleOptions,
-                        valeur: r ? { consigne: r.apres.consigne, cranSuivant: r.cranSuivant, cranSuivantApprochee: r.cranSuivantApprochee === true, testConfirme: r.testConfirme === true } : null };
+                        valeur: r ? { consigne: r.apres.consigne, cranSuivant: r.cranSuivant, cranSuivantApprochee: r.cranSuivantApprochee === true, testConfirme: r.testConfirme === true,
+                                  // PR 5b-1 — l'écart habituel de l'exercice (médiane, `Moteur.suiteDExercice`) : le plan en tire la fenêtre de « la fois suivante » ; l'app ne calcule rien.
+                                  ecart: typeof r.ecart === 'number' ? r.ecart : null } : null };
       constats = { cle: cle, parSlug: parSlug };
     }
     return constats.parSlug[slug].valeur;

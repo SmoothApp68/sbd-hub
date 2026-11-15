@@ -5014,6 +5014,9 @@
   function annonceDeLaSuite(d) {
     var cAvant = d.cAvant, cApres = d.cApres, z = d.z, reglage = d.reglage, fait = d.fait;
     if (cApres.etat === 'silence') return null;
+    // PR 5b-1 (MOTEUR §9.50) — un régime À VENIR (décharge, semaine de test, début de bloc) dans la fenêtre de la fois suivante : l'annonce ne promet NI charge NI
+    // rep, elle dit la date du régime. Elle REMPLACE une annonce (le silence ci-dessus reste le silence), elle n'en crée jamais.
+    if (d.regime) return phraseDuRegime(d.regime);
     // Rédigée à la demande : seule la branche qui l'écrit la déclare (§20 bis).
     var prochaine = function () { return 'Prochaine séance' + DEUX_POINTS + lignesJaunes(cApres, SUIVANTE).join(', ') + '.'; };
     // La ligne vraie de la consigne suivante, dite par le verbe de son en-tête (PR 5a, A1) ; sans ligne seule à dire, « Prochaine séance ».
@@ -5069,24 +5072,27 @@
       if (ev.sortie === true) return phraseDeLaSortie(ev, haut, true);
       return null;
     }
-    return phraseEffortVise(ev, haut);
+    return phraseEffortVise(ev, haut, d.regime || null);
   }
 
   // 154 — « 130 kg × 5, sans marge. Je garde 130 kg la prochaine fois. » (R < V, la montée n'a pas lieu).
-  function phraseDeLaGarde(e) {
+  function phraseDeLaGarde(e, sansPromesse) {
     var cF = cite(FAIT, { quoi: 'effort_vise' });
     var cR = cite(FAIT, { quoi: 'effort_vise.reserve' });
     var cC = cite(FAIT, { quoi: 'effort_vise.charge' });
     var debut = chargeFois(e.charge, e.reps, cF) +
-      (e.reserve === 0 ? ', sans marge' : ', avec ' + nombreFr(e.reserve, cR) + ' en réserve') + '. Je garde ' +
-      enKg(e.charge, cC);
+      (e.reserve === 0 ? ', sans marge' : ', avec ' + nombreFr(e.reserve, cR) + ' en réserve');
+    // PR 5b-1 — sous un régime à venir, la tête factuelle seule : « je garde » promet une charge que la décharge, le test ou le bloc ne donnera pas.
+    if (sansPromesse === true) return debut + '.';
+    debut += '. Je garde ' + enKg(e.charge, cC);
     // 169 — au haut de la zone, la garde ne dure qu'une fois, et la phrase le dit ; sous le haut, la rep de plus reste la voie.
     return e.auHaut === false ? debut + ' la prochaine fois.'
       : debut + ' : encore une fois au haut de ta zone et je teste plus lourd.';
   }
   // 169 — LA SORTIE DITE : « Deux fois 30 kg × 10 au haut de ta zone. Prochaine fois : on teste 32,5 kg × 8. » `haut` : la
   // ligne haute de la consigne (`{ charge, vise, approchee }`), ou une charge seule.
-  function phraseDeLaSortie(ev, haut, aujourdhui) {
+  function phraseDeLaSortie(ev, haut, aujourdhui, sansPromesse) {
+    if (sansPromesse === true) return 'Deux fois ' + chargeFois(ev.charge, ev.reps, cite(FAIT, { quoi: 'effort_vise' })) + ' au haut de ta zone.';
     var h = haut !== null && typeof haut === 'object' ? haut : { charge: haut, vise: null };
     var cH = cite(FAIT, { quoi: 'effort_vise.haut' });
     var test = h.vise === null || h.vise === undefined ? enKg(h.charge, cH) : ligneFois(h.charge, h.vise, false, false, cH, h.approchee === true);
@@ -5098,21 +5104,83 @@
   // prochaine fois, on essaie 36 kg. » / « 130 kg × 5, sans marge. Je garde 130 kg : encore une fois au haut de ta zone et
   // je teste plus lourd. » `ev` : le fait `effortVise` de la consigne suivante ; `haut` : la ligne haute du test qu'elle
   // pose (ou sa charge). `null` : rien à dire.
-  function phraseEffortVise(ev, haut) {
+  function phraseEffortVise(ev, haut, regime) {
     if (!ev) return null;
-    if (ev.effet === 'garde') return phraseDeLaGarde(ev);
+    var sans = !!regime;
+    if (ev.effet === 'garde') return phraseDeLaGarde(ev, sans);
     var charge = haut !== null && typeof haut === 'object' ? haut.charge : haut;
     if (ev.effet !== 'test' || charge === null || charge === undefined) return null;
-    if (ev.sortie === true) return phraseDeLaSortie(ev, haut);
+    if (ev.sortie === true) return phraseDeLaSortie(ev, haut, false, sans);
     // PR 4a (§9.26 bis) — la réserve notée ÉGALE à la visée affichée (le plancher à 2 sur une table à 0 ou 1 : le test se déclenche sur la
     // table) : « c'est ce que je visais », jamais « au-dessus » (I161).
     var egale = ev.reserve === ev.visee;
-    return chargeFois(ev.charge, ev.reps, cite(FAIT, { quoi: 'effort_vise' })) + ', il t’en restait ' +
-      nombreFr(ev.reserve, cite(FAIT, { quoi: 'effort_vise.reserve' })) +
+    var tete = chargeFois(ev.charge, ev.reps, cite(FAIT, { quoi: 'effort_vise' })) + ', il t’en restait ' +
+      nombreFr(ev.reserve, cite(FAIT, { quoi: 'effort_vise.reserve' }));
+    // PR 5b-1 (Q3) — sous un régime : le fait de la séance, sans « on essaie » : « Au-dessus de ce que je visais. » reste (un fait, le seul retour sur la réponse).
+    if (sans) return tete + (egale ? DEUX_POINTS + 'c’est ce que je visais.' : '. Au-dessus de ce que je visais.');
+    return tete +
       (egale ? DEUX_POINTS + 'c’est ce que je visais. La prochaine fois, on essaie '
              : '. Au-dessus de ce que je visais' + DEUX_POINTS + 'la prochaine fois, on essaie ') +
       enKg(charge, cite(FAIT, { quoi: 'effort_vise.haut' })) + '.';
   }
+  // ── PR 5b-1 (MOTEUR §9.50) — LES RÉGIMES À VENIR ────────────────────────────────────────────────────────────────────────────────────────
+  // Quand la fois suivante de l'exercice peut tomber dans une décharge planifiée, une semaine de test acceptée ou un bloc qui pose une autre zone, l'annonce
+  // ne promet NI charge NI rep : elle dit la DATE du régime (absolue, une seule horloge : le jour civil de la séance) ou se tait. Un régime se calcule ici,
+  // d'après les entrées du plan ; il ne s'écrit jamais.
+  // La fois suivante est une FENÊTRE, pas un point : autour de l'écart habituel `e` (médiane arrondie au jour, 7 sans histoire), de `e − 2` à `e + 3` jours,
+  // bornée à 1–14 (mesuré en campagne : mensonge résiduel sous 2 %). Ce n'est PAS la borne du retour simulé de « Il te manque » (`ecartDuRythme`, 1–14) : deux décisions.
+  var FENETRE_AVANT = 2, FENETRE_APRES = 3, FENETRE_BORNE_BASSE = 1, FENETRE_BORNE_HAUTE = 14;
+  function fenetreDeLaProchaineFois(ecart) {
+    var e = nombre(ecart);
+    e = e === null ? 7 : Math.round(e);
+    return { lo: Math.max(FENETRE_BORNE_BASSE, e - FENETRE_AVANT), hi: Math.min(FENETRE_BORNE_HAUTE, e + FENETRE_APRES) };
+  }
+  // `d` : { jour, ecart, blocs, finsAllegees, test: { debut, fin } | null, slug, famille, zone }. Rend `{ genre: 'decharge' | 'test' | 'bloc', debut }` ou `null`.
+  // Un seul régime : le plus proche ; à égalité, la décharge, puis le test, puis le bloc (B8). Aucune décharge de fatigue n'est jamais devinée : seule la
+  // décharge PLANIFIÉE (`dechargePlanifiee` : pas de cumul, une semaine allégée acceptée la fait sauter) et le test accepté se datent.
+  var RANG_DU_REGIME = { decharge: 0, test: 1, bloc: 2 };
+  function regimeAVenir(d) {
+    var o = d || {};
+    var j = numeroDuJour(jourCivil(o.jour));
+    if (j === null) return null;
+    var f = fenetreDeLaProchaineFois(o.ecart);
+    var lo = j + f.lo, hi = j + f.hi;
+    var candidats = [];
+    var ajouter = function (genre, debut) { var n = numeroDuJour(debut); if (n !== null) candidats.push({ genre: genre, debut: debut, n: n }); };
+    (o.blocs || []).forEach(function (b) {
+      if (!b || b.statut !== BLOC_EN_COURS) return;
+      var dd = dechargePlanifiee(b, o.finsAllegees) ? debutDecharge(b) : null;
+      var nd = dd === null ? null : numeroDuJour(dd);
+      // La décharge, de 7 jours, doit RECOUPER la fenêtre ; une décharge commencée est la séance du jour (consigne allégée, pas de constat).
+      if (nd !== null && nd > j && nd <= hi && nd + 6 >= lo) ajouter('decharge', dd);
+      var db = jourCivil(b.debut), nb = numeroDuJour(db);
+      if (nb !== null && nb > j && nb <= hi && o.slug) {
+        var fam = {}; fam[o.slug] = o.famille === undefined ? null : o.famille;
+        var posee = zonesPosees(b, null, null, fam).filter(function (l) { return l.exercise_slug === o.slug; })[0];
+        // Le début d'un bloc ne change une consigne que s'il POSE une zone à cet exercice, et une autre que celle de la suite.
+        if (posee && posee.zone !== o.zone) ajouter('bloc', db);
+      }
+    });
+    var T = o.test;
+    if (T && T.debut && T.fin) {
+      var nt = numeroDuJour(T.debut), nf = numeroDuJour(T.fin);
+      if (nt !== null && nf !== null && nt > j && nt <= hi && nf >= lo) ajouter('test', T.debut);
+    }
+    candidats.sort(function (a, b) { return a.n - b.n || RANG_DU_REGIME[a.genre] - RANG_DU_REGIME[b.genre]; });
+    return candidats.length ? { genre: candidats[0].genre, debut: candidats[0].debut } : null;
+  }
+  // La date abrégée finit souvent par un point (« 23 nov. ») : la phrase ne le double pas.
+  var fin = function (date) { return /\.$/.test(date) ? date : date + '.'; };
+  var PHRASES_DU_REGIME = {
+    decharge: function (date) { return 'Ta décharge commence le ' + date + ', prévue par ton programme.'; },
+    test: function (date) { return 'Ta semaine de test commence le ' + fin(date); },
+    bloc: function (date) { return 'Ton bloc commence le ' + fin(date); }
+  };
+  function phraseDuRegime(r) {
+    if (!r || !PHRASES_DU_REGIME[r.genre]) return null;
+    return PHRASES_DU_REGIME[r.genre](Modele().jourCourt(String(r.debut), regle('regime.debut')));
+  }
+
   // ══ FIN DE L'ANNONCE ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
   function phraseGrise(c, reference) {
@@ -5880,7 +5948,7 @@
   // §20 bis (49-U19) — le verdict et la suite, chacun RÉDIGÉ DANS SA CAPTURE
   // (`{ texte, citations }`) : un verdict remplacé (la montée tenue) ne laisse
   // pas ses citations derrière lui.
-  function constatEnDeux(consigneAvant, consigneApres, reglage, cranSuivant, reference, cranApproche, seriesDuJour, testConfirme) {
+  function constatEnDeux(consigneAvant, consigneApres, reglage, cranSuivant, reference, cranApproche, seriesDuJour, testConfirme, regime) {
     if (!consigneAvant || !consigneApres) return null;
     var ap = consigneApres.fondement || {};
     var av = consigneAvant.fondement || {};
@@ -5907,7 +5975,8 @@
              repli: sortie.repli === true,
              suite: V.capturer(function () {
                return annonceDe('suite', { cAvant: consigneAvant, cApres: consigneApres, z: z, reglage: reglage, fait: faitAujourdHui,
-                                           cranSuivant: cranSuivant, cranApproche: cranApproche === true, testConfirme: testConfirme === true });
+                                           cranSuivant: cranSuivant, cranApproche: cranApproche === true, testConfirme: testConfirme === true,
+                                           regime: regime || null });
              }),
              // I163 — le jugement de la cible, tel que le verdict l'a lu (jamais un second calcul) : seulement quand le verdict est tombé
              // sur la dernière branche, celle qui le lit ; les autres branches (« 9 reps aujourd'hui », un test…) ne le lisent pas.
@@ -10843,7 +10912,7 @@
       var zS = zoneParCle(ap.zone), faitS = faitDuJourDe(ap, o.reglage);
       if (zS !== null && faitS !== null && faitS < zS.haut) testConfirme = testApresLeManque(tous, etat, apres, o, ap, zS, faitS, cran);
     }
-    return { apres: cApres, cranSuivant: cran, cranSuivantApprochee: approche, testConfirme: testConfirme };
+    return { apres: cApres, cranSuivant: cran, cranSuivantApprochee: approche, testConfirme: testConfirme, ecart: ecartDeLExercice(tous) };
   }
   // ── PR 5a (MOTEUR §9.48) — LA CONDITION DE « IL TE MANQUE N REPS » REJOUÉE ──────────────────────────────────────────────────────────────
   // La personne revient à son rythme habituel (médiane de ses derniers écarts, 1 à 14 jours, 7 sans histoire) et fait EXACTEMENT ce qui manque :
@@ -10851,15 +10920,14 @@
   //   · Franc : UNE série au haut (son déclencheur), les autres à ce qui a été fait ;
   // avec la réserve que la personne a RÉELLEMENT notée sur la dernière série du jour (rpe, ressenti, « Au max » : sur la dernière série seulement, comme la
   // question d'effort). Sans réserve notée, rien n'est inventé. Le test est proposé au retour suivant si `consigneDExercice` rend `test_propose` au cran annoncé.
-  function ecartDuRythme(groupes) {
-    var dates = (groupes || []).map(function (g) { return instant(g && g.seance ? g.seance.debut : null); })
-      .filter(function (t) { return t !== null; }).sort(function (a, b) { return a - b; });
-    if (dates.length < 2) return 7;
-    var ec = [];
-    for (var i = 1; i < dates.length; i++) ec.push((dates[i] - dates[i - 1]) / JOUR);
-    var m = mediane(ec.slice(-ECARTS_HABITUELS));
-    return Math.min(14, Math.max(1, m === null ? 7 : m));
+  // PR 5b-1 (B2) — UNE médiane (`ecartHabituel`), deux bornes nommées : le retour SIMULÉ (1 à 14 jours, ci-dessous) et la fenêtre de l'annonce
+  // (`fenetreDeLaProchaineFois`). Un adaptateur sur les groupes `{ seance }`, jamais une seconde copie de la médiane.
+  var DEPUIS_TOUJOURS = '9999-12-31T00:00:00.000Z';
+  function ecartDeLExercice(groupes) {
+    var m = ecartHabituel((groupes || []).map(function (g) { return g && g.seance ? g.seance : null; }), DEPUIS_TOUJOURS);
+    return m === null ? 7 : m;
   }
+  function ecartDuRythme(groupes) { return Math.min(14, Math.max(1, ecartDeLExercice(groupes))); }
   function testApresLeManque(tous, etat, apres, o, ap, z, fait, cran) {
     var T = Modele();
     var aujourdhui = tous[tous.length - 1];
@@ -10923,9 +10991,9 @@
   // règle. Rend `{ verdict, suite, montee }`, ou `null`.
   //
   // `reference` : la date de la séance du jour (le plan la tient de sa séance).
-  function constatDuJour(consigneAvant, consigneApres, reglage, cranSuivant, jour, reference, cranApproche, testConfirme) {
+  function constatDuJour(consigneAvant, consigneApres, reglage, cranSuivant, jour, reference, cranApproche, testConfirme, regime) {
     var j = jour || {};
-    var d = constatEnDeux(consigneAvant, consigneApres, reglage, cranSuivant, reference, cranApproche, j.series || null, testConfirme);
+    var d = constatEnDeux(consigneAvant, consigneApres, reglage, cranSuivant, reference, cranApproche, j.series || null, testConfirme, regime);
     if (!d) return null;
     var base = { verdict: d.verdict.texte, suite: d.suite.texte };
     Modele().reporter(d.suite.citations);
@@ -13485,6 +13553,10 @@
     populationProtegee: populationProtegee,
     RESERVE_PLANCHER: RESERVE_PLANCHER,
     annonceDe: annonceDe,
+    regimeAVenir: regimeAVenir,
+    fenetreDeLaProchaineFois: fenetreDeLaProchaineFois,
+    phraseDuRegime: phraseDuRegime,
+    ecartDuRythme: ecartDuRythme,
     phraseDuPlancher: phraseDuPlancher,
     effortViseEligible: effortViseEligible,
     RESERVE_ECART: RESERVE_ECART,

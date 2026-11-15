@@ -61,6 +61,8 @@ const GARDEES = [
   { fn: 'verbeDeLaConsigne', module: 'moteur.js' },
   // moteur.js — « Les mots disent vrai » PR 5a (MOTEUR §9.48, I164) : UNE source pour toute annonce (la suite d'un exercice, les phrases de l'effort visé) ; le moteur la lit pour le constat et le gris, le plan pour `effortVise.phrase` ; aucun écran n'écrit d'annonce
   { fn: 'annonceDe', module: 'moteur.js' },
+  // moteur.js — « Les mots disent vrai » PR 5b-1 (MOTEUR §9.50, I169) : le régime à venir (décharge planifiée, semaine de test, début de bloc) dans la fenêtre de la fois suivante se décide ICI ; le plan le pose (`suiteSousRegime`), I169 le relit depuis les entrées
+  { fn: 'regimeAVenir', module: 'moteur.js' },
   // moteur.js — la consigne
   { fn: 'consignePour', module: 'moteur.js' },
   { fn: 'consigneDExercice', module: 'moteur.js' },
@@ -946,12 +948,16 @@ const NOTIONS = [
     par: ['badgeDuBloc', 'exercicesEnBloc'],
     raison: 'le badge et « Changer de schéma » lisent la même semaine : le coach ne commente pas l’assiduité.' },
   { notion: 'le début de la décharge planifiée (la dernière semaine du bloc)', pr: '53-U2',
-    module: 'moteur.js', fonction: 'debutDecharge', lecteurs: [],
-    par: ['dechargePlanifiee', 'carteAllegeeAutorisee', 'dechargeDuJour', 'periodesDecharge'],
+    module: 'moteur.js', fonction: 'debutDecharge', lecteurs: ['plan.js'],
+    parAilleurs: { 'plan.js': ['regimesRecalcules'] },
+    raisonsDesLecteurs: { 'plan.js': '5b-1 : I169 recalcule la date de la décharge depuis les ENTRÉES, pas depuis le champ du plan (sinon l’invariant se satisferait de ce qu’il contrôle)' },
+    par: ['dechargePlanifiee', 'carteAllegeeAutorisee', 'dechargeDuJour', 'periodesDecharge', 'regimeAVenir'],
     raison: 'la décharge, la carte qui se tait et les périodes du compteur partent du même jour.' },
   { notion: 'la décharge planifiée a lieu (pas de cumul avec une semaine allégée, 14 jours)', pr: '53-U2',
-    module: 'moteur.js', fonction: 'dechargePlanifiee', lecteurs: [],
-    par: ['dechargeDuJour', 'periodesDecharge'],
+    module: 'moteur.js', fonction: 'dechargePlanifiee', lecteurs: ['plan.js'],
+    parAilleurs: { 'plan.js': ['regimesRecalcules'] },
+    raisonsDesLecteurs: { 'plan.js': '5b-1 : I169 recalcule « la décharge a lieu » depuis les entrées (blocs, cartes acceptées)' },
+    par: ['dechargeDuJour', 'periodesDecharge', 'regimeAVenir'],
     raison: 'MOTEUR §14.4 : une réduction s’applique une fois — le plan (la décharge du jour) et le compteur ' +
       '(ses périodes) le décident par la même règle.' },
   { notion: 'la décharge planifiée du jour (la semaine allégée posée par le programme, sans carte)', pr: '53-U2',
@@ -1694,8 +1700,9 @@ const NOTIONS = [
       'générateur, l’objectif (124 : sa copie retirée, 01 #14) et l’app comptent les mêmes jours ; 208 : le social ' +
       '(bornes et calendrier) et le quota de l’assistant lisent la même clé, leurs copies retirées.' },
   { notion: 'le numéro d’un jour civil (la différence de deux numéros compte les jours du calendrier)', pr: '124-U2',
-    module: 'moteur.js', fonction: 'numeroDuJour', lecteurs: ['objectif.js', 'deraille.js'],
-    parAilleurs: { 'objectif.js': ['numeroDuJour'], 'deraille.js': ['numero'] },
+    module: 'moteur.js', fonction: 'numeroDuJour', lecteurs: ['objectif.js', 'deraille.js', 'plan.js'],
+    parAilleurs: { 'objectif.js': ['numeroDuJour'], 'deraille.js': ['numero'], 'plan.js': ['verifierRegimes', 'regimesRecalcules'] },
+    raisonsDesLecteurs: { 'plan.js': '5b-1 : I169 compte les jours entre la séance et le régime (fenêtre [jour + 1, jour + 14])' },
     raison: 'audit du 16/10/2026 (01 #14) : l’arithmétique des jours civils était écrite trois fois (moteur, objectif, ' +
       'semaine qui déraille) ; une fois, au moteur.' },
   { notion: 'le jour civil d’un numéro (l’inverse)', pr: '124-U2',

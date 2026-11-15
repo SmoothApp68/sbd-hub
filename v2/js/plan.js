@@ -561,8 +561,10 @@
   //
   // `materiel` : `{ equipement, sol, deja_sollicite, pas, refus }`, lu au
   // catalogue par `planDeSeance` ; `null` (exercice hors catalogue) : l'étape
-  // se tait. La RÉFÉRENCE des chauffes est la charge de la consigne FIGÉE (la
-  // ligne, pas le test) : une montée en séance ne change aucune chauffe.
+  // se tait. La RÉFÉRENCE des chauffes est UNE (15/11/2026, MOTEUR §9.41 bis,
+  // I184, `Moteur.referenceDesChauffes`) : la première charge SAISIE de la
+  // première ligne de travail ; à défaut la charge de la consigne FIGÉE (la
+  // ligne, pas le test) ; à défaut rien. Une chauffe faite reste figée (§9.15.7).
   var MATERIELS_DE_CHAUFFE = ['barre', 'machine', 'machine_smith', 'poulie', 'haltere'];
 
   // 237 (§9.41) — pose la proposition du moteur dans la sortie de l'étape : la phrase et le Pourquoi sont citées.
@@ -576,15 +578,24 @@
     sortie.citations.pourquoiChauffes = capW.citations;
   }
 
-  // 237 (§9.41, règle 6) — « Annuler » : après un ajout automatique (geste `chauffes_auto`), tant que les chauffes ne sont pas faites et
-  // que la personne ne les a pas annulées, le plan EXPOSE le geste. `null` sinon. Un fait de la séance, lu sur ses gestes.
-  function chauffesAutoDe(gestes, slug, x) {
-    var gs = Array.isArray(gestes) ? gestes : [];
-    var auto = gs.some(function (g) { return g && g.geste === 'chauffes_auto' && g.slug === slug; });
-    var annulee = gs.some(function (g) { return g && g.geste === 'chauffes_annulees' && g.slug === slug; });
+  // 237 (§9.41, règle 6) — « Annuler » ; 15/11/2026 (§9.41 bis, règle 11, I190) — POUR LES TROIS SOURCES : l'ajout automatique (`chauffes_auto`), « Ajouter »
+  // et « + Chauffe » (`chauffes_ajoutees`). Tant qu'une ligne de chauffe posée reste à faire, le plan EXPOSE le geste ; le DERNIER des gestes (pose,
+  // `chauffes_annulees`) fait foi. `null` sinon. Un fait de la séance, lu sur ses gestes ; la phrase se rédige sous capture (I26) et entre dans
+  // `x.phrases`. `origine` : `auto` (compte comme un « Non merci » à l'annulation) ou `posee` (jamais).
+  function chauffesPoseesDe(gestes, slug, x) {
+    var gs = Array.isArray(gestes) ? gestes : [], origine = null;
+    gs.forEach(function (g) {
+      if (!g || g.slug !== slug) return;
+      if (g.geste === 'chauffes_auto') origine = 'auto';
+      else if (g.geste === 'chauffes_ajoutees') origine = 'posee';
+      else if (g.geste === 'chauffes_annulees') origine = null;
+    });
     var enAttente = (x.lignes || []).some(function (l) { return l.type === 'echauffement' && !l.validee; });
-    if (!auto || annulee || !enAttente) return null;
-    return { slug: slug, texte: 'Chauffe ajoutée, comme d\u2019habitude.', annuler: 'Annuler' };
+    if (!origine || !enAttente) return null;
+    var ref = x.chauffesReference ? { charge: x.chauffesReference.charge, source: x.chauffesReference.source } : null;
+    var cap = Voix().capturer(function () { return Moteur().phraseDesChauffesPosees(origine, ref); });
+    if (Array.isArray(x.phrases)) x.phrases.push({ ou: 'chauffes.posees', texte: cap.texte, citations: cap.citations });
+    return { slug: slug, origine: origine, texte: cap.texte, annuler: 'Annuler' };
   }
 
   // 237-bis (§9.41, règle 6) — LE SILENCE ANNONCÉ : au 2e « Non merci » (ou « Annuler » des chauffes automatiques), le geste `chauffes_silence`
@@ -596,12 +607,33 @@
       if (g && g.slug === slug && g.geste === 'chauffes_silence') etat = true;
       else if (g && g.slug === slug && g.geste === 'chauffes_silence_annule') etat = false;
     });
-    if (etat !== true || (x.lignes || []).some(function (l) { return l.validee; })) return null;
+    // 15/11/2026 (I130 complété) — dès qu'une ligne de chauffe est posée, la phrase se retire : elle dirait « je ne te les propose plus » à côté
+    // de chauffes posées. Elle revient si elles sont retirées.
+    if (etat !== true || (x.lignes || []).some(function (l) { return l.validee || l.type === 'echauffement'; })) return null;
     return { slug: slug, texte: Moteur().phraseDuSilenceDesChauffes(nomExo), annuler: 'Annuler' };
   }
 
+  // 15/11/2026 (§9.41 bis, règle 8) — LA CHARGE SAISIE de la première ligne de travail (`Modele.estTravail`, jamais le type en dur) : une valeur
+  // non nulle de `charge_kg` est tapée par la personne (le fantôme n'est jamais écrit). Une ligne posée par le coach (`test_pose`) n'est pas
+  // une saisie. Première ligne vide, deuxième tapée : on ne devine pas (`null`).
+  function premiereChargeSaisie(lignes, liste) {
+    for (var i = 0; i < lignes.length; i++) {
+      var s = liste[lignes[i].iSerie];
+      if (s && racine.THModele.estTravail(s) && s.test_pose !== true) return nombre(s.charge_kg);
+    }
+    return null;
+  }
+
+  // 15/11/2026 (§9.41 bis, règle 9) — la montée DEMANDÉE (« + Chauffe ») : la même décision que la proposition, lue sous `x.surDemande`. Sans
+  // `phrase` : l'écran ne la dit pas (il pose les lignes et le plan les remplit en fantôme).
+  function poserSurDemande(sortie, cap, reference) {
+    var r = cap.texte;
+    if (!r || r.mode === 'rien' || !r.lignes.length) return;
+    sortie.surDemande = { situation: r.situation, reference: reference, lignes: r.lignes, raison: r.raison, mode: r.mode, peuDeTemps: !!r.peuDeTemps };
+  }
+
   function chauffesEtDegressive(lignes, series, consigne, materiel) {
-    var sortie = { chauffes: null, proposition: null, degressive: null, citations: {} };
+    var sortie = { chauffes: null, proposition: null, surDemande: null, reference: null, degressive: null, citations: {} };
     if (!materiel) return sortie;
     // 119 (audit du 16/10/2026, E6) — UNE MESURE SANS CHARGE N'A NI CHAUFFES NI DÉGRESSIVE DU COACH : une planche, un
     // tapis (une durée, une distance : hors du coach, I13) ou un exercice au poids du corps (I28, §9.17 : pas de
@@ -612,11 +644,10 @@
     // 237 (§9.41, règle 3) — AU POIDS DU CORPS : une série facile, sans charge, une seule ; la même décision que les barres.
     if (materiel.corps === true && !lignes.some(function (l) { return l.type === 'echauffement'; }) &&
         !lignes.some(function (l) { return l.validee; })) {
-      var capC = Voix().capturer(function () {
-        return M.propositionDeChauffes(Object.assign({}, materiel, { corps: true, reference: null, premier: !materiel.deja_sollicite,
-          silence: !!materiel.refus, e1rm: null }));
-      });
+      var entreeCorps = Object.assign({}, materiel, { corps: true, reference: null, premier: !materiel.deja_sollicite, silence: !!materiel.refus, e1rm: null });
+      var capC = Voix().capturer(function () { return M.propositionDeChauffes(entreeCorps); });
       proposerChauffes(sortie, capC, null);
+      poserSurDemande(sortie, Voix().capturer(function () { return M.propositionDeChauffes(Object.assign({}, entreeCorps, { demande: true })); }), null);
       return sortie;
     }
     if (materiel.mesure && materiel.mesure !== 'charge_reps') return sortie;
@@ -644,8 +675,12 @@
     // et les haltères (§9.15.1) : élastique, disque, kettlebell, rien — pas de
     // chauffe calculée. La dégressive, elle, vaut pour tout ce qui n'est pas
     // une barre.
-    var reference = consigne && consigne.etat !== 'silence' && MATERIELS_DE_CHAUFFE.indexOf(materiel.equipement) >= 0
-      ? chargeDeTravail(consigne) : null;
+    // 15/11/2026 (I184) — la référence est celle du moteur : la saisie d'abord, la consigne figée en repli (jamais celle d'une consigne « silence »).
+    var refObj = MATERIELS_DE_CHAUFFE.indexOf(materiel.equipement) >= 0
+      ? M.referenceDesChauffes({ saisie: premiereChargeSaisie(lignes, liste), plan: consigne && consigne.etat !== 'silence' ? chargeDeTravail(consigne) : null })
+      : { charge: null, source: null, plan: null };
+    var reference = refObj.charge;
+    if (reference !== null) sortie.reference = refObj;
     // §9.17 — PAS DE CHAUFFES AU POIDS DU CORPS (0) NI SUR UNE AIDE (négative) :
     // la référence d'une chauffe est une charge qu'on monte, et le moteur
     // répondait « aucune » en laissant l'objet derrière lui (I30).
@@ -698,15 +733,16 @@
       } else if (!lignes.some(function (l) { return l.validee; })) {
         // §9.41 — aucune ligne de chauffe : une PROPOSITION (ou, après deux séances où la personne les a ajoutées, un ajout avec
         // « Annuler »), jamais des séries insérées d'office par le plan. Tant qu'aucune série de l'exercice n'est faite.
-        var capP = Voix().capturer(function () {
-          return M.propositionDeChauffes({
-            equipement: materiel.equipement, reference: reference, e1rm: materiel.e1rm, premier: !materiel.deja_sollicite,
-            premierExercice: materiel.premierExercice, isolation: materiel.isolation, dejaTravaille: materiel.deja_travaille === true, menagee: materiel.menagee,
-            forme: materiel.forme, peuDeTemps: materiel.peuDeTemps, silence: !!materiel.refus, ajoutees: materiel.ajoutees,
-            muscle: materiel.muscle, cran: materiel.pas, sol: !!materiel.sol, salle: materiel.salle || null
-          });
-        });
-        proposerChauffes(sortie, capP, reference);
+        var entreeP = {
+          equipement: materiel.equipement, reference: reference, e1rm: materiel.e1rm, premier: !materiel.deja_sollicite,
+          premierExercice: materiel.premierExercice, isolation: materiel.isolation, dejaTravaille: materiel.deja_travaille === true, menagee: materiel.menagee,
+          forme: materiel.forme, peuDeTemps: materiel.peuDeTemps, silence: !!materiel.refus, ajoutees: materiel.ajoutees,
+          muscle: materiel.muscle, cran: materiel.pas, sol: !!materiel.sol, salle: materiel.salle || null,
+          referenceSource: refObj.source, referencePlan: refObj.plan
+        };
+        // La carte non sollicitée n'existe que pour un exercice que le coach suit (une consigne) ; la demande, un geste de la personne, calcule toujours.
+        if (consigne) proposerChauffes(sortie, Voix().capturer(function () { return M.propositionDeChauffes(entreeP); }), reference);
+        poserSurDemande(sortie, Voix().capturer(function () { return M.propositionDeChauffes(Object.assign({}, entreeP, { demande: true })); }), reference);
       }
     }
 
@@ -1453,7 +1489,7 @@
     return out;
   }
   // Le geste « Tenter … quand même » (`cran_tente`) de CET exercice, non suivi d'« Annuler » (`cran_tente_annule`) : UNE lecture, sur le modèle de
-  // `chauffesAutoDe`.
+  // `chauffesPoseesDe`.
   // 251 — un « Prendre X kg » accepté (`rate_prise`, bouton `prendre`) sur CET exercice : { iSerie, kg } du premier, ou `null`. Il ferme la porte.
   function priseDe(gestes, slug) {
     var g = (Array.isArray(gestes) ? gestes : []).filter(function (q) { return q && q.geste === 'rate_prise' && q.bouton === 'prendre' && q.slug === slug; })[0];
@@ -1510,12 +1546,17 @@
       var sans = chauffesEtDegressive(base.lignes, series, null, materiel || null);
       base.materiel = materiel ? materiel.equipement || null : null;
       base.salle = materiel ? materiel.salle || null : null;
-      base.chauffes = null;
+      // 15/11/2026 (§9.41 bis, règle 13, I189) — une occurrence que le coach ne suit pas n'a JAMAIS de carte non sollicitée ; la montée demandée,
+      // elle, se calcule sur la charge tapée (un geste de la personne). Les lignes de chauffe posées se remplissent sur la même référence.
+      base.chauffes = sans.chauffes;
       base.proposition = null;
+      base.surDemande = sans.surDemande;
+      base.chauffesReference = sans.reference;
       base.degressive = sans.degressive;
       if (sans.degressivesPlus) base.degressivesPlus = sans.degressivesPlus;
       preremplir(exo, base.lignes, null, null, precedent);
       base.phrases = [];
+      if (sans.chauffes && sans.chauffes.phrase) base.phrases.push({ ou: 'chauffes', texte: sans.chauffes.phrase, citations: sans.citations.chauffes || [] });
       if (sans.degressive && sans.degressive.phrase) {
         base.phrases.push({ ou: 'degressive', texte: sans.degressive.phrase, citations: sans.citations.degressive || [] });
       }
@@ -1856,6 +1897,8 @@
       // §10 bis (108) — la salle de l'exercice, ou `null` : I46 la relit.
       salle: materiel ? materiel.salle || null : (c.salle || null),
       chauffes: autour.chauffes, proposition: autour.proposition, degressive: autour.degressive,
+      // 15/11/2026 (§9.41 bis, I184, I185) — la référence unique des chauffes (`{ charge, source, plan }`) et la montée demandée (« + Chauffe »).
+      chauffesReference: autour.reference || null, surDemande: autour.surDemande || null,
       degressivesPlus: autour.degressivesPlus || null,
       // 193-1 — les séries de recul, ou `null` : I78 la relit.
       reculs: rec.reculs,
@@ -2561,7 +2604,7 @@
         x.semaineDeTest = semaineDeTestDExercice(jourDeTest, e, seance, exos, i, x,
           intentionX === 'entretien' || salleEl ? null : materielDe(exos, i, e.catalogue || null, c, e.refusChauffes || {}, ctxChauffes), intentionX, coachee, douloureuse);
         if (x.escalier && x.escalier.copie) x.escalier = null;
-        x.chauffesAuto = chauffesAutoDe(seance.gestes, slug, x);
+        x.chauffesPosees = chauffesPoseesDe(seance.gestes, slug, x);
         x.silenceChauffes = silenceChauffesDe(seance.gestes, slug, (e.catalogue && e.catalogue[slug] && e.catalogue[slug].nom) || null, x);
         // MOTEUR §14.6 (49-U16) — LA PLACE POUR UNE SÉRIE DE PLUS : de la place
         // sur CHACUN des muscles primaires de l'exercice (catalogue), lue dans
@@ -6168,7 +6211,9 @@
       'zone.haut': z ? { valeur: z.haut } : null,
       chauffe: { charge: undefined, valeurs: chauffes },
       'chauffe.reps': { valeurs: chauffesReps },
-      reference: x.chauffes ? { charge: x.chauffes.reference } : x.proposition && x.proposition.reference !== null ? { charge: x.proposition.reference } : null,
+      reference: x.chauffesReference ? { charge: x.chauffesReference.charge } : x.chauffes ? { charge: x.chauffes.reference } : x.proposition && x.proposition.reference !== null ? { charge: x.proposition.reference } : null,
+      // 15/11/2026 — « Le plan disait 90 kg » : la charge de la consigne, quand la montée est calée sur la saisie.
+      'reference.plan': x.chauffesReference && x.chauffesReference.plan !== null && x.chauffesReference.plan !== undefined ? { charge: x.chauffesReference.plan } : null,
       degressive: x.degressive ? (x.degressivesPlus
         ? { charge: undefined, valeurs: [x.degressive].concat(x.degressivesPlus).map(function (q) { return q.charge; }).filter(function (v) { return v !== null && v !== undefined; }) }
         : { charge: x.degressive.charge }) : null,
@@ -7934,17 +7979,44 @@
       }
       if (e.refusChauffes && e.refusChauffes[x.slug] === true && p) erreurs.push('I128' + nom + ' : une proposition de chauffes alors que la personne a dit « Non merci » (silence)');
       var gs = (e.seance && Array.isArray(e.seance.gestes)) ? e.seance.gestes : [];
-      var auto = gs.some(function (g) { return g && g.geste === 'chauffes_auto' && g.slug === x.slug; });
-      var annulee = gs.some(function (g) { return g && g.geste === 'chauffes_annulees' && g.slug === x.slug; });
+      // I190 (15/11/2026, étend I128) — des chauffes posées par le coach (ajout automatique, « Ajouter », « + Chauffe »), pas annulées depuis, dont une
+      // ligne reste à faire : le plan expose « Annuler » (`x.chauffesPosees`) ; et rien d'exposé sans pose (le dernier geste fait foi).
+      var poseeDe = null;
+      gs.forEach(function (g) {
+        if (!g || g.slug !== x.slug) return;
+        if (g.geste === 'chauffes_auto') poseeDe = 'auto';
+        else if (g.geste === 'chauffes_ajoutees') poseeDe = 'posee';
+        else if (g.geste === 'chauffes_annulees') poseeDe = null;
+      });
       var enAttente = (x.lignes || []).some(function (l) { return l.type === 'echauffement' && !l.validee; });
-      if (auto && !annulee && enAttente && !x.chauffesAuto) erreurs.push('I128' + nom + ' : des chauffes ajoutées d\u2019elles-mêmes sans geste « Annuler »');
+      if (poseeDe && enAttente && !x.chauffesPosees) erreurs.push('I190' + nom + ' : des chauffes posées par le coach sans geste « Annuler »');
+      if (x.chauffesPosees && (!poseeDe || !enAttente)) erreurs.push('I190' + nom + ' : « Annuler » exposé sans chauffes posées à faire');
+      if (x.chauffesPosees && x.chauffesPosees.annuler !== 'Annuler') erreurs.push('I190' + nom + ' : le geste des chauffes posées n\u2019est pas « Annuler »');
+      // I184 (15/11/2026) — une seule référence : la proposition, la demande et les chauffes posées disent celle du plan.
+      var refUnique = x.chauffesReference ? x.chauffesReference.charge : null;
+      [['la proposition', x.proposition], ['la demande', x.surDemande], ['les chauffes', x.chauffes]].forEach(function (q) {
+        if (q[1] && q[1].reference !== null && q[1].reference !== undefined && refUnique !== q[1].reference) {
+          erreurs.push('I184' + nom + ' : ' + q[0] + ' est calée sur ' + q[1].reference + ' kg, la référence des chauffes est ' + refUnique + ' kg');
+        }
+      });
+      // I185 — la montée demandée est celle de la proposition (la même table), jamais écrite dans une série.
+      if (x.surDemande && x.proposition && JSON.stringify(x.surDemande.lignes) !== JSON.stringify(x.proposition.lignes)) {
+        erreurs.push('I185' + nom + ' : la montée demandée n\u2019est pas celle de la proposition');
+      }
+      // I188 — sans référence, aucune montée.
+      if (x.surDemande && (refUnique === null && x.surDemande.situation !== 'corps')) erreurs.push('I188' + nom + ' : une montée demandée sans charge de référence');
+      // I189 — une occurrence que le coach ne suit pas n'a jamais de carte non sollicitée.
+      if (x.proposition && !x.consigne) erreurs.push('I189' + nom + ' : une carte de chauffes sur une occurrence que le coach ne suit pas');
+      // I193 — Entretenir : rien (I13, I31).
+      if (x.intention === 'entretien' && (x.surDemande || x.chauffesReference)) erreurs.push('I193' + nom + ' : une montée demandée en Entretenir');
       // I130 (237-bis) — une mise en silence (geste `chauffes_silence`, non annulée, exercice pas commencé) sans sa phrase annoncée, ou avec une autre.
       var etatSilence = null;
       gs.forEach(function (g) {
         if (g && g.slug === x.slug && g.geste === 'chauffes_silence') etatSilence = true;
         else if (g && g.slug === x.slug && g.geste === 'chauffes_silence_annule') etatSilence = false;
       });
-      var commence = (x.lignes || []).some(function (l) { return l.validee; });
+      // I130 complété (15/11/2026) : une ligne de chauffe posée retire la phrase du silence.
+      var commence = (x.lignes || []).some(function (l) { return l.validee || l.type === 'echauffement'; });
       if (etatSilence === true && !commence) {
         var attendue = M.phraseDuSilenceDesChauffes(fiche && fiche.nom ? fiche.nom : null);
         if (!x.silenceChauffes || x.silenceChauffes.texte !== attendue) erreurs.push('I130' + nom + ' : une mise en silence des chauffes sans sa phrase annoncée');

@@ -3658,16 +3658,18 @@
         // « Non merci » d'un toucher (elle était repliée en « Chauffe · N séries › » depuis 200-5 : on ne voyait ni qui parlait ni quoi).
         if (pc) hoteCartes.appendChild(propositionDeChauffes(pc, s._iExo, vue));
         // 237 (MOTEUR §9.41) — les chauffes ajoutées d'elles-mêmes : une ligne du plan, un seul geste, « Annuler ».
-        var pca = typeof vue.chauffesAuto === 'function' ? vue.chauffesAuto(s._iExo) : null;
+        // 15/11/2026 (§9.41 bis, règle 11) — la même ligne pour les trois sources (ajout automatique, « Ajouter », « + Chauffe ») ; « Annuler » est un
+        // bouton SECONDAIRE (contour) : ce n'est pas l'action principale.
+        var pca = typeof vue.chauffesPosees === 'function' ? vue.chauffesPosees(s._iExo) : null;
         if (pca) hoteCartes.appendChild(propositionDExercice({
-          classe: 'proposition-chauffes chauffes-auto', texte: pca.texte,
-          gestes: [{ texte: pca.annuler, classe: 'pc-annuler-auto', surClic: function () { vue.surAnnulerChauffesAuto(s._iExo); } }]
+          classe: 'proposition-chauffes chauffes-auto' + (pca.origine === 'posee' ? ' chauffes-posees' : ''), texte: pca.texte,
+          gestes: [{ texte: pca.annuler, classe: 'pc-annuler-auto', secondaire: true, surClic: function () { vue.surAnnulerChauffesPosees(s._iExo); } }]
         }, s._iExo));
         // 237-bis (MOTEUR §9.41) — le silence annoncé : la phrase du moteur, « Annuler » (retire ce dernier refus).
         var psl = typeof vue.silenceChauffes === 'function' ? vue.silenceChauffes(s._iExo) : null;
         if (psl) hoteCartes.appendChild(propositionDExercice({
           classe: 'proposition-chauffes chauffes-silence', texte: psl.texte,
-          gestes: [{ texte: psl.annuler, classe: 'pc-annuler-silence', surClic: function () { vue.surAnnulerSilenceChauffes(s._iExo); } }]
+          gestes: [{ texte: psl.annuler, classe: 'pc-annuler-silence', secondaire: true, surClic: function () { vue.surAnnulerSilenceChauffes(s._iExo); } }]
         }, s._iExo));
         // 193-6 (MOTEUR §9.30) — « Dernière série au max ? » : une fois par exercice, du plan ; trois gestes.
         var pa = typeof vue.propositionAuMax === 'function' ? vue.propositionAuMax(s._iExo) : null;
@@ -4642,7 +4644,8 @@
     if (p.gestes) {
       gestes.classList.add('pc-choix');
       p.gestes.forEach(function (g, k) {
-        var b = el('button', (k === 0 ? 'pc-ajouter' : 'pc-refuser') + (g.classe ? ' ' + g.classe : ''), g.texte);
+        // `secondaire` : un geste qui défait (« Annuler ») n'est jamais le bouton plein de la carte.
+        var b = el('button', (k === 0 && g.secondaire !== true ? 'pc-ajouter' : 'pc-refuser') + (g.classe ? ' ' + g.classe : ''), g.texte);
         b.type = 'button';
         b.addEventListener('click', function () { g.surClic(); });
         gestes.appendChild(b);

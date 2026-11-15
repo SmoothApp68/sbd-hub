@@ -131,7 +131,7 @@ prédisent pas, et le §7.3 du moteur dit déjà qu'elles ne votent pas pour le
 palier. Les suggérer serait inventer. *(Précisé le 22/10/2026, audit du 16/10, E19 : cela vaut pour les **charges
 suggérées** sur une série d'échauffement que la personne a écrite. Depuis le chantier 49, le coach **propose** des
 chauffes quand aucune n'est prévue, et les rampes ont leur règle : MOTEUR §9.15.1 et §9.15.2 ; une chauffe ajoutée par
-l'utilisateur : §9.15.5.)*
+l'utilisateur : §9.15.5. Depuis le 15/11/2026, leur charge de référence est la première charge saisie de la première ligne de travail, sinon la consigne : §9.15, §9.41 bis.)*
 
 **Exception, la série test — 19/09/2026.** Quand le moteur propose ou garde un
 test (MOTEUR §9.7), la dernière série reçoit la consigne du test dans le fantôme.
@@ -3855,7 +3855,9 @@ But : saisir une série d'un pouce, la tête ailleurs, sans chercher. Rien de ce
 
 ### Les chauffes proposées par le coach — 237 (MOTEUR §9.41)
 
-Sous l'exercice, une ligne repliée « Chauffe · N séries › » ; ouverte, elle dit les charges (« 60 kg × 5 »), le Pourquoi en détail, « Ajouter » et « Non merci ». Quand la personne a ajouté ses chauffes deux séances de suite, elles sont posées d'elles-mêmes à l'ouverture de la séance et une ligne dit « Chauffe ajoutée, comme d'habitude. » avec un seul geste, « Annuler » (44 px) ; « Annuler » retire les chauffes non faites. 237-bis : au 2ᵉ « Non merci » (ou « Annuler » ci-dessus), une ligne du même composant dit une fois « D'accord, je ne te les propose plus sur <exercice> pendant 4 semaines. » avec « Annuler » (44 px), qui retire ce refus ; elle part dès qu'une série de l'exercice est faite. L'écran ne calcule rien : il lit `x.proposition`, `x.chauffesAuto` et `x.silenceChauffes` du plan.
+Sous l'exercice, une ligne repliée « Chauffe · N séries › » ; ouverte, elle dit les charges (« 60 kg × 5 »), le Pourquoi en détail, « Ajouter » et « Non merci ». Quand la personne a ajouté ses chauffes deux séances de suite, elles sont posées d'elles-mêmes à l'ouverture de la séance et une ligne dit « Chauffe ajoutée, comme d'habitude. » avec un seul geste, « Annuler » (44 px) ; « Annuler » retire les chauffes non faites. 237-bis : au 2ᵉ « Non merci » (ou « Annuler » ci-dessus), une ligne du même composant dit une fois « D'accord, je ne te les propose plus sur <exercice> pendant 4 semaines. » avec « Annuler » (44 px), qui retire ce refus ; elle part dès qu'une série de l'exercice est faite. L'écran ne calcule rien : il lit `x.proposition`, `x.chauffesPosees` (ex-`x.chauffesAuto`) et `x.silenceChauffes` du plan.
+
+**15/11/2026 — « + Chauffe » depuis la charge tapée (MOTEUR §9.41 bis, I184 à I193).** La référence des chauffes est la **première charge saisie de la première ligne de travail** ; le plan et l'historique ne servent que de repli. Quand elle existe, qu'aucune ligne de chauffe n'est posée et que rien n'est validé, **« + Chauffe » pose toute la montée d'un coup** (barre, 100 kg tapés : 50 × 8 · 80 × 3), par le même geste qu'« Ajouter » : lignes typées échauffement, reps visées, charge vide, la charge s'affiche en gris (le fantôme du plan). Sinon, comme avant : une ligne de plus (§9.15.7), ou une ligne vide sans référence. La demande ne passe pas par « Non merci » (ni silence ni compteur). **« Annuler »** s'affiche sous l'exercice pour **les trois sources** — ajout automatique, « Ajouter », « + Chauffe » — dans la ligne du plan (« Chauffe ajoutée, comme d'habitude. » / « Montée posée sur ta 1re série : 100 kg. »), en bouton **secondaire** (contour, jamais le bouton plein ambre : ce n'est pas l'action principale). La carte non répondue et les lignes posées se recalent à chaque nouvelle charge tapée (au redessin, jamais à chaque frappe : aucun clignotement) ; une chauffe faite reste figée (§9.15.7). Une occurrence que le coach ne suit pas n'a jamais de carte ; la demande y calcule. En Entretenir, rien ne change : une ligne vide.
 
 ---
 

@@ -104,6 +104,19 @@ Forme unique : **Ta note dit « <extrait> » → je propose : <proposition>.** T
 
 Une réserve de 0 se dit « sans marge », jamais « 0 en réserve ». Les phrases sont balayées par `tests/unit/v2-notes-ia.test.js` avec les motifs de `fixtures/voix-regles-181.json`.
 
+## Les chauffes depuis ta charge (15/11/2026, MOTEUR §9.41 bis)
+
+Lexique fermé (tutoiement, un fait, aucun « bravo », aucun jugement) ; chaque nombre passe par le formateur (I26) :
+
+| Où | Phrase | Bouton |
+|---|---|---|
+| Après « + Chauffe » ou « Ajouter » (référence saisie) | Montée posée sur ta 1re série : 100 kg. | *Annuler* (secondaire) |
+| Idem, référence du plan | Montée posée sur ta charge de travail : 90 kg. | *Annuler* (secondaire) |
+| Ajout automatique (inchangé) | Chauffe ajoutée, comme d'habitude. | *Annuler* (secondaire) |
+| Pourquoi de la carte, saisie ≠ plan | Calée sur ta 1re série, 100 kg. Le plan disait 90 kg. | — |
+
+« Montée » est le mot de la ligne posée, « chauffe » celui du geste : les deux existent déjà dans l'app (« + Chauffe », « Chauffe : 50 kg × 8 · 80 kg × 3 »). Jamais « libre », « perf » ni « bravo » dans une phrase du coach. *Notée pour plus tard, non livrée en PR 1 :* « Tape la charge de ta 1re série : la montée se cale dessus. » (la ligne vide sans référence).
+
 ## Ce qui reste à faire
 
 *Réécrit au présent le 05/11/2026 (243) : la refonte du plan unique est faite.* La garde `tests/unit/v2-voix.test.js` (règles de

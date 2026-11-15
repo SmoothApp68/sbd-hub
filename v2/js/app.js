@@ -8055,6 +8055,22 @@
   }
   function accepterChauffes(slug) { ecrireRefusChauffes(Plan.accepterChauffes(lireRefusChauffes(), slug)); }
 
+  // 15/11/2026 (MOTEUR §9.41 bis, règles 9 et 10) — « Ajouter » (la carte du coach, `x.proposition`) et « + Chauffe » (la demande, `x.surDemande`) :
+  // UN SEUL CHEMIN, un paramètre. Le geste `chauffes_ajoutees` est noté (le fait que `faits.chauffesAjoutees` relit : aucun mot de plus), les lignes
+  // sont insérées typées échauffement avec leurs reps visées et leur charge VIDE (le plan les remplit en fantôme). « Ajouter » est une réponse à la
+  // carte (la mémoire des « Non merci » repart de zéro) ; la demande n'est ni un refus ni une acceptation : elle ne touche pas cette mémoire (I187).
+  // Rend `true` si des lignes ont été posées.
+  async function poserLesChauffes(i, demande) {
+    var x = planDeLExercice(i);
+    var carte = x ? (demande ? x.surDemande : x.proposition) : null;
+    if (!carte) return false;
+    if (!demande) accepterChauffes(x.slug);
+    seance = Seance.noterGeste(seance, { geste: 'chauffes_ajoutees', slug: x.slug });
+    seance = Seance.insererChauffes(seance, i, carte.lignes, uuid);
+    await apresGeste({ structure: false });
+    return true;
+  }
+
   // X3 (253, MOTEUR §9.40) — LA RÉPONSE DE LA VEILLE VAUT POUR LA JOURNÉE. Une séance abandonnée est supprimée (ses gestes avec elle) : la réponse du
   // jour vit SUR L'APPAREIL, `localStorage`, clé `th-v2-veille-du-jour`, `{ jour, choix, heure }` (aucune colonne ; un autre appareil repart de zéro,
   // assumé). La règle (un jour, un choix) vit dans `THPlan` (`veilleDuJour`, `noterVeilleDuJour`) ; ici, seulement la lecture et l'écriture.
@@ -10969,10 +10985,14 @@
         await apresGeste({ structure: false });
       },
       // 265 (MOTEUR §9.15.5 et §9.15.7) — « + Chauffe » : UNE ligne de chauffe, avant la première série de travail, sans charge ni reps
-      // écrites — le coach la charge par le plan (fantôme), comme toute chauffe posée ; la saisie de la personne fait foi. Pas de geste :
-      // la ligne typée échauffement EST le fait que `faits.chauffesAjoutees` relit (§9.41, règle 6).
+      // écrites — le coach la charge par le plan (fantôme), comme toute chauffe posée ; la saisie de la personne fait foi.
+      // 15/11/2026 (MOTEUR §9.41 bis, règle 9) — QUAND LE PLAN A UNE MONTÉE À OFFRIR (`x.surDemande` : une référence — la charge tapée sur la
+      // 1re ligne de travail, sinon la consigne —, aucune ligne de chauffe, rien de validé), « + Chauffe » pose TOUTE la montée, par le MÊME
+      // chemin qu'« Ajouter » (`poserLesChauffes`, paramètre `demande`). Sinon, comme avant : une ligne vide, aucun geste (la ligne typée
+      // échauffement EST le fait que `faits.chauffesAjoutees` relit, §9.41, règle 6).
       surAjoutChauffe: async function (i) {
         if (!seance || !seance.exercices[i]) return;
+        if (!enEdition() && await poserLesChauffes(i, true)) return;
         seance = Seance.insererChauffes(seance, i, [[null, null]], uuid);
         await apresGeste({ structure: false });
       },
@@ -10982,28 +11002,23 @@
         var x = planDeLExercice(i);
         return x && x.proposition ? x.proposition : null;
       },
-      surAjouterChauffes: async function (i) {
-        var x = planDeLExercice(i);
-        if (!x || !x.proposition) return;
-        accepterChauffes(x.slug);
-        // 237 — le geste est le FAIT que `faits.chauffesAjoutees` relira (2 séances d'affilée : l'ajout devient automatique).
-        seance = Seance.noterGeste(seance, { geste: 'chauffes_ajoutees', slug: x.slug });
-        seance = Seance.insererChauffes(seance, i, x.proposition.lignes, uuid);
-        await apresGeste({ structure: false });
-      },
-      // 237 (MOTEUR §9.41) — « Annuler » l'ajout automatique : les chauffes non faites partent, le geste est noté, et l'annulation compte
-      // comme un « Non merci » (deux, d'affilée : silence 4 semaines). Une série validée n'est jamais touchée.
-      chauffesAuto: function (i) {
+      surAjouterChauffes: async function (i) { await poserLesChauffes(i, false); },
+      // 237 (MOTEUR §9.41) — « Annuler » : les chauffes non faites partent, le geste est noté. 15/11/2026 (§9.41 bis, règle 11) : pour les TROIS
+      // sources (ajout automatique, « Ajouter », « + Chauffe ») — le plan expose `x.chauffesPosees` ; seule l'origine `auto` compte comme un
+      // « Non merci » (deux, d'affilée : silence 4 semaines) ; une montée posée par la personne n'est jamais un refus (I187). Une série validée
+      // n'est jamais touchée.
+      chauffesPosees: function (i) {
         if (enEdition()) return null;
         var x = planDeLExercice(i);
-        return x && x.chauffesAuto ? x.chauffesAuto : null;
+        return x && x.chauffesPosees ? x.chauffesPosees : null;
       },
-      surAnnulerChauffesAuto: async function (i) {
+      surAnnulerChauffesPosees: async function (i) {
         var x = planDeLExercice(i);
-        if (!x || !x.chauffesAuto) return;
+        if (!x || !x.chauffesPosees) return;
+        var origine = x.chauffesPosees.origine;
         seance = Seance.retirerChauffesNonFaites(seance, i);
         seance = Seance.noterGeste(seance, { geste: 'chauffes_annulees', slug: x.slug });
-        refuserChauffesEtDire(x.slug);
+        if (origine === 'auto') refuserChauffesEtDire(x.slug);
         await apresGeste();
       },
       // 194-1 (MOTEUR §9.31) — le bloc de mobilité, lu sur le plan : « avant » et « fin ». « Ajouter » écrit les exercices (séries vides) ;

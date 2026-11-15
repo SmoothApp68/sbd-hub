@@ -242,13 +242,13 @@ describe('le plan — proposition, ajout automatique, « Annuler », silence', (
     se = S.insererChauffes(se, 0, plan(seanceDe()).x.proposition.lignes, (() => { let k = 0; return () => 'c' + (++k); })());
     const r = plan(se);
     expect(r0).toBeDefined();
-    expect(r.x.chauffesAuto).toEqual(expect.objectContaining({ slug: 'squat_barre', annuler: 'Annuler' }));
+    expect(r.x.chauffesPosees).toEqual(expect.objectContaining({ origine: 'auto', slug: 'squat_barre', annuler: 'Annuler' }));
     expect(r.erreurs).toEqual([]);
     // Annuler : les chauffes non faites partent, le geste est noté, le plan ne montre plus rien.
     se = S.retirerChauffesNonFaites(se, 0);
     se = S.noterGeste(se, { geste: 'chauffes_annulees', slug: 'squat_barre' });
     const r2 = plan(se);
-    expect(r2.x.chauffesAuto).toBeNull();
+    expect(r2.x.chauffesPosees).toBeNull();
     expect(se.exercices[0].series.every((q) => S.typeDe(q) === 'travail')).toBe(true);
   });
   test('« Annuler » ne touche jamais une série validée', () => {

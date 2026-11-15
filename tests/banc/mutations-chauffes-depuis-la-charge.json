@@ -1,0 +1,46 @@
+[
+ {
+  "nom": "cdc-1-reference-ignore-la-saisie",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "    if (saisie !== null && saisie > 0) return { charge: saisie, source: 'saisie', plan: planOk };\n",
+  "nouveau": "",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-chauffes-depuis-la-charge.test.js"
+  ]
+ },
+ {
+  "nom": "cdc-2-la-demande-compte-un-refus",
+  "fichier": "v2/js/app.js",
+  "ancien": "    if (!demande) accepterChauffes(x.slug);\n",
+  "nouveau": "    if (demande) refuserChauffes(x.slug); else accepterChauffes(x.slug);\n",
+  "banc": "seance",
+  "unitaires": [
+   "tests/unit/v2-chauffes-depuis-la-charge.test.js"
+  ],
+  "sections": [
+   "chauffes-237"
+  ]
+ },
+ {
+  "nom": "cdc-3-la-demande-respecte-le-silence",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "    if (e.silence === true && !demande) return rien;",
+  "nouveau": "    if (e.silence === true) return rien;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-chauffes-depuis-la-charge.test.js"
+  ]
+ },
+ {
+  "nom": "cdc-4-temoin-libelle",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "    else if (q.raison === 'demande') pourquoi = 'Tu as demandé une chauffe.';",
+  "nouveau": "    else if (q.raison === 'demande') pourquoi = 'Tu as demandé une chauffe, voilà.';",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-chauffes-depuis-la-charge.test.js"
+  ],
+  "attendu": "survit"
+ }
+]

@@ -111,6 +111,8 @@ const GARDEES = [
   { fn: 'situationChauffe', module: 'moteur.js' },
   { fn: 'chauffesDe', module: 'moteur.js' },
   { fn: 'propositionDeChauffes', module: 'moteur.js' },
+  // 15/11/2026 (§9.41 bis, I184) — la référence des chauffes : la saisie d'abord, la consigne en repli ; seul `planDeSeance` l'appelle.
+  { fn: 'referenceDesChauffes', module: 'moteur.js' },
   { fn: 'degressiveDe', module: 'moteur.js' },
   // moteur.js — les séries de recul (193-1, §9.28)
   { fn: 'reculDe', module: 'moteur.js' },
@@ -2232,6 +2234,11 @@ const NOTIONS = [
   { notion: 'les dates de la fenêtre de la personne (les 84 jours qui finissent à sa dernière séance)', pr: 'correctif 14/11/2026',
     module: 'faits.js', fonction: 'datesDeLaFenetre', lecteurs: ['app.js'],
     raison: 'MAQUETTE-PR6 Q1-Q6 : « tes 12 dernières semaines » devient « du 19 juil. au 10 oct. » ; l’écran nomme la fenêtre de `Routines.fenetreDeLaPersonne`, il ne la recalcule pas.' },
+  { notion: 'la charge de référence des chauffes (la 1re charge saisie de la 1re ligne de travail, sinon la consigne figée)', pr: 'correctif 15/11/2026',
+    module: 'moteur.js', fonction: 'referenceDesChauffes', lecteurs: ['plan.js'],
+    parAilleurs: { 'plan.js': ['chauffesEtDegressive'] },
+    raison: 'MOTEUR §9.41 bis (I184) : la séance en cours fait foi — la carte, la demande « + Chauffe » et les lignes posées se calent sur la même ' +
+      'charge ; une copie dans un écran ferait dire deux charges à deux endroits.' },
   { notion: 'les mots de la dernière série « Au max » (titre, bouton, étiquette ; « en gardant 2 reps » pour un 65 ans et plus connu)', pr: 'correctif 12/11/2026',
     module: 'moteur.js', fonction: 'motsDeLAuMax', lecteurs: ['plan.js', 'app.js'],
     raison: 'le plan pose `x.auMaxMots` et le titre de la carte ; l’éditeur de routine, sans plan, lit la même fonction : aucun « Au max » à un 65+ connu, dans aucun écran.' },

@@ -16,14 +16,18 @@ const MAINT = J(2026, 10, 15);
 const P = (d, valeur, extra) => Object.assign({ debut: d.toISOString(), valeur, charge: null, reps: null, record: false, mode: 'projection', gris: false }, extra || {});
 const texte = (e) => (e ? e.textContent.replace(/ /g, ' ') : null);
 
-function page(points, extra, mesures) {
+// `force` : la force de la FICHE (`recordsDeLExercice().force`), que la tête de la courbe lit (§9.51 bis) ; par défaut le sommet des pleins.
+function page(points, extra, mesures, forceDonnee) {
+  const pl = points.filter((p) => !p.gris);
+  const sommet = pl.reduce((a, p) => (!a || p.valeur > a.valeur ? p : a), null);
+  const force = forceDonnee !== undefined ? forceDonnee : (sommet ? { valeur: sommet.valeur, charge: sommet.charge, reps: sommet.reps, date: sommet.debut, mode: sommet.mode } : null);
   const cible = document.createElement('div');
   const fenetre = Courbe.dansLaPeriode(points, 'tout', MAINT);
   const mv = mesures || [];
   const vue = Object.assign({
     nom: 'Presse', mesure: 'charge_reps', onglet: 'resume', historique: [],
     courbe: { nom: 'Presse', genre: 'charge', geo: Courbe.geometrie(fenetre, null, 'charge', mv), resume: Courbe.resume(fenetre),
-      picAncien: Courbe.picAncien(fenetre), fenetre: window.THModele.phraseDeFenetre('machine', true), periode: 'tout', aujourdhui: '2026-11-15',
+      force: force || null, trajet: Courbe.trajet(fenetre, 'charge', MAINT), picAncien: Courbe.picAncien(fenetre, force || null, MAINT), fenetre: window.THModele.phraseDeFenetre('machine', true), periode: 'tout', aujourdhui: '2026-11-15',
       periodeLongue: 'tout l’historique', periodes: Courbe.PERIODES, surPeriode: () => {} },
     volume: {}, table: []
   }, extra || {});
@@ -42,8 +46,8 @@ describe('la courbe : fenêtre, pic ancien, point creux', () => {
     expect(texte(c.querySelector('.courbe-fen'))).toBe('Machine : 12 derniers mois.');
     expect(texte(c.querySelector('.courbe-pic'))).toMatch(/^Pic ancien 233 kg, le 18 sept\. 2025, hors fenêtre\.$/);
     expect(texte(c.querySelector('.courbe-carte'))).not.toMatch(/il y a/i);
-    expect(texte(c.querySelector('.courbe-sous'))).toBe('max estimé');          // aucun « +12 kg du … au … »
-    expect(texte(c.querySelector('.courbe-val'))).toBe('187 kg');                // le dernier point PLEIN
+    expect(texte(c.querySelector('.courbe-sous'))).toBe('force estimée · d’après 160 kg × 5, le 29 sept.');   // le sommet des pleins, la force de la fiche
+    expect(texte(c.querySelector('.courbe-val'))).toBe('≈ 187 kg');
   });
   test('deux points creux, trois pleins ; le trait ne lit que les pleins ; la note dit « creux »', () => {
     expect(c.querySelectorAll('circle.courbe-gris')).toHaveLength(2);
@@ -56,7 +60,7 @@ describe('la courbe : fenêtre, pic ancien, point creux', () => {
     const d = page(HISTOIRE.slice(2));
     expect(d.querySelector('.courbe-pic')).toBeNull();
     expect(d.querySelector('.courbe-note .creux')).toBeNull();
-    expect(texte(d.querySelector('.courbe-sous'))).toMatch(/^max estimé · \+12 kg du /);
+    expect(texte(d.querySelector('.courbe-trajet'))).toMatch(/^175 → 187 kg, du /);
   });
   test('seuls des points creux dans la vue : « Aucune séance sur cette période. » et le pic, seul', () => {
     const d = page(HISTOIRE.slice(0, 2));
@@ -67,7 +71,7 @@ describe('la courbe : fenêtre, pic ancien, point creux', () => {
     const d = page(HISTOIRE.map((p, i) => i === 0 ? Object.assign({}, p, { record: true }) : p));
     expect(d.querySelectorAll('.courbe-rec')).toHaveLength(0);
     d.querySelectorAll('.courbe-cible')[0].dispatchEvent(new window.Event('click'));
-    expect(texte(d.querySelector('.courbe-bulle'))).toBe('Le 18 sept. 2025 · 200 kg × 5 · max estimé 233 kg');
+    expect(texte(d.querySelector('.courbe-bulle'))).toBe('Le 18 sept. 2025 · 200 kg × 5 · force estimée 233 kg');
   });
 });
 
@@ -75,6 +79,7 @@ describe('la courbe : plancher et max mesuré', () => {
   test('la tête dit « au moins 150 kg » quand le dernier point plein est un plancher (la charge nue, au dixième)', () => {
     const d = page([P(J(2026, 9, 6), 140, { charge: 120, reps: 5 }), P(J(2026, 10, 3), 152.5, { mode: 'plancher', charge: 152.5, reps: 1 })]);
     expect(texte(d.querySelector('.courbe-val'))).toBe('au moins 152,5 kg');
+    expect(d.querySelector('.courbe-trajet')).toBeNull();                            // une borne basse ne se soustrait pas d'une projection
     d.querySelectorAll('.courbe-cible')[1].dispatchEvent(new window.Event('click'));
     expect(texte(d.querySelector('.courbe-bulle'))).toBe('Le 3 nov. · 152,5 kg × 1 · au moins 152,5 kg');
   });
@@ -84,7 +89,7 @@ describe('la courbe : plancher et max mesuré', () => {
     const d = page(pts, null, [mesure]);
     expect(d.querySelectorAll('polygon.courbe-mesure')).toHaveLength(1);
     expect(d.querySelector('polyline.courbe-trait').getAttribute('points').split(' ')).toHaveLength(2);
-    expect(texte(d.querySelector('.courbe-val'))).toBe('142 kg');
+    expect(texte(d.querySelector('.courbe-val'))).toBe('≈ 142 kg');
     const cibles = d.querySelectorAll('.courbe-cible');
     expect(cibles).toHaveLength(3);
     cibles[2].dispatchEvent(new window.Event('click'));

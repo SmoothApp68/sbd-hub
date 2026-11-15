@@ -214,7 +214,7 @@ function corpusDe(slug) {
     series: series.map(([c, r]) => S(slug, c, r, slug === 'curl_elastique' ? { elastique: 'rouge' } : {})) })));
 }
 
-describe('I174-I175 — la parité de la courbe et de la fiche, par période', () => {
+describe('I174-I175 — la parité de la courbe et de la fiche, par période (le sommet des points ; la TÊTE est I179)', () => {
   const PERIODES = ['3m', '6m', '1a', 'tout'];
   Object.keys(HISTOIRES).forEach((slug) => {
     PERIODES.forEach((cle) => {
@@ -231,6 +231,10 @@ describe('I174-I175 — la parité de la courbe et de la fiche, par période', (
         const f = fiche(slug, seancesDeLaVue);
         if (sommet === null) expect(f.force).toBeNull();
         else expect(f.force.valeur).toBeCloseTo(sommet, 9);
+        // I174 adapté (§9.51 bis) : le sommet d'une vue est le meilleur de CETTE vue ; il ne dépasse jamais la force de la fiche entière
+        // (le chiffre de TÊTE, lui, est la force de la fiche — I179, `v2-un-seul-chiffre-de-force.test.js`).
+        const entiere = fiche(slug, seancesDuSlug(c, slug));
+        if (sommet !== null) expect(sommet).toBeLessThanOrEqual(entiere.force.valeur + 1e-9);
       });
     });
   });
@@ -377,14 +381,15 @@ describe('I175-I177 — THCourbe : les points gris, le pic ancien, le max mesur�
     expect(Courbe.resume([P('2025-09-18', 233, { gris: true })])).toBeNull();
   });
 
-  test('picAncien : le plus haut point gris, seulement s\'il dépasse le dernier point plein ; jamais sans point gris', () => {
-    expect(Courbe.picAncien(vue)).toEqual({ valeur: 233.3, debut: vue[0].debut });
-    expect(Courbe.picAncien(vue.slice(2))).toBeNull();
-    // Un gris plus bas (ou égal à l'affichage) que le dernier plein : aucune phrase.
-    expect(Courbe.picAncien([P('2025-09-18', 150, { gris: true }), P('2026-10-29', 186.7)])).toBeNull();
-    expect(Courbe.picAncien([P('2025-09-18', 187.2, { gris: true }), P('2026-10-29', 186.7)])).toBeNull();
-    // Aucun point plein dans la vue : le pic est dit seul.
-    expect(Courbe.picAncien([P('2025-09-18', 233.3, { gris: true })])).toEqual({ valeur: 233.3, debut: vue[0].debut });
+  test('picAncien : le plus haut point gris, seulement s\'il dépasse la FORCE affichée (I182, §9.51 bis) ; jamais sans point gris', () => {
+    const force = { valeur: 186.7, charge: 160, reps: 5, date: vue[4].debut, mode: 'projection' };
+    expect(Courbe.picAncien(vue, force, MAINT)).toMatchObject({ valeur: 233.3, debut: vue[0].debut, mode: 'projection' });
+    expect(Courbe.picAncien(vue.slice(2), force, MAINT)).toBeNull();
+    // Un gris plus bas (ou égal à l'affichage) que la force : aucune phrase.
+    expect(Courbe.picAncien([P('2025-09-18', 150, { gris: true }), P('2026-10-29', 186.7)], force, MAINT)).toBeNull();
+    expect(Courbe.picAncien([P('2025-09-18', 187.2, { gris: true }), P('2026-10-29', 186.7)], force, MAINT)).toBeNull();
+    // Aucune force à comparer (aucun point plein dans la vue) : le pic est dit seul.
+    expect(Courbe.picAncien([P('2025-09-18', 233.3, { gris: true })], null, MAINT)).toMatchObject({ valeur: 233.3, debut: vue[0].debut });
   });
 
   test('geometrie : le trait ne lit que les pleins, l\'échelle contient les gris, un gris ne porte pas le record', () => {

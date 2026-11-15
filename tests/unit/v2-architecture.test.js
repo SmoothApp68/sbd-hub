@@ -1085,6 +1085,34 @@ const NOTIONS = [
       'jugent une série d’un max par UNE fonction, en trois étages (l’exercice : charge × reps, ni lest ni aide ni poids du corps ; la ' +
       'série : du travail, une charge, pas un élastique nommé ; les reps : 1 ou 2 = plancher, 3 à 10 = Epley). Trois définitions ' +
       'éparses (`estimable1RM`, `UN_RM_REPS_*`, `POINTS_REPS_MAX`) disaient trois max.' },
+  { notion: 'le chiffre de force affiché (la force de la fiche : « ≈ 93 kg », « au moins 150 kg », « Max mesuré » ; le mot, l’arrondi, la série d’où il vient)', pr: 'correctif 15/11/2026',
+    module: 'modele.js', fonction: 'libelleDeForce', lecteurs: ['rendu.js', 'app.js', 'courbe.js'],
+    parAilleurs: { 'rendu.js': ['rendreTeteRecords', 'rendreCourbeExo'], 'courbe.js': ['trajet', 'picAncien'] },
+    interditAilleurs: {
+      motif: /(['"`])(?:Force estimée|Max mesuré|au moins) ?\1|Force estimée par séance/,
+      raison: 'le chiffre de force se dit par `Modele.libelleDeForce` (I180, §9.51 bis) : ses mots (« Force estimée », « Max mesuré », « au moins », ' +
+        '« Force estimée par séance ») ne s’écrivent qu’à `MOTS_DE_FORCE` (modele.js) — un mot recopié ailleurs est un neuvième site qui dérivera'
+    },
+    raison: 'MOTEUR §9.51 bis (« Un seul chiffre de force », 15/11/2026, I180) : la fiche, la tête de la courbe, la bulle d’un point, l’aria-label, « Pic ancien » ' +
+      'et la carte de Progression écrivaient le même chiffre par huit chemins (dixième ici, entier là, avec ou sans « ≈ », « max » ou « force »). Un formateur, trois modes.' },
+  { notion: 'le mot du chiffre de force à l’écran : « force estimée », jamais « max estimé » (le coach garde le sien : sa phrase, son glossaire)', pr: 'correctif 15/11/2026',
+    module: 'modele.js', fonction: 'libelleDeForce', lecteurs: ['rendu.js', 'app.js', 'courbe.js'],
+    interditAilleurs: {
+      motif: /max estimé/i,
+      sauf: {
+        'moteur.js': 'MOTEUR §9.51 bis.2.7 : « Ton max estimé, 140 kg, vient de 120 kg × 5 » (la semaine de test) et le glossaire (`LEXIQUE.max_estime`) sont la voix du coach, ' +
+          'sur `unRM` — une autre valeur que la force affichée ; dette notée, non traitée dans cette PR',
+        'plan.js': 'les messages des invariants du coach (I90, I93, I125, I143) disent le max estimé que le coach lit (`unRM`) ; ce ne sont pas des écrans'
+      },
+      raison: 'I183 (§9.51 bis) : aucun écran n’écrit « max estimé » pour la force estimée (la courbe, sa bulle, son aria-label, la légende de Progression)'
+    },
+    raison: 'MOTEUR §9.51 bis (I183) : « force estimée » sur la fiche, « max estimé » sur la courbe et « Max estimé » sur Progression nommaient la même valeur de trois façons.' },
+  { notion: 'le trajet d’une courbe (premier et dernier point plein, ses deux dates ; jamais un plancher contre une projection)', pr: 'correctif 15/11/2026',
+    module: 'courbe.js', fonction: 'trajet', lecteurs: ['app.js'],
+    motif: /\.\s*trajet\s*\(/g,
+    parAilleurs: { 'app.js': ['sommaireExercices', 'rendreExercice'] },
+    raison: 'MOTEUR §9.51 bis (I181) : la page d’un exercice et « Tes exercices » de Progression disent le même trajet (« 87 → 92 kg ») par la même fonction, ' +
+      'écrit seulement entre deux projections (150 × 1 contre 140 donnait « −10 kg », une baisse qui n’existe pas).' },
   { notion: 'la valeur de fatigue d’une série (une CAPACITÉ de 1 à 12 reps, la réserve ajoutée aux reps : la baisse générale, pas un max estimé)', pr: 'correctif 15/11/2026',
     module: 'moteur.js', fonction: 'valeurDeFatigue', lecteurs: [],
     par: ['meilleuresDeFatigue'],

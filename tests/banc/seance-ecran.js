@@ -12783,24 +12783,42 @@ const SETS_IMPORTES = [
     // 206 — navigateur réel : toucher un point ouvre la bulle (date, meilleure série, max estimé) ; choisir « 3 mois » redessine la courbe.
     await page.evaluate(() => { const c = document.querySelectorAll('#page-exercice .courbe-cible'); if (c.length) c[c.length - 1].dispatchEvent(new MouseEvent('click', { bubbles: true })); });
     const bulleE = await page.evaluate(() => ((document.querySelector('#page-exercice .courbe-bulle') || {}).textContent || '').replace(/\s+/g, ' ').trim());
-    ok('[E] 206 — toucher un point de la courbe dit la date, la meilleure série et le max estimé',
-      /^Le \d+ .+ \u00b7 .+ kg \u00d7 \d+ \u00b7 max estimé \d+/.test(bulleE), JSON.stringify(bulleE));
-    await page.evaluate(() => Array.from(document.querySelectorAll('#page-exercice .courbe-per-b')).filter((b) => /^3 mois$/.test(b.textContent))[0].click());
-    await page.waitForFunction(() => { const b = document.querySelector('#page-exercice .courbe-per-b.on'); return !!b && b.textContent === '3 mois'; }, null, { timeout: 5000 }).catch(() => {});
-    const perE = await page.evaluate(() => (document.querySelector('#page-exercice .courbe-per-b.on') || {}).textContent || null);
-    ok('[E] 206 — la période se choisit (3 mois), et la page garde sa courbe', perE === '3 mois' &&
-      (await page.evaluate(() => !!document.querySelector('#page-exercice .courbe-carte'))), JSON.stringify(perE));
+    ok('[E] 206 — toucher un point de la courbe dit la date, la meilleure série et la force estimée (I183 : jamais « max estimé »)',
+      /^Le \d+ .+ \u00b7 .+ kg \u00d7 \d+ \u00b7 (?:force estimée|au moins) \d+/.test(bulleE) && !/max estimé/i.test(bulleE), JSON.stringify(bulleE));
+    // « Un seul chiffre de force » (MOTEUR §9.51 bis, I179) — la TÊTE de la courbe est la force de la fiche, à CHAQUE période : le même texte
+    // que la ligne « Force estimée » (ou « Max mesuré ») de la page, jamais le dernier point ; masquée sans point plein dans la vue.
+    const teteEtFiche = () => page.evaluate(() => ({
+      tete: ((document.querySelector('#page-exercice .courbe-val') || {}).textContent || '').replace(/\s+/g, ' ').trim() || null,
+      fiche: ((document.querySelector('#page-exercice .exo-force .exo-li-v') || {}).textContent || '').replace(/\s+/g, ' ').trim() || null,
+      trajet: ((document.querySelector('#page-exercice .courbe-trajet') || {}).textContent || '').replace(/\s+/g, ' ').trim() || null,
+      sous: ((document.querySelector('#page-exercice .courbe-sous') || {}).textContent || '').replace(/\s+/g, ' ').trim() || null }));
+    for (const lib of ['3 mois', '6 mois', '1 an', 'Tout']) {
+      await page.evaluate((l) => Array.from(document.querySelectorAll('#page-exercice .courbe-per-b')).filter((b) => b.textContent === l)[0].click(), lib);
+      await page.waitForFunction((l) => { const b = document.querySelector('#page-exercice .courbe-per-b.on'); return !!b && b.textContent === l; }, lib, { timeout: 5000 }).catch(() => {});
+      const perE = await page.evaluate(() => (document.querySelector('#page-exercice .courbe-per-b.on') || {}).textContent || null);
+      ok('[E] 206 — la période se choisit (' + lib + '), et la page garde sa courbe', perE === lib &&
+        (await page.evaluate(() => !!document.querySelector('#page-exercice .courbe-carte'))), JSON.stringify(perE));
+      const tf = await teteEtFiche();
+      ok('[E] I179 — la tête de la courbe (' + lib + ') dit la force de la fiche, mot pour mot ; sans point plein dans la vue, aucune tête',
+        tf.fiche !== null && (tf.tete === null ? /^Aucune séance/.test(tf.sous || '') : tf.tete === tf.fiche) && !/max estimé/i.test(tf.sous || ''), JSON.stringify([lib, tf]));
+    }
+    await page.evaluate(() => Array.from(document.querySelectorAll('#page-exercice .courbe-per-b')).filter((b) => b.textContent === '6 mois')[0].click());
+    await page.waitForFunction(() => { const b = document.querySelector('#page-exercice .courbe-per-b.on'); return !!b && b.textContent === '6 mois'; }, null, { timeout: 5000 }).catch(() => {});
+    const trajetPage = (await teteEtFiche()).trajet;
     await aller('/progression');
     // Quel que soit l'état laissé par les sections d'avant, « Tes exercices » montre les plus faits sur 8 semaines : on prend la
-    // première ligne affichée, on l'ouvre, et sa page dit le même chiffre en fin de ligne (« 141 → 152 kg » → 152 kg).
+    // première ligne affichée, on l'ouvre, et sa page dit le MÊME TRAJET (I181 ; « 141 → 152 kg » : les deux bouts, sur 6 mois).
     const prog = await page.evaluate(() => { const l = document.querySelector('#sommaire .bloc-exo');
       return l ? ((l.querySelector('.bloc-exo-val') || {}).textContent || null) : null; });
     await page.evaluate(() => { const l = document.querySelector('#sommaire .bloc-exo'); if (l) l.click(); });
-    await page.waitForFunction(() => !!document.querySelector('#page-exercice .courbe-val'), null, { timeout: 5000 }).catch(() => {});
-    const valeurLigneE = await page.evaluate(() => ((document.querySelector('#page-exercice .courbe-val') || {}).textContent || '').replace(/\s+/g, ' ').trim());
-    const finProg = prog === null ? null : prog.replace(/\s+/g, ' ').trim().split(' \u2192 ').pop();
-    ok('[E] 206 — Progression dit le même chiffre que la courbe de la page (le max estimé)',
-      !!valeurLigneE && finProg !== null && finProg === valeurLigneE, JSON.stringify([prog, valeurLigneE]));
+    await page.waitForFunction(() => !!document.querySelector('#page-exercice .courbe-carte'), null, { timeout: 5000 }).catch(() => {});
+    await page.evaluate(() => Array.from(document.querySelectorAll('#page-exercice .courbe-per-b')).filter((b) => b.textContent === '6 mois')[0].click());
+    const trajetOuvert = (await teteEtFiche()).trajet;
+    const progT = prog === null ? null : prog.replace(/[\s\u00a0\u202f]+/g, ' ').trim();
+    const legendeE = await page.evaluate(() => ((document.querySelector('#sommaire .bloc-legende') || {}).textContent || ''));
+    ok('[E] I181 — Progression dit le même trajet que la page sur 6 mois (ses deux bouts), et seulement s\'il y en a un',
+      progT !== null && (trajetOuvert ? trajetOuvert.indexOf(progT) === 0 : progT.indexOf('\u2192') < 0) && !/max estimé/i.test(legendeE),
+      JSON.stringify([prog, trajetPage, trajetOuvert, legendeE]));
     await aller('/');
     const carte = await page.evaluate(() => Array.from(document.querySelectorAll('.apercu-exo'))
       .filter((l) => /Écrans U5/.test(l.textContent)).map((l) => (l.querySelector('.apercu-val') || {}).textContent)[0] || null);

@@ -466,7 +466,22 @@
     dead_bug: 'dead_bug.json',
     muscle_up: 'muscle_up.json',
     muscle_up_negatif: 'muscle_up_negatif.json',
-    muscle_up_kipping: 'muscle_up_kipping.json'
+    muscle_up_kipping: 'muscle_up_kipping.json',
+    dips_banc: 'dips_banc.json',
+    battements_de_jambes_sur_banc: 'battements_de_jambes_sur_banc.json',
+    planche_inversee: 'planche_inversee.json',
+    releve_genoux_assis: 'releve_genoux_assis.json',
+    chandelle_abdos: 'chandelle_abdos.json',
+    abdominaux_talons: 'abdominaux_talons.json',
+    toucher_orteils: 'toucher_orteils.json',
+    v_up: 'v_up.json',
+    crunch_inverse: 'crunch_inverse.json',
+    hollow_hold: 'hollow_hold.json',
+    hollow_rocks: 'hollow_rocks.json',
+    muscle_up_elastique: 'muscle_up_elastique.json',
+    muscle_up_assiste: 'muscle_up_assiste.json',
+    l_sit_hold: 'l_sit_hold.json',
+    l_sit_parallettes: 'l_sit_parallettes.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

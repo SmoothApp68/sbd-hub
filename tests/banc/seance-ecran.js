@@ -30369,7 +30369,7 @@ const SETS_IMPORTES = [
       const x = window.THPlan.dernier.plan.exercices.filter((q) => q.slug === sl)[0];
       return { prop: x.proposition ? { mode: x.proposition.mode, raison: x.proposition.raison, lignes: x.proposition.lignes, phrase: x.proposition.phrase,
                                          pourquoi: x.proposition.pourquoi, annulable: x.proposition.annulable } : null,
-               auto: x.chauffesAuto ? x.chauffesAuto.annuler : null,
+               auto: x.chauffesPosees ? x.chauffesPosees.annuler : null,
                types: x.lignes.map((l) => l.type), fantomes: x.lignes.filter((l) => l.type === 'echauffement').map((l) => (l.fantome ? l.fantome.charge : null)) };
     }, slug);
     const planPret237 = (slug) => attendreQue(() => page.evaluate((sl) => !!(window.THPlan && window.THPlan.dernier && window.THPlan.dernier.plan &&
@@ -30470,6 +30470,41 @@ const SETS_IMPORTES = [
       return !!(await lire237('rt237-squat')).prop || (await lire237('rt237-squat')).types.indexOf('echauffement') >= 0;
     })(), '');
     await abandonner();
+    // ── 15/11/2026 (MOTEUR §9.41 bis, I184 à I190) — « + CHAUFFE » DEPUIS LA CHARGE TAPÉE, sur l'exercice en SILENCE (deux « Non merci ») : la demande
+    // calcule quand même, pose toute la montée sur 120 kg (le plan disait 100), ne touche pas la mémoire des refus, et « Annuler » est secondaire.
+    {
+      await aller('/saisie');
+      await demarrerRoutine('Presse RT237');
+      await planPret237('rt237-presse');
+      const memoireAvantD = await page.evaluate(() => localStorage.getItem('th-v2-refus-chauffes'));
+      await page.locator('.ligne-serie').nth(0).locator('input').nth(0).fill('120');
+      await page.evaluate(() => { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); });
+      const lireD = () => page.evaluate(() => {
+        const x = window.THPlan.dernier.plan.exercices.filter((q) => q.slug === 'rt237-presse')[0];
+        return { ref: x.chauffesReference, demande: x.surDemande ? x.surDemande.lignes : null, prop: !!x.proposition,
+                 types: x.lignes.map((l) => l.type), fantomes: x.lignes.filter((l) => l.type === 'echauffement').map((l) => (l.fantome ? l.fantome.charge : null)),
+                 chargesEcrites: x.lignes.filter((l) => l.type === 'echauffement').length };
+      });
+      await attendreQue(() => lireD().then((p) => !!p.ref && p.ref.charge === 120), 15000, 'refSaisieRT237');
+      const d0 = await lireD();
+      ok('[RT237] I184/I187 — DISCRIMINANT — 120 kg tapés : la référence est la SAISIE (le plan disait 100), la demande existe malgré le silence, la carte non',
+        d0.ref.source === 'saisie' && d0.ref.plan === 100 && !!d0.demande && d0.demande.length >= 2 && d0.prop === false && d0.demande[d0.demande.length - 1][0] <= 108, nb237(d0));
+      await page.click('.ajout-chauffe');
+      await attendreQue(() => lireD().then((p) => p.types.indexOf('echauffement') >= 0), 15000, 'demandeRT237');
+      const d1 = await lireD();
+      ok('[RT237] I185 — « + Chauffe » pose TOUTE la montée (typée échauffement, au-dessus du travail), remplie en gris sur 120 kg, rien n\u2019est écrit',
+        d1.types.filter((t) => t === 'echauffement').length === d0.demande.length && d1.types.slice(0, d0.demande.length).every((t) => t === 'echauffement') &&
+        nb237(d1.fantomes) === nb237(d0.demande.map((l) => l[0])), nb237([d0.demande, d1]));
+      const carteD = await page.evaluate(() => { const n = document.querySelector('.proposition-chauffes.chauffes-posees'); return n ? { texte: n.querySelector('.pc-texte').textContent.replace(/[\u00a0\u202f]/g, ' '),
+        classe: n.querySelector('button').className, bouton: n.querySelector('button').textContent, h: n.querySelector('button').getBoundingClientRect().height } : null; });
+      ok('[RT237] I190 — la ligne « Montée posée sur ta 1re série : 120 kg. » et « Annuler », bouton SECONDAIRE (jamais le bouton plein), 44 px',
+        !!carteD && carteD.texte === 'Montée posée sur ta 1re série : 120 kg.' && carteD.bouton === 'Annuler' && /pc-refuser/.test(carteD.classe) && !/pc-ajouter/.test(carteD.classe) && carteD.h >= 44, nb237(carteD));
+      ok('[RT237] I187 — la demande ne touche pas la mémoire des « Non merci »', (await page.evaluate(() => localStorage.getItem('th-v2-refus-chauffes'))) === memoireAvantD, memoireAvantD);
+      await page.click('.proposition-chauffes.chauffes-posees button');
+      await attendreQue(() => lireD().then((p) => p.types.indexOf('echauffement') < 0), 15000, 'annulerDemandeRT237');
+      ok('[RT237] I187 — « Annuler » retire la montée et ne note aucun refus', (await page.evaluate(() => localStorage.getItem('th-v2-refus-chauffes'))) === memoireAvantD && (await compter('.chauffes-posees')) === 0, '');
+      await abandonner();
+    }
     ok('[RT237] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
       nb237([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));

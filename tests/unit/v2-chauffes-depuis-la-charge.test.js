@@ -20,6 +20,7 @@ require('../../v2/js/parcours.js');
 const P = M.propositionDeChauffes;
 const charges = (r) => r.lignes.map((l) => l[0]);
 const reps = (r) => r.lignes.map((l) => l[1]);
+const nb = (t) => String(t).replace(/\u00a0|\u202f/g, ' ');   // espaces insécables du formateur
 
 describe('I184 — Moteur.referenceDesChauffes : une seule référence', () => {
   const R = M.referenceDesChauffes;
@@ -150,8 +151,8 @@ describe('le plan — la référence suit la saisie', () => {
   });
 
   test('le Pourquoi de la carte dit d’où vient la charge, seulement quand elle diffère du plan', () => {
-    expect(plan(tape(seanceDe(), 0, 100)).x.proposition.pourquoi).toMatch(/Calée sur ta 1re série, 100 kg\. Le plan disait 90 kg\./);
-    expect(plan(tape(seanceDe(), 0, 90)).x.proposition.pourquoi).not.toMatch(/Calée sur/);
+    expect(nb(plan(tape(seanceDe(), 0, 100)).x.proposition.pourquoi)).toMatch(/Calée sur ta 1re série, 100 kg\. Le plan disait 90 kg\./);
+    expect(nb(plan(tape(seanceDe(), 0, 90)).x.proposition.pourquoi)).not.toMatch(/Calée sur/);
     expect(plan(seanceDe()).x.proposition.pourquoi).not.toMatch(/Calée sur/);
   });
 
@@ -260,15 +261,17 @@ describe('le plan — la référence suit la saisie', () => {
     // 85 : trop proche
     const r85 = plan(S.modifierSerie(se, 0, 3, { charge_kg: 85 }));
     const c85 = r85.x.lignes.filter((l) => l.type === 'echauffement')[2];
-    expect(c85.fantome).toBeNull();
+    expect(c85.fantome).toBeFalsy();
     expect(c85.chauffe.trop_proche).toBe(true);
     expect(r85.erreurs).toEqual([]);
     expect(r110.erreurs).toEqual([]);
   });
 
   test('I193 — en Entretenir (profil), le coach se tait tout entier : aucune demande, aucune montée', () => {
-    const r = plan(tape(seanceDe(), 0, 100), { intention: 'entretien' });
+    // En Entretenir le coach ne calcule aucune consigne : le plan n'en reçoit pas, et le matériel de chauffe est nul.
+    const r = plan(tape(seanceDe(), 0, 100), { intention: 'entretien', consignes: {}, e1rms: {} });
     expect(r.x.surDemande).toBeNull();
+    expect(r.x.chauffesReference).toBeNull();
     expect(r.x.proposition).toBeNull();
     expect(fantomesDeChauffe(r.x).every((v) => v === null || v === undefined)).toBe(true);
     expect(r.erreurs).toEqual([]);
@@ -306,13 +309,13 @@ describe('I190 — « Annuler » pour les trois sources ; I130 complété', () =
 
   test('après « Ajouter » ou « + Chauffe » : « Montée posée sur ta 1re série : 100 kg. » et « Annuler »', () => {
     const r = plan(pose([{ geste: 'chauffes_ajoutees', slug: 'squat_barre' }], 100));
-    expect(r.x.chauffesPosees).toEqual(expect.objectContaining({ slug: 'squat_barre', annuler: 'Annuler', origine: 'posee',
-      texte: 'Montée posée sur ta 1re série : 100 kg.' }));
+    expect(r.x.chauffesPosees).toEqual(expect.objectContaining({ slug: 'squat_barre', annuler: 'Annuler', origine: 'posee' }));
+    expect(nb(r.x.chauffesPosees.texte)).toBe('Montée posée sur ta 1re série : 100 kg.');
     expect(r.erreurs).toEqual([]);
   });
   test('référence du plan : « Montée posée sur ta charge de travail : 90 kg. »', () => {
     const r = plan(pose([{ geste: 'chauffes_ajoutees', slug: 'squat_barre' }], null));
-    expect(r.x.chauffesPosees.texte).toBe('Montée posée sur ta charge de travail : 90 kg.');
+    expect(nb(r.x.chauffesPosees.texte)).toBe('Montée posée sur ta charge de travail : 90 kg.');
   });
   test('l’ajout automatique garde sa phrase, avec l’origine « auto »', () => {
     const r = plan(pose([{ geste: 'chauffes_auto', slug: 'squat_barre' }], null));
@@ -346,5 +349,14 @@ describe('I190 — « Annuler » pour les trois sources ; I130 complété', () =
     expect(posee.x.silenceChauffes).toBeNull();
     expect(posee.erreurs).toEqual([]);
     expect(seul.erreurs).toEqual([]);
+  });
+});
+
+describe('I184 — aucune copie de la référence', () => {
+  const fs = require('fs'), path = require('path');
+  const lire = (f) => fs.readFileSync(path.join(__dirname, '../../v2/js', f), 'utf8');
+  test('plan.js ne lit plus la consigne seule pour les chauffes ; ni app.js ni rendu.js ne calculent une charge de chauffe', () => {
+    expect(lire('plan.js')).not.toMatch(/var\s+reference\s*=\s*consigne\s*&&\s*consigne\.etat/);
+    ['app.js', 'rendu.js'].forEach((f) => expect(lire(f)).not.toMatch(/referenceDesChauffes|paliersDeChauffe|CHAUFFE_VISEE/));
   });
 });

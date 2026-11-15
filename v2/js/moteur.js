@@ -11294,6 +11294,30 @@
   var CHAUFFE_REFUS_SILENCE = 2;
   var CHAUFFE_SILENCE_JOURS = 28;
 
+  // 15/11/2026 (§9.41 bis, règle 8, I184) — LA CHARGE DE RÉFÉRENCE DES CHAUFFES, UNE SEULE : la première charge saisie de la première ligne de
+  // travail (la séance en cours fait foi) ; à défaut la charge de la consigne figée (le repli : le plan, l'historique) ; à défaut rien. `entree` :
+  // `{ saisie, plan }` — le plan lit la saisie sur la séance (`Modele.estTravail`, jamais le type en dur) et la consigne ; ce module ne lit
+  // aucune séance. Rend `{ charge, source: 'saisie' | 'plan' | null, plan }` (`plan` : la charge de la consigne, pour dire d'où vient la
+  // montée quand elle diffère). Une charge nulle, négative ou qui n'est pas un nombre n'est pas une référence.
+  function referenceDesChauffes(entree) {
+    var e = entree || {};
+    var saisie = nombre(e.saisie), plan = nombre(e.plan);
+    var planOk = plan !== null && plan > 0 ? plan : null;
+    if (saisie !== null && saisie > 0) return { charge: saisie, source: 'saisie', plan: planOk };
+    if (planOk !== null) return { charge: planOk, source: 'plan', plan: planOk };
+    return { charge: null, source: null, plan: null };
+  }
+
+  // 15/11/2026 (§9.41 bis, règle 11) — la ligne du plan quand des chauffes sont posées (« Annuler »), pour les trois sources : l'ajout automatique,
+  // « Ajouter », « + Chauffe ». Une seule rédaction ; `reference` : `{ charge, source }` ou `null`. Les nombres se citent par `reference`.
+  var PHRASE_CHAUFFES_AUTO = 'Chauffe ajoutée, comme d\u2019habitude.';
+  function phraseDesChauffesPosees(origine, reference) {
+    if (origine === 'auto') return PHRASE_CHAUFFES_AUTO;
+    var r = reference && nombre(reference.charge) !== null ? reference : null;
+    if (!r) return 'Montée posée.';
+    return 'Montée posée sur ' + (r.source === 'saisie' ? 'ta 1re série' : 'ta charge de travail') + ' : ' + enKg(r.charge, regle('reference')) + '.';
+  }
+
   // 237-bis — la phrase de la mise en silence, dite UNE fois au geste (le 2e « Non merci » ou « Annuler »). Une seule source : l'écran
   // l'affiche, le plan la porte, l'invariant I130 la vérifie.
   function phraseDuSilenceDesChauffes(nom) {
@@ -11345,19 +11369,25 @@
     var corps = e.corps === true;
     var ref = nombre(e.reference);
     if (!corps && (ref === null || ref <= 0)) return rien;
-    if (e.silence === true) return rien;
+    // 8. (15/11/2026, §9.41 bis) LA DEMANDE — « + Chauffe » : la personne la demande, le coach n'a pas à la proposer. Même table, mêmes paliers ;
+    //    sans la règle 1 (aucune raison à donner), sans le silence (règle 6 : il porte sur ce que le coach PROPOSE), sans la règle 7 ; la
+    //    règle 5 vaut (une chauffe). Ce n'est ni un refus ni une acceptation. Un seul appel, un seul tableau de charges : I185.
+    var demande = e.demande === true;
+    if (e.silence === true && !demande) return rien;
     var e1 = nombre(e.e1rm);
     var raison = null;
-    if (e.premier === true && (corps || e1 === null || e1 <= 0 || ref > CHAUFFE_SEUIL_MAX * e1 + 1e-9)) raison = 'muscle';
+    if (demande) raison = 'demande';
+    else if (e.premier === true && (corps || e1 === null || e1 <= 0 || ref > CHAUFFE_SEUIL_MAX * e1 + 1e-9)) raison = 'muscle';
     else if (e.menagee === true) raison = 'zone';
     else if (e.forme === true) raison = 'forme';
     if (!raison) return rien;
     // 7. (253-X1) UNE ISOLATION DONT LES MUSCLES ONT DÉJÀ ÉTÉ TRAVAILLÉS par un exercice précédent de la séance : rien, sauf zone à ménager.
-    if (e.isolation === true && e.premierExercice !== true && e.dejaTravaille === true && e.menagee !== true) return rien;
+    if (!demande && e.isolation === true && e.premierExercice !== true && e.dejaTravaille === true && e.menagee !== true) return rien;
     // 5. peu de temps (237-bis) : une chauffe, jamais zéro sur un polyarticulaire chargé (barre ou non) ; zéro sur une isolation
-    //    (`e.isolation`, la notion unique du plan), sauf zone à ménager. Le poids du corps : zéro aussi, comme avant.
+    //    (`e.isolation`, la notion unique du plan), sauf zone à ménager. Le poids du corps : zéro aussi, comme avant. La demande, elle, en
+    //    garde une.
     var seule = e.peuDeTemps === true;
-    if (seule && (corps || e.isolation === true) && e.menagee !== true) return rien;
+    if (!demande && seule && (corps || e.isolation === true) && e.menagee !== true) return rien;
     var lignes = [], situation;
     if (corps) {
       situation = 'corps';
@@ -11380,11 +11410,14 @@
       return x[0] === null ? 'une série facile' : Modele().charge(x[0], undefined, regle('chauffe')) + ' × ' + nombreFr(x[1], regle('chauffe.reps'));
     };
     var phrase = 'Chauffe : ' + (corps ? 'une série facile × ' + nombreFr(lignes[0][1], regle('chauffe.reps')) : lignes.map(texteLigne).join(' · '));
-    var auto = nombre(e.ajoutees) !== null && e.ajoutees >= CHAUFFE_AUTO_APRES;
-    return { mode: auto ? 'auto' : 'proposer', raison: raison, situation: situation, reference: ref, lignes: lignes,
-             phrase: phrase, annulable: auto, peuDeTemps: seule,
+    var auto = !demande && nombre(e.ajoutees) !== null && e.ajoutees >= CHAUFFE_AUTO_APRES;
+    // 15/11/2026 — « Calée sur ta 1re série, 100 kg. Le plan disait 90 kg. » : seulement quand la référence saisie diffère de celle du plan.
+    var planRef = nombre(e.referencePlan);
+    var calee = e.referenceSource === 'saisie' && planRef !== null && planRef > 0 && Math.abs(planRef - ref) > 1e-9 ? { saisie: ref, plan: planRef } : null;
+    return { mode: demande ? 'demande' : (auto ? 'auto' : 'proposer'), raison: raison, situation: situation, reference: ref, lignes: lignes,
+             phrase: phrase, annulable: auto || demande, peuDeTemps: seule,
              pourquoiSur: { raison: raison, situation: situation, peuDeTemps: seule, auto: auto, corps: corps,
-                            max: !(corps || e1 === null || e1 <= 0), muscle: e.muscle || null } };
+                            max: !(corps || e1 === null || e1 <= 0), muscle: e.muscle || null, calee: calee } };
   }
 
   // Le Pourquoi des chauffes proposées, lu sur ce que la décision a rendu (`pourquoiSur`) : sa propre phrase, ses propres chiffres citables
@@ -11397,7 +11430,10 @@
       pourquoi = 'Premier exercice de la séance sur ce muscle' + (q.muscle ? ' (' + q.muscle + ')' : '') +
         (q.max ? ', et tu montes au-dessus de ' + nombreFr(CHAUFFE_SEUIL_MAX * 100, regle('constante')) + ' % de ta force estimée' : '') + '.';
     } else if (q.raison === 'zone') pourquoi = 'Une zone à ménager passe par cet exercice : tu montes doucement.';
+    else if (q.raison === 'demande') pourquoi = 'Tu as demandé une chauffe.';
     else pourquoi = 'En objectif Forme, on monte doucement dans la charge.';
+    // 15/11/2026 (§9.41 bis, règle 12) — d'où vient la charge, quand la saisie diffère du plan.
+    if (q.calee) pourquoi += ' Calée sur ta 1re série, ' + enKg(q.calee.saisie, regle('reference')) + '. Le plan disait ' + enKg(q.calee.plan, regle('reference.plan')) + '.';
     if (q.situation === 'isolation') pourquoi += ' Une série légère de ' + nombreFr(CHAUFFE_ISOLATION.reps, regle('constante')) + ' suffit.';
     if (q.situation === 'corps') pourquoi += ' Sans charge : une série facile.';
     if (q.peuDeTemps) pourquoi += ' Tu as peu de temps : une seule.';
@@ -13447,6 +13483,8 @@
     situationChauffe: situationChauffe,
     chauffesDe: chauffesDe,
     propositionDeChauffes: propositionDeChauffes,
+    referenceDesChauffes: referenceDesChauffes,
+    phraseDesChauffesPosees: phraseDesChauffesPosees,
     pourquoiDesChauffes: pourquoiDesChauffes,
     chauffesEnSilence: chauffesEnSilence, phraseDuSilenceDesChauffes: phraseDuSilenceDesChauffes,
     CHAUFFE_AUTO_APRES: CHAUFFE_AUTO_APRES,

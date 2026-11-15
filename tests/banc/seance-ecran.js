@@ -15938,13 +15938,23 @@ const SETS_IMPORTES = [
         forceDansRecords: !!c.querySelector('.exo-force') || /estim/i.test(c.textContent) };
     });
     await capturer55('5-exercice');
+    // La date attendue sous « Il y a 6 mois » / « Il y a 1 an », recalculée ICI, à part de l'app, depuis l'horloge de la page :
+    // le jour civil local − n mois, plafonné à la fin du mois d'arrivée ; « 14 mai », l'année seulement si ce n'est pas celle d'aujourd'hui.
+    const maintenant55 = new Date(await page.evaluate(() => Date.now()));
+    const MOIS55 = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+    const dateAvant55 = (n) => {
+      const total = maintenant55.getFullYear() * 12 + maintenant55.getMonth() - n;
+      const a = Math.floor(total / 12), m = total - a * 12;
+      const j = Math.min(maintenant55.getDate(), new Date(a, m + 1, 0).getDate());
+      return j + ' ' + MOIS55[m] + (a === maintenant55.getFullYear() ? '' : ' ' + a);
+    };
     ok('[P55] DISCRIMINANT — en tête de la vue : la charge la plus lourde (125 kg × 5) ; la force estimée (≈ 146 kg, d’après 125 kg × 5) À PART, hors des records (120, D1)',
       exoP && exoP.fiche.length === 1 && /^Charge la plus lourde/.test(exoP.fiche[0]) && /125\s*kg\s*×\s*5/.test(sp(exoP.fiche[0])) &&
         exoP.force.length === 1 && /^Force estimée/.test(exoP.force[0]) && /d’après 125\s*kg\s*×\s*5/.test(sp(exoP.force[0])) &&
         /≈\s*146\s*kg/.test(sp(exoP.force[0])) && !exoP.forceDansRecords, JSON.stringify(exoP));
     ok('[P55] le tableau à reps égales : 1, 3, 5 reps à 125 kg (8 et 10 reps jamais faits) ; rien il y a 6 mois ni 1 an, aucun écart',
       exoP && exoP.tete.map((t) => t.replace(/^(Il y a (?:6 mois|1 an)).*$/, '$1')).join('|') === 'Au moins|Record|Le|Il y a 6 mois|Il y a 1 an' &&
-        /^Il y a 6 mois14 mai$/.test(exoP.tete[3]) && /^Il y a 1 an14 nov\. 2025$/.test(exoP.tete[4]) &&   // mots PR 6 : la date de chaque colonne dessous
+        exoP.tete[3] === 'Il y a 6 mois' + dateAvant55(6) && exoP.tete[4] === 'Il y a 1 an' + dateAvant55(12) &&   // mots PR 6 : la date de chaque colonne dessous (calculée depuis l'horloge de la page, jamais écrite en dur)
         JSON.stringify(exoP.lignes.map((l) => [l[0], sp(l[1]), l[3], l[4]])) ===
           JSON.stringify([['1 rep', '125 kg', '—', '—'], ['3 reps', '125 kg', '—', '—'], ['5 reps', '125 kg', '—', '—']]) &&
         exoP.plus === 0, JSON.stringify(exoP));

@@ -2698,6 +2698,20 @@ La bulle d'un point : « Le 18 sept. 2025 · 200 kg × 5 · force estimée 233 k
 
 **7. Ce qui n'est PAS fait** (noté, hors périmètre) : les mois en arithmétique (PR « mois », §9.51 ter) ; les pluriels recopiés (F-16) ; les zones de reps du bilan (F-06) ; les autres doublons de l'audit. **Dette notée (phrases du coach)** : les phrases de `moteur.js` qui écrivent « 33 % » ou « kg. » avec l'espace ordinaire restent telles quelles, comme leurs fixtures de simulateur (`cas-49u17`, `cas-49u14`) : les passer par `Modele.pourcent` et `Modele.kg` demande de citer leurs chiffres dans le registre du coach (I26) et de rejouer ces fixtures — une décision à part, avec les mots du coach inchangés. Une seule phrase (le pas d'un cran, `moteur.js` 1727) passe déjà par le formateur. La garde les inscrit dans sa liste blanche, avec cette raison.
 
+### 9.51 quinquies Une seule table des coupures de reps : décrire une série par ses reps — décidé le 15/11/2026 (tour de table « zones de reps », PR A ; aucun changement visible)
+
+**1. Le défaut.** « Série lourde », « force », « mix », « muscle » se coupaient à quatre endroits : `ZONES` et `RANGEMENT` (moteur.js : la prescription), `ZONES_DE_REPS` (bilans.js : force ≤ 5, mix ≤ 8, muscle au-delà), `REPS_LOURDES_MAX` du plan (5, I75) et de `faits.js` (**6**, la fiche d'une barre). Aucune garde ne surveillait ces littéraux : le mot « lourd » changeait de borne d'un écran à l'autre, et le seau « muscle » (9 reps et plus) avalait 71 % des séries des cinq comptes.
+
+**2. La table (PR A).** `Modele.COUPURES_DE_REPS = { lourdMax: 5, milieuMax: 8, hautMax: 12 }`, quatre bandes de DESCRIPTION : `lourdes` (≤ 5), `moyennes` (6 à 8), `hautes` (9 à 12), `longues` (13 et plus). `bandeDeReps(reps)` (`null` pour des reps absentes, nulles ou négatives : aucune bande devinée), `libelleDeBande(cle)` (« 5 reps ou moins », « 6 à 8 », « 9 à 12 », « 13 et plus », fabriqués depuis la table) et `estSerieLourde(reps)` (≤ 5) vivent dans `modele.js`, le seul module que lisent bilans, faits et plan. Les clés disent des reps, jamais un objectif (« force », « muscle » restent ceux du profil).
+
+**3. Description, pas prescription.** La table ne dérive PAS de `ZONES` et le coach ne la lit pas : décrire le passé par une table de prescription réécrirait l'histoire dès qu'une zone est retouchée. Le lien est un TEST (`tests/unit/v2-coupures-de-reps.test.js`) : `lourdMax`, `milieuMax` et `hautMax` sont les bornes hautes de Lourd, Mix et Volume ; le rangement change de zone à `lourdMax` et à `hautMax`. Deux écarts sont connus, nommés dans le test et acceptés : le **8** (description « 6 à 8 », rangement Hypertrophie) et **13-14** (aucune zone de menu, « longues » des deux côtés). Tout autre écart fait échouer le test.
+
+**4. Ce qui ne bouge pas.** `ZONES`, `RANGEMENT`, `ZONES_FORCE`, le générateur (ses cibles 5/7/9/12/15 sont des cibles, pas des zones), les phrases du coach, l'invariant I75 (même valeur 5). Aucun écran ne change : la PR A ne branche aucun lecteur.
+
+**5. La garde (registre `NOTIONS`, `interditAilleurs`).** Aucun fichier hors `modele.js` n'écrit `REPS_LOURDES_MAX`, `ZONES_DE_REPS`, `hautMax`/`lourdMax`/`milieuMax`, ni une comparaison `reps`/`rp` contre 5, 6, 8, 9, 12 ou 13. Trois exceptions nommées, chacune avec sa raison et retirée par la PR qui câble son lecteur : `plan.js` (PR B, même valeur), `bilans.js` (PR C, bilan à quatre bandes, maquette validée avant le code), `faits.js` (PR D, **6 → 5 à décider par Aurélien après lecture des données réelles** ; seul écart de valeur). Une exception qui ne sert plus fait échouer la garde (§9.51 quater, test 75).
+
+**6. Dette, dite.** Les autres coupures de reps du moteur (`allegerForce`, `haut <= 5`, la phrase « force / mixte » de moteur.js:613, I-numérotés du plan) restent des décisions du coach, hors de cette table ; la garde ne couvre que la DESCRIPTION. Aucun nouvel invariant `I` : le lien est un test, pas une règle de `verifierPlan`.
+
 ### 12.1 Ce que le compteur déclenche — et ce qu'il ne déclenche pas
 
 > **Le compteur ne déclenche pas l'action, il déclenche le changement de méthode.**

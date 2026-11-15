@@ -2660,6 +2660,36 @@
   //   3. LES REPS : 1 ou 2 → `plancher` (la charge nue, une borne basse : « au moins ») ; 3 à 10 → `projection` (Epley,
   //      `Moteur.unRMEpley`, lu TARDIVEMENT) ; sinon rien.
   // `{ mode: 'plancher' | 'projection' | null, charge, reps, valeur }`. La fenêtre de 12 mois reste l'affaire du périmètre.
+  // ── LES COUPURES DE REPS (MOTEUR §9.51 quinquies, 15/11/2026) — UNE TABLE POUR DÉCRIRE UNE SÉRIE PAR SES REPS ──
+  // Trois bornes, quatre bandes : 5 reps ou moins · 6 à 8 · 9 à 12 · 13 et plus. C'est une table de DESCRIPTION (le passé se lit par
+  // elle), PAS la prescription du coach : `ZONES` et `RANGEMENT` (moteur.js) restent maîtres de ce que le coach propose, et ne la
+  // lisent pas — un test de lien (`v2-coupures-de-reps.test.js`) rougit si les deux divergent sans que l'écart soit nommé. Les
+  // clés disent des reps (`lourdes`, `moyennes`, `hautes`, `longues`), jamais un objectif (« force », « muscle »).
+  // Les bornes ne s'écrivent QU'ICI (garde `v2-architecture.test.js`) : `bandeDeReps`, `libelleDeBande` et `estSerieLourde` les lisent.
+  var COUPURES_DE_REPS = Object.freeze({ lourdMax: 5, milieuMax: 8, hautMax: 12 });
+  var BANDES_DE_REPS = Object.freeze(['lourdes', 'moyennes', 'hautes', 'longues']);
+  function repsEntier(reps) {
+    var n = (typeof reps === 'number') ? reps : (reps === null || reps === undefined || reps === '' ? NaN : Number(reps));
+    return isFinite(n) && n >= 1 ? n : null;
+  }
+  // `null` pour des reps absentes, nulles ou négatives (une tenue, une série vide) : aucune bande n'est devinée.
+  function bandeDeReps(reps) {
+    var n = repsEntier(reps), C = COUPURES_DE_REPS;
+    if (n === null) return null;
+    if (n <= C.lourdMax) return 'lourdes';
+    if (n <= C.milieuMax) return 'moyennes';
+    if (n <= C.hautMax) return 'hautes';
+    return 'longues';
+  }
+  function libelleDeBande(cle) {
+    var C = COUPURES_DE_REPS;
+    if (cle === 'lourdes') return C.lourdMax + ' reps ou moins';
+    if (cle === 'moyennes') return (C.lourdMax + 1) + ' à ' + C.milieuMax;
+    if (cle === 'hautes') return (C.milieuMax + 1) + ' à ' + C.hautMax;
+    if (cle === 'longues') return (C.hautMax + 1) + ' et plus';
+    return null;
+  }
+  function estSerieLourde(reps) { return bandeDeReps(reps) === 'lourdes'; }
   var ELIGIBILITE_1RM = Object.freeze({ plancherMin: 1, plancherMax: 2, projectionMin: 3, projectionMax: 10 });
   function exerciceAUnMax(exo) {
     return gabaritDe(exo).mesure === 'charge_reps' && natureDeCharge(exo) === null && !(exo && exo.equipement === 'aucun');
@@ -3555,6 +3585,11 @@
     MOTS_DE_FORCE: MOTS_DE_FORCE,
     phraseDesReps: phraseDesReps,
     ELIGIBILITE_1RM: ELIGIBILITE_1RM,
+    COUPURES_DE_REPS: COUPURES_DE_REPS,
+    BANDES_DE_REPS: BANDES_DE_REPS,
+    bandeDeReps: bandeDeReps,
+    libelleDeBande: libelleDeBande,
+    estSerieLourde: estSerieLourde,
     seancesDuPerimetre: seancesDuPerimetre,
     tableauDesRecords: tableauDesRecords,
     REPS_DU_TABLEAU: REPS_DU_TABLEAU,

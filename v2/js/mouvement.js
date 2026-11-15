@@ -463,7 +463,10 @@
     rear_kick_machine: 'rear_kick_machine.json',
     kickback_fessier_quatre_pattes: 'kickback_fessier_quatre_pattes.json',
     kickback_fessier_quatre_pattes_lest_cheville: 'kickback_fessier_quatre_pattes_lest_cheville.json',
-    dead_bug: 'dead_bug.json'
+    dead_bug: 'dead_bug.json',
+    muscle_up: 'muscle_up.json',
+    muscle_up_negatif: 'muscle_up_negatif.json',
+    muscle_up_kipping: 'muscle_up_kipping.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

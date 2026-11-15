@@ -10,6 +10,7 @@
 
 global.self = global;
 require('../../v2/js/modele.js');
+require('../../v2/js/periode.js');   // MOTEUR §9.51 ter : le moteur lit `THPeriode` (comme index.html, qui le charge avant lui)
 require('../../v2/js/moteur.js');
 require('../../v2/js/semaine.js');
 require('../../v2/js/bilan.js');
@@ -442,9 +443,9 @@ describe('89/114 — « Entre amis » : à poids de corps égal, les vrais kilos
     expect(Social.classementEntreAmis([ligne('a', 'aurel', 145, 96.75, true)], [], 145)).toBeNull();
     expect(Social.classementEntreAmis([], [], 145)).toBeNull();
   });
-  test('114 — « 12 mois » : du lendemain du même jour il y a un an, à aujourd’hui (la fenêtre de la base)', () => {
+  test('114 — « 12 mois » : du lendemain du même jour il y a un an, à aujourd’hui (la fenêtre de la base ; 29 février 2028 − 1 an = 28 février 2027, MOTEUR §9.51 ter)', () => {
     expect(Social.bornesDouzeMois(new Date(2026, 9, 16, 12))).toEqual({ de: '2025-10-17', a: '2026-10-16' });
-    expect(Social.bornesDouzeMois(new Date(2028, 1, 29, 12))).toEqual({ de: '2027-03-02', a: '2028-02-29' });
+    expect(Social.bornesDouzeMois(new Date(2028, 1, 29, 12))).toEqual({ de: '2027-03-01', a: '2028-02-29' });
   });
 });
 

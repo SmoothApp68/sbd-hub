@@ -254,6 +254,7 @@ describe('132 — la salle de l’exercice (`salleDeLExercice`, étendue)', () =
 
 // ═══ 4. LE MOTEUR ET LE PLAN (MOTEUR §10 ter) — SANS NOUVELLE RÈGLE ═════════
 const Pa = require('../../v2/js/palier.js');
+require('../../v2/js/periode.js');   // MOTEUR §9.51 ter : le moteur lit `THPeriode` (comme index.html, qui le charge avant lui)
 const M = require('../../v2/js/moteur.js');
 const T = require('../../v2/js/plan.js');
 

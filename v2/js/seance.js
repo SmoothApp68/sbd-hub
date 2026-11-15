@@ -2301,7 +2301,7 @@
   //   · `retrait`        — un exercice retiré à la main : `{ geste, slug }`.
   // Une liste, jamais deux fois le même geste fusionné : l'ordre des gestes est celui de la séance. Un geste mal formé
   // ne s'écrit pas (la colonne est un tableau, `CHECK jsonb_typeof = 'array'`).
-  //   236 (MOTEUR §9.39) — la MESURE du coach en temps réel, pour recaler ses seuils : `rate_prise` / `rate_ignoree` (`{ slug, rang, bouton?, kg? }` :
+  //   236 (MOTEUR §9.39) — la MESURE du coach en temps réel, pour recaler ses seuils : `rate_prise` / `rate_ignoree` (`{ slug, rang, bouton?, kg? }` ; `rate_ignoree` porte en plus `cas` et `boutons`, les clés proposées, vide = une phrase seule :
   //   la réaction sous la série `rang`, le bouton touché), `forme_ajustee` / `forme_gardee` (`{ slug, implicite? }` : la carte de la forme du jour
   //   posée sur l'exercice `slug`), `paris_cran` / `paris_retente` (`{ slug }`). `equilibres.js` ne lit que les cinq premiers.
   //   251 (D2) — la porte du cran : `cran_tente` (« Tenter 110 kg quand même », `{ slug, rang }` : la série qui a fermé la porte) et `cran_tente_annule`
@@ -2346,6 +2346,11 @@
       if (typeof g.bouton === 'string' && g.bouton) o.bouton = g.bouton;
       if (typeof g.kg === 'number' && isFinite(g.kg)) o.kg = g.kg;
       if (g.implicite === true) o.implicite = true;
+      // MOTEUR §9.39 — `rate_ignoree` : le cas de la réaction et les clés de ses boutons (vide = une phrase seule).
+      if (g.geste === 'rate_ignoree') {
+        if (typeof g.cas === 'string' && g.cas) o.cas = g.cas;
+        if (Array.isArray(g.boutons)) o.boutons = g.boutons.filter(function (b) { return typeof b === 'string' && b; });
+      }
     }
     return o;
   }

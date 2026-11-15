@@ -12,6 +12,7 @@ require('../../v2/js/modele.js');
 require('../../v2/js/semaine.js');
 require('../../v2/js/palier.js');
 require('../../v2/js/profil.js');
+require('../../v2/js/periode.js');   // MOTEUR §9.51 ter : le moteur lit `THPeriode` (comme index.html, qui le charge avant lui)
 const M = require('../../v2/js/moteur.js');
 
 const h = (jour, heure, min) => new Date(Date.UTC(2026, 8, 10 + jour, heure, min || 0)).toISOString();

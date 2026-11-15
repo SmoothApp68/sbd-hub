@@ -96,6 +96,33 @@
     var dernier = new Date(Date.UTC(a, m + 1, 0)).getUTCDate();
     return a + '-' + deux(m + 1) + '-' + deux(Math.min(jr, dernier));
   }
+  // « Dans `n` mois » : la même arithmétique, dans l'autre sens (31 janvier + 1 mois = 28 février, 29 février 2028 + 12 mois = 28 février 2029).
+  // C'est `moisAvant` d'un nombre négatif : UNE seule arithmétique de mois dans l'app (MOTEUR §9.51 ter, I178, I194).
+  function moisApres(jour, n) { return moisAvant(jour, -Math.round(Number(n) || 0)); }
+
+  // « Il y a `n` mois » pour un INSTANT (une horodatée, une date) : le JOUR calendaire local de `moisAvant`, à la même HEURE LOCALE que l'instant
+  // d'entrée. Hors fin de mois, c'est exactement `setMonth` / `setFullYear` d'avant ; en fin de mois, le jour est plafonné au lieu de déborder
+  // (MOTEUR §9.51 ter, 3 : le début d'une fenêtre du coach ne bouge pas d'un jour de plus que le débordement). `null` si l'instant est illisible.
+  function instantDecale(t, n) {
+    if (t === null || t === undefined || t === '') return null;
+    var d = t instanceof Date ? t : new Date(t);
+    if (isNaN(d.getTime())) return null;
+    var j = moisAvant(jourISO(d), n);
+    if (!j) return null;
+    return new Date(+j.slice(0, 4), +j.slice(5, 7) - 1, +j.slice(8, 10), d.getHours(), d.getMinutes(), d.getSeconds(), d.getMilliseconds());
+  }
+  function instantMoisAvant(t, n) { return instantDecale(t, Math.round(Number(n) || 0)); }
+  function instantMoisApres(t, n) { return instantDecale(t, -Math.round(Number(n) || 0)); }
+
+  // Le début (inclus, « AAAA-MM-JJ ») d'une fenêtre de `n` MOIS CIVILS qui finit à `jour` inclus : le LENDEMAIN du même jour il y a `n` mois.
+  // C'est la fenêtre de la base (`social_meilleures_charges`, `social_periode`) : la borne d'un « 3 mois » ou d'un « 12 mois » est une DATE, jamais
+  // un nombre de jours.
+  function debutDeFenetreDeMois(jour, n) {
+    var j = moisAvant(jour, n);
+    if (!j) return null;
+    var d = new Date(Date.UTC(+j.slice(0, 4), +j.slice(5, 7) - 1, +j.slice(8, 10) + 1));
+    return d.getUTCFullYear() + '-' + deux(d.getUTCMonth() + 1) + '-' + deux(d.getUTCDate());
+  }
   // Un jour est-il dans la période `{ debut, fin }` (jours « AAAA-MM-JJ » ou dates, bornes comprises) ? C'est LA question
   // derrière « ce mois-ci », « cette semaine », « (en cours) » : ils ne s'écrivent que si elle répond oui.
   function contient(periode, jour) {
@@ -234,6 +261,10 @@
     debutDeJournee: debutDeJournee,
     finDeJournee: finDeJournee,
     moisAvant: moisAvant,
+    moisApres: moisApres,
+    instantMoisAvant: instantMoisAvant,
+    instantMoisApres: instantMoisApres,
+    debutDeFenetreDeMois: debutDeFenetreDeMois,
     contient: contient,
     dans: dans,
     decouper: decouper,

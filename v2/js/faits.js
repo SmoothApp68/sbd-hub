@@ -1589,7 +1589,7 @@
     var MOIS_DES_PLUS_FAITS = 3;
     function exercicesRecents(c, maintenant, sauf) {
       var m = new Date(maintenant || Date.now());
-      var depuis = new Date(m.getTime()); depuis.setMonth(depuis.getMonth() - MOIS_DES_PLUS_FAITS);
+      var depuis = Periode.instantMoisAvant(m, MOIS_DES_PLUS_FAITS);   // MOTEUR §9.51 ter : une date calendaire
       var seances = exercicesFaitsParSeance(c).filter(function (s) { return !(sauf && s.id === sauf); })
         .slice().sort(function (a, b) { return a.debut < b.debut ? 1 : a.debut > b.debut ? -1 : 0; });
       var recents = [], vu = {}, compte = {}, dernier = {};

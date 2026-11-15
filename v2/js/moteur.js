@@ -1228,8 +1228,8 @@
   function pasDeSalle(seances, avant) {
     var limite = instant(avant);
     if (limite === null) return null;
-    var debut = new Date(limite);
-    debut.setUTCMonth(debut.getUTCMonth() - FENETRE_PAS_MOIS);
+    // MOTEUR §9.51 ter : « il y a 24 mois » est une DATE calendaire (`THPeriode`), jamais un débordement de `setMonth`.
+    var debut = racine.THPeriode.instantMoisAvant(limite, FENETRE_PAS_MOIS);
     var plancher = debut.getTime();
 
     var lourdes = {};
@@ -1398,9 +1398,8 @@
     if (FENETRE_VOISINE_MATERIELS.indexOf(equipement) < 0) return null;
     var t = instant(avant);
     if (t === null) return null;
-    var depuis = new Date(t);
-    depuis.setUTCMonth(depuis.getUTCMonth() - FENETRE_VOISINE_MOIS);
-    return depuis.getTime();
+    // MOTEUR §9.51 ter : « il y a 12 mois » est une DATE calendaire (`THPeriode`), la même que la fiche, les points gris et l'objectif.
+    return racine.THPeriode.instantMoisAvant(t, FENETRE_VOISINE_MOIS).getTime();
   }
 
   // ── §12.6 / §9.9 — L'ÉCART HABITUEL, LA COUPURE ET LA REPRISE ────────────

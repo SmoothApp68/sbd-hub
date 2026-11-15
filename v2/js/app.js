@@ -553,7 +553,7 @@
     var rts = Routines.visibles(routines).filter(function (r) { return Routines.dossierPropre(r.dossier) === dossier; })
       .map(function (r) { return { id: r.id, nom: r.nom, exercices: r.exercices || [] }; });
     var c = corpus(), fs = {}, dates = faits.datesDesExercices(c);
-    var plancher = new Date(new Date(jour + 'T12:00:00').getTime() - 365 * 86400000).toISOString();
+    var plancher = Periode.debutDeJournee(Periode.moisAvant(jour, 12)).toISOString();   // MOTEUR §9.51 ter : 12 mois civils, pas 365 jours
     Object.keys(dates).forEach(function (slug) { if (dates[slug] && String(dates[slug]) >= plancher) fs[slug] = { faitDans12Mois: true }; });
     rts.forEach(function (rt) {
       rt.exercices.forEach(function (l) {
@@ -9755,7 +9755,9 @@
     var gs = Array.isArray(seance.gestes) ? seance.gestes : [];
     var dejaIgn = function (rang) { return gs.some(function (g) { return g.slug === x.slug && g.rang === rang && (g.geste === 'rate_prise' || g.geste === 'rate_ignoree'); }); };
     if (x.rate && x.rate.iSerie < iSerie && !x.rate.fait && !dejaIgn(x.rate.iSerie)) {
-      seance = Seance.noterGeste(seance, { geste: 'rate_ignoree', slug: x.slug, rang: x.rate.iSerie });
+      // `boutons` : les clés proposées sous la réaction (vide = une phrase seule, rien à prendre ni à refuser) ; MOTEUR §9.39.
+      seance = Seance.noterGeste(seance, { geste: 'rate_ignoree', slug: x.slug, rang: x.rate.iSerie, cas: x.rate.cas,
+        boutons: (x.rate.boutons || []).map(function (b) { return b.cle; }) });
     }
     if (x.carteForme) seance = Seance.noterGeste(seance, { geste: 'forme_gardee', slug: x.slug, implicite: true });
     if (x.parisRates && x.parisRates.carte) seance = Seance.noterGeste(seance, { geste: 'paris_retente', slug: x.slug, implicite: true });
@@ -14709,7 +14711,7 @@
   function rendrePoids() {
     montrer('poids', Routeur.POIDS);
     var p = Poids.periodeDe(periodePoids);
-    var fenetre = Poids.filtrer(local.pesees, p.jours, new Date());
+    var fenetre = Poids.filtrerParMois(local.pesees, p.mois, new Date());
 
     Rendu.rendrePeriodes($('periodes-poids'), Poids.PERIODES, periodePoids, function (cle) {
       periodePoids = cle;

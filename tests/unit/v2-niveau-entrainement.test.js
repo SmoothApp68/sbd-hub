@@ -165,7 +165,7 @@ describe('272 — les phrases des écrans', () => {
     const a = Profil.annonceDeNiveau({ de: 'moins_1_an', vers: '1_a_3_ans', premiere: '2025-11-12T09:00:00.000Z', precoce: false, barres: [] });
     expect(a.surtitre).toBe('Nouveau niveau');
     expect(a.titre).toBe('1 à 3 ans d’entraînement, depuis aujourd’hui.');
-    expect(a.fait).toBe('Ta première séance notée date du 12 nov. 2025.');
+    expect(a.fait).toBe('Ta première séance notée date du 12\u00a0nov.\u00a02025.');
     expect(a.gris).toBe('Le coach monte maintenant selon ta zone et ta réserve.');
     expect(a.voir).toBe(true);
     expect(a.annule).toBe('Entraînement : Moins d’un an, gardé.');
@@ -195,7 +195,7 @@ describe('272 — les phrases des écrans', () => {
     const c = niveau(200, 3.4);
     const carte = Profil.carteDeNiveauImport({ anciennete: '1_a_3_ans' }, c);
     expect(carte.titre).toBe('3 à 5 ans d’entraînement, d’après ton historique.');
-    expect(carte.fait).toMatch(/^Ta première séance importée date du \d+ \S+ \d{4}\.$/);
+    expect(carte.fait).toMatch(/^Ta première séance importée date du \d+(?:er)? \S+ \d{4}\.$/);
     expect(carte.au_dessus.map((n) => n.cle)).toEqual(['plus_5_ans']);
     expect(Profil.carteDeNiveauImport({ anciennete: '3_a_5_ans' }, c)).toBeNull();
     expect(Profil.carteDeNiveauImport({ anciennete: 'plus_5_ans' }, c)).toBeNull();

@@ -54,8 +54,8 @@ describe('§9.23 — le temps du mois', () => {
   test('124 — l’ancienne règle du temps et les exercices les plus faits sont retirés ; le format du temps reste', () => {
     expect(B.tempsDuMois).toBeUndefined();
     expect(B.exercicesLesPlusFaits).toBeUndefined();
-    expect(B.texteTemps(130)).toBe('2 h 10');
-    expect(B.texteTemps(45)).toBe('45 min');
+    expect(require('../../v2/js/modele.js').dureeEnMinutes(130)).toBe('2 h 10');
+    expect(require('../../v2/js/modele.js').dureeEnMinutes(45)).toBe('45 min');
   });
 });
 

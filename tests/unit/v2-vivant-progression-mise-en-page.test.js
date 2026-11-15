@@ -77,8 +77,8 @@ decrire([360, 390, 412])('Progression à %i px, données longues', (largeur) => 
         debordeX: document.documentElement.scrollWidth > window.innerWidth };
     });
     expect(r.posPeser).not.toBe('absolute');
-    expect(r.texteDepuis).toMatch(/^depuis le 30 août · 1\s?115 pesées$/);
-    expect(r.variation).toMatch(/12,4 kg$/);
+    expect(r.texteDepuis).toMatch(/^depuis le 30 août · 1\s?115 pesées$/);
+    expect(r.variation).toMatch(/12,4 kg$/);
     // La variation est à droite du poids, sur la même ligne ; « depuis » est sous les deux ; « Peser » est sous « depuis ».
     expect(r.vari.left).toBeGreaterThanOrEqual(r.gros.right);
     expect(r.depuis.top).toBeGreaterThanOrEqual(Math.max(r.gros.bottom, r.vari.bottom) - 1);

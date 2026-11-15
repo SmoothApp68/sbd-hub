@@ -231,24 +231,12 @@
     return meilleur[0];
   }
 
-  // Le volume tel que l'écrit la tuile du récap : en tonnes, au dixième (« 10,1 t »).
-  function tonnesDuRecap(kg) {
-    return Mo().nombreGroupe(Mo().nombreSigne(Math.round((Number(kg) || 0) / 100) / 10)) + '\u00a0t';
-  }
-
   // « 10,1 t soulevées : à peu près un tricératops. » ; au-delà de 50 t,
   // « … : plus qu’un semi-remorque chargé. » ; sous 1 t, rien.
   function phraseComparaison(volumeKg, idSeance) {
     var objet = comparaison(volumeKg, idSeance);
     if (!objet) return null;
-    return tonnesDuRecap(volumeKg) + ' soulevées : ' + (objet === AU_DELA ? objet : 'à peu près ' + objet) + '.';
-  }
-
-  // Le temps, « 12 h 05 » ou « 45 min ».
-  function texteTemps(minutes) {
-    if (minutes === null || minutes === undefined) return '';
-    var h = Math.floor(minutes / 60), m = minutes % 60;
-    return h ? h + ' h ' + deux(m) : m + ' min';
+    return Mo().tonnesTexte(volumeKg) + ' soulevées : ' + (objet === AU_DELA ? objet : 'à peu près ' + objet) + '.';
   }
 
   var api = {
@@ -269,9 +257,7 @@
     OBJETS: OBJETS,
     fnv1a: fnv1a,
     comparaison: comparaison,
-    tonnesDuRecap: tonnesDuRecap,
-    phraseComparaison: phraseComparaison,
-    texteTemps: texteTemps
+    phraseComparaison: phraseComparaison
   };
 
   racine.THBilan = api;

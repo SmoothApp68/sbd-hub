@@ -36,7 +36,7 @@ describe('133 — #10 : une charge de 0 kg est le poids du corps, partout', () =
     expect(Modele.formatMesure({ charge_kg: 0, reps: 12 })).toBe('poids du corps × 12');
     expect(Modele.formatMesure({ charge_kg: '0', reps: 8 })).toBe('poids du corps × 8');
     // Le reste ne bouge pas : une charge, une aide, des reps seules.
-    expect(Modele.formatMesure({ charge_kg: 52, reps: 12 })).toBe('52 kg × 12');
+    expect(Modele.formatMesure({ charge_kg: 52, reps: 12 })).toBe('52\u00a0kg × 12');
     expect(esp(Modele.formatMesure({ charge_kg: -22.5, reps: 8 }))).toBe('Aide 22,5 kg × 8');
     expect(Modele.formatMesure({ charge_kg: null, reps: 12 })).toBe('12 reps');
     // La charge sans reps (une colonne de charge sous une durée) : la même écriture.
@@ -45,7 +45,7 @@ describe('133 — #10 : une charge de 0 kg est le poids du corps, partout', () =
 
   test('le journal : la meilleure série (carte de séance, page d’exercice) passe par le même formateur', () => {
     expect(Modele.texteMeilleure({ charge: 0, reps: 12 })).toBe('poids du corps × 12');
-    expect(Modele.texteMeilleure({ charge: 80, reps: 5 })).toBe('80 kg × 5');
+    expect(Modele.texteMeilleure({ charge: 80, reps: 5 })).toBe('80\u00a0kg × 5');
   });
 
   test('le détail d’une séance : la ligne de la série dit « poids du corps × 12 »', () => {

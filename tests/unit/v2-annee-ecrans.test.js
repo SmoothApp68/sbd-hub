@@ -80,8 +80,8 @@ describe('95 — les écrans de l’année pleine', () => {
   });
   test('le profil : force ≤ 5, mix 6 à 8, muscle ≥ 9', () => {
     const p = e.find((x) => x.cle === 'profil');
-    expect(p.lignes.map((l) => l.v)).toEqual(['75 % · force, 5 reps ou moins', '25 % · mix, 6 à 8 reps',
-                                               '0 % · muscle, 9 reps et plus']);
+    expect(p.lignes.map((l) => l.v)).toEqual(['75\u00a0% · force, 5 reps ou moins', '25\u00a0% · mix, 6 à 8 reps',
+                                               '0\u00a0% · muscle, 9 reps et plus']);
   });
 });
 

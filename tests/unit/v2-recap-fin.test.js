@@ -70,7 +70,7 @@ describe('71 — la comparaison (règle pour règle `comparaison71.py`)', () => 
     expect(Bilan.phraseComparaison(10148, ID(1))).toBe('10,1 t soulevées : à peu près un tricératops.');
     expect(Bilan.phraseComparaison(62300, 'x')).toBe('62,3 t soulevées : plus qu’un semi-remorque chargé.');
     expect(Bilan.phraseComparaison(999, 'x')).toBeNull();
-    expect(Bilan.tonnesDuRecap(10148)).toBe('10,1 t');
+    expect(Modele.tonnesTexte(10148)).toBe('10,1\u00a0t');
   });
 });
 
@@ -207,7 +207,7 @@ describe('71 — les faits du récap, sur une séance d’exemple', () => {
     const x = r();
     const shrug = x.records.filter((l) => /^Shrug/.test(l.nom));
     expect(shrug.length).toBeGreaterThan(0);
-    expect(shrug[0].mesure).toBe('90 kg × 10');
+    expect(shrug[0].mesure).toBe('90\u00a0kg × 10');
     expect(shrug[0].phrase[1]).toMatch(/^Avant : 80 kg/);
     // La forme sans l'option ne change pas : la feuille d'avant et le registre le veulent.
     expect(Object.keys(faits.recordsDuJour(corpus(), SEANCE)[0])).toEqual(['nom', 'mesure']);
@@ -219,7 +219,7 @@ describe('71 — les faits du récap, sur une séance d’exemple', () => {
     expect(p.phrase).toBe('Sur 6 paris vérifiés, le coach en a tenu 4.');
     expect(p.lignes.map((l) => [l.nom, l.fait, l.vise])).toEqual([
       ['Tractions', '9, 9, 8, 7', '9'],
-      ['Shrug', '90 kg × 10, 10, 10', null]
+      ['Shrug', '90\u00a0kg × 10, 10, 10', null]
     ]);
   });
 
@@ -264,11 +264,11 @@ describe('71 — les faits du récap, sur une séance d’exemple', () => {
   });
 
   test('ce qui a été fait : une charge qui change, des reps seules, une mesure', () => {
-    expect(faits.faitDeLExercice([serie('a', 32, 12), serie('b', 36, 10)])).toBe('32 kg × 12 · 36 kg × 10');
-    expect(faits.faitDeLExercice([serie('a', 90, 10), serie('b', 90, 10), serie('c', 90, 10)])).toBe('90 kg × 10, 10, 10');
-    expect(faits.faitDeLExercice([serie('a', 31.5, 16), serie('b', 31.5, 16)])).toBe('31,5 kg × 16, 16');
+    expect(faits.faitDeLExercice([serie('a', 32, 12), serie('b', 36, 10)])).toBe('32\u00a0kg × 12 · 36\u00a0kg × 10');
+    expect(faits.faitDeLExercice([serie('a', 90, 10), serie('b', 90, 10), serie('c', 90, 10)])).toBe('90\u00a0kg × 10, 10, 10');
+    expect(faits.faitDeLExercice([serie('a', 31.5, 16), serie('b', 31.5, 16)])).toBe('31,5\u00a0kg × 16, 16');
     expect(faits.faitDeLExercice([serie('a', null, 9), serie('b', null, 8)])).toBe('9, 8');
-    expect(faits.faitDeLExercice([serie('a', 60, 10, { type_serie: 'echauffement' }), serie('b', 80, 5)])).toBe('80 kg × 5');
+    expect(faits.faitDeLExercice([serie('a', 60, 10, { type_serie: 'echauffement' }), serie('b', 80, 5)])).toBe('80\u00a0kg × 5');
   });
 
   test('⚠️ un bloc sans matière n’a pas de données : sans pari vérifié, pas de paris ; sous 1 t, pas de comparaison', () => {
@@ -300,10 +300,10 @@ describe('71 — les faits du récap, sur une séance d’exemple', () => {
     expect(JSON.stringify([SEANCE, local.seances, local.series, PARIS])).toBe(avant);
   });
 
-  test('l’en-tête : « samedi 10 oct. · 14 h 27 → 15 h 30 » (à l’heure du téléphone)', () => {
+  test('l’en-tête : « samedi 10\u00a0oct. · 14 h 27 → 15 h 30 » (à l’heure du téléphone)', () => {
     const d = new Date(DEBUT), f = new Date(FIN);
     const hm = (x) => x.getHours() + ' h ' + String(x.getMinutes()).padStart(2, '0');
-    expect(Modele.plageDeSeance(DEBUT, FIN)).toBe(Modele.JOURS[d.getDay()] + ' ' + d.getDate() + ' ' +
+    expect(Modele.plageDeSeance(DEBUT, FIN)).toBe(Modele.JOURS[d.getDay()] + ' ' + d.getDate() + '\u00a0' +
       Modele.MOIS_COURTS[d.getMonth()] + ' · ' + hm(d) + ' → ' + hm(f));
   });
 });

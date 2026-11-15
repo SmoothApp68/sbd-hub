@@ -1756,11 +1756,7 @@
   var SEUIL_SEANCE_LONGUE_MS = 5 * 3600000, SEUIL_DERNIERE_SERIE_MS = 3600000;
 
   // « 6 h 12 » : la durée, en heures et minutes, comme l'heure de l'app.
-  function dureeDite(ms) {
-    var m = Math.round(ms / 60000);
-    var h = Math.floor(m / 60), mi = m % 60;
-    return h + ' h ' + (mi < 10 ? '0' : '') + mi;
-  }
+  function dureeDite(ms) { return racine.THModele.dureeEnMinutes(ms / 60000); }
 
   function alerteDeDuree(seance, index, fin, mode) {
     if (!seance) return null;

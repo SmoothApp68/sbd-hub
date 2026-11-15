@@ -20,7 +20,7 @@ const INSTANTANE = require('./fixtures/verbe-4a-campagne.json');
 
 const O = { mesure: 'charge_reps', equipement: 'poulie', intention: 'progresser', reglage: 'normal', edition: false };
 const esp = (t) => String(t).replace(/[  ]/g, ' ');
-const gabarit = (t) => esp(t).replace(/\d+(?:,\d+)?/g, 'N').replace(/(?:Le N \S+|Lundi|Mardi|Mercredi|Jeudi|Vendredi|Samedi|Dimanche|Hier|Aujourd.hui)(?= :)/, 'D');
+const gabarit = (t) => esp(t).replace(/\d+(?:er)?(?:,\d+)?/g, 'N').replace(/(?:Le N \S+|Lundi|Mardi|Mercredi|Jeudi|Vendredi|Samedi|Dimanche|Hier|Aujourd.hui)(?= :)/, 'D');
 
 let g = 20261113;
 const al = () => { g = (g * 1664525 + 1013904223) >>> 0; return g / 4294967296; };

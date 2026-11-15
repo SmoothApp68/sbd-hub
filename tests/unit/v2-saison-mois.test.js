@@ -367,11 +367,11 @@ describe('PR 6 — la story nomme sa période (B1 à B9)', () => {
     // Semaine entière du 14 au 20 : la plus lourde.
     const a = lourde([['2026-09-15', 200], ['2026-09-17', 200], ['2026-09-22', 100]]);
     expect(a.b.semaines.plusLourde.tronquee).toBe(false);
-    expect(txt(a.e.find((x) => x.cle === 'semaines'))).toMatch(/semaine du 14 sept\., /);
-    // La semaine du 28 sept. au 4 oct. : seuls 28, 29 et 30 comptent dans septembre.
+    expect(txt(a.e.find((x) => x.cle === 'semaines'))).toMatch(/semaine du 14\u00a0sept\., /);
+    // La semaine du 28 sept. au 4 oct. : seuls 28, 29 et 30 comptent dans septembre.
     const c = lourde([['2026-09-08', 100], ['2026-09-28', 200], ['2026-09-30', 200]]);
     expect(c.b.semaines.plusLourde).toMatchObject({ lundi: '2026-09-28', du: '2026-09-28', au: '2026-09-30', tronquee: true });
-    expect(txt(c.e.find((x) => x.cle === 'semaines'))).toMatch(/La plus lourde : \\?"?.*du 28 au 30 sept\., /);
+    expect(txt(c.e.find((x) => x.cle === 'semaines'))).toMatch(/La plus lourde : \\?"?.*du 28 au 30\u00a0sept\., /);
     expect(txt(c.e.find((x) => x.cle === 'semaines'))).not.toMatch(/semaine du|comptés/);
   });
 });

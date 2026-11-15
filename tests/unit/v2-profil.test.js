@@ -206,9 +206,9 @@ describe('ce qu’on a le droit d’écrire', () => {
 });
 
 describe('l’identité affichée', () => {
-  test('« 98 kg · 182 cm · 28 ans » quand tout est là', () => {
+  test('« 98\u00a0kg · 182 cm · 28 ans » quand tout est là', () => {
     const p = { taille_cm: 182, date_naissance: '1998-03-12' };
-    expect(Profil.sousTitre(p, 98, AUJ)).toBe('98 kg · 182 cm · 28 ans');
+    expect(Profil.sousTitre(p, 98, AUJ)).toBe('98\u00a0kg · 182 cm · 28 ans');
   });
 
   // ⚠️ CE QUI MANQUE NE LAISSE PAS DE TROU. Un profil neuf rend une chaîne
@@ -219,11 +219,11 @@ describe('l’identité affichée', () => {
 
   test('ce qui est connu s’affiche seul, sans séparateur orphelin', () => {
     expect(Profil.sousTitre({ taille_cm: 182 }, null, AUJ)).toBe('182 cm');
-    expect(Profil.sousTitre({}, 98, AUJ)).toBe('98 kg');
+    expect(Profil.sousTitre({}, 98, AUJ)).toBe('98\u00a0kg');
   });
 
   test('un poids décimal se lit à la française', () => {
-    expect(Profil.sousTitre({}, 97.4, AUJ)).toBe('97,4 kg');
+    expect(Profil.sousTitre({}, 97.4, AUJ)).toBe('97,4\u00a0kg');
   });
 
   test('l’âge est en années révolues, pas une soustraction d’années', () => {

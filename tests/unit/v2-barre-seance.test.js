@@ -22,6 +22,7 @@ require('../../v2/js/modele.js');
 require('../../v2/js/semaine.js');
 const Seance = require('../../v2/js/seance.js');
 const Bilan = require('../../v2/js/bilan.js');
+const Modele = require('../../v2/js/modele.js');
 require('../../v2/js/rendu.js');
 const Rendu = () => window.THRendu;
 
@@ -39,7 +40,7 @@ const T0 = new Date(DEBUT).getTime();
 describe('le format de la durée', () => {
   test.each([
     [0, '0 min'], [1, '1 min'], [47, '47 min'], [59, '59 min'],
-    [60, '1 h 00'], [61, '1 h 01'], [72, '1 h 12'], [125, '2 h 05']
+    [60, '1 h'], [61, '1 h 01'], [72, '1 h 12'], [125, '2 h 05']
   ])('%i min s’écrit « %s »', (minutes, attendu) => {
     expect(Rendu().libelleDuree(minutes)).toBe(attendu);
   });
@@ -49,12 +50,12 @@ describe('le format de la durée', () => {
   test('jamais « 72 min » : au-delà d’une heure, la barre passe aux heures', () => {
     [60, 72, 125, 600].forEach((m) => {
       expect(Rendu().libelleDuree(m)).not.toMatch(/\bmin\b/);
-      expect(Rendu().libelleDuree(m)).toMatch(/^\d+ h \d\d$/);
+      expect(Rendu().libelleDuree(m)).toMatch(/^\d+ h( \d\d)?$/);
     });
   });
 
-  test('c’est le format du bilan du mois, pas un second', () => {
-    [0, 5, 59, 60, 130].forEach((m) => expect(Rendu().libelleDuree(m)).toBe(Bilan.texteTemps(m)));
+  test('c’est le format unique des durées (`Modele.dureeEnMinutes`), pas un second', () => {
+    [0, 5, 59, 60, 130].forEach((m) => expect(Rendu().libelleDuree(m)).toBe(Modele.dureeEnMinutes(m)));
   });
 });
 

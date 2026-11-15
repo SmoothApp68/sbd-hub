@@ -1724,7 +1724,7 @@
     // ligne haute peut ne pas être posée (séries allégées), et la phrase dit l'écart quand même.
     var cV = regle('cran.vers');
     return 'De ' + nombreFr(g.de, regle('cran.de')) + ' à ' + enKg(g.vers, cV) +
-      ', c\'est +' + nombreFr(g.pct, regle('cran.pct')) + INSECABLE + '%' + DEUX_POINTS + 'environ ' +
+      ', c\'est +' + Modele().pourcent(g.pct, 2, regle('cran.pct')) + DEUX_POINTS + 'environ ' +
       nombreFr(g.reps, regle('cran.reps')) + ' reps d\'écart. À ' + enKg(g.vers, cV) + ', ' +
       nombreFr(g.plancher, regle('cran.plancher')) + ' reps suffisent pour t\'y installer.';
   }

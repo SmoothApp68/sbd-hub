@@ -134,7 +134,7 @@ describe('les vues Muscles, Succès, Déblocages', () => {
     conditions: { vitrine: 10, grave: 'athlete' }, gels: { premier: 12, pas: 26, max: 2 } });
     const t = Array.from(c.querySelectorAll('.j-ligne')).map(texte);
     expect(t).toEqual(['Cadre de vitrine10 succès · ✓', 'Cadre d’or · affichéun succès exceptionnel · ✓',
-      'Cadre gravéle titre Athlète', 'En réserve2 sur 2', 'Prochain gelréserve pleine', 'Utiliséssemaine du 4 août 2025']);
+      'Cadre gravéle titre Athlète', 'En réserve2 sur 2', 'Prochain gelréserve pleine', 'Utiliséssemaine du 4\u00a0août\u00a02025']);
   });
 });
 

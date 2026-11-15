@@ -402,10 +402,10 @@ describe('60-2a — la pesée de l’écran « Toi »', () => {
   test('un poids hors bornes : la phrase le dit, aucune pesée ne part ; la taille et l’année aussi', () => {
     const b = bac();
     versToi(b);
-    expect(b.actions().surSaisie('poids', '12')).toBe('Un poids entre 20 et 400 kg.');
+    expect(b.actions().surSaisie('poids', '12')).toBe('Un poids entre 20 et 400\u00a0kg.');
     expect(b.actions().surSaisie('taille', '99')).toBe('Une taille entre 100 et 250 cm.');
     expect(b.actions().surSaisie('annee', '1850')).toBe('Une année de naissance plausible.');
-    expect(b.actions().surSaisie('poids', 'abc')).toBe('Un poids entre 20 et 400 kg.');
+    expect(b.actions().surSaisie('poids', 'abc')).toBe('Un poids entre 20 et 400\u00a0kg.');
     const avant = b.journal.profil.length;                           // l'écran « Tes données » a déjà écrit le sien
     b.actions().surContinuer();
     expect(b.journal.pesees).toEqual([]);

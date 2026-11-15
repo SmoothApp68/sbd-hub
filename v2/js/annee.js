@@ -17,15 +17,11 @@
 
   // ── Les mots ──────────────────────────────────────────────────────────────
   function milliers(n) { return M().nombreGroupe(Math.round(Number(n) || 0)); }
-  function kg(n) { return M().nombreTexte(n, 1) + ' kg'; }
-  function tonnes(kgs) {
-    var t = (Number(kgs) || 0) / 1000;
-    return t >= 100 ? { v: Math.round(t), dec: false } : { v: Math.round(t * 10) / 10, dec: true };
-  }
-  function texteTonnes(kgs) {
-    var t = tonnes(kgs);
-    return (t.dec ? M().nombreTexte(t.v, 1) : milliers(t.v)) + ' t';
-  }
+  // Les nombres de l'année s'écrivent par le formateur unique (`Modele`, MOTEUR §9.51 quater) : une charge au plus à 2 décimales
+  // (0,25 kg se lit 0,25 kg), un volume en tonnes au dixième. Ici, seulement la valeur d'un compteur qui défile.
+  function kg(n) { return M().kgTexte(n); }
+  function tonnes(kgs) { return { v: M().tonnesValeur(kgs), dec: 1 }; }
+  function texteTonnes(kgs) { return M().tonnesTexte(kgs); }
   // PR 6 des mots — LE NOM DE LA PÉRIODE DE LA STORY, une fois : « ce mois-ci » / « en septembre » (un mois), « cet été » / « en été » (une
   // saison), « cette année » / « en 2025 » (une année). `vue.aujourdhui` : le jour J ; sans lui, jamais « ce / cette », toujours le nom.
   function nommee(vue) {
@@ -36,8 +32,7 @@
   }
   function moisNom(cle) { return M().MOIS_LONGS[Number(String(cle).slice(5, 7)) - 1]; }
   function jourTexte(j) {
-    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(j || ''));
-    return m ? Number(m[3]) + (m[3] === '01' ? 'er' : '') + ' ' + M().MOIS_LONGS[Number(m[2]) - 1] : '';
+    return M().jourDit(String(j || ''), { mois: 'long' });
   }
   function sansParentheses(nom) { return String(nom || '').replace(/\s*\([^)]*\)\s*/g, ' ').trim(); }
   function majuscule(t) { return t ? t.charAt(0).toUpperCase() + t.slice(1) : t; }
@@ -64,10 +59,10 @@
       : (at.partout === 'presque' ? ' Plus lourd ' + av.qu + ' à presque toutes les reps.' : '');
     return { cle: 'avance', d: 9800, lab: 'Ce qui a le plus avancé', titre: at.nom, courbe: at.courbe,
              txt: ['À ' + M().repsTexte(at.reps) + ', tu es passé de ',
-                   g(M().nombreTexte(at.de, 1) + ' à ' + kg(at.a)), '.' + partout],
+                   g(M().nombreTexte(at.de) + ' à ' + kg(at.a)), '.' + partout],
              lignes: av.suivants.map(function (x) {
                return { n: x.nom + ', à ' + M().repsTexte(x.reps),
-                        v: M().nombreTexte(x.de, 1) + ' → ', em: kg(x.a) };
+                        v: M().nombreTexte(x.de) + ' → ', em: kg(x.a) };
              }) };
   }
 
@@ -100,7 +95,7 @@
     var note = null;
     if (ec !== null && ec !== undefined) {
       var te = texteTonnes(Math.abs(ec));
-      note = te === '0 t' || te === '0,0 t' ? majuscule(cmp.comme) + '.'
+      note = te === M().tonnesTexte(0) ? majuscule(cmp.comme) + '.'
         : (ec > 0 ? '+' : '−') + te + ' ' + (cmp.par || 'sur ' + cmp.libelle);
     }
     // 226 — l'équivalent des tonnes, un seul fil : la story et la plaque le lisent.
@@ -185,7 +180,7 @@
       // 226 — le gain en clair : « Squat +5 kg », le détail dessous.
       var gain = b.avance.tete.a - b.avance.tete.de;
       cases.push({ k: 'Plus gros progrès', m: sansParentheses(b.avance.tete.nom) + (gain > 0 ? ' +' + kg(gain) : ''),
-                   p: M().nombreTexte(b.avance.tete.de, 1) + ' → ' + kg(b.avance.tete.a) + ' à ' + M().repsTexte(b.avance.tete.reps) });
+                   p: M().nombreTexte(b.avance.tete.de) + ' → ' + kg(b.avance.tete.a) + ' à ' + M().repsTexte(b.avance.tete.reps) });
     }
     if (saison && b.exercices.length) cases.push({ k: 'Exercice de la saison', m: sansParentheses(b.exercices[0].nom), p: repsTxt(b.exercices[0].reps) });
     if (!saison && b.muscles.length) cases.push({ k: 'Muscle du mois', m: b.muscles[0].libelle, p: seriesTxt(b.muscles[0].series) });
@@ -244,9 +239,9 @@
                  titre: pr.premier === 'mix' ? 'Plutôt entre les deux.'
                    : 'Plutôt ' + NOM_DU_PROFIL[pr.premier] + ' que ' + NOM_DU_PROFIL[pr.second] + '.',
                  barre3: [pr.force, pr.mix, pr.muscle],
-                 lignes: [{ pastille: 'rouge', v: pr.force + ' % · force, 5 reps ou moins' },
-                          { pastille: 'or', v: pr.mix + ' % · mix, 6 à 8 reps' },
-                          { pastille: 'bleu', v: pr.muscle + ' % · muscle, 9 reps et plus' }] });
+                 lignes: [{ pastille: 'rouge', v: M().pourcentTexte(pr.force) + ' · force, 5 reps ou moins' },
+                          { pastille: 'or', v: M().pourcentTexte(pr.mix) + ' · mix, 6 à 8 reps' },
+                          { pastille: 'bleu', v: M().pourcentTexte(pr.muscle) + ' · muscle, 9 reps et plus' }] });
     }
     // Le muscle de l'année.
     if (b.muscles.length) {
@@ -277,7 +272,7 @@
       var autres = br.lignes.filter(function (l) { return l !== tete; });
       var ligneBarre = function (l) {
         if (l.avant === null || l.avant === undefined) return { n: l.nom, v: kg(l.charge) };
-        if (l.charge > l.avant) return { n: l.nom, v: M().nombreTexte(l.avant, 1) + ' → ', em: kg(l.charge) };
+        if (l.charge > l.avant) return { n: l.nom, v: M().nombreTexte(l.avant) + ' → ', em: kg(l.charge) };
         if (l.charge === l.avant) return { n: l.nom, v: kg(l.charge) + ', ' + cmp.comme };
         return { n: l.nom, v: kg(l.charge) + ' · ' + kg(l.avant) + ' ' + (cmp.mode === 'precedente' ? 'en ' + cmp.libelle : cmp.libelle) };
       };
@@ -289,11 +284,11 @@
                    : (e < 0 ? ', ' + M().nombreTexte(-e, 1) + ' de moins ' + cmp.qu + '.' : ', ' + cmp.comme + '.'))];
       }
       var pdc = br.lignes.filter(function (l) { return l.pdc; }).sort(function (a, c) { return c.pdc.pct - a.pdc.pct; });
-      out.push({ cle: 'barres', d: 10500, lab: 'Ta barre la plus lourde', chiffre: { v: tete.charge, dec: tete.charge % 1 !== 0, unite: 'kg' },
+      out.push({ cle: 'barres', d: 10500, lab: 'Ta barre la plus lourde', chiffre: { v: tete.charge, dec: tete.charge % 1 !== 0 ? 2 : 0, unite: 'kg' },
                  txt: ['au ' + tete.nom + '.' + (tete.vie ? ' La plus lourde de ta vie.' : '')],
                  lignes: autres.map(ligneBarre), total: total,
                  pdc: pdc.length ? pdc.map(function (l) {
-                   return { v: (l.pdc.approx ? '≈ ' : '') + l.pdc.pct + ' %', n: COURT[l.slug] || l.nom };
+                   return { v: (l.pdc.approx ? '≈ ' : '') + M().pourcentTexte(l.pdc.pct), n: COURT[l.slug] || l.nom };
                  }) : null });
     }
     // Ce qui a le plus avancé.
@@ -321,14 +316,14 @@
     if (b.barres && b.barres.total) {
       var ec = b.barres.total.ecart;
       cases.push({ k: 'Squat, couché, soulevé', g: kg(b.barres.total.charge),
-                   p: ec === null ? null : (ec > 0 ? '+' + M().nombreTexte(ec, 1) + ' kg sur ' + (cmp.mode === 'precedente' ? cmp.libelle : 'le début')
-                     : (ec < 0 ? '−' + M().nombreTexte(-ec, 1) + ' kg sur ' + (cmp.mode === 'precedente' ? cmp.libelle : 'le début') : majuscule(cmp.comme))) });
+                   p: ec === null ? null : (ec !== 0 ? M().kgTexte(ec, { plus: true }) + ' sur ' + (cmp.mode === 'precedente' ? cmp.libelle : 'le début')
+                     : majuscule(cmp.comme)) });
     }
     if (b.avance && b.avance.tete) {
       // 226 — le gain en clair : « Squat +5 kg », le détail dessous.
       var gain = b.avance.tete.a - b.avance.tete.de;
       cases.push({ k: 'Plus gros progrès', m: sansParentheses(b.avance.tete.nom) + (gain > 0 ? ' +' + kg(gain) : ''),
-                   p: M().nombreTexte(b.avance.tete.de, 1) + ' → ' + kg(b.avance.tete.a) + ' à ' + M().repsTexte(b.avance.tete.reps) });
+                   p: M().nombreTexte(b.avance.tete.de) + ' → ' + kg(b.avance.tete.a) + ' à ' + M().repsTexte(b.avance.tete.reps) });
     }
     if (b.muscles.length) cases.push({ k: 'Muscle de l’année', m: b.muscles[0].libelle, p: milliers(b.muscles[0].series) + ' séries' });
     out.push({ cle: 'plaque', d: 0, plaque: { an: p.libelle, qui: vue.qui || '', cases: cases.slice(0, 6) } });
@@ -360,7 +355,7 @@
     if (typeof c.v === 'number') {
       var cpt = el('span', 'cpt', '0');
       cpt.dataset.v = String(c.v);
-      if (c.dec) cpt.dataset.dec = '1';
+      if (c.dec) cpt.dataset.dec = String(c.dec === true ? 1 : c.dec);
       p.appendChild(cpt);
     } else p.appendChild(doc.createTextNode(String(c.v)));
     if (c.unite) p.appendChild(el('small', null, (c.espace ? ' ' : '') + c.unite));
@@ -645,7 +640,7 @@
   }
   function valeurAffichee(c) {
     if (typeof c.v !== 'number') return (c.avant || '') + c.v;
-    return (c.avant || '') + (c.dec ? M().nombreTexte(c.v, 1) : milliers(c.v));
+    return (c.avant || '') + (c.dec ? M().nombreTexte(c.v, c.dec === true ? 1 : c.dec) : milliers(c.v));
   }
   // « Partager en image » (social 2) — un record et une séance, sur le MÊME fond, la MÊME palette et le même pied que l'année. L'écran `e`
   // vient de `partage-image.js` (pur) : ici, seulement le dessin. La silhouette est `dessinerLeCorps`, la même que « Muscle du mois ».
@@ -846,7 +841,7 @@
   }
   function valeurCpt(x, r) {
     var v = Number(x.dataset.v) * r;
-    return x.dataset.dec ? M().nombreTexte(Math.round(v * 10) / 10, 1) : milliers(Math.round(v));
+    return x.dataset.dec ? M().nombreTexte(v, Number(x.dataset.dec)) : milliers(Math.round(v));
   }
 
   // ── Le lecteur ───────────────────────────────────────────────────────────

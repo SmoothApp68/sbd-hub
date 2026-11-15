@@ -281,12 +281,12 @@ describe('tendance — des semaines lundi-dimanche, chacune à ≥ 2 pesées, 4 
     const t = Poids.tendanceDuPoids(serie([1, 2, 3, 4, 5, 6], 2, lin(-0.5)), AUJ);
     expect(t.kgParSemaine).toBeCloseTo(-0.5, 6);
     expect(t.erreur).toBeCloseTo(0, 6);
-    expect(Poids.phraseDeTendance(t)).toBe('−0,5 kg par semaine en moyenne, sur les 6 dernières semaines.');
+    expect(Poids.phraseDeTendance(t)).toBe('−0,5\u00a0kg par semaine en moyenne, sur les 6 dernières semaines.');
     expect(Poids.noteDeTendance(t)).toBe('Calculée sur tes 12 pesées de ces 6 semaines.');
   });
   test('une montée : signe « + »', () => {
     expect(Poids.phraseDeTendance(Poids.tendanceDuPoids(serie([1, 2, 3, 4, 5], 2, lin(0.3)), AUJ)))
-      .toBe('+0,3 kg par semaine en moyenne, sur les 5 dernières semaines.');
+      .toBe('+0,3\u00a0kg par semaine en moyenne, sur les 5 dernières semaines.');
   });
   test('série très bruitée (±1,5 kg alterné, 8 pesées, pente vraie −0,2) : « Pas de sens net »', () => {
     let i = 0;

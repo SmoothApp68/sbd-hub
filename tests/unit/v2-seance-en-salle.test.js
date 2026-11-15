@@ -180,7 +180,7 @@ describe('l’exercice en salle', () => {
     expect(enfants.indexOf('consigne')).toBe(1);
     expect(exo.querySelectorAll('.encadre-exo')).toHaveLength(1);
     expect(exo.querySelectorAll('.note-sous-nom, .note-derniere')).toHaveLength(2);
-    expect(exo.querySelector('.encadre-titre').textContent).toMatch(/^Consigne . Ta note du 4 nov/);
+    expect(exo.querySelector('.encadre-titre').textContent).toMatch(/^Consigne . Ta note du 4\u00a0nov/);
     expect(exo.querySelector('.encadre-corps').hidden).toBe(false);
     expect(exo.querySelector('.note-sous-nom').textContent).toBe(longue);
     // dès la première série validée de l'exercice : replié (le titre reste, 44 px au CSS) ; un toucher l'ouvre, un autre le ferme

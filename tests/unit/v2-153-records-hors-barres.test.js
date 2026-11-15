@@ -96,7 +96,7 @@ describe('153 (B) — la première fois sur une marche', () => {
     expect(de(r, 'marche')).toMatchObject({ valeur: 2, ancien: 1, ancien_le: '2026-02-05T10:00:00Z', slug: 'tractions_lestees', ancien_slug: 'tractions' });
     const p = Modele.phraseDeRecord(r, 'tractions lestées', aujourdhui, (s) => INDEX[s].nom);
     expect(p[0]).toBe('Première fois : Tractions Lestées.');
-    expect(p[1]).toBe('Avant : Tractions, depuis le 5 févr.');
+    expect(p[1]).toBe('Avant : Tractions, depuis le 5\u00a0févr.');
   });
   test('une habileté pour la première fois, même sans marche d’avant ; gris « Une habileté. »', () => {
     const histo = [passee('2-05', W('squat', 5, { charge_kg: 100 }))];
@@ -144,7 +144,7 @@ describe('153 (C) — le plus gros D+, le plus d’étages', () => {
     expect(de(e, 'etages')).toMatchObject({ valeur: 72, ancien: 60 });
     const pe = Modele.phraseDeRecord(e.filter((x) => x.type === 'etages'), 'escaliers', aujourdhui);
     expect(pe[0]).toBe('Record d’étages : 72.');
-    expect(pe[1]).toMatch(/^Avant : 60, le 4 janv\.$/);
+    expect(pe[1]).toMatch(/^Avant : 60, le 4 janv\.$/);
   });
   test('égal ou plus bas : pas de record', () => {
     const histo = [passee('1-04', T('randonnee', 20000, 15000, { denivele_m: 850 }))];

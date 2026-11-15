@@ -680,7 +680,7 @@
     var p = profil || {};
     var bouts = [];
     if (poidsKg !== null && poidsKg !== undefined && isFinite(poidsKg)) {
-      bouts.push(racine.THModele.nombreSigne(poidsKg) + ' kg');
+      bouts.push(racine.THModele.kgTexte(poidsKg));
     }
     if (p.taille_cm) bouts.push(p.taille_cm + ' cm');
     var a = age(p.date_naissance, aujourdhui);
@@ -1846,7 +1846,7 @@
   };
   function libelleDisque(kg) {
     var M = racine.THModele;
-    return (M ? M.nombreSigne(kg) : String(kg)) + '\u00a0kg';
+    return M ? M.kgTexte(kg) : String(kg);
   }
   function optionsDeLaLigne(cle) {
     var inconnu = { cle: INCONNU, libelle: 'Je ne sais pas' };
@@ -2041,15 +2041,16 @@
     return s === undefined ? null : { ma_salle: s };
   }
   // La phrase d'un brouillon hors bornes (la feuille reste ouverte) : celle d'avant pour une tranche unique.
+  function kgDit(kg) { return racine.THModele ? racine.THModele.kgTexte(kg) : String(kg); }
   function phraseHalteresHorsBornes(brouillon) {
     var l = lignesHalteres(brouillon) || [];
     var pas = (racine.THModele ? racine.THModele.nombreSigne(SALLE_PAS_MIN) : String(SALLE_PAS_MIN));
     if (l.length <= 1) {
-      return 'Haltères : le plus lourd entre ' + SALLE_HALTERES_MIN + ' et ' + SALLE_HALTERES_MAX + ' kg, un écart de ' +
-        pas + ' à ' + SALLE_PAS_MAX + ' kg.';
+      return 'Haltères : le plus lourd entre ' + SALLE_HALTERES_MIN + ' et ' + kgDit(SALLE_HALTERES_MAX) + ', un écart de ' +
+        pas + ' à ' + kgDit(SALLE_PAS_MAX) + '.';
     }
-    return 'Haltères : chaque « jusqu’à » entre ' + SALLE_HALTERES_MIN + ' et ' + SALLE_HALTERES_MAX +
-      ' kg, plus lourd que le précédent ; un écart de ' + pas + ' à ' + SALLE_PAS_MAX + ' kg, pas plus grand que sa tranche.';
+    return 'Haltères : chaque « jusqu’à » entre ' + SALLE_HALTERES_MIN + ' et ' + kgDit(SALLE_HALTERES_MAX) +
+      ', plus lourd que le précédent ; un écart de ' + pas + ' à ' + kgDit(SALLE_PAS_MAX) + ', pas plus grand que sa tranche.';
   }
   // 116 (audit du 16/10/2026, 03 #8) — UN « JUSQU'À » VIDÉ OU ILLISIBLE N'EFFACE PAS LES HALTÈRES DÉCLARÉS. Le champ
   // est numérique : une faute de frappe (« 4O ») s'y lit vide, et « Valider » écrivait la salle SANS haltères, sans
@@ -2073,11 +2074,11 @@
     var repris = [];
     vides.forEach(function (i) {
       l[i] = { jusqua: declarees[i].jusqua, pas: l[i].pas, pasChoisi: true };
-      repris.push(declarees[i].jusqua + ' kg');
+      repris.push(racine.THModele ? racine.THModele.kgTexte(declarees[i].jusqua) : String(declarees[i].jusqua));
     });
     var b = Object.assign({}, brouillon, { halteres: l });
     return { brouillon: b,
-             phrase: l.length === 1 ? '« Jusqu’à » vide ou illisible : tes haltères restent à ' + declarees[0].jusqua + ' kg.'
+             phrase: l.length === 1 ? '« Jusqu’à » vide ou illisible : tes haltères restent à ' + kgDit(declarees[0].jusqua) + '.'
                : '« Jusqu’à » vide ou illisible : je remets ' + racine.THModele.enumerer(repris) + '.' };
   }
 
@@ -2387,7 +2388,7 @@
     });
     kgs.forEach(function (kg) {
       var v = auDemi(kg);
-      var r = ajouterElastique(b, liste, v === null ? '' : (M ? M.nombreSigne(v) : String(v)) + '\u00a0kg', kg);
+      var r = ajouterElastique(b, liste, v === null ? '' : (M ? M.kgTexte(v) : String(v)), kg);
       if (r.erreur && !/déjà dans la liste/.test(r.erreur)) erreur = r.erreur;
       else if (!r.erreur) { ajoutes++; b = r.brouillon; }
     });

@@ -63,10 +63,10 @@ describe('I197 — une charge s’écrit par `Modele.kgTexte` (F-02)', () => {
     expect(Modele.kgTexte(1.15, 1)).toBe('1,2' + N + 'kg');
     expect(Modele.kgTexte(-1.15, 1)).toBe(MOINS + '1,2' + N + 'kg');
   });
-  test('la voix de la charge (`chargeTexte`) écrit par le même formateur', () => {
-    expect(Modele.chargeTexte(127.25)).toBe(Modele.kgTexte(127.25));
-    expect(Modele.chargeTexte(0.25)).toBe(Modele.kgTexte(0.25));
-    expect(Modele.chargeTexte(-22.5)).toBe('Aide 22,5' + N + 'kg');
+  test('la voix de la charge (`charge`) écrit par le même formateur', () => {
+    expect(Modele.charge(127.25)).toBe(Modele.kgTexte(127.25));
+    expect(Modele.charge(0.25)).toBe(Modele.kgTexte(0.25));
+    expect(Modele.charge(-22.5)).toBe('Aide 22,5' + N + 'kg');
   });
   test('la charge d’une carte de l’année et de l’image de partage garde ses deux décimales', () => {
     const CAT = [{ slug: 'squat_barre', nom: 'Squat (Barre)', equipement: 'barre', mesure: 'charge_reps', muscles_primaires: ['quadriceps'], muscles_secondaires: [] }];
@@ -194,29 +194,31 @@ describe('I199 — le premier du mois s’écrit « 1er » (F-05)', () => {
 
 describe('I200 — une durée s’écrit par `Modele.formatDuree` (F-10)', () => {
   test('les cas limites : 0, 45 s, 90 s, 750 s, 3 900 s, 6 h pile, vides', () => {
-    expect(Modele.formatDuree(0)).toBe('0' + N + 's');
-    expect(Modele.formatDuree(45)).toBe('45' + N + 's');
-    expect(Modele.formatDuree(60)).toBe('1' + N + 'min');
-    expect(Modele.formatDuree(90)).toBe('1' + N + 'min' + N + '30');
-    expect(Modele.formatDuree(750)).toBe('12' + N + 'min' + N + '30');
-    expect(Modele.formatDuree(3900)).toBe('1' + N + 'h' + N + '05');
-    expect(Modele.formatDuree(21600)).toBe('6' + N + 'h');
-    expect(Modele.formatDuree(23715)).toBe('6' + N + 'h' + N + '35');
+    expect(Modele.formatDuree(0)).toBe('0 s');
+    expect(Modele.formatDuree(45)).toBe('45 s');
+    expect(Modele.formatDuree(60)).toBe('1 min');
+    expect(Modele.formatDuree(90)).toBe('1 min 30');
+    expect(Modele.formatDuree(750)).toBe('12 min 30');
+    expect(Modele.formatDuree(3900)).toBe('1 h 05');
+    expect(Modele.formatDuree(21600)).toBe('6 h');
+    expect(Modele.formatDuree(23715)).toBe('6 h 35');
     expect(Modele.formatDuree(null)).toBe('');
     expect(Modele.formatDuree(-5)).toBe('');
     expect(Modele.formatDuree(NaN)).toBe('');
   });
   test('l’heure du jour : « 9 h 05 »', () => {
-    expect(Modele.heureDite(9, 5)).toBe('9' + N + 'h' + N + '05');
-    expect(Modele.heureDite(14, 27)).toBe('14' + N + 'h' + N + '27');
+    expect(Modele.heureDite(9, 5)).toBe('9 h 05');
+    expect(Modele.heureDite(14, 27)).toBe('14 h 27');
   });
   test('la durée de la séance longue, le temps du bilan, la plage du récap : la même fonction', () => {
     expect(Seance.dureeDite(6 * 3600000)).toBe(Modele.formatDuree(6 * 3600));
     expect(Seance.dureeDite((9 * 60 + 42) * 60000)).toBe(Modele.formatDuree((9 * 60 + 42) * 60));
-    expect(Bilan.texteTemps(60)).toBe(Modele.formatDuree(3600));
-    expect(Bilan.texteTemps(725)).toBe(Modele.formatDuree(725 * 60));
-    expect(Bilan.texteTemps(45)).toBe(Modele.formatDuree(45 * 60));
-    expect(Bilan.texteTemps(null)).toBe('');
+    expect(Bilan.texteTemps).toBeUndefined();   // la copie est supprimée : `Modele.dureeEnMinutes` est la seule
+    expect(Modele.dureeEnMinutes(60)).toBe(Modele.formatDuree(3600));
+    expect(Modele.dureeEnMinutes(725)).toBe(Modele.formatDuree(725 * 60));
+    expect(Modele.dureeEnMinutes(45)).toBe('45 min');
+    expect(Modele.dureeEnMinutes(0)).toBe('0 min');
+    expect(Modele.dureeEnMinutes(null)).toBe('');
     const iso = new Date(2026, 10, 1, 14, 27).toISOString();
     expect(Modele.plageDeSeance(iso, new Date(2026, 10, 1, 15, 30).toISOString())).toContain(Modele.heureDite(14, 27) + ' → ' + Modele.heureDite(15, 30));
     expect(Modele.texteDePartage({ titre: 'Bas', duree_min: 45, series: 3, volume_texte: '1 t', records: [] })).toContain(Modele.formatDuree(45 * 60));

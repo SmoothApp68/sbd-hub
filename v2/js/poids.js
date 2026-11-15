@@ -303,16 +303,12 @@
 
   // La seule phrase de la tendance. Un sens n'est dit que si |pente| ≥ 0,1 ET |pente| ≥ 2 × erreur ; « Stable » si la
   // pente est petite ET bien mesurée ; sinon « Pas de sens net ». Un fait : ni jugement, ni invitation.
-  function kgFr(v) {
-    var M = racine.THModele;
-    return M.nombreSigne(M.nombreFixe(v, 1));
-  }
   function phraseDeTendance(t) {
     if (!t) return null;
     var a = Math.abs(t.kgParSemaine), e = Number(t.erreur) || 0, E = 1e-9;
     var fin = ' sur les ' + t.semaines + ' dernières semaines.';
     if (a >= 0.1 - E && a >= 2 * e - E) {
-      return (t.kgParSemaine > 0 ? '+' : '') + kgFr(t.kgParSemaine) + ' kg par semaine en moyenne,' + fin;
+      return racine.THModele.kgTexte(t.kgParSemaine, { decimales: 1, fixe: true, plus: true }) + ' par semaine en moyenne,' + fin;
     }
     if (a < 0.1 && 2 * e < 0.2) return 'Stable' + fin;
     return 'Pas de sens net' + fin;
@@ -363,7 +359,7 @@
   // Rend `{ pesee }` (la forme de `poserPesee`) ou `{ erreur }`, la phrase à poser dans la feuille.
   function peseeDuProfil(poids, jour, aujourdhui) {
     var p = poidsValide(poids);
-    if (p === null) return { erreur: 'Un poids entre ' + POIDS_MIN + ' et ' + POIDS_MAX + ' kg.' };
+    if (p === null) return { erreur: 'Un poids entre ' + POIDS_MIN + ' et ' + racine.THModele.kgTexte(POIDS_MAX) + '.' };
     var j = String(jour || '').slice(0, 10);
     var m = RE_JOUR.exec(j);
     var d = m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])) : null;

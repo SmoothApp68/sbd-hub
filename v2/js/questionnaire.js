@@ -390,7 +390,7 @@
     if (rec) {
       if (rec[2] === 'kg') {
         var kg = n !== null && n > 0 && n <= RECENTE_KG_MAX ? Math.round(n * 100) / 100 : null;
-        return { valeur: kg, erreur: kg === null ? 'Une charge entre 0 et ' + RECENTE_KG_MAX + ' kg.' : null };
+        return { valeur: kg, erreur: kg === null ? 'Une charge entre 0 et ' + Modele().kgTexte(RECENTE_KG_MAX) + '.' : null };
       }
       var reps = n !== null && Math.floor(n) === n && n >= 1 && n <= RECENTE_REPS_MAX ? n : null;
       return { valeur: reps, erreur: reps === null ? 'Un nombre de reps entre 1 et ' + RECENTE_REPS_MAX + '.' : null };
@@ -418,7 +418,7 @@
     if (cle === 'poids') {
       var W = Poids();
       var poids = n === null ? null : W.poidsValide(n);
-      return { valeur: poids, erreur: poids === null ? 'Un poids entre ' + W.POIDS_MIN + ' et ' + W.POIDS_MAX + ' kg.' : null };
+      return { valeur: poids, erreur: poids === null ? 'Un poids entre ' + W.POIDS_MIN + ' et ' + Modele().kgTexte(W.POIDS_MAX) + '.' : null };
     }
     return { valeur: null, erreur: null };
   }
@@ -447,7 +447,7 @@
     if (f.maximums && f.maximums.length) {
       lignes.push({
         libelle: majuscule(f.maximums.map(function (m) { return NOMS_DES_BARRES[m.slug] || m.slug; }).join(' · ')),
-        valeur: f.maximums.map(function (m) { return Modele().nombreSigne(m.charge); }).join(' · ') + INSECABLE + 'kg'
+        valeur: Modele().kgListe(f.maximums.map(function (m) { return m.charge; }))
       });
     }
     if (f.autres && f.autres.length) lignes.push({ libelle: 'Autres activités', valeur: f.autres.join(', ') });
@@ -922,7 +922,7 @@
         { libelle: 'Matériel', valeur: (rep.materiel && P.libelleDe(P.MATERIELS, rep.materiel)) || tiret, ecran: SALLE },
         // 190 — ce qui est réglé dans « Ajuster Ma salle » ; « — » quand c'est « Je ne sais pas ».
         { libelle: 'Plus petit disque', valeur: Moteur().plusPetitDisquePresent(materielDe(rep)) !== null
-            ? Modele().nombreSigne(Moteur().plusPetitDisquePresent(materielDe(rep))) + INSECABLE + 'kg' : tiret, ecran: SALLE },
+            ? Modele().kgTexte(Moteur().plusPetitDisquePresent(materielDe(rep))) : tiret, ecran: SALLE },
         { libelle: 'Barre de traction', valeur: rep.barreTraction === true ? 'Oui' : rep.barreTraction === false ? 'Non' : tiret, ecran: SALLE },
         { libelle: 'Zone à ménager', valeur: zonesTexte(rep.menager), ecran: ZONE },
         { libelle: 'Zones raides', valeur: Array.isArray(rep.raides) ? (rep.raides.length ? rep.raides.map(function (z) { return Profil().libelleDe(Profil().ZONES_RAIDES, z) || z; }).join(', ') : 'Aucune') : tiret, ecran: RAIDES }

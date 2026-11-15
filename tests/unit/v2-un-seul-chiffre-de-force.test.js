@@ -69,9 +69,9 @@ describe('I180 — Modele.libelleDeForce : le seul formateur du chiffre de force
     expect(l.valeur.replace(NBSP, ' ')).toBe('≈ 93 kg');
     expect(l.texteCourt.replace(NBSP, ' ')).toBe('93 kg');
     expect(l.sous.replace(NBSP, ' ')).toBe('d’après 73,5 kg × 8');
-    expect(l.quand).toBe('le 12 juil.');
-    expect(Modele.libelleDeForce(F(J(2026, 9, 1), 100, 5, 'projection'), MAINT).quand).toBe('le 1er oct.');
-    expect(Modele.libelleDeForce(F(J(2025, 9, 1), 100, 5, 'projection'), MAINT).quand).toBe('le 1er oct. 2025');
+    expect(l.quand).toBe('le 12\u00a0juil.');
+    expect(Modele.libelleDeForce(F(J(2026, 9, 1), 100, 5, 'projection'), MAINT).quand).toBe('le 1er\u00a0oct.');
+    expect(Modele.libelleDeForce(F(J(2025, 9, 1), 100, 5, 'projection'), MAINT).quand).toBe('le 1er\u00a0oct.\u00a02025');
   });
   test('plancher : « au moins 150 kg », AU DIXIÈME — 152,5 ne devient jamais 153 (M-C)', () => {
     const l = Modele.libelleDeForce(F(J(2026, 9, 1), 152.5, 1, 'plancher'), MAINT);
@@ -192,7 +192,7 @@ describe('I179 — la tête de la courbe est la force de la fiche : les trois te
     expect(c.querySelector('.exo-force .exo-li-k').firstChild.textContent).toBe('Force estimée');
     expect(texte(c.querySelector('.exo-force .exo-li-k em'))).toBe('d’après 73,5 kg × 8');
   });
-  test('Squat avec un single : « au moins 150 kg » · « … d’après 150 kg × 1, le 1er oct. » · aucun trajet', () => {
+  test('Squat avec un single : « au moins 150 kg » · « … d’après 150 kg × 1, le 1er\u00a0oct. » · aucun trajet', () => {
     const pts = [plan(J(2026, 9, 1), 150, 1), proj(J(2026, 10, 12), 120, 5)];
     const c = page(pts, F(J(2026, 9, 1), 150, 1, 'plancher'), { equipement: 'barre' });
     expect(texte(c.querySelector('.courbe-val'))).toBe('au moins 150 kg');

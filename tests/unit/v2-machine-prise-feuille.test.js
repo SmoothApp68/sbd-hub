@@ -20,11 +20,11 @@ function feuille(vue) {
 const textes = (c, sel) => Array.from(c.querySelectorAll(sel)).map((n) => n.textContent);
 
 describe('51-2 — le fait sous un frère', () => {
-  test('« Dernière fois : 80 kg × 10, le 12 sept. », et l’année quand ce n’est pas celle-ci', () => {
+  test('« Dernière fois : 80\u00a0kg × 10, le 12\u00a0sept. », et l’année quand ce n’est pas celle-ci', () => {
     expect(Rendu().texteFaitFrere({ date: iso(ANNEE, 9, 12), charge: 80, reps: 10 }))
-      .toBe('Dernière fois : 80 kg × 10, le 12 sept.');
+      .toBe('Dernière fois : 80\u00a0kg × 10, le 12\u00a0sept.');
     expect(Rendu().texteFaitFrere({ date: iso(2025, 3, 2), charge: 102.5, reps: 5 }))
-      .toBe('Dernière fois : 102,5 kg × 5, le 2 mars 2025');
+      .toBe('Dernière fois : 102,5\u00a0kg × 5, le 2\u00a0mars\u00a02025');
   });
 
   test('jamais fait : « Première fois ici »', () => {
@@ -33,7 +33,7 @@ describe('51-2 — le fait sous un frère', () => {
 
   test('une mesure sans charge : la valeur de la page d’exercice', () => {
     expect(Rendu().texteFaitFrere({ date: iso(ANNEE, 9, 12), charge: null, valeur: '12 reps' }))
-      .toBe('Dernière fois : 12 reps, le 12 sept.');
+      .toBe('Dernière fois : 12 reps, le 12\u00a0sept.');
   });
 });
 
@@ -52,7 +52,7 @@ describe('51-2 — la feuille « Machine prise »', () => {
     expect(textes(c, '.choix-mp .mp-titre')).toEqual(['Plus tard', 'Un frère : Hip thrust (barre)',
       'Un frère : Hip thrust une jambe (haltère)']);
     expect(textes(c, '.choix-mp .mp-sous')).toEqual(['Il passe après Leg curl. Ta consigne ne change pas.',
-      'Dernière fois : 80 kg × 10, le 12 sept.', 'Première fois ici']);
+      'Dernière fois : 80\u00a0kg × 10, le 12\u00a0sept.', 'Première fois ici']);
     c.querySelectorAll('.choix-mp').forEach((b) => b.click());
     expect(appels).toEqual(['tard', 'barre', 'jambe']);
     expect(c.querySelector('.sans-frere')).toBe(null);
@@ -117,7 +117,7 @@ describe('67A — la feuille : « Même famille » sous les frères', () => {
     });
     expect(ordre(c)).toEqual(['Un frère : Presse Mollets (Machine)', 'Même famille', 'Extension Mollets Assis',
       'Mollets Une Jambe', 'Chercher dans le catalogue']);
-    expect(textes(c, '.cousin .mp-sous')).toEqual(['Dernière fois : 60 kg × 15, le 3 sept.', 'écarté · Première fois ici']);
+    expect(textes(c, '.cousin .mp-sous')).toEqual(['Dernière fois : 60\u00a0kg × 15, le 3\u00a0sept.', 'écarté · Première fois ici']);
     expect(c.querySelector('.meme-famille-t').className).toBe('choix-groupe meme-famille-t');
     c.querySelectorAll('.cousin').forEach((b) => b.click());
     expect(appels).toEqual(['assis', 'jambe']);

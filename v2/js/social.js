@@ -712,7 +712,7 @@
     if (anciens) noms.push(anciens > 1 ? anciens + ' anciens membres' : ANCIEN_MEMBRE);
     return noms.length ? 'Faite en groupe avec ' + noms.join(', ') : null;
   }
-  // « 14,2 t · 41 séries · 2 records » — `tonnes(kg)` : `Bilan.tonnesDuRecap`.
+  // « 14,2 t · 41 séries · 2 records » — `tonnes(kg)` : `Modele.tonnesTexte`.
   function partDe(x, tonnes) {
     return tonnes(x.tonnage_kg) + ' · ' + x.series + ' série' + (x.series > 1 ? 's' : '') + ' · ' +
       x.records + ' record' + (x.records > 1 ? 's' : '');

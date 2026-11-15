@@ -21,7 +21,7 @@ describe('272 — l’annonce de l’accueil', () => {
     expect(c.hidden).toBe(false);
     expect(c.querySelector('.niveau-surtitre').textContent).toBe('Nouveau niveau');
     expect(c.querySelector('.niveau-titre').textContent).toBe('1 à 3 ans d’entraînement, depuis aujourd’hui.');
-    expect(c.querySelector('.niveau-fait').textContent).toBe('Ta première séance notée date du 12 nov. 2025.');
+    expect(c.querySelector('.niveau-fait').textContent).toBe('Ta première séance notée date du 12\u00a0nov.\u00a02025.');
     expect(c.querySelector('.niveau-gris').textContent).toBe('Le coach monte maintenant selon ta zone et ta réserve.');
     clic(c, '.niveau-compris'); clic(c, '.niveau-voir'); clic(c, '.niveau-annuler');
     expect(appels).toEqual(['compris', 'voir', 'annuler']);
@@ -61,7 +61,7 @@ describe('272 — « Voir ce qui change » et « Ton niveau »', () => {
       surCommenceAvant: () => appels.push('avant'), surChoisir: (k) => appels.push(k) }, o || {});
     Rendu.rendreCarteDeNiveauImport(c, vue());
     expect(c.querySelector('.niveau-titre').textContent).toBe('3 à 5 ans d’entraînement, d’après ton historique.');
-    expect(c.querySelector('.niveau-fait').textContent).toBe('Ta première séance importée date du 3 mars 2022.');
+    expect(c.querySelector('.niveau-fait').textContent).toBe('Ta première séance importée date du 3\u00a0mars\u00a02022.');
     clic(c, '.niveau-cest-ca'); clic(c, '.niveau-avant');
     Rendu.rendreCarteDeNiveauImport(c, vue({ choixOuvert: true }));
     expect(Array.from(c.querySelectorAll('.niveau-choix-n')).map((b) => b.textContent)).toEqual(['Plus de 5 ans']);

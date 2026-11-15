@@ -702,6 +702,64 @@ const NOTIONS = [
     par: ['nombreTexte'],
     raison: 'le formateur arrondissait −11,5 vers −11 et +11,5 vers +12 ; le poids, symétriquement. Un seul arrondi. ' +
       '66A : la jauge d’une barre de la relecture (§5 ter.3) est cet arrondi, à 2 décimales.' },
+  // « UN SEUL FORMATEUR » (MOTEUR §9.51 quater, 15/11/2026, I201) — un nombre, un volume, un jour, une durée s'écrivent par UNE fonction.
+  { notion: 'une charge, un poids, un écart en kilos : « 127,25 kg » (la virgule, au plus 2 décimales, l’espace insécable, le vrai signe moins)', pr: 'correctif 15/11/2026',
+    module: 'modele.js', fonction: 'kgTexte', lecteurs: ['annee.js', 'app.js', 'partage-image.js', 'poids.js', 'profil.js', 'questionnaire.js', 'rendu.js'],
+    motif: /\.\s*kgTexte\s*\(/g,
+    par: ['chargeTexte', 'chargeDuJournal', 'chargeDeLaMedaille', 'libelleDeForce', 'kg'],
+    interditAilleurs: {
+      // Un suffixe « kg » écrit à la main sur un nombre (espace ordinaire, insécable en dur, `INSECABLE + 'kg'`) et l'arrondi natif au dixième.
+      motif: /(['"`])(?:[  ]|\\u00a0|\\u202f)kg\b|(?:NBSP|INSECABLE)\s*\+\s*(['"`])kg\2|Math\.round\([^()]*\*\s*10\)\s*\/\s*10\b/,
+      sauf: {
+        'plan.js': 'les messages d’INVARIANT de `verifierPlan` (« une ligne à 12,5 kg au-dessus du palier ») : une erreur de développement, jamais lue par la personne',
+        'moteur.js': 'ARRONDIS DE CALCUL (`auDixieme` : le pas d’une série d’approche ; `arrondiMin` : les minutes d’un plan ; la valeur d’un record) et UNE phrase du coach (« ton poids est passé de … à … kg », `fatigue.poids`) dont les fixtures du simulateur écrivent l’espace ordinaire : à unifier avec elles, décision d’Aurélien (dette notée au §9.51 quater.7)',
+        'faits.js': 'ARRONDI DE CALCUL : la valeur d’un record au dixième (`Math.round(u.valeur * 10) / 10`) est écrite dans le journal, pas affichée',
+        'importhevy.js': 'ARRONDI DE CALCUL : `dixieme` arrondit ce que le fichier de Hevy dit, avant qu’il ne devienne une série ; ce n’est pas un affichage',
+        'seance.js': 'ARRONDI DE CALCUL : la borne d’une colonne de pente (`borneDeColonne`) lit la saisie, elle n’affiche rien'
+      },
+      raison: 'un suffixe « kg » écrit à la main (ou un `Math.round(x * 10) / 10` d’affichage) hors du formateur : `Modele.kgTexte` (I201, §9.51 quater)' },
+    raison: 'MOTEUR §9.51 quater (I197) : six helpers `kg()` écrivaient une charge à 0, 1 ou 2 décimales, avec l’espace sécable ou insécable (127,25 kg : « 127,25 » au journal, ' +
+      '« 127,3 » dans la story et l’image de partage). Un formateur ; les arrondis de CALCUL ne sont pas touchés.' },
+  { notion: 'un volume soulevé en tonnes : « 12,3 t » (toujours au dixième, les milliers séparés)', pr: 'correctif 15/11/2026',
+    module: 'modele.js', fonction: 'tonnesTexte', lecteurs: ['annee.js', 'app.js', 'bilan.js', 'faits.js', 'rendu.js'],
+    interditAilleurs: { motif: /(['"`])(?:[  ]|\\u00a0)t\1|\btonnesDuRecap\b/,
+      raison: 'une unité « t » écrite à la main : les tonnes passent par `Modele.tonnesTexte` (I198)' },
+    raison: 'MOTEUR §9.51 quater (I198, F-01) : trois formateurs de tonnes (`rendu.tonnes` : « 12 t » ; `Bilan.tonnesDuRecap` : « 12,3 t » ; `annee.tonnes` : « 123 t ») ' +
+      'et deux règles d’arrondi : le bloc du mois de Progression et sa story disaient deux chiffres pour le même mois.' },
+  { notion: 'un jour : « 1er nov. », « 2 nov. », avec ou sans année, nom du jour, mois long (« 1er » seulement le premier du mois)', pr: 'correctif 15/11/2026',
+    module: 'modele.js', fonction: 'jourDit', lecteurs: ['annee.js', 'importhevy.js', 'objectif.js', 'partage-image.js', 'rendu.js'],
+    par: ['jourMois', 'jourCourt', 'jourNomme', 'plageDeSeance', 'quandTexte', 'jourEtMois', 'dateDeLaMedaille', 'dateCourte'],
+    interditAilleurs: {
+      // Le quantième d'un jour collé à un mois (`getDate() + ' '`), le « 1er » écrit à la main, un mois indexé pour écrire une date.
+      motif: /\bget(?:UTC)?Date\(\)\s*\+\s*(?:['"`]|INSECABLE|NBSP)|(['"`])1er\1|MOIS_(?:COURTS|LONGS)\s*\[/,
+      sauf: {
+        'annee.js': 'un NOM DE MOIS seul (« septembre », la plage « juin → août »), jamais un jour',
+        'app.js': 'un NOM DE MOIS seul : le titre « Progression de septembre », le libellé d’un mois de la comparaison',
+        'bilans.js': 'un NOM DE MOIS seul : « août » et « juillet » de la comparaison du bilan',
+        'courbe.js': 'un NOM DE MOIS abrégé seul sur l’axe de la courbe (« sept. »), jamais un jour',
+        'importhevy.js': 'la plage « Du 19 au 25 septembre » écrit le mois UNE fois pour deux jours : les quantièmes passent par `Modele.quantieme`, le mois est lu ici',
+        'objectif.js': 'un NOM DE MOIS seul : « fin février » (le pari d’un objectif), jamais un jour'
+      },
+      raison: 'un jour écrit à la main (`getDate() + \' \'`, « 1er » en dur, un mois indexé pour une date) : `Modele.jourDit` (I199, §9.51 quater)' },
+    raison: 'MOTEUR §9.51 quater (I199, F-05) : « 1er » n’était géré que par 3 formateurs de date sur 10 : le 1er novembre se disait « 1er nov. » à la médaille, « 1 nov. » dans ' +
+      'une phrase du coach, « 01 nov. 2026 » sur la fiche. Un formateur de jour ; chaque formateur de date garde son contexte (« le 13 sept. », « du 12 avr. au 11 oct. »).' },
+  { notion: 'une durée : « 45 s », « 12 min 30 », « 1 h 05 », « 6 h » (en secondes ou en minutes), et l’heure du jour « 9 h 05 »', pr: 'correctif 15/11/2026',
+    module: 'modele.js', fonction: 'formatDuree', lecteurs: ['app.js', 'partage-image.js', 'rendu.js'],
+    par: ['dureeEnMinutes', 'secondes'],
+    interditAilleurs: { motif: /(['"`]) h \1/,
+      raison: 'une durée ou une heure écrite à la main (`h + \' h \' + minutes`) : `Modele.formatDuree`, `dureeEnMinutes` ou `heureDite` (I200)' },
+    raison: 'MOTEUR §9.51 quater (I200, F-10) : sept formateurs de durée (`dureeDite`, `texteTemps`, `dureeLongue`, des branches « sous l’heure » recopiées) disaient « 6 h 00 » ici, « 6 h » là. ' +
+      'Un formateur ; le chronomètre (`mmss`) reste l’horloge d’un repos.' },
+  { notion: 'un pourcentage : « 71 % » (l’espace insécable avant le signe)', pr: 'correctif 15/11/2026',
+    module: 'modele.js', fonction: 'pourcentTexte', lecteurs: ['annee.js', 'objectif.js'],
+    interditAilleurs: {
+      motif: /(['"`])(?:[  ]|\\u00a0)%|(?:NBSP|INSECABLE)\s*\+\s*(['"`])%\2/,
+      sauf: {
+        'plan.js': 'les messages d’INVARIANT de `verifierPlan` : une erreur de développement, jamais lue par la personne',
+        'moteur.js': 'les PHRASES DU COACH écrivent « 33 % » avec l’espace ordinaire, et les fixtures du simulateur (`cas-49u17`, `cas-49u14`) avec elles : à unifier avec les fixtures, décision d’Aurélien (dette notée au §9.51 quater.7)'
+      },
+      raison: 'un « % » écrit à la main : `Modele.pourcentTexte` (§9.51 quater)' },
+    raison: 'MOTEUR §9.51 quater : un pourcentage s’écrit avec l’espace insécable avant le signe ; un formateur, hors les phrases du coach (dette).' },
   // Après la consolidation, les notions d'un chantier portent son geste.
   { notion: 'la lecture d’un nombre tapé (l’inverse du formateur, tous les signes moins)', pr: 'correctif 03/10/2026',
     module: 'modele.js', fonction: 'lireNombre', lecteurs: ['seance.js', 'routines.js', 'app.js', 'importhevy.js', 'objectif.js', 'rendu.js'],
@@ -2714,6 +2772,29 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
     expect(voit("var P = /^(Lundi|Mardi|Mercredi) — /;")).toBe(true);
     expect(voit("debut: depuis ? 'aujourdhui' : 'lundi'")).toBe(false);
     expect(voit("Modele.JOURS_DEPUIS_LUNDI.map(f)")).toBe(false);
+  });
+
+  test('l’interdit du formateur unique se lit vraiment : la copie se voit, l’appel non (I201)', () => {
+    const m = (f) => NOTIONS.filter((x) => x.fonction === f)[0].interditAilleurs.motif;
+    const kg = m('kgTexte'), t = m('tonnesTexte'), jour = m('jourDit'), duree = m('formatDuree'), pct = m('pourcentTexte');
+    expect(kg.test("var s = nombreFr(x) + ' kg';")).toBe(true);
+    expect(kg.test("var s = nombreFr(x) + '\\u00a0kg';")).toBe(true);
+    expect(kg.test("var s = nombreFr(x) + INSECABLE + 'kg';")).toBe(true);
+    expect(kg.test('var s = Math.round(v * 10) / 10;')).toBe(true);
+    expect(kg.test('var s = Modele.kgTexte(x);')).toBe(false);
+    expect(kg.test("el('small', null, 'kg');")).toBe(false);   // l'étiquette d'une unité à part
+    expect(t.test("var s = tonnes + '\\u00a0t';")).toBe(true);
+    expect(t.test("var s = Bilan.tonnesDuRecap(kg);")).toBe(true);
+    expect(t.test('var s = Modele.tonnesTexte(kg);')).toBe(false);
+    expect(jour.test("var s = d.getDate() + ' ' + MOIS_COURTS[d.getMonth()];")).toBe(true);
+    expect(jour.test("var s = jour === '01' ? '1er' : jour;")).toBe(true);
+    expect(jour.test("var n = Modele.MOIS_LONGS[3];")).toBe(true);
+    expect(jour.test('var s = Modele.jourDit(d, { annee: true });')).toBe(false);
+    expect(duree.test("var s = h + ' h ' + deux(m);")).toBe(true);
+    expect(duree.test('var s = Modele.formatDuree(900);')).toBe(false);
+    expect(pct.test("var s = x + ' %';")).toBe(true);
+    expect(pct.test("var s = x + INSECABLE + '%';")).toBe(true);
+    expect(pct.test('var s = Modele.pourcentTexte(x);')).toBe(false);
   });
 
   test('l’interdit du silence du coach se lit vraiment : un second test de l’intention se voit, l’appel au fait non', () => {

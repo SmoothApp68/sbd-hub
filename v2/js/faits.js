@@ -798,7 +798,7 @@
         duree_min: isNaN(debut) || isNaN(fin) || fin < debut ? null : Math.round((fin - debut) / 60000),
         series: Seance.compter(seance, exercices).travail,
         volume_kg: volume,
-        volume_texte: Bilan.tonnesDuRecap(volume),
+        volume_texte: Modele.tonnesTexte(volume),
         exercices: exosFaits.length,
         phraseVolume: Bilan.phraseComparaison(volume, seance.id),
         muscles: {

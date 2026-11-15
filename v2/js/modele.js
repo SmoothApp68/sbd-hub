@@ -248,6 +248,74 @@
     return String(n).replace('.', ',').replace(/^-/, '\u2212');
   }
 
+  // ══ UN SEUL FORMATEUR (MOTEUR §9.51 quater, I197 à I201) ═══════════════════════════════════════════════════════════
+  //
+  // Un nombre, un volume, un pourcentage, un jour, une durée : chacun s'écrit PAR UNE FONCTION, ICI. La garde d'architecture
+  // refuse un suffixe « kg » ou « t » écrit à la main, un `Math.round(x * 10) / 10` d'affichage, un `getDate()` suivi d'un mois,
+  // un « 1er » écrit ailleurs. ⚠️ ARRONDI D'AFFICHAGE ≠ ARRONDI DE CALCUL : ces fonctions rendent du TEXTE ; aucune ne rend un
+  // nombre à un calcul (le pas d'une approche, les minutes d'un plan, la valeur d'un record gardent le leur).
+  var NBSP_FORMAT = '\u00a0';
+  var MOINS_FORMAT = '\u2212';
+  function nombreFini(v) {
+    if (v === null || v === undefined || v === '') return null;
+    var n = Number(v);
+    return isFinite(n) ? n : null;
+  }
+  // « 127,25 kg » : la virgule, l'arrondi symétrique, au plus 2 décimales (0,25 kg ne disparaît pas), l'espace insécable, le vrai
+  // signe moins. `opt` : un nombre (les décimales) ou `{ decimales, fixe (garde les zéros), plus (écrit « + ») }`.
+  function kgTexte(v, opt) {
+    var n = nombreFini(v);
+    if (n === null) return '';
+    var o = typeof opt === 'number' ? { decimales: opt } : (opt || {});
+    var d = o.decimales === undefined ? 2 : o.decimales;
+    var a = arrondi(n, d);
+    var t = o.fixe ? nombreFixe(Math.abs(a), d) : nombreTexte(Math.abs(a), d);
+    return (a < 0 ? MOINS_FORMAT : (a > 0 && o.plus ? '+' : '')) + t + NBSP_FORMAT + 'kg';
+  }
+  // « 100 · 120 · 150 kg » : plusieurs charges qui partagent leur unité (la ligne « Ce que je sais » du profil).
+  function kgListe(valeurs, opt) {
+    var textes = (valeurs || []).map(function (v) { return kgTexte(v, opt); }).filter(Boolean);
+    return textes.map(function (t, i) { return i < textes.length - 1 ? t.slice(0, t.lastIndexOf(NBSP_FORMAT)) : t; }).join(' \u00b7 ');
+  }
+  // « 71 % » : l'espace insécable avant le signe.
+  function pourcentTexte(v, decimales) {
+    var n = nombreFini(v);
+    return n === null ? '' : nombreTexte(n, decimales === undefined ? 0 : decimales) + NBSP_FORMAT + '%';
+  }
+  // Un volume soulevé : en tonnes, TOUJOURS au dixième (« 12,3 t »), les milliers séparés (« 1 234,5 t »). `tonnesValeur` : le
+  // nombre arrondi, pour un compteur qui défile.
+  function tonnesValeur(kg) {
+    var n = nombreFini(kg);
+    return arrondi(n === null ? 0 : n / 1000, 1);
+  }
+  function tonnesTexte(kg) {
+    var v = tonnesValeur(kg);
+    var t = nombreTexte(Math.abs(v), 1), i = t.indexOf(',');
+    return (v < 0 ? MOINS_FORMAT : '') + nombreGroupe(i < 0 ? t : t.slice(0, i)) + (i < 0 ? '' : t.slice(i)) + NBSP_FORMAT + 't';
+  }
+  // Le quantième d'un jour : « 1er » le premier du mois, « 2 » ensuite. Jamais « 01 », jamais « 1 ».
+  function quantieme(n) { return Number(n) === 1 ? '1er' : String(Number(n)); }
+  // Un jour : « 1er nov. », « 2 nov. », « 1er nov. 2026 », « 1er novembre », « dimanche 1er nov. ». `jour` : un `Date` (le jour local) ou
+  // « AAAA-MM-JJ ». `opt.annee` : `true` (toujours) ou une année de référence (écrite seulement si le jour est d'une autre) ;
+  // `opt.mois: 'long'` ; `opt.nom: true` (le nom du jour devant).
+  function jourDit(jour, opt) {
+    var o = opt || {}, a, m, j, dow;
+    if (jour instanceof Date) {
+      if (isNaN(jour.getTime())) return '';
+      a = jour.getFullYear(); m = jour.getMonth(); j = jour.getDate(); dow = jour.getDay();
+    } else {
+      var r = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(jour === null || jour === undefined ? '' : jour));
+      if (!r) return '';
+      a = Number(r[1]); m = Number(r[2]) - 1; j = Number(r[3]);
+      dow = new Date(Date.UTC(a, m, j)).getUTCDay();
+    }
+    var t = quantieme(j) + NBSP_FORMAT + (o.mois === 'long' ? MOIS_LONGS : MOIS_COURTS)[m];
+    if (o.annee === true || (typeof o.annee === 'number' && o.annee !== a)) t += NBSP_FORMAT + a;
+    return o.nom ? JOURS[dow] + ' ' + t : t;
+  }
+  // « 9 h 05 » : une heure du jour (et le format des minutes derrière une heure de durée).
+  function heureDite(h, mi) { return h + ' h ' + (mi < 10 ? '0' : '') + mi; }
+
   // 132 (MOTEUR §10 ter, ECRAN-SAISIE §3 ter.6) — LE FORMATEUR D'UNE SÉRIE NOTÉE PAR NOM : « Noir × 12 », « Noir »
   // sans reps ; `null` pour une série sans nom (elle garde l'affichage d'avant). Le seul endroit qui l'écrit : le
   // journal, le détail, la page d'exercice et son meilleur, le récap, le fil, une séance d'ami, le direct du groupe,
@@ -335,12 +403,12 @@
     return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2);
   }
 
-  // « 02 oct. 2026 ».
+  // « 2 oct. 2026 », « 1er nov. 2026 » (jamais « 01 nov. » : MOTEUR §9.51 quater).
   function dateCourte(iso) {
     if (!iso) return '';
     var d = new Date(iso);
     if (isNaN(d.getTime())) return '';
-    return d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+    return jourDit(d, { annee: true });
   }
 
   // « Jeudi 11 septembre » ; l'année seulement si ce n'est pas l'année courante.
@@ -422,6 +490,18 @@
     declarer(cite, { valeur: v === undefined ? null : v }, t);
     return t;
   }
+  // Les mêmes, avec leur unité (« 72,5 kg », « 4 % »), déclarés au registre de la capture : une phrase du coach qui dit un poids ou un
+  // pourcentage passe ici, jamais par `nombre(...) + ' kg'` (MOTEUR §9.51 quater).
+  function kg(v, opt, cite) {
+    var t = kgTexte(v, opt);
+    declarer(cite, { valeur: v === undefined ? null : v }, t);
+    return t;
+  }
+  function pourcent(v, decimales, cite) {
+    var t = pourcentTexte(v, decimales);
+    declarer(cite, { valeur: v === undefined ? null : v }, t);
+    return t;
+  }
 
   // ── LA VOIX DU COACH : LE SEUL FORMATEUR (MOTEUR §20.2, 49-U9) ──────────
   //
@@ -487,8 +567,8 @@
     if (nomme !== null) return nomme;
     var n = Number(kg);
     if (n === 0) return POIDS_DU_CORPS;
-    if (n < 0) return AIDE + ' ' + nombreTexte(-n) + INSECABLE + 'kg';
-    return nombreTexte(kg) + INSECABLE + 'kg';
+    if (n < 0) return AIDE + ' ' + kgTexte(-n);
+    return kgTexte(n);
   }
   function chargeOuNul(kg) {
     return kg === null || kg === undefined || kg === '' || !isFinite(Number(kg)) ? null : Number(kg);
@@ -546,33 +626,25 @@
   // « 11 sept. », et « 11 sept. 2024 » hors de l'année de référence.
   function jourMois(d, anneeRef) {
     if (!(d instanceof Date) || isNaN(d.getTime())) return '';
-    var txt = d.getDate() + ' ' + MOIS_COURTS[d.getMonth()];
-    var ref = typeof anneeRef === 'number' ? anneeRef : null;
-    return ref === null || d.getFullYear() === ref ? txt : txt + ' ' + d.getFullYear();
+    return jourDit(d, { annee: typeof anneeRef === 'number' ? anneeRef : false });
   }
   // « 7 oct. » : le jour civil « AAAA-MM-JJ » (lu tel quel, sans fuseau),
   // DÉCLARÉ comme une date — le bandeau de la semaine allégée.
   function jourCourt(jour, cite) {
-    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(jour || ''));
-    if (!m) return '';
-    var t = Number(m[3]) + ' ' + MOIS_COURTS[Number(m[2]) - 1];
+    var t = jourDit(jour);
+    if (!t) return '';
     declarer(cite, { date: jour }, t);
     return t;
   }
   // 242 — « 28 oct. » ; l'année s'ajoute seulement si ce n'est pas l'année courante (« 28 oct. 2025 »). La date de la note de la dernière fois.
   function jourCourtDeNote(jour) {
-    var t = jourCourt(jour);
-    if (!t) return '';
-    var an = Number(String(jour).slice(0, 4));
-    return an !== new Date().getFullYear() ? t + ' ' + an : t;
+    return jourDit(jour, { annee: new Date().getFullYear() });
   }
   // « lundi 12 oct. » : le jour civil avec son nom (§9.22, le badge d'un bloc
   // pas encore commencé), déclaré comme une date.
   function jourNomme(jour, cite) {
-    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(jour || ''));
-    if (!m) return '';
-    var j = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))).getUTCDay();
-    var t = JOURS[j] + ' ' + Number(m[3]) + ' ' + MOIS_COURTS[Number(m[2]) - 1];
+    var t = jourDit(jour, { nom: true });
+    if (!t) return '';
     declarer(cite, { date: jour }, t);
     return t;
   }
@@ -581,12 +653,12 @@
   function heureMinute(iso) {
     var d = jourLocal(iso);
     if (d === null) return '';
-    return d.getHours() + ' h ' + (d.getMinutes() < 10 ? '0' : '') + d.getMinutes();
+    return heureDite(d.getHours(), d.getMinutes());
   }
   function plageDeSeance(debut, fin) {
     var d = jourLocal(debut);
     if (d === null) return '';
-    var jour = JOURS[d.getDay()] + ' ' + d.getDate() + ' ' + MOIS_COURTS[d.getMonth()];
+    var jour = jourDit(d, { nom: true });
     return jour + ' \u00b7 ' + heureMinute(debut) + (jourLocal(fin) ? ' \u2192 ' + heureMinute(fin) : '');
   }
 
@@ -596,7 +668,7 @@
     if (!r) return '';
     var dm = r.duree_min;
     var tete = [r.titre || 'Séance'];
-    if (dm !== null && dm !== undefined) tete.push(dm < 60 ? dm + ' min' : formatDuree(dm * 60));
+    if (dm !== null && dm !== undefined) tete.push(dureeEnMinutes(dm));
     var lignes = [tete.join(' \u00b7 ')];
     var n = r.series || 0;
     lignes.push(n + (n > 1 ? ' séries' : ' série') + ' de travail \u00b7 ' + (r.volume_texte || ''));
@@ -653,11 +725,10 @@
   function quandTexte(iso, reference, tete) {
     var d = jourLocal(iso);
     if (d === null) return '';
-    var dit = 'le ' + d.getDate() + INSECABLE + MOIS_COURTS[d.getMonth()];
     var r = jourLocal(reference);
     // PR 6 des mots (Q7) : une date d'une AUTRE année que la référence porte son année (« le 12 mars 2025 »), comme
     // `dateDeLaMedaille` ; sans référence, inchangé (aucune horloge dans une fonction pure).
-    if (r !== null && d.getFullYear() !== r.getFullYear()) dit += ' ' + d.getFullYear();
+    var dit = 'le ' + jourDit(d, { annee: r !== null ? r.getFullYear() : false });
     if (r !== null) {
       var ecart = Math.round((Date.UTC(r.getFullYear(), r.getMonth(), r.getDate()) -
                               Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000);
@@ -680,7 +751,14 @@
     }
     var heures = Math.floor(minutes / 60);
     var min = minutes % 60;
-    return min ? heures + ' h ' + (min < 10 ? '0' + min : min) : heures + ' h';
+    return min ? heureDite(heures, min) : heures + ' h';
+  }
+  // Une durée donnée EN MINUTES (le chrono d'une séance, la durée d'un récap) : « 0 min », « 45 min », « 1 h 03 » — jamais en secondes.
+  function dureeEnMinutes(minutes) {
+    var n = nombreFini(minutes);
+    if (n === null || n < 0) return '';
+    var m = Math.round(n);
+    return m < 60 ? m + ' min' : formatDuree(m * 60);
   }
 
   // 22660 -> « 22,7 km » · 850 -> « 850 m » · 1000 -> « 1 km »
@@ -726,7 +804,7 @@
   function chargeDuJournal(kg) {
     var n = Number(kg);
     if (n === 0) return POIDS_DU_CORPS_EN_LIGNE;
-    return n < 0 ? chargeTexte(kg) : nombreTexte(kg) + ' kg';
+    return n < 0 ? chargeTexte(kg) : kgTexte(kg);
   }
   function partiesDe(s, champs) {
     return champs.map(function (f) { return f(s); }).filter(Boolean).join(' · ') || '—';
@@ -740,7 +818,7 @@
     // jamais, ni à zéro (jamais « D+ 0 m »).
     denivele: function (s) { return s.denivele_m ? 'D+ ' + nombreGroupe(nombreTexte(s.denivele_m, 0)) + ' m' : ''; },
     // 268 (B) — la pente moyenne d'un tapis : « pente 4,5 % ». 0 est une valeur (un tapis à plat), vide est « inconnue » : rien.
-    pente: function (s) { return aValeur(s.pente_pct) && isFinite(Number(s.pente_pct)) ? 'pente ' + nombreTexte(s.pente_pct, 1) + '\u00a0%' : ''; },
+    pente: function (s) { return aValeur(s.pente_pct) && isFinite(Number(s.pente_pct)) ? 'pente ' + pourcentTexte(s.pente_pct, 1) : ''; },
     etages: function (s) {
       return s.etages ? nombreGroupe(nombreTexte(s.etages, 0)) + ' ' + (Number(s.etages) >= 2 ? 'étages' : 'étage') : '';
     }
@@ -1640,7 +1718,7 @@
   function libelleDeLaSemaine(lundi, dimanche) {
     if (!(lundi instanceof Date) || !(dimanche instanceof Date) || isNaN(lundi.getTime()) || isNaN(dimanche.getTime())) return '';
     var memeMois = lundi.getMonth() === dimanche.getMonth() && lundi.getFullYear() === dimanche.getFullYear();
-    return (memeMois ? String(lundi.getDate()) : jourMois(lundi)) + ' au ' + jourMois(dimanche);
+    return (memeMois ? quantieme(lundi.getDate()) : jourMois(lundi)) + ' au ' + jourMois(dimanche);
   }
 
   // ══ PR 6 DES MOTS (14/11/2026) — LES NOMS DES PÉRIODES S'ÉCRIVENT ICI, ET NULLE PART AILLEURS ═══════════════════════
@@ -1662,9 +1740,7 @@
     return P ? P.jourISO(J) : null;
   }
   function jourEtMois(iso, avecAnnee) {
-    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
-    if (!m) return '';
-    return (m[3] === '01' ? '1er' : String(Number(m[3]))) + ' ' + MOIS_COURTS[Number(m[2]) - 1] + (avecAnnee ? ' ' + m[1] : '');
+    return jourDit(String(iso || '').slice(0, 10), { annee: !!avecAnnee });
   }
   // « du 12 avr. au 11 oct. » · « du 28 au 30 sept. » · « du 11 oct. 2025 au 11 avr. 2026 » · « le 6 oct. » (un seul jour).
   function plageDeJours(debut, fin, J) {
@@ -1675,7 +1751,7 @@
     var autre = anRef !== null && (d.slice(0, 4) !== anRef || f.slice(0, 4) !== anRef);
     if (d === f) return 'le ' + jourEtMois(d, autre);
     if (d.slice(0, 7) === f.slice(0, 7)) {
-      return 'du ' + (d.slice(8) === '01' ? '1er' : String(Number(d.slice(8)))) + ' au ' + jourEtMois(f, autre);
+      return 'du ' + quantieme(d.slice(8)) + ' au ' + jourEtMois(f, autre);
     }
     return 'du ' + jourEtMois(d, autre) + ' au ' + jourEtMois(f, autre);
   }
@@ -2634,7 +2710,7 @@
     if (!f || f.valeur === null || f.valeur === undefined || f.valeur === '' || !isFinite(Number(f.valeur))) return null;
     var mode = f.mesure === true || f.mode === 'mesure' ? 'mesure' : f.mode === 'plancher' ? 'plancher' : 'projection';
     var nombre = arrondi(Number(f.valeur), mode === 'projection' ? 0 : 1);
-    var chiffre = nombreTexte(nombre, 1) + INSECABLE + 'kg';
+    var chiffre = kgTexte(nombre, 1);
     var devant = mode === 'plancher' ? MOTS_DE_FORCE.devant : null;
     var serie = chargeOuNul(f.charge) !== null && f.reps !== null && f.reps !== undefined && f.reps !== '' ? chargeFois(f.charge, f.reps) : '';
     var sous = mode === 'mesure' ? 'à ta semaine de test' + (serie ? ', ' + serie : '') : (serie ? 'd\u2019après ' + serie : '');
@@ -3056,8 +3132,8 @@
   function chargeDeLaMedaille(kg) {
     var n = Number(kg);
     if (n === 0) return POIDS_DU_CORPS_EN_LIGNE;
-    if (n < 0) return nombreTexte(-n) + INSECABLE + 'kg d\'aide';
-    return nombreTexte(n) + INSECABLE + 'kg';
+    if (n < 0) return kgTexte(-n) + ' d\'aide';
+    return kgTexte(n);
   }
   // 119 (F10) — l'accord unique (`repsTexte`).
   function repsDeLaMedaille(n) { return repsTexte(n); }
@@ -3072,8 +3148,7 @@
                               Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000);
       if (ecart >= 0 && ecart <= JOURS_NOMMES) return quandTexte(iso, reference);
     }
-    var t = 'le ' + (d.getDate() === 1 ? '1er' : d.getDate()) + ' ' + MOIS_COURTS[d.getMonth()];
-    return r !== null && d.getFullYear() === r.getFullYear() ? t : t + ' ' + d.getFullYear();
+    return 'le ' + jourDit(d, { annee: r !== null ? r.getFullYear() : true });
   }
   // Le palier d'une allure, en mots : « 1 km », « un semi », « 1 000 m » (course et tapis en km, les autres en mètres).
   function libelleDuPalier(r) {
@@ -3099,7 +3174,7 @@
     if (lourde && !cap && !(car && Math.abs(car.valeur - lourde.valeur) <= EPS_RECORD)) {
       gras.push('Charge la plus lourde : ' + chargeDeLaMedaille(lourde.valeur) + '.');
     }
-    if (vol) gras.push('Volume de la séance : ' + nombreTexte(vol.valeur, 0) + INSECABLE + (vol.unite === 'reps' ? 'reps' : 'kg') + '.');
+    if (vol) gras.push('Volume de la séance : ' + (vol.unite === 'reps' ? nombreTexte(vol.valeur, 0) + INSECABLE + 'reps' : kgTexte(vol.valeur, 0)) + '.');
     // 119 (audit du 16/10/2026, E9) — LA PROSE DE LA MÉDAILLE ÉCRIT COMME LE JOURNAL : « 1 min 30 », « 3,2 km » (la
     // ligne d'au-dessus dit « Tapis : 20 min · 3,2 km ») ; l'horloge (« 01:30 ») reste sous la rangée de la grille.
     // 268 (D) — une charge portée : « Plus longue distance, à 64 kg ou plus : 60 m. » (à charge égale ou plus, jamais à une charge plus légère).
@@ -3401,6 +3476,17 @@
     JOURS_NOMMES: JOURS_NOMMES,
     anciennete: anciennete,
     formatDuree: formatDuree,
+    dureeEnMinutes: dureeEnMinutes,
+    heureDite: heureDite,
+    kgTexte: kgTexte,
+    kg: kg,
+    pourcent: pourcent,
+    kgListe: kgListe,
+    pourcentTexte: pourcentTexte,
+    tonnesTexte: tonnesTexte,
+    tonnesValeur: tonnesValeur,
+    quantieme: quantieme,
+    jourDit: jourDit,
     formatDistance: formatDistance,
     formatMesure: formatMesure,
     chargeEnColonne: chargeEnColonne,

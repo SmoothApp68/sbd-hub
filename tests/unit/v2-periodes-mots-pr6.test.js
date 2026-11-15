@@ -14,26 +14,26 @@ const NB = ' ';
 describe('G2 — Modele.libelleDePeriode : un nom de période ne s’écrit qu’ici', () => {
   const J = '2026-10-11';
 
-  test('fenêtre datée : du 12 avr. au 11 oct. ; année sur les deux bornes si le début n’est pas de l’année de J', () => {
-    expect(Modele.libelleDePeriode({ genre: 'fenetre', debut: '2026-04-12', fin: '2026-10-11' }, J)).toBe('du 12 avr. au 11 oct.');
-    expect(Modele.libelleDePeriode({ genre: 'fenetre', debut: '2025-10-11', fin: '2026-04-11' }, J)).toBe('du 11 oct. 2025 au 11 avr. 2026');
-    expect(Modele.libelleDePeriode({ genre: 'fenetre', debut: '2025-10-11', fin: '2026-10-11' }, J)).toBe('du 11 oct. 2025 au 11 oct. 2026');
+  test('fenêtre datée : du 12\u00a0avr. au 11\u00a0oct. ; année sur les deux bornes si le début n’est pas de l’année de J', () => {
+    expect(Modele.libelleDePeriode({ genre: 'fenetre', debut: '2026-04-12', fin: '2026-10-11' }, J)).toBe('du 12\u00a0avr. au 11\u00a0oct.');
+    expect(Modele.libelleDePeriode({ genre: 'fenetre', debut: '2025-10-11', fin: '2026-04-11' }, J)).toBe('du 11\u00a0oct.\u00a02025 au 11\u00a0avr.\u00a02026');
+    expect(Modele.libelleDePeriode({ genre: 'fenetre', debut: '2025-10-11', fin: '2026-10-11' }, J)).toBe('du 11\u00a0oct.\u00a02025 au 11\u00a0oct.\u00a02026');
   });
 
-  test('jours comptés : « du 28 au 30 sept. », « du 1er au 4 oct. », « le 6 oct. », sans année dans l’année de J', () => {
-    expect(Modele.libelleDePeriode({ genre: 'jours', debut: '2026-09-28', fin: '2026-09-30' }, J)).toBe('du 28 au 30 sept.');
-    expect(Modele.libelleDePeriode({ genre: 'jours', debut: '2026-10-01', fin: '2026-10-04' }, J)).toBe('du 1er au 4 oct.');
-    expect(Modele.libelleDePeriode({ genre: 'jours', debut: '2026-09-28', fin: '2026-10-04' }, J)).toBe('du 28 sept. au 4 oct.');
-    expect(Modele.libelleDePeriode({ genre: 'jours', debut: '2026-10-06', fin: '2026-10-06' }, J)).toBe('le 6 oct.');
-    expect(Modele.libelleDePeriode({ genre: 'jours', debut: '2025-07-06', fin: '2025-07-12' }, J)).toBe('du 6 au 12 juil. 2025');
+  test('jours comptés : « du 28 au 30\u00a0sept. », « du 1er au 4\u00a0oct. », « le 6\u00a0oct. », sans année dans l’année de J', () => {
+    expect(Modele.libelleDePeriode({ genre: 'jours', debut: '2026-09-28', fin: '2026-09-30' }, J)).toBe('du 28 au 30\u00a0sept.');
+    expect(Modele.libelleDePeriode({ genre: 'jours', debut: '2026-10-01', fin: '2026-10-04' }, J)).toBe('du 1er au 4\u00a0oct.');
+    expect(Modele.libelleDePeriode({ genre: 'jours', debut: '2026-09-28', fin: '2026-10-04' }, J)).toBe('du 28\u00a0sept. au 4\u00a0oct.');
+    expect(Modele.libelleDePeriode({ genre: 'jours', debut: '2026-10-06', fin: '2026-10-06' }, J)).toBe('le 6\u00a0oct.');
+    expect(Modele.libelleDePeriode({ genre: 'jours', debut: '2025-07-06', fin: '2025-07-12' }, J)).toBe('du 6 au 12\u00a0juil.\u00a02025');
   });
 
   test('semaine : « cette semaine » SEULEMENT si elle contient J, sinon la plage', () => {
     const courante = { genre: 'semaine', debut: '2026-10-05', fin: '2026-10-11' };
     const passee = { genre: 'semaine', debut: '2026-09-28', fin: '2026-10-04' };
     expect(Modele.libelleDePeriode(courante, J)).toBe('cette semaine');
-    expect(Modele.libelleDePeriode(passee, J)).toBe('du 28 sept. au 4 oct.');
-    expect(Modele.libelleDePeriode(courante, '2026-10-12')).toBe('du 5 au 11 oct.');   // le lundi suivant : la semaine n'est plus « cette semaine »
+    expect(Modele.libelleDePeriode(passee, J)).toBe('du 28\u00a0sept. au 4\u00a0oct.');
+    expect(Modele.libelleDePeriode(courante, '2026-10-12')).toBe('du 5 au 11\u00a0oct.');   // le lundi suivant : la semaine n'est plus « cette semaine »
   });
 
   test('mois : phrase (« ce mois-ci » / « en septembre » / « en septembre 2025 »), pied (« oct. 2026 (en cours) »), axe', () => {
@@ -65,7 +65,7 @@ describe('G2 — Modele.libelleDePeriode : un nom de période ne s’écrit qu�
 
   test('sans jour lisible : jamais « ce / cette », toujours la période nommée', () => {
     expect(Modele.libelleDePeriode({ genre: 'mois', cle: '2026-10' }, null)).toBe('en octobre');
-    expect(Modele.libelleDePeriode({ genre: 'semaine', debut: '2026-10-05', fin: '2026-10-11' }, null)).toBe('du 5 au 11 oct.');
+    expect(Modele.libelleDePeriode({ genre: 'semaine', debut: '2026-10-05', fin: '2026-10-11' }, null)).toBe('du 5 au 11\u00a0oct.');
     expect(Modele.libelleDePeriode(null, J)).toBe('');
     expect(Modele.libelleDePeriode({ genre: 'inconnu' }, J)).toBe('');
   });
@@ -77,18 +77,18 @@ describe('B7 — Modele.phraseDeSemaineVide : « cette semaine » seulement si l
     expect(Modele.phraseDeSemaineVide(new Date(2026, 10, 9), new Date(2026, 10, 15), J)).toBe('Aucune séance cette semaine.');
   });
   test('une semaine passée : ses dates (même mois, mois différents, autre année)', () => {
-    expect(Modele.phraseDeSemaineVide(new Date(2026, 6, 6), new Date(2026, 6, 12), J)).toBe('Aucune séance du 6 au 12 juil.');
-    expect(Modele.phraseDeSemaineVide(new Date(2026, 8, 28), new Date(2026, 9, 4), J)).toBe('Aucune séance du 28 sept. au 4 oct.');
-    expect(Modele.phraseDeSemaineVide(new Date(2025, 11, 29), new Date(2026, 0, 4), J)).toBe('Aucune séance du 29 déc. 2025 au 4 janv. 2026.');
+    expect(Modele.phraseDeSemaineVide(new Date(2026, 6, 6), new Date(2026, 6, 12), J)).toBe('Aucune séance du 6 au 12\u00a0juil.');
+    expect(Modele.phraseDeSemaineVide(new Date(2026, 8, 28), new Date(2026, 9, 4), J)).toBe('Aucune séance du 28\u00a0sept. au 4\u00a0oct.');
+    expect(Modele.phraseDeSemaineVide(new Date(2025, 11, 29), new Date(2026, 0, 4), J)).toBe('Aucune séance du 29\u00a0déc.\u00a02025 au 4\u00a0janv.\u00a02026.');
   });
   test('la semaine de J, vue le lundi suivant : plus « cette semaine »', () => {
-    expect(Modele.phraseDeSemaineVide(new Date(2026, 10, 9), new Date(2026, 10, 15), new Date(2026, 10, 16, 8))).toBe('Aucune séance du 9 au 15 nov.');
+    expect(Modele.phraseDeSemaineVide(new Date(2026, 10, 9), new Date(2026, 10, 15), new Date(2026, 10, 16, 8))).toBe('Aucune séance du 9 au 15\u00a0nov.');
   });
 });
 
 describe('Q7 — Modele.quand : une date d’une autre année porte son année', () => {
   test('« le 12 mars 2025 » pour une référence de 2026 ; sans référence, inchangé', () => {
-    expect(Modele.quand('2025-03-12T10:00:00+01:00', '2026-10-11T10:00:00+02:00')).toBe('le 12' + NB + 'mars 2025');
+    expect(Modele.quand('2025-03-12T10:00:00+01:00', '2026-10-11T10:00:00+02:00')).toBe('le 12' + NB + 'mars 2025');
     expect(Modele.quand('2026-03-12T10:00:00+01:00', '2026-10-11T10:00:00+02:00')).toBe('le 12' + NB + 'mars');
     expect(Modele.quand('2025-03-12T10:00:00+01:00')).toBe('le 12' + NB + 'mars');
     expect(Modele.quand('2025-12-30T10:00:00+01:00', '2026-01-02T10:00:00+01:00')).toBe('mardi');   // 3 jours : le nom du jour
@@ -98,7 +98,7 @@ describe('Q7 — Modele.quand : une date d’une autre année porte son année',
 describe('Bilans.periodeDesDerniersMois : « 6 derniers mois » = la fenêtre de 183 jours de `THPeriode`', () => {
   require('../../v2/js/bilans.js');
   const Bilans = global.THBilans;
-  test('à J = 11/10/2026 : du 12 avr. au 11 oct., contre du 11 oct. 2025 au 11 avr. 2026', () => {
+  test('à J = 11/10/2026 : du 12\u00a0avr. au 11\u00a0oct., contre du 11\u00a0oct.\u00a02025 au 11\u00a0avr.\u00a02026', () => {
     const p = Bilans.periodeDesDerniersMois(6, '2026-10-11');
     expect([p.debut, p.fin]).toEqual(['2026-04-12', '2026-10-11']);
     expect([p.precedente.debut, p.precedente.fin]).toEqual(['2025-10-11', '2026-04-11']);

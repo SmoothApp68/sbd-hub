@@ -142,7 +142,7 @@ describe('la date, à la pose', () => {
   test('un objectif déjà fait est refusé, avec le fait (la série, ses vraies reps)', () => {
     const p = projeter({ charge: 140, reps: 1 });
     expect(p.etat).toBe('deja');
-    expect(O.phraseDejaFait(p, MAINTENANT)).toBe('Déjà fait\u00a0: 144\u00a0kg\u00a0×\u00a01, le 20 sept.');
+    expect(O.phraseDejaFait(p, MAINTENANT)).toBe('Déjà fait\u00a0: 144\u00a0kg\u00a0×\u00a01, le 20\u00a0sept.');
   });
 
   test('« Juste un carnet » : ni date ni pari', () => {
@@ -188,7 +188,7 @@ describe('la date figée, et ce que la page montre', () => {
     const ligne = O.ligneDe('squat', 150, 1, MAINTENANT.toISOString(), p, 'u', 'pari-1');
     const v1 = O.vue({ objectif: ligne, seances: HISTOIRE(), options: BARRE, maintenant: MAINTENANT });
     expect(v1.ligne).toBe('Le pari du coach\u00a0: fin avril.');
-    expect(v1.pari).toBe('Pos\u00e9 le 16 oct. On verra s\u2019il tombe juste.');
+    expect(v1.pari).toBe('Pos\u00e9 le 16 oct. On verra s\u2019il tombe juste.');
     const plusTard = new Date(2026, 10, 20, 12);
     const avance = HISTOIRE().concat([seance('2026-11-10', [[147.5, 1]])]);
     expect(projeter({ seances: avance, maintenant: plusTard }).echeance).not.toBe('2027-04-30');   // recalculée, elle bougerait
@@ -206,12 +206,12 @@ describe('la date figée, et ce que la page montre', () => {
     [v.ligne, O.PLUS_D_UN_AN, O.PARI, O.VEILLE, O.VEILLE_PAS_ENCORE].forEach((t) => expect(t).not.toMatch(/impossible/i));
   });
 
-  test('atteint : « Atteint le 12 février. », jauge pleine — même en « Juste un carnet » (un fait)', () => {
+  test('atteint : « Atteint le 12\u00a0février. », jauge pleine — même en « Juste un carnet » (un fait)', () => {
     const p = projeter({});
     const ligne = O.ligneDe('squat', 150, 1, MAINTENANT.toISOString(), p, 'u', 'pari-1');
     const s = HISTOIRE().concat([seance('2027-02-12', [[150, 1]])]);
     const v = O.vue({ objectif: ligne, seances: s, options: BARRE, maintenant: new Date(2027, 1, 20), carnet: true });
-    expect(v.ligne).toBe('Atteint le 12 février.');
+    expect(v.ligne).toBe('Atteint le 12\u00a0février.');
     expect(v.jauge).toBe(1);
     expect(v.atteint).toBe(true);
   });
@@ -376,7 +376,7 @@ describe('150 — le pari figé, et « Au rythme d\u2019aujourd\u2019hui » (sec
   test('même mois que le pari : « toujours fin avril » ; le pari porte sa date de pose', () => {
     const v = vue({});
     expect(v.ligne).toBe('Le pari du coach\u00a0: fin avril.');
-    expect(v.pari).toBe('Pos\u00e9 le 16 oct. On verra s\u2019il tombe juste.');
+    expect(v.pari).toBe('Pos\u00e9 le 16 oct. On verra s\u2019il tombe juste.');
     expect(v.rythme).toBe('Au rythme d\u2019aujourd\u2019hui\u00a0: toujours fin avril.');
   });
 
@@ -387,7 +387,7 @@ describe('150 — le pari figé, et « Au rythme d\u2019aujourd\u2019hui » (sec
     expect(attendu).not.toBe('2027-04-30');
     const v = vue({ seances: avance, maintenant: plusTard });
     expect(v.ligne).toBe('Le pari du coach\u00a0: fin avril.');
-    expect(v.pari).toBe('Pos\u00e9 le 16 oct. On verra s\u2019il tombe juste.');
+    expect(v.pari).toBe('Pos\u00e9 le 16 oct. On verra s\u2019il tombe juste.');
     expect(v.rythme).toMatch(/^Au rythme d\u2019aujourd\u2019hui\u00a0: fin [a-zéû]+\.$/);
     expect(v.rythme).not.toMatch(/toujours/);
     expect(v.rythme).not.toBe('Au rythme d\u2019aujourd\u2019hui\u00a0: fin avril.');
@@ -406,7 +406,7 @@ describe('150 — le pari figé, et « Au rythme d\u2019aujourd\u2019hui » (sec
   test('atteint : « Atteint le … » seul ; carnet : rien ; hors salle : rien ; sans pari : la carte reste comme avant', () => {
     const atteint = HISTOIRE().concat([seance('2027-02-12', [[150, 1]])]);
     const a = vue({ seances: atteint, maintenant: new Date(2027, 1, 20) });
-    expect([a.ligne, a.pari, a.rythme]).toEqual(['Atteint le 12 février.', null, null]);
+    expect([a.ligne, a.pari, a.rythme]).toEqual(['Atteint le 12\u00a0février.', null, null]);
     const c = vue({ carnet: true });
     expect([c.ligne, c.pari, c.rythme]).toEqual([null, null, null]);
     const EZ = { materiel: 'barre_ez', charges: [10, 15, 20, 25, 30] };
@@ -425,7 +425,7 @@ describe('150 — le pari figé, et « Au rythme d\u2019aujourd\u2019hui » (sec
   test('l\u2019année de la pose seulement si elle diffère d\u2019aujourd\u2019hui', () => {
     const l = Object.assign({}, pose(), { pose_le: new Date(2026, 9, 16, 12).toISOString() });
     expect(O.vue({ objectif: l, seances: HISTOIRE(), options: BARRE, maintenant: new Date(2027, 0, 5, 12) }).pari)
-      .toBe('Pos\u00e9 le 16 oct. 2026. On verra s\u2019il tombe juste.');
+      .toBe('Pos\u00e9 le 16 oct. 2026. On verra s\u2019il tombe juste.');
   });
 
   test('rien n\u2019est écrit : l\u2019objet de la ligne et les séances sont intacts après deux rendus', () => {
@@ -450,7 +450,7 @@ describe('266 — l’objectif sans date reste suivi', () => {
     expect(O.PLUS_D_UN_AN).toBe('Pas de date\u00a0: à ton rythme actuel, plus d’un an.');
     expect(v.veille).toBe(O.VEILLE);
     expect(v.parier).toBeNull();
-    expect(v.chemin).toBe('40 % du chemin');                    // (144 − 140) ÷ (150 − 140)
+    expect(v.chemin).toBe('40\u00a0% du chemin');                    // (144 − 140) ÷ (150 − 140)
     expect(v.aujourdhui).toBe('Aujourd’hui\u00a0: 144\u00a0kg\u00a0×\u00a01');
   });
 

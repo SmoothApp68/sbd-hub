@@ -252,7 +252,7 @@ describe('§14.11 — la carte, dans le plan', () => {
     const { e, p } = decor();
     expect(p.carte.source).toBe('baisse');
     expect(p.carte.titre).toBe('Tes séries baissent depuis 3 semaines');
-    expect(p.carte.phrase).toBe('Aa, Bb, Cc et 2 autres exercices sont plus bas que les 3 semaines d’avant : −10 % en moyenne.');
+    expect(p.carte.phrase).toBe('Aa, Bb, Cc et 2 autres exercices sont plus bas que les 3 semaines d’avant\u00a0: −10 % en moyenne.');
     expect(p.carte.detail).toMatch(/^Quand plusieurs exercices baissent ensemble, c’est souvent de la fatigue\. Je te propose une décharge/);
     expect(p.carte.oui).toBe('Décharge 7 jours');
     expect(p.carte.serieDeMoins).toBeNull();
@@ -265,7 +265,7 @@ describe('§14.11 — la carte, dans le plan', () => {
 
   test('plus de 4 exercices : les 3 premiers, puis « et N autres exercices »', () => {
     const t = M.phraseBaisse(['A', 'B', 'C', 'D', 'E'], 6, true, null);
-    expect(t).toBe('A, B, C et 2 autres exercices sont plus bas que les 3 semaines d’avant : −6 % en moyenne, à réserve égale.');
+    expect(t).toBe('A, B, C et 2 autres exercices sont plus bas que les 3 semaines d’avant\u00a0: −6 % en moyenne, à réserve égale.');
     expect(M.phraseBaisse(['A', 'B', 'C', 'D'], 6, false, null)).toMatch(/^A, B, C et D sont plus bas/);
   });
 

@@ -29,7 +29,7 @@ describe('92 — `peseeDuProfil` : un poids et un jour tapés', () => {
   test('les bornes sont celles du questionnaire (`poidsValide`), et la phrase les dit', () => {
     [Poids.POIDS_MIN, Poids.POIDS_MAX, null, NaN, 5].forEach((v) => {
       expect(Poids.peseeDuProfil(v, '2026-10-14', '2026-10-14')).toEqual(
-        { erreur: 'Un poids entre ' + Poids.POIDS_MIN + ' et ' + Poids.POIDS_MAX + ' kg.' });
+        { erreur: 'Un poids entre ' + Poids.POIDS_MIN + ' et ' + Poids.POIDS_MAX + '\u00a0kg.' });
     });
     expect(Poids.peseeDuProfil(Poids.POIDS_MIN + 0.1, '2026-10-14', '2026-10-14').pesee).toBeTruthy();
   });

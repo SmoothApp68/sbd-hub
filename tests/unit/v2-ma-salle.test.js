@@ -699,7 +699,7 @@ describe('116 — Ma salle : un « jusqu’à » vidé ou illisible garde les ha
     f.vue.surValider();
     expect(f.ecrits).toEqual([]);                      // avant 116 : { ma_salle: { …, halteres: null } }
     expect(f.fermes).toBe(0);
-    expect(f.vue.erreur).toBe('« Jusqu’à » vide ou illisible : tes haltères restent à ' + SALLE_AUREL.halteres.max + ' kg.');
+    expect(f.vue.erreur).toBe('« Jusqu’à » vide ou illisible : tes haltères restent à ' + SALLE_AUREL.halteres.max + '\u00a0kg.');
     expect(f.vue.brouillon.halteres).toMatchObject([{ jusqua: SALLE_AUREL.halteres.max, pas: SALLE_AUREL.halteres.pas }]);
     f.vue.surValider();                                // « Valider » à nouveau : la salle telle qu'elle était
     expect(f.ecrits).toEqual([{ ma_salle: SALLE_AUREL }]);

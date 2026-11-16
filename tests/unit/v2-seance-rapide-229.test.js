@@ -45,4 +45,23 @@ describe('229 — la coupure dans la fatigue : le même résultat, sans retrier 
     }
     expect(vrais).toBeGreaterThan(10);   // la fixture déclenche vraiment des coupures
   });
+
+  test('16/11/2026 — une seule séance avant, puis un trou de plus de 84 jours : nouveau = ancien (sans rythme)', () => {
+    let vrais = 0, faux = 0;
+    for (let n = 0; n < 120; n++) {
+      const debuts = []; let t = Date.parse('2026-01-05T17:00:00Z');
+      debuts.push(new Date(t).toISOString());
+      t += (alea() < 0.5 ? 70 + alea() * 14 : 85 + alea() * 40) * JOUR;   // 84 j et moins, ou plus de 84 j
+      debuts.push(new Date(t).toISOString());
+      const nb = Math.floor(alea() * 6);
+      for (let k = 0; k < nb; k++) { t += (1 + alea() * 4) * JOUR; debuts.push(new Date(t).toISOString()); }
+      const fin = new Date(t).toISOString().slice(0, 10);
+      const depuis = new Date(Date.parse(debuts[1]) - 5 * JOUR).toISOString().slice(0, 10);
+      const nouveau = M.coupureDansLaFatigue(debuts, depuis, fin);
+      expect(nouveau).toBe(ancienneCoupure(debuts, depuis, fin, 21));
+      if (nouveau) vrais++; else faux++;
+    }
+    expect(vrais).toBeGreaterThan(20);   // la fixture déclenche vraiment le chemin sans rythme
+    expect(faux).toBeGreaterThan(20);
+  });
 });

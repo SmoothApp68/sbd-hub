@@ -397,7 +397,9 @@ const SCENARIOS = [
       verifier('[maj-premiere-installation] à la première installation, aucun bandeau', !(await majVisible()));
       // Rechargement normal : la page démarre déjà contrôlée.
       await ouvrir(page, '/');
-      await evaluer(page, () => { window.__sansRechargement = 1; });
+      // 16/11/2026 — sur l'écran de connexion, une nouvelle version recharge SEULE quand rien n'est saisi (`rechargerSiEntree`) :
+      // ici une saisie est en cours, donc le bandeau de la règle « elle ne s'impose jamais » reste ce qui est constaté.
+      await evaluer(page, () => { window.__sansRechargement = 1; const c = document.getElementById('champ-email'); if (c) c.value = 'saisie@exemple.fr'; });
       verifier('l’app tourne, aucun bandeau', !(await majVisible()));
 
       deployer(dossier, NOUVEAU);   // ← la nouvelle version est mise en ligne, app ouverte

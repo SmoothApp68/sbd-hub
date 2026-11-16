@@ -870,8 +870,14 @@ describe('§9.9 — la coupure et les deux reprises', () => {
 
   test('moins de deux séances : pas d’écart, donc pas de coupure', () => {
     expect(M.ecartHabituel([une(100)], COUPURE)).toBeNull();
-    expect(M.repriseDe([une(100)], COUPURE)).toBe('aucune');
     expect(M.ecartHabituel([], COUPURE)).toBeNull();
+    expect(M.repriseDe([], COUPURE)).toBe('aucune');
+  });
+
+  test('16/11/2026 — SANS RYTHME (une séance) : STRICTEMENT plus de 84 jours = reprise longue, jamais courte, sinon aucune', () => {
+    expect(M.repriseDe([une(84)], COUPURE)).toBe('aucune');
+    expect(M.repriseDe([une(85)], COUPURE)).toBe('longue');
+    expect(M.repriseDe([une(10)], COUPURE)).toBe('aucune');
     expect(M.repriseDe([], COUPURE)).toBe('aucune');
   });
 

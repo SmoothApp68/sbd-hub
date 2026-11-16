@@ -1414,8 +1414,11 @@
   // comme une reprise (séance du 01/10/2026). La zone se lit déjà sur les 8
   // dernières séances : même logique.
   //
-  // Il faut AU MOINS DEUX séances : avec une seule, il n'y a pas d'écart, donc
-  // pas de coupure — une première séance n'est pas une reprise.
+  // Il faut AU MOINS DEUX séances pour avoir un écart habituel : avec une seule, il n'y a
+  // pas d'écart. Sans rythme (une seule séance antérieure), la règle est autre (16/11/2026,
+  // `repriseSansRythme`) : jamais de reprise courte devinée, jamais de rythme emprunté aux
+  // autres exercices ; seule une absence de plus de 84 jours donne une reprise LONGUE.
+  // Zéro séance antérieure : une première séance n'est pas une reprise.
   var ECARTS_HABITUELS = 8;
   function ecartHabituel(seances, avant) {
     var dates = anterieures(seances, avant).map(function (se) { return instant(se.debut); });
@@ -1439,14 +1442,19 @@
   // ⚠️ RIEN ICI NE DIT LA DURÉE DE L'ABSENCE, et rien ne doit la dire :
   // `CADRAGE §3.1 bis` interdit tout commentaire sur l'assiduité. Cette fonction
   // rend un CRAN, pas un nombre de jours.
+  // 16/11/2026 — SANS RYTHME (une seule séance antérieure, écart habituel `null`) : une absence
+  // STRICTEMENT supérieure à `SEUIL_REPRISE_LONGUE` jours = reprise longue, sinon aucune. UN
+  // prédicat, lu par `repriseDe` et par `coupureDansLaFatigue` (une notion = une fonction).
+  function repriseSansRythme(depuis) {
+    return depuis > SEUIL_REPRISE_LONGUE ? REPRISE_LONGUE : AUCUNE_REPRISE;
+  }
   function repriseDe(seances, avant) {
     var coupure = instant(avant);
     var dates = anterieures(seances, avant).map(function (se) { return instant(se.debut); });
     if (coupure === null || !dates.length) return AUCUNE_REPRISE;
     var habituel = ecartHabituel(seances, avant);
-    if (habituel === null) return AUCUNE_REPRISE;
-
     var depuis = (coupure - dates[dates.length - 1]) / JOUR;
+    if (habituel === null) return repriseSansRythme(depuis);
     if (!(depuis > FACTEUR_COUPURE * habituel)) return AUCUNE_REPRISE;
     return depuis <= SEUIL_REPRISE_LONGUE ? REPRISE_COURTE : REPRISE_LONGUE;
   }
@@ -7783,7 +7791,11 @@
       if (k === null || k < borne || k > fin) continue;
       var j = i;
       while (j > 0 && t[j - 1] >= t[i]) j--;          // les antérieures STRICTES : t[0 .. j-1]
-      if (j < 2) continue;                             // une seule séance avant : pas d'écart, pas de coupure
+      if (j < 1) continue;                             // aucune séance avant : une première séance n'est pas une reprise
+      if (j === 1) {                                   // une seule séance avant : sans rythme (16/11/2026), le même prédicat que `repriseDe`
+        if (repriseSansRythme((t[i] - t[0]) / JOUR) !== AUCUNE_REPRISE) return true;
+        continue;
+      }
       var ecarts = [];
       for (var m = Math.max(1, j - ECARTS_HABITUELS); m < j; m++) ecarts.push((t[m] - t[m - 1]) / JOUR);
       var habituel = mediane(ecarts);

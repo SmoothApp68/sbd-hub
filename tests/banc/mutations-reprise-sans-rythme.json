@@ -1,0 +1,26 @@
+[
+ {
+  "nom": "M-1-seuil-84-inclus-devient-reprise-longue",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "return depuis > SEUIL_REPRISE_LONGUE ? REPRISE_LONGUE : AUCUNE_REPRISE;",
+  "nouveau": "return depuis >= SEUIL_REPRISE_LONGUE ? REPRISE_LONGUE : AUCUNE_REPRISE;",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-reprise-sans-rythme.test.js", "tests/unit/v2-moteur.test.js"]
+ },
+ {
+  "nom": "M-2-la-branche-sans-rythme-de-repriseDe-supprimee",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "if (habituel === null) return repriseSansRythme(depuis);",
+  "nouveau": "if (habituel === null) return AUCUNE_REPRISE;",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-reprise-sans-rythme.test.js", "tests/unit/v2-moteur.test.js"]
+ },
+ {
+  "nom": "M-3-la-copie-de-la-fatigue-non-alignee",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "if (j < 1) continue;",
+  "nouveau": "if (j < 2) continue;",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-reprise-sans-rythme.test.js", "tests/unit/v2-seance-rapide-229.test.js"]
+ }
+]

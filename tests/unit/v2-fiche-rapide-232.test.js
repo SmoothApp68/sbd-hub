@@ -133,7 +133,16 @@ describe('232 — la fiche d’un exercice : le même résultat, plus vite', () 
         const avant = new Date(Date.parse(h.groupes[0].seance.debut) + JOUR).toISOString();
         const a = ANCIEN.THMoteur.consigneDExercice(copie(g), undefined, avant, copie(options));
         const b = NOUVEAU.THMoteur.consigneDExercice(copie(g), undefined, avant, copie(options));
-        expect(dire(b)).toBe(dire(a));
+        // 16/11/2026 — la reprise longue AU BAS DE LA ZONE (MOTEUR §9.9) est une règle VOULUE, hors du périmètre de 232 : seule la ligne (et sa marque, ses phrases)
+        // change ; l'état, la zone, le palier et le niveau restent ceux d'avant.
+        const marquee = b && b.consigne && b.consigne.fondement && b.consigne.fondement.reprisePlancher;
+        if (marquee) {
+          expect(a && a.consigne && a.consigne.etat).toBe('reprise_longue');
+          ['etat', 'zone', 'palier', 'niveau', 'n'].forEach((k) => expect(b.consigne[k]).toEqual(a.consigne[k]));
+          expect(b.consigne.ligne.vise).toBe(NOUVEAU.THMoteur.zoneParCle(b.consigne.zone).bas);
+        } else {
+          expect(dire(b)).toBe(dire(a));
+        }
         expect(dire(NOUVEAU.THMoteur.chargesDeTravailDe(copie(g), undefined, optsC)))
           .toBe(dire(ANCIEN.THMoteur.chargesDeTravailDe(copie(g), undefined, optsC)));
         if (b && b.consigne) { consignes++; if (b.consigne.palier) paliers++; }

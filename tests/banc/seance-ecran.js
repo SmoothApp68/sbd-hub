@@ -209,6 +209,7 @@ const CATALOGUE = [
   { slug: 'pupitre-machine', nom: 'Pupitre (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['biceps'], muscles_secondaires: [] },
   // ⚠️ RÉSERVÉS AU CORRECTIF DE LA FILE (27/09/2026) : la séance du constat,
   // « Mardi — Pecs Dos », deux exercices.
+  { slug: 'rowing-u686', nom: 'Rowing U686 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['dorsaux'], muscles_secondaires: [] },
   { slug: 'rowing-poulie', nom: 'Rowing Poulie Assis', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['dorsaux'], muscles_secondaires: [] },
   { slug: 'dci-halteres', nom: 'Développé Couché Incliné (Haltères)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere', muscles_primaires: ['pectoraux'], muscles_secondaires: [] },
   { slug: 'haussement-barre', nom: 'Haussement d’Épaules (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['trapezes'], muscles_secondaires: [] },
@@ -10099,6 +10100,40 @@ const SETS_IMPORTES = [
     ok('[RP2] DISCRIMINANT — la réaction parle en reprise : une proposition au-dessus de 80 sur la série 2',
       g[1].proposee && nr(g[1].charge) > 80, nbR(g));
     ok('[RP2] invariants du plan', r.erreurs.length === 0, nbR(r.erreurs.slice(0, 3)));
+    await abandonner();
+
+    // ── (3) 16/11/2026 — REPRISE LONGUE, NIVEAU SOUS LE BAS DE LA ZONE (MOTEUR §9.9) ─────────────────────────────────────────────
+    // Zone Volume (10-12) par l'habitude, dernière séance 50 × 12, 4, 3 (niveau validé 4) il y a 140 jours : la ligne vise le BAS de la zone (10),
+    // à une charge estimée sous 90 % du palier, marquée ; la réserve affichée vaut au moins 2 ; la phrase est un fait.
+    const poserQ = poser('rowing-u686', 'Dos U686');
+    poserQ('q686-a', 160, [[45, 12], [45, 12], [45, 12]]);
+    poserQ('q686-b', 150, [[45, 12], [45, 12], [45, 12]]);
+    poserQ('q686-c', 140, [[50, 12], [50, 4], [50, 3]]);
+    ROUTINES.push({ id: 'r-q686', nom: 'Q686 ×3', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-q686-e', routine_id: 'r-q686', exercise_slug: 'rowing-u686', rang: 0,
+        routine_sets: progr(3, 12), repos_cible_s: 90, groupe_superset: null, note: null }] });
+    await aller('/saisie');
+    await demarrerRoutine('Q686 ×3');
+    await attendreQue(async () => !!(await planR()).consigne, 8000, '[RP3] le plan de la reprise est calculé');
+    r = await planR();
+    const kRP = r.consigne;
+    ok('[RP3] prémisse : reprise longue, palier 50, niveau sous le bas de la zone', !!kRP && kRP.etat === 'reprise_longue' &&
+      kRP.palier === 50 && kRP.niveau < 10, nbR(kRP));
+    ok('[RP3] DISCRIMINANT — la ligne vise le bas de la zone (10), pas le niveau (avant : 4), marquée', !!kRP && kRP.ligne.vise === 10 &&
+      !!(kRP.fondement && kRP.fondement.reprisePlancher), nbR(kRP));
+    ok('[RP3] …à une charge sous 90 % du palier (l\'estimation à plus de reps), jamais plus lourde que lui', !!kRP && kRP.ligne.charge < 45 + 1e-9 && kRP.ligne.charge > 0,
+      nbR(kRP && kRP.ligne));
+    g = await grilleR();
+    ok('[RP3] la grille porte la ligne du coach sur les trois séries', g.length === 3 && g.every((l) => nr(l.charge) === kRP.ligne.charge && nr(l.reps) === 10), nbR(g));
+    ok('[RP3] …et la phrase est un fait, sans « un cran en dessous »',
+      /^Reprise après une pause : on repart au bas de ta zone, /.test(await griseR()) && !/un cran en dessous/.test(await griseR()), nbR(await griseR()));
+    const reserveRP = await page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      return d ? d.plan.exercices[0].reserveAffichee : 'aucun plan';
+    });
+    ok('[RP3] la réserve affichée vaut au moins 2 à la séance de reprise', typeof reserveRP === 'number' && reserveRP >= 2, nbR(reserveRP));
+    ok('[RP3] invariants du plan (I15, I204, I205, I206 compris)', r.erreurs.length === 0, nbR(r.erreurs.slice(0, 3)));
     await abandonner();
     await aller('/saisie');
     ok('[RP] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));

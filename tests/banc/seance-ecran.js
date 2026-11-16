@@ -31480,7 +31480,7 @@ const SETS_IMPORTES = [
     const menu3 = await entreesFeuille();
     ok('[SC2] I203 — sous « J’ai mal » (une douleur) : ni « Sans coach cette fois » ni « Remettre le coach » — pas d’inverse sur une douleur',
       menu3.indexOf('J’ai mal') >= 0 && menu3.indexOf('Sans coach cette fois') < 0 && menu3.indexOf('Remettre le coach') < 0, nb2(menu3));
-    await page.keyboard.press('Escape').catch(() => {});
+    await fermerFeuille();
     ok('[SC2] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
       nb2([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));

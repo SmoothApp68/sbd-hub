@@ -1290,7 +1290,7 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
       verdict: '92,5' + NB + 'kg' + NB + '×' + NB + '8, 8, 8' + NB + ': pas encore dans ta zone.',
       // 49-U18 (principe ii) — la cible du jour n'était pas celle-ci : « Même
       // cible » ne se dit que si la ligne jaune d'après est celle du jour.
-      suite: 'Prochaine séance' + NB + ': 92,5' + NB + 'kg' + NB + '×' + NB + '9.'
+      suite: 'La prochaine fois' + NB + ': 92,5' + NB + 'kg' + NB + '×' + NB + '9.'
     });
   });
 
@@ -1338,7 +1338,7 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
       verdict: 'Aujourd\'hui' + NB + ': 90' + NB + 'kg' + NB + '×' + NB + '10, 10, 10. Le test à 92,5' + NB + 'kg n\'a pas été fait.',
       // 49-U18 (principe ii) — la cible du jour n'était pas celle-ci : « Même
       // cible » ne se dit que si la ligne jaune d'après est celle du jour.
-      suite: 'Prochaine séance' + NB + ': 90' + NB + 'kg' + NB + '×' + NB + '11.'
+      suite: 'La prochaine fois' + NB + ': 90' + NB + 'kg' + NB + '×' + NB + '11.'
     });
 
     // Et la garde qui porte le changement : plus aucune félicitation.
@@ -1362,7 +1362,7 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
     // un 127,5.
     expect(constatDe(c).constat).toEqual({
       verdict: '127,5' + NB + 'kg' + NB + ': 3 aujourd\'hui, au bas de ta zone.',
-      suite: 'Prochaine séance' + NB + ': 125' + NB + 'kg' + NB + '×' + NB + '5, puis 127,5' + NB +
+      suite: 'La prochaine fois' + NB + ': 125' + NB + 'kg' + NB + '×' + NB + '5, puis 127,5' + NB +
              'kg' + NB + '×' + NB + '4 sur la dernière série.'
     });
   });
@@ -1416,7 +1416,7 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
   const PAR_LA_CHAINE_49U8 = {
     K11: { constat: { verdict: 'Aujourd\'hui' + NB + ': 110' + NB + 'kg' + NB + '×' + NB + '3.',
                       // 49-U18 (principe ii) : la cible du jour n'était pas 110 kg × 4.
-                      suite: 'Prochaine séance' + NB + ': 110' + NB + 'kg' + NB + '×' + NB + '4.' },
+                      suite: 'La prochaine fois' + NB + ': 110' + NB + 'kg' + NB + '×' + NB + '4.' },
            cranSuivant: 112.5 }
   };
 

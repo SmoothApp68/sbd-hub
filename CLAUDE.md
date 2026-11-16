@@ -271,7 +271,7 @@ trappe `/__sw-off` pendrait avec lui.
 
 ## 5. AURÉLIEN, LES COMPTES ET CE QU'IL ATTEND (résumé de l'ancien §15-§16)
 
-- **Aurélien = `aurel_br`, `user_id 6e2936e7-de11-4f19-89b1-d1eb5968ba35`.** Autres comptes réels : Léa (`9ed88c34…`),
+- **Aurélien = `aurel_br`, `user_id 6e2936e7…`.** Autres comptes réels : Léa (`9ed88c34…`),
   Jordan (`0f1a1bf5…`), Alexis (`430d35d6…`), Mélodie (`ea326c88…`). Toute action sur leurs données passe par
   **Claude.ai** (§2) ; ses données de référence se lisent dans la base, pas ici.
 - Il délègue l'architecture et le coaching (« c'est toi le coach ») **mais** attend une **recommandation claire, avec

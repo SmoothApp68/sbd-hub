@@ -238,7 +238,7 @@ ONBOARDING_VERSION = 4 (engine.js:16) · BW_FALLBACK_KG = 80 (app.js:6472) · ge
 - Deadlift loggé dans des séances titrées « Ischios Fessiers » (exercice « Soulevé de Terre (Barre) »).
 
 ### Identifiants Supabase (⚠️ corrigés — l'ancien doc attribuait l'ID de Léa à Aurélien)
-- **Aurélien = `user_id 6e2936e7-de11-4f19-89b1-d1eb5968ba35`** (aurel_br).
+- **Aurélien = `user_id 6e2936e7…`** (aurel_br).
 - Autres users réels : Jordan (`0f1a1bf5…`) · **Léa (`9ed88c34…`)** · Alexis (`430d35d6…`) · Alex.
 > Toute action sur ces lignes passe par **Claude.ai** (tu n'as pas accès à Supabase).
 

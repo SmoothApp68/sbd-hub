@@ -16,21 +16,21 @@ INSERT INTO v2_090_fins VALUES
 -- Pré-contrôle : les 7 séances existent, sont à aurel_br, terminées, de source hevy, au bon début, sans fin.
 DO $$ DECLARE n int; BEGIN
   SELECT count(*) INTO n FROM public.sessions s JOIN v2_090_fins f ON f.id = s.id
-   WHERE s.user_id = '6e2936e7-de11-4f19-89b1-d1eb5968ba35' AND s.statut = 'terminee' AND s.source = 'hevy'
+   WHERE s.user_id = '00000000-0000-4000-8000-000000000001' AND s.statut = 'terminee' AND s.source = 'hevy'
      AND s.debut = f.debut AND s.fin IS NULL;
   IF n <> 7 THEN RAISE EXCEPTION 'pré-contrôle : % séances conformes au lieu de 7', n; END IF;
 END $$;
 
 UPDATE public.sessions s SET fin = f.fin
   FROM v2_090_fins f
- WHERE s.id = f.id AND s.fin IS NULL AND s.user_id = '6e2936e7-de11-4f19-89b1-d1eb5968ba35';
+ WHERE s.id = f.id AND s.fin IS NULL AND s.user_id = '00000000-0000-4000-8000-000000000001';
 
 -- Post-contrôle : les 7 ont leur fin, après leur début ; plus aucune séance terminée sans fin pour aurel_br.
 DO $$ DECLARE n int; m int; BEGIN
   SELECT count(*) INTO n FROM public.sessions s JOIN v2_090_fins f ON f.id = s.id WHERE s.fin = f.fin AND s.fin > s.debut;
   IF n <> 7 THEN RAISE EXCEPTION 'post-contrôle : % fins posées au lieu de 7', n; END IF;
   SELECT count(*) INTO m FROM public.sessions
-   WHERE user_id = '6e2936e7-de11-4f19-89b1-d1eb5968ba35' AND statut = 'terminee' AND fin IS NULL;
+   WHERE user_id = '00000000-0000-4000-8000-000000000001' AND statut = 'terminee' AND fin IS NULL;
   IF m <> 0 THEN RAISE EXCEPTION 'post-contrôle : % séances terminées encore sans fin', m; END IF;
 END $$;
 

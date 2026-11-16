@@ -396,7 +396,7 @@ describe('141 — la ponctuation ne compte plus pour trouver un exercice', () =>
 });
 
 describe('69 — ce qui s’écrit : par la file, avec des identifiants tirés du nom', () => {
-  const PERSONNE = '6e2936e7-de11-4f19-89b1-d1eb5968ba35';
+  const PERSONNE = '00000000-0000-4000-8000-000000000001';
   async function aEcrire(s, index) {
     const n = I.seriesAEcrire(s, index);
     const liste = [];

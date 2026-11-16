@@ -84,6 +84,10 @@
     // l'occurrence de son exercice dans la séance (uuid ; NULL pour une ligne
     // importée ou d'avant la colonne).
     'douleur', 'occurrence',
+    // PR 2 « Sans coach par exercice » (migration lancée par Claude.ai, pas par le dépôt) — la marque « Sans coach cette fois » de la série,
+    // DISTINCTE de la douleur (boolean NOT NULL DEFAULT false). FACULTATIVE tant que la migration n'est pas lancée (`donnees.js`,
+    // COLONNES_SERIE_FACULTATIVES, le modèle de `pente_pct`) : la marque vit alors dans le brouillon local et dans `sessions.gestes`.
+    'sans_coach',
     // ECRAN §3 ter.5 (prompt 131, v2_101) — les champs en plus : le D+ et les étages, lus
     // ET écrits, comme la durée et la distance. Ils viennent de `THModele.colonnesDeSerie()`
     // (`lignes()` les envoie par elle) ; `verifierColonnes()` vérifie l'accord au démarrage.
@@ -301,6 +305,7 @@
         // séance.
         var occ = o.vider ? null : uuidDOccurrence(exo.series.length ? exo.series[0].occurrence : null);
         var marque = !o.vider && exo.series.some(function (l) { return l.douleur === true; });
+        var marqueSansCoach = !o.vider && !marque && exo.series.some(function (l) { return l.sans_coach === true; });
         acc.push(Object.assign({
           exercise_slug: exo.slug,
           // `sets` ne porte pas la ligne de routine : une séance reprise ou
@@ -349,7 +354,7 @@
               au_max: reserveAuMax(ligne.au_max_reserve) !== null || ligne.au_max === true
             });
           })
-        }, occ ? { occurrence: 'o-' + occ } : {}, marque ? { douleur: true } : {}));
+        }, occ ? { occurrence: 'o-' + occ } : {}, marque ? { douleur: true } : {}, marqueSansCoach ? { sans_coach: true } : {}));
       });
       return acc;
     }, []);
@@ -2090,6 +2095,8 @@
           // validées et à venir) : une donnée de la série, la charge et les reps
           // ne changent pas. Toujours envoyée : `false` efface une marque.
           douleur: occurrenceDouloureuse(p.exo),
+          // PR 2 — la marque « Sans coach cette fois » (colonne facultative, `donnees.js`) : toujours envoyée, `false` efface le geste.
+          sans_coach: occurrenceSansCoachChoisie(p.exo),
           occurrence: uuidDOccurrence(p.exo.occurrence),
           // 185 (v2_116) — la série « Non, ne compte pas » : gardée au journal, exclue du calcul. Toujours envoyée, `false` compris
           // (la colonne est NOT NULL) ; jamais déduite d'autre chose que de ce que l'utilisateur a répondu.
@@ -2110,15 +2117,51 @@
     return (exo.series || []).some(function (s) { return !!s && s.douleur === true; });
   }
 
-  // « J'ai mal » (§9.20) : l'occurrence `iExo` porte la marque, pour la séance.
-  // Ses séries déjà validées la reçoivent aussi (elles repartent en base par la
-  // file, comme une série corrigée) ; leurs charges et leurs reps ne changent pas.
-  function marquerDouleur(seance, iExo) {
+  // PR 2 « SANS COACH PAR EXERCICE » — UNE marque de silence, deux origines. `occurrenceSansCoach` est LE prédicat du SILENCE et de la
+  // NEUTRALITÉ (plan : aucune ligne, pari, message, carte, calage ; moteur : la séance-exercice ne vote pas) : la marque posée par le
+  // geste « Sans coach cette fois » OU la douleur (`douleur`, un FAIT de santé, qui garde ses propres lecteurs : carte de reprise, phrase
+  // du kiné, `douleurRecente`, niveau). Une occurrence relue de la base la tient de ses séries. `occurrenceSansCoachChoisie` = la marque
+  // du seul geste (sans douleur) : c'est elle que « Remettre le coach » peut retirer, et que l'envoi écrit dans `sets.sans_coach`.
+  function marqueSansCoachPosee(exo) {
+    if (!exo) return false;
+    if (exo.sans_coach === true) return true;
+    return (exo.series || []).some(function (s) { return !!s && s.sans_coach === true; });
+  }
+  function occurrenceSansCoach(exo) {
+    return occurrenceDouloureuse(exo) || marqueSansCoachPosee(exo);
+  }
+  function occurrenceSansCoachChoisie(exo) {
+    return occurrenceSansCoach(exo) && !occurrenceDouloureuse(exo);
+  }
+
+  // UNE fonction pour les deux gestes : « Sans coach cette fois » (`{ douleur: false }`, la marque de silence seule) et « J'ai mal »
+  // (`{ douleur: true }`, la douleur, qui silencie aussi par le prédicat — `marquerDouleur` n'en est plus qu'un appel). L'occurrence `iExo`
+  // porte la marque pour la séance ; ses séries déjà validées la reçoivent aussi (elles repartent en base par la file, comme une série
+  // corrigée) ; leurs charges et leurs reps ne changent pas. La douleur ne pose PAS `sans_coach` : une marque, un sens.
+  function marquerSansCoach(seance, iExo, options) {
+    var cle = options && options.douleur ? 'douleur' : 'sans_coach';
     var exos = (seance.exercices || []).slice();
     var exo = exos[iExo];
-    if (!exo || exo.douleur === true) return seance;
-    exos[iExo] = Object.assign({}, exo, { douleur: true,
-      series: (exo.series || []).map(function (sr) { return Object.assign({}, sr, { douleur: true }); }) });
+    if (!exo || exo[cle] === true) return seance;
+    var marque = {}; marque[cle] = true;
+    exos[iExo] = Object.assign({}, exo, marque, {
+      series: (exo.series || []).map(function (sr) { return Object.assign({}, sr, marque); }) });
+    return avecExercices(seance, exos);
+  }
+
+  // « J'ai mal » (§9.20) : la douleur de l'occurrence `iExo`, pour la séance.
+  function marquerDouleur(seance, iExo) {
+    return marquerSansCoach(seance, iExo, { douleur: true });
+  }
+
+  // « Remettre le coach » : l'EXACT INVERSE de `marquerSansCoach(…, { douleur: false })`. Il ne retire que la marque du geste : une
+  // occurrence qui porte une douleur (I203) ou qui n'a pas la marque revient INCHANGÉE.
+  function retirerSansCoach(seance, iExo) {
+    var exos = (seance.exercices || []).slice();
+    var exo = exos[iExo];
+    if (!exo || !occurrenceSansCoachChoisie(exo)) return seance;
+    exos[iExo] = Object.assign({}, exo, { sans_coach: false,
+      series: (exo.series || []).map(function (sr) { return Object.assign({}, sr, { sans_coach: false }); }) });
     return avecExercices(seance, exos);
   }
 
@@ -2319,7 +2362,9 @@
   // (il ne lit que les cinq premiers gestes). Le carnet (A7) les compte par genre.
   var GESTES_NOTES = ['note_prise', 'note_refusee', 'note_annulee'];
   var GENRES_NOTES = ['effort', 'type_serie', 'reglage', 'douleur'];
-  var GESTES = ['raccourci', 'machine_prise', 'remplacement', 'ajout_serie', 'retrait', 'serie_comptee'].concat(GESTES_DU_COACH, GESTES_CHAUFFES, GESTES_NOTES);
+  // PR 2 — « Sans coach cette fois » et « Remettre le coach » : `{ geste, slug }` (mesure ; la marque elle-même vit sur l'occurrence).
+  var GESTES_SANS_COACH = ['sans_coach', 'coach_remis'];
+  var GESTES = ['raccourci', 'machine_prise', 'remplacement', 'ajout_serie', 'retrait', 'serie_comptee'].concat(GESTES_DU_COACH, GESTES_CHAUFFES, GESTES_NOTES, GESTES_SANS_COACH);
   function gestePropre(g) {
     if (!g || typeof g !== 'object' || GESTES.indexOf(g.geste) < 0) return null;
     var o = { geste: g.geste };
@@ -3420,6 +3465,10 @@
     degrouperExercice: degrouperExercice,
     plusTard: plusTard,
     occurrenceDouloureuse: occurrenceDouloureuse,
+    occurrenceSansCoach: occurrenceSansCoach,
+    occurrenceSansCoachChoisie: occurrenceSansCoachChoisie,
+    marquerSansCoach: marquerSansCoach,
+    retirerSansCoach: retirerSansCoach,
     marquerDouleur: marquerDouleur,
     retirerDouleur: retirerDouleur,
     choisirReprise: choisirReprise,

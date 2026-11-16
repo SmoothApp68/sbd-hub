@@ -1,0 +1,5 @@
+[
+ {"nom":"cst-retour-a-d","fichier":"v2/js/plan.js","ancien":"M.estUneProposition(dn) && !prises","nouveau":"M.estUneProposition(d) && !prises","banc":"aucun","unitaires":["tests/unit/v2-rate-plan.test.js"]},
+ {"nom":"cst-sans-condition-de-bouton","fichier":"v2/js/moteur.js","ancien":"r.cas !== 'R' && (r.leviers || []).length > 0;","nouveau":"r.cas !== 'R';","banc":"aucun","unitaires":["tests/unit/v2-rate-plan.test.js"]},
+ {"nom":"cst-ignorees-max-99","fichier":"v2/js/moteur.js","ancien":"var RATE_IGNOREES_MAX = 2; ","nouveau":"var RATE_IGNOREES_MAX = 99; ","banc":"aucun","unitaires":["tests/unit/v2-rate-plan.test.js"]}
+]

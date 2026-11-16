@@ -1764,6 +1764,8 @@
   }
 
   async function accepterUneProposition(carte, p) {
+    // 16/11/2026 (MOTEUR §9.27 quater) — « la routine apprend de tes gestes » : retirer, remplacer ou garder, sur un geste.
+    if (p.type === 'geste_retirer' || p.type === 'geste_remplacer' || p.type === 'geste_garder') return repondreAuGesteDeLaRoutine(carte, p);
     var rt = routines.filter(function (r) { return r.id === p.routine_id; })[0];
     // Sans chemin d'écriture : l'éditeur s'ouvre sur la bonne routine, rien n'est écrit en silence.
     if (p.type === 'remplacer' || p.type === 'fusionner') {
@@ -1805,6 +1807,66 @@
         await poserProfil({ cartes_semaine: avantReponses });
         memoEquilibres = null;
         repeindreLesEquilibres();
+      }
+    };
+    memoEquilibres = null;
+    repeindreLesEquilibres();
+  }
+
+  // 16/11/2026 (MOTEUR §9.27 quater, I210) — LA ROUTINE APPREND DE TES GESTES. La carte (pure, `Equilibres.analyser`) porte sa
+  // proposition ; ici, sur le geste seulement : la routine VOULUE se calcule sur la routine d'AUJOURD'HUI (`Routines.retraitDExercice`
+  // ou `Routines.exerciceRemplace`, comme la carte « variation »), se vérifie (`Equilibres.verifierRetrait`, I213), s'écrit par le
+  // chemin des routines, et la réponse se range dans `cartes_semaine.geste_routine[routine][exercice]` (la file du profil). Le geste
+  // se voit (« C'est fait : … », « Noté : … ») et « Annuler » rend la routine d'avant ET les réponses d'avant.
+  var gesteRoutineEnCours = false;   // un double toucher ne rejoue pas le geste (l'« Annuler » du premier resterait perdu)
+  async function repondreAuGesteDeLaRoutine(carte, p) {
+    if (gesteRoutineEnCours) return;
+    gesteRoutineEnCours = true;
+    try { return await repondreAuGesteUneFois(carte, p); } finally { gesteRoutineEnCours = false; }
+  }
+  async function repondreAuGesteUneFois(carte, p) {
+    var avantReponses = JSON.parse(JSON.stringify(reponsesDesCartes()));
+    var annulerLesReponses = async function () {
+      faitEquilibre = null;
+      await poserProfil({ cartes_semaine: avantReponses });
+      memoEquilibres = null;
+      repeindreLesEquilibres();
+    };
+    if (p.type === 'geste_garder') {
+      await poserProfil({ cartes_semaine: Equilibres.reponseAuGeste(reponsesDesCartes(), p.routine_id, p.slug, 'garder') });
+      faitEquilibre = { texte: p.fait, surAnnuler: annulerLesReponses };
+      memoEquilibres = null;
+      return repeindreLesEquilibres();
+    }
+    var rt = routines.filter(function (r) { return r.id === p.routine_id; })[0];
+    var voulues = null;
+    if (rt && p.type === 'geste_retirer') {
+      voulues = Routines.retraitDExercice(rt, p.slug, p.report);
+      if (voulues && Equilibres.verifierRetrait(rt, voulues, p).length) voulues = null;
+    }
+    if (rt && p.type === 'geste_remplacer' && (rt.exercices || []).some(function (x) { return x.exercise_slug === p.slug; }) &&
+        !(rt.exercices || []).some(function (x) { return x.exercise_slug === p.vers; })) {
+      var mesures = mesuresDuRemplacement(p.slug, p.vers);
+      voulues = rt.exercices.map(function (x) { return x.exercise_slug === p.slug ? Routines.exerciceRemplace(x, p.vers, mesures) : x; });
+    }
+    if (!voulues) {
+      // La routine a changé depuis la carte : rien n'est écrit, la carte se recalcule.
+      faitEquilibre = { texte: 'Ta routine a changé depuis : je recalcule.', surAnnuler: function () { faitEquilibre = null; repeindreLesEquilibres(); } };
+      memoEquilibres = null;
+      return repeindreLesEquilibres();
+    }
+    var avantRoutine = JSON.parse(JSON.stringify(rt.exercices));
+    var idRoutine = rt.id;
+    await poserRoutineVoulue(rt, voulues);
+    await poserProfil({ cartes_semaine: Equilibres.reponseAuGeste(reponsesDesCartes(), p.routine_id, p.slug,
+      p.type === 'geste_remplacer' ? 'remplacer' : 'retirer') });
+    faitEquilibre = {
+      texte: p.fait,
+      surAnnuler: async function () {
+        var r2 = routines.filter(function (r) { return r.id === idRoutine; })[0];
+        faitEquilibre = null;
+        if (r2) await poserRoutineVoulue(r2, avantRoutine);
+        await annulerLesReponses();
       }
     };
     memoEquilibres = null;
@@ -18848,6 +18910,45 @@
     ouvrirFeuilleProfil();
   }
 
+  // 16/11/2026 (MOTEUR §9.27 quater) — « CE QUE LE COACH A RETENU » : les réponses aux cartes des gestes de la routine
+  // (`cartes_semaine.geste_routine`, lues par `Equilibres.gestesRetenus`), chacune effaçable — effacée, la carte peut revenir.
+  // La même feuille que « Exercices écartés ». Absente sans réponse.
+  var PHRASE_RETENUS = 'Tes réponses à mes propositions sur tes routines. Effacée, une réponse peut revenir en carte.';
+  function ligneRetenusDuCoach() {
+    var l = Equilibres.gestesRetenus(reponsesDesCartes());
+    if (!l.length) return [];
+    return [{ libelle: 'Ce que le coach a retenu', sous: PHRASE_RETENUS, valeur: String(l.length), surChoix: ouvrirRetenusProfil }];
+  }
+  function texteDuRetenu(x, index) {
+    var rt = routines.filter(function (r) { return r && r.id === x.routine_id; })[0];
+    var ou = rt ? '\u00ab\u00a0' + rt.nom + '\u00a0\u00bb' : 'une ancienne routine';
+    var nom = Modele.nommer(index, x.slug);
+    return x.r === 'garder' ? nom + ' : je le garde dans ' + ou + '.'
+      : x.r === 'remplacer' ? nom + ' : remplacé dans ' + ou + '.'
+      : nom + ' : retiré de ' + ou + '.';
+  }
+  function ouvrirRetenusProfil() {
+    var index = Modele.indexerExercices(local.exercices);
+    feuilleProfil = function (cible) {
+      Rendu.rendreFeuilleEcartes(cible, {
+        titre: 'Ce que le coach a retenu',
+        aide: PHRASE_RETENUS,
+        exercices: Equilibres.gestesRetenus(reponsesDesCartes()).map(function (x) {
+          return { nom: texteDuRetenu(x, index), bouton: 'Effacer', surReprendre: function () { effacerUnRetenu(x); } };
+        }),
+        surFermer: fermerVoile
+      });
+    };
+    ouvrirFeuilleProfil();
+  }
+  function effacerUnRetenu(x) {
+    var toutes = Equilibres.reponseAuGeste(reponsesDesCartes(), x.routine_id, x.slug, null);
+    ecrireProfil({ cartes_semaine: toutes });
+    memoEquilibres = null;
+    if (!Equilibres.gestesRetenus(toutes).length) return fermerVoile();
+    if (feuilleProfil) feuilleProfil($('feuille-contenu'));
+  }
+
   function reprendreEcarte(slug) {
     var restants = Profil.ecartesDe(profil).filter(function (s) { return s !== slug; });
     var champs = Profil.preparerChamps(profil, { exercices_ecartes: restants }, new Date());
@@ -19134,7 +19235,7 @@
             // exercice à l'élastique est dans une routine, l'historique ou la séance en cours.
             // 193-4 (MOTEUR §9.32) — « Semaine de test » : son état, la proposition hors programme, l'annulation.
             facultative(ligneSemaineDeTest())
-          ].filter(Boolean).concat(Profil.lignesProgramme(p, ouvrirProgrammeProfil)) },
+          ].filter(Boolean).concat(Profil.lignesProgramme(p, ouvrirProgrammeProfil), ligneRetenusDuCoach()) },
           // 213 — « Mes exercices » rejoint le programme.
           { titre: 'MES EXERCICES', lignes: [
             { libelle: 'Tous mes exercices', sansValeur: true,

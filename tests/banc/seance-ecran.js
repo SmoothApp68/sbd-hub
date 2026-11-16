@@ -29807,6 +29807,138 @@ const SETS_IMPORTES = [
     base.profiles[0] = profilAvant;
   }
 
+  console.log('\n══ gestes-routine. LA ROUTINE APPREND DE TES GESTES — LA CARTE DU COACH, « D’ACCORD », « ANNULER », « GARDER », CE QUE LE COACH A RETENU (16/11/2026, MOTEUR §9.27 quater) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : quatre séances récentes d'une routine (développé 3, incliné 3, curl 3) ; l'incliné retiré à la
+  // main (`retrait`) dans trois d'entre elles. Le report met ses 3 séries sur le développé (même muscle primaire) : 6 au lieu de 3.
+  // Le banc joue par l'ÉCRAN et lit ce que le faux serveur a reçu : la routine écrite sur « D'accord », rendue par « Annuler »
+  // (routine ET réponses), la réponse « garder » durable dans `cartes_semaine.geste_routine`, la ligne du Profil effaçable.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const nbSessionsAvant = base.sessions.length, nbSetsAvant = base.sets.length, nbCatAvant = CATALOGUE.length, nbRoutinesAvant = ROUTINES.length;
+    const profilAvant = Object.assign({}, base.profiles[0]);
+    const tGR = Date.now();
+    const nbGR = (x) => JSON.stringify(x === undefined ? null : x);
+    const spGR = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const ficheGR = (slug, nom, prim, schema, equipement) => ({ slug, nom, mesure: 'charge_reps', charge: 'externe', equipement,
+      muscles_primaires: prim, muscles_secondaires: [], schema_mouvement: schema });
+    CATALOGUE.push(ficheGR('gr-dev', 'Développé GR (Barre)', ['pectoraux'], 'pousser_horizontal', 'barre'));
+    CATALOGUE.push(ficheGR('gr-inc', 'Incliné GR (Haltères)', ['pectoraux'], 'pousser_horizontal', 'haltere'));
+    CATALOGUE.push(ficheGR('gr-curl', 'Curl GR (Haltères)', ['biceps'], 'biceps', 'haltere'));
+    base.sessions = base.sessions.slice();
+    base.sets = base.sets.slice();
+    base.profiles[0] = Object.assign({}, base.profiles[0], { rythme_progression: 'franc', intention: 'progresser', cartes_semaine: {} });
+    for (let h = 1; h <= 4; h++) {
+      const id = 'gr-s' + h, debut = ilYa(h * 3600000, tGR).toISOString();
+      const retire = h <= 3;
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'GR — ' + id, debut, fin: ilYa(h * 3600000 - 1800000, tGR).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: 'r-gr', source: 'app', created_at: debut,
+        gestes: retire ? [{ geste: 'retrait', slug: 'gr-inc' }] : [] });
+      let rang = 0;
+      [['gr-dev', 3], ['gr-curl', 3]].concat(retire ? [] : [['gr-inc', 3]]).forEach(([slug, nb]) => {
+        for (let k = 0; k < nb; k++) base.sets.push({ id: id + '-s' + (++rang), session_id: id, user_id: 'u-banc', exercise_slug: slug,
+          charge_kg: 40, reps: 8, duree_s: null, distance_m: null, denivele_m: null, etages: null, elastique: null,
+          type_serie: 'travail', rang, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null,
+          note: null, source: 'app', created_at: debut, modifie_a: null, douleur: false, occurrence: null, hors_calcul: false });
+      });
+    }
+    ROUTINES.push({ id: 'r-gr', nom: 'Haut GR', note: null, archivee_a: null, created_at: '2026-01-05T10:00:00.000Z',
+      updated_at: '2026-01-05T10:00:00.000Z',
+      routine_exercises: [['gr-dev', 0], ['gr-inc', 1], ['gr-curl', 2]].map(([slug, rang]) => ({
+        id: 're-gr-' + rang, routine_id: 'r-gr', exercise_slug: slug, rang, routine_sets: progr(3, 8),
+        repos_cible_s: 90, groupe_superset: null, note: null })) });
+    const routineGR = () => ROUTINES.filter((r) => r.id === 'r-gr')[0];
+    const exosGR = () => routineGR().routine_exercises.slice().sort((a, b) => a.rang - b.rang)
+      .map((e) => e.exercise_slug + ':' + (e.routine_sets || []).filter((x) => (x.type_serie || 'travail') === 'travail').length);
+    const CLE = 'geste|r-gr|gr-inc';
+    const lireGR = () => page.evaluate((cle) => {
+      const c = document.querySelector('#parcours [data-equilibre="' + cle + '"]');
+      const fait = document.querySelector('#parcours .eq-fait-pose');
+      return { carte: c ? { texte: c.textContent, coach: c.classList.contains('eq-coach'), constat: c.classList.contains('eq-constat'),
+        tete: (c.querySelector('.eq-titre') || {}).textContent || null,
+        phrases: Array.from(c.querySelectorAll('.eq-fait, .pc-note')).map((n) => n.textContent),
+        boutons: Array.from(c.querySelectorAll('button')).map((b) => ({ t: b.textContent, prop: b.getAttribute('data-proposition'), h: Math.round(b.getBoundingClientRect().height) })) } : null,
+        fait: fait ? fait.textContent : null };
+    }, CLE);
+    await aller('/progression/parcours');
+    await attendreQue(async () => !!(await lireGR()).carte, 15000, 'carteGR');
+    const g1 = await lireGR();
+    ok('[GR] la carte du coach : « Le coach te dit », le fait, puis la proposition chiffrée (le report sur le développé)',
+      !!g1.carte && g1.carte.coach && g1.carte.tete === 'Le coach te dit' &&
+      spGR(g1.carte.phrases[0]) === 'Tu as retiré Incliné GR (Haltères) 3 fois sur tes 4 dernières séances « Haut GR ».' &&
+      spGR(g1.carte.phrases[1]) === 'Je peux l’enlever et mettre ses 3 séries de pectoraux sur Développé GR (Barre), que tu fais déjà : 6 séries au lieu de 3.',
+      nbGR(g1.carte && g1.carte.phrases));
+    ok('[GR] trois boutons : « D’accord » · « Garder … » · « Pas maintenant », chacun de 44 px',
+      !!g1.carte && g1.carte.boutons.map((b) => spGR(b.t)).join('|') === 'D’accord|Garder Incliné GR (Haltères)|Pas maintenant' &&
+      g1.carte.boutons.every((b) => b.h >= 44), nbGR(g1.carte && g1.carte.boutons));
+    ok('[GR] le rendu seul n’écrit rien : routine intacte, aucune réponse en base',
+      exosGR().join(',') === 'gr-dev:3,gr-inc:3,gr-curl:3' && Object.keys(base.profiles[0].cartes_semaine || {}).length === 0,
+      nbGR([exosGR(), base.profiles[0].cartes_semaine]));
+
+    // « D'accord » : la routine s'écrit (l'incliné part, le développé passe à 6), « C'est fait : … » se voit.
+    await page.evaluate((cle) => document.querySelector('[data-equilibre="' + cle + '"] [data-proposition="geste_retirer"]').click(), CLE);
+    await attendreQue(() => exosGR().join(',') === 'gr-dev:6,gr-curl:3', 8000, 'ecritGR').catch(() => {});
+    await attendreQue(async () => /^C’est fait/.test(spGR((await lireGR()).fait)), 8000, 'faitGR').catch(() => {});
+    const g2 = await lireGR();
+    const rep2 = ((base.profiles[0].cartes_semaine || {}).geste_routine || {})['r-gr'];
+    ok('[GR] « D’accord » écrit la routine (développé à 6 séries, incliné retiré), la réponse « retirer », et le dit',
+      exosGR().join(',') === 'gr-dev:6,gr-curl:3' && !!rep2 && rep2['gr-inc'] === 'retirer' &&
+      spGR(g2.fait).indexOf('C’est fait : « Haut GR » sans Incliné GR (Haltères), Développé GR (Barre) à 6 séries.') === 0,
+      nbGR([exosGR(), rep2, g2.fait]));
+    // « Annuler » : la routine d'avant ET les réponses d'avant.
+    await page.evaluate(() => Array.from(document.querySelectorAll('#parcours .eq-fait-pose button')).filter((b) => /annuler/i.test(b.textContent))[0].click());
+    await attendreQue(() => exosGR().join(',') === 'gr-dev:3,gr-inc:3,gr-curl:3' && !(base.profiles[0].cartes_semaine || {}).geste_routine, 8000, 'annuleGR').catch(() => {});
+    ok('[GR] « Annuler » rend la routine d’avant ET les réponses d’avant',
+      exosGR().join(',') === 'gr-dev:3,gr-inc:3,gr-curl:3' && !(base.profiles[0].cartes_semaine || {}).geste_routine,
+      nbGR([exosGR(), base.profiles[0].cartes_semaine]));
+
+    // « Garder » : la réponse durable, la phrase, la carte ne revient plus.
+    await aller('/progression/parcours');
+    await attendreQue(async () => !!(await lireGR()).carte, 15000, 'carteGR2');
+    await page.evaluate((cle) => document.querySelector('[data-equilibre="' + cle + '"] [data-proposition="geste_garder"]').click(), CLE);
+    await attendreQue(() => (((base.profiles[0].cartes_semaine || {}).geste_routine || {})['r-gr'] || {})['gr-inc'] === 'garder', 8000, 'garderGR').catch(() => {});
+    const g3 = await lireGR();
+    ok('[GR] « Garder » : « Noté : je garde … et je ne te le redemande plus. », la réponse durable, la routine intacte',
+      (((base.profiles[0].cartes_semaine || {}).geste_routine || {})['r-gr'] || {})['gr-inc'] === 'garder' &&
+      spGR(g3.fait).indexOf('Noté : je garde Incliné GR (Haltères) dans « Haut GR » et je ne te le redemande plus.') === 0 &&
+      exosGR().join(',') === 'gr-dev:3,gr-inc:3,gr-curl:3', nbGR([base.profiles[0].cartes_semaine, g3.fait, exosGR()]));
+    await aller('/progression/parcours');
+    await attendre(1200);
+    ok('[GR] après « Garder », au rechargement : plus de carte pour cet exercice (I209)', !(await lireGR()).carte, '');
+
+    // « Ce que le coach a retenu » : la ligne du Profil, la feuille, « Effacer » — la carte peut revenir.
+    await aller('/profil');
+    await attendreQue(() => page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne .p-lib'))
+      .some((l) => l.firstChild && l.firstChild.textContent === 'Ce que le coach a retenu')), 15000, 'retenuGR').catch(() => {});
+    await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+      .filter((l) => l.querySelector('.p-lib').firstChild.textContent === 'Ce que le coach a retenu')[0].click());
+    await attendre(600);
+    const fGR = await page.evaluate(() => ({ titre: ((document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || ''),
+      noms: Array.from(document.querySelectorAll('#feuille-contenu .ecarte-nom')).map((n) => n.textContent),
+      boutons: Array.from(document.querySelectorAll('#feuille-contenu .ecarte-reprendre')).map((n) => n.textContent) }));
+    ok('[GR] « Ce que le coach a retenu » : la réponse, lisible, avec « Effacer »',
+      fGR.titre === 'Ce que le coach a retenu' && fGR.noms.map(spGR).join('|') === 'Incliné GR (Haltères) : je le garde dans « Haut GR ».' &&
+      fGR.boutons.join('|') === 'Effacer', nbGR(fGR));
+    await page.click('#feuille-contenu .ecarte-reprendre');
+    await attendreQue(() => !(base.profiles[0].cartes_semaine || {}).geste_routine, 8000, 'effaceGR').catch(() => {});
+    ok('[GR] « Effacer » retire la réponse (la carte peut revenir)', !(base.profiles[0].cartes_semaine || {}).geste_routine,
+      nbGR(base.profiles[0].cartes_semaine));
+    await aller('/progression/parcours');
+    await attendreQue(async () => !!(await lireGR()).carte, 15000, 'carteGR3').catch(() => {});
+    ok('[GR] après « Effacer », la carte revient', !!(await lireGR()).carte, '');
+
+    ok('[GR] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      nbGR([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
+    base.sessions = base.sessions.slice(0, nbSessionsAvant);
+    base.sets = base.sets.slice(0, nbSetsAvant);
+    CATALOGUE.length = nbCatAvant;
+    ROUTINES.length = nbRoutinesAvant;
+    base.profiles[0] = profilAvant;
+  }
+
   console.log('\n══ equilibres-188-2. TA SEMAINE : LES JOURS, LE TEMPS, « J’AI PEU DE TEMPS » QUI GARDE UNE PRIORITÉ ENTIÈRE, LA LIGNE DU REPOS (188-2) ══');
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE : dix semaines de DEUX séances (deux jours), une routine de cinq exercices à 20 séries dont chaque

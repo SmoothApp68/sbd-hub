@@ -17156,7 +17156,8 @@
       maintenant: Date.now(), dernier: dernier
     };
     if (!Auth.rechargerSurEntree(etat)) return;
-    try { if (st) st.setItem(CLE_MAJ_AUTO, String(etat.maintenant)); } catch (e) { /* sans stockage : pas de garde, pas de rechargement */ return; }
+    if (!st) return; // sans stockage : pas de garde, pas de rechargement
+    try { st.setItem(CLE_MAJ_AUTO, String(etat.maintenant)); } catch (e) { return; }
     racine.location.reload();
   }
 

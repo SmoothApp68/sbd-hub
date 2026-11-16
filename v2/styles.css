@@ -1450,7 +1450,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 #pied-reorg{position:fixed;left:0;right:0;
   bottom:calc(var(--h-onglets, 68px) + var(--h-repos, 0px));
   background:var(--panneau);border-top:1px solid var(--trait);z-index:51;
-  max-width:520px;margin:0 auto;padding:var(--e2) var(--e3) var(--e3)}
+  max-width:var(--largeur-app);margin:0 auto;padding:var(--e2) var(--e3) var(--e3)}
 #pied-reorg[hidden]{display:none}
 .reorg-aide{font-size:12px;color:var(--texte-3);text-align:center;
   margin:0 0 var(--e2)}
@@ -1583,7 +1583,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
    12 px hauts, et le z-index 50 contre 10 la masquait pour de bon. */
 .repos{position:fixed;left:0;right:0;bottom:var(--h-onglets, 68px);background:var(--panneau);
   border-top:1px solid var(--trait);padding:var(--e3) var(--e4) var(--e3);
-  max-width:520px;margin:0 auto;z-index:50}
+  max-width:var(--largeur-app);margin:0 auto;z-index:50}
 .repos[hidden]{display:none}
 .repos-h{display:flex;align-items:center;gap:var(--e2);margin-bottom:var(--e2)}
 .repos-g{font-size:28px;font-weight:700;letter-spacing:-.02em;line-height:1;font-family:var(--pile-c);color:var(--accent)}
@@ -2784,7 +2784,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .s-quitter-guilde{margin-top:var(--e3)}
 
 /* 88 — « Une nouvelle version est prête. » Discret, en bas, au-dessus des onglets. */
-.bandeau-maj{position:fixed;left:0;right:0;z-index:52;max-width:520px;margin:0 auto;
+.bandeau-maj{position:fixed;left:0;right:0;z-index:52;max-width:var(--largeur-app);margin:0 auto;
   bottom:calc(var(--h-onglets, 68px) + var(--h-repos, 0px) + 8px);
   display:flex;align-items:center;justify-content:space-between;gap:var(--e2);
   background:var(--panneau);border-top:1px solid var(--trait);color:var(--texte);
@@ -2795,7 +2795,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 
 /* 115 (audit du 16/10, E2) — « Série supprimée · Annuler ». Le bandeau de mise à jour (88) en modèle ; il s'empile
    au-dessus du repos et du pied, il ne les recouvre pas, et la réserve du bas le compte (`--h-toast`, §3 bis.9). */
-.toast-annuler{position:fixed;left:0;right:0;z-index:53;max-width:520px;margin:0 auto;
+.toast-annuler{position:fixed;left:0;right:0;z-index:53;max-width:var(--largeur-app);margin:0 auto;
   bottom:calc(var(--h-onglets, 68px) + var(--h-repos, 0px) + var(--h-pied, 0px));
   display:flex;align-items:center;justify-content:space-between;gap:var(--e2);
   background:var(--panneau-2);border-top:1px solid var(--trait);color:var(--texte);

@@ -244,7 +244,7 @@
       var pr = b.profil, bandes = M().BANDES_DE_REPS;
       out.push({ cle: 'profil', d: 9100, lab: 'Ton profil de l’année',
                  titre: pr.premier ? 'Surtout ' + MOT_DE_BANDE[pr.premier] + ', ' + fourchetteDeBande(pr.premier) + '.'
-                   : 'À égalité : ' + pr.egalite.map(fourchetteDeBande).join(' et ') + '.',
+                   : 'À égalité : ' + M().enumerer(pr.egalite.map(fourchetteDeBande)) + '.',
                  barre4: bandes.map(function (c) { return pr[c]; }),
                  lignes: bandes.map(function (c) {
                    return { pastille: PASTILLE_DE_BANDE[c], v: M().pourcentTexte(pr[c]) + ' · ' + majuscule(MOT_DE_BANDE[c]) + ' · ' + fourchetteDeBande(c) };

@@ -82,9 +82,17 @@ async function garderContexte(ctx) {
   // connexion chargerait le vrai Turnstile. Un banc qui joue le captcha (profil-creation) pose sa propre route après celle-ci :
   // la plus récente l'emporte.
   await ctx.route(/\/js\/config\.js(\?.*)?$/, async (route) => {
-    const r = await route.fetch();
-    const corps = (await r.text()).replace(/TURNSTILE_SITE_KEY\s*:\s*'[^']*'/, "TURNSTILE_SITE_KEY: ''");
-    return route.fulfill({ response: r, body: corps });
+    // Un banc qui ferme son navigateur pendant que config.js est en vol (le service worker le redemande à la fermeture) fait
+    // échouer `route.fetch` : « Target page, context or browser has been closed ». Ce n'est pas une fuite réseau : on
+    // l'ignore, la page n'existe plus. Toute autre erreur reste levée.
+    try {
+      const r = await route.fetch();
+      const corps = (await r.text()).replace(/TURNSTILE_SITE_KEY\s*:\s*'[^']*'/, "TURNSTILE_SITE_KEY: ''");
+      return await route.fulfill({ response: r, body: corps });
+    } catch (e) {
+      if (/has been closed|Target closed|Target page, context or browser/i.test(String(e && e.message))) return undefined;
+      throw e;
+    }
   });
   await ctx.routeWebSocket(versSupabase, (ws) => {
     signaler('WebSocket', ws.url());

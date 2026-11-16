@@ -10013,7 +10013,7 @@ const SETS_IMPORTES = [
     const k3 = await constatC();
     ok('[C5] le constat ne dit pas « Pas de palier »', !!k3.verdict && !/Pas de palier/.test(k3.verdict), nbC(k3));
     ok('[C5] DISCRIMINANT — le constat annonce une suite chiffrée (avant : aucune, la suite muette de #327)',
-      /^Prochaine séance/.test((k3.suite || '').replace(/[\u00a0\u202f]/g, ' ')) && /130/.test(k3.suite || ''), nbC(k3));
+      /^La prochaine fois/.test((k3.suite || '').replace(/[\u00a0\u202f]/g, ' ')) && /130/.test(k3.suite || ''), nbC(k3));
     ok('[C5] plus aucune suite sous la montée dans cette section', suitesSous.length === 0, nbC(suitesSous));
     await abandonner();
     await aller('/saisie');
@@ -10483,7 +10483,7 @@ const SETS_IMPORTES = [
     const k = await constatSP();
     ok('[SP] le constat de fin de bloc paraît', !!k.verdict, esp(JSON.stringify(k)));
     ok('[SP] DISCRIMINANT — il annonce une suite chiffrée (avant : aucune suite après trois charges différentes)',
-      /^Prochaine séance : .*\d.* kg/.test(esp(k.suite)), esp(JSON.stringify(k)));
+      /^La prochaine fois : .*\d.* kg/.test(esp(k.suite)), esp(JSON.stringify(k)));
     // PR 5a (B4, MOTEUR §9.48, la « sonde C-2 ») — LA CLÉ DU MÉMO PORTE LE TYPE. Retyper une série DÉJÀ validée (travail → test, par la feuille de la série)
     // ne touche ni la charge, ni les reps, ni l'effort : la clé du mémo de la suite restait identique et l'annonce, périmée (le moteur, lui, en donne une autre).
     {
@@ -10498,7 +10498,7 @@ const SETS_IMPORTES = [
       await page.waitForFunction((av) => { const e = document.querySelector('.legende-exo .constat-suite'); return !!e && e.textContent !== av; }, k.suite, { timeout: 5000 }).catch(() => {});
       const kT = await constatSP();
       ok('[SP] DISCRIMINANT (B4) — retyper la 3e série en « test » recalcule l’annonce (la clé du mémo porte le type ; avant : la même phrase, périmée)',
-        !!kT.suite && esp(kT.suite) !== avantTest && /^Prochaine séance : 110 kg × 5\./.test(esp(kT.suite)), esp(JSON.stringify({ avantTest, apres: kT.suite })));
+        !!kT.suite && esp(kT.suite) !== avantTest && /^La prochaine fois : 110 kg × 5\./.test(esp(kT.suite)), esp(JSON.stringify({ avantTest, apres: kT.suite })));
       // Retyper une série VALIDÉE change une ligne figée : I4 (« figée avant, plus maintenant ») le voit, c'est attendu et c'est le geste lui-même, hors
       // périmètre de la PR 5a. Aucun autre invariant (I164 compris) ne doit parler : on lit ce que la garde dirait, et on ne retient que ce qui n'est pas I4.
       const dits = await page.evaluate(() => { const P = window.THPlan, d = P && P.dernier; return d && d.plan ? P.verifierPlan(d.plan, d.entrees).erreurs : null; });

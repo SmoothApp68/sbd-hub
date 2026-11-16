@@ -51,10 +51,11 @@ describe('« Même cible » est supprimé : l’annonce redit le verbe de la con
     const gc = prog(8, { fondement: { date: '2026-09-29T18:00:00+02:00', reps: [8], effortVise: { effet: 'garde', charge: 70, reps: 8, reserve: 0 } } });
     expect(suite(prog(8), gc)).toBe('La prochaine fois : je garde 70 kg.');
   });
-  test('une ligne haute ou un verbe sans phrase : le libellé « Prochaine séance » reste (5b le change partout)', () => {
+  test('une ligne haute ou un verbe sans phrase : le repli dit « La prochaine fois » (5b-2 : un seul libellé, « Prochaine séance » n’existe plus)', () => {
     const avecHaut = prog(9, { haut: { charge: 72.5, vise: 6, k: 1 } });
-    expect(suite(prog(9, { haut: { charge: 72.5, vise: 6, k: 1 } }), avecHaut)).toMatch(/^Prochaine séance : /);
-    expect(suite(prog(8), prog(9))).toMatch(/^Prochaine séance : 70 kg × 9\.$/);
+    expect(suite(prog(9, { haut: { charge: 72.5, vise: 6, k: 1 } }), avecHaut)).toMatch(/^La prochaine fois : /);
+    expect(suite(prog(8), prog(9))).toMatch(/^La prochaine fois : 70 kg × 9\.$/);
+    expect(suite(prog(9, { haut: { charge: 72.5, vise: 6, k: 1 } }), avecHaut)).not.toMatch(/Prochaine séance/);
   });
   test('le mot « Même cible » n’est écrit nulle part dans v2/js', () => {
     fs.readdirSync(path.join(__dirname, '../../v2/js')).filter((f) => /\.js$/.test(f)).forEach((f) => {
@@ -75,7 +76,7 @@ describe('« Il te manque N reps pour tester X kg » : confirmée par le moteur,
   test('non confirmée : jamais « Il te manque » ni un test promis ; la LIGNE VRAIE de la consigne suivante (arbitrage PR 5a-bis), jamais le silence', () => {
     [{ testConfirme: false }, {}].forEach((x) => {
       const t = esp(M.annonceDe('suite', Object.assign({ cAvant: cA, cApres: Object.assign({}, cB), z: ZONE, reglage: 'normal', fait: 9, cranSuivant: 72.5 }, x)));
-      expect(t).toMatch(/^(La prochaine fois|Prochaine séance) : /);
+      expect(t).toMatch(/^La prochaine fois : /);
       expect(t).not.toMatch(/Il te manque|tester/);
     });
   });
@@ -144,12 +145,26 @@ describe('I164 — verifierAnnonce relit l’annonce du plan (DISCRIMINANTS)', (
   const avec = (texte, extra) => erreurs(P, texte, Object.assign({ suiteLignes: Object.assign({}, P.plan.exercices[0].constat.suiteLignes, SL) }, extra || {}));
 
   test('prémisse : le plan réel porte une annonce valide, sans erreur I164', () => {
-    expect(esp(P.plan.exercices[0].constat.suite)).toMatch(/^Prochaine séance : /);
+    expect(esp(P.plan.exercices[0].constat.suite)).toMatch(/^La prochaine fois : /);
     expect(T.verifierPlan(P.plan, P.entrees).erreurs.filter((e) => /^I164/.test(e))).toEqual([]);
   });
   test('sens 1 — « Même cible » est refusé, comme « Prochaine fois » nu', () => {
     expect(avec('Même cible la prochaine fois : ' + L + '.').length).toBeGreaterThan(0);
     expect(avec('Prochaine fois : ' + L + '.').length).toBeGreaterThan(0);
+  });
+  test('5b-2 — sens 1 : « Prochaine séance » est refusé à son tour ; le repli sans verbe (les lignes de la consigne suivante) est accepté', () => {
+    expect(avec('Prochaine séance : ' + L + '.').length).toBeGreaterThan(0);
+    const repli = { suiteLignes: Object.assign({}, P.plan.exercices[0].constat.suiteLignes, { ligne: { charge: 70, vise: 10 }, haut: { charge: 72.5, vise: 8 } }) };
+    expect(avec('La prochaine fois : 70 kg × 10, puis ≈ 72,5 kg × 8 sur la dernière série.', repli)).toEqual([]);
+    // discriminant : un verbe hors lexique derrière le même libellé reste refusé (le repli ne désarme pas la vérification des verbes)
+    expect(avec('La prochaine fois : on verra, ' + L + '.').length).toBeGreaterThan(0);
+  });
+  test('5b-2 — la phrase de la proposition de test : aucune date relative (la sortie dite est couverte, texte exact, par v2-jamais-bloque)', () => {
+    ['programme', 'bibliotheque', 'alleger'].forEach((voie) => {
+      const t = esp(M.phraseProposeTest({ propose: true, voie: voie }));
+      expect(t).not.toMatch(/plus tard|semaine prochaine|demain|bientôt/i);
+    });
+    expect(esp(M.phraseProposeTest({ propose: true, voie: 'programme' }))).toBe('Deux phases sont faites, la décharge aussi. Je te propose de tester tes quatre barres, un mouvement par jour.');
   });
   test('sens 2 — le nombre de reps de plus, le verbe et la ligne se recalculent', () => {
     expect(avec('La prochaine fois : une rep de plus, ' + L + '.')).toEqual([]);

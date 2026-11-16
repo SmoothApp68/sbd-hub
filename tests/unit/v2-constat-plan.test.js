@@ -111,7 +111,7 @@ describe('49-U4 — le cas du 26/09, reconstitué sous l’ancienne règle', () 
     // d'après était en silence (`suite` nulle) et I10 (b) le signalait. Depuis
     // le §7.6, la séance prend 130, sa plus lourde charge tenue dans la zone.
     expect(x.constat.suiteEtat).toBe('rejoint');
-    expect(x.constat.suite.replace(/[\u00a0\u202f]/g, ' ')).toBe('Prochaine séance : 130 kg × 4.');
+    expect(x.constat.suite.replace(/[\u00a0\u202f]/g, ' ')).toBe('La prochaine fois : 130 kg × 4.');
     const v = T.verifierPlan(plan, entrees);
     expect(v.erreurs).toEqual([]);
   });
@@ -290,7 +290,7 @@ describe('49-U5 — le cas de #327 : une seule montée, et une suite chiffrée',
     const k = plans[3].plan.exercices[0].constat;
     expect(k.suiteEtat).not.toBe('silence');
     expect(k.suiteCharges.filter((c) => c !== null)).toContain(130);
-    expect(k.suite.replace(/[  ]/g, ' ')).toMatch(/^Prochaine séance : 130 kg/);
+    expect(k.suite.replace(/[  ]/g, ' ')).toMatch(/^La prochaine fois : 130 kg/);
   });
 
   test('chaque plan passe verifierPlan, I4 d’un plan au suivant et I14 compris', () => {

@@ -115,9 +115,9 @@ describe('169 — Normal, Hypertrophie : 30 kg × 10 à l’échec', () => {
     const k = hyper({ ressenti: 'reste_0' }, { ressenti: 'reste_0' });
     expect(k.etat).toBe('test_propose');
     expect(fond(k)).toMatchObject({ effet: 'test', sortie: true });
-    // En tête de la séance où le test se fait : « aujourd'hui » ; à la fin de la séance d'avant : « Prochaine fois ».
+    // En tête de la séance où le test se fait : « aujourd'hui » ; à la fin de la séance d'avant : « La prochaine fois ».
     expect(plat(M.libellesConsigne(k).gris)).toBe('Deux fois 30 kg × 10 au haut de ta zone : aujourd’hui, on teste ≈ 32,5 kg × 6.');
-    expect(plat(M.annonceDe('effort', { ev: fond(k), haut: k.haut, moment: 'apres' }))).toBe('Deux fois 30 kg × 10 au haut de ta zone. Prochaine fois : on teste ≈ 32,5 kg × 6.');
+    expect(plat(M.annonceDe('effort', { ev: fond(k), haut: k.haut, moment: 'apres' }))).toBe('Deux fois 30 kg × 10 au haut de ta zone. La prochaine fois : on teste ≈ 32,5 kg × 6.');
   });
   test('le « Pourquoi » dit la même chose, sans jargon', () => {
     const premiere = M.pourquoiConsigne(hyper({ ressenti: 'reste_0' }), 'normal', AVANT);

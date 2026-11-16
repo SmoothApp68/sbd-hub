@@ -42,10 +42,12 @@ describe('un seul endroit pour les annonces', () => {
     }));
     expect(hors).toEqual([]);
   });
-  test('la région existe, dans moteur.js, une fois, et porte les trois littéraux', () => {
+  test('la région existe, dans moteur.js, une fois, et porte ses littéraux (« La prochaine fois », « Il te manque »)', () => {
     const l = lignesDeCode('moteur.js').filter((x) => x.dedans);
     expect(l.filter((x) => /'La prochaine fois'/.test(x.code)).length).toBe(1);
-    expect(l.filter((x) => /'Prochaine séance'/.test(x.code)).length).toBe(1);
+    // 5b-2 : UN SEUL libellé. « Prochaine séance » n'existe plus dans le moteur (ni dans la région, ni ailleurs).
+    expect(l.filter((x) => /'Prochaine séance'/.test(x.code)).length).toBe(0);
+    expect(/'Prochaine séance|'Prochaine fois'|\. Prochaine fois/.test(fs.readFileSync(path.join(DOSSIER, 'moteur.js'), 'utf8').split('\n').map((c) => c.replace(/^\s*\/\/.*$/, '').replace(/\s\/\/ .*$/, '')).join('\n'))).toBe(false);
     expect(l.filter((x) => /'Il te manque '/.test(x.code)).length).toBe(1);
     expect(fs.readFileSync(path.join(DOSSIER, 'moteur.js'), 'utf8').split('// ══ PR 5a (chantier « Les mots disent vrai », MOTEUR §9.48)').length).toBe(2);
   });

@@ -289,7 +289,7 @@ describe('68B — les phrases sur les reps faites : « sans marge », jamais « 
     expect([apres.etat, apres.haut]).toEqual(['garde', { charge: 127.5, vise: 3, k: 1 }]);
     const k = M.constatDuJour(avant, apres, 'normal', null, {}, '2026-09-20T10:00:00+00:00');
     expect(esp(k.verdict)).toBe('127,5 kg : 3 aujourd\'hui, au bas de ta zone.');
-    expect(esp(k.suite)).toBe('Prochaine séance : 125 kg × 5, puis 127,5 kg × 3 sur la dernière série.');
+    expect(esp(k.suite)).toBe('La prochaine fois : 125 kg × 5, puis 127,5 kg × 3 sur la dernière série.');
   });
 
   test('⚠️ DISCRIMINANT (74) — le constat : la rep de plus faite à fond est GAGNÉE, et la suite ne monte pas sur elle', () => {

@@ -1463,7 +1463,7 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
         const constat = dit && !confirme ? Object.assign({}, attendu.constat, { suite: null }) : attendu.constat;
         if (dit) expect([quoi, c.id, r.testConfirme === true]).toEqual([quoi, c.id, confirme]);
         if (dit && !confirme) {
-          expect([quoi, c.id, /^(La prochaine fois|Prochaine séance) : .*\d/.test(String(r.constat.suite).replace(/[\u00a0\u202f]/g, ' ')) && !/Il te manque/.test(r.constat.suite)]).toEqual([quoi, c.id, true]);
+          expect([quoi, c.id, /^La prochaine fois : .*\d/.test(String(r.constat.suite).replace(/[\u00a0\u202f]/g, ' ')) && !/Il te manque/.test(r.constat.suite)]).toEqual([quoi, c.id, true]);
           expect([quoi, c.id, Object.assign({}, r.constat, { suite: null })]).toEqual([quoi, c.id, constat]);
         } else expect([quoi, c.id, r.constat]).toEqual([quoi, c.id, constat]);
         expect([quoi, c.id, r.cranSuivant]).toEqual([quoi, c.id, attendu.cranSuivant]);

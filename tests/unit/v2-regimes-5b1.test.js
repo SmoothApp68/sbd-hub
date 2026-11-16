@@ -240,7 +240,7 @@ describe('I169 — verifierRegimes relit l’annonce du plan (DISCRIMINANTS)', (
   });
   test('sans bloc : l’annonce chiffrée d’avant, aucune erreur', () => {
     const q = plan();
-    expect(esp(q.plan.exercices[0].constat.suite)).toMatch(/^(Prochaine séance|La prochaine fois) : /);
+    expect(esp(q.plan.exercices[0].constat.suite)).toMatch(/^La prochaine fois : /);
     expect(q.plan.exercices[0].constat.regime).toBeNull();
     expect(i169(q)).toEqual([]);
   });
@@ -260,7 +260,7 @@ describe('I169 — verifierRegimes relit l’annonce du plan (DISCRIMINANTS)', (
   test('une carte « semaine allégée » acceptée avant : la décharge saute, l’annonce redevient chiffrée (B4)', () => {
     const q = plan(Object.assign({ escalier: { cartes: [{ reponse: 'acceptee', debut: '2026-09-18', fin: '2026-09-24', seance: 'X', jour: '2026-09-18' }] } }, AVEC));
     expect(q.plan.exercices[0].constat.regime).toBeNull();
-    expect(esp(q.plan.exercices[0].constat.suite)).toMatch(/^(Prochaine séance|La prochaine fois) : /);
+    expect(esp(q.plan.exercices[0].constat.suite)).toMatch(/^La prochaine fois : /);
     expect(i169(q)).toEqual([]);
   });
   test('une décharge hors fenêtre (jour + 11) : chiffrée ; I169 sens 3 ne réclame rien', () => {

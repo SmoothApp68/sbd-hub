@@ -4,16 +4,22 @@
   "fichier": "v2/js/equilibres.js",
   "ancien": "    if (repondueLe(cartes, jour)) return 'repondue';",
   "nouveau": "    if (false) return 'repondue';",
-  "unitaires": ["tests/unit/v2-coach-accueil.test.js"],
+  "unitaires": [
+   "tests/unit/v2-coach-accueil.test.js"
+  ],
   "banc": "seance",
-  "sections": ["coach-accueil"]
+  "sections": [
+   "coach-accueil"
+  ]
  },
  {
   "nom": "ca-2-une-carte-en-seance",
   "fichier": "v2/js/equilibres.js",
   "ancien": "    if (x.enSeance) return 'seance';",
   "nouveau": "    if (false) return 'seance';",
-  "unitaires": ["tests/unit/v2-coach-accueil.test.js"],
+  "unitaires": [
+   "tests/unit/v2-coach-accueil.test.js"
+  ],
   "banc": "aucun"
  },
  {
@@ -21,16 +27,73 @@
   "fichier": "v2/js/rendu.js",
   "ancien": "el('button', i === 0 ? 'oui' : 'discret', p.court || p.libelle)",
   "nouveau": "el('button', i === 0 ? 'principal' : 'discret', p.court || p.libelle)",
-  "unitaires": ["tests/unit/v2-coach-accueil.test.js"],
+  "unitaires": [
+   "tests/unit/v2-coach-accueil.test.js"
+  ],
   "banc": "seance",
-  "sections": ["coach-accueil"]
+  "sections": [
+   "coach-accueil"
+  ]
  },
  {
   "nom": "ca-4-le-silence-ne-double-plus-dans-la-date",
   "fichier": "v2/js/equilibres.js",
   "ancien": "d.getDate() + 7 * silenceDe(r, rep)",
   "nouveau": "d.getDate() + 7 * REGLAGES[r].silence",
-  "unitaires": ["tests/unit/v2-coach-accueil.test.js"],
+  "unitaires": [
+   "tests/unit/v2-coach-accueil.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "b-1-une-semaine-de-panne-suffit",
+  "fichier": "v2/js/equilibres.js",
+  "ancien": "ok: touchees.length >= GESTES_SEUIL && Object.keys(semaines).length >= GESTES_SEMAINES_MIN };",
+  "nouveau": "ok: touchees.length >= GESTES_SEUIL };",
+  "unitaires": [
+   "tests/unit/v2-geste-toutes-routines.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "b-2-deux-roles-dans-un-groupe",
+  "fichier": "v2/js/equilibres.js",
+  "ancien": "var cr = cleDuRole(role, r.id), k = slug + '|' + cr;",
+  "nouveau": "var cr = cleDuRole(role, r.id), k = slug + '|';",
+  "unitaires": [
+   "tests/unit/v2-geste-toutes-routines.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "b-3-la-portee-prend-toute-routine-touchee",
+  "fichier": "v2/js/equilibres.js",
+  "ancien": "return d.par[id] && d.par[id].n > 0 && d.par[id].k === d.par[id].n;",
+  "nouveau": "return d.par[id] && d.par[id].k > 0;",
+  "unitaires": [
+   "tests/unit/v2-geste-toutes-routines.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "b-4-retirer-n-ecrit-qu-une-routine",
+  "fichier": "v2/js/app.js",
+  "ancien": "var ids = (p.routines && p.routines.length) ? p.routines : [p.routine_id];",
+  "nouveau": "var ids = [p.routine_id];",
+  "unitaires": [],
+  "banc": "seance",
+  "sections": [
+   "coach-accueil"
+  ]
+ },
+ {
+  "nom": "b-5-plus-tout-ou-rien",
+  "fichier": "v2/js/app.js",
+  "ancien": "if (!voulues) { ecrites = null; break; }",
+  "nouveau": "if (!voulues) { continue; }",
+  "unitaires": [
+   "tests/unit/v2-geste-toutes-routines.test.js"
+  ],
   "banc": "aucun"
  }
 ]

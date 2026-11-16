@@ -1845,6 +1845,9 @@
   }
   async function repondreAuGesteUneFois(carte, p) {
     var avantReponses = JSON.parse(JSON.stringify(reponsesDesCartes()));
+    var jour = Moteur.jourCivil(new Date());
+    // 16/11/2026 (B) — la réponse vaut pour (exercice, rôle) : `p.groupe` (le rôle, ou la routine seule d'une routine sans volume).
+    var groupe = p.groupe || p.routine_id;
     var annulerLesReponses = async function () {
       faitEquilibre = null;
       await poserProfil({ cartes_semaine: avantReponses });
@@ -1852,40 +1855,61 @@
       repeindreLesEquilibres();
     };
     if (p.type === 'geste_garder') {
-      await poserProfil({ cartes_semaine: Equilibres.reponseAuGesteDatee(reponsesDesCartes(), carte.cle, p.routine_id, p.slug, 'garder', Moteur.jourCivil(new Date())) });
+      await poserProfil({ cartes_semaine: Equilibres.reponseAuGesteDatee(reponsesDesCartes(), carte.cle, groupe, p.slug, 'garder', jour) });
       faitEquilibre = { texte: p.fait, surAnnuler: annulerLesReponses };
       memoEquilibres = null;
       return repeindreLesEquilibres();
     }
-    var rt = routines.filter(function (r) { return r.id === p.routine_id; })[0];
-    var voulues = null;
-    if (rt && p.type === 'geste_retirer') {
-      voulues = Routines.retraitDExercice(rt, p.slug, p.report);
-      if (voulues && Equilibres.verifierRetrait(rt, voulues, p).length) voulues = null;
+    // TOUT OU RIEN (I219) : chaque routine de la portée se calcule et se vérifie AVANT toute écriture ; une seule qui a changé, rien
+    // n'est écrit et la carte se recalcule.
+    var ids = (p.routines && p.routines.length) ? p.routines : [p.routine_id];
+    var ecrites = [];
+    for (var i = 0; i < ids.length; i++) {
+      var rt = routines.filter(function (r) { return r.id === ids[i]; })[0];
+      var voulues = null;
+      if (rt && p.type === 'geste_retirer') {
+        voulues = Routines.retraitDExercice(rt, p.slug, p.report);
+        if (voulues && Equilibres.verifierRetrait(rt, voulues, p).length) voulues = null;
+      }
+      if (rt && p.type === 'geste_remplacer' && (rt.exercices || []).some(function (x) { return x.exercise_slug === p.slug; }) &&
+          !(rt.exercices || []).some(function (x) { return x.exercise_slug === p.vers; })) {
+        var mesures = mesuresDuRemplacement(p.slug, p.vers);
+        voulues = rt.exercices.map(function (x) { return x.exercise_slug === p.slug ? Routines.exerciceRemplace(x, p.vers, mesures) : x; });
+      }
+      if (!voulues) { ecrites = null; break; }
+      ecrites.push({ rt: rt, voulues: voulues, avant: JSON.parse(JSON.stringify(rt.exercices)) });
     }
-    if (rt && p.type === 'geste_remplacer' && (rt.exercices || []).some(function (x) { return x.exercise_slug === p.slug; }) &&
-        !(rt.exercices || []).some(function (x) { return x.exercise_slug === p.vers; })) {
-      var mesures = mesuresDuRemplacement(p.slug, p.vers);
-      voulues = rt.exercices.map(function (x) { return x.exercise_slug === p.slug ? Routines.exerciceRemplace(x, p.vers, mesures) : x; });
-    }
-    if (!voulues) {
-      // La routine a changé depuis la carte : rien n'est écrit, la carte se recalcule.
+    if (!ecrites || !ecrites.length) {
+      // Une routine a changé depuis la carte : rien n'est écrit, la carte se recalcule.
       faitEquilibre = { texte: 'Ta routine a changé depuis : je recalcule.', surAnnuler: function () { faitEquilibre = null; repeindreLesEquilibres(); } };
       memoEquilibres = null;
       return repeindreLesEquilibres();
     }
-    var avantRoutine = JSON.parse(JSON.stringify(rt.exercices));
-    var idRoutine = rt.id;
-    await poserRoutineVoulue(rt, voulues);
-    await poserProfil({ cartes_semaine: Equilibres.reponseAuGesteDatee(reponsesDesCartes(), carte.cle, p.routine_id, p.slug,
-      p.type === 'geste_remplacer' ? 'remplacer' : 'retirer', Moteur.jourCivil(new Date())) });
+    for (var k = 0; k < ecrites.length; k++) {
+      await poserRoutineVoulue(ecrites[k].rt, ecrites[k].voulues);
+      // La signature de ce que le geste a écrit : « Annuler » ne touchera une routine que si elle la porte encore.
+      ecrites[k].signature = Routines.signatureDesExercices(ecrites[k].rt.exercices);
+    }
+    await poserProfil({ cartes_semaine: Equilibres.reponseAuGesteDatee(reponsesDesCartes(), carte.cle, groupe, p.slug,
+      p.type === 'geste_remplacer' ? 'remplacer' : 'retirer', jour) });
     faitEquilibre = {
       texte: p.fait,
       surAnnuler: async function () {
-        var r2 = routines.filter(function (r) { return r.id === idRoutine; })[0];
         faitEquilibre = null;
-        if (r2) await poserRoutineVoulue(r2, avantRoutine);
-        await annulerLesReponses();
+        var changees = [];
+        for (var j = 0; j < ecrites.length; j++) {
+          var r2 = routines.filter(function (r) { return r.id === ecrites[j].rt.id; })[0];
+          if (!r2) continue;
+          // I219 — une routine modifiée depuis le geste (un autre appareil, l'éditeur) n'est jamais écrasée : on la laisse, on le dit.
+          if (Routines.signatureDesExercices(r2.exercices) !== ecrites[j].signature) { changees.push(r2.nom); continue; }
+          await poserRoutineVoulue(r2, ecrites[j].avant);
+        }
+        await poserProfil({ cartes_semaine: avantReponses });
+        memoEquilibres = null;
+        if (changees.length) {
+          faitEquilibre = { texte: changees.map(function (n) { return '\u00ab\u00a0' + n + '\u00a0\u00bb a changé depuis : je ne la touche pas.'; }).join(' ') };
+        }
+        repeindreLesEquilibres();
       }
     };
     memoEquilibres = null;
@@ -19098,12 +19122,21 @@
     return [{ libelle: 'Ce que le coach a retenu', sous: PHRASE_RETENUS, valeur: String(l.length), surChoix: ouvrirRetenusProfil }];
   }
   function texteDuRetenu(x, index) {
-    var rt = routines.filter(function (r) { return r && r.id === x.routine_id; })[0];
-    var ou = rt ? '\u00ab\u00a0' + rt.nom + '\u00a0\u00bb' : 'une ancienne routine';
     var nom = Modele.nommer(index, x.slug);
-    return x.r === 'garder' ? nom + ' : je le garde dans ' + ou + '.'
-      : x.r === 'remplacer' ? nom + ' : remplacé dans ' + ou + '.'
-      : nom + ' : retiré de ' + ou + '.';
+    // 16/11/2026 (B) — une réponse par (exercice, rôle) vaut pour tout le programme.
+    if (x.role) {
+      var dit = Equilibres.ROLES_DITS[x.role];
+      var ou = (dit ? ' ' + dit : '') + ' dans tes routines';
+      return x.r === 'garder' ? nom + ' : je le garde' + ou + '.'
+        : x.r === 'remplacer' ? nom + ' : remplacé' + ou + '.'
+        : nom + ' : retiré de tes routines' + (dit ? ' (' + dit + ')' : '') + '.';
+    }
+    var rid = x.seule || x.routine_id;
+    var rt = routines.filter(function (r) { return r && r.id === rid; })[0];
+    var dans = rt ? '\u00ab\u00a0' + rt.nom + '\u00a0\u00bb' : 'une ancienne routine';
+    return x.r === 'garder' ? nom + ' : je le garde dans ' + dans + '.'
+      : x.r === 'remplacer' ? nom + ' : remplacé dans ' + dans + '.'
+      : nom + ' : retiré de ' + dans + '.';
   }
   function ouvrirRetenusProfil() {
     var index = Modele.indexerExercices(local.exercices);

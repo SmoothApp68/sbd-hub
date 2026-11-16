@@ -118,7 +118,7 @@ describe('le rendu de l’accueil (rien d’écrit au rendu, le « oui » second
     const boutons = Array.from(n.querySelectorAll('.eq-actions button'));
     expect(boutons[0].className).toBe('oui');
     expect(n.querySelectorAll('.principal').length).toBe(0);
-    expect(boutons.map((b) => b.textContent)).toEqual(['Retirer de « Haut A »', 'Garder', 'Pas maintenant']);
+    expect(boutons.map((b) => b.textContent)).toEqual(['Retirer', 'Garder', 'Pas maintenant']);   // B : le libellé court de l'accueil
     expect(n.querySelector('[data-coach-autres]')).toBeNull();
     boutons[2].click();
     expect(gestes).toEqual(['pm']);

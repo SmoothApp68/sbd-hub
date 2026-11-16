@@ -26049,6 +26049,8 @@ const SETS_IMPORTES = [
     if (iR127 >= 0) ROUTINES.splice(iR127, 1);
     base.sets = base.sets.filter((x) => sessions127.indexOf(x.session_id) < 0);
     base.sessions = base.sessions.filter((x) => sessions127.indexOf(x.id) < 0);
+    // 16/11/2026 — la séance terminée de E a écrit ses records au journal (dont « première fois sur une marche ») : ils partent avec elle.
+    base.records = base.records.filter((x) => sessions127.indexOf(x.session_id) < 0);
     profil127().marche_reponses = marcheAvant127 === undefined ? null : marcheAvant127;
     await aller('/saisie');
     rendreBlocs127();

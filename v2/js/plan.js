@@ -3081,6 +3081,10 @@
     var isolation = x.polyarticulaire === false;
     return {
       reglage: plan.reglage, objectif: plan.objectif,
+      // I216 — le plancher de la réaction = la réserve AFFICHÉE de la ligne, déjà calculée (`Moteur.reserveAffichee`, plus haut) : jamais recalculée ni copiée.
+      // Il ne vaut que là où la réserve affichée est un PLANCHER (population protégée I160, reprise longue I206) : ailleurs c'est la table (Lourd, Mix : 2) et la
+      // réaction garde sa règle propre (« garde 1 » en Normal).
+      plancher: plan.protegee === true || Moteur().enRepriseLongue(x.consigne) ? nombre(x.reserveAffichee) : null,
       entretien: plan.intention === 'entretien' || x.intention === 'entretien' || x.mode === 'entretien',
       decharge: !!plan.allegee || !!(x.consigne && x.consigne.allegee),
       semaineDeTest: !!plan.semaineDeTest || !!x.semaineDeTest, debutant: plan.debutant === true, calage: !!x.calage,
@@ -6809,6 +6813,17 @@
           } else if (r.faites !== null && r.charge && r.charge.action !== 'baisse' && !(f[0] <= r.faites && r.faites <= f[1])) {
             erreurs.push('I119' + nom + 'la fourchette ' + f[0] + '-' + f[1] + ' ne contient pas les ' + r.faites + ' reps faites');
           }
+        }
+        // I216 (16/11/2026, MOTEUR §9.39 delta) — là où la réserve affichée est un plancher (population protégée I160, reprise longue I206), le « garde N » d'une réaction affichée n'est jamais dessous : la même carte
+        // ne dit pas « garde 2 » puis « garde 1 ». Le pari des lignes qu'elle recale porte `fondement.reserve_visee` (la réserve affichée) : jamais au-dessus du garde dit.
+        var plancherR = plan.protegee === true || M.enRepriseLongue(x.consigne) ? nombre(x.reserveAffichee) : null;
+        if (r.garde !== null && r.garde !== undefined && plancherR !== null && r.garde < plancherR) erreurs.push('I216' + nom + 'une réaction qui dit « garde ' + r.garde + ' » sous la réserve affichée de ' + plancherR);
+        if (r.garde !== null && r.garde !== undefined && plancherR !== null) {
+          (x.lignes || []).forEach(function (l) {
+            var pr2 = x.paris && x.paris[l.iSerie] ? x.paris[l.iSerie] : null;
+            var rvp = pr2 && pr2.fondement ? nombre(pr2.fondement.reserve_visee) : null;
+            if (l.rate && !l.validee && rvp !== null && r.garde < rvp) erreurs.push('I216' + nom + 'un pari de réserve ' + rvp + ' sous une réaction qui dit « garde ' + r.garde + ' »');
+          });
         }
         if (r.pasDAuMax && (x.auMax || x.propositionAuMax || (x.lignes || []).some(function (l) { return l.auMax; }))) {
           erreurs.push('I120' + nom + 'un « Au max » après un échec franc');

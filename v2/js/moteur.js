@@ -12974,6 +12974,13 @@
   var RATE_PAS_PAR_DEFAUT = { barre: 2.5, machine: 2.5, machine_smith: 2.5, poulie: 2.5, haltere: 2 };   // 245 (D-H5) — haltères : la PAIRE, +1 kg par main, aligné sur REPLI_MATERIEL.haltere.pas
 
   function rateReglage(r) { return r === 'prudent' || r === 'franc' ? r : 'normal'; }
+  // 16/11/2026 (MOTEUR §9.39 delta, I216) — LE PLANCHER DE LA RÉACTION : le « garde N » d'une réaction au raté n'est jamais sous la réserve AFFICHÉE de la
+  // ligne (`Moteur.reserveAffichee` : reprise longue I206, population protégée I160). Une valeur reçue du plan (`contexte.plancher`), jamais recalculée ici ;
+  // `null` / absente : aucun plancher. UNE fonction, lue aux trois endroits où la réaction dit « garde N » (M, cas général et G, X).
+  function rateGardeAuPlancher(garde, c) {
+    var p = nombre(c && c.plancher);
+    return p !== null && p > garde ? p : garde;
+  }
   // Le contexte où le coach ne dit rien du tout (Entretenir, décharge, test, calage, « J'ai mal », 1re fois, figure).
   // 251 (D2, MOTEUR §9.39) — « SOUS LA ZONE » : UNE notion, lue trois fois — le niveau 1 (`reactionDeSerie`, le cas D et le cas L), le niveau 2
   // (`reactionDExercice` du plan : il ne masque pas le niveau 1 sous la zone) et la porte du cran (`decisionDeLaPorte`). Pure.
@@ -13037,7 +13044,7 @@
       if (-ecart >= SEUIL_REACTION) return silence('N', 'depasse');
       if (ecart === 0 && reserve === 0) {
         // M — pile sur la cible, sans rien en réserve : la suite le sait.
-        return Object.assign(sortie, { cas: 'M', charge: { action: 'garde', kg: nombre(c.charge) }, garde: 1,
+        return Object.assign(sortie, { cas: 'M', charge: { action: 'garde', kg: nombre(c.charge) }, garde: rateGardeAuPlancher(1, c),
           fourchette: rateFourchette(faites - 1, faites), leviers: [], recale: false });
       }
       return silence(ecart < 0 ? 'O' : null, ecart < 0 ? 'depasse_peu' : 'tenue');
@@ -13049,7 +13056,7 @@
     var echec = zoneLue.echec;                                   // L : l'échec franc, avant la cible
     var sous = zoneLue.sous;
     var sousAvant = nombre(c.sousZoneAvant) || 0;
-    var garde = reg === 'prudent' || obj === 'forme' ? 2 : 1;
+    var garde = rateGardeAuPlancher(reg === 'prudent' || obj === 'forme' ? 2 : 1, c);
     // G — la grosse série d'un bloc : ses reculs se recalent sur le max du jour (193-5), la charge ne change pas.
     if (role === 'grosse') {
       var mg = nombre(c.maxDuJour);
@@ -13139,7 +13146,7 @@
     var dernier = nombre(b.reps);
     var reg = rateReglage(c.reglage);
     return { niveau: 'exercice', cas: 'X', silence: false, avant: nombre(a.reps), faites: dernier, vise: dernier,
-             charge: { action: 'garde', kg: nombre(c.charge) }, garde: reg === 'prudent' || c.objectif === 'forme' ? 2 : 1,
+             charge: { action: 'garde', kg: nombre(c.charge) }, garde: rateGardeAuPlancher(reg === 'prudent' || c.objectif === 'forme' ? 2 : 1, c),
              fourchette: rateFourchette(dernier - 1, dernier + 1), leviers: [], recale: true };
   }
 

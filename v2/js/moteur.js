@@ -5069,11 +5069,12 @@
     // rep, elle dit la date du régime. Elle REMPLACE une annonce (le silence ci-dessus reste le silence), elle n'en crée jamais.
     if (d.regime) return phraseDuRegime(d.regime);
     // Rédigée à la demande : seule la branche qui l'écrit la déclare (§20 bis).
-    var prochaine = function () { return 'La prochaine fois' + DEUX_POINTS + lignesJaunes(cApres, SUIVANTE).join(', ') + '.'; };
+    var LIBELLE = 'La prochaine fois';   // 5b-2 : UN seul libellé d'annonce de suite (le repli et la ligne vraie le lisent)
+    var prochaine = function () { return LIBELLE + DEUX_POINTS + lignesJaunes(cApres, SUIVANTE).join(', ') + '.'; };
     // La ligne vraie de la consigne suivante, dite par le verbe de son en-tête (PR 5a, A1) ; sans ligne seule à dire, les lignes de la consigne suivante telles quelles, sous le même « La prochaine fois » (5b-2 : un seul libellé).
     var laLigneVraie = function () {
       var dit = cApres.haut || !cApres.ligne ? null : verbeDeLaSuite(cApres, verbeDeLaConsigne(cApres));
-      return dit !== null ? 'La prochaine fois' + DEUX_POINTS + dit + '.' : prochaine();
+      return dit !== null ? LIBELLE + DEUX_POINTS + dit + '.' : prochaine();
     };
 
     if (cApres.etat === 'etirement') {

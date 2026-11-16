@@ -10114,7 +10114,7 @@ const SETS_IMPORTES = [
         routine_sets: progr(3, 12), repos_cible_s: 90, groupe_superset: null, note: null }] });
     await aller('/saisie');
     await demarrerRoutine('RP ×3');
-    await attendre(900);
+    await attendreQue(async () => !!(await planR()).consigne, 8000, '[RP3] le plan de la reprise est calculé');
     r = await planR();
     const kRP = r.consigne;
     ok('[RP3] prémisse : reprise longue, palier 50, niveau sous le bas de la zone', !!kRP && kRP.etat === 'reprise_longue' &&

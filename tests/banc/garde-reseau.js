@@ -86,11 +86,12 @@ async function garderContexte(ctx) {
     // échouer `route.fetch` : « Target page, context or browser has been closed ». Ce n'est pas une fuite réseau : on
     // l'ignore, la page n'existe plus. Toute autre erreur reste levée.
     try {
+      // CI-1 (16/11/2026) : « Response has been disposed » (r.text() après la fermeture du navigateur) est la même fermeture en vol.
       const r = await route.fetch();
       const corps = (await r.text()).replace(/TURNSTILE_SITE_KEY\s*:\s*'[^']*'/, "TURNSTILE_SITE_KEY: ''");
       return await route.fulfill({ response: r, body: corps });
     } catch (e) {
-      if (/has been closed|Target closed|Target page, context or browser/i.test(String(e && e.message))) return undefined;
+      if (/has been closed|has been disposed|Target closed|Target page, context or browser/i.test(String(e && e.message))) return undefined;
       throw e;
     }
   });

@@ -10100,6 +10100,40 @@ const SETS_IMPORTES = [
       g[1].proposee && nr(g[1].charge) > 80, nbR(g));
     ok('[RP2] invariants du plan', r.erreurs.length === 0, nbR(r.erreurs.slice(0, 3)));
     await abandonner();
+
+    // ── (3) 16/11/2026 — REPRISE LONGUE, NIVEAU SOUS LE BAS DE LA ZONE (MOTEUR §9.9) ─────────────────────────────────────────────
+    // Zone Volume (10-12) par l'habitude, dernière séance 50 × 12, 4, 3 (niveau validé 4) il y a 140 jours : la ligne vise le BAS de la zone (10),
+    // à une charge estimée sous 90 % du palier, marquée ; la réserve affichée vaut au moins 2 ; la phrase est un fait.
+    const poserRP = poser('rowing-poulie', 'Dos');
+    poserRP('rp-a', 160, [[45, 12], [45, 12], [45, 12]]);
+    poserRP('rp-b', 150, [[45, 12], [45, 12], [45, 12]]);
+    poserRP('rp-c', 140, [[50, 12], [50, 4], [50, 3]]);
+    ROUTINES.push({ id: 'r-rp', nom: 'RP ×3', note: null, archivee_a: null,
+      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-rp-e', routine_id: 'r-rp', exercise_slug: 'rowing-poulie', rang: 0,
+        routine_sets: progr(3, 12), repos_cible_s: 90, groupe_superset: null, note: null }] });
+    await aller('/saisie');
+    await demarrerRoutine('RP ×3');
+    await attendre(900);
+    r = await planR();
+    const kRP = r.consigne;
+    ok('[RP3] prémisse : reprise longue, palier 50, niveau sous le bas de la zone', !!kRP && kRP.etat === 'reprise_longue' &&
+      kRP.palier === 50 && kRP.niveau < 10, nbR(kRP));
+    ok('[RP3] DISCRIMINANT — la ligne vise le bas de la zone (10), pas le niveau (avant : 4), marquée', !!kRP && kRP.ligne.vise === 10 &&
+      !!(kRP.fondement && kRP.fondement.reprisePlancher), nbR(kRP));
+    ok('[RP3] …à une charge sous 90 % du palier (l\'estimation à plus de reps), jamais plus lourde que lui', !!kRP && kRP.ligne.charge < 45 + 1e-9 && kRP.ligne.charge > 0,
+      nbR(kRP && kRP.ligne));
+    g = await grilleR();
+    ok('[RP3] la grille porte la ligne du coach sur les trois séries', g.length === 3 && g.every((l) => nr(l.charge) === kRP.ligne.charge && nr(l.reps) === 10), nbR(g));
+    ok('[RP3] …et la phrase est un fait, sans « un cran en dessous »',
+      /^Reprise après une pause : on repart au bas de ta zone, /.test(await griseR()) && !/un cran en dessous/.test(await griseR()), nbR(await griseR()));
+    const reserveRP = await page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      return d ? d.plan.exercices[0].reserveAffichee : 'aucun plan';
+    });
+    ok('[RP3] la réserve affichée vaut au moins 2 à la séance de reprise', typeof reserveRP === 'number' && reserveRP >= 2, nbR(reserveRP));
+    ok('[RP3] invariants du plan (I15, I204, I205, I206 compris)', r.erreurs.length === 0, nbR(r.erreurs.slice(0, 3)));
+    await abandonner();
     await aller('/saisie');
     ok('[RP] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }

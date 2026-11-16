@@ -1590,11 +1590,17 @@
   }
   // `o` : comme `reserveVisee`, plus `protegee`. Hors population : la table, octet pour octet (une ligne de test comprise). Protégée : `null`
   // sur une ligne de test ou haute (la ligne de test n'affiche aucun chiffre de réserve : D-B1), sinon la table relevée au plancher.
+  // 16/11/2026 (MOTEUR §9.9, reprise longue) — `repriseLongue: true` : la séance de reprise longue de CET exercice (`enRepriseLongue(consigne)`) relève
+  // aussi la réserve affichée au plancher, quel que soit le réglage (Franc compris) ; ce n'est PAS la population protégée (`plan.protegee` vaut pour
+  // tout le plan). La séance suivante revient au réglage normal.
+  function enRepriseLongue(consigne) {
+    return !!consigne && consigne.etat === 'reprise_longue';
+  }
   function reserveAffichee(o) {
     var x = o || {};
     var t = reserveVisee(x);
-    if (x.protegee !== true || t === null) return t;
-    if (x.role === 'test' || x.role === 'haut') return null;
+    if (t === null || (x.protegee !== true && x.repriseLongue !== true)) return t;
+    if (x.protegee === true && (x.role === 'test' || x.role === 'haut')) return null;
     return plancherDeReserve(t, true);
   }
 
@@ -2370,6 +2376,23 @@
       var c = voisine(P, -1);
       return c === null && salle ? P : c;
     }
+    // 16/11/2026 — la reprise longue AU BAS DE LA ZONE, ou `null` (la consigne d'avant : le repli du palier, la visée du niveau) quand elle ne s'applique
+    // pas : pas de zone, niveau dans la zone ou au-dessus, charge qui n'est pas une masse (corps, aide, élastique, lest), niveau sans estimation (I170 :
+    // 1 ou 2 reps = un plancher, au-delà de 10 reps rien : `Modele.modeDeReps`), matériel sans cran dessous.
+    function repriseAuBasDeZone() {
+      if (zone === null || niv === null || !(niv < zone.bas) || poidsDuCorps || aide || elastique || equipement === EQUIPEMENT_LEST) return null;
+      if (!(P > 0) || Modele().modeDeReps(niv) !== 'projection') return null;
+      var reserves = A.map(function (se) { return Palier().reserveDeSerie(se); }).filter(function (r) { return r !== null && r !== undefined; });
+      var rs = reserves.length ? Math.min.apply(null, reserves) : null;
+      var rv = reserveAffichee({ zone: zone.cle, role: 'ligne', reglage: reglage, protegee: protegee, repriseLongue: true });
+      var est = estimationAuBasDeZone({ palier: P, niveau: niv, reserve: rs, bas: zone.bas, reserveCible: rv, cran: function (c, sens) { return voisine(c, sens); } });
+      var base = est.charge;
+      if (base === null || !(base > 0)) return null;
+      if (base > P) base = P;
+      var dessous = voisine(base, -1);
+      var charge = dessous === null ? base : repliDeReprise(base, dessous);
+      return { charge: charge, marque: { depuis: { palier: P, niveau: niv, reserve: rs }, reserve: rv, base: base, bas: zone.bas } };
+    }
     // §9.17 — le niveau validé des DEUX dernières séances (non neutres), de la
     // plus ancienne à la plus récente ; `null` s'il n'y en a qu'une, ou si l'une
     // n'a pas de niveau. Le niveau se calcule sans la chute (§9.2 bis).
@@ -2540,6 +2563,12 @@
     // pas, et celui d'une aide — plus d'aide — serait un repli que la règle
     // refuse (I30).
     if (reprise === REPRISE_LONGUE) {
+      // 16/11/2026 (MOTEUR §9.9, décision d'Aurélien) — NIVEAU SOUS LE BAS DE LA ZONE : la visée est le bas de la zone, la charge l'estimation au bas de
+      // zone (réserve AFFICHÉE ≥ 2), puis le repli de 10 % au plus sur cette estimation. Ni aide, ni corps, ni lest, ni élastique.
+      var plancher = repriseAuBasDeZone();
+      if (plancher !== null) {
+        return rendre('reprise_longue', ligneDe(plancher.charge, zone.bas), null, { reprisePlancher: plancher.marque });
+      }
       return rendre('reprise_longue',
         ligneDe(poidsDuCorps || aide || elastique ? P : repliDeReprise(P, cranDessousOuPalier()), viseReprise), null, borne);
     }
@@ -2880,6 +2909,9 @@
   function consigneFigee(consigne) {
     var c = consigne || null;
     if (c === null || c.etat !== 'reprise_longue' || !c.ligne) return c;
+    // 16/11/2026 — la ligne posée AU BAS DE LA ZONE porte sa marque (`fondement.reprisePlancher`) : son repli est déjà appliqué sur l'estimation,
+    // le réappliquer sur le palier la remonterait à la charge de travail.
+    if (c.fondement && c.fondement.reprisePlancher) return c;
     var l = repliDeReprise(c.palier, c.ligne.charge);
     if (l === c.ligne.charge) return c;
     return Object.assign({}, c, { ligne: Object.assign({}, c.ligne, { charge: l }) });
@@ -3337,7 +3369,14 @@
       }
     }
     // « La suite » d'un message se lit sur les lignes APRÈS cette règle (B09).
-    if (message !== null && message.suite !== undefined) message.suite = suiteDe(plan[message.rang]);
+    if (message !== null && message.suite !== undefined) {
+      message.suite = suiteDe(plan[message.rang]);
+      // 16/11/2026 (§9.14 bis) — JAMAIS « La suite reste … vise N » avec N sous le bas de la zone connue (hors ligne de test, qui vise moins par nature) :
+      // la phrase dit le fait, sans la suite.
+      if (message.suite && nombre(message.suite.vise) !== null && nombre(message.suite.vise) < z.bas && !estTest(plan[message.rang], message.rang)) {
+        message.suite = null;
+      }
+    }
 
     sortie.revision = revision;
     sortie.attente = attente;
@@ -3694,6 +3733,7 @@
       }
       case 'pas_encore':
         // §9.14 ter (68B) — prise à fond, dans la zone : le fait, sans « pas encore ».
+        if (m.a_fond && m.suite === null) return fait + ' à fond.';
         if (m.a_fond) return fait + ' à fond' + DEUX_POINTS + 'la suite revient ' + laSuite(m.suite, z) + '.';
         return fait + DEUX_POINTS + 'pas encore. On revient à ' + enKg(m.palier, cite(CIBLE, { role: 'retour' })) + '.';
       // §9.14 ter (68B) — la suivante, une rep de moins.
@@ -3714,11 +3754,15 @@
             ? 'je reviens au cran au-dessus' : 'je reviens à ' + enKg(m.retour, regle('reaction.retour'))) +
           ' pour la série suivante. Sinon, je garde ' + enKg(m.charge, cite(CIBLE, { role: 'elan' })) + '.';
       case 'pas_encore_soi':
+        if (m.suite === null) return m.a_fond ? fait + ' à fond.' : fait + DEUX_POINTS + 'pas encore.';
         return m.a_fond
           ? fait + ' à fond' + DEUX_POINTS + 'la suite reste ' + laSuite(m.suite, z) + '.'
           : fait + DEUX_POINTS + 'pas encore. La suite reste ' + laSuite(m.suite, z) + '.';
       case 'plus_leger': {
         var cF = cite(FAIT, { quoi: 'du_jour' });
+        if (m.suite === null) {
+          return fait + ', plus léger que prévu' + INSECABLE + '; tape ' + enKg(m.charge, cF) + ' si tu restes à ' + enKg(m.charge, cF) + ' aujourd\'hui.';
+        }
         return fait + ', plus léger que prévu. La suite reste ' + laSuite(m.suite, z) + INSECABLE + '; tape ' +
           enKg(m.charge, cF) + ' si tu restes à ' + enKg(m.charge, cF) + ' aujourd\'hui.';
       }
@@ -5322,6 +5366,10 @@
 
       // Et RIEN sur la durée de l'absence (CADRAGE §3.1 bis).
       case 'reprise_longue':
+        // 16/11/2026 (§9.9) — la ligne posée au bas de la zone : un fait, la ligne, jamais « un cran en dessous ».
+        if (f.reprisePlancher && c.ligne) {
+          return 'Reprise après une pause' + DEUX_POINTS + 'on repart au bas de ta zone, ' + ligneDeLaConsigne(c) + '.';
+        }
         // §9.9 (delta 49-13) — le cran d'en dessous descendait de plus de
         // 10 % : la consigne garde la charge de travail. §20.2 (49-U9) — la
         // phrase le distingue enfin de la reprise courte.
@@ -5849,6 +5897,10 @@
                'La progression repart à la séance suivante.' + phraseBorneZone(f, c);
 
       case 'reprise_longue':
+        if (f.reprisePlancher && c.ligne) {
+          return 'Reprise après une pause' + DEUX_POINTS + 'on repart au bas de ta zone, ' + ligneDeLaConsigne(c) +
+                 ', avec de la marge sur ta dernière séance.';
+        }
         if (c.ligne && memeCharge(nombre(c.ligne.charge), nombre(c.palier))) {
           return 'Reprise après une pause' + DEUX_POINTS + 'on reprend à ta charge de travail, sans rep de plus. ' +
                  'Le cran d\'en dessous descendait de plus de ' + nombreFr(Math.round(REPLI_MAX_REPRISE * 100), regle('constante')) +
@@ -10162,6 +10214,18 @@
     return null;
   }
 
+  // L'ESTIMATION AU BAS DE ZONE (MOTEUR §9.10 et §9.9, 16/11/2026) — UNE fonction, appelée par le report de zone ET par la reprise longue sous le bas
+  // de la zone : la charge qui donne `bas` reps AVEC la réserve `reserveCible`, depuis le max estimé de la série source (`palier` × `niveau` + la plus
+  // petite réserve notée, 0 si inconnue : l'hypothèse prudente), arrondie au cran du dessous (`auCranInferieur`). `estimee` : la charge exacte ;
+  // `charge` : au cran (`null` si le matériel n'a pas de cran dessous) ; `maxSource` : le max estimé de la source.
+  function estimationAuBasDeZone(o) {
+    var p = o || {};
+    var rs = nombre(p.reserve), rc = nombre(p.reserveCible);
+    var maxSource = unRMEpley(p.palier, p.niveau + (rs === null ? 0 : rs));
+    var estimee = maxSource / unRMEpley(1, p.bas + (rc === null ? 0 : rc));
+    return { estimee: estimee, charge: auCranInferieur(p.palier, estimee, p.cran), maxSource: maxSource };
+  }
+
   function reportDeZone(o) {
     var p = o || {};
     var z = zoneParCle(p.zone);
@@ -10187,8 +10251,9 @@
     // donne `z.bas` reps AVEC la réserve visée de la zone pour ce réglage (`reserveVisee`, la même table que la consigne).
     var rSource = nombre(L.reserve);
     var rVisee = reserveVisee({ zone: z.cle, role: 'ligne', reglage: p.reglage });
-    var estimee = unRMEpley(P, n + (rSource === null ? 0 : rSource)) / unRMEpley(1, z.bas + (rVisee === null ? 0 : rVisee));
-    var charge = auCranInferieur(P, estimee, p.cran);
+    var est = estimationAuBasDeZone({ palier: P, niveau: n, reserve: rSource, bas: z.bas, reserveCible: rVisee, cran: p.cran });
+    var estimee = est.estimee;
+    var charge = est.charge;
     // 255 bis (06/11/2026, décision du coach, déléguée par Aurélien) — LES GROS CRANS. Quand le cran du dessous fait perdre PLUS de
     // 10 % de l'estimation exacte (haltères de 5 kg : 19,6 → 15), la charge reste au cran du dessous, mais les reps visées MONTENT au
     // plus grand r de la zone [bas, haut] dont le max estimé à `r + v` reps ne dépasse pas celui de la source (`repsAuCranDuDessous`) :
@@ -13607,6 +13672,8 @@
     niveauValide: niveauValide,
     reserveVisee: reserveVisee,
     reserveAffichee: reserveAffichee,
+    enRepriseLongue: enRepriseLongue,
+    estimationAuBasDeZone: estimationAuBasDeZone,
     plancherDeReserve: plancherDeReserve,
     verbeDeLaConsigne: verbeDeLaConsigne, VERBES: VERBES,
     populationProtegee: populationProtegee,

@@ -1,0 +1,26 @@
+[
+ {
+  "nom": "M-1-consigneFigee-sans-l-exemption-de-la-marque",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "    if (c.fondement && c.fondement.reprisePlancher) return c;\n",
+  "nouveau": "",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-reprise-vise-la-zone.test.js"]
+ },
+ {
+  "nom": "M-2-min-du-report-et-du-repli-au-lieu-du-repli-sur-l-estimation",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var charge = dessous === null ? base : repliDeReprise(base, dessous);",
+  "nouveau": "var charge = Math.min(base, repliDeReprise(P, voisine(P, -1)) === null ? base : repliDeReprise(P, voisine(P, -1)));",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-reprise-vise-la-zone.test.js"]
+ },
+ {
+  "nom": "M-3-la-reprise-longue-retiree-du-plancher-de-reserve",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "if (t === null || (x.protegee !== true && x.repriseLongue !== true)) return t;",
+  "nouveau": "if (t === null || (x.protegee !== true)) return t;",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-reprise-vise-la-zone.test.js"]
+ }
+]

@@ -241,7 +241,7 @@
       // 154 (MOTEUR §9.26) — la RÉSERVE VISÉE de la ligne, dans le fondement de chaque pari qu'elle couvre.
       if (p.length && o.reglage !== undefined) {
         // PR 4a (§9.26 bis) — le pari écrit la visée AFFICHÉE (le plancher pour la population protégée) ; une ligne de test protégée n'en écrit aucune.
-        var rvLigne = M.reserveAffichee({ zone: consigne ? consigne.zone : null, role: roles[j], reglage: o.reglage, protegee: o.protegee === true });
+        var rvLigne = M.reserveAffichee({ zone: consigne ? consigne.zone : null, role: roles[j], reglage: o.reglage, protegee: o.protegee === true, repriseLongue: M.enRepriseLongue(consigne) });
         if (rvLigne !== null) p[0].fondement.reserve_visee = rvLigne;
       }
       paris[l.iSerie] = p.length ? p[0] : null;
@@ -2673,7 +2673,7 @@
         var rvTable = rvElig ? Moteur().reserveVisee(rvOptions) : null;
         // PR 4b (R-A, O5) — pendant le plafond, aucun effort visé (jamais « garde 1 » juste après un zéro : I154) : ni la table ni l'affichée.
         if (x.consigne && x.consigne.fondement && x.consigne.fondement.plafondZero && x.consigne.fondement.plafondZero.mord === true) { rvElig = false; rvTable = null; }
-        var rvX = rvElig ? Moteur().reserveAffichee(Object.assign({ protegee: protegee }, rvOptions)) : null;
+        var rvX = rvElig ? Moteur().reserveAffichee(Object.assign({ protegee: protegee, repriseLongue: Moteur().enRepriseLongue(x.consigne) }, rvOptions)) : null;
         x.reserveVisee = rvTable;
         x.reserveAffichee = rvX;
         // 175 — « un cran de moins » : le recul de la règle de bord (174) se dit à côté du chiffre du jour, d'un badge. Le plan le dit, l'écran le dessine.
@@ -2683,7 +2683,7 @@
         x.effortVise = rvX === null ? null : effortViseDuPlan(exo, rvX, suite, Seance().exerciceFini(seance, slug));
         // PR 4a (§9.26 bis, D-B3) — « Me pousser » écrasé par le plancher : une ligne du « Pourquoi », rédigée sous capture (I26).
         x.plancher = null;
-        if (protegee && reglagePlan === 'franc' && rvX !== null && rvTable !== null && rvX > rvTable && x.pourquoi) {
+        if ((protegee || Moteur().enRepriseLongue(x.consigne)) && reglagePlan === 'franc' && rvX !== null && rvTable !== null && rvX > rvTable && x.pourquoi) {
           var capPl = Voix().capturer(function () { return Moteur().phraseDuPlancher(rvX); });
           x.pourquoi.plancher = capPl.texte;
           x.plancher = { visee: rvX, table: rvTable, phrase: capPl.texte };
@@ -4493,6 +4493,14 @@
         }
       }
     }
+    // I41 étendu (16/11/2026, MOTEUR §9.14 bis) — « plus léger », « pas encore » ne disent jamais « la suite reste … vise N » avec N sous le bas de la zone
+    // de la consigne (hors ligne de test, qui vise moins par nature) : le fait seul.
+    if (msg && (msg.type === 'plus_leger' || msg.type === 'pas_encore_soi' || msg.type === 'pas_encore') && msg.suite && nombre(msg.suite.vise) !== null) {
+      var zI41 = racine.THMoteur.zoneParCle(k.zone), ligneSuite = couvertes[msg.rang];
+      if (zI41 && nombre(msg.suite.vise) < zI41.bas && !(ligneSuite && ligneSuite.role === 'test')) {
+        err('I41', 'la phrase dit « la suite … vise ' + msg.suite.vise + ' », sous le bas de la zone (' + zI41.bas + ')');
+      }
+    }
     var elans = couvertes.filter(function (l) { return l.role === 'elan'; });
     if (k.zone === 'lourd' && elans.length > 1) {
       err('I42', elans.length + ' lignes d\'élan en zone Lourd (une au plus)');
@@ -4756,7 +4764,9 @@
     // I15, LE REPLI (§9.9, delta 49-13 ; numéroté par le delta 49-14) — une reprise longue ne descend jamais de
     // plus de 10 % sous le dernier palier : ni la consigne figée, ni une ligne
     // qui la reprend.
-    if (x.consigne.etat === 'reprise_longue') {
+    // 16/11/2026 — la ligne posée au bas de la zone (`fondement.reprisePlancher`) est jugée contre son propre calcul par I205, pas contre le palier.
+    var posee = x.consigne.fondement && x.consigne.fondement.reprisePlancher;
+    if (x.consigne.etat === 'reprise_longue' && !posee) {
       var Pal = nombre(x.consigne.palier);
       // §9.17 (50-1) — « 10 % sous le palier » n'a de sens que pour une charge
       // POSITIVE : sous un corps (0) ou une aide (négative), `Pal × 0,9` est au
@@ -6582,6 +6592,7 @@
     verifierRate(plan, entrees, erreurs);
     verifierPorte(plan, entrees, erreurs);
     verifierReportDeZone(plan, erreurs);
+    verifierRepriseAuBasDeZone(plan, entrees, erreurs);
     verifierRestPause(plan, erreurs);
     verifierBaisseAttendue(plan, erreurs);
     verifierEffortVise(plan, entrees, erreurs);
@@ -6869,6 +6880,43 @@
       }
     });
   }
+  // I204 et I205 (16/11/2026, MOTEUR §9.9) — LA REPRISE LONGUE VISE LE BAS DE LA ZONE.
+  //   I204  en reprise longue, la visée d'une ligne chiffrée n'est pas sous le bas de la zone de la ligne ; hors exemption (charge qui n'est pas une masse :
+  //         corps, aide, lest, élastique ; niveau à 1-2 reps ou au-delà de 10, sans estimation, I170 ; salle déclarée), une ligne sous le bas SANS marque est une erreur ;
+  //   I205  la ligne marquée (`fondement.reprisePlancher`) = l'estimation au bas de zone avec la réserve AFFICHÉE × le repli de 10 % au plus, recalculée
+  //         depuis la source de la marque (palier, niveau, réserve notée) et le plan : visée = bas, jamais plus lourde que le palier, jamais plus de
+  //         10 % sous l'estimation au cran, et un max estimé (à `vise` + réserve affichée) qui ne dépasse jamais celui de la source.
+  // (I206, la réserve affichée à la séance de reprise longue, est dans `verifierEffortVise`.)
+  function verifierRepriseAuBasDeZone(plan, entrees, erreurs) {
+    var M = Moteur();
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var c = x && x.consigne;
+      if (!c || c.etat !== 'reprise_longue' || !c.ligne || c.allegee || c.repli || c.plusLegere || c.veilleLegere || c.alleger) return;
+      var nom = ' — exercice ' + i + ' (' + x.slug + ') : ';
+      var z = M.zoneParCle(c.zone), ch = nombre(c.ligne.charge), vise = nombre(c.ligne.vise), P = nombre(c.palier);
+      var marque = c.fondement && c.fondement.reprisePlancher;
+      if (!z || ch === null || vise === null) return;
+      if (!marque) {
+        var cat = (entrees && entrees.catalogue && entrees.catalogue[x.slug]) || {};
+        var exempt = P === null || !(P > 0) || ch <= 0 || cat.equipement === M.EQUIPEMENT_LEST || cat.equipement === 'elastique' ||
+          !!(c.fondement && (c.fondement.salle || c.fondement.elastique)) || racine.THModele.modeDeReps(c.niveau) !== 'projection';
+        if (vise < z.bas && !exempt) erreurs.push('I204' + nom + 'la reprise longue vise ' + vise + ' reps, sous le bas de la zone (' + z.bas + '), sans la marque du plancher');
+        return;
+      }
+      if (vise !== z.bas) erreurs.push('I204' + nom + 'la reprise au bas de la zone vise ' + vise + ' reps, le bas est ' + z.bas);
+      var d = marque.depuis || {}, Ps = nombre(d.palier), n = nombre(d.niveau), rs = nombre(d.reserve);
+      if (Ps === null || n === null || Ps !== P) { erreurs.push('I205' + nom + 'la marque ne part pas du palier de la consigne'); return; }
+      var rv = M.reserveAffichee({ zone: c.zone, role: 'ligne', reglage: plan.reglage, protegee: plan.protegee === true, repriseLongue: true });
+      if (rv !== marque.reserve || rv === null || rv < M.RESERVE_PLANCHER) erreurs.push('I205' + nom + 'la réserve de la marque (' + marque.reserve + ') n’est pas la réserve affichée de la reprise (' + rv + ')');
+      var source = M.unRMEpley(Ps, n + (rs === null ? 0 : rs)), estimee = source / M.unRMEpley(1, z.bas + (rv === null ? 0 : rv)), base = nombre(marque.base);
+      if (base === null || base > estimee + 1e-6 || base > P + 1e-9) erreurs.push('I205' + nom + 'la base ' + base + ' kg dépasse l’estimation au bas de la zone (' + (Math.round(estimee * 100) / 100) + ' kg) ou le palier ' + P);
+      else {
+        if (ch > base + 1e-9) erreurs.push('I205' + nom + 'la ligne (' + ch + ' kg) dépasse sa base (' + base + ' kg)');
+        if (ch < base * (1 - M.REPLI_MAX_REPRISE) - 1e-9) erreurs.push('I205' + nom + 'la ligne (' + ch + ' kg) est à plus de 10 % sous sa base (' + base + ' kg)');
+      }
+      if (M.unRMEpley(ch, vise + (rv === null ? 0 : rv)) > source + 1e-6) erreurs.push('I205' + nom + 'la ligne ' + ch + ' kg × ' + vise + ' donne un max estimé au-dessus de celui de la source');
+    });
+  }
   function verifierPorte(plan, entrees, erreurs) {
     var xs = (plan && plan.exercices) || [];
     var exos = entrees && entrees.seance && Array.isArray(entrees.seance.exercices) ? entrees.seance.exercices : [];
@@ -7119,7 +7167,7 @@
       } else {
         if (!aUnPari(x)) erreurs.push('I56' + nom + 'une réserve visée sans pari');
         if (plan.edition) erreurs.push('I56' + nom + 'une réserve visée en Édition');
-        var attendu = x.consigne ? Moteur().reserveAffichee({ zone: x.consigne.zone, role: roleDeLaVisee(x), reglage: plan.reglage, protegee: plan.protegee === true }) : null;
+        var attendu = x.consigne ? Moteur().reserveAffichee({ zone: x.consigne.zone, role: roleDeLaVisee(x), reglage: plan.reglage, protegee: plan.protegee === true, repriseLongue: Moteur().enRepriseLongue(x.consigne) }) : null;
         var attenduT = x.consigne ? Moteur().reserveVisee({ zone: x.consigne.zone, role: roleDeLaVisee(x), reglage: plan.reglage }) : null;
         if (rv !== attendu) erreurs.push('I56' + nom + 'la réserve visée affichée est ' + rv + ', la règle donne ' + attendu);
         if (rvT !== attenduT) erreurs.push('I56' + nom + 'la table de la réserve visée est ' + rvT + ', la table donne ' + attenduT);
@@ -7171,7 +7219,7 @@
         var tableLigne = Moteur().reserveVisee({ zone: x.consigne.zone, role: 'ligne', reglage: plan.reglage });
         // PR 4a — une consigne figée avant le plancher n'a ni `protegee` ni `viseeTable` (sa visée est la table) : seule une consigne qui les porte se compare.
         var protegeeEv = ev.protegee === true;
-        var afficheeLigne = Moteur().reserveAffichee({ zone: x.consigne.zone, role: 'ligne', reglage: plan.reglage, protegee: protegeeEv });
+        var afficheeLigne = Moteur().reserveAffichee({ zone: x.consigne.zone, role: 'ligne', reglage: plan.reglage, protegee: protegeeEv, repriseLongue: Moteur().enRepriseLongue(x.consigne) });
         if (ev.visee !== afficheeLigne && !(plan.protegee === true && !protegeeEv && ev.visee === tableLigne)) {
           erreurs.push('I64' + nom + 'la visée du fondement est ' + ev.visee + ', la règle donne ' + afficheeLigne);
         }
@@ -7187,8 +7235,12 @@
       if (protegeP) {
         if (rv !== null && roleDeLaVisee(x) !== 'test' && rv < Moteur().RESERVE_PLANCHER) erreurs.push('I160' + nom + 'une réserve visée de ' + rv + ' pour la population protégée (plancher ' + Moteur().RESERVE_PLANCHER + ')');
         if (x.consigne && roleDeLaVisee(x) === 'test' && (rv !== null || x.effortVise || x.questionReserve)) erreurs.push('I160' + nom + 'une réserve affichée ou une question sur la ligne de test d’une population protégée');
-      } else if (rv !== rvT) {
+      } else if (rv !== rvT && !(Moteur().enRepriseLongue(x.consigne) && rv !== null && rv >= Moteur().RESERVE_PLANCHER)) {
         erreurs.push('I160' + nom + 'hors population protégée, la réserve affichée (' + rv + ') n’est pas la table (' + rvT + ')');
+      }
+      // I206 (16/11/2026, MOTEUR §9.9) — la séance de reprise longue de CET exercice : la réserve affichée n'est jamais sous le plancher, quel que soit le réglage.
+      if (rv !== null && Moteur().enRepriseLongue(x.consigne) && rv < Moteur().RESERVE_PLANCHER) {
+        erreurs.push('I206' + nom + 'une réserve visée de ' + rv + ' à la séance de reprise longue (plancher ' + Moteur().RESERVE_PLANCHER + ')');
       }
       if (ev && ev.protegee !== undefined && ev.protegee !== protegeP) erreurs.push('I160' + nom + 'le fondement dit protegee=' + ev.protegee + ', le plan ' + protegeP);
       // I161 — le test se déclenche sur la TABLE ; « Au-dessus de ce que je visais » seulement si R > la visée affichée, « c'est ce que je visais » si R = elle.

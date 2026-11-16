@@ -1348,7 +1348,9 @@
         // Chantier « première séance sûre », PR 1 : 65 ans et plus CONNUS (jamais deviné) ; première fois = la consigne (UNE notion, `Moteur.estPremiereFois`).
         plus65: e.plus65 === true,
         // PR 2 (§9.42, I154) : après un zéro rep, « Au max » suit la règle de la première fois (aucune carte, « garde 2 » au moins).
-        premiereFois: (function (cz) { return M.estPremiereFois(cz) || M.estApresZero(cz); })(Object.prototype.hasOwnProperty.call(consignes || {}, slug) && consignes[slug] ? consignes[slug].consigne : null)
+        premiereFois: (function (cz) { return M.estPremiereFois(cz) || M.estApresZero(cz); })(Object.prototype.hasOwnProperty.call(consignes || {}, slug) && consignes[slug] ? consignes[slug].consigne : null),
+        // 16/11/2026 (MOTEUR §9.30, delta ; I207) : la reprise longue de CET exercice — « Au max » jamais à l'échec, « garde 2 » au moins (UN prédicat : `Moteur.enRepriseLongue`).
+        repriseLongue: M.enRepriseLongue(Object.prototype.hasOwnProperty.call(consignes || {}, slug) && consignes[slug] ? consignes[slug].consigne : null)
       },
       jourEchec: jourEchec
     };
@@ -1378,7 +1380,7 @@
     var zdp = consigne.plan && consigne.plan.zone ? (consigne.plan.zone.cle || consigne.plan.zone) : null;
     var dec = M.auMaxDe(Object.assign({}, faits.entree, { main: marquee, zoneDePlan: zdp }));
     // I150/I151 relisent ce que le plan a vu : la marque, l'âge, la première fois (le plan seul le sait ; la série validée est un fait figé).
-    var etat = { marquee: marquee, validee: !!dernier.validee, plus65: faits.entree.plus65 === true, premiereFois: faits.entree.premiereFois === true };
+    var etat = { marquee: marquee, validee: !!dernier.validee, plus65: faits.entree.plus65 === true, premiereFois: faits.entree.premiereFois === true, repriseLongue: faits.entree.repriseLongue === true };
     if (!marquee) {
       // La proposition : la table pose « Au max » par défaut, la personne n'a rien dit, aucune décision n'est enregistrée.
       if (!faits.propose || dec.pose !== 'defaut' || dernier.validee) return vide;
@@ -1387,7 +1389,7 @@
           M.consigneAuMax(dec).slice(1) + '.';
       });
       return { auMax: null, pari: null, etat: etat, phrases: [{ ou: 'au_max.proposition', texte: capP.texte, citations: capP.citations }],
-               proposition: { iSerie: dernier.iSerie, reserve: dec.reserve, sorte: dec.sorte, avecPareur: dec.avecPareur, titre: M.motsDeLAuMax(faits.entree.plus65 === true).titre,
+               proposition: { iSerie: dernier.iSerie, reserve: dec.reserve, sorte: dec.sorte, avecPareur: dec.avecPareur, titre: M.motsDeLAuMax(faits.entree.plus65 === true || faits.entree.repriseLongue === true).titre,
                               phrase: capP.texte, boutons: ['Oui, dans ma routine', 'Juste aujourd’hui', 'Non merci'] } };
     }
     // Une marque sur une exercice où la table ne dit rien : garde 2 (la personne l'a posée). `pose` null ne se produit pas (main).
@@ -2577,7 +2579,7 @@
         // réserve visée ni d'effort visé (la réserve affichée est celle de la variante), pas de réaction au raté (voir `reactionDExercice`).
         // D-A3 (chantier « première séance sûre », PR 1) — les mots de la carte et du bouton « Au max » du menu de la série : 65+ connu →
         // « en gardant 2 reps » ; l'écran les lit ici, il ne les décide pas.
-        x.auMaxMots = Moteur().motsDeLAuMax(e.plus65 === true);
+        x.auMaxMots = Moteur().motsDeLAuMax(e.plus65 === true || Moteur().enRepriseLongue(x.consigne));
         x.tenueZero = null;
         if (tenueZ && !(x.lignes || []).some(function (l) { return laLigneAUnSens(l) && l.validee; })) {   // une fois la 1re série de travail validée, le choix est fait
           var lTenue = (x.lignes || []).filter(function (l) { return laLigneAUnSens(l) && !l.validee; })[0];
@@ -8322,6 +8324,12 @@
       if (M.estPremiereFois(x.consigne)) {
         if (x.propositionAuMax) erreurs.push('I151' + nom + 'une carte « Au max » proposée à la première fois');
         if (a.reserve < 2 && !(lAu && lAu.validee)) erreurs.push('I151' + nom + 'une réserve de ' + a.reserve + ' à la première fois (au moins 2)');
+      }
+      // I207 (16/11/2026, MOTEUR §9.30 delta) — la séance de REPRISE LONGUE de cet exercice (`Moteur.enRepriseLongue`, la consigne) : « Au max » ne va jamais à
+      // l'échec, réserve au moins 2 ; la carte proposée dit « en gardant 2 reps ». Cohérent avec la réserve affichée de la ligne (I206, §9.9).
+      if (M.enRepriseLongue(x.consigne) && !(lAu && lAu.validee)) {
+        if (a.reserve < M.AU_MAX_RESERVE_PAR_DEFAUT || (x.auMax && x.auMax.sorte === 'echec') || (x.propositionAuMax && x.propositionAuMax.sorte === 'echec')) erreurs.push('I207' + nom + 'une réserve « Au max » de ' + a.reserve + ' à la séance de reprise longue (au moins ' + M.AU_MAX_RESERVE_PAR_DEFAUT + ', jamais l’échec)');
+        if (x.propositionAuMax && !/gardant 2 reps/.test(String(x.propositionAuMax.titre || ''))) erreurs.push('I207' + nom + 'la carte « Au max » de la reprise longue ne dit pas « en gardant 2 reps »');
       }
       var texte = x.auMax ? x.auMax.consigne : null;
       if (texte && (a.reserve === 0) !== /^Jusqu/.test(texte)) erreurs.push('I84' + nom + 'la consigne « ' + texte + ' » ne dit pas la réserve ' + a.reserve);

@@ -11831,7 +11831,7 @@
     return 'accessoire';
   }
   // `e` : { objectif, debutant, famille (la barre, `familleDeBarre`), equipement, isolation, allegee, menagee, douleurRecente,
-  //         barreDeJambesApres, main, zoneDePlan (193-6b : la zone que la ligne porte, ou null), echecRecent (193-6b : une série à
+  //         barreDeJambesApres, main, repriseLongue (16/11/2026 : `enRepriseLongue` de la consigne), zoneDePlan (193-6b : la zone que la ligne porte, ou null), echecRecent (193-6b : une série à
   //         l'échec sur cette barre dans les 6 jours précédents), plus65 (chantier « première séance sûre », PR 1 : `true` SEULEMENT si l'âge
   //         est connu et de 65 ans ou plus, jamais deviné), premiereFois (le même chantier : `estPremiereFois` de la consigne ; le
   //         générateur, sans consigne, la lit sur l'absence d'historique) }. `pose` : 'defaut' (le coach la pose), 'main' (la personne
@@ -11876,7 +11876,8 @@
     }
     // une zone à ménager, un « J'ai mal » récent, 65 ans et plus connus, une première fois : jamais d'échec ni « garde 1 », au plus « en
     // gardant 2 reps » (un seul plancher, un seul prédicat ; une marque de la personne n'est jamais effacée, elle passe au plancher)
-    if ((x.menagee || x.douleurRecente === true || x.plus65 === true || x.premiereFois === true) && reserve < AU_MAX_RESERVE_PAR_DEFAUT) reserve = AU_MAX_RESERVE_PAR_DEFAUT;
+    // 16/11/2026 (MOTEUR §9.30, delta) : la séance de REPRISE LONGUE de cet exercice (`enRepriseLongue(consigne)`, UN prédicat, lu par le plan) rejoint la liste.
+    if ((x.menagee || x.douleurRecente === true || x.plus65 === true || x.premiereFois === true || x.repriseLongue === true) && reserve < AU_MAX_RESERVE_PAR_DEFAUT) reserve = AU_MAX_RESERVE_PAR_DEFAUT;
     return { pose: pose, reserve: reserve, sorte: reserve === 0 ? 'echec' : 'garde',
              avecPareur: reserve === 0 && (classe === 'squat' || classe === 'couche'), classe: classe };
   }

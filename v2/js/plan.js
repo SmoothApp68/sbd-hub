@@ -6692,7 +6692,7 @@
   // I75 (MOTEUR §9.1, 187) — UNE ZONE À MÉNAGER SE LIT EN SÉANCE : un exercice qui charge la zone (le profil + la table du
   // générateur) ne reçoit AUCUNE série lourde — ni zone Lourd (3-5 reps), ni ligne à 5 reps ou moins —, sauf une zone que la
   // personne a choisie elle-même (le moteur propose, elle décide). Les approches du calage sont des séries de travail à 6 reps au moins.
-  var REPS_LOURDES_MAX = 5;
+  // 15/11/2026 (§9.51 quinquies, PR B) : la « série lourde » est `Modele.estSerieLourde` (5 reps ou moins), jamais un seuil copié ici.
   // I105 et I106 (MOTEUR §9.33, 196) — LE REST-PAUSE : une mini-série (une ligne dégressive à la charge de la série de travail qui la
   // précède) n'est jamais une dégressive du coach ni une série de travail.
   //   · I105 — sa charge proposée est CELLE de la série de travail qui la précède (jamais une baisse de 22,5 %), sans phrase ni
@@ -7026,10 +7026,10 @@
       (x.lignes || []).forEach(function (l) {
         if (l.validee || l.role === 'hors') return;
         var v = nombre(l.vise);
-        if (v !== null && v <= REPS_LOURDES_MAX) erreurs.push('I75' + nom + 'une série lourde proposée (' + v + ' reps) sur un exercice qui charge ' + (m.zones || []).join(', '));
+        if (v !== null && racine.THModele.estSerieLourde(v)) erreurs.push('I75' + nom + 'une série lourde proposée (' + v + ' reps) sur un exercice qui charge ' + (m.zones || []).join(', '));
       });
       var k = x.calage && x.calage.suivante;
-      if (k && k.reps <= REPS_LOURDES_MAX) erreurs.push('I75' + nom + 'un calage à ' + k.reps + ' reps sur un exercice qui charge ' + (m.zones || []).join(', '));
+      if (k && racine.THModele.estSerieLourde(k.reps)) erreurs.push('I75' + nom + 'un calage à ' + k.reps + ' reps sur un exercice qui charge ' + (m.zones || []).join(', '));
     });
   }
 

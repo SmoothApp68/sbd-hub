@@ -94,7 +94,7 @@ describe('coupures de reps — la table et son lien avec la prescription du coac
     const m = /REPS_LOURDES_MAX\s*=\s*(\d+)/.exec(src);
     const dePlan = /REPS_LOURDES_MAX\s*=\s*(\d+)/.exec(require('fs').readFileSync(require('path').join(__dirname, '../../v2/js/plan.js'), 'utf8'));
     const deBilan = /force['"],\s*jusqua:\s*(\d+)/.exec(require('fs').readFileSync(require('path').join(__dirname, '../../v2/js/bilans.js'), 'utf8'));
-    expect(Number(dePlan[1])).toBe(C.lourdMax);
+    expect(dePlan).toBeNull();   // PR B : le plan lit `estSerieLourde`, plus de copie
     expect(deBilan).toBeNull();   // PR C : le bilan lit `bandeDeReps`, plus de seau recopié
     // Quand la PR D passe faits.js sur `estSerieLourde`, `m` devient null : retire ce test, ne le contourne pas.
     expect(m && Number(m[1])).toBe(6);

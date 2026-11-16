@@ -1402,6 +1402,47 @@ la même aide sur une aide), jamais avec une réponse `oui`, ni avec une répons
 > - **Le plafond sans lest.** Au poids du corps, les reps montent jusqu'à **30** (`PLAFOND_CIBLE`). À **30 sur toutes les séries**, la phrase n'est plus « Une rep de plus. » mais « Ton plafond sans lest. » ; à 29, « Vise 30 sur toutes tes séries. » (`fondement.plafondReps` : `vise` / `atteint`) ; la feuille « Pourquoi » dit « 30 reps est le plafond sans lest. ».
 > - Le nom de l'exercice n'est pas dans la consigne : la phrase du plafond reprend la forme de la ligne grise (« Le 14 oct. : Poids du corps × 30, 30, 30. Ton plafond sans lest. »).
 
+> **16/11/2026, décision d'Aurélien — « Ajouter » devient « Essayer » : la marche prend la place des séries restantes, pour aujourd'hui.**
+> *(Retour réel : « Ajouter Tractions » s'est lu « passer aux tractions », l'exercice de départ a été supprimé à la main. Tour de table
+> sourcé puis contradicteur à froid : document de projet `TOUR-DE-TABLE-MARCHE-ECHELLE-2026-11-16`.)* **Raison** : la Recommended
+> Routine de r/bodyweightfitness et GMB font passer d'une marche à la suivante en la travaillant À LA PLACE de l'ancienne, pas en plus ;
+> Hevy remplace un exercice dans la séance sans toucher à la routine ; Schoenfeld et al. 2021 (*Loading recommendations for muscle
+> strength, hypertrophy, and local endurance*) : à séries égales, le volume compte plus que la variante — **le volume reste donc au
+> nombre de séries de la routine** (les séries restantes, jamais 2 de plus). **Les figures en secondes (§9.17 ter) et la carte du lest
+> (§9.17, sa variante sans matériel de 175) ne changent pas** : elles ajoutent.
+> - **La carte (en reps).** Titre inchangé. Détail : « La marche au-dessus : <marche>. Je la mets à la place de tes séries restantes de
+>   <départ>, pour essayer aujourd'hui. Ta routine ne change pas. » Boutons « **Essayer <marche>** » · « **Pas maintenant** ». **Pas de
+>   carte** s'il reste moins de **2 séries de travail** à faire sur le départ (« J'ai peu de temps » compris), en séance douloureuse
+>   (« J'ai mal », reprise après une douleur, deux séances avec douleur ou plus : I113), ni si la marche est déjà dans la séance ou dans
+>   la routine. La zone à ménager n'écarte pas plus de marches qu'avant (décision 245, I133 inchangé).
+> - **« Essayer »** = `Seance.essayerMarche` : le geste de « Remplacer » (la marche prend la place, reçoit les séries restantes vides,
+>   garde repos et superset ; les séries faites restent sur le départ), la marche marquée `essai_marche` (brouillon : départ, copie de
+>   l'objet d'origine, bas de zone, repli). **Rien au profil** (`marche_reponses` n'accepte que oui/non) : un geste `marche_essayee`.
+>   La question de fin « mettre à jour la routine » n'en parle jamais (`Seance.exercicesPourLaRoutine`).
+> - **Après le clic**, sur la marche : « C'est fait : <marche>, N séries, autant de reps que tu peux, en en gardant 2. » (+ « Ta série
+>   de <départ> déjà faite reste notée. » / « Tes N séries de <départ> déjà faites restent notées. ») « La prochaine fois, je pars de ce
+>   que tu auras noté. » ; « **Annuler** » tant qu'aucune série de la marche n'est faite (le départ revient TEL QUEL, `marche_annulee`).
+>   « En en gardant 2 » pour tout le monde : la marche est une première fois (I151, I160) — jamais « Au max » sur elle.
+> - **La tenue** (`Moteur.marcheTenue`, une fonction) : chaque série de travail faite (au moins 2) à au moins **max(3, min(5, bas de la
+>   zone de la ligne))** reps (bas inconnu : 5).
+> - **Le repli en séance** (`Moteur.repliDeLaMarche`) : la 1re série faite de la marche entre 1 rep et sous le seuil — une fois :
+>   « <marche> × <reps>. Pour la suite, je remets <départ>. » [Remettre <départ>] [Continuer] (`marche_remise` / `marche_continuee`).
+>   **À 0 rep, aucune voix de plus** : la règle existante (245 b, la marche d'en dessous à la séance suivante depuis une aide) parle seule.
+> - **La fin de séance** (`Moteur.finDeLaMarche`), marche tenue, **routine manuelle seulement** (hors du dossier du programme construit
+>   par le coach, hors d'un bloc : I145, I146) : « <marche> : 10 et 10 aujourd'hui. Je la mets à la place de <départ> dans <routine> ? »
+>   [Oui, dans <routine>] [Juste aujourd'hui] (le défaut). « Oui » : la routine change par `poserRoutineVoulue` (la zone de la ligne remise
+>   à null, I79) et alors seulement `marche_reponses[départ] = { r: oui, le }`. « Juste aujourd'hui » ou non tenue : rien n'est écrit,
+>   la carte revient par la règle des 28 jours (`JOURS_MARCHE_FAITE`).
+> - **Le générateur** (`marcheDeLaPersonne`) ne compte une marche comme acquise que tenue (`faits.marchesTenues`).
+>
+> **Invariants.** **I49** réécrit : en plus d'avant, jamais en séance douloureuse, jamais si la marche est dans la séance ou la routine,
+> jamais avec moins de 2 séries de travail restantes, le bouton « Essayer … ». **I220** « C'est fait … en en gardant 2 » et « Annuler »
+> tant qu'aucune série de la marche n'est faite, jamais d'échec ni d'« Au max » sur elle. **I221** aucune carte de fin hors tenue, hors
+> routine manuelle ou dans un bloc ; une carte de fin quand tout cela tient. **I222** le repli entre 1 rep et sous le seuil, une fois,
+> jamais deux voix après un 0. **I223** (tests, pas `verifierPlan`) : le clic remplace (`Seance.essayerMarche`), aucune écriture de
+> routine ni de `marche_reponses` sans « Oui », la question de fin muette, le générateur ne lit que les marches tenues
+> (`tests/unit/v2-marche-essayer.test.js`).
+
 ### 9.17 ter Les figures en secondes et le réglage Franc — décidé le 23/10/2026 (prompt 149)
 
 **Échelle de figures** : une échelle dont toutes les marches se mesurent en temps (`mesure = 'temps'`). Le seuil d'une marche

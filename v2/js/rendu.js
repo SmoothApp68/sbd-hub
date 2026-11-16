@@ -3651,6 +3651,9 @@
         // plan ne pose jamais les deux sur un exercice).
         var pm = typeof vue.propositionMarche === 'function' ? vue.propositionMarche(s._iExo) : null;
         if (pm) hoteCartes.appendChild(propositionDeMarche(pm, s._iExo, vue));
+        // 16/11/2026 (« Essayer la marche ») — sur la marche essayée : « C'est fait … » + « Annuler », puis le repli.
+        var pem = typeof vue.essaiMarche === 'function' ? vue.essaiMarche(s._iExo) : null;
+        if (pem) hoteCartes.appendChild(propositionDEssaiDeMarche(pem, s._iExo, vue));
         var ps = typeof vue.propositionSchema === 'function' ? vue.propositionSchema(s._iExo) : null;
         if (ps) hoteCartes.appendChild(propositionDeSchema(ps, s._iExo, vue));
         var pc = typeof vue.propositionChauffes === 'function' ? vue.propositionChauffes(s._iExo) : null;
@@ -4829,6 +4832,24 @@
       oui: carte.oui, non: carte.non, classeOui: 'pl-oui', classeNon: 'pl-non',
       surOui: function () { vue.surMarche(iExo, 'oui'); },
       surNon: function () { vue.surMarche(iExo, 'non'); }
+    }, iExo);
+  }
+
+  // 16/11/2026 (« Essayer la marche », MOTEUR §9.17 bis delta) — la marche essayée : la phrase du plan et « Annuler » (secondaire)
+  // tant qu'aucune série n'est faite ; puis, une fois, le repli « Remettre <départ> » / « Continuer ». Le texte vient du plan.
+  function propositionDEssaiDeMarche(em, iExo, vue) {
+    if (em.repli) {
+      return propositionDExercice({
+        classe: 'proposition-marche-essai proposition-marche-repli', texte: em.repli.texte,
+        gestes: [
+          { texte: em.repli.remettre, classe: 'pme-remettre', surClic: function () { vue.surEssaiMarche(iExo, 'remettre'); } },
+          { texte: em.repli.continuer, classe: 'pme-continuer', secondaire: true, surClic: function () { vue.surEssaiMarche(iExo, 'continuer'); } }
+        ]
+      }, iExo);
+    }
+    return propositionDExercice({
+      classe: 'proposition-marche-essai', texte: em.texte,
+      gestes: em.annuler ? [{ texte: em.annuler, classe: 'pme-annuler', secondaire: true, surClic: function () { vue.surEssaiMarche(iExo, 'annuler'); } }] : []
     }, iExo);
   }
 
@@ -6963,6 +6984,23 @@
       q.appendChild(choix);
       cible.appendChild(q);
     }
+
+    // 16/11/2026 (« Essayer la marche ») — la marche tenue : « Je la mets à la place de … ? », deux choix, « Juste aujourd'hui »
+    // par défaut (rien n'est écrit). Le texte et les libellés viennent du plan.
+    (vue.finsMarche || []).forEach(function (f) {
+      var qm = el('div', 'question-routine question-marche');
+      qm.appendChild(el('p', 'question-t', f.texte));
+      var choixM = el('div', 'choix-routine');
+      [[false, f.non], [true, f.oui]].forEach(function (c) {
+        var bm = el('button', !!f.choisi === c[0] ? 'sel' : '', c[1]);
+        bm.type = 'button';
+        bm.setAttribute('aria-pressed', !!f.choisi === c[0] ? 'true' : 'false');
+        bm.addEventListener('click', function () { f.surChoix(c[0]); });
+        choixM.appendChild(bm);
+      });
+      qm.appendChild(choixM);
+      cible.appendChild(qm);
+    });
 
     var b = el('button', 'principal', 'Terminer');
     b.type = 'button';

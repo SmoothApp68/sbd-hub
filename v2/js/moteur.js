@@ -9714,7 +9714,84 @@
   // La marche proposée déjà pratiquée dans les 28 derniers jours : pas de carte (Léa faisait déjà ses strictes).
   var JOURS_MARCHE_FAITE = 28;
   var NON_MARCHE = 'Pas maintenant';
-  function ouiMarche(nom) { return 'Ajouter ' + nom; }
+  // 16/11/2026 (« Essayer la marche », §9.17 bis delta) — en reps, la carte REMPLACE les séries restantes : « Essayer … ».
+  // Les figures en secondes (§9.17 ter) gardent « Ajouter … » (`ajouterMarche`) : elles ne changent pas.
+  function ouiMarche(nom) { return 'Essayer ' + nom; }
+  function ajouterMarche(nom) { return 'Ajouter ' + nom; }
+
+  // ══ 16/11/2026 — ESSAYER LA MARCHE (MOTEUR §9.17 bis, delta du 16/11/2026 ; I49 réécrit, I220 à I223) ═════════════════
+  //
+  // Retour réel d'Aurélien : « Ajouter » se lisait « passer à », il a supprimé l'exercice de départ à la main. La carte en
+  // reps propose donc d'ESSAYER la marche À LA PLACE des séries restantes du départ, aujourd'hui seulement ; la routine ne
+  // change qu'après une marche TENUE et un « Oui » explicite en fin de séance (routine manuelle seulement).
+  //   · `SERIES_ESSAI_MIN` : le bouton n'existe que s'il reste au moins 2 séries de travail à faire sur le départ ;
+  //   · `seuilDeTenueDeMarche(bas)` = max(3, min(5, bas de la zone de la ligne)) ; bas inconnu : 5 ;
+  //   · `marcheTenue({ series, bas })` : chaque série de TRAVAIL faite (au moins 2) à au moins ce seuil — la seule
+  //     définition, lue par le plan (la carte de fin, le repli) et par les faits (le générateur, `faits.marchesTenues`).
+  var SERIES_ESSAI_MIN = 2;
+  var TENUE_MARCHE_MIN = 3, TENUE_MARCHE_MAX = 5, SERIES_TENUE_MARCHE = 2;
+  var RESERVE_ESSAI_MARCHE = 2;
+  function seuilDeTenueDeMarche(bas) {
+    var b = nombre(bas);
+    return Math.max(TENUE_MARCHE_MIN, Math.min(TENUE_MARCHE_MAX, b === null ? TENUE_MARCHE_MAX : b));
+  }
+  function repsDeTravailDeLaMarche(series) {
+    var Mo = Modele();
+    return (Array.isArray(series) ? series : []).filter(function (s) {
+      return !!s && Mo.estTravail(s) && !Mo.estHorsCalcul(s);
+    }).map(function (s) { return nombre(s.reps); });
+  }
+  function marcheTenue(e) {
+    var x = e || {};
+    var reps = repsDeTravailDeLaMarche(x.series);
+    if (reps.length < SERIES_TENUE_MARCHE) return false;
+    var seuil = seuilDeTenueDeMarche(x.bas);
+    return reps.every(function (r) { return r !== null && r >= seuil; });
+  }
+  // Le repli en séance : la 1re série de travail validée de la marche est sous le seuil, à 1 rep au moins (à 0, la règle
+  // existante parle seule : jamais deux voix). `e` : `{ series (faites, dans l'ordre), bas, repondu }`. Rend `{ reps }` ou `null`.
+  function repliDeLaMarche(e) {
+    var x = e || {};
+    if (x.repondu) return null;
+    var reps = repsDeTravailDeLaMarche(x.series);
+    if (!reps.length) return null;
+    var r = reps[0];
+    if (r === null || r < 1 || r >= seuilDeTenueDeMarche(x.bas)) return null;
+    return { reps: r };
+  }
+  // La carte de fin : la marche tenue, une routine MANUELLE (jamais un programme du coach ni un exercice d'un bloc : I145,
+  // I146). Les lignes vides ne comptent pas (« Terminer » ne garde que les séries validées). `e` : `{ faites, bas, manuelle,
+  // enBloc }`. Rend `{ reps }` (les reps de chaque série de travail faite) ou `null`.
+  function finDeLaMarche(e) {
+    var x = e || {};
+    if (x.manuelle !== true || x.enBloc === true) return null;
+    if (!marcheTenue({ series: x.faites, bas: x.bas })) return null;
+    return { reps: repsDeTravailDeLaMarche(x.faites) };
+  }
+  // Les textes (le prompt du 16/11/2026, mot pour mot).
+  function phraseEssaiDeMarche(e) {
+    var x = e || {};
+    var t = 'C\'est fait : ' + x.nom + ', ' + nombreFr(x.n) + ' séries, autant de reps que tu peux, en en gardant ' +
+            nombreFr(RESERVE_ESSAI_MARCHE) + '.';
+    var f = nombre(x.faites);
+    if (f === 1) t += ' Ta série de ' + x.nomDepart + ' déjà faite reste notée.';
+    else if (f > 1) t += ' Tes ' + nombreFr(f) + ' séries de ' + x.nomDepart + ' déjà faites restent notées.';
+    return t + ' La prochaine fois, je pars de ce que tu auras noté.';
+  }
+  var ANNULER_ESSAI_MARCHE = 'Annuler';
+  function phraseRepliDeMarche(e) {
+    var x = e || {};
+    return x.nom + ' \u00d7 ' + nombreFr(x.reps) + '. Pour la suite, je remets ' + x.nomDepart + '.';
+  }
+  function remettreDepart(nom) { return 'Remettre ' + nom; }
+  var CONTINUER_MARCHE = 'Continuer';
+  function phraseFinDeMarche(e) {
+    var x = e || {};
+    return x.nom + ' : ' + Modele().enumerer((x.reps || []).map(function (r) { return nombreFr(r); })) + ' aujourd\'hui. ' +
+           'Je la mets à la place de ' + x.nomDepart + ' dans ' + x.routine + '\u00a0?';
+  }
+  function ouiFinDeMarche(routine) { return 'Oui, dans ' + routine; }
+  var JUSTE_AUJOURDHUI_MARCHE = 'Juste aujourd\'hui';
 
   // LA CARTE « MARCHE SUIVANTE » (§9.17 bis ; hors lest, qui garde sa carte) : `{ titre, detail, oui, non, cible }`,
   // ou `null`. Une donnée, comme la carte du lest : l'écran la dessine avec le même composant. Pure — `e` :
@@ -9730,6 +9807,11 @@
     var x = e || {};
     var m = x.marche;
     if (x.coachActif === false || !m || !m.proposable || !Array.isArray(m.cible) || !m.cible.length) return null;
+    // 16/11/2026 (« Essayer la marche ») — les gardes de l'essai : jamais en séance douloureuse (« J'ai mal », reprise après
+    // une douleur, douleur répétée), jamais si la marche est déjà dans la séance ou dans la routine, jamais avec moins de
+    // 2 séries de travail restantes sur le départ (« J'ai peu de temps » compris). Le plan donne ces faits.
+    if (x.douleur === true || x.dejaLa === true) return null;
+    if (x.restantes !== undefined && !(nombre(x.restantes) >= SERIES_ESSAI_MIN)) return null;
     var sc = Array.isArray(x.seances) ? x.seances : [];
     // 149 — EN FRANC, UNE SÉANCE SUFFIT : la dernière. La garde « à la même aide » n'a plus d'objet (une seule séance).
     var franc = x.reglage === 'franc';
@@ -9750,7 +9832,7 @@
       if (j !== null && f !== null && j - f <= JOURS_MARCHE_FAITE) return null;
     }
     return { cible: m.cible[0], nom: x.nomCible || m.cible[0], aide: aide, niveau: nombre(b.niveau), charge: nombre(b.charge),
-             reglage: franc ? 'franc' : null };
+             reglage: franc ? 'franc' : null, nomDepart: x.nomDepart || null };
   }
   // Le titre et le détail s'écrivent chacun par sa fonction : le plan les rédige sous deux captures (§20 bis).
   // `d` : la décision (`carteMarcheDecidee`).
@@ -9772,8 +9854,9 @@
       return 'La marche au-dessus : ' + x.nom + '. Je te propose d\'en faire ' + nombreFr(SERIES_MARCHE, regle('constante')) +
              ' tenues avant, autant de secondes que tu peux.';
     }
-    return 'La marche au-dessus : ' + x.nom + '. Je te propose d\'en faire ' + nombreFr(SERIES_MARCHE, regle('constante')) +
-           ' séries avant, autant de reps que tu peux.';
+    // 16/11/2026 — en reps, l'essai : la marche prend la place des séries restantes, aujourd'hui.
+    return 'La marche au-dessus : ' + x.nom + '. Je la mets à la place de tes séries restantes de ' + (x.nomDepart || '') +
+           ', pour essayer aujourd\'hui. Ta routine ne change pas.';
   }
   function carteMarche(e) {
     var d = carteMarcheDecidee(e);
@@ -13828,7 +13911,23 @@
     carteMarcheTitre: carteMarcheTitre,
     carteMarcheDetail: carteMarcheDetail,
     ouiMarche: ouiMarche,
+    ajouterMarche: ajouterMarche,
     NON_MARCHE: NON_MARCHE,
+    // 16/11/2026 — essayer la marche (§9.17 bis delta, I49, I220 à I223).
+    SERIES_ESSAI_MIN: SERIES_ESSAI_MIN,
+    RESERVE_ESSAI_MARCHE: RESERVE_ESSAI_MARCHE,
+    seuilDeTenueDeMarche: seuilDeTenueDeMarche,
+    marcheTenue: marcheTenue,
+    repliDeLaMarche: repliDeLaMarche,
+    finDeLaMarche: finDeLaMarche,
+    phraseEssaiDeMarche: phraseEssaiDeMarche,
+    ANNULER_ESSAI_MARCHE: ANNULER_ESSAI_MARCHE,
+    phraseRepliDeMarche: phraseRepliDeMarche,
+    remettreDepart: remettreDepart,
+    CONTINUER_MARCHE: CONTINUER_MARCHE,
+    phraseFinDeMarche: phraseFinDeMarche,
+    ouiFinDeMarche: ouiFinDeMarche,
+    JUSTE_AUJOURDHUI_MARCHE: JUSTE_AUJOURDHUI_MARCHE,
     phraseDeLaSuivante: phraseDeLaSuivante,
     rondsDeLaSuivante: rondsDeLaSuivante,
     PARTS_DE_TENUE: PARTS_DE_TENUE,

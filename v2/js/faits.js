@@ -1329,6 +1329,29 @@
       return compte;
     }
 
+    // 16/11/2026 (« Essayer la marche », MOTEUR §9.17 bis delta) — LES MARCHES TENUES : pour chaque exercice, le nombre de séances
+    // (sur la fenêtre de `historiqueDesExercices`) où il a été TENU au sens de `Moteur.marcheTenue` (au moins 2 séries de travail,
+    // chacune à au moins max(3, min(5, bas)) reps ; le bas de zone d'une séance passée n'est pas connu : 5). Le générateur ne
+    // compte une marche comme acquise que tenue : un essai raté ne fait pas monter le programme.
+    function marchesTenues(c) {
+      var datees = seancesDatees(c);
+      if (!datees.length) return {};
+      var fenetre = racine.THRoutines.fenetreDeLaPersonne(derniereSeance(c));
+      var compte = {};
+      datees.forEach(function (s) {
+        if (!Periode.dans(s.debut, fenetre)) return;
+        var parSlug = {};
+        (s.series || []).forEach(function (x) {
+          if (!x || !x.exercise_slug) return;
+          (parSlug[x.exercise_slug] = parSlug[x.exercise_slug] || []).push(x);
+        });
+        Object.keys(parSlug).forEach(function (slug) {
+          if (Moteur.marcheTenue({ series: parSlug[slug], bas: null })) compte[slug] = (compte[slug] || 0) + 1;
+        });
+      });
+      return compte;
+    }
+
     // 188-2 (MOTEUR §9.27 bis) — LES CHUTES DE REPS d'un exercice : pour chacune de ses `n` dernières séances qui ont au moins trois
     // séries de travail à la MÊME charge pour la 1re et la 3e (sinon la baisse n'est pas celle de la fatigue), la part de reps
     // perdue de la série 1 à la série 3, `(reps1 − reps3) / reps1`. Les plus récentes d'abord. Une série « ne compte pas » est
@@ -2607,6 +2630,7 @@
       ceQueJeSais: ceQueJeSais,
       programmeDeduit: programmeDeduit,
       historiqueDesExercices: historiqueDesExercices,
+      marchesTenues: marchesTenues,
       chutesDeReps: chutesDeReps,
       reposReelsDe: reposReelsDe,
       habitudes: habitudes,

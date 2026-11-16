@@ -71,13 +71,22 @@ describe('127 — concordance avec echelle127.py', () => {
     return M.carteMarche({
       marche: m, nomCible: m ? INDEX[m.cible[0]].nom : null, aide: INDEX[c.slug].charge === 'assistance',
       haut: c.haut, seances: c.seances, reponse: c.reponse, cibleFaiteLe: c.cible_faite_le,
-      aujourdHui: c.aujourd_hui, coachActif: c.coach_actif
+      aujourdHui: c.aujourd_hui, coachActif: c.coach_actif, nomDepart: INDEX[c.slug].nom
     });
+  };
+  // 16/11/2026 (« Essayer la marche », MOTEUR §9.17 bis delta) — le fichier de cas, d'avant, dit « Ajouter … » et « Je te propose
+  // d'en faire 2 séries avant » ; la décision (quand la carte se pose, son titre, sa cible, « Pas maintenant ») est inchangée, le
+  // détail et le bouton disent désormais l'essai. Le fichier n'est pas retouché : l'attendu se traduit ici, et seulement ces deux champs.
+  const essaiDe = (c, a) => {
+    if (!a) return a;
+    const nom = INDEX[c.slug].nom, cible = a.oui.replace(/^Ajouter /, '');
+    return Object.assign({}, a, { oui: 'Essayer ' + cible,
+      detail: 'La marche au-dessus : ' + cible + '. Je la mets à la place de tes séries restantes de ' + nom + ', pour essayer aujourd\'hui. Ta routine ne change pas.' });
   };
   F.carte.forEach((c) => {
     test('carte — ' + c.nom, () => {
       // Au caractère près : titre, détail, boutons, cible — ou `null`.
-      expect(carteDe(c)).toEqual(c.attendu);
+      expect(carteDe(c)).toEqual(essaiDe(c, c.attendu));
     });
   });
 
@@ -192,7 +201,7 @@ function entreesDe(slug, consigne, extra) {
   return Object.assign({
     seance: { id: 'S1', debut: AVANT, edition: false, exercices: se.exercices },
     consignes: { [slug]: consigne }, reglage: null, paris: [], suites: {},
-    catalogue: { [slug]: { equipement: 'elastique', muscles_primaires: ['dos'], mesure: INDEX[slug].mesure, leste: null } },
+    catalogue: { [slug]: { nom: INDEX[slug].nom, equipement: 'elastique', muscles_primaires: ['dos'], mesure: INDEX[slug].mesure, leste: null } },
     intention: 'progresser', modes: {}, lestReponse: null,
     echelles: ech ? { [slug]: ech } : {}, marcheReponses: {}
   }, extra || {});
@@ -214,8 +223,9 @@ describe('127 — la carte « marche suivante » dans le plan (§9.17 bis)', () 
     const x = plan.exercices[0];
     expect(x.carteMarche).toMatchObject({
       titre: 'Aide 25 kg × 12 sur toutes tes séries, deux séances de suite.',
-      detail: 'La marche au-dessus : Tractions. Je te propose d\'en faire 2 séries avant, autant de reps que tu peux.',
-      oui: 'Ajouter Tractions', non: 'Pas maintenant', cible: 'tractions', aide: true
+      // 16/11/2026 (« Essayer la marche ») — la marche prend la place des séries restantes, aujourd'hui.
+      detail: 'La marche au-dessus : Tractions. Je la mets à la place de tes séries restantes de Tractions (Élastique), pour essayer aujourd\'hui. Ta routine ne change pas.',
+      oui: 'Essayer Tractions', non: 'Pas maintenant', cible: 'tractions', aide: true, essai: true, restantes: 3
     });
     // On tient la ligne : la consigne n'est pas touchée.
     expect(x.consigne).toEqual(consigneAide([-30, -30, -25, -25], [12, 12, 12, 12]).consigne);
@@ -226,7 +236,7 @@ describe('127 — la carte « marche suivante » dans le plan (§9.17 bis)', () 
   test('deux aides différentes : pas de carte', () => {
     expect(planCarte(null, [-30, -30, -30, -25]).plan.exercices[0].carteMarche).toBeNull();
   });
-  test('« Ajouter » déjà répondu : pas de carte', () => {
+  test('« Oui » déjà répondu : pas de carte', () => {
     expect(planCarte({ marcheReponses: { tractions_elastique: { r: 'oui', le: AVANT } } }).plan.exercices[0].carteMarche).toBeNull();
   });
   test('« Pas maintenant » à la même aide : pas de carte ; à une aide plus légère : la carte revient', () => {

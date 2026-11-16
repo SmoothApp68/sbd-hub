@@ -1101,6 +1101,103 @@
     return normaliserGroupes(avecExercices(seance, exos));
   }
 
+  // ── 16/11/2026 — ESSAYER LA MARCHE (MOTEUR §9.17 bis, delta du 16/11/2026 ; I220 à I223) ─────────────────────────
+  //
+  // « Essayer <marche> » : le geste de « Remplacer » (`remplacerExercice` : la marche prend la place, reçoit les séries
+  // restantes vides, garde repos et groupe ; les séries faites restent sur le départ), et la marche porte `essai_marche` :
+  //   · `depart` : le slug du départ ; `origine` : une COPIE de l'objet du départ tel qu'il était (ligne de routine, note,
+  //     zones, séries) — « Annuler » le remet tel quel ; `bas` : le bas de la zone de la ligne (le seuil de tenue) ;
+  //   · `repli` : `null`, puis `continuer` ou `remis` (une seule proposition de repli).
+  // La marque vit dans le brouillon seulement (la séance en base n'a pas de colonne pour elle) ; elle fait taire la question
+  // de fin « mettre à jour la routine » sur ce remplacement (`ecartsRoutine`) : seule la carte de fin en parle.
+  function copieProfonde(o) { return o === undefined ? undefined : JSON.parse(JSON.stringify(o)); }
+  function essayerMarche(seance, iExo, slug, idSerie, info) {
+    var ancien = (seance && seance.exercices || [])[iExo];
+    if (!ancien || !slug || ancien.essai_marche) return seance;
+    var o = info || {};
+    var origine = copieProfonde(ancien);
+    var avecFaites = (ancien.series || []).some(function (q) { return partEnBase(q); });
+    var apres = remplacerExercice(seance, iExo, slug, idSerie);
+    var iM = avecFaites ? iExo + 1 : iExo;
+    var exos = apres.exercices.slice();
+    if (!exos[iM] || exos[iM].exercise_slug !== slug) return seance;
+    exos[iM] = Object.assign({}, exos[iM], { essai_marche: {
+      depart: ancien.exercise_slug, origine: origine, bas: typeof o.bas === 'number' ? o.bas : null, repli: null } });
+    return avecExercices(apres, exos);
+  }
+  // L'index du départ resté dans la séance (ses séries faites), juste avant la marche ; -1 sinon.
+  function departResteDe(seance, iM) {
+    var exos = (seance && seance.exercices) || [];
+    var m = exos[iM];
+    var p = exos[iM - 1];
+    return m && m.essai_marche && p && !p.essai_marche && p.exercise_slug === m.essai_marche.depart ? iM - 1 : -1;
+  }
+  // « Annuler » : tant qu'aucune série de la marche n'est faite, le départ revient TEL QUEL (sa ligne de routine, sa note,
+  // ses zones, ses lignes vides avec leurs identifiants) ; ses séries faites entre-temps restent les siennes.
+  function annulerEssaiMarche(seance, iM) {
+    var exos = ((seance && seance.exercices) || []).slice();
+    var m = exos[iM];
+    if (!m || !m.essai_marche || (m.series || []).some(function (q) { return partEnBase(q); })) return seance;
+    var origine = copieProfonde(m.essai_marche.origine);
+    if (!origine) return seance;
+    var iD = departResteDe(seance, iM);
+    var vides = (origine.series || []).filter(function (q) { return !partEnBase(q); });
+    if (iD >= 0) {
+      exos.splice(iD, 2, Object.assign({}, origine, { series: (exos[iD].series || []).concat(vides) }));
+    } else {
+      exos[iM] = Object.assign({}, origine, { series: (origine.series || []).filter(function (q) { return partEnBase(q); }).concat(vides) });
+    }
+    return normaliserGroupes(avecExercices(seance, exos));
+  }
+  // « Remettre <départ> » (le repli) : la marche garde ses séries faites, ses lignes vides passent au départ — à la suite
+  // de ses séries faites s'il est resté dans la séance, sinon le départ revient d'après l'origine (ligne de routine, note,
+  // zones), juste après la marche. Aucune série validée n'est touchée.
+  function remettreDepartApresMarche(seance, iM, idSerie) {
+    var exos = ((seance && seance.exercices) || []).slice();
+    var m = exos[iM];
+    if (!m || !m.essai_marche || m.essai_marche.repli) return seance;
+    var faites = (m.series || []).filter(function (q) { return partEnBase(q); });
+    var vides = (m.series || []).filter(function (q) { return !partEnBase(q); }).map(function (q) {
+      var l = serieVide(idSerie);
+      l.type_serie = q.type_serie || 'travail';
+      return l;
+    });
+    exos[iM] = Object.assign({}, m, { series: faites.length ? faites : m.series,
+      essai_marche: Object.assign({}, m.essai_marche, { repli: 'remis' }) });
+    if (vides.length) {
+      var iD = departResteDe(seance, iM);
+      if (iD >= 0) {
+        exos[iD] = Object.assign({}, exos[iD], { series: (exos[iD].series || []).concat(vides) });
+      } else {
+        var origine = copieProfonde(m.essai_marche.origine) || { exercise_slug: m.essai_marche.depart };
+        exos.splice(iM + 1, 0, Object.assign({}, origine, { series: vides }));
+      }
+    }
+    return normaliserGroupes(avecExercices(seance, exos));
+  }
+  // « Continuer » : la marche reste ; la proposition de repli ne revient pas.
+  function continuerMarche(seance, iM) {
+    var exos = ((seance && seance.exercices) || []).slice();
+    var m = exos[iM];
+    if (!m || !m.essai_marche || m.essai_marche.repli) return seance;
+    exos[iM] = Object.assign({}, m, { essai_marche: Object.assign({}, m.essai_marche, { repli: 'continuer' }) });
+    return avecExercices(seance, exos);
+  }
+  // Les exercices de la séance tels que la question de fin les compare à la routine : un essai de marche n'est JAMAIS un
+  // écart — la marche n'y est pas, et le départ y est à sa place (d'après l'origine) s'il n'est plus dans la séance.
+  function exercicesPourLaRoutine(seance) {
+    var exos = (seance && seance.exercices) || [];
+    var sortie = [];
+    exos.forEach(function (exo) {
+      if (!exo || exo.ajout) return;
+      if (!exo.essai_marche) { sortie.push(exo); return; }
+      var dep = exo.essai_marche.depart;
+      var present = exos.some(function (e) { return e && e !== exo && !e.essai_marche && e.exercise_slug === dep; });
+      if (!present && exo.essai_marche.origine) sortie.push(exo.essai_marche.origine);
+    });
+    return sortie;
+  }
+
   // Ajouter un exercice APRÈS un bloc (§5 bis). L'ajout en fin de séance reste
   // `ajouterExercice` — c'est le même geste, sans position.
   function insererExercice(seance, apres, slug, idSerie, options) {
@@ -1491,7 +1588,9 @@
     var changees = [];
     // 99 (MOTEUR §9.24) — un exercice ajouté pour la semaine qui déraille est pour cette semaine seulement : la
     // question de fin ne propose jamais de l'écrire dans la routine.
-    var voulues = (seance.exercices || []).filter(function (exo) { return !(exo && exo.ajout); }).map(function (exo, iVoulue) {
+    // 16/11/2026 (« Essayer la marche ») — un essai de marche n'est pas un écart (`exercicesPourLaRoutine`) : seule la carte
+    // de fin en parle.
+    var voulues = exercicesPourLaRoutine(seance).map(function (exo, iVoulue) {
       var ligne = (exo.routine_exercise_id && parId[exo.routine_exercise_id]) || null;
       if (o.series) {
         var deSeance = (exo.series || []).map(structureDeLigne);
@@ -2364,7 +2463,10 @@
   var GENRES_NOTES = ['effort', 'type_serie', 'reglage', 'douleur'];
   // PR 2 — « Sans coach cette fois » et « Remettre le coach » : `{ geste, slug }` (mesure ; la marque elle-même vit sur l'occurrence).
   var GESTES_SANS_COACH = ['sans_coach', 'coach_remis'];
-  var GESTES = ['raccourci', 'machine_prise', 'remplacement', 'ajout_serie', 'retrait', 'serie_comptee'].concat(GESTES_DU_COACH, GESTES_CHAUFFES, GESTES_NOTES, GESTES_SANS_COACH);
+  // 16/11/2026 (« Essayer la marche ») — `{ geste, slug: départ, vers: marche }` : « Essayer », « Annuler », « Remettre <départ> »,
+  // « Continuer », et « Oui, dans <routine> » à la fin. Une mesure : `equilibres.js` ne les lit pas.
+  var GESTES_MARCHE = ['marche_essayee', 'marche_annulee', 'marche_remise', 'marche_continuee', 'marche_routine'];
+  var GESTES = ['raccourci', 'machine_prise', 'remplacement', 'ajout_serie', 'retrait', 'serie_comptee'].concat(GESTES_DU_COACH, GESTES_CHAUFFES, GESTES_NOTES, GESTES_SANS_COACH, GESTES_MARCHE);
   function gestePropre(g) {
     if (!g || typeof g !== 'object' || GESTES.indexOf(g.geste) < 0) return null;
     var o = { geste: g.geste };
@@ -2375,7 +2477,7 @@
     }
     if (!slug(g.slug)) return null;
     o.slug = g.slug;
-    if ((g.geste === 'remplacement') && !slug(g.vers)) return null;
+    if ((g.geste === 'remplacement' || GESTES_MARCHE.indexOf(g.geste) >= 0) && !slug(g.vers)) return null;
     if (slug(g.vers)) o.vers = g.vers;
     if (g.geste === 'ajout_serie') o.n = g.n > 0 ? Math.floor(g.n) : 1;
     if (GESTES_NOTES.indexOf(g.geste) >= 0) {
@@ -3479,6 +3581,11 @@
     COUSINS_PROPOSES: COUSINS_PROPOSES,
     remplacerExercice: remplacerExercice,
     insererExercice: insererExercice,
+    essayerMarche: essayerMarche,
+    annulerEssaiMarche: annulerEssaiMarche,
+    remettreDepartApresMarche: remettreDepartApresMarche,
+    continuerMarche: continuerMarche,
+    exercicesPourLaRoutine: exercicesPourLaRoutine,
     retirerExercices: retirerExercices,
     compterAEffacer: compterAEffacer,
     valider: valider,

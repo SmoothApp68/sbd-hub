@@ -1310,6 +1310,8 @@
     var M = Moteur(), G = racine.THGenerateur;
     var slug = exos[i] && exos[i].exercise_slug;
     if (!slug || !coachee || douloureuse || seance.edition || intentionX === 'entretien' || allegee) return null;
+    // 16/11/2026 (« Essayer la marche », I221) — une marche essayée est une première fois : « en en gardant 2 », jamais « Au max ».
+    if (exos[i].essai_marche) return null;
     var cat = e.catalogue || {};
     var fiche = Object.prototype.hasOwnProperty.call(cat, slug) ? cat[slug] : null;
     var famille = G && G.familleDeBarre ? G.familleDeBarre(slug, cat) : null;
@@ -2752,20 +2754,26 @@
         var ech = slug && Object.prototype.hasOwnProperty.call(echelles, slug) ? echelles[slug] : null;
         var zm = kl ? Moteur().zoneParCle(kl.zone) : null;
         if (ech && kl && zm && !kl.allegee && !x.carteLest && !marchesPosees[slug] && intentionX !== 'entretien' &&
-            !seance.edition) {
+            !seance.edition && !exo.essai_marche) {
           var M4 = Moteur(), V4 = Voix();
           var ds = kl.fondement && Array.isArray(kl.fondement.deuxSeances) ? kl.fondement.deuxSeances : [];
           var reponseM = Object.prototype.hasOwnProperty.call(marcheReponses, slug) ? marcheReponses[slug] : null;
+          // 16/11/2026 (« Essayer la marche ») — les faits des gardes : les séries de travail restantes du départ, la douleur
+          // (le jour, la reprise après une douleur, la douleur répétée), la marche déjà dans la séance ou dans la routine.
+          var faitsEssai = faitsDeLEssai(e, seance, exo, slug, ech, douloureuse, c);
           var dM = M4.carteMarcheDecidee({ marche: ech.marche, nomCible: ech.nomCible, aide: ech.aide === true,
             haut: zm.haut, seances: ds, reponse: reponseM, cibleFaiteLe: ech.cibleFaiteLe || null,
-            aujourdHui: seance.debut, coachActif: true, reglage: reglagePlan });
+            aujourdHui: seance.debut, coachActif: true, reglage: reglagePlan,
+            nomDepart: cat && cat.nom ? cat.nom : slug, restantes: faitsEssai.restantes,
+            douleur: faitsEssai.douleur, dejaLa: faitsEssai.dejaLa });
           if (dM) {
             marchesPosees[slug] = true;
             var capMT = V4.capturer(function () { return M4.carteMarcheTitre(dM); });
             var capMD = V4.capturer(function () { return M4.carteMarcheDetail(dM); });
             x.carteMarche = { titre: capMT.texte, detail: capMD.texte, oui: M4.ouiMarche(dM.nom), non: M4.NON_MARCHE,
                               cible: dM.cible, nom: dM.nom, type: ech.marche.type, proposable: ech.marche.proposable === true,
-                              cibleHabilete: ech.cibleHabilete === true, aide: dM.aide, niveau: dM.niveau, charge: dM.charge };
+                              cibleHabilete: ech.cibleHabilete === true, aide: dM.aide, niveau: dM.niveau, charge: dM.charge,
+                              essai: true, restantes: faitsEssai.restantes, bas: zm.bas, nomDepart: dM.nomDepart };
             x.phrases.push({ ou: 'marche.titre', texte: capMT.texte, citations: capMT.citations });
             x.phrases.push({ ou: 'marche.detail', texte: capMD.texte, citations: capMD.citations });
           }
@@ -2790,7 +2798,7 @@
               marchesPosees[slug] = true;
               var capFT = V5.capturer(function () { return M5.carteMarcheTitre(dF); });
               var capFD = V5.capturer(function () { return M5.carteMarcheDetail(dF); });
-              x.carteMarche = { titre: capFT.texte, detail: capFD.texte, oui: M5.ouiMarche(dF.nom), non: M5.NON_MARCHE,
+              x.carteMarche = { titre: capFT.texte, detail: capFD.texte, oui: M5.ajouterMarche(dF.nom), non: M5.NON_MARCHE,
                                 cible: dF.cible, nom: dF.nom, type: echF.marche.type, proposable: echF.marche.proposable === true,
                                 cibleHabilete: false, aide: false, niveau: dF.niveau, charge: null,
                                 secondes: true, seuil: dF.seuil, tenues: tenuesF };
@@ -2799,8 +2807,70 @@
             }
           }
         }
+        // 16/11/2026 (« Essayer la marche ») — sur la MARCHE essayée : la phrase « C'est fait … » et « Annuler », le repli,
+        // la carte de fin (lue par la feuille de fin de séance). Le plan décide ; l'écran dessine.
+        x.essaiMarche = essaiDeMarcheDuPlan(e, seance, exo, i, x);
         return x;
     }
+  }
+
+  // ── 16/11/2026 — ESSAYER LA MARCHE (MOTEUR §9.17 bis, delta du 16/11/2026 ; I49, I220 à I223) ──────────────────────────
+  //
+  // Les faits des gardes de la carte : les séries de TRAVAIL restantes (ni faites, ni chauffes) du départ, la douleur (« J'ai
+  // mal » aujourd'hui, la reprise après une séance douloureuse, deux séances avec douleur ou plus : I113), la marche déjà dans
+  // la séance (n'importe quelle occurrence : deux exercices de la même échelle s'éteignent l'un l'autre) ou dans la routine
+  // (`ech.dansLaRoutine`, un fait de l'app).
+  function faitsDeLEssai(e, seance, exo, slug, ech, douloureuse, c) {
+    var S = Seance(), Mo = racine.THModele;
+    var restantes = ((exo && exo.series) || []).filter(function (q) { return !!q && !S.partEnBase(q) && Mo.estTravail(q); }).length;
+    var compte = e.nbDouleurs && Object.prototype.hasOwnProperty.call(e.nbDouleurs, slug) ? nombre(e.nbDouleurs[slug]) : null;
+    var douleur = !!douloureuse || !!(c && c.reprise && c.reprise.douleur === true) || (compte !== null && compte >= 2);
+    var cibles = ech && ech.marche && Array.isArray(ech.marche.cible) ? ech.marche.cible : [];
+    var dansLaSeance = ((seance && seance.exercices) || []).some(function (q) { return !!q && cibles.indexOf(q.exercise_slug) >= 0; });
+    return { restantes: restantes, douleur: douleur, dejaLa: dansLaSeance || (ech && ech.dansLaRoutine === true) };
+  }
+  // L'essai sur la marche : `{ depart, nomDepart, nom, n, faitesDepart, texte, annuler, repli, fin }`, ou `null` (pas un essai).
+  //   · `texte` : « C'est fait : … », tant que la marche n'a pas de série faite ; `annuler` : « Annuler » à ce moment-là ;
+  //   · `repli` : `{ texte, remettre, continuer, reps }` (`Moteur.repliDeLaMarche`), une fois ;
+  //   · `fin` : `{ texte, oui, non, reps, routine }` (`Moteur.finDeLaMarche`) : la marche tenue, une routine manuelle, la
+  //     marche hors d'un bloc du programme ; la feuille de fin la pose, « Oui » seul écrit dans la routine.
+  function essaiDeMarcheDuPlan(e, seance, exo, i, x) {
+    var em = exo && exo.essai_marche;
+    if (!em || !em.depart || seance.edition) return null;
+    var M = Moteur(), S = Seance(), Mo = racine.THModele;
+    var cat = e.catalogue || {};
+    var nomDe = function (s) { return cat[s] && cat[s].nom ? cat[s].nom : s; };
+    var nom = nomDe(exo.exercise_slug), nomDepart = nomDe(em.depart);
+    var series = exo.series || [];
+    var faites = series.filter(function (q) { return !!q && S.partEnBase(q); });
+    var n = series.filter(function (q) { return !!q && Mo.estTravail(q); }).length;
+    var exos = seance.exercices || [];
+    var prec = exos[i - 1];
+    var faitesDepart = prec && !prec.essai_marche && prec.exercise_slug === em.depart
+      ? (prec.series || []).filter(function (q) { return !!q && S.partEnBase(q) && Mo.estTravail(q); }).length : 0;
+    var out = { depart: em.depart, nomDepart: nomDepart, nom: nom, n: n, faitesDepart: faitesDepart, bas: nombre(em.bas),
+                texte: null, annuler: null, repli: null, fin: null };
+    if (!faites.length) {
+      out.texte = M.phraseEssaiDeMarche({ nom: nom, n: n, faites: faitesDepart, nomDepart: nomDepart });
+      out.annuler = M.ANNULER_ESSAI_MARCHE;
+    }
+    var r = M.repliDeLaMarche({ series: faites, bas: em.bas, repondu: !!em.repli });
+    if (r) {
+      out.repli = { reps: r.reps, texte: M.phraseRepliDeMarche({ nom: nom, reps: r.reps, nomDepart: nomDepart }),
+                    remettre: M.remettreDepart(nomDepart), continuer: M.CONTINUER_MARCHE };
+    }
+    var fm = e.essaisDeMarche || {};
+    var jourE = M.jourCivil(seance.debut);
+    var blocs = jourE ? M.exercicesEnBloc((e.programme && e.programme.blocs) || [], jourE) : {};
+    var enBloc = !!(blocs[em.depart] || blocs[exo.exercise_slug]);
+    var f = M.finDeLaMarche({ faites: faites, bas: em.bas, manuelle: fm.manuelle === true, enBloc: enBloc });
+    if (f && em.repli !== 'remis') {
+      out.fin = { reps: f.reps, routine: fm.routine || '', oui: M.ouiFinDeMarche(fm.routine || ''), non: M.JUSTE_AUJOURDHUI_MARCHE,
+                  texte: M.phraseFinDeMarche({ nom: nom, reps: f.reps, nomDepart: nomDepart, routine: fm.routine || '' }) };
+    }
+    out.enBloc = enBloc;
+    out.manuelle = fm.manuelle === true;
+    return out;
   }
 
   // ── 149 (MOTEUR §9.17 ter) — LES FIGURES EN SECONDES : LA TENUE MAX ET LES TENUES DU COACH ───────────────────────
@@ -5770,7 +5840,30 @@
           }
         }
         if (/\?/.test(String(cm.titre) + String(cm.detail))) e49('un point d’interrogation dans la carte (§20.2)');
+        // 16/11/2026 (« Essayer la marche ») — I49 réécrit : jamais en séance douloureuse, jamais si la marche est déjà dans la
+        // séance ou dans la routine, jamais avec moins de 2 séries de travail restantes. Relu sur les ENTRÉES, pas sur la carte.
+        var exo49 = entrees && entrees.seance && (entrees.seance.exercices || [])[x.iExo];
+        var S49 = Seance(), Mo49 = racine.THModele;
+        var rest49 = exo49 ? (exo49.series || []).filter(function (q) { return !!q && !S49.partEnBase(q) && Mo49.estTravail(q); }).length : 0;
+        if (rest49 < M.SERIES_ESSAI_MIN) e49('une carte avec ' + rest49 + ' série(s) de travail restante(s) : au moins ' + M.SERIES_ESSAI_MIN);
+        if (exo49 && exo49.essai_marche) e49('une carte sur une marche déjà essayée');
+        var nbD49 = entrees && entrees.nbDouleurs && Object.prototype.hasOwnProperty.call(entrees.nbDouleurs, x.slug) ? nombre(entrees.nbDouleurs[x.slug]) : null;
+        if (x.douleur || x.carteReprise || (nbD49 !== null && nbD49 >= 2)) e49('une carte en séance douloureuse');
+        var cib49 = Array.isArray(cm.cible) ? cm.cible : [cm.cible];
+        if (entrees && entrees.seance && (entrees.seance.exercices || []).some(function (q) { return !!q && cib49.indexOf(q.exercise_slug) >= 0; })) {
+          e49('une carte alors que la marche est déjà dans la séance');
+        }
+        var echs49 = (entrees && entrees.echelles) || {};
+        if (Object.prototype.hasOwnProperty.call(echs49, x.slug) && echs49[x.slug] && echs49[x.slug].dansLaRoutine === true) {
+          e49('une carte alors que la marche est déjà dans la routine');
+        }
+        if (cm.oui !== M.ouiMarche(cm.nom)) e49('le bouton n’est pas « Essayer … » (' + cm.oui + ')');
       }
+
+      // I220 à I222 (16/11/2026, « Essayer la marche ») — sur la marche essayée.
+      var exoE = entrees && entrees.seance && (entrees.seance.exercices || [])[x.iExo];
+      if (exoE && exoE.essai_marche && !(entrees.seance.edition)) verifierEssaiDeMarche(x, exoE, entrees, err);
+      else if (x.essaiMarche) err('I220', 'un essai de marche sur un exercice qui n’est pas essayé');
 
       // I30 — sur une aide : ni chauffes, ni dégressive, ni repli, ni seconde
       // charge, ni double saut.
@@ -8428,6 +8521,49 @@
     var sol = testees.filter(function (q) { return q.classe === 'squat' || q.classe === 'souleve'; });
     if (sol.length > 1) erreurs.push('I89 — le squat et le soulevé testés le même jour');
     if (jt.testee && (jt.conflits || []).indexOf(jt.testee) >= 0) erreurs.push('I89 — la barre testée est aussi une barre en conflit');
+  }
+
+  // I220 à I222 (16/11/2026, MOTEUR §9.17 bis delta) — LA MARCHE ESSAYÉE, relue par une arithmétique indépendante :
+  //   · I220 — « C'est fait … en en gardant 2 » tant qu'aucune série de la marche n'est faite (et « Annuler » avec), jamais
+  //     après ; jamais « échec » ni « Au max » sur la marche (ni ligne, ni proposition) : c'est une première fois (I151, I160) ;
+  //   · I221 — la carte de fin seulement si la marche est TENUE (au moins 2 séries de travail faites, chacune à au moins
+  //     max(3, min(5, bas)) reps), sur une routine manuelle, hors d'un bloc du programme ; ses reps sont celles des séries ;
+  //   · I222 — le repli seulement si la 1re série de travail faite est entre 1 rep et sous le seuil, une seule fois ; jamais
+  //     à 0 rep (la règle existante parle seule : jamais deux voix).
+  function verifierEssaiDeMarche(x, exo, entrees, err) {
+    var S = Seance(), Mo = racine.THModele;
+    var em = exo.essai_marche;
+    var ex = x.essaiMarche;
+    if (!ex) { err('I220', 'une marche essayée sans son essai au plan'); return; }
+    var faites = (exo.series || []).filter(function (q) { return !!q && S.partEnBase(q); });
+    var travail = faites.filter(function (q) { return Mo.estTravail(q) && !Mo.estHorsCalcul(q); });
+    var reps = travail.map(function (q) { return nombre(q.reps); });
+    if (faites.length && (ex.texte || ex.annuler)) err('I220', '« C’est fait » ou « Annuler » avec une série de la marche faite');
+    if (!faites.length && (!ex.texte || !ex.annuler)) err('I220', 'la marche essayée sans « C’est fait » ni « Annuler »');
+    if (ex.texte && !/en en gardant 2\./.test(ex.texte)) err('I220', 'l’essai ne dit pas « en en gardant 2 » (' + ex.texte + ')');
+    var tous = [ex.texte, ex.repli && ex.repli.texte, ex.fin && ex.fin.texte].filter(Boolean).join(' ');
+    if (/échec|au max/i.test(tous)) err('I220', 'l’échec ou « Au max » sur la marche (' + tous + ')');
+    if (x.auMax || x.propositionAuMax || (x.lignes || []).some(function (l) { return l && l.auMax; })) err('I220', '« Au max » sur la marche essayée');
+    var b = nombre(em.bas);
+    var seuil = Math.max(3, Math.min(5, b === null ? 5 : b));
+    var tenue = reps.length >= 2 && reps.every(function (r) { return r !== null && r >= seuil; });
+    var fm = (entrees && entrees.essaisDeMarche) || {};
+    if (ex.fin) {
+      if (!tenue) err('I221', 'la carte de fin sans marche tenue (' + JSON.stringify(reps) + ', seuil ' + seuil + ')');
+      if (fm.manuelle !== true) err('I221', 'la carte de fin sur une routine du programme du coach');
+      if (ex.enBloc) err('I221', 'la carte de fin pour un exercice d’un bloc du programme');
+      if (JSON.stringify(ex.fin.reps) !== JSON.stringify(reps)) err('I221', 'la carte de fin ne dit pas les reps faites (' + JSON.stringify([ex.fin.reps, reps]) + ')');
+    } else if (tenue && fm.manuelle === true && !ex.enBloc && em.repli !== 'remis') {
+      err('I221', 'la marche tenue sur une routine manuelle, sans carte de fin');
+    }
+    var r0 = reps.length ? reps[0] : null;
+    if (ex.repli) {
+      if (em.repli) err('I222', 'le repli proposé une seconde fois');
+      if (r0 === null || r0 < 1 || r0 >= seuil) err('I222', 'le repli hors de 1 rep à sous ' + seuil + ' (' + r0 + ')');
+      if (r0 === 0) err('I222', 'deux voix après un 0 rep');
+    } else if (!em.repli && r0 !== null && r0 >= 1 && r0 < seuil) {
+      err('I222', 'la 1re série sous le seuil sans repli (' + r0 + ' < ' + seuil + ')');
+    }
   }
 
   // I100 et I104 (195-3) — LA CALISTHÉNIE :

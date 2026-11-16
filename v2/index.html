@@ -64,16 +64,33 @@
           <input id="champ-age15" type="checkbox" name="age15"> <span>J’ai 15 ans ou plus</span>
         </label>
         <button id="btn-connexion" type="submit" class="principal">Se connecter</button>
-        <!-- 247 — la vérification anti-robot (Cloudflare Turnstile), montée par l'app à l'ouverture de l'écran SI la clé de
-             site est posée dans config.js ; cachée et vide sinon. Invisible dans le cas courant. -->
-        <div id="captcha-zone" class="entree-captcha" hidden>
-          <div id="captcha-conteneur" role="group" aria-label="Vérification anti-robot"></div>
-          <button id="btn-captcha-reessayer" type="button" class="entree-captcha-reessayer" hidden>Réessayer</button>
-        </div>
         <!-- 212 — la ligne sous le bouton (inscription seulement) ; les liens sont posés par l'app. -->
         <p id="entree-conditions" class="entree-conditions" hidden></p>
         <p id="erreur-connexion" class="erreur" role="alert" aria-live="polite"></p>
       </form>
+      <!-- 16/11/2026 (ECRAN-PROFIL §5.6) — le CODE reçu par e-mail (réinitialisation, confirmation d'inscription) : un seul champ,
+           dans la même vue que la connexion ; `form-connexion` se cache pendant qu'il est ouvert. -->
+      <form id="form-code" class="entree-form" autocomplete="off" hidden>
+        <p id="code-titre" class="entree-code-titre">Entre le code reçu par e-mail</p>
+        <p id="code-sous" class="entree-aide"></p>
+        <p id="code-info" class="erreur ok" aria-live="polite"></p>
+        <label class="entree-champ">
+          <span>CODE</span>
+          <input id="champ-code" type="text" name="code" inputmode="numeric" autocomplete="one-time-code"
+                 pattern="[0-9]*" autocapitalize="none" spellcheck="false" placeholder="123456">
+        </label>
+        <button id="btn-code-valider" type="submit" class="principal" disabled>Valider</button>
+        <button id="btn-code-renvoyer" type="button" class="entree-oubli entree-code-lien" disabled>Renvoyer le code</button>
+        <button id="btn-code-oubli" type="button" class="entree-oubli entree-code-lien" hidden>Mot de passe oublié ?</button>
+        <button id="btn-code-changer" type="button" class="entree-oubli entree-code-lien">Changer d’e-mail</button>
+        <p id="erreur-code" class="erreur" role="alert" aria-live="polite"></p>
+      </form>
+      <!-- 247 — la vérification anti-robot (Cloudflare Turnstile), montée par l'app à l'ouverture de l'écran SI la clé de
+           site est posée dans config.js ; cachée et vide sinon. Invisible dans le cas courant. -->
+      <div id="captcha-zone" class="entree-captcha" hidden>
+        <div id="captcha-conteneur" role="group" aria-label="Vérification anti-robot"></div>
+        <button id="btn-captcha-reessayer" type="button" class="entree-captcha-reessayer" hidden>Réessayer</button>
+      </div>
       <!-- 138 (ECRAN-PROFIL §3.5) — sur iPhone, hors de l'app installée : « installe TrainHub d'abord ». Le composant du
            bandeau de reprise, rempli par l'app ; vide et caché partout ailleurs (Android compris). -->
       <div id="encart-installer" hidden></div>

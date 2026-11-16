@@ -550,6 +550,8 @@ describe('`soumettreEntree` : le pseudo est posé AVANT l’inscription, et une 
       // 70 — sans session, la phrase de §5.6 et « Mot de passe oublié ? » dessous (`oubliSous`).
       champsEntree: () => ({}),
       Rendu: { rendreEntree: (c) => { ctx.__entree = c; } },
+      // 16/11/2026 — sans session, l'écran du code s'ouvre (genre, e-mail, phrase) au lieu de la seule phrase.
+      ouvrirCode: (genre, email, phrase) => { ctx.__code = [genre, email, phrase]; },
       etatEntree: () => ({ pseudo: 'Test 0710', email: 'b@banc.test', mdp: 'motdepasse123' }),
       majBoutonEntree: () => {},
       texteErreur: (e) => String(e && e.message || e),
@@ -605,10 +607,8 @@ describe('`soumettreEntree` : le pseudo est posé AVANT l’inscription, et une 
     await b.soumettre();
     expect(b.ctx.__args[3]).toBe('test_0710');
     expect(b.ctx.pseudoAInscrire).toBe('test_0710');             // l'autre page, elle, le reprendra des données du compte
-    // 70 — la phrase de §5.6, en gris, et « Mot de passe oublié ? » juste dessous.
-    expect(b.noeuds['erreur-connexion'].textContent).toBe(phraseInscription({ session: null }));
-    expect(b.noeuds['erreur-connexion'].className).toBe('erreur ok');
-    expect(b.ctx.__entree).toEqual({ mode: 'inscription', oubliSous: true });
+    // 16/11/2026 — l'écran du code s'ouvre, avec la phrase de §5.6 (qui renvoie à « Mot de passe oublié ? »).
+    expect(b.ctx.__code).toEqual(['inscription', 'b@banc.test', phraseInscription({ session: null })]);
   });
 
   test('60-3b — une CONNEXION n’inscrit personne : aucun pseudo ne part', async () => {

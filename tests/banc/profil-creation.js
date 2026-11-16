@@ -126,7 +126,10 @@ function neuveBase() {
     // l'inscription et la réinitialisation, sinon `captcha_failed`) ; `captchaRefuse` : même un jeton frais est refusé
     // (périmé côté Cloudflare) ; `captchaVu` : { chemin, jeton } pour chaque appel d'authentification, exigé ou non ;
     // `cloudflareVus` : combien de fois le script de Cloudflare a été demandé ; `recuperations` : les e-mails de /recover.
-    captchaExige: false, captchaRefuse: false, captchaVu: [], captchaUtilises: new Set(), cloudflareVus: 0, recuperations: []
+    captchaExige: false, captchaRefuse: false, captchaVu: [], captchaUtilises: new Set(), cloudflareVus: 0, recuperations: [],
+    // 16/11/2026 — LE CODE PAR E-MAIL : `codeValide` : le code que le faux projet accepte à `/auth/v1/verify` ; `verifs` : ce que
+    // `verifyOtp` a envoyé (email, token, type) ; `renvois` : ce que `resend` a envoyé.
+    codeValide: '123456', verifs: [], renvois: []
   };
 }
 
@@ -241,7 +244,7 @@ async function contexte(nav, bd, o) {
     // 247 — la protection anti-robot du projet : un jeton à usage unique dans `gotrue_meta_security.captcha_token`.
     const captchaRefuse = () => {
       if (req.method() !== 'POST' || (chemin === '/auth/v1/token' && url.searchParams.get('grant_type') !== 'password') ||
-          ['/auth/v1/signup', '/auth/v1/token', '/auth/v1/recover'].indexOf(chemin) < 0) return null;
+          ['/auth/v1/signup', '/auth/v1/token', '/auth/v1/recover', '/auth/v1/resend'].indexOf(chemin) < 0) return null;
       let jeton = null;
       try { jeton = (JSON.parse(req.postData() || '{}').gotrue_meta_security || {}).captcha_token || null; } catch (e) { jeton = null; }
       bd.captchaVu.push({ chemin, jeton });
@@ -256,6 +259,18 @@ async function contexte(nav, bd, o) {
     if (refusCaptcha) return refusCaptcha;
     if (chemin === '/auth/v1/recover' && req.method() === 'POST') {
       bd.recuperations.push(JSON.parse(req.postData() || '{}').email);
+      return json({});
+    }
+    // 16/11/2026 — le code reçu par e-mail : `verifyOtp` (POST /verify) rend la session si le code est le bon, sinon `otp_expired`.
+    if (chemin === '/auth/v1/verify' && req.method() === 'POST') {
+      const corps = JSON.parse(req.postData() || '{}');
+      bd.verifs.push({ email: corps.email, token: corps.token, type: corps.type });
+      if (corps.token !== bd.codeValide) return json({ code: 403, error_code: 'otp_expired', msg: 'Token has expired or is invalid' }, 403);
+      return json(sessionDe(B, bd.metadonnees[B]));
+    }
+    if (chemin === '/auth/v1/resend' && req.method() === 'POST') {
+      const corps = JSON.parse(req.postData() || '{}');
+      bd.renvois.push({ email: corps.email, type: corps.type });
       return json({});
     }
     if (chemin === '/auth/v1/signup' && req.method() === 'POST') {
@@ -446,12 +461,12 @@ async function inscrireSansSession(nav, bd) {
   await page.click('#btn-connexion');
   await attendreQue(page, () => bd.inscriptions.length > 0, 15000);
   await calme(page, bd);   // 135 — ce qui part encore est arrivé (était un délai fixe)
-  const message = await page.evaluate(() => document.querySelector('#erreur-connexion').textContent);
+  const message = await page.evaluate(() => document.querySelector('#code-info').textContent);
   const jeton = await page.evaluate(() => localStorage.getItem('th-v2-auth'));
-  // 70 — « Mot de passe oublié ? » visible, juste sous la phrase.
+  // 70 — « Mot de passe oublié ? » visible, dans l'écran du code (16/11/2026 : la phrase y vit désormais).
   const oubli = await page.evaluate(() => {
-    const b = document.querySelector('#btn-oubli');
-    return { visible: !b.hidden && b.offsetParent !== null, sous: document.querySelector('#erreur-connexion').nextElementSibling === b };
+    const b = document.querySelector('#btn-code-oubli');
+    return { visible: !b.hidden && b.offsetParent !== null, formCache: document.querySelector('#form-connexion').hidden };
   });
   await ctx.close();       // « l'autre navigateur » : la mémoire de la page (`pseudoAInscrire`) disparaît avec elle
   return { erreurs, message, jeton, oubli };
@@ -1248,14 +1263,136 @@ function ok(nom, cond, detail) {
         const bd = neuveBase();
         bd.confirmationEmail = true;
         const p = await inscrireSansSession(nav, bd);
-        ok('DISCRIMINANT [E70] — l’inscription dit la phrase de §5.6, au mot près',
-          p.message === 'Compte créé si l\'adresse est nouvelle : confirme ton e-mail, puis connecte-toi. ' +
+        ok('DISCRIMINANT [E70] — l’inscription dit la phrase de §5.6 (le code), au mot près, dans l’écran du code',
+          p.message === 'Si l\'adresse est nouvelle, un code vient de partir : entre-le ici. ' +
             'Si tu as déjà un compte avec cette adresse, aucun mail ne part : utilise « Mot de passe oublié ? ».', JSON.stringify(p.message));
-        ok('DISCRIMINANT [E70] — « Mot de passe oublié ? » est visible, juste sous la phrase', p.oubli.visible && p.oubli.sous, JSON.stringify(p.oubli));
+        ok('DISCRIMINANT [E70] — « Mot de passe oublié ? » est visible dans l’écran du code, et le formulaire de connexion est caché',
+          p.oubli.visible && p.oubli.formCache, JSON.stringify(p.oubli));
         ok('aucune erreur de page', p.erreurs.length === 0, JSON.stringify(p.erreurs));
       }
     }
 
+
+    // ══ [CODE] LE CODE REÇU PAR E-MAIL (ECRAN-PROFIL §5.6, 16/11/2026) : « Mot de passe oublié ? » et l'inscription ═══
+    console.log('\n══ [CODE] le code par e-mail : mot de passe oublié → code → feuille du mot de passe ; inscription → code → entrée ══');
+    {
+      const code = (page) => page.evaluate(() => ({
+        ouvert: !document.querySelector('#form-code').hidden, formConnexion: !document.querySelector('#form-connexion').hidden,
+        sous: document.querySelector('#code-sous').textContent, titre: document.querySelector('#code-titre').textContent,
+        info: document.querySelector('#code-info').textContent, erreur: document.querySelector('#erreur-code').textContent,
+        valider: !document.querySelector('#btn-code-valider').disabled, renvoyer: document.querySelector('#btn-code-renvoyer').textContent,
+        renvoyerActif: !document.querySelector('#btn-code-renvoyer').disabled,
+        champ: (() => { const c = document.querySelector('#champ-code'); return { mode: c.getAttribute('inputmode'),
+          auto: c.getAttribute('autocomplete'), motif: c.getAttribute('pattern'), valeur: c.value }; })() }));
+      const feuilleTexte = (page) => page.evaluate(() => { const f = document.querySelector('#feuille'); return f && !f.hidden
+        ? (document.querySelector('#feuille-contenu').textContent || '') : null; });
+
+      console.log('   — (a) Mot de passe oublié ? → code → la feuille « Choisis ton nouveau mot de passe »');
+      {
+        const bd = neuveBase();
+        const ctx = await contexte(nav, bd, {});
+        const page = await ctx.newPage();
+        const erreurs = [];
+        page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
+        await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+        await attendreQue(page, () => page.evaluate(() => { const v = document.querySelector('#vue-connexion'); return !!v && !v.hidden; }), 15000);
+        await page.fill('#champ-email', 'a@banc.test');
+        await page.click('#btn-oubli');
+        await attendreQue(page, async () => (await code(page)).ouvert, 10000);
+        const c1 = await code(page);
+        ok('DISCRIMINANT [CODE a] — « Mot de passe oublié ? » envoie, puis ouvre l’écran du code (le formulaire de connexion se cache)',
+          bd.recuperations.length === 1 && c1.ouvert && !c1.formConnexion, JSON.stringify([bd.recuperations, c1]));
+        ok('[CODE a] — le titre, le sous-titre et la phrase (la même que l’adresse existe ou non), au mot près',
+          c1.titre === 'Entre le code reçu par e-mail' && c1.sous === 'Envoyé à a@banc.test. Il est valable 1 heure.' &&
+          c1.info === 'Si un compte existe pour cette adresse, un code vient de partir.', JSON.stringify(c1));
+        ok('[CODE a] — UN champ numérique, avec l’auto-remplissage du code', c1.champ.mode === 'numeric' &&
+          c1.champ.auto === 'one-time-code' && c1.champ.motif === '[0-9]*', JSON.stringify(c1.champ));
+        ok('DISCRIMINANT [CODE a] — « Valider » est inactif tant que le code a moins de 6 chiffres', !c1.valider);
+        await page.fill('#champ-code', '12345');
+        ok('DISCRIMINANT [CODE a] — 5 chiffres : toujours inactif', !(await code(page)).valider);
+        await page.fill('#champ-code', '12 34-56');
+        const c2 = await code(page);
+        ok('DISCRIMINANT [CODE a] — espaces et tirets collés sont ignorés : le champ montre 123456 et « Valider » s’active',
+          c2.champ.valeur === '123456' && c2.valider, JSON.stringify(c2.champ));
+        ok('DISCRIMINANT [CODE a] — « Renvoyer le code » est désactivé avec son décompte', !c2.renvoyerActif &&
+          /^Renvoyer le code \(dans (59|60) s\)$/.test(c2.renvoyer), c2.renvoyer);
+        // un faux code d'abord
+        await page.fill('#champ-code', '654321');
+        await page.click('#btn-code-valider');
+        await attendreQue(page, async () => (await code(page)).erreur !== '', 8000);
+        const c3 = await code(page);
+        ok('DISCRIMINANT [CODE a] — un faux code : la phrase fixe, sans « erreur », et l’écran reste ouvert',
+          c3.erreur === 'Ce code ne marche pas ou a expiré. Vérifie-le, ou demande-en un autre.' && c3.ouvert &&
+          bd.verifs.length === 1 && bd.verifs[0].token === '654321' && bd.verifs[0].type === 'recovery', JSON.stringify([c3.erreur, bd.verifs]));
+        // le bon
+        await page.fill('#champ-code', '123 456');
+        await page.click('#btn-code-valider');
+        const ouverte = await attendreQue(page, async () => /Choisis ton nouveau mot de passe/.test((await feuilleTexte(page)) || ''), 15000);
+        ok('DISCRIMINANT [CODE a] — le bon code : `verifyOtp` de type `recovery`, et la feuille « Choisis ton nouveau mot de passe » s’ouvre d’elle-même',
+          ouverte && bd.verifs.length === 2 && bd.verifs[1].token === '123456' && bd.verifs[1].type === 'recovery' &&
+          bd.verifs[1].email === 'a@banc.test', JSON.stringify([ouverte, bd.verifs]));
+        await calme(page, bd);
+        await page.fill('#feuille-contenu input', 'nouveau-mdp-code');
+        await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button'))
+          .filter((b) => b.textContent === 'Valider')[0].click());
+        ok('[CODE a] — valider appelle `updateUser` sous le compte de la session ouverte par le code',
+          await attendreQue(page, () => bd.motsDePasse.length > 0, 8000) && bd.motsDePasse[0].sub === B && bd.motsDePasse[0].password === 'nouveau-mdp-code',
+          JSON.stringify(bd.motsDePasse));
+        ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+        await ctx.close();
+      }
+
+      console.log('   — (b) « Changer d’e-mail », et le renvoi de la récupération');
+      {
+        const bd = neuveBase();
+        const ctx = await contexte(nav, bd, {});
+        const page = await ctx.newPage();
+        await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+        await attendreQue(page, () => page.evaluate(() => { const v = document.querySelector('#vue-connexion'); return !!v && !v.hidden; }), 15000);
+        await page.fill('#champ-email', 'a@banc.test');
+        await page.click('#btn-oubli');
+        await attendreQue(page, async () => (await code(page)).ouvert, 10000);
+        await page.click('#btn-code-changer');
+        const c = await code(page);
+        ok('DISCRIMINANT [CODE b] — « Changer d’e-mail » ferme l’écran du code et rend la connexion (l’e-mail reste saisi)',
+          !c.ouvert && c.formConnexion && await page.inputValue('#champ-email') === 'a@banc.test', JSON.stringify(c));
+        await ctx.close();
+      }
+
+      console.log('   — (c) l’inscription sans session → code → entrée, le pseudo ne se perd pas');
+      {
+        const bd = neuveBase();
+        bd.confirmationEmail = true;
+        const ctx = await contexte(nav, bd, {});
+        const page = await ctx.newPage();
+        const erreurs = [];
+        page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
+        await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
+        await attendreQue(page, () => page.evaluate(() => { const v = document.querySelector('#vue-connexion'); return !!v && !v.hidden; }), 15000);
+        await page.click('#btn-bascule-entree');
+        await versInscription(page);
+        await page.fill('#champ-pseudo', PSEUDO_TAPE);
+        await page.fill('#champ-email', 'b@banc.test');
+        await page.fill('#champ-mdp', 'motdepasse123');
+        await page.check('#champ-age15');
+        await attendreQue(page, () => page.evaluate(() => !document.querySelector('#btn-connexion').disabled), 5000);
+        await page.click('#btn-connexion');
+        await attendreQue(page, async () => (await code(page)).ouvert, 10000);
+        const c1 = await code(page);
+        ok('DISCRIMINANT [CODE c] — l’inscription sans session ouvre l’écran du code, avec « Mot de passe oublié ? »',
+          c1.ouvert && !c1.formConnexion && await page.evaluate(() => !document.querySelector('#btn-code-oubli').hidden), JSON.stringify(c1));
+        await page.fill('#champ-code', '123456');
+        await page.click('#btn-code-valider');
+        ok('DISCRIMINANT [CODE c] — le bon code : `verifyOtp` de type `email`, et l’app s’ouvre',
+          await attendreQue(page, () => page.evaluate(() => {
+            const v = document.querySelector('#vue-connexion'); return !!v && v.hidden; }), 15000) &&
+          bd.verifs.length === 1 && bd.verifs[0].type === 'email' && bd.verifs[0].email === 'b@banc.test', JSON.stringify(bd.verifs));
+        ok('[CODE c] — le pseudo est parti dans les données du compte, comme avant',
+          bd.inscriptions.length === 1 && bd.inscriptions[0].data && bd.inscriptions[0].data.pseudo === PSEUDO_NORMALISE, JSON.stringify(bd.inscriptions));
+        ok('aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs));
+        await ctx.close();
+      }
+    }
 
     // ══ [138] IPHONE, L'ÉCRAN : INSTALLER TRAINHUB, ET LES RETOURS DE LIEN DANS SAFARI (ECRAN-PROFIL §3.5) ═══
     console.log('\n══ [138] iPhone : l’encart de la connexion, la feuille, le bandeau de Saisie, la ligne du Profil, les retours de lien ══');
@@ -1988,7 +2125,8 @@ function ok(nom, cond, detail) {
       const vuR = bd.captchaVu.filter((v) => v.chemin === '/auth/v1/recover');
       ok('DISCRIMINANT — « Mot de passe oublié ? » transmet le jeton (le projet l’accepte, le lien part)',
         bd.recuperations.length === 1 && vuR.length === 1 && vuR[0].jeton === 'faux-jeton-1', JSON.stringify(bd.captchaVu));
-      ok('le message dit que le lien est parti', await attendreQue(page, async () => /le lien vient de partir/.test(await messageEntree(page)), 8000), await messageEntree(page));
+      ok('l’écran du code s’ouvre, avec la phrase « un code vient de partir »', await attendreQue(page, () => page.evaluate(() =>
+        !document.querySelector('#form-code').hidden && /un code vient de partir/.test(document.querySelector('#code-info').textContent)), 8000));
 
       // 2. inscription (jeton NEUF : le premier est consommé)
       await page.click('#btn-bascule-entree');

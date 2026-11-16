@@ -155,10 +155,76 @@ describe('les contextes qui se taisent', () => {
     expect(T.planDeSeance(Object.assign({}, e, { intention: 'entretien' })).exercices[0].rate).toBeNull();
     expect(T.planDeSeance(e).exercices[0].rate).toBeTruthy();
   });
-  test('deux propositions ignorées sur un exercice : silence jusqu’à la fin', () => {
-    const { p } = plan({ incline: [[40, 6], [40, 6], [40, 6]], rowing: [] });
-    // 3 séries sous la zone, 2 propositions sans geste : la 3e (dernière) est de toute façon muette (J)
-    expect(p.exercices[1].rate).toBeNull();
+});
+
+// 16/11/2026 — « le coach se tait à tort » (MOTEUR §9.39) : une PROPOSITION = une réaction à au moins un bouton (`Moteur.estUneProposition`).
+// Seules les propositions ignorées comptent pour `RATE_IGNOREES_MAX` ; une phrase seule (un constat) ne fait jamais taire le coach.
+// Le rowing, cible 10 (ou 12), n séries, 93 kg ; la zone basse est 9 (cible 10) : 7 est « sous la zone » (cas D, « Prendre 80 kg »).
+describe('une phrase seule ne fait jamais taire le coach (propositions ignorées = réactions à bouton)', () => {
+  const rowing = (reps, o) => {
+    o = o || {};
+    const n0 = EXOS[2].n, v0 = EXOS[2].vise;
+    EXOS[2].n = o.n || 5; EXOS[2].vise = o.vise || 10;
+    try {
+      const r = plan({ rowing: reps.map((x) => [93, x]) }, o.extra);
+      return Object.assign(r, { x: r.p.exercices[2] });
+    } finally { EXOS[2].n = n0; EXOS[2].vise = v0; }
+  };
+  const cles = (x) => x.rate.boutons.map((b) => b.cle);
+
+  test('(a) le rejeu 10, 9, 9, 7 : la 4e série parle (cas D « Prendre 80 kg »), une seule phrase par exercice (I115)', () => {
+    const { e, p, x } = rowing([10, 9, 9, 7]);
+    expect(x.rate).toBeTruthy();
+    expect(x.rate.iSerie).toBe(3);
+    expect(x.rate.cas).toBe('D');
+    expect(cles(x)).toEqual(['prendre']);
+    expect(sp(x.rate.phrase)).toBe('7 au lieu de 10. On passe à 80 kg, garde 1, entre 8 et 10.');
+    propre(p, e);   // I115 (une seule phrase, sous la dernière série validée) est vérifié par `verifierPlan`
+  });
+  test('(b) le témoin 10, 7 : cas D, « Prendre 80 kg »', () => {
+    const { e, p, x } = rowing([10, 7]);
+    expect(x.rate.cas).toBe('D');
+    expect(cles(x)).toEqual(['prendre']);
+    expect(sp(x.rate.phrase)).toBe('7 au lieu de 10. On passe à 80 kg, garde 1, entre 8 et 10.');
+    propre(p, e);
+  });
+  test('(c) deux réactions À BOUTONS ignorées (7, 7) : la 3e série est muette PAR `ignorees` (5 séries : ce n’est pas la dernière, cas J)', () => {
+    const { x } = rowing([7, 7, 7]);
+    expect(x.rate).toBeNull();
+    // … et c’est bien le compteur : avec un seul geste « pris » sur la 1re, la même séance parle.
+    const pris = rowing([7, 7, 7], { extra: { gestes: [{ geste: 'rate_prise', slug: 'rowing', rang: 0, bouton: 'repos' }] } });
+    expect(pris.x.rate).toBeTruthy();
+    expect(pris.x.rate.iSerie).toBe(2);
+  });
+  test('(d) un bouton pris ne compte pas : 7, 7, 7 avec la 1re prise parle ; la 2e prise aussi', () => {
+    const a = rowing([7, 7, 7], { extra: { gestes: [{ geste: 'rate_prise', slug: 'rowing', rang: 1, bouton: 'repos' }] } });
+    expect(a.x.rate).toBeTruthy();
+    const b = rowing([7, 7, 7], { extra: { gestes: [{ geste: 'rate_ignoree', slug: 'rowing', rang: 0, boutons: ['prendre'] }] } });
+    expect(b.x.rate).toBeNull();   // `rate_ignoree` est la mesure, pas le compteur : le plan le déduit des séries
+  });
+  test('(e) « J’ai peu de temps » : des C sans bouton (10, 12, 10, 12, 10 à la cible 12) ne font jamais taire le coach', () => {
+    const peu = { gestes: [{ geste: 'raccourci' }] };
+    const { x } = rowing([10, 12, 10, 12, 10], { n: 6, vise: 12, extra: peu });
+    expect(x.rate).toBeTruthy();
+    expect(x.rate.iSerie).toBe(4);
+    expect(cles(x)).toEqual([]);
+    // témoin : sans « peu de temps », le même C porte « +1 min » et se compte (2 ignorées avant la 5e série) : silence
+    expect(rowing([10, 12, 10, 12, 10], { n: 6, vise: 12 }).x.rate).toBeNull();
+  });
+  test('(f) un X affiché par-dessus un C (niveau 2) n’a montré aucun bouton : il ne compte pas (`dn`, pas `d`)', () => {
+    // 10, 10, 10 à la cible 12 : la 1re série est un C à « +1 min » (comptée), la 2e est un C RECOUVERT par le X (« 10 puis 10 ») : non comptée.
+    const { x } = rowing([10, 10, 10], { vise: 12 });
+    expect(x.rate).toBeTruthy();
+    expect(x.rate.cas).toBe('X');
+    expect(x.rate.iSerie).toBe(2);
+  });
+  test('la définition : une proposition porte un bouton, ni silence, ni R, ni phrase seule', () => {
+    expect(M.estUneProposition({ silence: false, cas: 'C', leviers: ['repos'] })).toBe(true);
+    expect(M.estUneProposition({ silence: false, cas: 'B', leviers: [] })).toBe(false);
+    expect(M.estUneProposition({ silence: false, cas: 'X', niveau: 'exercice' })).toBe(false);
+    expect(M.estUneProposition({ silence: true, cas: 'C', leviers: ['repos'] })).toBe(false);
+    expect(M.estUneProposition({ silence: false, cas: 'R', leviers: ['repos'] })).toBe(false);
+    expect(M.estUneProposition(null)).toBe(false);
   });
 });
 

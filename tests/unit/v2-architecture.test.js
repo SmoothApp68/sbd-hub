@@ -2325,6 +2325,16 @@ const NOTIONS = [
   { notion: 'la série lourde (5 reps ou moins)', pr: 'correctif 15/11/2026',
     module: 'modele.js', fonction: 'estSerieLourde', lecteurs: ['plan.js'],
     raison: 'MOTEUR §9.51 quinquies : « série lourde » du bilan, de la fiche et de l\u2019invariant I75 lit une seule fonction ; `plan.js` (I75) la lit depuis la PR B, le bilan et la fiche suivent (PR C et D).' },
+  // « LE COACH SE TAIT À TORT » (MOTEUR §9.39, 16/11/2026) — une NOTION (une définition), pas une décision : `reactionDeSerie` / `reactionDExercice` décident, elle dit seulement
+  // ce qui compte pour le silence après deux refus. Elle n'est donc pas dans GARDEES (aucune autorisation d'appel à gérer) mais au registre, avec son seul lecteur.
+  { notion: 'une proposition du coach en temps réel (une réaction à au moins un bouton : seule une proposition ignorée compte pour le silence après deux refus)', pr: 'correctif 16/11/2026',
+    module: 'moteur.js', fonction: 'estUneProposition', lecteurs: ['plan.js'],
+    parAilleurs: { 'plan.js': ['reactionDExercice'] },
+    // La définition écrite à la main hors du moteur : « les leviers de la réaction, leur nombre » (`d.leviers … .length`, `dn.leviers`, `rate.leviers`).
+    interditAilleurs: { motif: /\b(?:d|dn|d2n?|r|rate|reaction)\s*\.\s*leviers\b[^;\n]*\.\s*length/,
+      raison: 'une proposition = une réaction à bouton se lit par `Moteur.estUneProposition`, jamais par un second compte des leviers écrit à la main' },
+    raison: 'MOTEUR §9.39 : le plan comptait « ignorée » toute réaction passée, y compris une phrase seule (cas B, X, G, M) : le coach se taisait après deux CONSTATS. ' +
+      'Une seule définition de la proposition ; la mesure (`rate_ignoree`, avec ses `boutons`) reste une autre notion et note tout, sans le compteur.' },
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────
@@ -2852,6 +2862,16 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
     expect(pct.test("var s = x + ' %';")).toBe(true);
     expect(pct.test("var s = x + INSECABLE + '%';")).toBe(true);
     expect(pct.test('var s = Modele.pourcentTexte(x);')).toBe(false);
+  });
+
+  test('l’interdit de la proposition se lit vraiment : un second compte des leviers se voit, l’appel et les autres leviers non', () => {
+    const n = NOTIONS.filter((x) => x.fonction === 'estUneProposition')[0];
+    const voit = (t) => n.interditAilleurs.motif.test(t);
+    expect(voit("if (!d.silence && (d.leviers || []).length) ignorees++;")).toBe(true);
+    expect(voit('var b = dn.leviers.length > 0;')).toBe(true);
+    expect(voit('if (M.estUneProposition(dn) && !prises(l.iSerie).length) ignorees++;')).toBe(false);
+    expect(voit("boutons: (d.leviers || []).map(function (cle) { return cle; }),")).toBe(false);
+    expect(voit("!(x.leviersGardes.leviers || []).length")).toBe(false);
   });
 
   test('l’interdit du silence du coach se lit vraiment : un second test de l’intention se voit, l’appel au fait non', () => {

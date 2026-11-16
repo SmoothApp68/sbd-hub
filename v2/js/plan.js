@@ -3198,7 +3198,6 @@
         corps: ch === null || ch <= 0 });
       var d = M.reactionAuRate(ctx);
       var estLaDerniere = n === faites.length - 1;
-      if (!estLaDerniere && !d.silence && d.cas !== 'R' && !prises(l.iSerie).length) ignorees++;
       apres = !d.silence && d.cas !== 'R';
       if (reps !== null && reps < zone.bas && l.type === 'travail') sousAvant++;
       dernier = { l: l, d: d, ctx: ctx };
@@ -3213,6 +3212,8 @@
           restantes: travail.length - 1 - rang }));
         if (!d2n.silence && !classeDOuL(l)) dn = d2n;
       }
+      // 16/11/2026 — une proposition ignorée = la réaction AFFICHÉE (`dn`, niveau 1 ou 2) qui porte un bouton, sans bouton pris ; une phrase seule ne compte pas.
+      if (!estLaDerniere && M.estUneProposition(dn) && !prises(l.iSerie).length) ignorees++;
       etapes.push({ l: l, d: dn, rang: rang });
     });
     if (!dernier) return;

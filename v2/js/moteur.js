@@ -12880,7 +12880,15 @@
   var RATE_REPOS_PART = 0.75;           // un repos réel de moins de 75 % du repos cible est « court »
   var RATE_REPOS_DEFAUT_S = 120;        // le repos cible, quand l'exercice n'en dit pas
   var RATE_PLUS_REPOS_S = 60;           // « +1 min »
-  var RATE_IGNOREES_MAX = 2;            // deux propositions ignorées sur un exercice : le coach se tait jusqu'à sa fin
+  var RATE_IGNOREES_MAX = 2;            // deux PROPOSITIONS (à bouton, `estUneProposition`) ignorées sur un exercice : le coach se tait jusqu'à sa fin
+  // 16/11/2026 (« le coach se tait à tort », MOTEUR §9.39) — UNE PROPOSITION = une réaction qui porte au moins un BOUTON (un levier à toucher).
+  // Une phrase seule (un constat : cas B, niveau 2 X, G, M…) n'est jamais une proposition : on ne peut pas l'ignorer, elle ne compte pas parmi les
+  // `ignorees` et ne fait jamais taire le coach. Le plan lit la réaction AFFICHÉE (`dn`), jamais celle qu'un autre cas a recouverte. La mesure
+  // (`rate_ignoree`, app.js) note, elle, toute réaction passée, avec ses `boutons` : c'est une autre notion (la mesure, pas le compteur).
+  function estUneProposition(reaction) {
+    var r = reaction || {};
+    return r.silence !== true && r.cas !== 'R' && (r.leviers || []).length > 0;
+  }
   var RATE_SOUS_ZONE_FRANC = 2;         // Me pousser : la charge ne baisse qu'à la 2e série sous la zone
   var RATE_FORME_FLANCHENT = 2;         // la forme du jour : 2 exercices qui flanchent…
   var RATE_FORME_SUR = 3;               // … sur les 3 derniers
@@ -13538,6 +13546,7 @@
     RATE_BOUTONS_FORME: RATE_BOUTONS_FORME,
     RATE_BOUTONS_PARIS: RATE_BOUTONS_PARIS,
     RATE_IGNOREES_MAX: RATE_IGNOREES_MAX,
+    estUneProposition: estUneProposition,
     RATE_PLUS_REPOS_S: RATE_PLUS_REPOS_S,
     RATE_REPOS_PART: RATE_REPOS_PART,
     RATE_SOUS_ZONE_FRANC: RATE_SOUS_ZONE_FRANC,

@@ -31448,8 +31448,9 @@ const SETS_IMPORTES = [
       a1.sansCoach && !a1.douleur && !a1.calage && !a1.consigne && a1.voix === 0 && !a1.message && !a1.carte && !a1.proposition, nb2(a1));
     await calmeApres(await departGeste());
     const ecritsAvant2 = nb2([base.sets, base.predictions]);
-    await attendre(1500);
-    ok('[SC2] rendu pur — le plan sous la marque n’écrit rien en base (sets et paris identiques après une attente)', nb2([base.sets, base.predictions]) === ecritsAvant2, '');
+    await menuBloc(0);
+    await fermerFeuille();
+    ok('[SC2] rendu pur — le plan sous la marque n’écrit rien en base (sets et paris identiques après une réouverture du menu et un nouveau rendu)', nb2([base.sets, base.predictions]) === ecritsAvant2, '');
     ok('[SC2] la question « Ta charge habituelle ? » et « On trouve ta charge » ne sont plus à l’écran',
       (await page.evaluate(() => !/Ta charge habituelle|On trouve ta charge/.test(document.getElementById('vue-seance').textContent))), '');
     await page.locator('.ligne-serie').nth(0).locator('input').nth(0).fill('100');

@@ -254,7 +254,7 @@ Croisement des sections « Angles morts » des 11 rapports — **là où sont le
 
 ## QUESTIONS SUPABASE (dédupliquées + requêtes)
 
-> Fusion des sections « À VÉRIFIER CÔTÉ SUPABASE » des 11 rapports. Aurélien les passe via Claude.ai en un aller-retour. `aurel = 6e2936e7-de11-4f19-89b1-d1eb5968ba35`.
+> Fusion des sections « À VÉRIFIER CÔTÉ SUPABASE » des 11 rapports. Aurélien les passe via Claude.ai en un aller-retour. `aurel = 6e2936e7…`.
 
 **Q1 — Inventaire tables + RPC suppression** *(00, 05)* : lister les tables réelles + vérifier que `delete_user_complete_data()` couvre **toutes** les tables du user (pendant du P0 RGPD côté serveur), et confirmer `ai_rate_limits` (référencée data, absente du repo JS).
 `select tablename from pg_tables where schemaname='public';`

@@ -11,7 +11,7 @@ Branche : claude/diagnose-program-display-U2WwA
 | Fichier | Fonction | Ligne | Code | Problème | Suggestion |
 |---|---|---|---|---|---|
 | program.js | `VOLUME_LANDMARKS` | 37–48 | `'Dos': { mev:10, mav:20, mrv:26 }` | **Doublon** de `MUSCLE_VOLUME_TARGETS` dans engine.js avec valeurs différentes pour les mêmes muscles (ex : Dos MRV 26 vs 25). Deux sources de vérité divergentes pour la même donnée. | Supprimer `VOLUME_LANDMARKS` dans program.js, importer `MUSCLE_VOLUME_TARGETS` depuis engine.js |
-| index.html | `_tryActivateGodMode()` | 3476 | `const ADMIN_EMAIL = 'aurelien.cofypro@gmail.com'` | Email personnel hardcodé en clair dans le code. Si l'admin change d'email ou si un autre admin est ajouté, le code doit être modifié. | Stocker dans variable d'environnement ou vérifier uniquement via `profiles.is_admin` Supabase (déjà fait en 2e check) |
+| index.html | `_tryActivateGodMode()` | 3476 | `const ADMIN_EMAIL = 'admin@exemple.invalide'` | Email personnel hardcodé en clair dans le code. Si l'admin change d'email ou si un autre admin est ajouté, le code doit être modifié. | Stocker dans variable d'environnement ou vérifier uniquement via `profiles.is_admin` Supabase (déjà fait en 2e check) |
 
 ---
 

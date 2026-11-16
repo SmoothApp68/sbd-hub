@@ -396,7 +396,7 @@ var MUSCLE_VOLUME_TARGETS = {
     <div class="badge">⚠️</div>
     <div class="card-body">
       <div class="location"><strong>_tryActivateGodMode()</strong> — ligne 3476</div>
-      <code>const ADMIN_EMAIL = <span class="hlw">'aurelien.cofypro@gmail.com'</span>;</code>
+      <code>const ADMIN_EMAIL = <span class="hlw">'admin@exemple.invalide'</span>;</code>
       <div class="issue">Email personnel hardcodé pour l'accès God Mode. N'influence pas la prescription d'entraînement (portée : admin seulement). Risque opérationnel : si l'email change, le God Mode est bloqué sans modification du code. La vérification Supabase <code>profiles.is_admin</code> (ligne 3521) est suffisante à elle seule.</div>
       <div class="fix">Supprimer la vérification email, conserver uniquement le check <code>profile.is_admin</code> Supabase. Ou déplacer dans une variable d'environnement non committée.</div>
     </div>

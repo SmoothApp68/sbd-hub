@@ -427,7 +427,7 @@ diagnostic filtrent `!s.isWarmup` seul → **warm-ups comptés comme séries de 
 2. **Check-ins partiels (P2 / F4)** — les entrées `data.readinessHistory` de vrais users ont-elles des
    champs manquants ou `pain:null`, ou sont-elles toujours complètes (4 champs) ?
    > `select user_id, jsonb_array_length(data->'readinessHistory') n from sbd_profiles;` + inspecter
-   > une entrée : `select jsonb_path_query(data,'$.readinessHistory[*]') from sbd_profiles where user_id='6e2936e7-de11-4f19-89b1-d1eb5968ba35' limit 5;` — chercher un `energy`/`soreness` null/absent.
+   > une entrée : `select jsonb_path_query(data,'$.readinessHistory[*]') from sbd_profiles where user_id='6e2936e7…' limit 5;` — chercher un `energy`/`soreness` null/absent.
 3. **XP/badges régressables (P1-2)** — comparer `data.gamification.xpHighWaterMark` et le nombre de
    `data.earnedBadges` entre les lignes des users multi-appareils ; un blob récent avec un
    `xpHighWaterMark` **inférieur** à une trace antérieure prouverait la régression cross-device.

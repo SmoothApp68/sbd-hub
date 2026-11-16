@@ -85,10 +85,19 @@ describe('95 — l’année pleine (2026 contre 2025)', () => {
     expect(b.reps.series).toBe(52 * 8);
     expect(b.reps.reps).toBe(52 * (5 + 3 + 5 + 8 + 3 + 5 + 6 + 10));
   });
-  test('le profil : force ≤ 5, mix 6 à 8, muscle ≥ 9 — des parts qui font 100', () => {
-    expect([b.profil.force, b.profil.mix, b.profil.muscle]).toEqual([63, 25, 12]);
-    expect(b.profil.premier).toBe('force');
-    expect(b.profil.second).toBe('mix');
+  test('le profil : QUATRE bandes (5 ou moins, 6 à 8, 9 à 12, 13 et plus) — des parts qui font 100', () => {
+    expect([b.profil.lourdes, b.profil.moyennes, b.profil.hautes, b.profil.longues]).toEqual([63, 25, 12, 0]);
+    expect(b.profil.premier).toBe('lourdes');
+    expect(b.profil.egalite).toBeNull();
+  });
+  test('le profil : les 13 reps et plus ont leur bande ; chaque série est rangée par `Modele.bandeDeReps`', () => {
+    const s = chaqueSemaine('2026-01-01', '2026-03-26', () => [['squat_barre', 100, 5], ['squat_barre', 100, 8], ['developpe_couche_barre', 60, 12],
+      ['developpe_couche_barre', 60, 12], ['developpe_couche_barre', 60, 13], ['developpe_couche_barre', 60, 20]]);
+    const p = bilan(s).profil;
+    expect([p.lourdes, p.moyennes, p.hautes, p.longues]).toEqual([17, 17, 33, 33]);
+    expect(p.lourdes + p.moyennes + p.hautes + p.longues).toBe(100);
+    expect(p.premier).toBeNull();
+    expect(p.egalite).toEqual(['hautes', 'longues']);
   });
   test('le muscle et l’exercice de l’année', () => {
     expect(b.muscles[0].muscle).toBe('pectoraux');

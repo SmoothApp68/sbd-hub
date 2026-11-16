@@ -2238,7 +2238,7 @@ const NOTIONS = [
   // 251 — « A, B et C » : UNE énumération. Le coach disait « Développé Couché et Rowing et Curl » (`join(' et ')`).
   { notion: 'l’énumération d’une liste de noms (« A », « A et B », « A, B et C »)', pr: '251-U1',
     module: 'modele.js', fonction: 'enumerer',
-    lecteurs: ['moteur.js', 'generateur.js', 'questionnaire.js', 'equilibres.js', 'app.js', 'profil.js', 'notes-ia.js', 'tours.js', 'deraille.js', 'partage-image.js'],
+    lecteurs: ['moteur.js', 'generateur.js', 'questionnaire.js', 'equilibres.js', 'app.js', 'profil.js', 'notes-ia.js', 'tours.js', 'deraille.js', 'partage-image.js', 'annee.js'],
     interditAilleurs: { motif: /\.join\(\s*' et '\s*\)|\.slice\(0,\s*-1\)\s*\.join\(', '\)/,
                         raison: 'une liste de noms ne se joint que par `THModele.enumerer` (251-U1) : « A, B et C », jamais « A et B et C »' },
     raison: '251 — la carte de la forme du jour (`phraseDeRate`), les cartes, les équilibres, le générateur et le questionnaire joignaient chacun leurs noms ' +
@@ -2303,12 +2303,11 @@ const NOTIONS = [
   // MOTEUR §9.51 quinquies (PR A, 15/11/2026) : la table des coupures de reps. Aucun lecteur hors `modele.js` pour l'instant : les
   // trois copies du seuil lourd (bilans, plan, faits) sont des exceptions NOMMÉES, retirées une à une (PR B : plan, fait ; PR C : bilans ; PR D : faits).
   { notion: 'la bande de reps d\u2019une série (lourdes ≤ 5, moyennes 6 à 8, hautes 9 à 12, longues 13 et plus)', pr: 'correctif 15/11/2026',
-    module: 'modele.js', fonction: 'bandeDeReps', lecteurs: [],
+    module: 'modele.js', fonction: 'bandeDeReps', lecteurs: ['bilans.js'],
     par: ['estSerieLourde'],
     interditAilleurs: { motif: /\bREPS_LOURDES_MAX\b|\bZONES_DE_REPS\b|\b(?:reps?|rp)\s*(?:<=?|>=?)\s*(?:5|6|8|9|12|13)\b|\bhautMax\b|\blourdMax\b|\bmilieuMax\b/,
       raison: 'une coupure de reps écrite en dur : la description d\u2019une série par ses reps lit `Modele.bandeDeReps` / `estSerieLourde` ; les bornes ne vivent que dans `COUPURES_DE_REPS`',
       sauf: {
-        'bilans.js': 'PR A : `ZONES_DE_REPS` (force ≤ 5, mix ≤ 8, muscle au-delà) est la copie du bilan, retirée par la PR C (bilan à quatre bandes) qui lit `bandeDeReps`',
         'faits.js': 'PR A : `REPS_LOURDES_MAX = 6` (« séries lourdes » de la fiche d\u2019une barre) est la SEULE copie divergente : 6 → 5 est la PR D, après lecture des données réelles'
       } },
     raison: 'MOTEUR §9.51 quinquies : une table des coupures de reps pour DÉCRIRE une série ; la prescription (`ZONES`, `RANGEMENT`) ne la lit pas, un test de lien les rapproche.' },

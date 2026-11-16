@@ -316,6 +316,9 @@
   var DELAI_JETON_MS = 10000;
   var PHRASE_CAPTCHA_SCRIPT = 'La vérification anti-robot n\'a pas pu se charger. Vérifie ta connexion, puis réessaie.';
   var PHRASE_CAPTCHA_EXPIREE = 'La vérification a expiré. Réessaie.';
+  // 16/11/2026 — le REFUS de Supabase (`captcha_failed`, « no captcha_token found » : une app restée sur une ancienne version
+  // n'envoie aucun jeton). Le texte brut anglais se lisait « mauvais mot de passe » ; recharger l'app est le geste qui répare.
+  var PHRASE_CAPTCHA_ECHEC = 'La vérification anti-robot a échoué. Recharge l\'app, puis réessaie.';
 
   function fabriquerCaptcha() {
     var chargement = null;      // la promesse du chargement du script, tant qu'il est en vol
@@ -439,18 +442,35 @@
       if (!e) return null;
       if (e.captcha === 'script') return PHRASE_CAPTCHA_SCRIPT;
       if (e.captcha) return PHRASE_CAPTCHA_EXPIREE;
-      if (e.code === 'captcha_failed' || /captcha/i.test(String(e.message || ''))) return PHRASE_CAPTCHA_EXPIREE;
+      if (estRefus(e)) return PHRASE_CAPTCHA_ECHEC;
       return null;
+    }
+    // Le refus du serveur (pas une erreur née dans le widget) : l'écran propose « Recharger ».
+    function estRefus(e) {
+      return !!e && !e.captcha && (e.code === 'captcha_failed' || /captcha/i.test(String(e.message || '')));
     }
     function estScript(e) { return !!e && e.captcha === 'script'; }
 
     return { actif: actif, charger: charger, monter: monter, jeton: jeton, reinitialiser: reinitialiser,
-             demonter: demonter, phrase: phrase, estScript: estScript };
+             demonter: demonter, phrase: phrase, estScript: estScript, estRefus: estRefus };
   }
   var captcha = fabriquerCaptcha();
 
+  // 16/11/2026 — LE RECHARGEMENT SUR L'ÉCRAN D'ENTRÉE. Une nouvelle version qui prend le contrôle (`controllerchange`) ne recharge
+  // jamais seule, SAUF sur la connexion / l'inscription / le code, personne connectée, rien saisi ni focalisé : là, l'ancienne
+  // version n'enverrait pas le jeton du captcha. Pur : l'état est passé en argument. Au plus un rechargement par minute.
+  var DELAI_RECHARGEMENT_ENTREE = 60 * 1000;
+  function rechargerSurEntree(etat) {
+    if (!etat || !etat.entreeVisible || etat.connecte || etat.saisie || etat.focus) return false;
+    var d = Number(etat.dernier);
+    if (d && etat.maintenant - d >= 0 && etat.maintenant - d < DELAI_RECHARGEMENT_ENTREE) return false;
+    return true;
+  }
+
   racine.THAuth = {
     captcha: captcha,
+    rechargerSurEntree: rechargerSurEntree,
+    DELAI_RECHARGEMENT_ENTREE: DELAI_RECHARGEMENT_ENTREE,
     sessionPersistee: sessionPersistee,
     sessionCourante: sessionCourante,
     connecter: connecter,

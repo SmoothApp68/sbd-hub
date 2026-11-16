@@ -503,6 +503,12 @@ vivante.
 les vérifications sur un vrai iPhone ; le repos qui survit au rechargement est le prompt 136 (I-06).
 
 ---
+### 3.x Connexion face à une ancienne version (delta 16/11/2026)
+
+Depuis le captcha Turnstile (PR 247), une app installée restée sur une ancienne version envoie connexion, inscription et réinitialisation SANS jeton : Supabase répond 400 `captcha_failed` (« no captcha_token found »).
+- **Une seule famille de phrases** (`Auth.captcha.phrase`, `texteErreur` la lit) : le refus du serveur dit « La vérification anti-robot a échoué. Recharge l'app, puis réessaie. » avec un bouton « Recharger » (`location.reload()`, le bouton `btn-captcha-reessayer` relibellé) ; le script non chargé garde « n'a pas pu se charger » (bouton « Réessayer ») ; le délai du jeton garde « a expiré ». Jamais le texte brut anglais.
+- **Rechargement automatique, sur l'écran de connexion / inscription / code seulement** : quand une nouvelle version prend le contrôle (`controllerchange`), que la personne n'est pas connectée et qu'aucun champ (pseudo, e-mail, mot de passe, code) n'a de saisie ni le focus, la page se recharge une fois. Garde anti-boucle : horodatage `th-v2-maj-auto` en sessionStorage, au plus un rechargement par 60 s (`Auth.rechargerSurEntree`, pur). Hors de ces écrans, le bandeau « Une nouvelle version est prête » ne change pas : il ne s'impose jamais. Aucun changement du service worker.
+
 
 ## 4. L'onboarding, c'est le profil
 

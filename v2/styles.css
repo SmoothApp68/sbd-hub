@@ -54,6 +54,8 @@
   unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 
 :root{
+  /* La largeur de la colonne de l'app : .tel et la barre d'onglets la lisent. */
+  --largeur-app:480px;
   /* 134 (I-07, audit iPhone) — LA TAILLE D'UN CHAMP DE SAISIE. Safari iOS zoome sur tout champ en dessous de
      16 px, et ne dézoome pas à la sortie. Tous les champs hors de la grille (connexion, pesée, profil, recherche,
      cartes, social, import) la lisent ICI ; la grille (17 px) et le questionnaire (20 px) sont au-dessus.
@@ -218,7 +220,10 @@ body{
 
 .tel{
   width:100%;
-  max-width:380px;
+  /* Téléphones récents (16/11/2026) : de 360 à ~440 px. L'app remplit l'écran jusqu'à
+     --largeur-app, puis se centre (pliants ouverts, tablettes). Avant : 380 px, d'où des
+     marges vides sur les grands téléphones. */
+  max-width:var(--largeur-app);
   padding:20px 12px calc(40px + env(safe-area-inset-bottom));
 }
 
@@ -530,8 +535,9 @@ button{font-family:inherit;cursor:pointer}
      `--n-onglets` est posée par `appliquerJeu` (app.js). */
   display:grid;grid-template-columns:repeat(var(--n-onglets,5),1fr);
   background:var(--panneau);border-top:1px solid var(--trait);
-  padding:var(--e2) 0 calc(var(--e3) + env(safe-area-inset-bottom,0px));
-  max-width:420px;margin:0 auto}
+  /* La barre couvre toute la largeur de l'écran ; ses onglets restent dans la colonne de l'app
+     (même largeur que le contenu : avant, 420 px contre 380, deux bords différents). */
+  padding:var(--e2) max(0px, calc((100% - var(--largeur-app)) / 2)) calc(var(--e3) + env(safe-area-inset-bottom,0px))}
 .onglet{display:flex;flex-direction:column;align-items:center;gap:3px;
   background:none;border:none;color:var(--texte-3);
   font:600 12px/1.2 var(--pile-c);min-height:48px;justify-content:center;

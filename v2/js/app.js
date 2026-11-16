@@ -8809,6 +8809,9 @@
   // (la page d'exercice), la consigne seule.
   function libellesDe(slug, iExo) {
     if (occurrenceLibre(iExo)) return null;
+    // 17/11/2026 (I202) — « SANS COACH CETTE FOIS » SE TAIT AUSSI À L'ÉCRAN : le plan n'a plus de consigne pour cette occurrence (`planDuSlug` rend
+    // `null`), et le repli ci-dessous relisait la consigne calculée à l'ouverture (« Nouvelle zone : Lourd… ») malgré la marque.
+    if (seance && iExo !== undefined && iExo !== null && (seance.exercices || [])[iExo] && Seance.occurrenceSansCoach(seance.exercices[iExo])) return null;
     var c = consigneDe(slug);
     if (!c) return null;
     var x = planDuSlug(slug);

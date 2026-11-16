@@ -20088,7 +20088,7 @@
   var minuteurCode = null;
 
   function fermerCode() {
-    if (minuteurCode) { racine.clearInterval(minuteurCode); minuteurCode = null; }
+    if (minuteurCode) { racine.clearTimeout(minuteurCode); minuteurCode = null; }
     codeEtat = null;
     $('form-code').hidden = true;
     $('form-connexion').hidden = false;
@@ -20105,11 +20105,11 @@
     var reste = Auth.secondesAvantRenvoi(codeEtat.envoyeA, Date.now());
     b.textContent = Auth.libelleRenvoi(reste);
     b.disabled = reste > 0;
-    if (reste <= 0 && minuteurCode) { racine.clearInterval(minuteurCode); minuteurCode = null; }
+    if (minuteurCode) { racine.clearTimeout(minuteurCode); minuteurCode = null; }
+    if (reste > 0) minuteurCode = racine.setTimeout(tictacRenvoi, 1000);   // un réveil à la fois (pas de second intervalle : v2-barre-seance)
   }
 
   function ouvrirCode(genre, email, phrase) {
-    if (minuteurCode) racine.clearInterval(minuteurCode);
     codeEtat = { email: email, genre: genre, envoyeA: Date.now() };
     $('form-connexion').hidden = true;
     $('form-code').hidden = false;
@@ -20120,7 +20120,6 @@
     $('btn-code-oubli').hidden = genre !== 'inscription';   // l'issue d'une adresse déjà inscrite (aucun mail n'est parti)
     majBoutonCode();
     tictacRenvoi();
-    minuteurCode = racine.setInterval(tictacRenvoi, 1000);
     try { $('champ-code').focus(); } catch (e) { /* écran non visible */ }
   }
 
@@ -20157,9 +20156,7 @@
     } finally { if (Auth.captcha.actif()) Auth.captcha.reinitialiser(); }
     codeEtat.envoyeA = Date.now();
     $('code-info').textContent = codeEtat.genre === 'recuperation' ? Auth.PHRASE_CODE_ENVOYE : 'Un nouveau code vient de partir.';
-    if (minuteurCode) racine.clearInterval(minuteurCode);
     tictacRenvoi();
-    minuteurCode = racine.setInterval(tictacRenvoi, 1000);
   }
 
   // `depuisCode` : lancée depuis l'écran du code d'une inscription (« Mot de passe oublié ? ») : l'e-mail est celui du code,

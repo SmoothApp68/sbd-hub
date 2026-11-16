@@ -6608,7 +6608,7 @@
   function saisieDeLaSerie(iExo, iSerie) {
     var exo = seance.exercices[iExo], s = exo.series[iSerie];
     var def = catalogueIndexe()[exo.exercise_slug];
-    return { charge: s.charge_kg, reps: s.reps, type: s.type_serie || 'travail', equipement: def ? def.equipement || null : null };
+    return { charge: s.charge_kg, reps: s.reps, type: s.type_serie || 'travail', equipement: def ? Moteur.equipementEffectif(def) || null : null };   // 16/11/2026 : `haltere_seul` à un bras
   }
   // Avant l'écriture : `null`, ou la question (et rien n'est écrit). Un exercice noté par nom (élastique) n'a pas de charge à
   // comparer.

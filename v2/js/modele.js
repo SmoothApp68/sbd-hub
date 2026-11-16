@@ -2694,17 +2694,24 @@
   function exerciceAUnMax(exo) {
     return gabaritDe(exo).mesure === 'charge_reps' && natureDeCharge(exo) === null && !(exo && exo.equipement === 'aucun');
   }
+  // L'étage des reps, SEUL : `plancher` (1 ou 2 reps : la charge elle-même), `projection` (3 à 10 : Epley), `null` sinon. `eligibilite1RM` le lit, et le
+  // plancher de zone de la reprise longue (MOTEUR §9.9, 16/11/2026) : aucune borne de reps n'est recopiée dans le moteur.
+  function modeDeReps(reps) {
+    var r = Number(reps), E = ELIGIBILITE_1RM;
+    if (reps === null || reps === undefined || reps === '' || !isFinite(r)) return null;
+    if (r >= E.plancherMin && r <= E.plancherMax) return 'plancher';
+    if (r >= E.projectionMin && r <= E.projectionMax) return 'projection';
+    return null;
+  }
   function eligibilite1RM(serie, exo) {
     var rien = { mode: null, charge: null, reps: null, valeur: null };
     if (!exerciceAUnMax(exo)) return rien;
     if (!serie || !estTravail(serie) || serie.elastique) return rien;
     var c = valeurNumerique(serie, 'charge_kg'), r = valeurNumerique(serie, 'reps');
     if (c === null || !(c > 0) || r === null) return rien;
-    var E = ELIGIBILITE_1RM;
-    if (r >= E.plancherMin && r <= E.plancherMax) return { mode: 'plancher', charge: c, reps: r, valeur: c };
-    if (r >= E.projectionMin && r <= E.projectionMax) {
-      return { mode: 'projection', charge: c, reps: r, valeur: racine.THMoteur.unRMEpley(c, r) };
-    }
+    var mode = modeDeReps(r);
+    if (mode === 'plancher') return { mode: 'plancher', charge: c, reps: r, valeur: c };
+    if (mode === 'projection') return { mode: 'projection', charge: c, reps: r, valeur: racine.THMoteur.unRMEpley(c, r) };
     return rien;
   }
 
@@ -3580,6 +3587,7 @@
     optionsDeRecord: optionsDeRecord,
     recordsDeLExercice: recordsDeLExercice,
     eligibilite1RM: eligibilite1RM,
+    modeDeReps: modeDeReps,
     phraseDeFenetre: phraseDeFenetre,
     libelleDeForce: libelleDeForce,
     MOTS_DE_FORCE: MOTS_DE_FORCE,

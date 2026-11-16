@@ -14203,7 +14203,7 @@ const SETS_IMPORTES = [
       const x = d.plan.exercices.filter((q) => q.slug === 'mal-u53')[0] || null;
       return { seance: d.plan.seance,
         exos: d.entrees.seance.exercices.map((e) => e.exercise_slug),
-        mal: x && { douleur: !!x.douleur, consigne: x.consigne ? { charge: x.consigne.ligne && x.consigne.ligne.charge,
+        mal: x && { douleur: !!x.douleur, sansCoach: !!x.sansCoach, consigne: x.consigne ? { charge: x.consigne.ligne && x.consigne.ligne.charge,
           vise: x.consigne.ligne && x.consigne.ligne.vise, zone: x.consigne.zone } : null,
           coach: x.lignes.filter((l) => l.role !== 'hors').length, paris: (x.paris || []).filter(Boolean).length,
           carte: x.carteReprise ? { titre: x.carteReprise.titre, phrase: x.carteReprise.phrase,
@@ -14350,8 +14350,8 @@ const SETS_IMPORTES = [
     ok('[D53] abandonnée, la séance ne compte pas : la carte revient', (await carteD()) !== null, '');
     await choisirD('sans');
     const b2 = await planD();
-    ok('[D53] DISCRIMINANT — « Sans coach cette fois » : l’exercice de nouveau marqué, sans coach',
-      b2.mal.douleur && b2.mal.consigne === null && b2.mal.coach === 0 && (await carteD()) === null, JSON.stringify(b2.mal));
+    ok('[D53] DISCRIMINANT — « Sans coach cette fois » : l’exercice est sans coach par la marque de silence, SANS nouvelle douleur',
+      !b2.mal.douleur && b2.mal.sansCoach && b2.mal.consigne === null && b2.mal.coach === 0 && (await carteD()) === null, JSON.stringify(b2.mal));
     await abandonner();
     // « Plus léger, plus de reps ».
     await ouvrirB();
@@ -31401,6 +31401,99 @@ const SETS_IMPORTES = [
     base.records.length = 0;
     recordsAvant.forEach((r) => base.records.push(r));
     CATALOGUE.length = nbCat;
+    await aller('/saisie');
+  }
+
+  console.log('\n══ sans-coach-pr2. « SANS COACH CETTE FOIS » PAR EXERCICE : LE MENU ⋯, LE SILENCE, « + CHAUFFE », « REMETTRE LE COACH » (MOTEUR §9.20 et §9.41 bis, I202, I203) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : une séance vide, un exercice ajouté SANS historique (le calage « On trouve ta charge » le suivrait). ⋯ → « Sans coach cette
+  // fois » : le calage et toute voix du coach partent (I202) ; la 1re charge tapée (100) permet encore « + Chauffe » ; l'entrée devient « Remettre le coach »,
+  // qui rend le plan d'avant (I203). « J'ai mal » n'a pas d'inverse : sous une douleur, aucune entrée « Sans coach » ni « Remettre ». Le rendu reste pur.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const nbCatAvant = CATALOGUE.length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, paris2Avant = base.predictions;
+    const routinesAvant2 = ROUTINES.splice(0, ROUTINES.length);
+    base.sessions = []; base.sets = []; base.predictions = [];
+    const rendreLesBlocs2 = await retirerBlocsDeLAppareil();
+    const nb2 = (x) => JSON.stringify(x === undefined ? null : x);
+    CATALOGUE.push({ slug: 'sc2-dc', nom: 'Developpe SC2 (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+      muscles_primaires: ['pectoraux'], muscles_secondaires: ['triceps', 'epaules_anterieures'], muscles_stabilisateurs: [], schema_mouvement: 'pousser_horizontal' });
+    const profilAvant2 = Object.assign({}, base.profiles[0]);
+    base.profiles[0] = Object.assign({}, PROFIL_BANC, { rythme_progression: 'normal', intention: 'progresser', phase: 'maintien', phase_depuis: null,
+      cartes_semaine: null, priorites: null, jours_vises: null });
+    const lire2 = () => page.evaluate(() => {
+      const x = window.THPlan && window.THPlan.dernier && window.THPlan.dernier.plan && window.THPlan.dernier.plan.exercices.filter((q) => q.slug === 'sc2-dc')[0];
+      return x ? { sansCoach: x.sansCoach === true, douleur: x.douleur === true, calage: !!x.calage, consigne: !!x.consigne, proposition: !!x.proposition,
+        demande: x.surDemande ? x.surDemande.lignes : null, types: x.lignes.map((l) => l.type),
+        voix: x.lignes.filter((l) => l.role !== 'hors').length, message: !!x.message, carte: !!(x.carteReprise || x.carteLest || x.carteMarche) } : null;
+    });
+    const planPret2 = () => attendreQue(() => lire2().then((p) => !!p), 15000, 'planSC2');
+    await seanceVide();
+    await ajouterExoSeance('SC2');
+    await planPret2();
+    const a0 = await lire2();
+    ok('[SC2] prémisse — l’exercice ajouté sans historique est CALÉ par le coach (sans la marque, le test ne prouverait rien)', a0.calage === true && a0.sansCoach === false, nb2(a0));
+    await menuBloc(0);
+    const menu1 = await entreesFeuille();
+    ok('[SC2] le menu ⋯ porte « Sans coach cette fois » ENTRE « J’ai mal » et « Remplacer l’exercice », sur un exercice ajouté',
+      menu1.indexOf('Sans coach cette fois') > menu1.indexOf('J’ai mal') && menu1.indexOf('J’ai mal') >= 0 &&
+      menu1.indexOf('Sans coach cette fois') < menu1.indexOf('Remplacer l’exercice') && menu1.indexOf('Remettre le coach') < 0, nb2(menu1));
+    await entree('^Sans coach cette fois$');
+    await attendreQue(() => lire2().then((p) => p && p.sansCoach), 15000, 'sansCoachSC2');
+    const a1 = await lire2();
+    ok('[SC2] I202 — DISCRIMINANT — « Sans coach cette fois » : plus de calage, de consigne, de ligne du coach, de message ni de carte, et ce n’est PAS une douleur',
+      a1.sansCoach && !a1.douleur && !a1.calage && !a1.consigne && a1.voix === 0 && !a1.message && !a1.carte && !a1.proposition, nb2(a1));
+    await calmeApres(await departGeste());
+    const ecritsAvant2 = nb2([base.sets, base.predictions]);
+    await menuBloc(0);
+    await fermerFeuille();
+    ok('[SC2] rendu pur — le plan sous la marque n’écrit rien en base (sets et paris identiques après une réouverture du menu et un nouveau rendu)', nb2([base.sets, base.predictions]) === ecritsAvant2, '');
+    ok('[SC2] la question « Ta charge habituelle ? » et « On trouve ta charge » ne sont plus à l’écran',
+      (await page.evaluate(() => !/Ta charge habituelle|On trouve ta charge/.test(document.getElementById('vue-seance').textContent))), '');
+    await page.locator('.ligne-serie').nth(0).locator('input').nth(0).fill('100');
+    await page.evaluate(() => { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); });
+    await attendreQue(() => lire2().then((p) => p && !!p.demande), 15000, 'demandeSC2');
+    const a2 = await lire2();
+    ok('[SC2] « + Chauffe » depuis la 1re charge tapée (100) reste possible : la demande calcule, aucune carte ne se pose d’elle-même',
+      !!a2.demande && a2.demande.length >= 1 && a2.proposition === false && (await compter('.ajout-chauffe')) >= 1, nb2(a2));
+    await page.click('.ajout-chauffe');
+    await attendreQue(() => lire2().then((p) => p && p.types.indexOf('echauffement') >= 0), 15000, 'chauffeSC2');
+    ok('[SC2] « + Chauffe » pose la montée sous la marque', (await lire2()).types.indexOf('echauffement') >= 0, nb2(await lire2()));
+    await page.click('.proposition-chauffes.chauffes-posees button').catch(() => {});
+    await attendreQue(() => lire2().then((p) => p && p.types.indexOf('echauffement') < 0), 15000, 'annulerChauffeSC2');
+    await menuBloc(0);
+    const menu2 = await entreesFeuille();
+    ok('[SC2] l’entrée devient « Remettre le coach » (et « Sans coach cette fois » disparaît)', menu2.indexOf('Remettre le coach') >= 0 && menu2.indexOf('Sans coach cette fois') < 0, nb2(menu2));
+    await entree('^Remettre le coach$');
+    await attendreQue(() => lire2().then((p) => p && !p.sansCoach), 15000, 'remisSC2');
+    const a3 = await lire2();
+    ok('[SC2] I203 — DISCRIMINANT — « Remettre le coach » : le plan est celui d’AVANT la marque (calage de retour), plus aucune marque',
+      !a3.sansCoach && a3.calage === a0.calage && a3.consigne === a0.consigne && a3.voix === a0.voix, nb2([a0, a3]));
+    // « J'ai mal » : une douleur, sans inverse ; « Sans coach cette fois » et « Remettre » n'y sont pas.
+    await menuBloc(0);
+    await entree('^J’ai mal$');
+    await page.evaluate(() => { const b = Array.from(document.querySelectorAll('#feuille-contenu button')).filter((x) => /Arrêter|Alléger/.test(x.textContent))[0]; if (b) b.click(); });
+    await attendreQue(() => lire2().then((p) => p && p.douleur), 15000, 'douleurSC2');
+    await menuBloc(0);
+    const menu3 = await entreesFeuille();
+    ok('[SC2] I203 — sous « J’ai mal » (une douleur) : ni « Sans coach cette fois » ni « Remettre le coach » — pas d’inverse sur une douleur',
+      menu3.indexOf('J’ai mal') >= 0 && menu3.indexOf('Sans coach cette fois') < 0 && menu3.indexOf('Remettre le coach') < 0, nb2(menu3));
+    await fermerFeuille();
+    ok('[SC2] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      nb2([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
+    await abandonner();
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    base.predictions = paris2Avant;
+    CATALOGUE.length = nbCatAvant;
+    ROUTINES.length = 0;
+    routinesAvant2.forEach((r) => ROUTINES.push(r));
+    base.profiles[0] = profilAvant2;
+    rendreLesBlocs2();
     await aller('/saisie');
   }
 

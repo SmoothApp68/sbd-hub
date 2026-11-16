@@ -65,7 +65,7 @@ describe('70 — la sonde du retour de lien : lue sur l’adresse seule, avant t
 });
 
 describe('70 — l’inscription dit toujours la même chose (ne jamais révéler qui est inscrit)', () => {
-  const PHRASE = 'Compte créé si l\'adresse est nouvelle : confirme ton e-mail, puis connecte-toi. ' +
+  const PHRASE = 'Si l\'adresse est nouvelle, un code vient de partir : entre-le ici. ' +
     'Si tu as déjà un compte avec cette adresse, aucun mail ne part : utilise « Mot de passe oublié ? ».';
 
   // Ce que `signUp` rend, avec la confirmation d'e-mail du projet :

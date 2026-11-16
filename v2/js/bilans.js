@@ -40,8 +40,8 @@
   // une fois, dans `THModele` (124, audit du 16/10/2026, 06 #16).
   function barres() { return Mo().BARRES; }
   function trois() { return Mo().BARRES.slice(0, 3); }
-  // Le profil de l'année : la part des séries de travail par zone de reps (décidé le 12/10/2026).
-  var ZONES_DE_REPS = [{ cle: 'force', jusqua: 5 }, { cle: 'mix', jusqua: 8 }, { cle: 'muscle', jusqua: Infinity }];
+  // Le profil de l'année : la part des séries de travail par BANDE de reps — les quatre bandes de la table unique
+  // (`Modele.bandeDeReps`, MOTEUR §9.51 sexies ; décidé le 12/10/2026, quatre bandes le 16/11/2026). Aucune borne écrite ici.
   // La comparaison : moins de 2 mois de données, aucune ; moins de 12, début contre fin de la période.
   var MOIS_MIN = 2, MOIS_PLEIN = 12;
   // Le poids du jour (BILANS-V1) : `THPoids.poidsAutourDe` (246, rangé dans `poids.js` : 60 j / 45 j), lu à l'appel.
@@ -363,19 +363,21 @@
     sortie.semaines = { liste: parSemaine, plusLourde: lourdeS };
 
     // Reps et séries de travail.
-    var reps = 0, zones = [0, 0, 0];
+    var reps = 0, bandes = Mo().BANDES_DE_REPS, zones = bandes.map(function () { return 0; });
     travailIci.forEach(function (t) {
       var r = nombre(t.serie.reps);
       if (r === null || r < 1) return;
       reps += r;
-      for (var i = 0; i < ZONES_DE_REPS.length; i++) if (r <= ZONES_DE_REPS[i].jusqua) { zones[i]++; break; }
+      var ib = bandes.indexOf(Mo().bandeDeReps(r));
+      if (ib >= 0) zones[ib]++;
     });
     sortie.reps = { reps: reps, series: Se().compteSeriesTravail(seriesIci, exercices) };
     var parts = pourcents(zones);
-    var ordre = ZONES_DE_REPS.map(function (z, i) { return { cle: z.cle, part: parts[i], n: zones[i] }; });
-    var tries = ordre.slice().sort(function (a, b) { return b.n - a.n; });
-    sortie.profil = zones[0] + zones[1] + zones[2] ? { force: parts[0], mix: parts[1], muscle: parts[2],
-                                                       premier: tries[0].cle, second: tries[1].cle } : null;
+    // `premier` : la bande la plus fournie, SEULEMENT si elle est seule en tête (à égalité, `premier` est `null` et `egalite` liste
+    // les bandes ex æquo : le titre dit alors le fait, jamais un « plutôt »). Les pourcents font 100 (`pourcents`).
+    var meilleur = Math.max.apply(null, zones), enTete = bandes.filter(function (c, i) { return zones[i] === meilleur; });
+    sortie.profil = meilleur > 0 ? { lourdes: parts[0], moyennes: parts[1], hautes: parts[2], longues: parts[3],
+                                     premier: enTete.length === 1 ? enTete[0] : null, egalite: enTete.length > 1 ? enTete : null } : null;
 
     // Le muscle de l'année et les deux suivants (en séries, la règle du volume).
     sortie.muscles = Se().volumeParMuscle(seriesIci, exercices).slice(0, 3);
@@ -532,8 +534,7 @@
     SAISONS: SAISONS,
     SEMAINES_MIN: SEMAINES_MIN,
     comparaisonDe: comparaisonDe,
-    get BARRES() { return barres(); },
-    ZONES_DE_REPS: ZONES_DE_REPS
+    get BARRES() { return barres(); }
   };
   racine.THBilans = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

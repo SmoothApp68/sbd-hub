@@ -6591,6 +6591,10 @@
       // (`sets.douleur`) : une seule série marquée rend la séance-exercice
       // douloureuse. `sansPalierRetenues` en fait une séance neutre.
       if (seanceDouloureuse((g && g.series) || [])) se.douleur = true;
+      // PR 2 — « SANS COACH CETTE FOIS » : la même neutralité (`sansCoach`), SANS fait de douleur (`se.douleur` reste faux : ni carte de
+      // reprise, ni phrase du kiné, ni `douleurRecente`). Le prédicat du silence est `Seance.occurrenceSansCoach` ; ici sa lecture sur
+      // les lignes de la base (`sets.douleur` ou `sets.sans_coach`).
+      if (seanceSansCoach((g && g.series) || [])) se.sansCoach = true;
       return se;
     });
     var valeur = options ? sansPalierRetenues(seances, options) : seances;
@@ -6641,7 +6645,7 @@
     if (mesure !== 'charge_reps') return seances;
     var sortie = null, M = Modele();
     (seances || []).forEach(function (se, i) {
-      if (!se || se.douleur === true) return;
+      if (!se || neutreSansCoach(se)) return;
       var g = groupes && groupes[i];
       var series = (g && g.series) || [];
       var z = M.seanceAZero(series);
@@ -6674,7 +6678,7 @@
     var P = nombre(palier);
     var actifs = [];
     liste.forEach(function (se) {
-      if (!se || !se.plafondZero || se.decharge === true || se.douleur === true) return;
+      if (!se || !se.plafondZero || se.decharge === true || neutreSansCoach(se)) return;
       var t0 = instant(se.debut);
       if (t0 === null || (coupure !== null && t0 >= coupure)) return;
       var z = se.plafondZero, Ch = nombre(z.charge);
@@ -6705,6 +6709,13 @@
   // porte la marque. La seule lecture de `douleur` du moteur.
   function seanceDouloureuse(series) {
     return (series || []).some(function (s) { return !!s && s.douleur === true; });
+  }
+  // PR 2 — UNE SÉANCE-EXERCICE SANS COACH : une série porte la douleur OU la marque du geste. Le silence et la neutralité, jamais un fait.
+  function seanceSansCoach(series) {
+    return (series || []).some(function (s) { return !!s && (s.douleur === true || s.sans_coach === true); });
+  }
+  function neutreSansCoach(se) {
+    return !!se && (se.douleur === true || se.sansCoach === true);
   }
 
   // ── §7.6 (49-U8) — UNE SÉANCE SANS CHARGE RÉPÉTÉE ────────────────────────
@@ -6749,8 +6760,10 @@
       // zone, pas une seconde notion : elle ne vote pas pour la charge, et sa
       // date compte pour le rythme. Sans elle, une séance douloureuse plus
       // légère faisait reculer la ligne (squat 120 → 95 kg).
-      if (se.douleur === true) {
-        se = { debut: se.debut, palier: null, neutre: true, douleur: true, series: se.series || [] };
+      if (neutreSansCoach(se)) {
+        se = se.douleur === true
+          ? { debut: se.debut, palier: null, neutre: true, douleur: true, series: se.series || [] }
+          : { debut: se.debut, palier: null, neutre: true, sansCoach: true, series: se.series || [] };
         sortie[i] = se;
         faites.push(se);
         return;

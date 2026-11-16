@@ -1,0 +1,42 @@
+[
+ {
+  "nom": "sc2-1-porte-du-plan-ignoree",
+  "fichier": "v2/js/plan.js",
+  "ancien": "        var c = coachee && !sansCoachX && Object.prototype.hasOwnProperty.call(consignes, slug) ? consignes[slug] : null;",
+  "nouveau": "        var c = coachee && !douloureuse && Object.prototype.hasOwnProperty.call(consignes, slug) ? consignes[slug] : null;",
+  "banc": "seance",
+  "sections": [
+   "sans-coach-pr2"
+  ],
+  "unitaires": [
+   "tests/unit/v2-sans-coach-par-exercice.test.js"
+  ]
+ },
+ {
+  "nom": "sc2-2-predicat-sans-douleur",
+  "fichier": "v2/js/seance.js",
+  "ancien": "    return occurrenceDouloureuse(exo) || marqueSansCoachPosee(exo);",
+  "nouveau": "    return marqueSansCoachPosee(exo);",
+  "banc": "seance",
+  "sections": [
+   "sans-coach-pr2"
+  ],
+  "unitaires": [
+   "tests/unit/v2-sans-coach-par-exercice.test.js",
+   "tests/unit/v2-j-ai-mal.test.js"
+  ]
+ },
+ {
+  "nom": "sc2-3-remettre-efface-une-douleur",
+  "fichier": "v2/js/seance.js",
+  "ancien": "    if (!exo || !occurrenceSansCoachChoisie(exo)) return seance;\n    exos[iExo] = Object.assign({}, exo, { sans_coach: false,\n      series: (exo.series || []).map(function (sr) { return Object.assign({}, sr, { sans_coach: false }); }) });",
+  "nouveau": "    if (!exo || !occurrenceSansCoach(exo)) return seance;\n    exos[iExo] = Object.assign({}, exo, { sans_coach: false, douleur: false,\n      series: (exo.series || []).map(function (sr) { return Object.assign({}, sr, { sans_coach: false, douleur: false }); }) });",
+  "banc": "seance",
+  "sections": [
+   "sans-coach-pr2"
+  ],
+  "unitaires": [
+   "tests/unit/v2-sans-coach-par-exercice.test.js"
+  ]
+ }
+]

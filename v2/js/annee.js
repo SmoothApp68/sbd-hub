@@ -36,7 +36,14 @@
   }
   function sansParentheses(nom) { return String(nom || '').replace(/\s*\([^)]*\)\s*/g, ' ').trim(); }
   function majuscule(t) { return t ? t.charAt(0).toUpperCase() + t.slice(1) : t; }
-  var NOM_DU_PROFIL = { force: 'force', mix: 'mix', muscle: 'muscle' };
+  // Les quatre bandes du profil (MOTEUR §9.51 sexies) : un mot, LIBELLÉ de la fourchette de reps (jamais un verdict : « muscle » ne vaut que
+  // 9 à 12, « longues séries » ne dit rien de la charge) + la fourchette, fabriquée depuis la table (`Modele.libelleDeBande`).
+  var MOT_DE_BANDE = { lourdes: 'force', moyennes: 'mix', hautes: 'muscle', longues: 'longues séries' };
+  var PASTILLE_DE_BANDE = { lourdes: 'rouge', moyennes: 'or', hautes: 'bleu', longues: 'vert' };
+  function fourchetteDeBande(cle) {
+    var t = M().libelleDeBande(cle);
+    return cle === 'lourdes' ? t : cle === 'longues' ? t.replace(' et plus', ' reps et plus') : t + ' reps';
+  }
   var COURT = { squat_barre: 'Squat', developpe_couche_barre: 'Couché', souleve_de_terre_barre: 'Soulevé',
                 developpe_militaire_barre: 'Militaire' };
   // Un texte : des morceaux, `[texte, gras]`.
@@ -234,14 +241,14 @@
                txt: [M().uniteReps(b.reps.reps) + ' de travail, sur ', g(milliers(b.reps.series) + ' série' + (b.reps.series > 1 ? 's' : '')), '.'] });
     // Le profil.
     if (b.profil) {
-      var pr = b.profil;
+      var pr = b.profil, bandes = M().BANDES_DE_REPS;
       out.push({ cle: 'profil', d: 9100, lab: 'Ton profil de l’année',
-                 titre: pr.premier === 'mix' ? 'Plutôt entre les deux.'
-                   : 'Plutôt ' + NOM_DU_PROFIL[pr.premier] + ' que ' + NOM_DU_PROFIL[pr.second] + '.',
-                 barre3: [pr.force, pr.mix, pr.muscle],
-                 lignes: [{ pastille: 'rouge', v: M().pourcentTexte(pr.force) + ' · force, 5 reps ou moins' },
-                          { pastille: 'or', v: M().pourcentTexte(pr.mix) + ' · mix, 6 à 8 reps' },
-                          { pastille: 'bleu', v: M().pourcentTexte(pr.muscle) + ' · muscle, 9 reps et plus' }] });
+                 titre: pr.premier ? 'Surtout ' + MOT_DE_BANDE[pr.premier] + ', ' + fourchetteDeBande(pr.premier) + '.'
+                   : 'À égalité : ' + M().enumerer(pr.egalite.map(fourchetteDeBande)) + '.',
+                 barre4: bandes.map(function (c) { return pr[c]; }),
+                 lignes: bandes.map(function (c) {
+                   return { pastille: PASTILLE_DE_BANDE[c], v: M().pourcentTexte(pr[c]) + ' · ' + majuscule(MOT_DE_BANDE[c]) + ' · ' + fourchetteDeBande(c) };
+                 }) });
     }
     // Le muscle de l'année.
     if (b.muscles.length) {
@@ -345,7 +352,7 @@
     return parent;
   }
   function texteDe(liste) { return (liste || []).map(function (x) { return Array.isArray(x) ? x[0] : x; }).join(''); }
-  var COULEUR = { rouge: 'var(--rouge)', or: 'var(--or)', bleu: 'var(--bleu)' };
+  var COULEUR = { rouge: 'var(--rouge)', or: 'var(--or)', bleu: 'var(--bleu)', vert: 'var(--vert)' };
   var NS = 'http://www.w3.org/2000/svg';
 
   function chiffreDe(c) {
@@ -460,11 +467,11 @@
     if (e.pile) s.appendChild(pile());
     if (e.mois) s.appendChild(barresDesMois(e.mois));
     if (e.semaines) s.appendChild(barresDesSemaines(e.semaines));
-    if (e.barre3) {
-      var b3 = el('div', 'a barre3');
-      ['rouge', 'or', 'bleu'].forEach(function (c, i) {
+    if (e.barre4) {
+      var b3 = el('div', 'a barre4');
+      ['rouge', 'or', 'bleu', 'vert'].forEach(function (c, i) {
         var b = el('b');
-        b.dataset.w = String(e.barre3[i]);
+        b.dataset.w = String(e.barre4[i]);
         b.style.background = COULEUR[c];
         b3.appendChild(b);
       });

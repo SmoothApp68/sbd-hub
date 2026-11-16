@@ -6049,15 +6049,7 @@
     // l'exercice : il n'y a qu'un objet, et deux menus pour lui seraient un de
     // trop (§5.6 — « Sortir » est masqué, pas grisé, sur un bloc d'un seul).
     if (!vue.superset) {
-      // §9.19 — « Machine prise » en tête : c'est le geste du moment où l'on
-      // ouvre ce menu en pleine séance.
-      if (vue.surMachinePrise) entreeMenu(menu, 'Machine prise', { surClic: vue.surMachinePrise });
-      // §9.20 — « J'ai mal », juste après : les deux gestes « adapter ».
-      if (vue.surJaiMal) entreeMenu(menu, 'J’ai mal', { surClic: vue.surJaiMal });
-      entreeMenu(menu, 'Remplacer l’exercice', { surClic: vue.surRemplacer });
-      // 204 — la note de l'exercice vit ici, plus sur une rangée de la séance : une note posée s'affiche sous le nom.
-      if (vue.surNote) entreeMenu(menu, vue.note ? 'Modifier la note' : 'Ajouter une note', { classe: 'menu-note', surClic: vue.surNote });
-      if (vue.surDisques) entreeMenu(menu, 'Disques', { classe: 'menu-disques', surClic: vue.surDisques });
+      entreesDeLExercice(menu, vue);
     }
     entreeMenu(menu, 'Grouper en superset…', {
       surClic: vue.surGrouper, desactive: !vue.peutGrouper });
@@ -6206,6 +6198,21 @@
     return cible;
   }
 
+  // PR 2 — LES ENTRÉES D'UN EXERCICE, UNE SEULE COPIE (le menu d'un bloc d'un seul et celui d'un exercice de superset l'appellent toutes
+  // les deux) : « Machine prise » en tête (§9.19, le geste du moment où l'on ouvre ce menu en pleine séance), « J'ai mal » (§9.20),
+  // « Sans coach cette fois » — qui devient « Remettre le coach » quand la marque vient de ce geste, et n'existe pas sur une douleur —,
+  // « Remplacer l'exercice », la note (204 : une note posée s'affiche sous le nom) et « Disques ».
+  // `vue` : { surMachinePrise, surJaiMal, sansCoach: { remettre, sur } | null, surRemplacer, note, surNote, surDisques }.
+  function entreesDeLExercice(menu, vue) {
+    if (vue.surMachinePrise) entreeMenu(menu, 'Machine prise', { surClic: vue.surMachinePrise });
+    if (vue.surJaiMal) entreeMenu(menu, 'J’ai mal', { surClic: vue.surJaiMal });
+    if (vue.sansCoach) entreeMenu(menu, vue.sansCoach.remettre ? 'Remettre le coach' : 'Sans coach cette fois',
+      { classe: 'menu-sans-coach', surClic: vue.sansCoach.sur });
+    entreeMenu(menu, 'Remplacer l’exercice', { surClic: vue.surRemplacer });
+    if (vue.surNote) entreeMenu(menu, vue.note ? 'Modifier la note' : 'Ajouter une note', { classe: 'menu-note', surClic: vue.surNote });
+    if (vue.surDisques) entreeMenu(menu, 'Disques', { classe: 'menu-disques', surClic: vue.surDisques });
+  }
+
   function rendreFeuilleExercice(cible, vue) {
     vider(cible);
     var t = el('div', 'feuille-t', 'Exercice');
@@ -6213,11 +6220,7 @@
     cible.appendChild(t);
 
     var menu = el('div', 'feuille-menu');
-    if (vue.surMachinePrise) entreeMenu(menu, 'Machine prise', { surClic: vue.surMachinePrise });
-    if (vue.surJaiMal) entreeMenu(menu, 'J’ai mal', { surClic: vue.surJaiMal });
-    entreeMenu(menu, 'Remplacer l’exercice', { surClic: vue.surRemplacer });
-    if (vue.surNote) entreeMenu(menu, vue.note ? 'Modifier la note' : 'Ajouter une note', { classe: 'menu-note', surClic: vue.surNote });
-    if (vue.surDisques) entreeMenu(menu, 'Disques', { classe: 'menu-disques', surClic: vue.surDisques });
+    entreesDeLExercice(menu, vue);
     // §5.8 — sortir agit sur UN exercice, jamais sur le bloc entier, et il se
     // pose JUSTE APRÈS son bloc d'origine : il ne remonte pas en fin de séance.
     entreeMenu(menu, 'Sortir du superset', { surClic: vue.surDegrouper });

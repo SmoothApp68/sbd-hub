@@ -883,6 +883,17 @@ const NOTIONS = [
     parAilleurs: { 'plan.js': ['planDeSeance'] },
     raison: 'le plan (sans coach), l’envoi (`sets.douleur` sur chaque série) et l’écran lisent la même ' +
       'marque : posée sur l’occurrence, tenue de ses séries quand la séance est relue.' },
+  { notion: 'l’occurrence SANS COACH en séance : le geste « Sans coach cette fois » OU la douleur (le silence et la neutralité, I202, I203)', pr: 'correctif 16/11/2026',
+    module: 'seance.js', fonction: 'occurrenceSansCoach', lecteurs: ['plan.js'],
+    par: ['occurrenceSansCoachChoisie'],
+    parAilleurs: { 'plan.js': ['planDeSeance'] },
+    motif: /Seance\s*(?:\(\s*\))?\s*\.\s*occurrenceSansCoach\s*\(/g,
+    interditAilleurs: { motif: /\.\s*sans_coach\b/,
+      sauf: { 'moteur.js': 'la lecture des LIGNES de la base : `seanceSansCoach` lit `sets.sans_coach` (et `sets.douleur`) série par série pour rendre la séance-exercice neutre, comme `seanceDouloureuse` lit `sets.douleur` — le contrat ne reçoit pas d\'occurrence' },
+      raison: 'une lecture directe de la marque `.sans_coach` : passer par `Seance.occurrenceSansCoach` (le prédicat du silence) ou `Seance.occurrenceSansCoachChoisie` (la marque du seul geste)' },
+    raison: 'PR 2 : « Sans coach cette fois » n’est plus la marque « douleur » (un fait de santé). Le silence du plan (consigne, lignes, paris, calage, cartes) et la ' +
+      'neutralité de la séance-exercice lisent UN prédicat : `sans_coach || douleur`. Les lecteurs d’un FAIT de douleur (carte de reprise, phrase du kiné, ' +
+      '`douleurRecente`, niveau) restent sur `occurrenceDouloureuse` / `douleur`.' },
   { notion: 'la reprise après une séance douloureuse (la carte, la zone suivante, le repli)', pr: '51-U3',
     module: 'moteur.js', fonction: 'reprisePour', lecteurs: [],
     par: ['consigneDExerciceCalcul'],
@@ -2238,7 +2249,7 @@ const NOTIONS = [
   // 251 — « A, B et C » : UNE énumération. Le coach disait « Développé Couché et Rowing et Curl » (`join(' et ')`).
   { notion: 'l’énumération d’une liste de noms (« A », « A et B », « A, B et C »)', pr: '251-U1',
     module: 'modele.js', fonction: 'enumerer',
-    lecteurs: ['moteur.js', 'generateur.js', 'questionnaire.js', 'equilibres.js', 'app.js', 'profil.js', 'notes-ia.js', 'tours.js', 'deraille.js', 'partage-image.js'],
+    lecteurs: ['moteur.js', 'generateur.js', 'questionnaire.js', 'equilibres.js', 'app.js', 'profil.js', 'notes-ia.js', 'tours.js', 'deraille.js', 'partage-image.js', 'annee.js'],
     interditAilleurs: { motif: /\.join\(\s*' et '\s*\)|\.slice\(0,\s*-1\)\s*\.join\(', '\)/,
                         raison: 'une liste de noms ne se joint que par `THModele.enumerer` (251-U1) : « A, B et C », jamais « A et B et C »' },
     raison: '251 — la carte de la forme du jour (`phraseDeRate`), les cartes, les équilibres, le générateur et le questionnaire joignaient chacun leurs noms ' +
@@ -2301,21 +2312,19 @@ const NOTIONS = [
     module: 'moteur.js', fonction: 'motsDeLAuMax', lecteurs: ['plan.js', 'app.js'],
     raison: 'le plan pose `x.auMaxMots` et le titre de la carte ; l’éditeur de routine, sans plan, lit la même fonction : aucun « Au max » à un 65+ connu, dans aucun écran.' },
   // MOTEUR §9.51 quinquies (PR A, 15/11/2026) : la table des coupures de reps. Aucun lecteur hors `modele.js` pour l'instant : les
-  // trois copies du seuil lourd (bilans, plan, faits) sont des exceptions NOMMÉES, retirées une à une (PR B : plan ; PR C : bilans ; PR D : faits).
+  // trois copies du seuil lourd (bilans, plan, faits) sont des exceptions NOMMÉES, retirées une à une (PR B : plan, fait ; PR C : bilans ; PR D : faits).
   { notion: 'la bande de reps d\u2019une série (lourdes ≤ 5, moyennes 6 à 8, hautes 9 à 12, longues 13 et plus)', pr: 'correctif 15/11/2026',
-    module: 'modele.js', fonction: 'bandeDeReps', lecteurs: [],
+    module: 'modele.js', fonction: 'bandeDeReps', lecteurs: ['bilans.js'],
     par: ['estSerieLourde'],
     interditAilleurs: { motif: /\bREPS_LOURDES_MAX\b|\bZONES_DE_REPS\b|\b(?:reps?|rp)\s*(?:<=?|>=?)\s*(?:5|6|8|9|12|13)\b|\bhautMax\b|\blourdMax\b|\bmilieuMax\b/,
       raison: 'une coupure de reps écrite en dur : la description d\u2019une série par ses reps lit `Modele.bandeDeReps` / `estSerieLourde` ; les bornes ne vivent que dans `COUPURES_DE_REPS`',
       sauf: {
-        'bilans.js': 'PR A : `ZONES_DE_REPS` (force ≤ 5, mix ≤ 8, muscle au-delà) est la copie du bilan, retirée par la PR C (bilan à quatre bandes) qui lit `bandeDeReps`',
-        'plan.js': 'PR A : `REPS_LOURDES_MAX = 5` (I75) est la copie du plan, de même valeur que la table, retirée par la PR B qui lit `estSerieLourde`',
         'faits.js': 'PR A : `REPS_LOURDES_MAX = 6` (« séries lourdes » de la fiche d\u2019une barre) est la SEULE copie divergente : 6 → 5 est la PR D, après lecture des données réelles'
       } },
     raison: 'MOTEUR §9.51 quinquies : une table des coupures de reps pour DÉCRIRE une série ; la prescription (`ZONES`, `RANGEMENT`) ne la lit pas, un test de lien les rapproche.' },
   { notion: 'la série lourde (5 reps ou moins)', pr: 'correctif 15/11/2026',
-    module: 'modele.js', fonction: 'estSerieLourde', lecteurs: [],
-    raison: 'MOTEUR §9.51 quinquies : « série lourde » du bilan, de la fiche et de l\u2019invariant I75 lira une seule fonction ; ses lecteurs arrivent aux PR B, C et D.' },
+    module: 'modele.js', fonction: 'estSerieLourde', lecteurs: ['plan.js'],
+    raison: 'MOTEUR §9.51 quinquies : « série lourde » du bilan, de la fiche et de l\u2019invariant I75 lit une seule fonction ; `plan.js` (I75) la lit depuis la PR B, le bilan et la fiche suivent (PR C et D).' },
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────
@@ -4058,5 +4067,21 @@ describe('I196 — aucune durée de mois en jours hors de THPeriode', () => {
     expect(n.test('new Date(a, m.getMonth() + 1, 0)')).toBe(false);
     expect(n.test('var etiquette = d.getMonth() + 1;')).toBe(false);
     expect(n.test('ref.getMonth() - d.getMonth()')).toBe(false);
+  });
+});
+
+
+describe('architecture — le menu d’un exercice : une seule copie (PR 2 « sans coach par exercice »)', () => {
+  const rendu = perimetre().filter((f) => f.nom === 'rendu.js')[0].src;
+  test('⚠️ « J’ai mal » et « Sans coach cette fois » ne s’écrivent qu’une fois, dans `entreesDeLExercice`', () => {
+    expect((rendu.match(/entreeMenu\(menu, 'J’ai mal'/g) || []).length).toBe(1);
+    expect((rendu.match(/'Sans coach cette fois'/g) || []).length).toBe(1);
+    expect((rendu.match(/'Remettre le coach'/g) || []).length).toBe(1);
+    const corps = rendu.slice(rendu.indexOf('function entreesDeLExercice'), rendu.indexOf('function rendreFeuilleExercice'));
+    expect(corps).toMatch(/'J’ai mal'/);
+    expect(corps).toMatch(/'Sans coach cette fois'/);
+  });
+  test('les deux menus (bloc d’un seul et exercice de superset) appellent la même fonction', () => {
+    expect((rendu.match(/^\s+entreesDeLExercice\(menu, vue\);/gm) || []).length).toBe(2);
   });
 });

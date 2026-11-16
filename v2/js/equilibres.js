@@ -1278,6 +1278,13 @@
     if (Object.keys(g).length) toutes.geste_routine = g; else delete toutes.geste_routine;
     return toutes;
   }
+  // 16/11/2026 — une réponse à un geste est aussi DATÉE : `cartes_semaine[cle] = { r: 'oui', le: jour, refus: 0 }` (« une carte par
+  // jour » sur l'accueil la lit), dans la même valeur que `geste_routine`, donc le même `poserProfil`.
+  function reponseAuGesteDatee(cartes, cle, routineId, slug, r, jour) {
+    var toutes = reponseAuGeste(cartes, routineId, slug, r);
+    if (cle && jour) toutes[cle] = reponse(toutes, cle, 'oui', jour);
+    return toutes;
+  }
   // « Ce que le coach a retenu » (le Profil) : la liste, dans l'ordre des clés.
   function gestesRetenus(cartes) {
     var g = reponsesAuGeste(cartes), sortie = [];
@@ -1364,7 +1371,8 @@
     var nX = nom(item.slug), nR = guillemets(r.nom || 'ta routine');
     var c = { cle: 'geste|' + item.routine_id + '|' + item.slug + (item.vers ? '|' + item.vers : ''), famille: 'gestes', kind: 'geste',
               titre: TITRE_DU_COACH, coach: true, ecart: true, habitudeOk: true, garni: true, causes: [], geste: item };
-    var garder = { type: 'geste_garder', libelle: 'Garder ' + nX, routine_id: r.id, slug: item.slug,
+    // `court` : le libellé de l'accueil (la carte y tient en une rangée de boutons à 360 px) ; « Ton parcours » garde le long.
+    var garder = { type: 'geste_garder', libelle: 'Garder ' + nX, court: 'Garder', routine_id: r.id, slug: item.slug,
                    fait: 'Noté : je garde ' + nX + ' dans ' + nR + ' et je ne te le redemande plus.' };
     if (item.type === 'remplacement') {
       var nB = nom(item.vers);
@@ -1494,17 +1502,98 @@
     return fautes;
   }
 
-  // ── LA LIGNE de l'écran Séances (une seule, sous la barre de la semaine) ───────────────────────────────────────
-  function ligneDe(carte) {
-    if (!carte) return null;
-    var texte = carte.kind === 'zero' ? carte.fait
-      : carte.kind === 'priorites' ? carte.fait
-      : carte.fait;
-    return { cle: carte.cle, texte: texte, libelle: 'Voir mes équilibres' };
+  // ── 16/11/2026 — LA CARTE DU COACH SUR L'ACCUEIL (I214, I215) ─────────────────────────────────────────────────
+  // Elle remplace la ligne « Voir mes équilibres » : sous « Prochaine séance », UNE carte, la première qui PARLE de
+  // `analyse.cartes` (l'ordre des familles), LE MÊME OBJET que dans « Ton parcours » (I215). « N autres › » : les cartes qui
+  // parlent, comptées AVANT le plafond du réglage (sinon jamais en Prudent), moins celle-ci. Aucune carte (I214) : en séance, en
+  // « Juste un carnet », avant que les routines soient chargées, un jour où l'annonce du niveau parle, un jour où une carte a
+  // reçu une réponse datée (une par jour) ; jamais une carte de geste sur un exercice qu'une carte de variation de bloc
+  // ouverte touche la même semaine (I145-I146 : une voix). Pur : l'écran lit, il ne décide rien.
+  var TETE_DE_L_ACCUEIL = TITRE_DU_COACH;
+  // Le jour d'une réponse datée (`{ r, le }`), dans `cartes_semaine` : les cartes de la semaine ET les gestes de la routine.
+  function repondueLe(cartes, jour) {
+    var c = cartes && typeof cartes === 'object' && !Array.isArray(cartes) ? cartes : {};
+    return !!jour && Object.keys(c).some(function (k) {
+      var v = c[k];
+      return !!v && typeof v === 'object' && !Array.isArray(v) && typeof v.r === 'string' && String(v.le || '').slice(0, 10) === String(jour).slice(0, 10);
+    });
+  }
+  function enLaissePourLAccueil(analyse, cartes, jour, contexte) {
+    var x = contexte || {};
+    if (!analyse || analyse.etat === 'carnet') return 'carnet';
+    if (x.enSeance) return 'seance';
+    if (x.routinesPretes !== true) return 'routines';
+    if (x.niveauParle) return 'niveau';
+    if (repondueLe(cartes, jour)) return 'repondue';
+    return null;
+  }
+  // Ce que l'accueil dit d'une carte : le fait en UNE phrase, et le détail replié (« Détail »).
+  function texteDeLAccueil(c) {
+    var detail = [];
+    if (c.kind === 'geste') detail = liste(c.phrases).slice(1);
+    else {
+      if (liste(c.reperes).length) detail = detail.concat(c.reperes);
+      else if (c.repere) detail.push(c.repere + (c.tendance ? ' ' + c.tendance : ''));
+      liste(c.causes).forEach(function (x) { if (x && x.texte) detail.push(x.texte); });
+      liste(c.propositions).forEach(function (p) { liste(p.details).forEach(function (t) { detail.push(t); }); });
+    }
+    return { fait: c.court || c.fait, detail: c.detailAccueil || detail };
+  }
+  function carteDeLAccueil(analyse, cartes, jour, contexte) {
+    if (enLaissePourLAccueil(analyse, cartes, jour, contexte)) return null;
+    var exclus = liste(contexte && contexte.variations);
+    var dispo = liste(analyse.cartes).filter(function (c) {
+      return c && !(c.kind === 'geste' && c.geste && contient(exclus, c.geste.slug));
+    });
+    var c = dispo[0];
+    if (!c) return null;
+    var t = texteDeLAccueil(c);
+    var tous = typeof analyse.nParlent === 'number' ? analyse.nParlent : liste(analyse.cartes).length;
+    var horsAccueil = liste(analyse.cartes).length - dispo.length;
+    return { carte: c, tete: TETE_DE_L_ACCUEIL, fait: t.fait, detail: t.detail, autres: Math.max(0, tous - horsAccueil - 1) };
+  }
+  // I214 et I215, relus à part : rend la liste des fautes.
+  function verifierCarteDeLAccueil(analyse, cartes, jour, contexte, resultat) {
+    var fautes = [];
+    if (resultat === null || resultat === undefined) return fautes;
+    if (Array.isArray(resultat)) fautes.push('I214 : plusieurs cartes sur l’accueil');
+    var x = contexte || {};
+    if (!analyse || analyse.etat === 'carnet') fautes.push('I214 : une carte en « Juste un carnet »');
+    if (x.enSeance) fautes.push('I214 : une carte en séance');
+    if (x.routinesPretes !== true) fautes.push('I214 : une carte avant les routines');
+    if (x.niveauParle) fautes.push('I214 : une carte le jour du niveau');
+    var c = cartes && typeof cartes === 'object' ? cartes : {};
+    Object.keys(c).forEach(function (k) {
+      var v = c[k];
+      if (v && typeof v === 'object' && v.r && String(v.le || '').slice(0, 10) === String(jour || '').slice(0, 10)) fautes.push('I214 : ' + k + ' a reçu sa réponse aujourd’hui');
+    });
+    if (resultat && liste(analyse && analyse.cartes).indexOf(resultat.carte) < 0) fautes.push('I215 : la carte de l’accueil n’est pas celle de « Ton parcours »');
+    if (resultat && resultat.carte && resultat.carte.kind === 'geste' && resultat.carte.geste && contient(x.variations, resultat.carte.geste.slug)) {
+      fautes.push('I214 : ' + resultat.carte.cle + ' parle avec une carte de variation du bloc');
+    }
+    return fautes;
+  }
+
+  // Après « Pas maintenant » : la fin du silence (le jour où la carte peut revenir), en date absolue. UNE source pour la phrase.
+  // `rep` : la réponse ÉCRITE (`reponse(…, 'non', jour)`), dont le `refus` double le silence au 2ᵉ refus de suite (`silenceDe`).
+  function finDuSilence(reglage, rep) {
+    var r = Object.prototype.hasOwnProperty.call(REGLAGES, reglage) ? reglage : REGLAGE_PAR_DEFAUT;
+    var d = rep && dateDe(String(rep.le || '').slice(0, 10));
+    if (!d) return null;
+    var f = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate() + 7 * silenceDe(r, rep)));
+    return f.getUTCFullYear() + '-' + deux(f.getUTCMonth() + 1) + '-' + deux(f.getUTCDate());
+  }
+  function phraseDuSilence(reglage, rep) {
+    var f = finDuSilence(reglage, rep);
+    if (!f) return 'Noté.';
+    var an = dateDe(String(rep.le).slice(0, 10)).getFullYear();
+    var d = Modele().jourDit(f, { annee: an });
+    return 'Noté. Je ne t’en reparle pas avant le ' + d + (/\.$/.test(d) ? '' : '.');
   }
 
   // ── L'ANALYSE ───────────────────────────────────────────────────────────────────────────────────────────────────
-  // Rend `{ etat, reglage, quand, constats, cartes, calmes, ligne }` :
+  // Rend `{ etat, reglage, quand, constats, cartes, calmes, nParlent }` (16/11/2026 : la ligne de l'écran Séances n'existe plus,
+  // la carte de l'accueil se lit par `carteDeLAccueil`) :
   //   · `etat` : 'ok', 'peu' (moins de 4 semaines ou 12 séances : rien à dire), 'carnet' (Juste un carnet : aucune carte, les
   //     constats restent lisibles dans le Parcours) ;
   //   · `constats` : TOUTES les mesures en écart (le fait et son repère), qu'une carte parle ou non — les faits ne changent
@@ -1518,7 +1607,7 @@
     var prep = preparer(e);
     var f0 = fenetreA(prep, 0);
     var carnet = e.intention === 'entretien';
-    var sortie = { etat: carnet ? 'carnet' : 'ok', reglage: reglage, constats: [], cartes: [], calmes: [], ligne: null, quand: null };
+    var sortie = { etat: carnet ? 'carnet' : 'ok', reglage: reglage, constats: [], cartes: [], calmes: [], quand: null, nParlent: 0 };
     // §9.27 quater — les cartes des gestes de la routine ne demandent pas 12 semaines de recul : 4 séances de la routine suffisent.
     // Elles suivent la mécanique des cartes (le silence de « Pas maintenant », le nombre de cartes du réglage, rien en carnet).
     var gestes = cartesDesGestes(prep);
@@ -1529,7 +1618,9 @@
     if (!f0.valide) {
       sortie.etat = 'peu';
       // Un carnet se tait aussi ici ; une carte en silence ne s'affiche pas sans le reste de la section.
-      if (!carnet) sortie.cartes = gestes.filter(function (c) { return c.parle; }).slice(0, REGLAGES[reglage].cartes);
+      var parlentPeu = carnet ? [] : gestes.filter(function (c) { return c.parle; });
+      sortie.nParlent = parlentPeu.length;
+      sortie.cartes = parlentPeu.slice(0, REGLAGES[reglage].cartes);
       return sortie;
     }
     sortie.quand = 'Tes ' + f0.semaines.length + ' dernières semaines · ' + f0.nbSeances + ' ' + pluriel(f0.nbSeances, 'séance');
@@ -1597,10 +1688,9 @@
       return ORDRE_DES_FAMILLES.indexOf(a.famille) - ORDRE_DES_FAMILLES.indexOf(b.famille) ||
         rangs[a.kind] - rangs[b.kind] || (a.cle < b.cle ? -1 : 1);
     });
+    // 16/11/2026 — combien parlent AVANT le plafond du réglage (« N autres › » de l'accueil).
+    sortie.nParlent = parlent.length;
     sortie.cartes = parlent.slice(0, REGLAGES[reglage].cartes).map(function (c) { return garnir(prep, c); });
-    // La ligne de l'écran Séances reste celle des ÉQUILIBRES (188-1) : une carte des jours, du temps, de la fréquence ou de l'ordre
-    // parle dans le Parcours, pas sous la barre de la semaine.
-    sortie.ligne = ligneDe(sortie.cartes.filter(function (c) { return c.famille === 'equilibre'; })[0]);
     return sortie;
   }
 
@@ -1612,6 +1702,12 @@
     gesteDeLExercice: gesteDeLExercice,
     gestesRecurrents: gestesRecurrents,
     reponseAuGeste: reponseAuGeste,
+    reponseAuGesteDatee: reponseAuGesteDatee,
+    carteDeLAccueil: carteDeLAccueil,
+    verifierCarteDeLAccueil: verifierCarteDeLAccueil,
+    repondueLe: repondueLe,
+    finDuSilence: finDuSilence,
+    phraseDuSilence: phraseDuSilence,
     reponseAuGesteDe: reponseAuGesteDe,
     gestesRetenus: gestesRetenus,
     verifierGestes: verifierGestes,

@@ -3196,6 +3196,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .eq-fait-pose{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--accent-fond);border-left:3px solid var(--accent);
   border-radius:0 10px 10px 0;padding:9px 10px;margin-bottom:var(--e3);font-size:14px}
 .eq-fait-pose button{min-height:44px}
+.eq-fait-pose.calme{background:var(--panneau);border-left-color:var(--trait-controle);color:var(--texte-2)}
 /* 218 — « LE BONHOMME DES MUSCLES » (maquette-bonhomme-v2) : une teinte (--teinte) plus ou moins soutenue, aucun seuil, aucun
    rouge ni vert. Le dessin est décoratif ; la liste dessous dit les dix-huit muscles. Plancher 12 px, cibles 44 px. */
 .bonhomme .bh-sous{font-size:13px;color:var(--texte-2)}
@@ -3225,11 +3226,23 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .bh-liste .sw{width:14px;height:14px;border-radius:4px;border:1px solid var(--trait)}
 .bh-liste small{color:var(--texte-3);font-size:12px}
 .bh-liste b{font-size:16px}
-/* La ligne de l'écran Séances : une seule, sous la barre de la semaine. */
-.eq-ligne{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--panneau);border-radius:var(--r-grand);
-  padding:8px 12px;margin:0 0 var(--e3);font-size:14px}
-.eq-ligne .eq-ligne-texte{flex:1;color:var(--texte-2);line-height:1.35}
-.eq-ligne button{min-height:44px;flex:none}
+/* 16/11/2026 — « Le coach te dit » sur l'accueil (maquette du 16/11) : UNE carte sous « Prochaine séance », la marque des avis (liseré
+   ambre à gauche). Le « oui » est SECONDAIRE à liseré ambre (.oui) : l'ambre plein reste à « Démarrer », une action principale par
+   écran. Hauteur visée à 360 px : ≤ 160 px ; le détail se replie. Les liens de la tête gardent 44 px de cible sans grandir la tête. */
+.coach-accueil{background:var(--panneau);border-radius:var(--r-grand);border-left:3px solid var(--accent);padding:10px 12px;margin:0 0 var(--e3)}
+.coach-tete{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:24px}
+.coach-liens{display:flex;gap:12px;flex:none}
+.coach-lien{background:none;border:0;color:var(--texte-2);font-size:12px;font-weight:600;padding:0 2px;min-height:44px;margin:-10px 0}
+.coach-fait{font-size:15px;line-height:1.4;margin-top:4px}
+.coach-detail .pc-note{margin:6px 0 0}
+.coach-accueil .eq-actions{gap:6px;margin-top:8px}
+.coach-accueil .eq-actions .discret{font-size:13px;padding:6px 9px}
+.oui{background:none;border:1px solid var(--accent);color:var(--accent);border-radius:var(--r-bouton);padding:6px 10px;font-size:13px;font-weight:700;min-height:44px}
+.oui:active{background:var(--accent-fond)}
+.coach-pose{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--accent-fond);border-left:3px solid var(--accent);
+  border-radius:0 var(--r-grand) var(--r-grand) 0;padding:9px 10px;margin:0 0 var(--e3);font-size:14px;line-height:1.4}
+.coach-pose.calme{background:var(--panneau);border-left-color:var(--trait-controle);color:var(--texte-2)}
+.coach-pose button{min-height:44px;flex:none}
 
 /* 194-1 — le bloc de mobilité (maquette-mobilite-v1) : une carte avant la liste (préparation) et une après (fin de séance). */
 .carte-mobilite{margin:12px 0;padding:12px;border:1px solid var(--trait);border-radius:12px}

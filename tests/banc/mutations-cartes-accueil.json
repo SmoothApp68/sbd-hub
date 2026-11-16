@@ -1,0 +1,36 @@
+[
+ {
+  "nom": "ca-1-une-par-jour-oubliee",
+  "fichier": "v2/js/equilibres.js",
+  "ancien": "    if (repondueLe(cartes, jour)) return 'repondue';",
+  "nouveau": "    if (false) return 'repondue';",
+  "unitaires": ["tests/unit/v2-coach-accueil.test.js"],
+  "banc": "seance",
+  "sections": ["coach-accueil"]
+ },
+ {
+  "nom": "ca-2-une-carte-en-seance",
+  "fichier": "v2/js/equilibres.js",
+  "ancien": "    if (x.enSeance) return 'seance';",
+  "nouveau": "    if (false) return 'seance';",
+  "unitaires": ["tests/unit/v2-coach-accueil.test.js"],
+  "banc": "aucun"
+ },
+ {
+  "nom": "ca-3-le-oui-en-ambre-plein",
+  "fichier": "v2/js/rendu.js",
+  "ancien": "el('button', i === 0 ? 'oui' : 'discret', p.court || p.libelle)",
+  "nouveau": "el('button', i === 0 ? 'principal' : 'discret', p.court || p.libelle)",
+  "unitaires": ["tests/unit/v2-coach-accueil.test.js"],
+  "banc": "seance",
+  "sections": ["coach-accueil"]
+ },
+ {
+  "nom": "ca-4-le-silence-ne-double-plus-dans-la-date",
+  "fichier": "v2/js/equilibres.js",
+  "ancien": "d.getDate() + 7 * silenceDe(r, rep)",
+  "nouveau": "d.getDate() + 7 * REGLAGES[r].silence",
+  "unitaires": ["tests/unit/v2-coach-accueil.test.js"],
+  "banc": "aucun"
+ }
+]

@@ -735,7 +735,7 @@ function ok(nom, cond, detail) {
       bd.confirmationEmail = true;
       const p1 = await inscrireSansSession(nav, bd);
       ok('prémisse — `signUp` a été appelé une fois, sans session : la page dit de confirmer l’e-mail',
-        bd.inscriptions.length === 1 && /confirme ton e-mail/.test(p1.message) && !p1.jeton, JSON.stringify([bd.inscriptions, p1.message, p1.jeton]));
+        bd.inscriptions.length === 1 && /un code vient de partir/.test(p1.message) && !p1.jeton, JSON.stringify([bd.inscriptions, p1.message, p1.jeton]));
       ok('DISCRIMINANT — le pseudo NORMALISÉ part dans les données du compte (`options.data.pseudo`)',
         !!bd.inscriptions[0] && JSON.stringify(bd.inscriptions[0].data) === JSON.stringify({ pseudo: PSEUDO_NORMALISE }),
         JSON.stringify(bd.inscriptions[0]));
@@ -1284,7 +1284,7 @@ function ok(nom, cond, detail) {
         renvoyerActif: !document.querySelector('#btn-code-renvoyer').disabled,
         champ: (() => { const c = document.querySelector('#champ-code'); return { mode: c.getAttribute('inputmode'),
           auto: c.getAttribute('autocomplete'), motif: c.getAttribute('pattern'), valeur: c.value }; })() }));
-      const feuilleTexte = (page) => page.evaluate(() => { const f = document.querySelector('#feuille'); return f && !f.hidden
+      const feuilleTexte = (page) => page.evaluate(() => { const f = document.querySelector('#feuille-seance'); return f && !f.hidden
         ? (document.querySelector('#feuille-contenu').textContent || '') : null; });
 
       console.log('   — (a) Mot de passe oublié ? → code → la feuille « Choisis ton nouveau mot de passe »');

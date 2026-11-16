@@ -492,7 +492,7 @@ reconnaît à l'écran tactile), dans un navigateur, **hors de l'app installée*
 
 **Le retour de lien ne fait plus entrer en silence.** Sur iPhone hors de l'app, un lien de confirmation réussi
 s'arrête sur son écran : l'entrée attend « Continuer ici » (la personne décide ; l'app ne la déconnecte jamais de
-Safari). La récupération ne change pas : la feuille du mot de passe s'ouvre comme au §5.6, et la phrase vient après.
+Safari). La récupération ne change pas : la feuille du mot de passe s'ouvre comme au §5.6, et la phrase vient après. *(16/11/2026 : la récupération se fait désormais par un CODE saisi dans l'app, qui n'a pas ce problème de Safari — §5.6 ; ce paragraphe ne vaut plus que pour les liens déjà envoyés, jusqu'à la PR de ménage.)*
 Partout ailleurs (Android, ordinateur, app installée), rien ne change.
 
 **Le risque connu demeure** : deux copies connectées (Safari et l'app). Une séance démarrée dans l'une refermerait
@@ -693,6 +693,39 @@ qu'à poser le nouveau mot de passe. **Pas d'écran de plus pour une étape qu'u
 
 L'e-mail, lui, se **lit** et ne se change pas d'ici : le changer demande une
 confirmation sur les deux adresses, et c'est un geste à part entière.
+
+**Delta du 16/11/2026 — un CODE à usage unique remplace le LIEN dans les e-mails d'authentification** (réinitialisation
+du mot de passe ET confirmation d'inscription). Cause prouvée le 16/11/2026 : sur iPhone, l'aperçu de Yahoo Mail consomme
+le lien à usage unique (« Ce lien a expiré ou a déjà servi »), et un lien n'ouvre jamais l'app installée (Safari, stockage
+séparé — §3.5). Supabase documente ce cas (« Email prefetching ») et recommande `{{ .Token }}` + `verifyOtp`.
+- **Un écran « code », dans la même vue que la connexion** (`#form-code` remplace `#form-connexion` ; aucun nouveau
+  fichier : un `js/*.js` de plus entrerait dans `SHELL` du service worker). Titre « Entre le code reçu par e-mail » ;
+  sous-titre « Envoyé à <e-mail>. Il est valable 1 heure. » ; **un seul champ** (`inputmode="numeric"`,
+  `autocomplete="one-time-code"`, `pattern="[0-9]*"`) qui accepte **6 à 10 chiffres** (la longueur est un réglage
+  Supabase ; espaces et tirets collés s'ignorent) ; « Valider » actif dès 6 chiffres. « Renvoyer le code » est
+  **désactivé 60 s**, avec le décompte (« Renvoyer le code (dans 42 s) »), et passe par le captcha comme les autres envois.
+  « Changer d'e-mail » revient à l'écran précédent.
+- **Phrases fixes** (voix « tu », sans « erreur »). Code faux ou expiré : « Ce code ne marche pas ou a expiré. Vérifie-le,
+  ou demande-en un autre. » Trop de demandes (429) : « Attends une minute avant de redemander un code. » Hors ligne :
+  « Pas de réseau. » (la phrase existante de `texteErreur`).
+- **Réinitialisation.** « Mot de passe oublié ? » envoie comme avant (captcha compris) puis ouvre l'écran du code, avec
+  « Si un compte existe pour cette adresse, un code vient de partir. » — la même phrase que le compte existe ou non (ne
+  jamais révéler qui est inscrit). Un code valide (`verifyOtp`, type `recovery`) ouvre la session de récupération et le
+  SDK émet `PASSWORD_RECOVERY` : la feuille « Choisis ton nouveau mot de passe » s'ouvre par **le même chemin** que le
+  lien (`recuperation = 'due'`, `entrer`, `ouvrirRecuperationSiDue`), sans copie.
+- **Inscription.** Sans session après `signUp` (confirmation requise), l'écran du code s'ouvre avec : « Si l'adresse est
+  nouvelle, un code vient de partir : entre-le ici. Si tu as déjà un compte avec cette adresse, aucun mail ne part :
+  utilise « Mot de passe oublié ? ». » ; « Mot de passe oublié ? » est un bouton de cet écran. Un code valide
+  (`verifyOtp`, type `email`) ouvre la session (`SIGNED_IN`) : l'entrée normale ; le pseudo part déjà dans les données du
+  compte, rien ne change.
+- **Transition.** La lecture des liens reste (`retourDeLien`, `PASSWORD_RECOVERY`, `lienTenu`, l'attente de 5 s) : les liens
+  déjà envoyés marchent encore 24 h ; `emailRedirectTo` et `redirectTo` restent passés (inoffensifs).
+  **Dette : « PR de ménage après la bascule des modèles d'e-mail »** — retirer alors la lecture des liens, les deux phrases
+  de lien expiré et la ligne iPhone de §3.5 qui parle de la récupération par lien.
+- **Ordre de mise en service.** 1. L'app d'abord (cette PR fusionnée et déployée). 2. Ensuite seulement, dans Supabase
+  (par Aurélien) : les modèles « Confirm signup » et « Reset password » portent `{{ .Token }}` à la place du lien
+  (`{{ .ConfirmationURL }}`). Tant que les modèles envoient un lien, le mail n'a pas de code : l'écran du code est
+  visible mais personne n'a de code à y mettre. Inverser l'ordre priverait les gens de tout moyen d'entrer.
 
 ### 5.7 Trois feuilles pour quinze champs
 

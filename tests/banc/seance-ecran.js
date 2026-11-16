@@ -29905,7 +29905,8 @@ const SETS_IMPORTES = [
       spGR(g3.fait).indexOf('Noté : je garde Incliné GR (Haltères) dans « Haut GR » et je ne te le redemande plus.') === 0 &&
       exosGR().join(',') === 'gr-dev:3,gr-inc:3,gr-curl:3', nbGR([base.profiles[0].cartes_semaine, g3.fait, exosGR()]));
     await aller('/progression/parcours');
-    await attendre(1200);
+    // La section s'est dessinée (l'analyse a tourné) : la carte gardée n'y est plus.
+    await attendreQue(() => page.evaluate(() => !!document.querySelector('#parcours .section-t')), 15000, 'parcoursGR').catch(() => {});
     ok('[GR] après « Garder », au rechargement : plus de carte pour cet exercice (I209)', !(await lireGR()).carte, '');
 
     // « Ce que le coach a retenu » : la ligne du Profil, la feuille, « Effacer » — la carte peut revenir.
@@ -29914,7 +29915,7 @@ const SETS_IMPORTES = [
       .some((l) => l.firstChild && l.firstChild.textContent === 'Ce que le coach a retenu')), 15000, 'retenuGR').catch(() => {});
     await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
       .filter((l) => l.querySelector('.p-lib').firstChild.textContent === 'Ce que le coach a retenu')[0].click());
-    await attendre(600);
+    await attendreQue(() => page.evaluate(() => ((document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || '') === 'Ce que le coach a retenu'), 8000, 'feuilleGR').catch(() => {});
     const fGR = await page.evaluate(() => ({ titre: ((document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || ''),
       noms: Array.from(document.querySelectorAll('#feuille-contenu .ecarte-nom')).map((n) => n.textContent),
       boutons: Array.from(document.querySelectorAll('#feuille-contenu .ecarte-reprendre')).map((n) => n.textContent) }));

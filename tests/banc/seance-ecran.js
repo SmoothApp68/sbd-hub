@@ -14203,7 +14203,7 @@ const SETS_IMPORTES = [
       const x = d.plan.exercices.filter((q) => q.slug === 'mal-u53')[0] || null;
       return { seance: d.plan.seance,
         exos: d.entrees.seance.exercices.map((e) => e.exercise_slug),
-        mal: x && { douleur: !!x.douleur, consigne: x.consigne ? { charge: x.consigne.ligne && x.consigne.ligne.charge,
+        mal: x && { douleur: !!x.douleur, sansCoach: !!x.sansCoach, consigne: x.consigne ? { charge: x.consigne.ligne && x.consigne.ligne.charge,
           vise: x.consigne.ligne && x.consigne.ligne.vise, zone: x.consigne.zone } : null,
           coach: x.lignes.filter((l) => l.role !== 'hors').length, paris: (x.paris || []).filter(Boolean).length,
           carte: x.carteReprise ? { titre: x.carteReprise.titre, phrase: x.carteReprise.phrase,
@@ -14350,8 +14350,8 @@ const SETS_IMPORTES = [
     ok('[D53] abandonnée, la séance ne compte pas : la carte revient', (await carteD()) !== null, '');
     await choisirD('sans');
     const b2 = await planD();
-    ok('[D53] DISCRIMINANT — « Sans coach cette fois » : l’exercice de nouveau marqué, sans coach',
-      b2.mal.douleur && b2.mal.consigne === null && b2.mal.coach === 0 && (await carteD()) === null, JSON.stringify(b2.mal));
+    ok('[D53] DISCRIMINANT — « Sans coach cette fois » : l’exercice est sans coach par la marque de silence, SANS nouvelle douleur',
+      !b2.mal.douleur && b2.mal.sansCoach && b2.mal.consigne === null && b2.mal.coach === 0 && (await carteD()) === null, JSON.stringify(b2.mal));
     await abandonner();
     // « Plus léger, plus de reps ».
     await ouvrirB();

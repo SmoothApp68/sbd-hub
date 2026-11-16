@@ -565,7 +565,7 @@
   // I184, `Moteur.referenceDesChauffes`) : la première charge SAISIE de la
   // première ligne de travail ; à défaut la charge de la consigne FIGÉE (la
   // ligne, pas le test) ; à défaut rien. Une chauffe faite reste figée (§9.15.7).
-  var MATERIELS_DE_CHAUFFE = ['barre', 'machine', 'machine_smith', 'poulie', 'haltere'];
+  var MATERIELS_DE_CHAUFFE = ['barre', 'machine', 'machine_smith', 'poulie', 'haltere', 'haltere_seul'];   // 16/11/2026 : haltere_seul = un exercice à un bras (l'haltère tenu)
 
   // 237 (§9.41) — pose la proposition du moteur dans la sortie de l'étape : la phrase et le Pourquoi sont citées.
   function proposerChauffes(sortie, cap, reference) {
@@ -972,7 +972,9 @@
     r.demandeHabituelle = e.debutant !== true && r.faites === 0 && r.habituelle === null && !declinee;
     if (r.demandeHabituelle) { r.suivante = null; r.iSerie = null; r.libelles = Object.assign({}, r.libelles, {
       // 256 — aux haltères la charge notée est la PAIRE (`THModele.chargeEstLaPaire`, MOTEUR §10.1) : la question le dit, le calcul ne change pas.
-      question: racine.THModele.chargeEstLaPaire(cat) ? 'Ta charge habituelle, les deux haltères ensemble ?' : 'Ta charge habituelle ?', pour: 'Pour ' + r.n + ' reps environ', passer: 'Je ne sais pas : on la trouve ensemble' }); }
+      // 16/11/2026 — à un bras (`haltere_seul`, le matériel effectif du catalogue du plan) : l'haltère tenu, un seul.
+      question: racine.THModele.chargeEstLaPaire(cat) ? 'Ta charge habituelle, les deux haltères ensemble ?'
+        : (cat.equipement === Moteur().EQUIPEMENT_HALTERE_SEUL ? 'Ta charge habituelle, avec un haltère ?' : 'Ta charge habituelle ?'), pour: 'Pour ' + r.n + ' reps environ', passer: 'Je ne sais pas : on la trouve ensemble' }); }
     return r;
   }
 

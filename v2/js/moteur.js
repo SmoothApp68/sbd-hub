@@ -123,7 +123,7 @@
   // machine Smith suit les machines (décidé le 02/10/2026) : sa barre guidée
   // a son propre poids, qui change d'une machine à l'autre.
   var FENETRE_VOISINE_MOIS = 12;
-  var FENETRE_VOISINE_MATERIELS = ['machine', 'machine_smith', 'poulie', 'haltere'];
+  var FENETRE_VOISINE_MATERIELS = ['machine', 'machine_smith', 'poulie', 'haltere', 'haltere_seul'];
   // Un écart isolé est du bruit, pas un plan de charges.
   var RECURRENCE_PAS = 3;
 
@@ -830,13 +830,15 @@
   // lit pour lui. Le départ de la version lestée (`departLeste`) et la carte du
   // lest (`carteLest`) disent la même valeur : ils la lisent ici, jamais en dur.
   var EQUIPEMENT_LEST = 'lest';
+  // 16/11/2026 — le matériel EFFECTIF d'un exercice aux haltères fait à un bras (`Modele.unSeulHaltere`) : la charge notée est UN haltère.
+  var EQUIPEMENT_HALTERE_SEUL = 'haltere_seul';
   var SAUT_LEST = 2.5;
 
   // 184 (B4) — LE MOT DU MATÉRIEL dans « ... ne permet pas un plus petit cran » : la barre, les haltères, sinon la
   // machine (machine, poulie, Smith, kettlebell, disque...). Il se lit sur le matériel de l'exercice, que le moteur
   // connaît déjà (`opt.equipement`, porté par le fondement de l'étirement) : la condition de la phrase ne change pas.
   function motDuMateriel(equipement, majuscule) {
-    var m = equipement === 'barre' ? 'ta barre' : equipement === 'haltere' ? 'tes haltères' : 'ta machine';
+    var m = equipement === 'barre' ? 'ta barre' : equipement === 'haltere' ? 'tes haltères' : equipement === EQUIPEMENT_HALTERE_SEUL ? 'ton haltère' : 'ta machine';
     return majuscule ? m.charAt(0).toUpperCase() + m.slice(1) : m;
   }
   // « Ta barre ne permet pas un plus petit cran » — « Tes haltères ne permettent pas… » (le verbe suit le mot).
@@ -856,6 +858,8 @@
     barre:         { pas: 2.5 },
     machine_smith: { pas: 2.5 },
     haltere:       { pas: 2, pasLourd: 4, bascule: 20 },
+    // 16/11/2026 (MOTEUR §10.1) — un exercice à UN BRAS : la charge est l'haltère tenu, la moitié de la paire (1 kg jusqu'à 10 kg, puis 2).
+    haltere_seul:  { pas: 1, pasLourd: 2, bascule: 10 },
     machine:       { pas: 5 },
     poulie:        { pas: 2.5 },
     kettlebell:    { pas: 4 }
@@ -868,14 +872,16 @@
   // options de la consigne — celle de l'exercice, de ses frères et de son parent.
   function equipementEffectif(exo) {
     if (!exo) return null;
-    return exo.charge === 'ajoutee' ? EQUIPEMENT_LEST : (exo.equipement === undefined ? null : exo.equipement);
+    if (exo.charge === 'ajoutee') return EQUIPEMENT_LEST;
+    if (exo.equipement === 'haltere' && Modele() && typeof Modele().unSeulHaltere === 'function' && Modele().unSeulHaltere(exo)) return EQUIPEMENT_HALTERE_SEUL;
+    return exo.equipement === undefined ? null : exo.equipement;
   }
 
   // 186 (MOTEUR §10.2) — LE MATÉRIEL AU PAS CONNU : la barre (disques de 1,25 kg, donc 2,5 kg) et les haltères (la paire : +2 kg sous
   // 20 kg, +4 au-delà). Leur cran est celui de `REPLI_MATERIEL`, jamais une charge déjà notée (`chargeVoisine`) ; l'étirement
   // « faute de cran » ne s'ouvre que si le test EST ce cran-là (`episodeEtirement`). Les machines et poulies, aux crans irréguliers,
   // gardent le rang 2. Le Smith, le kettlebell et le lest gardent aussi la règle d'avant : la décision nomme la barre et les haltères.
-  var MATERIEL_AU_PAS_CONNU = { barre: true, haltere: true };
+  var MATERIEL_AU_PAS_CONNU = { barre: true, haltere: true, haltere_seul: true };
   // 186 — le plus grand pas du matériel (haltères : la bande lourde), ou `null` : le garde-fou du single hors palier (`palier.js`).
   function pasMaxDuMateriel(equipement) {
     if (!Object.prototype.hasOwnProperty.call(REPLI_MATERIEL, equipement)) return null;
@@ -1367,6 +1373,7 @@
     barre: 'vise la barre au-dessus, ou des petits disques si ta barre se charge. Note ce que tu as mis.',
     machine_smith: 'vise la barre au-dessus, ou des petits disques si ta barre se charge. Note ce que tu as mis.',
     haltere: 'vise l’haltère au-dessus. Note ce que tu as mis.',
+    haltere_seul: 'vise l’haltère au-dessus. Note ce que tu as mis.',
     poulie: 'vise la plaque au-dessus, ou un petit disque si ta poulie en a. Note ce que tu as mis.',
     kettlebell: 'vise le kettlebell au-dessus. Note ce que tu as mis.'
   };
@@ -12971,7 +12978,7 @@
   var RATE_FORME_FLANCHENT = 2;         // la forme du jour : 2 exercices qui flanchent…
   var RATE_FORME_SUR = 3;               // … sur les 3 derniers
   var RATE_PARIS_A_LA_SUITE = 2;        // deux séances de suite où le pari n'a pas tenu
-  var RATE_PAS_PAR_DEFAUT = { barre: 2.5, machine: 2.5, machine_smith: 2.5, poulie: 2.5, haltere: 2 };   // 245 (D-H5) — haltères : la PAIRE, +1 kg par main, aligné sur REPLI_MATERIEL.haltere.pas
+  var RATE_PAS_PAR_DEFAUT = { barre: 2.5, machine: 2.5, machine_smith: 2.5, poulie: 2.5, haltere: 2, haltere_seul: 1 };   // 16/11/2026 : un bras, l'haltère tenu, +1 kg ; 245 (D-H5) — haltères : la PAIRE, +1 kg par main, aligné sur REPLI_MATERIEL.haltere.pas
 
   function rateReglage(r) { return r === 'prudent' || r === 'franc' ? r : 'normal'; }
   // Le contexte où le coach ne dit rien du tout (Entretenir, décharge, test, calage, « J'ai mal », 1re fois, figure).
@@ -13811,6 +13818,7 @@
     coachSeTait: coachSeTait,
     SAUT_LEST: SAUT_LEST,
     EQUIPEMENT_LEST: EQUIPEMENT_LEST,
+    EQUIPEMENT_HALTERE_SEUL: EQUIPEMENT_HALTERE_SEUL,
     equipementEffectif: equipementEffectif,
     carteLest: carteLest,
     carteLestTitre: carteLestTitre,

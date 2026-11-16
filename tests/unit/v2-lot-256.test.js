@@ -112,6 +112,9 @@ describe('256 (a) — le calage aux haltères demande la charge des DEUX haltèr
   test('haltères : « Ta charge habituelle, les deux haltères ensemble ? »', () => {
     expect(planPour('curl', 'haltere').calage.libelles.question).toBe('Ta charge habituelle, les deux haltères ensemble ?');
   });
+  test('16/11/2026 — à un bras (matériel effectif haltere_seul) : « Ta charge habituelle, avec un haltère ? »', () => {
+    expect(planPour('rowing_haltere', 'haltere_seul').calage.libelles.question).toBe('Ta charge habituelle, avec un haltère ?');
+  });
   test('barre : la question reste « Ta charge habituelle ? »', () => {
     expect(planPour('rowing', 'barre').calage.libelles.question).toBe('Ta charge habituelle ?');
   });

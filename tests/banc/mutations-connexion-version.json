@@ -1,0 +1,5 @@
+[
+ {"nom": "cv-recharge-aussi-connecte", "fichier": "v2/js/auth.js", "ancien": "!etat.entreeVisible || etat.connecte ||", "nouveau": "!etat.entreeVisible ||", "banc": "aucun", "unitaires": ["tests/unit/v2-connexion-version.test.js"]},
+ {"nom": "cv-garde-anti-boucle-retiree", "fichier": "v2/js/auth.js", "ancien": "    if (d && etat.maintenant - d >= 0 && etat.maintenant - d < DELAI_RECHARGEMENT_ENTREE) return false;\n", "nouveau": "", "banc": "aucun", "unitaires": ["tests/unit/v2-connexion-version.test.js"]},
+ {"nom": "cv-phrase-brute-retablie", "fichier": "v2/js/app.js", "ancien": "    if (captcha) return captcha;\n", "nouveau": "", "banc": "aucun", "unitaires": ["tests/unit/v2-connexion-version.test.js"]}
+]

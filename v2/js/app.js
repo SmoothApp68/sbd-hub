@@ -252,6 +252,8 @@
   function texteErreur(e) {
     if (!e) return 'Erreur inconnue.';
     var m = e.message || String(e);
+    var captcha = Auth.captcha.phrase(e);   // 16/11/2026 : jamais le texte brut d'un refus de captcha
+    if (captcha) return captcha;
     if (/fetch|network|Failed to fetch|NetworkError/i.test(m)) return 'Pas de réseau.';
     if (/Invalid login credentials/i.test(m)) return 'E-mail ou mot de passe incorrect.';
     return m;
@@ -17060,6 +17062,7 @@
       if (!majAvaitControleur) { majAvaitControleur = true; return; }
       majPrete = true;
       montrerBandeauMaj();
+      rechargerSiEntree();
     });
     // Chrome ne cherche une mise à jour qu'à la navigation : une PWA qu'on ne fait
     // que ramener au premier plan ne la verrait jamais. Au plus une fois / 10 min.
@@ -17067,6 +17070,26 @@
       if (doc.visibilityState === 'visible') chercherMaj(false);
     });
     $('btn-maj-recharger').addEventListener('click', function () { racine.location.reload(); });
+  }
+
+  // 16/11/2026 — sur l'écran d'entrée seulement (voir `Auth.rechargerSurEntree`) : recharger une fois, garde anti-boucle en
+  // sessionStorage (l'horodatage du dernier rechargement automatique).
+  var CLE_MAJ_AUTO = 'th-v2-maj-auto';
+  function rechargerSiEntree() {
+    var vue = $('vue-connexion'), st = stockageSur('sessionStorage');
+    var champs = ['champ-pseudo', 'champ-email', 'champ-mdp', 'champ-code'].map($);
+    var actif = doc.activeElement;
+    var dernier = 0;
+    try { dernier = st ? Number(st.getItem(CLE_MAJ_AUTO)) || 0 : 0; } catch (e) { dernier = 0; }
+    var etat = {
+      entreeVisible: !!vue && !vue.hidden, connecte: !!sessionActive,
+      saisie: champs.some(function (c) { return c && c.value; }),
+      focus: !!actif && champs.indexOf(actif) !== -1,
+      maintenant: Date.now(), dernier: dernier
+    };
+    if (!Auth.rechargerSurEntree(etat)) return;
+    try { if (st) st.setItem(CLE_MAJ_AUTO, String(etat.maintenant)); } catch (e) { /* sans stockage : pas de garde, pas de rechargement */ return; }
+    racine.location.reload();
   }
 
   var majEnregistrement = null, majAvaitControleur = false, majPrete = false, majDerniere = 0;
@@ -19968,7 +19991,11 @@
     var m = cible || $('erreur-connexion');
     m.className = 'erreur';
     m.textContent = phrase;
-    $('btn-captcha-reessayer').hidden = !Auth.captcha.estScript(err);
+    var b = $('btn-captcha-reessayer');
+    var refus = Auth.captcha.estRefus(err);
+    b.textContent = refus ? 'Recharger' : 'Réessayer';
+    b.dataset.recharger = refus ? '1' : '';
+    b.hidden = !(Auth.captcha.estScript(err) || refus);
     return true;
   }
 
@@ -20421,6 +20448,7 @@
     $('btn-code-changer').addEventListener('click', function () { rendreEntree(modeEntree); });
     // 247 — « Réessayer » : le script du captcha n'avait pas pu se charger.
     $('btn-captcha-reessayer').addEventListener('click', function () {
+      if (this.dataset.recharger) { racine.location.reload(); return; }   // 16/11/2026 : refus du serveur
       $('erreur-connexion').textContent = '';
       montrerCaptcha();
     });

@@ -2193,7 +2193,7 @@ function ok(nom, cond, detail) {
       await ctx.close();
     }
 
-    console.log('\n══ 247-D. le projet refuse le jeton (périmé) : « La vérification a expiré. Réessaie. », le widget se réinitialise ══');
+    console.log('\n══ 247-D. le projet refuse le jeton : « La vérification anti-robot a échoué. Recharge l’app, puis réessaie. » + « Recharger », le widget se réinitialise ══');
     {
       const bd = neuveBase();
       bd.captchaExige = true;
@@ -2204,12 +2204,13 @@ function ok(nom, cond, detail) {
       await pretCaptcha(page);
       await remplirConnexion(page);
       await page.click('#btn-connexion');
-      const dit = await attendreQue(page, async () => (await messageEntree(page)) === 'La vérification a expiré. Réessaie.', 10000);
-      ok('DISCRIMINANT — la phrase de l’expiration remplace le message brut de Supabase', dit, await messageEntree(page));
+      const dit = await attendreQue(page, async () => (await messageEntree(page)) === 'La vérification anti-robot a échoué. Recharge l\'app, puis réessaie.', 10000);
+      ok('DISCRIMINANT — la phrase de l’échec remplace le message brut de Supabase', dit, await messageEntree(page));
       const etat = await page.evaluate(() => ({ resets: window.__ts.resets, bouton: document.querySelector('#btn-connexion').textContent,
         actif: !document.querySelector('#btn-connexion').disabled, session: !!localStorage.getItem('th-v2-auth') }));
       ok('DISCRIMINANT — le widget a été réinitialisé après la tentative refusée', etat.resets >= 1, JSON.stringify(etat));
       ok('le bouton est libre et personne n’est connecté', etat.bouton === 'Se connecter' && etat.actif && !etat.session, JSON.stringify(etat));
+      ok('16/11/2026 — « Recharger » est proposé', await page.evaluate(() => { const b = document.getElementById('btn-captcha-reessayer'); return !b.hidden && b.textContent === 'Recharger'; }));
       await ctx.close();
     }
 

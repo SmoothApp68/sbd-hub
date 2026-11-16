@@ -214,10 +214,13 @@ describe('247 — le widget et le jeton', () => {
     expect(widgets.retraits).toEqual(['w1']);
   });
 
-  test('phrase() : le refus de Supabase vaut « expiré » ; une autre erreur n’est pas une erreur de captcha', () => {
-    const exp = 'La vérification a expiré. Réessaie.';
-    expect(Auth.captcha.phrase({ message: 'captcha verification process failed' })).toBe(exp);
-    expect(Auth.captcha.phrase({ code: 'captcha_failed', message: 'x' })).toBe(exp);
+  test('phrase() : le refus de Supabase dit l’échec (recharger) ; une autre erreur n’est pas une erreur de captcha', () => {
+    const ech = 'La vérification anti-robot a échoué. Recharge l\'app, puis réessaie.';
+    expect(Auth.captcha.phrase({ message: 'captcha verification process failed' })).toBe(ech);
+    expect(Auth.captcha.phrase({ code: 'captcha_failed', message: 'captcha protection: request disallowed (no captcha_token found)' })).toBe(ech);
+    expect(Auth.captcha.phrase({ captcha: 'delai' })).toBe('La vérification a expiré. Réessaie.');
+    expect(Auth.captcha.estRefus({ code: 'captcha_failed' })).toBe(true);
+    expect(Auth.captcha.estRefus({ captcha: 'script' })).toBe(false);
     expect(Auth.captcha.phrase({ message: 'Invalid login credentials' })).toBeNull();
     expect(Auth.captcha.phrase(null)).toBeNull();
     expect(Auth.captcha.estScript({ captcha: 'script' })).toBe(true);

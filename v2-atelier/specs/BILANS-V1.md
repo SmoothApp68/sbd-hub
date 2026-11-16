@@ -101,8 +101,8 @@ Ce qui est réutilisé, jamais recopié : `Modele.estTravail`, `Bilan.volumeKg`,
 `Semaine.volumeParMuscle`, `Bilan.compterParis`, `Bilan.comparaison`, et de « Ton parcours » la règle « moins
 pratiqué » (`Parcours.pratique`) et la comparaison à reps égales (`Parcours.aRepsEgales`), extraites du parcours sans
 en changer le calcul. faits.js n'avait pas de notion de « zone de reps » force / mix / muscle (ses zones sont des
-zones de MUSCLES ; celles du moteur, `lourd` 3-5 / `mix` 6-8 / …, rangent autrement le 8) : la table
-`ZONES_DE_REPS` vit dans `bilans.js`, une fois.
+zones de MUSCLES ; celles du moteur, `lourd` 3-5 / `mix` 6-8 / …, rangent autrement le 8) : le profil de reps lit la table unique `Modele.bandeDeReps`
+(MOTEUR §9.51 sexies) : quatre bandes, aucune borne dans `bilans.js`.
 
 ## 3. Les choix tranchés en route (prompt 95), à valider
 
@@ -119,9 +119,9 @@ zones de MUSCLES ; celles du moteur, `lourd` 3-5 / `mix` 6-8 / …, rangent autr
    tout ce qui précède l'année (et qu'il y a un avant).
 4. **Le tonnage** ne double pas les haltères (comme le bilan du mois, `Bilan.volumeKg`) ; seul « ce qui a le plus
    avancé » les montre en total des deux.
-5. **Le profil** : la maquette écrit « force, 6 reps ou moins · mix, 7 à 8 » ; la décision dit force ≤ 5, mix 6-8 :
-   c'est la décision qui est codée (« 5 reps ou moins », « 6 à 8 reps »). Titre : « Plutôt {premier} que {second}. »,
-   ou « Plutôt entre les deux. » quand le mix domine.
+5. **Le profil** (révisé le 16/11/2026, MOTEUR §9.51 sexies) : quatre bandes (5 reps ou moins · 6 à 8 · 9 à 12 · 13 et plus). Titre :
+   « Surtout {mot}, {fourchette}. » (la bande la plus fournie, seule en tête), ou « À égalité : … » quand deux bandes ou plus sont ex æquo.
+   Jamais « plutôt », jamais « léger ».
 6. **L'écran du jeu** : le niveau à la fin de l'année (`Jeu.etatDuJeu` sur le corpus borné), le niveau du début et
    les succès gagnés dans l'année ; aucun nombre de semaines (assiduité). Jeu éteint : pas d'écran.
 7. **L'ouverture** (« 2026 — Ton année sous la barre. ») précède les douze écrans, comme dans la maquette.

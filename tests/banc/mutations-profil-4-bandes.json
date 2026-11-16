@@ -1,0 +1,5 @@
+[
+ {"nom":"profil-egalite-devinee","fichier":"v2/js/bilans.js","ancien":"premier: enTete.length === 1 ? enTete[0] : null","nouveau":"premier: enTete[0]","banc":"aucun","unitaires":["tests/unit/v2-annee-ecrans.test.js","tests/unit/v2-bilans.test.js"]},
+ {"nom":"profil-longues-oubliees","fichier":"v2/js/bilans.js","ancien":"if (ib >= 0) zones[ib]++;","nouveau":"if (ib >= 0 && ib < 3) zones[ib]++;","banc":"aucun","unitaires":["tests/unit/v2-bilans.test.js","tests/unit/v2-annee-ecrans.test.js"]},
+ {"nom":"profil-fourchette-sans-reps","fichier":"v2/js/annee.js","ancien":"cle === 'longues' ? t.replace(' et plus', ' reps et plus') : t + ' reps'","nouveau":"t","banc":"aucun","unitaires":["tests/unit/v2-annee-ecrans.test.js"]}
+]

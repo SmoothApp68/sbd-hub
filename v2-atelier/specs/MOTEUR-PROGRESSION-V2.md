@@ -2712,6 +2712,16 @@ La bulle d'un point : « Le 18 sept. 2025 · 200 kg × 5 · force estimée 233 k
 
 **6. Dette, dite.** Les autres coupures de reps du moteur (`allegerForce`, `haut <= 5`, la phrase « force / mixte » de moteur.js:613, I-numérotés du plan) restent des décisions du coach, hors de cette table ; la garde ne couvre que la DESCRIPTION. Aucun nouvel invariant `I` : le lien est un test, pas une règle de `verifierPlan`.
 
+### 9.51 sexies Le profil de reps du bilan à quatre bandes — décidé le 16/11/2026 (PR C ; maquette « B » validée par Aurélien)
+
+**1. Ce qui change.** Le profil de l'année (et de la saison, du mois : un seul écran, `annee.js`) lit les quatre bandes de la table unique (`Modele.bandeDeReps`, §9.51 quinquies) au lieu des trois seaux `ZONES_DE_REPS` (force ≤ 5, mix ≤ 8, muscle au-delà), supprimés. `sortie.profil` = `{ lourdes, moyennes, hautes, longues, premier, egalite }` : quatre parts entières qui font 100 (`pourcents`, plus grands restes), affichées par le formateur unique `Modele.pourcentTexte`. Les séries à reps absentes ou nulles ne comptent dans aucune bande.
+
+**2. Les mots.** Quatre lignes « 11 % · Force · 5 reps ou moins », « Mix · 6 à 8 reps », « Muscle · 9 à 12 reps », « Longues séries · 13 reps et plus » (fourchettes fabriquées depuis `libelleDeBande`). Le mot est un LIBELLÉ de la fourchette, jamais un verdict : « muscle » ne vaut que 9 à 12, la 4e bande ne dit rien de la charge — jamais « léger » (la charge n'est pas mesurée ; 9 à 12 reps à l'effort ne sont pas légères).
+
+**3. Le titre.** « Surtout muscle, 9 à 12 reps. » : la bande la plus fournie, SEULE en tête (comptée en séries, non en pourcents arrondis). À égalité de séries en tête : « À égalité : 6 à 8 reps et 9 à 12 reps. », un fait sans « plutôt ». Plus de « Plutôt … que … », plus de « Plutôt entre les deux ».
+
+**4. Ce qui ne bouge pas.** Les bornes (5 · 8 · 12), `ZONES`, `RANGEMENT`, le coach. **Dette.** La fiche d'une barre (`faits.js`, « séries lourdes », seuil 6) est la PR D ; son libellé « séries à 5 reps ou moins » y arrive avec elle (rien de tel dans le texte du bilan). Aucun nouvel invariant `I` : la garde `NOTIONS` (plus aucune exception pour `bilans.js`) et les tests de `v2-bilans` / `v2-annee-ecrans` suffisent.
+
 ### 12.1 Ce que le compteur déclenche — et ce qu'il ne déclenche pas
 
 > **Le compteur ne déclenche pas l'action, il déclenche le changement de méthode.**

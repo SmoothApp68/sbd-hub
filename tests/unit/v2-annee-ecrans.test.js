@@ -78,10 +78,27 @@ describe('95 — les écrans de l’année pleine', () => {
       'Squat, couché, soulevé', 'Plus gros progrès', 'Muscle de l’année']);
     expect(tout(p)).not.toMatch(/pari|coach/i);
   });
-  test('le profil : force ≤ 5, mix 6 à 8, muscle ≥ 9', () => {
+  test('le profil : quatre lignes (mot · fourchette), un titre qui nomme la bande la plus fournie', () => {
     const p = e.find((x) => x.cle === 'profil');
-    expect(p.lignes.map((l) => l.v)).toEqual(['75\u00a0% · force, 5 reps ou moins', '25\u00a0% · mix, 6 à 8 reps',
-                                               '0\u00a0% · muscle, 9 reps et plus']);
+    expect(p.titre).toBe('Surtout force, 5 reps ou moins.');
+    expect(p.lignes.map((l) => l.v)).toEqual(['75\u00a0% · Force · 5 reps ou moins', '25\u00a0% · Mix · 6 à 8 reps',
+                                               '0\u00a0% · Muscle · 9 à 12 reps', '0\u00a0% · Longues séries · 13 reps et plus']);
+    expect(p.barre4).toEqual([75, 25, 0, 0]);
+    expect(p.lignes.map((l) => l.pastille)).toEqual(['rouge', 'or', 'bleu', 'vert']);
+  });
+  test('le profil : « Surtout muscle, 9 à 12 reps. » ; jamais « plutôt », jamais « léger »', () => {
+    const s2 = semaines('2026-01-01', '2026-12-24', () => [['squat_barre', 100, 5], ['curl_halteres', 14, 10], ['curl_halteres', 14, 12],
+      ['curl_halteres', 14, 15], ['developpe_couche_barre', 80, 8]]);
+    const p = Annee.ecrans({ bilan: bilan(s2), qui: '', jeu: null }).find((x) => x.cle === 'profil');
+    expect(p.titre).toBe('Surtout muscle, 9 à 12 reps.');
+    expect(JSON.stringify(p)).not.toMatch(/plutôt|léger/i);
+  });
+  test('le profil : à égalité, le titre dit le fait chiffré, sans « plutôt »', () => {
+    const s3 = semaines('2026-01-01', '2026-12-24', () => [['squat_barre', 100, 5], ['squat_barre', 100, 5], ['curl_halteres', 14, 12],
+      ['curl_halteres', 14, 12]]);
+    const p = Annee.ecrans({ bilan: bilan(s3), qui: '', jeu: null }).find((x) => x.cle === 'profil');
+    expect(p.titre).toBe('À égalité : 5 reps ou moins et 9 à 12 reps.');
+    expect(p.titre).not.toMatch(/plutôt|surtout/i);
   });
 });
 

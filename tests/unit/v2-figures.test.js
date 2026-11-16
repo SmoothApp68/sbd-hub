@@ -652,7 +652,7 @@ describe('149 C — I49 (secondes) et I52 à I55, cassés exprès', () => {
     expect(dit(r, b, 'I52')).toBe(true);
     const c = clone(r.plan); c.exercices[0].mode = 'entretien';
     expect(dit(r, c, 'I52')).toBe(true);
-    const d = clone(r.plan); d.exercices[0].douleur = true;
+    const d = clone(r.plan); d.exercices[0].douleur = true; d.exercices[0].sansCoach = true;
     expect(dit(r, d, 'I52')).toBe(true);
     const e = clone(r.plan); e.exercices[0].mesure = 'reps';
     expect(dit(r, e, 'I52', /secondes/)).toBe(true);

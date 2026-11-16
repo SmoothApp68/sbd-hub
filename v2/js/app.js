@@ -11633,11 +11633,30 @@
       };
     };
 
+    // PR 2 — « SANS COACH CETTE FOIS » / « REMETTRE LE COACH » : le geste explicite de la personne, sur TOUT exercice de la séance. Il pose la
+    // marque de silence (`Seance.marquerSansCoach`, sans douleur) ou la retire (`retirerSansCoach`, jamais une douleur) ; le geste s'écrit dans
+    // `sessions.gestes` (mesure). `null` quand l'occurrence porte déjà une douleur : elle est déjà sans coach, et n'a pas d'inverse.
+    var sansCoachDe = function (iExo) {
+      var exo = seance.exercices[iExo];
+      if (!exo || Seance.occurrenceDouloureuse(exo)) return null;
+      var remis = Seance.occurrenceSansCoachChoisie(exo);
+      return {
+        remettre: remis,
+        sur: function () {
+          fermerVoile();
+          seance = remis ? Seance.retirerSansCoach(seance, iExo) : Seance.marquerSansCoach(seance, iExo, { douleur: false });
+          seance = Seance.noterGeste(seance, { geste: remis ? 'coach_remis' : 'sans_coach', slug: exo.exercise_slug });
+          return apresGeste();
+        }
+      };
+    };
+
     if (quoiFeuille === 'exercice') {
       return Rendu.rendreFeuilleExercice(cible, {
         nom: Modele.nommer(index, seance.exercices[cibleExo].exercise_slug),
         surMachinePrise: machinePrise(cibleExo),
         surJaiMal: jaiMal(cibleExo),
+        sansCoach: sansCoachDe(cibleExo),
         surRemplacer: function () { demanderRemplacement(cibleExo); },
         surMonter: voisinDeLExercice(blocs, cibleExo, -1) ? function () { fermerVoile(); deplacerExerciceDUnCran(cibleExo, -1); } : null,
         surDescendre: voisinDeLExercice(blocs, cibleExo, 1) ? function () { fermerVoile(); deplacerExerciceDUnCran(cibleExo, 1); } : null,
@@ -11666,6 +11685,7 @@
       surDescendre: iBloc < blocs.length - 1 ? function () { fermerVoile(); deplacerBloc(blocs, iBloc, 1); } : null,
       surMachinePrise: bloc.superset ? null : machinePrise(indicesDe(bloc)[0]),
       surJaiMal: bloc.superset ? null : jaiMal(indicesDe(bloc)[0]),
+      sansCoach: bloc.superset ? null : sansCoachDe(indicesDe(bloc)[0]),
       surRemplacer: function () { demanderRemplacement(indicesDe(bloc)[0]); },
       note: bloc.superset ? '' : (seance.exercices[indicesDe(bloc)[0]].note || ''),
       surNote: bloc.superset ? null : function () { var iN = indicesDe(bloc)[0]; fermerVoile(); ouvrirFeuille('note', iN, null); },

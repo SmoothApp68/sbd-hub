@@ -2520,7 +2520,11 @@
         // pari, ni message pour ses lignes restantes. Les paris déjà écrits
         // restent en base ; le plan n'en écrit plus.
         var douloureuse = Seance().occurrenceDouloureuse(exo);
-        var c = coachee && !douloureuse && Object.prototype.hasOwnProperty.call(consignes, slug) ? consignes[slug] : null;
+        // PR 2 « Sans coach par exercice » — LE SILENCE se lit sur `occurrenceSansCoach` (le geste « Sans coach cette fois » OU la douleur) ;
+        // `douloureuse` reste le FAIT de santé (`x.douleur`, la carte, la phrase du kiné, le test prudent). `sansCoachX` porte la porte.
+        var sansCoachX = Seance().occurrenceSansCoach(exo);
+        var sansCoachChoisi = sansCoachX && !douloureuse;
+        var c = coachee && !sansCoachX && Object.prototype.hasOwnProperty.call(consignes, slug) ? consignes[slug] : null;
         // §9.20 — LA REPRISE CHOISIE dans cette séance (`seance.reprises`, le
         // brouillon) : « Plus léger, plus de reps » applique le REPLI figé au
         // choix — celui de §14.5, sinon celui de la reprise longue (§9.9, 51-3
@@ -2533,12 +2537,12 @@
         }
         // PR 4b (R-A) — « TENTER » : le plafond après un zéro mord (consigne `tenue_apres_zero`) ; le bouton se lit sur `sans`, et le geste, pris, rend à la séance la
         // consigne d'avant plafond (jamais une série passée).
-        var tenueZ = c && c.consigne && coachee && !douloureuse && !seance.edition ? Moteur().boutonsDeLaTenue(c.consigne) : null;
+        var tenueZ = c && c.consigne && coachee && !sansCoachX && !seance.edition ? Moteur().boutonsDeLaTenue(c.consigne) : null;
         var tenteZ = !!tenueZ && zeroTenteDe(seance.gestes, slug);
         if (tenteZ) c = Object.assign({}, c, { consigne: Moteur().tenterApresUnZero(c.consigne), libelles: c.libellesTentee || c.libelles });
         // 253 (X2, MOTEUR §9.40) — « PLUS LÉGER AUJOURD'HUI » (la veille d'une activité dure) : la ligne de la consigne descend (× 0,95, au cran, mêmes
         // reps), la zone ne change pas, la consigne le dit (`veilleLegere`). Une barre déjà allégée (repli, « plus léger » de la reprise) n'en reçoit pas.
-        var legereX = barreLegere && barreLegere.slug === slug && barreLegere.legere && coachee && !douloureuse && !salleEl && c && c.consigne &&
+        var legereX = barreLegere && barreLegere.slug === slug && barreLegere.legere && coachee && !sansCoachX && !salleEl && c && c.consigne &&
           !c.consigne.plusLegere && !c.consigne.repli && !c.consigne.allegee ? barreLegere.legere : null;
         if (legereX) {
           c = Object.assign({}, c, { consigne: Object.assign({}, c.consigne, { ligne: { charge: legereX.charge, vise: legereX.reps }, haut: null,
@@ -2564,9 +2568,9 @@
           objectif, Object.prototype.hasOwnProperty.call(alleges, slug) ? alleges[slug] : null,
           coachee && Object.prototype.hasOwnProperty.call(moins, slug) ? moins[slug] : null,
           e.reculs && Object.prototype.hasOwnProperty.call(e.reculs, slug) ? e.reculs[slug] : null,
-          auMaxFaitsDe(e, seance, exos, i, coachee, douloureuse, intentionX, !!esc.allegee || !!jourDeTest, consignes),
+          auMaxFaitsDe(e, seance, exos, i, coachee, sansCoachX, intentionX, !!esc.allegee || !!jourDeTest, consignes),
           // 251 (D2) — la porte du cran (ses gestes), sauf là où le coach se tait. (Un 22e argument : aucun objet d'options existant ne porte ces faits.)
-          coachee && c && !douloureuse && intentionX !== 'entretien' && !seance.edition && !esc.allegee && !jourDeTest && !legereX
+          coachee && c && !sansCoachX && intentionX !== 'entretien' && !seance.edition && !esc.allegee && !jourDeTest && !legereX
             ? { tente: cranTenteDe(seance.gestes, slug), formeAjustee: formeAjusteeAvant(seance, i), prise: priseDe(seance.gestes, slug) } : null,
           protegee);
         // 253 (X2) — ce jour-là, sur cette barre : pas de « Au max », pas d'échec, pas de pari (donc ni pari perdu, ni compteur, ni escalier), pas de
@@ -2602,7 +2606,7 @@
         x.blocHypertrophie = stBloc ? { zone: stBloc.zone, grosse: stBloc.grosse === true,
           reculs: stBloc.grosse ? (exo.series || []).filter(function (q) { return racine.THModele.typeDe(q) === 'recul'; }).length : 0 } : null;
         x.semaineDeTest = semaineDeTestDExercice(jourDeTest, e, seance, exos, i, x,
-          intentionX === 'entretien' || salleEl ? null : materielDe(exos, i, e.catalogue || null, c, e.refusChauffes || {}, ctxChauffes), intentionX, coachee, douloureuse);
+          intentionX === 'entretien' || salleEl ? null : materielDe(exos, i, e.catalogue || null, c, e.refusChauffes || {}, ctxChauffes), intentionX, coachee && !sansCoachChoisi, douloureuse);
         if (x.escalier && x.escalier.copie) x.escalier = null;
         x.chauffesPosees = chauffesPoseesDe(seance.gestes, slug, x);
         x.silenceChauffes = silenceChauffesDe(seance.gestes, slug, (e.catalogue && e.catalogue[slug] && e.catalogue[slug].nom) || null, x);
@@ -2642,14 +2646,14 @@
         // 187 (A4) — UNE ZONE À MÉNAGER : l'exercice qui la charge ne reçoit aucune série lourde (le moteur prend Mix quand la zone
         // aurait été Lourd, sauf zone choisie par la personne). Le plan porte le fait pour I75.
         var zm = e.zonesMenagees && Object.prototype.hasOwnProperty.call(e.zonesMenagees, slug) ? e.zonesMenagees[slug] : null;
-        x.menagee = zm && coachee && !douloureuse ? { zones: (zm.zones || []).slice(), choisie: zm.choisie || null } : null;
-        x.calage = coachee && !douloureuse && !salleEl && intentionX !== 'entretien' && !seance.edition
+        x.menagee = zm && coachee && !sansCoachX ? { zones: (zm.zones || []).slice(), choisie: zm.choisie || null } : null;
+        x.calage = coachee && !sansCoachX && !salleEl && intentionX !== 'entretien' && !seance.edition
           ? calageDuPlan(x, exo, c, e, slug, seance) : null;
         poserLeCalage(x);
         // 188-2 (MOTEUR §9.27 bis, I76) — LE REPOS D'UN GROS MOUVEMENT QUI STAGNE : une seule ligne dans le « Pourquoi », jamais une
         // carte. Les reps chutent d'au moins 30 % de la série 1 à la série 3 sur 3 séances (un fait, `entrees.chutesDeReps`), le
         // repos RÉGLÉ de l'exercice est de 90 s ou moins, l'exercice est un gros mouvement et le compteur de stagnation parle.
-        x.reposLong = reposDuPlan(x, exo, c, e, slug, coachee && !douloureuse && intentionX !== 'entretien' && !seance.edition && !esc.allegee);
+        x.reposLong = reposDuPlan(x, exo, c, e, slug, coachee && !sansCoachX && intentionX !== 'entretien' && !seance.edition && !esc.allegee);
         // §14 (111) — ce que la dégressive proposée lit, porté pour I48 : la
         // classe de l'exercice (`null` hors catalogue), la ligne dégressive de
         // la routine (figée à l'ouverture), la dégressive en cours.
@@ -2697,6 +2701,7 @@
         // consigne le dit, `c.reprise`) et tant qu'aucun choix n'est fait dans
         // cette séance. Jamais en Édition.
         x.douleur = douloureuse;
+        x.sansCoach = sansCoachX;   // PR 2 — le silence (le geste ou la douleur) ; `x.douleur` reste le fait
         x.carteReprise = null;
         if (c && c.reprise && c.reprise.douleur === true && !choixReprise && !seance.edition && x.consigne) {
           var M3 = Moteur(), V3 = Voix();
@@ -2768,7 +2773,7 @@
         // la première occurrence de l'exercice, jamais avec une consigne (une figure n'a ni zone, ni palier).
         x.figure = null;
         var fig = slug && Object.prototype.hasOwnProperty.call(figures, slug) ? figures[slug] : null;
-        if (fig && coachee && !c && !douloureuse && x.mesure === 'temps' && intentionX !== 'entretien' && !seance.edition) {
+        if (fig && coachee && !c && !sansCoachX && x.mesure === 'temps' && intentionX !== 'entretien' && !seance.edition) {
           poserLaFigure(x, exo, fig, reglagePlan);
           var echF = Object.prototype.hasOwnProperty.call(echelles, slug) ? echelles[slug] : null;
           if (x.figure && echF && !marchesPosees[slug]) {
@@ -3107,7 +3112,7 @@
     if (palier !== null && !(Ch > palier + 1e-9)) return false;
     var mesureOk = x.mesure === null || x.mesure === undefined || x.mesure === 'charge_reps';
     var muet = plan.intention === 'entretien' || x.intention === 'entretien' || x.mode === 'entretien' || !!plan.allegee || !!k.allegee || !!seance.edition ||
-      !!plan.semaineDeTest || !!x.semaineDeTest || !!x.calage || !!x.douleur || !!x.figure || !!x.veilleLegere || !mesureOk;
+      !!plan.semaineDeTest || !!x.semaineDeTest || !!x.calage || !!x.sansCoach || !!x.figure || !!x.veilleLegere || !mesureOk;
     var ligne = (x.lignes || []).filter(function (l) { return l.iSerie === derniere; })[0] || null;
     var role = T.estRecul(sr) ? 'recul' : (ligne && (ligne.auMax || ligne.role === 'au_max')) || sr.au_max === true ? 'au_max'
       : ligne && ligne.role === 'test' ? 'test' : ligne && ligne.role === 'haut' ? 'haut'
@@ -3149,7 +3154,7 @@
     var resume = resumeDeLExercice(x, series, travail, faites);
     resume.nom = (e.catalogue && e.catalogue[x.slug] && e.catalogue[x.slug].nom) || x.slug;
     if (premiere || x.calage) resume.premiere = true;
-    if (!mesureOk || x.douleur || x.figure || x.veilleLegere) resume = null;   // 253 (X2) — une séance volontairement plus légère ne compte pas pour la forme du jour
+    if (!mesureOk || x.sansCoach || x.figure || x.veilleLegere) resume = null;   // 253 (X2) — une séance volontairement plus légère ne compte pas pour la forme du jour
     resumes.push(resume ? Object.assign(resume, { iExo: x.iExo }) : null);
     // PR 4b (R-A, O7, MOTEUR §9.42 bis) — APRÈS UN 0 REP, UNE BRANCHE DÉDIÉE, AVANT les sorties anticipées ci-dessous (elles contiennent le débutant, la première fois, la
     // zone et le pari : le zéro les traverse toutes). Elle lit les séries VALIDÉES de l'exercice (`Modele.zeroDeSeance`, O8) : une série manquée (`echec` à 0 rep,
@@ -5384,7 +5389,7 @@
     if (plan.intention === 'entretien') silence.push('Entretenir (profil)');
     if (plan.edition === true) silence.push('Édition');
     if (x.intention === 'entretien' || x.mode === 'entretien') silence.push('Entretenir (cet exercice)');
-    if (x.douleur) silence.push('« J’ai mal »');
+    if (x.sansCoach) silence.push(x.douleur ? '« J’ai mal »' : '« Sans coach cette fois »');
     // I52
     if (!fg && tenues.length) err('I52', 'une ligne de tenue sans la règle des secondes');
     if (fg) {
@@ -5392,7 +5397,7 @@
       if (entrees && !donnee) err('I52', 'la règle des secondes sur un exercice qui n’est pas sur une échelle de figures');
       silence.forEach(function (c) { err('I52', 'la règle des secondes en ' + c); });
       if (x.consigne) err('I52', 'la règle des secondes avec une consigne de charge');
-    } else if (donnee && !silence.length && x.mesure === 'temps' && !x.douleur) {
+    } else if (donnee && !silence.length && x.mesure === 'temps' && !x.sansCoach) {
       var premiereOcc = (plan.exercices || []).filter(function (q) { return q.slug === x.slug; })[0];
       var travailPlan = lignes.some(function (l) { return l && l.type === 'travail'; });
       if (premiereOcc === x && travailPlan && !x.consigne) {
@@ -5478,6 +5483,14 @@
       var nom = 'exercice ' + x.iExo + ' (' + x.slug + ')';
       var err = function (inv, texte) { erreurs.push(inv + ' — ' + nom + ' : ' + texte); };
       if (x.douleur) sansCoach(x).forEach(function (r) { err('I33', 'occurrence marquée « douleur » : ' + r); });
+      // I202 (PR 2) — I33 généralisé : une occurrence sans coach, douleur ou non (`x.sansCoach`, LE prédicat), n'a aucune ligne du coach, aucun pari,
+      // aucun message, aucune carte, aucun calage ; la demande « + Chauffe » (`x.surDemande`) reste possible. La douleur garde l'I33 ci-dessus.
+      if (x.sansCoach) {
+        sansCoach(x).forEach(function (r) { err('I202', 'occurrence « sans coach » : ' + r); });
+        [['carteReprise', 'la carte de reprise'], ['carteLest', 'la carte du lest'], ['carteMarche', 'la carte « marche suivante »'], ['escalier', 'une marche de l’escalier'],
+          ['proposition', 'une proposition de chauffes']].forEach(function (q) { if (x[q[0]]) err('I202', 'occurrence « sans coach » : ' + q[1]); });
+      }
+      if (x.sansCoach && x.calage) err('I202', 'occurrence « sans coach » avec un calage');
       var c = x.slug && Object.prototype.hasOwnProperty.call(consignes, x.slug) ? consignes[x.slug] : null;
       var marquees = (c && c.douleurs) || [];
       var k = x.consigne;
@@ -6767,7 +6780,7 @@
       var r = x.rate, pr = x.parisRates, cf = x.carteForme;
       var phrases = (x.phrases || []).filter(function (p) { return p.ou === 'rate'; });
       var silence = plan.intention === 'entretien' || x.intention === 'entretien' || x.mode === 'entretien' || !!plan.allegee || (x.consigne && x.consigne.allegee) ||
-        !!plan.semaineDeTest || !!x.semaineDeTest || !!x.calage || !!x.douleur || plan.edition === true;
+        !!plan.semaineDeTest || !!x.semaineDeTest || !!x.calage || !!x.sansCoach || plan.edition === true;
       if (silence && (r || (pr && pr.carte) || cf)) erreurs.push('I118' + nom + 'une réaction du coach dans un contexte où il se tait');
       if (phrases.length > 1) erreurs.push('I115' + nom + phrases.length + ' phrases de réaction');
       if (r) {
@@ -6919,7 +6932,7 @@
       var q = x.porteDuCran || null;
       var portePhrases = (x.phrases || []).filter(function (p) { return p.ou === 'porte'; });
       var muet = plan.intention === 'entretien' || x.intention === 'entretien' || x.mode === 'entretien' || !!plan.allegee || (x.consigne && x.consigne.allegee) ||
-        !!plan.semaineDeTest || !!x.semaineDeTest || !!x.douleur || plan.edition === true;
+        !!plan.semaineDeTest || !!x.semaineDeTest || !!x.sansCoach || plan.edition === true;
       if (!q) {
         var priseA = !muet && x.consigne && x.consigne.haut && x.consigne.ligne && !x.consigne.allegee && !x.consigne.repli
           ? gestes.filter(function (g) { return g && g.geste === 'rate_prise' && g.bouton === 'prendre' && g.slug === x.slug; })[0] : null;
@@ -7820,7 +7833,7 @@
       if (derniere === null) return;
       var sr = series[derniere], Ch = nombre(sr.charge_kg);
       var muet = plan.intention === 'entretien' || x.intention === 'entretien' || x.mode === 'entretien' || !!plan.allegee || !!k.allegee || !!plan.semaineDeTest || !!x.semaineDeTest ||
-        !!x.calage || !!x.douleur || !!x.figure || !!x.veilleLegere || !(x.mesure === null || x.mesure === undefined || x.mesure === 'charge_reps') || plan.edition === true || !!(e && e.seance && e.seance.edition);
+        !!x.calage || !!x.sansCoach || !!x.figure || !!x.veilleLegere || !(x.mesure === null || x.mesure === undefined || x.mesure === 'charge_reps') || plan.edition === true || !!(e && e.seance && e.seance.edition);
       var palier = nombre(k.palier);
       var zeroLu = nombre(sr.reps) === 0 && Ch !== null && Ch > 0 && T.zeroDeSeance(valides, { porte: true }) !== null && !(palier !== null && !(Ch > palier + 1e-9));
       if (zeroLu && muet && rz) erreurs.push('I158' + nom + 'une réaction au zéro dans un contexte où le coach se tait');

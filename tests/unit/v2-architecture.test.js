@@ -883,6 +883,17 @@ const NOTIONS = [
     parAilleurs: { 'plan.js': ['planDeSeance'] },
     raison: 'le plan (sans coach), l’envoi (`sets.douleur` sur chaque série) et l’écran lisent la même ' +
       'marque : posée sur l’occurrence, tenue de ses séries quand la séance est relue.' },
+  { notion: 'l’occurrence SANS COACH en séance : le geste « Sans coach cette fois » OU la douleur (le silence et la neutralité, I202, I203)', pr: 'correctif 16/11/2026',
+    module: 'seance.js', fonction: 'occurrenceSansCoach', lecteurs: ['plan.js'],
+    par: ['occurrenceSansCoachChoisie'],
+    parAilleurs: { 'plan.js': ['planDeSeance'] },
+    motif: /Seance\s*(?:\(\s*\))?\s*\.\s*occurrenceSansCoach\s*\(/g,
+    interditAilleurs: { motif: /\.\s*sans_coach\b/,
+      sauf: { 'moteur.js': 'la lecture des LIGNES de la base : `seanceSansCoach` lit `sets.sans_coach` (et `sets.douleur`) série par série pour rendre la séance-exercice neutre, comme `seanceDouloureuse` lit `sets.douleur` — le contrat ne reçoit pas d\'occurrence' },
+      raison: 'une lecture directe de la marque `.sans_coach` : passer par `Seance.occurrenceSansCoach` (le prédicat du silence) ou `Seance.occurrenceSansCoachChoisie` (la marque du seul geste)' },
+    raison: 'PR 2 : « Sans coach cette fois » n’est plus la marque « douleur » (un fait de santé). Le silence du plan (consigne, lignes, paris, calage, cartes) et la ' +
+      'neutralité de la séance-exercice lisent UN prédicat : `sans_coach || douleur`. Les lecteurs d’un FAIT de douleur (carte de reprise, phrase du kiné, ' +
+      '`douleurRecente`, niveau) restent sur `occurrenceDouloureuse` / `douleur`.' },
   { notion: 'la reprise après une séance douloureuse (la carte, la zone suivante, le repli)', pr: '51-U3',
     module: 'moteur.js', fonction: 'reprisePour', lecteurs: [],
     par: ['consigneDExerciceCalcul'],
@@ -4058,5 +4069,21 @@ describe('I196 — aucune durée de mois en jours hors de THPeriode', () => {
     expect(n.test('new Date(a, m.getMonth() + 1, 0)')).toBe(false);
     expect(n.test('var etiquette = d.getMonth() + 1;')).toBe(false);
     expect(n.test('ref.getMonth() - d.getMonth()')).toBe(false);
+  });
+});
+
+
+describe('architecture — le menu d’un exercice : une seule copie (PR 2 « sans coach par exercice »)', () => {
+  const rendu = perimetre().filter((f) => f.nom === 'rendu.js')[0].src;
+  test('⚠️ « J’ai mal » et « Sans coach cette fois » ne s’écrivent qu’une fois, dans `entreesDeLExercice`', () => {
+    expect((rendu.match(/entreeMenu\(menu, 'J’ai mal'/g) || []).length).toBe(1);
+    expect((rendu.match(/'Sans coach cette fois'/g) || []).length).toBe(1);
+    expect((rendu.match(/'Remettre le coach'/g) || []).length).toBe(1);
+    const corps = rendu.slice(rendu.indexOf('function entreesDeLExercice'), rendu.indexOf('function rendreFeuilleExercice'));
+    expect(corps).toMatch(/'J’ai mal'/);
+    expect(corps).toMatch(/'Sans coach cette fois'/);
+  });
+  test('les deux menus (bloc d’un seul et exercice de superset) appellent la même fonction', () => {
+    expect((rendu.match(/^\s+entreesDeLExercice\(menu, vue\);/gm) || []).length).toBe(2);
   });
 });

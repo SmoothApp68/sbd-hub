@@ -28386,8 +28386,9 @@ const SETS_IMPORTES = [
     ok('[175] D — DISCRIMINANT : « Pas de lest » au profil → la carte de la marche suivante propose la variante seule (une carte, pas de carte du lest)',
       !!xd175 && !xd175.lest && !!xd175.marche && xd175.marche.cible === 'po-u175-decl', JSON.stringify(d175));
     const cd175 = await cartes175();
-    ok('[175] D — à l’écran : « Ajouter Pompes U175 Déclinées » / « Pas maintenant »',
-      cd175.length === 1 && cd175[0].marche && JSON.stringify(cd175[0].boutons.map(sp)) === JSON.stringify(['Ajouter Pompes U175 Déclinées', 'Pas maintenant']),
+    // 16/11/2026 (« Essayer la marche ») — la carte de la marche suivante, en reps : « Essayer ».
+    ok('[175] D — à l’écran : « Essayer Pompes U175 Déclinées » / « Pas maintenant »',
+      cd175.length === 1 && cd175[0].marche && JSON.stringify(cd175[0].boutons.map(sp)) === JSON.stringify(['Essayer Pompes U175 Déclinées', 'Pas maintenant']),
       JSON.stringify(cd175));
     await abandonner();
 

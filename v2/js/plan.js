@@ -2840,7 +2840,8 @@
     var M = Moteur(), S = Seance(), Mo = racine.THModele;
     var cat = e.catalogue || {};
     var nomDe = function (s) { return cat[s] && cat[s].nom ? cat[s].nom : s; };
-    var nom = nomDe(exo.exercise_slug), nomDepart = nomDe(em.depart);
+    // Le départ peut avoir quitté la séance (le catalogue du plan ne connaît que ses exercices) : son nom, gardé au clic.
+    var nom = nomDe(exo.exercise_slug), nomDepart = cat[em.depart] && cat[em.depart].nom ? cat[em.depart].nom : (em.nomDepart || em.depart);
     var series = exo.series || [];
     var faites = series.filter(function (q) { return !!q && S.partEnBase(q); });
     var n = series.filter(function (q) { return !!q && Mo.estTravail(q); }).length;

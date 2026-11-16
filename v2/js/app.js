@@ -9613,7 +9613,8 @@
     var depart = x.slug;
     var cible = carte.cible;
     heriterRoutine(iExo, cible);
-    seance = Seance.essayerMarche(seance, iExo, cible, uuid, { bas: typeof carte.bas === 'number' ? carte.bas : null });
+    seance = Seance.essayerMarche(seance, iExo, cible, uuid, { bas: typeof carte.bas === 'number' ? carte.bas : null,
+      nomDepart: carte.nomDepart || null });
     seance = Seance.noterGeste(seance, { geste: 'marche_essayee', slug: depart, vers: cible });
     await apresStructure();
   }

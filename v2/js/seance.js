@@ -1122,7 +1122,8 @@
     var exos = apres.exercices.slice();
     if (!exos[iM] || exos[iM].exercise_slug !== slug) return seance;
     exos[iM] = Object.assign({}, exos[iM], { essai_marche: {
-      depart: ancien.exercise_slug, origine: origine, bas: typeof o.bas === 'number' ? o.bas : null, repli: null } });
+      depart: ancien.exercise_slug, nomDepart: typeof o.nomDepart === 'string' && o.nomDepart ? o.nomDepart : null,
+      origine: origine, bas: typeof o.bas === 'number' ? o.bas : null, repli: null } });
     return avecExercices(apres, exos);
   }
   // L'index du départ resté dans la séance (ses séries faites), juste avant la marche ; -1 sinon.

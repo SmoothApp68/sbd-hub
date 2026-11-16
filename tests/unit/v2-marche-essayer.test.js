@@ -203,6 +203,12 @@ describe('la marche essayée dans le plan', () => {
     expect(x.propositionAuMax || null).toBeNull();
     expect(erreurs(p, e)).toEqual([]);
   });
+  test('le départ sorti de la séance (absent du catalogue du plan) : son nom gardé au clic', () => {
+    const se = S.essayerMarche(seanceDe(['tractions_elastique']), 0, 'tractions', id, { bas: 8, nomDepart: 'Tractions (Élastique)' });
+    const cat = catalogue(); delete cat.tractions_elastique;
+    const r = plan(entrees(valider(se, 0, 0, 2), { catalogue: cat })).exercices[0];
+    expect(sp(r.essaiMarche.repli.texte)).toBe('Tractions : 2 reps. Pour la suite, je remets Tractions (Élastique).');
+  });
   test('séries du départ déjà faites : la phrase le dit (une, puis deux)', () => {
     const un = S.essayerMarche(valider(seanceDe(['tractions_elastique'], 3), 0, 0, 12), 0, 'tractions', id, { bas: 8 });
     expect(plan(entrees(un)).exercices[1].essaiMarche.texte).toBe('C\'est fait : Tractions, 2 séries, autant de reps que tu peux, en en gardant 2. Ta série de Tractions (Élastique) déjà faite reste notée. La prochaine fois, je pars de ce que tu auras noté.');
@@ -338,7 +344,8 @@ describe('inchangés : les figures en secondes, la variante du lest', () => {
       poserProfil: async (c) => { ctx.ecrits.push(c); }, apresStructure: async () => {} };
     vm.createContext(ctx);
     vm.runInContext(m[0], ctx);
-    await vm.runInContext('essayerLaMarche(0, { slug: "tractions_elastique" }, { cible: "tractions", bas: 8 })', ctx);
+    await vm.runInContext('essayerLaMarche(0, { slug: "tractions_elastique" }, { cible: "tractions", bas: 8, nomDepart: "Tractions (Élastique)" })', ctx);
+    expect(ctx.seance.exercices[0].essai_marche.nomDepart).toBe('Tractions (Élastique)');
     expect(ctx.seance.exercices.map((x) => x.exercise_slug)).toEqual(['tractions']);
     expect(ctx.seance.gestes).toEqual([{ geste: 'marche_essayee', slug: 'tractions_elastique', vers: 'tractions' }]);
     expect(ctx.ecrits).toEqual([]);

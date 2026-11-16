@@ -1868,10 +1868,14 @@
   // « Annuler ») sont des rappels : rien ne s'écrit ici. `vue.fait` : `{ texte, surAnnuler }`, ce que la dernière
   // proposition acceptée vient de faire — elle se voit et s'annule.
   function carteDEquilibre(c, vue, parle) {
-    var carte = el('div', 'carte-mois eq-carte' + (parle ? '' : ' eq-constat'));
+    var carte = el('div', 'carte-mois eq-carte' + (parle ? '' : ' eq-constat') + (c.coach ? ' eq-coach' : ''));
     carte.setAttribute('data-equilibre', c.cle);
-    carte.appendChild(el('div', 'eq-titre', c.titre));
-    if (c.kind === 'priorites' || c.kind === 'frequence') {
+    // 16/11/2026 (MOTEUR §9.27 quater) — une carte où le coach parle : sa tête est celle des avis en séance (« Le coach te dit »).
+    carte.appendChild(el('div', 'eq-titre' + (c.coach ? ' avis-nom' : ''), c.titre));
+    if (c.kind === 'geste') {
+      // Le fait, puis la proposition (et sa conséquence). En constat (silence), le fait seul, sans bouton.
+      (parle ? (c.phrases || [c.fait]) : [c.fait]).forEach(function (t, i) { carte.appendChild(el(i === 0 ? 'div' : 'p', i === 0 ? 'eq-fait' : 'pc-note', t)); });
+    } else if (c.kind === 'priorites' || c.kind === 'frequence') {
       if (c.fait) { /* le fait vient après le tableau */ }
       var tab = el('div', 'eq-tab');
       (c.lignes || []).forEach(function (l) {
@@ -1931,7 +1935,8 @@
 
   function rendreEquilibres(parent, vue) {
     var a = vue && vue.analyse;
-    if (!a || a.etat === 'peu') return;
+    // §9.27 quater : peu de recul, mais une carte des gestes de la routine (ou le geste qu'on vient d'y faire) : la section s'ouvre pour elle.
+    if (!a || (a.etat === 'peu' && !(a.cartes || []).length && !vue.fait)) return;
     parent.appendChild(el('div', 'section-t', 'Ta semaine et tes équilibres'));
     var section = el('div', 'eq-section');
     section.setAttribute('data-equilibres', a.etat);
@@ -9401,7 +9406,7 @@
     (vue.exercices || []).forEach(function (x) {
       var ligne = el('div', 'ecarte-ligne');
       ligne.appendChild(el('span', 'ecarte-nom', x.nom));
-      var b = el('button', 'discret ecarte-reprendre', 'Reprendre');
+      var b = el('button', 'discret ecarte-reprendre', x.bouton || 'Reprendre');   // 16/11/2026 : « Effacer » pour « Ce que le coach a retenu »
       b.type = 'button';
       b.addEventListener('click', x.surReprendre);
       ligne.appendChild(b);

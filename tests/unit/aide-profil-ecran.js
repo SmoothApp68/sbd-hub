@@ -73,6 +73,8 @@ function profilEcran(profil, options) {
     ouvrirSalleProfil: () => { sallesOuvertes.push(true); },
     // 193-4 — « Semaine de test » : la ligne n'existe que s'il y a quelque chose à dire (aucune ici).
     ligneSemaineDeTest: () => null,
+    // 16/11/2026 (§9.27 quater) — « Ce que le coach a retenu » : la ligne n'existe qu'avec une réponse (aucune ici).
+    ligneRetenusDuCoach: () => [],
     // 201 — « Les mots du coach » : la feuille qu'ouvre la ligne (lexique du moteur).
     Moteur, ouvrirMotsDuCoach: () => {},
     // 273 — « Jalons » et « Faits seulement » (le mode sobre de l'appareil : éteint ici).

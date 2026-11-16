@@ -2335,6 +2335,23 @@ const NOTIONS = [
       raison: 'une proposition = une réaction à bouton se lit par `Moteur.estUneProposition`, jamais par un second compte des leviers écrit à la main' },
     raison: 'MOTEUR §9.39 : le plan comptait « ignorée » toute réaction passée, y compris une phrase seule (cas B, X, G, M) : le coach se taisait après deux CONSTATS. ' +
       'Une seule définition de la proposition ; la mesure (`rate_ignoree`, avec ses `boutons`) reste une autre notion et note tout, sans le compteur.' },
+  // 16/11/2026 (MOTEUR §9.27 quater, I212) — « la routine apprend de tes gestes » : UN décompte, qui lit UNE lecture des gestes,
+  // la même que les causes des cartes d'équilibre. Aucun écran ne compte un geste.
+  { notion: 'le geste qui explique l’absence d’un exercice dans une séance', pr: 'correctif 16/11/2026',
+    module: 'equilibres.js', fonction: 'gesteDeLExercice', lecteurs: [],
+    par: ['causesDe', 'gestesRecurrents'],
+    raison: 'les causes d’équilibre et la carte des gestes de la routine lisaient chacune les gestes à sa façon : un retrait compté ' +
+      'ici, un raccourci compté là pour la même séance. Une lecture, dans l’ordre raccourci, machine prise, remplacement, retrait.' },
+  { notion: 'les gestes récurrents d’une routine (3 sur les 4 dernières séances)', pr: 'correctif 16/11/2026',
+    module: 'equilibres.js', fonction: 'gestesRecurrents', lecteurs: [],
+    par: ['cartesDesGestes'],
+    raison: 'décision du 16/11/2026 : un seul décompte du « retiré à la main » et du « remplacé par le même », lu par la carte ; ' +
+      'l’app ne fait que l’écrire sur un geste.' },
+  { notion: 'les réponses aux cartes des gestes de la routine (`geste_routine`)', pr: 'correctif 16/11/2026',
+    module: 'equilibres.js', fonction: 'reponseAuGeste', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['repondreAuGesteUneFois', 'effacerUnRetenu'] },
+    raison: 'la carte, son « Garder », « Annuler » et « Ce que le coach a retenu » écrivent la même forme : une seule fonction rend ' +
+      'la valeur de `cartes_semaine`.' },
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────

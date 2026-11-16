@@ -18,7 +18,7 @@ require('../../v2/js/seance.js');
 const Faits = require('../../v2/js/faits.js').creer();
 
 const UN_BRAS = ['rowing_haltere', 'developpe_couche_un_bras_haltere', 'developpe_militaire_un_bras_haltere',
-  'elevation_laterale_un_bras_haltere', 'extension_triceps_dessus_tete_un_bras_haltere'];
+  'elevation_laterale_un_bras_haltere', 'extension_triceps_dessus_tete_un_bras_haltere', 'rowing_kroc_haltere'];
 const haltere = (slug, nom) => ({ slug, nom: nom || slug, equipement: 'haltere', mesure: 'charge_reps' });
 
 describe('la notion : un exercice aux haltères fait à un bras', () => {
@@ -28,7 +28,7 @@ describe('la notion : un exercice aux haltères fait à un bras', () => {
   });
   test('« Une Jambe » aux haltères, les deux bras et l’absence d’exercice : non', () => {
     ['hip_thrust_une_jambe_haltere', 'souleve_de_terre_une_jambe_haltere', 'extension_mollets_une_jambe_haltere', 'curl_biceps_haltere',
-      'developpe_couche_haltere', 'rowing_penche_haltere', 'rowing_kroc_haltere'].forEach((s) => expect(M.unSeulHaltere(haltere(s))).toBe(false));
+      'developpe_couche_haltere', 'rowing_penche_haltere'].forEach((s) => expect(M.unSeulHaltere(haltere(s))).toBe(false));
     expect(M.unSeulHaltere(null)).toBe(false);
     expect(M.unSeulHaltere({ equipement: 'haltere' })).toBe(false);
   });

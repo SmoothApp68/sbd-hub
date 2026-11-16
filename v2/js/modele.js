@@ -1185,7 +1185,7 @@
   // a le slug `rowing_haltere`. Les « Une Jambe » aux haltères ne sont PAS ici : on y tient un ou deux haltères, la paire reste notée.
   // Un exercice ajouté au catalogue à un bras s'inscrit ICI, une fois ; `Moteur.equipementEffectif` en tire le matériel `haltere_seul`.
   var EXERCICES_A_UN_SEUL_HALTERE = ['rowing_haltere', 'developpe_couche_un_bras_haltere', 'developpe_militaire_un_bras_haltere',
-    'elevation_laterale_un_bras_haltere', 'extension_triceps_dessus_tete_un_bras_haltere'];
+    'elevation_laterale_un_bras_haltere', 'extension_triceps_dessus_tete_un_bras_haltere', 'rowing_kroc_haltere'];   // le Kroc : un bras par définition
   function unSeulHaltere(exo) {
     return !!exo && typeof exo.slug === 'string' && EXERCICES_A_UN_SEUL_HALTERE.indexOf(exo.slug) >= 0;
   }

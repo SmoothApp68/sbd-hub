@@ -31481,6 +31481,14 @@ const SETS_IMPORTES = [
     const a1 = await lire2();
     ok('[SC2] I202 — DISCRIMINANT — « Sans coach cette fois » : plus de calage, de consigne, de ligne du coach, de message ni de carte, et ce n’est PAS une douleur',
       a1.sansCoach && !a1.douleur && !a1.calage && !a1.consigne && a1.voix === 0 && !a1.message && !a1.carte && !a1.proposition, nb2(a1));
+    // 17/11/2026 — L'ÉCRAN, pas seulement le plan : l'en-tête de l'exercice (« Nouvelle zone : … », la charge du jour, la phrase grise) se taisait dans
+    // le plan mais `libellesDe` (app.js) retombait sur la consigne calculée à l'ouverture. Constaté sur l'appareil (prod, compte de test).
+    const enteteSC2 = await page.evaluate(() => {
+      const b = document.querySelector('.bloc-seance');
+      return b ? [].slice.call(b.querySelectorAll('.consigne-dit, .consigne-heros')).map((n) => n.textContent.trim()).filter(Boolean) : null;
+    });
+    ok('[SC2] I202 — DISCRIMINANT — l’en-tête de l’exercice ne dit plus rien du coach à l’écran (ni zone, ni charge du jour, ni phrase grise)',
+      Array.isArray(enteteSC2) && enteteSC2.length === 0, nb2(enteteSC2));
     await calmeApres(await departGeste());
     const ecritsAvant2 = nb2([base.sets, base.predictions]);
     await menuBloc(0);

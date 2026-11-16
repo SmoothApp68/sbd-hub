@@ -1,0 +1,26 @@
+[
+ {
+  "nom": "M-A-auMaxDe-ignore-la-reprise-longue",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "x.premiereFois === true || x.repriseLongue === true) && reserve < AU_MAX_RESERVE_PAR_DEFAUT",
+  "nouveau": "x.premiereFois === true) && reserve < AU_MAX_RESERVE_PAR_DEFAUT",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-au-max-reprise-longue.test.js"]
+ },
+ {
+  "nom": "M-B-le-plan-ne-passe-pas-le-predicat",
+  "fichier": "v2/js/plan.js",
+  "ancien": "repriseLongue: M.enRepriseLongue(Object.prototype.hasOwnProperty.call(consignes || {}, slug) && consignes[slug] ? consignes[slug].consigne : null)",
+  "nouveau": "repriseLongue: false",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-au-max-reprise-longue.test.js"]
+ },
+ {
+  "nom": "M-C-I207-ne-voit-plus-l-echec",
+  "fichier": "v2/js/plan.js",
+  "ancien": "if (a.reserve < M.AU_MAX_RESERVE_PAR_DEFAUT || (x.auMax && x.auMax.sorte === 'echec') || (x.propositionAuMax && x.propositionAuMax.sorte === 'echec')) erreurs.push('I207'",
+  "nouveau": "if (false) erreurs.push('I207'",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-au-max-reprise-longue.test.js"]
+ }
+]

@@ -1,0 +1,45 @@
+[
+ {
+  "nom": "M1-essayer-ajoute-au-lieu-de-remplacer",
+  "fichier": "v2/js/app.js",
+  "ancien": "    if (!carteLest && carte.essai === true && reponse === 'oui') return essayerLaMarche(iExo, x, carte);",
+  "nouveau": "",
+  "banc": "seance",
+  "sections": ["echelle"],
+  "unitaires": ["tests/unit/v2-marche-essayer.test.js"]
+ },
+ {
+  "nom": "M2-tenue-sans-plafond-de-5",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "    return Math.max(TENUE_MARCHE_MIN, Math.min(TENUE_MARCHE_MAX, b === null ? TENUE_MARCHE_MAX : b));",
+  "nouveau": "    return Math.max(TENUE_MARCHE_MIN, b === null ? TENUE_MARCHE_MAX : b);",
+  "banc": "seance",
+  "sections": ["echelle"],
+  "unitaires": ["tests/unit/v2-marche-essayer.test.js"]
+ },
+ {
+  "nom": "M3-question-de-fin-parle-de-l-essai",
+  "fichier": "v2/js/seance.js",
+  "ancien": "    var voulues = exercicesPourLaRoutine(seance).map(function (exo, iVoulue) {",
+  "nouveau": "    var voulues = (seance.exercices || []).filter(function (exo) { return !(exo && exo.ajout); }).map(function (exo, iVoulue) {",
+  "banc": "seance",
+  "sections": ["echelle"],
+  "unitaires": ["tests/unit/v2-marche-essayer.test.js"]
+ },
+ {
+  "nom": "M4-repli-a-zero-rep",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "    if (r === null || r < 1 || r >= seuilDeTenueDeMarche(x.bas)) return null;",
+  "nouveau": "    if (r === null || r >= seuilDeTenueDeMarche(x.bas)) return null;",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-marche-essayer.test.js"]
+ },
+ {
+  "nom": "M5-generateur-ignore-la-tenue",
+  "fichier": "v2/js/generateur.js",
+  "ancien": "    var acquises = tenues && typeof tenues === 'object' ? tenues : faits;",
+  "nouveau": "    var acquises = faits;",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-marche-essayer.test.js"]
+ }
+]

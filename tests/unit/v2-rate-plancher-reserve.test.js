@@ -153,6 +153,21 @@ describe('I216 — verifierPlan voit un « garde N » sous la réserve affichée
     p.exercices[0].rate.garde = 1;
     expect(T.verifierPlan(p, e).erreurs.join('\n')).toMatch(/I216/);
   });
+  test('la comparaison à la réserve affichée seule (le pari inchangé) : garde 2 sous une réserve affichée de 3', () => {
+    const { e, p } = jouer([[100, 5]], PROGRESSION, { plus65: true });
+    expect(p.exercices[0].rate.garde).toBe(2);
+    p.exercices[0].reserveAffichee = 3;
+    expect(T.verifierPlan(p, e).erreurs.join('\n')).toMatch(/I216 — exercice 0 \(squat_barre\) : une réaction qui dit « garde 2 » sous la réserve affichée de 3/);
+  });
+  test('le pari d’une ligne recalée au-dessus du garde dit', () => {
+    const { e, p } = jouer([[100, 5]], PROGRESSION, { plus65: true });
+    p.exercices[0].paris[1].fondement.reserve_visee = 3;
+    expect(T.verifierPlan(p, e).erreurs.join('\n')).toMatch(/I216.*un pari de réserve 3/);
+  });
+  test('un témoin : hors protection, aucune erreur I216 même avec garde 1 sous une table à 2', () => {
+    const { e, p } = jouer([[100, 2]], Object.assign({}, PROGRESSION, { zone: 'lourd' }), {}, 5);
+    expect(T.verifierPlan(p, e).erreurs.join('\n')).not.toMatch(/I216/);
+  });
 });
 
 test('la preuve du constat : squat 97,5 × 5 en reprise longue Franc, puis la baisse — « garde 2 » partout, aucune erreur', () => {

@@ -5,7 +5,9 @@
   "ancien": "var garde = rateGardeAuPlancher(reg === 'prudent' || obj === 'forme' ? 2 : 1, c);",
   "nouveau": "var garde = reg === 'prudent' || obj === 'forme' ? 2 : 1;",
   "banc": "aucun",
-  "unitaires": ["tests/unit/v2-rate-plancher-reserve.test.js"]
+  "unitaires": [
+   "tests/unit/v2-rate-plancher-reserve.test.js"
+  ]
  },
  {
   "nom": "R-B-le-niveau-2-oublie-le-plancher",
@@ -13,15 +15,19 @@
   "ancien": "garde: rateGardeAuPlancher(reg === 'prudent' || c.objectif === 'forme' ? 2 : 1, c),",
   "nouveau": "garde: reg === 'prudent' || c.objectif === 'forme' ? 2 : 1,",
   "banc": "aucun",
-  "unitaires": ["tests/unit/v2-rate-plancher-reserve.test.js"]
+  "unitaires": [
+   "tests/unit/v2-rate-plancher-reserve.test.js"
+  ]
  },
  {
   "nom": "R-C-le-plan-ne-passe-plus-la-reserve-affichee",
   "fichier": "v2/js/plan.js",
-  "ancien": "      plancher: nombre(x.reserveAffichee),",
-  "nouveau": "      plancher: null,",
+  "ancien": "plan.protegee === true || Moteur().enRepriseLongue(x.consigne) ? nombre(x.reserveAffichee) : null,",
+  "nouveau": "null,",
   "banc": "aucun",
-  "unitaires": ["tests/unit/v2-rate-plancher-reserve.test.js"]
+  "unitaires": [
+   "tests/unit/v2-rate-plancher-reserve.test.js"
+  ]
  },
  {
   "nom": "R-D-le-cas-M-garde-1-en-dur",
@@ -29,7 +35,9 @@
   "ancien": "garde: rateGardeAuPlancher(1, c),",
   "nouveau": "garde: 1,",
   "banc": "aucun",
-  "unitaires": ["tests/unit/v2-rate-plancher-reserve.test.js"]
+  "unitaires": [
+   "tests/unit/v2-rate-plancher-reserve.test.js"
+  ]
  },
  {
   "nom": "R-E-I216-ne-regarde-plus",
@@ -37,6 +45,8 @@
   "ancien": "plancherR !== null && r.garde < plancherR) erreurs.push('I216'",
   "nouveau": "plancherR !== null && r.garde < plancherR - 99) erreurs.push('I216'",
   "banc": "aucun",
-  "unitaires": ["tests/unit/v2-rate-plancher-reserve.test.js"]
+  "unitaires": [
+   "tests/unit/v2-rate-plancher-reserve.test.js"
+  ]
  }
 ]

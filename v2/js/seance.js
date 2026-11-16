@@ -2180,7 +2180,7 @@
   // La carte de reprise (§9.20) : le choix fait dans CETTE séance, par
   // exercice — « avant », ou « leger » avec le repli figé au choix. Il vit dans
   // le brouillon (la séance n'a pas de colonne pour lui) ; « Sans coach cette
-  // fois » n'est pas un choix rangé ici : c'est la marque (`marquerDouleur`).
+  // fois » n'est pas un choix rangé ici : c'est la marque de silence (`marquerSansCoach`, sans douleur).
   function choisirReprise(seance, slug, choix) {
     var r = {};
     Object.keys(seance.reprises || {}).forEach(function (k) { r[k] = seance.reprises[k]; });

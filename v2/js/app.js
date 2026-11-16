@@ -10001,7 +10001,9 @@
     reponseEnCours = true;
     try {
       if (cle === 'sans') {
-        seance = Seance.marquerDouleur(seance, iExo);
+        // « Sans coach cette fois » de la carte = la marque de silence `sans_coach`, JAMAIS `douleur` : la douleur d'hier reste un fait
+        // (elle ne se réécrit pas), et la carte ne revient pas la fois d'après sans une nouvelle douleur déclarée (MOTEUR §9.20).
+        seance = Seance.marquerSansCoach(seance, iExo, { douleur: false });
       } else if (cle === 'leger' && carte.repli) {
         seance = Seance.choisirReprise(seance, x.slug, { choix: 'leger', repli: carte.repli });
         await poserZone(x.slug, carte.zone);

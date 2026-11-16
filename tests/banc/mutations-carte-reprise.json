@@ -1,0 +1,41 @@
+[
+ {
+  "nom": "cr-1-reponse-ecrit-une-douleur",
+  "fichier": "v2/js/app.js",
+  "ancien": "        seance = Seance.marquerSansCoach(seance, iExo, { douleur: false });\n      } else if (cle === 'leger'",
+  "nouveau": "        seance = Seance.marquerDouleur(seance, iExo);\n      } else if (cle === 'leger'",
+  "banc": "seance",
+  "sections": [
+   "7-G-duovicies"
+  ],
+  "unitaires": [
+   "tests/unit/v2-sans-coach-par-exercice.test.js"
+  ]
+ },
+ {
+  "nom": "cr-2-douleur-lit-sans-coach",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "    return (series || []).some(function (s) { return !!s && s.douleur === true; });\n  }\n  // PR 2",
+  "nouveau": "    return (series || []).some(function (s) { return !!s && (s.douleur === true || s.sans_coach === true); });\n  }\n  // PR 2",
+  "banc": "seance",
+  "sections": [
+   "sans-coach-pr2"
+  ],
+  "unitaires": [
+   "tests/unit/v2-sans-coach-par-exercice.test.js"
+  ]
+ },
+ {
+  "nom": "cr-3-marquer-sans-coach-ecrit-douleur",
+  "fichier": "v2/js/seance.js",
+  "ancien": "    var cle = options && options.douleur ? 'douleur' : 'sans_coach';",
+  "nouveau": "    var cle = 'douleur';",
+  "banc": "seance",
+  "sections": [
+   "7-G-duovicies"
+  ],
+  "unitaires": [
+   "tests/unit/v2-sans-coach-par-exercice.test.js"
+  ]
+ }
+]

@@ -185,3 +185,47 @@ describe('le moteur — la neutralité, sans fait de douleur', () => {
     expect(M.seanceDouloureuse([{ douleur: true }])).toBe(true);
   });
 });
+
+// ══ « SANS COACH CETTE FOIS » DE LA CARTE DE REPRISE (MOTEUR §9.20) : la marque de silence, jamais une douleur ═════════════════════════════
+
+describe('la carte de reprise — « Sans coach cette fois » pose `sans_coach`, pas `douleur`', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const APP = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
+  const corps = APP.match(/^  async function repondreReprise\b[\s\S]*?^  }/m)[0];
+  const branche = corps.slice(corps.indexOf("cle === 'sans'"), corps.indexOf("cle === 'leger'"));
+
+  test('⚠️ DISCRIMINANT — la réponse « sans » appelle marquerSansCoach(…, { douleur: false }), jamais marquerDouleur', () => {
+    expect(branche).toMatch(/Seance\.marquerSansCoach\(seance, iExo, \{ douleur: false \}\)/);
+    expect(branche).not.toMatch(/marquerDouleur/);
+    expect(corps).not.toMatch(/marquerDouleur/);
+  });
+
+  test('le geste de la réponse : l’occurrence est sans coach, SANS douleur ; une douleur déjà là n’est pas réécrite', () => {
+    const se = sansCoach(seanceDe());
+    expect(S.occurrenceSansCoach(se.exercices[0])).toBe(true);
+    expect(S.occurrenceDouloureuse(se.exercices[0])).toBe(false);
+    expect(se.exercices[0].series.every((s) => s.douleur !== true)).toBe(true);
+  });
+
+  test('⚠️ DISCRIMINANT — la séance où la personne répond « sans » ne porte aucune douleur : la carte ne revient pas la fois d’après', () => {
+    const jour = (j) => ({ debut: '2026-10-' + j + 'T10:00:00+00:00' });
+    const serie = (extra) => Object.assign({ charge_kg: 100, reps: 5, type_serie: 'travail', rang: 1 }, extra);
+    const sd = (j, extra) => ({ seance: jour(j), series: [serie(extra)] });
+    // N-1 : douleur déclarée ; N : réponse « Sans coach cette fois » (sans_coach) ; l'ancien comportement écrivait douleur ici.
+    const contratDe = (derniere) => M.contratDe([sd('01'), sd('08', { douleur: true }), sd('15', derniere)], null, null, { equipement: 'barre' });
+    const apres = contratDe({ sans_coach: true });
+    const ancien = contratDe({ douleur: true });
+    expect(apres.map((s) => s.douleur === true)).toEqual([false, true, false]);
+    expect(M.carteReprise(apres.map((s) => s.douleur === true))).toBe(false);
+    expect(M.carteReprise(ancien.map((s) => s.douleur === true))).toBe(true);
+    // la séance « sans coach » reste neutre pour la charge (aucun vote), sans être un fait de douleur
+    expect(apres[2].sansCoach).toBe(true);
+    expect(apres[2].douleur).not.toBe(true);
+  });
+
+  test('la douleur d’hier reste un fait : `douleurRecente` et la phrase du kiné ne lisent que `douleur`', () => {
+    expect(M.seanceDouloureuse([{ sans_coach: true }])).toBe(false);
+    expect(M.seanceDouloureuse([{ douleur: true }, { sans_coach: true }])).toBe(true);
+  });
+});

@@ -1,0 +1,27 @@
+[
+ {
+  "nom": "gr-1-le-raccourci-ne-l-emporte-plus-sur-le-retrait",
+  "fichier": "v2/js/equilibres.js",
+  "ancien": "    if (r) return { geste: 'raccourci' };",
+  "nouveau": "    if (false) return { geste: 'raccourci' };",
+  "unitaires": ["tests/unit/v2-routine-apprend-gestes.test.js"],
+  "banc": "aucun"
+ },
+ {
+  "nom": "gr-2-le-report-n-est-plus-plafonne-a-6",
+  "fichier": "v2/js/equilibres.js",
+  "ancien": "    var ajout = Math.min(n, REPORT_MAX - c.a);",
+  "nouveau": "    var ajout = n;",
+  "unitaires": ["tests/unit/v2-routine-apprend-gestes.test.js"],
+  "banc": "aucun"
+ },
+ {
+  "nom": "gr-3-annuler-ne-rend-plus-les-reponses",
+  "fichier": "v2/js/app.js",
+  "ancien": "      await poserProfil({ cartes_semaine: avantReponses });\n      memoEquilibres = null;\n      repeindreLesEquilibres();\n    };\n    if (p.type === 'geste_garder') {",
+  "nouveau": "      memoEquilibres = null;\n      repeindreLesEquilibres();\n    };\n    if (p.type === 'geste_garder') {",
+  "unitaires": [],
+  "banc": "seance",
+  "sections": ["gestes-routine"]
+ }
+]

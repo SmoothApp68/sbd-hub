@@ -209,6 +209,7 @@ const CATALOGUE = [
   { slug: 'pupitre-machine', nom: 'Pupitre (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['biceps'], muscles_secondaires: [] },
   // ⚠️ RÉSERVÉS AU CORRECTIF DE LA FILE (27/09/2026) : la séance du constat,
   // « Mardi — Pecs Dos », deux exercices.
+  { slug: 'rowing-u686', nom: 'Rowing U686 (Machine)', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['dorsaux'], muscles_secondaires: [] },
   { slug: 'rowing-poulie', nom: 'Rowing Poulie Assis', mesure: 'charge_reps', charge: 'externe', equipement: 'machine', muscles_primaires: ['dorsaux'], muscles_secondaires: [] },
   { slug: 'dci-halteres', nom: 'Développé Couché Incliné (Haltères)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere', muscles_primaires: ['pectoraux'], muscles_secondaires: [] },
   { slug: 'haussement-barre', nom: 'Haussement d’Épaules (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['trapezes'], muscles_secondaires: [] },
@@ -10104,13 +10105,13 @@ const SETS_IMPORTES = [
     // ── (3) 16/11/2026 — REPRISE LONGUE, NIVEAU SOUS LE BAS DE LA ZONE (MOTEUR §9.9) ─────────────────────────────────────────────
     // Zone Volume (10-12) par l'habitude, dernière séance 50 × 12, 4, 3 (niveau validé 4) il y a 140 jours : la ligne vise le BAS de la zone (10),
     // à une charge estimée sous 90 % du palier, marquée ; la réserve affichée vaut au moins 2 ; la phrase est un fait.
-    const poserRP = poser('rowing-poulie', 'Dos');
+    const poserRP = poser('rowing-u686', 'Dos U686');
     poserRP('rp-a', 160, [[45, 12], [45, 12], [45, 12]]);
     poserRP('rp-b', 150, [[45, 12], [45, 12], [45, 12]]);
     poserRP('rp-c', 140, [[50, 12], [50, 4], [50, 3]]);
     ROUTINES.push({ id: 'r-rp', nom: 'RP ×3', note: null, archivee_a: null,
       created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
-      routine_exercises: [{ id: 'r-rp-e', routine_id: 'r-rp', exercise_slug: 'rowing-poulie', rang: 0,
+      routine_exercises: [{ id: 'r-rp-e', routine_id: 'r-rp', exercise_slug: 'rowing-u686', rang: 0,
         routine_sets: progr(3, 12), repos_cible_s: 90, groupe_superset: null, note: null }] });
     await aller('/saisie');
     await demarrerRoutine('RP ×3');

@@ -6898,7 +6898,7 @@
       if (!z || ch === null || vise === null) return;
       if (!marque) {
         var cat = (entrees && entrees.catalogue && entrees.catalogue[x.slug]) || {};
-        var exempt = P === null || !(P > 0) || ch <= 0 || cat.equipement === M.EQUIPEMENT_LEST || cat.equipement === 'elastique' ||
+        var exempt = P === null || !(P > 0) || ch <= 0 || !cat.equipement || cat.equipement === M.EQUIPEMENT_LEST || cat.equipement === 'elastique' ||
           !!(c.fondement && (c.fondement.salle || c.fondement.elastique)) || racine.THModele.modeDeReps(c.niveau) !== 'projection';
         if (vise < z.bas && !exempt) erreurs.push('I204' + nom + 'la reprise longue vise ' + vise + ' reps, sous le bas de la zone (' + z.bas + '), sans la marque du plancher');
         return;

@@ -26027,7 +26027,8 @@ const SETS_IMPORTES = [
     ok('[127] E — DISCRIMINANT : marche tenue (10, 10, 10), routine manuelle : la carte de fin, « Juste aujourd’hui » choisi par défaut, aucun écart de routine',
       finE.marche.length === 1 && sp(finE.marche[0].texte).replace(/'/g, '’') ===
         'Tractions U127 : 10, 10 et 10 aujourd’hui. Je la mets à la place de Tractions U127 (Élastique) dans Échelle U127 ?' &&
-        JSON.stringify(finE.marche[0].boutons) === JSON.stringify([{ t: 'Juste aujourd’hui', sel: true }, { t: 'Oui, dans Échelle U127', sel: false }]) &&
+        JSON.stringify(finE.marche[0].boutons.map((x) => ({ t: sp(x.t).replace(/'/g, '’'), sel: x.sel }))) ===
+          JSON.stringify([{ t: 'Juste aujourd’hui', sel: true }, { t: 'Oui, dans Échelle U127', sel: false }]) &&
         finE.ecart === 0, JSON.stringify(finE));
     await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .question-marche button')).filter((b) => /^Oui, dans/.test(b.textContent))[0].click());
     await poseApresGeste();

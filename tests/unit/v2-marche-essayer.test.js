@@ -210,10 +210,10 @@ describe('la marche essayée dans le plan', () => {
     deux = S.essayerMarche(deux, 0, 'tractions', id, { bas: 8 });
     expect(plan(entrees(deux)).exercices[1].essaiMarche.texte).toMatch(/Tes 2 séries de Tractions \(Élastique\) déjà faites restent notées\./);
   });
-  test('le repli : 1re série à 2 reps (seuil 5) → « Tractions × 2. Pour la suite, je remets Tractions (Élastique). »', () => {
+  test('le repli : 1re série à 2 reps (seuil 5) → « Tractions : 2 reps. Pour la suite, je remets Tractions (Élastique). »', () => {
     const { e, p, x } = ex(valider(essai(), 0, 0, 2));
     expect(x.essaiMarche.texte).toBeNull();
-    expect(sp(x.essaiMarche.repli.texte)).toBe('Tractions × 2. Pour la suite, je remets Tractions (Élastique).');
+    expect(sp(x.essaiMarche.repli.texte)).toBe('Tractions : 2 reps. Pour la suite, je remets Tractions (Élastique).');
     expect(x.essaiMarche.repli.remettre).toBe('Remettre Tractions (Élastique)');
     expect(x.essaiMarche.repli.continuer).toBe('Continuer');
     expect(erreurs(p, e)).toEqual([]);

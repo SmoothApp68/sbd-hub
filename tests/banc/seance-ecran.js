@@ -25810,7 +25810,7 @@ const SETS_IMPORTES = [
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refus126), erreurs.slice(erreurs126)]));
   }
 
-  console.log('\n══ echelle. L’ÉCHELLE DES VARIANTES : LA CARTE « MARCHE SUIVANTE », « AJOUTER » AVANT, « PAS MAINTENANT » À LA MÊME AIDE, « TON ÉCHELLE » (127, MOTEUR §9.17 bis, ECRAN-SAISIE §7 quater.6) ══');
+  console.log('\n══ echelle. L’ÉCHELLE DES VARIANTES : LA CARTE « MARCHE SUIVANTE », « ESSAYER » À LA PLACE, « PAS MAINTENANT » À LA MÊME AIDE, « TON ÉCHELLE », LA CARTE DE FIN (127, 16/11/2026, MOTEUR §9.17 bis, ECRAN-SAISIE §7 quater.6) ══');
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE : une échelle de quatre marches (une aide, la stricte, la lestée, une habileté),
   // servie par le faux serveur avec ses colonnes (`echelle`, `echelle_rang`, `nature`) ; quatre séances de tractions
@@ -25873,12 +25873,24 @@ const SETS_IMPORTES = [
       .map((n) => n.textContent));
     const seance127 = () => page.evaluate(() => (document.querySelector('#vue-seance') || {}).textContent || '');
     const TITRE_127 = 'Aide 25 kg × 12 sur toutes tes séries, deux séances de suite.';
-    const DETAIL_127 = 'La marche au-dessus : Tractions U127. Je te propose d’en faire 2 séries avant, autant de reps que tu peux.';
+    // 16/11/2026 (« Essayer la marche ») — la carte en reps propose d'ESSAYER la marche à la place des séries restantes.
+    const DETAIL_127 = 'La marche au-dessus : Tractions U127. Je la mets à la place de tes séries restantes de Tractions U127 (Élastique), pour essayer aujourd’hui. Ta routine ne change pas.';
+    const ESSAI_127 = 'C’est fait : Tractions U127, 3 séries, autant de reps que tu peux, en en gardant 2. La prochaine fois, je pars de ce que tu auras noté.';
+    const essai127 = () => page.evaluate(() => Array.from(document.querySelectorAll('#vue-seance .proposition-marche-essai')).map((c) => ({
+      texte: (c.querySelector('.pc-texte') || {}).textContent, boutons: Array.from(c.querySelectorAll('button')).map((b) => b.textContent) })));
+    const gestes127 = () => page.evaluate(() => { const d = window.THPlan && window.THPlan.dernier; return d && d.entrees && d.entrees.seance ? d.entrees.seance.gestes : null; });
+    const repsEtValider127 = async (i, reps) => {
+      await page.locator('.ligne-serie').nth(i).locator('[data-champ="reps"] input').fill(String(reps));
+      await poseApresGeste();
+      const depart = await departGeste();
+      await page.evaluate((k) => document.querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie').click(), i);
+      await serieMontee(i, depart);
+    };
 
     // ── A. LA CARTE : une, en tête de l'élastique, le composant de la carte du lest, sans point d'interrogation.
     await aller('/saisie');
     await demarrerRoutine('Échelle U127');
-    await attendre(900);
+    await poseApresGeste();
     const a127 = await plan127();
     const xa = a127 && a127.filter((x) => x.slug === 'tr-u127-elastique')[0];
     ok('[127] A — DISCRIMINANT : deux séances au haut de la zone (12) à la même aide : le plan pose la carte « marche suivante », la consigne tient sa ligne',
@@ -25886,27 +25898,39 @@ const SETS_IMPORTES = [
     const ca = await cartes127();
     ok('[127] A — UNE carte à l’écran, le rendu de la carte du lest (mêmes classes), le texte du plan et ses deux boutons',
       ca.length === 1 && ca[0].lest && sp(ca[0].texte) === TITRE_127 && sp(ca[0].detail).replace(/'/g, '’') === DETAIL_127 &&
-        JSON.stringify(ca[0].boutons.map(sp)) === JSON.stringify(['Ajouter Tractions U127', 'Pas maintenant']) &&
+        JSON.stringify(ca[0].boutons.map(sp)) === JSON.stringify(['Essayer Tractions U127', 'Pas maintenant']) &&
         !/\?/.test(ca[0].texte + ca[0].detail), JSON.stringify(ca));
 
-    // ── B. « AJOUTER » : la réponse au profil, la stricte JUSTE AVANT, l'élastique reste.
+    // ── B. « ESSAYER » (16/11/2026) : la stricte PREND LA PLACE des 3 séries restantes ; RIEN au profil ; « C'est fait … » et
+    // « Annuler », qui remet l'élastique tel quel ; la question de fin ne parle jamais de l'essai.
+    const avantB = JSON.stringify(profil127().marche_reponses || null);
     await page.evaluate(() => document.querySelector('.proposition-marche .pc-ajouter').click());
-    await jusqua(async () => !!(profil127().marche_reponses && profil127().marche_reponses['tr-u127-elastique']), 8000);
-    await attendre(900);
-    const rb = profil127().marche_reponses && profil127().marche_reponses['tr-u127-elastique'];
-    ok('[127] B — « Ajouter » s’écrit au profil : `marche_reponses[tr-u127-elastique] = { r: oui, le }`',
-      !!rb && rb.r === 'oui' && !!rb.le && rb.aide === undefined, JSON.stringify(profil127().marche_reponses));
+    await jusqua(async () => JSON.stringify(((await plan127()) || []).map((x) => x.slug)) === JSON.stringify([E127]), 8000);
+    await poseApresGeste();
     const b127 = await plan127();
-    ok('[127] B — DISCRIMINANT : les Tractions U127 JUSTE AVANT l’élastique, qui reste ; 2 séries ; « Première fois ici » ; plus de carte',
-      !!b127 && JSON.stringify(b127.map((x) => x.slug)) === JSON.stringify([E127, 'tr-u127-elastique']) &&
-        b127[0].lignes === 2 && b127[0].etat === 'silence' && b127[0].raison === 'premiere_fois' &&
-        (await cartes127()).length === 0 && /Tractions U127 \(Élastique\)/.test(await seance127()),
-      JSON.stringify([b127, await exos127()]));
+    ok('[127] B — DISCRIMINANT : « Essayer » REMPLACE : les Tractions U127 seules, 3 séries, « Première fois ici » ; plus de carte',
+      !!b127 && JSON.stringify(b127.map((x) => x.slug)) === JSON.stringify([E127]) &&
+        b127[0].lignes === 3 && b127[0].etat === 'silence' && b127[0].raison === 'premiere_fois' &&
+        (await cartes127()).length === 0, JSON.stringify([b127, await exos127()]));
+    ok('[127] B — rien n’est écrit au profil (`marche_reponses` inchangé), le geste `marche_essayee` est noté',
+      JSON.stringify(profil127().marche_reponses || null) === avantB &&
+        ((await gestes127()) || []).some((g) => g.geste === 'marche_essayee' && g.slug === 'tr-u127-elastique' && g.vers === E127),
+      JSON.stringify([profil127().marche_reponses, await gestes127()]));
+    const eb = await essai127();
+    ok('[127] B — « C’est fait … en en gardant 2 » et « Annuler », sur la marche',
+      eb.length === 1 && sp(eb[0].texte).replace(/'/g, '’') === ESSAI_127 && JSON.stringify(eb[0].boutons) === '["Annuler"]', JSON.stringify(eb));
+    await page.evaluate(() => document.querySelector('#vue-seance .proposition-marche-essai .pme-annuler').click());
+    await jusqua(async () => JSON.stringify(((await plan127()) || []).map((x) => x.slug)) === JSON.stringify(['tr-u127-elastique']), 8000);
+    await poseApresGeste();
+    const ba = await plan127();
+    ok('[127] B — « Annuler » : l’élastique revient tel quel (3 séries), la carte revient',
+      !!ba && JSON.stringify(ba.map((x) => x.slug)) === JSON.stringify(['tr-u127-elastique']) && ba[0].lignes === 3 &&
+        (await cartes127()).length === 1 && (await essai127()).length === 0, JSON.stringify([ba, await cartes127()]));
     await abandonner();
     await aller('/saisie');
     await demarrerRoutine('Échelle U127');
-    await attendre(900);
-    ok('[127] B — après « Ajouter », la carte ne revient jamais', (await cartes127()).length === 0, JSON.stringify(await cartes127()));
+    await poseApresGeste();
+    ok('[127] B — « Essayer » n’écrit rien : la carte revient à la séance suivante', (await cartes127()).length === 1, JSON.stringify(await cartes127()));
     await abandonner();
 
     // ── C. « TON ÉCHELLE » sur la page des Tractions U127 : ta marche (l'élastique), la suivante (la stricte), sa phrase.
@@ -25980,6 +26004,43 @@ const SETS_IMPORTES = [
     ok('[127] D — DISCRIMINANT : deux séances à une aide PLUS LÉGÈRE (−20) au haut de la zone : la carte revient',
       cd.length === 1 && /^Aide 20 kg × 12/.test(sp(cd[0].texte)), JSON.stringify(cd));
     await abandonner();
+
+    // ── E. (16/11/2026) LA MARCHE TENUE, LA CARTE DE FIN : « Essayer », trois séries à 10, la feuille de fin pose « Je la mets à la
+    // place de … dans Échelle U127 ? » (« Juste aujourd'hui » par défaut), sans écart de routine ; « Oui » écrit la routine et `oui`.
+    profil127().marche_reponses = marcheAvant127 === undefined ? null : marcheAvant127;
+    await aller('/saisie');
+    await demarrerRoutine('Échelle U127');
+    await poseApresGeste();
+    await page.evaluate(() => document.querySelector('.proposition-marche .pc-ajouter').click());
+    await jusqua(async () => JSON.stringify(((await plan127()) || []).map((x) => x.slug)) === JSON.stringify([E127]), 8000);
+    await poseApresGeste();
+    const idE127 = enCoursId();
+    if (idE127) sessions127.push(idE127);
+    for (let k = 0; k < 3; k++) await repsEtValider127(k, 10);
+    await poseApresGeste();
+    await page.click('#bandeau-seance .bandeau-fin');
+    await feuilleOuverte('.principal');
+    const finE = await page.evaluate(() => ({
+      marche: Array.from(document.querySelectorAll('#feuille-contenu .question-marche')).map((q) => ({
+        texte: (q.querySelector('.question-t') || {}).textContent, boutons: Array.from(q.querySelectorAll('button')).map((b) => ({ t: b.textContent, sel: b.classList.contains('sel') })) })),
+      ecart: document.querySelectorAll('#feuille-contenu .question-routine:not(.question-marche)').length }));
+    ok('[127] E — DISCRIMINANT : marche tenue (10, 10, 10), routine manuelle : la carte de fin, « Juste aujourd’hui » choisi par défaut, aucun écart de routine',
+      finE.marche.length === 1 && sp(finE.marche[0].texte).replace(/'/g, '’') ===
+        'Tractions U127 : 10, 10 et 10 aujourd’hui. Je la mets à la place de Tractions U127 (Élastique) dans Échelle U127 ?' &&
+        JSON.stringify(finE.marche[0].boutons) === JSON.stringify([{ t: 'Juste aujourd’hui', sel: true }, { t: 'Oui, dans Échelle U127', sel: false }]) &&
+        finE.ecart === 0, JSON.stringify(finE));
+    await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .question-marche button')).filter((b) => /^Oui, dans/.test(b.textContent))[0].click());
+    await poseApresGeste();
+    await page.click('#feuille-contenu .principal');
+    await terminerQuandMeme();
+    await seanceSortie();
+    await jusqua(async () => !!(profil127().marche_reponses && profil127().marche_reponses['tr-u127-elastique']), 8000);
+    await jusqua(async () => ROUTINE_127.routine_exercises.some((x) => x.exercise_slug === E127), 8000);
+    const reE = profil127().marche_reponses && profil127().marche_reponses['tr-u127-elastique'];
+    ok('[127] E — « Oui, dans Échelle U127 » : la stricte remplace l’élastique dans la routine (zone remise à null), et seulement là `marche_reponses = oui`',
+      !!reE && reE.r === 'oui' && JSON.stringify(ROUTINE_127.routine_exercises.map((x) => x.exercise_slug)) === JSON.stringify([E127]) &&
+        ROUTINE_127.routine_exercises.every((x) => x.zone === null || x.zone === undefined),
+      JSON.stringify([reE, ROUTINE_127.routine_exercises.map((x) => [x.exercise_slug, x.zone])]));
 
     // ── LA REMISE EN ÉTAT, pour les sections suivantes.
     CATALOGUE.splice(catalogueAvant127, CATALOGUE.length - catalogueAvant127);

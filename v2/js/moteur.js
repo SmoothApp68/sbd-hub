@@ -9781,7 +9781,9 @@
   var ANNULER_ESSAI_MARCHE = 'Annuler';
   function phraseRepliDeMarche(e) {
     var x = e || {};
-    return x.nom + ' \u00d7 ' + nombreFr(x.reps) + '. Pour la suite, je remets ' + x.nomDepart + '.';
+    // « Tractions : 2 reps. » — la voix (principe 1) n'écrit « × » que derrière une charge ; au poids du corps, des reps.
+    var r = nombre(x.reps);
+    return x.nom + ' : ' + nombreFr(r) + (r === 1 ? ' rep' : ' reps') + '. Pour la suite, je remets ' + x.nomDepart + '.';
   }
   function remettreDepart(nom) { return 'Remettre ' + nom; }
   var CONTINUER_MARCHE = 'Continuer';

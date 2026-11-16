@@ -162,7 +162,7 @@ describe('175 / 1 — la carte du lest propose les deux', () => {
     const plan = T.planDeSeance(e);
     const x = plan.exercices[0];
     expect(x.carteLest).toBeNull();
-    expect(x.carteMarche).toMatchObject({ cible: 'pompes_declinees', nom: 'Pompes Déclinées', oui: 'Ajouter Pompes Déclinées',
+    expect(x.carteMarche).toMatchObject({ cible: 'pompes_declinees', nom: 'Pompes Déclinées', oui: 'Essayer Pompes Déclinées',
       non: 'Pas maintenant', type: 'marche', proposable: true });
     expect(esp(x.carteMarche.titre)).toBe('12 reps sur toutes tes séries, deux séances de suite.');
     expect(erreurs(plan, e)).toEqual([]);

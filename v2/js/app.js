@@ -19940,10 +19940,10 @@
   // l'appel, le réinitialise après CHAQUE tentative. Clé de site vide : `actif()` est faux, rien de tout cela ne part.
   function horsLigne() { return !!(racine.navigator && racine.navigator.onLine === false); }
 
-  function direCaptcha(err) {
+  function direCaptcha(err, cible) {
     var phrase = Auth.captcha.phrase(err);
     if (!phrase) return false;
-    var m = $('erreur-connexion');
+    var m = cible || $('erreur-connexion');
     m.className = 'erreur';
     m.textContent = phrase;
     $('btn-captcha-reessayer').hidden = !Auth.captcha.estScript(err);
@@ -19972,6 +19972,7 @@
   // défaut relevé à l'état des lieux du 18/09.
   function rendreEntree(mode) {
     modeEntree = mode || 'connexion';
+    fermerCode();   // 16/11/2026 : l'écran du code ne survit pas à une réouverture de l'entrée
     montrer('connexion', modeEntree === 'inscription'
       ? Routeur.INSCRIPTION : Routeur.CONNEXION);
     $('erreur-connexion').textContent = '';
@@ -20058,14 +20059,7 @@
         // Supabase ne le dit pas, et on ne le dirait pas), et « Mot de passe oublié ? »
         // juste dessous — c'est la seule issue d'une adresse déjà inscrite.
         var phrase = Auth.phraseInscription(r);
-        if (phrase) {
-          erreur.className = 'erreur ok';
-          erreur.textContent = phrase;
-          var c = champsEntree();
-          c.mode = 'inscription';
-          c.oubliSous = true;
-          Rendu.rendreEntree(c);
-        }
+        if (phrase) ouvrirCode('inscription', etat.email, phrase);   // 16/11/2026 : le code reçu par e-mail, saisi ici
       } else {
         // Une connexion n'inscrit personne : un pseudo resté en mémoire (une création échouée, un autre
         // compte) ne doit pas partir dans la ligne d'un compte qui n'en a pas encore.
@@ -20084,8 +20078,92 @@
     }
   }
 
-  async function demanderReinitialisation() {
-    var email = $('champ-email').value.trim(), erreur = $('erreur-connexion');
+  // ── 16/11/2026 — LE CODE REÇU PAR E-MAIL (ECRAN-PROFIL §5.6) ────────────────────────────────────────────
+  //
+  // Réinitialisation du mot de passe ET confirmation d'inscription : le mail porte un code, saisi ici. L'écran vit dans
+  // la vue de la connexion (`#form-code` remplace `#form-connexion`). Un code valide ouvre la session, et le SDK émet
+  // `PASSWORD_RECOVERY` (récupération) ou `SIGNED_IN` (inscription) : le MÊME chemin que le lien (l'écouteur de
+  // `Auth.surChangement`, plus bas) — aucune copie de ce chemin ici.
+  var codeEtat = null;          // { email, genre: 'recuperation' | 'inscription', envoyeA } — null : l'écran est fermé
+  var minuteurCode = null;
+
+  function fermerCode() {
+    if (minuteurCode) { racine.clearTimeout(minuteurCode); minuteurCode = null; }
+    codeEtat = null;
+    $('form-code').hidden = true;
+    $('form-connexion').hidden = false;
+  }
+
+  function majBoutonCode() {
+    $('btn-code-valider').disabled = !codeEtat || !Auth.codePret($('champ-code').value);
+  }
+
+  // Le décompte du renvoi : le bouton est désactivé tant qu'il reste des secondes, et le dit.
+  function tictacRenvoi() {
+    var b = $('btn-code-renvoyer');
+    if (!codeEtat) return;
+    var reste = Auth.secondesAvantRenvoi(codeEtat.envoyeA, Date.now());
+    b.textContent = Auth.libelleRenvoi(reste);
+    b.disabled = reste > 0;
+    if (minuteurCode) { racine.clearTimeout(minuteurCode); minuteurCode = null; }
+    if (reste > 0) minuteurCode = racine.setTimeout(tictacRenvoi, 1000);   // un réveil à la fois (pas de second intervalle : v2-barre-seance)
+  }
+
+  function ouvrirCode(genre, email, phrase) {
+    codeEtat = { email: email, genre: genre, envoyeA: Date.now() };
+    $('form-connexion').hidden = true;
+    $('form-code').hidden = false;
+    $('code-sous').textContent = 'Envoyé à ' + email + '. Il est valable 1 heure.';
+    $('code-info').textContent = phrase || '';
+    $('erreur-code').textContent = '';
+    $('champ-code').value = '';
+    $('btn-code-oubli').hidden = genre !== 'inscription';   // l'issue d'une adresse déjà inscrite (aucun mail n'est parti)
+    majBoutonCode();
+    tictacRenvoi();
+    try { $('champ-code').focus(); } catch (e) { /* écran non visible */ }
+  }
+
+  async function soumettreCode(e) {
+    e.preventDefault();
+    if (!codeEtat || !Auth.codePret($('champ-code').value)) return;
+    var bouton = $('btn-code-valider'), erreur = $('erreur-code');
+    erreur.textContent = '';
+    bouton.disabled = true;
+    bouton.textContent = 'Vérification…';
+    try {
+      await Auth.verifierCode(codeEtat.email, $('champ-code').value, codeEtat.genre);
+      // Réussi : la session est ouverte, `Auth.surChangement` entre (et ouvre la feuille du mot de passe en récupération).
+    } catch (err) {
+      erreur.textContent = Auth.phraseDeCode(err) || texteErreur(err);
+    } finally {
+      bouton.textContent = 'Valider';
+      majBoutonCode();
+    }
+  }
+
+  async function renvoyerLeCode() {
+    if (!codeEtat || Auth.secondesAvantRenvoi(codeEtat.envoyeA, Date.now()) > 0) return;
+    var erreur = $('erreur-code');
+    erreur.textContent = '';
+    $('btn-code-renvoyer').disabled = true;
+    try {
+      var jeton = await jetonCaptcha();
+      await Auth.renvoyerCode(codeEtat.email, codeEtat.genre, jeton, racine.location.origin + '/profil');
+    } catch (err) {
+      if (!direCaptcha(err, erreur)) erreur.textContent = Auth.phraseDeCode(err) || texteErreur(err);
+      tictacRenvoi();
+      return;
+    } finally { if (Auth.captcha.actif()) Auth.captcha.reinitialiser(); }
+    codeEtat.envoyeA = Date.now();
+    $('code-info').textContent = codeEtat.genre === 'recuperation' ? Auth.PHRASE_CODE_ENVOYE : 'Un nouveau code vient de partir.';
+    tictacRenvoi();
+  }
+
+  // `depuisCode` : lancée depuis l'écran du code d'une inscription (« Mot de passe oublié ? ») : l'e-mail est celui du code,
+  // les messages vont à l'écran du code.
+  async function demanderReinitialisation(depuisCode) {
+    var email = depuisCode && codeEtat ? codeEtat.email : $('champ-email').value.trim();
+    var erreur = depuisCode && codeEtat ? $('erreur-code') : $('erreur-connexion');
     if (!email) {
       erreur.className = 'erreur';
       erreur.textContent = 'Saisis d’abord ton e-mail.';
@@ -20097,14 +20175,13 @@
     }
     catch (err) {
       erreur.className = 'erreur';
-      if (!direCaptcha(err)) erreur.textContent = texteErreur(err);
+      if (!direCaptcha(err, erreur)) erreur.textContent = texteErreur(err);
       return;
     }
     finally { if (Auth.captcha.actif()) Auth.captcha.reinitialiser(); }
     // La même phrase que l'adresse existe ou non : dire « ce compte n'existe
     // pas » révélerait qui est inscrit à qui demande.
-    erreur.className = 'erreur ok';
-    erreur.textContent = 'Si un compte existe pour cette adresse, le lien vient de partir.';
+    ouvrirCode('recuperation', email, Auth.PHRASE_CODE_ENVOYE);
   }
 
   // ── Routage ──────────────────────────────────────────────────────────────
@@ -20309,7 +20386,17 @@
       allerA(vers, {});
       rendreEntree(vers);
     });
-    $('btn-oubli').addEventListener('click', demanderReinitialisation);
+    $('btn-oubli').addEventListener('click', function () { demanderReinitialisation(false); });
+    // 16/11/2026 — l'écran du code : valider, renvoyer, « Mot de passe oublié ? » (inscription), changer d'e-mail.
+    $('form-code').addEventListener('submit', soumettreCode);
+    $('champ-code').addEventListener('input', function () {
+      var c = $('champ-code'), propre = Auth.nettoyerCode(c.value);
+      if (c.value !== propre) c.value = propre;   // espaces et tirets collés s'ignorent
+      majBoutonCode();
+    });
+    $('btn-code-renvoyer').addEventListener('click', renvoyerLeCode);
+    $('btn-code-oubli').addEventListener('click', function () { demanderReinitialisation(true); });
+    $('btn-code-changer').addEventListener('click', function () { rendreEntree(modeEntree); });
     // 247 — « Réessayer » : le script du captcha n'avait pas pu se charger.
     $('btn-captcha-reessayer').addEventListener('click', function () {
       $('erreur-connexion').textContent = '';

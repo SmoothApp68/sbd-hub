@@ -1,0 +1,5 @@
+[
+ {"nom": "code-mauvais-type-recuperation", "fichier": "v2/js/auth.js", "ancien": "type: genre === 'recuperation' ? 'recovery' : 'email' });", "nouveau": "type: 'email' });", "banc": "profil-creation", "unitaires": ["tests/unit/v2-code-par-mail.test.js"]},
+ {"nom": "code-bouton-actif-avant-6-chiffres", "fichier": "v2/js/auth.js", "ancien": "var CODE_MIN = 6, CODE_MAX = 10;", "nouveau": "var CODE_MIN = 1, CODE_MAX = 10;", "banc": "profil-creation", "unitaires": ["tests/unit/v2-code-par-mail.test.js"]},
+ {"nom": "code-renvoi-sans-attente-de-60-s", "fichier": "v2/js/auth.js", "ancien": "var DELAI_RENVOI_S = 60;", "nouveau": "var DELAI_RENVOI_S = 0;", "banc": "profil-creation", "unitaires": ["tests/unit/v2-code-par-mail.test.js"]}
+]

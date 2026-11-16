@@ -230,10 +230,67 @@
   // rien) et n'envoie aucun mail. Les deux réponses ne se distinguent donc
   // jamais ici : sans session, une seule phrase, qui dit quoi faire dans les deux
   // cas sans révéler qui est inscrit. Avec une session, on entre : pas de phrase.
-  var PHRASE_INSCRIPTION = 'Compte créé si l\'adresse est nouvelle : confirme ton e-mail, puis connecte-toi. ' +
+  //
+  // 16/11/2026 — LE CODE REMPLACE LE LIEN (ECRAN-PROFIL §5.6) : le mail porte un code à usage unique, saisi dans l'app
+  // (l'aperçu d'un client mail consomme un lien ; un lien n'ouvre jamais l'app installée). La phrase dit où entrer le code.
+  var PHRASE_INSCRIPTION = 'Si l\'adresse est nouvelle, un code vient de partir : entre-le ici. ' +
     'Si tu as déjà un compte avec cette adresse, aucun mail ne part : utilise « Mot de passe oublié ? ».';
   function phraseInscription(r) {
     return r && r.session ? null : PHRASE_INSCRIPTION;
+  }
+
+  // ── 16/11/2026 — LE CODE PAR E-MAIL (ECRAN-PROFIL §5.6) ───────────────────────────────────────────────
+  //
+  // Réinitialisation ET confirmation d'inscription : `verifyOtp` (récupération : `recovery`, qui émet
+  // `PASSWORD_RECOVERY` — le MÊME chemin que le lien ; inscription : `email`, qui émet `SIGNED_IN`). La longueur du
+  // code est un réglage Supabase (6 par défaut) : de 6 à 10 chiffres sont acceptés ; espaces et tirets collés s'ignorent.
+  var CODE_MIN = 6, CODE_MAX = 10;
+  var DELAI_RENVOI_S = 60;
+  var PHRASE_CODE_ENVOYE = 'Si un compte existe pour cette adresse, un code vient de partir.';
+  var PHRASE_CODE_FAUX = 'Ce code ne marche pas ou a expiré. Vérifie-le, ou demande-en un autre.';
+  var PHRASE_CODE_TROP = 'Attends une minute avant de redemander un code.';
+
+  function nettoyerCode(texte) {
+    return String(texte == null ? '' : texte).replace(/\D/g, '').slice(0, CODE_MAX);
+  }
+  function codePret(texte) {
+    var n = nettoyerCode(texte).length;
+    return n >= CODE_MIN && n <= CODE_MAX;
+  }
+
+  async function verifierCode(email, code, genre) {
+    var r = await client().auth.verifyOtp({ email: email, token: nettoyerCode(code),
+      type: genre === 'recuperation' ? 'recovery' : 'email' });
+    if (r.error) throw r.error;
+    return { session: (r.data && r.data.session) || null, user: (r.data && r.data.user) || null };
+  }
+
+  // Récupération : le même envoi que « Mot de passe oublié ? ». Inscription : `resend` (aucun nouveau compte).
+  async function renvoyerCode(email, genre, captchaToken, retour) {
+    if (genre === 'recuperation') return reinitialiser(email, retour, captchaToken);
+    var r = await client().auth.resend({ type: 'signup', email: email,
+      options: captchaToken ? { captchaToken: captchaToken } : undefined });
+    if (r && r.error) throw r.error;
+  }
+
+  // Le décompte du renvoi : secondes restantes (entier, 0 = permis), et le libellé du bouton.
+  function secondesAvantRenvoi(envoyeA, maintenant) {
+    return Math.max(0, Math.ceil((envoyeA + DELAI_RENVOI_S * 1000 - maintenant) / 1000));
+  }
+  function libelleRenvoi(secondes) {
+    return secondes > 0 ? 'Renvoyer le code (dans ' + secondes + ' s)' : 'Renvoyer le code';
+  }
+
+  // La phrase d'une erreur de code, ou null (réseau, inconnue : l'appelant dit alors `texteErreur`, la phrase hors ligne
+  // existante). Trop de demandes (429) → l'attente ; un code refusé ou périmé (400-422, `otp_expired`) → la phrase du code.
+  function phraseDeCode(e) {
+    if (!e) return null;
+    var m = String(e.message || e), st = e.status;
+    if (/fetch|network|Failed to fetch|NetworkError/i.test(m) || e.name === 'AuthRetryableFetchError' || st === 0) return null;
+    if (st === 429 || /rate.?limit|too many|after \d+ seconds/i.test(m + ' ' + (e.code || ''))) return PHRASE_CODE_TROP;
+    if (e.code === 'captcha_failed' || /captcha/i.test(m)) return null;
+    if (st === 400 || st === 401 || st === 403 || st === 404 || st === 422 || /otp|token|expired|invalid/i.test(m + ' ' + (e.code || ''))) return PHRASE_CODE_FAUX;
+    return null;
   }
 
 
@@ -405,6 +462,17 @@
     retourDeLien: retourDeLien,
     iphoneHorsApp: iphoneHorsApp,
     PHRASES_IPHONE: PHRASES_IPHONE,
-    phraseInscription: phraseInscription
+    phraseInscription: phraseInscription,
+    verifierCode: verifierCode,
+    renvoyerCode: renvoyerCode,
+    nettoyerCode: nettoyerCode,
+    codePret: codePret,
+    secondesAvantRenvoi: secondesAvantRenvoi,
+    libelleRenvoi: libelleRenvoi,
+    phraseDeCode: phraseDeCode,
+    DELAI_RENVOI_S: DELAI_RENVOI_S,
+    PHRASE_CODE_ENVOYE: PHRASE_CODE_ENVOYE,
+    PHRASE_CODE_FAUX: PHRASE_CODE_FAUX,
+    PHRASE_CODE_TROP: PHRASE_CODE_TROP
   };
 })(typeof self !== 'undefined' ? self : globalThis);

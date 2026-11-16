@@ -492,7 +492,10 @@
     flexion_laterale_haltere: 'flexion_laterale_haltere.json',
     flexion_laterale: 'flexion_laterale.json',
     flexion_laterale_kettlebell: 'flexion_laterale_kettlebell.json',
-    flexion_laterale_poulie: 'flexion_laterale_poulie.json'
+    flexion_laterale_poulie: 'flexion_laterale_poulie.json',
+    kickback_triceps_haltere: 'kickback_triceps_haltere.json',
+    flexion_laterale_banc_lombaires: 'flexion_laterale_banc_lombaires.json',
+    flexion_laterale_cou_disque: 'flexion_laterale_cou_disque.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

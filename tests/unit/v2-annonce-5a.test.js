@@ -156,6 +156,9 @@ describe('I164 — verifierAnnonce relit l’annonce du plan (DISCRIMINANTS)', (
     expect(avec('Prochaine séance : ' + L + '.').length).toBeGreaterThan(0);
     const repli = { suiteLignes: Object.assign({}, P.plan.exercices[0].constat.suiteLignes, { ligne: { charge: 70, vise: 10 }, haut: { charge: 72.5, vise: 8 } }) };
     expect(avec('La prochaine fois : 70 kg × 10, puis ≈ 72,5 kg × 8 sur la dernière série.', repli)).toEqual([]);
+    // 5b-2 (correctif banc d'écran) : une ligne qui commence par une LETTRE (poids du corps, aide) est un repli, pas un verbe inconnu
+    const lettres = { suiteLignes: Object.assign({}, P.plan.exercices[0].constat.suiteLignes, { ligne: { charge: null, vise: 16 }, haut: null }) };
+    expect(avec('La prochaine fois : Poids du corps × 16.', lettres)).toEqual([]);
     // discriminant : un verbe hors lexique derrière le même libellé reste refusé (le repli ne désarme pas la vérification des verbes)
     expect(avec('La prochaine fois : on verra, ' + L + '.').length).toBeGreaterThan(0);
   });

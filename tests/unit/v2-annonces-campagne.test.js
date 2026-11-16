@@ -66,7 +66,7 @@ function campagne(reglage) {
         C.annonces++;
         if (/Même cible/.test(ann)) C.meme_cible++;
         // 5b-2 : un seul libellé ; le VERBE est du texte derrière lui, le REPLI (les lignes de la consigne suivante) commence par un chiffre ou « ≈ ».
-        let m = /^La prochaine fois : ([^\d≈].*)\.$/.exec(ann);
+        let m = /^La prochaine fois : ([a-zà-ÿ].*)\.$/.exec(ann);
         if (m) {
           C.verbe++;
           // Arithmétique à part : le verbe et la ligne se relisent sur la consigne suivante réelle, jamais sur `su.apres`.
@@ -77,7 +77,7 @@ function campagne(reglage) {
             lg(suivante) === lg(su.apres.consigne);
           if (!ok) { C.verbe_faux++; C.ligne_des_annonces.push('VERBE ' + ann + ' | ' + lg(suivante) + ' niveau ' + suivante.niveau); }
         }
-        m = /^La prochaine fois : [\d≈]/.exec(ann);
+        m = /^La prochaine fois : [^a-zà-ÿ]/.exec(ann);
         if (m) {
           C.prochaine++;
           if (lg(suivante) !== lg(su.apres.consigne) && !/ puis /.test(ann)) { C.prochaine_fausse++; C.ligne_des_annonces.push('PROCHAINE ' + ann + ' | ' + lg(suivante)); }

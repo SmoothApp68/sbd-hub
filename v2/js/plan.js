@@ -7613,7 +7613,7 @@
       if (vers) {
         var corps = vers[1];
         // 5b-2 — le repli : les lignes de la consigne suivante dites telles quelles (« La prochaine fois : 70 kg × 10, … »), aucun verbe à relire (comme « Prochaine séance » avant : jamais vérifié ici).
-        if (/^[≈\d]/.test(corps)) return;
+        if (!/^[a-zà-ÿ]/.test(corps)) return; // un verbe du lexique commence par une minuscule ; une ligne (« 70 kg × 10 », « ≈ 30 kg », « Poids du corps × 16 ») jamais
         var l = sl ? sl.ligne : null;
         var ch = l ? nombre(l.charge) : null, vi = l ? nombre(l.vise) : null;
         if (!sl || !l || sl.haut || ch === null) { erreurs.push('I164' + nom + 'une annonce de verbe sans ligne chiffrée seule : ' + t); return; }

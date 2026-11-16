@@ -9857,8 +9857,13 @@
              ' tenues avant, autant de secondes que tu peux.';
     }
     // 16/11/2026 — en reps, l'essai : la marche prend la place des séries restantes, aujourd'hui.
-    return 'La marche au-dessus : ' + x.nom + '. Je la mets à la place de tes séries restantes de ' + (x.nomDepart || '') +
-           ', pour essayer aujourd\'hui. Ta routine ne change pas.';
+    return 'La marche au-dessus : ' + x.nom + '. ' + phraseDeLEssaiALaPlace(x.nomDepart, true);
+  }
+  // 16/11/2026 (« Essayer la marche ») — LA PHRASE DE L'ESSAI, UNE SOURCE : la carte (« … pour essayer aujourd'hui. Ta routine ne
+  // change pas. ») et la page d'exercice (`phraseDeLaSuivante` : « … pour essayer : ta routine ne change pas. ») la lisent ici.
+  function phraseDeLEssaiALaPlace(nomDepart, aujourdhui) {
+    return 'Je la mets à la place de tes séries restantes de ' + (nomDepart || '') + ', pour essayer' +
+           (aujourdhui ? ' aujourd\'hui. Ta routine ne change pas.' : ' : ta routine ne change pas.');
   }
   function carteMarche(e) {
     var d = carteMarcheDecidee(e);
@@ -9871,7 +9876,7 @@
   // calcul nouveau. `e` : `{ type, nomCible, nomDepart, haut, meilleur }` (`THModele.vueEchelle` la compose).
   //
   // 145 (ECRAN-SAISIE §7 quater.7) — `e.court` : la MÊME condition, dite pour la carte « Tes échelles cette semaine » —
-  // sans « Je te la propose » ni « Ton meilleur », et sans « Elle s'ajoute » : « La suivante : Tractions Lestées, quand tu
+  // sans « Je te la propose » ni « Ton meilleur », et sans la phrase de l'essai : « La suivante : Tractions Lestées, quand tu
   // tiens 8 reps sur toutes tes séries, deux séances de suite. » Une option, jamais une seconde règle : le seuil
   // (`seuilDeMarche`) et la condition sont ceux de la phrase longue.
   function phraseDeLaSuivante(e) {
@@ -9889,7 +9894,7 @@
     // 149 — en Franc, une séance suffit : la phrase dit la règle (§20 bis).
     var deux = x.reglage === 'franc' ? ' sur toutes tes séries, sur une séance.' : ' sur toutes tes séries, deux séances de suite.';
     // 149 (MOTEUR §9.17 ter) — UNE FIGURE se tient en secondes : le seuil est celui du catalogue (`echelle_seuil_s`),
-    // sans « sur toutes tes séries » (une tenue max par séance) et sans « Elle s'ajoute ».
+    // sans « sur toutes tes séries » (une tenue max par séance) et sans la phrase de l'essai.
     if (nombre(x.seuil) !== null) {
       var regleS = x.reglage === 'franc' ? ', sur une séance.' : ', deux séances de suite.';
       var secs = Modele().secondes(x.seuil, regle('marche.seuil'));
@@ -9905,7 +9910,8 @@
       ? nombreFr(seuilDeMarche(x.haut)) + ' reps'
       : 'le haut de ta zone, et au moins ' + nombreFr(SEUIL_MARCHE) + ' reps,';
     if (court) return tete + 'quand tu tiens ' + quand + deux;
-    return tete + 'Je te la propose quand tu tiens ' + quand + deux + ' Elle s\'ajoute : tu gardes ' + x.nomDepart + '.';
+    // 16/11/2026 (« Essayer la marche ») — la page dit ce que fait la carte : l'essai à la place, la routine inchangée (une source).
+    return tete + 'Je te la propose quand tu tiens ' + quand + deux + ' ' + phraseDeLEssaiALaPlace(x.nomDepart, false);
   }
 
   // 145 (ECRAN-SAISIE §7 quater.7) — LES DEUX RONDS des « deux séances de suite » : pour chacune des deux dernières séances

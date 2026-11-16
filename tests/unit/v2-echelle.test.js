@@ -93,7 +93,11 @@ describe('127 — concordance avec echelle127.py', () => {
   F.vue.forEach((c) => {
     test('vue — ' + c.nom, () => {
       const v = Mo.vueEchelle(INDEX, c.slug, c.faites, c.zones_haut, c.coach_actif, M.phraseDeLaSuivante);
-      expect(clone(v)).toEqual(c.attendu);
+      // 16/11/2026 (« Essayer la marche ») — le fichier de cas, d'avant, dit « Elle s'ajoute : tu gardes Y. » ; la page dit
+      // désormais l'essai, comme la carte. Seule cette phrase se traduit ici.
+      const att = JSON.parse(JSON.stringify(c.attendu).replace(/Elle s'ajoute : tu gardes ([^."]*)\./g,
+        'Je la mets à la place de tes séries restantes de $1, pour essayer : ta routine ne change pas.'));
+      expect(clone(v)).toEqual(att);
     });
   });
 

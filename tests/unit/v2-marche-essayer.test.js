@@ -297,6 +297,23 @@ describe('le générateur (`marcheDeLaPersonne`) lit les marches tenues', () => 
   });
 });
 
+// ═══ 5 bis. LA PAGE D'EXERCICE DIT CE QUE FAIT LA CARTE (une source) ═════════
+describe('la phrase de « la suivante » dit l’essai, comme la carte', () => {
+  test('en reps : « Je la mets à la place de tes séries restantes de Y, pour essayer : ta routine ne change pas. »', () => {
+    const t = M.phraseDeLaSuivante({ type: 'sans_aide', nomCible: 'Tractions', nomDepart: 'Tractions (Élastique)', haut: 12 });
+    expect(sp(t)).toBe('La suivante : Tractions. Je te la propose quand tu tiens 12 reps sur toutes tes séries, deux séances de suite. Je la mets à la place de tes séries restantes de Tractions (Élastique), pour essayer : ta routine ne change pas.');
+    expect(t).not.toMatch(/s'ajoute|tu gardes/);
+  });
+  test('la carte et la page partagent la même phrase de l’essai (aucune copie)', () => {
+    const src = fs.readFileSync(path.join(__dirname, '../../v2/js/moteur.js'), 'utf8');
+    expect((src.match(/à la place de tes séries restantes de/g) || []).length).toBe(1);
+  });
+  test('le lest et les figures en secondes gardent leur phrase', () => {
+    expect(M.phraseDeLaSuivante({ type: 'lest', nomCible: 'Tractions Lestées', haut: 8 })).not.toMatch(/à la place/);
+    expect(M.phraseDeLaSuivante({ type: 'marche', nomCible: 'Front Lever', seuil: 15 })).not.toMatch(/à la place/);
+  });
+});
+
 // ═══ 6. LES CHEMINS QUI NE CHANGENT PAS ══════════════════════════════════════
 describe('inchangés : les figures en secondes, la variante du lest', () => {
   test('la carte en secondes garde « Ajouter … » et son détail', () => {

@@ -25953,8 +25953,9 @@ const SETS_IMPORTES = [
       !!ec && /\btienne\b/.test(m127(1).classes) && /Ton meilleur : Aide 25 kg × 12/.test(sp(m127(1).exos[0].texte)) &&
         /\bsuivante\b/.test(m127(2).classes) && /\bvue\b/.test(m127(2).classes) && !/\btienne\b/.test(m127(2).classes) &&
         /habileté/.test(m127(4).exos[0].texte), JSON.stringify(ec));
-    ok('[127] C — la phrase de la suivante : la condition de la carte (12 reps), « Elle s’ajoute : tu gardes … »',
-      !!ec && sp(ec.phrase).replace(/'/g, '’') === 'La suivante : Tractions U127. Je te la propose quand tu tiens 12 reps sur toutes tes séries, deux séances de suite. Elle s’ajoute : tu gardes Tractions U127 (Élastique).',
+    // 16/11/2026 (« Essayer la marche ») — la page dit ce que fait la carte.
+    ok('[127] C — la phrase de la suivante : la condition de la carte (12 reps), l’essai à la place, la routine inchangée',
+      !!ec && sp(ec.phrase).replace(/'/g, '’') === 'La suivante : Tractions U127. Je te la propose quand tu tiens 12 reps sur toutes tes séries, deux séances de suite. Je la mets à la place de tes séries restantes de Tractions U127 (Élastique), pour essayer : ta routine ne change pas.',
       JSON.stringify(ec && ec.phrase));
     ok('[127] C — chaque marche est une cible tactile de 44 px au moins',
       !!ec && ec.marches.every((m) => m.exos.every((x) => x.haut >= 44)), JSON.stringify(ec && ec.marches.map((m) => m.exos.map((x) => x.haut))));

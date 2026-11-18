@@ -1,0 +1,6 @@
+[
+ {"nom": "5b2-repli-ancien-libelle", "fichier": "v2/js/moteur.js", "ancien": "var LIBELLE = 'La prochaine fois';", "nouveau": "var LIBELLE = 'Prochaine séance';", "banc": "aucun", "unitaires": ["tests/unit/v2-annonce-5a.test.js", "tests/unit/v2-annonce-litteraux-5a.test.js"]},
+ {"nom": "5b2-i164-ne-refuse-plus-prochaine-seance", "fichier": "v2/js/plan.js", "ancien": "|\\bProchaine fois\\b|\\bProchaine séance\\b/.test(t))", "nouveau": "|\\bProchaine fois\\b/.test(t))", "banc": "aucun", "unitaires": ["tests/unit/v2-annonce-5a.test.js"]},
+ {"nom": "5b2-phrase-de-test-date-relative", "fichier": "v2/js/moteur.js", "ancien": "un mouvement par jour.';\n  }\n  // La feuille du Profil", "nouveau": "un mouvement par jour ; ta prochaine phase commence une semaine plus tard.';\n  }\n  // La feuille du Profil", "banc": "aucun", "unitaires": ["tests/unit/v2-annonce-5a.test.js"]},
+ {"nom": "5b2-repli-en-lettres-pris-pour-un-verbe", "fichier": "v2/js/plan.js", "ancien": "if (!/^[a-zà-ÿ]/.test(corps)) return;", "nouveau": "if (/^[≈\\d]/.test(corps)) return;", "banc": "aucun", "unitaires": ["tests/unit/v2-annonce-5a.test.js"]}
+]

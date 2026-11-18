@@ -274,7 +274,7 @@ describe('49-U18 — « Même cible » seulement si c’est la même (principe i
                     s('23', 88, [serie(88, 11), serie(88, 11), serie(92, 11, 'exploration')]),
                     s('26', 92, [serie(88, 10, 'rampe'), serie(92, 11), serie(92, 11)])];
 
-  test('le couché : la cible passait de 92 × 11 à 92 × 10 — « Prochaine séance », pas « Même cible »', () => {
+  test('le couché : la cible passait de 92 × 11 à 92 × 10 — « La prochaine fois », pas « Même cible »', () => {
     const avant = M.consignePour(histoire, jour('30'), O);
     expect(avant.etat).toBe('rejoint');
     expect(avant.haut).toMatchObject({ charge: 92, vise: 11 });
@@ -282,7 +282,7 @@ describe('49-U18 — « Même cible » seulement si c’est la même (principe i
     const apres = M.consignePour(histoire.concat([jourJ]), '2026-10-05T18:00:00+00:00', O);
     const c = M.constatDe(avant, apres, 'normal', null);
     expect(c.suite).not.toMatch(/^Même cible/);
-    expect(c.suite).toMatch(/^Prochaine séance/);
+    expect(c.suite).toMatch(/^La prochaine fois/);
   });
 
   test('PR 5a (A1) — quand la cible est vraiment la même, « Même cible » n\u2019existe plus : l\u2019annonce redit le verbe de la fois suivante (K7)', () => {

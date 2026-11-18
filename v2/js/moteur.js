@@ -5043,10 +5043,10 @@
 
   // ══ PR 5a (chantier « Les mots disent vrai », MOTEUR §9.48) — L'ANNONCE ═══════════════════════════════════════════════════════════════
   //
-  // UNE annonce = tout texte affiché qui parle d'un état FUTUR de l'exercice (« la prochaine fois », « prochaine séance », « il te manque N reps
+  // UNE annonce = tout texte affiché qui parle d'un état FUTUR de l'exercice (« la prochaine fois », « il te manque N reps
   // pour tester », « je garde 130 kg la prochaine fois »). Elle s'écrit ICI et nulle part ailleurs (garde `v2-annonce-litteraux-5a.test.js`) : le plan la
   // lit (`x.constat.suite`, `effortVise.phrase`), aucun écran ne l'écrit. Deux genres :
-  //   suite   la fin d'un exercice : « Prochaine séance : 70 kg × 10, … » / « La prochaine fois : une rep de plus, 65 kg × 9. » (le verbe de la consigne
+  //   suite   la fin d'un exercice : « La prochaine fois : 70 kg × 10, … » / « La prochaine fois : une rep de plus, 65 kg × 9. » (le verbe de la consigne
   //           SUIVANTE, `verbeDeLaConsigne` : plus de « Même cible », ambigu) / « Il te manque 2 reps pour tester 55 kg. »
   //   effort  la phrase après la réponse à la question d'effort (« Je garde 130 kg la prochaine fois. », « la prochaine fois, on essaie 36 kg. »)
   // « Il te manque N reps » n'est dite que si le moteur, rejouant la condition (`suiteDExercice` → `testConfirme`), propose bien le test ; sinon SILENCE
@@ -5076,11 +5076,12 @@
     // rep, elle dit la date du régime. Elle REMPLACE une annonce (le silence ci-dessus reste le silence), elle n'en crée jamais.
     if (d.regime) return phraseDuRegime(d.regime);
     // Rédigée à la demande : seule la branche qui l'écrit la déclare (§20 bis).
-    var prochaine = function () { return 'Prochaine séance' + DEUX_POINTS + lignesJaunes(cApres, SUIVANTE).join(', ') + '.'; };
-    // La ligne vraie de la consigne suivante, dite par le verbe de son en-tête (PR 5a, A1) ; sans ligne seule à dire, « Prochaine séance ».
+    var LIBELLE = 'La prochaine fois';   // 5b-2 : UN seul libellé d'annonce de suite (le repli et la ligne vraie le lisent)
+    var prochaine = function () { return LIBELLE + DEUX_POINTS + lignesJaunes(cApres, SUIVANTE).join(', ') + '.'; };
+    // La ligne vraie de la consigne suivante, dite par le verbe de son en-tête (PR 5a, A1) ; sans ligne seule à dire, les lignes de la consigne suivante telles quelles, sous le même « La prochaine fois » (5b-2 : un seul libellé).
     var laLigneVraie = function () {
       var dit = cApres.haut || !cApres.ligne ? null : verbeDeLaSuite(cApres, verbeDeLaConsigne(cApres));
-      return dit !== null ? 'La prochaine fois' + DEUX_POINTS + dit + '.' : prochaine();
+      return dit !== null ? LIBELLE + DEUX_POINTS + dit + '.' : prochaine();
     };
 
     if (cApres.etat === 'etirement') {
@@ -5147,16 +5148,16 @@
     return e.auHaut === false ? debut + ' la prochaine fois.'
       : debut + ' : encore une fois au haut de ta zone et je teste plus lourd.';
   }
-  // 169 — LA SORTIE DITE : « Deux fois 30 kg × 10 au haut de ta zone. Prochaine fois : on teste 32,5 kg × 8. » `haut` : la
+  // 169 — LA SORTIE DITE : « Deux fois 30 kg × 10 au haut de ta zone. La prochaine fois : on teste 32,5 kg × 8. » `haut` : la
   // ligne haute de la consigne (`{ charge, vise, approchee }`), ou une charge seule.
   function phraseDeLaSortie(ev, haut, aujourdhui, sansPromesse) {
     if (sansPromesse === true) return 'Deux fois ' + chargeFois(ev.charge, ev.reps, cite(FAIT, { quoi: 'effort_vise' })) + ' au haut de ta zone.';
     var h = haut !== null && typeof haut === 'object' ? haut : { charge: haut, vise: null };
     var cH = cite(FAIT, { quoi: 'effort_vise.haut' });
     var test = h.vise === null || h.vise === undefined ? enKg(h.charge, cH) : ligneFois(h.charge, h.vise, false, false, cH, h.approchee === true);
-    // Dite à la fin de la séance : « Prochaine fois ». Dite en tête de la séance suivante, le test est pour aujourd'hui.
+    // Dite à la fin de la séance : « La prochaine fois ». Dite en tête de la séance suivante, le test est pour aujourd'hui.
     return 'Deux fois ' + chargeFois(ev.charge, ev.reps, cite(FAIT, { quoi: 'effort_vise' })) + ' au haut de ta zone' +
-      (aujourdhui === true ? DEUX_POINTS + 'aujourd’hui, on teste ' : '. Prochaine fois' + DEUX_POINTS + 'on teste ') + test + '.';
+      (aujourdhui === true ? DEUX_POINTS + 'aujourd’hui, on teste ' : '. La prochaine fois' + DEUX_POINTS + 'on teste ') + test + '.';
   }
   // 154 — LA PHRASE APRÈS LA RÉPONSE (VOIX-DU-COACH) : « 34 kg × 9, il t'en restait 3. Au-dessus de ce que je visais : la
   // prochaine fois, on essaie 36 kg. » / « 130 kg × 5, sans marge. Je garde 130 kg : encore une fois au haut de ta zone et
@@ -12695,11 +12696,12 @@
     return t;
   }
   // La phrase de la proposition (la carte).
+  // 5b-2 : aucune date relative (« une semaine plus tard ») — la proposition ne porte pas la date de la phase suivante, la clause se TAIT (date ou silence, I164 sens 3).
   function phraseProposeTest(e) {
     if (!e) return null;
     if (e.voie === 'alleger') return 'Pour tester, allège d’abord une semaine : après des semaines dures, la fatigue masque ta force. Tu peux quand même la faire.';
     if (e.voie === 'bibliotheque') return 'Tes quatre barres, un mouvement par jour, sur une semaine. Tu choisis, barre par barre, de viser ton max ou de faire une série au max.';
-    return 'Deux phases sont faites, la décharge aussi. Je te propose de tester tes quatre barres, un mouvement par jour ; ta prochaine phase commence une semaine plus tard.';
+    return 'Deux phases sont faites, la décharge aussi. Je te propose de tester tes quatre barres, un mouvement par jour.';
   }
   // La feuille du Profil : pourquoi pas encore, ou la proposition.
   function phraseTestPropose(prop) {

@@ -65,7 +65,8 @@ function campagne(reglage) {
       else {
         C.annonces++;
         if (/Même cible/.test(ann)) C.meme_cible++;
-        let m = /^La prochaine fois : (.*)\.$/.exec(ann);
+        // 5b-2 : un seul libellé ; le VERBE est du texte derrière lui, le REPLI (les lignes de la consigne suivante) commence par un chiffre ou « ≈ ».
+        let m = /^La prochaine fois : ([a-zà-ÿ].*)\.$/.exec(ann);
         if (m) {
           C.verbe++;
           // Arithmétique à part : le verbe et la ligne se relisent sur la consigne suivante réelle, jamais sur `su.apres`.
@@ -76,7 +77,7 @@ function campagne(reglage) {
             lg(suivante) === lg(su.apres.consigne);
           if (!ok) { C.verbe_faux++; C.ligne_des_annonces.push('VERBE ' + ann + ' | ' + lg(suivante) + ' niveau ' + suivante.niveau); }
         }
-        m = /^Prochaine séance : /.exec(ann);
+        m = /^La prochaine fois : [^a-zà-ÿ]/.exec(ann);
         if (m) {
           C.prochaine++;
           if (lg(suivante) !== lg(su.apres.consigne) && !/ puis /.test(ann)) { C.prochaine_fausse++; C.ligne_des_annonces.push('PROCHAINE ' + ann + ' | ' + lg(suivante)); }
@@ -114,7 +115,7 @@ describe('la campagne des annonces : l’annonce dit la fois suivante RÉELLE (P
         expect(C.seances).toBe(880);
         expect(C.meme_cible).toBe(0);
       });
-      test('aucune annonce démentie par la consigne suivante (verbe, ligne, « Prochaine séance »)', () => {
+      test('aucune annonce démentie par la consigne suivante (verbe, ligne, « La prochaine fois : lignes »)', () => {
         expect(C.ligne_des_annonces).toEqual([]);
         expect([C.verbe_faux, C.prochaine_fausse]).toEqual([0, 0]);
         // PR 5a-bis : la zone du plan et celle des routines sont passées comme l'app le fait (la 5a lisait la zone par l'habitude : 283 verbes et 520

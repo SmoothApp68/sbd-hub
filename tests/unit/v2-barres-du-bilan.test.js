@@ -142,8 +142,8 @@ describe('66A — barresDuBilan, le fait des barres (§5 ter.2)', () => {
     expect(new Set(lundis).size).toBe(2);
   });
 
-  test('une série lourde : de 1 à 6 reps — 6 compte, 7 non', () => {
-    const b = bilan([{ debut: ilYa(4), series: [['developpe_couche_barre', 100, 6], ['developpe_couche_barre', 95, 7],
+  test('une série lourde : 5 reps ou moins — 5 compte, 6 non (la table unique, PR D)', () => {
+    const b = bilan([{ debut: ilYa(4), series: [['developpe_couche_barre', 100, 5], ['developpe_couche_barre', 95, 6],
       ['developpe_couche_barre', 110, 1], ['developpe_couche_barre', 90, 12]] }]);
     expect(b.developpe_couche_barre.lourdes).toBe(2);
   });

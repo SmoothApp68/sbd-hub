@@ -89,14 +89,11 @@ describe('coupures de reps — la table et son lien avec la prescription du coac
     expect(Modele.libelleDeBande('force')).toBeNull();
   });
 
-  test('ÉCART ACCEPTÉ, À RETIRER PAR LA PR D — le seuil lourd de faits.js (6) diffère de la table (5)', () => {
-    const src = require('fs').readFileSync(require('path').join(__dirname, '../../v2/js/faits.js'), 'utf8');
-    const m = /REPS_LOURDES_MAX\s*=\s*(\d+)/.exec(src);
-    const dePlan = /REPS_LOURDES_MAX\s*=\s*(\d+)/.exec(require('fs').readFileSync(require('path').join(__dirname, '../../v2/js/plan.js'), 'utf8'));
-    const deBilan = /force['"],\s*jusqua:\s*(\d+)/.exec(require('fs').readFileSync(require('path').join(__dirname, '../../v2/js/bilans.js'), 'utf8'));
-    expect(dePlan).toBeNull();   // PR B : le plan lit `estSerieLourde`, plus de copie
-    expect(deBilan).toBeNull();   // PR C : le bilan lit `bandeDeReps`, plus de seau recopié
-    // Quand la PR D passe faits.js sur `estSerieLourde`, `m` devient null : retire ce test, ne le contourne pas.
-    expect(m && Number(m[1])).toBe(6);
+  test('PR D — plus aucune copie : faits.js lit `estSerieLourde`, plan.js et bilans.js aussi (zéro écart accepté)', () => {
+    const lire = (f) => require('fs').readFileSync(require('path').join(__dirname, '../../v2/js/' + f), 'utf8');
+    expect(/REPS_LOURDES_MAX\s*=/.test(lire('faits.js'))).toBe(false);
+    expect(lire('faits.js')).toMatch(/Modele\.estSerieLourde\(reps\)/);
+    expect(/REPS_LOURDES_MAX\s*=/.test(lire('plan.js'))).toBe(false);
+    expect(/force['"],\s*jusqua:\s*\d+/.test(lire('bilans.js'))).toBe(false);
   });
 });

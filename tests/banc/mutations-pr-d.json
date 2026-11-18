@@ -1,0 +1,27 @@
+[
+ {
+  "nom": "PRD-A-la-fiche-recompte-6-reps",
+  "fichier": "v2/js/faits.js",
+  "ancien": "if (Modele.estSerieLourde(reps)) lourdes++;",
+  "nouveau": "if (reps !== null && reps >= 1 && reps <= 6) lourdes++;",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-barres-du-bilan.test.js"]
+ },
+ {
+  "nom": "PRD-B-la-constante-est-rétablie",
+  "fichier": "v2/js/faits.js",
+  "ancien": "var JOURS_RECENTS = 28, SEMAINES_DU_BILAN = 26;",
+  "nouveau": "var JOURS_RECENTS = 28, SEMAINES_DU_BILAN = 26, REPS_LOURDES_MAX = 5;",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-architecture.test.js", "tests/unit/v2-coupures-de-reps.test.js"]
+ },
+ {
+  "nom": "PRD-T-témoin-le-commentaire-ne-change-rien",
+  "fichier": "v2/js/faits.js",
+  "ancien": "// la table unique des coupures (MOTEUR §9.51 quinquies) : 5 reps ou moins",
+  "nouveau": "// la table unique des coupures",
+  "banc": "aucun",
+  "attendu": "survit",
+  "unitaires": ["tests/unit/v2-barres-du-bilan.test.js"]
+ }
+]

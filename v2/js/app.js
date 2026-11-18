@@ -11129,7 +11129,6 @@
       selection: selectionGroupe,
       surGrouper: function (a, b) { grouperBlocs(blocs, a, b); },
       surDeplacerBloc: function (i, d) { deplacerBloc(blocs, i, d); },
-      surDeplacerExercice: function (iExo, iCible, apres) { deplacerExerciceVers(iExo, iCible, apres); },
       surMenuBloc: function (i) { ouvrirFeuilleBloc('bloc', i, null); },
       surMenuExercice: function (i, iExo) { ouvrirFeuilleBloc('exercice', i, iExo); },
       // §2.8 — un tap sur le nom d'un exercice donne sa page (§7 quater). La
@@ -11723,8 +11722,7 @@
       // Pas sur un champ : un appui long dans un champ de saisie, c'est la
       // sélection de texte du système, et on ne la lui prend pas.
       if (e.target.closest && e.target.closest('input, textarea, select')) return;
-      // 233 — l'appui long sur le NOM d'un exercice (ou sa poignée) déplace l'exercice : il ne bascule pas la page en mode Modifier.
-      if (id === 'blocs-seance' && e.target.closest && e.target.closest('.nom-exo, .poignee-exo')) return;
+      // 18/11 — l'appui long sur le nom d'un exercice ouvre ce mode comme ailleurs : il ne déplace plus rien (plus de glissement en séance).
       x0 = e.clientX; y0 = e.clientY;
       annuler();
       minuteur = setTimeout(function () {
@@ -11800,9 +11798,9 @@
     apresStructure();
   }
 
-  // 233 — DÉPLACER UN EXERCICE (l'exercice entier : séries, note, groupe) : d'un cran par le menu ⋯ (Monter / Descendre, le repli
-  // accessible du glissement), ou n'importe où par l'appui long sur le nom / la poignée ⠿. Dans un superset l'exercice change de
-  // place DANS son groupe ; hors superset c'est son bloc (un seul exercice) qui bouge. L'ordre s'écrit par le chemin de la séance
+  // 233 — DÉPLACER UN EXERCICE (l'exercice entier : séries, note, groupe) : d'un cran par le menu ⋯ d'un exercice de SUPERSET
+  // (Monter / Descendre : « Réorganiser… » ne range que des blocs, pas l'intérieur d'un superset). Hors superset, l'ordre se change
+  // par « Réorganiser… » (18/11 : plus de glissement en séance). Dans un superset l'exercice change de place DANS son groupe. L'ordre s'écrit par le chemin de la séance
   // (`THSeance.deplacerExercice` / `deplacerVers`), puis `apresStructure` : le coach suit l'exercice, pas sa position.
   function blocDeLExercice(blocs, iExo) {
     for (var b = 0; b < blocs.length; b++) if (indicesDe(blocs[b]).indexOf(iExo) >= 0) return b;
@@ -11826,21 +11824,6 @@
     if (v.dansLeBloc) { seance = Seance.deplacerExercice(seance, iExo, v.iCible, delta > 0); apresStructure(); }
     else deplacerBloc(blocs, v.iBloc, v.delta);
   }
-  // Le glissement : `iCible` est un exercice de la carte visée (le premier avant elle, le dernier après elle).
-  function deplacerExerciceVers(iExo, iCible, apres) {
-    var blocs = Modele.blocsDeSeance(seance, local.exercices);
-    var iB = blocDeLExercice(blocs, iExo), iC = blocDeLExercice(blocs, iCible);
-    if (iB < 0 || iC < 0) return;
-    var source = indicesDe(blocs[iB]);
-    if (iB === iC && source.length > 1) {
-      seance = Seance.deplacerExercice(seance, iExo, iCible, apres);
-    } else if (iB !== iC) {
-      var cibles = indicesDe(blocs[iC]);
-      seance = Seance.deplacerVers(seance, source, apres ? cibles[cibles.length - 1] + 1 : cibles[0]);
-    } else return;
-    apresStructure();
-  }
-
   function grouperBlocs(blocs, iA, iB) {
     selectionGroupe = null;
     if (!blocs[iA] || !blocs[iB]) return rendreSeance();
@@ -11978,8 +11961,6 @@
       superset: bloc.superset,
       noms: noms,
       peutGrouper: blocs.length > 1,
-      surMonter: iBloc > 0 ? function () { fermerVoile(); deplacerBloc(blocs, iBloc, -1); } : null,
-      surDescendre: iBloc < blocs.length - 1 ? function () { fermerVoile(); deplacerBloc(blocs, iBloc, 1); } : null,
       surMachinePrise: bloc.superset ? null : machinePrise(indicesDe(bloc)[0]),
       surJaiMal: bloc.superset ? null : jaiMal(indicesDe(bloc)[0]),
       sansCoach: bloc.superset ? null : sansCoachDe(indicesDe(bloc)[0]),

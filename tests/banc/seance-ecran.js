@@ -5197,13 +5197,9 @@ const SETS_IMPORTES = [
     return document.querySelectorAll('.bloc-seance.superset .serie[data-iexo="0"] .ok-serie.cochee').length === 1;
   }));
 
-  // 261 — LE GLISSEMENT D'UN EXERCICE N'EST PLUS POSÉ DANS UN SUPERSET (il n'y a plus de carte à saisir) : ni poignée ⠿, ni appui long ;
-  // le « ⋯ » (Monter / Descendre, vérifié plus haut) est le chemin. L'exercice seul garde la poignée (section 7 nonies).
-  ok('261 — pas de poignée ⠿ dans un superset (l’ordre se change par « Monter / Descendre »)', (await compter('.bloc-seance.superset .poignee-exo')) === 0);
-  await page.evaluate(() => { const n = document.querySelector('.bloc-seance.superset .nom-exo'); n.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: 10, clientY: 10 })); });
-  await attendre(650);   // temps réel : l'appui long de l'app dure 450 ms
-  ok('261 — l’appui long sur le nom d’un exercice de superset ne prend rien', (await compter('.pris-exo')) === 0 && (await compter('#vue-seance:not([hidden])')) === 1);
-  await page.evaluate(() => { const n = document.querySelector('.bloc-seance.superset .nom-exo'); n.dispatchEvent(new PointerEvent('pointerup', { bubbles: true })); });
+  // 18/11 — PLUS DE GLISSEMENT D'UN EXERCICE EN SÉANCE (il se déclenchait sans faire exprès) : ni poignée ⠿, ni glissement par le nom ;
+  // « Réorganiser… » du ⋯ (ou l'appui long de la page) ouvre le mode, et « Monter / Descendre » reste dans le ⋯ d'un exercice de superset.
+  ok('18/11 — aucune poignée ⠿ d\'exercice en séance (superset ou non)', (await compter('.poignee-exo')) === 0);
 
   // ── Le chrono de tenue : la Planche seule en a un ──
   // La 1re série de la Planche (C1) a été validée pour le tour : on la dévalide, le chrono ne sert que sur une série à faire.

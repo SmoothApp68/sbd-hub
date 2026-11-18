@@ -1955,7 +1955,7 @@
       }
       // 16/11/2026 — un fait sans retour possible (« « Haut B » a changé depuis : je ne la touche pas. ») n'a pas d'« Annuler ».
       if (vue.fait.surAnnuler) {
-        var an = el('button', 'discret', 'Annuler');
+        var an = el('button', 'discret', vue.fait.libelleBouton || 'Annuler');
         an.type = 'button';
         an.setAttribute('data-annuler-equilibre', '1');
         an.addEventListener('click', function () { vue.fait.surAnnuler(); });
@@ -2169,7 +2169,7 @@
       f.setAttribute('data-coach-pose', v.fait.calme ? 'calme' : 'fait');
       f.appendChild(el('span', null, v.fait.texte));
       if (v.fait.surAnnuler) {
-        var an = el('button', 'discret', 'Annuler');
+        var an = el('button', 'discret', v.fait.libelleBouton || 'Annuler');
         an.type = 'button';
         an.setAttribute('data-annuler-equilibre', '1');
         an.addEventListener('click', function () { v.fait.surAnnuler(); });

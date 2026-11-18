@@ -40,7 +40,7 @@ describe('§9.27 quater — le décompte (I208, I212)', () => {
     expect(c[0].phrases[2]).toBe('Biceps : tes routines prévoient 6,5 séries par semaine, 3,5 sans cet exercice.');
     expect(c[0].propositions.map((p) => p.libelle)).toEqual(['Retirer de « Haut A »', 'Garder']);
     expect(c[0].propositions[0].fait).toBe('C’est fait : « Haut A » sans Curl Biceps.');
-    expect(c[0].propositions[1].fait).toBe('Noté : je garde Curl Biceps dans « Haut A » et je ne te le redemande plus.');
+    expect(c[0].propositions[1].fait).toBe('Noté : je garde Curl Biceps dans tes routines et je ne te le redemande plus.');   // B : « Garder » vaut pour (exercice, rôle) sur tout le programme
     expect(Eq.verifierGestes(e, a)).toEqual([]);
   });
 
@@ -104,7 +104,7 @@ describe('§9.27 quater — le décompte (I208, I212)', () => {
     const comparaisons = src.split('\n').filter((l) => /geste\s*===\s*'retrait'|de\('retrait'\)/.test(l) && !/^\s*\/\//.test(l));
     expect(comparaisons.length).toBe(4);   // de('retrait') ; le décompte ; la cause d'équilibre ; la relecture indépendante de I208
     expect(/function causesDe[\s\S]*gesteDeLExercice\(s, slug\)[\s\S]*function semainesFaites/.test(src)).toBe(true);
-    expect(/function gestesRecurrents[\s\S]*gesteDeLExercice\(s, slug\)[\s\S]*function reportDuRetrait/.test(src)).toBe(true);
+    expect(/function decompteDuGroupe[\s\S]*gesteDeLExercice\(s, slug\)[\s\S]*function gestesRecurrents/.test(src)).toBe(true);   // B : le décompte d'un groupe, lu par le seul `gestesRecurrents`
   });
 
   test('une carte en peu de recul (moins de 12 séances) : la section s’ouvre quand même pour elle', () => {
@@ -134,7 +134,7 @@ describe('§9.27 quater — le remplacement par la même paire', () => {
     const e = entree(quatre([], remplace), { catalogue: CAT2 });
     const c = gestesDe(Eq.analyser(e));
     expect(c.length).toBe(1);
-    expect(c[0].cle).toBe('geste|r-a|curl|curl_marteau');
+    expect(c[0].cle).toBe('geste|curl|travail|curl_marteau');
     expect(c[0].phrases).toEqual(['Tu as remplacé Curl Biceps par Curl Marteau 3 fois sur tes 4 dernières séances « Haut A ».',
       'Je mets Curl Marteau à sa place ? Mêmes séries ; la charge repart de ton historique sur Curl Marteau.']);
     expect(c[0].propositions.map((p) => p.libelle)).toEqual(['Remplacer', 'Garder Curl Biceps']);
@@ -227,7 +227,7 @@ describe('§9.27 quater — la réponse durable (I209, I210)', () => {
   });
   test('« Pas maintenant » : la mécanique des cartes (le silence du réglage)', () => {
     const b = quatre([0, 1, 2]);
-    const cle = 'geste|r-a|curl';
+    const cle = 'geste|curl|travail';
     const cartes = { [cle]: Eq.reponse({}, cle, 'non', '2026-10-27') };
     expect(gestesDe(Eq.analyser(entree(b, { cartes })))).toEqual([]);
   });
@@ -278,7 +278,7 @@ describe('§9.27 quater — le rendu (la carte du coach, rien sans un toucher)',
     const ecrit = [];
     Rendu.rendreEquilibres(c, { analyse: a, fait: null, surProposition: (k, p) => ecrit.push(p.type), surPlusTard: () => ecrit.push('plus-tard') });
     expect(ecrit).toEqual([]);
-    const carte = c.querySelector('[data-equilibre="geste|r-a|curl"]');
+    const carte = c.querySelector('[data-equilibre="geste|curl|travail"]');
     expect(carte.classList.contains('eq-coach')).toBe(true);
     expect(carte.querySelector('.eq-titre').textContent).toBe('Le coach te dit');
     expect(Array.from(carte.querySelectorAll('.eq-fait, .pc-note')).map(texte)).toEqual(['Tu as retiré Curl Biceps 3 fois sur tes 4 dernières séances « Haut A ».',
@@ -299,7 +299,7 @@ describe('§9.27 quater — le rendu (la carte du coach, rien sans un toucher)',
     expect(annule).toBe(1);
   });
   test('en silence (constat) : le fait seul, sans bouton', () => {
-    const cle = 'geste|r-a|curl';
+    const cle = 'geste|curl|travail';
     const sem = equilibrees(14, { a: (i) => (i < 4 ? { curl: 0 } : {}) });
     const b = construire(sem);
     b.seances.forEach((s) => { if (s.routine_id === 'r-a' && !b.series.some((x) => x.session_id === s.id && x.exercise_slug === 'curl')) s.gestes = RETRAIT_CURL; });

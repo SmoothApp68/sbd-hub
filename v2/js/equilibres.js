@@ -1278,52 +1278,132 @@
     if (Object.keys(g).length) toutes.geste_routine = g; else delete toutes.geste_routine;
     return toutes;
   }
+  // 16/11/2026 — une réponse à un geste est aussi DATÉE : `cartes_semaine[cle] = { r: 'oui', le: jour, refus: 0 }` (« une carte par
+  // jour » sur l'accueil la lit), dans la même valeur que `geste_routine`, donc le même `poserProfil`.
+  function reponseAuGesteDatee(cartes, cle, routineId, slug, r, jour) {
+    var toutes = reponseAuGeste(cartes, routineId, slug, r);
+    if (cle && jour) toutes[cle] = reponse(toutes, cle, 'oui', jour);
+    return toutes;
+  }
   // « Ce que le coach a retenu » (le Profil) : la liste, dans l'ordre des clés.
   function gestesRetenus(cartes) {
     var g = reponsesAuGeste(cartes), sortie = [];
     Object.keys(g).sort().forEach(function (rid) {
       var pr = g[rid] && typeof g[rid] === 'object' ? g[rid] : {};
       Object.keys(pr).sort().forEach(function (slug) {
-        if (REPONSES_AU_GESTE.indexOf(pr[slug]) >= 0) sortie.push({ routine_id: rid, slug: slug, r: pr[slug] });
+        if (REPONSES_AU_GESTE.indexOf(pr[slug]) < 0) return;
+        // 16/11/2026 (B) — la clé est un rôle (`ouverture`, `travail`, `fin` : tout le programme), une routine seule (`seule:<id>`),
+        // ou, avant le 16/11, l'identifiant d'une routine. `routine_id` reste la clé telle quelle (« Effacer » la relit).
+        var x = { routine_id: rid, slug: slug, r: pr[slug] };
+        if (Object.prototype.hasOwnProperty.call(ROLES_DITS, rid)) x.role = rid;
+        else if (/^seule:/.test(rid)) x.seule = rid.slice(6);
+        sortie.push(x);
       });
     });
     return sortie;
   }
 
-  // LE DÉCOMPTE (I212 : le seul). `seances` : la forme de `preparer` (`{ id, debut, routine_id, statut, allegee, slugs,
-  // gestes }`) ; `routines` : `[{ id, exercices }]`. Rend `[{ type: 'retrait'|'remplacement', routine_id, slug, vers?, k, n,
-  // seances }]`, `k` sur `n` = 4.
-  function gestesRecurrents(seances, routines) {
-    var sortie = [];
+  // 16/11/2026 (B) — UN EXERCICE COMPTÉ SUR TOUTES SES ROUTINES, AU MÊME RÔLE. Le rôle d'un exercice dans une routine
+  // (`Routines.roleDansLaRoutine` : `ouverture`, `travail`, `fin`) regroupe les routines du programme : le tapis en tête de cinq
+  // routines est UN groupe, retiré dans trois d'entre elles une seule carte. Deux rôles = deux groupes (« un exercice peut être fait
+  // d'une manière différente d'une séance à l'autre », Aurélien) ; une routine sans exercice de volume (rôle `null`) reste seule.
+  var ROLES_DITS = { ouverture: 'en début de séance', fin: 'en fin de séance', travail: null };
+  var GESTES_SEMAINES_MIN = 2;  // les retraits sur au moins 2 semaines civiles différentes (une semaine de panne ne suffit pas)
+  function cleDuRole(role, routineId) { return role ? role : 'seule:' + routineId; }
+  function cleDuGeste(slug, cleRole, vers) { return 'geste|' + slug + '|' + cleRole + (vers ? '|' + vers : ''); }
+  // « Fait ce jour-là » : UNE fonction, lue par le décompte ET par sa relecture (I208) — au moins une série de TRAVAIL de
+  // l'exercice dans la séance (`Modele.estTravail`, cardio compris : un tapis refait dans la séance est fait).
+  function exerciceFaitDansLaSeance(series, slug) {
+    return liste(series).some(function (x) { return !!x && x.exercise_slug === slug && Modele().estTravail(x); });
+  }
+  // Les groupes du programme : `{ slug, role, cleRole, routines: [routine] }`, un par (exercice, rôle).
+  function groupesDuProgramme(routines, cat) {
+    var parCle = {}, ordre = [];
     liste(routines).forEach(function (r) {
       if (!r || !r.id) return;
-      var dernieres = liste(seances).filter(function (s) {
-        return s && s.routine_id === r.id && s.statut !== 'en_cours' && !s.allegee && s.debut;
-      }).sort(function (a, b) { return String(b.debut) < String(a.debut) ? -1 : String(b.debut) > String(a.debut) ? 1 : 0; })
-        .slice(0, GESTES_FENETRE);
-      if (dernieres.length < GESTES_FENETRE) return;
-      var dans = liste(r.exercices).map(function (x) { return x && x.exercise_slug; }).filter(Boolean);
       var vus = {};
-      dans.forEach(function (slug) {
-        if (vus[slug]) return;
+      liste(r.exercices).forEach(function (x) {
+        var slug = x && x.exercise_slug;
+        if (!slug || vus[slug]) return;
         vus[slug] = true;
-        var retraits = [], remp = {};
-        dernieres.forEach(function (s) {
-          if (s.slugs && s.slugs[slug]) return;
-          var g = gesteDeLExercice(s, slug);
-          if (!g) return;
-          if (g.geste === 'retrait') retraits.push(s.id);
-          else if (g.geste === 'remplacement') (remp[g.vers] || (remp[g.vers] = [])).push(s.id);
-        });
-        if (retraits.length >= GESTES_SEUIL) {
-          sortie.push({ type: 'retrait', routine_id: r.id, slug: slug, k: retraits.length, n: GESTES_FENETRE, seances: retraits });
+        var role = Routines().roleDansLaRoutine(r, slug, cat || {});
+        var cr = cleDuRole(role, r.id), k = slug + '|' + cr;
+        if (!parCle[k]) { parCle[k] = { slug: slug, role: role, cleRole: cr, routines: [] }; ordre.push(k); }
+        parCle[k].routines.push(r);
+      });
+    });
+    return ordre.map(function (k) { return parCle[k]; });
+  }
+  // La fenêtre et le compte : les 4 dernières séances terminées, non allégées, d'une des routines `ids` ; celles où l'exercice
+  // n'a pas été fait et où le geste qui l'explique est un retrait à la main (ou le remplacement par `vers`). Le premier geste qui
+  // explique l'absence l'emporte (`gesteDeLExercice` : raccourci, machine prise, remplacement, retrait).
+  function decompteDuGroupe(seances, ids, slug, vers) {
+    var fen = liste(seances).filter(function (s) {
+      return s && contient(ids, s.routine_id) && s.statut !== 'en_cours' && !s.allegee && s.debut;
+    }).sort(function (a, b) { return String(b.debut) < String(a.debut) ? -1 : String(b.debut) > String(a.debut) ? 1 : 0; })
+      .slice(0, GESTES_FENETRE);
+    if (fen.length < GESTES_FENETRE) return null;
+    var touchees = fen.filter(function (s) {
+      if (exerciceFaitDansLaSeance(s.series, slug)) return false;
+      var g = gesteDeLExercice(s, slug);
+      if (!g) return false;
+      return vers ? g.geste === 'remplacement' && g.vers === vers : g.geste === 'retrait';
+    });
+    var semaines = {}, par = {};
+    touchees.forEach(function (s) { semaines[s.lundi || lundiDe(s.debut)] = true; });
+    fen.forEach(function (s) { (par[s.routine_id] || (par[s.routine_id] = { n: 0, k: 0 })).n++; });
+    touchees.forEach(function (s) { par[s.routine_id].k++; });
+    return { k: touchees.length, n: GESTES_FENETRE, seances: touchees.map(function (s) { return s.id; }), par: par,
+             semaines: Object.keys(semaines).length,
+             ok: touchees.length >= GESTES_SEUIL && Object.keys(semaines).length >= GESTES_SEMAINES_MIN };
+  }
+  // LE DÉCOMPTE (I212 : le seul ; la règle par routine en est un cas). `seances` : la forme de `preparer` ; `routines` :
+  // `[{ id, nom, exercices }]` ; `cat` : le catalogue indexé. Pour chaque groupe (exercice, rôle) : la fenêtre du groupe ; si les
+  // retraits (ou la même paire) tombent dans au moins 2 routines, une carte TRANSVERSALE, de portée les routines du groupe où
+  // l'exercice a été retiré à CHACUNE de ses séances de la fenêtre ; sinon, la carte d'UNE routine (sa propre fenêtre, le même
+  // seuil). Rend `[{ type, slug, vers?, role, cleRole, transversal, routine_id, routines, parRoutine, k, n, seances }]`.
+  function gestesRecurrents(seances, routines, cat) {
+    var sortie = [], cles = {};
+    var pousser = function (it) {
+      var cle = cleDuGeste(it.slug, it.cleRole, it.vers);
+      if (cles[cle]) return;
+      cles[cle] = true;
+      it.cle = cle;
+      sortie.push(it);
+    };
+    var item = function (gr, rts, vers) {
+      var ids = rts.map(function (r) { return r.id; });
+      var base = { type: vers ? 'remplacement' : 'retrait', slug: gr.slug, role: gr.role, cleRole: gr.cleRole };
+      if (vers) base.vers = vers;
+      var d = decompteDuGroupe(seances, ids, gr.slug, vers);
+      var dans = d ? ids.filter(function (id) { return d.par[id] && d.par[id].k > 0; }) : [];
+      if (d && d.ok && dans.length >= 2) {
+        var portee = ids.filter(function (id) { return d.par[id] && d.par[id].n > 0 && d.par[id].k === d.par[id].n; });
+        pousser(Object.assign(base, { transversal: true, routine_id: portee[0], routines: portee,
+          parRoutine: dans.map(function (id) { return { routine_id: id, k: d.par[id].k }; }), k: d.k, n: d.n, seances: d.seances }));
+        return;
+      }
+      ids.forEach(function (id) {
+        var d1 = decompteDuGroupe(seances, [id], gr.slug, vers);
+        if (d1 && d1.ok) {
+          pousser(Object.assign({}, base, { transversal: false, routine_id: id, routines: [id],
+            parRoutine: [{ routine_id: id, k: d1.k }], k: d1.k, n: d1.n, seances: d1.seances }));
         }
-        Object.keys(remp).sort().forEach(function (v) {
-          // Un remplaçant déjà dans la routine : le mettre à la place ferait un doublon, la carte se tait.
-          if (remp[v].length >= GESTES_SEUIL && v !== slug && dans.indexOf(v) < 0) {
-            sortie.push({ type: 'remplacement', routine_id: r.id, slug: slug, vers: v, k: remp[v].length, n: GESTES_FENETRE, seances: remp[v] });
-          }
-        });
+      });
+    };
+    groupesDuProgramme(routines, cat).forEach(function (gr) {
+      item(gr, gr.routines, null);
+      // Les remplaçants vus dans les séances du groupe ; un remplaçant déjà dans une routine en sort (un doublon) : la portée
+      // est faite des routines qui ne l'ont pas.
+      var ids = gr.routines.map(function (r) { return r.id; }), vers = {};
+      liste(seances).forEach(function (s) {
+        if (!s || !contient(ids, s.routine_id) || exerciceFaitDansLaSeance(s.series, gr.slug)) return;
+        var g = gesteDeLExercice(s, gr.slug);
+        if (g && g.geste === 'remplacement' && g.vers && g.vers !== gr.slug) vers[g.vers] = true;
+      });
+      Object.keys(vers).sort().forEach(function (v) {
+        var sans = gr.routines.filter(function (r) { return !liste(r.exercices).some(function (x) { return x && x.exercise_slug === v; }); });
+        if (sans.length) item(gr, sans, v);
       });
     });
     return sortie;
@@ -1354,42 +1434,104 @@
 
   function guillemets(nom) { return '« ' + nom + ' »'; }
 
+  // « Garder » vaut pour (exercice, rôle) sur tout le programme (I209) : `geste_routine[cleRole][slug]`. Une réponse d'avant le
+  // 16/11/2026, rangée sous l'identifiant d'une routine, vaut encore pour les routines qu'elle nomme.
+  function estGarde(cartes, it) {
+    if (reponseAuGesteDe(cartes, it.cleRole, it.slug) === 'garder') return true;
+    var ids = liste(it.routines).concat(liste(it.parRoutine).map(function (p) { return p.routine_id; }));
+    return ids.some(function (id) { return reponseAuGesteDe(cartes, id, it.slug) === 'garder'; });
+  }
+
   // La carte d'un geste récurrent. Ses phrases, ses propositions (le geste, « Garder X ») ; « Pas maintenant » est le bouton
-  // commun des cartes (le silence du réglage).
+  // commun des cartes (le silence du réglage). Une routine : les mots du 16/11 (« sur tes 4 dernières séances « R » ») ; plusieurs :
+  // « …, en début de séance, K fois sur tes 4 dernières séances de ces routines : 2 en « Bas A », 1 en « Bas B ». ».
   function carteDuGeste(prep, item) {
     var e = prep.e, cat = prep.cat;
-    var r = liste(e.routines).filter(function (x) { return x && x.id === item.routine_id; })[0];
-    if (!r) return null;
+    var parId = {};
+    liste(e.routines).forEach(function (x) { if (x && x.id) parId[x.id] = x; });
+    var portee = liste(item.routines).map(function (id) { return parId[id]; });
+    if (!portee.length || portee.some(function (x) { return !x; })) return null;
+    var r = portee[0];
     var nom = function (sl) { return nomDe(e, sl); };
     var nX = nom(item.slug), nR = guillemets(r.nom || 'ta routine');
-    var c = { cle: 'geste|' + item.routine_id + '|' + item.slug + (item.vers ? '|' + item.vers : ''), famille: 'gestes', kind: 'geste',
-              titre: TITRE_DU_COACH, coach: true, ecart: true, habitudeOk: true, garni: true, causes: [], geste: item };
-    var garder = { type: 'geste_garder', libelle: 'Garder ' + nX, routine_id: r.id, slug: item.slug,
-                   fait: 'Noté : je garde ' + nX + ' dans ' + nR + ' et je ne te le redemande plus.' };
+    var nomsPortee = portee.map(function (x) { return guillemets(x.nom || 'ta routine'); });
+    var dit = item.role ? ROLES_DITS[item.role] : null;
+    var c = { cle: item.cle || cleDuGeste(item.slug, item.cleRole, item.vers), famille: 'gestes', kind: 'geste',
+              titre: TITRE_DU_COACH, coach: true, ecart: true, habitudeOk: true, garni: true, causes: [], geste: item, report: null };
+    var commun = { routine_id: r.id, routines: item.routines.slice(), groupe: item.cleRole, slug: item.slug };
+    var ouDit = item.role ? ' ' + (dit ? dit + ' ' : '') + 'dans tes routines' : ' dans ' + nR;
+    // `court` : le libellé de l'accueil (la carte y tient en une rangée de boutons à 360 px) ; « Ton parcours » garde le long.
+    var garder = Object.assign({ type: 'geste_garder', libelle: 'Garder ' + nX, court: 'Garder',
+                   fait: 'Noté : je garde ' + nX + ouDit + ' et je ne te le redemande plus.' }, commun);
+    if (item.transversal) {
+      var detail = liste(item.parRoutine).map(function (p) { return { k: p.k, nom: (parId[p.routine_id] || {}).nom || '' }; })
+        .sort(function (a, b) { return b.k - a.k || (a.nom < b.nom ? -1 : a.nom > b.nom ? 1 : 0); })
+        .map(function (p) { return p.k + ' en ' + guillemets(p.nom); }).join(', ');
+      var tous = portee.length === liste(item.parRoutine).length;
+      var ces = tous && portee.length >= 2 ? 'ces ' + portee.length + ' routines' : Modele().enumerer(nomsPortee);
+      var surQuoi = ' ' + item.k + ' fois sur tes ' + item.n + ' dernières séances';
+      var role = dit ? ', ' + dit + ',' : '';
+      if (item.type === 'remplacement') {
+        var nB0 = nom(item.vers);
+        c.fait = 'Tu as remplacé ' + nX + ' par ' + nB0 + role + surQuoi + ' de ces routines : ' + detail + '.';
+        c.court = 'Tu as remplacé ' + nX + ' par ' + nB0 + role + surQuoi + ' qui le prévoient.';
+        c.phrases = [c.fait, 'Je mets ' + nB0 + ' à sa place dans ' + ces + ' ? Mêmes séries ; la charge repart de ton historique sur ' + nB0 + '.'];
+        c.detailAccueil = [detail.charAt(0).toUpperCase() + detail.slice(1) + '.', c.phrases[1]];
+        c.propositions = [Object.assign({ type: 'geste_remplacer', vers: item.vers,
+          libelle: portee.length >= 2 ? 'Remplacer dans les ' + portee.length + ' routines' : 'Remplacer dans ' + nomsPortee[0],
+          court: 'Remplacer',
+          fait: 'C’est fait : ' + nB0 + ' à la place de ' + nX + ' dans ' + Modele().enumerer(nomsPortee) + '.' }, commun), garder];
+        return c;
+      }
+      c.fait = 'Tu as retiré ' + nX + role + surQuoi + ' de ces routines : ' + detail + '.';
+      c.court = 'Tu as retiré ' + nX + role + surQuoi + ' qui le prévoient.';
+      c.phrases = [c.fait, 'Je peux l’enlever de ' + ces + '.'];
+      var muscleT = liste(cat[item.slug] && cat[item.slug].muscles_primaires)[0];
+      if (muscleT) {
+        var avantT = prevuPourMuscle(prep, muscleT);
+        var sansT = liste(e.routines).map(function (x) {
+          return !contient(item.routines, x.id) ? x : Object.assign({}, x, { exercices: liste(x.exercices).filter(function (y) { return y.exercise_slug !== item.slug; }) });
+        });
+        var apresT = prevuPourMuscle(prep, muscleT, sansT);
+        if (avantT > 0 && apresT < avantT) {
+          c.phrases.push(Semaine().libelleMuscle(muscleT) + ' : tes routines prévoient ' + nb(avantT) + ' ' + pluriel(avantT, 'série') +
+            ' par semaine, ' + nb(apresT) + ' sans cet exercice.');
+        }
+        c.muscle = muscleT;
+      }
+      c.detailAccueil = [detail.charAt(0).toUpperCase() + detail.slice(1) + '.'].concat(c.phrases.slice(1));
+      c.propositions = [Object.assign({ type: 'geste_retirer', report: null,
+        libelle: portee.length >= 2 ? 'Retirer des ' + portee.length + ' routines' : 'Retirer de ' + nomsPortee[0],
+        court: portee.length >= 2 ? 'Retirer des ' + portee.length : 'Retirer',
+        fait: 'C’est fait : ' + nX + ' retiré de ' + Modele().enumerer(nomsPortee) + '.' }, commun), garder];
+      return c;
+    }
     if (item.type === 'remplacement') {
       var nB = nom(item.vers);
       c.fait = 'Tu as remplacé ' + nX + ' par ' + nB + ' ' + item.k + ' fois sur tes ' + item.n + ' dernières séances ' + nR + '.';
       c.phrases = [c.fait, 'Je mets ' + nB + ' à sa place ? Mêmes séries ; la charge repart de ton historique sur ' + nB + '.'];
-      c.propositions = [{ type: 'geste_remplacer', libelle: 'Remplacer', routine_id: r.id, slug: item.slug, vers: item.vers,
-                          fait: 'C’est fait : ' + nB + ' à la place de ' + nX + ' dans ' + nR + '.' }, garder];
+      c.propositions = [Object.assign({ type: 'geste_remplacer', libelle: 'Remplacer', vers: item.vers,
+                          fait: 'C’est fait : ' + nB + ' à la place de ' + nX + ' dans ' + nR + '.' }, commun), garder];
       return c;
     }
     c.fait = 'Tu as retiré ' + nX + ' ' + item.k + ' fois sur tes ' + item.n + ' dernières séances ' + nR + '.';
     var rep = reportDuRetrait(cat, r, item.slug);
+    c.muscle = liste(cat[item.slug] && cat[item.slug].muscles_primaires)[0] || null;
     if (rep) {
       var nV = nom(rep.vers), m = libelleDuMuscle(rep.muscle);
       var quoi = rep.ajout === rep.n ? 'ses ' + rep.n + ' ' + pluriel(rep.n, 'série')
         : rep.ajout + ' de ses ' + rep.n + ' séries';
+      c.report = rep;
       c.phrases = [c.fait, 'Je peux l’enlever et mettre ' + quoi + ' ' + de(m) + ' sur ' + nV + ', que tu fais déjà : ' +
         rep.apres + ' séries au lieu de ' + rep.avant + '.'];
-      c.propositions = [{ type: 'geste_retirer', libelle: 'D’accord', routine_id: r.id, slug: item.slug, report: rep,
-                          fait: 'C’est fait : ' + nR + ' sans ' + nX + ', ' + nV + ' à ' + rep.apres + ' séries.' }, garder];
+      c.propositions = [Object.assign({ type: 'geste_retirer', libelle: 'D’accord', report: rep,
+                          fait: 'C’est fait : ' + nR + ' sans ' + nX + ', ' + nV + ' à ' + rep.apres + ' séries.' }, commun), garder];
       return c;
     }
     c.phrases = [c.fait, 'Je peux l’enlever de ' + nR + '.'];
     // La conséquence, un fait du programme : ce que les routines prévoient pour son muscle, avant et après (aucune fourchette
     // inventée : la règle de volume n'en publie pas encore).
-    var muscle = liste(cat[item.slug] && cat[item.slug].muscles_primaires)[0];
+    var muscle = c.muscle;
     if (muscle) {
       var avant = prevuPourMuscle(prep, muscle);
       var sans = liste(e.routines).map(function (x) {
@@ -1402,57 +1544,123 @@
       }
     }
     garder = Object.assign({}, garder, { libelle: 'Garder' });
-    c.propositions = [{ type: 'geste_retirer', libelle: 'Retirer de ' + nR, routine_id: r.id, slug: item.slug, report: null,
-                        fait: 'C’est fait : ' + nR + ' sans ' + nX + '.' }, garder];
+    c.propositions = [Object.assign({ type: 'geste_retirer', libelle: 'Retirer de ' + nR, court: 'Retirer', report: null,
+                        fait: 'C’est fait : ' + nR + ' sans ' + nX + '.' }, commun), garder];
     return c;
   }
 
-  // Les cartes des gestes : le décompte, puis la réponse « garder » (I209), puis la carte.
+  // Les cartes des gestes : le décompte, puis la réponse « garder » (I209, par exercice et rôle), puis la carte.
   function cartesDesGestes(prep) {
     var e = prep.e;
     var routinesIds = {};
     liste(e.routines).forEach(function (r) { if (r && r.id) routinesIds[r.id] = true; });
-    return gestesRecurrents(seancesDePrep(prep), e.routines).filter(function (it) {
-      return routinesIds[it.routine_id] && reponseAuGesteDe(e.cartes, it.routine_id, it.slug) !== 'garder';
+    return gestesRecurrents(seancesDePrep(prep), e.routines, prep.cat).filter(function (it) {
+      return liste(it.routines).length && it.routines.every(function (id) { return routinesIds[id]; }) && !estGarde(e.cartes, it);
     }).map(function (it) { return carteDuGeste(prep, it); }).filter(Boolean);
   }
 
-  // I208 à I213, rejoués depuis l'ENTRÉE par une lecture à part (aucun appel au décompte) : rend la liste des fautes.
-  //   I208 (a) chaque carte a 3 retraits (ou 3 fois la même paire) sur les 4 dernières séances terminées et non allégées de
-  //        SA routine, l'exercice est dans la routine, aucun de ces gestes n'est un raccourci ni une machine prise ;
-  //   I209 (b) aucune carte pour un (routine, exercice) gardé ; I211 (d) aucune phrase d'assiduité ni de cause ;
-  //   I213 (f) un report ne porte jamais un exercice au-delà de 6 séries et ajoute ce qu'il dit.
+  // L'ABSORPTION : une carte de retrait SANS report dont l'exercice est du côté qui MANQUE d'une carte d'équilibre qui parle ne
+  // parle pas seule (retirer ce qui manque déjà contredirait la carte) : son fait devient une cause de cette carte. Rien n'est
+  // écrit d'office : la carte d'équilibre garde ses propositions, qui s'écrivent sur un geste.
+  function cotesQuiManquent(prep, cartes) {
+    var cat = prep.cat;
+    return liste(cartes).map(function (c) {
+      if (c.kind === 'rapport') {
+        var r = RAPPORTS.filter(function (x) { return x.cle === c.cle; })[0];
+        return r ? { carte: c, manque: function (slug) { return !!classesDe(slug, cat)[r.a]; } } : null;
+      }
+      if (c.kind === 'zero') return { carte: c, manque: function (slug) { return !!cat[slug] && contient(cat[slug].muscles_primaires, c.muscle); } };
+      return null;
+    }).filter(Boolean);
+  }
+
+  // I208, I209, I211, I212, I213, I217, I218, rejoués depuis l'ENTRÉE par une lecture à part (aucun appel au décompte ni aux groupes ;
+  // seuls le prédicat « fait ce jour-là » et le rôle, des notions, sont relus par leur fonction) : rend la liste des fautes.
+  //   I208 chaque carte a 3 retraits (ou 3 fois la même paire) sur les 4 dernières séances terminées et non allégées de SA fenêtre
+  //        (les routines du groupe pour une carte transversale, sa routine sinon), sur 2 semaines civiles au moins, aucun de ces
+  //        gestes n'est un raccourci ni une machine prise ;
+  //   I209 aucune carte pour un (exercice, rôle) gardé ; I211 aucune phrase d'assiduité ni de cause ;
+  //   I213 un report ne porte jamais un exercice au-delà de 6 séries et ajoute ce qu'il dit ;
+  //   I217 un regroupement ne mêle jamais deux rôles ; I218 la portée est exactement les routines nommées (et celles où
+  //        l'exercice a été retiré à chacune de leurs séances de la fenêtre).
   function verifierGestes(entree, analyse) {
-    var e = entree || {}, fautes = [];
+    var e = entree || {}, fautes = [], cat = e.catalogue || {};
     var cartes = liste(analyse && analyse.cartes).concat(liste(analyse && analyse.constats)).filter(function (c) { return c && c.kind === 'geste'; });
+    var seriesDe = {};
+    liste(e.series).forEach(function (s) { if (s && s.session_id) (seriesDe[s.session_id] || (seriesDe[s.session_id] = [])).push(s); });
     var parId = {};
-    liste(e.series).forEach(function (s) {
-      if (s && s.session_id && Modele().estTravail(s)) (parId[s.session_id] || (parId[s.session_id] = {}))[s.exercise_slug] = true;
-    });
+    liste(e.routines).forEach(function (r) { if (r && r.id) parId[r.id] = r; });
+    var roleDe = function (r, slug) {
+      if (!r || !liste(r.exercices).some(function (y) { return y.exercise_slug === slug; })) return undefined;
+      var x = Routines().roleDansLaRoutine(r, slug, cat);
+      return x ? x : 'seule:' + r.id;
+    };
+    var lundi = function (v) {
+      var d = dateDe(v); if (!d) return null;
+      var l = new Date(d.getFullYear(), d.getMonth(), d.getDate() - ((d.getDay() + 6) % 7));
+      return cleDeJour(l);
+    };
     cartes.forEach(function (c) {
-      var g = c.geste || {}, r = liste(e.routines).filter(function (x) { return x && x.id === g.routine_id; })[0];
-      if (!r || !liste(r.exercices).some(function (y) { return y.exercise_slug === g.slug; })) { fautes.push('I208 : ' + c.cle + ' hors routine'); return; }
+      var g = c.geste || {}, portee = liste(g.routines);
+      if (!portee.length || portee.some(function (id) { return roleDe(parId[id], g.slug) === undefined; })) { fautes.push('I208 : ' + c.cle + ' hors routine'); return; }
+      if (portee.some(function (id) { return roleDe(parId[id], g.slug) !== g.cleRole; })) fautes.push('I217 : ' + c.cle + ' mêle deux rôles');
+      if (c.cle !== 'geste|' + g.slug + '|' + g.cleRole + (g.vers ? '|' + g.vers : '')) fautes.push('I209 : ' + c.cle + ' clé hors (exercice, rôle)');
+      // La fenêtre : les routines du même rôle (sans celles qui ont déjà le remplaçant), ou la seule routine de la carte.
+      var membres = g.transversal ? Object.keys(parId).filter(function (id) {
+        var r = parId[id];
+        return roleDe(r, g.slug) === g.cleRole && !(g.vers && liste(r.exercices).some(function (y) { return y.exercise_slug === g.vers; }));
+      }) : portee.slice(0, 1);
       var ss = liste(e.seances).filter(function (s) {
         var jour = s && s.debut ? cleDeJour(dateDe(s.debut)) : null;
-        return s && s.routine_id === r.id && s.statut !== 'en_cours' && s.decharge !== true && !dansUnePeriode(e.periodesAllegees, jour);
-      }).map(function (s) { return s; }).sort(function (a, b) { return String(a.debut) < String(b.debut) ? 1 : -1; }).slice(0, GESTES_FENETRE);
-      var k = ss.filter(function (s) {
-        if (parId[s.id] && parId[s.id][g.slug]) return false;
+        return s && membres.indexOf(s.routine_id) >= 0 && s.statut !== 'en_cours' && s.decharge !== true && !dansUnePeriode(e.periodesAllegees, jour) &&
+          Semaine().estSeanceDeMusculation(seriesDe[s.id] || [], cat);
+      }).sort(function (a, b) { return String(a.debut) < String(b.debut) ? 1 : -1; }).slice(0, GESTES_FENETRE);
+      var touche = ss.filter(function (s) {
+        if (exerciceFaitDansLaSeance(seriesDe[s.id], g.slug)) return false;
         var gs = liste(s.gestes);
         var autre = gs.some(function (x) { return x && ((x.geste === 'raccourci' && contient(x.retires, g.slug)) || (x.geste === 'machine_prise' && x.slug === g.slug)); });
         if (autre) return false;
+        if (g.type !== 'remplacement' && gs.some(function (x) { return x && x.geste === 'remplacement' && x.slug === g.slug && x.vers; })) return false;
         return gs.some(function (x) {
           return x && x.slug === g.slug && (g.type === 'remplacement' ? x.geste === 'remplacement' && x.vers === g.vers : x.geste === 'retrait');
         });
-      }).length;
-      if (ss.length < GESTES_FENETRE || k < GESTES_SEUIL) fautes.push('I208 : ' + c.cle + ' ' + k + ' sur ' + ss.length);
-      if (reponseAuGesteDe(e.cartes, r.id, g.slug) === 'garder') fautes.push('I209 : ' + c.cle + ' gardé');
-      liste(c.phrases).concat([c.fait]).concat(liste(c.propositions).map(function (p) { return p.fait; })).forEach(function (t) {
+      });
+      var semaines = {};
+      touche.forEach(function (s) { semaines[lundi(s.debut)] = true; });
+      var k = touche.length;
+      if (ss.length < GESTES_FENETRE || k < GESTES_SEUIL || Object.keys(semaines).length < GESTES_SEMAINES_MIN || k !== g.k) {
+        fautes.push('I208 : ' + c.cle + ' ' + k + ' sur ' + ss.length + ' (' + Object.keys(semaines).length + ' semaine(s))');
+      }
+      // La portée : les routines où l'exercice a été retiré à CHACUNE de leurs séances de la fenêtre (I218).
+      var par = {};
+      ss.forEach(function (s) { (par[s.routine_id] || (par[s.routine_id] = { n: 0, k: 0 })).n++; });
+      touche.forEach(function (s) { par[s.routine_id].k++; });
+      var avecRetrait = Object.keys(par).filter(function (id) { return par[id].k > 0; });
+      if (g.transversal) {
+        if (avecRetrait.length < 2) fautes.push('I218 : ' + c.cle + ' transversale sur ' + avecRetrait.length + ' routine');
+        var attendue = Object.keys(par).filter(function (id) { return par[id].k > 0 && par[id].k === par[id].n; }).sort();
+        if (JSON.stringify(attendue) !== JSON.stringify(portee.slice().sort())) fautes.push('I218 : ' + c.cle + ' portée ' + JSON.stringify(portee) + ' pour ' + JSON.stringify(attendue));
+      } else if (portee.length !== 1) fautes.push('I218 : ' + c.cle + ' une routine, ' + portee.length + ' dans la portée');
+      // Les routines nommées : celles de la portée, aucune autre, dans la proposition et dans son « C'est fait ».
+      liste(c.propositions).forEach(function (p) {
+        if (p.type === 'geste_garder') return;
+        if (JSON.stringify(liste(p.routines).slice().sort()) !== JSON.stringify(portee.slice().sort())) fautes.push('I218 : ' + c.cle + ' la proposition vise ' + JSON.stringify(p.routines));
+        Object.keys(parId).forEach(function (id) {
+          var cite = String(p.fait || '').indexOf('« ' + parId[id].nom + ' »') >= 0;
+          if (cite !== (portee.indexOf(id) >= 0) && (portee.length > 1 || cite)) fautes.push('I218 : ' + c.cle + ' « ' + parId[id].nom + ' » ' + (cite ? 'nommée hors portée' : 'absente'));
+        });
+      });
+      if (reponseAuGesteDe(e.cartes, g.cleRole, g.slug) === 'garder' || portee.some(function (id) { return reponseAuGesteDe(e.cartes, id, g.slug) === 'garder'; })) {
+        fautes.push('I209 : ' + c.cle + ' gardé');
+      }
+      liste(c.phrases).concat([c.fait, c.court]).concat(liste(c.propositions).map(function (p) { return p.fait; })).forEach(function (t) {
         if (MOTS_INTERDITS_DU_GESTE.test(String(t || ''))) fautes.push('I211 : ' + c.cle + ' « ' + t + ' »');
       });
+      var r = parId[portee[0]];
       liste(c.propositions).forEach(function (p) {
         var rp = p.report;
         if (!rp) return;
+        if (portee.length !== 1) { fautes.push('I213 : ' + c.cle + ' un report sur plusieurs routines'); return; }
         var y = liste(r.exercices).filter(function (x) { return x.exercise_slug === rp.vers; })[0];
         var a = y ? seriesDeTravailDe(y) : -1;
         if (rp.apres > REPORT_MAX || rp.avant !== a || rp.apres !== a + rp.ajout || rp.ajout < 1 || rp.ajout > rp.n) {
@@ -1494,17 +1702,98 @@
     return fautes;
   }
 
-  // ── LA LIGNE de l'écran Séances (une seule, sous la barre de la semaine) ───────────────────────────────────────
-  function ligneDe(carte) {
-    if (!carte) return null;
-    var texte = carte.kind === 'zero' ? carte.fait
-      : carte.kind === 'priorites' ? carte.fait
-      : carte.fait;
-    return { cle: carte.cle, texte: texte, libelle: 'Voir mes équilibres' };
+  // ── 16/11/2026 — LA CARTE DU COACH SUR L'ACCUEIL (I214, I215) ─────────────────────────────────────────────────
+  // Elle remplace la ligne « Voir mes équilibres » : sous « Prochaine séance », UNE carte, la première qui PARLE de
+  // `analyse.cartes` (l'ordre des familles), LE MÊME OBJET que dans « Ton parcours » (I215). « N autres › » : les cartes qui
+  // parlent, comptées AVANT le plafond du réglage (sinon jamais en Prudent), moins celle-ci. Aucune carte (I214) : en séance, en
+  // « Juste un carnet », avant que les routines soient chargées, un jour où l'annonce du niveau parle, un jour où une carte a
+  // reçu une réponse datée (une par jour) ; jamais une carte de geste sur un exercice qu'une carte de variation de bloc
+  // ouverte touche la même semaine (I145-I146 : une voix). Pur : l'écran lit, il ne décide rien.
+  var TETE_DE_L_ACCUEIL = TITRE_DU_COACH;
+  // Le jour d'une réponse datée (`{ r, le }`), dans `cartes_semaine` : les cartes de la semaine ET les gestes de la routine.
+  function repondueLe(cartes, jour) {
+    var c = cartes && typeof cartes === 'object' && !Array.isArray(cartes) ? cartes : {};
+    return !!jour && Object.keys(c).some(function (k) {
+      var v = c[k];
+      return !!v && typeof v === 'object' && !Array.isArray(v) && typeof v.r === 'string' && String(v.le || '').slice(0, 10) === String(jour).slice(0, 10);
+    });
+  }
+  function enLaissePourLAccueil(analyse, cartes, jour, contexte) {
+    var x = contexte || {};
+    if (!analyse || analyse.etat === 'carnet') return 'carnet';
+    if (x.enSeance) return 'seance';
+    if (x.routinesPretes !== true) return 'routines';
+    if (x.niveauParle) return 'niveau';
+    if (repondueLe(cartes, jour)) return 'repondue';
+    return null;
+  }
+  // Ce que l'accueil dit d'une carte : le fait en UNE phrase, et le détail replié (« Détail »).
+  function texteDeLAccueil(c) {
+    var detail = [];
+    if (c.kind === 'geste') detail = liste(c.phrases).slice(1);
+    else {
+      if (liste(c.reperes).length) detail = detail.concat(c.reperes);
+      else if (c.repere) detail.push(c.repere + (c.tendance ? ' ' + c.tendance : ''));
+      liste(c.causes).forEach(function (x) { if (x && x.texte) detail.push(x.texte); });
+      liste(c.propositions).forEach(function (p) { liste(p.details).forEach(function (t) { detail.push(t); }); });
+    }
+    return { fait: c.court || c.fait, detail: c.detailAccueil || detail };
+  }
+  function carteDeLAccueil(analyse, cartes, jour, contexte) {
+    if (enLaissePourLAccueil(analyse, cartes, jour, contexte)) return null;
+    var exclus = liste(contexte && contexte.variations);
+    var dispo = liste(analyse.cartes).filter(function (c) {
+      return c && !(c.kind === 'geste' && c.geste && contient(exclus, c.geste.slug));
+    });
+    var c = dispo[0];
+    if (!c) return null;
+    var t = texteDeLAccueil(c);
+    var tous = typeof analyse.nParlent === 'number' ? analyse.nParlent : liste(analyse.cartes).length;
+    var horsAccueil = liste(analyse.cartes).length - dispo.length;
+    return { carte: c, tete: TETE_DE_L_ACCUEIL, fait: t.fait, detail: t.detail, autres: Math.max(0, tous - horsAccueil - 1) };
+  }
+  // I214 et I215, relus à part : rend la liste des fautes.
+  function verifierCarteDeLAccueil(analyse, cartes, jour, contexte, resultat) {
+    var fautes = [];
+    if (resultat === null || resultat === undefined) return fautes;
+    if (Array.isArray(resultat)) fautes.push('I214 : plusieurs cartes sur l’accueil');
+    var x = contexte || {};
+    if (!analyse || analyse.etat === 'carnet') fautes.push('I214 : une carte en « Juste un carnet »');
+    if (x.enSeance) fautes.push('I214 : une carte en séance');
+    if (x.routinesPretes !== true) fautes.push('I214 : une carte avant les routines');
+    if (x.niveauParle) fautes.push('I214 : une carte le jour du niveau');
+    var c = cartes && typeof cartes === 'object' ? cartes : {};
+    Object.keys(c).forEach(function (k) {
+      var v = c[k];
+      if (v && typeof v === 'object' && v.r && String(v.le || '').slice(0, 10) === String(jour || '').slice(0, 10)) fautes.push('I214 : ' + k + ' a reçu sa réponse aujourd’hui');
+    });
+    if (resultat && liste(analyse && analyse.cartes).indexOf(resultat.carte) < 0) fautes.push('I215 : la carte de l’accueil n’est pas celle de « Ton parcours »');
+    if (resultat && resultat.carte && resultat.carte.kind === 'geste' && resultat.carte.geste && contient(x.variations, resultat.carte.geste.slug)) {
+      fautes.push('I214 : ' + resultat.carte.cle + ' parle avec une carte de variation du bloc');
+    }
+    return fautes;
+  }
+
+  // Après « Pas maintenant » : la fin du silence (le jour où la carte peut revenir), en date absolue. UNE source pour la phrase.
+  // `rep` : la réponse ÉCRITE (`reponse(…, 'non', jour)`), dont le `refus` double le silence au 2ᵉ refus de suite (`silenceDe`).
+  function finDuSilence(reglage, rep) {
+    var r = Object.prototype.hasOwnProperty.call(REGLAGES, reglage) ? reglage : REGLAGE_PAR_DEFAUT;
+    var d = rep && dateDe(String(rep.le || '').slice(0, 10));
+    if (!d) return null;
+    var f = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate() + 7 * silenceDe(r, rep)));
+    return f.getUTCFullYear() + '-' + deux(f.getUTCMonth() + 1) + '-' + deux(f.getUTCDate());
+  }
+  function phraseDuSilence(reglage, rep) {
+    var f = finDuSilence(reglage, rep);
+    if (!f) return 'Noté.';
+    var an = dateDe(String(rep.le).slice(0, 10)).getFullYear();
+    var d = Modele().jourDit(f, { annee: an });
+    return 'Noté. Je ne t’en reparle pas avant le ' + d + (/\.$/.test(d) ? '' : '.');
   }
 
   // ── L'ANALYSE ───────────────────────────────────────────────────────────────────────────────────────────────────
-  // Rend `{ etat, reglage, quand, constats, cartes, calmes, ligne }` :
+  // Rend `{ etat, reglage, quand, constats, cartes, calmes, nParlent }` (16/11/2026 : la ligne de l'écran Séances n'existe plus,
+  // la carte de l'accueil se lit par `carteDeLAccueil`) :
   //   · `etat` : 'ok', 'peu' (moins de 4 semaines ou 12 séances : rien à dire), 'carnet' (Juste un carnet : aucune carte, les
   //     constats restent lisibles dans le Parcours) ;
   //   · `constats` : TOUTES les mesures en écart (le fait et son repère), qu'une carte parle ou non — les faits ne changent
@@ -1518,7 +1807,7 @@
     var prep = preparer(e);
     var f0 = fenetreA(prep, 0);
     var carnet = e.intention === 'entretien';
-    var sortie = { etat: carnet ? 'carnet' : 'ok', reglage: reglage, constats: [], cartes: [], calmes: [], ligne: null, quand: null };
+    var sortie = { etat: carnet ? 'carnet' : 'ok', reglage: reglage, constats: [], cartes: [], calmes: [], quand: null, nParlent: 0 };
     // §9.27 quater — les cartes des gestes de la routine ne demandent pas 12 semaines de recul : 4 séances de la routine suffisent.
     // Elles suivent la mécanique des cartes (le silence de « Pas maintenant », le nombre de cartes du réglage, rien en carnet).
     var gestes = cartesDesGestes(prep);
@@ -1529,7 +1818,9 @@
     if (!f0.valide) {
       sortie.etat = 'peu';
       // Un carnet se tait aussi ici ; une carte en silence ne s'affiche pas sans le reste de la section.
-      if (!carnet) sortie.cartes = gestes.filter(function (c) { return c.parle; }).slice(0, REGLAGES[reglage].cartes);
+      var parlentPeu = carnet ? [] : gestes.filter(function (c) { return c.parle; });
+      sortie.nParlent = parlentPeu.length;
+      sortie.cartes = parlentPeu.slice(0, REGLAGES[reglage].cartes);
       return sortie;
     }
     sortie.quand = 'Tes ' + f0.semaines.length + ' dernières semaines · ' + f0.nbSeances + ' ' + pluriel(f0.nbSeances, 'séance');
@@ -1597,10 +1888,29 @@
       return ORDRE_DES_FAMILLES.indexOf(a.famille) - ORDRE_DES_FAMILLES.indexOf(b.famille) ||
         rangs[a.kind] - rangs[b.kind] || (a.cle < b.cle ? -1 : 1);
     });
-    sortie.cartes = parlent.slice(0, REGLAGES[reglage].cartes).map(function (c) { return garnir(prep, c); });
-    // La ligne de l'écran Séances reste celle des ÉQUILIBRES (188-1) : une carte des jours, du temps, de la fréquence ou de l'ordre
-    // parle dans le Parcours, pas sous la barre de la semaine.
-    sortie.ligne = ligneDe(sortie.cartes.filter(function (c) { return c.famille === 'equilibre'; })[0]);
+    // 16/11/2026 (B) — l'absorption : un retrait sans report du côté qui manque d'une carte d'équilibre qui parle ne parle pas seul.
+    var cotes = cotesQuiManquent(prep, parlent);
+    parlent = parlent.filter(function (c) {
+      if (c.kind !== 'geste' || !c.geste || c.geste.type !== 'retrait' || c.report) return true;
+      var eq = cotes.filter(function (x) { return x.manque(c.geste.slug); })[0];
+      if (!eq) return true;
+      c.parle = false;
+      c.absorbeePar = eq.carte.cle;
+      (eq.carte.absorbes || (eq.carte.absorbes = [])).push(c);
+      return false;
+    });
+    // 16/11/2026 — combien parlent AVANT le plafond du réglage (« N autres › » de l'accueil).
+    sortie.nParlent = parlent.length;
+    sortie.cartes = parlent.slice(0, REGLAGES[reglage].cartes).map(function (c) {
+      var g = garnir(prep, c);
+      if (liste(g.absorbes).length) {
+        // Le fait du geste remplace la cause générique (« X a été retiré à la main N fois. ») de la même lecture.
+        var deja = g.absorbes.map(function (a) { return nomDe(e, a.geste.slug) + ' a été retiré à la main'; });
+        g.causes = liste(g.causes).filter(function (x) { return !deja.some(function (d) { return String(x.texte).indexOf(d) === 0; }); })
+          .concat(g.absorbes.map(function (a) { return { texte: a.fait, proposition: null, geste: a.cle }; }));
+      }
+      return g;
+    });
     return sortie;
   }
 
@@ -1611,7 +1921,16 @@
     REPORT_MAX: REPORT_MAX,
     gesteDeLExercice: gesteDeLExercice,
     gestesRecurrents: gestesRecurrents,
+    exerciceFaitDansLaSeance: exerciceFaitDansLaSeance,
+    GESTES_SEMAINES_MIN: GESTES_SEMAINES_MIN,
+    ROLES_DITS: ROLES_DITS,
     reponseAuGeste: reponseAuGeste,
+    reponseAuGesteDatee: reponseAuGesteDatee,
+    carteDeLAccueil: carteDeLAccueil,
+    verifierCarteDeLAccueil: verifierCarteDeLAccueil,
+    repondueLe: repondueLe,
+    finDuSilence: finDuSilence,
+    phraseDuSilence: phraseDuSilence,
     reponseAuGesteDe: reponseAuGesteDe,
     gestesRetenus: gestesRetenus,
     verifierGestes: verifierGestes,

@@ -830,6 +830,9 @@
   function estFinition(ex, cat) {
     var f = cat && cat[ex.exercise_slug], prim = (f && f.muscles_primaires) || [];
     if (f && !racine.THSemaine.porteDuVolume(f)) return true;
+    // 16/11/2026 (contradicteur du rôle) — la mobilité est une finition, même comptée en reps et même avec un muscle primaire
+    // (`nature = 'mobilite'`, v2_096) : elle ne fait ni le dernier exercice de travail d'une routine ni la place d'un ajout.
+    if (f && f.nature === 'mobilite') return true;
     if (prim.length === 1 && prim[0] === 'abdominaux') return true;
     return (ex.series || []).some(function (s) { return !!s && !!(s.duree_s || s.duree_cible_s); });
   }
@@ -846,6 +849,38 @@
     if (dernier >= 0) index = blocDe(exercices, dernier).fin + 1;
     if (index > fin) index = fin;
     return { index: index, apres: index > 0 ? exercices[index - 1].exercise_slug : null, avant: index < n ? exercices[index].exercise_slug : null };
+  }
+
+  // 16/11/2026 (MOTEUR §9.27 quater, I217) — LE RÔLE D'UN EXERCICE DANS SA ROUTINE : par rapport au PREMIER et au DERNIER exercice
+  // qui porte du volume et n'est pas une finition (`estFinition`) — avant le premier : `ouverture` ; après le dernier : `fin` ;
+  // entre (bornes comprises) : `travail`. Un exercice dans un superset prend le rôle de son BLOC (`blocDe`) : une finition liée
+  // à un exercice de travail travaille. Une routine sans exercice de volume : `null` (pas de regroupement entre routines).
+  // Exercice absent : `null`. Ni les séries, ni les reps, ni la zone, ni le superset ne séparent deux routines : le rôle seul.
+  function roleDansLaRoutine(routine, slug, cat) {
+    var exercices = (routine && routine.exercices) || [];
+    var i = indexDuSlug(exercices, slug);
+    if (i < 0) return null;
+    var premier = -1, dernier = -1;
+    for (var k = 0; k < exercices.length; k++) {
+      if (exercices[k] && !estFinition(exercices[k], cat)) { if (premier < 0) premier = k; dernier = k; }
+    }
+    if (premier < 0) return null;
+    var b = blocDe(exercices, i);
+    if (b.fin < premier) return 'ouverture';
+    if (b.debut > dernier) return 'fin';
+    return 'travail';
+  }
+
+  // 16/11/2026 (I219) — LA SIGNATURE des exercices qu'un geste a écrits : l'ordre, le slug, le groupe de superset, et pour chaque
+  // série son type, ses reps visées et sa charge. « Annuler » ne rend une routine que si ses exercices portent ENCORE cette
+  // signature (sinon elle a changé depuis : on n'y touche pas). Les identifiants (posés par la file) n'y entrent pas.
+  function signatureDesExercices(exercices) {
+    return JSON.stringify((exercices || []).map(function (e) {
+      return [e && e.exercise_slug, e && e.groupe_superset !== undefined ? e.groupe_superset : null,
+        ((e && e.series) || []).map(function (x) {
+          return [x && x.type_serie || null, x && x.reps_visees !== undefined ? x.reps_visees : null, x && x.charge_kg !== undefined ? x.charge_kg : null];
+        })];
+    }));
   }
 
   // L'AJOUT d'un exercice avec `nSeries` séries de travail (au moins une), chacune avec ses `reps` visées quand l'appelant les donne
@@ -2288,6 +2323,8 @@
     placeDAjout: placeDAjout,
     ajoutDeSerie: ajoutDeSerie,
     retraitDExercice: retraitDExercice,
+    roleDansLaRoutine: roleDansLaRoutine,
+    signatureDesExercices: signatureDesExercices,
     marquerAuMax: marquerAuMax,
     renumeroter: renumeroter,
     retraitDeSeries: retraitDeSeries,

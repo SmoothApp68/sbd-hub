@@ -1943,7 +1943,7 @@
     if (a.quand) section.appendChild(el('div', 'eq-quand', a.quand));
     if (a.quandDates) section.appendChild(el('div', 'eq-quand-dates', a.quandDates));   // PR 6 des mots : les dates des semaines comptées
     if (vue.fait) {
-      var f = el('div', 'eq-fait-pose');
+      var f = el('div', 'eq-fait-pose' + (vue.fait.calme ? ' calme' : ''));
       f.appendChild(el('span', null, vue.fait.texte));
       // 188-2 : une suite proposée, jamais faite d'office (« Refaire mon programme pour 70 min »).
       if (vue.fait.suite) {
@@ -1953,11 +1953,14 @@
         su.addEventListener('click', function () { vue.fait.suite.surClic(); });
         f.appendChild(su);
       }
-      var an = el('button', 'discret', 'Annuler');
-      an.type = 'button';
-      an.setAttribute('data-annuler-equilibre', '1');
-      an.addEventListener('click', function () { vue.fait.surAnnuler(); });
-      f.appendChild(an);
+      // 16/11/2026 — un fait sans retour possible (« « Haut B » a changé depuis : je ne la touche pas. ») n'a pas d'« Annuler ».
+      if (vue.fait.surAnnuler) {
+        var an = el('button', 'discret', 'Annuler');
+        an.type = 'button';
+        an.setAttribute('data-annuler-equilibre', '1');
+        an.addEventListener('click', function () { vue.fait.surAnnuler(); });
+        f.appendChild(an);
+      }
       section.appendChild(f);
     }
     var parlent = {};
@@ -2151,19 +2154,80 @@
     parent.appendChild(k);
   }
 
-  // La ligne de l'écran Séances, sous la barre de la semaine : UNE seule, quand une carte d'équilibre parle.
-  function rendreLigneEquilibre(cible, vue) {
+  // 16/11/2026 — « LE COACH TE DIT » SUR L'ACCUEIL (maquette du 16/11, I214, I215) : sous « Prochaine séance », UNE carte, celle que
+  // `THEquilibres.carteDeLAccueil` a choisie (le même objet que dans « Ton parcours ») ; ou le fait d'un geste qu'on vient d'y faire
+  // (« C'est fait : … », « Noté. Je ne t'en reparle pas avant le … ») avec « Annuler ». Le rendu ne décide rien et n'écrit rien :
+  // les gestes sont des rappels. Hauteur visée à 360 px : ≤ 160 px (la tête, le fait en une phrase, les boutons) ; le détail se replie.
+  // Le « oui » est SECONDAIRE à liseré ambre (`.oui`) : l'ambre plein reste à « Démarrer » (une action principale par écran).
+  function rendreCoachDeLAccueil(cible, vue) {
     if (!cible) return cible;
     vider(cible);
-    if (!vue || !vue.texte) { cible.hidden = true; return cible; }
+    var v = vue || {};
+    if (v.fait && v.fait.texte) {
+      cible.hidden = false;
+      var f = el('div', 'coach-pose' + (v.fait.calme ? ' calme' : ''));
+      f.setAttribute('data-coach-pose', v.fait.calme ? 'calme' : 'fait');
+      f.appendChild(el('span', null, v.fait.texte));
+      if (v.fait.surAnnuler) {
+        var an = el('button', 'discret', 'Annuler');
+        an.type = 'button';
+        an.setAttribute('data-annuler-equilibre', '1');
+        an.addEventListener('click', function () { v.fait.surAnnuler(); });
+        f.appendChild(an);
+      }
+      cible.appendChild(f);
+      return cible;
+    }
+    var a = v.accueil;
+    if (!a || !a.carte) { cible.hidden = true; return cible; }
     cible.hidden = false;
-    var l = el('div', 'eq-ligne');
-    l.appendChild(el('span', 'eq-ligne-texte', vue.texte));
-    var b = el('button', 'discret', 'Voir mes équilibres');
-    b.type = 'button';
-    b.addEventListener('click', function () { vue.surOuvrir(); });
-    l.appendChild(b);
-    cible.appendChild(l);
+    var c = a.carte;
+    var carte = el('div', 'coach-accueil');
+    carte.setAttribute('data-equilibre', c.cle);
+    var tete = el('div', 'coach-tete');
+    tete.appendChild(el('b', 'avis-nom', a.tete));
+    var liens = el('span', 'coach-liens');
+    var replie = null;
+    if ((a.detail || []).length) {
+      replie = el('div', 'coach-detail');
+      replie.hidden = true;
+      a.detail.forEach(function (t) { replie.appendChild(el('p', 'pc-note', t)); });
+      var dt = el('button', 'coach-lien', 'Détail');
+      dt.type = 'button';
+      dt.setAttribute('aria-expanded', 'false');
+      dt.setAttribute('data-coach-detail', '1');
+      dt.addEventListener('click', function () {
+        replie.hidden = !replie.hidden;
+        dt.setAttribute('aria-expanded', replie.hidden ? 'false' : 'true');
+      });
+      liens.appendChild(dt);
+    }
+    if (a.autres > 0) {
+      var au = el('button', 'coach-lien', a.autres + (a.autres > 1 ? ' autres' : ' autre') + ' \u203a');
+      au.type = 'button';
+      au.setAttribute('data-coach-autres', String(a.autres));
+      au.addEventListener('click', function () { if (v.surAutres) v.surAutres(); });
+      liens.appendChild(au);
+    }
+    tete.appendChild(liens);
+    carte.appendChild(tete);
+    carte.appendChild(el('div', 'coach-fait', a.fait));
+    if (replie) carte.appendChild(replie);
+    var actions = el('div', 'eq-actions');
+    (c.propositions || []).forEach(function (p, i) {
+      var bt = el('button', i === 0 ? 'oui' : 'discret', p.court || p.libelle);
+      bt.type = 'button';
+      bt.setAttribute('data-proposition', p.type);
+      bt.addEventListener('click', function () { v.surProposition(c, p); });
+      actions.appendChild(bt);
+    });
+    var pm = el('button', 'discret', c.libelleRefus || 'Pas maintenant');
+    pm.type = 'button';
+    pm.setAttribute('data-pas-maintenant', c.cle);
+    pm.addEventListener('click', function () { v.surPlusTard(c); });
+    actions.appendChild(pm);
+    carte.appendChild(actions);
+    cible.appendChild(carte);
     return cible;
   }
 
@@ -2332,7 +2396,8 @@
     if (vue.mois) cible.appendChild(blocMois(vue.mois));
     if (vue.records) cible.appendChild(blocRecords(vue.records));
     var retro = [], noms = [];
-    if (vue.parcours && vue.parcours.phrase) { retro.push(blocParcours(vue.parcours)); noms.push('ton parcours'); }
+    // 16/11/2026 — la porte s'ouvre aussi quand une carte du coach parle (sans bilan de 6 mois) : « Ton parcours » garde tout.
+    if (vue.parcours && (vue.parcours.phrase || vue.parcours.cartes > 0)) { retro.push(blocParcours(vue.parcours)); noms.push('ton parcours'); }
     if (vue.annee) { retro.push(blocAnnee(vue.annee)); noms.push('ton année'); }
     if (vue.saison) { retro.push(blocSaison(vue.saison)); noms.push(vue.saison.titre); }
     if (retro.length) cible.appendChild(blocRetrospectives(retro, noms));
@@ -11296,7 +11361,7 @@
     rendreBandeauReprise: rendreBandeauReprise,
     rendreFeuilleInstaller: rendreFeuilleInstaller,
     rendreCarteSemaine: rendreCarteSemaine,
-    rendreLigneEquilibre: rendreLigneEquilibre,
+    rendreCoachDeLAccueil: rendreCoachDeLAccueil,
     rendreEquilibres: rendreEquilibres,
     rendreBonhomme: rendreBonhomme,
     rendreCarteEchelles: rendreCarteEchelles,

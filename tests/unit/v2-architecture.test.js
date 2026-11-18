@@ -729,7 +729,7 @@ const NOTIONS = [
     raison: 'MOTEUR §9.51 quater (I198, F-01) : trois formateurs de tonnes (`rendu.tonnes` : « 12 t » ; `Bilan.tonnesDuRecap` : « 12,3 t » ; `annee.tonnes` : « 123 t ») ' +
       'et deux règles d’arrondi : le bloc du mois de Progression et sa story disaient deux chiffres pour le même mois.' },
   { notion: 'un jour : « 1er nov. », « 2 nov. », avec ou sans année, nom du jour, mois long (« 1er » seulement le premier du mois)', pr: 'correctif 15/11/2026',
-    module: 'modele.js', fonction: 'jourDit', lecteurs: ['annee.js', 'importhevy.js', 'objectif.js', 'partage-image.js', 'rendu.js'],
+    module: 'modele.js', fonction: 'jourDit', lecteurs: ['annee.js', 'equilibres.js', 'importhevy.js', 'objectif.js', 'partage-image.js', 'rendu.js'],
     par: ['jourMois', 'jourCourt', 'jourNomme', 'plageDeSeance', 'quandTexte', 'jourEtMois', 'dateDeLaMedaille', 'dateCourte'],
     interditAilleurs: {
       // Le quantième d'un jour collé à un mois (`getDate() + ' '`), le « 1er » écrit à la main, un mois indexé pour écrire une date.
@@ -2351,9 +2351,42 @@ const NOTIONS = [
     par: ['cartesDesGestes'],
     raison: 'décision du 16/11/2026 : un seul décompte du « retiré à la main » et du « remplacé par le même », lu par la carte ; ' +
       'l’app ne fait que l’écrire sur un geste.' },
+  // 16/11/2026 (B) — UN décompte par groupe (exercice, rôle), la carte transversale et celle d'une routine en sont deux cas.
+  { notion: 'le décompte d’un groupe (exercice, rôle) : la fenêtre, 3 sur 4, 2 semaines civiles', pr: 'correctif 16/11/2026',
+    module: 'equilibres.js', fonction: 'decompteDuGroupe', lecteurs: [],
+    par: ['gestesRecurrents'],
+    raison: 'B : la carte transversale et la carte d’une routine comptent par la même fonction ; un second compte par routine serait un doublon.' },
+  { notion: 'l’exercice fait dans une séance (au moins une série de travail, cardio compris)', pr: 'correctif 16/11/2026',
+    module: 'equilibres.js', fonction: 'exerciceFaitDansLaSeance', lecteurs: [],
+    par: ['decompteDuGroupe', 'gestesRecurrents', 'verifierGestes'],
+    raison: 'B : le décompte lisait `slugs` (séries de musculation), la relecture `estTravail` : un tapis refait dans la séance comptait ' +
+      'comme retiré ici et fait là. Une lecture, partout.' },
+  { notion: 'le rôle d’un exercice dans sa routine (ouverture, travail, fin)', pr: 'correctif 16/11/2026',
+    module: 'routines.js', fonction: 'roleDansLaRoutine', lecteurs: ['equilibres.js'],
+    raison: 'B : les routines se regroupent par (exercice, rôle) ; le décompte et sa relecture lisent la même définition, par rapport au ' +
+      'premier et au dernier exercice de volume (`estFinition`).' },
+  { notion: 'la signature de ce qu’un geste a écrit dans une routine (« Annuler » ne touche qu’une routine inchangée)', pr: 'correctif 16/11/2026',
+    module: 'routines.js', fonction: 'signatureDesExercices', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['repondreAuGesteUneFois'] },
+    raison: 'I219 : « Annuler » réécrivait la routine d’avant même modifiée depuis ailleurs.' },
+  // 16/11/2026 — « Le coach te dit » sur l'accueil (I214, I215) : UNE fonction choisit la carte ; l'écran lit.
+  { notion: 'la carte du coach sur l’accueil (une, la même que dans « Ton parcours »)', pr: 'correctif 16/11/2026',
+    module: 'equilibres.js', fonction: 'carteDeLAccueil', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['rendreCoachDeLAccueil'] },
+    raison: 'la ligne « Voir mes équilibres » de l’accueil lisait sa carte à part (la première carte d’équilibre) : l’accueil et « Ton ' +
+      'parcours » pouvaient parler de deux choses. Une fonction choisit (une par jour, rien en séance ni en carnet), l’app donne le contexte.' },
+  { notion: 'la réponse DATÉE à un geste de la routine (« une carte par jour » la lit)', pr: 'correctif 16/11/2026',
+    module: 'equilibres.js', fonction: 'reponseAuGesteDatee', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['repondreAuGesteUneFois'] },
+    raison: 'un geste répondu n’écrivait aucune date : l’accueil aurait montré une autre carte le même jour.' },
+  { notion: 'la fin du silence après « Pas maintenant » (sa date absolue)', pr: 'correctif 16/11/2026',
+    module: 'equilibres.js', fonction: 'phraseDuSilence', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['pasMaintenantEquilibre'] },
+    raison: 'la date dite est celle où la carte revient : la même règle (`silenceDe`, doublé au 2ᵉ refus) que le silence de `analyser`.' },
   { notion: 'les réponses aux cartes des gestes de la routine (`geste_routine`)', pr: 'correctif 16/11/2026',
     module: 'equilibres.js', fonction: 'reponseAuGeste', lecteurs: ['app.js'],
-    parAilleurs: { 'app.js': ['repondreAuGesteUneFois', 'effacerUnRetenu'] },
+    par: ['reponseAuGesteDatee'],
+    parAilleurs: { 'app.js': ['effacerUnRetenu'] },
     raison: 'la carte, son « Garder », « Annuler » et « Ce que le coach a retenu » écrivent la même forme : une seule fonction rend ' +
       'la valeur de `cartes_semaine`.' },
 ];

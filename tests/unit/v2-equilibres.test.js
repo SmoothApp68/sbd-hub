@@ -400,7 +400,7 @@ describe('le réglage décide QUAND le coach parle, jamais ce qu’il constate',
     const a = Eq.analyser(trois({ intention: 'entretien', reglage: 'franc' }));
     expect(a.etat).toBe('carnet');
     expect(a.cartes).toEqual([]);
-    expect(a.ligne).toBeNull();
+    expect(Eq.carteDeLAccueil(a, {}, '2026-10-28', { routinesPretes: true })).toBeNull();   // 16/11/2026 : la ligne n'existe plus
     expect(a.constats.length).toBeGreaterThan(0);
     expect(constat(a, 'tp-horizontal').fait).toBe('1 série de tirage pour 8 de poussée.');
   });

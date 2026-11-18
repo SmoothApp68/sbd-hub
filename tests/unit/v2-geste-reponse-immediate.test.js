@@ -33,6 +33,7 @@ function banc(options) {
     faitEquilibre: null, memoEquilibres: 'memo',
     reponsesDesCartes: () => ({}),
     Moteur: { jourCivil: () => '2026-11-18' },
+    Modele: { enumerer: (l) => l.join(', ') },
     Routines: {
       retraitDExercice: (r, slug) => r.exercices.filter((x) => x.exercise_slug !== slug),
       signatureDesExercices: (ex) => ex.map((x) => x.exercise_slug).join(','),

@@ -1871,7 +1871,7 @@
         try { await poserProfil({ cartes_semaine: avantReponses }); } catch (e3) { console.warn('Réponses non rendues :', texteErreur(e3)); }
       };
       return rendre().then(function () {
-        var qui = noms.length ? noms.map(function (n) { return '\u00ab\u00a0' + n + '\u00a0\u00bb'; }).join(' et ') : 'ta routine';
+        var qui = noms.length ? Modele.enumerer(noms.map(function (n) { return '\u00ab\u00a0' + n + '\u00a0\u00bb'; })) : 'ta routine';
         faitEquilibre = { texte: 'Je n\u2019ai pas pu modifier ' + qui + '.', libelleBouton: 'Revoir la carte',
           surAnnuler: function () { faitEquilibre = null; memoEquilibres = null; repeindreLesEquilibres(); } };
         memoEquilibres = null;

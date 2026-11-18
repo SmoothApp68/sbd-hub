@@ -2100,11 +2100,14 @@
   }
   function faitsDe(faits, s) { return possede(faits, s) ? Number(faits[s]) || 0 : 0; }
   // La marche d'une échelle : `{ slug, depart }` ou `null`. Un exercice écarté ou impossible (barre) descend d'un rang.
-  function marcheDeLaPersonne(catalogue, echelle, faits, departs, ecartes, ok) {
+  // 16/11/2026 (« Essayer la marche ») — `tenues` (`faits.marchesTenues`, l'entrée `marches_tenues`) : une marche n'est ACQUISE
+  // que tenue (`Moteur.marcheTenue`) ; un essai raté ne fait pas monter le programme. Sans l'entrée (un appelant d'avant) : les faits.
+  function marcheDeLaPersonne(catalogue, echelle, faits, departs, ecartes, ok, tenues) {
     var Mo = racine.THModele;
     var rungs = marchesDeLEchelle(catalogue, echelle);
     var libre = function (s) { return !contient(ecartes, s) && ok(s); };
-    var tienne = rungs.filter(function (f) { return faitsDe(faits, f.slug) > 0 && libre(f.slug); })
+    var acquises = tenues && typeof tenues === 'object' ? tenues : faits;
+    var tienne = rungs.filter(function (f) { return faitsDe(acquises, f.slug) > 0 && libre(f.slug); })
       .sort(function (a, b) { return Mo.rangDeLEchelle(b) - Mo.rangDeLEchelle(a) || faitsDe(faits, b.slug) - faitsDe(faits, a.slug); })[0];
     if (tienne) return { slug: tienne.slug, depart: false };
     var d = liste(departs).filter(function (s) { return possede(catalogue, s) && libre(s); })[0];
@@ -2140,7 +2143,7 @@
         var echelle = m[1];
         var dep = echelle === 'tractions' ? departs.tractions : echelle === 'pompes' ? departs.pompes : echelle === 'dips_torse' ? departs.dips
           : echelle === 'squat_poids_du_corps' ? departs.jambes : [];
-        var mc = marcheDeLaPersonne(catalogue, echelle, faits, dep, ecartes, ok);
+        var mc = marcheDeLaPersonne(catalogue, echelle, faits, dep, ecartes, ok, p.marches_tenues);
         if (mc) marches[m[0]] = mc;
         // « tractions 3 × 3-5 plus des négatives » : la marche de départ qui en porte deux, la seconde en complément
         if (mc && mc.depart && dep.length > 1 && dep[0] === mc.slug) {

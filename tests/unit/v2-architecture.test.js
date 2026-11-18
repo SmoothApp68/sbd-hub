@@ -1873,6 +1873,10 @@ const NOTIONS = [
     par: ['consigneSansPlafond', 'carteMarcheDecidee', 'phraseDeLaSuivante', 'rondsDeLaSuivante'],
     raison: 'MOTEUR §9.17 et §9.17 bis (21/10/2026) : la carte du lest, la carte « marche suivante », la phrase de la page ' +
       'et les invariants I49 et I50 lisent le même seuil, écrit une fois (`SEUIL_MARCHE`).' },
+  { notion: 'la marche tenue (chaque série de travail faite, au moins 2, à au moins max(3, min(5, bas)) reps)', pr: 'correctif 16/11/2026',
+    module: 'moteur.js', fonction: 'marcheTenue', lecteurs: ['faits.js'],
+    raison: 'MOTEUR §9.17 bis (delta du 16/11/2026) : la carte de fin de séance (`finDeLaMarche`, par le plan) et le générateur ' +
+      '(`faits.marchesTenues`) lisent la même tenue, écrite une fois : un essai raté ne fait ni changer la routine ni monter le programme.' },
   { notion: 'la marche suivante d’un exercice d’échelle (`echelle`, `echelle_rang` au catalogue)', pr: '127-U1',
     module: 'modele.js', fonction: 'marcheSuivante', lecteurs: ['app.js'],
     par: ['vueEchelle'],

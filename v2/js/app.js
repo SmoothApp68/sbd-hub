@@ -5301,6 +5301,11 @@
     // séance (elle n'est pas encore dans le cache) contre l'état avec elle. Après l'adoption, « avant »
     // la contiendrait déjà, et l'apport serait nul.
     var jeuDuRecap = jeuDeLaFeuille();
+    // 16/11/2026 (« Essayer la marche ») — les cartes de fin lues sur le plan AVANT de terminer (le plan d'une séance terminée n'en a plus).
+    var finsMarche = finsDeMarcheDuPlan();
+    finsMarche.forEach(function (f) {
+      if (finsDeMarcheVoulues[cleDeFinDeMarche(f)] === true) seance = Seance.noterGeste(seance, { geste: 'marche_routine', slug: f.depart, vers: f.vers });
+    });
     seance = Seance.terminer(seance, fin || new Date());
     await sauverSeance();
     await poserSeries();
@@ -5318,6 +5323,9 @@
     // séance : la séance ne dépend pas de lui, et l'ordre de la file le dit.
     if (majRoutineVoulue) await reporterSurRoutine(verdict);
     majRoutineVoulue = false;
+    // 16/11/2026 — « Oui, dans <routine> » (la carte de fin d'une marche tenue) : APRÈS le report, sur la routine telle qu'il l'a laissée.
+    await appliquerFinDeMarche(routineDeLaSeance(), finsMarche);
+    finsDeMarcheVoulues = {};
     var finie = seance;
     // La séance rejoint la liste TOUT DE SUITE, sans attendre le réseau : hors
     // ligne, elle serait sinon invisible entre « terminée » et « montée ».
@@ -8320,6 +8328,9 @@
     // et la nature de sa cible, l'aide, et la date de la dernière séance de la cible (`faits.datesDesExercices`).
     var echelles = {};
     var datesFaites = null;
+    // 16/11/2026 (« Essayer la marche ») — la marche déjà dans la routine de la séance : pas de carte (un fait ; le plan décide).
+    var routineE = routineDeLaSeance();
+    var slugsRoutineE = ((routineE && routineE.exercices) || []).map(function (l) { return l && l.exercise_slug; });
     exos.forEach(function (x) {
       var slug = x && x.exercise_slug;
       if (!slug || Object.prototype.hasOwnProperty.call(echelles, slug) || !index[slug]) return;
@@ -8329,7 +8340,8 @@
       var c = index[m.cible[0]] || {};
       echelles[slug] = { marche: m, nomCible: c.nom || m.cible[0], aide: index[slug].charge === 'assistance',
                          cibleHabilete: c.nature ? c.nature === 'habilete' : c.habilete === true,
-                         cibleFaiteLe: datesFaites[m.cible[0]] || null };
+                         cibleFaiteLe: datesFaites[m.cible[0]] || null,
+                         dansLaRoutine: (m.cible || []).some(function (t) { return slugsRoutineE.indexOf(t) >= 0; }) };
     });
     // 149 (MOTEUR §9.17 ter) — LES FIGURES : pour chaque exercice d'une échelle de figures (marches en secondes, lues
     // au catalogue), la tenue max de chaque séance faite (`faits.tenuesDeLExercice`, la plus récente en dernier), le nom
@@ -8403,6 +8415,9 @@
       echelles: echelles,
       figures: figures,
       marcheReponses: marcheReponsesDe(),
+      // 16/11/2026 (« Essayer la marche ») — la routine de la séance est-elle MANUELLE (hors du dossier du programme construit
+      // par le coach) ? Son nom. Le plan décide de la carte de fin (I221) ; l'app ne fait que lire.
+      essaisDeMarche: essaisDeMarcheDesEntrees(),
       // MOTEUR §17.2 bis (78) — le passé de chaque exercice, figé : le plan décide de la question de réserve.
       reserve: reserveDeLaSeance(),
       // MOTEUR §9.22 (53-2) — les blocs des programmes (la décharge planifiée,
@@ -9613,6 +9628,9 @@
     // 175 — `carteLest` : la réponse vient de la carte du lest (la variante sans matériel), pas de la carte « marche suivante ».
     var carte = carteLest || (x && x.carteMarche);
     if (!carte) return;
+    // 16/11/2026 (« Essayer la marche ») — la carte en reps : « Essayer » REMPLACE les séries restantes (`essayerLaMarche`),
+    // sans rien écrire au profil. Le chemin du lest (la variante, 175) et les figures en secondes gardent l'ajout d'avant.
+    if (!carteLest && carte.essai === true && reponse === 'oui') return essayerLaMarche(iExo, x, carte);
     var oui = reponse === 'oui';
     var slug = x.slug;
     var r = oui ? { r: 'oui', le: new Date().toISOString() } : { r: 'non', le: new Date().toISOString() };
@@ -9643,6 +9661,95 @@
       return;
     }
     if (seance) rendreSeance();
+  }
+
+  // ══ 16/11/2026 — ESSAYER LA MARCHE (MOTEUR §9.17 bis, delta du 16/11/2026 ; I49, I220 à I222) ═══════════════════════
+  //
+  // « Essayer <marche> » : la marche prend la place des séries restantes du départ (`Seance.essayerMarche`, le geste de
+  // « Remplacer », marqué `essai_marche`), RIEN au profil (la contrainte de `marche_reponses` n'accepte que oui/non : la carte
+  // peut revenir par la règle des 28 jours), un geste `marche_essayee`. Puis, sur la marche, ce que le plan dit
+  // (`x.essaiMarche`) : « Annuler » (le départ revient tel quel), le repli (« Remettre <départ> » / « Continuer »). La routine
+  // ne change qu'à la fin, marche tenue, sur « Oui, dans <routine> » (`appliquerFinDeMarche`).
+  async function essayerLaMarche(iExo, x, carte) {
+    if (!seance || demoEscalier()) { if (seance) rendreSeance(); return; }
+    var depart = x.slug;
+    var cible = carte.cible;
+    heriterRoutine(iExo, cible);
+    seance = Seance.essayerMarche(seance, iExo, cible, uuid, { bas: typeof carte.bas === 'number' ? carte.bas : null,
+      nomDepart: carte.nomDepart || null });
+    seance = Seance.noterGeste(seance, { geste: 'marche_essayee', slug: depart, vers: cible });
+    await apresStructure();
+  }
+  function indexDeLaMarche(iExo) {
+    var exo = seance && (seance.exercices || [])[iExo];
+    return exo && exo.essai_marche ? iExo : -1;
+  }
+  async function repondreEssaiMarche(iExo, cle) {
+    if (!seance || enEdition() || reponseEnCours) return;
+    var iM = indexDeLaMarche(iExo);
+    if (iM < 0) return;
+    var x = planDeLExercice(iM);
+    var ex = x && x.essaiMarche;
+    if (!ex) return;
+    var em = seance.exercices[iM].essai_marche;
+    var trace = { slug: em.depart, vers: seance.exercices[iM].exercise_slug };
+    if (cle === 'annuler' && ex.annuler) {
+      seance = Seance.annulerEssaiMarche(seance, iM);
+      seance = Seance.noterGeste(seance, Object.assign({ geste: 'marche_annulee' }, trace));
+      return apresStructure();
+    }
+    if (cle === 'remettre' && ex.repli) {
+      seance = Seance.remettreDepartApresMarche(seance, iM, uuid);
+      seance = Seance.noterGeste(seance, Object.assign({ geste: 'marche_remise' }, trace));
+      return apresStructure();
+    }
+    if (cle === 'continuer' && ex.repli) {
+      seance = Seance.continuerMarche(seance, iM);
+      seance = Seance.noterGeste(seance, Object.assign({ geste: 'marche_continuee' }, trace));
+      return apresGeste();
+    }
+  }
+  // La routine de la séance est manuelle : elle existe et n'est pas dans le dossier du programme construit par le coach.
+  function essaisDeMarcheDesEntrees() {
+    var rt = routineDeLaSeance();
+    if (!rt) return { manuelle: false, routine: null };
+    var dossierCoach = Profil.dossierDuProgrammeValide((profil || {}).programme_construit_dossier);
+    var duCoach = !!dossierCoach && Routines.dossierPropre(rt.dossier) === dossierCoach;
+    return { manuelle: !duCoach, routine: rt.nom || '' };
+  }
+  // Les cartes de fin du plan (une par marche tenue) : `[{ iExo, depart, vers, texte, oui, non }]`.
+  var finsDeMarcheVoulues = {};
+  function finsDeMarcheDuPlan() {
+    var p = planActuel();
+    return ((p && p.exercices) || []).filter(function (x) { return x && x.essaiMarche && x.essaiMarche.fin; }).map(function (x) {
+      return { iExo: x.iExo, depart: x.essaiMarche.depart, vers: x.slug, texte: x.essaiMarche.fin.texte,
+               oui: x.essaiMarche.fin.oui, non: x.essaiMarche.fin.non };
+    });
+  }
+  // « Oui, dans <routine> » : la marche remplace le départ dans la routine (le geste de « Remplacer » de l'éditeur, la zone de
+  // la ligne remise à null — I79), par la file (`poserRoutineVoulue`) ; et seulement là `marche_reponses[départ] = oui`.
+  // La routine telle que le report de fin de séance l'a laissée (`poserRoutineVoulue` la tient à jour en mémoire).
+  // La clé porte la séance : un choix d'une séance abandonnée ne vaut jamais pour une autre.
+  function cleDeFinDeMarche(f) { return (seance && seance.id) + '|' + f.vers + '|' + f.depart; }
+  async function appliquerFinDeMarche(routine, finsDuPlan) {
+    var fins = (finsDuPlan || []).filter(function (f) { return finsDeMarcheVoulues[cleDeFinDeMarche(f)] === true; });
+    if (!routine || !fins.length || demoEscalier()) return;
+    var voulues = (routine.exercices || []).slice();
+    var faites = [];
+    fins.forEach(function (f) {
+      var j = -1;
+      for (var k = 0; k < voulues.length && j < 0; k++) if (voulues[k] && voulues[k].exercise_slug === f.depart) j = k;
+      if (j < 0) return;
+      voulues[j] = Object.assign(Routines.exerciceRemplace(voulues[j], f.vers, mesuresDuRemplacement(f.depart, f.vers)),
+        { id: uuid(), note: null, zone: null });
+      faites.push(f);
+    });
+    if (!faites.length) return;
+    await poserRoutineVoulue(routine, voulues);
+    var toutes = Object.assign({}, (profil && profil.marche_reponses && typeof profil.marche_reponses === 'object' &&
+      !Array.isArray(profil.marche_reponses)) ? profil.marche_reponses : {});
+    faites.forEach(function (f) { toutes[f.depart] = { r: 'oui', le: new Date().toISOString() }; });
+    await poserProfil({ marche_reponses: toutes });
   }
 
   // MOTEUR §9.20 (51-3) — LA CARTE DE REPRISE, après une séance douloureuse.
@@ -11175,6 +11282,13 @@
         return x && x.carteMarche ? x.carteMarche : null;
       },
       surMarche: function (i, reponse) { return repondreMarche(i, reponse); },
+      // 16/11/2026 (« Essayer la marche ») — sur la marche essayée : « C'est fait … » et « Annuler », puis le repli.
+      essaiMarche: function (i) {
+        if (enEdition()) return null;
+        var x = planDeLExercice(i);
+        return x && x.essaiMarche && (x.essaiMarche.texte || x.essaiMarche.repli) ? x.essaiMarche : null;
+      },
+      surEssaiMarche: function (i, cle) { return repondreEssaiMarche(i, cle); },
       // MOTEUR §9.20 (51-3) — la carte de reprise : lue sur le plan ; ses trois
       // gestes passent par les mécanismes existants.
       propositionReprise: function (i) {
@@ -12646,6 +12760,13 @@
       }),
       majRoutine: majRoutineVoulue,
       surMajRoutine: function (v) { majRoutineVoulue = v; rendreFeuille(); },
+      // 16/11/2026 (« Essayer la marche ») — la carte de fin d'une marche tenue : « Oui, dans <routine> » / « Juste aujourd'hui »
+      // (le défaut : rien n'est écrit). Le choix s'applique à « Terminer ».
+      finsMarche: finsDeMarcheDuPlan().map(function (f) {
+        var cle = cleDeFinDeMarche(f);
+        return { texte: f.texte, oui: f.oui, non: f.non, choisi: finsDeMarcheVoulues[cle] === true,
+                 surChoix: function (v) { finsDeMarcheVoulues[cle] = v === true; rendreFeuille(); } };
+      }),
       // Les trois champs déclarés n'écrivent que le brouillon : la ligne de
       // séance part entière au moment de terminer. Poser la file à chaque
       // frappe d'un titre n'apporterait rien — la séance est déjà montée.
@@ -15851,6 +15972,8 @@
       menager: Profil.zonesAMenagerValides(p.zones_a_menager) || [],
       ecartes: Profil.ecartesValides(p.exercices_ecartes) || [],
       faits: faits.historiqueDesExercices(corpus()),
+      // 16/11/2026 (« Essayer la marche ») — une marche n'est acquise que TENUE (`faits.marchesTenues`).
+      marches_tenues: faits.marchesTenues(corpus()),
       depart_calisthenie: p.depart_calisthenie || null,   // 195 : les quatre chiffres du questionnaire
       // 199 (MOTEUR §9.37) — les jours de cardio réguliers (lundi = 0), lus dans les séances : rien n'est demandé.
       cardioJours: cardioReguliers().jours,

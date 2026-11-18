@@ -1771,7 +1771,8 @@
     //     `{ charge, reps, date }`, ou `null` ;
     //   · `semaines` : les semaines (lundi → dimanche, heure locale) des 26
     //     dernières semaines qui ont une série de travail de la barre — de 0 à 26 ;
-    //   · `lourdes` : ses séries de travail de 1 à 6 reps sur ces 26 semaines ;
+    //   · `lourdes` : ses séries de travail de 5 reps ou moins sur ces 26 semaines (`Modele.estSerieLourde`, la table unique des
+    //     coupures de reps — avant la PR D de « zones de reps », 6 ; mesuré : 6 reps = 12 à 36 % des séries à la barre selon le compte) ;
     //   · `variantes` : les séries de travail, sur ces 26 semaines, des variantes
     //     À LA BARRE — même `mouvement`, `equipement = 'barre'`, autre exercice :
     //     ses frères (`Modele.freresDe`) à la barre.
@@ -1785,7 +1786,7 @@
     // `lourdes` et `variantes` la lisent toutes les trois.
     // `aujourdhui` : passé (jamais l'horloge).
     var BARRES_DU_BILAN = Modele.BARRES;   // les quatre barres, dans l'ordre de la spec (`THModele`, 124)
-    var JOURS_RECENTS = 28, SEMAINES_DU_BILAN = 26, REPS_LOURDES_MAX = 6;
+    var JOURS_RECENTS = 28, SEMAINES_DU_BILAN = 26;
     function barresDuBilan(c, aujourdhui) {
       var index = c.catalogue() || {};
       var recente = Periode.fenetres(JOURS_RECENTS, aujourdhui).courante;
@@ -1828,7 +1829,7 @@
           if (!Periode.dans(t.debut, bilan)) return;
           semaines[Semaine.bornesSemaine(t.debut).lundi.getTime()] = true;
           var reps = nombre(t.serie, 'reps');
-          if (reps !== null && reps >= 1 && reps <= REPS_LOURDES_MAX) lourdes++;
+          if (Modele.estSerieLourde(reps)) lourdes++;   // la table unique des coupures (MOTEUR §9.51 quinquies) : 5 reps ou moins
         });
 
         // Les variantes à la barre : ses frères (`Modele.freresDe`, la seule lecture de `mouvement`) à la barre.

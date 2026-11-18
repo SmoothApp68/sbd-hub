@@ -2817,7 +2817,7 @@ La bulle d'un point : « Le 18 sept. 2025 · 200 kg × 5 · force estimée 233 k
 
 **4. Ce qui ne bouge pas.** `ZONES`, `RANGEMENT`, `ZONES_FORCE`, le générateur (ses cibles 5/7/9/12/15 sont des cibles, pas des zones), les phrases du coach, l'invariant I75 (même valeur 5). Aucun écran ne change : la PR A ne branche aucun lecteur.
 
-**5. La garde (registre `NOTIONS`, `interditAilleurs`).** Aucun fichier hors `modele.js` n'écrit `REPS_LOURDES_MAX`, `ZONES_DE_REPS`, `hautMax`/`lourdMax`/`milieuMax`, ni une comparaison `reps`/`rp` contre 5, 6, 8, 9, 12 ou 13. Trois exceptions nommées, chacune avec sa raison et retirée par la PR qui câble son lecteur : `plan.js` (PR B, même valeur), `bilans.js` (PR C, bilan à quatre bandes, maquette validée avant le code), `faits.js` (PR D, **6 → 5 à décider par Aurélien après lecture des données réelles** ; seul écart de valeur). Une exception qui ne sert plus fait échouer la garde (§9.51 quater, test 75).
+**5. La garde (registre `NOTIONS`, `interditAilleurs`).** Aucun fichier hors `modele.js` n'écrit `REPS_LOURDES_MAX`, `ZONES_DE_REPS`, `hautMax`/`lourdMax`/`milieuMax`, ni une comparaison `reps`/`rp` contre 5, 6, 8, 9, 12 ou 13. Trois exceptions nommées, chacune avec sa raison et retirée par la PR qui câble son lecteur : `plan.js` (PR B, même valeur), `bilans.js` (PR C, bilan à quatre bandes, maquette validée avant le code), `faits.js` (PR D, 6 → 5, **faite le 18/11/2026**, §9.51 septies : la liste blanche est vide). Une exception qui ne sert plus fait échouer la garde (§9.51 quater, test 75).
 
 **6. Dette, dite.** Les autres coupures de reps du moteur (`allegerForce`, `haut <= 5`, la phrase « force / mixte » de moteur.js:613, I-numérotés du plan) restent des décisions du coach, hors de cette table ; la garde ne couvre que la DESCRIPTION. Aucun nouvel invariant `I` : le lien est un test, pas une règle de `verifierPlan`.
 
@@ -2829,7 +2829,7 @@ La bulle d'un point : « Le 18 sept. 2025 · 200 kg × 5 · force estimée 233 k
 
 **3. Le titre.** « Surtout muscle, 9 à 12 reps. » : la bande la plus fournie, SEULE en tête (comptée en séries, non en pourcents arrondis). À égalité de séries en tête : « À égalité : 6 à 8 reps et 9 à 12 reps. », un fait sans « plutôt ». Plus de « Plutôt … que … », plus de « Plutôt entre les deux ».
 
-**4. Ce qui ne bouge pas.** Les bornes (5 · 8 · 12), `ZONES`, `RANGEMENT`, le coach. **Dette.** La fiche d'une barre (`faits.js`, « séries lourdes », seuil 6) est la PR D ; son libellé « séries à 5 reps ou moins » y arrive avec elle (rien de tel dans le texte du bilan). Aucun nouvel invariant `I` : la garde `NOTIONS` (plus aucune exception pour `bilans.js`) et les tests de `v2-bilans` / `v2-annee-ecrans` suffisent.
+**4. Ce qui ne bouge pas.** Les bornes (5 · 8 · 12), `ZONES`, `RANGEMENT`, le coach. **Dette.** La fiche d'une barre (`faits.js`, « séries lourdes », seuil 6) était la PR D : faite (§9.51 septies). Aucun nouvel invariant `I` : la garde `NOTIONS` (plus aucune exception pour `bilans.js`) et les tests de `v2-bilans` / `v2-annee-ecrans` suffisent.
 
 ### 12.1 Ce que le compteur déclenche — et ce qu'il ne déclenche pas
 
@@ -4070,3 +4070,13 @@ Mesures : `mesure_escalier49.py`, `mesure_escalier49_contexte.py`, `mesure_escal
 - Izquierdo M. et al. (2007) — perte de force après 4 semaines d'arrêt chez des entraînés
 - Mujika I. & Padilla S. (2000). *Sports Medicine* — désentraînement (Partie II pour la perte qui s’accélère après 4 semaines)
 - Moesgaard L. et al. (2022). *Sports Medicine* — périodisation, force et hypertrophie à volume égal
+
+### 9.51 septies La fiche d'une barre lit la table unique : « série lourde » = 5 reps ou moins — décidé le 16/11/2026, fait le 18/11/2026 (PR D ; tour de table « zones de reps » + contradicteur à froid)
+
+**1. Ce qui change.** `faits.barresDuBilan(…).lourdes` (la fiche d'une barre, « …, N séries lourdes ») compte les séries de travail à **5 reps ou moins** (`Modele.estSerieLourde`), plus à 6 ou moins. `REPS_LOURDES_MAX` disparaît de `faits.js` : la liste blanche de la garde `NOTIONS` (`interditAilleurs`) est vide, plus aucune copie d'un seuil de reps hors `modele.js`.
+
+**2. Effet mesuré (lecture seule, 16/11/2026).** Les séries à 6 reps sont 4,2 % de toutes les séries de travail, mais 12 à 36 % des séries à 6 reps ou moins sur les barres selon le compte (échantillons petits hors deux comptes) : le compteur de la fiche baisse d'autant, et la phrase disparaît à 0 (`if (b.lourdes)`, `generateur.js`). Un 4×6 de développé militaire ou de soulevé ne compte plus « lourd » : c'est la zone Lourd du coach (3 à 5 reps), pas une zone à 6.
+
+**3. Ce qui ne bouge pas.** Le libellé reste « séries lourdes » (aucun mot nouveau sans maquette validée) ; le coach ne lit pas ce compteur (aucune décision, aucune carte, aucun invariant `I`) ; `ZONES`, `RANGEMENT`, le bilan à quatre bandes.
+
+**4. Noté, pas fait.** Séparer les barres des accessoires dans le profil (idée évaluée le 16/11 et ANNULÉE par Aurélien : « on ne fait ça que si c'est parfait »).

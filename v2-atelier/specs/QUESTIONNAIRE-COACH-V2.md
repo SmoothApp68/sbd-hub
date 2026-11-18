@@ -347,7 +347,7 @@ Pour chacune des quatre barres (`squat_barre`, `developpe_couche_barre`, `soulev
   182 jours en touche 27 sauf un dimanche). `semaines`, `lourdes` et `variantes` la lisent toutes les trois.
 - `semaines` : le nombre de semaines (lundi → dimanche, heure locale) **des 26 dernières semaines**, de 0 à 26, qui ont au moins une
   série de travail de la barre ;
-- `lourdes` : ses séries de travail de **1 à 6 reps** sur les 26 dernières semaines ;
+- `lourdes` : ses séries de travail de **5 reps ou moins** sur les 26 dernières semaines (`Modele.estSerieLourde` ; 1 à 6 reps avant la PR D de « zones de reps », 18/11/2026) ;
 - `variantes` : les séries de travail, sur les 26 dernières semaines, des **variantes à la barre** — ses frères
   (`Modele.freresDe`, la seule lecture de `mouvement`) dont l'équipement est la barre : même `mouvement`,
   `equipement = 'barre'`, autre exercice (le squat avec pause pour le squat, le spoto pour le couché).

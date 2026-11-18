@@ -3314,6 +3314,9 @@ button[id^="btn-retour"]{padding:0 14px;font-size:15px}
 .habituelle-saisie{display:flex;align-items:center;gap:var(--e2);margin:var(--e2) 0}
 .habituelle-unite{color:var(--texte-2)}
 .habituelle-ok,.habituelle-passer{min-height:44px}
+/* 18/11 — « Partir de là » (12 car.) : le bouton garde sa largeur, c'est le champ de charge qui cède, jamais l'inverse. */
+.habituelle-ok{flex:0 0 auto;width:auto;white-space:nowrap;padding-inline:var(--e3)}
+.habituelle-champ{flex:1 1 0;min-width:0}
 
 /* 205 — la feuille « Disques » (maquette-disques-v1) et la grande charge qui s'y touche */
 .c-charge-disques{border-bottom:2px dotted var(--accent);cursor:pointer}

@@ -4073,7 +4073,7 @@
     var ligne = el('div', 'habituelle-saisie');
     ligne.appendChild(champ);
     ligne.appendChild(el('span', 'habituelle-unite', 'kg'));
-    var ok = el('button', 'principal habituelle-ok', 'Valider');
+    var ok = el('button', 'principal habituelle-ok', 'Partir de là');
     ok.type = 'button';
     ok.addEventListener('click', function () { hab.surValider(champ.value); });
     ligne.appendChild(ok);

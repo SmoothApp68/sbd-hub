@@ -162,7 +162,7 @@ describe('175 / 1 — la carte du lest propose les deux', () => {
     const plan = T.planDeSeance(e);
     const x = plan.exercices[0];
     expect(x.carteLest).toBeNull();
-    expect(x.carteMarche).toMatchObject({ cible: 'pompes_declinees', nom: 'Pompes Déclinées', oui: 'Ajouter Pompes Déclinées',
+    expect(x.carteMarche).toMatchObject({ cible: 'pompes_declinees', nom: 'Pompes Déclinées', oui: 'Essayer Pompes Déclinées',
       non: 'Pas maintenant', type: 'marche', proposable: true });
     expect(esp(x.carteMarche.titre)).toBe('12 reps sur toutes tes séries, deux séances de suite.');
     expect(erreurs(plan, e)).toEqual([]);
@@ -186,7 +186,7 @@ describe('175 / 1 — « Ton échelle » dit aussi la variante', () => {
   });
   test('le lest refusé : la variante seule, qui s’ajoute', () => {
     const v = Mo.vueEchelle(INDEX, 'pompes', faites, { pompes: 12 }, true, M.phraseDeLaSuivante, { lestRefuse: true });
-    expect(v.phrase).toMatch(/^La suivante : Pompes Déclinées\. Je te la propose quand tu tiens 12 reps.* Elle s'ajoute : tu gardes Pompes\.$/);
+    expect(v.phrase).toMatch(/^La suivante : Pompes Déclinées\. Je te la propose quand tu tiens 12 reps.* Je la mets à la place de tes séries restantes de Pompes, pour essayer : ta routine ne change pas\.$/);
   });
   test('tractions : la phrase d’avant, sans variante', () => {
     const f = { tractions: { meilleur: null, quand: null, derniere: AVANT } };

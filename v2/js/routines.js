@@ -881,6 +881,25 @@
     return renumeroter(exercices);
   }
 
+  // 16/11/2026 (MOTEUR §9.27 quater) — LE RETRAIT D'UN EXERCICE ENTIER (« la routine apprend de tes gestes ») : l'exercice
+  // au slug `slug` quitte la routine ; `report` (facultatif, `{ vers, ajout }`) ajoute `ajout` séries de plus à l'exercice
+  // `vers`, chacune une copie de sa dernière série de travail (`ajoutDeSerie` : la même charge, la ligne « Au max » reste la
+  // dernière). Les supersets se relisent de la nouvelle adjacence (`renumeroter`) : un groupe tombé à un seul exercice se
+  // dissout. Exercice absent, remplaçant absent ou sans série de travail : `null` (rien à écrire). Une copie, toujours.
+  function retraitDExercice(routine, slug, report) {
+    var base = { exercices: ((routine && routine.exercices) || []).map(copieExercice) };
+    if (indexDuSlug(base.exercices, slug) < 0) return null;
+    if (report) {
+      if (!report.vers || report.vers === slug || !(report.ajout >= 1)) return null;
+      for (var k = 0; k < Math.floor(report.ajout); k++) {
+        var plus = ajoutDeSerie(base, report.vers);
+        if (!plus) return null;
+        base = { exercices: plus };
+      }
+    }
+    return renumeroter(base.exercices.filter(function (x) { return !x || x.exercise_slug !== slug; }));
+  }
+
   // 193-6 (MOTEUR §9.30) — « Oui, dans ma routine » : la dernière série de travail ou de recul de l'exercice porte la marque « Au max »
   // (une seule : les autres la perdent). Le chemin des routines (`poserRoutineVoulue`), jamais une écriture directe. `null` : exercice
   // absent ou sans série de travail.
@@ -2268,6 +2287,7 @@
     ajoutDExercice: ajoutDExercice,
     placeDAjout: placeDAjout,
     ajoutDeSerie: ajoutDeSerie,
+    retraitDExercice: retraitDExercice,
     marquerAuMax: marquerAuMax,
     renumeroter: renumeroter,
     retraitDeSeries: retraitDeSeries,

@@ -52,4 +52,22 @@ describe('rechargement automatique sur l\'entrée', () => {
     expect(src).toMatch(/montrerBandeauMaj\(\);\s*rechargerSiEntree\(\);/);
     expect(src).toMatch(/setItem\(CLE_MAJ_AUTO[\s\S]{0,200}location\.reload\(\)/);
   });
+  test('app.js : sans stockage de session, aucun rechargement (la garde d\'une minute ne peut pas être posée)', () => {
+    const src = fs.readFileSync(path.join(V2, 'js/app.js'), 'utf8');
+    const m = src.match(/function rechargerSiEntree\(\) \{[\s\S]*?\n  \}\n/);
+    expect(m).not.toBeNull();
+    const lancer = (st) => {
+      let rechargements = 0;
+      const el = (v) => ({ hidden: false, value: v || '' });
+      const f = new Function('$', 'stockageSur', 'doc', 'sessionActive', 'Auth', 'racine', 'CLE_MAJ_AUTO',
+        m[0] + '; return rechargerSiEntree;')(
+        () => el(''), () => st, { activeElement: null }, false,
+        { rechargerSurEntree: () => true }, { location: { reload: () => { rechargements++; } } }, 'th-v2-maj-auto');
+      f();
+      return rechargements;
+    };
+    expect(lancer(null)).toBe(0);
+    expect(lancer({ getItem: () => null, setItem: () => { throw new Error('plein'); } })).toBe(0);
+    expect(lancer({ getItem: () => null, setItem: () => {} })).toBe(1);
+  });
 });

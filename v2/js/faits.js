@@ -1329,6 +1329,29 @@
       return compte;
     }
 
+    // 16/11/2026 (« Essayer la marche », MOTEUR §9.17 bis delta) — LES MARCHES TENUES : pour chaque exercice, le nombre de séances
+    // (sur la fenêtre de `historiqueDesExercices`) où il a été TENU au sens de `Moteur.marcheTenue` (au moins 2 séries de travail,
+    // chacune à au moins max(3, min(5, bas)) reps ; le bas de zone d'une séance passée n'est pas connu : 5). Le générateur ne
+    // compte une marche comme acquise que tenue : un essai raté ne fait pas monter le programme.
+    function marchesTenues(c) {
+      var datees = seancesDatees(c);
+      if (!datees.length) return {};
+      var fenetre = racine.THRoutines.fenetreDeLaPersonne(derniereSeance(c));
+      var compte = {};
+      datees.forEach(function (s) {
+        if (!Periode.dans(s.debut, fenetre)) return;
+        var parSlug = {};
+        (s.series || []).forEach(function (x) {
+          if (!x || !x.exercise_slug) return;
+          (parSlug[x.exercise_slug] = parSlug[x.exercise_slug] || []).push(x);
+        });
+        Object.keys(parSlug).forEach(function (slug) {
+          if (Moteur.marcheTenue({ series: parSlug[slug], bas: null })) compte[slug] = (compte[slug] || 0) + 1;
+        });
+      });
+      return compte;
+    }
+
     // 188-2 (MOTEUR §9.27 bis) — LES CHUTES DE REPS d'un exercice : pour chacune de ses `n` dernières séances qui ont au moins trois
     // séries de travail à la MÊME charge pour la 1re et la 3e (sinon la baisse n'est pas celle de la fatigue), la part de reps
     // perdue de la série 1 à la série 3, `(reps1 − reps3) / reps1`. Les plus récentes d'abord. Une série « ne compte pas » est
@@ -2056,7 +2079,7 @@
     //               confirmations : { genre : n }      — les « Oui » déjà donnés sur CET exercice (apprentissage)
     //             }
     var SEUIL_SEANCES_VRAISEMBLANCE = 3;     // avant 3 séances de l'exercice : seulement l'absurde
-    var HAUSSE_RELATIVE = 0.15, HAUSSE_ABSOLUE_KG = 10, HAUSSE_ABSOLUE_HALTERE_KG = 4;   // 245 : 4 kg sur la PAIRE (réglé sur les vraies saisies, qui sont des paires)
+    var HAUSSE_RELATIVE = 0.15, HAUSSE_ABSOLUE_KG = 10, HAUSSE_ABSOLUE_HALTERE_KG = 4, HAUSSE_ABSOLUE_UN_HALTERE_KG = 2;   // 16/11/2026 : à un bras, l'haltère tenu = la moitié de la paire   // 245 : 4 kg sur la PAIRE (réglé sur les vraies saisies, qui sont des paires)
     var BAISSE_RELATIVE = 0.35, BAISSE_ABSOLUE_KG = 10;
     var REPS_PLAFOND_CIBLE = 2.5, REPS_MOITIE = 0.5;
     var RECORD_ECART_RELATIF = 0.20;          // la question du record : plus de 20 % au-dessus du meilleur
@@ -2106,6 +2129,10 @@
         if (meilleur === null || kg > meilleur) meilleur = kg;
       });
       return meilleur;
+    }
+    // 16/11/2026 — le seuil absolu AUX HALTÈRES, selon la charge notée : la paire (4 kg) ou, à un bras, l'haltère tenu (2 kg) ; `null` ailleurs.
+    function seuilAbsoluDesHalteres(equipement) {
+      return equipement === 'haltere' ? HAUSSE_ABSOLUE_HALTERE_KG : (equipement === Moteur.EQUIPEMENT_HALTERE_SEUL ? HAUSSE_ABSOLUE_UN_HALTERE_KG : null);
     }
     function seancesFaites(historique) {
       return (historique || []).filter(function (g) { return seriesDeReference(g && g.series).length > 0; }).length;
@@ -2157,7 +2184,7 @@
       }
       if (!aSesHabitudes) return null;
 
-      var haltere = s.equipement === 'haltere';
+      var seuilHaltere = seuilAbsoluDesHalteres(s.equipement);
       var meilleur = meilleurDeLExercice(historique, c.seance, c.recordLourd);
       var habitude = habitudeDeLExercice(historique);
 
@@ -2166,7 +2193,7 @@
         // haltère ou les deux ? » (elle poussait vers l'autre unité) ; la hausse ci-dessous, et la baisse d'un poids d'UN haltère, suffisent.
         // Une charge très au-dessus du meilleur : plus de 15 % ET plus de 10 kg (4 kg sur la paire pour les haltères).
         if (meilleur !== null && type !== 'echauffement' && type !== 'test') {   // 186 — un test déclaré se sait au-dessus du meilleur
-          var seuilAbsolu = haltere ? HAUSSE_ABSOLUE_HALTERE_KG : HAUSSE_ABSOLUE_KG;
+          var seuilAbsolu = seuilHaltere !== null ? seuilHaltere : HAUSSE_ABSOLUE_KG;
           if (charge > meilleur * (1 + HAUSSE_RELATIVE) + EPSILON && charge - meilleur > seuilAbsolu + EPSILON) {
             return question('hausse', Modele.charge(charge) + ' ? Ton meilleur ici : ' + Modele.charge(meilleur) + '.', [
               bouton('Oui, ' + Modele.nombreTexte(charge), 'garder', true),
@@ -2184,7 +2211,7 @@
             ref = derniere ? Number(derniere.charge_kg) : null;
             origine = 'avant';
           }
-          if (ref !== null && ref > 0 && charge < ref * (1 - BAISSE_RELATIVE) - EPSILON && ref - charge > (haltere ? HAUSSE_ABSOLUE_HALTERE_KG : BAISSE_ABSOLUE_KG) + EPSILON) {
+          if (ref !== null && ref > 0 && charge < ref * (1 - BAISSE_RELATIVE) - EPSILON && ref - charge > (seuilHaltere !== null ? seuilHaltere : BAISSE_ABSOLUE_KG) + EPSILON) {
             return question('baisse', Modele.charge(charge) + ' ? ' + (origine === 'consigne' ? 'Ta consigne : ' : 'Ta série d’avant : ') +
               Modele.charge(ref) + '.', [bouton('Oui, ' + Modele.nombreTexte(charge), 'garder', true), bouton('Corriger', 'corriger')]);
           }
@@ -2224,8 +2251,8 @@
       if (seancesFaites(historique) < SEUIL_SEANCES_VRAISEMBLANCE) return null;
       var meilleur = meilleurDeLExercice(historique, c.seance, c.recordLourd);
       if (meilleur === null) return null;
-      var haltere = s.equipement === 'haltere';
-      if (!(charge > meilleur * (1 + RECORD_ECART_RELATIF) + EPSILON && charge - meilleur > (haltere ? HAUSSE_ABSOLUE_HALTERE_KG : HAUSSE_ABSOLUE_KG) + EPSILON)) return null;
+      var seuilHaltere = seuilAbsoluDesHalteres(s.equipement);
+      if (!(charge > meilleur * (1 + RECORD_ECART_RELATIF) + EPSILON && charge - meilleur > (seuilHaltere !== null ? seuilHaltere : HAUSSE_ABSOLUE_KG) + EPSILON)) return null;
       var ecart = Math.round((charge - meilleur) * 100) / 100;
       return { genre: 'record', ecart: ecart,
                texte: 'Record à ' + Modele.charge(charge) + ' × ' + Modele.nombreTexte(reps) + ', ' + Modele.charge(ecart) + ' de plus que ton meilleur. Je l’inscris ?',
@@ -2607,6 +2634,7 @@
       ceQueJeSais: ceQueJeSais,
       programmeDeduit: programmeDeduit,
       historiqueDesExercices: historiqueDesExercices,
+      marchesTenues: marchesTenues,
       chutesDeReps: chutesDeReps,
       reposReelsDe: reposReelsDe,
       habitudes: habitudes,

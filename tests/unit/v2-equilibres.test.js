@@ -405,7 +405,7 @@ describe('le réglage décide QUAND le coach parle, jamais ce qu’il constate',
     expect(constat(a, 'tp-horizontal').fait).toBe('1 série de tirage pour 8 de poussée.');
   });
   test('l’ordre des cartes : les jours, le temps, puis les équilibres et la fréquence, puis l’ordre', () => {
-    expect(Eq.ORDRE_DES_FAMILLES).toEqual(['jours', 'temps', 'equilibre', 'frequence', 'ordre']);
+    expect(Eq.ORDRE_DES_FAMILLES).toEqual(['jours', 'temps', 'gestes', 'equilibre', 'frequence', 'ordre']);   // 16/11/2026 : les gestes de la routine (§9.27 quater)
   });
   test('un réglage inconnu vaut Normal', () => {
     expect(Eq.analyser(trois({ reglage: 'x' })).reglage).toBe('normal');

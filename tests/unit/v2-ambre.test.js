@@ -6,7 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 const css = fs.readFileSync(path.join(__dirname, '..', '..', 'v2', 'styles.css'), 'utf8');
-const PLAFOND = 108; // relevé après 210 ; +1 en 211 : le point du « Pourquoi ? » jamais ouvert (un signal voulu) ; +1 en 260-b : le jeton --anneau-focus (l'anneau de focus lit l'ambre par ce seul jeton) ; +3 en 250 (maquette notes-ia v4) : le liseré des lignes « Dans tes notes » (un même liseré pour toutes, rien de présélectionné), la coche ✓ et « Annuler » (deux actions) ; +1 en 265 (maquette séance v4) : le filet de la ligne du coach qui propose ses chauffes (sa voix, un seul liseré)
+const PLAFOND = 109; // relevé après 210 ; +1 en 211 : le point du « Pourquoi ? » jamais ouvert (un signal voulu) ; +1 en 260-b : le jeton --anneau-focus (l'anneau de focus lit l'ambre par ce seul jeton) ; +3 en 250 (maquette notes-ia v4) : le liseré des lignes « Dans tes notes » (un même liseré pour toutes, rien de présélectionné), la coche ✓ et « Annuler » (deux actions) ; +1 en 265 (maquette séance v4) : le filet de la ligne du coach qui propose ses chauffes (sa voix, un seul liseré) ; +1 le 16/11/2026 (§9.27 quater) : le filet de la carte « Le coach te dit » de « Ta semaine » (la même voix, le même liseré)
 
 const lignes = css.split('\n');
 const usages = lignes.filter((l) => /var\(--accent\)/.test(l));

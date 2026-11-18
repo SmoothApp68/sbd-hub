@@ -1868,10 +1868,14 @@
   // « Annuler ») sont des rappels : rien ne s'écrit ici. `vue.fait` : `{ texte, surAnnuler }`, ce que la dernière
   // proposition acceptée vient de faire — elle se voit et s'annule.
   function carteDEquilibre(c, vue, parle) {
-    var carte = el('div', 'carte-mois eq-carte' + (parle ? '' : ' eq-constat'));
+    var carte = el('div', 'carte-mois eq-carte' + (parle ? '' : ' eq-constat') + (c.coach ? ' eq-coach' : ''));
     carte.setAttribute('data-equilibre', c.cle);
-    carte.appendChild(el('div', 'eq-titre', c.titre));
-    if (c.kind === 'priorites' || c.kind === 'frequence') {
+    // 16/11/2026 (MOTEUR §9.27 quater) — une carte où le coach parle : sa tête est celle des avis en séance (« Le coach te dit »).
+    carte.appendChild(el('div', 'eq-titre' + (c.coach ? ' avis-nom' : ''), c.titre));
+    if (c.kind === 'geste') {
+      // Le fait, puis la proposition (et sa conséquence). En constat (silence), le fait seul, sans bouton.
+      (parle ? (c.phrases || [c.fait]) : [c.fait]).forEach(function (t, i) { carte.appendChild(el(i === 0 ? 'div' : 'p', i === 0 ? 'eq-fait' : 'pc-note', t)); });
+    } else if (c.kind === 'priorites' || c.kind === 'frequence') {
       if (c.fait) { /* le fait vient après le tableau */ }
       var tab = el('div', 'eq-tab');
       (c.lignes || []).forEach(function (l) {
@@ -1931,7 +1935,8 @@
 
   function rendreEquilibres(parent, vue) {
     var a = vue && vue.analyse;
-    if (!a || a.etat === 'peu') return;
+    // §9.27 quater : peu de recul, mais une carte des gestes de la routine (ou le geste qu'on vient d'y faire) : la section s'ouvre pour elle.
+    if (!a || (a.etat === 'peu' && !(a.cartes || []).length && !vue.fait)) return;
     parent.appendChild(el('div', 'section-t', 'Ta semaine et tes équilibres'));
     var section = el('div', 'eq-section');
     section.setAttribute('data-equilibres', a.etat);
@@ -3651,6 +3656,9 @@
         // plan ne pose jamais les deux sur un exercice).
         var pm = typeof vue.propositionMarche === 'function' ? vue.propositionMarche(s._iExo) : null;
         if (pm) hoteCartes.appendChild(propositionDeMarche(pm, s._iExo, vue));
+        // 16/11/2026 (« Essayer la marche ») — sur la marche essayée : « C'est fait … » + « Annuler », puis le repli.
+        var pem = typeof vue.essaiMarche === 'function' ? vue.essaiMarche(s._iExo) : null;
+        if (pem) hoteCartes.appendChild(propositionDEssaiDeMarche(pem, s._iExo, vue));
         var ps = typeof vue.propositionSchema === 'function' ? vue.propositionSchema(s._iExo) : null;
         if (ps) hoteCartes.appendChild(propositionDeSchema(ps, s._iExo, vue));
         var pc = typeof vue.propositionChauffes === 'function' ? vue.propositionChauffes(s._iExo) : null;
@@ -4829,6 +4837,24 @@
       oui: carte.oui, non: carte.non, classeOui: 'pl-oui', classeNon: 'pl-non',
       surOui: function () { vue.surMarche(iExo, 'oui'); },
       surNon: function () { vue.surMarche(iExo, 'non'); }
+    }, iExo);
+  }
+
+  // 16/11/2026 (« Essayer la marche », MOTEUR §9.17 bis delta) — la marche essayée : la phrase du plan et « Annuler » (secondaire)
+  // tant qu'aucune série n'est faite ; puis, une fois, le repli « Remettre <départ> » / « Continuer ». Le texte vient du plan.
+  function propositionDEssaiDeMarche(em, iExo, vue) {
+    if (em.repli) {
+      return propositionDExercice({
+        classe: 'proposition-marche-essai proposition-marche-repli', texte: em.repli.texte,
+        gestes: [
+          { texte: em.repli.remettre, classe: 'pme-remettre', surClic: function () { vue.surEssaiMarche(iExo, 'remettre'); } },
+          { texte: em.repli.continuer, classe: 'pme-continuer', secondaire: true, surClic: function () { vue.surEssaiMarche(iExo, 'continuer'); } }
+        ]
+      }, iExo);
+    }
+    return propositionDExercice({
+      classe: 'proposition-marche-essai', texte: em.texte,
+      gestes: em.annuler ? [{ texte: em.annuler, classe: 'pme-annuler', secondaire: true, surClic: function () { vue.surEssaiMarche(iExo, 'annuler'); } }] : []
     }, iExo);
   }
 
@@ -6963,6 +6989,23 @@
       q.appendChild(choix);
       cible.appendChild(q);
     }
+
+    // 16/11/2026 (« Essayer la marche ») — la marche tenue : « Je la mets à la place de … ? », deux choix, « Juste aujourd'hui »
+    // par défaut (rien n'est écrit). Le texte et les libellés viennent du plan.
+    (vue.finsMarche || []).forEach(function (f) {
+      var qm = el('div', 'question-routine question-marche');
+      qm.appendChild(el('p', 'question-t', f.texte));
+      var choixM = el('div', 'choix-routine');
+      [[false, f.non], [true, f.oui]].forEach(function (c) {
+        var bm = el('button', !!f.choisi === c[0] ? 'sel' : '', c[1]);
+        bm.type = 'button';
+        bm.setAttribute('aria-pressed', !!f.choisi === c[0] ? 'true' : 'false');
+        bm.addEventListener('click', function () { f.surChoix(c[0]); });
+        choixM.appendChild(bm);
+      });
+      qm.appendChild(choixM);
+      cible.appendChild(qm);
+    });
 
     var b = el('button', 'principal', 'Terminer');
     b.type = 'button';
@@ -9401,7 +9444,7 @@
     (vue.exercices || []).forEach(function (x) {
       var ligne = el('div', 'ecarte-ligne');
       ligne.appendChild(el('span', 'ecarte-nom', x.nom));
-      var b = el('button', 'discret ecarte-reprendre', 'Reprendre');
+      var b = el('button', 'discret ecarte-reprendre', x.bouton || 'Reprendre');   // 16/11/2026 : « Effacer » pour « Ce que le coach a retenu »
       b.type = 'button';
       b.addEventListener('click', x.surReprendre);
       ligne.appendChild(b);

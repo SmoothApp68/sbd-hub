@@ -372,7 +372,7 @@ bloquante** pour la livraison des fixtures :
 1. **bestPR réel d'aurel_br** — CLAUDE.md §15 dit **145/140/170** (barres), mais
    `tests/unit/pr-real-records.test.js` utilise un « profil aurel-like » à
    **148/140/186**. Lequel reflète les vraies barres en base ?
-   > Requête suggérée : `select (data->'bestPR') from sbd_profiles where user_id='6e2936e7-de11-4f19-89b1-d1eb5968ba35';`
+   > Requête suggérée : `select (data->'bestPR') from sbd_profiles where user_id='6e2936e7…';`
 2. **Densité réelle 28j** — j'ai calé ~20 séances / fenêtre avec 1re à J-22. La
    distribution réelle (jours pleins, trous) ressemble-t-elle à ça ?
    > `select short_date, title from workout_sessions where user_id='6e2936e7-…' and timestamp > now() - interval '28 days' order by timestamp;`

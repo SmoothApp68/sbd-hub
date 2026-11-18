@@ -414,7 +414,7 @@ function bac(options) {
       rendreFeuilleConfirmer: (c, v) => { journal.confirmer.push(v); }
     },
     // 66D — sans historique par défaut (`habitudes` nul) : le gabarit, comme en 60-4.
-    faits: { historiqueDesExercices: () => (o.faits || {}), habitudes: () => o.habitudes || null,
+    faits: { historiqueDesExercices: () => (o.faits || {}), marchesTenues: () => (o.marchesTenues || o.faits || {}), habitudes: () => o.habitudes || null,
              programmeDeduit: () => o.deduit || [], derniereSeance: () => o.derniere || null,
              datesDeLaFenetre: () => o.fenetre || null },
     Semaine: globalThis.THSemaine,

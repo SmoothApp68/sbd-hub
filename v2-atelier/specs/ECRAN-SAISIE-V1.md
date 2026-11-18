@@ -863,6 +863,15 @@ n'ouvre aucune question. Sinon la question devient un bruit qu'on tape sans lire
 charges** (cf. 1.1). Et pas le nombre de séries fait ce jour-là : une séance
 écourtée par manque de temps amputerait la routine pour toujours.
 
+**6.4 — Delta du 16/11/2026 (MOTEUR §9.27 quater) : l'habitude, pas la séance.** La question de fin de séance
+reste une séance à la fois et son interrupteur reste faux par défaut. Quand le MÊME geste se répète — un
+exercice de la routine retiré à la main 3 fois sur les 4 dernières séances terminées de la routine, ou remplacé
+par le même exercice 3 fois sur 4 —, c'est le coach qui le dit, dans « Ta semaine » (une carte « Le coach te
+dit »), et propose de l'écrire dans la routine sur un geste, annulable. « J'ai peu de temps » et « Machine
+prise » n'en font jamais partie (6.3 : une séance écourtée n'ampute pas la routine). Les séries d'un exercice
+retiré peuvent être reportées sur un exercice du même muscle de la routine, jamais au-delà de 6 séries, à la même
+charge (des copies de sa dernière série de travail) : ce n'est jamais une charge reportée.
+
 ---
 
 ## 7. Chronologie — `rang` et `validee_a`

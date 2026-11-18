@@ -540,6 +540,7 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
   {
     const MEI = { palier: 107, niveau: 10 };
     const cM = (o) => M.carteMarche(Object.assign({ marche: { proposable: true, cible: ['x'] }, nomCible: 'Tractions',
+      nomDepart: 'Tractions (Élastique)',
       reglage: 'normal', haut: 8, aide: false, seances: [{ niveau: 9, charge: 10 }, { niveau: 9, charge: 10 }] }, o));
     const carte = (source, k) => {
       if (!k) throw new Error('181 : la carte « ' + source + ' » ne se construit plus — la fixture ne tient plus le chemin visé');
@@ -548,6 +549,14 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     carte('marche en kg', cM({ aide: true }));
     carte('marche en reps', cM({}));
     carte('marche en Franc', cM({ reglage: 'franc', seances: [{ niveau: 10 }] }));
+    // 16/11/2026 (« Essayer la marche ») — l'essai, le repli et la carte de fin.
+    noter('carte', 'essai de marche', [
+      M.phraseEssaiDeMarche({ nom: 'Tractions', n: 3, faites: 0, nomDepart: 'Tractions (Élastique)' }),
+      M.phraseEssaiDeMarche({ nom: 'Tractions', n: 2, faites: 1, nomDepart: 'Tractions (Élastique)' }),
+      M.phraseEssaiDeMarche({ nom: 'Tractions', n: 2, faites: 2, nomDepart: 'Tractions (Élastique)' }),
+      M.phraseRepliDeMarche({ nom: 'Tractions', reps: 2, nomDepart: 'Tractions (Élastique)' }),
+      M.phraseFinDeMarche({ nom: 'Tractions', reps: [10, 10], nomDepart: 'Tractions (Élastique)', routine: 'Dos' }),
+      M.ouiFinDeMarche('Dos'), M.JUSTE_AUJOURDHUI_MARCHE, M.remettreDepart('Tractions (Élastique)'), M.CONTINUER_MARCHE]);
     const dS = M.carteMarcheEnSecondes({ marche: { proposable: true, cible: ['fl'] }, nomCible: 'Front Lever', seuil: 15,
       tenues: [16, 22], duJour: true, reglage: 'normal' });
     noter('figures', 'marche en secondes', [M.carteMarcheTitre(dS), M.carteMarcheDetail(dS)]);

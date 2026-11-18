@@ -112,9 +112,9 @@ describe('supprimer son compte', () => {
   // c'est le défaut RGPD que la v1 a payé (CLAUDE.md §11, P0).
   test('elle passe par `delete_user_complete_data`, avec l’identifiant', async () => {
     const { D, appels } = charger([{ data: null, error: null }]);
-    await D.supprimerCompte('6e2936e7-de11-4f19-89b1-d1eb5968ba35');
+    await D.supprimerCompte('00000000-0000-4000-8000-000000000001');
     expect(appels).toEqual([{ nom: 'delete_user_complete_data',
-      args: { target_user_id: '6e2936e7-de11-4f19-89b1-d1eb5968ba35' } }]);
+      args: { target_user_id: '00000000-0000-4000-8000-000000000001' } }]);
   });
 
   // Un échec de suppression ne doit PAS être avalé : l'écran promet que tout

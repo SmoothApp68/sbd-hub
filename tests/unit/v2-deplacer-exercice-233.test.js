@@ -132,12 +132,7 @@ describe('233 — THSeance.deplacerExercice : l’exercice entier, par le chemin
   });
 });
 
-function evenement(type, y, extra) {
-  const e = new window.Event(type, { bubbles: true, cancelable: true });
-  e.clientX = 5; e.clientY = y; e.button = 0; e.pointerId = 1; e.pointerType = 'touch';
-  return Object.assign(e, extra || {});
-}
-function rendreAvecGlisse(s, surDeplacerExercice) {
+function rendreSeanceSansGlisse(s) {
   const cible = document.createElement('div');
   document.body.appendChild(cible);
   Rendu().rendreBlocsSeance(cible, s, {
@@ -145,88 +140,26 @@ function rendreAvecGlisse(s, surDeplacerExercice) {
     tourAtteint: () => 0, exercice: (slug) => INDEX[slug], precedent: () => null,
     fantome: (i, j) => Seance.fantome(s, i, j, null),
     surChamp: () => {}, surValider: () => {}, surNumero: () => {}, surEffort: () => {},
-    surAjoutSerie: () => {}, surSupprimerSerie: () => {}, surMenuExercice: () => {}, surMenuBloc: () => {},
-    surDeplacerExercice
+    surAjoutSerie: () => {}, surSupprimerSerie: () => {}, surMenuExercice: () => {}, surMenuBloc: () => {}
   });
   return cible;
 }
-function poserRects(noeuds) {
-  noeuds.forEach((n, i) => { n.getBoundingClientRect = () => ({ top: i * 100, height: 100, bottom: i * 100 + 100, left: 0, right: 300, width: 300 }); });
-}
 
-describe('233 — le glissement d’un exercice', () => {
-  // 261 — dans un SUPERSET, il n'y a plus de carte par exercice (les tours) : ni poignée ni appui long ; « Monter / Descendre » du ⋯
-  // est le chemin. Le glissement vaut pour les exercices SEULS (un bloc chacun).
-  test('261 — un superset n’a ni poignée ⠿ ni appui long : l’ordre se change par « Monter / Descendre »', () => {
-    jest.useFakeTimers();
-    try {
-      const appels = [];
-      const c = rendreAvecGlisse(seanceDe([['dc', 2, 1], ['ec', 2, 1]]), (...a) => appels.push(a));
-      expect(c.querySelectorAll('.poignee-exo')).toHaveLength(0);
-      const nom = c.querySelector('.nom-exo');
-      nom.dispatchEvent(evenement('pointerdown', 10));
-      jest.advanceTimersByTime(600);
-      expect(c.querySelector('.pris-exo')).toBeNull();
-      c.dispatchEvent(evenement('pointerup', 10));
-      expect(appels).toEqual([]);
-    } finally { jest.useRealTimers(); }
+describe('18/11 — réordonner n’arrive jamais sans le vouloir : plus de glissement en séance', () => {
+  test('aucune poignée ⠿ en séance, ni sur un exercice seul ni dans un superset', () => {
+    expect(rendreSeanceSansGlisse(seanceDe([['dc', 2, null], ['ec', 2, null]])).querySelectorAll('.poignee-exo')).toHaveLength(0);
+    expect(rendreSeanceSansGlisse(seanceDe([['dc', 2, 1], ['ec', 2, 1]])).querySelectorAll('.poignee-exo')).toHaveLength(0);
   });
-  test('la poignée ⠿ est là, en séance, sur chaque exercice SEUL (cible de 44 px en CSS)', () => {
-    const c = rendreAvecGlisse(seanceDe([['dc', 2, null], ['ec', 2, null]]), () => {});
-    expect(c.querySelectorAll('.poignee-exo')).toHaveLength(2);
-    const css = require('fs').readFileSync(require('path').join(__dirname, '../../v2/styles.css'), 'utf8');
-    expect(css).toMatch(/\.poignee-exo\{[^}]*min-width:44px;min-height:44px/);
-  });
-  test('saisir A par la poignée et le lâcher sous B : surDeplacerExercice(0, 1, après)', () => {
-    const appels = [];
-    const c = rendreAvecGlisse(seanceDe([['dc', 2, null], ['ec', 2, null]]), (...a) => appels.push(a));
-    const cartes = Array.from(c.querySelectorAll('.bloc-seance'));
-    poserRects(cartes);
-    cartes[0].querySelector('.poignee-exo').dispatchEvent(evenement('pointerdown', 10));
-    expect(cartes[0].classList.contains('pris-exo')).toBe(true);
-    c.dispatchEvent(evenement('pointermove', 180));
-    expect(cartes[1].classList.contains('cible-apres')).toBe(true);
-    c.dispatchEvent(evenement('pointerup', 180));
-    expect(appels).toEqual([[0, 1, true]]);
-    expect(cartes[0].classList.contains('pris-exo')).toBe(false);
-  });
-  test('l’appui long sur le NOM (450 ms) saisit aussi ; un mouvement avant l’échéance l’annule', () => {
-    jest.useFakeTimers();
-    try {
-      const appels = [];
-      const c = rendreAvecGlisse(seanceDe([['dc', 2, null], ['ec', 2, null]]), (...a) => appels.push(a));
-      const cartes = Array.from(c.querySelectorAll('.bloc-seance'));
-      poserRects(cartes);
-      const nom = cartes[1].querySelector('.nom-exo');
-      nom.dispatchEvent(evenement('pointerdown', 150));
-      c.dispatchEvent(evenement('pointermove', 40));      // > 12 px : le doigt défile, pas d’appui long
-      jest.advanceTimersByTime(600);
-      expect(cartes[1].classList.contains('pris-exo')).toBe(false);
-
-      nom.dispatchEvent(evenement('pointerdown', 150));
-      jest.advanceTimersByTime(500);
-      expect(cartes[1].classList.contains('pris-exo')).toBe(true);
-      c.dispatchEvent(evenement('pointermove', 20));      // au-dessus de la carte A
-      c.dispatchEvent(evenement('pointerup', 20));
-      expect(appels).toEqual([[1, 0, false]]);
-    } finally { jest.useRealTimers(); }
-  });
-  test('un appui bref sur le nom ne déplace rien (il ouvre la page, comme avant)', () => {
-    jest.useFakeTimers();
-    try {
-      const appels = [];
-      const c = rendreAvecGlisse(seanceDe([['dc', 2, 1], ['ec', 2, 1]]), (...a) => appels.push(a));
-      const nom = c.querySelector('.nom-exo');
-      nom.dispatchEvent(evenement('pointerdown', 10));
-      jest.advanceTimersByTime(100);
-      c.dispatchEvent(evenement('pointerup', 10));
-      jest.advanceTimersByTime(1000);
-      expect(appels).toEqual([]);
-    } finally { jest.useRealTimers(); }
+  test('le glissement d’un exercice n’existe plus (ni code, ni style, ni appel)', () => {
+    const lire = (f) => require('fs').readFileSync(require('path').join(__dirname, '../../v2', f), 'utf8');
+    for (const f of ['js/rendu.js', 'js/app.js', 'styles.css']) {
+      const t = lire(f);
+      expect(t).not.toMatch(/poignee-exo|pris-exo|en-deplacement|surDeplacerExercice|deplacerExerciceVers|brancherDeplacementExercice/);
+    }
   });
 });
 
-describe('233 — le repli accessible : Monter / Descendre dans le menu ⋯', () => {
+describe('233 — Monter / Descendre : seulement dans le menu ⋯ d’un exercice de SUPERSET (Réorganiser ne range que des blocs)', () => {
   const entrees = (n) => Array.from(n.querySelectorAll('button')).map((b) => [b.textContent, b.disabled || b.getAttribute('aria-disabled') === 'true']);
   test('la feuille d’un exercice de superset : Monter grisé en tête, Descendre actif', () => {
     const cible = document.createElement('div');
@@ -236,15 +169,13 @@ describe('233 — le repli accessible : Monter / Descendre dans le menu ⋯', ()
     expect(e.find((x) => x[0] === 'Monter')[1]).toBe(true);
     expect(e.find((x) => x[0] === 'Descendre')[1]).toBe(false);
   });
-  test('la feuille d’un bloc porte les mêmes deux entrées ; sans elles (éditeur), rien', () => {
+  test('la feuille d’un bloc ne porte plus « Monter » ni « Descendre » : « Réorganiser… » est le seul chemin', () => {
     const cible = document.createElement('div');
     Rendu().rendreFeuilleBloc(cible, { superset: false, noms: 'x', surRemplacer: () => {}, surGrouper: () => {}, surAjouterApres: () => {},
-      surSupprimer: () => {}, surMonter: () => {}, surDescendre: null });
+      surSupprimer: () => {}, surMonter: () => {}, surDescendre: () => {}, surReorganiser: () => {} });
     const e = entrees(cible);
-    expect(e.find((x) => x[0] === 'Monter')[1]).toBe(false);
-    expect(e.find((x) => x[0] === 'Descendre')[1]).toBe(true);
-    const autre = document.createElement('div');
-    Rendu().rendreFeuilleBloc(autre, { superset: false, noms: 'x', surRemplacer: () => {}, surGrouper: () => {}, surAjouterApres: () => {}, surSupprimer: () => {} });
-    expect(entrees(autre).some((x) => x[0] === 'Monter')).toBe(false);
+    expect(e.some((x) => x[0] === 'Monter' || x[0] === 'Descendre')).toBe(false);
+    expect(e.some((x) => /^Réorganiser/.test(x[0]))).toBe(true);
   });
+
 });

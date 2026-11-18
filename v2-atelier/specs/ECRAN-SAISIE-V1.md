@@ -3815,13 +3815,13 @@ But : saisir une série d'un pouce, la tête ailleurs, sans chercher. Rien de ce
 
 ### 2. Déplacer un exercice
 
-- **L'exercice entier** (ses séries, sa note, son groupe) se déplace : **appui long** (450 ms, annulé au moindre mouvement de 12 px) sur son nom,
-  ou saisie de la **poignée ⠿** (cible de 44 px) à gauche du ⋯ ; la carte suit le doigt, un filet de la teinte dit où elle se posera ; au lâcher,
-  `THSeance.deplacerExercice` (ou `deplacerVers` pour un exercice seul parmi les blocs) écrit l'ordre par le chemin existant de la séance
-  (groupes renumérotés, rangs d'origine oubliés — chantier 35 D2), puis `apresStructure`. Dans un superset, les sœurs sont les cartes du même
-  superset ; hors superset, ce sont les blocs.
-- **Repli accessible** : « Monter » / « Descendre » dans le menu ⋯ (de l'exercice dans un superset, du bloc sinon), grisés au bord, 44 px.
-  Le mode Réorganiser (§7 vicies) reste le chemin des blocs entiers.
+- **Révisé le 18/11/2026 (friction n° 14 du relevé d'ergonomie) — plus de glissement d'un exercice EN SÉANCE.** La poignée ⠿ glissait
+  l'exercice dès le toucher et l'appui long sur le nom aussi : l'un et l'autre partaient sans faire exprès. Réordonner se fait
+  uniquement par **« Réorganiser… »** du menu ⋯ (ou l'appui long de la page, 500 ms, qui ouvre le même mode) : le mode range les BLOCS
+  en glissant par leur poignée et enregistre à la fin (§7 vicies).
+- **Dans un superset**, « Réorganiser… » ne range que des blocs : « Monter » / « Descendre » restent dans le menu ⋯ **d'un exercice de
+  superset** (l'exercice entier, grisé au bord, 44 px), seul chemin pour changer l'ordre à l'intérieur. Ils ont quitté le menu du bloc.
+  À retirer le jour où le mode Réorganiser couvrira l'intérieur d'un superset.
 - **Le coach suit l'exercice, pas la position** : rien ne touche à une série ; le plan est recalculé sur la séance dans son nouvel ordre
   (les paris et observations sont portés par l'exercice et la série, pas par un indice d'affichage).
 

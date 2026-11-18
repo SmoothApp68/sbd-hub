@@ -35,7 +35,7 @@ numéro dans l'archive.
 
 ## 1. IDENTITÉ
 
-**TrainHub** = nom **produit**. **SBD Hub** = nom du **repo** (`SmoothApp68/sbd-hub`, **privé**). Ne pas les opposer.
+**TrainHub** = nom **produit**. **SBD Hub** = nom du **repo** (`SmoothApp68/sbd-hub`, **public** — constaté le 16/11/2026 par `gh api` ; la visibilité est une décision d'Aurélien, jamais la tienne ; aucune clé secrète n'y est écrite, mais des identifiants d'utilisateurs y figurent encore : ne jamais y ajouter de donnée personnelle). Ne pas les opposer.
 
 PWA fitness de powerlifting/powerbuilding (français), pour Aurélien et un petit groupe d'utilisateurs réels.
 - Hébergement : **Cloudflare Pages**, à la racine du domaine, avec **`v2/` comme dossier publié**.
@@ -85,7 +85,7 @@ contradicteur ni la vérif device sur les sujets de coaching. (Décision d'Auré
 
 ## 4. CHECKS OBLIGATOIRES AVANT DE LIVRER
 
-0. **Ne jamais pousser sur `main`.** La branche n'est pas protégée (offre gratuite de GitHub, décidé le 11/10/2026) : toute livraison passe par une PR, ouverte en brouillon ; seul Aurélien fusionne.
+0. **Ne jamais pousser sur `main`.** Un ruleset GitHub « protect main » est actif (PR obligatoire, pas de force-push, pas de suppression) mais il n'exige AUCUN contrôle vert (constaté le 16/11/2026) : une PR pourrait être fusionnée sans que le banc ait fini, donc la coche `banc-sequentiel` se lit à la main avant toute fusion. Toute livraison passe par une PR, ouverte en brouillon ; seul Aurélien fusionne.
 1. `node -c` sur les fichiers JS touchés.
 2. **`npm test` vert.** Ajoute/inverse les tests dans le **même commit** que le fix ; vérifie que la fixture déclenche vraiment le chemin visé (un test qui ne teste pas ce qu'il prétend est pire qu'aucun test).
 3. **Ne plus incrémenter `CACHE_V2` à la main** (178, 28/10/2026) : le numéro est **estampé au déploiement** par `v2-atelier/outils/estamper-sw.js` (empreinte du contenu de la coquille, §4 bis). Le littéral du dépôt n'est que la valeur de repli (local, bancs, tests) : on ne le touche plus.

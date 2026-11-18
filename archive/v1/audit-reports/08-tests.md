@@ -431,7 +431,7 @@ pertinence des 5 tests manquants), questions précises à router via Claude.ai :
 1. **Distribution réelle 28j d'aurel_br** : y a-t-il effectivement des **trous irréguliers**
    et un trou **en début de fenêtre** (le scénario qui faisait osciller le TDEE) ? Confirme
    que la fixture `deviceLogs(22,…)` reflète la réalité.
-   > `select short_date, timestamp from workout_sessions where user_id='6e2936e7-de11-4f19-89b1-d1eb5968ba35' and timestamp > now() - interval '28 days' order by timestamp;`
+   > `select short_date, timestamp from workout_sessions where user_id='6e2936e7…' and timestamp > now() - interval '28 days' order by timestamp;`
 2. **e1RM registre deadlift vs bestPR** : le test (b) suppose e1RM ≈ 169-188 (plat) ≠ bestPR 170.
    Quelle est la vraie divergence en base ? (calibre l'assertion « 170 pas 169 »).
    > `select data->'exercises'->'Soulevé de Terre (Barre)'->>'e1rm', data->'bestPR' from sbd_profiles where user_id='6e2936e7-…';`

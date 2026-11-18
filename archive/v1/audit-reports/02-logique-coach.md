@@ -222,7 +222,7 @@ L'arbitre d'intensité (`computeIntensityVerdict` app.js:18637 / `collectIntensi
 - **Combien d'utilisateurs ont `data.gamification.lastTab.main === 'tab-ai'`** (persisté local, mais aussi éventuellement dans le snapshot cloud `sbd_profiles.data`) ? Détermine si la surface orpheline `coachGetFullAnalysis` est encore vue par de vrais utilisateurs.
   Requête suggérée : `select count(*) from sbd_profiles where data->'gamification'->'lastTab'->>'main' = 'tab-ai';`
 - **Pour aurel_br (`6e2936e7-…`) : `data.weeklyPlan.currentBlock.blockStartDate` est-il présent et cohérent** (pas dans le futur, pas > 3 j plus récent que le plus vieux log SBD de la fenêtre 14 j) ? Sinon le render du Coach ré-infère + `saveDB` (P0 écriture au render).
-  Requête suggérée : `select data->'weeklyPlan'->'currentBlock'->>'blockStartDate' as bsd, data->'weeklyPlan'->>'lastDeloadDate' as ldd from sbd_profiles where user_id = '6e2936e7-de11-4f19-89b1-d1eb5968ba35';`
+  Requête suggérée : `select data->'weeklyPlan'->'currentBlock'->>'blockStartDate' as bsd, data->'weeklyPlan'->>'lastDeloadDate' as ldd from sbd_profiles where user_id = '6e2936e7…';`
 - **`data.weeklyPlan.lastDeloadDate` d'aurel_br** : présent ? Détermine si le cran 4 (deload calendaire, > 6 sem pour avancé) peut tirer et produire la contradiction P0 avec le Diagnostic « vise un PR » (ACWR ~1.26 en zone verte → « Fenêtre optimale »).
   Requête : incluse ci-dessus (`ldd`).
 - **Distribution des `data.reports[].type='weekly'`** : y a-t-il des doublons/anomalies suggérant que la génération au render (lundi) tire plusieurs fois ? (Le guard `weekKey` devrait l'empêcher, mais à confirmer sur données réelles.)

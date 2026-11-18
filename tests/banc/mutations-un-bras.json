@@ -1,0 +1,26 @@
+[
+  {
+    "nom": "un-bras-rowing-oublie-de-la-liste",
+    "fichier": "v2/js/modele.js",
+    "ancien": "var EXERCICES_A_UN_SEUL_HALTERE = ['rowing_haltere', ",
+    "nouveau": "var EXERCICES_A_UN_SEUL_HALTERE = [",
+    "banc": "aucun",
+    "unitaires": ["tests/unit/v2-un-bras-un-haltere.test.js"]
+  },
+  {
+    "nom": "un-bras-cran-de-la-paire",
+    "fichier": "v2/js/moteur.js",
+    "ancien": "haltere_seul:  { pas: 1, pasLourd: 2, bascule: 10 },",
+    "nouveau": "haltere_seul:  { pas: 2, pasLourd: 4, bascule: 20 },",
+    "banc": "aucun",
+    "unitaires": ["tests/unit/v2-un-bras-un-haltere.test.js"]
+  },
+  {
+    "nom": "un-bras-aide-de-la-paire",
+    "fichier": "v2/js/modele.js",
+    "ancien": "return !!exo && exo.equipement === 'haltere' && !unSeulHaltere(exo); }",
+    "nouveau": "return !!exo && exo.equipement === 'haltere'; }",
+    "banc": "aucun",
+    "unitaires": ["tests/unit/v2-un-bras-un-haltere.test.js"]
+  }
+]

@@ -15,6 +15,7 @@ const EXCEPTIONS = [
   { re: /la prochaine séance dira si c/, raison: 'la phrase « une seule séance ne fait pas une habitude » du Pourquoi (3i) : simulée, la 2e séance rend bien l’état bord ; notée, inchangée (MOTEUR §9.48)' },
   { re: /Le coach en tiendra compte la prochaine fois/, raison: 'notes-ia.js : le texte de consentement de la lecture des notes, une promesse d’interface, pas une annonce de l’exercice (hors périmètre, listée au rapport)' },
   { re: /la prochaine séance propose/, raison: 'plan.js, I10 : le message d’une erreur d’invariant (jamais affiché à la personne)' },
+  { re: /La prochaine fois, je pars de ce que tu auras noté/, raison: 'moteur.js, « Essayer la marche » (16/11/2026, MOTEUR §9.17 bis delta) : la phrase fixe de l’essai, dictée par la règle validée, sans chiffre ni consigne — ce n’est pas l’annonce de l’exercice (la consigne suivante se dit par `annonceDe`)' },
   { re: /PROCHAINE SÉANCE/, raison: 'rendu.js : le libellé de la carte d’accueil (« Prochaine séance » = la routine qui suit), pas une annonce du coach (173)' }
 ];
 

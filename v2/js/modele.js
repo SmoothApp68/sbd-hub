@@ -1177,17 +1177,31 @@
   // n'a pas de colonne pour eux.
   // 245 — AUX HALTÈRES, la charge est la PAIRE (MOTEUR §10.1) : une ligne d'aide sous le champ de charge le dit (jamais sur une barre).
   var AIDE_DES_HALTERES = 'kg, les deux haltères';
-  // 245 — UNE SEULE NOTION : la charge d'un exercice aux haltères (`equipement = haltere`) est la PAIRE, les deux ensemble.
-  function chargeEstLaPaire(exo) { return !!exo && exo.equipement === 'haltere'; }
+  // 16/11/2026 — À UN BRAS, la charge notée est L'HALTÈRE TENU (un seul), jamais la paire (MOTEUR §10.1, décision d'Aurélien).
+  var AIDE_DE_L_HALTERE = 'kg, l\u2019haltère';
+  // 16/11/2026 — UNE SEULE NOTION pour « un exercice aux haltères fait à un bras » : une liste NOMMÉE de slugs. Aucune colonne du
+  // catalogue ne le porte (MOTEUR l. 782 : le côté est une variante du catalogue, jamais une case) ; le nom (« … Un Bras ») est du
+  // texte libre, jamais lu. Les cinq variantes aux haltères du catalogue (vérifiées le 16/11/2026) : le « Rowing Un Bras (Haltère) »
+  // a le slug `rowing_haltere`. Les « Une Jambe » aux haltères ne sont PAS ici : on y tient un ou deux haltères, la paire reste notée.
+  // Un exercice ajouté au catalogue à un bras s'inscrit ICI, une fois ; `Moteur.equipementEffectif` en tire le matériel `haltere_seul`.
+  var EXERCICES_A_UN_SEUL_HALTERE = ['rowing_haltere', 'developpe_couche_un_bras_haltere', 'developpe_militaire_un_bras_haltere',
+    'elevation_laterale_un_bras_haltere', 'extension_triceps_dessus_tete_un_bras_haltere', 'rowing_kroc_haltere'];   // le Kroc : un bras par définition
+  function unSeulHaltere(exo) {
+    return !!exo && typeof exo.slug === 'string' && EXERCICES_A_UN_SEUL_HALTERE.indexOf(exo.slug) >= 0;
+  }
+  // 245 — UNE SEULE NOTION : la charge d'un exercice aux haltères (`equipement = haltere`) est la PAIRE, les deux ensemble —
+  // sauf à un bras (`unSeulHaltere`) : l'haltère tenu. (Le matériel EFFECTIF `haltere_seul` du moteur n'est plus `haltere` : faux aussi.)
+  function chargeEstLaPaire(exo) { return !!exo && exo.equipement === 'haltere' && !unSeulHaltere(exo); }
   // 268 (C) — la charge d'un portage ou d'une poussée dit ce qu'on tape, sous les en-têtes : aux haltères la paire (la marche du fermier) ;
   // sinon, sur une distance, ce qui est POSÉ sur le traîneau (jamais le traîneau) ; sur une durée, TOUT ce qu'on tient (le pincé de disques).
   var AIDE_DU_TRAINEAU = 'kg posés dessus';
   var AIDE_DE_CE_QU_ON_TIENT = 'kg, tout ce que tu tiens';
   function avecAideDeLUnite(g, exo) {
     var aide = null;
-    if (g.mesure === 'charge_reps') aide = chargeEstLaPaire(exo) ? AIDE_DES_HALTERES : null;
-    else if (g.mesure === 'charge_distance') aide = chargeEstLaPaire(exo) ? AIDE_DES_HALTERES : AIDE_DU_TRAINEAU;
-    else if (g.mesure === 'charge_temps') aide = chargeEstLaPaire(exo) ? AIDE_DES_HALTERES : AIDE_DE_CE_QU_ON_TIENT;
+    var halteres = chargeEstLaPaire(exo) ? AIDE_DES_HALTERES : (unSeulHaltere(exo) ? AIDE_DE_L_HALTERE : null);
+    if (g.mesure === 'charge_reps') aide = halteres;
+    else if (g.mesure === 'charge_distance') aide = halteres || AIDE_DU_TRAINEAU;
+    else if (g.mesure === 'charge_temps') aide = halteres || AIDE_DE_CE_QU_ON_TIENT;
     return aide ? Object.assign({}, g, { aide: aide }) : g;
   }
   function grilleDe(exo, programme) {
@@ -3426,6 +3440,9 @@
     CHAMPS_MESURE: CHAMPS_MESURE,
     gabaritDe: gabaritDe,
     AIDE_DES_HALTERES: AIDE_DES_HALTERES,
+    AIDE_DE_L_HALTERE: AIDE_DE_L_HALTERE,
+    EXERCICES_A_UN_SEUL_HALTERE: EXERCICES_A_UN_SEUL_HALTERE,
+    unSeulHaltere: unSeulHaltere,
     chargeEstLaPaire: chargeEstLaPaire,
     natureDeCharge: natureDeCharge,
     PHRASE_POIDS_DU_CORPS: PHRASE_POIDS_DU_CORPS,

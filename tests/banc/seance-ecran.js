@@ -25810,7 +25810,7 @@ const SETS_IMPORTES = [
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refus126), erreurs.slice(erreurs126)]));
   }
 
-  console.log('\n══ echelle. L’ÉCHELLE DES VARIANTES : LA CARTE « MARCHE SUIVANTE », « AJOUTER » AVANT, « PAS MAINTENANT » À LA MÊME AIDE, « TON ÉCHELLE » (127, MOTEUR §9.17 bis, ECRAN-SAISIE §7 quater.6) ══');
+  console.log('\n══ echelle. L’ÉCHELLE DES VARIANTES : LA CARTE « MARCHE SUIVANTE », « ESSAYER » À LA PLACE, « PAS MAINTENANT » À LA MÊME AIDE, « TON ÉCHELLE », LA CARTE DE FIN (127, 16/11/2026, MOTEUR §9.17 bis, ECRAN-SAISIE §7 quater.6) ══');
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE : une échelle de quatre marches (une aide, la stricte, la lestée, une habileté),
   // servie par le faux serveur avec ses colonnes (`echelle`, `echelle_rang`, `nature`) ; quatre séances de tractions
@@ -25873,12 +25873,24 @@ const SETS_IMPORTES = [
       .map((n) => n.textContent));
     const seance127 = () => page.evaluate(() => (document.querySelector('#vue-seance') || {}).textContent || '');
     const TITRE_127 = 'Aide 25 kg × 12 sur toutes tes séries, deux séances de suite.';
-    const DETAIL_127 = 'La marche au-dessus : Tractions U127. Je te propose d’en faire 2 séries avant, autant de reps que tu peux.';
+    // 16/11/2026 (« Essayer la marche ») — la carte en reps propose d'ESSAYER la marche à la place des séries restantes.
+    const DETAIL_127 = 'La marche au-dessus : Tractions U127. Je la mets à la place de tes séries restantes de Tractions U127 (Élastique), pour essayer aujourd’hui. Ta routine ne change pas.';
+    const ESSAI_127 = 'C’est fait : Tractions U127, 3 séries, autant de reps que tu peux, en en gardant 2. La prochaine fois, je pars de ce que tu auras noté.';
+    const essai127 = () => page.evaluate(() => Array.from(document.querySelectorAll('#vue-seance .proposition-marche-essai')).map((c) => ({
+      texte: (c.querySelector('.pc-texte') || {}).textContent, boutons: Array.from(c.querySelectorAll('button')).map((b) => b.textContent) })));
+    const gestes127 = () => page.evaluate(() => { const d = window.THPlan && window.THPlan.dernier; return d && d.entrees && d.entrees.seance ? d.entrees.seance.gestes : null; });
+    const repsEtValider127 = async (i, reps) => {
+      await page.locator('.ligne-serie').nth(i).locator('[data-champ="reps"] input').fill(String(reps));
+      await poseApresGeste();
+      const depart = await departGeste();
+      await page.evaluate((k) => document.querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie').click(), i);
+      await serieMontee(i, depart);
+    };
 
     // ── A. LA CARTE : une, en tête de l'élastique, le composant de la carte du lest, sans point d'interrogation.
     await aller('/saisie');
     await demarrerRoutine('Échelle U127');
-    await attendre(900);
+    await poseApresGeste();
     const a127 = await plan127();
     const xa = a127 && a127.filter((x) => x.slug === 'tr-u127-elastique')[0];
     ok('[127] A — DISCRIMINANT : deux séances au haut de la zone (12) à la même aide : le plan pose la carte « marche suivante », la consigne tient sa ligne',
@@ -25886,27 +25898,39 @@ const SETS_IMPORTES = [
     const ca = await cartes127();
     ok('[127] A — UNE carte à l’écran, le rendu de la carte du lest (mêmes classes), le texte du plan et ses deux boutons',
       ca.length === 1 && ca[0].lest && sp(ca[0].texte) === TITRE_127 && sp(ca[0].detail).replace(/'/g, '’') === DETAIL_127 &&
-        JSON.stringify(ca[0].boutons.map(sp)) === JSON.stringify(['Ajouter Tractions U127', 'Pas maintenant']) &&
+        JSON.stringify(ca[0].boutons.map(sp)) === JSON.stringify(['Essayer Tractions U127', 'Pas maintenant']) &&
         !/\?/.test(ca[0].texte + ca[0].detail), JSON.stringify(ca));
 
-    // ── B. « AJOUTER » : la réponse au profil, la stricte JUSTE AVANT, l'élastique reste.
+    // ── B. « ESSAYER » (16/11/2026) : la stricte PREND LA PLACE des 3 séries restantes ; RIEN au profil ; « C'est fait … » et
+    // « Annuler », qui remet l'élastique tel quel ; la question de fin ne parle jamais de l'essai.
+    const avantB = JSON.stringify(profil127().marche_reponses || null);
     await page.evaluate(() => document.querySelector('.proposition-marche .pc-ajouter').click());
-    await jusqua(async () => !!(profil127().marche_reponses && profil127().marche_reponses['tr-u127-elastique']), 8000);
-    await attendre(900);
-    const rb = profil127().marche_reponses && profil127().marche_reponses['tr-u127-elastique'];
-    ok('[127] B — « Ajouter » s’écrit au profil : `marche_reponses[tr-u127-elastique] = { r: oui, le }`',
-      !!rb && rb.r === 'oui' && !!rb.le && rb.aide === undefined, JSON.stringify(profil127().marche_reponses));
+    await jusqua(async () => JSON.stringify(((await plan127()) || []).map((x) => x.slug)) === JSON.stringify([E127]), 8000);
+    await poseApresGeste();
     const b127 = await plan127();
-    ok('[127] B — DISCRIMINANT : les Tractions U127 JUSTE AVANT l’élastique, qui reste ; 2 séries ; « Première fois ici » ; plus de carte',
-      !!b127 && JSON.stringify(b127.map((x) => x.slug)) === JSON.stringify([E127, 'tr-u127-elastique']) &&
-        b127[0].lignes === 2 && b127[0].etat === 'silence' && b127[0].raison === 'premiere_fois' &&
-        (await cartes127()).length === 0 && /Tractions U127 \(Élastique\)/.test(await seance127()),
-      JSON.stringify([b127, await exos127()]));
+    ok('[127] B — DISCRIMINANT : « Essayer » REMPLACE : les Tractions U127 seules, 3 séries, « Première fois ici » ; plus de carte',
+      !!b127 && JSON.stringify(b127.map((x) => x.slug)) === JSON.stringify([E127]) &&
+        b127[0].lignes === 3 && b127[0].etat === 'silence' && b127[0].raison === 'premiere_fois' &&
+        (await cartes127()).length === 0, JSON.stringify([b127, await exos127()]));
+    ok('[127] B — rien n’est écrit au profil (`marche_reponses` inchangé), le geste `marche_essayee` est noté',
+      JSON.stringify(profil127().marche_reponses || null) === avantB &&
+        ((await gestes127()) || []).some((g) => g.geste === 'marche_essayee' && g.slug === 'tr-u127-elastique' && g.vers === E127),
+      JSON.stringify([profil127().marche_reponses, await gestes127()]));
+    const eb = await essai127();
+    ok('[127] B — « C’est fait … en en gardant 2 » et « Annuler », sur la marche',
+      eb.length === 1 && sp(eb[0].texte).replace(/'/g, '’') === ESSAI_127 && JSON.stringify(eb[0].boutons) === '["Annuler"]', JSON.stringify(eb));
+    await page.evaluate(() => document.querySelector('#vue-seance .proposition-marche-essai .pme-annuler').click());
+    await jusqua(async () => JSON.stringify(((await plan127()) || []).map((x) => x.slug)) === JSON.stringify(['tr-u127-elastique']), 8000);
+    await poseApresGeste();
+    const ba = await plan127();
+    ok('[127] B — « Annuler » : l’élastique revient tel quel (3 séries), la carte revient',
+      !!ba && JSON.stringify(ba.map((x) => x.slug)) === JSON.stringify(['tr-u127-elastique']) && ba[0].lignes === 3 &&
+        (await cartes127()).length === 1 && (await essai127()).length === 0, JSON.stringify([ba, await cartes127()]));
     await abandonner();
     await aller('/saisie');
     await demarrerRoutine('Échelle U127');
-    await attendre(900);
-    ok('[127] B — après « Ajouter », la carte ne revient jamais', (await cartes127()).length === 0, JSON.stringify(await cartes127()));
+    await poseApresGeste();
+    ok('[127] B — « Essayer » n’écrit rien : la carte revient à la séance suivante', (await cartes127()).length === 1, JSON.stringify(await cartes127()));
     await abandonner();
 
     // ── C. « TON ÉCHELLE » sur la page des Tractions U127 : ta marche (l'élastique), la suivante (la stricte), sa phrase.
@@ -25929,8 +25953,9 @@ const SETS_IMPORTES = [
       !!ec && /\btienne\b/.test(m127(1).classes) && /Ton meilleur : Aide 25 kg × 12/.test(sp(m127(1).exos[0].texte)) &&
         /\bsuivante\b/.test(m127(2).classes) && /\bvue\b/.test(m127(2).classes) && !/\btienne\b/.test(m127(2).classes) &&
         /habileté/.test(m127(4).exos[0].texte), JSON.stringify(ec));
-    ok('[127] C — la phrase de la suivante : la condition de la carte (12 reps), « Elle s’ajoute : tu gardes … »',
-      !!ec && sp(ec.phrase).replace(/'/g, '’') === 'La suivante : Tractions U127. Je te la propose quand tu tiens 12 reps sur toutes tes séries, deux séances de suite. Elle s’ajoute : tu gardes Tractions U127 (Élastique).',
+    // 16/11/2026 (« Essayer la marche ») — la page dit ce que fait la carte.
+    ok('[127] C — la phrase de la suivante : la condition de la carte (12 reps), l’essai à la place, la routine inchangée',
+      !!ec && sp(ec.phrase).replace(/'/g, '’') === 'La suivante : Tractions U127. Je te la propose quand tu tiens 12 reps sur toutes tes séries, deux séances de suite. Je la mets à la place de tes séries restantes de Tractions U127 (Élastique), pour essayer : ta routine ne change pas.',
       JSON.stringify(ec && ec.phrase));
     ok('[127] C — chaque marche est une cible tactile de 44 px au moins',
       !!ec && ec.marches.every((m) => m.exos.every((x) => x.haut >= 44)), JSON.stringify(ec && ec.marches.map((m) => m.exos.map((x) => x.haut))));
@@ -25981,12 +26006,52 @@ const SETS_IMPORTES = [
       cd.length === 1 && /^Aide 20 kg × 12/.test(sp(cd[0].texte)), JSON.stringify(cd));
     await abandonner();
 
+    // ── E. (16/11/2026) LA MARCHE TENUE, LA CARTE DE FIN : « Essayer », trois séries à 10, la feuille de fin pose « Je la mets à la
+    // place de … dans Échelle U127 ? » (« Juste aujourd'hui » par défaut), sans écart de routine ; « Oui » écrit la routine et `oui`.
+    profil127().marche_reponses = marcheAvant127 === undefined ? null : marcheAvant127;
+    await aller('/saisie');
+    await demarrerRoutine('Échelle U127');
+    await poseApresGeste();
+    await page.evaluate(() => document.querySelector('.proposition-marche .pc-ajouter').click());
+    await jusqua(async () => JSON.stringify(((await plan127()) || []).map((x) => x.slug)) === JSON.stringify([E127]), 8000);
+    await poseApresGeste();
+    const idE127 = enCoursId();
+    if (idE127) sessions127.push(idE127);
+    for (let k = 0; k < 3; k++) await repsEtValider127(k, 10);
+    await poseApresGeste();
+    await page.click('#bandeau-seance .bandeau-fin');
+    await feuilleOuverte('.principal');
+    const finE = await page.evaluate(() => ({
+      marche: Array.from(document.querySelectorAll('#feuille-contenu .question-marche')).map((q) => ({
+        texte: (q.querySelector('.question-t') || {}).textContent, boutons: Array.from(q.querySelectorAll('button')).map((b) => ({ t: b.textContent, sel: b.classList.contains('sel') })) })),
+      ecart: document.querySelectorAll('#feuille-contenu .question-routine:not(.question-marche)').length }));
+    ok('[127] E — DISCRIMINANT : marche tenue (10, 10, 10), routine manuelle : la carte de fin, « Juste aujourd’hui » choisi par défaut, aucun écart de routine',
+      finE.marche.length === 1 && sp(finE.marche[0].texte).replace(/'/g, '’') ===
+        'Tractions U127 : 10, 10 et 10 aujourd’hui. Je la mets à la place de Tractions U127 (Élastique) dans Échelle U127 ?' &&
+        JSON.stringify(finE.marche[0].boutons.map((x) => ({ t: sp(x.t).replace(/'/g, '’'), sel: x.sel }))) ===
+          JSON.stringify([{ t: 'Juste aujourd’hui', sel: true }, { t: 'Oui, dans Échelle U127', sel: false }]) &&
+        finE.ecart === 0, JSON.stringify(finE));
+    await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .question-marche button')).filter((b) => /^Oui, dans/.test(b.textContent))[0].click());
+    await poseApresGeste();
+    await page.click('#feuille-contenu .principal');
+    await terminerQuandMeme();
+    await seanceSortie();
+    await jusqua(async () => !!(profil127().marche_reponses && profil127().marche_reponses['tr-u127-elastique']), 8000);
+    await jusqua(async () => ROUTINE_127.routine_exercises.some((x) => x.exercise_slug === E127), 8000);
+    const reE = profil127().marche_reponses && profil127().marche_reponses['tr-u127-elastique'];
+    ok('[127] E — « Oui, dans Échelle U127 » : la stricte remplace l’élastique dans la routine (zone remise à null), et seulement là `marche_reponses = oui`',
+      !!reE && reE.r === 'oui' && JSON.stringify(ROUTINE_127.routine_exercises.map((x) => x.exercise_slug)) === JSON.stringify([E127]) &&
+        ROUTINE_127.routine_exercises.every((x) => x.zone === null || x.zone === undefined),
+      JSON.stringify([reE, ROUTINE_127.routine_exercises.map((x) => [x.exercise_slug, x.zone])]));
+
     // ── LA REMISE EN ÉTAT, pour les sections suivantes.
     CATALOGUE.splice(catalogueAvant127, CATALOGUE.length - catalogueAvant127);
     const iR127 = ROUTINES.indexOf(ROUTINE_127);
     if (iR127 >= 0) ROUTINES.splice(iR127, 1);
     base.sets = base.sets.filter((x) => sessions127.indexOf(x.session_id) < 0);
     base.sessions = base.sessions.filter((x) => sessions127.indexOf(x.id) < 0);
+    // 16/11/2026 — la séance terminée de E a écrit ses records au journal (dont « première fois sur une marche ») : ils partent avec elle.
+    base.records = base.records.filter((x) => sessions127.indexOf(x.session_id) < 0);
     profil127().marche_reponses = marcheAvant127 === undefined ? null : marcheAvant127;
     await aller('/saisie');
     rendreBlocs127();
@@ -28325,8 +28390,9 @@ const SETS_IMPORTES = [
     ok('[175] D — DISCRIMINANT : « Pas de lest » au profil → la carte de la marche suivante propose la variante seule (une carte, pas de carte du lest)',
       !!xd175 && !xd175.lest && !!xd175.marche && xd175.marche.cible === 'po-u175-decl', JSON.stringify(d175));
     const cd175 = await cartes175();
-    ok('[175] D — à l’écran : « Ajouter Pompes U175 Déclinées » / « Pas maintenant »',
-      cd175.length === 1 && cd175[0].marche && JSON.stringify(cd175[0].boutons.map(sp)) === JSON.stringify(['Ajouter Pompes U175 Déclinées', 'Pas maintenant']),
+    // 16/11/2026 (« Essayer la marche ») — la carte de la marche suivante, en reps : « Essayer ».
+    ok('[175] D — à l’écran : « Essayer Pompes U175 Déclinées » / « Pas maintenant »',
+      cd175.length === 1 && cd175[0].marche && JSON.stringify(cd175[0].boutons.map(sp)) === JSON.stringify(['Essayer Pompes U175 Déclinées', 'Pas maintenant']),
       JSON.stringify(cd175));
     await abandonner();
 
@@ -29800,6 +29866,139 @@ const SETS_IMPORTES = [
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
       nb188([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
     // On rend l'état.
+    base.sessions = base.sessions.slice(0, nbSessionsAvant);
+    base.sets = base.sets.slice(0, nbSetsAvant);
+    CATALOGUE.length = nbCatAvant;
+    ROUTINES.length = nbRoutinesAvant;
+    base.profiles[0] = profilAvant;
+  }
+
+  console.log('\n══ gestes-routine. LA ROUTINE APPREND DE TES GESTES — LA CARTE DU COACH, « D’ACCORD », « ANNULER », « GARDER », CE QUE LE COACH A RETENU (16/11/2026, MOTEUR §9.27 quater) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : quatre séances récentes d'une routine (développé 3, incliné 3, curl 3) ; l'incliné retiré à la
+  // main (`retrait`) dans trois d'entre elles. Le report met ses 3 séries sur le développé (même muscle primaire) : 6 au lieu de 3.
+  // Le banc joue par l'ÉCRAN et lit ce que le faux serveur a reçu : la routine écrite sur « D'accord », rendue par « Annuler »
+  // (routine ET réponses), la réponse « garder » durable dans `cartes_semaine.geste_routine`, la ligne du Profil effaçable.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const nbSessionsAvant = base.sessions.length, nbSetsAvant = base.sets.length, nbCatAvant = CATALOGUE.length, nbRoutinesAvant = ROUTINES.length;
+    const profilAvant = Object.assign({}, base.profiles[0]);
+    const tGR = Date.now();
+    const nbGR = (x) => JSON.stringify(x === undefined ? null : x);
+    const spGR = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const ficheGR = (slug, nom, prim, schema, equipement) => ({ slug, nom, mesure: 'charge_reps', charge: 'externe', equipement,
+      muscles_primaires: prim, muscles_secondaires: [], schema_mouvement: schema });
+    CATALOGUE.push(ficheGR('gr-dev', 'Développé GR (Barre)', ['pectoraux'], 'pousser_horizontal', 'barre'));
+    CATALOGUE.push(ficheGR('gr-inc', 'Incliné GR (Haltères)', ['pectoraux'], 'pousser_horizontal', 'haltere'));
+    CATALOGUE.push(ficheGR('gr-curl', 'Curl GR (Haltères)', ['biceps'], 'biceps', 'haltere'));
+    base.sessions = base.sessions.slice();
+    base.sets = base.sets.slice();
+    base.profiles[0] = Object.assign({}, base.profiles[0], { rythme_progression: 'franc', intention: 'progresser', cartes_semaine: {} });
+    for (let h = 1; h <= 4; h++) {
+      const id = 'gr-s' + h, debut = ilYa(h * 3600000, tGR).toISOString();
+      const retire = h <= 3;
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'GR — ' + id, debut, fin: ilYa(h * 3600000 - 1800000, tGR).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: 'r-gr', source: 'app', created_at: debut,
+        gestes: retire ? [{ geste: 'retrait', slug: 'gr-inc' }] : [] });
+      let rang = 0;
+      [['gr-dev', 3], ['gr-curl', 3]].concat(retire ? [] : [['gr-inc', 3]]).forEach(([slug, nb]) => {
+        for (let k = 0; k < nb; k++) base.sets.push({ id: id + '-s' + (++rang), session_id: id, user_id: 'u-banc', exercise_slug: slug,
+          charge_kg: 40, reps: 8, duree_s: null, distance_m: null, denivele_m: null, etages: null, elastique: null,
+          type_serie: 'travail', rang, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null,
+          note: null, source: 'app', created_at: debut, modifie_a: null, douleur: false, occurrence: null, hors_calcul: false });
+      });
+    }
+    ROUTINES.push({ id: 'r-gr', nom: 'Haut GR', note: null, archivee_a: null, created_at: '2026-01-05T10:00:00.000Z',
+      updated_at: '2026-01-05T10:00:00.000Z',
+      routine_exercises: [['gr-dev', 0], ['gr-inc', 1], ['gr-curl', 2]].map(([slug, rang]) => ({
+        id: 're-gr-' + rang, routine_id: 'r-gr', exercise_slug: slug, rang, routine_sets: progr(3, 8),
+        repos_cible_s: 90, groupe_superset: null, note: null })) });
+    const routineGR = () => ROUTINES.filter((r) => r.id === 'r-gr')[0];
+    const exosGR = () => routineGR().routine_exercises.slice().sort((a, b) => a.rang - b.rang)
+      .map((e) => e.exercise_slug + ':' + (e.routine_sets || []).filter((x) => (x.type_serie || 'travail') === 'travail').length);
+    const CLE = 'geste|r-gr|gr-inc';
+    const lireGR = () => page.evaluate((cle) => {
+      const c = document.querySelector('#parcours [data-equilibre="' + cle + '"]');
+      const fait = document.querySelector('#parcours .eq-fait-pose');
+      return { carte: c ? { texte: c.textContent, coach: c.classList.contains('eq-coach'), constat: c.classList.contains('eq-constat'),
+        tete: (c.querySelector('.eq-titre') || {}).textContent || null,
+        phrases: Array.from(c.querySelectorAll('.eq-fait, .pc-note')).map((n) => n.textContent),
+        boutons: Array.from(c.querySelectorAll('button')).map((b) => ({ t: b.textContent, prop: b.getAttribute('data-proposition'), h: Math.round(b.getBoundingClientRect().height) })) } : null,
+        fait: fait ? fait.textContent : null };
+    }, CLE);
+    await aller('/progression/parcours');
+    await attendreQue(async () => !!(await lireGR()).carte, 15000, 'carteGR');
+    const g1 = await lireGR();
+    ok('[GR] la carte du coach : « Le coach te dit », le fait, puis la proposition chiffrée (le report sur le développé)',
+      !!g1.carte && g1.carte.coach && g1.carte.tete === 'Le coach te dit' &&
+      spGR(g1.carte.phrases[0]) === 'Tu as retiré Incliné GR (Haltères) 3 fois sur tes 4 dernières séances « Haut GR ».' &&
+      spGR(g1.carte.phrases[1]) === 'Je peux l’enlever et mettre ses 3 séries de pectoraux sur Développé GR (Barre), que tu fais déjà : 6 séries au lieu de 3.',
+      nbGR(g1.carte && g1.carte.phrases));
+    ok('[GR] trois boutons : « D’accord » · « Garder … » · « Pas maintenant », chacun de 44 px',
+      !!g1.carte && g1.carte.boutons.map((b) => spGR(b.t)).join('|') === 'D’accord|Garder Incliné GR (Haltères)|Pas maintenant' &&
+      g1.carte.boutons.every((b) => b.h >= 44), nbGR(g1.carte && g1.carte.boutons));
+    ok('[GR] le rendu seul n’écrit rien : routine intacte, aucune réponse en base',
+      exosGR().join(',') === 'gr-dev:3,gr-inc:3,gr-curl:3' && Object.keys(base.profiles[0].cartes_semaine || {}).length === 0,
+      nbGR([exosGR(), base.profiles[0].cartes_semaine]));
+
+    // « D'accord » : la routine s'écrit (l'incliné part, le développé passe à 6), « C'est fait : … » se voit.
+    await page.evaluate((cle) => document.querySelector('[data-equilibre="' + cle + '"] [data-proposition="geste_retirer"]').click(), CLE);
+    await attendreQue(() => exosGR().join(',') === 'gr-dev:6,gr-curl:3', 8000, 'ecritGR').catch(() => {});
+    await attendreQue(async () => /^C’est fait/.test(spGR((await lireGR()).fait)), 8000, 'faitGR').catch(() => {});
+    const g2 = await lireGR();
+    const rep2 = ((base.profiles[0].cartes_semaine || {}).geste_routine || {})['r-gr'];
+    ok('[GR] « D’accord » écrit la routine (développé à 6 séries, incliné retiré), la réponse « retirer », et le dit',
+      exosGR().join(',') === 'gr-dev:6,gr-curl:3' && !!rep2 && rep2['gr-inc'] === 'retirer' &&
+      spGR(g2.fait).indexOf('C’est fait : « Haut GR » sans Incliné GR (Haltères), Développé GR (Barre) à 6 séries.') === 0,
+      nbGR([exosGR(), rep2, g2.fait]));
+    // « Annuler » : la routine d'avant ET les réponses d'avant.
+    await page.evaluate(() => Array.from(document.querySelectorAll('#parcours .eq-fait-pose button')).filter((b) => /annuler/i.test(b.textContent))[0].click());
+    await attendreQue(() => exosGR().join(',') === 'gr-dev:3,gr-inc:3,gr-curl:3' && !(base.profiles[0].cartes_semaine || {}).geste_routine, 8000, 'annuleGR').catch(() => {});
+    ok('[GR] « Annuler » rend la routine d’avant ET les réponses d’avant',
+      exosGR().join(',') === 'gr-dev:3,gr-inc:3,gr-curl:3' && !(base.profiles[0].cartes_semaine || {}).geste_routine,
+      nbGR([exosGR(), base.profiles[0].cartes_semaine]));
+
+    // « Garder » : la réponse durable, la phrase, la carte ne revient plus.
+    await aller('/progression/parcours');
+    await attendreQue(async () => !!(await lireGR()).carte, 15000, 'carteGR2');
+    await page.evaluate((cle) => document.querySelector('[data-equilibre="' + cle + '"] [data-proposition="geste_garder"]').click(), CLE);
+    await attendreQue(() => (((base.profiles[0].cartes_semaine || {}).geste_routine || {})['r-gr'] || {})['gr-inc'] === 'garder', 8000, 'garderGR').catch(() => {});
+    const g3 = await lireGR();
+    ok('[GR] « Garder » : « Noté : je garde … et je ne te le redemande plus. », la réponse durable, la routine intacte',
+      (((base.profiles[0].cartes_semaine || {}).geste_routine || {})['r-gr'] || {})['gr-inc'] === 'garder' &&
+      spGR(g3.fait).indexOf('Noté : je garde Incliné GR (Haltères) dans « Haut GR » et je ne te le redemande plus.') === 0 &&
+      exosGR().join(',') === 'gr-dev:3,gr-inc:3,gr-curl:3', nbGR([base.profiles[0].cartes_semaine, g3.fait, exosGR()]));
+    await aller('/progression/parcours');
+    // La section s'est dessinée (l'analyse a tourné) : la carte gardée n'y est plus.
+    await attendreQue(() => page.evaluate(() => !!document.querySelector('#parcours .section-t')), 15000, 'parcoursGR').catch(() => {});
+    ok('[GR] après « Garder », au rechargement : plus de carte pour cet exercice (I209)', !(await lireGR()).carte, '');
+
+    // « Ce que le coach a retenu » : la ligne du Profil, la feuille, « Effacer » — la carte peut revenir.
+    await aller('/profil');
+    await attendreQue(() => page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne .p-lib'))
+      .some((l) => l.firstChild && l.firstChild.textContent === 'Ce que le coach a retenu')), 15000, 'retenuGR').catch(() => {});
+    await page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+      .filter((l) => l.querySelector('.p-lib').firstChild.textContent === 'Ce que le coach a retenu')[0].click());
+    await attendreQue(() => page.evaluate(() => ((document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || '') === 'Ce que le coach a retenu'), 8000, 'feuilleGR').catch(() => {});
+    const fGR = await page.evaluate(() => ({ titre: ((document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || ''),
+      noms: Array.from(document.querySelectorAll('#feuille-contenu .ecarte-nom')).map((n) => n.textContent),
+      boutons: Array.from(document.querySelectorAll('#feuille-contenu .ecarte-reprendre')).map((n) => n.textContent) }));
+    ok('[GR] « Ce que le coach a retenu » : la réponse, lisible, avec « Effacer »',
+      fGR.titre === 'Ce que le coach a retenu' && fGR.noms.map(spGR).join('|') === 'Incliné GR (Haltères) : je le garde dans « Haut GR ».' &&
+      fGR.boutons.join('|') === 'Effacer', nbGR(fGR));
+    await page.click('#feuille-contenu .ecarte-reprendre');
+    await attendreQue(() => !(base.profiles[0].cartes_semaine || {}).geste_routine, 8000, 'effaceGR').catch(() => {});
+    ok('[GR] « Effacer » retire la réponse (la carte peut revenir)', !(base.profiles[0].cartes_semaine || {}).geste_routine,
+      nbGR(base.profiles[0].cartes_semaine));
+    await aller('/progression/parcours');
+    await attendreQue(async () => !!(await lireGR()).carte, 15000, 'carteGR3').catch(() => {});
+    ok('[GR] après « Effacer », la carte revient', !!(await lireGR()).carte, '');
+
+    ok('[GR] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      nbGR([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
     base.sessions = base.sessions.slice(0, nbSessionsAvant);
     base.sets = base.sets.slice(0, nbSetsAvant);
     CATALOGUE.length = nbCatAvant;

@@ -466,7 +466,7 @@ describe('188-2 — la mécanique commune', () => {
     expect(franc.cartes.map((c) => c.cle)).toEqual(['jours', 'frequence', 'ordre']);
     expect(Eq.analyser(base({ reglage: 'normal' })).cartes.map((c) => c.cle)).toEqual(['jours', 'frequence']);
     expect(Eq.analyser(base({ reglage: 'prudent' })).cartes.map((c) => c.cle)).toEqual(['jours']);
-    expect(Eq.ORDRE_DES_FAMILLES).toEqual(['jours', 'temps', 'equilibre', 'frequence', 'ordre']);
+    expect(Eq.ORDRE_DES_FAMILLES).toEqual(['jours', 'temps', 'gestes', 'equilibre', 'frequence', 'ordre']);   // 16/11/2026 : les gestes de la routine (§9.27 quater)
   });
   test('la ligne de l’écran Séances reste celle des équilibres : une carte des jours n’y parle pas', () => {
     expect(Eq.analyser(base({ reglage: 'franc' })).ligne).toBeNull();

@@ -1,6 +1,11 @@
 name: Tests
 
-on: [push, pull_request]
+# CI-1 : un push sur une branche de PR lançait ce job DEUX fois (push + pull_request) : les deux jouent le même état.
+# On garde pull_request (la coche de la PR) et le push sur main (la fusion).
+on:
+  push:
+    branches: [main]
+  pull_request:
 
 # 59-2 — le jeton du dépôt en lecture seule : le job installe et teste, il
 # n'écrit rien (ni commentaire, ni statut, ni paquet).

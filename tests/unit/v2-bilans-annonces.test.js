@@ -206,7 +206,10 @@ function appareil(base, o) {
     racine: {
       localStorage: opt.sansMemoire ? { getItem: () => { throw new Error('x'); }, setItem: () => { throw new Error('x'); } }
         : { getItem: (k) => (k in stock ? stock[k] : null), setItem: (k, v) => { stock[k] = String(v); }, removeItem: (k) => { delete stock[k]; } },
-      setTimeout: (f, ms) => setTimeout(f, Math.min(ms, 50))
+      // La borne d'attente du profil (5 s en vrai) est ramenée à 50 ms pour ne pas ralentir les tests ; `sansBorne` la
+      // supprime quand le test pilote LUI-MÊME la lecture (un verrou) : sinon la borne et la lecture se courent après sur un
+      // runner chargé, et l'annonce part avant le profil (flake de la CI du 16/11/2026, type G).
+      setTimeout: (f, ms) => { if (opt.sansBorne && ms >= 1000) return 0; return setTimeout(f, Math.min(ms, 50)); }
     },
     bilanPeriode: () => ({ vide: false }), bilanDeLAnnee: () => ({ vide: false }),
     titreDeSaison: (cle) => 'Saison ' + cle,
@@ -223,6 +226,7 @@ function appareil(base, o) {
       monProfil: async () => {
         if (opt.horsReseau) throw new Error('réseau');
         if (opt.lenteur) await new Promise((r) => setTimeout(r, opt.lenteur));
+        if (opt.verrou) await opt.verrou;
         return JSON.parse(JSON.stringify(base.ligne));
       },
       enregistrerProfil: async (id, champs) => {
@@ -274,10 +278,15 @@ describe('L’annonce d’un bilan ne revient pas sur un autre appareil', () => 
   test('DISCRIMINANT — l’annonce attend la lecture du profil (un profil lent ne la fait pas revenir)', async () => {
     const base = nouvelleBase();
     await appareil(base).demarrer();
-    const b = appareil(base, { lenteur: 20 });
-    await b.demarrer();
-    await new Promise((r) => setTimeout(r, 40));
-    expect(b.annonces).toEqual([]);
+    // Déterministe : la lecture du profil est tenue par un verrou, la borne d'attente supprimée. Aucun délai à courir.
+    let lacher; const verrou = new Promise((r) => { lacher = r; });
+    const b = appareil(base, { verrou, sansBorne: true });
+    const demarrage = b.demarrer();
+    for (let i = 0; i < 10; i++) await tic();
+    expect(b.annonces).toEqual([]);            // le profil n'est pas lu : l'annonce attend (avant : elle partait sur le seul cache)
+    lacher();
+    await demarrage;
+    expect(b.annonces).toEqual([]);            // lu, il dit « déjà annoncé » : elle ne revient pas
   });
 
   test('l’année (janvier 2027) : un seul message ; l’année ET le mois écoulé sont notés au profil', async () => {

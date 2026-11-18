@@ -1562,7 +1562,7 @@
     rendreProchaineSeance();
     demanderLesRoutinesDeLAccueil();
     Rendu.rendreBarreSemaine($('barre-seances'), barrePour(sem, true));
-    rendreLigneDesEquilibres();
+    rendreCoachDeLAccueil();
     Rendu.rendreRappel($('rappel-zones'), sem.zones, function () {
       // Un rappel DE VOLUME ouvre le volume, pas le sommaire : passer par une
       // table des matières pour retrouver ce qu'on vient de toucher serait un
@@ -1615,6 +1615,8 @@
       // 75 — « Ton parcours », juste après « Le mois écoulé » : sa phrase, il s'ouvre sur la page.
       parcours: {
         phrase: faits.parcoursDe(corpus(), new Date(), profil).phrase,
+        // 16/11/2026 — la porte s'ouvre aussi quand une carte du coach parle.
+        cartes: (function () { var a = equilibres(); return a ? (a.cartes || []).length : 0; })(),
         surChoix: afficherParcours
       },
       // 95 — « Ton année » : l'année écoulée, toute l'année suivante ; il s'ouvre plein écran.
@@ -1753,14 +1755,31 @@
 
   function repeindreLesEquilibres() {
     if (!vues.parcours.hidden) rendreParcours();
-    if (!vues.liste.hidden) rendreLigneDesEquilibres();
+    // 16/11/2026 — sur l'accueil, « Prochaine séance » se redessine aussi : la routine retirée ou remplacée se voit tout de suite.
+    if (!vues.liste.hidden) { rendreProchaineSeance(); rendreCoachDeLAccueil(); }
   }
 
   function pasMaintenantEquilibre(carte) {
     faitEquilibre = null;
+    // 16/11/2026 — « Pas maintenant » se dit : « Noté. Je ne t'en reparle pas avant le <date absolue>. » + « Annuler » (les réponses
+    // d'avant). La date : la fin du silence que la réponse ÉCRITE pose (`Equilibres.phraseDuSilence`, le silence doublé au 2ᵉ refus).
+    var avantReponses = JSON.parse(JSON.stringify(reponsesDesCartes()));
+    var rep = Equilibres.reponse(avantReponses, carte.cle, 'non', Moteur.jourCivil(new Date()));
     // La carte se tait quand la réponse est posée dans le profil (pas avant : le rendu relirait l'ancienne réponse).
     repondreALaCarte(carte.cle, 'non').catch(function (e) { console.warn('Carte de la semaine non écrite :', texteErreur(e)); })
-      .then(function () { repeindreLesEquilibres(); });
+      .then(function () {
+        faitEquilibre = {
+          texte: Equilibres.phraseDuSilence(Profil.rythmeDe(profil || {}), rep), calme: true,
+          surAnnuler: async function () {
+            faitEquilibre = null;
+            await poserProfil({ cartes_semaine: avantReponses });
+            memoEquilibres = null;
+            repeindreLesEquilibres();
+          }
+        };
+        memoEquilibres = null;
+        repeindreLesEquilibres();
+      });
   }
 
   async function accepterUneProposition(carte, p) {
@@ -1826,6 +1845,9 @@
   }
   async function repondreAuGesteUneFois(carte, p) {
     var avantReponses = JSON.parse(JSON.stringify(reponsesDesCartes()));
+    var jour = Moteur.jourCivil(new Date());
+    // 16/11/2026 (B) — la réponse vaut pour (exercice, rôle) : `p.groupe` (le rôle, ou la routine seule d'une routine sans volume).
+    var groupe = p.groupe || p.routine_id;
     var annulerLesReponses = async function () {
       faitEquilibre = null;
       await poserProfil({ cartes_semaine: avantReponses });
@@ -1833,40 +1855,61 @@
       repeindreLesEquilibres();
     };
     if (p.type === 'geste_garder') {
-      await poserProfil({ cartes_semaine: Equilibres.reponseAuGeste(reponsesDesCartes(), p.routine_id, p.slug, 'garder') });
+      await poserProfil({ cartes_semaine: Equilibres.reponseAuGesteDatee(reponsesDesCartes(), carte.cle, groupe, p.slug, 'garder', jour) });
       faitEquilibre = { texte: p.fait, surAnnuler: annulerLesReponses };
       memoEquilibres = null;
       return repeindreLesEquilibres();
     }
-    var rt = routines.filter(function (r) { return r.id === p.routine_id; })[0];
-    var voulues = null;
-    if (rt && p.type === 'geste_retirer') {
-      voulues = Routines.retraitDExercice(rt, p.slug, p.report);
-      if (voulues && Equilibres.verifierRetrait(rt, voulues, p).length) voulues = null;
+    // TOUT OU RIEN (I219) : chaque routine de la portée se calcule et se vérifie AVANT toute écriture ; une seule qui a changé, rien
+    // n'est écrit et la carte se recalcule.
+    var ids = (p.routines && p.routines.length) ? p.routines : [p.routine_id];
+    var ecrites = [];
+    for (var i = 0; i < ids.length; i++) {
+      var rt = routines.filter(function (r) { return r.id === ids[i]; })[0];
+      var voulues = null;
+      if (rt && p.type === 'geste_retirer') {
+        voulues = Routines.retraitDExercice(rt, p.slug, p.report);
+        if (voulues && Equilibres.verifierRetrait(rt, voulues, p).length) voulues = null;
+      }
+      if (rt && p.type === 'geste_remplacer' && (rt.exercices || []).some(function (x) { return x.exercise_slug === p.slug; }) &&
+          !(rt.exercices || []).some(function (x) { return x.exercise_slug === p.vers; })) {
+        var mesures = mesuresDuRemplacement(p.slug, p.vers);
+        voulues = rt.exercices.map(function (x) { return x.exercise_slug === p.slug ? Routines.exerciceRemplace(x, p.vers, mesures) : x; });
+      }
+      if (!voulues) { ecrites = null; break; }
+      ecrites.push({ rt: rt, voulues: voulues, avant: JSON.parse(JSON.stringify(rt.exercices)) });
     }
-    if (rt && p.type === 'geste_remplacer' && (rt.exercices || []).some(function (x) { return x.exercise_slug === p.slug; }) &&
-        !(rt.exercices || []).some(function (x) { return x.exercise_slug === p.vers; })) {
-      var mesures = mesuresDuRemplacement(p.slug, p.vers);
-      voulues = rt.exercices.map(function (x) { return x.exercise_slug === p.slug ? Routines.exerciceRemplace(x, p.vers, mesures) : x; });
-    }
-    if (!voulues) {
-      // La routine a changé depuis la carte : rien n'est écrit, la carte se recalcule.
+    if (!ecrites || !ecrites.length) {
+      // Une routine a changé depuis la carte : rien n'est écrit, la carte se recalcule.
       faitEquilibre = { texte: 'Ta routine a changé depuis : je recalcule.', surAnnuler: function () { faitEquilibre = null; repeindreLesEquilibres(); } };
       memoEquilibres = null;
       return repeindreLesEquilibres();
     }
-    var avantRoutine = JSON.parse(JSON.stringify(rt.exercices));
-    var idRoutine = rt.id;
-    await poserRoutineVoulue(rt, voulues);
-    await poserProfil({ cartes_semaine: Equilibres.reponseAuGeste(reponsesDesCartes(), p.routine_id, p.slug,
-      p.type === 'geste_remplacer' ? 'remplacer' : 'retirer') });
+    for (var k = 0; k < ecrites.length; k++) {
+      await poserRoutineVoulue(ecrites[k].rt, ecrites[k].voulues);
+      // La signature de ce que le geste a écrit : « Annuler » ne touchera une routine que si elle la porte encore.
+      ecrites[k].signature = Routines.signatureDesExercices(ecrites[k].rt.exercices);
+    }
+    await poserProfil({ cartes_semaine: Equilibres.reponseAuGesteDatee(reponsesDesCartes(), carte.cle, groupe, p.slug,
+      p.type === 'geste_remplacer' ? 'remplacer' : 'retirer', jour) });
     faitEquilibre = {
       texte: p.fait,
       surAnnuler: async function () {
-        var r2 = routines.filter(function (r) { return r.id === idRoutine; })[0];
         faitEquilibre = null;
-        if (r2) await poserRoutineVoulue(r2, avantRoutine);
-        await annulerLesReponses();
+        var changees = [];
+        for (var j = 0; j < ecrites.length; j++) {
+          var r2 = routines.filter(function (r) { return r.id === ecrites[j].rt.id; })[0];
+          if (!r2) continue;
+          // I219 — une routine modifiée depuis le geste (un autre appareil, l'éditeur) n'est jamais écrasée : on la laisse, on le dit.
+          if (Routines.signatureDesExercices(r2.exercices) !== ecrites[j].signature) { changees.push(r2.nom); continue; }
+          await poserRoutineVoulue(r2, ecrites[j].avant);
+        }
+        await poserProfil({ cartes_semaine: avantReponses });
+        memoEquilibres = null;
+        if (changees.length) {
+          faitEquilibre = { texte: changees.map(function (n) { return '\u00ab\u00a0' + n + '\u00a0\u00bb a changé depuis : je ne la touche pas.'; }).join(' ') };
+        }
+        repeindreLesEquilibres();
       }
     };
     memoEquilibres = null;
@@ -1993,12 +2036,41 @@
     };
   }
 
-  // La ligne de l'écran Séances : UNE seule, quand une carte d'équilibre parle.
-  function rendreLigneDesEquilibres() {
-    var noeud = $('ligne-equilibre');
+  // 16/11/2026 — « LE COACH TE DIT » SUR L'ACCUEIL (I214, I215) : UNE carte sous « Prochaine séance », choisie par
+  // `Equilibres.carteDeLAccueil` (le même objet que dans « Ton parcours ») ; l'app ne fait que lui donner le contexte (en séance,
+  // routines chargées, l'annonce du niveau, les cartes de variation du bloc ouvertes). Après un geste, son fait et « Annuler ».
+  function exercicesDesVariationsOuvertes() {
+    var jour = jourDuJour(), slugs = [];
+    dossiersDeProgramme().forEach(function (d) {
+      var b = Moteur.blocEnCours(local.blocs, d);
+      if (!b || Moteur.blocTermine(b, jour)) return;
+      variationsDuDossier(d, b, jour).variations.forEach(function (v) { if (v && v.slug && slugs.indexOf(v.slug) < 0) slugs.push(v.slug); });
+    });
+    return slugs;
+  }
+  function contexteDeLAccueil() {
+    return { enSeance: !!seance, routinesPretes: etatRoutines.code === 'ok', niveauParle: !!annonceDeNiveauPosee(),
+             variations: etatRoutines.code === 'ok' && !seance ? exercicesDesVariationsOuvertes() : [] };
+  }
+  function rendreCoachDeLAccueil() {
+    var noeud = $('coach-accueil');
     if (!noeud) return;
-    var a = seance ? null : equilibres();
-    Rendu.rendreLigneEquilibre(noeud, a && a.ligne ? { texte: a.ligne.texte, surOuvrir: afficherParcours } : null);
+    if (seance) return Rendu.rendreCoachDeLAccueil(noeud, null);
+    if (faitEquilibre && faitEquilibre.texte) return Rendu.rendreCoachDeLAccueil(noeud, { fait: faitEquilibre });
+    var a = equilibres(), jour = Moteur.jourCivil(new Date()), ctx = contexteDeLAccueil();
+    var choix = a ? Equilibres.carteDeLAccueil(a, reponsesDesCartes(), jour, ctx) : null;
+    if (garde.active) {
+      var fautes = Equilibres.verifierCarteDeLAccueil(a, reponsesDesCartes(), jour, ctx, choix);
+      if (fautes.length) console.warn('Carte de l’accueil :', fautes.join(' · '));
+    }
+    Rendu.rendreCoachDeLAccueil(noeud, {
+      accueil: choix,
+      surAutres: afficherParcours,
+      surProposition: function (carte, p) {
+        accepterUneProposition(carte, p).catch(function (e) { console.warn('Proposition non appliquée :', texteErreur(e)); });
+      },
+      surPlusTard: pasMaintenantEquilibre
+    });
   }
 
   // 189 (MOTEUR §14.11) — le constat de la baisse en « Juste un carnet » : le coach se tait, la ligne se lit.
@@ -13392,7 +13464,7 @@
     if (etatRoutines.code === 'ok' || routinesDeLAccueilDemandees) return;
     routinesDeLAccueilDemandees = true;
     chargerRoutines().then(function () {
-      if (etatRoutines.code === 'ok' && ecranCourant === 'liste') { rendreProchaineSeance(); rendreLigneDesEquilibres(); }
+      if (etatRoutines.code === 'ok' && ecranCourant === 'liste') { rendreProchaineSeance(); rendreCoachDeLAccueil(); }
       // « Ton parcours » ouvert d'emblée : les causes lisent les routines, elles arrivent après le premier rendu.
       else if (etatRoutines.code === 'ok' && !vues.parcours.hidden) rendreParcours();
     }).catch(function () { /* hors ligne : pas de carte */ }).then(function () { routinesDeLAccueilDemandees = false; });
@@ -19050,12 +19122,21 @@
     return [{ libelle: 'Ce que le coach a retenu', sous: PHRASE_RETENUS, valeur: String(l.length), surChoix: ouvrirRetenusProfil }];
   }
   function texteDuRetenu(x, index) {
-    var rt = routines.filter(function (r) { return r && r.id === x.routine_id; })[0];
-    var ou = rt ? '\u00ab\u00a0' + rt.nom + '\u00a0\u00bb' : 'une ancienne routine';
     var nom = Modele.nommer(index, x.slug);
-    return x.r === 'garder' ? nom + ' : je le garde dans ' + ou + '.'
-      : x.r === 'remplacer' ? nom + ' : remplacé dans ' + ou + '.'
-      : nom + ' : retiré de ' + ou + '.';
+    // 16/11/2026 (B) — une réponse par (exercice, rôle) vaut pour tout le programme.
+    if (x.role) {
+      var dit = Equilibres.ROLES_DITS[x.role];
+      var ou = (dit ? ' ' + dit : '') + ' dans tes routines';
+      return x.r === 'garder' ? nom + ' : je le garde' + ou + '.'
+        : x.r === 'remplacer' ? nom + ' : remplacé' + ou + '.'
+        : nom + ' : retiré de tes routines' + (dit ? ' (' + dit + ')' : '') + '.';
+    }
+    var rid = x.seule || x.routine_id;
+    var rt = routines.filter(function (r) { return r && r.id === rid; })[0];
+    var dans = rt ? '\u00ab\u00a0' + rt.nom + '\u00a0\u00bb' : 'une ancienne routine';
+    return x.r === 'garder' ? nom + ' : je le garde dans ' + dans + '.'
+      : x.r === 'remplacer' ? nom + ' : remplacé dans ' + dans + '.'
+      : nom + ' : retiré de ' + dans + '.';
   }
   function ouvrirRetenusProfil() {
     var index = Modele.indexerExercices(local.exercices);

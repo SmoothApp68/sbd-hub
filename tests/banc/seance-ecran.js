@@ -29670,6 +29670,156 @@ const SETS_IMPORTES = [
       nb185([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
   }
 
+  console.log('\n══ coach-accueil. LE COACH TE DIT SUR L’ACCUEIL — UNE CARTE SOUS « PROCHAINE SÉANCE », LE « OUI » SECONDAIRE, « PAS MAINTENANT » DATÉ, UNE PAR JOUR (16/11/2026) ══');
+  //
+  // ⚠️ AVANT « equilibres-188 » : une carte répondue AUJOURD'HUI fait taire l'accueil toute la journée (une par jour) — les sections
+  // qui répondent à une carte (equilibres-188, gestes-routine) le font le même jour que le banc.
+  // ⚠️ CONFIGURATION DISCRIMINANTE : deux routines qui OUVRENT sur le même tapis, quatre séances récentes (une par semaine, en
+  // alternance), le tapis retiré à la main à chacune : une carte TRANSVERSALE parle (B), portée les deux routines. Le banc joue par l'ÉCRAN : une seule carte dans `#coach-accueil`, entre « Prochaine
+  // séance » et la barre de la semaine, plus de `#ligne-equilibre` ; le « oui » à liseré ambre (`.oui`), jamais l'ambre plein de
+  // « Démarrer » ; à 360 px la carte mesurée ; « Pas maintenant » écrit sa réponse datée et dit la date absolue ; rechargée le même
+  // jour, l'accueil se tait (une par jour) ; « Annuler » rend les réponses d'avant et la carte revient. Rien n'est écrit au rendu.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const nbSessionsAvant = base.sessions.length, nbSetsAvant = base.sets.length, nbCatAvant = CATALOGUE.length, nbRoutinesAvant = ROUTINES.length;
+    const profilAvant = Object.assign({}, base.profiles[0]);
+    // Les blocs d'une autre section (leurs décharges planifiées rendent des séances neutres) : retirés le temps de la section.
+    const rendreBlocsCA = await retirerBlocsDeLAppareil();
+    const tCA = Date.now();
+    const nbCA = (x) => JSON.stringify(x === undefined ? null : x);
+    const spCA = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const ficheCA = (slug, nom, prim, schema, equipement) => ({ slug, nom, mesure: 'charge_reps', charge: 'externe', equipement,
+      muscles_primaires: prim, muscles_secondaires: [], schema_mouvement: schema });
+    // B (16/11/2026) — le tapis en tête de DEUX routines, retiré à la main à chacune des 4 dernières séances (sur 4 semaines) :
+    // une carte TRANSVERSALE, portée les deux routines.
+    CATALOGUE.push(Object.assign(ficheCA('ca-tapis', 'Tapis CA', [], null, 'machine'), { mesure: 'temps', charge: 'aucune', nature: 'cardio' }));
+    CATALOGUE.push(ficheCA('ca-dev', 'Développé CA (Barre)', ['pectoraux'], 'pousser_horizontal', 'barre'));
+    CATALOGUE.push(ficheCA('ca-curl', 'Curl CA (Haltères)', ['biceps'], 'biceps', 'haltere'));
+    CATALOGUE.push(ficheCA('ca-squat', 'Squat CA (Barre)', ['quadriceps', 'fessiers'], 'accroupir', 'barre'));
+    base.sessions = base.sessions.slice();
+    base.sets = base.sets.slice();
+    base.profiles[0] = Object.assign({}, base.profiles[0], { rythme_progression: 'franc', intention: 'progresser', cartes_semaine: {} });
+    const EXOS_CA = { 'r-ca-h': [['ca-dev', 3], ['ca-curl', 3]], 'r-ca-b': [['ca-squat', 3], ['ca-curl', 3]] };
+    for (let h = 1; h <= 4; h++) {
+      // Une séance par semaine, en alternance (la plus récente il y a une heure) ; le tapis retiré à chaque fois.
+      // Le mercredi de quatre semaines écoulées (`decor-dates.js`), loin d'aujourd'hui : une séance « ajustée à la forme » ou une
+      // semaine allégée laissée par une section d'avant (au banc complet) rendrait une séance récente neutre, hors du décompte.
+      const id = 'ca-s' + h, debut = mercrediEcoule(h, tCA).toISOString(), rid = h % 2 ? 'r-ca-h' : 'r-ca-b';
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'CA — ' + id, debut, fin: finDe(debut, tCA).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: rid, source: 'app', created_at: debut,
+        gestes: [{ geste: 'retrait', slug: 'ca-tapis' }] });
+      let rang = 0;
+      EXOS_CA[rid].forEach(([slug, nb]) => {
+        for (let k = 0; k < nb; k++) base.sets.push({ id: id + '-s' + (++rang), session_id: id, user_id: 'u-banc', exercise_slug: slug,
+          charge_kg: 40, reps: 8, duree_s: null, distance_m: null, denivele_m: null, etages: null, elastique: null,
+          type_serie: 'travail', rang, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null,
+          note: null, source: 'app', created_at: debut, modifie_a: null, douleur: false, occurrence: null, hors_calcul: false });
+      });
+    }
+    [['r-ca-h', 'Haut CA'], ['r-ca-b', 'Bas CA']].forEach(([rid, nom]) => {
+      ROUTINES.push({ id: rid, nom, note: null, archivee_a: null, created_at: '2026-01-05T10:00:00.000Z', updated_at: '2026-01-05T10:00:00.000Z',
+        routine_exercises: [['ca-tapis', 1]].concat(EXOS_CA[rid]).map(([slug, n], rang) => ({
+          id: 're-' + rid + '-' + rang, routine_id: rid, exercise_slug: slug, rang, routine_sets: progr(n, 8),
+          repos_cible_s: 90, groupe_superset: null, note: null })) });
+    });
+    const exosCA = () => ['r-ca-h', 'r-ca-b'].map((rid) => ROUTINES.filter((r) => r.id === rid)[0].routine_exercises.slice()
+      .sort((x, y) => x.rang - y.rang).map((e) => e.exercise_slug).join(',')).join(' | ');
+    const EXOS_CA_AVANT = 'ca-tapis,ca-dev,ca-curl | ca-tapis,ca-squat,ca-curl';
+    const lireCA = () => page.evaluate(() => {
+      const n = document.getElementById('coach-accueil');
+      const cartes = n ? Array.from(n.querySelectorAll('.coach-accueil')) : [];
+      const c = cartes[0] || null;
+      const pose = n ? n.querySelector('[data-coach-pose]') : null;
+      const ordre = ['prochaine-seance', 'coach-accueil', 'barre-seances'].map((id) => document.getElementById(id));
+      const enOrdre = ordre.every(Boolean) && !!(ordre[0].compareDocumentPosition(ordre[1]) & Node.DOCUMENT_POSITION_FOLLOWING) &&
+        !!(ordre[1].compareDocumentPosition(ordre[2]) & Node.DOCUMENT_POSITION_FOLLOWING);
+      return { visible: !!n && !n.hidden, n: cartes.length, enOrdre, ligne: !!document.getElementById('ligne-equilibre'),
+        carte: c ? { cle: c.getAttribute('data-equilibre'), tete: (c.querySelector('.coach-tete b') || {}).textContent || null,
+          fait: (c.querySelector('.coach-fait') || {}).textContent || null, h: Math.round(c.getBoundingClientRect().height),
+          detailCache: c.querySelector('.coach-detail') ? c.querySelector('.coach-detail').hidden : null,
+          principal: c.querySelectorAll('.principal').length,
+          boutons: Array.from(c.querySelectorAll('.eq-actions button')).map((b) => ({ t: b.textContent, cls: b.className,
+            prop: b.getAttribute('data-proposition'), h: Math.round(b.getBoundingClientRect().height) })) } : null,
+        pose: pose ? { genre: pose.getAttribute('data-coach-pose'), texte: pose.textContent } : null };
+    });
+    await page.setViewportSize({ width: 360, height: 760 });
+    await aller('/');
+    await attendreQue(async () => !!(await lireCA()).carte, 15000, 'carteCA').catch(() => {});
+    const c1 = await lireCA();
+    if (process.env.BANC_CAPTURES) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES, 'coach-accueil-360.png'), fullPage: false });
+    ok('[CA] une seule carte « Le coach te dit », sous « Prochaine séance » et au-dessus de la semaine ; plus de ligne « Voir mes équilibres »',
+      c1.visible && c1.n === 1 && c1.enOrdre && !c1.ligne && !!c1.carte && c1.carte.tete === 'Le coach te dit', nbCA(c1));
+    ok('[CA] le « oui » est secondaire, à liseré ambre (`.oui`) ; aucun ambre plein dans la carte ; chaque bouton fait 44 px',
+      !!c1.carte && c1.carte.boutons[0].cls === 'oui' && c1.carte.principal === 0 && c1.carte.boutons.every((b) => b.h >= 44), nbCA(c1.carte));
+    ok('[CA] à 360 px, la carte tient en peu de place (le détail replié) : ' + (c1.carte ? c1.carte.h : '?') + ' px',
+      !!c1.carte && c1.carte.h <= 200 && c1.carte.detailCache !== false, nbCA(c1.carte && c1.carte.h));
+    ok('[CA] le rendu seul n’écrit rien : aucune réponse en base', Object.keys(base.profiles[0].cartes_semaine || {}).length === 0,
+      nbCA(base.profiles[0].cartes_semaine));
+    // « Pas maintenant » : la réponse datée part par la file, la ligne grise dit la date absolue, « Annuler ».
+    const cleCA = c1.carte ? c1.carte.cle : null;
+    if (cleCA) {
+      await page.evaluate(() => document.querySelector('#coach-accueil [data-pas-maintenant]').click());
+      await attendreQue(() => (base.profiles[0].cartes_semaine || {})[cleCA], 8000, 'pmCA').catch(() => {});
+      await attendreQue(async () => !!(await lireCA()).pose, 8000, 'poseCA').catch(() => {});
+      const c2 = await lireCA();
+      const rep = (base.profiles[0].cartes_semaine || {})[cleCA];
+      ok('[CA] « Pas maintenant » : la réponse datée (r = non), puis « Noté. Je ne t’en reparle pas avant le <date absolue>. » + « Annuler »',
+        !!rep && rep.r === 'non' && /^\d{4}-\d{2}-\d{2}/.test(rep.le) && !!c2.pose && c2.pose.genre === 'calme' &&
+        /^Noté\. Je ne t’en reparle pas avant le \d{1,2}(er)? [a-zéû]+\.( \d{4}\.)?Annuler$/.test(spCA(c2.pose.texte)) && c2.n === 0, nbCA([rep, c2]));
+      // « Annuler » rend les réponses d'avant : la carte revient.
+      await page.evaluate(() => document.querySelector('#coach-accueil [data-annuler-equilibre]').click());
+      await attendreQue(() => !(base.profiles[0].cartes_semaine || {})[cleCA], 8000, 'annuleCA').catch(() => {});
+      await attendreQue(async () => !!(await lireCA()).carte, 8000, 'revientCA').catch(() => {});
+      const c3 = await lireCA();
+      ok('[CA] « Annuler » rend les réponses d’avant : la carte revient sur l’accueil',
+        !(base.profiles[0].cartes_semaine || {})[cleCA] && !!c3.carte && c3.carte.cle === cleCA, nbCA([base.profiles[0].cartes_semaine, c3]));
+      // B — la carte transversale et son « oui » : les DEUX routines s'écrivent, « C'est fait » nomme les deux, « Annuler » les rend.
+      ok('[CA] la carte transversale : « Tu as retiré Tapis CA, en début de séance, 4 fois sur tes 4 dernières séances qui le prévoient. », « Retirer des 2 »',
+        cleCA === 'geste|ca-tapis|ouverture' && spCA(c1.carte.fait) === 'Tu as retiré Tapis CA, en début de séance, 4 fois sur tes 4 dernières séances qui le prévoient.' &&
+        c1.carte.boutons.map((b) => spCA(b.t)).join('|') === 'Retirer des 2|Garder|Pas maintenant', nbCA(c1.carte));
+      // « Prochaine séance » se redessine : son contenu d'avant est marqué, il doit être remplacé.
+      await page.evaluate(() => { const n = document.getElementById('prochaine-seance'); if (n && n.firstElementChild) n.firstElementChild.setAttribute('data-avant-ca', '1'); });
+      await page.evaluate(() => document.querySelector('#coach-accueil [data-proposition="geste_retirer"]').click());
+      await attendreQue(() => exosCA() === 'ca-dev,ca-curl | ca-squat,ca-curl', 8000, 'retireCA').catch(() => {});
+      await attendreQue(async () => ((await lireCA()).pose || {}).genre === 'fait', 8000, 'faitCA').catch(() => {});
+      const c5 = await lireCA();
+      const redessinee = await page.evaluate(() => !document.querySelector('#prochaine-seance [data-avant-ca]'));
+      const rep5 = base.profiles[0].cartes_semaine || {};
+      ok('[CA] « Retirer des 2 » écrit les deux routines, la réponse (rôle) et sa date, et le dit à la place de la carte',
+        exosCA() === 'ca-dev,ca-curl | ca-squat,ca-curl' && ((rep5.geste_routine || {}).ouverture || {})['ca-tapis'] === 'retirer' &&
+        !!rep5[cleCA] && rep5[cleCA].r === 'oui' && !!c5.pose && c5.pose.genre === 'fait' &&
+        /^C’est fait : Tapis CA retiré de « (Haut|Bas) CA » et « (Haut|Bas) CA »\.Annuler$/.test(spCA(c5.pose.texte)), nbCA([exosCA(), rep5, c5.pose]));
+      ok('[CA] « Prochaine séance » se redessine après le geste', redessinee, '');
+      await page.evaluate(() => document.querySelector('#coach-accueil [data-annuler-equilibre]').click());
+      await attendreQue(() => exosCA() === EXOS_CA_AVANT && !(base.profiles[0].cartes_semaine || {})[cleCA], 8000, 'annuleCA2').catch(() => {});
+      await attendreQue(async () => !!(await lireCA()).carte, 8000, 'revientCA2').catch(() => {});
+      ok('[CA] « Annuler » rend les DEUX routines et les réponses d’avant ; la carte revient',
+        exosCA() === EXOS_CA_AVANT && !(base.profiles[0].cartes_semaine || {})[cleCA] && !!(await lireCA()).carte, nbCA([exosCA(), base.profiles[0].cartes_semaine]));
+      // De nouveau « Pas maintenant », puis rechargée le même jour : aucune autre carte (une par jour).
+      await page.evaluate(() => document.querySelector('#coach-accueil [data-pas-maintenant]').click());
+      await attendreQue(() => (base.profiles[0].cartes_semaine || {})[cleCA], 8000, 'pmCA2').catch(() => {});
+      await aller('/');
+      await page.waitForTimeout(600);
+      const c4 = await lireCA();
+      ok('[CA] rechargée le même jour : l’accueil se tait (une carte répondue aujourd’hui, aucune autre ne monte)',
+        !!(base.profiles[0].cartes_semaine || {})[cleCA] && c4.n === 0 && !c4.pose, nbCA(c4));
+    } else {
+      ok('[CA] une carte porte « Pas maintenant »', false, nbCA(c1));
+    }
+    await page.setViewportSize({ width: 380, height: 760 });
+    ok('[CA] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      nbCA([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
+    base.sessions = base.sessions.slice(0, nbSessionsAvant);
+    base.sets = base.sets.slice(0, nbSetsAvant);
+    CATALOGUE.length = nbCatAvant;
+    ROUTINES.length = nbRoutinesAvant;
+    base.profiles[0] = profilAvant;
+    rendreBlocsCA();
+  }
+
   console.log('\n══ equilibres-188. TA SEMAINE ET TES ÉQUILIBRES — LA CARTE, SES CAUSES, « PAS MAINTENANT », UNE PROPOSITION QUI SE VOIT ET S’ANNULE (188-1) ══');
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE : quatorze semaines de haut du corps SANS aucun tirage (le rapport tirage/poussée est à 0, sous
@@ -29897,9 +30047,10 @@ const SETS_IMPORTES = [
     base.sets = base.sets.slice();
     base.profiles[0] = Object.assign({}, base.profiles[0], { rythme_progression: 'franc', intention: 'progresser', cartes_semaine: {} });
     for (let h = 1; h <= 4; h++) {
-      const id = 'gr-s' + h, debut = ilYa(h * 3600000, tGR).toISOString();
+      // B (16/11/2026) : une séance par semaine — les retraits doivent tomber sur au moins 2 semaines civiles.
+      const id = 'gr-s' + h, debut = (h === 1 ? ilYa(3600000, tGR) : mercrediEcoule(h - 2, tGR)).toISOString();
       const retire = h <= 3;
-      base.sessions.push({ id, user_id: 'u-banc', titre: 'GR — ' + id, debut, fin: ilYa(h * 3600000 - 1800000, tGR).toISOString(),
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'GR — ' + id, debut, fin: finDe(debut, tGR).toISOString(),
         statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: 'r-gr', source: 'app', created_at: debut,
         gestes: retire ? [{ geste: 'retrait', slug: 'gr-inc' }] : [] });
       let rang = 0;
@@ -29918,7 +30069,7 @@ const SETS_IMPORTES = [
     const routineGR = () => ROUTINES.filter((r) => r.id === 'r-gr')[0];
     const exosGR = () => routineGR().routine_exercises.slice().sort((a, b) => a.rang - b.rang)
       .map((e) => e.exercise_slug + ':' + (e.routine_sets || []).filter((x) => (x.type_serie || 'travail') === 'travail').length);
-    const CLE = 'geste|r-gr|gr-inc';
+    const CLE = 'geste|gr-inc|travail';   // B (16/11/2026) : la clé est (exercice, rôle)
     const lireGR = () => page.evaluate((cle) => {
       const c = document.querySelector('#parcours [data-equilibre="' + cle + '"]');
       const fait = document.querySelector('#parcours .eq-fait-pose');
@@ -29948,7 +30099,7 @@ const SETS_IMPORTES = [
     await attendreQue(() => exosGR().join(',') === 'gr-dev:6,gr-curl:3', 8000, 'ecritGR').catch(() => {});
     await attendreQue(async () => /^C’est fait/.test(spGR((await lireGR()).fait)), 8000, 'faitGR').catch(() => {});
     const g2 = await lireGR();
-    const rep2 = ((base.profiles[0].cartes_semaine || {}).geste_routine || {})['r-gr'];
+    const rep2 = ((base.profiles[0].cartes_semaine || {}).geste_routine || {})['travail'];
     ok('[GR] « D’accord » écrit la routine (développé à 6 séries, incliné retiré), la réponse « retirer », et le dit',
       exosGR().join(',') === 'gr-dev:6,gr-curl:3' && !!rep2 && rep2['gr-inc'] === 'retirer' &&
       spGR(g2.fait).indexOf('C’est fait : « Haut GR » sans Incliné GR (Haltères), Développé GR (Barre) à 6 séries.') === 0,
@@ -29964,11 +30115,11 @@ const SETS_IMPORTES = [
     await aller('/progression/parcours');
     await attendreQue(async () => !!(await lireGR()).carte, 15000, 'carteGR2');
     await page.evaluate((cle) => document.querySelector('[data-equilibre="' + cle + '"] [data-proposition="geste_garder"]').click(), CLE);
-    await attendreQue(() => (((base.profiles[0].cartes_semaine || {}).geste_routine || {})['r-gr'] || {})['gr-inc'] === 'garder', 8000, 'garderGR').catch(() => {});
+    await attendreQue(() => (((base.profiles[0].cartes_semaine || {}).geste_routine || {})['travail'] || {})['gr-inc'] === 'garder', 8000, 'garderGR').catch(() => {});
     const g3 = await lireGR();
     ok('[GR] « Garder » : « Noté : je garde … et je ne te le redemande plus. », la réponse durable, la routine intacte',
-      (((base.profiles[0].cartes_semaine || {}).geste_routine || {})['r-gr'] || {})['gr-inc'] === 'garder' &&
-      spGR(g3.fait).indexOf('Noté : je garde Incliné GR (Haltères) dans « Haut GR » et je ne te le redemande plus.') === 0 &&
+      (((base.profiles[0].cartes_semaine || {}).geste_routine || {})['travail'] || {})['gr-inc'] === 'garder' &&
+      spGR(g3.fait).indexOf('Noté : je garde Incliné GR (Haltères) dans tes routines et je ne te le redemande plus.') === 0 &&
       exosGR().join(',') === 'gr-dev:3,gr-inc:3,gr-curl:3', nbGR([base.profiles[0].cartes_semaine, g3.fait, exosGR()]));
     await aller('/progression/parcours');
     // La section s'est dessinée (l'analyse a tourné) : la carte gardée n'y est plus.
@@ -29986,7 +30137,7 @@ const SETS_IMPORTES = [
       noms: Array.from(document.querySelectorAll('#feuille-contenu .ecarte-nom')).map((n) => n.textContent),
       boutons: Array.from(document.querySelectorAll('#feuille-contenu .ecarte-reprendre')).map((n) => n.textContent) }));
     ok('[GR] « Ce que le coach a retenu » : la réponse, lisible, avec « Effacer »',
-      fGR.titre === 'Ce que le coach a retenu' && fGR.noms.map(spGR).join('|') === 'Incliné GR (Haltères) : je le garde dans « Haut GR ».' &&
+      fGR.titre === 'Ce que le coach a retenu' && fGR.noms.map(spGR).join('|') === 'Incliné GR (Haltères) : je le garde dans tes routines.' &&
       fGR.boutons.join('|') === 'Effacer', nbGR(fGR));
     await page.click('#feuille-contenu .ecarte-reprendre');
     await attendreQue(() => !(base.profiles[0].cartes_semaine || {}).geste_routine, 8000, 'effaceGR').catch(() => {});

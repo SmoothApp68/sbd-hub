@@ -468,8 +468,15 @@ describe('188-2 — la mécanique commune', () => {
     expect(Eq.analyser(base({ reglage: 'prudent' })).cartes.map((c) => c.cle)).toEqual(['jours']);
     expect(Eq.ORDRE_DES_FAMILLES).toEqual(['jours', 'temps', 'gestes', 'equilibre', 'frequence', 'ordre']);   // 16/11/2026 : les gestes de la routine (§9.27 quater)
   });
-  test('la ligne de l’écran Séances reste celle des équilibres : une carte des jours n’y parle pas', () => {
-    expect(Eq.analyser(base({ reglage: 'franc' })).ligne).toBeNull();
+  test('16/11/2026 — la carte de l’accueil : la première qui parle (les jours), « 2 autres » (comptées avant le plafond)', () => {
+    const a = Eq.analyser(base({ reglage: 'franc' }));
+    const r = Eq.carteDeLAccueil(a, {}, '2026-10-28', { routinesPretes: true });
+    expect(r.carte).toBe(a.cartes[0]);
+    expect(r.carte.cle).toBe('jours');
+    expect(r.autres).toBe(2);
+    const p = Eq.analyser(base({ reglage: 'prudent' }));
+    expect(p.cartes.length).toBe(1);
+    expect(Eq.carteDeLAccueil(p, {}, '2026-10-28', { routinesPretes: true }).autres).toBe(2);   // jamais 0 en Prudent quand d'autres parlent
   });
   test('les faits ne changent pas selon le réglage', () => {
     const f = (r) => JSON.stringify(Eq.analyser(base({ reglage: r })).constats.map((c) => [c.cle, c.fait, c.causes && c.causes.map((x) => x.texte)]));

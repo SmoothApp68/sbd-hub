@@ -60,11 +60,10 @@ describe('188-1 — le rendu des équilibres', () => {
     const { c } = rendre(a);
     expect(c.querySelectorAll('[data-pas-maintenant]').length).toBe(0);
   });
-  test('la ligne de l’écran Séances : une seule, vide si rien ne parle', () => {
+  test('16/11/2026 — la carte de l’accueil remplace la ligne : vide (cachée) si rien ne parle', () => {
     const n = document.createElement('div');
-    Rendu.rendreLigneEquilibre(n, { texte: 'Aucune série de tirage pour 40 de poussée.', surOuvrir: () => {} });
-    expect(n.hidden).toBe(false);
-    Rendu.rendreLigneEquilibre(n, null);
+    expect(Rendu.rendreLigneEquilibre).toBeUndefined();
+    Rendu.rendreCoachDeLAccueil(n, { accueil: null });
     expect(n.hidden).toBe(true);
   });
 

@@ -1,0 +1,35 @@
+[
+ {
+  "nom": "ri-1-le-fait-attend-lecriture",
+  "fichier": "v2/js/app.js",
+  "ancien": "    faitEquilibre = {\n      texte: p.fait,\n      surAnnuler: async function () {\n        // « Annuler » attend la fin",
+  "nouveau": "    await ecriture;\n    faitEquilibre = {\n      texte: p.fait,\n      surAnnuler: async function () {\n        // « Annuler » attend la fin",
+  "unitaires": [
+   "tests/unit/v2-geste-reponse-immediate.test.js"
+  ],
+  "banc": "seance",
+  "sections": [
+   "coach-accueil"
+  ]
+ },
+ {
+  "nom": "ri-2-un-echec-reste-un-c-est-fait",
+  "fichier": "v2/js/app.js",
+  "ancien": "    try { await ecriture; } catch (e) { return echecDuGeste(e, ecrites.map(function (x) { return x.nom; }), faites); }",
+  "nouveau": "    try { await ecriture; } catch (e) { return; }",
+  "unitaires": [
+   "tests/unit/v2-geste-reponse-immediate.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "ri-3-annuler-n-attend-pas-lecriture",
+  "fichier": "v2/js/app.js",
+  "ancien": "        try { await ecriture; } catch (e) { return; }\n        faitEquilibre = null;\n        var changees = [];",
+  "nouveau": "        faitEquilibre = null;\n        var changees = [];",
+  "unitaires": [
+   "tests/unit/v2-geste-reponse-immediate.test.js"
+  ],
+  "banc": "aucun"
+ }
+]

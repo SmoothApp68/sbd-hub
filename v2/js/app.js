@@ -1854,11 +1854,40 @@
       memoEquilibres = null;
       repeindreLesEquilibres();
     };
+    // 18/11/2026 — LA RÉPONSE SE VOIT AU TOUCHER. Avant, « C'est fait » attendait `await poserProfil`, qui attend la réponse du
+    // SERVEUR (3 à 9 s) : la carte restait là, boutons touchables, et la personne retouchait. Maintenant, tout ce qui se décide se
+    // calcule et se vérifie d'abord (ci-dessous, sans écriture) ; la ligne « C'est fait » se pose et se peint tout de suite ; les
+    // écritures (la file) partent derrière, et seulement leur ÉCHEC change la ligne (`echecDuGeste`) : jamais un « C'est fait » qui ment.
+    var echecDuGeste = function (e, noms, ecritesFaites) {
+      console.warn('Geste non écrit :', texteErreur(e));
+      var rendre = async function () {
+        // Best effort : ce qui a déjà été écrit est rendu, les réponses d'avant aussi, puis la ligne le dit.
+        for (var j = 0; j < ecritesFaites.length; j++) {
+          try {
+            var r2 = routines.filter(function (r) { return r.id === ecritesFaites[j].rt.id; })[0];
+            if (r2) await poserRoutineVoulue(r2, ecritesFaites[j].avant);
+          } catch (e2) { console.warn('Retour non écrit :', texteErreur(e2)); }
+        }
+        try { await poserProfil({ cartes_semaine: avantReponses }); } catch (e3) { console.warn('Réponses non rendues :', texteErreur(e3)); }
+      };
+      return rendre().then(function () {
+        var qui = noms.length ? noms.map(function (n) { return '\u00ab\u00a0' + n + '\u00a0\u00bb'; }).join(' et ') : 'ta routine';
+        faitEquilibre = { texte: 'Je n\u2019ai pas pu modifier ' + qui + '.', libelleBouton: 'Revoir la carte',
+          surAnnuler: function () { faitEquilibre = null; memoEquilibres = null; repeindreLesEquilibres(); } };
+        memoEquilibres = null;
+        repeindreLesEquilibres();
+      });
+    };
     if (p.type === 'geste_garder') {
-      await poserProfil({ cartes_semaine: Equilibres.reponseAuGesteDatee(reponsesDesCartes(), carte.cle, groupe, p.slug, 'garder', jour) });
-      faitEquilibre = { texte: p.fait, surAnnuler: annulerLesReponses };
+      var ecritureGarder = poserProfil({ cartes_semaine: Equilibres.reponseAuGesteDatee(reponsesDesCartes(), carte.cle, groupe, p.slug, 'garder', jour) });
+      faitEquilibre = { texte: p.fait, surAnnuler: async function () {
+        try { await ecritureGarder; } catch (e) { return; }
+        await annulerLesReponses();
+      } };
       memoEquilibres = null;
-      return repeindreLesEquilibres();
+      repeindreLesEquilibres();
+      try { await ecritureGarder; } catch (e) { return echecDuGeste(e, [], []); }
+      return;
     }
     // TOUT OU RIEN (I219) : chaque routine de la portée se calcule et se vérifie AVANT toute écriture ; une seule qui a changé, rien
     // n'est écrit et la carte se recalcule.
@@ -1877,7 +1906,7 @@
         voulues = rt.exercices.map(function (x) { return x.exercise_slug === p.slug ? Routines.exerciceRemplace(x, p.vers, mesures) : x; });
       }
       if (!voulues) { ecrites = null; break; }
-      ecrites.push({ rt: rt, voulues: voulues, avant: JSON.parse(JSON.stringify(rt.exercices)) });
+      ecrites.push({ rt: rt, voulues: voulues, avant: JSON.parse(JSON.stringify(rt.exercices)), nom: rt.nom });
     }
     if (!ecrites || !ecrites.length) {
       // Une routine a changé depuis la carte : rien n'est écrit, la carte se recalcule.
@@ -1885,16 +1914,22 @@
       memoEquilibres = null;
       return repeindreLesEquilibres();
     }
-    for (var k = 0; k < ecrites.length; k++) {
-      await poserRoutineVoulue(ecrites[k].rt, ecrites[k].voulues);
-      // La signature de ce que le geste a écrit : « Annuler » ne touchera une routine que si elle la porte encore.
-      ecrites[k].signature = Routines.signatureDesExercices(ecrites[k].rt.exercices);
-    }
-    await poserProfil({ cartes_semaine: Equilibres.reponseAuGesteDatee(reponsesDesCartes(), carte.cle, groupe, p.slug,
-      p.type === 'geste_remplacer' ? 'remplacer' : 'retirer', jour) });
+    var faites = [];   // les routines réellement écrites (pour les rendre si une suivante échoue)
+    var ecriture = (async function () {
+      for (var k = 0; k < ecrites.length; k++) {
+        await poserRoutineVoulue(ecrites[k].rt, ecrites[k].voulues);
+        faites.push(ecrites[k]);
+        // La signature de ce que le geste a écrit : « Annuler » ne touchera une routine que si elle la porte encore.
+        ecrites[k].signature = Routines.signatureDesExercices(ecrites[k].rt.exercices);
+      }
+      await poserProfil({ cartes_semaine: Equilibres.reponseAuGesteDatee(reponsesDesCartes(), carte.cle, groupe, p.slug,
+        p.type === 'geste_remplacer' ? 'remplacer' : 'retirer', jour) });
+    })();
     faitEquilibre = {
       texte: p.fait,
       surAnnuler: async function () {
+        // « Annuler » attend la fin de l'écriture du geste (sinon il rendrait une routine pas encore écrite, puis elle s'écrirait).
+        try { await ecriture; } catch (e) { return; }
         faitEquilibre = null;
         var changees = [];
         for (var j = 0; j < ecrites.length; j++) {
@@ -1912,6 +1947,10 @@
         repeindreLesEquilibres();
       }
     };
+    memoEquilibres = null;
+    repeindreLesEquilibres();
+    try { await ecriture; } catch (e) { return echecDuGeste(e, ecrites.map(function (x) { return x.nom; }), faites); }
+    // La routine est écrite en mémoire : « Prochaine séance » se redessine sur la nouvelle (la ligne « C'est fait » reste).
     memoEquilibres = null;
     repeindreLesEquilibres();
   }

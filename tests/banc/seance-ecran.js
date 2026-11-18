@@ -29781,7 +29781,17 @@ const SETS_IMPORTES = [
         c1.carte.boutons.map((b) => spCA(b.t)).join('|') === 'Retirer des 2|Garder|Pas maintenant', nbCA(c1.carte));
       // « Prochaine séance » se redessine : son contenu d'avant est marqué, il doit être remplacé.
       await page.evaluate(() => { const n = document.getElementById('prochaine-seance'); if (n && n.firstElementChild) n.firstElementChild.setAttribute('data-avant-ca', '1'); });
-      await page.evaluate(() => document.querySelector('#coach-accueil [data-proposition="geste_retirer"]').click());
+      // 18/11/2026 — LA RÉPONSE SE VOIT AU TOUCHER : dans le MÊME geste (avant tout retour du serveur ou de la file), la carte a cédé la
+      // place à « C'est fait : … » + « Annuler », et plus aucun bouton de proposition n'est touchable (pas de double écriture).
+      const auToucherCA = await page.evaluate(() => {
+        document.querySelector('#coach-accueil [data-proposition="geste_retirer"]').click();
+        const n = document.getElementById('coach-accueil');
+        const pose = n.querySelector('[data-coach-pose]');
+        return { pose: pose ? pose.textContent : null, genre: pose ? pose.getAttribute('data-coach-pose') : null,
+          boutons: n.querySelectorAll('[data-proposition], [data-pas-maintenant]').length, annuler: !!n.querySelector('[data-annuler-equilibre]') };
+      });
+      ok('[CA] « D’accord » : « C’est fait : … » + « Annuler » dès le toucher, plus aucun bouton de la carte à toucher',
+        auToucherCA.genre === 'fait' && /^C’est fait : /.test(spCA(auToucherCA.pose)) && auToucherCA.boutons === 0 && auToucherCA.annuler, nbCA(auToucherCA));
       await attendreQue(() => exosCA() === 'ca-dev,ca-curl | ca-squat,ca-curl', 8000, 'retireCA').catch(() => {});
       await attendreQue(async () => ((await lireCA()).pose || {}).genre === 'fait', 8000, 'faitCA').catch(() => {});
       const c5 = await lireCA();

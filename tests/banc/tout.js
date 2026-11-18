@@ -66,6 +66,12 @@ if (require.main === module) (async () => {
       const i = x.texte.indexOf('══ VITESSE');
       console.log('\n' + (i >= 0 ? x.texte.slice(i) : x.texte.split('\n').slice(-40).join('\n')));
     });
+    // CI-1 : un banc en échec nomme ce qui échoue (le test, le contrôle), pas seulement ses dernières lignes — sans quoi un échec
+    // vert au rejeu (types H et I de l'étude du 16/11/2026) ne se range dans aucune cause. 20 lignes au plus par banc.
+    r.filter((x) => x.code !== 0 && x.nom.indexOf('banc de vitesse') !== 0).forEach((x) => {
+      const l = x.texte.split('\n').filter((t) => /❌|✕|^FAIL |^\s+●.*›|\[exception\]/.test(t)).slice(0, 20);
+      if (l.length) { console.log('\n   ' + x.nom + ' — ce qui échoue :'); l.forEach((t) => console.log('        ' + t.trim())); }
+    });
     console.log('\n   ' + Math.round((Date.now() - debut) / 1000) + ' s au total');
     process.exit(r.every((x) => x.code === 0) ? 0 : 1);
   });

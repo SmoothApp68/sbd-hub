@@ -3123,6 +3123,10 @@
       // `cranDeSerie`) : tenue, mais sans marge. Ni élan, ni proposition, ni
       // « ton test arrive » ; une proposition prise à fond ne garde pas sa charge.
       var aFond = Palier().cranDeSerie(s) === 'max';
+      // « Garde 0 » (19/11/2026) — à garde AFFICHÉE 0, une série à fond DANS la zone est sur la cible : ni doute, ni retour (le plan passe la
+      // garde par `contexte.gardeAffichee`, jamais recalculée ici). Sous le bas de la zone, « à fond » garde son sens.
+      var surLaCible = contexte && contexte.gardeAffichee === 0 && aFond && reps !== null && reps >= z.bas;
+      if (surLaCible) aFond = false;
       var derniere = i === n - 1;
       message = null;
 
@@ -3247,7 +3251,7 @@
                 (s.ressenti !== null && s.ressenti !== undefined);
               if (reps === z.bas && !effortNote && !effortDit) {
                 message = { type: 'effort_suggere', rang: i + 1, charge: charge, reps: reps,
-                            palier: P, retour: retour };
+                            palier: P, retour: retour, garde0: !!(contexte && contexte.gardeAffichee === 0) };
                 effortDit = true;
               } else {
                 var toutes = true;
@@ -3785,6 +3789,9 @@
         return a + nombreFr(m.series, regle('reaction.series')) + ' séries de plus à ' + enKg(m.charge, cE) + '.';
       }
       case 'effort_suggere':
+        // « Garde 0 » (19/11/2026) : à garde affichée 0, « à fond » est la cible, jamais un motif de reculer : la réponse attendue garde la charge.
+        if (m.garde0) return fait + ', pile au bas de ta fourchette. Note ce qu\'il t\'en restait' + DEUX_POINTS +
+          'à garde 0, je garde ' + enKg(m.charge, cite(CIBLE, { role: 'elan' })) + '.';
         return fait + ', pile au bas de ta fourchette. Si c\'était à fond, note-le' + DEUX_POINTS +
           (m.retour === null || m.retour === undefined
             ? 'je reviens au cran au-dessus' : 'je reviens à ' + enKg(m.retour, regle('reaction.retour'))) +

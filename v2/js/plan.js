@@ -172,7 +172,12 @@
       faites.push({ charge_kg: chargeLue(s, pdc), reps: s.reps, rpe: s.rpe, ressenti: s.ressenti });
     }
     var planInitial = M.planDeCouverture(consigne, couvertes);
-    var reaction = M.reactionPour(consigne, faites, contexte || null, planInitial);
+    // « Garde 0 » (19/11/2026) — la réserve AFFICHÉE de la ligne, déjà calculée par la fonction unique (`Moteur.reserveAffichee` : le plancher des
+    // populations protégées et de la reprise longue la relève, donc 0 ne reste que pour qui a choisi d'aller à l'échec). À garde 0, « à fond » est
+    // la cible : la réaction ne le traite plus comme un doute (`Moteur.reactionPour`, `gardeAffichee`).
+    var gardeLigne = consigne ? M.reserveAffichee({ zone: consigne.zone, role: 'ligne', reglage: o.reglage, protegee: o.protegee === true, repriseLongue: M.enRepriseLongue(consigne) }) : null;
+    var contexteR = gardeLigne === 0 ? Object.assign({}, contexte || {}, { gardeAffichee: 0 }) : (contexte || null);
+    var reaction = M.reactionPour(consigne, faites, contexteR, planInitial);
 
     var lignes = liste.map(function (sr, i) {
       var cov = couverture[i];
@@ -215,7 +220,7 @@
       var j = l.position;
       var n = Math.min(faites.length, j);
       if (!reactionsAvant[n]) {
-        reactionsAvant[n] = M.reactionPour(consigne, faites.slice(0, n), contexte || null, planInitial);
+        reactionsAvant[n] = M.reactionPour(consigne, faites.slice(0, n), contexteR, planInitial);
       }
       var p = M.lignesDePari(consigne, reactionsAvant[n], faites.slice(0, n), j, {
         slug: o.slug, reglage: o.reglage, seance: o.seance,

@@ -7312,7 +7312,13 @@
       if (!meilleurDit(maintenant.meilleur)) return;
       var anciens = vus.filter(function (v) { return instant(v.debut) <= depuis; });
       var ancien = anciens.length ? anciens[anciens.length - 1] : null;
-      if (ancien && ancien.zone !== maintenant.zone) ancien = null;
+      // Entre deux zones, le niveau ne se compare pas : le palier doit avoir monté, sinon ce n'est pas un progrès
+      // (100 kg × 6 → 80 kg × 10 n'est pas « progresse »). L'« avant » ne se dit pas (pas de flèche).
+      if (ancien && ancien.zone !== maintenant.zone) {
+        var pz = nombre(ancien.meilleur && ancien.meilleur.palier), mz = nombre(maintenant.meilleur.palier);
+        if (pz !== null && !(mz > pz && !memeCharge(mz, pz))) return;
+        ancien = null;
+      }
       // Un « avant » sans niveau ne se dit pas (pas de flèche) — mais son
       // palier compte encore : un palier qui n'a pas monté n'est pas un progrès.
       if (ancien && !meilleurDit(ancien.meilleur)) {

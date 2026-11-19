@@ -502,7 +502,17 @@ const SCENARIOS = [
       verifier('[sw-une-version] DISCRIMINANT : le cache de la version en place n’a reçu AUCUN fichier de la suivante',
         !!apres && apres.indexOf(MARQUE) < 0, apres ? 'marque ' + (apres.indexOf(MARQUE) >= 0 ? 'PRÉSENTE' : 'absente') : 'config.js absent');
     }, { racine: dossier });
-  }}
+  }},
+
+{ n: 10, titre: 'pages publiques (/confidentialite, /mentions-legales, /sante) : la page, jamais la coquille, service worker installé',
+  run: () => session(async (page) => {
+    await installerSW(page);
+    for (const c of ['/confidentialite', '/confidentialite.html', '/mentions-legales', '/sante']) {
+      const erreur = await page.goto(BASE + c, { waitUntil: 'load', timeout: 12000 }).then(() => null).catch((e) => e.message.slice(0, 60));
+      const vue = await evaluer(page, () => ({ h1: (document.querySelector('h1') || {}).textContent || '', sections: document.querySelectorAll('section').length, lang: document.documentElement.lang })).catch(() => ({ h1: '', sections: -1 }));
+      verifier(c + ' : la page publique, pas l’app', !erreur && vue.h1 !== '' && vue.sections === 0 && vue.lang === 'fr', erreur || JSON.stringify(vue));
+    }
+  })}
 ];
 
 // Les quatre vérifications d'avant-fusion (CLAUDE.md §4 bis), rattachées aux

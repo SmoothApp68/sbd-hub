@@ -25,6 +25,7 @@ describe('pages publiques', () => {
       const html = lire(p.chemin + '.html');
       expect(html).not.toMatch(/<script/i);
       expect(html).toMatch(/default-src 'none'/);
+      expect(html).toMatch(/font-src 'self'/);   // les polices de styles.css, sinon le texte retombe sur la police du système
       expect(html).toContain('<link rel="canonical" href="' + G.RACINE + '/' + p.chemin + '">');
     });
   });
@@ -34,8 +35,10 @@ describe('pages publiques', () => {
   test('la ligne contact reste cachée tant qu’elle vaut le marqueur', () => {
     expect(lire('mentions-legales.html')).not.toMatch(/Contact|COMPLÉTER/);
   });
-  test('le service worker ne met pas ces pages en cache (coquille inchangée)', () => {
-    expect(lire('service-worker.js')).not.toMatch(/confidentialite|mentions-legales/);
+  test('le service worker ne met pas ces pages en cache et les laisse au réseau (coquille inchangée)', () => {
+    const SW = require('../../v2/service-worker.js');
+    expect(SW.SHELL.join(' ')).not.toMatch(/confidentialite|mentions-legales|sante/);
+    G.PAGES.forEach((p) => { expect(SW.PAGES_PUBLIQUES.has('/' + p.chemin)).toBe(true); expect(SW.PAGES_PUBLIQUES.has('/' + p.chemin + '.html')).toBe(true); });
   });
 });
 

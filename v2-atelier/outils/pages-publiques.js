@@ -39,7 +39,7 @@ function fabriquer(chemin) {
   return '<!DOCTYPE html>\n<html lang="fr">\n<head>\n<meta charset="utf-8">\n' +
     '<meta name="viewport" content="width=device-width, initial-scale=1">\n' +
     '<meta name="theme-color" content="#0A0C10">\n' +
-    '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'self\'; img-src \'self\'; base-uri \'none\'; form-action \'none\'">\n' +
+    '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'self\'; font-src \'self\'; img-src \'self\'; base-uri \'none\'; form-action \'none\'">\n' +
     '<title>' + echapper(page.titre) + ' — TrainHub</title>\n' +
     '<link rel="canonical" href="' + RACINE + '/' + p.chemin + '">\n' +
     '<link rel="icon" href="/icons/icon-192.png">\n<link rel="stylesheet" href="/styles.css">\n</head>\n' +

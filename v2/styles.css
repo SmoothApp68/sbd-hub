@@ -3488,4 +3488,4 @@ input,select,textarea,.ch-serie,.rp-serie,.eff-serie{
 .page-publique-corps{max-width:640px;margin:0 auto;padding:24px 20px 48px;display:grid;gap:16px}
 .page-publique-corps h1{font-size:22px;color:var(--texte)}
 .page-publique-pied{font-size:14px;color:var(--texte-2)}
-.page-publique-pied a{color:var(--texte);text-decoration:underline}
+.page-publique-pied a{color:var(--texte);text-decoration:underline;display:inline-block;padding:10px 4px}

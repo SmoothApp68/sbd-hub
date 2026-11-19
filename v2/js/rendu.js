@@ -4571,7 +4571,14 @@
     var n = el('div', 'proposition-exercice ' + (p.classe || ''));
     n.setAttribute('data-iexo', String(iExo));
     n.appendChild(el('div', 'pc-texte', p.texte));
-    if (p.detail) n.appendChild(el('div', 'pc-detail', p.detail));
+    // 19/11 — `p.resume` : la raison de la carte (`.pc-detail`, le même texte) se replie sous un lien d'une ligne, APRÈS les gestes ;
+    // sans `resume`, le détail reste visible, avant les gestes (toutes les autres cartes).
+    var raison = null;
+    if (p.detail && p.resume) {
+      raison = el('details', 'pc-raison');
+      raison.appendChild(el('summary', null, p.resume));
+      raison.appendChild(el('div', 'pc-detail', p.detail));
+    } else if (p.detail) n.appendChild(el('div', 'pc-detail', p.detail));
     var gestes = el('div', 'pc-gestes');
     // §9.20 — la carte de reprise a TROIS choix : la même carte, une liste de
     // gestes au lieu de la paire oui / non.
@@ -4585,6 +4592,7 @@
         gestes.appendChild(b);
       });
       n.appendChild(gestes);
+      if (raison) n.appendChild(raison);
       return n;
     }
     var oui = el('button', 'pc-ajouter' + (p.classeOui ? ' ' + p.classeOui : ''), p.oui);
@@ -4596,6 +4604,7 @@
     gestes.appendChild(oui);
     gestes.appendChild(non);
     n.appendChild(gestes);
+    if (raison) n.appendChild(raison);
     return n;
   }
 
@@ -4724,7 +4733,7 @@
   // « Ajouter » et « Non merci ». Le texte vient du plan (`chauffesDe`).
   function propositionDeChauffes(pc, iExo, vue) {
     return propositionDExercice({
-      classe: 'proposition-chauffes', texte: pc.phrase, detail: pc.pourquoi || null, oui: 'Ajouter', non: 'Non merci',
+      classe: 'proposition-chauffes', texte: pc.phrase, detail: pc.pourquoi || null, resume: 'Pourquoi cette chauffe ?', oui: 'Ajouter', non: 'Non merci',
       surOui: function () { vue.surAjouterChauffes(iExo); },
       surNon: function () { vue.surRefuserChauffes(iExo); }
     }, iExo);

@@ -3454,6 +3454,14 @@ input,select,textarea,.ch-serie,.rp-serie,.eff-serie{
 /* La ligne du coach (§9.41) : un filet d'ambre, ses charges en clair, « Ajouter » / « Non merci » à droite. */
 .proposition-exercice.proposition-chauffes{border:0;border-left:3px solid var(--accent);border-radius:0 8px 8px 0;background:var(--accent-fond)}
 .proposition-exercice.proposition-chauffes .pc-texte{color:var(--texte);font-weight:600}
+/* 19/11 — « Chauffe » sur UNE ligne : la phrase à gauche, « Ajouter » / « Non merci » à droite (ils passent dessous quand la colonne est
+   étroite), et la raison repliée sous un lien d'une ligne (zone de toucher de 44 px, comme « Pourquoi ? »). */
+.proposition-exercice.proposition-chauffes{display:flex;flex-wrap:wrap;align-items:center;column-gap:var(--e2)}
+.proposition-chauffes .pc-texte{flex:1 1 auto;min-width:0}
+.proposition-chauffes .pc-gestes{flex:0 0 auto;margin-top:0}
+.proposition-chauffes .pc-raison{flex:1 0 100%}
+.proposition-chauffes .pc-raison summary{cursor:pointer;color:var(--texte-2);font-size:13px;padding:12px 0;margin:-8px 0;min-height:20px}
+.proposition-chauffes .pc-raison .pc-detail{margin:0 0 6px}
 .cartes-exo.sous-legende{margin:2px 0 6px}
 .cartes-exo.sous-legende .cartes-exo-nom{display:none}
 .en-tours .ok-serie:not(.cochee){border-color:#2B3442}

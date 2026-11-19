@@ -1203,6 +1203,13 @@ l'est pas). Ces règles sont des étapes de la réaction, avec ses silences (§9
   la phrase dit le fait : « 81,3 kg × 12 à fond : la suite revient à 79 kg × 12. » Le pari de la série est tenu (reps
   faites, §9.11) ; le constat la compte comme une montée tenue du jour (I10).
 - **Ni proposition, ni « ton test arrive avec de la marge »** après une série à fond, même à 3 reps de marge.
+- **Exception : à garde affichée 0 (19/11/2026, PR #716).** Quand la réserve AFFICHÉE de la ligne est 0 (`Moteur.reserveAffichee`, réglage Franc en
+  Hypertrophie, Volume, Séries longues, hors plancher des protégés et de la reprise longue ; exercice à charge × reps et palier > 0, prédicat unique
+  `Moteur.effortViseEligible(palier, mesure)` lu par `planDesLignes` et par le plan), « à fond » EST la cible : une série plus lourde que sa ligne, à fond
+  et à au moins le bas de la zone, garde la charge (`gardeAffichee: 0` dans `reactionPour`) ; sous le bas de la zone le retour à la ligne reste. La phrase
+  dit le fait en tête : « 72 kg × 8, pile au bas de ta fourchette : je garde 72 kg. Note ce qu'il t'en restait, ça pèse sur la séance suivante. »
+  Écart connu, assumé : la séance suivante lit encore « à fond = r − 1 » (`Palier.cranDeSerie`) ; un chantier à part, avec rejeu, le traiterait.
+  Hors scope : la ligne d'élan qui ne baisse pas après un 2e échec (retirer l'exclusion `elan` casse I43/I44 ; refonte à part).
 - **« La suite »** dans une phrase se lit sur les lignes après cette règle : « 81,3 kg × 10 à fond : la suite reste à
   81,3 kg × 9. » quand la ligne suivante, un test à 81,3, vient de passer à 9.
 - La dernière série de l'exercice : rien à dire.

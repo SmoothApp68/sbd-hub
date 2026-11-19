@@ -1589,8 +1589,10 @@
   var ROLES_A_RESERVE = { ligne: true, coach: true, retour: true, elan: true, test: true, haut: true };
   // 169 — L'ÉLIGIBILITÉ DE L'EFFORT VISÉ, une seule fonction pour le moteur et pour le plan : la règle ne joue pas au poids du
   // corps (palier 0) ni avec une aide (palier < 0). `palier` : le palier de la consigne (`consigne.palier`).
-  function effortViseEligible(palier) {
+  // `mesure` (facultative) : seule la charge × reps porte une réserve affichée ; une mesure connue autre (durée, distance, reps seules…) est exclue.
+  function effortViseEligible(palier, mesure) {
     var p = nombre(palier);
+    if (mesure !== undefined && mesure !== null && mesure !== 'charge_reps') return false;
     return p !== null && p > 0;
   }
   var RESERVE_ECART = 2;   // la réserve notée ≥ visée + 2 : un vrai signal (l'erreur moyenne d'estimation est d'environ 1 rep)
@@ -3790,8 +3792,8 @@
       }
       case 'effort_suggere':
         // « Garde 0 » (19/11/2026) : à garde affichée 0, « à fond » est la cible, jamais un motif de reculer : la réponse attendue garde la charge.
-        if (m.garde0) return fait + ', pile au bas de ta fourchette. Note ce qu\'il t\'en restait' + DEUX_POINTS +
-          'à garde 0, je garde ' + enKg(m.charge, cite(CIBLE, { role: 'elan' })) + '.';
+        if (m.garde0) return fait + ', pile au bas de ta fourchette' + DEUX_POINTS +
+          'je garde ' + enKg(m.charge, cite(CIBLE, { role: 'elan' })) + '. Note ce qu\'il t\'en restait, ça pèse sur la séance suivante.';
         return fait + ', pile au bas de ta fourchette. Si c\'était à fond, note-le' + DEUX_POINTS +
           (m.retour === null || m.retour === undefined
             ? 'je reviens au cran au-dessus' : 'je reviens à ' + enKg(m.retour, regle('reaction.retour'))) +

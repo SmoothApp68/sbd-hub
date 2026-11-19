@@ -30785,6 +30785,9 @@ const SETS_IMPORTES = [
     const resume1 = await page.evaluate(() => { const n = document.querySelector('.proposition-chauffes'); return n ? { replie: !!n.closest('details'), texte: n.querySelector('.pc-texte').textContent.replace(/\s+/g, ' ').trim() } : null; });
     ok('[RT237] DISCRIMINANT — séance 1 : le coach PROPOSE (premier exercice du muscle, 100 kg au-dessus de 60 % du max), sans rien écrire',
       !!s1.prop && s1.prop.mode === 'proposer' && s1.prop.raison === 'muscle' && s1.prop.lignes.length >= 2 && s1.types.every((t) => t === 'travail'), nb237(s1));
+    const raison19 = await page.evaluate(() => { const n = document.querySelector('.proposition-chauffes:not(.chauffes-auto)'); const d = n && n.querySelector('details.pc-raison'); return d ? { ouvert: d.open, resume: d.querySelector('summary').textContent, detail: d.querySelector('.pc-detail').textContent, apresGestes: !!(n.querySelector('.pc-gestes').compareDocumentPosition(d) & 4) } : null; });
+    ok('[RT237] 19/11 — la raison de la chauffe est REPLIÉE sous « Pourquoi cette chauffe ? », après les gestes, son texte intact',
+      !!raison19 && raison19.ouvert === false && raison19.resume === 'Pourquoi cette chauffe ?' && /^Premier exercice de la séance sur ce muscle.*60 %/.test(raison19.detail.replace(/\s+/g, ' ')) && raison19.apresGestes, JSON.stringify(raison19));
     ok('[RT237] 265 — la proposition est la ligne du coach, dépliée, ses charges en clair ; le Pourquoi dit la règle',
       !!resume1 && resume1.replie === false && /^Chauffe : \d/.test(resume1.texte) && /^Premier exercice de la séance sur ce muscle.*60 %/.test(sp237(s1.prop && s1.prop.pourquoi)), nb237([resume1, s1.prop && s1.prop.pourquoi]));
     ok('[RT237] I126 — les charges montent, aucune n’atteint 100 kg, la dernière ≤ 90 kg',

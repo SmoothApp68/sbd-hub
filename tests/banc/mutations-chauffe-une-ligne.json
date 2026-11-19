@@ -1,0 +1,37 @@
+[
+ {
+  "nom": "CH1-la-raison-redevient-visible",
+  "fichier": "v2/js/rendu.js",
+  "ancien": "detail: pc.pourquoi || null, resume: 'Pourquoi cette chauffe ?', oui:",
+  "nouveau": "detail: pc.pourquoi || null, oui:",
+  "banc": "seance",
+  "sections": ["chauffes-237"],
+  "unitaires": ["tests/unit/v2-chauffe-une-ligne.test.js"]
+ },
+ {
+  "nom": "CH2-la-raison-passe-avant-les-gestes",
+  "fichier": "v2/js/rendu.js",
+  "ancien": "    n.appendChild(gestes);\n    if (raison) n.appendChild(raison);\n    return n;\n  }\n\n  // MOTEUR §9.20 (51-3)",
+  "nouveau": "    if (raison) n.appendChild(raison);\n    n.appendChild(gestes);\n    return n;\n  }\n\n  // MOTEUR §9.20 (51-3)",
+  "banc": "seance",
+  "sections": ["chauffes-237"],
+  "unitaires": []
+ },
+ {
+  "nom": "CH3-la-mise-en-page-sur-une-ligne-disparait",
+  "fichier": "v2/styles.css",
+  "ancien": ".proposition-exercice.proposition-chauffes{display:flex;flex-wrap:wrap;align-items:center;column-gap:var(--e2)}",
+  "nouveau": ".proposition-exercice.proposition-chauffes{display:block}",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-chauffe-une-ligne.test.js"]
+ },
+ {
+  "nom": "CH-T-témoin-le-commentaire-ne-change-rien",
+  "fichier": "v2/styles.css",
+  "ancien": "/* 19/11 — « Chauffe » sur UNE ligne : la phrase à gauche",
+  "nouveau": "/* 19/11 — Chauffe sur une ligne : la phrase à gauche",
+  "banc": "aucun",
+  "attendu": "survit",
+  "unitaires": ["tests/unit/v2-chauffe-une-ligne.test.js"]
+ }
+]

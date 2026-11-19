@@ -616,7 +616,7 @@
           var r2 = routines.filter(function (r) { return r.id === avant[k].rt.id; })[0];
           if (r2) await poserRoutineVoulue(r2, avant[k].exercices);
         }
-        await poserProfil({ cartes_semaine: avantReponses });
+        await poserProfil({ cartes_semaine: avantReponses }, { sansAttendre: true });
         rendreSaisie();
       }
     };
@@ -637,7 +637,7 @@
     variation[bloc.id] = Object.assign({}, variation[bloc.id]);
     variation[bloc.id][slug] = reponse;
     toutes.variation = variation;
-    await poserProfil({ cartes_semaine: toutes });
+    await poserProfil({ cartes_semaine: toutes }, { sansAttendre: true });
   }
 
   function proposerSemaineDeTestDuProgramme(b) {
@@ -1750,7 +1750,7 @@
   async function repondreALaCarte(cle, r) {
     var toutes = Object.assign({}, reponsesDesCartes());
     toutes[cle] = Equilibres.reponse(toutes, cle, r, Moteur.jourCivil(new Date()));
-    await poserProfil({ cartes_semaine: toutes });
+    await poserProfil({ cartes_semaine: toutes }, { sansAttendre: true });
   }
 
   function repeindreLesEquilibres() {
@@ -1772,7 +1772,7 @@
           texte: Equilibres.phraseDuSilence(Profil.rythmeDe(profil || {}), rep), calme: true,
           surAnnuler: async function () {
             faitEquilibre = null;
-            await poserProfil({ cartes_semaine: avantReponses });
+            await poserProfil({ cartes_semaine: avantReponses }, { sansAttendre: true });
             memoEquilibres = null;
             repeindreLesEquilibres();
           }
@@ -1823,7 +1823,7 @@
         var r2 = routines.filter(function (r) { return r.id === idRoutine; })[0];
         faitEquilibre = null;
         if (r2) await poserRoutineVoulue(r2, avantRoutine);
-        await poserProfil({ cartes_semaine: avantReponses });
+        await poserProfil({ cartes_semaine: avantReponses }, { sansAttendre: true });
         memoEquilibres = null;
         repeindreLesEquilibres();
       }
@@ -1850,7 +1850,7 @@
     var groupe = p.groupe || p.routine_id;
     var annulerLesReponses = async function () {
       faitEquilibre = null;
-      await poserProfil({ cartes_semaine: avantReponses });
+      await poserProfil({ cartes_semaine: avantReponses }, { sansAttendre: true });
       memoEquilibres = null;
       repeindreLesEquilibres();
     };
@@ -1868,7 +1868,7 @@
             if (r2) await poserRoutineVoulue(r2, ecritesFaites[j].avant);
           } catch (e2) { console.warn('Retour non écrit :', texteErreur(e2)); }
         }
-        try { await poserProfil({ cartes_semaine: avantReponses }); } catch (e3) { console.warn('Réponses non rendues :', texteErreur(e3)); }
+        try { await poserProfil({ cartes_semaine: avantReponses }, { sansAttendre: true }); } catch (e3) { console.warn('Réponses non rendues :', texteErreur(e3)); }
       };
       return rendre().then(function () {
         var qui = noms.length ? Modele.enumerer(noms.map(function (n) { return '\u00ab\u00a0' + n + '\u00a0\u00bb'; })) : 'ta routine';
@@ -1939,7 +1939,7 @@
           if (Routines.signatureDesExercices(r2.exercices) !== ecrites[j].signature) { changees.push(r2.nom); continue; }
           await poserRoutineVoulue(r2, ecrites[j].avant);
         }
-        await poserProfil({ cartes_semaine: avantReponses });
+        await poserProfil({ cartes_semaine: avantReponses }, { sansAttendre: true });
         memoEquilibres = null;
         if (changees.length) {
           faitEquilibre = { texte: changees.map(function (n) { return '\u00ab\u00a0' + n + '\u00a0\u00bb a changé depuis : je ne la touche pas.'; }).join(' ') };
@@ -1967,15 +1967,15 @@
     // « Juste la durée » : la réponse de temps ne change que si elle ne dit rien de la durée à tenir.
     if (['max', 'moins', 'varie'].indexOf(p0.temps_reponse) < 0) entrees.temps_reponse = 'moins';
     var champs = Profil.preparerChamps(profil, entrees, new Date());
-    if (Object.keys(champs).length) await poserProfil(champs);
+    if (Object.keys(champs).length) await poserProfil(champs, { sansAttendre: true });
     await repondreALaCarte(carte.cle, 'oui');
     faitEquilibre = {
       texte: 'Fait : tes séances sont réglées sur ' + p.minutes + ' min.',
       suite: { libelle: 'Refaire mon programme pour ' + p.minutes + ' min', surClic: function () { faitEquilibre = null; refaireMonProgramme(); } },
       surAnnuler: async function () {
         faitEquilibre = null;
-        await poserProfil(avantChamps);
-        await poserProfil({ cartes_semaine: avantReponses });
+        await poserProfil(avantChamps, { sansAttendre: true });
+        await poserProfil({ cartes_semaine: avantReponses }, { sansAttendre: true });
         memoEquilibres = null;
         repeindreLesEquilibres();
       }
@@ -2020,7 +2020,7 @@
           var r2 = routines.filter(function (r) { return r.id === avant[k].id; })[0];
           if (r2) await poserRoutineVoulue(r2, avant[k].exercices);
         }
-        await poserProfil({ cartes_semaine: avantReponses });
+        await poserProfil({ cartes_semaine: avantReponses }, { sansAttendre: true });
         memoEquilibres = null;
         repeindreLesEquilibres();
       }
@@ -10078,7 +10078,7 @@
   async function ecrireTest(test) {
     var toutes = Object.assign({}, reponsesDesCartes());
     if (test === null) delete toutes.test; else toutes.test = test;
-    await poserProfil({ cartes_semaine: toutes });
+    await poserProfil({ cartes_semaine: toutes }, { sansAttendre: true });
   }
   // Un pari par barre, posé AVANT toute série de la semaine : « ton max tombera vers X kg » (`predictions.module = 'test'`).
   async function poserLesParisDeTest(test) {
@@ -17749,7 +17749,11 @@
   // défaut qu'aucun test unitaire ne voit.
   // 189 — la fin d'une « série de moins » (la phase quitte la sèche) se dit à l'écran de la phase, jusqu'à ce qu'on le quitte.
   var seriesRevenues = false;
-  async function poserProfil(champs) {
+  // « Réponses lentes » (19/11/2026) : `poserProfil(champs, { sansAttendre: true })` rend la main APRÈS la copie locale ; l'envoi
+  // part derrière (`envoyerProfil`, sa file, sa reprise et ses refus sont inchangés : l'attente garde le geste, le réseau le rejoint).
+  // Un écran qui annonce un geste (« Noté… », « Fait : … ») ne doit pas attendre le serveur : sur une mauvaise connexion de salle,
+  // il attendait la fin d'un aller-retour réseau pour dire une chose que l'appareil savait déjà.
+  async function poserProfil(champs, options) {
     var ecrits = Profil.champsEcrits(champs);
     // 189 — la phase quitte la sèche : la « série de moins » s'arrête, par un geste visible (la phrase de l'écran de la phase),
     // jamais en silence. La réponse part dans la MÊME écriture que la phase.
@@ -17772,6 +17776,7 @@
     // chacun avec les siennes) : jamais la ligne entière.
     profilAEnvoyer = Profil.fusionnerEnAttente(profilAEnvoyer, ecrits);
     await sauverProfilLocal();
+    if (options && options.sansAttendre) { envoyerProfil().catch(function (e) { console.warn('Profil non envoyé (il repartira) :', texteErreur(e)); }); return; }
     await envoyerProfil();
   }
 

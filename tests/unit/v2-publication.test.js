@@ -17,7 +17,11 @@ const path = require('path');
 const V2 = path.join(__dirname, '../../v2');
 
 // Ce qui a le droit d'être publié : l'app, et rien d'autre.
-const FICHIERS = ['index.html', 'service-worker.js', 'styles.css', 'manifest.webmanifest', '_headers', '_redirects'];
+const FICHIERS = ['index.html', 'service-worker.js', 'styles.css', 'manifest.webmanifest', '_headers', '_redirects',
+  // 19/11/2026 — les pages PUBLIQUES de politique, lisibles sans compte à une adresse stable (Garmin, Google Play) :
+  // générées depuis THMentions.pages par v2-atelier/outils/pages-publiques.js, gardées par v2-pages-publiques.test.js.
+  // Des noms EXACTS, pas de joker ; hors coquille du service worker (jamais en cache).
+  'confidentialite.html', 'mentions-legales.html', 'sante.html'];
 const DOSSIERS = {
   js: /^[a-z0-9-]+\.js$/,                         // l'app
   fonts: /^([a-z0-9-]+\.woff2|OFL\.txt)$/,        // les polices servies et leur licence
@@ -92,6 +96,9 @@ describe('59-1 — le dossier publié ne contient que l’app', () => {
     expect(publiables('js/sous/x.js')).toBe(false);
     expect(publiables('js/notes.md')).toBe(false);
     expect(publiables('.DS_Store')).toBe(false);
+    expect(publiables('confidentialite.html')).toBe(true);
+    expect(publiables('credits.html')).toBe(false);
+    expect(publiables('confidentialite/index.html')).toBe(false);
     expect(publiables('js/app.js')).toBe(true);
     // 271 — vendor/ et mouvements/ : des noms exacts, pas un joker
     expect(publiables('vendor/three.min.js')).toBe(true);

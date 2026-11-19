@@ -29,6 +29,31 @@
     'THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.'
   ].join('\n\n');
 
+  // 19/11/2026 — la montre Garmin (Garmin Connect Developer Program). Elle n'existe pas encore : tant que l'interrupteur est
+  // éteint, le bloc le dit en toutes lettres (c'est ce que lit l'URL publique de la politique, demandée par Garmin et le Play
+  // Store). À l'ouverture de la fonction : l'allumer retire la phrase « n'existe pas encore » et passe le verbe au présent.
+  var GARMIN_OUVERT = false;
+  function blocsGarmin() {
+    var avenir = !GARMIN_OUVERT;
+    return [
+      { titre: avenir ? 'Montre Garmin (si tu la connectes) : fonction à venir' : 'Montre Garmin (si tu la connectes)',
+        texte: (avenir ? 'Cette fonction n’existe pas encore. Voilà ce qui s’appliquera le jour où elle sera ouverte, et rien ne part chez Garmin ni n’en vient avant. ' : '') +
+               'Elle est facultative : sans elle, TrainHub fonctionne pareil.' },
+      { titre: 'Garmin : ce qui ' + (avenir ? 'serait reçu' : 'est reçu'),
+        texte: 'Tes activités enregistrées par ta montre : le type, la date, la durée, la distance, le dénivelé, la fréquence cardiaque moyenne et maximale, les calories. Rien d’autre.' },
+      { titre: 'Garmin : pourquoi',
+        texte: 'Pour afficher ces données sur tes séances et importer ton cardio dans ton historique.' },
+      { titre: 'Garmin : sur quelle base',
+        texte: 'Ton consentement explicite. Ce sont des données de santé (RGPD, article 9) : tu les autorises d’un toucher, et rien n’est reçu sans cet accord.' },
+      { titre: 'Garmin : jamais revendu, jamais pour entraîner une IA',
+        texte: 'Aucune revente de ces données. Aucun entraînement d’IA avec elles : ni chez TrainHub, ni chez un prestataire.' },
+      { titre: 'Garmin : te déconnecter',
+        texte: 'À tout moment, depuis le Profil. Tu peux aussi supprimer les données reçues de Garmin ; elles sont alors effacées de ton compte.' },
+      { titre: 'Garmin : où',
+        texte: 'Dans l’Union européenne, avec le reste de tes données (Supabase, Irlande, eu-west-1).' }
+    ];
+  }
+
   function contactAffichable() { return CONTACT !== A_COMPLETER && String(CONTACT).trim() !== ''; }
 
   // 250 — l'IA (Demander au coach, Lire mes notes). Hors garde de voix : texte légal, comme le reste du fichier.
@@ -58,6 +83,7 @@
     var out = [];
     blocs.forEach(function (b) {
       if (b.titre === 'Où' && ouvert) b = { titre: b.titre, texte: 'Dans l’Union européenne (Irlande), sauf les textes envoyés à l’IA (ci-dessous).' };
+      if (b.garmin) { blocsGarmin().forEach(function (x) { out.push(x); }); return; }
       out.push(b);
       if (b.titre === 'Où' && ouvert) blocsIA().forEach(function (x) { out.push(x); });
     });
@@ -89,6 +115,8 @@
         // 250 — l'IA : ajoutée plus bas (`blocsIA`), seulement quand « Lire mes notes » est ouverte (THConfig.NOTES_IA_OUVERTE).
         { titre: 'Qui le voit', texte: 'Toi. Tes amis et ta guilde voient seulement ce que tu partages.' },
         { titre: 'Revente et publicité', texte: 'Aucune revente de tes données, aucune publicité.' },
+        // 19/11/2026 — la montre Garmin : voir `blocsGarmin` (fonction à venir tant que GARMIN_OUVERT est faux).
+        { titre: 'Montre Garmin', garmin: true },
         { titre: 'Tes droits',
           texte: 'Tu peux exporter tes données (Profil › Mon compte › Exporter mes données), supprimer ton compte (Profil, tout en bas) et rectifier ce qui est faux depuis ton profil. Tu peux aussi adresser une réclamation à la CNIL.' }
       ]) },
@@ -115,7 +143,7 @@
   }
 
   var api = { pages: pages, page: page, contactAffichable: contactAffichable, A_COMPLETER: A_COMPLETER,
-              CONTACT: CONTACT, AGE_MINIMUM: AGE_MINIMUM, SANTE: SANTE, LICENCE_SILHOUETTES: LICENCE_SILHOUETTES,
+              CONTACT: CONTACT, GARMIN_OUVERT: GARMIN_OUVERT, AGE_MINIMUM: AGE_MINIMUM, SANTE: SANTE, LICENCE_SILHOUETTES: LICENCE_SILHOUETTES,
               LICENCE_THREE: LICENCE_THREE };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   racine.THMentions = api;

@@ -185,7 +185,7 @@ describe('I179 — la tête de la courbe est la force de la fiche : les trois te
     const c = page(pts, F(J(2026, 6, 12), 73.5, 8, 'projection'), { periode: '6m' });
     expect(texte(c.querySelector('.courbe-val'))).toBe('≈ 93 kg');
     expect(texte(c.querySelector('.courbe-sous'))).toBe('force estimée · d’après 73,5 kg × 8, le 12 juil.');
-    expect(texte(c.querySelector('.courbe-trajet'))).toBe('87 → 92 kg, du 18 mai au 18 oct.');
+    expect(texte(c.querySelector('.courbe-trajet'))).toBe('Force estimée par séance : 87 → 92 kg, du 18 mai au 18 oct.');
     expect(texte(c.querySelector('.courbe-carte'))).not.toMatch(/max estimé|Dernière séance/i);
     // La ligne de la fiche, sur la même force : le même chiffre, la même série.
     expect(texte(c.querySelector('.exo-force .exo-li-v'))).toBe('≈ 93 kg');

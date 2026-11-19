@@ -104,7 +104,7 @@ describe('206 — la courbe de la page d\'exercice', () => {
     const n = (e) => e.textContent.replace(/\u00a0/g, ' ');
     expect(n(c.querySelector('.courbe-val'))).toBe('≈ 152 kg');
     expect(n(c.querySelector('.courbe-sous'))).toBe('force estimée · d’après 130 kg × 5, le 28 oct.');
-    expect(n(c.querySelector('.courbe-trajet'))).toBe('141 → 152 kg, du 20 mai au 28 oct.');
+    expect(n(c.querySelector('.courbe-trajet'))).toBe('Force estimée par séance : 141 → 152 kg, du 20 mai au 28 oct.');
     expect(c.querySelector('.courbe-carte').compareDocumentPosition(c.querySelector('.section-t')) & 4).toBeTruthy();
   });
 

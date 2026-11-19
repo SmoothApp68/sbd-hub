@@ -60,7 +60,7 @@ describe('la courbe : fenêtre, pic ancien, point creux', () => {
     const d = page(HISTOIRE.slice(2));
     expect(d.querySelector('.courbe-pic')).toBeNull();
     expect(d.querySelector('.courbe-note .creux')).toBeNull();
-    expect(texte(d.querySelector('.courbe-trajet'))).toMatch(/^175 → 187 kg, du /);
+    expect(texte(d.querySelector('.courbe-trajet'))).toMatch(/^Force estimée par séance : 175 → 187 kg, du /);
   });
   test('seuls des points creux dans la vue : « Aucune séance sur cette période. » et le pic, seul', () => {
     const d = page(HISTOIRE.slice(0, 2));

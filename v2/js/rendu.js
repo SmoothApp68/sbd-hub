@@ -807,7 +807,7 @@
     }
     carte.appendChild(tete);
     // Le TRAJET (§9.51 bis, I181) : « 87 → 92 kg, du 18 mai au 18 oct. » — seulement entre deux projections, sur sa propre ligne.
-    if (enCharge && c.trajet && c.trajet.texte) carte.appendChild(el('div', 'courbe-trajet num', c.trajet.texte));
+    if (enCharge && c.trajet && c.trajet.texte) carte.appendChild(el('div', 'courbe-trajet num', M().MOTS_DE_FORCE.parSeance + '\u00a0: ' + c.trajet.texte));
     if (c.picAncien) {
       // La DATE ABSOLUE, jamais « il y a N mois » : le lexique des périodes est fermé (VOIX, principe 2). Le pic dit son MODE
       // (« au moins 152,5 kg » : un plancher ne s'arrondit pas vers le haut) — `Modele.libelleDeForce` (I182).

@@ -353,6 +353,8 @@ async function activer() {
   await self.clients.claim();
 }
 
+const PAGES_PUBLIQUES = new Set(['/confidentialite', '/mentions-legales', '/sante', '/confidentialite.html', '/mentions-legales.html', '/sante.html']);
+
 // ── Le gestionnaire de requêtes ─────────────────────────────────────────────
 function repondre(event) {
   const req = event.request;
@@ -385,6 +387,9 @@ function repondre(event) {
   // y répond par la coquille. On sert donc la coquille en cache — et surtout on
   // ne la met PAS en cache sous l'URL demandée, sinon chaque semaine visitée
   // créerait une entrée et une coquille périmée survivrait à une mise à jour.
+  // Les pages PUBLIQUES (19/11/2026) sont de vrais fichiers, lisibles sans compte : on ne répond pas, le navigateur va au
+  // réseau lui-même (aucune attente de notre part, donc rien qui puisse pendre). Sans ça, une app installée y verrait la coquille.
+  if (req.mode === 'navigate' && PAGES_PUBLIQUES.has(url.pathname)) return;
   if (req.mode === 'navigate') {
     event.respondWith(servirCoquille(req));
     return;
@@ -478,6 +483,7 @@ if (typeof module !== 'undefined' && module.exports) {
     // du papier. C'est la seule façon de PROUVER qu'elle rend toujours la main,
     // y compris quand `deleteDatabase` reste bloquée pour toujours.
     seDesinstaller: seDesinstaller, supprimerBase: supprimerBase,
+    repondre: repondre, PAGES_PUBLIQUES: PAGES_PUBLIQUES,
     nomsDesBases: nomsDesBases, DELAI_IDB: DELAI_IDB, BASES_CONNUES: BASES_CONNUES
   };
 }

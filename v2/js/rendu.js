@@ -9675,6 +9675,17 @@
         vue.conditions.appendChild(doc.createTextNode('.'));
       }
     }
+    // 19/11/2026 — « Confidentialité · Mentions légales » sous le formulaire, en connexion comme à l'inscription :
+    // les mêmes pages que Profil › À propos (THMentions), ouvertes dans la feuille (marche hors ligne, sans quitter l'app).
+    if (vue.legal && !vue.legal.firstChild) {
+      [['confidentialite', 'Confidentialité'], ['mentions', 'Mentions légales']].forEach(function (l, i) {
+        if (i) vue.legal.appendChild(doc.createTextNode(' · '));
+        var b = el('button', 'entree-lien', l[1]);
+        b.type = 'button'; b.dataset.mentions = l[0];
+        b.addEventListener('click', function () { if (vue.surMentions) vue.surMentions(l[0]); });
+        vue.legal.appendChild(b);
+      });
+    }
     // 247 — la zone du captcha n'existe que si la clé de site est posée (l'app le dit ; le rendu ne décide rien).
     if (vue.captcha) vue.captcha.hidden = !vue.captchaActif;
     if (vue.bouton) vue.bouton.textContent = inscription ? 'Créer mon compte' : 'Se connecter';

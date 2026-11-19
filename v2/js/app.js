@@ -20353,7 +20353,7 @@
       aideMdp: $('aide-mdp'), bouton: $('btn-connexion'),
       bascule: $('btn-bascule-entree'), basculeAvant: $('entree-bascule-avant'),
       champEmail: $('champ-email'), champMdp: $('champ-mdp'), message: $('erreur-connexion'),
-      age15: $('env-age15'), conditions: $('entree-conditions'), surMentions: ouvrirMentions,
+      age15: $('env-age15'), conditions: $('entree-conditions'), legal: $('entree-legal'), surMentions: ouvrirMentions,
       captcha: $('captcha-zone'), captchaActif: Auth.captcha.actif()
     };
   }

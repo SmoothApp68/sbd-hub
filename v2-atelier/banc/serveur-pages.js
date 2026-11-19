@@ -96,6 +96,8 @@ function creer(options) {
 
     // 2. Fichiers réels d'abord.
     let fichier = path.join(racine, chemin === '/' ? 'index.html' : chemin);
+    // Cloudflare Pages sert `/x` depuis `x.html` quand ce fichier existe (le `.html` est retiré), AVANT le repli SPA (19/11/2026).
+    if (chemin !== '/' && fichier.startsWith(racine) && !fs.existsSync(fichier) && fs.existsSync(fichier + '.html')) fichier += '.html';
     let repli = false;
     if (!fichier.startsWith(racine) || !fs.existsSync(fichier) || fs.statSync(fichier).isDirectory()) {
       // 3. Repli SPA — le `/* /index.html 200` de `v2/_redirects`.

@@ -473,3 +473,24 @@ describe('servirRessource — servir vite, revalider derrière', () => {
     expect(cache.magasin.get('https://t.test/styles.css').redirected).toBe(false);
   });
 });
+
+describe('les pages publiques — jamais la coquille', () => {
+  const vraiSelf = global.self;
+  beforeAll(() => { global.self = { location: { origin: 'https://x.test' } }; });
+  afterAll(() => { global.self = vraiSelf; });
+  // Module NEUF : les tests de la trappe ont posé `retire`, qui rend le gestionnaire muet pour tout (le test serait creux).
+  let neuf;
+  beforeAll(() => { jest.isolateModules(() => { neuf = require('../../v2/service-worker.js'); }); });
+  const navigation = (chemin) => {
+    const appels = [];
+    neuf.repondre({ request: { url: 'https://x.test' + chemin, method: 'GET', mode: 'navigate' }, respondWith: (p) => { appels.push(1); p.catch(() => null); } });
+    return appels.length;
+  };
+  test('/confidentialite, /mentions-legales, /sante (et leur .html) : le service worker ne répond pas', () => {
+    ['/confidentialite', '/mentions-legales', '/sante', '/confidentialite.html', '/mentions-legales.html', '/sante.html']
+      .forEach((c) => expect(navigation(c)).toBe(0));
+  });
+  test('TÉMOIN : une vue de l’app (/semaine/…) reçoit toujours la coquille', () => {
+    expect(navigation('/semaine/2026-09-07')).toBe(1);
+  });
+});

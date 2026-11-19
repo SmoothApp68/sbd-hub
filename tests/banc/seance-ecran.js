@@ -22697,7 +22697,7 @@ const SETS_IMPORTES = [
         depart: (c.querySelector('.recap-depart') || {}).textContent || null,
         paris: q('.recap-pari').map((x) => [x.querySelector('.n').textContent, x.querySelector('.v').textContent]),
         boutons: q('.recap-bouton').map((b) => b.textContent),
-        ordre: Array.from(c.children).map((x) => (x.classList.contains('recap-bouton') ? 'recap-bouton' : x.className.split(' ')[0] || x.id))
+        ordre: Array.from(c.children).filter((x) => !x.classList.contains('recap-partage-liste')).map((x) => (x.classList.contains('recap-bouton') ? 'recap-bouton' : x.className.split(' ')[0] || x.id))
       };
     });
     // ⚠️ ALLER À LA SAISIE, en écartant un récap qui n'aurait rien à faire là. Partout dans cette section SAUF au
@@ -22802,7 +22802,7 @@ const SETS_IMPORTES = [
       /^Sur \d+ paris? vérifiés?, le coach en a tenu \d+\.$/.test(a.voix || '') &&
       nbR(a.paris) === nbR([['Rowing r71', '80 kg × 12, 12, 12, 12']]), nbR([a.voix, a.paris]));
     ok('[R71] (a) l’ordre de L1 : en-tête, chiffres, comparaison, muscles, records, coach… puis « Fermer », « Voir la séance » et les partages',
-      nbR(a.boutons) === nbR(['Fermer', 'Voir la séance', 'Partager', 'Partager la séance en image']) &&
+      nbR(a.boutons) === nbR(['Fermer', 'Voir la séance', 'Partager']) &&
       a.ordre.indexOf('recap-tuiles') < a.ordre.indexOf('recap-comp') && a.ordre.indexOf('recap-comp') < a.ordre.indexOf('recap-mu') &&
       a.ordre.indexOf('recap-mu') < a.ordre.indexOf('recap-rec') && a.ordre.indexOf('recap-rec') < a.ordre.indexOf('recap-voix') &&
       a.ordre.lastIndexOf('recap-bouton') === a.ordre.length - 1, nbR([a.boutons, a.ordre]));
@@ -22812,19 +22812,27 @@ const SETS_IMPORTES = [
       window.__p214 = { recu: null, copie: null };
       Object.defineProperty(navigator, 'share', { configurable: true, value: (d) => { window.__p214.recu = d; return Promise.resolve(); } });
     });
+    // 19/11/2026 — UN SEUL « Partager » : il déplie ses choix (résumé en texte, image de la séance, image de chaque record).
+    const choixAvant = await page.evaluate(() => ({ ferme: document.querySelector('#recap-corps .recap-partage-liste').hidden,
+      boutonsParRecord: document.querySelectorAll('#recap-corps .recap-rec button').length }));
     await page.click('#recap-corps .recap-partager');
+    const choixListe = await page.evaluate(() => Array.from(document.querySelectorAll('#recap-corps .recap-partage-choix')).map((b) => b.textContent.replace(/[\u00a0\u202f]/g, ' ')));
+    ok('[R214] 19/11 — un seul « Partager » : fermé au départ, aucun bouton sur les lignes de records ; ouvert, ses choix (texte, image de la séance, un par record)',
+      choixAvant.ferme === true && choixAvant.boutonsParRecord === 0 &&
+      nbR(choixListe) === nbR(['Résumé en texte', 'Image de la séance', 'Image du record : Rowing r71', 'Image du record : Rowing r71']), nbR([choixAvant, choixListe]));
+    await page.evaluate(() => Array.from(document.querySelectorAll('#recap-corps .recap-partage-choix')).filter((b) => b.textContent === 'Résumé en texte')[0].click());
     await attendreQue(() => page.evaluate(() => !!window.__p214.recu));
     await page.evaluate(() => {
       Object.defineProperty(navigator, 'share', { configurable: true, value: undefined });
       Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: (t) => { window.__p214.copie = t; return Promise.resolve(); } } });
     });
-    await page.click('#recap-corps .recap-partager');
-    await attendreQue(() => page.evaluate(() => window.__p214.copie !== null && document.querySelector('#recap-corps .recap-partager').textContent === 'Copié'));
+    await page.evaluate(() => Array.from(document.querySelectorAll('#recap-corps .recap-partage-choix')).filter((b) => /^Résumé en texte$|^Copié$/.test(b.textContent))[0].click());
+    await attendreQue(() => page.evaluate(() => window.__p214.copie !== null && Array.from(document.querySelectorAll('#recap-corps .recap-partage-choix')).some((b) => b.textContent === 'Copié')));
     const partage = await page.evaluate(() => {
-      const b = document.querySelector('#recap-corps .recap-partager');
+      const b = document.querySelector('#recap-corps .recap-partager'), c = Array.from(document.querySelectorAll('#recap-corps .recap-partage-choix')).filter((x) => x.textContent === 'Copié')[0];
       const fond = (e) => getComputedStyle(e).backgroundColor;
       return { present: !!b, secondaire: !!b && !b.classList.contains('principal') && fond(b) !== fond(document.querySelector('#recap-corps .recap-fermer')),
-        texte: window.__p214.recu && window.__p214.recu.text, copie: window.__p214.copie, libelle: b.textContent };
+        texte: window.__p214.recu && window.__p214.recu.text, copie: window.__p214.copie, libelle: c ? c.textContent : b.textContent };
     });
     ok('[R214] « Partager » : bouton secondaire ; le texte court (titre, séries de travail, tonnage, records) part à la feuille de partage',
       partage.present && partage.secondaire && /^.+\n4 séries de travail · 3,8.t\n2 records :\n• Rowing r71 : 80\skg × 12\n• Rowing r71 : 80\skg × 12$/.test(partage.texte || '') &&

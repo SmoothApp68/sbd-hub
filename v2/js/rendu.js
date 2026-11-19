@@ -7038,8 +7038,6 @@
         var p = x.phrase || [];
         var texte = [p[0], p[1]].filter(Boolean).join(' ');
         if (texte) rec.appendChild(el('div', 'l2', texte));
-        // social 2 — « Partager » sur la ligne : l'image du record (l'app dit ce qui est parti).
-        if (vue.surPartagerRecord) rec.appendChild(boutonDePartage('Partager', function () { return vue.surPartagerRecord(i); }, 'discret recap-rec-partager'));
         cible.appendChild(rec);
       });
     }
@@ -7083,18 +7081,41 @@
     v.type = 'button';
     v.addEventListener('click', vue.surVoir);
     cible.appendChild(v);
-    // 214 — « Partager » : secondaire (jamais l'ambre), sans lien externe ; l'app dit ce qui est parti.
-    if (vue.surPartager) {
+    // 19/11/2026 (relevé ergonomie n°4) — UN SEUL « Partager » : secondaire (jamais l'ambre), qui déplie ses choix (le résumé en texte, l'image de
+    // la séance, l'image d'un record). Avant : un bouton par record, un « Partager » et un « Partager la séance en image » (N + 2 boutons).
+    // L'app dit ce qui est parti (« Copié », « Image enregistrée ») ; aucun lien externe.
+    var choix = [];
+    if (vue.surPartager) choix.push({ libelle: 'Résumé en texte', surClic: vue.surPartager, texte: true });
+    if (vue.surPartagerSeance) choix.push({ libelle: 'Image de la séance', surClic: vue.surPartagerSeance });
+    if (vue.surPartagerRecord) (r.records || []).forEach(function (x, i) {
+      choix.push({ libelle: 'Image du record : ' + x.nom, surClic: function () { return vue.surPartagerRecord(i); } });
+    });
+    if (choix.length) {
+      var liste = el('div', 'recap-partage-liste');
+      liste.hidden = true;
       var pa = el('button', 'discret recap-bouton recap-partager', 'Partager');
       pa.type = 'button';
+      pa.setAttribute('aria-expanded', 'false');
       pa.addEventListener('click', function () {
-        Promise.resolve(vue.surPartager()).then(function (res) {
-          if (res === 'copie') { pa.textContent = 'Copié'; }
-        }, function () {});
+        liste.hidden = !liste.hidden;
+        pa.setAttribute('aria-expanded', liste.hidden ? 'false' : 'true');
+      });
+      choix.forEach(function (c) {
+        var b = el('button', 'discret recap-partage-choix', c.libelle);
+        b.type = 'button';
+        b.addEventListener('click', function () {
+          if (b.disabled) return;
+          b.disabled = true;
+          Promise.resolve(c.surClic()).then(function (res) {
+            if (res === 'copie') b.textContent = 'Copié';
+            else if (res === 'telechargement') b.textContent = 'Image enregistrée';
+          }, function () {}).then(function () { b.disabled = false; });
+        });
+        liste.appendChild(b);
       });
       cible.appendChild(pa);
+      cible.appendChild(liste);
     }
-    if (vue.surPartagerSeance) cible.appendChild(boutonDePartage('Partager la séance en image', vue.surPartagerSeance, 'discret recap-bouton recap-partager-image'));
     return cible;
   }
   // social 2 — le bouton de « Partager en image » : l'image se dessine sur l'appareil ; une feuille de partage ou un téléchargement.

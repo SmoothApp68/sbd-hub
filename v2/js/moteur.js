@@ -12962,7 +12962,7 @@
       texte: 'Le défaut « série au max » à partir de 65 ans : un choix de l’app, aucune étude ne fixe d’âge.' },
     // La baisse de force attendue en sèche (198).
     'seche.baisse': { type: 'convention',
-      texte: 'Une baisse de 2 à 5 % sur les charges en sèche est une convention du coach : Garthe 2011 (24 athlètes) suit la masse maigre, pas la force, et ne mesure pas cette baisse.' },
+      texte: 'Une baisse de 2 à 5 % sur les charges en sèche : un choix de l’app, une convention du coach. Garthe 2011 (24 athlètes) suit la masse maigre, pas la force : il ne mesure pas cette baisse.' },
     // La semaine allégée, la phase.
     allegee: { type: 'coachs', auteur: 'Calgary Barbell, Candito',
       texte: 'La décharge planifiée : la pratique de Calgary Barbell et de Candito.' },

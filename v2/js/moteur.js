@@ -5318,7 +5318,7 @@
       case 'garde':
         // 175 — validé au plancher d'un gros cran : « ça suffit pour t'y installer », la rep de plus par séance jusqu'au bas.
         if (f.cranGros && f.cranGros.valide === true && t !== null) {
-          return duTest() + 'a fait ' + nombreFr(t.reps, cite(FAIT, { quoi: 'test', champ: 'reps' })) + ' reps' + DEUX_POINTS +
+          return duTest() + 'a fait ' + nombreFr(t.reps, cite(FAIT, { quoi: 'test', champ: 'reps' })) + ' ' + Modele().uniteReps(t.reps) + DEUX_POINTS +
                  'ça suffit pour t\'y installer. On le garde sur la dernière série, une rep de plus à chaque séance jusqu\'à ' +
                  nombreFr(z.bas, regle('zone.bas')) + '.';
         }
@@ -5638,7 +5638,7 @@
              suite.charAt(0).toUpperCase() + suite.slice(1);
     }
     return 'Ton test à ' + enKg(t.charge, cite(FAIT, { quoi: 'test' })) + ' a fait ' +
-           nombreFr(t.reps, cite(FAIT, { quoi: 'test', champ: 'reps' })) + ' reps, ' + suite;
+           nombreFr(t.reps, cite(FAIT, { quoi: 'test', champ: 'reps' })) + ' ' + Modele().uniteReps(t.reps) + ', ' + suite;
   }
 
   // ⚠️ « TOUCHE L'ÉTIQUETTE POUR LA CHANGER » TERMINE TOUTES LES FORMES
@@ -5655,6 +5655,8 @@
                nombreFr(z.haut, regle('zone.haut')) + ' reps';
     var hS = function () { return nombreFr(f.habitude.seances, regle('habitude.seances')); };
     var hV = function () { return nombreFr(f.habitude.valeur, regle('habitude.valeur')); };
+    // Une seule séance lue : « ta dernière séance », jamais « tes 1 dernières séances » (19/11/2026, `Modele.tesDernieresSeances`).
+    var hSeances = function () { return Modele().tesDernieresSeances(f.habitude.seances, f.habitude.seances >= 2 ? hS() : null); };
 
     // Choisie : elle se dit d'abord, et ce que les séances auraient donné
     // ensuite — mais SEULEMENT si c'est autre chose. « Ce serait Lourd » sous
@@ -5670,8 +5672,8 @@
       if (d === null || d.cle === z.cle || !f.habitude) {
         return tete + ', choisie par toi.' + TOUCHE_ETIQUETTE;
       }
-      return tete + ', choisie par toi. D\'après tes ' + hS() +
-             ' dernières séances, ce serait ' + d.libelle + DEUX_POINTS +
+      return tete + ', choisie par toi. D\'après ' + hSeances() +
+             ', ce serait ' + d.libelle + DEUX_POINTS +
              'tu fais ' + hV() + ' reps d\'habitude.' + TOUCHE_ETIQUETTE;
     }
     if (f.zoneFigee) {
@@ -5679,7 +5681,7 @@
              'elle ne bouge pas pendant que ta zone s\'étire.' + TOUCHE_ETIQUETTE;
     }
     if (!f.habitude) return tete + '.' + TOUCHE_ETIQUETTE;
-    return tete + '. Sur tes ' + hS() + ' dernières séances, tu fais ' +
+    return tete + '. Sur ' + hSeances() + ', tu fais ' +
            hV() + ' reps d\'habitude.' + TOUCHE_ETIQUETTE;
   }
 
@@ -5737,7 +5739,7 @@
     var rateDit = function () {
       return t === null ? '' : tSansMarge ? testSansMargeDit() :
         'Ton test à ' + enKg(t.charge, cT) + ' a fait ' +
-        nombreFr(t.reps, cite(FAIT, { quoi: 'test', champ: 'reps' })) + ' reps' + DEUX_POINTS + 'pas encore dans ta zone.';
+        nombreFr(t.reps, cite(FAIT, { quoi: 'test', champ: 'reps' })) + ' ' + Modele().uniteReps(t.reps) + DEUX_POINTS + 'pas encore dans ta zone.';
     };
     var cH = cite(CIBLE, { role: 'haut' }), cL = cite(CIBLE, { role: 'ligne' });
 
@@ -5849,7 +5851,7 @@
       case 'etirement':
         return (tSansMarge ? testSansMargeDit() + ' ' + ditPasDePlusPetitCran(f.equipement, true) + '. '
                  : 'Ton test à ' + enKg(t.charge, cT) + ' a fait ' +
-                   nombreFr(t.reps, cite(FAIT, { quoi: 'test', champ: 'reps' })) + ' reps' + DEUX_POINTS +
+                   nombreFr(t.reps, cite(FAIT, { quoi: 'test', champ: 'reps' })) + ' ' + Modele().uniteReps(t.reps) + DEUX_POINTS +
                    'pas encore dans ta zone, et ' + ditPasDePlusPetitCran(f.equipement, false) + '. ') +
                'Ta zone s\'étire' + DEUX_POINTS + 'à ' + enKg(c.ligne.charge, cL) + ', tu vises une rep ' +
                'de plus au-delà du haut, jusqu\'à ' + nombreFr(f.cible, regle('cible')) + '. Alors on retestera ' +

@@ -2326,6 +2326,14 @@ const NOTIONS = [
   { notion: 'la série lourde (5 reps ou moins)', pr: 'correctif 15/11/2026',
     module: 'modele.js', fonction: 'estSerieLourde', lecteurs: ['plan.js', 'faits.js'],
     raison: 'MOTEUR §9.51 quinquies : « série lourde » du bilan, de la fiche et de l\u2019invariant I75 lit une seule fonction ; `plan.js` (I75) la lit depuis la PR B, `faits.js` (la fiche d\u2019une barre) depuis la PR D (6 → 5).' },
+  // 19/11/2026 — les pluriels : « 1 série », « 2 séries » ; « ta dernière séance » / « tes 8 dernières séances ». Une copie locale (equilibres.js) est retirée.
+  { notion: 'l’accord du pluriel d’un mot compté (le singulier sous 2 : « 0 série », « 1 série », « 2 séries »)', pr: 'correctif 19/11/2026',
+    module: 'modele.js', fonction: 'pluriel', lecteurs: ['equilibres.js', 'poids.js'],
+    motif: /\.\s*pluriel\s*\(/,   // un appel : `t.pluriel ? …` (un drapeau de generateur.js et de moteur.js) n'en est pas un
+    raison: 'un seul accord au pluriel : `equilibres.js` en gardait une copie locale ; une phrase dont le nombre peut valoir 1 appelle `Modele.pluriel`.' },
+  { notion: 'la fenêtre de séances lue, au singulier quand elle n’en compte qu’une (« ta dernière séance » / « tes 8 dernières séances »)', pr: 'correctif 19/11/2026',
+    module: 'modele.js', fonction: 'tesDernieresSeances', lecteurs: ['moteur.js', 'rendu.js', 'equilibres.js'],
+    raison: 'l’habitude de reps (la zone, le « Pourquoi » et la feuille de zone) et la carte des routines disent « ta dernière séance » à n = 1, jamais « tes 1 dernières séances ».' },
   // « LE COACH SE TAIT À TORT » (MOTEUR §9.39, 16/11/2026) — une NOTION (une définition), pas une décision : `reactionDeSerie` / `reactionDExercice` décident, elle dit seulement
   // ce qui compte pour le silence après deux refus. Elle n'est donc pas dans GARDEES (aucune autorisation d'appel à gérer) mais au registre, avec son seul lecteur.
   { notion: 'une proposition du coach en temps réel (une réaction à au moins un bouton : seule une proposition ignorée compte pour le silence après deux refus)', pr: 'correctif 16/11/2026',

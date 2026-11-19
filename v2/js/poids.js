@@ -328,7 +328,9 @@
   // La petite ligne de dessous : de quoi est faite la tendance.
   function noteDeTendance(t) {
     if (!t) return null;
-    return 'Calculée sur tes ' + t.pesees + ' pesées de ces ' + t.semaines + ' semaines.';
+    var M = racine.THModele;
+    return 'Calculée sur ' + (t.pesees >= 2 ? 'tes ' + t.pesees + ' ' + M.pluriel(t.pesees, 'pesée') : 'ta pesée') + ' de ' +
+      (t.semaines >= 2 ? 'ces ' + t.semaines + ' ' + M.pluriel(t.semaines, 'semaine') : 'la semaine') + '.';
   }
 
   // ── La pesée qu'on ÉCRIT (60-2a, QUESTIONNAIRE-COACH-V2 §3, écran « Toi ») ──

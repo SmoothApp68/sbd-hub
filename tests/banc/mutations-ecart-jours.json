@@ -1,0 +1,11 @@
+[
+  { "nom": "ecart-jours-m1-sans-regroupement", "fichier": "v2/js/moteur.js",
+    "ancien": "if (k !== null && k === dernier) return;", "nouveau": "if (false) return;",
+    "banc": "aucun", "unitaires": ["tests/unit/v2-ecart-habituel-jours.test.js", "tests/unit/v2-compteur.test.js"] },
+  { "nom": "ecart-jours-m2-coupure-ancienne-copie", "fichier": "v2/js/moteur.js",
+    "ancien": "var ecarts = ecartsDesJours(t.slice(0, j));", "nouveau": "var av = t.slice(0, j), ecarts = av.length < 2 ? null : av.slice(1).map(function (x, n) { return (x - av[n]) / JOUR; }).slice(-ECARTS_HABITUELS);",
+    "banc": "aucun", "unitaires": ["tests/unit/v2-ecart-habituel-jours.test.js"] },
+  { "nom": "ecart-jours-m3-deux-jours-distincts-requis-trois", "fichier": "v2/js/moteur.js",
+    "ancien": "    if (d.length < 2) return null;\n    var ecarts = [];", "nouveau": "    if (d.length < 3) return null;\n    var ecarts = [];",
+    "banc": "aucun", "unitaires": ["tests/unit/v2-ecart-habituel-jours.test.js", "tests/unit/v2-compteur.test.js", "tests/unit/v2-seance-rapide-229.test.js"] }
+]

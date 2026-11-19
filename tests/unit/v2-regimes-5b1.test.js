@@ -179,10 +179,13 @@ describe('les phrases (B3, Q3) : date absolue, aucune charge, aucun rep, tête f
 });
 
 describe('B2 : une médiane, deux bornes — `ecartDuRythme` est inchangée', () => {
-  // L'ancienne fonction (main, 5a), copiée telle quelle.
+  // La référence (main, 5a), copiée, à UNE différence (19/11/2026, MOTEUR §9.9) : seule la 1re séance de chaque jour civil local compte.
+  // Ancienne valeur : les écarts de TOUTES les séances (deux séances le même jour = un écart ~0) ; nouvelle : un écart par jour distinct,
+  // car la cadence habituelle se compte en jours et non en séances.
   const ancienne = (groupes) => {
     const dates = (groupes || []).map((g) => { const t = Date.parse(g && g.seance ? g.seance.debut : null); return Number.isNaN(t) ? null : t; })
-      .filter((t) => t !== null).sort((a, b) => a - b);
+      .filter((t) => t !== null).sort((a, b) => a - b)
+      .filter((t, i, a) => { if (!i) return true; const d = new Date(t), p = new Date(a[i - 1]); return d.getFullYear() !== p.getFullYear() || d.getMonth() !== p.getMonth() || d.getDate() !== p.getDate(); });
     if (dates.length < 2) return 7;
     const ec = [];
     for (let i = 1; i < dates.length; i++) ec.push((dates[i] - dates[i - 1]) / 86400000);

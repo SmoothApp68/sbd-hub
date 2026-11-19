@@ -1589,8 +1589,10 @@
   var ROLES_A_RESERVE = { ligne: true, coach: true, retour: true, elan: true, test: true, haut: true };
   // 169 — L'ÉLIGIBILITÉ DE L'EFFORT VISÉ, une seule fonction pour le moteur et pour le plan : la règle ne joue pas au poids du
   // corps (palier 0) ni avec une aide (palier < 0). `palier` : le palier de la consigne (`consigne.palier`).
-  function effortViseEligible(palier) {
+  // `mesure` (facultative) : seule la charge × reps porte une réserve affichée ; une mesure connue autre (durée, distance, reps seules…) est exclue.
+  function effortViseEligible(palier, mesure) {
     var p = nombre(palier);
+    if (mesure !== undefined && mesure !== null && mesure !== 'charge_reps') return false;
     return p !== null && p > 0;
   }
   var RESERVE_ECART = 2;   // la réserve notée ≥ visée + 2 : un vrai signal (l'erreur moyenne d'estimation est d'environ 1 rep)
@@ -3123,6 +3125,10 @@
       // `cranDeSerie`) : tenue, mais sans marge. Ni élan, ni proposition, ni
       // « ton test arrive » ; une proposition prise à fond ne garde pas sa charge.
       var aFond = Palier().cranDeSerie(s) === 'max';
+      // « Garde 0 » (19/11/2026) — à garde AFFICHÉE 0, une série à fond DANS la zone est sur la cible : ni doute, ni retour (le plan passe la
+      // garde par `contexte.gardeAffichee`, jamais recalculée ici). Sous le bas de la zone, « à fond » garde son sens.
+      var surLaCible = contexte && contexte.gardeAffichee === 0 && aFond && reps !== null && reps >= z.bas;
+      if (surLaCible) aFond = false;
       var derniere = i === n - 1;
       message = null;
 
@@ -3247,7 +3253,7 @@
                 (s.ressenti !== null && s.ressenti !== undefined);
               if (reps === z.bas && !effortNote && !effortDit) {
                 message = { type: 'effort_suggere', rang: i + 1, charge: charge, reps: reps,
-                            palier: P, retour: retour };
+                            palier: P, retour: retour, garde0: !!(contexte && contexte.gardeAffichee === 0) };
                 effortDit = true;
               } else {
                 var toutes = true;
@@ -3785,6 +3791,9 @@
         return a + nombreFr(m.series, regle('reaction.series')) + ' séries de plus à ' + enKg(m.charge, cE) + '.';
       }
       case 'effort_suggere':
+        // « Garde 0 » (19/11/2026) : à garde affichée 0, « à fond » est la cible, jamais un motif de reculer : la réponse attendue garde la charge.
+        if (m.garde0) return fait + ', pile au bas de ta fourchette' + DEUX_POINTS +
+          'je garde ' + enKg(m.charge, cite(CIBLE, { role: 'elan' })) + '. Note ce qu\'il t\'en restait, ça pèse sur la séance suivante.';
         return fait + ', pile au bas de ta fourchette. Si c\'était à fond, note-le' + DEUX_POINTS +
           (m.retour === null || m.retour === undefined
             ? 'je reviens au cran au-dessus' : 'je reviens à ' + enKg(m.retour, regle('reaction.retour'))) +

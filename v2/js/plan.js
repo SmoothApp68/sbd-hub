@@ -172,7 +172,12 @@
       faites.push({ charge_kg: chargeLue(s, pdc), reps: s.reps, rpe: s.rpe, ressenti: s.ressenti });
     }
     var planInitial = M.planDeCouverture(consigne, couvertes);
-    var reaction = M.reactionPour(consigne, faites, contexte || null, planInitial);
+    // « Garde 0 » (19/11/2026) — la réserve AFFICHÉE de la ligne, déjà calculée par la fonction unique (`Moteur.reserveAffichee` : le plancher des
+    // populations protégées et de la reprise longue la relève, donc 0 ne reste que pour qui a choisi d'aller à l'échec). À garde 0, « à fond » est
+    // la cible : la réaction ne le traite plus comme un doute (`Moteur.reactionPour`, `gardeAffichee`).
+    var gardeLigne = consigne && M.effortViseEligible(consigne.palier, o.mesure) ? M.reserveAffichee({ zone: consigne.zone, role: 'ligne', reglage: o.reglage, protegee: o.protegee === true, repriseLongue: M.enRepriseLongue(consigne) }) : null;
+    var contexteR = gardeLigne === 0 ? Object.assign({}, contexte || {}, { gardeAffichee: 0 }) : (contexte || null);
+    var reaction = M.reactionPour(consigne, faites, contexteR, planInitial);
 
     var lignes = liste.map(function (sr, i) {
       var cov = couverture[i];
@@ -215,7 +220,7 @@
       var j = l.position;
       var n = Math.min(faites.length, j);
       if (!reactionsAvant[n]) {
-        reactionsAvant[n] = M.reactionPour(consigne, faites.slice(0, n), contexte || null, planInitial);
+        reactionsAvant[n] = M.reactionPour(consigne, faites.slice(0, n), contexteR, planInitial);
       }
       var p = M.lignesDePari(consigne, reactionsAvant[n], faites.slice(0, n), j, {
         slug: o.slug, reglage: o.reglage, seance: o.seance,
@@ -1614,7 +1619,7 @@
       sansTest: !!(porte && porte.fermee && !porte.tente),
       slug: base.slug, seance: seanceId === undefined ? null : seanceId,
       reglage: reglage === undefined ? null : reglage, phase: phase, objectif: objectif, protegee: protegee === true,
-      compteur: compteurOuverture, allegee: !!consigne.allegee,
+      compteur: compteurOuverture, allegee: !!consigne.allegee, mesure: materiel ? materiel.mesure || null : null,
       occurrence: base.occurrence || undefined,
       // I8 (122) — les rangs que des séries faites ont quittés (supprimées, ou passées hors du travail) : leurs
       // paris restent ; aucune autre série ne les reprend (`Seance.quitterRang`).
@@ -2671,7 +2676,7 @@
         x.mode = modeX;
         x.intention = intentionX;
         // 154 (MOTEUR §9.26) — L'EFFORT VISÉ : « garde-en N » dans l'en-tête, les puces sous la dernière série, la phrase.
-        var rvElig = aUnPari(x) && !seance.edition && !legereX && Moteur().effortViseEligible(x.consigne.palier) && (x.mesure === null || x.mesure === undefined || x.mesure === 'charge_reps');
+        var rvElig = aUnPari(x) && !seance.edition && !legereX && Moteur().effortViseEligible(x.consigne.palier, x.mesure);
         var rvOptions = { zone: x.consigne ? x.consigne.zone : null, role: rvElig ? roleDeLaVisee(x) : 'ligne', reglage: reglagePlan };
         // PR 4a (§9.26 bis) — DEUX valeurs : `reserveVisee`, la table (le déclencheur du test) ; `reserveAffichee`, le plancher pour la population
         // protégée (ce que l'écran affiche, ce que le pari écrit). Sur une ligne de test protégée : aucune réserve affichée, donc aucun effort

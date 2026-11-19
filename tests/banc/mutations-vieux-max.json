@@ -1,0 +1,8 @@
+[
+  { "nom": "reprise-longue-ignoree", "fichier": "v2/js/moteur.js", "ancien": "if (x.reprise === REPRISE_LONGUE) return { testable: false", "nouveau": "if (false) return { testable: false", "banc": "aucun", "unitaires": ["tests/unit/v2-test-sans-vieux-max.test.js"] },
+  { "nom": "creneau-sans-filtre", "fichier": "v2/js/moteur.js", "ancien": "b.slug && b.testable !== false && !f[b.slug]", "nouveau": "b.slug && !f[b.slug]", "banc": "aucun", "unitaires": ["tests/unit/v2-test-sans-vieux-max.test.js"] },
+  { "nom": "proposition-sans-barre", "fichier": "v2/js/moteur.js", "ancien": "&& !(nombre(x.barresTestables) >= 1)) return non('aucune_barre')", "nouveau": "&& false) return non('aucune_barre')", "banc": "aucun", "unitaires": ["tests/unit/v2-test-sans-vieux-max.test.js"] },
+  { "nom": "reprise-a-une-autre-date", "fichier": "v2/js/faits.js", "ancien": "Moteur.repriseDe(seancesDuSlug(c, slug), avant)", "nouveau": "Moteur.repriseDe(seancesDuSlug(c, slug), new Date('2099-01-01T00:00:00'))", "banc": "aucun", "unitaires": ["tests/unit/v2-test-sans-vieux-max.test.js"] },
+  { "nom": "I225-muet", "fichier": "v2/js/plan.js", "ancien": "if (!testable(jt.testee)) erreurs.push('I225", "nouveau": "if (false) erreurs.push('I225", "banc": "aucun", "unitaires": ["tests/unit/v2-test-sans-vieux-max.test.js"] },
+  { "nom": "phrase-sans-date", "fichier": "v2/js/moteur.js", "ancien": "if (c === null || r === null || !source.date) return t;", "nouveau": "if (c === null || r === null) return t;", "banc": "aucun", "unitaires": ["tests/unit/v2-test-sans-vieux-max.test.js"], "attendu": "survit" }
+]

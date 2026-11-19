@@ -214,9 +214,12 @@ describe('193-4 — le plan : la barre testée', () => {
     propre(p, e);
   });
 
-  test('sans max estimé : rien à proposer, dit', () => {
+  test('sans max estimé : pas d’essai, dit (19/11/2026 : la barre ne prend plus le créneau)', () => {
     const e = entrees(seance([DC]), { maxEstimes: {} });
-    expect(T.planDeSeance(e).exercices[0].semaineDeTest).toMatchObject({ testee: true, etat: 'sans_max', prochain: null, serie: null });
+    const p = T.planDeSeance(e);
+    expect(p.exercices[0].semaineDeTest).toMatchObject({ testee: false, etat: 'pas_d_essai' });
+    expect(sp(p.exercices[0].semaineDeTest.pasDEssai.phrase)).toBe('Développé couché : pas d’essai cette semaine.');
+    propre(p, e);
   });
 
   test('Juste un carnet : le coach se tait', () => {

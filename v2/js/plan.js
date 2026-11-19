@@ -1201,7 +1201,10 @@
       var slug = exo && exo.exercise_slug;
       if (!slug || barres.some(function (b) { return b.slug === slug; })) return;
       var famille = G && G.familleDeBarre ? G.familleDeBarre(slug, cat) : null;
-      if (famille) barres.push({ slug: slug, i: i, famille: famille, classe: M.testClasse(famille) });
+      // 19/11/2026 — une barre en reprise longue ou sans max ne se teste pas (`Moteur.testBarreTestable`, MOTEUR §9.32) : décidée ICI, une fois,
+      // avant de choisir la barre du jour (`testBarreDuJour` l'écarte, la barre récente ne passe pas « en conflit » à cause d'elle).
+      var tt = famille ? M.testBarreTestable({ max: (T.maxEstimes || {})[slug], reprise: (T.reprises || {})[slug] }) : null;
+      if (famille) barres.push({ slug: slug, i: i, famille: famille, classe: M.testClasse(famille), testable: tt.testable, raison: tt.raison });
     });
     var faites = {}, refusees = {};
     Object.keys(T.mesures || {}).forEach(function (s) {
@@ -1246,6 +1249,16 @@
       // un accessoire : 1 à 2 au plus, légers, sans « Au max » ni échec (`auMaxFaitsDe` se tait pendant la semaine)
       jt.accessoires += 1;
       return { accessoire: true, garde: jt.accessoires <= M.TEST_ACCESSOIRES_MAX, rang: jt.accessoires };
+    }
+    // 19/11/2026 — « Squat : pas d'essai cette semaine. » : ni essai, ni montée, ni série au max, ni pari ; la phrase dit d'où vient la force estimée
+    // (la série et sa date, absolue) quand il y en a une. Elle passe par la capture (I26) comme les autres phrases du test.
+    if (b.testable === false) {
+      var Vs = Voix(), fiche = e.catalogue && Object.prototype.hasOwnProperty.call(e.catalogue, b.slug) ? e.catalogue[b.slug] : null;
+      var source = b.raison === 'reprise_longue' && T.seriesDuMax && T.seriesDuMax[b.slug] ? T.seriesDuMax[b.slug] : null;
+      var capS = Vs.capturer(function () { return M.phraseSansEssai((fiche && fiche.nom) || b.slug, source, M.jourCivil(seance.debut)); });
+      x.phrases.push({ ou: 'test.sans_essai', texte: capS.texte, citations: capS.citations });
+      return { barre: true, testee: false, etat: 'pas_d_essai', slug: b.slug,
+               pasDEssai: { raison: b.raison, phrase: capS.texte, citations: capS.citations, source: source && capS.citations.length ? source : null } };
     }
     if (b.slug !== jt.testee) return { barre: true, testee: false, conflit: jt.conflits.indexOf(b.slug) >= 0, etat: 'ailleurs', pasDeTest: true };
     if (!coachee || intentionX === 'entretien') return { barre: true, testee: false, etat: 'sans_coach' };
@@ -2464,7 +2477,9 @@
     var barreLegere = e.veilleChoix === 'leger' ? barreLegereDuPlan(e, seance, exos, consignes, intentionProfil, blocageVeille) : null;
     var plan236 = {
       seance: seance.id === undefined ? null : seance.id,
-      semaineDeTest: jourDeTest ? { debut: jourDeTest.debut, fin: jourDeTest.fin, jour: jourDeTest.jour, testee: jourDeTest.testee, conflits: jourDeTest.conflits, barres: jourDeTest.barres.map(function (q) { return q.slug; }) } : null,
+      semaineDeTest: jourDeTest ? { debut: jourDeTest.debut, fin: jourDeTest.fin, jour: jourDeTest.jour, testee: jourDeTest.testee, conflits: jourDeTest.conflits, barres: jourDeTest.barres.map(function (q) { return q.slug; }),
+        faites: jourDeTest.faites.slice(),
+        sansEssai: jourDeTest.barres.filter(function (q) { return q.testable === false; }).map(function (q) { return q.slug; }) } : null,
       phase: phase,
       objectif: objectif,
       priorites: priorites,
@@ -6460,7 +6475,12 @@
       'test.max': x.semaineDeTest && x.semaineDeTest.max !== null && x.semaineDeTest.max !== undefined ? { charge: x.semaineDeTest.max } : null,
       'test.reserve': x.semaineDeTest && x.semaineDeTest.prochain ? { valeur: x.semaineDeTest.prochain.reserve }
         : x.semaineDeTest && x.semaineDeTest.serie ? { valeur: x.semaineDeTest.serie.reserve } : null,
-      'test.pari': x.semaineDeTest && x.semaineDeTest.pari ? { charge: x.semaineDeTest.pari.valeur_predite } : null
+      'test.pari': x.semaineDeTest && x.semaineDeTest.pari ? { charge: x.semaineDeTest.pari.valeur_predite } : null,
+      // 19/11/2026 — « Squat : pas d'essai cette semaine » : la série d'où vient la force estimée (charge × reps) et son jour.
+      'test.source': x.semaineDeTest && x.semaineDeTest.pasDEssai && x.semaineDeTest.pasDEssai.source
+        ? { charge: x.semaineDeTest.pasDEssai.source.charge, reps: [x.semaineDeTest.pasDEssai.source.reps] } : null,
+      'test.source_le': x.semaineDeTest && x.semaineDeTest.pasDEssai && x.semaineDeTest.pasDEssai.source
+        ? { date: x.semaineDeTest.pasDEssai.source.date } : null
     };
     var msg = x.reaction && x.reaction.message;
     return { lignes: lignes, jour: jour, fait: fait, regle: regle, suite: suite,
@@ -8485,12 +8505,40 @@
     }
     var M = Moteur();
     var testees = [];
+    // 19/11/2026 (I224 à I227, MOTEUR §9.32) — une barre testable : un max estimé d'avant la semaine ET pas de reprise longue, relus dans les ENTRÉES
+    // (jamais dans ce que le plan porte) par une arithmétique à part. Sans entrées, rien n'est jugé.
+    var ent = entrees && entrees.semaineDeTest ? entrees.semaineDeTest : null;
+    var maxDesEntrees = function (slug) { var v = ent ? nombre((ent.maxEstimes || {})[slug]) : null; return v !== null && v > 0 ? v : null; };
+    var testable = function (slug) {
+      return ent === null ? true : maxDesEntrees(slug) !== null && (ent.reprises || {})[slug] !== M.REPRISE_LONGUE;
+    };
+    if (ent !== null && jt.testee) {
+      if (!testable(jt.testee)) erreurs.push('I225 — la barre du jour (' + jt.testee + ') est en reprise longue ou sans max : elle ne prend pas le créneau (I89)');
+      // la barre du jour est la PREMIÈRE barre testable non faite, non refusée aujourd'hui (jamais une barre récente passée derrière une vieille)
+      var attendue = (jt.barres || []).filter(function (q) {
+        return testable(q) && (jt.faites || []).indexOf(q) < 0 && (ent.refus || {})[q] !== jt.jour;
+      })[0];
+      if (attendue !== undefined && attendue !== jt.testee) erreurs.push('I225 — la barre du jour est ' + jt.testee + ', la première barre testable est ' + attendue + ' (I89)');
+    } else if (ent !== null && !jt.testee) {
+      var oubliee = (jt.barres || []).filter(function (q) {
+        return testable(q) && (jt.faites || []).indexOf(q) < 0 && (ent.refus || {})[q] !== jt.jour;
+      })[0];
+      if (oubliee !== undefined) erreurs.push('I225 — la barre ' + oubliee + ' est testable et aucune barre n’est testée aujourd’hui (I89)');
+    }
     ((plan && plan.exercices) || []).forEach(function (x, i) {
       if (!x) return;
       var nom = ' — exercice ' + i + ' (' + x.slug + ') : ';
       if (x.auMax || x.propositionAuMax) erreurs.push('I91' + nom + 'un « Au max » pendant la semaine de test');
       var t = x.semaineDeTest;
       if (!t) return;
+      // I224 — aucun essai, aucune montée, aucune série au max, aucun ajout proposés d'office pour une barre en reprise longue ou sans max.
+      if (ent !== null && t.barre && x.slug && !testable(x.slug)) {
+        if (t.testee || t.prochain || t.serie || (t.montee && t.montee.length) || t.ajout || (t.charge !== null && t.charge !== undefined) || t.pari) {
+          erreurs.push('I224' + nom + 'un essai, une montée, une série au max ou un pari proposé pour une barre en reprise longue ou sans max');
+        }
+        if (!t.pasDEssai) erreurs.push('I224' + nom + 'la barre non testable ne dit pas « pas d’essai cette semaine »');
+      }
+      if (ent !== null && t.barre && x.slug && testable(x.slug) && t.pasDEssai) erreurs.push('I224' + nom + '« pas d’essai » dit d’une barre testable');
       if (t.accessoire) {
         if (t.garde !== (t.rang <= M.TEST_ACCESSOIRES_MAX)) erreurs.push('I91' + nom + 'le rang ' + t.rang + ' d’accessoire ' + (t.garde ? 'gardé' : 'écarté') + ' contre la limite de ' + M.TEST_ACCESSOIRES_MAX);
         return;
@@ -8505,8 +8553,15 @@
       testees.push({ slug: x.slug, classe: t.classe });
       var max = nombre(t.max);
       var cran = nombre(t.arrondi) !== null && nombre(t.arrondi) > 0 ? nombre(t.arrondi) : 2.5;
+      // I226 (I90) — sans max, aucune charge proposée ; I227 (I93) — sans max, aucun pari. Le max des entrées fait foi (le plan peut le porter nul à tort).
+      var sansMax = max === null || (ent !== null && maxDesEntrees(x.slug) === null);
+      if (sansMax && (t.prochain || t.serie || (t.montee && t.montee.length) || t.ajout || (t.charge !== null && t.charge !== undefined))) {
+        erreurs.push('I226' + nom + 'une charge proposée sans max estimé (I90)');
+      }
+      if (sansMax && t.pari) erreurs.push('I227' + nom + 'un pari sans max estimé (I93)');
       var pres = function (charge, pct, large) {
-        if (max === null || nombre(charge) === null) return true;
+        if (max === null) return false;
+        if (nombre(charge) === null) return true;
         return Math.abs(charge - max * pct / 100) <= cran + max * (large || 0) / 100 + 1e-9;
       };
       if (t.essais && t.essais.length > M.TEST_ESSAIS_MAX) erreurs.push('I88' + nom + t.essais.length + ' essais (jamais plus de ' + M.TEST_ESSAIS_MAX + ')');

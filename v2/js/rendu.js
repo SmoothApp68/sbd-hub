@@ -4639,6 +4639,8 @@
   function carteDeTest(t, iExo, vue) {
     var M = function () { return racine.THModele; };
     // 200-2 — une barre que la semaine de test ne mesure pas CE JOUR-LÀ (une autre barre l'est) : ni « accessoire » ni test.
+    // 19/11/2026 — « Squat : pas d'essai cette semaine. Ta force estimée vient de … » : la phrase du plan, sans geste.
+    if (t.pasDEssai) return el('div', 'proposition-exercice proposition-test-acc test-sans-essai', t.pasDEssai.phrase);
     if (t.pasDeTest) return el('div', 'proposition-exercice proposition-test-acc', 'Pas de test pour ce mouvement aujourd\u2019hui\u00a0: s\u00e9ance l\u00e9g\u00e8re.');
     if (t.accessoire) {
       return el('div', 'proposition-exercice proposition-test-acc', t.garde
@@ -4647,10 +4649,6 @@
     var n = el('div', 'proposition-exercice proposition-test');
     n.setAttribute('data-iexo', String(iExo));
     n.appendChild(el('div', 'pc-texte', 'Semaine de test · ' + (t.mode === 'max' ? 'viser ton max' : 'série au max')));
-    if (t.etat === 'sans_max') {
-      n.appendChild(el('div', 'pc-detail', 'Pas assez de séries pour estimer ton max : ce mouvement se fait comme d’habitude.'));
-      return n;
-    }
     if (t.montee && t.montee.length && t.etat === 'a_faire') {
       n.appendChild(el('div', 'pc-detail test-montee', 'Montée : ' + t.montee.map(function (m) { return M().chargeFois(m.charge, m.reps); }).join(' · ')));
     }
@@ -4685,9 +4683,11 @@
     if (vue.phrase) cible.appendChild(el('p', 'feuille-aide', vue.phrase));
     var menu = el('div', 'feuille-menu');
     (vue.barres || []).forEach(function (b) {
+      // 19/11/2026 — « Squat : pas d'essai cette semaine. … » : la phrase du coach, sans choix de façon.
+      if (b.sansEssai) { menu.appendChild(el('p', 'feuille-aide test-sans-essai', b.sansEssai)); return; }
       var autre = b.mode === 'max' ? 'serie' : 'max';
       var etat = b.mesure ? (b.mesure.valeur !== null && b.mesure.valeur !== undefined
-        ? 'mesuré ' + M().kgTexte(b.mesure.valeur, 1) : 'pas testé') : (b.mode === 'max' ? 'viser mon max' : 'série au max');
+        ? 'mesuré ' + M().kgTexte(b.mesure.valeur, 1) : 'pas d’essai') : (b.mode === 'max' ? 'viser mon max' : 'série au max');
       entreeMenu(menu, b.nom + ' · ' + etat, b.mesure ? { desactive: true } : { surClic: function () { vue.surMode(b.slug, autre); } });
       // 202 — la raison du défaut prudent (la phrase du coach, sa source repliée) ; l'autre choix reste à un toucher.
       if (b.raison && !b.mesure) {

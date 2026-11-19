@@ -12827,7 +12827,7 @@ const SETS_IMPORTES = [
     const teteEtFiche = () => page.evaluate(() => ({
       tete: ((document.querySelector('#page-exercice .courbe-val') || {}).textContent || '').replace(/\s+/g, ' ').trim() || null,
       fiche: ((document.querySelector('#page-exercice .exo-force .exo-li-v') || {}).textContent || '').replace(/\s+/g, ' ').trim() || null,
-      trajet: ((document.querySelector('#page-exercice .courbe-trajet') || {}).textContent || '').replace(/\s+/g, ' ').trim() || null,
+      trajet: ((document.querySelector('#page-exercice .courbe-trajet') || {}).textContent || '').replace(/\s+/g, ' ').replace(/^Force estimée par séance : /, '').trim() || null,   // le préfixe de la ligne (19/11) n'est pas le trajet que Progression dit
       sous: ((document.querySelector('#page-exercice .courbe-sous') || {}).textContent || '').replace(/\s+/g, ' ').trim() || null }));
     for (const lib of ['3 mois', '6 mois', '1 an', 'Tout']) {
       await page.evaluate((l) => Array.from(document.querySelectorAll('#page-exercice .courbe-per-b')).filter((b) => b.textContent === l)[0].click(), lib);

@@ -1427,12 +1427,33 @@
   // autres exercices ; seule une absence de plus de 84 jours donne une reprise LONGUE.
   // Zéro séance antérieure : une première séance n'est pas une reprise.
   var ECARTS_HABITUELS = 8;
-  function ecartHabituel(seances, avant) {
-    var dates = anterieures(seances, avant).map(function (se) { return instant(se.debut); });
-    if (dates.length < 2) return null;
+  //
+  // 19/11/2026 — EN JOURS CIVILS DISTINCTS (MOTEUR §9.9, comme §9.42 bis : deux séances le même jour comptent une) : seule la
+  // 1re séance de chaque jour civil local entre dans les écarts. Avant, deux séances d'un même jour donnaient un écart de ~0,1 et
+  // la médiane tombait à ~0 : toute absence devenait une reprise courte. UNE fonction, `ecartsDesJours`, lue par `ecartHabituel`
+  // et par `coupureDansLaFatigue`.
+  // `instants` : des instants triés. Rend, pour chaque jour civil, le plus ancien (au plus `max` derniers jours si `max` est donné).
+  function premiersDesJours(instants) {
+    var sortie = [], dernier = null;
+    instants.forEach(function (t) {
+      var k = numeroDuJour(jourCivil(t));
+      if (k !== null && k === dernier) return;
+      dernier = k;
+      sortie.push(t);
+    });
+    return sortie;
+  }
+  // Les écarts, en jours, entre les 1res séances de jours civils consécutifs (au plus les 8 derniers) ; `null` sous deux jours distincts.
+  function ecartsDesJours(instantsTries) {
+    var d = premiersDesJours(instantsTries);
+    if (d.length < 2) return null;
     var ecarts = [];
-    for (var i = 1; i < dates.length; i++) ecarts.push((dates[i] - dates[i - 1]) / JOUR);
-    return mediane(ecarts.slice(-ECARTS_HABITUELS));
+    for (var i = 1; i < d.length; i++) ecarts.push((d[i] - d[i - 1]) / JOUR);
+    return ecarts.slice(-ECARTS_HABITUELS);
+  }
+  function ecartHabituel(seances, avant) {
+    var ecarts = ecartsDesJours(anterieures(seances, avant).map(function (se) { return instant(se.debut); }));
+    return ecarts === null ? null : mediane(ecarts);
   }
 
   // §9.9 — « Après une coupure, le moteur ne demande pas de rep de plus.
@@ -7800,12 +7821,13 @@
       var j = i;
       while (j > 0 && t[j - 1] >= t[i]) j--;          // les antérieures STRICTES : t[0 .. j-1]
       if (j < 1) continue;                             // aucune séance avant : une première séance n'est pas une reprise
-      if (j === 1) {                                   // une seule séance avant : sans rythme (16/11/2026), le même prédicat que `repriseDe`
-        if (repriseSansRythme((t[i] - t[0]) / JOUR) !== AUCUNE_REPRISE) return true;
+      // 19/11/2026 : les écarts en jours civils distincts (`ecartsDesJours`, la même fonction que `ecartHabituel`) ; sous deux jours
+      // distincts, sans rythme (16/11/2026) : le même prédicat que `repriseDe`, l'absence comptée depuis la dernière séance.
+      var ecarts = ecartsDesJours(t.slice(0, j));
+      if (ecarts === null) {
+        if (repriseSansRythme((t[i] - t[j - 1]) / JOUR) !== AUCUNE_REPRISE) return true;
         continue;
       }
-      var ecarts = [];
-      for (var m = Math.max(1, j - ECARTS_HABITUELS); m < j; m++) ecarts.push((t[m] - t[m - 1]) / JOUR);
       var habituel = mediane(ecarts);
       if (habituel === null) continue;
       if ((t[i] - t[j - 1]) / JOUR > FACTEUR_COUPURE * habituel) return true;

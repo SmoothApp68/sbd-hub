@@ -29756,7 +29756,17 @@ const SETS_IMPORTES = [
     // « Pas maintenant » : la réponse datée part par la file, la ligne grise dit la date absolue, « Annuler ».
     const cleCA = c1.carte ? c1.carte.cle : null;
     if (cleCA) {
-      await page.evaluate(() => document.querySelector('#coach-accueil [data-pas-maintenant]').click());
+      // 19/11/2026 — LA RÉPONSE SE VOIT AU TOUCHER : dans le MÊME geste (avant tout retour du serveur ou de la file), la carte a cédé la
+      // place à « Noté. … » + « Annuler », et plus aucun bouton « Pas maintenant » n'est touchable.
+      const auToucherPM = await page.evaluate(() => {
+        document.querySelector('#coach-accueil [data-pas-maintenant]').click();
+        const n = document.getElementById('coach-accueil');
+        const pose = n.querySelector('[data-coach-pose]');
+        return { pose: pose ? pose.textContent : null, genre: pose ? pose.getAttribute('data-coach-pose') : null,
+          boutons: n.querySelectorAll('[data-proposition], [data-pas-maintenant]').length, annuler: !!n.querySelector('[data-annuler-equilibre]') };
+      });
+      ok('[CA] « Pas maintenant » : « Noté. … » + « Annuler » dès le toucher, plus aucun bouton de la carte à toucher',
+        auToucherPM.genre === 'calme' && /^Noté\. /.test(spCA(auToucherPM.pose)) && auToucherPM.boutons === 0 && auToucherPM.annuler, nbCA(auToucherPM));
       await attendreQue(() => (base.profiles[0].cartes_semaine || {})[cleCA], 8000, 'pmCA').catch(() => {});
       await attendreQue(async () => !!(await lireCA()).pose, 8000, 'poseCA').catch(() => {});
       const c2 = await lireCA();

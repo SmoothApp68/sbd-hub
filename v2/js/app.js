@@ -1759,27 +1759,44 @@
     if (!vues.liste.hidden) { rendreProchaineSeance(); rendreCoachDeLAccueil(); }
   }
 
+  // 19/11/2026 — LA RÉPONSE D'UNE CARTE SE VOIT AU TOUCHER (même défaut que les gestes de routine, PR #704) : « Pas maintenant »,
+  // « Régler mes séances » et « Répartir mes priorités » attendaient le serveur (`await poserProfil`, 3 à 9 s) avant de céder la place à
+  // leur ligne : la carte restait là, boutons touchables. Le calcul et la vérification se font d'abord (sans écriture) ; la ligne se pose
+  // et se peint tout de suite ; les écritures partent derrière, et seulement leur ÉCHEC change la ligne (`direLEchecDeLaCarte`).
+  // `poserProfil` met le profil local à jour AVANT son premier `await` : la carte se tait dès l'appel, l'écriture suit.
+  function direLEchecDeLaCarte(e, texte, rendre) {
+    console.warn('Réponse de carte non écrite :', texteErreur(e));
+    return Promise.resolve().then(rendre).catch(function (e2) { console.warn('Retour non écrit :', texteErreur(e2)); }).then(function () {
+      faitEquilibre = { texte: texte, libelleBouton: 'Revoir la carte',
+        surAnnuler: function () { faitEquilibre = null; memoEquilibres = null; repeindreLesEquilibres(); } };
+      memoEquilibres = null;
+      repeindreLesEquilibres();
+    });
+  }
+
   function pasMaintenantEquilibre(carte) {
     faitEquilibre = null;
     // 16/11/2026 — « Pas maintenant » se dit : « Noté. Je ne t'en reparle pas avant le <date absolue>. » + « Annuler » (les réponses
     // d'avant). La date : la fin du silence que la réponse ÉCRITE pose (`Equilibres.phraseDuSilence`, le silence doublé au 2ᵉ refus).
     var avantReponses = JSON.parse(JSON.stringify(reponsesDesCartes()));
     var rep = Equilibres.reponse(avantReponses, carte.cle, 'non', Moteur.jourCivil(new Date()));
-    // La carte se tait quand la réponse est posée dans le profil (pas avant : le rendu relirait l'ancienne réponse).
-    repondreALaCarte(carte.cle, 'non').catch(function (e) { console.warn('Carte de la semaine non écrite :', texteErreur(e)); })
-      .then(function () {
-        faitEquilibre = {
-          texte: Equilibres.phraseDuSilence(Profil.rythmeDe(profil || {}), rep), calme: true,
-          surAnnuler: async function () {
-            faitEquilibre = null;
-            await poserProfil({ cartes_semaine: avantReponses });
-            memoEquilibres = null;
-            repeindreLesEquilibres();
-          }
-        };
+    var ecriture = repondreALaCarte(carte.cle, 'non');
+    faitEquilibre = {
+      texte: Equilibres.phraseDuSilence(Profil.rythmeDe(profil || {}), rep), calme: true,
+      surAnnuler: async function () {
+        // « Annuler » attend l'écriture de la réponse (sinon il rendrait les réponses d'avant, puis « non » s'écrirait par-dessus).
+        try { await ecriture; } catch (e) { return; }
+        faitEquilibre = null;
+        await poserProfil({ cartes_semaine: avantReponses });
         memoEquilibres = null;
         repeindreLesEquilibres();
-      });
+      }
+    };
+    memoEquilibres = null;
+    repeindreLesEquilibres();
+    return ecriture.then(function () {}, function (e) {
+      return direLEchecDeLaCarte(e, 'Je n\u2019ai pas pu noter ta r\u00e9ponse.', function () { return poserProfil({ cartes_semaine: avantReponses }); });
+    });
   }
 
   async function accepterUneProposition(carte, p) {
@@ -1967,12 +1984,13 @@
     // « Juste la durée » : la réponse de temps ne change que si elle ne dit rien de la durée à tenir.
     if (['max', 'moins', 'varie'].indexOf(p0.temps_reponse) < 0) entrees.temps_reponse = 'moins';
     var champs = Profil.preparerChamps(profil, entrees, new Date());
-    if (Object.keys(champs).length) await poserProfil(champs);
-    await repondreALaCarte(carte.cle, 'oui');
+    // Les deux écritures partent ensemble, SANS attente entre elles : chacune met le profil local à jour tout de suite (la carte se tait).
+    var ecriture = Promise.all([Object.keys(champs).length ? poserProfil(champs) : null, repondreALaCarte(carte.cle, 'oui')]);
     faitEquilibre = {
       texte: 'Fait : tes séances sont réglées sur ' + p.minutes + ' min.',
       suite: { libelle: 'Refaire mon programme pour ' + p.minutes + ' min', surClic: function () { faitEquilibre = null; refaireMonProgramme(); } },
       surAnnuler: async function () {
+        try { await ecriture; } catch (e) { return; }
         faitEquilibre = null;
         await poserProfil(avantChamps);
         await poserProfil({ cartes_semaine: avantReponses });
@@ -1982,6 +2000,12 @@
     };
     memoEquilibres = null;
     repeindreLesEquilibres();
+    try { await ecriture; } catch (e) {
+      return direLEchecDeLaCarte(e, 'Je n\u2019ai pas pu r\u00e9gler tes s\u00e9ances.', async function () {
+        await poserProfil(avantChamps);
+        await poserProfil({ cartes_semaine: avantReponses });
+      });
+    }
   }
 
   // 188-2 — « RÉPARTIR MES PRIORITÉS SUR DEUX JOURS » : chaque priorité en retard gagne son exercice dans une routine qui ne le
@@ -2010,16 +2034,29 @@
     }
     var avantReponses = JSON.parse(JSON.stringify(reponsesDesCartes()));
     var ids224 = Object.keys(enCours);
-    for (var i = 0; i < ids224.length; i++) await poserRoutineVoulue(enCours[ids224[i]].rt, enCours[ids224[i]].voulues);
-    await repondreALaCarte(carte.cle, 'oui');
+    var ecrites224 = [];   // les routines réellement écrites (pour les rendre si une suivante échoue)
+    var ecriture = (async function () {
+      for (var i = 0; i < ids224.length; i++) {
+        await poserRoutineVoulue(enCours[ids224[i]].rt, enCours[ids224[i]].voulues);
+        ecrites224.push(ids224[i]);
+      }
+    })();
+    // La réponse « oui » part tout de suite aussi (la carte se tait dès l'appel) ; la ligne se pose et se peint avant toute attente.
+    var reponse = repondreALaCarte(carte.cle, 'oui');
+    var toutEcrit = Promise.all([ecriture, reponse]);
+    var rendreLesRoutines = async function (ids) {
+      for (var k = 0; k < avant.length; k++) {
+        if (ids.indexOf(avant[k].id) < 0) continue;
+        var r2 = routines.filter(function (r) { return r.id === avant[k].id; })[0];
+        if (r2) await poserRoutineVoulue(r2, avant[k].exercices);
+      }
+    };
     faitEquilibre = {
       texte: 'Fait : ' + ajoutsFaits.map(function (f) { return f.texte; }).join(' · ') + '.',
       surAnnuler: async function () {
+        try { await toutEcrit; } catch (e) { return; }
         faitEquilibre = null;
-        for (var k = 0; k < avant.length; k++) {
-          var r2 = routines.filter(function (r) { return r.id === avant[k].id; })[0];
-          if (r2) await poserRoutineVoulue(r2, avant[k].exercices);
-        }
+        await rendreLesRoutines(ids224);
         await poserProfil({ cartes_semaine: avantReponses });
         memoEquilibres = null;
         repeindreLesEquilibres();
@@ -2027,6 +2064,14 @@
     };
     memoEquilibres = null;
     repeindreLesEquilibres();
+    try { await toutEcrit; } catch (e) {
+      var noms = ajoutsFaits.map(function (f) { return f.rt.nom; }).filter(function (n, i, l) { return l.indexOf(n) === i; });
+      return direLEchecDeLaCarte(e, 'Je n\u2019ai pas pu modifier ' + Modele.enumerer(noms.map(function (n) { return '\u00ab\u00a0' + n + '\u00a0\u00bb'; })) + '.', async function () {
+        await ecriture.catch(function () {});   // une écriture en vol finit avant d'être rendue
+        await rendreLesRoutines(ecrites224);
+        await poserProfil({ cartes_semaine: avantReponses });
+      });
+    }
   }
 
   // 218 — la silhouette du bonhomme (Homme / Femme) : une préférence PAR APPAREIL, jamais en base. Sans rien (ou sans stockage), Homme.

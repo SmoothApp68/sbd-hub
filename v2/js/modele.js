@@ -1693,7 +1693,7 @@
       if (!it || !index) return;
       var membres = Object.keys(it.exercices || {}).filter(function (s) { return index[s] && echelleDe(index[s]) === it.echelle; });
       if (!membres.length) return;
-      var v = vueEchelle(index, membres[0], opt.faites, opt.zonesHaut, opt.coachActif === true, opt.phraseDe, { lestRefuse: opt.lestRefuse === true });
+      var v = vueEchelle(index, membres[0], opt.faites, opt.zonesHaut, opt.coachActif === true, opt.phraseDe, { lestRefuse: opt.lestRefuse === true, objectif: opt.objectif, ecartee: opt.ecartee });
       if (!v) return;
       var F = opt.faites || {};
       var faits = marchesDe(index, it.echelle).filter(function (x) {

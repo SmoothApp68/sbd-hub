@@ -1146,6 +1146,12 @@ describe('l’étiquette se touche, et le menu (ECRAN-SAISIE §3.8)', () => {
       .getAttribute('aria-pressed')).toBe('true');
   });
 
+  test('19/11/2026 — une seule séance lue : « D’après ta dernière séance », jamais « tes 1 dernières séances »', () => {
+    const dit = (n) => textes(menu({ choisie: 'hypertrophie', deduite: { zone: 'volume', habitude: 10, seances: n } }), '.oz-sous')[0].replace(/\u00a0/g, ' ');
+    expect(dit(1)).toBe('D\'après ta dernière séance : 10 reps d\'habitude.');
+    expect(dit(2)).toBe('D\'après tes 2 dernières séances : 10 reps d\'habitude.');
+  });
+
   test('DISCRIMINANT — la raison ne vit que sous la zone DÉDUITE', () => {
     const c = menu({ choisie: 'hypertrophie' });
     expect(textes(c, '.oz-sous')).toEqual(['D’après tes 8 dernières séances : 10 reps d’habitude.'

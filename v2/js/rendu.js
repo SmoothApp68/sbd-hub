@@ -5848,8 +5848,8 @@
       b.appendChild(el('span', 'oz-reps', z.bas + ' à ' + z.haut + ' reps'));
       // La raison ne vit que sous la zone DÉDUITE : c'est elle qu'elle explique.
       if (d && d.zone === z.cle) {
-        b.appendChild(el('span', 'oz-sous', 'D\'après tes ' + d.seances +
-          ' dernières séances\u00a0: ' + d.habitude + ' reps d\'habitude.'));
+        b.appendChild(el('span', 'oz-sous', 'D\'après ' + M().tesDernieresSeances(d.seances) +
+          '\u00a0: ' + d.habitude + ' reps d\'habitude.'));
       }
       b.addEventListener('click', function () { vue.surChoix(z.cle); });
       cible.appendChild(b);

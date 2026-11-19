@@ -124,7 +124,6 @@
     });
   }
   function nb(v, d) { return Modele().nombreTexte(v, d === undefined ? 1 : d); }
-  function pluriel(n, s, p) { return n >= 2 ? (p || s + 's') : s; }
   function minuscule(t) { return t ? t.charAt(0).toLowerCase() + t.slice(1) : t; }
   function de(nom) { return /^[aeiouyéèêàâîôûh]/i.test(nom) ? 'd’' + nom : 'de ' + nom; }
   function libelleDuMuscle(m) { return minuscule(Semaine().libelleMuscle(m)); }
@@ -420,13 +419,13 @@
       var pa = c.prevu.a, pb = c.prevu.b;
       if (c.kind === 'rapport' && (pa > 0 || pb > 0)) {
         var cible = cibleAjout(prep, cote);
-        causes.push({ texte: 'Tes routines prévoient ' + nb(pa) + ' ' + pluriel(pa, 'série') + ' de ' + cote.nomA + ' pour ' + nb(pb) + ' de ' +
+        causes.push({ texte: 'Tes routines prévoient ' + nb(pa) + ' ' + Modele().pluriel(pa, 'série') + ' de ' + cote.nomA + ' pour ' + nb(pb) + ' de ' +
           cote.nomB + ' par semaine.', proposition: pa < pb * ctx.seuil || pa === 0 ? cible : null });
       } else if (c.kind === 'zero') {
         if (pa === 0) {
           causes.push({ texte: 'Aucune de tes routines ne prévoit de série ' + de(cote.nomA) + '.', proposition: cibleAjout(prep, cote) });
         } else {
-          causes.push({ texte: 'Tes routines prévoient ' + nb(pa) + ' ' + pluriel(pa, 'série') + ' ' + de(cote.nomA) + ' par semaine.', proposition: null });
+          causes.push({ texte: 'Tes routines prévoient ' + nb(pa) + ' ' + Modele().pluriel(pa, 'série') + ' ' + de(cote.nomA) + ' par semaine.', proposition: null });
         }
       }
     }
@@ -505,7 +504,7 @@
         propose.push(propositionAjouter(ajout));
         propose.push({ type: 'fusionner', libelle: 'Fusionner ' + ajout.nomRoutine + ' et ' + r.nom, routine_id: ajout.routine_id, autre_id: r.id });
       }
-      causes.push({ texte: '« ' + r.nom + ' » n’a pas été faite ' + nonFaites + ' ' + pluriel(nonFaites, 'semaine') + ' sur ' + semainesF.length +
+      causes.push({ texte: '« ' + r.nom + ' » n’a pas été faite ' + nonFaites + ' ' + Modele().pluriel(nonFaites, 'semaine') + ' sur ' + semainesF.length +
         ' : c’est elle qui porte ' + Modele().enumerer(noms) + '.', proposition: propose[0] || null, autres: propose.slice(1) });
     });
 
@@ -536,7 +535,7 @@
       });
     });
     if (cote.predicatB && ajB >= FOIS_MIN && ajB > ajA) {
-      causes.push({ texte: 'En séance, tu as ajouté ' + ajB + ' ' + pluriel(ajB, 'série') + ' de ' + cote.nomB + ' et ' + ajA + ' de ' + cote.nomA + '.', proposition: null });
+      causes.push({ texte: 'En séance, tu as ajouté ' + ajB + ' ' + Modele().pluriel(ajB, 'série') + ' de ' + cote.nomB + ' et ' + ajA + ' de ' + cote.nomA + '.', proposition: null });
     }
     return causes;
   }
@@ -678,7 +677,7 @@
               seuil: r.seuil, nomA: r.nomA, nomB: r.nomB, fenetre: ec.fenetre };
     c.fait = phraseDuRapport(r, ec.a, ec.b);
     c.barre = { a: Math.round(100 * ec.a / (ec.a + ec.b)), b: 100 - Math.round(100 * ec.a / (ec.a + ec.b)) };
-    c.etiquettes = { a: r.majA + ' · ' + ec.a + ' ' + pluriel(ec.a, 'série'), b: r.majB + ' · ' + ec.b + ' ' + pluriel(ec.b, 'série') };
+    c.etiquettes = { a: r.majA + ' · ' + ec.a + ' ' + Modele().pluriel(ec.a, 'série'), b: r.majB + ' · ' + ec.b + ' ' + Modele().pluriel(ec.b, 'série') };
     c.repere = repereDe(r);
     c.tendance = ec.ecart ? tendanceDe(prep, r, ec.ratio) : null;
     // Le programme du coach : le prévu et le fait. Le prévu, par semaine, sur les semaines de la fenêtre.
@@ -693,7 +692,7 @@
         : 'Ton programme ne prévoit aucune série de ' + r.nomA + '.';
       if (!c.coach.malConstruit && ec.a > 0) c.fait += ' Tu en as fait 1 pour ' + nb(ec.b / ec.a) + '.';
       c.etiquettes = {
-        a: r.majA + ' · ' + ec.a + ' ' + pluriel(ec.a, 'série') + ' ' + pluriel(ec.a, 'faite') + ' sur ' + prevuTotalA + ' ' + pluriel(prevuTotalA, 'prévue'),
+        a: r.majA + ' · ' + ec.a + ' ' + Modele().pluriel(ec.a, 'série') + ' ' + Modele().pluriel(ec.a, 'faite') + ' sur ' + prevuTotalA + ' ' + Modele().pluriel(prevuTotalA, 'prévue'),
         b: r.majB + ' · ' + ec.b + ' sur ' + prevuTotalB
       };
     }
@@ -739,11 +738,11 @@
     var traine = t.traine;
     var noms = traine.map(nomCourt);
     var c = { cle: 'priorites', famille: 'equilibre', kind: 'priorites', titre: 'Tes priorités, faites ou non', ecart: traine.length > 0,
-              lignes: lignes.map(function (l) { return { libelle: l.libelle, texte: nb(l.par) + ' ' + pluriel(l.par, 'série') + ' / sem.' }; }),
+              lignes: lignes.map(function (l) { return { libelle: l.libelle, texte: nb(l.par) + ' ' + Modele().pluriel(l.par, 'série') + ' / sem.' }; }),
               fenetre: t.sm.f, traine: traine };
-    if (pourComparer) c.lignes.push({ libelle: pourComparer.libelle, texte: nb(pourComparer.par) + ' ' + pluriel(pourComparer.par, 'série') + ' / sem.', gris: true });
+    if (pourComparer) c.lignes.push({ libelle: pourComparer.libelle, texte: nb(pourComparer.par) + ' ' + Modele().pluriel(pourComparer.par, 'série') + ' / sem.', gris: true });
     c.fait = traine.length
-      ? 'Tu as choisi ' + Modele().enumerer(noms) + ' comme ' + pluriel(traine.length, 'priorité') + ' : ' +
+      ? 'Tu as choisi ' + Modele().enumerer(noms) + ' comme ' + Modele().pluriel(traine.length, 'priorité') + ' : ' +
         (traine.length > 1 ? 'chacune compte' : 'elle compte') + ' moins de la moitié des séries ' + duMouvement(t.plus) + ' (' +
         nb(refPar) + ' par semaine).'
       : '';
@@ -897,7 +896,7 @@
     c.vers = visee;
     if (visee === prevu) { c.ecart = false; return c; }
     var duAu = quandDesSemaines(ws, e.jour);
-    c.fait = 'Ton programme est prévu pour ' + prevu + ' ' + pluriel(prevu, 'jour') + '. ' + (duAu ? duAu.charAt(0).toUpperCase() + duAu.slice(1) + ', tes ' : 'Tes ') +
+    c.fait = 'Ton programme est prévu pour ' + prevu + ' ' + Modele().pluriel(prevu, 'jour') + '. ' + (duAu ? duAu.charAt(0).toUpperCase() + duAu.slice(1) + ', tes ' : 'Tes ') +
       ws.length + ' semaines d’entraînement en comptent ' + nb(moy) + ' en moyenne.';
     var causes = [];
     if (sens === 'moins') {
@@ -914,15 +913,15 @@
         causes.push({ texte: 'Les séances qui sautent sont surtout ' + Modele().enumerer(qui.map(function (x) { return '« ' + x.r.nom + ' »'; })) +
           ' : ce sont elles qui portent ' + Modele().enumerer(porte.map(function (sl) { return nomDe(e, sl); })) + '.', proposition: null });
       }
-      causes.push({ texte: 'Un programme en ' + visee + ' ' + pluriel(visee, 'jour') + ' répartirait tout sur les jours que tu fais vraiment.', proposition: null });
+      causes.push({ texte: 'Un programme en ' + visee + ' ' + Modele().pluriel(visee, 'jour') + ' répartirait tout sur les jours que tu fais vraiment.', proposition: null });
     } else {
-      causes.push({ texte: 'Un programme en ' + visee + ' ' + pluriel(visee, 'jour') + ' donnerait une place aux jours que tu fais en plus.', proposition: null });
+      causes.push({ texte: 'Un programme en ' + visee + ' ' + Modele().pluriel(visee, 'jour') + ' donnerait une place aux jours que tu fais en plus.', proposition: null });
     }
     c.causes = causes.map(function (x) { return { texte: x.texte, proposition: null }; });
-    c.propositions = [{ type: 'refaire_jours', cle: 'refaire_jours|' + visee, libelle: 'Refaire mon programme sur ' + visee + ' ' + pluriel(visee, 'jour'),
+    c.propositions = [{ type: 'refaire_jours', cle: 'refaire_jours|' + visee, libelle: 'Refaire mon programme sur ' + visee + ' ' + Modele().pluriel(visee, 'jour'),
                         jours: visee, refait: true }];
-    c.libelleRefus = 'Garder ' + prevu + ' ' + pluriel(prevu, 'jour');
-    c.repere = 'Les semaines sans aucune séance (vacances, coupure) ne comptent pas dans la moyenne. Si tu gardes ' + prevu + ' ' + pluriel(prevu, 'jour') +
+    c.libelleRefus = 'Garder ' + prevu + ' ' + Modele().pluriel(prevu, 'jour');
+    c.repere = 'Les semaines sans aucune séance (vacances, coupure) ne comptent pas dans la moyenne. Si tu gardes ' + prevu + ' ' + Modele().pluriel(prevu, 'jour') +
       ', je ne repose pas la question avant ' + silenceDe(reglageDe(e), reponseDe(e, 'jours')) + ' semaines.';
     c.garni = true;
     return c;
@@ -974,7 +973,8 @@
     c.fait = (Number(e.dureeSeanceMin) > 0 ? 'Ta durée est réglée sur ' + Number(e.dureeSeanceMin) + ' min. ' : '') +
       // « Depuis le 17 août » : une DATE, jamais « depuis 8 semaines » (R-DEPUIS).
       (ws.length ? Modele().libelleDePeriode({ genre: 'jour', debut: plageDesSemaines(ws, e.jour).debut }, e.jour || null).replace(/^le /, 'Depuis le ') + ', ' : 'Parmi tes séances, ') +
-      ecourtees.length + ' de tes ' + comptees.length + ' séances ont été écourtées.';
+      (comptees.length >= 2 ? ecourtees.length + ' de tes ' + comptees.length + ' séances ont été écourtées.'
+        : (ecourtees.length ? 'Ta séance a été écourtée.' : 'Ta séance n’a pas été écourtée.'));
     // Ce qui saute dans les séances écourtées : les exercices de la routine absents, ou ramenés à moins de séries.
     var manques = {};
     ecourtees.forEach(function (s) {
@@ -1056,7 +1056,7 @@
       });
       var moy = moyenne(parSemaine.map(function (x) { return x.total; }));
       var libelle = cle === 'tractions' ? 'Tractions' : nomDe(e, cle);
-      var ligne = { libelle: libelle, texte: nb(moy) + ' ' + pluriel(moy, 'fois') + ' / sem.', cle: cle };
+      var ligne = { libelle: libelle, texte: nb(moy) + ' ' + Modele().pluriel(moy, 'fois') + ' / sem.', cle: cle };
       lignes.push(ligne);
       if (moy < SEUIL_FREQUENCE) lents.push({ cle: cle, moy: moy, parSemaine: parSemaine, slugs: slugs });
       hab[cle] = parSemaine;
@@ -1469,7 +1469,7 @@
         .map(function (p) { return p.k + ' en ' + guillemets(p.nom); }).join(', ');
       var tous = portee.length === liste(item.parRoutine).length;
       var ces = tous && portee.length >= 2 ? 'ces ' + portee.length + ' routines' : Modele().enumerer(nomsPortee);
-      var surQuoi = ' ' + item.k + ' fois sur tes ' + item.n + ' dernières séances';
+      var surQuoi = ' ' + item.k + ' fois sur ' + Modele().tesDernieresSeances(item.n);
       var role = dit ? ', ' + dit + ',' : '';
       if (item.type === 'remplacement') {
         var nB0 = nom(item.vers);
@@ -1494,7 +1494,7 @@
         });
         var apresT = prevuPourMuscle(prep, muscleT, sansT);
         if (avantT > 0 && apresT < avantT) {
-          c.phrases.push(Semaine().libelleMuscle(muscleT) + ' : tes routines prévoient ' + nb(avantT) + ' ' + pluriel(avantT, 'série') +
+          c.phrases.push(Semaine().libelleMuscle(muscleT) + ' : tes routines prévoient ' + nb(avantT) + ' ' + Modele().pluriel(avantT, 'série') +
             ' par semaine, ' + nb(apresT) + ' sans cet exercice.');
         }
         c.muscle = muscleT;
@@ -1519,7 +1519,7 @@
     c.muscle = liste(cat[item.slug] && cat[item.slug].muscles_primaires)[0] || null;
     if (rep) {
       var nV = nom(rep.vers), m = libelleDuMuscle(rep.muscle);
-      var quoi = rep.ajout === rep.n ? 'ses ' + rep.n + ' ' + pluriel(rep.n, 'série')
+      var quoi = rep.ajout === rep.n ? 'ses ' + rep.n + ' ' + Modele().pluriel(rep.n, 'série')
         : rep.ajout + ' de ses ' + rep.n + ' séries';
       c.report = rep;
       c.phrases = [c.fait, 'Je peux l’enlever et mettre ' + quoi + ' ' + de(m) + ' sur ' + nV + ', que tu fais déjà : ' +
@@ -1539,7 +1539,7 @@
       });
       var apres = prevuPourMuscle(prep, muscle, sans);
       if (avant > 0 && apres < avant) {
-        c.phrases.push(Semaine().libelleMuscle(muscle) + ' : tes routines prévoient ' + nb(avant) + ' ' + pluriel(avant, 'série') +
+        c.phrases.push(Semaine().libelleMuscle(muscle) + ' : tes routines prévoient ' + nb(avant) + ' ' + Modele().pluriel(avant, 'série') +
           ' par semaine, ' + nb(apres) + ' sans cet exercice.');
       }
     }
@@ -1823,7 +1823,7 @@
       sortie.cartes = parlentPeu.slice(0, REGLAGES[reglage].cartes);
       return sortie;
     }
-    sortie.quand = 'Tes ' + f0.semaines.length + ' dernières semaines · ' + f0.nbSeances + ' ' + pluriel(f0.nbSeances, 'séance');
+    sortie.quand = 'Tes ' + f0.semaines.length + ' dernières semaines · ' + f0.nbSeances + ' ' + Modele().pluriel(f0.nbSeances, 'séance');
     // PR 6 des mots : la sous-ligne datée (« du 20 juil. au 11 oct. ») — les semaines non nulles, plafonnées à J.
     sortie.quandDates = quandDesSemaines(f0.semaines, e.jour);
 

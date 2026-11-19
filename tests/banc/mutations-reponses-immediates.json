@@ -1,0 +1,45 @@
+[
+ {
+  "nom": "rc-1-pas-maintenant-repeint-apres-lecriture",
+  "fichier": "v2/js/app.js",
+  "ancien": "    memoEquilibres = null;\n    repeindreLesEquilibres();\n    return ecriture.then(function () {}, function (e) {",
+  "nouveau": "    return ecriture.then(function () { memoEquilibres = null; repeindreLesEquilibres(); }, function (e) {",
+  "unitaires": [
+   "tests/unit/v2-carte-reponse-immediate.test.js"
+  ],
+  "banc": "seance",
+  "sections": [
+   "coach-accueil"
+  ]
+ },
+ {
+  "nom": "rc-2-la-duree-attend-lecriture",
+  "fichier": "v2/js/app.js",
+  "ancien": "    faitEquilibre = {\n      texte: 'Fait : tes séances sont réglées sur '",
+  "nouveau": "    await ecriture;\n    faitEquilibre = {\n      texte: 'Fait : tes séances sont réglées sur '",
+  "unitaires": [
+   "tests/unit/v2-carte-reponse-immediate.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "rc-3-annuler-n-attend-pas-lecriture",
+  "fichier": "v2/js/app.js",
+  "ancien": "        try { await ecriture; } catch (e) { return; }\n        faitEquilibre = null;\n        await poserProfil({ cartes_semaine: avantReponses });",
+  "nouveau": "        faitEquilibre = null;\n        await poserProfil({ cartes_semaine: avantReponses });",
+  "unitaires": [
+   "tests/unit/v2-carte-reponse-immediate.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "rc-4-repartir-attend-lecriture",
+  "fichier": "v2/js/app.js",
+  "ancien": "    faitEquilibre = {\n      texte: 'Fait : ' + ajoutsFaits",
+  "nouveau": "    await toutEcrit;\n    faitEquilibre = {\n      texte: 'Fait : ' + ajoutsFaits",
+  "unitaires": [
+   "tests/unit/v2-carte-reponse-immediate.test.js"
+  ],
+  "banc": "aucun"
+ }
+]

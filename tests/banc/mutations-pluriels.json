@@ -1,0 +1,42 @@
+[
+ {
+  "nom": "pl-1-pluriel-des-1",
+  "fichier": "v2/js/modele.js",
+  "ancien": "function pluriel(n, singulier, plurielDuMot) { return Number(n) >= 2 ?",
+  "nouveau": "function pluriel(n, singulier, plurielDuMot) { return Number(n) >= 1 ?",
+  "unitaires": [
+   "tests/unit/v2-pluriels.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "pl-2-habitude-a-une-seance",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "Modele().tesDernieresSeances(f.habitude.seances, f.habitude.seances >= 2 ? hS() : null)",
+  "nouveau": "'tes ' + hS() + ' dernières séances'",
+  "unitaires": [
+   "tests/unit/v2-pluriels.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "pl-3-un-test-a-fait-1-reps",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "    return 'Ton test à ' + enKg(t.charge, cite(FAIT, { quoi: 'test' })) + ' a fait ' +\n           nombreFr(t.reps, cite(FAIT, { quoi: 'test', champ: 'reps' })) + ' ' + Modele().uniteReps(t.reps) + ', ' + suite;",
+  "nouveau": "    return 'Ton test à ' + enKg(t.charge, cite(FAIT, { quoi: 'test' })) + ' a fait ' +\n           nombreFr(t.reps, cite(FAIT, { quoi: 'test', champ: 'reps' })) + ' reps, ' + suite;",
+  "unitaires": [
+   "tests/unit/v2-pluriels.test.js"
+  ],
+  "banc": "aucun"
+ },
+ {
+  "nom": "pl-4-feuille-de-zone-a-une-seance",
+  "fichier": "v2/js/rendu.js",
+  "ancien": "M().tesDernieresSeances(d.seances)",
+  "nouveau": "('tes ' + d.seances + ' dernières séances')",
+  "unitaires": [
+   "tests/unit/v2-moteur-parle.test.js"
+  ],
+  "banc": "aucun"
+ }
+]

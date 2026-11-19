@@ -790,6 +790,14 @@
   // L'ACCORD DE « REP », UNE FOIS (F10) : « 0 rep », « 1 rep », « 2 reps », « 1 234 reps ». Le français met le
   // singulier sous 2. Partout ailleurs, on appelle.
   function uniteReps(n) { return Number(n) >= 2 ? 'reps' : 'rep'; }
+  // L'ACCORD DU PLURIEL, UNE FOIS (19/11/2026) : « 0 série », « 1 série », « 2 séries ». Le français met le singulier sous 2 ;
+  // `pluriel` s'écrit en entier quand il n'est pas « singulier + s » (« journal »/« journaux »). Partout ailleurs, on appelle.
+  function pluriel(n, singulier, plurielDuMot) { return Number(n) >= 2 ? (plurielDuMot || singulier + 's') : singulier; }
+  // « tes 8 dernières séances » / « ta dernière séance » : un seul fait ne s'écrit pas au pluriel. `chiffre` : le nombre déjà écrit
+  // (le moteur le cite), sinon `n` lui-même.
+  function tesDernieresSeances(n, chiffre) {
+    return Number(n) >= 2 ? 'tes ' + (chiffre === undefined || chiffre === null ? n : chiffre) + ' derni\u00e8res s\u00e9ances' : 'ta derni\u00e8re s\u00e9ance';
+  }
   function repsTexte(n) { return nombreGroupe(nombreTexte(n, 0)) + ' ' + uniteReps(n); }
 
   function aValeur(v) { return v !== null && v !== undefined && v !== ''; }
@@ -3548,6 +3556,8 @@
     mesureDesColonnes: mesureDesColonnes,
     seMesureEnReps: seMesureEnReps,
     uniteReps: uniteReps,
+    pluriel: pluriel,
+    tesDernieresSeances: tesDernieresSeances,
     repsTexte: repsTexte,
     estExerciceSortie: estExerciceSortie,
     memeBloc: memeBloc,

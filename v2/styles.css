@@ -3471,3 +3471,13 @@ input,select,textarea,.ch-serie,.rp-serie,.eff-serie{
 .annee .plaque .corps .bh-fig{aspect-ratio:1/2}
 .annee .plaque .corps .bh .bh-m{cursor:default}
 .annee .plaque .corps .bh-legende{max-width:260px;margin-left:auto;margin-right:auto}
+
+/* ══ 19/11/2026 — ZONES DE TOUCHER DE 44 px (friction n° 6 du relevé d'ergonomie) ═══════════════════════════════════════════════════
+   Mesurées sur l'app (colonne 456 px) : « Jeu » / « Fil » / « Guilde » 28 px de haut, « ＋ » 36 × 36, « Détail » 34 de large, « Mon programme »
+   33, « Phase · semaine » 30, « Démarrer » 40, les trois portes du Jeu 40 à 41. Le DESSIN ne change pas : une zone invisible (::after) agrandit
+   le toucher des pastilles et du rond, les lignes-liens prennent un `min-height` (leur texte reste où il est). */
+.s-onglet,.s-plus{position:relative}
+.s-onglet::after{content:"";position:absolute;inset:-8px -2px}
+.s-plus::after{content:"";position:absolute;inset:-4px}
+.coach-lien{min-width:44px}
+.dossier-tete,.dossier-badge,.demarrer,.j-porte{min-height:44px}

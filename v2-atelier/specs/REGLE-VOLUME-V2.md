@@ -42,7 +42,7 @@ trois poids, **une seule table** (`THSemaine.POIDS_DES_MUSCLES`, lue par `THSema
 | **Secondaire** (synergiste) | `muscles_secondaires` | **½** | il aide le mouvement, en raccourcissant et en s'allongeant |
 | **Stabilisateur** | `muscles_stabilisateurs` | **¼** | il tient la position ou change peu de longueur (gainage, prise, maintien du dos) |
 
-- **Pourquoi ½** : la méta-analyse de Pelland 2024 compte la série « fractionnée » d'un synergiste pour ½, et c'est ce
+- **Pourquoi ½** : la méta-analyse de Pelland et al. (Sports Med 2026;56(2):481-505) compte la série « fractionnée » d'un synergiste pour ½, et c'est ce
   comptage qui prédit le mieux la croissance.
 - **Pourquoi ¼** : un muscle qui tient une position isométrique grossit peu sous une charge qui ne l'allonge pas. Au
   squat, les ischio-jambiers changent à peine de longueur et ne grossissent pas (Kubo 2019 : moins de 1 %). Le compter

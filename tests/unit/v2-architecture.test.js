@@ -1830,7 +1830,7 @@ const NOTIONS = [
   { notion: 'l’intensité d’une activité notée (légère, moyenne, intense, lue sur le RPE de ses séries)', pr: '225-U1',
     module: 'moteur.js', fonction: 'intensiteDActivite', lecteurs: ['faits.js', 'modele.js'],
     raison: 'une seule lecture du RPE d’une activité : l’étiquette de l’historique et la veille des jambes lourdes disent la même intensité.' },
-  { notion: 'un sport qui charge les jambes (la table explicite : Wilson 2012 pour la course, jugement de coachs pour les impacts)', pr: '225-U2',
+  { notion: 'un sport qui charge les jambes (la table explicite : la course et les sports d’impact, une convention de coachs pour la veille)', pr: '225-U2',
     module: 'moteur.js', fonction: 'activiteChargeLesJambes', lecteurs: ['faits.js', 'plan.js'],
     raison: 'une table, une fonction : le fait de la veille (`faits.activiteDeLaVeille`) et la décision du plan lisent la même.' },
   { notion: 'les cartes de l’escalier, lues dans les paris (jour, réponse, période, exercices cités)', pr: '124-U1',

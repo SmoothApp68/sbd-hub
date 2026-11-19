@@ -917,7 +917,10 @@
   // gris sur la première ligne de travail non validée (`prerempli`, jamais une série écrite) ; une série validée est figée.
   // `x.calage` : le résultat, ses mots, la ligne qui porte la proposition (`iSerie`), la série dont on demande la réserve
   // (`question`), la charge habituelle déclarée. Aucune charge devinée par le poids du corps, le sexe ou la machine.
-  var REPS_SANS_LOURD = 6;     // Mix (6-8) : au-dessus de la zone Lourd (3-5), MOTEUR §9.1
+  // Mix (6-8) : au-dessus de la zone Lourd (3-5), MOTEUR §9.1 — lu sur `Moteur.ZONES` (mix.bas), jamais recopié.
+  function repsSansLourd() {
+    return Moteur().ZONES.filter(function (q) { return q.cle === 'mix'; })[0].bas;
+  }
   function calageDuPlan(x, exo, c, e, slug, seance) {
     var M = Moteur(), S = Seance();
     var cs = c && c.consigne;
@@ -945,7 +948,7 @@
     });
     // 187 (A4) — un exercice qui charge une zone à ménager ne reçoit pas de série lourde : jamais moins de 6 reps (Mix).
     var zmCal = e.zonesMenagees && Object.prototype.hasOwnProperty.call(e.zonesMenagees, slug);
-    if (zmCal && (reps === null || reps < REPS_SANS_LOURD)) reps = REPS_SANS_LOURD;
+    if (zmCal && (reps === null || reps < repsSansLourd())) reps = repsSansLourd();
     var habs = e.habituelles && typeof e.habituelles === 'object' ? e.habituelles : {};
     var habituelle = Object.prototype.hasOwnProperty.call(habs, slug) ? nombre(habs[slug]) : null;
     // PR 2 (MOTEUR §9.42) — une première séance toute à zéro rep : le calage recommence SOUS la charge échouée. Une charge habituelle déjà
@@ -7934,8 +7937,8 @@
         if (x.propositionAuMax) erreurs.push('I154' + nom + 'une carte « Au max » proposée après un zéro rep');
         var a = x.auMax;
         var lAu = a ? (x.lignes || [])[a.iSerie] : null;
-        if (a && a.reserve < 2 && !(lAu && lAu.validee)) erreurs.push('I154' + nom + 'une réserve de ' + a.reserve + ' après un zéro rep (au moins 2)');
-        if (nombre(x.reserveAffichee) !== null && nombre(x.reserveAffichee) < 2) erreurs.push('I154' + nom + 'un effort visé à ' + x.reserveAffichee + ' en réserve après un zéro rep');
+        if (a && a.reserve < Moteur().RESERVE_PLANCHER && !(lAu && lAu.validee)) erreurs.push('I154' + nom + 'une réserve de ' + a.reserve + ' après un zéro rep (au moins 2)');
+        if (nombre(x.reserveAffichee) !== null && nombre(x.reserveAffichee) < Moteur().RESERVE_PLANCHER) erreurs.push('I154' + nom + 'un effort visé à ' + x.reserveAffichee + ' en réserve après un zéro rep');
         var test = (x.planInitial || []).concat(x.lignes || []).some(function (l) { return l && l.role === 'test'; });
         if (test) erreurs.push('I154' + nom + 'une ligne de test après un zéro rep');
       }
@@ -8436,12 +8439,12 @@
       // I150 (chantier « première séance sûre », PR 1, MOTEUR §9.30) — 65 ans et plus CONNUS : aucune réserve d'échec sur la ligne « Au max »
       // (une série déjà validée est un fait figé : on ne la juge pas).
       var lAu = x.auMax ? (x.lignes || [])[x.auMax.iSerie] : null;
-      if (e65 && a.reserve < 2 && !(lAu && lAu.validee)) erreurs.push('I150' + nom + 'une réserve de ' + a.reserve + ' chez un 65 ans ou plus (jamais l’échec)');
+      if (e65 && a.reserve < Moteur().RESERVE_PLANCHER && !(lAu && lAu.validee)) erreurs.push('I150' + nom + 'une réserve de ' + a.reserve + ' chez un 65 ans ou plus (jamais l’échec)');
       // I151 (idem) — une première fois d'un exercice (la consigne, `Moteur.estPremiereFois`) : aucune carte « au max » proposée et aucune réserve
       // < 2 ; la marque de la personne est respectée à « garde 2 », jamais effacée.
       if (M.estPremiereFois(x.consigne)) {
         if (x.propositionAuMax) erreurs.push('I151' + nom + 'une carte « Au max » proposée à la première fois');
-        if (a.reserve < 2 && !(lAu && lAu.validee)) erreurs.push('I151' + nom + 'une réserve de ' + a.reserve + ' à la première fois (au moins 2)');
+        if (a.reserve < Moteur().RESERVE_PLANCHER && !(lAu && lAu.validee)) erreurs.push('I151' + nom + 'une réserve de ' + a.reserve + ' à la première fois (au moins 2)');
       }
       // I207 (16/11/2026, MOTEUR §9.30 delta) — la séance de REPRISE LONGUE de cet exercice (`Moteur.enRepriseLongue`, la consigne) : « Au max » ne va jamais à
       // l'échec, réserve au moins 2 ; la carte proposée dit « en gardant 2 reps ». Cohérent avec la réserve affichée de la ligne (I206, §9.9).
@@ -8818,7 +8821,7 @@
     });
   }
 
-  // I70 (MOTEUR §14.10, 180, D4) — LA MARCHE D'EN DESSOUS : proposée seulement à un exercice au poids du corps (palier 0, états
+  // I231 (MOTEUR §14.10, 180, D4 ; renuméroté le 19/11/2026, revue lot D : I70 est « une série hors calcul », 185) — LA MARCHE D'EN DESSOUS : proposée seulement à un exercice au poids du corps (palier 0, états
   // `etirement_reps`), à un compteur multiple du pas (4, 8, …) ou déjà répondue ; jamais une marche de plus à l'exercice (I21 la
   // tient) ; sa carte nomme l'exercice du dessous et le cible ; la phrase ne parle ni de réserve ni d'échec.
   function verifierDessous(plan, erreurs) {
@@ -8826,7 +8829,7 @@
     ((plan && plan.exercices) || []).forEach(function (x, i) {
       var m = x && x.escalier;
       if (!m || m.marche !== M.MARCHE_DESSOUS) return;
-      var nom = 'I70 — exercice ' + i + ' (' + x.slug + ') : ';
+      var nom = 'I231 — exercice ' + i + ' (' + x.slug + ') : ';
       var k = x.consigne || {};
       if (m.premierEssai !== true && (k.etat !== 'etirement_reps' || Number(k.palier) !== 0)) erreurs.push(nom + 'la marche d’en dessous hors d’un exercice au poids du corps');
       // 245 (F3) — le premier essai sans aide raté à 0 est l'autre porte : compteur à 0, déclenchée d'emblée (la carte le dit).

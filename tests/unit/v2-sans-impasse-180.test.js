@@ -6,7 +6,7 @@
 //      (« moins de 3 reps ») ne s'ouvre que sur l'habitude des huit dernières séances, jamais sur une seule ;
 //   B  D3 : le débutant (« moins d'un an ») n'est pas arrêté par la garde R < V ; le test R ≥ V + 2 est inchangé ;
 //   C  D4 : au poids du corps, le compteur compte l'état `etirement_reps` ; à quatre séances sans progrès, la carte de
-//      la marche d'en dessous (I70) ; la première fois, les reps de la routine.
+//      la marche d'en dessous (I231) ; la première fois, les reps de la routine.
 
 process.env.TZ = 'Europe/Paris';
 global.self = global;
@@ -144,7 +144,7 @@ describe('180 C — D4 : le poids du corps, le compteur et la marche d’en dess
     return { p, e, x: p.exercices[0] };
   }
 
-  test('à 4 séances sans progrès : la carte de l’exercice du dessous, les invariants (I26, I70) tiennent', () => {
+  test('à 4 séances sans progrès : la carte de l’exercice du dessous, les invariants (I26, I231) tiennent', () => {
     const { p, e, x } = planDe(4);
     expect(x.escalier).toMatchObject({ marche: M.MARCHE_DESSOUS, compteur: 4, declenchement: true,
       dessous: { slug: 'tractions_assistees', nom: 'Tractions assistées' } });
@@ -156,12 +156,12 @@ describe('180 C — D4 : le poids du corps, le compteur et la marche d’en dess
     expect(planDe(3).x.escalier).toBeFalsy();
     expect(planDe(0).x.escalier).toBeFalsy();
   });
-  test('I70 DISCRIMINANT — hors du poids du corps, avant le pas, sans exercice du dessous, une carte qui cible ailleurs', () => {
+  test('I231 DISCRIMINANT — hors du poids du corps, avant le pas, sans exercice du dessous, une carte qui cible ailleurs', () => {
     const { p, e } = planDe(4);
     const forge = (f) => { const q = JSON.parse(JSON.stringify(p)); f(q.exercices[0]); return T.verifierPlan(q, e).erreurs.join('|'); };
-    expect(forge((x) => { x.consigne.palier = 60; })).toMatch(/I70.*poids du corps/);
-    expect(forge((x) => { x.escalier.compteur = 2; })).toMatch(/I70.*avant 4/);
-    expect(forge((x) => { x.escalier.dessous = null; })).toMatch(/I70.*sans exercice du dessous/);
-    expect(forge((x) => { x.escalier.carte.cible = 'autre'; })).toMatch(/I70.*cible/);
+    expect(forge((x) => { x.consigne.palier = 60; })).toMatch(/I231.*poids du corps/);
+    expect(forge((x) => { x.escalier.compteur = 2; })).toMatch(/I231.*avant 4/);
+    expect(forge((x) => { x.escalier.dessous = null; })).toMatch(/I231.*sans exercice du dessous/);
+    expect(forge((x) => { x.escalier.carte.cible = 'autre'; })).toMatch(/I231.*cible/);
   });
 });

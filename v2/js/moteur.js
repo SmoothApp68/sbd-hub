@@ -4928,7 +4928,7 @@
   //   monte_charge / recule / reprend   la charge monte / baisse (décision) / revient     « Je baisse à 97,5 kg. »
   //   teste       une ligne haute plus lourde que le palier       « On essaie 72,5 kg. »
   //   allege / repli / alleger   les transformations (I165, I166)      neutre   tout le reste (zone, échelle, départ, calage, aide, silence)
-  // Exclus de I162 (verbe `neutre`, phrases inchangées) : les aides et élastiques dont la charge change, les marches d'exercice (I133, I70),
+  // Exclus de I162 (verbe `neutre`, phrases inchangées) : les aides et élastiques dont la charge change, les marches d'exercice (I133, I231),
   // le départ, la nouvelle zone, le calage, la suite « Même cible » (PR 5), les cartes de réaction (I115 à I122), la décharge et le repli.
   var VERBES = Object.freeze({ MONTE_REPS: 'monte_reps', GARDE_CIBLE: 'garde_cible', BORNE: 'borne', GARDE_CHARGE: 'garde_charge',
     MONTE_CHARGE: 'monte_charge', RECULE: 'recule', REPREND: 'reprend', TESTE: 'teste', ALLEGE: 'allege', REPLI: 'repli', ALLEGER: 'alleger', NEUTRE: 'neutre' });
@@ -6710,7 +6710,7 @@
   // PR 2 (MOTEUR §9.42) — UNE SÉANCE DE ZÉRO REP porte `zero: { n, charge }` : toutes ses séries lues (`Modele.seanceAZero`, la seule
   // définition) sont à 0 rep, à une charge POSITIVE connue, sur un exercice à charge × reps. Ni le poids du corps (charge 0, mesure
   // `reps`), ni une aide (charge négative), ni une charge manquante, ni une séance « douleur » (qui garde son chemin : §9.20) : ces
-  // exercices gardent exactement leur comportement d'avant (I70, I133). Le drapeau ne change aucun lecteur du contrat brut ; seule
+  // exercices gardent exactement leur comportement d'avant (I231, I133). Le drapeau ne change aucun lecteur du contrat brut ; seule
   // `consignePour` le lit. Pure : rend le même tableau si aucune séance n'est de zéro.
   // PR 4b (R-A, MOTEUR §9.42 bis) — s'ajoute le drapeau `plafondZero: { charge, n, suivantes }` : la séance porte un zéro (entier : `zero` ; ou partiel :
   // `Modele.zeroPartiel`, la porte « plus lourd que tout succès »). Pas sur une séance importée (`source_ref` : l'importeur lit « 0 » comme 0, un
@@ -12492,7 +12492,6 @@
   var TEST_REPOS_ESSAI_S = Object.freeze([240, 300, 300]);                          // 4 à 5 min
   var TEST_SEMAINES_MIN = 4;                                                         // d'entraînement, avant « Faire une semaine de test »
   var TEST_ACCESSOIRES_MAX = 2;
-  var TEST_ECART_MAX_PCT = 5;
   var TEST_VALIDITE_JOURS = 90;                                                      // un max mesuré prime sur l'estimation, 90 jours
   var TEST_PHASES_AVANT = 2;                                                         // la proposition, à la fin de la 2ᵉ phase
   var TEST_SANS_DECHARGE_JOURS = 14;                                                 // hors programme : pas de proposition juste avant une décharge
@@ -12801,8 +12800,10 @@
     if (max === null) return null;
     return max >= CARDIO_RPE_INTENSE ? 'intense' : max > ACTIVITE_RPE.legere + 1 ? 'moyenne' : 'legere';
   }
-  // Les activités qui chargent les jambes — UNE table, explicite. `wilson` : la course réduit les gains de force et de muscle, pas le
-  // vélo (Wilson et coll. 2012, 21 études) ; `coachs` : un jugement de pratique (impacts, sauts, appuis), PAS une source — dit comme tel.
+  // Les activités qui chargent les jambes — UNE table, explicite. `wilson` : nom historique de la classe de la course (Wilson et coll. 2012
+  // ne mesure que l'interférence sur les gains) ; la phrase de la veille NE la cite PLUS (revue lot D, K7) : Schumann 2022 (43 études, aucun effet
+  // du mode sur la force maximale ni le muscle) la contredisait, et le générateur dit déjà Schumann. `coachs` : un jugement de pratique
+  // (impacts, sauts, appuis), PAS une source — dit comme tel. Pour la veille, les deux classes parlent pareil : une convention de coachs.
   // Le vélo, la natation, l'escalade, la boxe, la danse n'y sont pas : rien ne les range parmi les efforts qui coûtent aux jambes.
   var ACTIVITES_JAMBES = Object.freeze({
     course_a_pieds: 'wilson', trail: 'wilson', football: 'coachs', basket: 'coachs',
@@ -12819,7 +12820,6 @@
   // vérifie mal : d'où le plafond à 3).
   var VEILLE_CONVENTION = 'Garder les jambes lourdes pour le lendemain d\u2019un effort dur est une convention de coachs, pas une règle prouvée : ' +
     'après un match, la force des jambes reste diminuée un à trois jours (Nédélec 2012).';
-  var VEILLE_COURSE = 'Courir réduit un peu les gains de force et de muscle, pas le vélo (Wilson 2012).';
   var VEILLE_LEGERE_PCT = 0.95;
   var VEILLE_LEGERE_MAX_BAISSE = 0.10;
   var VEILLE_LEGERE_SURPLUS = 2;
@@ -12866,7 +12866,7 @@
       slug: j.slug, nom: nomEx, activite: a.slug, nomActivite: nomAct,
       boutons: { leger: nomEx + ' plus léger aujourd\u2019hui', garder: 'Garder le plan' },
       phrase: 'Tu as noté ' + String(nomAct).toLowerCase() + ' hier. ' + nomEx + ' plus léger aujourd\u2019hui\u00a0?',
-      pourquoi: phraseDeLaVeilleLegere(j.legere, nomAct) + ' ' + VEILLE_CONVENTION + (activiteChargeLesJambes(a.slug) === 'wilson' ? ' ' + VEILLE_COURSE : ''),
+      pourquoi: phraseDeLaVeilleLegere(j.legere, nomAct) + ' ' + VEILLE_CONVENTION,
       legere: j.legere,
       source: activiteChargeLesJambes(a.slug)
     };
@@ -12961,8 +12961,8 @@
     'test.defaut.age': { type: 'convention',
       texte: 'Le défaut « série au max » à partir de 65 ans : un choix de l’app, aucune étude ne fixe d’âge.' },
     // La baisse de force attendue en sèche (198).
-    'seche.baisse': { type: 'etude', auteur: 'Garthe', annee: 2011, effectif: '24 athlètes',
-      texte: 'Garthe 2011 (24 athlètes en sèche) : perdre 0,7 % du poids par semaine a permis de gagner du muscle (environ +2 %), contre 0 % pour 1,4 % par semaine.' },
+    'seche.baisse': { type: 'convention',
+      texte: 'Une baisse de 2 à 5 % sur les charges en sèche est une convention du coach : Garthe 2011 (24 athlètes) suit la masse maigre, pas la force, et ne mesure pas cette baisse.' },
     // La semaine allégée, la phase.
     allegee: { type: 'coachs', auteur: 'Calgary Barbell, Candito',
       texte: 'La décharge planifiée : la pratique de Calgary Barbell et de Candito.' },

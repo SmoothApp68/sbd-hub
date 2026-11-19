@@ -101,7 +101,7 @@ describe('225 — Moteur.intensiteDActivite et la table des sports qui chargent 
     expect(M.intensiteDActivite([{ rpe: null }, {}])).toBeNull();
     expect(M.intensiteDActivite([])).toBeNull();
   });
-  test('la table : la course est sourcée (Wilson 2012), les sports d’impact sont un jugement de coachs, le vélo n’y est pas', () => {
+  test('la table : la course garde sa classe (« wilson », nom historique), les sports d’impact sont un jugement de coachs, le vélo n’y est pas', () => {
     expect(M.activiteChargeLesJambes('course_a_pieds')).toBe('wilson');
     expect(M.activiteChargeLesJambes('football')).toBe('coachs');
     ['velo', 'natation', 'escalade', 'boxe', 'randonnee', 'marche'].forEach((s) => expect(M.activiteChargeLesJambes(s)).toBeNull());
@@ -160,9 +160,10 @@ describe('225 — la veille dans planDeSeance (I123, I124)', () => {
     expect(p.veilleActivite.pourquoi).toMatch(/convention de coachs, pas une règle prouvée/);
     expect(erreurs(p, entrees(se))).toEqual([]);
   });
-  test('la course cite Wilson 2012 en plus ; le football ne cite que la convention', () => {
+  test('la course et le football disent la même chose : la convention de coachs, jamais Wilson 2012 (contredit par Schumann 2022 du générateur)', () => {
     const c = T.planDeSeance(entrees(se, { activiteVeille: { slug: 'course_a_pieds', nom: 'Course à pied' } }));
-    expect(c.veilleActivite.pourquoi).toMatch(/Wilson 2012/);
+    expect(c.veilleActivite.pourquoi).toMatch(/convention de coachs, pas une règle prouvée/);
+    expect(c.veilleActivite.pourquoi).not.toMatch(/Wilson|Courir réduit/);
     expect(T.planDeSeance(entrees(se)).veilleActivite.pourquoi).not.toMatch(/Wilson/);
   });
   test('« Garder le plan » est respecté : la réponse fait taire la carte, et la zone ne bouge pas', () => {

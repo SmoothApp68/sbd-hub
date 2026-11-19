@@ -650,7 +650,7 @@
       cur = prec;
     }
     var T = reponsesDesCartes().test;
-    return Moteur.testProposable({ programme: true, phasesFaites: n, maillonManquant: manque,
+    return Moteur.testProposable({ programme: true, phasesFaites: n, maillonManquant: manque, barresTestables: nombreDeBarresTestablesLe(jourDuJour()),
                                    allegeeTerminee: b.decharge === true && Moteur.blocTermine(b, jourDuJour()), deja: !!(T && T.bloc === b.id) });
   }
 
@@ -10116,9 +10116,26 @@
     var slugs = (exos || []).map(function (x) { return x && x.exercise_slug; }).filter(Boolean);
     var cle = T.debut + '|' + slugs.join(',') + '|' + (local.series || []).length;
     if (maxTestMemo.cle !== cle) maxTestMemo = { cle: cle, val: faits.maxEstimesAvantLeTest(corpus(), slugs, T.debut),
-                                                  series: faits.seriesDesMaxEstimesAvantLeTest(corpus(), slugs, T.debut) };
+                                                  series: faits.seriesDesMaxEstimesAvantLeTest(corpus(), slugs, T.debut),
+                                                  reprises: faits.reprisesAvantLeTest(corpus(), slugs, T.debut) };
     return { debut: T.debut, fin: T.fin, modes: T.modes || {}, mesures: T.mesures || {}, refus: T.refus || {}, arrets: T.arrets || {},
-             maxEstimes: maxTestMemo.val, seriesDuMax: maxTestMemo.series };
+             maxEstimes: maxTestMemo.val, seriesDuMax: maxTestMemo.series, reprises: maxTestMemo.reprises };
+  }
+  // 19/11/2026 (MOTEUR §9.32) — les barres qu'une semaine commençant ce `jour` laisse tester : le MÊME fait (`faits.reprisesAvantLeTest`, `maxEstimesAvantLeTest`)
+  // et la MÊME règle (`Moteur.testBarreTestable`) que le plan. `{ slug: { testable, raison } }`.
+  var barresTestablesMemo = { cle: '', val: {} };
+  function barresTestablesLe(jour) {
+    var cle = jour + '|' + (local.seances || []).length + '|' + (local.series || []).length;
+    if (barresTestablesMemo.cle === cle) return barresTestablesMemo.val;
+    var maxs = faits.maxEstimesAvantLeTest(corpus(), Modele.BARRES, jour), reprises = faits.reprisesAvantLeTest(corpus(), Modele.BARRES, jour);
+    var sortie = {};
+    Modele.BARRES.forEach(function (slug) { sortie[slug] = Moteur.testBarreTestable({ max: maxs[slug], reprise: reprises[slug] }); });
+    barresTestablesMemo = { cle: cle, val: sortie };
+    return sortie;
+  }
+  function nombreDeBarresTestablesLe(jour) {
+    var t = barresTestablesLe(jour);
+    return Modele.BARRES.filter(function (slug) { return t[slug].testable; }).length;
   }
   async function ecrireTest(test) {
     var toutes = Object.assign({}, reponsesDesCartes());
@@ -10128,9 +10145,11 @@
   // Un pari par barre, posé AVANT toute série de la semaine : « ton max tombera vers X kg » (`predictions.module = 'test'`).
   async function poserLesParisDeTest(test) {
     var maxs = faits.maxEstimesAvantLeTest(corpus(), Modele.BARRES, test.debut);
+    var testables = barresTestablesLe(test.debut);
     var index = catalogueIndexe();
     for (var i = 0; i < Modele.BARRES.length; i++) {
       var slug = Modele.BARRES[i];
+      if (!testables[slug].testable) continue;                  // 19/11/2026 : « pas d'essai cette semaine » = aucun pari (I227)
       var deja = (local.predictions || []).some(function (l) {
         return l && l.module === Moteur.MODULE_TEST && l.exercise_slug === slug && l.fondement && l.fondement.debut === test.debut;
       });
@@ -10281,7 +10300,7 @@
       if (jours === null || n < jours) jours = n;
     });
     var T = testDesCartes();
-    return Moteur.testProposable({ programme: false, semainesEntrainement: semaines, semainePrecedenteAllegee: precedente,
+    return Moteur.testProposable({ programme: false, semainesEntrainement: semaines, semainePrecedenteAllegee: precedente, barresTestables: nombreDeBarresTestablesLe(jour),
                                    dechargeDansJours: jours, deja: !!T && T.fin >= jour });
   }
   function ouvrirSemaineDeTest() {
@@ -10293,9 +10312,16 @@
     // vient le max estimé. La raison du défaut se dit seulement quand la façon n'a pas été choisie.
     var maxs = actif ? faits.maxEstimesAvantLeTest(corpus(), Modele.BARRES, T.debut) : {};
     var series = actif ? faits.seriesDesMaxEstimesAvantLeTest(corpus(), Modele.BARRES, T.debut) : {};
+    var testables = actif ? barresTestablesLe(T.debut) : {};
     var barres = actif ? Modele.BARRES.map(function (slug) {
       var choisie = Moteur.testModeValide(T.modes && T.modes[slug]);
       var sr = series[slug] || null;
+      // 19/11/2026 — une barre non testable cette semaine : la phrase du coach, jamais un choix de façon
+      if (!testables[slug].testable) {
+        var src = testables[slug].raison === 'reprise_longue' ? sr : null;
+        return { slug: slug, nom: nomsDuCatalogue()[slug] || slug, sansEssai: Moteur.phraseSansEssai(nomsDuCatalogue()[slug] || slug, src, jourDuJour()),
+                 mode: null, raison: null, mesure: null };
+      }
       var f = { debutant: Profil.estDebutant(profil), plus65: Profil.plus65DuProfil(profil, new Date()) === true, repsDuMax: sr ? sr.reps : null };
       var mode = choisie || Moteur.testModeParDefaut(f);
       var raison = choisie ? null : Moteur.testPhraseDuDefaut(Object.assign({ max: maxs[slug], chargeDuMax: sr ? sr.charge : null }, f));
@@ -11497,7 +11523,7 @@
       semaineDeTest: function (i) {
         if (enEdition()) return null;
         var x = planDeLExercice(i);
-        return x && x.semaineDeTest && (x.semaineDeTest.testee || x.semaineDeTest.accessoire || x.semaineDeTest.pasDeTest) ? x.semaineDeTest : null;
+        return x && x.semaineDeTest && (x.semaineDeTest.testee || x.semaineDeTest.accessoire || x.semaineDeTest.pasDeTest || x.semaineDeTest.pasDEssai) ? x.semaineDeTest : null;
       },
       surTest: function (i, cle) { return repondreTest(i, cle); },
       // §9.17 — l'exercice est en Entretenir PAR SON PROPRE choix : l'étiquette
@@ -13369,6 +13395,11 @@
     if (!T || T.vu === true || T.fin >= jourDuJour() || !T.mesures || !Object.keys(T.mesures).length) return null;
     var noms = nomsDuCatalogue();
     var lignes = [], objectifs = [];
+    // 19/11/2026 — les barres que la semaine n'a pas pu tester (reprise longue, sans max) disent « pas d'essai », jamais « pas testé ».
+    var testables = barresTestablesLe(T.debut);
+    Modele.BARRES.forEach(function (slug) {
+      if (!testables[slug].testable && !(T.mesures && T.mesures[slug])) lignes.push(Moteur.phraseBilanTest(noms[slug] || slug, null, null));
+    });
     Object.keys(T.mesures).forEach(function (slug) {
       var m = T.mesures[slug];
       if (!m) return;

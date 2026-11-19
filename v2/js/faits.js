@@ -2437,7 +2437,17 @@
       var sortie = {};
       (slugs || []).forEach(function (slug) {
         var u = unRMAvantLeTest(c, slug, debut), r = u ? Number(u.reps) : NaN, k = u ? Number(u.charge) : NaN;
-        sortie[slug] = u && r > 0 ? { charge: k > 0 ? k : null, reps: r } : null;
+        sortie[slug] = u && r > 0 ? { charge: k > 0 ? k : null, reps: r, date: u.date ? Moteur.jourCivil(new Date(u.date)) : null } : null;
+      });
+      return sortie;
+    }
+    // 19/11/2026 (MOTEUR §9.32, « Pas d'essai sur un vieux max ») — LA REPRISE DE CHAQUE BARRE au premier jour de la semaine de test : un FAIT, lu par
+    // la notion existante (`Moteur.repriseDe` : les séances de la barre STRICTEMENT avant le jour, l'écart habituel, la coupure ; aucune fenêtre de
+    // plus). Même gel que `unRMAvantLeTest` (minuit local du jour de début). `aucune` · `courte` · `longue` ; `Moteur.testBarreTestable` décide.
+    function reprisesAvantLeTest(c, slugs, debut) {
+      var avant = new Date(String(debut) + 'T00:00:00'), sortie = {};
+      (slugs || []).forEach(function (slug) {
+        sortie[slug] = isNaN(avant.getTime()) ? null : Moteur.repriseDe(seancesDuSlug(c, slug), avant);
       });
       return sortie;
     }
@@ -2570,6 +2580,7 @@
       douleursParExercice: douleursParExercice,
       echecsDeBarre: echecsDeBarre,
       maxEstimesAvantLeTest: maxEstimesAvantLeTest,
+      reprisesAvantLeTest: reprisesAvantLeTest,
       seriesDesMaxEstimesAvantLeTest: seriesDesMaxEstimesAvantLeTest,
       seancesAvecDouleurParExercice: seancesAvecDouleurParExercice,
       entreeFatigue: entreeFatigue,

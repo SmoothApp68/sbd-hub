@@ -127,6 +127,8 @@ const GARDEES = [
   { fn: 'testMesure', module: 'moteur.js' },
   { fn: 'testBarreDuJour', module: 'moteur.js' },
   { fn: 'testBarresEnConflit', module: 'moteur.js' },
+  { fn: 'testBarreTestable', module: 'moteur.js' },
+  { fn: 'phraseSansEssai', module: 'moteur.js' },
   { fn: 'testProposable', module: 'moteur.js' },
   { fn: 'testModeParDefaut', module: 'moteur.js' },
   { fn: 'testModeValide', module: 'moteur.js' },
@@ -311,6 +313,10 @@ const AUTORISATIONS = {
       'plan ; l\u2019app passe les phases faites, la semaine allégée, les semaines d\u2019entraînement et la décharge à venir (app.js, ' +
       '`proposerSemaineDeTestDuProgramme`, `proposerSemaineDeTestHorsProgramme`).'
   },
+  // 19/11/2026 (MOTEUR §9.32, « Pas d'essai sur un vieux max ») — la règle « testable ou non » est au moteur ; hors séance, l'app la passe aux mêmes faits que le plan.
+  testBarreTestable: { 'app.js': 'MOTEUR §9.32 (19/11/2026) : la proposition de semaine (aucune barre testable → rien), les paris posés au lancement (aucun pour une barre sans essai), la feuille du Profil et le bilan lisent la MÊME règle que le plan (`barresTestablesLe` : `faits.maxEstimesAvantLeTest` + `faits.reprisesAvantLeTest`), hors séance.' },
+  phraseSansEssai: { 'app.js': 'MOTEUR §9.32 (19/11/2026) : la feuille « Semaine de test » du Profil dit « Squat : pas d’essai cette semaine. … » par la phrase du moteur, comme le plan.' },
+  repriseDe: { 'faits.js': 'MOTEUR §9.32 (19/11/2026) : `faits.reprisesAvantLeTest` donne le FAIT « reprise de la barre au premier jour de la semaine de test » par la notion existante (`Moteur.repriseDe`, 84 jours, aucune fenêtre de plus) ; la décision (`testBarreTestable`) reste au moteur.' },
   phraseProposeTest: { 'app.js': 'MOTEUR §9.32 (193-4) : la phrase de la carte de fin de phase, rendue par le moteur sur la proposition.' },
   phraseTestPropose: { 'app.js': 'MOTEUR §9.32 (193-4) : la phrase de la feuille « Semaine de test » du Profil (la proposition ou pourquoi pas).' },
   phraseTestEnCours: { 'app.js': 'MOTEUR §9.32 (193-4) : la phrase de la feuille « Semaine de test » du Profil quand la semaine est posée.' },

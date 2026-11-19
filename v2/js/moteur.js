@@ -12667,15 +12667,39 @@
   // jour (le premier gagne, l'autre reste en séance normale). `null` : rien à tester aujourd'hui.
   function testBarreDuJour(barres, faites, refusees) {
     var f = faites || {}, r = refusees || {};
-    var liste = (barres || []).filter(function (b) { return b && b.slug && !f[b.slug] && !r[b.slug]; });
+    // 19/11/2026 — une barre non testable (reprise longue, sans max : `testBarreTestable`) ne prend jamais le créneau du jour ; une barre sans
+    // le drapeau (`testable` absent) est lue testable. Elle est écartée AVANT de choisir : la récente ne passe pas « en conflit » à cause d'elle.
+    var liste = (barres || []).filter(function (b) { return b && b.slug && b.testable !== false && !f[b.slug] && !r[b.slug]; });
     return liste.length ? liste[0].slug : null;
+  }
+  // 19/11/2026 (MOTEUR §9.32, « Pas d'essai sur un vieux max ») — UNE BARRE SE TESTE-T-ELLE CETTE SEMAINE ? `o` : { max (le max estimé figé d'avant la
+  // semaine, `unRM`, ou null), reprise (`repriseDe` de la barre au premier jour de la semaine : la notion existante, aucune fenêtre de plus) }.
+  // Sans max : rien à régler ; en reprise longue (plus de 12 semaines sans la barre) : le max est trop vieux pour régler un essai. La
+  // condition est la reprise, jamais la mesure : un max mesuré encore « valable » (90 jours) n'y change rien. `{ testable, raison }`,
+  // `raison` : null · 'sans_max' · 'reprise_longue'. Le max d'une barre testable reste `unRM`, sans décote.
+  function testBarreTestable(o) {
+    var x = o || {}, m = nombre(x.max);
+    if (m === null || m <= 0) return { testable: false, raison: 'sans_max' };
+    if (x.reprise === REPRISE_LONGUE) return { testable: false, raison: 'reprise_longue' };
+    return { testable: true, raison: null };
+  }
+  // « Squat : pas d'essai cette semaine. Ta force estimée vient de 100 kg × 5, le 18 avr. : je n'ai pas de série assez récente pour régler un
+  // essai. » `source` : { charge, reps, date } (la série d'où vient la force estimée) ou null — alors la tête seule. Date absolue, jamais une durée.
+  function phraseSansEssai(nom, source, reference) {
+    var t = nom + DEUX_POINTS + 'pas d’essai cette semaine.';
+    var c = source ? nombre(source.charge) : null, r = source ? nombre(source.reps) : null;
+    if (c === null || r === null || !source.date) return t;
+    var d = quand(source.date, reference, false, regle('test.source_le'));
+    if (!d) return t;
+    return t + ' Ta force estimée vient de ' + chargeFois(c, r, regle('test.source')) + ', ' + d +
+      DEUX_POINTS + 'je n’ai pas de série assez récente pour régler un essai.';
   }
   // Squat et soulevé dans la même séance : le second reste normal. Rend la liste des slugs qui restent en séance normale à côté du testé.
   function testBarresEnConflit(barres, testee) {
     var t = (barres || []).filter(function (b) { return b && b.slug === testee; })[0];
     if (!t) return [];
     var jambes = function (c) { return c === 'squat' || c === 'souleve'; };
-    return jambes(t.classe) ? (barres || []).filter(function (b) { return b && b.slug !== testee && jambes(b.classe); }).map(function (b) { return b.slug; }) : [];
+    return jambes(t.classe) ? (barres || []).filter(function (b) { return b && b.slug !== testee && b.testable !== false && jambes(b.classe); }).map(function (b) { return b.slug; }) : [];
   }
 
   // LA PROPOSITION. `e` : { programme: bool, phasesFaites, allegeeTerminee (la semaine allégée qui suit la 2ᵉ phase est finie), maillonManquant,
@@ -12689,6 +12713,9 @@
     var x = e || {};
     var non = function (raison) { return { propose: false, voie: null, raison: raison }; };
     if (x.deja === true) return non('deja');
+    // 19/11/2026 — aucune barre testable (toutes en reprise longue ou sans max) : pas de semaine à proposer. `barresTestables` : le nombre de
+    // barres (sur les quatre) que `testBarreTestable` laisse tester ; absent = non lu (aucune condition).
+    if (x.barresTestables !== undefined && x.barresTestables !== null && !(nombre(x.barresTestables) >= 1)) return non('aucune_barre');
     if (x.programme === true) {
       if (x.maillonManquant === true) return non('maillon');
       if (nombre(x.phasesFaites) !== TEST_PHASES_AVANT) return non('phases');
@@ -12748,6 +12775,7 @@
     if (prop.raison === 'semaines') return 'Pas encore : il faut quatre semaines d’entraînement avant de tester.';
     if (prop.raison === 'decharge') return 'Pas maintenant : ta décharge arrive dans moins de deux semaines.';
     if (prop.raison === 'deja') return 'Une semaine de test est déjà posée.';
+    if (prop.raison === 'aucune_barre') return 'Pas maintenant : aucune de tes quatre barres n’a de série assez récente pour régler un essai.';
     return 'Pas maintenant.';
   }
   function phraseTestEnCours() {
@@ -12756,7 +12784,7 @@
   // Le bilan de fin de semaine : « Couché 154 kg → 157,5 kg ». `avant`, `mesure` : des charges (kg) ou `null`.
   function phraseBilanTest(nom, avant, mesure) {
     var a = nombre(avant), m = nombre(mesure);
-    if (m === null) return nom + DEUX_POINTS + 'pas testé.';
+    if (m === null) return nom + DEUX_POINTS + 'pas d’essai.';
     return nom + DEUX_POINTS + (a === null ? '' : enKg(a, regle('test.avant')) + ' → ') + enKg(m, regle('test.mesure')) + '.';
   }
   function phraseObjectifTest(mesure, cible) {
@@ -13508,7 +13536,7 @@
     TEST_PHASES_AVANT: TEST_PHASES_AVANT, TEST_SERIE_PLAFOND: TEST_SERIE_PLAFOND, TEST_SERIE_PLAFOND_SOULEVE: TEST_SERIE_PLAFOND_SOULEVE,
     TEST_ESSAI_1: TEST_ESSAI_1, TEST_ESSAI_2: TEST_ESSAI_2, TEST_SERIE_PCT: TEST_SERIE_PCT, TEST_SERIE_PCT_DEBUTANT: TEST_SERIE_PCT_DEBUTANT,
     testModeParDefaut: testModeParDefaut, testRaisonDuDefaut: testRaisonDuDefaut, testPhraseDuDefaut: testPhraseDuDefaut, TEST_REPS_FIABLES_MAX: TEST_REPS_FIABLES_MAX, testModeValide: testModeValide, testMontee: testMontee, testEssai: testEssai,
-    testSerieAuMax: testSerieAuMax, testMesure: testMesure, testBarreDuJour: testBarreDuJour, testBarresEnConflit: testBarresEnConflit,
+    testSerieAuMax: testSerieAuMax, testMesure: testMesure, testBarreDuJour: testBarreDuJour, testBarresEnConflit: testBarresEnConflit, testBarreTestable: testBarreTestable, phraseSansEssai: phraseSansEssai,
     testProposable: testProposable, testConsigneEssai: testConsigneEssai, testConsigneSerie: testConsigneSerie, pourquoiTest: pourquoiTest,
     phraseProposeTest: phraseProposeTest, phraseTestPropose: phraseTestPropose, phraseTestEnCours: phraseTestEnCours, phraseBilanTest: phraseBilanTest, phraseObjectifTest: phraseObjectifTest,
     testPari: testPari, testMesureValable: testMesureValable, testClasse: testClasse,

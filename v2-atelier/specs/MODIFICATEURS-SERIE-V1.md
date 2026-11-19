@@ -161,7 +161,7 @@ Deux choses distinctes qui ne doivent jamais se mélanger :
 | | |
 |---|---|
 | **Temps de repos voulu** | Réglé par l'utilisateur, pilote le minuteur, modifiable |
-| **Temps de repos constaté** | Déduit de l'horodatage. **Enregistré, jamais affiché, jamais utilisé pour juger** |
+| **Temps de repos constaté** (`repos_s`) | Déduit de l'horodatage. **Enregistré, jamais affiché, jamais utilisé pour juger.** *(Amendé le 19/11/2026 : le « repos réel » par exercice — l'écart entre deux séries de travail validées du MÊME exercice, MOTEUR §9.27 ter, 233 — est une AUTRE mesure ; il n'est jamais affiché en moyenne et sert seulement à la ligne « repos long » du « Pourquoi », I76.)* |
 
 **Pourquoi le constaté doit rester muet.** L'horodatage ment structurellement : avec la fatigue, on valide parfois deux ou trois séries d'un coup après coup. Deux séries à quinze secondes d'écart peuvent être un vrai enchaînement ou un rattrapage, et rien ne les distingue.
 
@@ -200,7 +200,7 @@ L'écran de saisie. Le menu d'appui long sur le numéro de série contient, dans
 tempo · élastique
 ```
 
-Trois types de série, deux modificateurs. C'est tout, et la liste est fermée.
+Trois types de série, deux modificateurs. C'est tout, et la liste est fermée. *(Périmé le 19/11/2026 : `THModele.TYPES_CONNUS` compte six valeurs — travail, échauffement, dégressive, échec, test, recul — et le menu porte aussi le geste « Rest-pause » ; le tableau des types fait foi dans MOTEUR §4.)*
 
 ---
 

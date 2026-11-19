@@ -151,7 +151,7 @@ L'e1RM n'est pas une donnée, c'est une **mesure bruitée**. Le référentiel d�
 | Borne | Valeur | Sévérité |
 |---|---|---|
 | Fenêtre de reps où l'e1RM est exploitable | **≤ 8 reps** (idéal 3-6) | `A` |
-| Fenêtre tolérée avec avertissement | 9-12 reps | `B` |
+| Fenêtre tolérée avec avertissement | 9-12 reps *(le code, MOTEUR §9.51, écrit 3 à 10 reps pour tous, sans avertissement à 9-10 : la fiche dit la série ; 11 reps et plus : non affiché)* | `B` |
 | Au-delà de 12 reps | **e1RM non affiché**, ou marqué indicatif non exploitable | `A` |
 | Bande d'erreur attendue | ±5 % (couché) à ±10 % (squat / SDT) | `A` |
 | **Variation minimale interprétable** | **> ±5 %** ou **> ±5 kg**, le plus grand des deux | `A` |

@@ -128,7 +128,7 @@ quindecies.4), **jamais de durée** : la durée visée passe ensuite par **la fo
 est déclarée ; « J'ai de la marge » : rien n'est raccourci.
 
 **Le gabarit, par jours** (bornés de 2 à 6) : 2-3 corps entier · 4 haut / bas ×2 · 5 haut / bas ×2 + haut du corps ·
-6 poussée / tirage / jambes ×2 ; chaque muscle environ deux fois par semaine (Schoenfeld 2016 ; Pelland 2024). Chaque
+6 poussée / tirage / jambes ×2 ; chaque muscle environ deux fois par semaine (Schoenfeld 2016 ; Pelland et al., Sports Med 2026;56(2):481-505). Chaque
 séance est une liste de **places** : un **motif** (couché, squat, rowing…) et un **rôle** (principal, secondaire,
 isolation, tronc). Les gabarits et la liste ordonnée des candidats de chaque motif sont dans la référence.
 **Deux jours** (précisé le 08/10/2026, 60-6, après l'audit de 17 profils) : le corps entier A porte squat, couché,

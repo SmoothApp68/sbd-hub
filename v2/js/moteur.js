@@ -70,16 +70,25 @@
   var protegeeEnCours = false;
   // 191 — LA PRUDENCE DE MONTÉE, donnée avec le débutant (`options.prudence`, cf. `prudenceDeMontee`), même drapeau de module, même raison.
   var prudenceEnCours = null;
+  // Lot F, A1 (MOTEUR §9.26 ter, I241) — LA BARRE DE L'EXERCICE (`Generateur.familleDeBarre`, posée par l'app : `options.famille`), un drapeau du
+  // module comme `protegeeEnCours`, pour la même raison : la garde par réserve se lit sur des chemins que la consigne traverse en profondeur, avec
+  // des options réduites. `null` : pas une barre (aucun plancher de barre). Lue par `familleDuCalcul`.
+  var familleEnCours = null;
+  function familleDuCalcul(opt) {
+    return opt && typeof opt.famille === 'string' && opt.famille ? opt.famille : familleEnCours;
+  }
   function avecDebutant(options, calcul) {
     var aDeb = !!options && typeof options.debutant === 'boolean';
     var aPru = !!options && !!options.prudence && typeof options.prudence === 'object';
     var aProt = !!options && typeof options.protegee === 'boolean';
-    if (!aDeb && !aPru && !aProt) return calcul();
-    var avant = debutantEnCours, avantPru = prudenceEnCours, avantProt = protegeeEnCours;
+    var aFam = !!options && options.famille !== undefined;
+    if (!aDeb && !aPru && !aProt && !aFam) return calcul();
+    var avant = debutantEnCours, avantPru = prudenceEnCours, avantProt = protegeeEnCours, avantFam = familleEnCours;
     if (aDeb) debutantEnCours = options.debutant;
     if (aPru) prudenceEnCours = options.prudence;
     if (aProt) protegeeEnCours = options.protegee;
-    try { return calcul(); } finally { debutantEnCours = avant; prudenceEnCours = avantPru; protegeeEnCours = avantProt; }
+    if (aFam) familleEnCours = typeof options.famille === 'string' && options.famille ? options.famille : null;
+    try { return calcul(); } finally { debutantEnCours = avant; prudenceEnCours = avantPru; protegeeEnCours = avantProt; familleEnCours = avantFam; }
   }
 
   // §9.1.2 — 8 séances avant de conclure. Mesuré (banc M12) : sur tout
@@ -1609,6 +1618,20 @@
     return dem !== null && reserve !== null && reserve !== undefined && reserve >= dem;
   }
   var RESERVE_ECART = 2;   // la réserve notée ≥ visée + 2 : un vrai signal (l'erreur moyenne d'estimation est d'environ 1 rep)
+  // Lot F, « 3 ou + vaut le seuil » (20/11/2026, MOTEUR §9.26 quater, décision d'Aurélien, I242) — LE HAUT DE LA GRILLE : la saisie plafonne à « 3 ou + »
+  // (`reste_3_plus`) et le RPE à `min(3, 10 − RPE)` (`Palier.reserveDeSerie`) ; un test relie les trois. La case du haut est censurée à droite : quand le
+  // seuil (visée + 2) dépasse la grille, la case du haut vaut le seuil.
+  var RESERVE_GRILLE_MAX = 3;
+  // UNE fonction : la réserve notée `R` atteint-elle le seuil d'un signal au-dessus de `visee` ? `R > visee` ET `R ≥ min(RESERVE_GRILLE_MAX, visee + 2)`
+  // (visée 0 → 2, 1 → 3, 2 → 3, 3 → jamais). Lue par le test par la réserve (sur la TABLE), « facile » (sur l'affichée, ou la demandée d'un « Au max ») et
+  // les invariants I57, I161, I233, I234. **Exclue en Prudent** (`o.reglage === 'prudent'`) : sa prudence est dans son déclencheur (169), le seuil y
+  // reste visée + 2, sans borne de grille.
+  function reserveAtteintLeSeuil(R, visee, o) {
+    var r = nombre(R), v = nombre(visee);
+    if (r === null || v === null) return false;
+    if (o && o.reglage === 'prudent') return r >= v + RESERVE_ECART;
+    return r > v && r >= Math.min(RESERVE_GRILLE_MAX, v + RESERVE_ECART);
+  }
   function reserveVisee(o) {
     var x = o || {};
     var z = typeof x.zone === 'string' ? x.zone : (x.zone && x.zone.cle) || null;
@@ -1634,10 +1657,27 @@
     var x = o || {};
     return x.plus65 === true || x.debutant === true || x.objectif === 'forme';
   }
-  // Le plancher seul : une table `v` (ou `null`), rendue telle quelle hors population protégée, sinon dans [2, 3].
-  function plancherDeReserve(v, protegee) {
-    if (protegee !== true || v === null || v === undefined) return v === undefined ? null : v;
-    return Math.min(3, Math.max(RESERVE_PLANCHER, v));
+  // Lot F, A1 (20/11/2026, MOTEUR §9.26 ter, décision d'Aurélien, I241) — LE PLANCHER DE RÉSERVE PAR BARRE. Sur un exercice à la barre (`famille` :
+  // `Generateur.familleDeBarre`, la barre ou un de ses frères à la barre ; `null` : pas une barre, aucun plancher — un nom inconnu n'est jamais deviné), la
+  // réserve AFFICHÉE ne descend jamais sous le plancher de sa barre, quel que soit le réglage : squat, développé couché et militaire 1, soulevé de terre 2.
+  // UNE table, lue aussi par `auMaxDe` (le militaire et le soulevé « Au max ») : l'échec sur une barre passe par la série « Au max » du squat ou du couché.
+  // Le mécanisme est celui des populations protégées (deux valeurs) : le test par la réserve reste sur la TABLE (`reserveVisee`). Exemptée et nommée : la
+  // semaine de test (`testEssai`, `testSerieAuMax`, §9.32), le test planifié sur les sécurités, garde ses propres réserves.
+  var PLANCHER_DE_BARRE = { squat: 1, couche: 1, militaire: 1, souleve: 2 };
+  // `famille` : la barre (`Modele.BARRES`), ou `null`. Rend le plancher de la barre, ou `null` (pas une barre).
+  function plancherDeBarre(famille) {
+    if (famille === null || famille === undefined || famille === '') return null;
+    var classe = classeAuMax(famille);
+    return Object.prototype.hasOwnProperty.call(PLANCHER_DE_BARRE, classe) ? PLANCHER_DE_BARRE[classe] : null;
+  }
+  // Le plancher seul : une table `v` (ou `null`), rendue telle quelle hors population protégée et hors barre, sinon relevée au plus haut des planchers
+  // (2 pour la population protégée, celui de la barre, `famille`), dans [plancher, 3].
+  function plancherDeReserve(v, protegee, famille) {
+    if (v === null || v === undefined) return null;
+    var pb = plancherDeBarre(famille);
+    if (protegee !== true && pb === null) return v;
+    var bas = Math.max(protegee === true ? RESERVE_PLANCHER : 0, pb === null ? 0 : pb);
+    return Math.min(3, Math.max(bas, v));
   }
   // `o` : comme `reserveVisee`, plus `protegee`. Hors population : la table, octet pour octet (une ligne de test comprise). Protégée : `null`
   // sur une ligne de test ou haute (la ligne de test n'affiche aucun chiffre de réserve : D-B1), sinon la table relevée au plancher.
@@ -1647,12 +1687,14 @@
   function enRepriseLongue(consigne) {
     return !!consigne && consigne.etat === 'reprise_longue';
   }
+  // Lot F, A1 (I241) — `famille` : la barre de l'exercice (`Generateur.familleDeBarre`), ou `null` : la réserve affichée ne descend jamais sous le
+  // plancher de la barre (`plancherDeBarre`), à tous les rôles à réserve (ligne de test et ligne haute comprises), sauf la ligne de test d'une protégée (`null`).
   function reserveAffichee(o) {
     var x = o || {};
     var t = reserveVisee(x);
-    if (t === null || (x.protegee !== true && x.repriseLongue !== true)) return t;
+    if (t === null) return t;
     if (x.protegee === true && (x.role === 'test' || x.role === 'haut')) return null;
-    return plancherDeReserve(t, true);
+    return plancherDeReserve(t, x.protegee === true || x.repriseLongue === true, x.famille);
   }
 
   function cible(v) { return Math.min(v, PLAFOND_CIBLE); }
@@ -2112,6 +2154,8 @@
     // PR 4a (§9.26 bis) — la population protégée : la GARDE (bord, effort visé) se lit sur la visée relevée au plancher ; le DÉCLENCHEUR du test
     // reste sur la table (`reserveVisee`).
     var protegee = protegeeEnCours || opt.protegee === true;
+    // Lot F, A1 (I241) — la barre de l'exercice (`Generateur.familleDeBarre`, posée par l'app), ou `null` : la réserve affichée ne descend pas sous son plancher.
+    var famille = familleDuCalcul(opt);
     var prudence = prudenceEffective(debutant, prudenceEnCours || opt.prudence);
     var equipement = opt.equipement;
     var correction = opt.correction;
@@ -2466,7 +2510,7 @@
       if (!(P > 0) || Modele().modeDeReps(niv) !== 'projection') return null;
       var reserves = A.map(function (se) { return Palier().reserveDeSerie(se); }).filter(function (r) { return r !== null && r !== undefined; });
       var rs = reserves.length ? Math.min.apply(null, reserves) : null;
-      var rv = reserveAffichee({ zone: zone.cle, role: 'ligne', reglage: reglage, protegee: protegee, repriseLongue: true });
+      var rv = reserveAffichee({ zone: zone.cle, role: 'ligne', reglage: reglage, protegee: protegee, repriseLongue: true, famille: famille });
       var est = estimationAuBasDeZone({ palier: P, niveau: niv, reserve: rs, bas: zone.bas, reserveCible: rv, cran: function (c, sens) { return voisine(c, sens); } });
       var base = est.charge;
       if (base === null || !(base > 0)) return null;
@@ -2615,7 +2659,7 @@
       var derniere = L.retenues && L.retenues.length ? L.retenues[L.retenues.length - 1] : null;
       if (derniere !== null && A.length && A[A.length - 1] === derniere && effortViseEligible(P)) {
         var Rb = Palier().reserveDeSerie(derniere);
-        var Vb = plancherDeReserve(reserveVisee({ zone: 'lourd', role: 'ligne', reglage: reglage }), protegee);
+        var Vb = plancherDeReserve(reserveVisee({ zone: 'lourd', role: 'ligne', reglage: reglage }), protegee, famille);
         // Contradicteur final (C2, 19/11/2026) — l'« Au max » fait comme demandé n'exempte de la garde QUE s'il prouve une marge : reps + réserve
         // notée au-dessus de la visée. 150 kg × 2 à l'échec pour une visée de 2 ne laisse rien : le coach garde 150 kg (152,5 × 2 serait au-delà du
         // max que donne la série). 3 reps à l'échec pour 2 visées, ou « en gardant 1 » noté 1 : la rep de plus est une marge, la règle monte.
@@ -2830,13 +2874,15 @@
       var Rn = Palier().reserveDeSerie(derniereRetenue);
       var VnT = reserveVisee({ zone: zone.cle, role: 'ligne', reglage: reglage });
       // PR 4a — `Vn` : la visée AFFICHÉE (la table relevée au plancher pour la population protégée) ; `VnT` : la table, qui seule déclenche le test.
-      var Vn = plancherDeReserve(VnT, protegee);
+      // Lot F, A1 (I241) — et au plancher de la barre (`famille`). `viseeTable` s'écrit dès que l'affichée diffère de la table (I57, I64).
+      var Vn = plancherDeReserve(VnT, protegee, famille);
       var repsN = comptees(derniereRetenue);
       // C-1 (I233) — sur une série « Au max », la réserve DEMANDÉE (écrite au fondement : `demandee`).
       var demN = reserveDemandeeAuMax(derniereRetenue);
       if (Rn !== null && Vn !== null && repsN !== null && repsN >= lo) {
-        if (Rn >= VnT + RESERVE_ECART) {
+        if (reserveAtteintLeSeuil(Rn, VnT, { reglage: reglage })) {
           effortVise = { effet: 'test', charge: P, reps: nombre(derniereRetenue.reps), reserve: Rn, visee: Vn };
+          if (Vn !== VnT) effortVise.viseeTable = VnT;
           if (protegee) { effortVise.viseeTable = VnT; effortVise.protegee = true; }
           if (demN !== null) effortVise.demandee = demN;
         } else if (Rn < Vn && !debutant && !auMaxCommeDemande(derniereRetenue, Rn)) {
@@ -2846,6 +2892,7 @@
           effortVise = { effet: deja ? 'test' : 'garde', charge: P, reps: nombre(derniereRetenue.reps), reserve: Rn, visee: Vn,
                          auHaut: repsN >= hi, deja: deja };
           if (deja) effortVise.sortie = true;
+          if (Vn !== VnT) effortVise.viseeTable = VnT;
           if (protegee) { effortVise.viseeTable = VnT; effortVise.protegee = true; }
           if (demN !== null) effortVise.demandee = demN;
         }
@@ -2907,7 +2954,7 @@
         // C-2 (I234) — et contre la visée AFFICHÉE (`effortVise.visee`, le plancher des populations protégées), pas la table : « il t'en restait 2 :
         // c'est ce que je visais » (§9.26 bis) n'est pas « facile ». Hors population protégée, l'affichée vaut la table : rien ne change.
         var parReserve = effortVise !== null && effortVise.effet === 'test' && effortVise.sortie !== true &&
-          effortVise.reserve >= Math.max(effortVise.visee, effortVise.demandee !== undefined ? effortVise.demandee : effortVise.visee) + RESERVE_ECART;
+          reserveAtteintLeSeuil(effortVise.reserve, Math.max(effortVise.visee, effortVise.demandee !== undefined ? effortVise.demandee : effortVise.visee), { reglage: reglage });
         if (parReserve) effortVise.preuveFacile = true;
         var facile = A.some(function (s) { return Palier().cranDeSerie(s) === 'facile'; }) || parReserve;
         if (haut3 || facile) { cransVoulus = 2; preuveDe = haut3 ? 'haut' : 'facile'; }
@@ -3113,6 +3160,38 @@
   // `planInitial` (49-C) : le plan de la séance en cours (`planDeCouverture`).
   // Absent, c'est le plan de la consigne seule, sur ses `n` séries — la forme
   // que rejoue le fichier de cas de 49-R1, qui ne change pas.
+  // Lot F, étape 1 (I243) — une série à fond À LA CHARGE DE SA LIGNE (au moins une rep).
+  function aFondASaLigne(plan, liste, i) {
+    var s = (liste || [])[i] || {};
+    return Palier().cranDeSerie(s) === 'max' && !!plan[i] && nombre(s.charge_kg) !== null && memeCharge(nombre(plan[i].charge), nombre(s.charge_kg)) &&
+      nombre(s.reps) !== null && nombre(s.reps) >= 1;
+  }
+  // Lot F, étape 1 (I243, corrigé par CONTRA-723 B2) — LES BORNES « À FOND » À GARDE 0 : UNE borne par charge, la plus basse des séries à fond de la
+  // séance à leur ligne, `max(bas, r − 1)` (r − 1 dans la zone ; r = bas → bas, jamais r + 1 ; sous le bas → bas : jamais sous la zone, jamais un retour
+  // silencieux à la visée), appliquée à TOUTES les lignes non figées, ni coach ni élan, après `kFin`, à cette charge, qui visent plus. Lue par
+  // `reactionPour` après une série, et AVANT son retour sur un 0 rep (CONTRA-723 B1 : la parole reste à la réaction au zéro, les visées tiennent).
+  // `cg` : la charge dont on compte les lignes changées (le message).
+  function appliquerBornesAFond(plan, liste, z, kFin, cg) {
+    var bornes = [];
+    for (var i = 0; i <= kFin; i++) {
+      if (!aFondASaLigne(plan, liste, i)) continue;
+      var r = nombre(liste[i].reps), b = Math.max(z.bas, r - 1), c = nombre(liste[i].charge_kg);
+      var deja = bornes.filter(function (q) { return memeCharge(q.charge, c); })[0];
+      if (deja) deja.vise = Math.min(deja.vise, b); else bornes.push({ charge: c, vise: b });
+    }
+    var sortie = { nb: 0, vise: null, change: false };
+    bornes.forEach(function (bq) {
+      for (var j = kFin + 1; j < plan.length; j++) {
+        var x = plan[j];
+        if (!x || x.figee || x.source === 'coach' || x.source === 'elan' || !memeCharge(nombre(x.charge), bq.charge)) continue;
+        if (nombre(x.vise) === null || !(nombre(x.vise) > bq.vise)) continue;
+        plan[j] = Object.assign({}, x, { vise: bq.vise, source: 'a_fond', sourceAvant: x.source === 'a_fond' ? x.sourceAvant : x.source });
+        sortie.change = true;
+        if (cg !== null && cg !== undefined && memeCharge(bq.charge, cg)) { sortie.nb++; sortie.vise = bq.vise; }
+      }
+    });
+    return sortie;
+  }
   function reactionPour(consigne, faites, contexte, planInitial) {
     var c = consigne || null;
     var plan = Array.isArray(planInitial)
@@ -3124,8 +3203,15 @@
     // proposition en séance (§9.14). La ligne reste la ligne.
     if (c.allegee) return sortie;
     // PR 4b (R-A, O7) — UNE SEULE VOIX APRÈS UN 0 REP : la dernière série lue est restée à 0 rep, la réaction au zéro (`reactionAuZero`) parle seule.
+    // « Une seule voix après un zéro » (#721) : le plan le dit aussi par `contexte.apresUnZero` (la dernière série validée de l'exercice est un zéro de travail).
     var derniereLue = faites && faites.length ? faites[faites.length - 1] : null;
-    if (derniereLue && nombre(derniereLue.reps) === 0 && nombre(derniereLue.charge_kg) !== null && nombre(derniereLue.charge_kg) > 0) return sortie;
+    if ((contexte && contexte.apresUnZero === true) ||
+        (derniereLue && nombre(derniereLue.reps) === 0 && nombre(derniereLue.charge_kg) !== null && nombre(derniereLue.charge_kg) > 0)) {
+      // Lot F (CONTRA-723 B1) — à garde 0, les bornes « à fond » déjà posées par les séries d'avant tiennent après le zéro (I243) ; aucun message.
+      var zZ = typeof c.zone === 'string' ? zoneParCle(c.zone) : null;
+      if (zZ !== null && contexte && contexte.gardeAffichee === 0 && appliquerBornesAFond(plan, faites, zZ, faites.length - 1, null).change) sortie.revision = 1;
+      return sortie;
+    }
     // `zone` : une clé chez `consignePour` ; la table des zones donne les bornes.
     var z = typeof c.zone === 'string' ? zoneParCle(c.zone) : null;
     var P = c.ligne ? nombre(c.ligne.charge) : null;
@@ -3473,7 +3559,31 @@
     // d'avant gardent la leur par leurs lignes figées (relues dans les paris).
     // Le message seulement si aucun autre ne l'est.
     var k = liste.length - 1;
-    if (k >= 0 && k + 1 < n && Palier().cranDeSerie(liste[k] || {}) === 'max') {
+    // Lot F, étape 1 (20/11/2026, MOTEUR §9.14 ter delta, CONTRA-AFOND-G0, I243) — À GARDE 0 DES LIGNES (`contexte.gardeAffichee === 0`, la garde que le
+    // plan a calculée), une série à fond À LA CHARGE DE SA LIGNE a fait ce que la ligne demandait dès le bas de la zone (`aFondSurLaCible`) : TOUTE la suite à
+    // cette charge (non figée, ni coach ni élan) suit, une voix. r − 1 ≥ bas : la suite vise r − 1 ; r = bas : la suite vise bas (jamais r + 1), et la parole
+    // est CÉDÉE à la réaction au raté (D, ses leviers) ; sous le bas : la suite vise bas (CONTRA-723 B2 : jamais sous la zone, jamais un retour silencieux
+    // à la visée), la parole est cédée (L) ; quand la réaction au raté est muette, le message cédé garde la parole (le plan tranche, `cede`). Garde ≥ 1, ou une série plus lourde que sa ligne (élan, B09) : la règle d'avant, k + 1 seule.
+    // UNE borne par charge, la plus basse des séries à fond de la séance (monotonie, I243) : une suite ne remonte jamais au-dessus d'une visée déjà baissée.
+    var g0 = k >= 0 && k + 1 < n && ctx.gardeAffichee === 0;
+    var g0Dernier = g0 && aFondASaLigne(plan, liste, k);
+    if (g0) {
+      var cg = g0Dernier ? nombre(liste[k].charge_kg) : null;
+      var appl = appliquerBornesAFond(plan, liste, z, k, cg);
+      var nb = appl.nb, viseDit = appl.vise, change = appl.change;
+      if (change) revision += 1;
+      // Le message : quand une ligne a suivi, ou cédé (au bas de la zone ou dessous). Rien qui ait suivi au-dessus du bas : rien à dire. `vise` : la borne
+      // dite quand une ligne à cette charge a suivi (« 70 kg × 7, sans marge : la suite vise 8. ») ; aucune : le fait seul.
+      var rgD = g0Dernier ? nombre(liste[k].reps) : null;
+      if (g0Dernier && message === null && (nb > 0 || rgD <= z.bas)) {
+        var rg = rgD;
+        message = { type: 'a_fond_suite', rang: k + 1, charge: cg, reps: rg, vise: nb > 0 ? viseDit : null, lignes: nb, garde0: true };
+        if (rg <= z.bas) message.cede = true;
+      }
+    }
+    if (g0Dernier) {
+      // (garde 0, la série à la charge de sa ligne : traitée plus haut)
+    } else if (k >= 0 && k + 1 < n && Palier().cranDeSerie(liste[k] || {}) === 'max') {
       var sk = liste[k];
       var ck = nombre(sk.charge_kg), rk = nombre(sk.reps);
       var x = plan[k + 1];
@@ -3790,7 +3900,8 @@
   // (`ligne`, `haut` pour un test, `retour`), sa source `a_fond`, et son
   // déclencheur : la série à fond juste avant elle.
   function pariAFond(r, liste, j, p, z, fondement, rev, o) {
-    var iDecl = j - 1;
+    // Lot F, étape 1 — la propagation : le déclencheur est la DERNIÈRE série validée avant la ligne, pas forcément la voisine.
+    var iDecl = Math.min(j - 1, (liste || []).length - 1);
     var dc = liste[iDecl] || {};
     var comptees = compter(dc);
     var viseDecl = r.plan[iDecl] ? nombre(r.plan[iDecl].vise) : null;
@@ -3866,8 +3977,11 @@
         if (m.a_fond) return fait + ' à fond' + DEUX_POINTS + 'la suite revient ' + laSuite(m.suite, z) + '.';
         return fait + DEUX_POINTS + 'pas encore. On revient à ' + enKg(m.palier, cite(CIBLE, { role: 'retour' })) + '.';
       // §9.14 ter (68B) — la suivante, une rep de moins.
+      // Lot F, étape 1 (VOIX : la réserve 0 se dit « sans marge », un fait, jamais une injonction) : « 70 kg × 9, sans marge : la suite vise 8. », UNE
+      // phrase partout (décision d'Aurélien, 20/11/2026 : « la suite », qu'une ligne ou plusieurs changent, à toute garde) ; sans visée : le fait seul.
       case 'a_fond_suite':
-        return fait + ' à fond' + DEUX_POINTS + 'la suivante vise ' +
+        if (m.vise === null || m.vise === undefined) return fait + ', sans marge.';
+        return fait + ', sans marge' + DEUX_POINTS + 'la suite vise ' +
           nombreFr(m.vise, cite(CIBLE, { role: 'suite', champ: 'reps' })) + '.';
       // §9.14 bis (68A) — QUAND LA SÉRIE S'ÉCARTE DE SA LIGNE.
       case 'elan': {
@@ -4620,7 +4734,7 @@
     // report (un corps, une aide, un lest, ou séries longues qui restent), les
     // replis d'avant : celui de §14.5, sinon celui de la reprise longue.
     var report = reportSur(seances, avant, consigne.zone, zone, equipement, (options || {}).reglage, (options || {}).salle || null, true,
-      protegeeEnCours || (options || {}).protegee === true);
+      protegeeEnCours || (options || {}).protegee === true, familleDuCalcul(options));
     var repli = report === null ? null
       : { source: 'report', palier: nombre(consigne.palier), ligne: [report.charge, report.visee] };
     var salle = (options || {}).salle || null;
@@ -5007,6 +5121,16 @@
   function phraseDuPlancher(n) {
     return 'Pour cet exercice, je vise ' + nombreFr(n, regle('constante')) + ' en réserve. Tu notes ce que tu veux.';
   }
+  // Lot F, A1 (MOTEUR §9.26 ter, I241) — le plancher de la BARRE relève la table : une ligne du « Pourquoi », une fois par exercice, sur le modèle de
+  // `phraseDuPlancher`. `classe` : `classeAuMax` de la barre ; `n` : la réserve affichée ; `reglage` : « même avec Me pousser » seulement en Franc ; `echec` :
+  // l'« Au max » du jour va à l'échec (`sorte === 'echec'`, ligne ou proposition) — CONTRA-723 C2 : la deuxième phrase seulement ce jour-là (en Force, en
+  // Hypertrophie « en gardant 1 », débutant, première fois, reprise longue, il n'y a pas d'échec : la phrase du militaire). Aucune raison médicale, aucun
+  // « pour ta sécurité ».
+  function phraseDeLaBarre(classe, n, reglage, echec) {
+    var d = 'Sur cette barre, je vise ' + nombreFr(n, regle('constante')) + ' en réserve' + (reglage === 'franc' ? ', même avec Me pousser' : '') + '.';
+    if ((classe === 'squat' || classe === 'couche') && echec === true) d += ' L’échec sur une barre passe par la série « Au max ».';
+    return d + ' Tu notes ce que tu veux.';
+  }
   // ══ PR 4a (chantier « Les mots disent vrai », MOTEUR §9.47) — LE VERBE UNIQUE DE LA CONSIGNE ═══════════════════════════════════════════
   //
   // UN verbe par consigne, calculé UNE fois sur la consigne PASSÉE EN ARGUMENT (la finale du plan, jamais un état brut), et lu par les trois champs
@@ -5282,7 +5406,7 @@
     return 'Deux fois ' + chargeFois(ev.charge, ev.reps, cite(FAIT, { quoi: 'effort_vise' })) + ' au haut de ta zone' +
       (aujourdhui === true ? DEUX_POINTS + 'aujourd’hui, on teste ' : '. La prochaine fois' + DEUX_POINTS + 'on teste ') + test + '.';
   }
-  // 154 — LA PHRASE APRÈS LA RÉPONSE (VOIX-DU-COACH) : « 34 kg × 9, il t'en restait 3. Au-dessus de ce que je visais : la
+  // 154 — LA PHRASE APRÈS LA RÉPONSE (VOIX-DU-COACH) : « 34 kg × 9, il t'en restait 3 ou plus. Au-dessus de ce que je visais : la
   // prochaine fois, on essaie 36 kg. » / « 130 kg × 5, sans marge. Je garde 130 kg : encore une fois au haut de ta zone et
   // je teste plus lourd. » `ev` : le fait `effortVise` de la consigne suivante ; `haut` : la ligne haute du test qu'elle
   // pose (ou sa charge). `null` : rien à dire.
@@ -5294,14 +5418,17 @@
     if (ev.effet !== 'test' || charge === null || charge === undefined) return null;
     if (ev.sortie === true) return phraseDeLaSortie(ev, haut, false, sans);
     // PR 4a (§9.26 bis) — la réserve notée ÉGALE à la visée affichée (le plancher à 2 sur une table à 0 ou 1 : le test se déclenche sur la
-    // table) : « c'est ce que je visais », jamais « au-dessus » (I161).
+    // table) : « c'est ce que je visais », jamais « au-dessus » (I161). Lot F (CONTRA-723 C1, la correction C de CONTRA-TT3-A1) : faire la visée n'est
+    // pas en soi une raison de tester ; la cause est le réglage, et elle se dit. L'égalité n'arrive qu'en « Me pousser » : le test se lit sur la table
+    // (`reserveAtteintLeSeuil(R, table)`), R = la visée affichée ≤ 2 exige une table à 0, et seule la table du Franc descend à 0 (`reserveVisee`).
     var egale = ev.reserve === ev.visee;
+    // Lot F, « 3 ou + » (CONTRA-723 C1, TT-3PLUS §5) — la case du haut de la grille se dit telle qu'elle est notée, comme le gris et le Pourquoi.
     var tete = chargeFois(ev.charge, ev.reps, cite(FAIT, { quoi: 'effort_vise' })) + ', il t’en restait ' +
-      nombreFr(ev.reserve, cite(FAIT, { quoi: 'effort_vise.reserve' }));
+      nombreFr(ev.reserve, cite(FAIT, { quoi: 'effort_vise.reserve' })) + (ev.reserve === RESERVE_GRILLE_MAX ? ' ou plus' : '');
     // PR 5b-1 (Q3) — sous un régime : le fait de la séance, sans « on essaie » : « Au-dessus de ce que je visais. » reste (un fait, le seul retour sur la réponse).
     if (sans) return tete + (egale ? DEUX_POINTS + 'c’est ce que je visais.' : '. Au-dessus de ce que je visais.');
     return tete +
-      (egale ? DEUX_POINTS + 'c’est ce que je visais. La prochaine fois, on essaie '
+      (egale ? DEUX_POINTS + 'c’est ce que je visais ; avec Me pousser, c’est assez pour tester. La prochaine fois, on essaie '
              : '. Au-dessus de ce que je visais' + DEUX_POINTS + 'la prochaine fois, on essaie ') +
       enKg(charge, cite(FAIT, { quoi: 'effort_vise.haut' })) + '.';
   }
@@ -5427,7 +5554,7 @@
         if (f.effortVise && f.effortVise.effet === 'test' && c.haut && c.haut.charge !== null && c.haut.charge !== undefined) {
           return 'On essaie ' + enKg(c.haut.charge, cite(FAIT, { quoi: 'effort_vise.haut' })) + DEUX_POINTS + 'la dernière fois, ' +
             chargeFois(f.effortVise.charge, f.effortVise.reps, cite(FAIT, { quoi: 'effort_vise' })) + ' avec ' +
-            nombreFr(f.effortVise.reserve, cite(FAIT, { quoi: 'effort_vise.reserve' })) + ' en réserve.';
+            nombreFr(f.effortVise.reserve, cite(FAIT, { quoi: 'effort_vise.reserve' })) + ' en réserve' + (f.effortVise.reserve === RESERVE_GRILLE_MAX ? ' ou plus.' : '.');
         }
         // 175 — un gros cran : l'écart dit, et ce qui suffit pour s'y installer.
         if (f.cranGros && c.haut && c.haut.charge !== null && c.haut.charge !== undefined) return phraseGrosCran(f.cranGros);
@@ -5892,10 +6019,17 @@
           dit = 'Ta dernière série, ' + chargeFois(f.effortVise.charge, f.effortVise.reps, cite(FAIT, { quoi: 'effort_vise' })) +
             ', laissait ' + nombreFr(f.effortVise.reserve, cite(FAIT, { quoi: 'effort_vise.reserve' })) +
             (f.effortVise.reserve === f.effortVise.visee
-              // PR 4a — le plancher : la réserve notée égale la visée affichée, elle ne la dépasse pas.
-              ? ' en réserve, ce que je visais : on teste le cran au-dessus sur la dernière série.'
-              : ' en réserve, plus que les ' + nombreFr(f.effortVise.visee, cite(FAIT, { quoi: 'effort_vise.visee' })) +
-                ' visées : on teste le cran au-dessus sur la dernière série.');
+              // PR 4a — le plancher : la réserve notée égale la visée affichée, elle ne la dépasse pas. Lot F, A1 (CONTRA-TT3-A1, C) : faire la visée
+              // n'est pas en soi une raison de tester ; la cause est le réglage (le test se lit sur la table) : elle se dit.
+              ? ' en réserve, ce que je visais' + (reglage === 'franc' ? ' ; avec Me pousser, c’est assez pour tester' : DEUX_POINTS + 'c’est assez pour tester') +
+                ' le cran au-dessus sur la dernière série.'
+              // Lot F, « 3 ou + » (I242) — la case du haut de la grille se dit telle qu'elle est notée : « 3 en réserve ou plus, au-dessus des 2 visées ».
+              : f.effortVise.reserve === RESERVE_GRILLE_MAX
+                ? ' en réserve ou plus, au-dessus ' + (f.effortVise.visee === 1 ? 'du ' : 'des ') + nombreFr(f.effortVise.visee, cite(FAIT, { quoi: 'effort_vise.visee' })) +
+                  (f.effortVise.visee === 1 ? ' visé' : ' visées') + DEUX_POINTS + 'on teste le cran au-dessus sur la dernière série.'
+              // Lot F, A1 — l'accord : « plus que le 1 visé », jamais « les 1 visées ».
+              : ' en réserve, plus que ' + (f.effortVise.visee === 1 ? 'le ' : 'les ') + nombreFr(f.effortVise.visee, cite(FAIT, { quoi: 'effort_vise.visee' })) +
+                (f.effortVise.visee === 1 ? ' visé' : ' visées') + DEUX_POINTS + 'on teste le cran au-dessus sur la dernière série.');
         }
         if (f.preuve) {
           var ecart = c.haut.charge === null ? null : c.haut.charge - c.ligne.charge;
@@ -10501,7 +10635,8 @@
     // « Une seule garde » (19/11/2026, C-3, MOTEUR §9.10 et §9.26 bis, I235) — la réserve visée est la réserve AFFICHÉE de la ligne (`reserveAffichee` :
     // le plancher des populations protégées, `p.protegee`), comme la reprise longue au bas de la zone : une estimation, une réserve. Hors population
     // protégée, l'affichée vaut la table (rien ne change). Écrite au fondement (`report.reserve`), relue par I143.
-    var rVisee = reserveAffichee({ zone: z.cle, role: 'ligne', reglage: p.reglage, protegee: p.protegee === true });
+    // Lot F, A1 (I241) — et le plancher de la barre (`p.famille`).
+    var rVisee = reserveAffichee({ zone: z.cle, role: 'ligne', reglage: p.reglage, protegee: p.protegee === true, famille: p.famille || null });
     var est = estimationAuBasDeZone({ palier: P, niveau: n, reserve: rSource, bas: z.bas, reserveCible: rVisee, cran: p.cran });
     var estimee = est.estimee;
     var charge = est.charge;
@@ -10591,7 +10726,8 @@
   }
 
   // `protegee` (C-3) : la population protégée (`protegeeEnCours` ou l'option de l'appelant) : la réserve visée du report est l'affichée.
-  function reportSur(seances, avant, zoneAvant, zone, equipement, reglage, salle, sansMontee, protegee) {
+  // Lot F, A1 (I241) — `famille` : la barre de l'exercice, ou `null` (le plancher de la barre dans la réserve visée du report).
+  function reportSur(seances, avant, zoneAvant, zone, equipement, reglage, salle, sansMontee, protegee, famille) {
     if (equipement === EQUIPEMENT_LEST) return null;
     // 132 (MOTEUR §10 ter) — PAS DE REPORT À L'ÉLASTIQUE : une estimation du 1RM sur une charge virtuelle (ou sur une
     // aide) ne veut rien dire. L'aide était déjà écartée (charge ≤ 0, `reportDeZone`) ; la résistance notée par nom
@@ -10602,7 +10738,7 @@
     // 255 bis — avec une salle déclarée, le cran est celui de la salle (`voisineSalleComprise`, le câblage de partout) : l'arrondi part
     // de la charge de la salle la plus proche de l'estimation, pas d'une charge source que la salle n'a pas.
     var r = reportDeZone({
-      seances: lues, avant: avant, zoneAvant: zoneAvant, zone: zone, reglage: reglage, sansMontee: sansMontee === true, protegee: protegee === true,
+      seances: lues, avant: avant, zoneAvant: zoneAvant, zone: zone, reglage: reglage, sansMontee: sansMontee === true, protegee: protegee === true, famille: famille || null,
       cran: function (charge, sens) { return voisineSalleComprise(vues, avant, charge, equipement, sens, salle || null); }
     });
     // Sous la plus légère de la salle : la plus légère (`arrondieALaSalle`).
@@ -10649,7 +10785,7 @@
     if (o.mesure !== 'charge_reps') return null;
     // 193-3 — en « première fois » dans la zone du plan, la zone d'avant est celle que la dernière séance a FAITE (`zoneAvantDuPlan`).
     var zoneAvant = o.zoneAvantDuPlan !== undefined ? o.zoneAvantDuPlan : zoneDeLaDerniere(seances, avant, o);
-    var r = reportSur(seances, avant, zoneAvant, consigne.zone, o.equipement, o.reglage, o.salle || null, false, protegeeEnCours || o.protegee === true);
+    var r = reportSur(seances, avant, zoneAvant, consigne.zone, o.equipement, o.reglage, o.salle || null, false, protegeeEnCours || o.protegee === true, familleDuCalcul(o));
     if (r === null) return null;
     var f = consigne.fondement || {};
     var garde = { date: f.date, reps: f.reps, seance: f.seance, habitude: f.habitude, correction: f.correction,
@@ -12108,10 +12244,9 @@
       } else if (objectif === 'force' || objectif === 'calisthenie') reserve = 1;   // 195 : « Au max, en gardant 1 » (la Recommended Routine évite l'échec)
     } else if (classe === 'squat' || classe === 'couche') {
       if (gros) reserve = x.debutant === true ? 1 : 0;
-    } else if (classe === 'militaire') {
-      if (gros) reserve = 1;
-    } else if (classe === 'souleve') {
-      if (gros) reserve = 2;
+    } else if (classe === 'militaire' || classe === 'souleve') {
+      // Lot F, A1 (I241) — la table des planchers de barre, la même que l'en-tête (`PLANCHER_DE_BARRE`) : la série « Au max » ne demande jamais moins.
+      if (gros) reserve = PLANCHER_DE_BARRE[classe];
     }
     var pose = 'defaut';
     // Une première fois : le coach ne pose RIEN (aucune charge de travail n'est encore trouvée). Une marque de la personne, elle, reste.
@@ -14028,6 +14163,9 @@
     verbeDeLaConsigne: verbeDeLaConsigne, VERBES: VERBES,
     populationProtegee: populationProtegee,
     RESERVE_PLANCHER: RESERVE_PLANCHER,
+    PLANCHER_DE_BARRE: PLANCHER_DE_BARRE,
+    plancherDeBarre: plancherDeBarre,
+    phraseDeLaBarre: phraseDeLaBarre,
     annonceDe: annonceDe,
     regimeAVenir: regimeAVenir,
     fenetreDeLaProchaineFois: fenetreDeLaProchaineFois,
@@ -14036,6 +14174,8 @@
     phraseDuPlancher: phraseDuPlancher,
     effortViseEligible: effortViseEligible,
     RESERVE_ECART: RESERVE_ECART,
+    RESERVE_GRILLE_MAX: RESERVE_GRILLE_MAX,
+    reserveAtteintLeSeuil: reserveAtteintLeSeuil,
     formatDe: formatDe,
     coupleDe: coupleDe,
     // Le pont entre `THPalier.analyser` et `niveauValide` : l'un rend une

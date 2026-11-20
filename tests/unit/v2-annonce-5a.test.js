@@ -105,7 +105,7 @@ describe('les phrases de l’effort visé passent par annonceDe (B1) — mots in
   test('apres : « la prochaine fois » ; aujourdhui : la garde et la sortie, sans promesse d’un autre jour', () => {
     expect(esp(M.annonceDe('effort', { ev: ev(), haut: null, moment: 'apres' }))).toBe('130 kg × 5, sans marge. Je garde 130 kg la prochaine fois.');
     expect(esp(M.annonceDe('effort', { ev: ev({ effet: 'test', charge: 34, reps: 9, reserve: 3, visee: 1 }), haut: 36, moment: 'apres' })))
-      .toBe('34 kg × 9, il t’en restait 3. Au-dessus de ce que je visais : la prochaine fois, on essaie 36 kg.');
+      .toBe('34 kg × 9, il t’en restait 3 ou plus. Au-dessus de ce que je visais : la prochaine fois, on essaie 36 kg.');
     expect(esp(M.annonceDe('effort', { ev: ev(), moment: 'aujourdhui' }))).toBe('130 kg × 5, sans marge. Je garde 130 kg la prochaine fois.');
     expect(M.annonceDe('effort', { ev: null, moment: 'apres' })).toBeNull();
     expect(M.annonceDe('autre', {})).toBeNull();

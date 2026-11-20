@@ -115,10 +115,10 @@ describe('PR 4a — la règle dans la consigne : la garde lit le plancher, le te
   test('T-R1 R = 2 protégé : la phrase dit « c’est ce que je visais » ; R = 3 : « Au-dessus de ce que je visais »', () => {
     const ev2 = { effet: 'test', charge: 34, reps: 9, reserve: 2, visee: 2, viseeTable: 0, protegee: true };
     expect(sansEspaces(M.annonceDe('effort', { ev: ev2, haut: 36, moment: 'apres' })))
-      .toBe('34 kg × 9, il t’en restait 2 : c’est ce que je visais. La prochaine fois, on essaie 36 kg.');
+      .toBe('34 kg × 9, il t’en restait 2 : c’est ce que je visais ; avec Me pousser, c’est assez pour tester. La prochaine fois, on essaie 36 kg.');
     const ev3 = Object.assign({}, ev2, { reserve: 3 });
     expect(sansEspaces(M.annonceDe('effort', { ev: ev3, haut: 36, moment: 'apres' })))
-      .toBe('34 kg × 9, il t’en restait 3. Au-dessus de ce que je visais : la prochaine fois, on essaie 36 kg.');
+      .toBe('34 kg × 9, il t’en restait 3 ou plus. Au-dessus de ce que je visais : la prochaine fois, on essaie 36 kg.');
   });
   test('R = 1 sur Franc Hypertrophie, au haut de la zone : non protégé monte (table 0), protégé GARDE (visée 2)', () => {
     const g = histoire(40, 12, { reps: 12, ressenti: 'reste_1' });
@@ -234,14 +234,14 @@ describe('PR 4a — le plan : l’affichage, le pari, la phrase', () => {
     const e = sim.exo().effortVise;
     expect(e).toMatchObject({ reponse: 2, effet: 'test', visee: 2 });
     // C-2 (I234) : « c'est ce que je visais » n'est pas « facile » — un cran (avant : 45 kg, deux crans).
-    expect(sansEspaces(e.phrase)).toBe('40 kg × 9, il t’en restait 2 : c’est ce que je visais. La prochaine fois, on essaie 42,5 kg.');
+    expect(sansEspaces(e.phrase)).toBe('40 kg × 9, il t’en restait 2 : c’est ce que je visais ; avec Me pousser, c’est assez pour tester. La prochaine fois, on essaie 42,5 kg.');
     expect(sim.verifier().erreurs).toEqual([]);
   });
   test('R = 3 notée : « Au-dessus de ce que je visais »', () => {
     const sim = simulateur(lePlan('franc', { plus65: true }), plus65Franc);
     sim.validerTout();
     sim.repondre('reste_3_plus');
-    expect(sansEspaces(sim.exo().effortVise.phrase)).toMatch(/^40 kg × 9, il t’en restait 3\. Au-dessus de ce que je visais/);
+    expect(sansEspaces(sim.exo().effortVise.phrase)).toMatch(/^40 kg × 9, il t’en restait 3 ou plus\. Au-dessus de ce que je visais/);
     expect(sim.verifier().erreurs).toEqual([]);
   });
   test('T-R3 la ligne de test d’une population protégée : aucune réserve affichée, aucun effort visé, aucune question, aucun pari de réserve', () => {

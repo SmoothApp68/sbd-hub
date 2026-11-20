@@ -22211,8 +22211,8 @@ const SETS_IMPORTES = [
     const g1 = await grilleB();
     ok('[C68B] DISCRIMINANT — « à fond » noté : la série 2, à la même charge, vise 11 ; les autres ne bougent pas',
       nbB(g1.slice(1)) === nbB(['79×11', '79×12', '81,3×11']), nbB(g1));
-    ok('[C68B] la phrase « 79 kg × 12 à fond : la suivante vise 11. »',
-      nbB(await phrasesB()) === nbB(['a_fond_suite | 79 kg × 12 à fond : la suivante vise 11.']), nbB(await phrasesB()));
+    ok('[C68B] la phrase « 79 kg × 12, sans marge : la suite vise 11. »',
+      nbB(await phrasesB()) === nbB(['a_fond_suite | 79 kg × 12, sans marge : la suite vise 11.']), nbB(await phrasesB()));
     // 183 — LA SÉRIE QUE « À FOND » A RÉÉCRITE, VALIDÉE : le pari porte la révision 2 ; la garde de l'app ne doit pas crier
     // « 0 pari de sa révision » (I7) entre le plan et l'observation. La garde lit les violations de l'app (crochetPlan) ET ici.
     const gardeAvant183 = await page.evaluate(() => window.THPlan.garde.etat().violations.length);
@@ -27201,8 +27201,8 @@ const SETS_IMPORTES = [
     const p2 = await puces154();
     ok('[EV154] « 3 et + » : `reste_3_plus` écrit sur UNE série, la dernière',
       nb154(ressentiDuJour()) === nb154([null, null, 'reste_3_plus']), nb154(ressentiDuJour()));
-    ok('[EV154] DISCRIMINANT — la phrase du coach : « …il t’en restait 3. Au-dessus de ce que je visais : la prochaine fois, on essaie 42,5 kg. »',
-      !!p2 && /^40 kg × \d+, il t’en restait 3\. Au-dessus de ce que je visais : la prochaine fois, on essaie 42,5 kg\.$/.test(sp154(p2.phrase)) &&
+    ok('[EV154] DISCRIMINANT — la phrase du coach : « …il t’en restait 3 ou plus. Au-dessus de ce que je visais : la prochaine fois, on essaie 42,5 kg. »',
+      !!p2 && /^40 kg × \d+, il t’en restait 3 ou plus\. Au-dessus de ce que je visais : la prochaine fois, on essaie 42,5 kg\.$/.test(sp154(p2.phrase)) &&
         p2.boutons.length === 0, JSON.stringify(p2));
     const v154 = await page.evaluate(() => {
       const d = window.THPlan && window.THPlan.dernier;
@@ -27221,7 +27221,7 @@ const SETS_IMPORTES = [
     const e1 = await entete154();
     ok('[EV154] DISCRIMINANT — la séance suivante pose le test à 42,5 kg, SOUS le haut de la zone, et dit pourquoi',
       e1.jaune.some((t) => /42,5/.test(sp154(t))) &&
-        sp154(e1.dit) === 'On essaie 42,5 kg : la dernière fois, 40 kg × 9 avec 3 en réserve.', JSON.stringify(e1));
+        sp154(e1.dit) === 'On essaie 42,5 kg : la dernière fois, 40 kg × 9 avec 3 en réserve ou plus.', JSON.stringify(e1));
     await abandonner();
 
     // C. « PASSER » : rien n’est écrit, plus de puces.
@@ -27252,7 +27252,7 @@ const SETS_IMPORTES = [
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE : un exercice à la barre, 40 kg × 9 trois séances de suite (Hypertrophie, « Me pousser » : table 0, « garde-en 0 » pour tout le monde).
   // A — profil de 70 ans (date de naissance), « Me pousser » : « garde-en 2 » (le plancher), la phrase du Pourquoi « Pour cet exercice, je vise 2 en réserve. Tu notes ce que tu veux. » ;
-  //     « 2 » noté sur la dernière série : « …il t’en restait 2 : c’est ce que je visais. La prochaine fois, on essaie … » (jamais « Au-dessus »).
+  //     « 2 » noté sur la dernière série : « …il t’en restait 2 : c’est ce que je visais ; avec Me pousser, c’est assez pour tester. La prochaine fois, on essaie … » (jamais « Au-dessus »).
   // B — même exercice, même historique, profil de 36 ans : « garde-en 0 » (octet pour octet comme avant), aucune phrase du plancher.
   // C — 70 ans, 40 kg × 12 trois fois (Volume, le haut de la zone touché : le test est posé) : la ligne de test n'affiche AUCUN « garde-en » (65+), aucune question de réserve.
   // Aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page.
@@ -27325,8 +27325,8 @@ const SETS_IMPORTES = [
     await page.click('#repos .repos-q button[data-ressenti="reste_2"]');
     await jusqua(() => page.evaluate(() => !!document.querySelector('.bloc-seance .effort-vise-dit')), 8000);
     const phrasePL = await page.evaluate(() => (document.querySelector('.bloc-seance .effort-vise-dit') || {}).textContent || null);
-    ok('[PL4A] DISCRIMINANT — « 2 » noté : « …il t’en restait 2 : c’est ce que je visais. La prochaine fois, on essaie … », jamais « Au-dessus »',
-      /^40 kg × \d+, il t’en restait 2 : c’est ce que je visais\. La prochaine fois, on essaie [\d,]+ kg\.$/.test(spPL(phrasePL)) && !/Au-dessus/.test(phrasePL), JSON.stringify(phrasePL));
+    ok('[PL4A] DISCRIMINANT — « 2 » noté : « …il t’en restait 2 : c’est ce que je visais ; avec Me pousser, c’est assez pour tester. La prochaine fois, on essaie … », jamais « Au-dessus »',
+      /^40 kg × \d+, il t’en restait 2 : c’est ce que je visais ; avec Me pousser, c’est assez pour tester\. La prochaine fois, on essaie [\d,]+ kg\.$/.test(spPL(phrasePL)) && !/Au-dessus/.test(phrasePL), JSON.stringify(phrasePL));
     await abandonner();
 
     // B. 36 ans : rien ne change.

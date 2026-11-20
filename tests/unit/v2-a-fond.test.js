@@ -124,8 +124,8 @@ describe('68B — les 12 cas de ref68 (règles 68B), à chaque étape, par le vr
 // ── LES PHRASES DE LA SÉANCE, AU MOT PRÈS (MOTEUR §9.14 ter) ────────────────
 describe('68B — les phrases « à fond » de la séance, au mot près', () => {
   const phrase = (id, t) => esp(jouerCas(cas(id))[t].x.message.phrase);
-  test('B01 — la suivante vise une rep de moins', () => {
-    expect(phrase('B01', 1)).toBe('79 kg × 12 à fond : la suivante vise 11.');
+  test('B01 — la suite vise une rep de moins (une phrase partout, 20/11/2026)', () => {
+    expect(phrase('B01', 1)).toBe('79 kg × 12, sans marge : la suite vise 11.');
   });
   test('B04 — plus lourd, à fond : pas d’élan, la suite reste au plan', () => {
     expect(phrase('B04', 1)).toBe('84 kg × 12 à fond : la suite reste à 79 kg × 12.');

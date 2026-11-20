@@ -7717,6 +7717,9 @@
       // relevée au plancher de 2. Le même prédicat que le plan (`Moteur.populationProtegee`), jamais deviné (`plus65` : `true` seulement).
       protegee: Moteur.populationProtegee({ plus65: Profil.plus65DuProfil(profil, new Date(instant)) === true, debutant: Profil.estDebutant(profil),
                                             objectif: Profil.objectifDe(profil) }),
+      // Lot F, A1 (MOTEUR §9.26 ter, I241) — la barre de l'exercice (la barre ou un frère à la barre), ou `null` : la réserve affichée ne descend
+      // pas sous le plancher de sa barre (`Moteur.plancherDeBarre`). Le plan la recalcule depuis le catalogue (`familleDeLExercice`).
+      famille: Generateur.familleDeBarre(slug, index),
       // 191 — la prudence de montée (le plafond d'un saut ; « un cran à la fois »), au jour du calcul.
       prudence: Profil.prudenceDuProfil(profil, new Date(instant)),
       // 187 (A4) — l'exercice charge une zone à ménager (profil + la table du générateur) : aucune série lourde.

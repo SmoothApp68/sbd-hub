@@ -65,12 +65,13 @@
 |---|---|
 | En-tête d'un exercice | garde-en 1 |
 | Question dans la barre de repos, après la dernière série de travail (259 : une seule fois ; la case « Effort » de la ligne répond aussi) | Il t’en restait combien ? — 0 · 1 · 2 · 3 ou + · Passer |
-| Réserve au-dessus de la visée (R ≥ V + 2) | 34 kg × 9, il t'en restait 3. Au-dessus de ce que je visais : la prochaine fois, on essaie 36 kg. |
+| Réserve au-dessus de la visée (le seuil, `reserveAtteintLeSeuil`) | 34 kg × 9, il t'en restait 3 ou plus. Au-dessus de ce que je visais : la prochaine fois, on essaie 36 kg. (« ou plus » à la case du haut de la grille, « 3 ou + » ; 2 se dit « 2 ») |
+| Réserve égale à la visée relevée par un plancher, en « Me pousser » (le test se lit sur la table, 20/11/2026, CONTRA-TT3-A1 C) | 100 kg × 10, il t'en restait 2 : c'est ce que je visais ; avec Me pousser, c'est assez pour tester. La prochaine fois, on essaie 102,5 kg. |
 | Réserve sous la visée, à fond (R = 0 < V) | 130 kg × 5, sans marge. Je garde 130 kg la prochaine fois. |
 | En séance, une série sans marge, la suite à la même charge (20/11/2026, MOTEUR §9.14 ter) | 70 kg × 9, sans marge : la suite vise 8. (la même phrase pour une ligne ou plusieurs, à toute garde : décision d'Aurélien du 20/11/2026 ; jamais « à fond », jamais « à fond aussi » : un fait, pas une injonction à l'échec) |
 | Réserve sous la visée (0 < R < V) | 130 kg × 5, avec 1 en réserve. Je garde 130 kg la prochaine fois. |
 | R = V ou V + 1 | (rien) |
-| « Pourquoi » du test à la séance suivante | On essaie 36 kg : la dernière fois, 34 kg × 9 avec 3 en réserve. |
+| « Pourquoi » du test à la séance suivante | On essaie 36 kg : la dernière fois, 34 kg × 9 avec 3 en réserve ou plus. (« ou plus » à la case du haut ; « avec 2 en réserve. » sinon) |
 
 Jamais « bravo », jamais un reproche quand il n'en restait pas assez. Source : MOTEUR §9.26 (dépôt).
 

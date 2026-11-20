@@ -5404,7 +5404,7 @@
     return 'Deux fois ' + chargeFois(ev.charge, ev.reps, cite(FAIT, { quoi: 'effort_vise' })) + ' au haut de ta zone' +
       (aujourdhui === true ? DEUX_POINTS + 'aujourd’hui, on teste ' : '. La prochaine fois' + DEUX_POINTS + 'on teste ') + test + '.';
   }
-  // 154 — LA PHRASE APRÈS LA RÉPONSE (VOIX-DU-COACH) : « 34 kg × 9, il t'en restait 3. Au-dessus de ce que je visais : la
+  // 154 — LA PHRASE APRÈS LA RÉPONSE (VOIX-DU-COACH) : « 34 kg × 9, il t'en restait 3 ou plus. Au-dessus de ce que je visais : la
   // prochaine fois, on essaie 36 kg. » / « 130 kg × 5, sans marge. Je garde 130 kg : encore une fois au haut de ta zone et
   // je teste plus lourd. » `ev` : le fait `effortVise` de la consigne suivante ; `haut` : la ligne haute du test qu'elle
   // pose (ou sa charge). `null` : rien à dire.
@@ -5416,14 +5416,17 @@
     if (ev.effet !== 'test' || charge === null || charge === undefined) return null;
     if (ev.sortie === true) return phraseDeLaSortie(ev, haut, false, sans);
     // PR 4a (§9.26 bis) — la réserve notée ÉGALE à la visée affichée (le plancher à 2 sur une table à 0 ou 1 : le test se déclenche sur la
-    // table) : « c'est ce que je visais », jamais « au-dessus » (I161).
+    // table) : « c'est ce que je visais », jamais « au-dessus » (I161). Lot F (CONTRA-723 C1, la correction C de CONTRA-TT3-A1) : faire la visée n'est
+    // pas en soi une raison de tester ; la cause est le réglage, et elle se dit. L'égalité n'arrive qu'en « Me pousser » : le test se lit sur la table
+    // (`reserveAtteintLeSeuil(R, table)`), R = la visée affichée ≤ 2 exige une table à 0, et seule la table du Franc descend à 0 (`reserveVisee`).
     var egale = ev.reserve === ev.visee;
+    // Lot F, « 3 ou + » (CONTRA-723 C1, TT-3PLUS §5) — la case du haut de la grille se dit telle qu'elle est notée, comme le gris et le Pourquoi.
     var tete = chargeFois(ev.charge, ev.reps, cite(FAIT, { quoi: 'effort_vise' })) + ', il t’en restait ' +
-      nombreFr(ev.reserve, cite(FAIT, { quoi: 'effort_vise.reserve' }));
+      nombreFr(ev.reserve, cite(FAIT, { quoi: 'effort_vise.reserve' })) + (ev.reserve === RESERVE_GRILLE_MAX ? ' ou plus' : '');
     // PR 5b-1 (Q3) — sous un régime : le fait de la séance, sans « on essaie » : « Au-dessus de ce que je visais. » reste (un fait, le seul retour sur la réponse).
     if (sans) return tete + (egale ? DEUX_POINTS + 'c’est ce que je visais.' : '. Au-dessus de ce que je visais.');
     return tete +
-      (egale ? DEUX_POINTS + 'c’est ce que je visais. La prochaine fois, on essaie '
+      (egale ? DEUX_POINTS + 'c’est ce que je visais ; avec Me pousser, c’est assez pour tester. La prochaine fois, on essaie '
              : '. Au-dessus de ce que je visais' + DEUX_POINTS + 'la prochaine fois, on essaie ') +
       enKg(charge, cite(FAIT, { quoi: 'effort_vise.haut' })) + '.';
   }

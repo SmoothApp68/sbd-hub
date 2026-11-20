@@ -102,8 +102,33 @@ describe('les invariants relisent la même fonction', () => {
     const p = T.planDeSeance(e);
     expect(T.verifierPlan(p, e, null).erreurs.filter((x) => /^I57|^I161|^I234|^I233/.test(x))).toEqual([]);
   });
-  test('4. « Au max » demandé 3, noté « 3 ou + » : aucune preuve (R > visée) ; demandé 2 : la preuve tient', () => {
-    expect(M.reserveAtteintLeSeuil(3, Math.max(0, 3))).toBe(false);
-    expect(M.reserveAtteintLeSeuil(3, Math.max(0, 2))).toBe(true);
+  // CONTRA-723 C3 — par le chemin du moteur (`parReserve`, `Math.max(visee, demandee)`), pas la fonction seule.
+  test('4. Franc Hypertrophie, « Au max » demandé 3, noté « 3 ou + » : le test, sans preuve « facile » ; demandé 2 : la preuve tient', () => {
+    const auMax = (dem) => { const h = histoire(100, 8, { ressenti: 'reste_3_plus' }); h[0].series[2].au_max_reserve = dem;
+      return consigne(h, { reglage: 'franc', correction: 'hypertrophie' }); };
+    const k3 = auMax(3);
+    expect(k3.etat).toBe('test_propose');
+    expect(k3.fondement.effortVise).toMatchObject({ effet: 'test', reserve: 3, visee: 0, demandee: 3 });
+    expect(k3.fondement.effortVise.preuveFacile).toBeUndefined();
+    const k2 = auMax(2);
+    expect(k2.fondement.effortVise).toMatchObject({ effet: 'test', reserve: 3, demandee: 2, preuveFacile: true });
+  });
+});
+
+// CONTRA-723 C1 — la phrase de fin d'exercice (`annonceDe('effort', …, 'apres')`) dit la même chose que le gris et le Pourquoi.
+describe('la phrase d’après la réponse', () => {
+  const apres = (ev, haut) => sp(M.annonceDe('effort', { ev, haut, moment: 'apres' }));
+  test('« 3 ou + » se dit « 3 ou plus » ; 2 au-dessus d’une visée de 0, sans « ou plus »', () => {
+    expect(apres({ effet: 'test', charge: 100, reps: 10, reserve: 3, visee: 1 }, { charge: 105 }))
+      .toBe('100 kg × 10, il t’en restait 3 ou plus. Au-dessus de ce que je visais : la prochaine fois, on essaie 105 kg.');
+    expect(apres({ effet: 'test', charge: 100, reps: 10, reserve: 2, visee: 0 }, { charge: 105 }))
+      .toBe('100 kg × 10, il t’en restait 2. Au-dessus de ce que je visais : la prochaine fois, on essaie 105 kg.');
+  });
+  test('soulevé en Franc noté 2 (la visée relevée à 2) : la cause est dite, jamais « c’est ce que je visais » seul comme raison', () => {
+    const k = consigneDe(histoire(100, 10, { ressenti: 'reste_2' }), { reglage: 'franc', correction: 'hypertrophie', famille: 'souleve_de_terre_barre' });
+    const ev = k.consigne.fondement.effortVise;
+    expect(ev).toMatchObject({ effet: 'test', reserve: 2, visee: 2 });
+    expect(apres(ev, k.consigne.haut))
+      .toBe('100 kg × 10, il t’en restait 2 : c’est ce que je visais ; avec Me pousser, c’est assez pour tester. La prochaine fois, on essaie 102,5 kg.');
   });
 });

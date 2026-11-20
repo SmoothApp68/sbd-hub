@@ -166,7 +166,7 @@ describe('les phrases (B3, Q3) : date absolue, aucune charge, aucun rep, tête f
     expect(esp(M.annonceDe('effort', { ev: ev(), moment: 'apres', regime: R }))).toBe('130 kg × 5, sans marge.');
     expect(esp(M.annonceDe('effort', { ev: ev({ reserve: 2 }), moment: 'apres', regime: R }))).toBe('130 kg × 5, avec 2 en réserve.');
     expect(esp(M.annonceDe('effort', { ev: ev({ effet: 'test', charge: 34, reps: 9, reserve: 3, visee: 1 }), haut: 36, moment: 'apres', regime: R })))
-      .toBe('34 kg × 9, il t’en restait 3. Au-dessus de ce que je visais.');
+      .toBe('34 kg × 9, il t’en restait 3 ou plus. Au-dessus de ce que je visais.');
     expect(esp(M.annonceDe('effort', { ev: ev({ effet: 'test', charge: 34, reps: 9, reserve: 2, visee: 2 }), haut: 36, moment: 'apres', regime: R })))
       .toBe('34 kg × 9, il t’en restait 2 : c’est ce que je visais.');
     expect(esp(M.annonceDe('effort', { ev: ev({ effet: 'test', charge: 30, reps: 10, reserve: 1, visee: 1, sortie: true }), haut: { charge: 32.5, vise: 8 }, moment: 'apres', regime: R })))

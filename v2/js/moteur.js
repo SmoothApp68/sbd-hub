@@ -2963,8 +2963,9 @@
           // I252 (20/11/2026 ; C1 : les reps visées sont celles de la consigne REÇUE, le haut de la zone en repli) — la capacité tenue : reps SAISIES +
           // réserve ≥ reps visées + la visée affichée. Aucune garde ; le fait de la ligne de fin d'exercice (I254).
           capacite = { charge: P, reps: nombre(derniereRetenue.reps), reserve: Rn, vise: repsVisees(consigneRecue(), P, hi), visee: Vn };
+          // CONTRA-726 B2 — « Sur cette barre, je vise N » seulement quand le plancher de la barre RELÈVE la table (comme `phraseDeLaBarre`) : `barre` en est la marque.
           var pbC = plancherDeBarre(famille);
-          if (pbC !== null) capacite.barre = pbC;
+          if (pbC !== null && VnT !== null && pbC > VnT) capacite.barre = pbC;
         } else if (Rn < Vn && !debutant && !auMaxCommeDemande(derniereRetenue, Rn)) {
           // 169 — LA SORTIE : la garde ne dure qu'une séance au haut de la zone. Si la séance d'avant, à la même charge,
           // finissait déjà au haut avec R < V, la garde a déjà eu lieu : le coach pose le test, quelle que soit la réserve.
@@ -5470,8 +5471,8 @@
     return phraseEffortVise(ev, haut, d.regime || null);
   }
 
-  // I254 (20/11/2026, MOTEUR §9.26 delta, VOIX-DU-COACH-V1) — « 100 kg × 7, sans marge : 2 de plus que prévu. » (l'écart aux reps de la consigne REÇUE) ; sur une barre dont la réserve notée est sous
-  // le plancher (`c.barre`, `PLANCHER_DE_BARRE`) : « Sur cette barre, je vise 1 en réserve. » (2 au soulevé). Un fait et la visée : ni « bravo », ni injonction,
+  // I254 (20/11/2026, MOTEUR §9.26 delta, VOIX-DU-COACH-V1) — « 100 kg × 7, sans marge : 2 de plus que prévu. » (l'écart aux reps de la consigne REÇUE) ; sur une
+  // barre dont le plancher relève la table (`c.barre`, `PLANCHER_DE_BARRE`) : « Sur cette barre, je vise 1 en réserve. » (la visée affichée ; 2 au soulevé). Un fait et la visée : ni « bravo », ni injonction,
   // ni « je garde », ni promesse (l'annonce de la suite dit le test, `annonceDe('suite')`). `c` : le fait `fondement.capacite` de la consigne suivante.
   function phraseDeLaCapacite(c) {
     var cF = cite(FAIT, { quoi: 'capacite' });
@@ -5479,7 +5480,8 @@
     var d = chargeFois(c.charge, c.reps, cF) +
       (c.reserve === 0 ? ', sans marge' : ', avec ' + nombreFr(c.reserve, cite(FAIT, { quoi: 'capacite.reserve' })) + ' en réserve') +
       DEUX_POINTS + nombreFr(de, cite(FAIT, { quoi: 'capacite.de_plus' })) + ' de plus que prévu.';
-    if (nombre(c.barre) !== null && c.reserve < c.barre) d += ' Sur cette barre, je vise ' + nombreFr(c.barre, regle('constante')) + ' en réserve.';
+    // CONTRA-726 B2 — seulement quand le plancher relève la table (`barre` posé), avec la visée AFFICHÉE (`c.visee`), comme `phraseDeLaBarre`.
+    if (nombre(c.barre) !== null && c.reserve < c.visee) d += ' Sur cette barre, je vise ' + nombreFr(c.visee, regle('constante')) + ' en réserve.';
     return d;
   }
   // 154 — « 130 kg × 5, sans marge. Je garde 130 kg la prochaine fois. » (R < V, la montée n'a pas lieu).

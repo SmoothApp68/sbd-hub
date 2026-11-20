@@ -7673,9 +7673,11 @@
         if (evS && evS.effet === 'garde') erreurs.push('I254' + nom + '« de plus que prévu » avec une garde');
         if (/je garde/i.test(phrase)) erreurs.push('I254' + nom + '« de plus que prévu » avec « je garde » : ' + phrase);
         var pb = M.plancherDeBarre(familleDeLExercice(entrees, x.slug));
-        var barreDue = !!cap && pb !== null && cap.reserve < pb;
+        var table = kS ? M.reserveVisee({ zone: kS.zone, role: 'ligne', reglage: plan.reglage }) : null;
+        var barreDue = !!cap && pb !== null && table !== null && pb > table && cap.reserve < cap.visee;
         var mb = /Sur cette barre, je vise (\d+) en réserve/.exec(phrase);
-        if (!!mb !== barreDue) erreurs.push('I254' + nom + '« Sur cette barre » ' + (mb ? 'dit' : 'tu') + ' (plancher ' + pb + ')');
+        if (!!mb !== barreDue) erreurs.push('I254' + nom + '« Sur cette barre » ' + (mb ? 'dit' : 'tu') + ' (plancher ' + pb + ', table ' + table + ')');
+        if (mb && cap && nombre(mb[1]) !== nombre(cap.visee)) erreurs.push('I254' + nom + '« je vise ' + mb[1] + ' », la visée affichée est ' + cap.visee);
       }
     });
   }

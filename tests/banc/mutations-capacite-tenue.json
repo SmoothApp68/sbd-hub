@@ -68,5 +68,15 @@
   "unitaires": [
    "tests/unit/v2-capacite-tenue.test.js"
   ]
+ },
+ {
+  "nom": "cap-b2-barre-sans-releve",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "if (pbC !== null && VnT !== null && pbC > VnT) capacite.barre = pbC;",
+  "nouveau": "if (pbC !== null) capacite.barre = pbC;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-capacite-tenue.test.js"
+  ]
  }
 ]

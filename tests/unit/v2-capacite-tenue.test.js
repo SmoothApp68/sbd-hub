@@ -64,7 +64,8 @@ describe('I252 — les cas de TT-CAPACITE-BARRES (Franc, la fois suivante)', () 
     const k = consigne('squat', 100, 4, [[100, 5, 6, 'reste_0']]);
     expect(etat(k)).toBe('test_propose 100×5 test 102.5×3');
     expect(garde(k)).toBe(false);
-    expect(k.fondement.capacite).toEqual({ charge: 100, reps: 6, reserve: 0, vise: 5, visee: 1, barre: 1 });
+    // B2 : en Franc, la table du squat (1) vaut le plancher (1) : pas de marque `barre` (« Sur cette barre » seulement quand le plancher relève la table).
+    expect(k.fondement.capacite).toEqual({ charge: 100, reps: 6, reserve: 0, vise: 5, visee: 1 });
   });
   test('squat : 100 × 5 sans marge → garde (capacité non tenue)', () => {
     const k = consigne('squat', 100, 4, [[100, 5, 5, 'reste_0']]);
@@ -158,7 +159,7 @@ describe('I254 — la ligne de fait en fin d’exercice', () => {
   });
   test('hors barre, ou réserve notée au plancher : pas de seconde phrase ; jamais « je garde », jamais en séance', () => {
     expect(cap({})).toBe('100 kg × 7, sans marge : 2 de plus que prévu.');
-    expect(cap({ charge: 180, reserve: 2, visee: 3, barre: 2 })).toBe('180 kg × 7, avec 2 en réserve : 2 de plus que prévu.');
+    expect(cap({ charge: 180, reserve: 2, visee: 3 })).toBe('180 kg × 7, avec 2 en réserve : 2 de plus que prévu.');
     expect(cap({ barre: 1 })).not.toMatch(/je garde/i);
     expect(M.annonceDe('effort', { ev: null, capacite: { charge: 100, reps: 7, reserve: 0, vise: 5, visee: 1 }, moment: 'aujourdhui' })).toBeNull();
   });
@@ -207,7 +208,8 @@ describe('C1 — les reps visées sont celles de la consigne reçue', () => {
     expect(j5.suite.fondement.capacite).toMatchObject({ reps: 5, reserve: 0, vise: 4, visee: 1 });
     const j6 = seanceDuJour('squat_barre', 100, [4, 4, 6], 'reste_0', 3);
     expect(j6.suite.etat).toBe('test_propose');
-    expect(sp(j6.x.effortVise.phrase)).toMatch(/^100 kg × 6, sans marge : 2 de plus que prévu\./);
+    // B2 : en Franc, la table du squat (1) vaut le plancher (1) : pas de « Sur cette barre ».
+    expect(sp(j6.x.effortVise.phrase)).toBe('100 kg × 6, sans marge : 2 de plus que prévu.');
     expect(j6.erreurs()).toEqual([]);
   });
   test('la règle de bord lit la même notion : bord 100 × 2 visé, 3 sans marge → monte (main : garde)', () => {
@@ -243,5 +245,24 @@ describe('C2 / C3 — I252 et I254 sur un plan de séance', () => {
     const e = []; P.verifierCapacite({ reglage: 'franc', protegee: false, exercices: [{ slug: 'squat_barre', consigne: k }] }, { precedents: { squat_barre: pr } }, e);
     expect(e.join(' ')).toMatch(/I252 bis/);
     expect(e.join(' ')).toMatch(/I252 —/);
+  });
+});
+
+describe('B2 (CONTRA-726) — « Sur cette barre, je vise N » seulement quand le plancher relève la table, N = la visée affichée', () => {
+  test('squat Normal (visée 2 = la table) : 100 × 8 sans marge pour 5 visés → aucune seconde phrase', () => {
+    const k = consigne('squat', 100, 4, [[100, 5, 8, 'reste_0']], { options: { reglage: 'normal' } });
+    expect(k.fondement.capacite).toMatchObject({ visee: 2 });
+    expect(k.fondement.capacite.barre).toBeUndefined();
+    expect(sp(M.annonceDe('effort', { ev: null, capacite: k.fondement.capacite, moment: 'apres' }))).toBe('100 kg × 8, sans marge : 3 de plus que prévu.');
+  });
+  test('couché Franc Hypertrophie (table 0, plancher 1), sur l’écran : « Sur cette barre, je vise 1 en réserve. » ; I254 propre', () => {
+    const j = seanceDuJour('developpe_couche_barre', 80, [10, 10, 11], 'reste_0', 9);
+    expect(j.recue.ligne.vise).toBe(10);
+    expect(sp(j.x.effortVise.phrase)).toBe('80 kg × 11, sans marge : 1 de plus que prévu. Sur cette barre, je vise 1 en réserve.');
+    expect(j.erreurs()).toEqual([]);
+    const faux = JSON.parse(JSON.stringify(j.plan));
+    faux.exercices[0].effortVise.phrase = '80 kg × 11, sans marge : 1 de plus que prévu.';
+    const e = []; P.verifierCapacite(faux, j.entrees, e);
+    expect(e.join(' ')).toMatch(/I254 .*Sur cette barre/);
   });
 });

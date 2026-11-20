@@ -295,6 +295,10 @@ describe('le plan : `x.reposConseille`', () => {
   test('silence : une durée (planche), Entretenir, l\'Édition, « Sans coach cette fois »', () => {
     const planche = monter([{ slug: 'planche', vise: null, series: 3 }]);
     expect(planche.plan.exercices[0].reposConseille).toBeNull();
+    // Une planche aux reps visées lues par erreur (le banc 7-G-sexies) : la mesure en durée est hors du coach (I13), le conseil se tait aussi.
+    const plancheReps = monter([{ slug: 'planche', vise: 10, series: 3 }]);
+    expect(plancheReps.plan.exercices[0].reposConseille).toBeNull();
+    expect(plancheReps.plan.exercices[0].phrases.some((p) => p.ou === 'repos.conseil')).toBe(false);
     const carnet = monter([{ slug: 'squat_barre', vise: 5 }], null, { intention: 'entretien' });
     expect(carnet.plan.exercices[0].reposConseille).toBeNull();
     const edition = monter([{ slug: 'squat_barre', vise: 5 }]);

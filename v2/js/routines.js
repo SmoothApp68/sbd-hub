@@ -84,8 +84,10 @@
   // 193-3 (v2_122) — `zone` : la zone que la routine fixe à cet exercice pour ce jour (NULL = Automatique : le coach la
   // lit dans les séances, comme avant). Un choix EXPLICITE de la personne (l'éditeur, le générateur) : elle ne se déduit
   // jamais des reps visées.
+  // 20/11/2026 (MOTEUR §9.41 delta, I250) — `chauffes_du_coach` : le coach choisit les chauffes de cet exercice (un programme qu'il a
+  // construit) ; colonne FACULTATIVE (`donnees.js`), partie seulement si l'appelant la porte.
   var CHAMPS_EXERCICE = ['routine_id', 'exercise_slug', 'rang',
-                         'repos_cible_s', 'groupe_superset', 'note', 'zone'];
+                         'repos_cible_s', 'groupe_superset', 'note', 'zone', 'chauffes_du_coach'];
   // `routine_exercises_zone_ok` : NULL ou l'une des cinq clés — LA table des zones est celle du moteur (`THMoteur.zoneParCle`,
   // lu à l'appel) : une autre valeur ne part pas en base, elle devient NULL.
   function zoneValide(v) {
@@ -412,6 +414,12 @@
   // liste vide effacerait la structure d'une routine à la première vidange, et
   // lever bloquerait la file définitivement — les deux pires issues possibles
   // pour une entrée qu'on ne peut plus corriger.
+  // Le nombre de lignes d'échauffement d'un exercice de routine (sa forme écrite), ou `null` quand ses séries ne sont pas lisibles.
+  function nombreDeChauffes(exo) {
+    var l = seriesEcrites(exo, null, null);
+    return l === null ? null : l.filter(function (s) { return s && s.type_serie === 'echauffement'; }).length;
+  }
+
   function seriesEcrites(exo, routineExerciceId, userId) {
     var liste = exo && exo.series;
     if (!Array.isArray(liste)) return null;
@@ -528,10 +536,17 @@
       if (!v.id || !parId[v.id]) { insertions.push(champs); return; }
 
       var vieux = parId[v.id];
+      // CONTRA-725 D5 — « le moteur propose, l'utilisateur décide » : quand la personne fixe elle-même le nombre de chauffes d'un exercice
+      // dont le coach les choisissait (des lignes d'échauffement ajoutées ou retirées, dans l'éditeur ou par le report de fin de séance),
+      // la marque s'efface : ses lignes sont les siennes (nombre fixé), et le coach ne les repose plus d'office.
+      if (vieux.chauffes_du_coach === true && champs.chauffes_du_coach !== false) {
+        var nA = nombreDeChauffes(vieux), nV = nombreDeChauffes(v);
+        if (nA !== null && nV !== null && nA !== nV) champs.chauffes_du_coach = false;
+      }
       var change = {};
       ['repos_cible_s', 'exercise_slug',
-       'groupe_superset', 'note', 'zone'].forEach(function (c) {
-        if (c === 'zone' && champs.zone === undefined) return;
+       'groupe_superset', 'note', 'zone', 'chauffes_du_coach'].forEach(function (c) {
+        if ((c === 'zone' || c === 'chauffes_du_coach') && champs[c] === undefined) return;
         // `vieux` vient de la base, où une colonne vide vaut NULL ; `champs` est
         // normalisé pareil. On compare donc deux formes identiques, et non
         // `undefined` contre `null` — qui différeraient à chaque tour.
@@ -642,6 +657,7 @@
     // 193-3 — la zone ne part que si l'appelant la porte : une intention posée avant la 193-3 (sans la clé) n'efface pas la
     // zone d'une ligne qui en a une.
     if (e && e.zone !== undefined) o.zone = zoneValide(e.zone);
+    if (e && e.chauffes_du_coach !== undefined && e.chauffes_du_coach !== null) o.chauffes_du_coach = e.chauffes_du_coach === true;
     if (routineId) o.routine_id = routineId;
     // ⚠️ L'IDENTIFIANT, QUAND L'APPELANT EN FOURNIT UN. `routine_exercises.id`
     // a `gen_random_uuid()` en défaut : l'app peut donc fabriquer le sien, et
@@ -1043,7 +1059,8 @@
           repos_cible_s: e.repos_cible_s === undefined ? null : e.repos_cible_s,
           groupe_superset: e.groupe_superset === undefined ? null : e.groupe_superset,
           note: e.note === undefined ? null : e.note,
-          zone: zoneValide(e.zone)
+          zone: zoneValide(e.zone),
+          chauffes_du_coach: e.chauffes_du_coach === true ? true : undefined
         };
       }))
     };
@@ -1500,6 +1517,13 @@
         if (x.exercise_slug === e.exercise_slug && x.groupe_superset === (e.groupe_superset === undefined ? null : e.groupe_superset)) {
           x.repos_cible_s = rs; x.repos_origine = ORIGINE_RACCOURCI;
         }
+      });
+    });
+    // 20/11/2026 (I250) — un exercice que le coach ajoute à son programme : il en choisit les chauffes (aucune ligne écrite, la marque).
+    (d.exercices || []).forEach(function (e) {
+      if (e.chauffes_du_coach !== true) return;
+      routine.exercices.forEach(function (x) {
+        if (x.exercise_slug === e.exercise_slug && x.groupe_superset === (e.groupe_superset === undefined ? null : e.groupe_superset)) x.chauffes_du_coach = true;
       });
     });
     // 193-2 — la ZONE du jour (193-3) : posée sur l'exercice, jamais devinée. Sans zone donnée, rien ne change.

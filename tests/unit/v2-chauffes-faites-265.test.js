@@ -15,14 +15,15 @@ const charges = (r) => r.lignes.map((l) => l.charge);
 const TROP_PROCHE = 'Trop proche de ta charge de travail pour une chauffe de plus.';
 
 describe('§9.15.7 — après une chauffe faite', () => {
+  // 20/11/2026 (MOTEUR §9.15 delta) — la montée du coach (lignes qu'il a posées) : la barre vide, puis 50 % et 88 % (90 kg).
   test('sans chauffe faite : la rampe du nombre de lignes, inchangée', () => {
-    expect(charges(avec(3, [null, null, null]))).toEqual([40, 60, 80]);
+    expect(charges(avec(3, [null, null, null]))).toEqual([20, 50, 90]);
     expect(avec(3, [null, null, null]).trop_proches).toBe(0);
   });
 
-  test('fait 50 × 8, une ligne de plus : la rampe convient (80), gardée', () => {
+  test('fait 50 × 8, une ligne de plus : la rampe convient (90), gardée', () => {
     const r = avec(2, [{ charge: 50, reps: 8 }, null]);
-    expect(r.lignes[1].charge).toBe(80);
+    expect(r.lignes[1].charge).toBe(90);
   });
 
   test('fait 50 × 8 et 80 × 3, une de plus : 90 (et non 80, qui ne monte pas)', () => {
@@ -47,7 +48,7 @@ describe('§9.15.7 — après une chauffe faite', () => {
 
   test('validation dans le désordre : une ligne restée AVANT une chauffe faite garde la rampe (la montée se lit dans l\u2019ordre, I16)', () => {
     const r = avec(3, [null, null, { charge: 80, reps: 2 }]);
-    expect(charges(r)).toEqual([40, 60, 80]);
+    expect(charges(r)).toEqual([20, 50, 90]);
   });
 
   test('la borne est la plus lourde des chauffes faites, quelle que soit sa place', () => {
@@ -80,7 +81,7 @@ describe('§9.15.7 — après une chauffe faite', () => {
   test('dévalider une chauffe rend la rampe du nombre de lignes (fonction pure des faites)', () => {
     const avant = charges(avec(3, [{ charge: 50, reps: 8 }, { charge: 80, reps: 3 }, null]));
     expect(avant[2]).toBe(90);
-    expect(charges(avec(3, [{ charge: 50, reps: 8 }, null, null]))).toEqual([40, 60, 80]);
-    expect(charges(avec(3, [null, null, null]))).toEqual([40, 60, 80]);
+    expect(charges(avec(3, [{ charge: 50, reps: 8 }, null, null]))).toEqual([20, 70, 90]);
+    expect(charges(avec(3, [null, null, null]))).toEqual([20, 50, 90]);
   });
 });

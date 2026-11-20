@@ -4888,7 +4888,8 @@
     var fait = false;
     p.exercices.forEach(function (x, i) {
       if (!x || !x.proposition || x.proposition.mode !== 'auto') return;
-      seance = Seance.noterGeste(seance, { geste: 'chauffes_auto', slug: x.slug });
+      // 20/11/2026 — posées par un programme du coach (`programme`) : le fait « la personne les ajoute » ne les compte pas (faits.chauffesAjoutees).
+      seance = Seance.noterGeste(seance, x.proposition.programme ? { geste: 'chauffes_auto', slug: x.slug, programme: true } : { geste: 'chauffes_auto', slug: x.slug });
       seance = Seance.insererChauffes(seance, i, x.proposition.lignes, uuid);
       fait = true;
     });
@@ -7649,6 +7650,17 @@
     var exo = (seance.exercices || []).filter(function (x) { return x && x.exercise_slug === slug; })[0];
     return exo && exo.zone_plan ? exo.zone_plan : null;
   }
+  // 20/11/2026 (MOTEUR §9.41 delta, I250) — les exercices de la séance dont le COACH choisit les chauffes : la ligne de routine porte
+  // `chauffes_du_coach` (colonne facultative : absente, rien, la carte d'avant). `{ slug: true }`.
+  function chauffesDuCoachDeLaSeance(exos) {
+    var rt = routineDeLaSeance(), sortie = {};
+    if (!rt || rejeuEnCours) return sortie;
+    (exos || []).forEach(function (exo) {
+      var l = exo && exo.routine_exercise_id ? (rt.exercices || []).filter(function (e) { return e && e.id === exo.routine_exercise_id; })[0] : null;
+      if (l && l.chauffes_du_coach === true) sortie[exo.exercise_slug] = true;
+    });
+    return sortie;
+  }
   // 193-3 — « juste pour aujourd'hui » : la zone de plan de la séance n'est plus celle de la ligne de routine.
   function zonePlanOrigineDe(slug) {
     var zp = zonePlanDe(slug);
@@ -8559,6 +8571,8 @@
       // deux faits de `faits.js`, le plan décide.
       e1rms: rejeuEnCours ? {} : e1rmsDesExercices(exos),
       chauffesAjoutees: rejeuEnCours ? {} : faits.chauffesAjoutees(corpus(), slugsDesExercices(exos), seance.debut),
+      // 20/11/2026 (MOTEUR §9.41 delta, I250) — les exercices dont le coach choisit les chauffes (un programme qu'il a construit).
+      chauffesDuCoach: chauffesDuCoachDeLaSeance(exos),
       // 225 (MOTEUR §9.40) — l'activité NOTÉE de la veille (un fait : jamais une habitude déclarée) et la réponse de la séance.
       activiteVeille: rejeuEnCours ? null : faits.activiteDeLaVeille(corpus(), seance.debut),
       veilleChoix: seance.veille_choix === 'leger' || seance.veille_choix === 'garder' ? seance.veille_choix : null,
@@ -11356,10 +11370,14 @@
       // 1re ligne de travail, sinon la consigne —, aucune ligne de chauffe, rien de validé), « + Chauffe » pose TOUTE la montée, par le MÊME
       // chemin qu'« Ajouter » (`poserLesChauffes`, paramètre `demande`). Sinon, comme avant : une ligne vide, aucun geste (la ligne typée
       // échauffement EST le fait que `faits.chauffesAjoutees` relit, §9.41, règle 6).
+      // 20/11/2026 (MOTEUR §9.15.5 delta, I247) — l'exercice a déjà ses chauffes : UNE ligne juste avant la 1re série de travail, que le plan
+      // charge au milieu du dernier saut ; le geste `chauffe_plus` nomme la série (l'id), pour que la montée ne la reprenne pas.
       surAjoutChauffe: async function (i) {
         if (!seance || !seance.exercices[i]) return;
         if (!enEdition() && await poserLesChauffes(i, true)) return;
-        seance = Seance.insererChauffes(seance, i, [[null, null]], uuid);
+        var idPlus = uuid();
+        seance = Seance.insererChauffes(seance, i, [[null, null]], function () { return idPlus; });
+        if (!enEdition()) seance = Seance.noterGeste(seance, { geste: 'chauffe_plus', slug: seance.exercices[i].exercise_slug, serie: idPlus });
         await apresGeste({ structure: false });
       },
       // MOTEUR §9.15.2 (49-U10) — la proposition de chauffes, lue sur le plan.
@@ -16299,6 +16317,9 @@
       if (l.reculs > 0) { x.reculs = l.reculs; x.reps_recul = l.reps_recul; }
       if (l.zone) x.zone = l.zone;
       if (l.au_max === true) x.au_max = true;       // 193-6 : la dernière série « Au max »
+      // 20/11/2026 (MOTEUR §9.41 delta, I250) — une place que le COACH a posée (le gabarit, ou un exercice ajouté par le générateur) : il en
+      // choisit les chauffes (`chauffes_du_coach`). Une place déduite de tes séances garde ton nombre (`chauffes`, même 0).
+      if (l.chauffes_du_coach === true || l.chauffes === undefined || l.chauffes === null) x.chauffes_du_coach = true;
       if (l.duree_s > 0) x.duree_s = l.duree_s;     // 195 : une figure se tient en secondes (`duree_cible_s`), jamais en reps
       // 188-2 — un repos d'isolation raccourci par la compression (étape 2) se porte jusqu'à la routine créée.
       if (l.repos_raccourci_s > 0) x.repos_raccourci_s = l.repos_raccourci_s;
@@ -17504,6 +17525,8 @@
   // 190 (MOTEUR §10.2) — LE MOTEUR LIT LE PLUS PETIT DISQUE DU PROFIL, à chaque calcul : le pas de la barre est 2 × ce disque
   // (`Moteur.pasDeLaBarre`). Un seul branchement ; le profil à jour est toujours celui qu'il lit.
   Moteur.brancherPlusPetitDisque(function () { return Profil.plusPetitDisqueDe(profil); });
+  // 20/11/2026 (MOTEUR §9.15 delta) — la barre vide des chauffes est celle de ta salle (`ma_salle.barre_kg`).
+  Moteur.brancherBarreDeLaSalle(function () { return Profil.barreDe(profil); });
   // Ce qui attend d'être envoyé (116, audit du 16/10/2026) : `false` (rien), les COLONNES des gestes pas encore partis
   // (`{ colonne: valeur }`, fusionnées par `Profil.fusionnerEnAttente`), ou `true` — la forme d'avant 116, relue sur
   // un appareil qui attendait déjà : la ligne entière part, une fois. Vrai ou faux s'y lit comme avant.

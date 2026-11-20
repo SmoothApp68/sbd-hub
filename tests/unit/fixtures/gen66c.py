@@ -177,7 +177,7 @@ def completer(e):
                 continue
             _, _, n, r = min(places, key=lambda t: t[:2])
             reps = (hab.get('reps') or {}).get(s)
-            r['exercices'].append({'exercise_slug': s, 'series': n, 'reps': reps, 'chauffes': 0})
+            r['exercices'].append({'exercise_slug': s, 'series': n, 'reps': reps, 'chauffes': 0, 'chauffes_du_coach': True})  # 20/11/2026 : le coach choisit ses chauffes (I250)
             journal.append({'type': 'exercice', 'motif': motif, 'muscle': m, 'routine': r['nom'],
                             'exercise_slug': s, 'series': n, 'reps': reps})
             return True

@@ -114,6 +114,8 @@ const GARDEES = [
   { fn: 'situationChauffe', module: 'moteur.js' },
   { fn: 'chauffesDe', module: 'moteur.js' },
   { fn: 'propositionDeChauffes', module: 'moteur.js' },
+  // 20/11/2026 (§9.15 delta, I244) — LA montée de chauffe : toutes les sources (routine, coach, proposition, demande, peu de temps) ; seul le moteur l'appelle.
+  { fn: 'monteeDeChauffe', module: 'moteur.js' },
   // 15/11/2026 (§9.41 bis, I184) — la référence des chauffes : la saisie d'abord, la consigne en repli ; seul `planDeSeance` l'appelle.
   { fn: 'referenceDesChauffes', module: 'moteur.js' },
   { fn: 'degressiveDe', module: 'moteur.js' },
@@ -2148,6 +2150,10 @@ const NOTIONS = [
     module: 'moteur.js', fonction: 'brancherPlusPetitDisque', lecteurs: ['app.js'],
     raison: 'Le moteur ne lit pas le profil : l’app lui branche UNE lecture (`Profil.plusPetitDisqueDe`), appelée à chaque calcul, ' +
       'si bien que le profil à jour est toujours celui qui décide du pas de la barre.' },
+  { notion: 'la lecture de la barre de la salle par le moteur (branchée par l’app au démarrage)', pr: 'correctif 20/11/2026',
+    module: 'moteur.js', fonction: 'brancherBarreDeLaSalle', lecteurs: ['app.js'],
+    raison: 'La barre vide des chauffes est celle de la salle (`ma_salle.barre_kg`) : le moteur ne lit pas le profil, l’app lui branche ' +
+      'UNE lecture (`Profil.barreDe`), comme le plus petit disque — jamais un 20 kg écrit à part.' },
   { notion: 'un exercice qui demande une barre de traction (tractions et variantes, relevés suspendus, rowing inversé…)', pr: '190-U1',
     module: 'profil.js', fonction: 'demandeUneBarreDeTraction', lecteurs: ['generateur.js', 'app.js'],
     parAilleurs: { 'generateur.js': ['demandeUneBarreFixe'] },
@@ -2331,7 +2337,7 @@ const NOTIONS = [
   // MOTEUR §9.51 quinquies (PR A, 15/11/2026) : la table des coupures de reps. Aucun lecteur hors `modele.js` pour l'instant : les
   // trois copies du seuil lourd (bilans, plan, faits) ont été des exceptions NOMMÉES, retirées une à une (PR B : plan ; PR C : bilans ; PR D : faits) — la liste blanche est vide.
   { notion: 'la bande de reps d\u2019une série (lourdes ≤ 5, moyennes 6 à 8, hautes 9 à 12, longues 13 et plus)', pr: 'correctif 15/11/2026',
-    module: 'modele.js', fonction: 'bandeDeReps', lecteurs: ['bilans.js'],
+    module: 'modele.js', fonction: 'bandeDeReps', lecteurs: ['bilans.js', 'moteur.js', 'plan.js'],
     par: ['estSerieLourde'],
     interditAilleurs: { motif: /\bREPS_LOURDES_MAX\b|\bZONES_DE_REPS\b|\b(?:reps?|rp)\s*(?:<=?|>=?)\s*(?:5|6|8|9|12|13)\b|\bhautMax\b|\blourdMax\b|\bmilieuMax\b/,
       raison: 'une coupure de reps écrite en dur : la description d\u2019une série par ses reps lit `Modele.bandeDeReps` / `estSerieLourde` ; les bornes ne vivent que dans `COUPURES_DE_REPS`' },

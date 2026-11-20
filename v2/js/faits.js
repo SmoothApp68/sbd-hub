@@ -2468,6 +2468,10 @@
         for (var i = 0; i < liste.length; i++) {
           var g = liste[i], gs = gestesDe[g.id] || [];
           var annulee = gs.some(function (q) { return q && q.geste === 'chauffes_annulees' && q.slug === slug; });
+          // 20/11/2026 (I250) — des chauffes posées par un programme du coach (`chauffes_auto` marqué `programme`) ne disent pas que la
+          // personne les ajoute : la séance est NEUTRE (ni comptée, ni rupture).
+          var parLeProgramme = gs.some(function (q) { return q && q.geste === 'chauffes_auto' && q.programme === true && q.slug === slug; });
+          if (parLeProgramme && !annulee) continue;
           var ajoutee = gs.some(function (q) { return q && (q.geste === 'chauffes_ajoutees' || q.geste === 'chauffes_auto') && q.slug === slug; }) ||
             g.series.some(function (x) { return Modele.typeDe(x) === 'echauffement'; });
           if (!ajoutee || annulee) break;

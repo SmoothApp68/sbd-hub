@@ -52,17 +52,18 @@ describe('règle 1 — quand proposer', () => {
 });
 
 describe('règle 2 — les paliers', () => {
-  test('une barre lourde : trois paliers qui montent, la dernière vers 85 %, jamais au-delà de 90 %', () => {
+  // 20/11/2026 (MOTEUR §9.15 delta) — la montée du coach : la barre vide, une marche par 40 kg, la dernière à 88 % (bande inconnue).
+  test('une barre lourde : la barre vide et trois marches qui montent, la dernière vers 88 %, jamais au-delà de 90 %', () => {
     const r = P({ equipement: 'barre', reference: 140, e1rm: 160, premier: true });
-    expect(charges(r)).toEqual([50, 90, 120]);
-    expect(reps(r)).toEqual([8, 5, 2]);
+    expect(charges(r)).toEqual([20, 70, 100, 120]);
+    expect(reps(r)).toEqual([10, 6, 3, 1]);
     expect(Math.max.apply(null, charges(r))).toBeLessThanOrEqual(0.9 * 140);
   });
   test('le nombre de paliers suit l’écart : une barre légère en a moins qu’une barre lourde', () => {
     const leger = P({ equipement: 'barre', reference: 40, e1rm: 50, premier: true });
     const lourd = P({ equipement: 'barre', reference: 180, e1rm: 200, premier: true });
     expect(leger.lignes.length).toBeLessThan(lourd.lignes.length);
-    expect(lourd.lignes.length).toBeLessThanOrEqual(4);
+    expect(lourd.lignes.length).toBeLessThanOrEqual(6);
   });
   test('arrondi au cran du matériel : une machine au cran de 5', () => {
     const r = P({ equipement: 'machine', reference: 80, e1rm: 100, premier: true, cran: 5 });
@@ -71,7 +72,7 @@ describe('règle 2 — les paliers', () => {
   test('les reps décroissent toujours', () => {
     [60, 100, 140, 200].forEach((ref) => {
       const rp = reps(P({ equipement: 'barre', reference: ref, e1rm: ref * 1.2, premier: true }));
-      rp.forEach((v, i) => { if (i) expect(v).toBeLessThan(rp[i - 1]); });
+      rp.forEach((v, i) => { if (i) expect(v).toBeLessThanOrEqual(rp[i - 1]); });
     });
   });
   test('aucune chauffe n’atteint la charge de travail, quel que soit le cran', () => {
@@ -84,10 +85,11 @@ describe('règle 2 — les paliers', () => {
 });
 
 describe('règles 3 et 4 — le poids du corps et l’isolation', () => {
-  test('au poids du corps : une série facile, sans charge, une seule', () => {
-    const r = P({ equipement: 'aucun', corps: true, premier: true });
-    expect(r.lignes).toEqual([[null, 8]]);
-    expect(r.phrase).toMatch(/série facile/);
+  // 20/11/2026 (MOTEUR §9.17 delta) — le mouvement lui-même, au tiers des reps visées (2 à 5), jamais « une série facile × 8 ».
+  test('au poids du corps : le mouvement au tiers des reps visées, sans charge, une seule', () => {
+    const r = P({ equipement: 'aucun', corps: true, premier: true, reps: 8 });
+    expect(r.lignes).toEqual([[null, 3]]);
+    expect(r.phrase).toBe('Chauffe : poids du corps × 3.');
   });
   test('une isolation en tête de séance : une série légère de 15', () => {
     const r = P({ equipement: 'poulie', reference: 30, e1rm: 40, premier: true, premierExercice: true, isolation: true, cran: 2.5 });
@@ -101,10 +103,11 @@ describe('règles 3 et 4 — le poids du corps et l’isolation', () => {
 });
 
 describe('règle 5 — « J’ai peu de temps »', () => {
-  test('sur une barre : exactement une chauffe, jamais zéro', () => {
+  // 20/11/2026 (I127 réécrit) — deux chauffes dès 100 kg à la barre libre, une en dessous ; jamais zéro.
+  test('sur une barre : deux chauffes dès 100 kg, une en dessous, jamais zéro', () => {
     [40, 60, 100, 140, 200].forEach((ref) => {
       const r = P({ equipement: 'barre', reference: ref, e1rm: ref * 1.3, premier: true, peuDeTemps: true });
-      expect(r.lignes.length).toBe(1);
+      expect(r.lignes.length).toBe(ref >= 100 ? 2 : 1);
     });
   });
   test('237-bis — hors barre, un polyarticulaire chargé : une chauffe (smith, presse, hack squat, haltères, machine guidée)', () => {
@@ -124,7 +127,7 @@ describe('règle 5 — « J’ai peu de temps »', () => {
     expect(P({ equipement: 'barre', reference: 30, e1rm: 38, premier: true, peuDeTemps: true, isolation: true }).mode).toBe('rien');
     expect(P({ equipement: 'machine', reference: 40, e1rm: 50, premier: true, peuDeTemps: true, menagee: true, cran: 5, isolation: true }).lignes.length).toBe(1);
     expect(P({ equipement: 'aucun', corps: true, premier: true, peuDeTemps: true }).mode).toBe('rien');
-    expect(P({ equipement: 'aucun', corps: true, premier: true }).lignes.length).toBe(1);
+    expect(P({ equipement: 'aucun', corps: true, premier: true, reps: 8 }).lignes.length).toBe(1);
   });
 });
 
@@ -270,9 +273,12 @@ describe('le plan — proposition, ajout automatique, « Annuler », silence', (
     const r = plan(seanceDe(), { refusChauffes: { squat_barre: true } });
     expect(r.x.proposition).toBeNull();
   });
-  test('« J’ai peu de temps » sur une barre : exactement une chauffe (I127)', () => {
+  // 20/11/2026 (I127 réécrit) — squat à 100 kg et plus, à la barre libre : deux chauffes (50 % et la dernière) ; et le plan passe ses invariants.
+  test('« J’ai peu de temps » sur une barre : deux chauffes dès 100 kg (I127)', () => {
     const r = plan(seanceDe(), { raccourci: { cible: 30, complet: [], resultat: { exercices: [] } } });
-    if (r.x.proposition) expect(r.x.proposition.lignes.length).toBe(1);
+    expect(r.x.proposition).not.toBeNull();
+    expect(r.x.proposition.lignes.length).toBe(r.x.proposition.reference >= 100 ? 2 : 1);
+    expect(r.erreurs).toEqual([]);
   });
 
   test('237-bis — le silence annoncé : la phrase du moteur et « Annuler » tant que rien n’est fait ; annulé, elle part', () => {

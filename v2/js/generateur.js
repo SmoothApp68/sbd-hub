@@ -1513,7 +1513,9 @@
         }
         if (!place) continue;
         var reps = possede(repsHab, s) ? repsHab[s] : null;
-        place.r.exercices.push({ exercise_slug: s, series: place.n, reps: reps, chauffes: 0 });
+        // 20/11/2026 (MOTEUR §9.41 delta, I250) — un exercice que le coach ajoute : il en CHOISIT les chauffes (`chauffes_du_coach`), aucune
+        // ligne n'est écrite. Une routine déduite garde les siennes (le nombre que la personne a tapé, même 0 : « aucune »).
+        place.r.exercices.push({ exercise_slug: s, series: place.n, reps: reps, chauffes: 0, chauffes_du_coach: true });
         journal.push({ type: 'exercice', motif: motif, muscle: m, routine: place.r.nom, exercise_slug: s,
                        series: place.n, reps: reps });
         return true;

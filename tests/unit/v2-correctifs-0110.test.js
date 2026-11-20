@@ -419,8 +419,9 @@ describe('49-U18 bis — la phrase des chauffes disparaît dès qu’une chauffe
     catalogue: { mil: { equipement: 'barre', muscles_primaires: ['deltoide_anterieur'] } }
   }).exercices[0];
 
-  test('avant : « Chauffes calées sur 52,5 kg : 20 · 45 kg. »', () => {
-    expect(plan(null).chauffes.phrase.replace(/\u00a0/g, ' ')).toBe('Chauffes calées sur 52,5 kg : 20 · 45 kg.');
+  // 20/11/2026 (MOTEUR §9.15 delta) — l'unité et les reps sur chaque chauffe.
+  test('avant : « Chauffes calées sur 52,5 kg : 20 kg × 10 · 45 kg × 10. »', () => {
+    expect(plan(null).chauffes.phrase.replace(/\u00a0/g, ' ')).toBe('Chauffes calées sur 52,5 kg : 20 kg × 10 · 45 kg × 10.');
   });
 
   test('une chauffe faite à 40 × 6 : plus de phrase ; la 2e chauffe garde sa charge pré-remplie', () => {

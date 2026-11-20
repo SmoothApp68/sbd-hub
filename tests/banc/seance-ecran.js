@@ -10982,7 +10982,7 @@ const SETS_IMPORTES = [
     ok('[U10] DISCRIMINANT — les chauffes de la routine, remplies d’office : 20 · 60 · 90 · 110 (avant : vides)',
       JSON.stringify(f.slice(0, 4)) === JSON.stringify(['20', '60', '90', '110']), JSON.stringify(f.slice(0, 7)));
     ok('[U10] la phrase des chauffes, au-dessus de la première',
-      esp((await phrasesU('chauffe'))[0]) === 'Chauffes calées sur 125 kg : 20 · 60 · 90 · 110 kg.', esp(JSON.stringify(await phrasesU('chauffe'))));
+      esp((await phrasesU('chauffe'))[0]) === 'Chauffes calées sur 125 kg : 20 kg × 10 · 60 kg × 6 · 90 kg × 3 · 110 kg × 1.', esp(JSON.stringify(await phrasesU('chauffe'))));
     ok('[U10] aucun pari sur une chauffe ni une dégressive', pb && pb.paris.every((t) => t === 'travail'), JSON.stringify(pb && pb.paris));
 
     // Valider une chauffe SANS RIEN TAPER : sa charge s'écrit (ce qui est gris devient réel).
@@ -11012,8 +11012,9 @@ const SETS_IMPORTES = [
     // ailleurs. Le biceps à la barre de la routine, à 40 kg : rien.
     // 237 (§9.41) — le seuil de 49-24 est remplacé : le premier exercice du muscle, au-dessus de 60 % du max estimé (ou sans max connu).
     // Le biceps à la barre est le premier du muscle : une proposition d'une seule chauffe, vers 85 %.
-    ok('[U10] 237 — DISCRIMINANT : le biceps à la barre à 40 kg, premier du muscle : UNE chauffe proposée (35 kg × 5)',
-      esp(await propositionU(2)) === 'Chauffe : 35 kg × 5', esp(await propositionU(2)));
+    // 20/11/2026 (MOTEUR §9.15 delta) — le coach choisit : la barre vide, puis la dernière selon la zone (9 reps et plus : 75 %).
+    ok('[U10] 237 — DISCRIMINANT : le biceps à la barre à 40 kg, premier du muscle : la barre vide puis 30 kg × 3',
+      esp(await propositionU(2)) === 'Chauffe : 20 kg × 10 · 30 kg × 3.', esp(await propositionU(2)));
     await saisirSerie(7, 60, 15);
     await attendre(500);
     ok('[U10] après la première série de travail, le repos tourne', await reposVisible(), '');
@@ -11061,8 +11062,8 @@ const SETS_IMPORTES = [
     // Un exercice ajouté hors routine, à la barre, sans chauffe : la proposition.
     await ajouterExoSeance('Militaire U10');
     const prop1 = await propositionU(3);
-    ok('[U10] DISCRIMINANT — ajouté sans chauffe : le coach PROPOSE la montée (80 kg : 45 × 8 · 70 × 3, 237)',
-      esp(prop1) === 'Chauffe : 45 kg × 8 · 70 kg × 3', esp(prop1));
+    ok('[U10] DISCRIMINANT — ajouté sans chauffe : le coach PROPOSE la montée (80 kg : 20 × 10 · 40 × 6 · 70 × 1, 20/11/2026)',
+      esp(prop1) === 'Chauffe : 20 kg × 10 · 40 kg × 6 · 70 kg × 1.', esp(prop1));
     const deplie265 = await page.evaluate(() => {
       const n = document.querySelector('.proposition-chauffes[data-iexo="3"]');
       const b = n ? n.querySelector('.pc-ajouter') : null;
@@ -11088,8 +11089,8 @@ const SETS_IMPORTES = [
     await page.click('.proposition-chauffes[data-iexo="3"] .pc-ajouter');
     await attendre(900);
     f = await fantomesU();
-    ok('[U10] « Ajouter » : deux lignes au-dessus du travail, remplies 45 · 70 (les charges proposées, 237)',
-      (await compter('.ligne-serie')) === avantAjout + 2 && JSON.stringify(f.slice(13, 15)) === JSON.stringify(['45', '70']),
+    ok('[U10] « Ajouter » : trois lignes au-dessus du travail, remplies 20 · 40 · 70 (les charges proposées, 20/11/2026)',
+      (await compter('.ligne-serie')) === avantAjout + 3 && JSON.stringify(f.slice(13, 16)) === JSON.stringify(['20', '40', '70']),
       JSON.stringify(f.slice(13)));
     ok('[U10] et la proposition disparaît', (await propositionU(3)) === null, '');
     ok('[U10] 15/11/2026 — « Ajouter » expose « Annuler » (la ligne du plan, bouton secondaire)',
@@ -12573,10 +12574,13 @@ const SETS_IMPORTES = [
     // Mix : la charge se reporte, 57,5 kg × 6 (estimée, 58,3), et les chauffes
     // se calent sur elle (avant 53-1 : 52,5, « 20 · 45 kg » ; 255 : 55, la réserve visée comptée).
     const etape1 = (t1.split('── Étape 1 ')[1] || '').split('── Étape 2 ')[0];
+    // 20/11/2026 (MOTEUR §9.15 delta, règle 8) — la phrase dit l'unité et les reps de chaque chauffe : « 20 kg × 10 · 50 kg × 2 » (avant :
+    // « 20 · 50 kg »). Et la dernière ne dépasse plus 90 % (règle 2 : 88 % de 55 = 48,4 → 50, soit 90,9 % → un pas plus bas, 45 kg) : la
+    // phrase disparaît toujours après la chauffe faite (49-U18 bis, ce que ce contrôle discrimine).
     ok('[RJ] 49-U18 bis — la phrase des chauffes du militaire disparaît après la chauffe à 40 × 6',
-      /chauffes : « Chauffes calées sur 55.kg.: 20 · 50.kg\. »/.test(mil) &&
+      /chauffes : « Chauffes calées sur 55.kg.: 20.kg × \d+ · 45.kg × \d+\. »/.test(mil) &&
       /chauffes : \(sans phrase\)/.test(etape1) && !/Chauffes calées/.test(etape1),
-      (etape1.split('\n').filter((l) => /chauffes/.test(l))[0] || ''));
+      (mil.split('\n').filter((l) => /chauffes/.test(l))[0] || '') + ' | ' + (etape1.split('\n').filter((l) => /chauffes/.test(l))[0] || ''));
     ok('[RJ] 49-U18 bis — le couché : « Ta première série à 88 kg passe à 92 kg. » (une montée)',
       /en-tête \(gris\) : « Ta première série à 88.kg passe à 92.kg\. »/.test(cou),
       (cou.split('\n').filter((l) => /gris/.test(l))[0] || ''));
@@ -13182,6 +13186,7 @@ const SETS_IMPORTES = [
         carte: x.carteLest ? { titre: x.carteLest.titre, detail: x.carteLest.detail, oui: x.carteLest.oui,
           non: x.carteLest.non, leste: x.carteLest.leste } : null,
         chauffes: !!(x.chauffes || x.proposition), degressive: !!x.degressive,
+        proposition: x.proposition ? x.proposition.lignes : null, lignesDeChauffe: !!x.chauffes,
         lignes: x.lignes.map((l) => [l.role, l.charge, l.vise]) } : null;
     }, slug);
     const cartes = () => page.evaluate(() => Array.from(document.querySelectorAll('.proposition-lest')).map((c) => ({
@@ -13268,9 +13273,11 @@ const SETS_IMPORTES = [
       !!c1 && sp(c1.jaune[0]) === '2,5 kg × 6' && /Corps Lesté U50/.test(await blocSeance()) &&
         !/Corps Libre U50/.test(await blocSeance()),
       JSON.stringify([c1, await jauneDom()]));
-    ok('[P50] la colonne s’appelle « LEST (KG) », et le lesté n’a ni chauffes ni dégressive',
-      (await entetesCols()).indexOf('LEST (KG)') >= 0 && !!c1 && !c1.chauffes && !c1.degressive,
-      JSON.stringify([await entetesCols(), c1 && c1.chauffes]));
+    // 20/11/2026 (MOTEUR §9.17 delta, I249) — le lesté a sa chauffe : la série au poids du corps, à ⌈6 / 3⌉ = 2 reps (sous 20 kg de lest,
+    // pas de 2e ligne) ; une PROPOSITION (aucune ligne posée d'office), et toujours aucune dégressive (avant : ni chauffes ni dégressive).
+    ok('[P50] la colonne s’appelle « LEST (KG) » ; le lesté a sa chauffe au poids du corps (× 2, proposée) et aucune dégressive',
+      (await entetesCols()).indexOf('LEST (KG)') >= 0 && !!c1 && !c1.lignesDeChauffe && JSON.stringify(c1.proposition) === '[[0,2]]' && !c1.degressive,
+      JSON.stringify([await entetesCols(), c1 && c1.proposition, c1 && c1.lignesDeChauffe, c1 && c1.degressive]));
     await page.evaluate(() => document.querySelector('.ok-serie').click());
     await attendre(1500);
     const serieLeste = base.sets.filter((x) => x.exercise_slug === 'pdc-u50-l' && x.rang === 1)[0];
@@ -24749,20 +24756,21 @@ const SETS_IMPORTES = [
     ok('[S112] la ligne ajoutée est une chauffe, et la table n’en prévoyait aucune (situation « aucune »)',
       !!une112 && JSON.stringify(une112.types) === '["travail","travail","echauffement"]' &&
       !!une112.chauffes && une112.chauffes.situation === 'aucune' && une112.chauffes.reference === 60, nb112(une112));
-    ok('[S112] DISCRIMINANT (§9.15.5) — UNE chauffe ajoutée se remplit : ~60 % × 8 de 60 kg → 35 kg × 8 (avant 94 : vide)',
-      !!r1 && r1.charge === '35' && r1.reps === '8', nb112(r1));
-    ok('[S112] et sa phrase : « Chauffes calées sur 60 kg : 35 kg. »',
-      esp112(une112 && une112.chauffes.phrase) === 'Chauffes calées sur 60 kg : 35 kg.', nb112(une112 && une112.chauffes));
+    // 20/11/2026 (MOTEUR §9.15 delta) — la même montée : une ligne à froid, 70 % au plus ; ses reps (vides) celles de la règle.
+    ok('[S112] DISCRIMINANT (§9.15.5) — UNE chauffe ajoutée se remplit : à froid, 70 % au plus de 60 kg → 40 kg × 3 (avant 94 : vide)',
+      !!r1 && r1.charge === '40' && r1.reps === '3', nb112(r1));
+    ok('[S112] et sa phrase : « Chauffes calées sur 60 kg : 40 kg × 3. »',
+      esp112(une112 && une112.chauffes.phrase) === 'Chauffes calées sur 60 kg : 40 kg × 3.', nb112(une112 && une112.chauffes));
     await plusSerie(1);
     await typer112(1, 3, ECHAUFFEMENT);
     const deux112 = await plan112('extension-s112');
     const r2a = await rangee112(1, 2), r2b = await rangee112(1, 3);
-    ok('[S112] DISCRIMINANT (§9.15.5) — DEUX chauffes ajoutées : ~50 % × 8 puis ~75 % × 4 → 30 kg × 8 · 45 kg × 4',
-      !!r2a && !!r2b && r2a.charge === '30' && r2a.reps === '8' && r2b.charge === '45' && r2b.reps === '4',
+    ok('[S112] DISCRIMINANT (§9.15.5) — DEUX chauffes ajoutées : ~60 % (muscle déjà sollicité) puis ~88 % → 35 kg × 3 · 50 kg × 2',
+      !!r2a && !!r2b && r2a.charge === '35' && r2a.reps === '3' && r2b.charge === '50' && r2b.reps === '2',
       nb112([r2a, r2b, deux112 && deux112.charges]));
     const phrasesChauffe112 = await page.evaluate(() => Array.from(document.querySelectorAll('.reaction-serie.chauffe')).map((e) => e.textContent));
-    ok('[S112] la phrase suit, à l’écran : « Chauffes calées sur 60 kg : 30 · 45 kg. »',
-      phrasesChauffe112.map(esp112).indexOf('Chauffes calées sur 60 kg : 30 · 45 kg.') >= 0, nb112(phrasesChauffe112));
+    ok('[S112] la phrase suit, à l’écran : « Chauffes calées sur 60 kg : 35 kg × 3 · 50 kg × 2. »',
+      phrasesChauffe112.map(esp112).indexOf('Chauffes calées sur 60 kg : 35 kg × 3 · 50 kg × 2.') >= 0, nb112(phrasesChauffe112));
 
     // ── (2) LA DÉGRESSIVE QUE LE COACH NE PEUT PAS REMPLIR ──────────────────────────────────────────────
     await valider112(2, 0, 5, 12);

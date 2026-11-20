@@ -2466,7 +2466,10 @@
   // 237 (MOTEUR §9.41) — les chauffes : `chauffes_ajoutees` (« Ajouter »), `chauffes_auto` (ajoutées d'elles-mêmes), `chauffes_annulees`
   // (« Annuler ») — `{ slug }` ; le fait que `faits.chauffesAjoutees` relit. 237-bis : `chauffes_silence` (le 2e « Non merci » met l'exercice en silence,
   // dit une fois) et `chauffes_silence_annule` (« Annuler » retire ce refus).
-  var GESTES_CHAUFFES = ['chauffes_ajoutees', 'chauffes_auto', 'chauffes_annulees', 'chauffes_silence', 'chauffes_silence_annule'];
+  // 20/11/2026 (MOTEUR §9.15.5 delta) — `chauffe_plus` (`{ slug, serie }`) : « + Chauffe » sur un exercice qui a déjà ses chauffes ; la série
+  // nommée est hors de la montée, chargée au milieu du dernier saut (I247). `chauffes_auto` peut porter `programme: true` (un programme du
+  // coach, I250 : le fait « la personne les ajoute » ne le compte pas).
+  var GESTES_CHAUFFES = ['chauffes_ajoutees', 'chauffes_auto', 'chauffes_annulees', 'chauffes_silence', 'chauffes_silence_annule', 'chauffe_plus'];
   // 250 (L9, « Lire mes notes ») — les RÉPONSES de la personne aux propositions du coach sur ses notes : `note_prise` (✓), `note_refusee` (✕),
   // `note_annulee` (« Annuler »), `{ geste, slug, genre }`, `genre` ∈ `effort` · `type_serie` · `reglage` · `douleur` (sinon le geste ne s'écrit
   // pas). AUCUN TEXTE DE NOTE dans un geste. Écrits par `Seance.noterGeste` depuis `app.js`, jamais ailleurs ; `equilibres.js` ne les lit pas
@@ -2492,6 +2495,8 @@
     if ((g.geste === 'remplacement' || GESTES_MARCHE.indexOf(g.geste) >= 0) && !slug(g.vers)) return null;
     if (slug(g.vers)) o.vers = g.vers;
     if (g.geste === 'ajout_serie') o.n = g.n > 0 ? Math.floor(g.n) : 1;
+    if (g.geste === 'chauffe_plus') { if (typeof g.serie !== 'string' || !g.serie) return null; o.serie = g.serie; }
+    if (g.geste === 'chauffes_auto' && g.programme === true) o.programme = true;
     if (GESTES_NOTES.indexOf(g.geste) >= 0) {
       if (GENRES_NOTES.indexOf(g.genre) < 0) return null;
       o.genre = g.genre;

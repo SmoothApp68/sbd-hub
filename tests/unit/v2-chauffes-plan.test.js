@@ -83,7 +83,8 @@ describe('§9.15.1 — les chauffes de la routine, remplies d\'office', () => {
     const x = p.exercices[0];
     expect(charges(x)).toEqual([20, 60, 90, 110]);
     expect(x.chauffes.situation).toBe('barre_lourde');
-    expect(x.chauffes.phrase).toBe('Chauffes calées sur 125' + NB + 'kg : 20 · 60 · 90 · 110' + NB + 'kg.');
+    // 20/11/2026 (MOTEUR §9.15 delta) — l'unité et les reps sur chaque chauffe.
+    expect(x.chauffes.phrase).toBe('Chauffes calées sur 125' + NB + 'kg : 20' + NB + 'kg × 10 · 60' + NB + 'kg × 6 · 90' + NB + 'kg × 3 · 110' + NB + 'kg × 1.');
     expect(x.chauffes.iSerie).toBe(0);
     expect(x.proposition).toBeNull();
     ok(p, e);
@@ -123,9 +124,9 @@ describe('§9.15.1 — les chauffes de la routine, remplies d\'office', () => {
       { slug: 'squat_barre', chauffes: [5, 2], consigne: consigne(100, 5) }
     ];
     const p = T.planDeSeance(entreesDe(seanceDe(exos), exos));
-    // Le soulevé au sol : 80 · 110 · 140 (pas de barre vide).
+    // Le soulevé au sol : 80 · 110 · 130 (pas de barre vide ; 20/11/2026 : la dernière à 90 % au plus, 140 en est au-dessus).
     expect(p.exercices[0].chauffes.situation).toBe('sol');
-    expect(charges(p.exercices[0])).toEqual([80, 110, 140]);
+    expect(charges(p.exercices[0])).toEqual([80, 110, 130]);
     // Le squat après lui : les fessiers sont déjà sollicités → 60 · 90.
     expect(p.exercices[1].chauffes.situation).toBe('deja_barre');
     expect(charges(p.exercices[1])).toEqual([60, 90]);
@@ -149,14 +150,14 @@ describe('§9.15.1 — les chauffes de la routine, remplies d\'office', () => {
     expect(charges(x)).toEqual([20, 60, 90, 110]);
   });
 
-  test('plus de lignes que la table : la dernière reste vide, et la feuille le dit', () => {
+  // 20/11/2026 (MOTEUR §9.15 delta, I244) — une marche pour chaque ligne : au-delà de quatre, des marches régulières de 33 % à 88 %.
+  test('plus de lignes que l\u2019ancienne table : chaque ligne a sa marche, aucune ne reste vide', () => {
     const exos = [{ slug: 'developpe_couche_barre', chauffes: [10, 6, 3, 1, 1], consigne: consigne(125, 5) }];
     const e = entreesDe(seanceDe(exos), exos);
     const p = T.planDeSeance(e);
     const x = p.exercices[0];
-    expect(charges(x)).toEqual([20, 60, 90, 110, null]);
-    expect(x.lignes[4].chauffe).toEqual({ charge: null });
-    expect(x.pourquoi.chauffes).toBe('Ta routine prévoit 5 chauffes ; le coach en calcule 4 : la dernière reste à remplir.');
+    expect(charges(x)).toEqual([20, 40, 60, 90, 110]);
+    expect(x.chauffes.non_remplies).toBe(0);
     ok(p, e);
   });
 
@@ -176,8 +177,9 @@ describe('§9.15.2 — sans ligne de chauffe, une proposition', () => {
     const e = entreesDe(se, EXOS);
     const p = T.planDeSeance(e);
     const x = p.exercices[0];
-    expect(x.proposition.phrase).toBe('Chauffe : 50' + NB + 'kg × 8 · 80' + NB + 'kg × 5 · 110' + NB + 'kg × 2');
-    expect(x.proposition.lignes).toEqual([[50, 8], [80, 5], [110, 2]]);
+    // 20/11/2026 — le coach choisit : la barre vide, ⌈(110 − 20) / 40⌉ = 3 marches, la dernière à 88 % (5 reps visées).
+    expect(x.proposition.phrase).toBe('Chauffe : 20' + NB + 'kg × 10 · 60' + NB + 'kg × 6 · 90' + NB + 'kg × 3 · 110' + NB + 'kg × 1.');
+    expect(x.proposition.lignes).toEqual([[20, 10], [60, 6], [90, 3], [110, 1]]);
     expect(se.exercices[0].series.every((s) => S.typeDe(s) === 'travail')).toBe(true);
     ok(p, e);
   });
@@ -187,12 +189,12 @@ describe('§9.15.2 — sans ligne de chauffe, une proposition', () => {
     const x0 = T.planDeSeance(entreesDe(se, EXOS)).exercices[0];
     se = S.noterGeste(se, { geste: 'chauffes_ajoutees', slug: 'developpe_couche_barre' });
     se = S.insererChauffes(se, 0, x0.proposition.lignes, (() => { let k = 0; return () => 'c' + (++k); })());
-    expect(se.exercices[0].series.map((s) => S.typeDe(s))).toEqual(['echauffement', 'echauffement', 'echauffement', 'travail', 'travail', 'travail']);
-    expect(se.exercices[0].series.slice(0, 3).map((s) => s.reps_visees)).toEqual([8, 5, 2]);
+    expect(se.exercices[0].series.map((s) => S.typeDe(s))).toEqual(['echauffement', 'echauffement', 'echauffement', 'echauffement', 'travail', 'travail', 'travail']);
+    expect(se.exercices[0].series.slice(0, 4).map((s) => s.reps_visees)).toEqual([10, 6, 3, 1]);
     const e = entreesDe(se, EXOS);
     const p = T.planDeSeance(e);
     expect(p.exercices[0].proposition).toBeNull();
-    expect(charges(p.exercices[0])).toEqual([50, 80, 110]);
+    expect(charges(p.exercices[0])).toEqual([20, 60, 90, 110]);
     ok(p, e);
   });
 
@@ -458,7 +460,7 @@ describe('I16, I17 — des violations forgées sont attrapées', () => {
   test('I16 — une proposition dont les reps montent', () => {
     const p = clone(plan(PROPOSE));
     p.exercices[0].proposition.lignes[2][1] = 8;
-    expect(erreurs(p).join('\n')).toMatch(/^I16 — .*reps proposées 8 après 5/m);
+    expect(erreurs(p).join('\n')).toMatch(/^I16 — .*reps proposées 8 après 6/m);
   });
 
   test('I17 (94) — à la barre, une phrase qui ne dit pas quoi enlever', () => {
@@ -511,37 +513,39 @@ describe('§9.15.5 (94) — la chauffe que la table ne prévoit pas, remplie qua
     return { p, e, x: p.exercices[1] };
   };
 
-  test('une chauffe → ~60 % × 8 (30 kg, cran 2,5 : 17,5)', () => {
+  // 20/11/2026 (MOTEUR §9.15 delta) — la même montée : une ligne à froid à 70 % au plus ; deux, 60 % (muscle déjà sollicité) puis 88 % ;
+  // trois, 60 %, 70 %, 88 % ; la dernière jamais au-dessus de 90 % (27,5 en est au-dessus : 25).
+  test('une chauffe → à froid, 70 % au plus (30 kg, cran 2,5 : 20)', () => {
     const { p, e, x } = ecarte(apres([8], 30, 2.5));
     expect(x.chauffes.situation).toBe('aucune');
-    expect(charges(x)).toEqual([17.5]);
-    expect(x.chauffes.phrase).toBe('Chauffes calées sur 30' + NB + 'kg : 17,5' + NB + 'kg.');
+    expect(charges(x)).toEqual([20]);
+    expect(x.chauffes.phrase).toBe('Chauffes calées sur 30' + NB + 'kg : 20' + NB + 'kg × 8.');
     ok(p, e);
   });
 
-  test('deux chauffes → ~50 % puis ~75 % (15 · 22,5)', () => {
+  test('deux chauffes → ~60 % puis ~88 % (17,5 · 25)', () => {
     const { p, e, x } = ecarte(apres([8, 4], 30, 2.5));
-    expect(charges(x)).toEqual([15, 22.5]);
+    expect(charges(x)).toEqual([17.5, 25]);
     ok(p, e);
   });
 
-  test('trois chauffes → les trois dernières marches de la rampe (~50, ~70, ~88 %)', () => {
+  test('trois chauffes → ~60, ~70, ~88 % (17,5 · 20 · 25)', () => {
     const { p, e, x } = ecarte(apres([6, 3, 1], 30, 2.5));
-    expect(charges(x)).toEqual([15, 20, 27.5]);
+    expect(charges(x)).toEqual([17.5, 20, 25]);
     ok(p, e);
   });
 
-  test('sans reps à la routine : celles de la règle (8 puis 4)', () => {
+  test('sans reps à la routine : celles de la règle (3 jusqu\u2019à 75 %, 2 jusqu\u2019à 85 %)', () => {
     const { x } = ecarte(apres([null, null], 30, 2.5));
     const ch = x.lignes.filter((l) => l.type === 'echauffement');
-    expect(ch.map((l) => l.prerempli.reps)).toEqual([8, 4]);
+    expect(ch.map((l) => l.prerempli.reps)).toEqual([3, 2]);
   });
 
   test('trop léger pour une marche distincte : la ligne reste vide, et la phrase le dit', () => {
     const { p, e, x } = ecarte(apres([8, 4], 5, 2.5));
     expect(charges(x)).toEqual([2.5, null]);
     expect(x.lignes.filter((l) => l.type === 'echauffement')[1].chauffe.trop_leger).toBe(true);
-    expect(x.chauffes.phrase).toBe('Chauffes calées sur 5' + NB + 'kg : 2,5' + NB + 'kg. Trop léger pour une chauffe de plus.');
+    expect(x.chauffes.phrase).toBe('Chauffes calées sur 5' + NB + 'kg : 2,5' + NB + 'kg × 8. Trop léger pour une chauffe de plus.');
     ok(p, e);
   });
 

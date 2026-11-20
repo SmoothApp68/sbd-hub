@@ -135,7 +135,7 @@ describe('le plan — le silence', () => {
     const r = plan(sansCoach(tape(seanceDe(), 0, 100)));
     expect(r.x.proposition).toBeNull();
     expect(r.x.surDemande.reference).toBe(100);
-    expect(r.x.surDemande.lignes).toEqual([[50, 8], [80, 3]]);
+    expect(r.x.surDemande.lignes).toEqual([[20, 10], [50, 6], [90, 1]]);   // 20/11/2026 : la montée unique
     expect(r.erreurs).toEqual([]);
   });
 

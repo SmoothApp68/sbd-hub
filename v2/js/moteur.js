@@ -11616,43 +11616,67 @@
   var REPOS_ENTRE_CHAUFFES = 60;
   var REPOS_APRES_CHAUFFES = 120;
 
-  // La table de §9.15.1 : une marche est la barre vide, ou un pourcentage de la
-  // référence, avec ses reps.
-  var TABLE_CHAUFFES = {
-    barre_lourde:  [{ barre: true, reps: 10 }, { p: 0.50, reps: 6 }, { p: 0.70, reps: 3 }, { p: 0.88, reps: 1 }],
-    sol:           [{ p: 0.50, reps: 5 }, { p: 0.70, reps: 3 }, { p: 0.88, reps: 1 }],
-    barre_legere:  [{ barre: true, reps: 10 }, { p: 0.88, reps: 2 }],
-    deja_barre:    [{ p: 0.60, reps: 5 }, { p: 0.88, reps: 2 }],
-    premier_autre: [{ p: 0.60, reps: 8 }],
-    aucune:        []
-  };
-  // Moins de lignes dans la routine que dans la table : les marches les plus
-  // utiles, la barre vide tombant la première (§9.15.1).
-  var MARCHES_REDUITES = { 1: [0.60], 2: [0.60, 0.88], 3: [0.50, 0.70, 0.88] };
-  // §9.15.5 (94, 14/10/2026) — LA CHAUFFE AJOUTÉE PAR L'UTILISATEUR, là où la
-  // table n'en prévoit pas (situation « aucune » : isolation, muscles déjà
-  // sollicités, barre légère déjà sollicitée). « La routine ou l'utilisateur
-  // décide combien de chauffes ; le coach en calcule toujours la charge. »
-  // 1 → ~60 % × 8 ; 2 → ~50 % × 8 puis ~75 % × 4 ; 3 et plus → la rampe de la
-  // barre lourde, ses dernières marches s'il y en a moins de 4. Hors barre, la
-  // marche « barre vide » n'existe pas : elle devient ~30 % × 10 (choix 94).
-  var CHAUFFES_AJOUTEES = {
-    1: [{ p: 0.60, reps: 8 }],
-    2: [{ p: 0.50, reps: 8 }, { p: 0.75, reps: 4 }]
-  };
-  var MARCHE_BASSE_HORS_BARRE = { p: 0.30, reps: 10 };
+  // ══ 20/11/2026 (MOTEUR §9.15 delta, I244 à I248) — UNE SEULE MONTÉE ═══════════════════════════════════════════════════════════════
+  //
+  // Décision d'Aurélien du 20/11/2026 (TT6 corrigé par son contradicteur ; TT5 et son contradicteur pour « peu de temps » et le poids du
+  // corps). UNE fonction, `monteeDeChauffe`, calcule toute montée : les lignes de la routine, les lignes posées par le coach (« Ajouter »,
+  // l'ajout automatique, un programme du coach), la proposition, « + Chauffe » sans ligne et « peu de temps ». L'ancienne table
+  // (`TABLE_CHAUFFES`, `MARCHES_REDUITES`, `CHAUFFES_AJOUTEES`, `paliersDeChauffe`, `chargesDuCoach`) s'y ramène et disparaît.
+  //   1. LA DERNIÈRE MARCHE D. Le nombre est FIXÉ par la personne (lignes de sa routine, `origine: 'routine'`) : 88 % de la référence R.
+  //      Le COACH choisit (`origine: 'coach'`) : selon la bande des reps visées de la 1re ligne de travail (`Modele.bandeDeReps`, la notion
+  //      unique) : 88 % à 5 reps ou moins, 80 % de 6 à 8, 75 % à 9 et plus ; bande inconnue : 88 %. Au plus proche du pas (l'égalité vers le
+  //      bas), puis un pas plus bas tant qu'elle dépasse 90 % de R ou n'est pas un pas sous R.
+  //   2. LE PAS. Nombre fixé : celui d'avant (la dizaine dès 100 kg à la barre, 5 kg en dessous, jamais sous le pas des disques ; le cran du
+  //      matériel ailleurs) : les montées des routines ne bougent pas. Le coach choisit : 5 kg à la barre (jamais sous le pas des disques),
+  //      le cran ailleurs. Salle déclarée (§10 bis) : ses charges, toujours sous R.
+  //   3. LA BARRE VIDE, une MARQUE (`barre: true`), jamais reconnue à sa charge ; son poids est celui de la barre de la salle
+  //      (`barreDeLaSalle`, branchée par l'app, `brancherBarreDeLaSalle` ; 20 kg sans branchement). Barre libre (jamais au sol), premier
+  //      exercice du muscle, R au moins un pas au-dessus d'elle, D au-dessus d'elle, jamais en « peu de temps ». Nombre fixé : seulement à
+  //      4 lignes et plus (2 sous 70 kg), la barre vide tombant la première quand la routine en a moins.
+  //   4. LE NOMBRE k DE MARCHES CHARGÉES. Fixé : les lignes, moins la barre vide. Coach : ⌈(D − barre) / 40 kg⌉, au moins 1 (hors barre la
+  //      barre vaut 0) ; sans barre vide, une marche seule au-dessus de 70 % de R en devient deux (I248). Muscle déjà sollicité : deux marches
+  //      sur une barre de 70 kg et plus, rien ailleurs. Six lignes au plus (barre vide comprise). PRÉSÉANCE : le nombre fixé l'emporte sur « déjà sollicité » ; seul « peu de temps »
+  //      le réduit (les lignes en trop, les premières, restent vides avec leur phrase).
+  //   5. LES MARCHES. k = 1 : D après la barre vide ; sans elle, une marche à froid à 70 % de R au plus (arrondie vers le bas). k = 2 : 50 %
+  //      (60 % après un exercice du même muscle), D. k = 3 : 50 %, 70 %, D quand 70 % reste au moins 10 points sous D (D ≥ 80 % de R) ;
+  //      sinon 50 %, le milieu de 50 % et de D, D (CONTRA-TT6 §1, écart 1 : jamais deux marches égales).
+  //      k ≥ 4 : régulières de 33 % à D. Au plus proche du pas (égalité vers le bas), jamais sous la barre, strictement au-dessus de la
+  //      précédente ; une marche qui ne se distingue plus (D atteinte) devient « Trop léger pour une chauffe de plus. », rangée APRÈS les charges.
+  //   6. LES REPS, seulement quand la ligne n'en porte pas (les reps de la routine sont la structure) : barre vide × 10 ; sous 55 % de R × 6 ;
+  //      jusqu'à 75 % × 3 ; jusqu'à 85 % × 2 ; au-delà × 1.
+  //   7. « PEU DE TEMPS » (TT5, validé) : dès 100 kg à la barre libre (`CHAUFFE_PEU_DE_TEMPS_BARRE`, une constante à part, pas
+  //      `SEUIL_DIZAINE`), deux marches (50 %, D) ; en dessous et hors barre, une seule, 70 % au plus × 3 ; isolation : rien.
+  //   8. POIDS DU CORPS (`nature: 'corps'`) : une série du mouvement à ⌈visée / 3⌉ reps, entre 2 et 5 ; visée de 2 ou moins, ou inconnue : rien.
+  //      LESTÉ (`nature: 'lest'`, R = le lest) : cette série au poids du corps (lest 0), puis, dès 20 kg de lest, la moitié du lest (au cran
+  //      de 2,5 kg, vers le bas) × 2.
+  // Rend `{ marches: [{ charge, reps, barre?, trop_leger?, peu_de_temps? }], derniere, pas, barre, origine }` ; `charge` est `null` pour une
+  // ligne laissée vide (sa phrase la dit). Avec `n` donné, exactement `n` marches. PURE.
+  var CHAUFFE_DERNIERE_FIXEE = 0.88;
+  var CHAUFFE_DERNIERE_PAR_BANDE = { lourdes: 0.88, moyennes: 0.80, hautes: 0.75, longues: 0.75 };
+  var CHAUFFE_PLAFOND = 0.90;
+  var CHAUFFE_KG_PAR_MARCHE = 40;
+  var CHAUFFE_LIGNES_MAX = 6;
+  var CHAUFFE_FROID_MAX = 0.70;
+  var CHAUFFE_PREMIERE = 0.50, CHAUFFE_PREMIERE_DEJA = 0.60, CHAUFFE_MILIEU = 0.70, CHAUFFE_MILIEU_ECART = 0.10, CHAUFFE_DEPART_LONGUE = 0.33;
+  var CHAUFFE_PAS_DU_COACH = 5;
+  var CHAUFFE_PEU_DE_TEMPS_BARRE = 100;
+  var CHAUFFE_REPS_BARRE_VIDE = 10;
+  var CHAUFFE_CORPS_PART = 3, CHAUFFE_CORPS_MIN = 2, CHAUFFE_CORPS_MAX = 5;
+  var CHAUFFE_LEST_DES = 20, CHAUFFE_LEST_PART = 0.5, CHAUFFE_LEST_REPS = 2, CHAUFFE_LEST_CRAN = 2.5;
   var TROP_LEGER = 'Trop léger pour une chauffe de plus.';
-  function marchesAjoutees(n, equipement) {
-    if (CHAUFFES_AJOUTEES[n]) return CHAUFFES_AJOUTEES[n];
-    var rampe = TABLE_CHAUFFES.barre_lourde.map(function (m) {
-      return m.barre && !estBarre(equipement) ? MARCHE_BASSE_HORS_BARRE : m;
-    });
-    return n < rampe.length ? rampe.slice(rampe.length - n) : rampe;
+
+  // §9.15 delta (règle 7 du prompt) — la barre vide est celle de la salle de la personne, lue par l'app (`Profil.barreDe` →
+  // `barreDeLaSalle`) et BRANCHÉE ici, comme le plus petit disque ; sans branchement, 20 kg.
+  var sourceDeLaBarre = null;
+  function brancherBarreDeLaSalle(lecture) { sourceDeLaBarre = typeof lecture === 'function' ? lecture : null; }
+  function barreDesChauffes() {
+    var b = sourceDeLaBarre ? nombre(sourceDeLaBarre()) : null;
+    return b !== null && b > 0 ? b : BARRE_DEFAUT;
   }
 
   function estBarre(equipement) { return equipement === 'barre'; }
 
-  // `entree` : `{ equipement, reference, deja_sollicite, sol }`.
+  // La situation (un libellé, lu par le plan et l'écran) : rien n'en dépend dans le calcul.
   function situationChauffe(entree) {
     var e = entree || {};
     var ref = nombre(e.reference);
@@ -11665,10 +11689,9 @@
     return e.deja_sollicite ? 'aucune' : 'premier_autre';
   }
 
-  // Le pas d'arrondi : à la dizaine sur une barre dès 100 kg de référence, à
-  // 5 kg en dessous ; au cran du matériel ailleurs.
+  // Le pas d'arrondi d'une routine (nombre fixé) : à la dizaine sur une barre dès 100 kg de référence, à 5 kg en dessous ; au cran du
+  // matériel ailleurs. 190 — jamais sous le pas de la barre.
   function pasDeChauffe(entree) {
-    // 190 — jamais sous le pas de la barre : avec des disques de 5 kg (pas de 10 kg), une chauffe à 5 kg près n'existe pas.
     if (estBarre(entree.equipement)) {
       return Math.max(nombre(entree.reference) >= SEUIL_DIZAINE ? 10 : 5, pasDeLaBarre(plusPetitDisqueConnu()));
     }
@@ -11683,11 +11706,11 @@
     return auCentieme(v - bas <= haut - v + 1e-9 ? bas : haut);
   }
 
+  // Une charge d'une marche (`m.p` × la référence, ou la barre vide) : la série légère d'une isolation et la veille légère (I142) la lisent.
   function chargeDeMarche(m, entree, pas) {
     var ref = nombre(entree.reference);
-    // §10 bis (108) — LA SALLE DÉCLARÉE : la charge qu'elle fait la plus proche
-    // de la marche (l'égalité vers le bas), toujours sous la référence ; la
-    // « barre vide » est sa barre la plus légère. Rien sous la référence : `null`.
+    // §10 bis (108) — LA SALLE DÉCLARÉE : la charge qu'elle fait la plus proche de la marche (l'égalité vers le bas), toujours sous la
+    // référence ; la « barre vide » est sa barre la plus légère. Rien sous la référence : `null`.
     var salle = entree.salle ? salleEnVigueur(entree.salle, ref) : null;
     if (salle) {
       var sous = chargesDeLaSalle(salle).filter(function (v) { return v < ref && !memeCharge(v, ref); });
@@ -11699,87 +11722,286 @@
       });
       return meilleure;
     }
-    var c = m.barre ? BARRE_VIDE : auPasLePlusProche(ref * m.p, pas);
-    // Toujours au moins un cran sous la référence…
+    var barre = barreDesChauffes();
+    var c = m.barre ? barre : auPasLePlusProche(ref * m.p, pas);
     var plafond = Math.floor((ref - pas) / pas + 1e-9) * pas;
     if (c > ref - pas + 1e-9) c = auCentieme(plafond);
-    // … et jamais sous la barre vide.
-    if (estBarre(entree.equipement) && c < BARRE_VIDE) c = BARRE_VIDE;
+    if (estBarre(entree.equipement) && c < barre) c = barre;
     return c;
   }
 
-  // Les marches pour `n` lignes de la routine : la table si elle a autant de
-  // lignes ou plus (les lignes en trop restent vides), sinon les marches
-  // réduites.
-  function marchesPour(table, n) {
-    if (n >= table.length) return table.slice();
-    return MARCHES_REDUITES[n].map(function (p) { return { p: p }; });
+  // La grille des charges possibles : les multiples du pas, ou les charges de la salle déclarée sous la référence.
+  function grilleDeChauffe(e, R, pas) {
+    var salle = e.salle ? salleEnVigueur(e.salle, R) : null;
+    if (salle) {
+      var sous = chargesDeLaSalle(salle).filter(function (v) { return v < R && !memeCharge(v, R); });
+      return {
+        salle: true, plancher: sous.length ? sous[0] : null,
+        proche: function (v) {
+          if (!sous.length) return null;
+          var m = sous[0];
+          sous.forEach(function (x) { if (Math.abs(x - v) < Math.abs(m - v) - 1e-9) m = x; });
+          return m;
+        },
+        bas: function (v) { var m = null; sous.forEach(function (x) { if (x <= v + 1e-9) m = x; }); return m; },
+        dessus: function (v) { for (var i = 0; i < sous.length; i++) if (sous[i] > v + 1e-9) return sous[i]; return null; },
+        dessous: function (v) { var m = null; sous.forEach(function (x) { if (x < v - 1e-9) m = x; }); return m; }
+      };
+    }
+    return {
+      salle: false, plancher: null,
+      proche: function (v) { return auPasLePlusProche(v, pas); },
+      bas: function (v) { return auCentieme(Math.floor(v / pas + 1e-9) * pas); },
+      dessus: function (v) { return auCentieme((Math.floor(v / pas + 1e-9) + 1) * pas); },
+      dessous: function (v) { return auCentieme((Math.ceil(v / pas - 1e-9) - 1) * pas); }
+    };
   }
 
-  // `entree` : `{ equipement, reference, deja_sollicite, sol, cran, routine }`,
-  // `routine` = les reps des lignes de chauffe de l'exercice, ou `null` s'il
-  // n'en a aucune. Rend, avec des lignes : `{ situation, lignes: [{ reps,
-  // charge }], non_remplies, phrase }` ; sans ligne : `{ situation,
-  // proposition: [[charge, reps]], phrase_proposition }`.
+  // Règle 6 — les reps d'une marche que la ligne ne porte pas.
+  function repsDeChauffe(charge, R, barre) {
+    if (barre) return CHAUFFE_REPS_BARRE_VIDE;
+    var p = charge / R;
+    if (p < 0.55 - 1e-9) return 6;
+    if (p <= 0.75 + 1e-9) return 3;
+    if (p <= 0.85 + 1e-9) return 2;
+    return 1;
+  }
+
+  // Règle 8 — au poids du corps, les reps de la série du mouvement (`null` : rien).
+  function repsDuMouvement(visee) {
+    var v = nombre(visee);
+    if (v === null || v <= 2) return null;
+    return Math.max(CHAUFFE_CORPS_MIN, Math.min(CHAUFFE_CORPS_MAX, Math.ceil(v / CHAUFFE_CORPS_PART - 1e-9)));
+  }
+
+  function monteeSansBarre(e, nature, R) {
+    var n = nombre(e.n);
+    var reps = repsDuMouvement(e.reps);
+    var marches = [];
+    if (reps !== null) {
+      marches.push({ charge: nature === 'lest' ? 0 : null, reps: reps, corps: true });
+      if (nature === 'lest' && R !== null && R >= CHAUFFE_LEST_DES - 1e-9 && e.peuDeTemps !== true) {
+        marches.push({ charge: auCentieme(Math.floor(R * CHAUFFE_LEST_PART / CHAUFFE_LEST_CRAN + 1e-9) * CHAUFFE_LEST_CRAN), reps: CHAUFFE_LEST_REPS });
+      }
+    }
+    if (n !== null) {
+      marches = marches.slice(0, n);
+      // CONTRA-725 D8 — au poids du corps, le nombre fixé est gardé : les lignes au-delà de la série du mouvement restent les siennes (ni
+      // charge ni « Trop léger », une charge n'a pas de sens ici) ; la note du Pourquoi dit qu'elles restent à remplir.
+      while (marches.length < n) marches.push(nature === 'corps' ? { charge: null, reps: null, libre: true } : { charge: null, reps: null, trop_leger: true });
+    }
+    return { marches: marches, derniere: null, pas: CHAUFFE_LEST_CRAN, barre: 0, origine: e.origine || 'coach', nature: nature };
+  }
+
+  // `entree` : { reference, equipement, sol, deja_sollicite, cran, salle, barre (kg, sinon celle de la salle), reps (les reps visées de la
+  //   1re ligne de travail), n (le nombre de lignes, ou rien : le coach choisit), origine ('routine' | 'coach'), peuDeTemps, isolation, nature }.
+  function monteeDeChauffe(entree) {
+    var e = entree || {};
+    var R = nombre(e.reference);
+    var nature = e.nature === 'corps' || e.nature === 'lest' ? e.nature : 'charge';
+    if (nature !== 'charge') return monteeSansBarre(e, nature, R);
+    var fixee = e.origine === 'routine';
+    var n = nombre(e.n);
+    if (n !== null && n < 0) n = 0;
+    var sortie = { marches: [], derniere: null, pas: null, barre: 0, origine: fixee ? 'routine' : 'coach', nature: nature };
+    var remplir = function () {
+      if (n !== null) while (sortie.marches.length < n) sortie.marches.push({ charge: null, reps: null, trop_leger: true });
+      return sortie;
+    };
+    if (R === null || !(R > 0)) return remplir();
+    var barre = estBarre(e.equipement), libre = barre && !e.sol;
+    // CONTRA-725 D1 — les marches au pas de la routine (`pasDeChauffe`), dans les deux modes ; seule la DERNIÈRE, quand le coach choisit,
+    // descend sous le plafond de 5 kg en 5 kg (`CHAUFFE_PAS_DU_COACH`, CONTRA-TT6 correction 4 : 110 kg → 95, pas 90) au lieu d'un pas de 10.
+    var pas = pasDeChauffe(e);
+    var pasD = fixee || !barre ? pas : Math.max(CHAUFFE_PAS_DU_COACH, pasDeLaBarre(plusPetitDisqueConnu()));
+    var g = grilleDeChauffe(e, R, pas);
+    var gD = pasD === pas ? g : grilleDeChauffe(e, R, pasD);
+    var B = barre ? (nombre(e.barre) !== null && nombre(e.barre) > 0 ? nombre(e.barre) : barreDesChauffes()) : 0;
+    if (g.salle) { if (g.plancher === null) return remplir(); if (barre) B = g.plancher; }
+    sortie.pas = pas; sortie.barre = B;
+    var pD = fixee ? CHAUFFE_DERNIERE_FIXEE : (CHAUFFE_DERNIERE_PAR_BANDE[Modele().bandeDeReps(e.reps)] || CHAUFFE_DERNIERE_FIXEE);
+    var D = g.proche(R * pD);
+    var marge = g.salle ? 0 : pasD;
+    while (D !== null && (D > CHAUFFE_PLAFOND * R + 1e-9 || D > R - marge + 1e-9)) D = gD.dessous(D);
+    // Une dernière marche qui ne dépasse pas la barre n'en est pas une : la barre vide seule, si elle est due.
+    if (D !== null && (!(D > 0) || (barre && D <= B + 1e-9))) D = null;
+    sortie.derniere = D;
+    var peu = e.peuDeTemps === true, deja = e.deja_sollicite === true;
+    var bvPossible = libre && !deja && !peu && R >= B + pas - 1e-9;
+    var kPeu = peu ? (e.isolation === true ? 0 : (libre && R >= CHAUFFE_PEU_DE_TEMPS_BARRE - 1e-9 ? 2 : 1)) : null;
+    var bv, k, vides = 0;
+    if (n !== null) {
+      bv = bvPossible && (!fixee || n >= (R >= SEUIL_BARRE_LOURDE ? 4 : 2));
+      k = Math.max(0, n - (bv ? 1 : 0));
+      if (peu && k > kPeu) { vides = n - kPeu; k = kPeu; }
+    } else if (peu) {
+      bv = false; k = kPeu;
+    } else {
+      bv = bvPossible;
+      if (deja) k = barre && R >= SEUIL_BARRE_LOURDE ? 2 : 0;
+      else k = D === null ? 0 : Math.max(1, Math.ceil((D - B) / CHAUFFE_KG_PAR_MARCHE - 1e-9));
+      if (deja && D === null) k = 0;
+      if (!bv && k === 1 && D !== null && D > CHAUFFE_FROID_MAX * R + 1e-9) k = 2;
+      // Six lignes au plus, barre vide comprise (TT5 et CONTRA-TT5 : 220 kg en fait six ; au-delà, une charge absurde).
+      k = Math.min(k, CHAUFFE_LIGNES_MAX - (bv ? 1 : 0));
+    }
+    var dR = D === null ? null : D / R;
+    var lo = deja ? CHAUFFE_PREMIERE_DEJA : CHAUFFE_PREMIERE;
+    var parts = [];
+    if (k === 1) parts = [bv ? dR : null];
+    else if (k === 2) parts = [lo, dR];
+    else if (k === 3) parts = [lo, dR !== null && CHAUFFE_MILIEU <= dR - CHAUFFE_MILIEU_ECART + 1e-9 ? CHAUFFE_MILIEU : (dR === null ? null : (lo + dR) / 2), dR];
+    else for (var i = 0; i < k; i++) parts.push(dR === null ? null : CHAUFFE_DEPART_LONGUE + (dR - CHAUFFE_DEPART_LONGUE) * i / (k - 1));
+    var prev = null, tropLegeres = 0;
+    if (bv && (k > 0 || D === null || n === null)) { sortie.marches.push({ charge: B, reps: CHAUFFE_REPS_BARRE_VIDE, barre: true }); prev = B; }
+    else if (bv) bv = false;
+    parts.forEach(function (p, j) {
+      var derniere = j === parts.length - 1;
+      var c;
+      if (D === null) c = null;
+      else if (p === null) { c = g.bas(CHAUFFE_FROID_MAX * R); if (c !== null && c > D) c = D; }
+      else c = derniere ? D : g.proche(R * p);
+      if (c !== null && barre && !g.salle && c < B - 1e-9) c = B;
+      if (c !== null && prev !== null && c <= prev + 1e-9) c = derniere ? c : g.dessus(prev);
+      var nonDistincte = c === null || !(c > 0) || c >= R - 1e-9 || (prev !== null && c <= prev + 1e-9) ||
+        (!derniere && c >= D - 1e-9);
+      if (nonDistincte) { tropLegeres++; return; }
+      // CONTRA-725 D9 — « peu de temps » sur un nombre fixé : les chauffes gardées prennent les reps de la règle (70 × 6 · 120 × 1, 40 × 3),
+      // pas celles des lignes du bas ; les lignes laissées vides viennent APRÈS (jamais deux lignes vides en tête de l'écran).
+      sortie.marches.push(vides ? { charge: c, reps: repsDeChauffe(c, R, false), peu: true } : { charge: c, reps: repsDeChauffe(c, R, false) });
+      prev = c;
+    });
+    for (var v = 0; v < vides; v++) sortie.marches.push({ charge: null, reps: null, peu_de_temps: true });
+    for (var t = 0; t < tropLegeres; t++) sortie.marches.push({ charge: null, reps: null, trop_leger: true });
+    return remplir();
+  }
+
+  // 20/11/2026 (MOTEUR §9.15.5 delta, I247) — « + CHAUFFE » QUAND L'EXERCICE A DÉJÀ SES CHAUFFES : UNE ligne, juste avant la 1re série de
+  // travail, au MILIEU DU DERNIER SAUT (de la chauffe d'avant, prévue ou faite, à la référence), arrondie VERS LE BAS au pas fin (5 kg dès
+  // 100 kg à la barre, sinon 2,5 kg, jamais sous le pas des disques ; le cran ailleurs ; la salle déclarée : sa charge du dessous), plafonnée
+  // à 95 % de R pour une visée de 3 à 5 reps hors population protégée et hors reprise longue, à 90 % sinon. Aucune autre ligne ne bouge.
+  // Sans place (pas au-dessus de la chauffe d'avant, ou pas sous R) : `null`, et la ligne dit TROP_PROCHE.
+  var CHAUFFE_PLAFOND_AJOUTEE = 0.95;
+  var CHAUFFE_AJOUTEE_REPS = [3, 5];
+  function plafondDeLaChauffeAjoutee(e) {
+    var v = nombre(e.reps);
+    var lourde = v !== null && v >= CHAUFFE_AJOUTEE_REPS[0] && v <= CHAUFFE_AJOUTEE_REPS[1];
+    return lourde && e.protegee !== true && e.repriseLongue !== true ? CHAUFFE_PLAFOND_AJOUTEE : CHAUFFE_PLAFOND;
+  }
+  function chargeDeLaChauffeAjoutee(e, avant) {
+    var R = nombre(e.reference);
+    if (R === null || !(R > 0)) return null;
+    var barre = estBarre(e.equipement);
+    var lo = nombre(avant);
+    if (lo === null) lo = barre ? barreDesChauffes() : 0;
+    var vise = Math.min((lo + R) / 2, plafondDeLaChauffeAjoutee(e) * R);
+    var c;
+    var salle = e.salle ? salleEnVigueur(e.salle, R) : null;
+    if (salle) c = grilleDeChauffe(e, R, 1).bas(vise);
+    else {
+      var fin = barre ? Math.max(R >= SEUIL_DIZAINE ? 5 : 2.5, pasDeLaBarre(plusPetitDisqueConnu())) : pasDeChauffe(e);
+      c = auCentieme(Math.floor(vise / fin + 1e-9) * fin);
+    }
+    if (c === null || c <= lo + 1e-9 || c >= R - 1e-9) return null;
+    return c;
+  }
+
+  // `entree` : `{ equipement, reference, deja_sollicite, sol, cran, salle, routine, faites, plus, coach, reps, peuDeTemps, isolation,
+  // protegee, repriseLongue, nature }` ; `routine` = les reps des lignes de chauffe de l'exercice (ou `null` s'il n'en a aucune), `plus` =
+  // pour chacune, `true` si « + Chauffe » l'a ajoutée. Rend, avec des lignes : `{ situation, lignes: [{ reps, charge }], prevues,
+  // non_remplies, phrase, phrase_apres_faites, citations_apres_faites }` ; sans ligne : `{ situation, proposition: [] }` (la proposition
+  // est `propositionDeChauffes`).
   function chauffesDe(entree) {
     var e = entree || {};
-    var situation = situationChauffe(e);
-    var table = TABLE_CHAUFFES[situation];
-    var pas = pasDeChauffe(e);
+    var situation = e.nature === 'corps' || e.nature === 'lest' ? e.nature : situationChauffe(e);
     var ref = nombre(e.reference);
-    if (e.routine === null || e.routine === undefined) {
-      // 237 (§9.41) — SANS LIGNE DE CHAUFFE, c'est `propositionDeChauffes` qui décide (quand, combien, quelles charges) : une
-      // seule fonction. Celle-ci ne remplit que les lignes que la routine ou la personne a posées.
-      return { situation: situation, proposition: [], phrase_proposition: null };
-    }
-    var routine = e.routine;
-    var n = routine.length;
-    var ajoutees = situation === 'aucune' && n > 0;
-    var marches = ajoutees ? marchesAjoutees(n, e.equipement)
-      : (table.length && n ? marchesPour(table, n) : []);
-    var precedente = null, tropLegeres = 0;
-    // 237 (§9.41) — LES CHAUFFES QUE LE COACH A PROPOSÉES (« Ajouter », ou ajoutées d'elles-mêmes) se remplissent avec les MÊMES paliers
-    // que la proposition (`paliersDeChauffe`) : la charge affichée après « Ajouter » est celle qu'on a vue. Les lignes de la routine
-    // gardent la table de 49-U10.
-    var chargesCoach = e.coach === true && ref !== null && ref > 0 ? chargesDuCoach(e, n, pasDeChauffe(e)) : null;
-    var lignes = chargesCoach ? routine.map(function (reps, i) {
-      var c = chargesCoach[i];
-      if (c === null) { tropLegeres++; return { reps: reps, charge: null, trop_leger: true }; }
-      return { reps: reps === null || reps === undefined ? CHAUFFE_REPS_PAR_PALIERS[Math.min(n, CHAUFFE_PALIERS_MAX)][i] : reps,
-               charge: c, reps_coach: reps === null || reps === undefined };
-    }) : routine.map(function (reps, i) {
-      var m = marches[i];
-      if (!m) return { reps: reps, charge: null };
-      var c = chargeDeMarche(m, e, pas);
-      // §10 bis (108) — la salle n'a aucune charge sous la référence : la ligne
-      // reste vide, et la phrase le dit (jamais vide en silence, I16).
-      if (c === null) { tropLegeres++; return { reps: reps, charge: null, trop_leger: true }; }
-      if (!ajoutees) return { reps: reps, charge: c };
-      // §9.15.5 — les reps de la routine, sinon celles de la règle ; une
-      // marche qui ne se distingue pas (pas au-dessus de la précédente, pas un
-      // cran sous la référence, rien au-dessus de zéro) reste vide.
-      var r = reps === null || reps === undefined ? m.reps : reps;
-      if (!(c > 0) || c > ref - pas + 1e-9 || (precedente !== null && c <= precedente + 1e-9)) {
-        tropLegeres++;
-        return { reps: reps, charge: null, trop_leger: true };
+    if (e.routine === null || e.routine === undefined) return { situation: situation, proposition: [], phrase_proposition: null };
+    var routine = e.routine, plus = Array.isArray(e.plus) ? e.plus : [];
+    var faites = Array.isArray(e.faites) ? e.faites : [];
+    var base = [], ajouts = [];
+    routine.forEach(function (r, i) { (plus[i] === true ? ajouts : base).push(i); });
+    var m = monteeDeChauffe(Object.assign({}, e, { origine: e.coach === true ? 'coach' : 'routine', n: base.length }));
+    var lignes = routine.map(function () { return null; });
+    base.forEach(function (idx, j) {
+      var reps = routine[idx], mj = m.marches[j] || { charge: null, trop_leger: true };
+      if (mj.peu_de_temps) { lignes[idx] = { reps: reps, charge: null, peu_de_temps: true }; return; }
+      if (mj.libre) { lignes[idx] = { reps: reps, charge: null }; return; }
+      if (mj.charge === null || mj.charge === undefined) {
+        // Au poids du corps, la série du mouvement n'a pas de charge : ce n'est pas une ligne vide.
+        if (mj.corps) { lignes[idx] = { reps: reps === null || reps === undefined ? mj.reps : reps, charge: null, corps: true, reps_coach: reps === null || reps === undefined }; return; }
+        lignes[idx] = { reps: reps, charge: null, trop_leger: true };
+        return;
       }
-      precedente = c;
-      return { reps: r, charge: c, reps_coach: reps === null || reps === undefined };
+      var vide = reps === null || reps === undefined || mj.peu === true;
+      var l = { reps: vide ? mj.reps : reps, charge: mj.charge, reps_coach: vide };
+      if (mj.barre) l.barre = true;
+      // CONTRA-725 D6 — au lesté, la série au poids du corps (lest 0) garde sa nature : « poids du corps × 5 », jamais « Poids du corps de lest ».
+      if (mj.corps) l.corps = true;
+      lignes[idx] = l;
     });
-    var tropProches = Array.isArray(e.faites) && ref !== null && ref > 0 ? apresLesChauffesFaites(lignes, e.faites, ref, pas) : 0;
-    var remplies = lignes.filter(function (l) { return l.charge !== null; }).map(function (l) { return l.charge; });
-    var phrase = null;
-    if (remplies.length) {
-      var avant = remplies.slice(0, -1).map(function (c) { return nombreFr(c, regle('chauffe')); });
-      phrase = 'Chauffes calées sur ' + Modele().charge(ref, undefined, regle('reference')) + ' : ' +
-        avant.concat([Modele().charge(remplies[remplies.length - 1], undefined, regle('chauffe'))]).join(' · ') + '.';
+    var tropProches = 0;
+    if (base.length && ref !== null && ref > 0 && m.nature === 'charge') {
+      tropProches = apresLesChauffesFaites(base.map(function (i) { return lignes[i]; }), base.map(function (i) { return faites[i] || null; }), ref, m.pas || pasDeChauffe(e));
     }
-    if (tropLegeres) phrase = (phrase ? phrase + ' ' : '') + TROP_LEGER;
-    else if (tropProches) phrase = (phrase ? phrase + ' ' : '') + TROP_PROCHE;
-    return { situation: situation, lignes: lignes, prevues: chargesCoach ? n : (ajoutees ? marches.length : table.length),
-             trop_legeres: tropLegeres, trop_proches: tropProches, phrase_apres_faites: tropProches && !tropLegeres ? TROP_PROCHE : null,
-             non_remplies: lignes.length - remplies.length - tropLegeres - tropProches, phrase: phrase };
+    // « + Chauffe » : chaque ligne ajoutée, dans l'ordre, au milieu du dernier saut (la chauffe d'avant : faite, sinon prévue).
+    var ajoutees = [];
+    ajouts.forEach(function (idx) {
+      var avant = null;
+      for (var j = 0; j < idx; j++) {
+        var f = faites[j], cj = f && nombre(f.charge) !== null ? nombre(f.charge) : (lignes[j] ? lignes[j].charge : null);
+        if (cj !== null && cj !== undefined && (avant === null || cj > avant)) avant = cj;
+      }
+      var reps = routine[idx], vide = reps === null || reps === undefined;
+      if (faites[idx]) { lignes[idx] = { reps: reps, charge: nombre(faites[idx].charge), ajoutee: true }; return; }
+      var c = m.nature === 'charge' ? chargeDeLaChauffeAjoutee(e, avant) : null;
+      if (c === null) { lignes[idx] = { reps: reps, charge: null, trop_proche: true, ajoutee: true }; tropProches++; return; }
+      var r = vide ? repsDeChauffe(c, ref, false) : reps;
+      // CONTRA-725 (note) — sans chauffe d'avant (aucune ligne chargée, faite ou prévue), la phrase dit « sous 135 kg » : elle ne cite pas une
+      // barre vide qui n'est pas une ligne.
+      lignes[idx] = { reps: r, charge: c, reps_coach: vide, ajoutee: true, entre: avant === null ? null : [avant, ref], sous: ref };
+      ajoutees.push(lignes[idx]);
+    });
+    var tropLegeres = lignes.filter(function (l) { return l && l.trop_leger; }).length;
+    var peuVides = lignes.filter(function (l) { return l && l.peu_de_temps; }).length;
+    var listees = lignes.filter(function (l) { return l && !l.ajoutee && (l.charge !== null || l.corps); });
+    var texteLigne = function (l) {
+      return (l.corps ? 'poids du corps' : (m.nature === 'lest' ? enKgDeLest(l.charge) : Modele().charge(l.charge, undefined, regle('chauffe')))) +
+        ' × ' + nombreFr(l.reps, regle('chauffe.reps'));
+    };
+    var capP = Modele().capturer(function () {
+      // Au poids du corps, il n'y a pas de référence : la tête « Chauffe : poids du corps × 3. » se dit sans elle (CONTRA-725 D8).
+      if (!listees.length || (ref === null && m.nature === 'charge')) return null;
+      var tete = m.nature === 'charge' ? 'Chauffes calées sur ' + Modele().charge(ref, undefined, regle('reference')) + ' : ' : 'Chauffe : ';
+      return tete + listees.map(texteLigne).join(' · ') + '.';
+    });
+    var capA = Modele().capturer(function () {
+      if (!ajoutees.length) return null;
+      return ajoutees.map(function (l) {
+        return 'Chauffe ajoutée : ' + Modele().charge(l.charge, undefined, regle('chauffe')) + ' × ' + nombreFr(l.reps, regle('chauffe.reps')) +
+          (l.entre ? ', entre ' + nombreFr(l.entre[0], regle('chauffe')) + ' et ' + Modele().charge(l.entre[1], undefined, regle('reference'))
+                   : ', sous ' + Modele().charge(l.sous, undefined, regle('reference'))) + '.';
+      }).join(' ');
+    });
+    Modele().reporter(capP.citations); Modele().reporter(capA.citations);
+    var morceaux = [capP.texte, capA.texte].filter(Boolean);
+    if (peuVides) morceaux.push(PHRASE_PEU_DE_TEMPS[m.marches.filter(function (q) { return q && q.charge !== null; }).length === 1 ? 1 : 2]);
+    if (tropLegeres) morceaux.push(TROP_LEGER);
+    else if (tropProches) morceaux.push(TROP_PROCHE);
+    var phrase = morceaux.length ? morceaux.join(' ') : null;
+    var apres = [capA.texte].filter(Boolean);
+    if (tropProches && !tropLegeres) apres.push(TROP_PROCHE);
+    var remplies = lignes.filter(function (l) { return l && (l.charge !== null || l.corps); }).length;
+    var libres = m.marches.filter(function (q) { return q && q.libre; }).length;
+    return { situation: situation, lignes: lignes, prevues: base.length - tropLegeres - peuVides - libres,
+             trop_legeres: tropLegeres, trop_proches: tropProches, peu_de_temps: peuVides,
+             phrase_apres_faites: apres.length ? apres.join(' ') : null, citations_apres_faites: capA.texte ? capA.citations : [],
+             non_remplies: lignes.length - remplies - tropLegeres - tropProches - peuVides, phrase: phrase,
+             derniere: m.derniere, origine: m.origine };
   }
+
+  // « 15 kg de lest » (CONTRA-TT5 : « 15 kg » seul se lirait comme la charge totale).
+  function enKgDeLest(c) { return Modele().charge(c, undefined, regle('chauffe')) + ' de lest'; }
+  var PHRASE_PEU_DE_TEMPS = { 1: 'Tu as peu de temps : une seule.', 2: 'Tu as peu de temps : deux chauffes.' };
 
   // ══ 265 (§9.15.7, 07/11/2026) — UNE CHAUFFE AJOUTÉE APRÈS UNE CHAUFFE FAITE ════════════════════════════════════════
   //
@@ -11841,10 +12063,11 @@
   // UNE SEULE fonction décide : `propositionDeChauffes`. Le plan la lit (`chauffesEtDegressive`), l'écran lit le plan.
   //   1. QUAND — le premier exercice de la séance qui sollicite ce muscle principal ET une charge de travail au-dessus de
   //      ~60 % du max estimé connu ; OU un exercice sur une zone à ménager ; OU l'objectif Forme. Sinon : rien.
-  //   2. PALIERS — l'écart (charge de travail moins la barre, ou la charge mini du matériel) se monte en un palier par ~40 kg d'écart (1 à 4) ;
-  //      la dernière chauffe vise ~85 % de la charge de travail (jamais plus de 90 %), arrondie au cran du matériel
-  //      (`chargeDeMarche`, la fonction de 49-U10) ; les reps décroissent.
-  //   3. POIDS DU CORPS — une série facile, sans charge, une seule.
+  //   2. LA MONTÉE — celle de `monteeDeChauffe` (20/11/2026, « le coach choisit » : la barre vide, une marche par tranche de 40 kg, la
+  //      dernière selon la bande des reps visées). Une seule montée pour toutes les sources (I244).
+  //   3. POIDS DU CORPS ET LESTÉ — la série du mouvement à ⌈visée / 3⌉ reps (2 à 5) ; au lesté, puis la moitié du lest × 2 dès 20 kg.
+  //   0. (20/11/2026) PROGRAMME DU COACH — un exercice dont le coach choisit les chauffes (`routine_exercises.chauffes_du_coach`) les reçoit
+  //      d'office, avec « Annuler » (aucune carte) ; deux « Annuler » d'affilée : le silence de la règle 6.
   //   4. ISOLATION en tête de séance — une série légère de 15.
   //   5. « J'AI PEU DE TEMPS » — une chauffe, jamais zéro sur un exercice qui n'est ni une isolation ni au poids du corps (barre ou non :
   //      smith, presse, hack squat, machine guidée lourde) ; zéro sur une isolation, sauf zone à ménager (237-bis).
@@ -11852,14 +12075,7 @@
   //   6. APPRENTISSAGE — après 2 séances où la personne a ajouté ses chauffes, elles s'ajoutent d'elles-mêmes (avec « Annuler ») ;
   //      2 « Non merci » : silence 4 semaines, DIT une fois au geste (`phraseDuSilenceDesChauffes`, avec « Annuler »).
   var CHAUFFE_SEUIL_MAX = 0.60;
-  var CHAUFFE_VISEE = 0.85;
-  var CHAUFFE_PLAFOND = 0.90;
-  var CHAUFFE_KG_PAR_PALIER = 40;   // un palier par ~40 kg d'écart : entre 25 et 30 % de l'écart pour une barre lourde (4 paliers sur ~140 kg)
-  var CHAUFFE_PALIERS_MAX = 4;
-  var CHAUFFE_REPS_PAR_PALIERS = { 1: [5], 2: [8, 3], 3: [8, 5, 2], 4: [8, 5, 3, 1] };
-  var CHAUFFE_SEUL_PALIER = 0.60;
   var CHAUFFE_ISOLATION = { p: 0.50, reps: 15 };
-  var CHAUFFE_CORPS_REPS = 8;
   var CHAUFFE_AUTO_APRES = 2;
   var CHAUFFE_REFUS_SILENCE = 2;
   var CHAUFFE_SILENCE_JOURS = 28;
@@ -11895,103 +12111,81 @@
     return 'D\u2019accord, je ne te les propose plus sur ' + (nom ? Modele().nomParle(nom) : 'cet exercice') + ' pendant ' + semaines + ' semaines.';   // 256 (D13) : le nom parlé
   }
 
-  function paliersDeChauffe(e, ref, pas, n) {
-    var barre = estBarre(e.equipement);
-    var base = barre ? BARRE_VIDE : pas;
-    var ecart = ref - base;
-    if (!(ecart > 0)) return [];
-    var visee = CHAUFFE_VISEE * ref;
-    var k = n;
-    if (!k) k = Math.max(1, Math.min(CHAUFFE_PALIERS_MAX, Math.ceil(ecart / CHAUFFE_KG_PAR_PALIER - 1e-9)));
-    var charges = [], precedente = base;
-    for (var i = 1; i <= k; i++) {
-      var cible = k === 1 && n === 1 ? CHAUFFE_SEUL_PALIER * ref : base + (visee - base) * i / k;
-      var c = chargeDeMarche({ p: cible / ref }, e, pas);
-      if (c === null || !(c > precedente + 1e-9) || c > CHAUFFE_PLAFOND * ref + 1e-9 || c >= ref - 1e-9) continue;
-      charges.push(c);
-      precedente = c;
-    }
-    return charges;
-  }
-
-  // Les charges de `n` lignes de chauffe posées à la suite d'une proposition du coach : les paliers de la décision (ou la série légère
-  // d'une isolation en tête de séance). Une charge qui n'existe pas (rien de distinct sous la charge de travail) : `null`.
-  function chargesDuCoach(e, n, pas) {
-    var ref = nombre(e.reference), sortie = [], i;
-    if (e.isolation === true && e.premierExercice === true && n === 1) {
-      var ci = chargeDeMarche({ p: CHAUFFE_ISOLATION.p }, e, pas);
-      return [ci !== null && ci > 0 && ci < ref - 1e-9 ? ci : null];
-    }
-    var charges = paliersDeChauffe(e, ref, pas, Math.min(n, CHAUFFE_PALIERS_MAX));
-    for (i = 0; i < n; i++) sortie.push(i < charges.length ? charges[i] : null);
-    return sortie;
-  }
-
-  // `entree` : { equipement, reference (la charge de travail), e1rm (le max estimé connu, ou null), premier (le premier exercice
-  //   de la séance sur ce muscle principal), premierExercice (le tout premier de la séance), isolation, corps (au poids du corps,
-  //   sans lest ni aide), menagee, forme, peuDeTemps, silence, ajoutees (les séances d'affilée où la personne a ajouté ses
-  //   chauffes), muscle (son libellé), cran, sol, salle }.
-  // Rend { mode: 'rien' | 'proposer' | 'auto', raison: 'muscle' | 'zone' | 'forme' | null, situation, reference, lignes: [[charge, reps]],
-  //   phrase, pourquoi, annulable }. `lignes` est vide quand il n'y a rien à proposer.
+  // `entree` : { equipement, reference (la charge de travail ; au lesté, le lest), e1rm (le max estimé connu, ou null), premier (le premier
+  //   exercice de la séance sur ce muscle principal), premierExercice (le tout premier de la séance), isolation, corps (au poids du corps,
+  //   sans lest ni aide), lest (lesté), pompes (une pompe : pas de chauffe à part), reps (les reps visées de la 1re ligne de travail),
+  //   duCoach (un exercice d'un programme du coach : il choisit ses chauffes), menagee, forme, peuDeTemps, silence, ajoutees (les séances
+  //   d'affilée où la personne a ajouté ses chauffes), muscle (son libellé), cran, sol, salle, deja_sollicite }.
+  // Rend { mode: 'rien' | 'proposer' | 'auto' | 'demande', raison: 'muscle' | 'zone' | 'forme' | 'programme' | 'demande' | null, situation,
+  //   reference, lignes: [[charge, reps]], phrase, pourquoi, annulable, programme }. `lignes` est vide quand il n'y a rien à proposer.
+  // Les charges et les reps viennent TOUTES de `monteeDeChauffe` (I244), hors la série légère d'une isolation en tête de séance.
   function propositionDeChauffes(entree) {
     var e = entree || {};
     var rien = { mode: 'rien', raison: null, situation: null, reference: nombre(e.reference), lignes: [], phrase: null, pourquoi: null, annulable: false };
-    var corps = e.corps === true;
+    var nature = e.corps === true ? 'corps' : (e.lest === true ? 'lest' : 'charge');
     var ref = nombre(e.reference);
-    if (!corps && (ref === null || ref <= 0)) return rien;
-    // 8. (15/11/2026, §9.41 bis) LA DEMANDE — « + Chauffe » : la personne la demande, le coach n'a pas à la proposer. Même table, mêmes paliers ;
-    //    sans la règle 1 (aucune raison à donner), sans le silence (règle 6 : il porte sur ce que le coach PROPOSE), sans la règle 7 ; la
-    //    règle 5 vaut (une chauffe). Ce n'est ni un refus ni une acceptation. Un seul appel, un seul tableau de charges : I185.
+    if (nature === 'charge' && (ref === null || ref <= 0)) return rien;
+    if (nature === 'lest' && (ref === null || ref < 0)) return rien;
+    // Règle 6 du 20/11/2026 — pas de chauffe à part pour les pompes (au poids du corps ou lestées).
+    if (nature !== 'charge' && e.pompes === true) return rien;
+    // 8. (15/11/2026, §9.41 bis) LA DEMANDE — « + Chauffe » : la personne la demande, le coach n'a pas à la proposer. Même montée ; sans la
+    //    règle 1 (aucune raison à donner), sans le silence (règle 6 : il porte sur ce que le coach PROPOSE), sans la règle 7 ; « peu de temps »
+    //    vaut. Ce n'est ni un refus ni une acceptation. Un seul appel, un seul tableau de charges : I185.
     var demande = e.demande === true;
     if (e.silence === true && !demande) return rien;
-    var e1 = nombre(e.e1rm);
+    var e1 = nature === 'charge' ? nombre(e.e1rm) : null;
+    var sousLeSeuil = nature === 'charge' && e1 !== null && e1 > 0 && !(ref > CHAUFFE_SEUIL_MAX * e1 + 1e-9);
     var raison = null;
     if (demande) raison = 'demande';
-    else if (e.premier === true && (corps || e1 === null || e1 <= 0 || ref > CHAUFFE_SEUIL_MAX * e1 + 1e-9)) raison = 'muscle';
+    // 20/11/2026 (§9.41 delta, I248) — UN PROGRAMME DU COACH : il choisit les chauffes, posées d'office avec « Annuler » (pas de carte à
+    // accepter) ; sous 60 % du max estimé, rien (inchangé).
+    else if (e.duCoach === true && !sousLeSeuil) raison = 'programme';
+    else if (e.premier === true && !sousLeSeuil) raison = 'muscle';
     else if (e.menagee === true) raison = 'zone';
     else if (e.forme === true) raison = 'forme';
     if (!raison) return rien;
     // 7. (253-X1) UNE ISOLATION DONT LES MUSCLES ONT DÉJÀ ÉTÉ TRAVAILLÉS par un exercice précédent de la séance : rien, sauf zone à ménager.
     if (!demande && e.isolation === true && e.premierExercice !== true && e.dejaTravaille === true && e.menagee !== true) return rien;
-    // 5. peu de temps (237-bis) : une chauffe, jamais zéro sur un polyarticulaire chargé (barre ou non) ; zéro sur une isolation
-    //    (`e.isolation`, la notion unique du plan), sauf zone à ménager. Le poids du corps : zéro aussi, comme avant. La demande, elle, en
-    //    garde une.
+    // 5. peu de temps (règle 7 de `monteeDeChauffe`) : rien sur une isolation (sauf zone à ménager) ni au poids du corps ; au lesté, la série
+    //    au poids du corps seule. La demande, elle, en garde.
     var seule = e.peuDeTemps === true;
-    if (!demande && seule && (corps || e.isolation === true) && e.menagee !== true) return rien;
-    var lignes = [], situation;
-    if (corps) {
-      situation = 'corps';
-      lignes = [[null, CHAUFFE_CORPS_REPS]];
+    if (!demande && seule && (nature === 'corps' || e.isolation === true) && e.menagee !== true) return rien;
+    var lignes = [], situation, m = null;
+    if (nature !== 'charge') {
+      situation = nature;
+      m = monteeDeChauffe({ nature: nature, reference: ref, reps: e.reps, peuDeTemps: seule });
+      lignes = m.marches.map(function (q) { return [q.charge, q.reps]; });
+    } else if (e.isolation === true && e.premierExercice === true && !seule) {
+      situation = 'isolation';
+      var ci = chargeDeMarche({ p: CHAUFFE_ISOLATION.p }, e, pasDeChauffe(e));
+      if (ci !== null && ci > 0 && ci < ref - 1e-9) lignes = [[ci, CHAUFFE_ISOLATION.reps]];
     } else {
-      var pas = pasDeChauffe(e);
-      if (e.isolation === true && e.premierExercice === true && !seule) {
-        situation = 'isolation';
-        var ci = chargeDeMarche({ p: CHAUFFE_ISOLATION.p }, e, pas);
-        if (ci !== null && ci > 0 && ci < ref - 1e-9) lignes = [[ci, CHAUFFE_ISOLATION.reps]];
-      } else {
-        situation = 'paliers';
-        var charges = paliersDeChauffe(e, ref, pas, seule ? 1 : 0);
-        var reps = CHAUFFE_REPS_PAR_PALIERS[charges.length] || [];
-        lignes = charges.map(function (c, i) { return [c, reps[i]]; });
-      }
+      situation = 'paliers';
+      // « Déjà sollicité » ne retire rien à une chauffe proposée pour une zone à ménager ou en Forme (raisons qui ne tiennent pas au muscle).
+      var dejaLu = raison === 'zone' || raison === 'forme' ? false : e.deja_sollicite === true;
+      m = monteeDeChauffe(Object.assign({}, e, { origine: 'coach', n: null, peuDeTemps: seule, isolation: false, deja_sollicite: dejaLu }));
+      lignes = m.marches.filter(function (q) { return q.charge !== null; }).map(function (q) { return [q.charge, q.reps]; });
     }
     if (!lignes.length) return rien;
-    var texteLigne = function (x) {
-      return x[0] === null ? 'une série facile' : Modele().charge(x[0], undefined, regle('chauffe')) + ' × ' + nombreFr(x[1], regle('chauffe.reps'));
+    var texteLigne = function (x, i) {
+      if (nature !== 'charge' && i === 0) return 'poids du corps × ' + nombreFr(x[1], regle('chauffe.reps'));
+      return (nature === 'lest' ? enKgDeLest(x[0]) : Modele().charge(x[0], undefined, regle('chauffe'))) + ' × ' + nombreFr(x[1], regle('chauffe.reps'));
     };
-    var phrase = 'Chauffe : ' + (corps ? 'une série facile × ' + nombreFr(lignes[0][1], regle('chauffe.reps')) : lignes.map(texteLigne).join(' · '));
-    var auto = !demande && nombre(e.ajoutees) !== null && e.ajoutees >= CHAUFFE_AUTO_APRES;
+    var phrase = 'Chauffe : ' + lignes.map(texteLigne).join(' · ') + '.';
+    var auto = !demande && (raison === 'programme' || (nombre(e.ajoutees) !== null && e.ajoutees >= CHAUFFE_AUTO_APRES));
     // 15/11/2026 — « Calée sur ta 1re série, 100 kg. Le plan disait 90 kg. » : seulement quand la référence saisie diffère de celle du plan.
     var planRef = nombre(e.referencePlan);
-    var calee = e.referenceSource === 'saisie' && planRef !== null && planRef > 0 && Math.abs(planRef - ref) > 1e-9 ? { saisie: ref, plan: planRef } : null;
+    var calee = nature === 'charge' && e.referenceSource === 'saisie' && planRef !== null && planRef > 0 && Math.abs(planRef - ref) > 1e-9 ? { saisie: ref, plan: planRef } : null;
+    var derniere = situation === 'paliers' && lignes.length ? lignes[lignes.length - 1][0] : null;
     return { mode: demande ? 'demande' : (auto ? 'auto' : 'proposer'), raison: raison, situation: situation, reference: ref, lignes: lignes,
-             phrase: phrase, annulable: auto || demande, peuDeTemps: seule,
-             pourquoiSur: { raison: raison, situation: situation, peuDeTemps: seule, auto: auto, corps: corps,
-                            max: !(corps || e1 === null || e1 <= 0), muscle: e.muscle || null, calee: calee } };
+             phrase: phrase, annulable: auto || demande, peuDeTemps: seule, programme: raison === 'programme',
+             pourquoiSur: { raison: raison, situation: situation, peuDeTemps: seule, auto: auto && raison !== 'programme', corps: nature !== 'charge',
+                            nature: nature, max: nature === 'charge' && !(e1 === null || e1 <= 0), muscle: e.muscle || null, calee: calee,
+                            visee: nombre(e.reps), derniere: derniere, reference: ref, nombre: lignes.length } };
   }
 
-  // Le Pourquoi des chauffes proposées, lu sur ce que la décision a rendu (`pourquoiSur`) : sa propre phrase, ses propres chiffres citables
-  // (60 %, 15) — ceux de la phrase des charges sont cités ailleurs.
+  // Le Pourquoi des chauffes proposées, lu sur ce que la décision a rendu (`pourquoiSur`) : sa propre phrase, ses propres chiffres citables.
+  // 20/11/2026 — la part de la dernière chauffe est la VRAIE (charge affichée ÷ référence), jamais la part visée avant l'arrondi.
   function pourquoiDesChauffes(r) {
     var q = r && r.pourquoiSur;
     if (!q) return null;
@@ -12001,16 +12195,23 @@
         (q.max ? ', et tu montes au-dessus de ' + nombreFr(CHAUFFE_SEUIL_MAX * 100, regle('constante')) + ' % de ta force estimée' : '') + '.';
     } else if (q.raison === 'zone') pourquoi = 'Une zone à ménager passe par cet exercice : tu montes doucement.';
     else if (q.raison === 'demande') pourquoi = 'Tu as demandé une chauffe.';
+    else if (q.raison === 'programme') pourquoi = 'Dans le programme que je t’ai construit, je choisis tes chauffes.';
     else pourquoi = 'En objectif Forme, on monte doucement dans la charge.';
     // 15/11/2026 (§9.41 bis, règle 12) — d'où vient la charge, quand la saisie diffère du plan.
     if (q.calee) pourquoi += ' Calée sur ta 1re série, ' + enKg(q.calee.saisie, regle('reference')) + '. Le plan disait ' + enKg(q.calee.plan, regle('reference.plan')) + '.';
-    if (q.situation === 'isolation') pourquoi += ' Une série légère de ' + nombreFr(CHAUFFE_ISOLATION.reps, regle('constante')) + ' suffit.';
-    if (q.situation === 'corps') pourquoi += ' Sans charge : une série facile.';
-    if (q.peuDeTemps) pourquoi += ' Tu as peu de temps : une seule.';
-    if (q.auto) pourquoi += ' Tu les ajoutes d\u2019habitude : je les ai ajoutées.';
+    if (q.situation === 'isolation') pourquoi += ' Une série légère de ' + nombreFr(CHAUFFE_ISOLATION.reps, regle('constante')) + '.';
+    if (q.situation === 'paliers' && q.derniere !== null && q.reference > 0 && !q.peuDeTemps) {
+      // La visée elle-même (la part suit sa bande, `Modele.bandeDeReps`) : « Tes séries visent 4 reps : … ».
+      pourquoi += ' ' + (q.visee !== null && q.visee !== undefined ? 'Tes séries visent ' + nombreFr(q.visee, regle('constante')) + ' reps : l' : 'L') + 'a dernière chauffe est à ' +
+        Modele().charge(q.derniere, undefined, regle('chauffe')) + ', ' + nombreFr(Math.round(100 * q.derniere / q.reference), regle('chauffe.part')) +
+        ' % de ' + enKg(q.reference, regle('reference')) + '.';
+    }
+    if (q.nature === 'corps') pourquoi += ' Le mouvement lui-même, avec de la marge.';
+    if (q.nature === 'lest') pourquoi += ' Avec un lest, tu passes d’abord au poids du corps.';
+    if (q.peuDeTemps) pourquoi += ' ' + PHRASE_PEU_DE_TEMPS[q.nombre === 1 ? 1 : 2];
+    if (q.auto) pourquoi += ' Tu les ajoutes d’habitude : je les ai ajoutées.';
     return pourquoi;
   }
-
   // 6. LA MÉMOIRE DES « NON MERCI » : 2 refus d'affilée sur un exercice -> silence pendant 4 semaines, puis la proposition revient.
   // `x` : { n, seance, quand (ms) } ; `maintenant` : ms. Pure.
   function chauffesEnSilence(x, maintenant) {
@@ -13951,7 +14152,11 @@
     arrondieALaSalle: arrondieALaSalle,
     BARRE_VIDE: BARRE_VIDE,
     SOULEVES_AU_SOL: SOULEVES_AU_SOL,
-    TABLE_CHAUFFES: TABLE_CHAUFFES,
+    monteeDeChauffe: monteeDeChauffe, brancherBarreDeLaSalle: brancherBarreDeLaSalle, barreDesChauffes: barreDesChauffes, chargeDeLaChauffeAjoutee: chargeDeLaChauffeAjoutee,
+    plafondDeLaChauffeAjoutee: plafondDeLaChauffeAjoutee, repsDuMouvement: repsDuMouvement,
+    CHAUFFE_DERNIERE_FIXEE: CHAUFFE_DERNIERE_FIXEE, CHAUFFE_DERNIERE_PAR_BANDE: CHAUFFE_DERNIERE_PAR_BANDE, CHAUFFE_KG_PAR_MARCHE: CHAUFFE_KG_PAR_MARCHE,
+    CHAUFFE_FROID_MAX: CHAUFFE_FROID_MAX, CHAUFFE_PEU_DE_TEMPS_BARRE: CHAUFFE_PEU_DE_TEMPS_BARRE, CHAUFFE_PLAFOND_AJOUTEE: CHAUFFE_PLAFOND_AJOUTEE,
+    CHAUFFE_LEST_DES: CHAUFFE_LEST_DES,
     REPOS_ENTRE_CHAUFFES: REPOS_ENTRE_CHAUFFES,
     REPOS_APRES_CHAUFFES: REPOS_APRES_CHAUFFES,
     // §9.18 (51-1) — « J'ai peu de temps ».
@@ -14164,7 +14369,6 @@
     CHAUFFE_REFUS_SILENCE: CHAUFFE_REFUS_SILENCE,
     CHAUFFE_SILENCE_JOURS: CHAUFFE_SILENCE_JOURS,
     CHAUFFE_SEUIL_MAX: CHAUFFE_SEUIL_MAX,
-    CHAUFFE_VISEE: CHAUFFE_VISEE,
     CHAUFFE_PLAFOND: CHAUFFE_PLAFOND,
     degressiveDe: degressiveDe,
     phraseAvantDegressive: phraseAvantDegressive,

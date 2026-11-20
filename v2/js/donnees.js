@@ -376,6 +376,42 @@
   var COLONNES_ROUTINE_EXO =
     'id, routine_id, exercise_slug, rang, repos_cible_s, note, groupe_superset, zone';
 
+  // 20/11/2026 (MOTEUR §9.41 delta, I250) — `routine_exercises.chauffes_du_coach` (boolean) : le coach choisit les chauffes de cet exercice
+  // (un programme qu'il a construit). COLONNE FACULTATIVE tant que la migration (Claude.ai) n'est pas passée — le même filet que les séries
+  // (268) : nommée dans un `select`, elle ferait échouer la lecture ENTIÈRE ; si la base dit qu'elle n'existe pas, elle quitte la lecture et
+  // l'écriture pour la session, et la requête repart sans elle. Sans elle, l'app se comporte comme avant (la carte de chauffes).
+  var COLONNES_ROUTINE_EXO_FACULTATIVES = ['chauffes_du_coach'];
+  var routineExoAbsentes = {};
+  function colonnesRoutineExo() {
+    return COLONNES_ROUTINE_EXO + COLONNES_ROUTINE_EXO_FACULTATIVES.filter(function (c) { return !routineExoAbsentes[c]; })
+      .map(function (c) { return ', ' + c; }).join('');
+  }
+  function routineExoFacultativeAbsente(err) {
+    if (!err || (err.code !== '42703' && err.code !== 'PGRST204' && err.code !== 'PGRST200')) return null;
+    var txt = String(err.message || '') + ' ' + String(err.details || '') + ' ' + String(err.hint || '');
+    for (var i = 0; i < COLONNES_ROUTINE_EXO_FACULTATIVES.length; i++) {
+      var c = COLONNES_ROUTINE_EXO_FACULTATIVES[i];
+      if (!routineExoAbsentes[c] && txt.indexOf(c) >= 0) return c;
+    }
+    return null;
+  }
+  // Rejoue `faire` une fois par colonne facultative absente (la boucle finit : chaque colonne ne sort qu'une fois).
+  async function avecRoutineExoFacultatives(faire) {
+    for (;;) {
+      try { return await faire(); }
+      catch (e) {
+        var absente = routineExoFacultativeAbsente(e);
+        if (!absente) throw e;
+        routineExoAbsentes[absente] = true;
+      }
+    }
+  }
+  function sansRoutineExoAbsentes(ligne) {
+    var out = {};
+    Object.keys(ligne || {}).forEach(function (c) { if (!routineExoAbsentes[c]) out[c] = ligne[c]; });
+    return out;
+  }
+
   // Le miroir de `sets` pour les routines. Même forme, donc même rendu.
   var COLONNES_ROUTINE_SET =
     'id, routine_exercise_id, rang, type_serie, reps_visees, charge_cible_kg, ' +
@@ -384,13 +420,15 @@
   // Les routines AVEC leurs exercices, en une requête. L'imbrication PostgREST
   // suit la clé étrangère `routine_exercises.routine_id`.
   async function mesRoutines() {
-    var r = await client().from('routines')
-      .select(COLONNES_ROUTINE + ', routine_exercises(' + COLONNES_ROUTINE_EXO +
-              ', routine_sets(' + COLONNES_ROUTINE_SET + '))')
-      .order('rang', { ascending: true, nullsFirst: false })
-      .order('nom', { ascending: true });
-    if (r.error) throw r.error;
-    return r.data || [];
+    return avecRoutineExoFacultatives(async function () {
+      var r = await client().from('routines')
+        .select(COLONNES_ROUTINE + ', routine_exercises(' + colonnesRoutineExo() +
+                ', routine_sets(' + COLONNES_ROUTINE_SET + '))')
+        .order('rang', { ascending: true, nullsFirst: false })
+        .order('nom', { ascending: true });
+      if (r.error) throw r.error;
+      return r.data || [];
+    });
   }
 
   // `select().single()` après l'insertion : on a besoin de l'`id` généré pour
@@ -413,14 +451,20 @@
 
   async function insererExercices(lignes) {
     if (!lignes || !lignes.length) return [];
-    var r = await client().from('routine_exercises').insert(lignes).select(COLONNES_ROUTINE_EXO);
-    if (r.error) throw r.error;
-    return r.data || [];
+    return avecRoutineExoFacultatives(async function () {
+      var r = await client().from('routine_exercises').insert(lignes.map(sansRoutineExoAbsentes)).select(colonnesRoutineExo());
+      if (r.error) throw r.error;
+      return r.data || [];
+    });
   }
 
   async function majExercice(id, champs) {
-    var r = await client().from('routine_exercises').update(champs).eq('id', id);
-    if (r.error) throw r.error;
+    await avecRoutineExoFacultatives(async function () {
+      var propres = sansRoutineExoAbsentes(champs);
+      if (!Object.keys(propres).length) return;
+      var r = await client().from('routine_exercises').update(propres).eq('id', id);
+      if (r.error) throw r.error;
+    });
   }
 
   async function supprimerExercices(ids) {

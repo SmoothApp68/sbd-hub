@@ -80,7 +80,8 @@ describe('74 — la concordance sur les 79 séance-exercices réels', () => {
     // 169 (25/10/2026, décision d'Aurélien) — LA SORTIE : la séance d'avant (01/09, 122,5 × 5, 5, 5 à RPE 9,5) finissait déjà
     // au haut de la zone avec R < V ; le 08/09 aussi (RPE 10) : la garde a eu lieu, le test est posé (125 × 3), un seul cran.
     'u1|developpe_couche_barre#35': { etat: 'test_propose', zone: 'lourd', palier: 122.5, niveau: 5, ligne: { charge: 122.5, vise: 5 }, haut: { charge: 125, vise: 3, k: 1 } },
-    'u1|squat_barre#24': { etat: 'progression', zone: 'lourd', palier: 105, niveau: 8, ligne: { charge: 105, vise: 5 }, haut: null },
+    // 20/11/2026 (« Capacité tenue », MOTEUR §9.26 delta, I252) — `u1|squat_barre#24` RETROUVE sa référence (`aujourdhui_74`, test 115 × 3) : sa dernière
+    // série retenue, 105 × 8 à RPE 10, tient sa capacité (8 + 0 ≥ 5 + 1) ; la garde de 154 n'a plus lieu. Le double cran vient des reps (+3 au-dessus du haut).
     'u2|kickbacks_poulie#9': { etat: 'progression', zone: 'series_longues', palier: 15, niveau: 20, ligne: { charge: 15, vise: 20 }, haut: null }
   };
   // 175 (28/10/2026, décision d'Aurélien du 26/10) — LE GROS CRAN (MOTEUR §9.7 bis) : un test dont le cran dépasse

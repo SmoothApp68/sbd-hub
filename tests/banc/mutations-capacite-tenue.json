@@ -1,0 +1,32 @@
+[
+ {
+  "nom": "cap-reps-prudentes",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "return capaciteTenue({ reps: Palier().repsComptees(s), reserve: R, vise: vise, visee: V,",
+  "nouveau": "return capaciteTenue({ reps: compter(s), reserve: R, vise: vise, visee: V,",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-capacite-tenue.test.js"
+  ]
+ },
+ {
+  "nom": "cap-barres-exclues",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "    if (x.apresZero === true || x.protegee === true || x.repriseLongue === true) return false;",
+  "nouveau": "    if (x.apresZero === true || x.protegee === true || x.repriseLongue === true || x.visee >= 1) return false;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-capacite-tenue.test.js"
+  ]
+ },
+ {
+  "nom": "cap-sans-exclusion-reprise",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "      if (repriseDe(vues, se.debut) === REPRISE_LONGUE) return 'reprise_longue';",
+  "nouveau": "      if (false) return 'reprise_longue';",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-capacite-tenue.test.js"
+  ]
+ }
+]

@@ -3155,6 +3155,11 @@
       effet = ev.effet;
       phrase = Moteur().annonceDe('effort', { ev: ev, haut: k.haut || null, moment: 'apres', regime: suite.regime || null });
     }
+    // I254 (20/11/2026, MOTEUR §9.26 delta) — la capacité tenue sous la visée affichée : la ligne de fait, à la place de la garde qui n'a plus lieu (aucun `effet`).
+    var cap = !ev && k && k.fondement && k.fondement.capacite ? k.fondement.capacite : null;
+    if (R !== null && cap && cap.reserve === R && cap.visee === visee && memeChargeOuVides(cap.charge, s.charge_kg)) {
+      phrase = Moteur().annonceDe('effort', { ev: null, capacite: cap, moment: 'apres', regime: suite.regime || null });
+    }
     return { visee: visee, serie: j, reponse: R, demande: !!fini && R === null, effet: effet, phrase: phrase };
   }
 
@@ -6926,6 +6931,7 @@
     verifierRestPause(plan, erreurs);
     verifierBaisseAttendue(plan, erreurs);
     verifierEffortVise(plan, entrees, erreurs);
+    verifierCapacite(plan, entrees, erreurs);
     verifierPlancherDeBarre(plan, entrees, erreurs);
     verifierMonotonieAFond(plan, entrees, erreurs);
     verifierBord(plan, erreurs);
@@ -7600,6 +7606,47 @@
       var prop = x.propositionAuMax;
       if (prop && (classe === 'militaire' || classe === 'souleve') && nombre(prop.reserve) !== null && prop.reserve < pb) {
         erreurs.push('I241' + nom + 'une proposition « Au max » en gardant ' + prop.reserve + ', sous le plancher de la barre (' + pb + ')');
+      }
+    });
+  }
+  // I252, I252 bis et I254 (« Capacité tenue », 20/11/2026, MOTEUR §9.26 delta ; décision d'Aurélien : variante A, la règle vaut aussi sur les barres).
+  //   · I252 — une garde « sans marge » (`fondement.effortVise.effet === 'garde'`) n'existe que si la capacité n'est PAS tenue, recalculée par `Moteur.capaciteTenue`
+  //     depuis les faits de la consigne (reps, réserve notée, visée affichée) et le haut de la zone relu dans la table (`Moteur.zoneParCle`), jamais depuis un
+  //     verdict écrit ; exclusions relues : la population protégée (`plan.protegee`, I160, ou `ev.protegee`), après un zéro et la reprise longue (`ev.horsCapacite`,
+  //     le seul fait que le moteur écrit pour elles : le plan ne voit pas la séance d'où la consigne repart). Le cas M et la porte « échec » n'ont pas de vérification
+  //     à part : M exige reps = visée à réserve 0 (la capacité n'y tient qu'à garde 0, I232) et la porte « échec » reps < visée (jamais tenue).
+  //   · I252 bis — les reps relues sont celles du fondement (`ev.reps` : les reps SAISIES de la série) : un moteur qui garderait sur le calcul prudent (68B) est refusé ici.
+  //   · I254 — la ligne de fait « … de plus que prévu » ne se dit que si la consigne suivante porte `fondement.capacite` (capacité tenue, réserve sous la visée), jamais
+  //     avec « je garde » ; « Sur cette barre… » seulement si la réserve notée est sous le plancher de la barre (recalculé : `familleDeLExercice`).
+  function verifierCapacite(plan, entrees, erreurs) {
+    var M = Moteur();
+    var suites = entrees && entrees.suites ? entrees.suites : {};
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      if (!x) return;
+      var nom = ' — exercice ' + i + ' (' + x.slug + ') : ';
+      var k = x.consigne;
+      var ev = k && k.fondement && k.fondement.effortVise ? k.fondement.effortVise : null;
+      if (ev && ev.effet === 'garde') {
+        var z = M.zoneParCle(k.zone);
+        var exclu = plan.protegee === true || ev.protegee === true || ev.horsCapacite === 'apres_zero' || ev.horsCapacite === 'reprise_longue';
+        if (z && !exclu && M.capaciteTenue({ reps: ev.reps, reserve: ev.reserve, vise: z.haut, visee: ev.visee })) {
+          erreurs.push('I252' + nom + 'une garde « sans marge » sur ' + ev.charge + ' kg × ' + ev.reps + ' (' + ev.reserve + ' en réserve) : la capacité visée (' + z.haut + ' + ' + ev.visee + ') est tenue');
+        }
+      }
+      var phrase = x.effortVise && typeof x.effortVise.phrase === 'string' ? x.effortVise.phrase.replace(/[\u00a0\u202f]/g, ' ') : '';
+      if (/de plus que prévu/.test(phrase)) {
+        var su = Object.prototype.hasOwnProperty.call(suites, x.slug) ? suites[x.slug] : null;
+        var cap = su && su.consigne && su.consigne.fondement ? su.consigne.fondement.capacite : null;
+        var evS = su && su.consigne && su.consigne.fondement ? su.consigne.fondement.effortVise : null;
+        if (!cap || !(cap.reserve < cap.visee) || !M.capaciteTenue({ reps: cap.reps, reserve: cap.reserve, vise: cap.vise, visee: cap.visee })) {
+          erreurs.push('I254' + nom + '« de plus que prévu » sans capacité tenue sous la visée : ' + phrase);
+        }
+        if (evS && evS.effet === 'garde') erreurs.push('I254' + nom + '« de plus que prévu » avec une garde');
+        if (/je garde/i.test(phrase)) erreurs.push('I254' + nom + '« de plus que prévu » avec « je garde » : ' + phrase);
+        var pb = M.plancherDeBarre(familleDeLExercice(entrees, x.slug));
+        var barreDite = /Sur cette barre/.test(phrase);
+        var barreDue = !!cap && pb !== null && cap.reserve < pb;
+        if (barreDite !== barreDue) erreurs.push('I254' + nom + '« Sur cette barre » ' + (barreDite ? 'dit' : 'tu') + ' (plancher ' + pb + ', réserve ' + (cap ? cap.reserve : null) + ')');
       }
     });
   }
@@ -9705,6 +9752,7 @@
     planDesLignes: planDesLignes, gardeDeLigne: gardeDeLigne,
     rejouer: rejouer,
     verifierPlan: verifierPlan,
+    verifierCapacite: verifierCapacite,
     verifierCalisthenie: verifierCalisthenie,
     verifierOndulation: verifierOndulation,
     verifierRestPause: verifierRestPause,

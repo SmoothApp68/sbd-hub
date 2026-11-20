@@ -70,6 +70,7 @@
 | Réserve sous la visée, à fond (R = 0 < V) | 130 kg × 5, sans marge. Je garde 130 kg la prochaine fois. |
 | En séance, une série sans marge, la suite à la même charge (20/11/2026, MOTEUR §9.14 ter) | 70 kg × 9, sans marge : la suite vise 8. (la même phrase pour une ligne ou plusieurs, à toute garde : décision d'Aurélien du 20/11/2026 ; jamais « à fond », jamais « à fond aussi » : un fait, pas une injonction à l'échec) |
 | Réserve sous la visée (0 < R < V) | 130 kg × 5, avec 1 en réserve. Je garde 130 kg la prochaine fois. |
+| Réserve sous la visée, capacité tenue (reps + réserve ≥ reps visées + visée, 20/11/2026, MOTEUR §9.26, I254), en fin d'exercice | 100 kg × 7, sans marge : 2 de plus que prévu. Sur cette barre, je vise 1 en réserve. (la seconde phrase seulement sur une barre dont la réserve notée est sous le plancher : 2 au soulevé ; hors barre, la première seule ; « avec 1 en réserve » si R > 0 ; jamais « je garde », jamais « bravo » ni « tu es allé au bout » ; en séance, rien) |
 | R = V ou V + 1 | (rien) |
 | « Pourquoi » du test à la séance suivante | On essaie 36 kg : la dernière fois, 34 kg × 9 avec 3 en réserve ou plus. (« ou plus » à la case du haut ; « avec 2 en réserve. » sinon) |
 

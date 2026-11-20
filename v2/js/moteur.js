@@ -1632,6 +1632,20 @@
     if (o && o.reglage === 'prudent') return r >= v + RESERVE_ECART;
     return r > v && r >= Math.min(RESERVE_GRILLE_MAX, v + RESERVE_ECART);
   }
+  // « Capacité tenue » (20/11/2026, MOTEUR §9.26 delta, décision d'Aurélien : variante A, la règle vaut aussi sur les barres ; I252, I252 bis) — UN prédicat :
+  // une série de travail dont les reps SAISIES + la réserve notée atteignent les reps visées + la réserve visée AFFICHÉE (le plancher de barre I241 compris)
+  // a fait ce qui était prévu : aucune garde « sans marge », aucune sortie 169 comptée, aucun cas M, aucune porte fermée pour « échec », même à réserve 0.
+  // `c` : { reps (les reps SAISIES, `Palier.repsComptees`, jamais `repsPrudentes` : 68B rétablirait la garde), reserve (notée), vise (reps visées), visee
+  // (réserve visée affichée), apresZero, protegee, repriseLongue }. Exclusions : après un zéro rep (`estApresZero`), population protégée (I160), reprise
+  // longue (I206) ; les barres NE sont PAS exclues. « Facile » ne passe jamais par ici (`reserveAtteintLeSeuil`, I242). Le coach ne vise jamais l'échec : la
+  // visée affichée reste celle de `reserveAffichee`. `aFondSurLaCible` (I232, I243) en est le cas « garde 0 » : les reps visées y sont le bas de la zone.
+  function capaciteTenue(c) {
+    var x = c || {};
+    if (x.apresZero === true || x.protegee === true || x.repriseLongue === true) return false;
+    var reps = nombre(x.reps), R = nombre(x.reserve), vise = nombre(x.vise), V = nombre(x.visee);
+    if (reps === null || R === null || vise === null || V === null) return false;
+    return reps + R >= vise + V;
+  }
   function reserveVisee(o) {
     var x = o || {};
     var z = typeof x.zone === 'string' ? x.zone : (x.zone && x.zone.cle) || null;
@@ -2548,15 +2562,33 @@
       var r = compter(s);
       return r === null ? null : r;
     }
+    // Capacité tenue (20/11/2026, MOTEUR §9.26 delta, I252) — la séance `se` (une vue) : ce qu'elle exclut de la règle. Après un zéro rep (le plafond de
+    // R-A était actif quand elle a été faite : sa consigne était `zero_rep` ou `tenue_apres_zero`, `Moteur.estApresZero`), en reprise longue (`repriseDe`
+    // au début de la séance : sa consigne était `reprise_longue`, `Moteur.enRepriseLongue`), population protégée (I160). `null` : rien n'exclut.
+    function horsCapacite(se) {
+      if (protegee) return 'protegee';
+      if (!se) return null;
+      if (plafondActif(seances, se.debut, null) !== null) return 'apres_zero';
+      if (repriseDe(vues, se.debut) === REPRISE_LONGUE) return 'reprise_longue';
+      return null;
+    }
+    // I252 / I252 bis — la capacité de la série `s` de la séance `se` : ses reps SAISIES (`Palier.repsComptees`, jamais `repsPrudentes` : sinon le
+    // calcul prudent 68B rétablit la garde), la réserve notée `R`, contre `vise` reps visées et la visée AFFICHÉE `V`.
+    function capaciteDe(s, R, vise, V, se) {
+      var exclu = horsCapacite(se);
+      return capaciteTenue({ reps: Palier().repsComptees(s), reserve: R, vise: vise, visee: V,
+        protegee: exclu === 'protegee', apresZero: exclu === 'apres_zero', repriseLongue: exclu === 'reprise_longue' });
+    }
     // 169 — la séance d'AVANT (du même couple, hors séances allégées : elles sont neutres) finissait-elle déjà au haut de la
     // zone, à la même charge, avec une réserve notée sous la visée ? C'est la « première fois » de la garde.
+    // I252 — une séance d'avant dont la dernière série a tenu sa capacité n'a pas eu de garde : elle ne compte pas pour la sortie.
     function precedenteAuHautSansMarge(prec, charge, haut, visee) {
       if (prec === null || nombre(prec.seance.palier) !== charge) return false;
       var rs = prec.seance.retenues || [];
       var d = rs.length ? rs[rs.length - 1] : null;
       if (d === null || nombre(d.charge_kg) !== charge) return false;
       var r = Palier().reserveDeSerie(d), n = comptees(d);
-      return r !== null && n !== null && n >= haut && r < visee && !auMaxCommeDemande(d, r);
+      return r !== null && n !== null && n >= haut && r < visee && !auMaxCommeDemande(d, r) && !capaciteDe(d, r, haut, visee, prec.seance);
     }
     // 174 — LA RÈGLE DE BORD AVEC CHARGE (MOTEUR §9.1.2). Rend la consigne ; son état (`bord`, `bord_garde`, `bord_recul`,
     // `bord_vague`) et ce qu'elle porte pour la suite (`_bord`, non énumérable : ni le fondement ni les cas de fichier ne le
@@ -2663,7 +2695,10 @@
         // Contradicteur final (C2, 19/11/2026) — l'« Au max » fait comme demandé n'exempte de la garde QUE s'il prouve une marge : reps + réserve
         // notée au-dessus de la visée. 150 kg × 2 à l'échec pour une visée de 2 ne laisse rien : le coach garde 150 kg (152,5 × 2 serait au-delà du
         // max que donne la série). 3 reps à l'échec pour 2 visées, ou « en gardant 1 » noté 1 : la rep de plus est une marge, la règle monte.
-        if (Rb !== null && Vb !== null && Rb < Vb && !debutant && !(auMaxCommeDemande(derniere, Rb) && nombre(derniere.reps) + Rb > vise) && !precedenteAuHautSansMarge(precedente, P, vise, Vb)) {
+        // I252 (20/11/2026) — la capacité tenue : les reps SAISIES + la réserve atteignent les reps que visait la consigne reçue (`visees`, sinon le niveau) + la
+        // visée affichée : aucune garde, la règle monte.
+        if (Rb !== null && Vb !== null && Rb < Vb && !debutant && !(auMaxCommeDemande(derniere, Rb) && nombre(derniere.reps) + Rb > vise) && !precedenteAuHautSansMarge(precedente, P, vise, Vb) &&
+            !capaciteDe(derniere, Rb, visees !== null ? visees : vise, Vb, L)) {
           return fin('bord_garde', ligneDe(P, vise), { bord: { charge: P, reps: nombre(derniere.reps), reserve: Rb } });
         }
       }
@@ -2869,6 +2904,7 @@
     // la zone (la visée d'une ligne n'est pas gardée sur la série : le bas de la zone en tient lieu). Réserve notée
     // R, visée V : R ≥ V + 2 → le test, même sous le haut de la zone ; R < V → pas de montée sur sa foi ; sinon rien.
     var effortVise = null;
+    var capacite = null;   // I252 / I254 — la capacité tenue de la dernière série, sous la visée affichée : le fait de la ligne de fin d'exercice
     var derniereRetenue = L.retenues && L.retenues.length ? L.retenues[L.retenues.length - 1] : null;
     if (derniereRetenue !== null && A.length && A[A.length - 1] === derniereRetenue && effortViseEligible(P)) {
       var Rn = Palier().reserveDeSerie(derniereRetenue);
@@ -2885,6 +2921,12 @@
           if (Vn !== VnT) effortVise.viseeTable = VnT;
           if (protegee) { effortVise.viseeTable = VnT; effortVise.protegee = true; }
           if (demN !== null) effortVise.demandee = demN;
+        } else if (Rn < Vn && !debutant && !auMaxCommeDemande(derniereRetenue, Rn) && capaciteDe(derniereRetenue, Rn, hi, Vn, L)) {
+          // I252 (20/11/2026) — la capacité tenue : reps SAISIES + réserve ≥ le haut de la zone (les reps que vise une consigne qui touche le haut :
+          // la garde ne mord que si la montée est due) + la visée affichée. Aucune garde ; le fait de la ligne de fin d'exercice (I254).
+          capacite = { charge: P, reps: nombre(derniereRetenue.reps), reserve: Rn, vise: hi, visee: Vn };
+          var pbC = plancherDeBarre(famille);
+          if (pbC !== null) capacite.barre = pbC;
         } else if (Rn < Vn && !debutant && !auMaxCommeDemande(derniereRetenue, Rn)) {
           // 169 — LA SORTIE : la garde ne dure qu'une séance au haut de la zone. Si la séance d'avant, à la même charge,
           // finissait déjà au haut avec R < V, la garde a déjà eu lieu : le coach pose le test, quelle que soit la réserve.
@@ -2895,6 +2937,9 @@
           if (Vn !== VnT) effortVise.viseeTable = VnT;
           if (protegee) { effortVise.viseeTable = VnT; effortVise.protegee = true; }
           if (demN !== null) effortVise.demandee = demN;
+          // I252 — une garde que seule une exclusion maintient (après un zéro, reprise longue) le dit : I252 relit l'exclusion, pas le verdict.
+          var exclu = horsCapacite(L);
+          if (exclu !== null && exclu !== 'protegee' && capaciteTenue({ reps: Palier().repsComptees(derniereRetenue), reserve: Rn, vise: hi, visee: Vn })) effortVise.horsCapacite = exclu;
         }
       }
     }
@@ -2923,7 +2968,7 @@
     }
     if (!declenche) {
       return rendre('progression', ligneDe(P, vise), null,
-        effortVise !== null && effortVise.effet === 'garde' ? { effortVise: effortVise } : null);
+        effortVise !== null && effortVise.effet === 'garde' ? { effortVise: effortVise } : capacite !== null ? { capacite: capacite } : null);
     }
 
     var c1 = voisine(P, 1);
@@ -2998,13 +3043,14 @@
     var plusTest = preuveRetenue === null ? {} : { preuve: preuveRetenue, crans: cransPris, depasse: depasse, plafond: plafondSaut, materiel: equipement };
     if (prudenceDit !== null) plusTest.prudence = { quoi: prudenceDit, raison: prudence.raison };
     if (effortVise !== null && effortVise.effet === 'test') plusTest.effortVise = effortVise;
+    if (capacite !== null) plusTest.capacite = capacite;
     // 175 — LE GROS CRAN : le test du plus petit cran (une seule marche, jamais un double saut) se joue au plancher.
     var grosPropose = saut !== null && saut === c1 && preuveRetenue === null ? grosCran(P, saut, zone, isolation) : null;
     if (grosPropose) {
       plusTest.cranGros = grosPropose;
       return rendre('test_propose', ligneDe(P, vise), hautDe(saut, grosPropose.plancher, 1), plusTest);
     }
-    return rendre('test_propose', ligneDe(P, vise), hautDe(saut, lo, 1), plusTest.preuve || plusTest.effortVise || plusTest.prudence ? plusTest : null);
+    return rendre('test_propose', ligneDe(P, vise), hautDe(saut, lo, 1), plusTest.preuve || plusTest.effortVise || plusTest.prudence || plusTest.capacite ? plusTest : null);
   }
 
   // ── §9.14 — LA RÉACTION SÉRIE PAR SÉRIE (chantier 49, 49-R1) ─────────────
@@ -5372,8 +5418,11 @@
   // fois ») ou `aujourdhui` (lue dans le gris ou le « Pourquoi » de la consigne qui en résulte : la garde et le test du jour).
   function annonceDEffort(d) {
     var ev = d.ev, haut = d.haut;
+    // I254 (20/11/2026) — la capacité tenue sous la visée affichée : une ligne de FAIT, en fin d'exercice seulement (jamais « aujourd'hui », jamais avec une garde).
+    if (!ev && d.capacite && d.moment !== 'aujourdhui') return phraseDeLaCapacite(d.capacite);
     if (!ev) return null;
     if (d.moment === 'aujourdhui') {
+      if (!ev) return null;
       if (ev.effet === 'garde') return phraseDeLaGarde(ev);
       if (ev.sortie === true) return phraseDeLaSortie(ev, haut, true);
       return null;
@@ -5381,6 +5430,18 @@
     return phraseEffortVise(ev, haut, d.regime || null);
   }
 
+  // I254 (20/11/2026, MOTEUR §9.26 delta, VOIX-DU-COACH-V1) — « 100 kg × 7, sans marge : 2 de plus que prévu. » ; sur une barre dont la réserve notée est sous
+  // le plancher (`c.barre`, `PLANCHER_DE_BARRE`) : « Sur cette barre, je vise 1 en réserve. » (2 au soulevé). Un fait et la visée : ni « bravo », ni injonction,
+  // ni « je garde », ni promesse (l'annonce de la suite dit le test, `annonceDe('suite')`). `c` : le fait `fondement.capacite` de la consigne suivante.
+  function phraseDeLaCapacite(c) {
+    var cF = cite(FAIT, { quoi: 'capacite' });
+    var de = nombre(c.reps) - nombre(c.vise);
+    var d = chargeFois(c.charge, c.reps, cF) +
+      (c.reserve === 0 ? ', sans marge' : ', avec ' + nombreFr(c.reserve, cite(FAIT, { quoi: 'capacite.reserve' })) + ' en réserve') +
+      DEUX_POINTS + nombreFr(de, cite(FAIT, { quoi: 'capacite.de_plus' })) + ' de plus que prévu.';
+    if (nombre(c.barre) !== null && c.reserve < c.barre) d += ' Sur cette barre, je vise ' + nombreFr(c.barre, regle('constante')) + ' en réserve.';
+    return d;
+  }
   // 154 — « 130 kg × 5, sans marge. Je garde 130 kg la prochaine fois. » (R < V, la montée n'a pas lieu).
   function phraseDeLaGarde(e, sansPromesse) {
     var cF = cite(FAIT, { quoi: 'effort_vise' });
@@ -13436,7 +13497,8 @@
   function aFondSurLaCible(c) {
     var x = c || {};
     var reps = nombre(x.reps), bas = nombre(x.bas);
-    return x.gardeAffichee === 0 && nombre(x.reserve) === 0 && reps !== null && bas !== null && reps >= bas;
+    // I252 (20/11/2026, C2 bis) — le cas « garde 0 » de la capacité tenue : les reps visées sont le bas de la zone, la visée 0.
+    return x.gardeAffichee === 0 && nombre(x.reserve) === 0 && reps !== null && bas !== null && capaciteTenue({ reps: reps, reserve: 0, vise: bas, visee: 0 });
   }
   function rateRaisonDeSilence(c) {
     if (c.entretien) return 'entretien';
@@ -13490,7 +13552,8 @@
       // « Une seule garde » (I232) — à garde 0, « pile sur la cible, à fond » EST la cible : silence `tenue`, comme toute cible tenue. Sur et SOUS le
       // bas de la zone (contradicteur final, C1, 19/11/2026) : la série a fait ce que la ligne demande, « sans marge » y serait un reproche, et I232
       // refuse tout cas M à garde 0.
-      if (ecart === 0 && reserve === 0 && c.gardeAffichee !== 0) {
+      // I252 (20/11/2026) — la même lecture que la capacité tenue : pile sur la cible à réserve 0 ne l'a tenue qu'à garde 0 (`capaciteTenue`, visée de la LIGNE).
+      if (ecart === 0 && reserve === 0 && !capaciteTenue({ reps: faites, reserve: 0, vise: vise, visee: c.gardeAffichee })) {
         // M — pile sur la cible, sans rien en réserve : la suite le sait.
         return Object.assign(sortie, { cas: 'M', charge: { action: 'garde', kg: nombre(c.charge) }, garde: rateGardeAuPlancher(1, c),
           fourchette: rateFourchette(faites - 1, faites), leviers: [], recale: false });
@@ -14091,7 +14154,7 @@
     phraseDeRate: phraseDeRate,
     boutonDeRate: boutonDeRate,
     // 251 — la porte du cran (une décision, ses mots) et la notion « sous la zone » partagée.
-    rateSousLaZone: rateSousLaZone, decisionDeLaPorte: decisionDeLaPorte, aFondSurLaCible: aFondSurLaCible,
+    rateSousLaZone: rateSousLaZone, decisionDeLaPorte: decisionDeLaPorte, aFondSurLaCible: aFondSurLaCible, capaciteTenue: capaciteTenue,
     phraseDeLaPorte: phraseDeLaPorte, boutonDeLaPorte: boutonDeLaPorte, pourquoiDeLaPorte: pourquoiDeLaPorte,
     RATE_BOUTONS_FORME: RATE_BOUTONS_FORME,
     RATE_BOUTONS_PARIS: RATE_BOUTONS_PARIS,

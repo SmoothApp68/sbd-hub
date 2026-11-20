@@ -45,6 +45,9 @@ const GARDEES = [
   { fn: 'reactionAuRate', module: 'moteur.js' },
   // moteur.js — 251 (MOTEUR §9.39) : la porte du cran (un cran de test se mérite dans la séance) ; une décision, seul `planDeSeance` l'appelle
   { fn: 'decisionDeLaPorte', module: 'moteur.js' },
+  // moteur.js — « Capacité tenue » (20/11/2026, MOTEUR §9.26 delta, I252) : UN prédicat (reps saisies + réserve notée ≥ reps visées + visée affichée) qui retire la
+  // garde « sans marge », la sortie 169 comptée, le cas M et, à garde 0, l'échec (`aFondSurLaCible`) ; le moteur décide, le plan le relit dans `verifierCapacite`
+  { fn: 'capaciteTenue', module: 'moteur.js' },
   // moteur.js — PR 4a (MOTEUR §9.26 bis) : la réserve visée AFFICHÉE (la table relevée au plancher de 2 pour la population protégée) ; seul `planDeSeance` l'appelle
   // `reserveAffichee` est AUSSI un champ du plan (`x.reserveAffichee`, que les écrans lisent) : seul l'appel qualifié par le module compte.
   { fn: 'reserveAffichee', module: 'moteur.js', motif: /(?:\bMoteur|\bMoteur\(\)|\bM|racine\.THMoteur)\s*\.\s*reserveAffichee\b/g },

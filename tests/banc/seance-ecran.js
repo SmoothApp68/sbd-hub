@@ -30209,7 +30209,8 @@ const SETS_IMPORTES = [
     }
     const exo1882 = (rid, slug, rang, n, repos) => ({ id: 're-' + rid + '-' + rang, routine_id: rid, exercise_slug: slug, rang,
       routine_sets: progr(n, 8), repos_cible_s: repos, groupe_superset: null, note: null });
-    ROUTINES.push({ id: 'r-eq1882', nom: 'Haut EQ1882', note: null, archivee_a: null, created_at: '2026-01-05T10:00:00.000Z',
+    // 20/11/2026 : la carte « Jours » ne compare plus qu'aux jours POSÉS sur les routines (ou au programme du coach), jamais au nombre déclaré.
+    ROUTINES.push({ id: 'r-eq1882', nom: 'Haut EQ1882', note: null, archivee_a: null, jours: [1, 2, 3, 4], created_at: '2026-01-05T10:00:00.000Z',
       updated_at: '2026-01-05T10:00:00.000Z',
       routine_exercises: [['eq1882-dev', 4], ['eq1882-mil', 4], ['eq1882-squat', 4], ['eq1882-lat', 4], ['eq1882-arr', 4]]
         .map(([slug, n], rang) => exo1882('r-eq1882', slug, rang, n, 120)) });
@@ -30252,8 +30253,8 @@ const SETS_IMPORTES = [
     await attendreQue(async () => (await lire1882()).cartes.some((c) => c.cle === 'jours'), 15000, 'jours1882');
     const v1 = await lire1882();
     const cj = v1.cartes.filter((c) => c.cle === 'jours')[0];
-    ok('[EQ1882] la carte des jours : le fait (4 prévus, 2 en moyenne), « Refaire mon programme sur 2 jours » et « Garder 4 jours »',
-      !!cj && /prévu pour 4 jours/.test(sp1882(cj.texte)) && /en comptent 2(,\d)? en moyenne/.test(sp1882(cj.texte)) &&
+    ok('[EQ1882] la carte des jours : le fait (4 jours au programme, 2 le plus souvent), « Refaire mon programme sur 2 jours » et « Garder 4 jours »',
+      !!cj && /Ton programme a 4 jours\./.test(sp1882(cj.texte)) && /La plupart de tes \d+ dernières semaines d’entraînement en ont eu 2(,5)?\./.test(sp1882(cj.texte)) &&
         cj.boutons.some((b) => b.prop === 'refaire_jours' && /^Refaire mon programme sur 2 jours$/.test(sp1882(b.t))) &&
         cj.boutons.some((b) => /^Garder 4 jours$/.test(sp1882(b.t))) && cj.boutons.every((b) => b.h >= 44),
       nb1882(v1.cartes.map((c) => [c.cle, sp1882(c.texte).slice(0, 140), c.boutons.map((b) => b.t)])));

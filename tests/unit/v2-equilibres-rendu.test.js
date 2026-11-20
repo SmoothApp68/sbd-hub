@@ -70,8 +70,8 @@ describe('188-1 — le rendu des équilibres', () => {
   // 188-2 — les cartes des jours, du temps, de la fréquence et de l'ordre : le même rendu, rien d'écrit, la voix du coach.
   function carteFabriquee(extra) {
     return Object.assign({
-      cle: 'jours', famille: 'jours', kind: 'jours', titre: 'Ta semaine prévue et ta semaine réelle', fait: 'Ton programme est prévu pour 4 jours. Tes 8 dernières semaines d’entraînement en comptent 2 en moyenne.',
-      repere: 'Les semaines sans aucune séance ne comptent pas.', causes: [{ texte: 'Un programme en 2 jours répartirait tout sur les jours que tu fais vraiment.', proposition: null }],
+      cle: 'jours', famille: 'jours', kind: 'jours', titre: 'Ta semaine prévue et ta semaine réelle', fait: 'Ton programme a 4 jours. La plupart de tes 8 dernières semaines d’entraînement en ont eu 2.',
+      repere: 'Je ne compte que les semaines où tu t’es entraîné.', causes: [{ texte: 'Un programme en 2 jours tiendrait sur la semaine que tu fais.', proposition: null }],
       propositions: [{ type: 'refaire_jours', cle: 'refaire_jours|2', libelle: 'Refaire mon programme sur 2 jours', jours: 2, refait: true }], libelleRefus: 'Garder 4 jours'
     }, extra || {});
   }

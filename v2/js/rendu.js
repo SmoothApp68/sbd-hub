@@ -4632,7 +4632,7 @@
     }
     var n = el('div', 'proposition-exercice proposition-test');
     n.setAttribute('data-iexo', String(iExo));
-    n.appendChild(el('div', 'pc-texte', 'Semaine de mesure · ' + (t.mode === 'max' ? 'viser ton max' : 'série au max')));
+    n.appendChild(el('div', 'pc-texte', 'Semaine de mesure · ' + (t.mode === 'max' ? 'viser ton max' : 'série de mesure')));
     if (t.montee && t.montee.length && t.etat === 'a_faire') {
       n.appendChild(el('div', 'pc-detail test-montee', 'Montée : ' + t.montee.map(function (m) { return M().chargeFois(m.charge, m.reps); }).join(' · ')));
     }
@@ -4652,7 +4652,7 @@
     if (t.ajout) bouton('pt-ajouter', t.ajout.suite ? 'Ajouter l’essai suivant' : 'Ajouter ces lignes', 'ajouter');
     if (t.videsPosees) bouton('pt-annuler', 'Annuler les lignes', 'annuler_lignes');
     if (enCours && !(t.essais && t.essais.length)) {
-      bouton('pt-mode', t.mode === 'max' ? 'Plutôt une série au max' : 'Plutôt viser mon max', t.mode === 'max' ? 'mode_serie' : 'mode_max');
+      bouton('pt-mode', t.mode === 'max' ? 'Plutôt une série de mesure' : 'Plutôt viser mon max', t.mode === 'max' ? 'mode_serie' : 'mode_max');
     }
     if (enCours && t.mode === 'max' && t.essais && t.essais.length) bouton('pt-arret', 'Arrêter le test', 'arret');
     if (enCours && !(t.essais && t.essais.length)) bouton('pt-pas', 'Pas aujourd’hui', 'pas_aujourdhui');
@@ -4671,7 +4671,7 @@
       if (b.sansEssai) { menu.appendChild(el('p', 'feuille-aide test-sans-essai', b.sansEssai)); return; }
       var autre = b.mode === 'max' ? 'serie' : 'max';
       var etat = b.mesure ? (b.mesure.valeur !== null && b.mesure.valeur !== undefined
-        ? 'mesuré ' + M().kgTexte(b.mesure.valeur, 1) : 'pas d’essai') : (b.mode === 'max' ? 'viser mon max' : 'série au max');
+        ? 'mesuré ' + M().kgTexte(b.mesure.valeur, 1) : 'pas d’essai') : (b.mode === 'max' ? 'viser mon max' : 'série de mesure');
       entreeMenu(menu, b.nom + ' · ' + etat, b.mesure ? { desactive: true } : { surClic: function () { vue.surMode(b.slug, autre); } });
       // 202 — la raison du défaut prudent (la phrase du coach, sa source repliée) ; l'autre choix reste à un toucher.
       if (b.raison && !b.mesure) {
@@ -5103,7 +5103,7 @@
         versChamp(enUniteDeSaisie(f[c.cle], c.facteur)),
         c.unite,
         function (v) { vue.surChamp(iExo, iSerie, nom, aide && !vue.programme ? M().rangerAide(v) : v); },
-        { indication: fourchette, max: M().maxDeSaisie(nom), plus: M().estSerieDuTestEnSerie(s) && c.cle === 'reps',
+        { indication: fourchette, max: M().maxDeSaisie(nom), plus: M().estSerieDeMesure(s) && c.cle === 'reps',
           surQuitte: typeof vue.surChampQuitte === 'function'
             ? function () { vue.surChampQuitte(iExo, iSerie); } : null });
       caseSerie.setAttribute('data-champ', nom);

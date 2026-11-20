@@ -111,7 +111,9 @@
   // qu'elle n'existe pas, elle quitte la lecture et l'écriture POUR LA SESSION, et la même requête repart une fois sans elle. La valeur
   // reste sur l'appareil (la séance locale la garde) et part avec la prochaine écriture, la migration lancée. Une colonne obligatoire n'entre
   // JAMAIS ici.
-  var COLONNES_SERIE_FACULTATIVES = ['pente_pct', 'sans_coach'];
+  // 21/11/2026 (I253) — `serie_de_mesure` (la marque de la série de mesure, MOTEUR §9.32) aussi : absente, la série de mesure se tait (pas de
+  // mesure, jamais une mesure fausse), la marque reste sur l'appareil.
+  var COLONNES_SERIE_FACULTATIVES = ['pente_pct', 'sans_coach', 'serie_de_mesure'];
   var seriesAbsentes = {};
   function serieFacultativeAbsente(err) {
     if (!err || (err.code !== '42703' && err.code !== 'PGRST204')) return null;

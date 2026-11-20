@@ -144,18 +144,14 @@
   // `estTravail` reste vrai), mais elle ne décide JAMAIS de la charge : ni palier, ni habitude, ni cran voisin, ni test
   // (`palier.js`, rôle `recul`), et la consigne ne la couvre pas (`seance.js` `couvertureSeance`).
   function estRecul(serie) { return !!serie && !estHorsCalcul(serie) && typeDe(serie) === 'recul'; }
-  // ⚠️ « Au max » disparaît (20/11/2026, MOTEUR §9.30, I251). La dernière série « Au max » n'existe plus : `routine_sets.au_max` et
-  // `sets.au_max_reserve` ne décident plus de rien. UNE exception, isolée ici jusqu'à la PR 3 (CONTRA-AUMAX-DEDUIT C5 : une identité persistée
-  // de la série de test, avec sa migration) : LA SÉRIE DE LA SEMAINE DE TEST EN MODE « SÉRIE » (MOTEUR §9.32). « Ajouter ces lignes »
-  // (`Seance.insererChauffes`) la pose avec sa réserve (`au_max_reserve`, 0 à 3) ; le plan la reconnaît par cette marque (`faitsDeTest`).
-  // Aucun autre lecteur : la garde d'architecture (I251) refuse toute autre lecture de ces deux champs dans `v2/js/`.
-  function reserveDeLaSerieDuTest(serie) {
-    if (!serie) return null;
-    var r = lireNombre(serie.au_max_reserve);
-    return r !== null && r >= 0 && r <= 3 ? r : null;
-  }
-  function estSerieDuTestEnSerie(serie) {
-    return !!serie && !estHorsCalcul(serie) && (reserveDeLaSerieDuTest(serie) !== null || serie.au_max === true);
+  // ⚠️ 21/11/2026 (MOTEUR §9.32, I253) — « SÉRIE DE MESURE » : UNE LECTURE, ICI. La série de la semaine de mesure en mode « série » est la
+  // série qui porte la MARQUE `sets.serie_de_mesure` (v2_1xx, NOT NULL DEFAULT false), posée par le seul geste « Ajouter ces lignes »
+  // (`Seance.insererChauffes`), ET qui est une série de travail (`typeDe` : une série de mesure changée en chauffe par « Modifier » ne mesure
+  // plus rien) qui compte. Ni sa place, ni sa réserve ne disent rien : avant, c'était `au_max_reserve` (une colonne d'« Au max », I251),
+  // retirée de la lecture avec cette marque. Un seul lecteur de la mesure : `faitsDeTest` (plan.js), qui prend la PREMIÈRE série marquée
+  // (deux appareils hors ligne peuvent en poser deux ; aucun index unique : son refus bloquerait la file).
+  function estSerieDeMesure(serie) {
+    return !!serie && typeDe(serie) === 'travail' && !estHorsCalcul(serie) && serie.serie_de_mesure === true;
   }
   // ⚠️ 196 (MOTEUR §9.33) — « REST-PAUSE » : UNE LECTURE, ICI, SANS COLONNE NI TYPE (« on ne stocke que l'observé »,
   // MODIFICATEURS-SERIE §2.2). Une série de travail suivie de lignes `degressive` à la MÊME charge : la première partie est la
@@ -3520,8 +3516,7 @@
     estEssaiRate: estEssaiRate,
     estTest: estTest,
     estRecul: estRecul,
-    estSerieDuTestEnSerie: estSerieDuTestEnSerie,
-    reserveDeLaSerieDuTest: reserveDeLaSerieDuTest,
+    estSerieDeMesure: estSerieDeMesure,
     estHorsCalcul: estHorsCalcul,
     estAEchec: estAEchec,
     estManquee: estManquee,

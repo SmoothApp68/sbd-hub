@@ -131,10 +131,10 @@ describe('193-4 — la proposition', () => {
   test('202 — la raison du défaut est dite par le coach, avec sa source', () => {
     const r = M.testPhraseDuDefaut({ repsDuMax: 8, max: 160, chargeDuMax: 130 });
     expect(r.raison).toBe('reps');
-    expect(r.texte.replace(/[\u00a0\u202f]/g, ' ')).toMatch(/^Ton max estimé, 160 kg, vient de 130 kg × 8\. Au-delà de 5 reps, ce calcul est moins fiable : le coach propose une série au max plutôt qu’une tentative\.$/);
+    expect(r.texte.replace(/[\u00a0\u202f]/g, ' ')).toMatch(/^Ton max estimé, 160 kg, vient de 130 kg × 8\. Au-delà de 5 reps, ce calcul est moins fiable : le coach propose une série de mesure plutôt qu’une tentative\.$/);
     expect(r.sources.map((s) => [s.type, s.auteur, s.annee])).toEqual([['etude', 'Reynolds', 2006]]);
     const a = M.testPhraseDuDefaut({ plus65: true });
-    expect(a.texte).toBe('À partir de 65 ans, le coach propose une série au max. Tu peux viser ton max si tu le connais.');
+    expect(a.texte).toBe('À partir de 65 ans, le coach propose une série de mesure. Tu peux viser ton max si tu le connais.');
     expect(a.sources.map((s) => s.type)).toEqual(['convention']);
     expect(M.testPhraseDuDefaut({ debutant: true }).sources).toEqual([]);
     expect(M.testPhraseDuDefaut({ repsDuMax: 5 })).toBe(null);

@@ -10169,7 +10169,7 @@
     } else {
       if (!t.ajout) return;
       var lignes = t.ajout.lignes.map(function (q) {
-        return Object.assign([q.charge, q.reps], { test: true, type: q.type, reserve: q.reserve });
+        return Object.assign([q.charge, q.reps], { test: true, type: q.type, mesure: q.mesure === true });   // I253 : la marque de la série de mesure
       });
       seance = Seance.insererChauffes(seance, iExo, lignes, uuid, t.ajout.suite ? 'test' : undefined);
     }

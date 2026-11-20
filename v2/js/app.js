@@ -14151,7 +14151,7 @@
       programme: true,
       blocs: blocs,
       // Les mots du moteur (`Moteur.motsDeLAuMax`) : « garde 2 » à la place d'« Au max » pour un 65 ans et plus connu.
-      motAuMax: Moteur.motsDeLAuMax(Profil.plus65DuProfil(profil, new Date()) === true).etiquette,
+      motAuMax: Moteur.motsDeLAuMax(auMaxPrudentDuProfil()).etiquette,
       // §7 vicies — l'éditeur est la 2ᵉ surface du mode. Le repli vient du MÊME
       // `blocReplie` que la séance : l'éditeur ne l'avait simplement jamais
       // demandé (`modifier` n'était pas passé). Rien de neuf, un branchement.
@@ -14240,6 +14240,12 @@
   // Le type d'une série programmée — chauffe, travail, dégressive, échec. C'est
   // la MÊME feuille qu'en séance, `programme: true` en moins de la note de
   // série : `routine_sets` n'a pas de colonne où la mettre.
+  // Lot E, A3 (20/11/2026, MOTEUR §9.30, I238) — l'éditeur de routine n'a pas de plan : le public prudent de « Au max » se lit sur le profil
+  // (65 ans et plus connus, débutant), par le même prédicat que le plan (`Moteur.publicPrudentAuMax`).
+  function auMaxPrudentDuProfil() {
+    return Moteur.publicPrudentAuMax({ plus65: Profil.plus65DuProfil(profil, new Date()) === true, debutant: Profil.estDebutant(profil) === true });
+  }
+
   function ouvrirTypeSerieRoutine(i, j) {
     var l = ligneBrouillon(i, j);
     if (!l) return;
@@ -14252,8 +14258,8 @@
       // 193-6 — « Au max » dans la routine : sur la dernière série de travail seulement ; une seule par exercice.
       // Les mêmes mots que le plan (`Moteur.motsDeLAuMax`) : aucun « Au max » à un 65 ans et plus connu, dans aucun écran.
       auMax: { possible: derniereSerieDeTravail((exoBrouillon(i) || {}).series) === j, actif: l.au_max === true,
-               bouton: Moteur.motsDeLAuMax(Profil.plus65DuProfil(profil, new Date()) === true).bouton,
-               retirer: Moteur.motsDeLAuMax(Profil.plus65DuProfil(profil, new Date()) === true).retirer,
+               bouton: Moteur.motsDeLAuMax(auMaxPrudentDuProfil()).bouton,
+               retirer: Moteur.motsDeLAuMax(auMaxPrudentDuProfil()).retirer,
                aide: 'Dans ta routine : le coach la lit à chaque séance, et te dit comment la mener.' },
       surAuMax: function (actif) {
         var e = exoBrouillon(i);

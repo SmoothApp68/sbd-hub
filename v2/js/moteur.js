@@ -12045,7 +12045,10 @@
     }
     var pose = 'defaut';
     // Une première fois : le coach ne pose RIEN (aucune charge de travail n'est encore trouvée). Une marque de la personne, elle, reste.
-    if (x.premiereFois === true && !main) return rien;
+    // Lot E, A3 (20/11/2026, MOTEUR §9.30 delta, I238) : le DÉBUTANT non plus (`debutant`, `Profil.estDebutant` : « moins d'un an ») — le coach ne
+    // lui pose jamais « Au max » (ni sur une barre, ni sur une machine ou une isolation : la décision du 31/10/2026 est remplacée) ; sa marque à
+    // lui reste, au plancher « en gardant 2 reps » (`publicPrudentAuMax`).
+    if ((x.premiereFois === true || x.debutant === true) && !main) return rien;
     if (reserve === null) {
       if (!main) return rien;
       reserve = AU_MAX_RESERVE_PAR_DEFAUT; pose = 'main';
@@ -12061,7 +12064,8 @@
     // une zone à ménager, un « J'ai mal » récent, 65 ans et plus connus, une première fois : jamais d'échec ni « garde 1 », au plus « en
     // gardant 2 reps » (un seul plancher, un seul prédicat ; une marque de la personne n'est jamais effacée, elle passe au plancher)
     // 16/11/2026 (MOTEUR §9.30, delta) : la séance de REPRISE LONGUE de cet exercice (`enRepriseLongue(consigne)`, UN prédicat, lu par le plan) rejoint la liste.
-    if ((x.menagee || x.douleurRecente === true || x.plus65 === true || x.premiereFois === true || x.repriseLongue === true) && reserve < AU_MAX_RESERVE_PAR_DEFAUT) reserve = AU_MAX_RESERVE_PAR_DEFAUT;
+    // Lot E, A3 (20/11/2026) : le débutant aussi ; la liste est UN prédicat, `publicPrudentAuMax`, que lisent aussi les mots (`motsDeLAuMax`).
+    if (publicPrudentAuMax(x) && reserve < AU_MAX_RESERVE_PAR_DEFAUT) reserve = AU_MAX_RESERVE_PAR_DEFAUT;
     return { pose: pose, reserve: reserve, sorte: reserve === 0 ? 'echec' : 'garde',
              avecPareur: reserve === 0 && (classe === 'squat' || classe === 'couche'), classe: classe };
   }
@@ -12078,11 +12082,19 @@
     var c = consigne || null;
     return !!c && (c.etat === 'zero_rep' || c.etat === 'tenue_apres_zero' || (c.etat === 'silence' && c.raison === 'zero_plancher'));
   }
-  // D-A3 — les mots de la carte de la dernière série et du bouton du menu : pour un 65+ connu, « en gardant 2 reps » (le plancher), pas « au max ».
-  // Le plan les pose (`x.auMaxMots`, `proposition.titre`) ; l'écran les lit.
-  function motsDeLAuMax(plus65) {
+  // Lot E, A3 (20/11/2026, MOTEUR §9.30 delta, I238) — LE PUBLIC PRUDENT DE « AU MAX » : UN prédicat, lu par `auMaxDe` (le plancher « en gardant 2
+  // reps ») et, par ses appelants, par `motsDeLAuMax` (les mots : jamais un bouton « Au max » sur une ligne « en gardant 2 »). Une zone à ménager, un
+  // « J'ai mal » récent, 65 ans et plus CONNUS, une première fois (le plan y range l'après-zéro, `estApresZero`), la reprise longue de l'exercice,
+  // un débutant. `o` : les faits de `auMaxDe` (ceux qui manquent valent faux).
+  function publicPrudentAuMax(o) {
+    var x = o || {};
+    return !!x.menagee || x.douleurRecente === true || x.plus65 === true || x.premiereFois === true || x.repriseLongue === true || x.debutant === true;
+  }
+  // D-A3 — les mots de la carte de la dernière série et du bouton du menu : pour le public prudent (`publicPrudentAuMax`, lot E ; avant : un 65+ connu
+  // et la reprise longue), « en gardant 2 reps » (le plancher), pas « au max ». Le plan les pose (`x.auMaxMots`, `proposition.titre`) ; l'écran les lit.
+  function motsDeLAuMax(prudent) {
     var garde = 'en gardant ' + AU_MAX_RESERVE_PAR_DEFAUT + ' reps';
-    return plus65 === true
+    return prudent === true
       ? { titre: 'Dernière série' + DEUX_POINTS + garde + '\u00a0?', bouton: 'En gardant ' + AU_MAX_RESERVE_PAR_DEFAUT + ' reps',
           retirer: 'Retirer la réserve de ' + AU_MAX_RESERVE_PAR_DEFAUT + ' reps', etiquette: 'garde\u00a0' + AU_MAX_RESERVE_PAR_DEFAUT }
       : { titre: 'Dernière série au max\u00a0?', bouton: 'Au max', retirer: 'Retirer « Au max »', etiquette: 'Au max' };
@@ -13851,6 +13863,7 @@
     tenterApresUnZero: tenterApresUnZero,
     SEANCES_DU_PLAFOND: SEANCES_DU_PLAFOND,
     motsDeLAuMax: motsDeLAuMax,
+    publicPrudentAuMax: publicPrudentAuMax,
     // 236 (§9.39) — le coach en temps réel après un raté : UNE fonction de décision, ses mots, ses constantes
     reactionAuRate: reactionAuRate,
     phraseDeRate: phraseDeRate,

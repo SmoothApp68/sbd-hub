@@ -88,11 +88,14 @@ describe('193-6 — le plan : la dernière série « Au max »', () => {
     expect(T.verifierPlan(pl, entrees(seance(DC, 3, true), DC, { douleurs: { [DC]: ['2026-10-20'] } })).erreurs).toEqual([]);
   });
 
-  test('débutant : garde 1 au couché', () => {
+  // Lot E, A3 (20/11/2026) : la marque d'un débutant (ici, écrite dans sa routine) passe au plancher « en gardant 2 reps » (avant : garde 1).
+  test('débutant : la marque au couché, en gardant 2 reps', () => {
     const e = entrees(seance(DC, 3, true), DC, { debutant: true });
-    const x = T.planDeSeance(e).exercices[0];
-    expect(x.lignes[2].auMax.reserve).toBe(1);
+    const p = T.planDeSeance(e);
+    const x = p.exercices[0];
+    expect(x.lignes[2].auMax.reserve).toBe(2);
     expect(x.lignes[2].auMax.avecPareur).toBe(false);
+    propre(p, e);
   });
 
   test('la série validée : le constat dit les reps et l’écart à la table (I26)', () => {

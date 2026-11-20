@@ -2321,6 +2321,10 @@ const NOTIONS = [
   { notion: 'les mots de la dernière série « Au max » (titre, bouton, étiquette ; « en gardant 2 reps » pour un 65 ans et plus connu)', pr: 'correctif 12/11/2026',
     module: 'moteur.js', fonction: 'motsDeLAuMax', lecteurs: ['plan.js', 'app.js'],
     raison: 'le plan pose `x.auMaxMots` et le titre de la carte ; l’éditeur de routine, sans plan, lit la même fonction : aucun « Au max » à un 65+ connu, dans aucun écran.' },
+  { notion: 'le public prudent de « Au max » (zone à ménager, douleur récente, 65 ans et plus connus, première fois, reprise longue, débutant)', pr: 'correctif 20/11/2026',
+    module: 'moteur.js', fonction: 'publicPrudentAuMax', lecteurs: ['plan.js', 'app.js'],
+    raison: 'MOTEUR §9.30 (delta 20/11/2026, I238) : un seul prédicat lu par `auMaxDe` (le plancher « en gardant 2 reps ») et par les cinq appels de ' +
+      '`motsDeLAuMax` ; l’éditeur de routine, sans plan, le lit sur le profil : jamais un bouton « Au max » sur une ligne « en gardant 2 ».' },
   // MOTEUR §9.51 quinquies (PR A, 15/11/2026) : la table des coupures de reps. Aucun lecteur hors `modele.js` pour l'instant : les
   // trois copies du seuil lourd (bilans, plan, faits) ont été des exceptions NOMMÉES, retirées une à une (PR B : plan ; PR C : bilans ; PR D : faits) — la liste blanche est vide.
   { notion: 'la bande de reps d\u2019une série (lourdes ≤ 5, moyennes 6 à 8, hautes 9 à 12, longues 13 et plus)', pr: 'correctif 15/11/2026',

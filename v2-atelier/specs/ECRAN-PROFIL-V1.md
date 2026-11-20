@@ -84,7 +84,7 @@ chacun avec sa phrase :
 |---|---|
 | Prudent | « Monte quand toutes tes séries touchent le haut de ta zone, deux séances de suite. » |
 | **Normal** (défaut) | « Monte quand tes deux premières séries touchent le haut de ta zone. » |
-| Franc | « Dès qu'une série touche le haut de ta zone, la charge monte, et deux crans d'un coup quand tu dépasses nettement. » |
+| Franc | « Dès qu'une série touche le haut de ta zone avec la réserve visée, la charge monte, et deux crans d'un coup quand tu dépasses nettement. » |
 
 Dessous : « La prochaine consigne en tient compte. » Aucun argument chiffré à l'écran.
 En **« Juste un carnet »**, le bloc disparaît, comme les étiquettes de zone et les consignes.

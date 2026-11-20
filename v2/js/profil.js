@@ -195,7 +195,7 @@
     { cle: 'normal', libelle: 'Normal',
       phrase: 'Monte quand tes deux premières séries touchent le haut de ta zone.' },
     { cle: 'franc', libelle: 'Me pousser',
-      phrase: 'Dès qu\u2019une série touche le haut de ta zone, la charge monte, ' +
+      phrase: 'Dès qu\u2019une série touche le haut de ta zone avec la réserve visée, la charge monte, ' +
               'et deux crans d\u2019un coup quand tu dépasses nettement.' }
   ];
 

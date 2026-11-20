@@ -1,0 +1,5 @@
+[
+ {"nom": "hv-essai-raté-compte-au-volume", "fichier": "v2/js/modele.js", "ancien": "estTravailOuEssai(serie) && !estEssaiRate(serie);", "nouveau": "estTravailOuEssai(serie);", "banc": "aucun", "unitaires": ["tests/unit/v2-essai-rate-hors-volume.test.js"]},
+ {"nom": "hv-question-du-zero-perdue", "fichier": "v2/js/faits.js", "ancien": "Modele.estTravailOuEssai({ type_serie: type, reps: 0 })", "nouveau": "Modele.estTravail({ type_serie: type, reps: 0 })", "banc": "aucun", "unitaires": ["tests/unit/v2-vraisemblance.test.js"]},
+ {"nom": "hv-raté-lu-sur-tout-zero", "fichier": "v2/js/modele.js", "ancien": "typeDe(serie) === 'test' && lireNombre(serie.reps) === 0; }", "nouveau": "typeDe(serie) === 'test' && lireNombre(serie.reps) !== null && lireNombre(serie.reps) <= 1; }", "banc": "aucun", "unitaires": ["tests/unit/v2-essai-rate-hors-volume.test.js"]}
+]

@@ -167,6 +167,10 @@ describe('185 — les reps', () => {
     expect(q.boutons.map((b) => b.texte)).toEqual(['Oui, manquée', 'J’ai eu mal', 'Corriger']);
     expect(q.boutons.map((b) => b.action)).toEqual(['manquee', 'mal', 'corriger']);
   });
+  test('un essai de test à 0 rep pose encore la question (il garde son type, mais n’est pas du volume)', () => {
+    const q = v({ charge: 30, reps: 0, type: 'test', equipement: 'poulie' }, { historique: H, cible: 8 });
+    expect(q && q.genre).toBe('zero');
+  });
   test('1 rep n’est pas un zéro', () => {
     expect(v({ charge: 30, reps: 1, equipement: 'poulie' }, { historique: H, cible: 8 })).toBeNull();
   });

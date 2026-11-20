@@ -22211,8 +22211,8 @@ const SETS_IMPORTES = [
     const g1 = await grilleB();
     ok('[C68B] DISCRIMINANT — « à fond » noté : la série 2, à la même charge, vise 11 ; les autres ne bougent pas',
       nbB(g1.slice(1)) === nbB(['79×11', '79×12', '81,3×11']), nbB(g1));
-    ok('[C68B] la phrase « 79 kg × 12, sans marge : la suivante vise 11. »',
-      nbB(await phrasesB()) === nbB(['a_fond_suite | 79 kg × 12, sans marge : la suivante vise 11.']), nbB(await phrasesB()));
+    ok('[C68B] la phrase « 79 kg × 12, sans marge : la suite vise 11. »',
+      nbB(await phrasesB()) === nbB(['a_fond_suite | 79 kg × 12, sans marge : la suite vise 11.']), nbB(await phrasesB()));
     // 183 — LA SÉRIE QUE « À FOND » A RÉÉCRITE, VALIDÉE : le pari porte la révision 2 ; la garde de l'app ne doit pas crier
     // « 0 pari de sa révision » (I7) entre le plan et l'observation. La garde lit les violations de l'app (crochetPlan) ET ici.
     const gardeAvant183 = await page.evaluate(() => window.THPlan.garde.etat().violations.length);

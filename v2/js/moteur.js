@@ -3977,11 +3977,11 @@
         if (m.a_fond) return fait + ' à fond' + DEUX_POINTS + 'la suite revient ' + laSuite(m.suite, z) + '.';
         return fait + DEUX_POINTS + 'pas encore. On revient à ' + enKg(m.palier, cite(CIBLE, { role: 'retour' })) + '.';
       // §9.14 ter (68B) — la suivante, une rep de moins.
-      // Lot F, étape 1 (VOIX : la réserve 0 se dit « sans marge », un fait, jamais une injonction) : « 70 kg × 9, sans marge : la suite vise 8. » ;
-      // « la suivante » si une seule ligne change ; sans visée (sous le bas de la zone, la parole cédée) : le fait seul.
+      // Lot F, étape 1 (VOIX : la réserve 0 se dit « sans marge », un fait, jamais une injonction) : « 70 kg × 9, sans marge : la suite vise 8. », UNE
+      // phrase partout (décision d'Aurélien, 20/11/2026 : « la suite », qu'une ligne ou plusieurs changent, à toute garde) ; sans visée : le fait seul.
       case 'a_fond_suite':
         if (m.vise === null || m.vise === undefined) return fait + ', sans marge.';
-        return fait + ', sans marge' + DEUX_POINTS + (m.lignes > 1 ? 'la suite' : 'la suivante') + ' vise ' +
+        return fait + ', sans marge' + DEUX_POINTS + 'la suite vise ' +
           nombreFr(m.vise, cite(CIBLE, { role: 'suite', champ: 'reps' })) + '.';
       // §9.14 bis (68A) — QUAND LA SÉRIE S'ÉCARTE DE SA LIGNE.
       case 'elan': {

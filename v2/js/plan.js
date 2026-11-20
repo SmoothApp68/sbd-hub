@@ -3529,7 +3529,7 @@
       });
     }
     if (d.silence) return;
-    // La réaction existante (§9.14, y compris « à fond, la suivante vise une rep de moins », §9.14 ter) parle déjà sous cette série : elle garde la parole.
+    // La réaction existante (§9.14, y compris « à fond, la suite vise une rep de moins », §9.14 ter) parle déjà sous cette série : elle garde la parole.
     // Lot F, étape 1 (I243) — sauf un message « à fond » à garde 0 qui CÈDE (au bas de la zone ou dessous) : la réaction au raté parle seule, le message
     // s'efface (une voix). Muette (débutant, entretien, décharge, test, première fois, douleur : `d.silence`, plus haut), le message cédé garde la parole.
     if (x.message && x.message.cede === true) {

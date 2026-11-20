@@ -1215,8 +1215,8 @@ l'est pas). Ces règles sont des étapes de la réaction, avec ses silences (§9
 - **La suivante, une rep de moins.** Après une série à fond à la charge C faite avec r reps, la ligne suivante, si elle
   n'est pas validée, n'est pas une ligne du coach ni d'élan, et est à la même charge C, vise **r − 1 reps quand sa
   visée était plus haute** (jamais moins d'une rep, jamais plus que sa visée) ; seule la ligne suivante change. Son
-  pari est une révision (source `a_fond`, `valeur_predite` = r − 1). La phrase : « 79 kg × 12, sans marge : la suivante vise
-  11. » *(20/11/2026 ; avant : « à fond : »)* *(Sur toute la base, après une série à fond suivie d'une série à la même charge : −1,4 rep en moyenne, 14 cas.)*
+  pari est une révision (source `a_fond`, `valeur_predite` = r − 1). La phrase : « 79 kg × 12, sans marge : la suite vise
+  11. » *(20/11/2026 ; avant : « à fond : », puis « la suivante » ; une phrase partout, décision d'Aurélien)* *(Sur toute la base, après une série à fond suivie d'une série à la même charge : −1,4 rep en moyenne, 14 cas.)*
 - **Pas d'élan.** Plus lourd que sa ligne, à fond : la suite reste au plan, même si la série tient. « 84 kg × 12 à fond :
   la suite reste à 79 kg × 12. » (sous la fourchette, sans réserve non plus : « 84 kg × 9 : pas encore. … », §9.14 bis).
 - **La proposition prise, à fond.** Les lignes suivantes reviennent à la charge de travail, comme « pas encore », mais
@@ -1260,8 +1260,9 @@ l'est pas). Ces règles sont des étapes de la réaction, avec ses silences (§9
     séries à fond d'avant tiennent (`appliquerBornesAFond`, appliquée avant le retour de `reactionPour` sur un zéro) : 70 × 9 à fond puis 70 × 0, ou
     puis 75 × 0, laissent la suite à 70 × 8, jamais 70 × 10 ;
   - le pari `a_fond` d'une ligne propagée lit pour déclencheur la dernière série validée avant elle (`pariAFond`) ;
-  - **la phrase** (VOIX-DU-COACH-V1 : la réserve 0 se dit « sans marge ») : « 70 kg × 9, sans marge : la suite vise 8. » (« la suivante » si une seule
-    ligne change ; à garde ≥ 1 aussi : « 79 kg × 12, sans marge : la suivante vise 11. ») ; sans ligne qui change, le fait seul : « 70 kg × 7, sans marge. ».
+  - **la phrase** (VOIX-DU-COACH-V1 : la réserve 0 se dit « sans marge » ; décision d'Aurélien du 20/11/2026 : une seule phrase, partout) :
+    « 70 kg × 9, sans marge : la suite vise 8. », qu'une ligne ou plusieurs changent, à garde 0 comme à garde ≥ 1 (« 79 kg × 12, sans marge : la suite
+    vise 11. ») ; sans ligne qui change, le fait seul : « 70 kg × 7, sans marge. ».
   Écarts notés : « à fond » des phrases `pas_encore` (« la suite revient ») et `elan` reste (dette, CONTRA-723 N2) ; avec le plancher de réserve par barre
   (§9.26 ter, I241), les barres en « Me pousser » ne sont plus à garde 0 : la propagation ne vaut qu'aux machines, haltères et isolations (CONTRA-723 N1) ;
   étape 2 (garde ≥ 1, « la suite vise r − 1 − g » ou L) après la mesure Claude.ai (perte de reps par repos et par série). Interaction avec #721 (« une seule

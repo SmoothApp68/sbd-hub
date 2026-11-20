@@ -63,10 +63,10 @@ describe('garde 0 (Franc, une machine), la série dans la zone, au-dessus du bas
     expect(r.x.rate).toBeNull();
     expect(r.erreurs).toEqual([]);
   });
-  test('une seule ligne qui suit : « la suivante »', () => {
+  test('une seule ligne qui suit : la même phrase, « la suite » (décision d’Aurélien, 20/11/2026)', () => {
     const r = jouer([[70, 10, 9], [70, 10, 9], [70, 9, 10]], 'franc');
     expect(restantes(r.x)).toEqual([[70, 8]]);
-    expect(sp(r.x.message.phrase)).toBe('70 kg × 9, sans marge : la suivante vise 8.');
+    expect(sp(r.x.message.phrase)).toBe('70 kg × 9, sans marge : la suite vise 8.');
     expect(r.erreurs).toEqual([]);
   });
 });
@@ -149,11 +149,11 @@ describe('la monotonie (I243) : une suite ne remonte jamais au-dessus d’une vi
 });
 
 describe('la garde ≥ 1 ne change pas (étape 1 seulement)', () => {
-  test('4. Normal, 70 × 9 à fond : la suivante seule vise 8, « sans marge »', () => {
+  test('4. Normal, 70 × 9 à fond : la suivante seule vise 8, la phrase dit « la suite »', () => {
     const r = jouer([[70, 9, 10]], 'normal');
     expect(r.x.gardeDeLigne).toBe(1);
     expect(restantes(r.x)).toEqual([[70, 8], [70, 10], [70, 10]]);
-    expect(sp(r.x.message.phrase)).toBe('70 kg × 9, sans marge : la suivante vise 8.');
+    expect(sp(r.x.message.phrase)).toBe('70 kg × 9, sans marge : la suite vise 8.');
     expect(r.erreurs).toEqual([]);
   });
 });

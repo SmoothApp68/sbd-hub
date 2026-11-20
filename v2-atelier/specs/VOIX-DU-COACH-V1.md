@@ -121,6 +121,22 @@ Lexique fermé (tutoiement, un fait, aucun « bravo », aucun jugement) ; chaque
 
 « Montée » est le mot de la ligne posée, « chauffe » celui du geste : les deux existent déjà dans l'app (« + Chauffe », « Chauffe : 50 kg × 8 · 80 kg × 3 »). Jamais « libre », « perf » ni « bravo » dans une phrase du coach. *Notée pour plus tard, non livrée en PR 1 :* « Tape la charge de ta 1re série : la montée se cale dessus. » (la ligne vide sans référence).
 
+## Une seule montée (20/11/2026, MOTEUR §9.15, §9.15.5, §9.17 et §9.41 delta)
+
+Le chiffre d'abord, l'unité sur chaque charge, « tu », un fait. Jamais « une de plus » (réservé au verbe « Une rep de plus : … », §9.47), jamais « suffisent » (un jugement), jamais « loin de ton max » (« max » est retiré des écrans, I183).
+
+| Où | Phrase |
+|---|---|
+| Lignes de la routine | Chauffes calées sur 135 kg : 20 kg × 10 · 70 kg × 6 · 90 kg × 3 · 120 kg × 1. |
+| Proposition, ajout d'office | Chauffe : 20 kg × 10 · 65 kg × 6 · 95 kg × 3 · 120 kg × 1. |
+| Pourquoi (la part VRAIE, charge affichée ÷ référence) | Tes séries visent 4 reps : la dernière chauffe est à 120 kg, 89 % de 135 kg. |
+| Pourquoi, programme du coach | Dans le programme que je t'ai construit, je choisis tes chauffes. |
+| Après « + Chauffe » | Chauffe ajoutée : 125 kg × 1, entre 120 et 135 kg. — sans place : Trop proche de ta charge de travail pour une chauffe de plus. |
+| Poids du corps | Chauffe : poids du corps × 3. — Pourquoi : Le mouvement lui-même, avec de la marge. |
+| Lesté | Chauffe : poids du corps × 2 · 15 kg de lest × 2. — Pourquoi : Avec un lest, tu passes d'abord au poids du corps. |
+| Peu de temps | Tu as peu de temps : deux chauffes. / Tu as peu de temps : une seule. |
+| Une ligne qui n'a plus de marche | Trop léger pour une chauffe de plus. |
+
 ## Ce qui reste à faire
 
 *Réécrit au présent le 05/11/2026 (243) : la refonte du plan unique est faite.* La garde `tests/unit/v2-voix.test.js` (règles de

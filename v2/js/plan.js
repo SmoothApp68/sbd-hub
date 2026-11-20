@@ -191,7 +191,9 @@
     // traite plus comme un doute (`Moteur.reactionPour`, `gardeAffichee`). Le plan d'exercice la calcule une fois et la passe (`o.gardeDeLigne`).
     var gardeLigne = o.gardeDeLigne !== undefined ? o.gardeDeLigne : gardeDeLigne(consigne, o);
     var contexteR = gardeLigne === 0 ? Object.assign({}, contexte || {}, { gardeAffichee: 0 }) : (contexte || null);
-    var reaction = M.reactionPour(consigne, faites, contexteR, planInitial);
+    // « Une seule voix après un zéro » (19/11/2026, I157) — sous une série à 0 rep, la réaction au zéro (`Moteur.reactionAuZero`) parle SEULE : la réaction §9.14 (le
+    // message, l'élan, « plus léger ») ne se lit pas sur les séries d'avant ; les lignes qui restent sont celles de la consigne (`planInitial`).
+    var reaction = o.apresUnZero === true ? M.reactionPour(consigne, [], contexteR, planInitial) : M.reactionPour(consigne, faites, contexteR, planInitial);
 
     var lignes = liste.map(function (sr, i) {
       var cov = couverture[i];
@@ -1649,8 +1651,10 @@
     var porte = porteCtx && consigne.haut && consigne.ligne && !consigne.allegee && !consigne.repli && consigne.etat !== 'silence'
       ? porteDeLExercice(series, consigne, Object.assign({}, porteCtx, { objectif: objectif, barre: !!(materiel && materiel.equipement === 'barre'),
         gardeAffichee: gardeX === 0 ? 0 : null })) : null;
+    var dZ = derniereValideDeLExercice({ series: series });
     var r = planDesLignes(series, consigne, c.contexte || null, figees, {
       gardeDeLigne: gardeX,
+      apresUnZero: !!porteCtx && dZ !== null && racine.THModele.estZeroDeTravail(series[dZ]) && !consigne.allegee && consigne.etat !== 'silence',
       sansTest: !!(porte && porte.fermee && !porte.tente),
       slug: base.slug, seance: seanceId === undefined ? null : seanceId,
       reglage: reglage === undefined ? null : reglage, phase: phase, objectif: objectif, protegee: protegee === true,

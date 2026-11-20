@@ -191,7 +191,9 @@
     // traite plus comme un doute (`Moteur.reactionPour`, `gardeAffichee`). Le plan d'exercice la calcule une fois et la passe (`o.gardeDeLigne`).
     var gardeLigne = o.gardeDeLigne !== undefined ? o.gardeDeLigne : gardeDeLigne(consigne, o);
     var contexteR = gardeLigne === 0 ? Object.assign({}, contexte || {}, { gardeAffichee: 0 }) : (contexte || null);
-    var reaction = M.reactionPour(consigne, faites, contexteR, planInitial);
+    // « Une seule voix après un zéro » (19/11/2026, I157) — sous une série à 0 rep, la réaction au zéro (`Moteur.reactionAuZero`) parle SEULE : la réaction §9.14 (le
+    // message, l'élan, « plus léger ») ne se lit pas sur les séries d'avant ; les lignes qui restent sont celles de la consigne (`planInitial`).
+    var reaction = o.apresUnZero === true ? M.reactionPour(consigne, [], contexteR, planInitial) : M.reactionPour(consigne, faites, contexteR, planInitial);
 
     var lignes = liste.map(function (sr, i) {
       var cov = couverture[i];
@@ -1650,8 +1652,10 @@
     var porte = porteCtx && consigne.haut && consigne.ligne && !consigne.allegee && !consigne.repli && consigne.etat !== 'silence'
       ? porteDeLExercice(series, consigne, Object.assign({}, porteCtx, { objectif: objectif, barre: !!(materiel && materiel.equipement === 'barre'),
         gardeAffichee: gardeX === 0 ? 0 : null })) : null;
+    var dZ = derniereValideDeLExercice({ series: series });
     var r = planDesLignes(series, consigne, c.contexte || null, figees, {
       gardeDeLigne: gardeX,
+      apresUnZero: !!porteCtx && dZ !== null && racine.THModele.estZeroDeTravail(series[dZ]) && !consigne.allegee && consigne.etat !== 'silence',
       sansTest: !!(porte && porte.fermee && !porte.tente),
       slug: base.slug, seance: seanceId === undefined ? null : seanceId,
       reglage: reglage === undefined ? null : reglage, phase: phase, objectif: objectif, protegee: protegee === true,
@@ -3228,6 +3232,7 @@
       decharge: !!plan.allegee || !!(x.consigne && x.consigne.allegee),
       semaineDeTest: !!plan.semaineDeTest || !!x.semaineDeTest, debutant: plan.debutant === true, calage: !!x.calage,
       douleur: !!x.douleur, figure: !!x.figure,
+      lest: !!(cat && cat.charge === 'ajoutee'), aide: !!(cat && cat.charge === 'assistance'),
       zoneAMenager: !!x.menagee, douleurHier: !!x.carteReprise,
       peuDeTemps: gs.concat(Array.isArray(seance.gestes) ? seance.gestes : []).some(function (g) { return g && g.geste === 'raccourci'; }),
       seche: plan.phase === 'seche', autreSalle: e.autreSalle === true,
@@ -3246,38 +3251,69 @@
     return cond;
   }
 
-  // PR 4b — voir `Moteur.reactionAuZero`. Rend vrai quand la réaction au zéro parle (x.rate posé) ; faux : le reste du pipeline joue.
-  function reactionAuZeroDuPlan(plan, x, exo, e, seance, gs, travail) {
+  // « Une seule voix après un zéro » (19/11/2026, MOTEUR §9.39 et §9.42 bis, I158, I236, I237) — LA RÉACTION D'UNE SÉRIE À 0 REP, UNE FONCTION. Toute série validée
+  // à 0 rep (charge > 0, de travail ou manquée : `Modele.estZeroDeTravail`) a SA réaction, Z1 ou Z2 (`Moteur.reactionAuZero`) : la même pour l'affichage (`x.rate`), pour
+  // les étapes du niveau 2, pour le compte des propositions ignorées et pour le geste `rate_ignoree` ; jamais `reactionDeSerie`. En séance, la porte « plus lourd que
+  // tout succès » ne joue plus (`zeroPartiel`, `porte: false`) : un 0 à ou sous une charge réussie est un incident (Z2). Le lest et l'aide passent par le cas E du
+  // poids du corps (`null` ici). Rend `null` (pas un zéro de cette voix) ou `{ iSerie, Ch, d }` (`d.silence` : un contexte muet).
+  //   `x.lignes` : les lignes restantes à la date de cette série = celles qui ne sont pas validées, ou qui viennent après elle.
+  function zeroDeLaSerie(plan, x, exo, e, seance, gs, travail, i) {
     var M = Moteur(), V = Voix(), S = Seance(), T = racine.THModele;
     var k = x.consigne;
-    if (!exo || !k) return false;
+    if (!exo || !k) return null;
     var series = exo.series || [];
-    var valides = [];
-    series.forEach(function (sr, i) { if (S.partEnBase(sr)) valides.push(i); });
-    var derniere = null;
-    valides.forEach(function (i) { var sr = series[i]; if (T.typeDe(sr) !== 'echauffement' && !T.estHorsCalcul(sr) && !T.estTest(sr)) derniere = i; });
-    if (derniere === null) return false;
-    var sr = series[derniere], Ch = nombre(sr.charge_kg);
-    if (nombre(sr.reps) !== 0 || Ch === null || !(Ch > 0)) return false;
-    // Le zéro se lit sur les séries validées, mêmes portes que l'historique (« plus lourd que tout succès jusqu'ici ») ; sous le palier tenu ce n'est pas une limite.
-    var z = T.zeroDeSeance(valides.map(function (i) { return series[i]; }), { porte: true });
-    if (z === null) return false;
-    var palier = nombre(k.palier);
-    if (palier !== null && !(Ch > palier + 1e-9)) return false;
+    var sr = series[i];
+    if (!sr || !S.partEnBase(sr) || !T.estZeroDeTravail(sr)) return null;
+    var cat = e.catalogue && x.slug && Object.prototype.hasOwnProperty.call(e.catalogue, x.slug) ? e.catalogue[x.slug] : {};
+    if (cat && (cat.charge === 'ajoutee' || cat.charge === 'assistance')) return null;   // lest, aide : le cas E (poids du corps)
+    var Ch = nombre(sr.charge_kg);
+    var valides = [], reussies = [];
+    series.forEach(function (q, j) {
+      if (j > i || !S.partEnBase(q)) return;
+      valides.push(q);
+      var c = nombre(q.charge_kg), r = nombre(q.reps);
+      if (T.typeDe(q) !== 'echauffement' && !T.estHorsCalcul(q) && r !== null && r >= 1 && c !== null && c > 0) reussies.push(c);
+    });
+    // C : la plus légère charge restée à 0 rep dans la séance (jamais au-dessus d'une charge déjà ratée).
+    var z = T.zeroPartiel(valides, { porte: false });
+    var C = z !== null && nombre(z.charge) !== null ? Math.min(Ch, nombre(z.charge)) : Ch;
     var mesureOk = x.mesure === null || x.mesure === undefined || x.mesure === 'charge_reps';
     var muet = plan.intention === 'entretien' || x.intention === 'entretien' || x.mode === 'entretien' || !!plan.allegee || !!k.allegee || !!seance.edition ||
-      !!plan.semaineDeTest || !!x.semaineDeTest || !!x.calage || !!x.sansCoach || !!x.figure || !!x.veilleLegere || !mesureOk;
-    var ligne = (x.lignes || []).filter(function (l) { return l.iSerie === derniere; })[0] || null;
+      !!plan.semaineDeTest || !!x.semaineDeTest || !!x.calage || !!x.sansCoach || !!x.figure || !!x.veilleLegere || !!x.douleur || !mesureOk;
+    var ligne = (x.lignes || []).filter(function (l) { return l.iSerie === i; })[0] || null;
     var role = T.estRecul(sr) ? 'recul' : (ligne && (ligne.auMax || ligne.role === 'au_max')) || sr.au_max === true ? 'au_max'
       : ligne && ligne.role === 'test' ? 'test' : ligne && ligne.role === 'haut' ? 'haut'
-      : (x.reculs && travail[0] && travail[0].iSerie === derniere) ? 'grosse' : 'travail';
-    var restantes = (x.lignes || []).filter(function (l) { return laLigneAUnSens(l) && !l.validee && l.iSerie !== derniere; });
-    var D = x.contexte && typeof x.contexte.descenteDe === 'function' ? x.contexte.descenteDe(Ch) : null;
+      : (x.reculs && travail[0] && travail[0].iSerie === i) ? 'grosse' : 'travail';
+    var restantes = (x.lignes || []).filter(function (l) { return laLigneAUnSens(l) && l.iSerie !== i && (!l.validee || l.iSerie > i); });
+    // La visée de la ligne la plus lourde qui reste (une ligne sans chiffre compte la plus lourde, O20).
+    var lourde = null;
+    restantes.forEach(function (l) {
+      var c = nombre(l.charge);
+      if (lourde === null || (c === null && nombre(lourde.charge) !== null) || (c !== null && nombre(lourde.charge) !== null && c > nombre(lourde.charge))) lourde = l;
+    });
+    var D = x.contexte && typeof x.contexte.descenteDeLaSeance === 'function'
+      ? x.contexte.descenteDeLaSeance({ charge: C, visee: lourde ? nombre(lourde.vise) : null, reussies: reussies }) : null;
     var d = M.reactionAuZero({ muet: muet, charge: Ch, descente: D, role: role,
       restantes: restantes.map(function (l) { return nombre(l.charge); }) });
-    if (d.silence) return false;
-    var prises = gs.filter(function (g) { return g.geste === 'rate_prise' && g.slug === x.slug && g.rang === derniere; });
-    var pris = prises.map(function (g) { return g.bouton; });
+    return { iSerie: i, Ch: Ch, C: C, D: D, role: role, restantes: restantes, d: d };
+  }
+
+  // La dernière série validée de l'exercice (hors chauffes, « Non, ne compte pas » et tests) : celle sous laquelle le coach parle.
+  function derniereValideDeLExercice(exo) {
+    var S = Seance(), T = racine.THModele, derniere = null;
+    ((exo && exo.series) || []).forEach(function (sr, i) {
+      if (S.partEnBase(sr) && T.typeDe(sr) !== 'echauffement' && !T.estHorsCalcul(sr) && !T.estTest(sr)) derniere = i;
+    });
+    return derniere;
+  }
+
+  // Rend vrai quand la réaction au zéro parle sous la dernière série (x.rate posé) ; faux : le reste du pipeline joue. `zr` : la réaction de CETTE série (`zeroDeLaSerie`),
+  // calculée AVANT qu'un « Prendre » ne bouge les lignes (la proposition ne se déplace pas sous la main de la personne qui vient de la prendre).
+  function reactionAuZeroDuPlan(x, gs, zr, derniere) {
+    var M = Moteur(), V = Voix();
+    if (zr === null || zr === undefined || zr.d.silence) return false;
+    var d = zr.d, Ch = zr.Ch;
+    var pris = gs.filter(function (g) { return g.geste === 'rate_prise' && g.slug === x.slug && g.rang === derniere; }).map(function (g) { return g.bouton; });
     var cap = V.capturer(function () { return M.phraseDeRate(d); });
     var chiffres = { reps: [], garde: [], charge: [Ch].concat(d.charge ? [d.charge.kg] : []) };
     x.rate = {
@@ -3287,11 +3323,45 @@
       faites: 0, visees: null, fait: false, pris: pris, chiffres: chiffres, role: d.role, zero: Ch
     };
     x.phrases.push({ ou: 'rate', texte: cap.texte, citations: cap.citations });
-    // « Prendre D kg » : un geste. Chaque ligne non validée PLUS LOURDE que D passe à D ; une ligne plus légère garde sa charge (jamais un recul léger qui remonte).
-    if (d.cas === 'Z1' && pris.indexOf('prendre') >= 0) {
-      restantes.forEach(function (l) { poserSurLaLigne(x, l, { charge: nombre(l.charge) !== null && nombre(l.charge) <= d.charge.kg ? undefined : d.charge.kg }); });
-    }
     return true;
+  }
+
+  // « Prendre X kg » après un zéro : les lignes non validées plus lourdes que X passent à X, les plus légères gardent la leur.
+  function appliquerUnPrendre(x, kg) {
+    (x.lignes || []).filter(function (l) { return laLigneAUnSens(l) && !l.validee; }).forEach(function (l) {
+      poserSurLaLigne(x, l, { charge: nombre(l.charge) !== null && nombre(l.charge) <= kg + 1e-9 ? undefined : kg });
+    });
+  }
+
+  // « Une seule voix après un zéro » (19/11/2026, règle 7) — UNE DÉCISION NE S'EFFACE JAMAIS EN SILENCE : un « Prendre » pris sous une réaction au zéro reste appliqué aux
+  // lignes qui restent, même si le zéro est corrigé ensuite (la réaction a disparu, le geste reste : `rate_prise`, `cas: 'Z1'`, `kg`). Un vieux geste sans `cas` se reconnaît
+  // à la série (`rang`) qui porte encore une réaction Z1. Chaque ligne non validée plus lourde que X passe à X ; une plus légère garde la sienne.
+  function appliquerLesPrisesDuZero(x, gs, zrs) {
+    gs.forEach(function (g) {
+      if (!g || g.geste !== 'rate_prise' || g.slug !== x.slug || g.bouton !== 'prendre') return;
+      var z = zrs.filter(function (q) { return q.iSerie === g.rang && !q.d.silence && q.d.cas === 'Z1'; })[0] || null;
+      if (g.cas !== 'Z1' && z === null) return;
+      var kg = typeof g.kg === 'number' ? g.kg : (z !== null ? z.d.charge.kg : null);
+      if (kg !== null) appliquerUnPrendre(x, kg);
+    });
+  }
+
+  // Les réactions au zéro de TOUTES les séries à 0 rep de l'exercice (`zeroDeLaSerie`), calculées une fois : l'affichage, les étapes, le compte des propositions
+  // ignorées et `x.zeros` (ce que I237 relit) lisent la MÊME liste.
+  function zerosDeLExercice(plan, x, exo, e, seance, gs, travail) {
+    var liste = [];
+    ((exo && exo.series) || []).forEach(function (sr, i) {
+      var zr = zeroDeLaSerie(plan, x, exo, e, seance, gs, travail, i);
+      if (zr !== null) liste.push(zr);
+    });
+    return liste;
+  }
+  function zerosPourLePlan(zrs, gs, x) {
+    return zrs.map(function (zr) {
+      var prise = gs.some(function (g) { return g.geste === 'rate_prise' && g.slug === x.slug && g.rang === zr.iSerie; });
+      return { iSerie: zr.iSerie, charge: zr.Ch, zeroMin: zr.C, niveau: 'zero', cas: zr.d.silence ? null : zr.d.cas, silence: zr.d.silence === true,
+        descente: zr.D, proposition: zr.d.silence !== true && Moteur().estUneProposition(zr.d), prise: prise };
+    });
   }
 
   function reactionDExercice(plan, x, exo, e, seance, gs, resumes) {
@@ -3313,7 +3383,14 @@
     // PR 4b (R-A, O7, MOTEUR §9.42 bis) — APRÈS UN 0 REP, UNE BRANCHE DÉDIÉE, AVANT les sorties anticipées ci-dessous (elles contiennent le débutant, la première fois, la
     // zone et le pari : le zéro les traverse toutes). Elle lit les séries VALIDÉES de l'exercice (`Modele.zeroDeSeance`, O8) : une série manquée (`echec` à 0 rep,
     // « Oui, manquée ») n'est pas une ligne de travail pour le plan.
-    if (reactionAuZeroDuPlan(plan, x, exo, e, seance, gs, travail)) return;
+    // « Une seule voix après un zéro » (19/11/2026) : les réactions de toutes les séries à 0 rep (`x.zeros`, relues par I237) et les « Prendre » déjà pris (règle 7).
+    var zrs = zerosDeLExercice(plan, x, exo, e, seance, gs, travail);
+    if (zrs.length) x.zeros = zerosPourLePlan(zrs, gs, x);
+    var iDerniere = derniereValideDeLExercice(exo);
+    var zrDerniere = zrs.filter(function (q) { return q.iSerie === iDerniere; })[0] || null;
+    var parle = reactionAuZeroDuPlan(x, gs, zrDerniere, iDerniere);
+    appliquerLesPrisesDuZero(x, gs, zrs);
+    if (parle) return;
     if (silence || premiere || !zone || !mesureOk || !faites.length || !aUnPari(x) || x.veilleLegere) return;
     var cx = contexteDuRate(plan, x, exo, e, seance, gs);
     var chauffeValidee = (x.lignes || []).some(function (l) { return l.type === 'echauffement' && l.validee; });
@@ -3332,6 +3409,11 @@
     };
     var ignorees = 0, sousAvant = 0, apres = false, dernier = null, etapes = [];
     faites.forEach(function (l, n) {
+      // Les zéros « manquée » ne sont pas des lignes de travail : leur proposition passée sans réponse compte aussi, dans l'ordre des séries.
+      zrs.forEach(function (q) {
+        if (!q.compte && q.iSerie < l.iSerie && !travail.some(function (t) { return t.iSerie === q.iSerie && t.validee; }) && !q.d.silence && Moteur().estUneProposition(q.d) &&
+            !prises(q.iSerie).length) { q.compte = true; ignorees++;  }
+      });
       var ignoreesAvant = ignorees;
       var s = series[l.iSerie] || {};
       var reps = nombre(s.reps), ch = nombre(s.charge_kg);
@@ -3349,8 +3431,11 @@
         // 251 (D2 bis) : la grosse série n'est jamais la dernière — ses reculs (hors couverture) suivent ; sans cela le cas J la taisait avant le G.
         rang: rang, derniere: rang === travail.length - 1 && role !== 'grosse', reserve: P.reserveDeSerie(s), reposReel: reposReel, reposCible: reposCible,
         sousZoneAvant: sousAvant, ignorees: ignorees, apres: apres, chauffeValidee: chauffeValidee,
-        corps: ch === null || ch <= 0 });
-      var d = M.reactionAuRate(ctx);
+        // 19/11/2026 — un 0 rep au lest ou à l'aide passe par le cas E du poids du corps ; `aide` : « Plus d'aide » à la place de l'élastique.
+        corps: ch === null || ch <= 0 || (reps === 0 && cx.lest === true), aide: cx.aide === true || (ch !== null && ch < 0) });
+      // Une série à 0 rep (charge > 0) : SA réaction, la même que sous la dernière série (`zeroDeLaSerie`), jamais `reactionDeSerie` ; muette, elle reste muette.
+      var zrn = zrs.filter(function (q) { return q.iSerie === l.iSerie; })[0] || null;
+      var d = zrn !== null ? zrn.d : M.reactionAuRate(ctx);
       var estLaDerniere = n === faites.length - 1;
       apres = !d.silence && d.cas !== 'R';
       if (reps !== null && reps < zone.bas && l.type === 'travail') sousAvant++;
@@ -3360,7 +3445,7 @@
       var prefixe = faites.slice(0, n + 1);
       var autreAvant = prefixe.some(function (q) { var c1 = nombre((series[q.iSerie] || {}).charge_kg), c2 = nombre(q.charge); return c1 !== null && c2 !== null && Math.abs(c1 - c2) > 1e-9; });
       var dn = d;
-      if (l.type === 'travail' && !autreAvant) {
+      if (l.type === 'travail' && !autreAvant && zrn === null) {
         var d2n = M.reactionAuRate(Object.assign({}, cx, { niveau: 'exercice', charge: ch, ignorees: ignoreesAvant,
           faites: prefixe.filter(function (q) { return q.type === 'travail'; }).map(function (q) { return { reps: nombre((series[q.iSerie] || {}).reps), vise: nombre(q.vise) }; }),
           restantes: travail.length - 1 - rang }));
@@ -3379,7 +3464,9 @@
       faites: faites.filter(function (l) { return l.type === 'travail'; }).map(function (l) {
         return { reps: nombre((series[l.iSerie] || {}).reps), vise: nombre(l.vise) };
       }), restantes: travail.filter(function (l) { return !l.validee; }).length }));
-    if (!d2.silence && dernier.l.type === 'travail' && !autreCharge && !classeDOuL(dernier.l)) d = d2;
+    // I236 : sous une série à 0 rep (poids du corps, lest, aide), le niveau 2 ne parle pas (aucune fourchette ni « garde » sous un 0).
+    var dernierAZero = nombre((series[dernier.l.iSerie] || {}).reps) === 0;
+    if (!d2.silence && dernier.l.type === 'travail' && !autreCharge && !classeDOuL(dernier.l) && !dernierAZero) d = d2;
     if (!x.message) {
       etapes.slice(0, -1).forEach(function (st) {
         var dd = st.d;
@@ -7217,7 +7304,8 @@
           ? gestes.filter(function (g) { return g && g.geste === 'rate_prise' && g.bouton === 'prendre' && g.slug === x.slug; })[0] : null;
         if (priseA) {
           var srP = ((exos[i] && exos[i].series) || [])[priseA.rang] || {}, crP = nombre(x.consigne.haut.charge), chP = nombre(srP.charge_kg);
-          if (srP.validee_a && crP !== null && chP !== null && chP < crP - 1e-9 && lignes.some(function (l) { return l.role === 'test' && !l.validee; })) {
+          // 19/11/2026 — un « Prendre » pris sous une réaction AU ZÉRO (Z1) ne ferme pas la porte : la porte se tait sur un 0 rep (une seule voix, I157) ; les lignes qui restent passent à D.
+          if (srP.validee_a && nombre(srP.reps) !== 0 && crP !== null && chP !== null && chP < crP - 1e-9 && lignes.some(function (l) { return l.role === 'test' && !l.validee; })) {
             erreurs.push('I136' + nom + 'un « Prendre » accepté et une ligne de test encore proposée');
           }
         }
@@ -8146,26 +8234,86 @@
         if (pz && nombre(pz.charge) !== null && String(gris).replace(/\s/g, ' ').replace(/(\d),(\d)/g, '$1.$2').indexOf(String(pz.charge)) < 0) erreurs.push('I157' + nom + 'la phrase du plafond ne dit pas la charge restée à 0 rep (' + pz.charge + ')');
         if (/\b\d+\s+séances?\b/.test(dit) || /quand même|plafond|assidu/i.test(dit)) erreurs.push('I157' + nom + 'la phrase du plafond écrit un nombre de séances, « plafond » ou « quand même »');
       }
-      // I158 — la lecture indépendante du plan : la dernière série validée de l'exercice à 0 rep
+      // I158 (étendu le 19/11/2026), I236, I237 — la lecture indépendante du plan : CHAQUE série validée à 0 rep (charge > 0, de travail ou manquée ; ni lest ni aide : le cas E)
+      // a sa réaction dans `x.zeros`, la même que `x.rate` sous la dernière, les étapes et le compte ; `D` ≤ min(C, le plus léger zéro de la séance), compatible avec la visée
+      // (Epley inverse) sauf relevé à une série réussie du jour plus légère que C ; une série réussie à C ou au-dessus : Z2.
       var exo = exos[x.iExo];
       if (!exo || !k) return;
-      var series = exo.series || [], valides = [], derniere = null;
-      series.forEach(function (sr, j) { if (S.partEnBase(sr)) { valides.push(sr); if (T.typeDe(sr) !== 'echauffement' && !T.estHorsCalcul(sr) && !T.estTest(sr)) derniere = j; } });
-      if (derniere === null) return;
-      var sr = series[derniere], Ch = nombre(sr.charge_kg);
+      var series = exo.series || [];
+      var catZ = e && e.catalogue && x.slug && Object.prototype.hasOwnProperty.call(e.catalogue, x.slug) ? e.catalogue[x.slug] : {};
       var muet = plan.intention === 'entretien' || x.intention === 'entretien' || x.mode === 'entretien' || !!plan.allegee || !!k.allegee || !!plan.semaineDeTest || !!x.semaineDeTest ||
-        !!x.calage || !!x.sansCoach || !!x.figure || !!x.veilleLegere || !(x.mesure === null || x.mesure === undefined || x.mesure === 'charge_reps') || plan.edition === true || !!(e && e.seance && e.seance.edition);
-      var palier = nombre(k.palier);
-      var zeroLu = nombre(sr.reps) === 0 && Ch !== null && Ch > 0 && T.zeroDeSeance(valides, { porte: true }) !== null && !(palier !== null && !(Ch > palier + 1e-9));
-      if (zeroLu && muet && rz) erreurs.push('I158' + nom + 'une réaction au zéro dans un contexte où le coach se tait');
-      if (zeroLu && !muet) {
-        if (!rz) { erreurs.push('I158' + nom + 'un 0 rep à ' + Ch + ' kg sans réaction au zéro'); return; }
-        if (rz.cas === 'Z1') {
-          var D = x.contexte && typeof x.contexte.descenteDe === 'function' ? x.contexte.descenteDe(Ch) : null;
-          if (D === null || !rz.charge || nombre(rz.charge.kg) !== D) erreurs.push('I158' + nom + 'Z1 propose ' + (rz.charge ? rz.charge.kg : 'rien') + ' kg, la descente D de ' + Ch + ' kg est ' + D);
-          var plusLourde = (x.lignes || []).some(function (l) { return (l.type === 'travail' || l.type === 'recul') && l.role !== 'hors' && !l.validee && l.iSerie !== derniere && (nombre(l.charge) === null || nombre(l.charge) > (D === null ? Infinity : D) + 1e-9); });
-          if (!plusLourde && (rz.pris || []).indexOf('prendre') < 0) erreurs.push('I158' + nom + 'Z1 sans ligne non validée plus lourde que D');
+        !!x.calage || !!x.sansCoach || !!x.figure || !!x.veilleLegere || !!x.douleur || !(x.mesure === null || x.mesure === undefined || x.mesure === 'charge_reps') || plan.edition === true || !!(e && e.seance && e.seance.edition);
+      var lestOuAide = !!catZ && (catZ.charge === 'ajoutee' || catZ.charge === 'assistance');
+      var entrees = x.zeros || [];
+      var gestesZ = e && e.seance && Array.isArray(e.seance.gestes) ? e.seance.gestes : [];
+      series.forEach(function (sr, j) {
+        if (!S.partEnBase(sr)) return;
+        var ch = nombre(sr.charge_kg), reps = nombre(sr.reps);
+        var estZero = T.estZeroDeTravail(sr);
+        var entree = entrees.filter(function (q) { return q.iSerie === j; })[0] || null;
+        if (!estZero || lestOuAide) {
+          if (entree) erreurs.push('I237' + nom + 'une réaction au zéro sous la série ' + j + ', qui n’est pas un zéro de travail à charge');
+          return;
         }
+        if (!entree) { erreurs.push('I237' + nom + 'un 0 rep à ' + ch + ' kg (série ' + j + ') sans réaction au zéro'); return; }
+        if (muet) {
+          if (!entree.silence || (rz && rz.iSerie === j)) erreurs.push('I158' + nom + 'une réaction au zéro dans un contexte où le coach se tait');
+          return;
+        }
+        if (entree.silence || (entree.cas !== 'Z1' && entree.cas !== 'Z2')) { erreurs.push('I237' + nom + 'un 0 rep à ' + ch + ' kg (série ' + j + ') sans réaction Z1 ou Z2'); return; }
+        // C : le plus léger zéro de la séance jusqu'à cette série ; les séries réussies du jour jusque-là.
+        var Cmin = ch, reussies = [];
+        series.forEach(function (q, m) {
+          if (m > j || !S.partEnBase(q) || T.typeDe(q) === 'echauffement' || T.estHorsCalcul(q)) return;
+          var cq = nombre(q.charge_kg), rq = nombre(q.reps);
+          if (T.estZeroDeTravail(q) && cq < Cmin) Cmin = cq;
+          if (rq !== null && rq >= 1 && cq !== null && cq > 0) reussies.push(cq);
+        });
+        var incident = reussies.some(function (v) { return v >= Cmin - 1e-9; });
+        if (incident && entree.cas !== 'Z2') erreurs.push('I158' + nom + 'une série réussie du jour à ' + Cmin + ' kg ou au-dessus : un incident, Z2 sans bouton (pas Z1)');
+        if (entree.cas === 'Z1') {
+          var D = nombre(entree.descente);
+          if (D === null) { erreurs.push('I158' + nom + 'Z1 sans descente'); return; }
+          if (!(D < Cmin - 1e-9)) erreurs.push('I158' + nom + 'Z1 propose ' + D + ' kg : jamais à la charge déjà ratée (' + Cmin + ' kg) ni au-dessus');
+          // Les lignes qui restent se lisent AVANT le « Prendre » (qui les passe à D) : une réaction prise n'est plus recomptée contre elles (le kg du geste, I116, fait foi).
+          if (!entree.prise) {
+            var restantesZ = (x.lignes || []).filter(function (l) { return (l.type === 'travail' || l.type === 'recul') && l.role !== 'hors' && l.iSerie !== j && (!l.validee || l.iSerie > j); });
+            var lourdeZ = null;
+            restantesZ.forEach(function (l) {
+              var c2 = nombre(l.charge);
+              if (lourdeZ === null || (c2 === null && nombre(lourdeZ.charge) !== null) || (c2 !== null && nombre(lourdeZ.charge) !== null && c2 > nombre(lourdeZ.charge))) lourdeZ = l;
+            });
+            var vZ = lourdeZ ? nombre(lourdeZ.vise) : null;
+            var plusLourde = restantesZ.some(function (l) { return nombre(l.charge) === null || nombre(l.charge) > D + 1e-9; });
+            if (!plusLourde) erreurs.push('I158' + nom + 'Z1 sans ligne non validée plus lourde que ' + D + ' kg');
+            if (vZ !== null && vZ >= 1 && D > Cmin / M.unRMEpley(1, vZ) + 1e-6) {
+              var moinsLourdes = reussies.filter(function (v) { return v < Cmin - 1e-9; });
+              var meilleure = moinsLourdes.length ? Math.max.apply(null, moinsLourdes) : null;
+              if (meilleure === null || Math.abs(D - meilleure) > 1e-9) erreurs.push('I158' + nom + 'Z1 propose ' + D + ' kg × ' + vZ + ' : plus que ' + (Math.round(Cmin / M.unRMEpley(1, vZ) * 100) / 100) + ' kg (Epley inverse de ' + Cmin + ' kg) sans être une charge réussie du jour');
+            }
+          }
+          // la borne des 95 % : la descente de B sur la même grille (`descenteDe`), jamais dépassée sauf par une charge réussie du jour
+          var D95 = x.contexte && typeof x.contexte.descenteDe === 'function' ? x.contexte.descenteDe(Cmin) : null;
+          var succesLegers = reussies.filter(function (v) { return v < Cmin - 1e-9; });
+          var releve = succesLegers.length ? Math.max.apply(null, succesLegers) : null;
+          if (D95 !== null && D > D95 + 1e-9 && (releve === null || Math.abs(D - releve) > 1e-9)) erreurs.push('I158' + nom + 'Z1 propose ' + D + ' kg, au-dessus du cran des 95 % de ' + Cmin + ' kg (' + D95 + ' kg)');
+          if (rz && rz.iSerie === j && (!rz.charge || nombre(rz.charge.kg) !== D)) erreurs.push('I158' + nom + 'la réaction affichée propose ' + (rz.charge ? rz.charge.kg : 'rien') + ' kg, la descente est ' + D);
+        }
+        // sous la dernière série de l'exercice, la réaction est affichée
+        var dernierJ = null;
+        series.forEach(function (q, m) { if (S.partEnBase(q) && T.typeDe(q) !== 'echauffement' && !T.estHorsCalcul(q) && !T.estTest(q)) dernierJ = m; });
+        if (dernierJ === j && !rz) erreurs.push('I158' + nom + 'un 0 rep à ' + ch + ' kg sous la dernière série sans réaction au zéro affichée');
+        // une seule réaction : l'affichage, les étapes et le geste ignoré disent le même cas
+        if (rz && rz.iSerie === j && rz.cas !== entree.cas) erreurs.push('I237' + nom + 'la série ' + j + ' dit ' + rz.cas + ' à l’écran et ' + entree.cas + ' dans les étapes');
+        if (entree.proposition !== (entree.cas === 'Z1')) erreurs.push('I237' + nom + 'la série ' + j + ' : ' + entree.cas + ' ' + (entree.proposition ? 'compte' : 'ne compte pas') + ' comme proposition ignorée');
+        gestesZ.forEach(function (g) {
+          if (g && g.geste === 'rate_ignoree' && g.slug === x.slug && g.rang === j && g.cas !== undefined && g.cas !== entree.cas) erreurs.push('I237' + nom + 'rate_ignoree dit ' + g.cas + ' sous la série ' + j + ', la réaction est ' + entree.cas);
+          if (g && g.geste === 'rate_ignoree' && g.slug === x.slug && g.rang === j && Array.isArray(g.boutons) && (g.boutons.length > 0) !== (entree.cas === 'Z1')) erreurs.push('I237' + nom + 'rate_ignoree sous la série ' + j + ' : boutons ' + JSON.stringify(g.boutons) + ' pour ' + entree.cas);
+        });
+      });
+      // I236 — aucune fourchette ni « garde » sur une série à 0 rep, à aucun niveau : la réaction affichée sous une série à 0 rep, jamais « entre 1 et 1 ».
+      if (r && series[r.iSerie] && nombre(series[r.iSerie].reps) === 0 && (r.fourchette || (r.garde !== null && r.garde !== undefined) || r.niveau === 'exercice')) {
+        erreurs.push('I236' + nom + 'une fourchette ou un « garde » sous une série à 0 rep (série ' + r.iSerie + ')');
       }
     });
   }

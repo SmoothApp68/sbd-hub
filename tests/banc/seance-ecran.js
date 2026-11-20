@@ -27913,7 +27913,7 @@ const SETS_IMPORTES = [
       zda.etat === 'tenue_apres_zero' && !!zda.tz && !zda.tz.tente && zda.erreurs.length === 0, JSON.stringify(zda));
     await abandonner();
 
-    // ── F. PR 4b (R-A) — LE VRAI CHEMIN EN SÉANCE : taper 102,5 × 0 sur la 1re ligne, « Oui, manquée » (typé échec), une réaction Z1 (« je propose 97,5 kg pour la suite. », « Prendre 97,5 kg »),
+    // ── F. PR 4b (R-A) — LE VRAI CHEMIN EN SÉANCE : taper 102,5 × 0 sur la 1re ligne, « Oui, manquée » (typé échec), une réaction Z1 (« je propose 77,5 kg pour les séries qui restent. », « Prendre 77,5 kg » : 19/11/2026, le cran D de la séance, 102,5 / (1 + 9/30) = 78,8 → 77,5),
     //    une seule voix, les lignes suivantes ne reprennent pas 102,5, la garde ne signale rien.
     await aller('/saisie');
     await demarrerRoutine('ZeroRep E ZR');
@@ -27949,9 +27949,9 @@ const SETS_IMPORTES = [
         charges: x ? x.lignes.filter((l) => l.type !== 'chauffe' && !l.validee).map((l) => l.prerempli ? l.prerempli.charge_kg : null) : [],
         erreurs: d ? window.THPlan.verifierPlan(d.plan, d.entrees).erreurs : ['aucun plan calculé'] };
     });
-    ok('[ZR] F — DISCRIMINANT : « Oui, manquée » écrit un `echec` à 0 rep, et la réaction Z1 parle seule : « 102,5 kg est resté à 0 rep : je propose 97,5 kg pour la suite. » + « Prendre 97,5 kg »',
+    ok('[ZR] F — DISCRIMINANT : « Oui, manquée » écrit un `echec` à 0 rep, et la réaction Z1 parle seule : « 102,5 kg est resté à 0 rep : je propose 77,5 kg pour les séries qui restent. » + « Prendre 77,5 kg »',
       ecrZ.length === 1 && ecrZ[0].type_serie === 'echec' && ecrZ[0].reps === 0 && !!zf.rz && zf.rz.cas === 'Z1' &&
-        spZR(zf.rz.phrase) === '102,5 kg est resté à 0 rep : je propose 97,5 kg pour la suite.' && spZR(zf.rz.boutons[0]) === 'Prendre 97,5 kg' && !zf.message && /0 rep/.test(spZR(zf.dom)), JSON.stringify([ecrZ.map((q) => [q.type_serie, q.reps]), zf]));
+        spZR(zf.rz.phrase) === '102,5 kg est resté à 0 rep : je propose 77,5 kg pour les séries qui restent.' && spZR(zf.rz.boutons[0]) === 'Prendre 77,5 kg' && !zf.message && /0 rep/.test(spZR(zf.dom)), JSON.stringify([ecrZ.map((q) => [q.type_serie, q.reps]), zf]));
     ok('[ZR] F — les lignes suivantes ne reprennent pas 102,5 kg (le gris est vidé ou plus bas), la garde du plan (I155 à I159) ne signale rien',
       zf.charges.every((c) => c === null || c < 102.5) && zf.erreurs.length === 0, JSON.stringify(zf));
     await abandonner();

@@ -85,16 +85,25 @@
     });
     var cands = [];
     lues.forEach(function (s) {
-      if (lireNombre(s.reps) !== 0) return;
-      if (typeDe(s) !== 'travail' && !estManquee(s)) return;
+      if (!estZeroDeTravail(s)) return;
       var c = lireNombre(s.charge_kg);
-      if (c === null || !(c > 0)) return;
       if (porte && succes !== null && !(c > succes + 1e-9)) return;
       cands.push(c);
     });
     if (!cands.length) return null;
     var min = cands.reduce(function (m, c) { return c < m ? c : m; }, cands[0]);
     return { charge: min, n: cands.filter(function (c) { return Math.abs(c - min) < 1e-9; }).length };
+  }
+  // ⚠️ « UNE SÉRIE À 0 REP » (19/11/2026, MOTEUR §9.39 et §9.42 bis, « Une seule voix après un zéro ») : UNE LECTURE, ICI. Une série de TRAVAIL ou MANQUÉE
+  // (le zéro saisi dans l'app est typé `echec`), à 0 rep lisible et à charge > 0 ; jamais une chauffe, un « Non, ne compte pas », un test, un recul ni une
+  // mini-série (dégressive, rest-pause : leur type n'est pas `travail`). `zeroPartiel` (le plafond, l'historique) et la réaction en séance (`plan.js`) la lisent.
+  // Dette notée : une mini-série ou un recul passé en « manquée » (`echec`) perd son type d'origine et se lit comme un zéro de travail.
+  function estZeroDeTravail(s) {
+    if (!s || typeDe(s) === 'echauffement' || estHorsCalcul(s) || estTest(s)) return false;
+    if (lireNombre(s.reps) !== 0) return false;
+    if (typeDe(s) !== 'travail' && !estManquee(s)) return false;
+    var c = lireNombre(s.charge_kg);
+    return c !== null && c > 0;
   }
   // LA lecture que le plan applique aux séries validées de la séance en cours : la séance entière à zéro (charge connue > 0), sinon le zéro partiel.
   function zeroDeSeance(series, opt) {
@@ -3483,6 +3492,7 @@
     seanceAZero: seanceAZero,
     zeroPartiel: zeroPartiel,
     zeroDeSeance: zeroDeSeance,
+    estZeroDeTravail: estZeroDeTravail,
     motDEchec: motDEchec,
     restPauseDe: restPauseDe,
     estAccentAllonge: estAccentAllonge,

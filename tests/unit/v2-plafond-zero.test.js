@@ -520,11 +520,11 @@ describe('T-A14 — la réaction au zéro : une branche, une table', () => {
   }
   const echec0 = { type_serie: 'echec' };
   const vrai = (r) => T.verifierPlan(r.p, r.e).erreurs;
-  test('Z1 : 102,5 × 0 manquée (typage `echec`, le vrai chemin « Oui, manquée ») → « je propose 97,5 kg pour la suite. » + « Prendre 97,5 kg » ; aucune erreur', () => {
+  test('Z1 : 102,5 × 0 manquée (typage `echec`, le vrai chemin « Oui, manquée ») → « je propose 100 kg pour les séries qui restent. » + « Prendre 100 kg » (19/11/2026 : D relevé à la série réussie du jour, 100 × 5) ; aucune erreur', () => {
     const r = planZ([[100, 5], [102.5, 0, echec0]]);
     expect(r.x.rate).toMatchObject({ cas: 'Z1', niveau: 'zero', iSerie: 1 });
-    expect(sp(r.x.rate.phrase)).toBe('102,5 kg est resté à 0 rep : je propose 97,5 kg pour la suite.');
-    expect(r.x.rate.boutons.map((b) => sp(b.texte))).toEqual(['Prendre 97,5 kg']);
+    expect(sp(r.x.rate.phrase)).toBe('102,5 kg est resté à 0 rep : je propose 100 kg pour les séries qui restent.');
+    expect(r.x.rate.boutons.map((b) => sp(b.texte))).toEqual(['Prendre 100 kg']);
     expect(r.x.rate.fourchette).toBeNull();
     expect(vrai(r)).toEqual([]);
   });
@@ -549,9 +549,9 @@ describe('T-A14 — la réaction au zéro : une branche, une table', () => {
     expect(r.x.rate.boutons).toEqual([]);
     expect(vrai(r)).toEqual([]);
   });
-  test('muet : 20×8 puis 20×0 en séance ordinaire n\'est pas un zéro (porte) ; un zéro à ou sous le palier non plus', () => {
-    expect(planZ([[100, 5], [100, 0, echec0]]).x.rate || null).toBeNull();
-    expect(planZ([[100, 5], [90, 0, echec0]]).x.rate || null).toBeNull();
+  test('19/11/2026 (une seule voix) : en séance, 100 × 5 puis 100 × 0 (ou 90 × 0) est un incident : Z2 sans bouton, plus de silence (la porte ne joue qu\'entre les séances)', () => {
+    expect(planZ([[100, 5], [100, 0, echec0]]).x.rate).toMatchObject({ cas: 'Z2', boutons: [] });
+    expect(planZ([[100, 5], [90, 0, echec0]]).x.rate).toMatchObject({ cas: 'Z2', boutons: [] });
   });
   test('une voix (O7) : aucun x.message ; la porte du cran se tait sur un 0 rep (mutation t7)', () => {
     const r = planZ([[100, 5], [102.5, 0, echec0]]);

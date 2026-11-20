@@ -44,6 +44,9 @@ describe('MOTEUR §9.39 — `rate_ignoree` porte `cas` et `boutons`', () => {
     const s = S.noterGeste({ id: 's', gestes: [] }, { geste: 'rate_ignoree', slug: 'a', rang: 0, cas: 'Z1', boutons: ['x', 3, '', null] });
     expect(s.gestes[0].boutons).toEqual(['x']);
     const p = S.noterGeste({ id: 's', gestes: [] }, { geste: 'rate_prise', slug: 'a', rang: 0, bouton: 'x', cas: 'Z1', boutons: ['x'] });
-    expect(p.gestes[0]).toEqual({ geste: 'rate_prise', slug: 'a', rang: 0, bouton: 'x' });
+    // 19/11/2026 — `cas: 'Z1'` suit « Prendre » (la décision reste appliquée si le zéro est corrigé) ; tout autre cas est écarté, et jamais de `boutons`.
+    expect(p.gestes[0]).toEqual({ geste: 'rate_prise', slug: 'a', rang: 0, bouton: 'x', cas: 'Z1' });
+    const q = S.noterGeste({ id: 's', gestes: [] }, { geste: 'rate_prise', slug: 'a', rang: 0, bouton: 'x', cas: 'B', boutons: ['x'] });
+    expect(q.gestes[0]).toEqual({ geste: 'rate_prise', slug: 'a', rang: 0, bouton: 'x' });
   });
 });

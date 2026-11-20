@@ -1939,15 +1939,46 @@
   }
   // La MÊME descente pour B, pour la réaction en séance (`contexteReaction.descenteDe`) : la grille de l'exercice (crans connus, salle en vigueur sur `P`, le
   // palier ; sinon sur la charge elle-même), jamais sous le plus petit cran du matériel (`plancherDuCalage`).
+  // « Une seule voix après un zéro » (19/11/2026) — la grille de CET exercice (`voisine`) et son plancher, lues par la descente de B et par celle de la séance.
+  function grilleDeDescente(vues, avant, equipement, salleDeclaree, P, Ch) {
+    var ref = nombre(P);
+    var salle = salleEnVigueur(salleDeclaree || null, ref !== null && ref > 0 ? ref : Ch);
+    return { voisine: function (depuis, sens) { return voisineSalleComprise(vues, avant, depuis, equipement, sens, salle); },
+             plancher: plancherDuCalage(equipement, salle) };
+  }
   function fabriqueDeDescente(vues, avant, equipement, salleDeclaree, P) {
     return function (Ch) {
       var c = nombre(Ch);
       if (c === null || !(c > 0)) return null;
-      var ref = nombre(P);
-      var salle = salleEnVigueur(salleDeclaree || null, ref !== null && ref > 0 ? ref : c);
-      return descenteApresUnZero(c, function (depuis, sens) { return voisineSalleComprise(vues, avant, depuis, equipement, sens, salle); },
-        plancherDuCalage(equipement, salle));
+      var g = grilleDeDescente(vues, avant, equipement, salleDeclaree, P, c);
+      return descenteApresUnZero(c, g.voisine, g.plancher);
     };
+  }
+  // « Une seule voix après un zéro » (19/11/2026, MOTEUR §9.39 et §9.42 bis, I158) — LA DESCENTE EN SÉANCE, `D` : le cran disponible ≤ min( le cran proche de
+  // 95 % de `C` (`descenteApresUnZero`, la même que B) ; `C / (1 + v / 30)` — l'Epley inverse : la charge qu'on tiendrait à la visée `v` si `C` était le
+  // maximum). `C` = la plus légère charge restée à 0 rep dans la séance : jamais au-dessus d'une charge déjà ratée. Une série RÉUSSIE du jour plus légère
+  // que `C` relève `D` à elle (une charge qui a marché aujourd'hui), jamais jusqu'à `C`. Une série réussie à `C` ou au-dessus : un incident, pas une limite
+  // — aucune descente (`null` : Z2). Aucun cran sous la borne (charge minimale du matériel) : `null`. Le −5 % n'est PAS une réaction à l'échec : il n'est que le plafond.
+  //   c = { charge: C, visee: v (reps de la ligne la plus lourde qui reste, ou null), reussies: [charges réussies du jour], voisine, plancher }
+  function descenteEnSeance(c) {
+    var x = c || {};
+    var C = nombre(x.charge);
+    if (C === null || !(C > 0) || typeof x.voisine !== 'function') return null;
+    var reussies = (x.reussies || []).map(nombre).filter(function (v) { return v !== null && v > 0; });
+    if (reussies.some(function (v) { return v >= C - 1e-9; })) return null;
+    var d = descenteApresUnZero(C, x.voisine, x.plancher === undefined ? null : x.plancher);
+    if (d === null) return null;
+    var v = nombre(x.visee);
+    var borne = v !== null && v >= 1 ? Math.min(d, C / unRMEpley(1, v)) : d;
+    var plancher = nombre(x.plancher);
+    for (var t = 0; t < 200 && d > borne + 1e-9; t++) {
+      var n = x.voisine(d, -1);
+      if (n === null || !(n < d) || (plancher !== null && n < plancher - 1e-9)) return null;
+      d = n;
+    }
+    if (d > borne + 1e-9) return null;
+    var succes = reussies.reduce(function (m, v) { return m === null || v > m ? v : m; }, null);
+    return succes !== null && succes > d ? succes : d;
   }
   function consigneApresUnZero(seances, avant, opt) {
     var coupure = instant(avant);
@@ -3564,6 +3595,14 @@
     Object.defineProperty(r, 'descenteDe', { enumerable: false, value: function (Ch) {
       if (vues === null) vues = (seances || []).map(vueDeSeance);
       return fabriqueDeDescente(vues, avant, equipement, salleDeclaree, P)(Ch);
+    } });
+    // « Une seule voix après un zéro » (19/11/2026) — `descenteDeLaSeance({ charge, visee, reussies })` : la descente de la réaction en séance (`descenteEnSeance`).
+    Object.defineProperty(r, 'descenteDeLaSeance', { enumerable: false, value: function (c) {
+      var Ch = nombre(c && c.charge);
+      if (Ch === null || !(Ch > 0)) return null;
+      if (vues === null) vues = (seances || []).map(vueDeSeance);
+      var g = grilleDeDescente(vues, avant, equipement, salleDeclaree, P, Ch);
+      return descenteEnSeance({ charge: Ch, visee: c.visee, reussies: c.reussies, voisine: g.voisine, plancher: g.plancher });
     } });
     return r;
   }
@@ -13300,6 +13339,10 @@
     }
     var faites = nombre(c.reps), vise = nombre(c.vise), bas = nombre(c.bas);
     if (faites === null || vise === null || bas === null) return silence(null, 'sans_chiffres');
+    // « Une seule voix après un zéro » (19/11/2026, I236) — une série à 0 rep AVEC une charge a SA réaction (`reactionAuZero`, Z1 / Z2) : jamais celle-ci, à aucun
+    // niveau (« entre 1 et 1 » ne se dit plus). Au poids du corps (sans charge, lest, aide), le cas E répond, sans fourchette ni « garde » (plus bas).
+    var chargeZ = nombre(c.charge);
+    if (faites === 0 && c.corps !== true && chargeZ !== null && chargeZ > 0) return silence('Z', 'zero');
     if (c.derniere) return silence('J', 'derniere');
     if ((nombre(c.ignorees) || 0) >= RATE_IGNOREES_MAX) return silence(null, 'ignorees');
     var ecart = vise - faites;
@@ -13361,7 +13404,9 @@
       kgBaisse = rateSousLeCran(Math.min(brut, charge), pas);
       if (kgBaisse === null) baisse = false;                     // rien de plus léger au pas du matériel : on garde
     }
-    if (baisse) fourchette = rateFourchette(bas, bas + 2);
+    var zeroCorps = corps && faites === 0;
+    if (zeroCorps) fourchette = null;                            // I236 : « 0 au lieu de 8. », ni fourchette ni « garde » sur une série à 0 rep
+    else if (baisse) fourchette = rateFourchette(bas, bas + 2);
     else if (lettre === 'E') fourchette = rateFourchette(faites - 1, faites);
     else fourchette = rateFourchette(faites - 1, Math.min(vise, faites + 1));
     var leviers = [];
@@ -13379,7 +13424,8 @@
     }
     if (baisse) leviers.push('prendre');
     if (corps && (sous || echec || lettre === 'E')) {
-      leviers.push(c.marcheDessous ? 'marche_dessous' : 'elastique');
+      // 19/11/2026 — une machine assistée : « Plus d’aide » à la place de l'élastique (l'aide se règle, on n'en ajoute pas une seconde).
+      leviers.push(c.marcheDessous ? 'marche_dessous' : (c.aide === true ? 'plus_d_aide' : 'elastique'));
       if (c.negatives === true) leviers.push('negatives');
     }
     // F — la 1re série ratée recale toutes les suivantes d'un coup ; sans chauffe validée, une série d'approche d'abord.
@@ -13389,7 +13435,7 @@
     return Object.assign(sortie, {
       cas: role === 'recul' ? 'H' : lettre, base: lettre,
       charge: baisse ? { action: 'baisse', kg: kgBaisse } : { action: 'garde', kg: charge },
-      garde: garde, fourchette: fourchette, leviers: leviers, recale: premiere,
+      garde: zeroCorps ? null : garde, fourchette: fourchette, leviers: leviers, recale: premiere && !zeroCorps, zero: zeroCorps ? true : undefined,
       approche: approche, pasDAuMax: echec, plusUneMinute: leviers.indexOf('repos') >= 0,
       seche: c.seche === true, rappelMal: menage || obj === 'forme',
       autreSalle: c.autreSalle === true
@@ -13410,7 +13456,8 @@
     var raison = rateRaisonDeSilence(c);
     if (raison) return silence(raison);
     if ((nombre(c.ignorees) || 0) >= RATE_IGNOREES_MAX) return silence('ignorees');
-    var f = (c.faites || []).filter(function (s) { return s && nombre(s.reps) !== null && nombre(s.vise) !== null; });
+    // « Une seule voix après un zéro » (19/11/2026, I236) — une série à 0 rep n'est jamais dans la paire (sa réaction est la sienne).
+    var f = (c.faites || []).filter(function (s) { return s && nombre(s.reps) !== null && nombre(s.reps) > 0 && nombre(s.vise) !== null; });
     if (f.length < 2) return silence('pas_assez');
     var a = f[f.length - 2], b = f[f.length - 1];
     if (!(nombre(a.reps) < nombre(a.vise) && nombre(b.reps) < nombre(b.vise))) return silence('tenu');
@@ -13474,7 +13521,7 @@
 
   // ── Les mots (voix du coach, I26) : un fait, jamais un bravo. Chaque chiffre est cité (`regle|rate.*`). ─────────────────
   var RATE_NOMS_DE_LEVIER = { repos: '+1 min', rest_pause: 'Rest-pause', degressive: 'Dégressive', approche: 'Série d’approche',
-    elastique: 'Avec un élastique', negatives: 'En négatives', marche_dessous: 'Marche d’en dessous' };
+    elastique: 'Avec un élastique', negatives: 'En négatives', marche_dessous: 'Marche d’en dessous', plus_d_aide: 'Plus d’aide' };
   function rateReps(v) { return nombreFr(v, regle('rate.reps')); }
   function rateGarde(v) { return nombreFr(v, regle('rate.garde')); }
   function rateEntre(f) { return 'entre ' + rateReps(f[0]) + ' et ' + rateReps(f[1]); }
@@ -13483,7 +13530,7 @@
   //   chiffre), derniere }
   //   Muet : entretien, décharge, semaine de test, calage, douleur, figure, veille légère, édition, poids du corps / aide / lest, mesure ≠ charge × reps.
   //   Z1 : rôle travail ou recul et au moins une ligne non validée plus lourde que `D` (une ligne sans chiffre compte plus lourde : O20) → « 30 kg est resté à
-  //        0 rep : je propose 27,5 kg pour la suite. » + « Prendre 27,5 kg » (le geste `rate_prise` : on propose, la personne tape).
+  //        0 rep : je propose 27,5 kg pour les séries qui restent. » + « Prendre 27,5 kg » (le geste `rate_prise` : on propose, la personne tape).
   //   Z2 : tout le reste (dernière ligne, grosse série, test, haut, « Au max », plancher du matériel) → « 30 kg est resté à 0 rep. »
   //   Indépendante du réglage, de l'objectif, du rang et du débutant (hors calage). Aucune fourchette, aucun « garde N », aucun recalcul des reculs.
   function reactionAuZero(c) {
@@ -13502,7 +13549,7 @@
     if (!d || d.silence) return null;
     if (d.niveau === 'zero') {
       var dit = enKg(d.zero, regle('rate.charge')) + ' est resté à ' + nombreFr(0, cite(FAIT, { quoi: 'rate_zero', champ: 'reps' })) + ' rep';
-      return d.cas === 'Z1' ? dit + DEUX_POINTS + 'je propose ' + enKg(d.charge.kg, regle('rate.charge')) + ' pour la suite.' : dit + '.';
+      return d.cas === 'Z1' ? dit + DEUX_POINTS + 'je propose ' + enKg(d.charge.kg, regle('rate.charge')) + ' pour les séries qui restent.' : dit + '.';
     }
     if (d.niveau === 'seance') {
       var t = '';
@@ -13528,6 +13575,14 @@
       return d.maxDuJour === null || d.maxDuJour === undefined
         ? rateReps(d.faites) + ' au lieu de ' + rateReps(d.visees) + '. Tes reculs se recalent sur cette série.'
         : 'Ta grosse série dit ≈ ' + enKg(d.maxDuJour, regle('rate.charge')) + ' : tes reculs se recalent dessus.';
+    }
+    // 19/11/2026 (I236) — une série à 0 rep (poids du corps, lest, aide) : « 0 au lieu de 8. », ni charge, ni « garde », ni fourchette.
+    if (d.zero === true) {
+      var z0 = rateReps(d.faites) + ' au lieu de ' + rateReps(d.visees) + '.';
+      if (d.seche) z0 += ' En sèche, c’est attendu.';
+      if (d.rappelMal) z0 += ' Si ça tire, « J’ai mal » est dans le menu.';
+      if (d.autreSalle) z0 += ' Autre salle que d’habitude.';
+      return z0;
     }
     var s = d.cas === 'M' ? 'Pile sur la cible, sans marge.' : rateReps(d.faites) + ' au lieu de ' + rateReps(d.visees) + '.';
     s += d.charge.action === 'baisse' ? ' On passe à ' + enKg(d.charge.kg, regle('rate.charge')) : ' Même charge';
@@ -13887,6 +13942,7 @@
     estApresZero: estApresZero,
     cibleFaite: cibleFaite,
     descenteApresUnZero: descenteApresUnZero,
+    descenteEnSeance: descenteEnSeance,
     reactionAuZero: reactionAuZero,
     plafondActif: plafondActif,
     plafonner: plafonner,

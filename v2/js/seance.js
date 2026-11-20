@@ -2491,6 +2491,8 @@
       if (typeof g.kg === 'number' && isFinite(g.kg)) o.kg = g.kg;
       if (g.implicite === true) o.implicite = true;
       // MOTEUR §9.39 — `rate_ignoree` : le cas de la réaction et les clés de ses boutons (vide = une phrase seule).
+      // 19/11/2026 — « Prendre X kg » sous une réaction au zéro : le cas (`Z1`) suit le geste (la décision reste appliquée si le zéro est corrigé).
+      if (g.geste === 'rate_prise' && g.cas === 'Z1') o.cas = g.cas;
       if (g.geste === 'rate_ignoree') {
         if (typeof g.cas === 'string' && g.cas) o.cas = g.cas;
         if (Array.isArray(g.boutons)) o.boutons = g.boutons.filter(function (b) { return typeof b === 'string' && b; });

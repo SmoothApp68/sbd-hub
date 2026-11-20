@@ -143,7 +143,6 @@ const ok = (nom, cond, detail) => {
 // la marque doit partir — la liste dit ce qui est, comme `AUTORISATIONS`. Un défaut inconnu de la liste → ❌.
 const DEFAUTS_PROUVES = {
   'D-R1': 'le journal des records (jeu, guilde, groupe, médailles du social) n’est pas revu quand une séance ANTÉRIEURE est corrigée ou supprimée ; la Progression, elle, recalcule',
-  'D-ST1': 'une série à 0 rep validée par « Oui, manquée » est retypée `echec` (app.js, `changerType`) ; la semaine de test ne lit que les essais de type `test` (plan.js, `faitsDeTest`) : l’essai raté disparaît, le plan propose encore l’essai suivant et ne s’arrête pas (I92)',
 };
 const defautsVus = [];
 const okDefaut = (defaut, nom, cond, detail) => {
@@ -32148,29 +32147,28 @@ const SETS_IMPORTES = [
     const dom6 = await domSt();
     ok('[ST] l’essai 2 est une série à 0 rep, validée, à 112,5 kg',
       base.sets.some((x) => x.session_id === seanceCourante() && x.exercise_slug === SQ && x.charge_kg === charge2 && x.reps === 0), nb(base.sets.filter((x) => x.session_id === seanceCourante()).map((x) => [x.type_serie, x.charge_kg, x.reps])));
-    // ⚠️ DÉFAUT DE L'APP (D-ST1), décrit au rapport, non corrigé ici : « Oui, manquée » RETYPE la série en `echec` (app.js, `b.action === 'manquee'` →
-    // `Seance.changerType(…, 'echec')`), et `faitsDeTest` (plan.js) ne lit que le type `test` : l'essai raté disparaît des essais, le plan propose encore
-    // l'essai 2 et ne s'arrête pas. Le contrôle porte l'état COHÉRENT (I92 : « Un essai raté : on s’arrête là. », rien de plus proposé).
-    okDefaut('D-ST1', '[ST] I92 — un essai raté (0 rep, « Oui, manquée ») arrête le test : « Un essai raté : on s’arrête là. », plus aucun essai ni bouton « Ajouter l’essai suivant »',
+    // D-ST1 CORRIGÉ : « Oui, manquée » ne retype plus un essai (`Seance.marquerManquee`) : il reste `test`, `faitsDeTest` le compte, le plan s'arrête (I92).
+    ok('[ST] D-ST1 — l’essai 2 raté garde son type `test` en base (pas `echec`)',
+      base.sets.some((x) => x.session_id === seanceCourante() && x.exercise_slug === SQ && x.charge_kg === charge2 && x.reps === 0 && x.type_serie === 'test'), nb(base.sets.filter((x) => x.session_id === seanceCourante()).map((x) => [x.type_serie, x.charge_kg, x.reps])));
+    ok('[ST] I92 — un essai raté (0 rep, « Oui, manquée ») arrête le test : « Un essai raté : on s’arrête là. », plus aucun essai ni bouton « Ajouter l’essai suivant »',
       !!p6.exos[SQ].t && p6.exos[SQ].t.arret === 'rate' && p6.exos[SQ].t.prochain === null && p6.exos[SQ].t.ajout === null &&
         /Un essai raté : on s’arrête là\./.test(sp(dom6.tests[0] ? dom6.tests[0].texte : '')) && dom6.boutons.indexOf('Ajouter l’essai suivant') < 0,
       nb([p6.exos[SQ].t.arret, p6.exos[SQ].t.prochain, p6.exos[SQ].t.essais, dom6.boutons]));
 
-    // ARRÊT : « Arrêter le test » (la technique lâche) — l'autre chemin de l'arrêt (I92) : plus aucune charge proposée, le max mesuré est l'essai 1 (I93).
-    await attendreQue(() => page.evaluate(() => !!document.querySelector('.proposition-test .pt-arret')), 8000, 'boutonArretST');
+    // ARRÊT : l'essai raté a DÉJÀ arrêté le test (I92, D-ST1 corrigé : « Arrêter le test » n'a plus de bouton, il n'y a plus rien à arrêter) : plus aucune charge proposée, le max mesuré
+    // est l'essai 1 (I93). Le chemin « la technique lâche » (bouton « Arrêter le test », app.js `arrets`) n'est plus joué de bout en bout ici : le moteur le couvre (`v2-semaine-de-test-moteur.test.js`), le geste d'écran reste à rejouer (dette notée).
     const depart3 = await departGeste();
-    await page.click('.proposition-test .pt-arret');
     await attendreQue(() => lireSt().then((p) => p.exos[SQ].t.etat === 'arret'), 15000, 'arretST');
     await attendreQue(() => !!mesuresEnBase()[SQ], 15000, 'mesureST');
     await calmeApres(depart3, 0);
-    const p7 = await invariants('« Arrêter le test »');
+    const p7 = await invariants('l’arrêt sur l’essai raté');
     const t7 = p7.exos[SQ].t, dom7 = await domSt();
     ok('[ST] I92 — DISCRIMINANT — après l’arrêt : plus aucun essai proposé, plus de bouton d’ajout ni d’arrêt, la phrase du coach « On s’arrête là »',
-      t7.etat === 'arret' && t7.prochain === null && t7.ajout === null && t7.consigne === null && t7.arret === 'technique' &&
-        dom7.boutons.indexOf('Ajouter l’essai suivant') < 0 && dom7.boutons.indexOf('Arrêter le test') < 0 && /La technique lâche : on s’arrête là\./.test(sp(dom7.tests[0].texte)), nb([t7, dom7]));
+      t7.etat === 'arret' && t7.prochain === null && t7.ajout === null && t7.consigne === null && t7.arret === 'rate' &&
+        dom7.boutons.indexOf('Ajouter l’essai suivant') < 0 && dom7.boutons.indexOf('Arrêter le test') < 0 && /Un essai raté : on s’arrête là\./.test(sp(dom7.tests[0].texte)), nb([t7, dom7]));
     const m7 = mesuresEnBase()[SQ];
     ok('[ST] I93 — DISCRIMINANT — le max mesuré est rangé dans `cartes_semaine.test.mesures` : 107,5 kg (l’essai 1 réussi), jamais en dessous, d’une vraie mesure, avec le max d’avant (≈ 117 kg)',
-      !!m7 && m7.valeur >= charge1 && m7.valeur === 107.5 && m7.charge === 107.5 && m7.reps === 1 && m7.vrai === true && Math.abs(m7.avant - 116.67) <= 1 && m7.arret === 'technique' &&
+      !!m7 && m7.valeur >= charge1 && m7.valeur === 107.5 && m7.charge === 107.5 && m7.reps === 1 && m7.vrai === true && Math.abs(m7.avant - 116.67) <= 1 && m7.arret === 'rate' &&
         Object.keys(mesuresEnBase()).length === 1 && !mesuresEnBase()[SDT], nb(mesuresEnBase()));
     ok('[ST] I93 — le pari du squat (posé au lancement, avant toute série) vaut le max estimé au cran (117,5 kg) : un seul, du module test',
       parisDuTest().length === 1 && parisDuTest(SQ).length === 1 && parisDuTest(SQ)[0].valeur_predite === 117.5 && parisDuTest(SQ)[0].fondement.max_estime === 116.7, nb(parisDuTest()));

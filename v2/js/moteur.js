@@ -12548,8 +12548,10 @@
   // La CORRECTION PERSONNELLE, rejouée (rien n'est écrit en base) sur les 4 dernières séances de l'exercice dont les reculs étaient à
   // plus de reps, du plus ancien au plus récent, un pas par séance, cumulée et bornée à ± 10 %. `pool` : les séances à reculs, la plus
   // récente d'abord (`{ series, cible }`). La prévision d'une séance : les reps que la table donne à la charge de son dernier recul, à
-  // partir de son max du jour d'alors (même fonction), pour la marge de CE recul tel qu'il a été fait (`reserveDeSerie`, échec = 0 ;
-  // sans note : la marge visée). Fait ≥ prévision + 2 : +2,5 % ; fait sous la cible : −2,5 % ; sinon 0.
+  // partir de son max du jour d'alors (même fonction), pour la marge de CE recul tel qu'il a été fait (`reserveDeSerie`, échec = 0).
+  // Fait ≥ prévision + 2 : +2,5 % ; fait sous la cible : −2,5 % ; sinon 0.
+  // « Au max » disparaît (20/11/2026, CONTRA-AUMAX-DEDUIT C4) — UN RECUL SANS NOTE DE RÉSERVE NE BOUGE PAS LA CORRECTION (delta 0, `sansNote`) : il n'est
+  // plus supposé « en gardant 2 » (un recul fait à l'échec et non noté donnait une prévision plus basse de 2, donc +2,5 % à chaque séance, jusqu'à +10 %).
   function correctionDeRecul(pool) {
     var P = Palier();
     var retenues = (pool || []).filter(reculDePlusDeReps).slice(0, RECUL_CORRECTION_SEANCES).reverse();
@@ -12561,7 +12563,7 @@
       if (max === null) return;
       var d = l.reculs[l.reculs.length - 1];
       var mr = P.reserveDeSerie(d.serie);
-      if (mr === null) mr = RECUL_MARGE_VISEE;
+      if (mr === null) { pas.push({ charge: d.charge, faites: d.reps, prevision: null, cible: l.cible, delta: 0, sansNote: true }); return; }
       var rt = repsDeLaTable(d.charge / max * 100);
       if (rt === null) return;
       var prevision = Math.max(1, Math.round(rt - mr));

@@ -92,13 +92,23 @@ describe('193-5 — la correction personnelle (rejouée)', () => {
     expect(M.reculDePlusDeReps(memes)).toBe(false);
     expect(M.correctionDeRecul([memes]).valeur).toBe(0);
   });
-  test('la marge du recul tel que fait : un échec compte 0 ; sans note, la marge visée (2)', () => {
+  test('la marge du recul tel que fait : un échec compte 0', () => {
     // à l’échec (marge 0) : 112,5 correspond à 73,3 % → 10,3 reps − 0 = 10 prévues ; 12 ≥ 10 + 2 : +2,5 %
     const s = { cible: 8, series: [g(132.5, 4, { rpe: 9 }), r(112.5, 12, { rpe: 10 })] };
     expect(M.correctionDeRecul([s]).pas[0].prevision).toBe(10);
     expect(M.correctionDeRecul([s]).valeur).toBe(0.025);
+  });
+  // « Au max » disparaît (20/11/2026, CONTRA-AUMAX-DEDUIT C4) — un recul SANS note de réserve ne bouge plus la correction : il n'est plus supposé « en gardant 2 »
+  // (avant : prévision 8, 12 ≥ 8 + 2 → +2,5 % à chaque séance, jusqu'à +10 %, sur un recul fait à l'échec et non noté).
+  test('C4 — DISCRIMINANT : un recul sans note ne bouge pas la correction, ni vers le haut ni vers le bas', () => {
     const sans = { cible: 8, series: [g(132.5, 4, { rpe: 9 }), r(112.5, 12)] };
-    expect(M.correctionDeRecul([sans]).pas[0].prevision).toBe(8);
+    const p = M.correctionDeRecul([sans]);
+    expect(p.valeur).toBe(0);
+    expect(p.pas[0]).toMatchObject({ prevision: null, delta: 0, sansNote: true, faites: 12 });
+    const sous = { cible: 8, series: [g(132.5, 4, { rpe: 9 }), r(112.5, 6)] };
+    expect(M.correctionDeRecul([sous]).valeur).toBe(0);
+    const quatre = [1, 2, 3, 4].map(() => ({ cible: 8, series: [g(132.5, 4, { rpe: 9 }), r(112.5, 12)] }));
+    expect(M.correctionDeRecul(quatre).valeur).toBe(0);
   });
 });
 

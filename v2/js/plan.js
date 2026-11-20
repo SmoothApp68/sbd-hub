@@ -1384,12 +1384,20 @@
   // 21/11/2026 (MOTEUR §9.32, I253) — la série de mesure est la série MARQUÉE (`Modele.estSerieDeMesure`, la seule lecture de
   // `serie_de_mesure`), jamais une position : une série ordinaire posée après elle n'entre pas dans la mesure. Deux séries marquées (deux
   // appareils hors ligne) : la PREMIÈRE par `validee_a`, puis par sa place dans l'exercice ; rien ne lève d'erreur.
+  // L'ordre de validation : l'INSTANT de `validee_a` (lu, jamais comparé en texte : deux écritures d'un même instant sont égales), une série
+  // validée sans `validee_a` (relue de la base, `partEnBase`) après toutes les autres ; puis sa place dans l'exercice. Une règle, lue par
+  // `faitsDeTest` ET par I253.
+  function instantDeValidation(v) {
+    var t = v ? Date.parse(v) : NaN;
+    return isFinite(t) ? t : Infinity;
+  }
+  function avantEnValidation(a, b) {
+    var ta = instantDeValidation(a.validee_a), tb = instantDeValidation(b.validee_a);
+    if (ta !== tb) return ta < tb ? -1 : 1;
+    return a.rang - b.rang;
+  }
   function premiereSerieDeMesure(candidates) {
-    return candidates.slice().sort(function (a, b) {
-      var va = String(a.validee_a || ''), vb = String(b.validee_a || '');
-      if (va !== vb) return va < vb ? -1 : 1;
-      return a.rang - b.rang;
-    })[0] || null;
+    return candidates.slice().sort(avantEnValidation)[0] || null;
   }
   function faitsDeTest(x, series) {
     var S = Seance(), P = Palier();
@@ -9212,17 +9220,15 @@
       // quelle que soit sa place. Recalculée depuis les ENTRÉES (les séries de la séance), par une lecture à part (jamais `faitsDeTest`) ; la
       // marque d'une série se lit par son seul prédicat (`Modele.estSerieDeMesure`, une notion), le choix de la première se refait ici.
       if (t.mode === M.TEST_MODE_SERIE && entrees && entrees.seance && entrees.seance.exercices) {
-        var seriesI = (entrees.seance.exercices[i] && entrees.seance.exercices[i].series) || [];
+        var exoI = typeof x.iExo === 'number' ? entrees.seance.exercices[x.iExo] : null;
+        var seriesI = (exoI && exoI.series) || [];
         var marquees = [];
         seriesI.forEach(function (q, k) {
-          if (!q || !q.validee_a || !racine.THModele.estSerieDeMesure(q)) return;
+          if (!q || !Seance().partEnBase(q) || !racine.THModele.estSerieDeMesure(q)) return;
           if (nombre(q.charge_kg) === null) return;
-          marquees.push({ q: q, k: k });
+          marquees.push({ q: q, validee_a: q.validee_a || null, rang: k });
         });
-        marquees.sort(function (a2, b2) {
-          var va = String(a2.q.validee_a), vb = String(b2.q.validee_a);
-          return va !== vb ? (va < vb ? -1 : 1) : a2.k - b2.k;
-        });
+        marquees.sort(avantEnValidation);
         var lue = marquees.length ? marquees[0].q : null;
         var idLu = lue ? (lue.id === undefined ? null : lue.id) : null;
         if ((t.mesureSerieId || null) !== idLu) erreurs.push('I253' + nom + 'la série de mesure lue (' + t.mesureSerieId + ') n’est pas la première série marquée (' + idLu + ')');

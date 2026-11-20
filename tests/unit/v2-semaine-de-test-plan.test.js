@@ -437,3 +437,39 @@ describe('I253 — la série de mesure : la marque, jamais la position', () => {
     expect(refaite.exercices[0].series.some((s) => s.serie_de_mesure === true)).toBe(false);
   });
 });
+
+// 21/11/2026 (I253) — l'ordre de validation lit des INSTANTS ; une série validée sans `validee_a` passe après les autres.
+describe('I253 — la première série marquée : des instants, pas du texte', () => {
+  require('../../v2/js/semaine.js');
+  function seanceMesuree() {
+    const e0 = entrees(seance([SDT]), { modes: { [SDT]: 'serie' } });
+    const aj = T.planDeSeance(e0).exercices[0].semaineDeTest.ajout;
+    let k = 0;
+    let se = seance([SDT], 3);
+    se = S.insererChauffes(se, 0, aj.lignes.map((q) => Object.assign([q.charge, q.reps], { test: true, type: q.type, mesure: q.mesure })), () => 'i' + (++k));
+    const j = se.exercices[0].series.findIndex((s) => s.serie_de_mesure === true);
+    se = S.valider(S.modifierSerie(se, 0, j, { charge_kg: 150, reps: 6 }), 0, j, new Date('2026-11-03T10:20:00Z'));
+    return { se, j };
+  }
+  const plan = (se) => { const e = entrees(se, { modes: { [SDT]: 'serie' } }); return { e, p: T.planDeSeance(e) }; };
+
+  test('DISCRIMINANT — deux écritures d’instant : « 11:10+01:00 » (10:10 UTC) est AVANT « 10:20Z », même si le texte dit l’inverse', () => {
+    let { se } = seanceMesuree();
+    se = JSON.parse(JSON.stringify(se));
+    const jt = se.exercices[0].series.length - 1;
+    Object.assign(se.exercices[0].series[jt], { charge_kg: 140, reps: 9, validee_a: '2026-11-03T11:10:00+01:00', serie_de_mesure: true });
+    const { e, p } = plan(se);
+    expect(p.exercices[0].semaineDeTest.mesureSerieId).toBe(se.exercices[0].series[jt].id);
+    expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+  });
+
+  test('DISCRIMINANT — une série marquée validée sans `validee_a` (relue de la base) passe après une série datée, des deux côtés (plan et I253)', () => {
+    let { se, j } = seanceMesuree();
+    se = JSON.parse(JSON.stringify(se));
+    const jt = 0;   // en tête de l'exercice : avant la série datée par sa place
+    Object.assign(se.exercices[0].series[jt], { type_serie: 'travail', charge_kg: 140, reps: 9, validee_a: null, source: 'hevy', serie_de_mesure: true });
+    const { e, p } = plan(se);
+    expect(p.exercices[0].semaineDeTest.mesureSerieId).toBe(se.exercices[0].series[j].id);
+    expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+  });
+});

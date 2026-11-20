@@ -11786,7 +11786,9 @@
     }
     if (n !== null) {
       marches = marches.slice(0, n);
-      while (marches.length < n) marches.push({ charge: null, reps: null, trop_leger: true });
+      // CONTRA-725 D8 — au poids du corps, le nombre fixé est gardé : les lignes au-delà de la série du mouvement restent les siennes (ni
+      // charge ni « Trop léger », une charge n'a pas de sens ici) ; la note du Pourquoi dit qu'elles restent à remplir.
+      while (marches.length < n) marches.push(nature === 'corps' ? { charge: null, reps: null, libre: true } : { charge: null, reps: null, trop_leger: true });
     }
     return { marches: marches, derniere: null, pas: CHAUFFE_LEST_CRAN, barre: 0, origine: e.origine || 'coach', nature: nature };
   }
@@ -11921,6 +11923,7 @@
     base.forEach(function (idx, j) {
       var reps = routine[idx], mj = m.marches[j] || { charge: null, trop_leger: true };
       if (mj.peu_de_temps) { lignes[idx] = { reps: reps, charge: null, peu_de_temps: true }; return; }
+      if (mj.libre) { lignes[idx] = { reps: reps, charge: null }; return; }
       if (mj.charge === null || mj.charge === undefined) {
         // Au poids du corps, la série du mouvement n'a pas de charge : ce n'est pas une ligne vide.
         if (mj.corps) { lignes[idx] = { reps: reps === null || reps === undefined ? mj.reps : reps, charge: null, corps: true, reps_coach: reps === null || reps === undefined }; return; }
@@ -11930,6 +11933,8 @@
       var vide = reps === null || reps === undefined;
       var l = { reps: vide ? mj.reps : reps, charge: mj.charge, reps_coach: vide };
       if (mj.barre) l.barre = true;
+      // CONTRA-725 D6 — au lesté, la série au poids du corps (lest 0) garde sa nature : « poids du corps × 5 », jamais « Poids du corps de lest ».
+      if (mj.corps) l.corps = true;
       lignes[idx] = l;
     });
     var tropProches = 0;
@@ -11960,7 +11965,8 @@
         ' × ' + nombreFr(l.reps, regle('chauffe.reps'));
     };
     var capP = Modele().capturer(function () {
-      if (!listees.length || ref === null) return null;
+      // Au poids du corps, il n'y a pas de référence : la tête « Chauffe : poids du corps × 3. » se dit sans elle (CONTRA-725 D8).
+      if (!listees.length || (ref === null && m.nature === 'charge')) return null;
       var tete = m.nature === 'charge' ? 'Chauffes calées sur ' + Modele().charge(ref, undefined, regle('reference')) + ' : ' : 'Chauffe : ';
       return tete + listees.map(texteLigne).join(' · ') + '.';
     });
@@ -11980,7 +11986,8 @@
     var apres = [capA.texte].filter(Boolean);
     if (tropProches && !tropLegeres) apres.push(TROP_PROCHE);
     var remplies = lignes.filter(function (l) { return l && (l.charge !== null || l.corps); }).length;
-    return { situation: situation, lignes: lignes, prevues: base.length - tropLegeres - peuVides,
+    var libres = m.marches.filter(function (q) { return q && q.libre; }).length;
+    return { situation: situation, lignes: lignes, prevues: base.length - tropLegeres - peuVides - libres,
              trop_legeres: tropLegeres, trop_proches: tropProches, peu_de_temps: peuVides,
              phrase_apres_faites: apres.length ? apres.join(' ') : null, citations_apres_faites: capA.texte ? capA.citations : [],
              non_remplies: lignes.length - remplies - tropLegeres - tropProches - peuVides, phrase: phrase,

@@ -162,7 +162,8 @@ describe('le plan — + Chauffe, le lesté, le programme du coach', () => {
     muscles_secondaires: ['ischio_jambiers'], muscles_stabilisateurs: ['bas_du_dos'] };
   const TL = { nom: 'Tractions lestées', equipement: 'aucun', charge: 'ajoutee', mesure: 'charge_reps', muscles_primaires: ['grand_dorsal'],
     muscles_secondaires: ['biceps'], muscles_stabilisateurs: [] };
-  const CAT = { squat_barre: SQ, tractions_leste: TL };
+  const TR = { nom: 'Tractions', equipement: 'aucun', charge: 'aucune', mesure: 'reps', muscles_primaires: ['grand_dorsal'], muscles_secondaires: [], muscles_stabilisateurs: [] };
+  const CAT = { squat_barre: SQ, tractions_leste: TL, tractions: TR };
   const consigne = (charge, vise) => ({ etat: 'progression', zone: 'force', palier: charge, niveau: vise, n: 3, ligne: { charge, vise }, haut: null, fondement: {} });
   let n0 = 0;
   const id = () => 'z' + (++n0);
@@ -223,6 +224,25 @@ describe('le plan — + Chauffe, le lesté, le programme du coach', () => {
     const r30 = plan(seanceDe('tractions_leste'), 'tractions_leste', consigne(30, 5));
     expect(r30.x.proposition.lignes).toEqual([[0, 2], [15, 2]]);
     expect(r30.erreurs).toEqual([]);
+  });
+  test('DISCRIMINANT (CONTRA-725 D6) — lesté avec ses lignes : « poids du corps × 5 », jamais « Poids du corps de lest »', () => {
+    const r = plan(seanceDe('tractions_leste', [5, 3]), 'tractions_leste', consigne(10, 6));
+    expect(sp(r.x.chauffes.phrase)).toBe('Chauffe : poids du corps × 5. Trop léger pour une chauffe de plus.');
+    const r30 = plan(seanceDe('tractions_leste', [null, null]), 'tractions_leste', consigne(30, 5));
+    expect(sp(r30.x.chauffes.phrase)).toBe('Chauffe : poids du corps × 2 · 15 kg de lest × 2.');
+    expect(r30.x.lignes[0].chauffe.corps).toBe(true);
+    expect(r.erreurs).toEqual([]);
+  });
+  test('DISCRIMINANT (CONTRA-725 D8) — poids du corps, 2 chauffes fixées : la 1re « poids du corps × 3 », la 2e reste la sienne (avant : « Trop léger », sans tête)', () => {
+    const k = { etat: 'progression', zone: 'hypertrophie', palier: 0, niveau: 8, n: 3, ligne: { charge: 0, vise: 8 }, haut: null, fondement: {} };
+    const r = plan(seanceDe('tractions', [null, null]), 'tractions', k, { e1rms: {} });
+    expect(sp(r.x.chauffes.phrase)).toBe('Chauffe : poids du corps × 3.');
+    const ch = r.x.lignes.filter((l) => l.type === 'echauffement');
+    expect(ch.length).toBe(2);
+    expect(ch[0].chauffe.corps).toBe(true);
+    expect(ch[1].chauffe.trop_leger).toBeUndefined();
+    expect(ch[1].fantome).toBeUndefined();
+    expect(r.erreurs).toEqual([]);
   });
   test('DISCRIMINANT (CONTRA-725 D7) — tractions lestées +30 kg, routine à 2 lignes : aucun faux I245 (avant : « loin de 88 % de 30 kg »)', () => {
     const r = plan(seanceDe('tractions_leste', [null, null]), 'tractions_leste', consigne(30, 5));

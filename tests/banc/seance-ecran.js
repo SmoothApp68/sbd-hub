@@ -10513,10 +10513,10 @@ const SETS_IMPORTES = [
     ok('[SP] aucune erreur de page', erreurs.length === 0, JSON.stringify(erreurs.slice(0, 2)));
   }
 
-  console.log('\n══ 5a-bis. LA SUITE LIT AUJOURD’HUI : 90 × 5 ×4, DERNIÈRE « AU MAX » RÉSERVE 0, SOUS UNE ROUTINE EN HYPERTROPHIE (MOTEUR §9.48 bis, I167) ══');
+  console.log('\n══ 5a-bis. LA SUITE LIT AUJOURD’HUI : 90 × 5 ×4, DERNIÈRE NOTÉE RÉSERVE 1, SOUS UNE ROUTINE EN HYPERTROPHIE (MOTEUR §9.48 bis, I167) ══');
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE (diagnostic « live contre rechargé », 14/11/2026). Une routine qui FIXE la zone Hypertrophie (8-10) ; deux séances d'avant à
-  // 90 kg × 5 (routine_id posé) ; aujourd'hui 90 × 5 quatre fois, la dernière « Au max » à réserve 0. En séance, `suiteDe` passait la séance du jour SANS
+  // 90 kg × 5 (routine_id posé) ; aujourd'hui 90 × 5 quatre fois, la dernière notée « reste 1 » (avant le 20/11/2026 : « Au max » à réserve 0). En séance, `suiteDe` passait la séance du jour SANS
   // `routine_id` : 5 reps sous une zone 8-10 tombait dans Lourd, le jour sortait de la zone du plan et l'annonce redisait la fois d'HIER (« une rep de plus,
   // 90 kg × 5 ») ; la vraie suite est 90 kg × 6. Le rechargement (F2, les routines non chargées à la reprise) est une autre PR : il n'est pas joué ici.
   {
@@ -10565,10 +10565,10 @@ const SETS_IMPORTES = [
     const autres = (live.erreurs || []).filter((e) => !/^I4\b/.test(e));
     const etatApp = await page.evaluate(() => { const e = window.THPlan.garde.etat(); return { plans: e.plans, violations: e.violations.length }; });
     gardeBanc.app = etatApp; gardeBanc.suspendue = false; gardeBanc.avant = null;
-    // « Une seule garde » (19/11/2026, C-1, I233) — la 4e série est « Au max » jusqu'à l'échec, notée 0 : c'est ce qui était demandé, le rejeu ne la lit plus
-    // comme une garde R < V et le test est confirmé (avant C-1 : « La prochaine fois : une rep de plus, 90 kg × 6. »). Le discriminant de 5a-bis (la suite
+    // « Au max » disparaît (20/11/2026, I251) — la 4e série est notée 1 en réserve, la visée : aucune garde R < V, le rejeu confirme le test
+    // (avant : « Au max » à l'échec noté 0, que C-1, I233, exemptait) (avant C-1 : « La prochaine fois : une rep de plus, 90 kg × 6. »). Le discriminant de 5a-bis (la suite
     // lit AUJOURD'HUI, jamais la fois d'hier « 90 kg × 5 ») est tenu par l'annonce et par la ligne suivante (contrôle d'après).
-    ok('[5a-bis] DISCRIMINANT — EN SÉANCE, après 5, 5, 5, 5 à 90 kg (la dernière « Au max » faite comme demandé), l’annonce est la vraie suite : « Il te manque 5 reps pour tester ≈ 92,5 kg. » (avant 5a-bis : « … 90 kg × 5 », la fois d’hier)',
+    ok('[5a-bis] DISCRIMINANT — EN SÉANCE, après 5, 5, 5, 5 à 90 kg (la dernière notée « reste 1 »), l’annonce est la vraie suite : « Il te manque 5 reps pour tester ≈ 92,5 kg. » (avant 5a-bis : « … 90 kg × 5 », la fois d’hier)',
       esp(live.suite) === 'Il te manque 5 reps pour tester ≈ 92,5 kg.', esp(JSON.stringify(live)));
     ok('[5a-bis] la suite du plan est la ligne 90 × 6 (niveau 5), datée du jour de la séance (I167) — pas la fois d’avant (niveau 4)',
       !!live.planConstat && live.planConstat.suiteLignes.ligne.charge === 90 && live.planConstat.suiteLignes.ligne.vise === 6 && live.planConstat.suiteLignes.niveau === 5 &&
@@ -10588,7 +10588,7 @@ const SETS_IMPORTES = [
 
   console.log('\n══ 5b-1. LES RÉGIMES À VENIR : LA DÉCHARGE COMMENCE DANS 7 JOURS, L’ANNONCE DIT LA DATE ET AUCUNE CHARGE (MOTEUR §9.50, I169) ══');
   //
-  // ⚠️ CONFIGURATION DISCRIMINANTE : la séance de 5a-bis (90 × 5 ×4, la dernière « Au max » à réserve 0, sous une routine en Hypertrophie), mais un bloc de 4 semaines
+  // ⚠️ CONFIGURATION DISCRIMINANTE : la séance de 5a-bis (90 × 5 ×4, la dernière notée « reste 1 », sous une routine en Hypertrophie), mais un bloc de 4 semaines
   // commencé il y a 14 jours : sa décharge (semaine 4) commence dans 7 jours, dans la fenêtre de la fois suivante (écart habituel : 7 jours). Avant : « La prochaine
   // fois : une rep de plus, 90 kg × 6. » — démentie par la décharge (moins de reps, moins de séries). Après : « Ta décharge commence le <date>, prévue par ton programme. »,
   // et la phrase d'effort sans « je garde ». La séance est jouée en entier, en séance : aucun délai fixe.
@@ -28052,7 +28052,7 @@ const SETS_IMPORTES = [
   // ⚠️ CONFIGURATION DISCRIMINANTE : une séance REPRISE (page rechargée) dont l'exercice, passé par une ZONE DE ROUTINE (`zone_plan`), est FINI,
   // l'historique ne se lisant que par la routine (`zonesDeRoutine`). Le premier rendu part AVANT l'arrivée des routines : sans correctif la suite redit la
   // fois d'avant (« Prochaine séance : 80 kg × 8 »), et la vue visible est la SÉANCE (jamais `vues.saisie`) — aucun re-rendu ne la guérit. Le contrôle
-  // négatif (le LIVE : « Il te manque 5 reps pour tester ≈ 92,5 kg » ; avant « Une seule garde » C-1, I233 : « une rep de plus, 90 kg × 6 », la série « Au max » notée 0 bloquant le test) prouve que la fixture déclenche bien le chemin ; l'état est lu à l'écran, jamais sur le plan seul.
+  // négatif (le LIVE : « Il te manque 5 reps pour tester ≈ 92,5 kg » ; la dernière série notée « reste 1 » depuis le 20/11/2026, « Au max » disparaît) prouve que la fixture déclenche bien le chemin ; l'état est lu à l'écran, jamais sur le plan seul.
   {
     const rendreBlocsF2 = await retirerBlocsDeLAppareil();
     CATALOGUE.push({ slug: 'dl-a', nom: 'Développé Couché DL (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['pectoraux'], muscles_secondaires: [] });
@@ -28116,7 +28116,7 @@ const SETS_IMPORTES = [
     await faireLaSeance();
     await avoirSuite('f2 LIVE : la suite');
     let e = await lireF2();
-    ok('[f2 LIVE — contrôle négatif] la séance en cours dit « Il te manque 5 reps pour tester ≈ 92,5 kg. » (« Au max » noté 0 = la réserve demandée, I233) (routines lues avant la séance)', suiteDite(e), dit(e));
+    ok('[f2 LIVE — contrôle négatif] la séance en cours dit « Il te manque 5 reps pour tester ≈ 92,5 kg. » (la dernière notée « reste 1 », la visée) (routines lues avant la séance)', suiteDite(e), dit(e));
     ok('[f2 LIVE] le verdict du jour et les invariants : « 90 kg : 4 reps mercredi, 5 aujourd\'hui. », aucune erreur', /5 aujourd/.test(esp(e.verdict)) && e.erreurs.length === 0 && e.routinesPretes === true, dit(e));
 
     // ── 2. RECHARGEMENT EN LIGNE : la suite redevient juste SANS aucun geste (le défaut : « Prochaine séance : 80 kg × 8 ») ─────────

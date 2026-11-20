@@ -1,0 +1,26 @@
+[
+ {
+  "nom": "marque-au-max-relue-par-le-cran",
+  "fichier": "v2/js/palier.js",
+  "ancien": "    // est à fond ; ce qui ne punit pas celui qui a fait la capacité prévue, c'est la capacité tenue du moteur (`Moteur.capaciteTenue`, I252).\n    return c;",
+  "nouveau": "    // est à fond ; ce qui ne punit pas celui qui a fait la capacité prévue, c'est la capacité tenue du moteur (`Moteur.capaciteTenue`, I252).\n    if (c === 'max' && serie.au_max_reserve === 0) return null;\n    return c;",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-une-seule-garde.test.js", "tests/unit/v2-architecture.test.js"]
+ },
+ {
+  "nom": "carte-au-max-revient",
+  "fichier": "v2/js/plan.js",
+  "ancien": "        x.suiteMuette = false;\n",
+  "nouveau": "        x.suiteMuette = false;\n        if (seance.routine_id && coachee) x.propositionAuMax = { iSerie: 0, reserve: 0, titre: 'Dernière série au max ?' };\n",
+  "banc": "seance",
+  "sections": ["sans-au-max"]
+ },
+ {
+  "nom": "recul-sans-note-bouge-la-correction",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "      if (mr === null) { pas.push({ charge: d.charge, faites: d.reps, prevision: null, cible: l.cible, delta: 0, sansNote: true }); return; }",
+  "nouveau": "      if (mr === null) mr = RECUL_MARGE_VISEE;",
+  "banc": "aucun",
+  "unitaires": ["tests/unit/v2-recul-max-du-jour.test.js"]
+ }
+]

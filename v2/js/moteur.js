@@ -2511,6 +2511,13 @@
       // la barre n'a pas été ratée, la séance est neutre pour le compte (`etatSuite = prec`, comme une décharge) — sinon deux séances suivies à la lettre
       // mèneraient à `bord_vague` (−5 %) alors que le coach tenait la charge. (`zero_rep`, livré avec la règle B, est hors PR : noté comme dette.)
       var tenueNeutre = rk !== null && rk.etat === 'tenue_apres_zero' && prec !== null && !ratee;
+      // Lot E, A2 (20/11/2026, MOTEUR §9.1.2 et §9.8, I239) — LA SÉANCE DE CONFIRMATION DU PRUDENT EST NEUTRE : quand la consigne reçue était la garde de
+      // confirmation (`bord.confirmation`) et que la barre n'a pas été ratée, la séance ne compte ni pour la vague (`sans`) ni pour le compte long (`total`,
+      // `aRecule`, `record`, `depuisRecord`) : les cinq champs reprennent `prec`, comme la tenue après un zéro. Sinon un Prudent qui confirme une séance sur
+      // deux atteindrait la vague (−5 %) et la carte « Passer à 3-5 reps » deux fois plus vite que les autres.
+      var confirmationNeutre = rk !== null && rk.etat === 'bord_garde' && !!(rk.fondement && rk.fondement.bord && rk.fondement.bord.confirmation === true) &&
+        prec !== null && !ratee;
+      tenueNeutre = tenueNeutre || confirmationNeutre;
       var meilleur, sans, recul;
       if (tenueNeutre) {
         meilleur = prec.meilleur; sans = prec.sans; recul = prec.recul;
@@ -2585,7 +2592,21 @@
           return fin('bord_garde', ligneDe(P, vise), { bord: { charge: P, reps: nombre(derniere.reps), reserve: Rb } });
         }
       }
-      return fin('bord', ligneDe(voisine(P, 1), niv), null);
+      // Lot E, A2 (20/11/2026, MOTEUR §9.1.2 et §9.8, I239) — EN PRUDENT, DEUX SÉANCES AU MÊME PALIER AVANT DE MONTER (comme dans les zones, §9.8) :
+      // la montée n'est donnée que si la séance lue d'AVANT a aussi tenu cette charge (`precedente` au même palier) et n'a pas été ratée (la consigne
+      // qu'a reçue L n'est ni un recul ni une vague, et elle vient de la règle de bord : `prec`). La garde « une seule séance » (`lues === 1`) compte
+      // comme une confirmation. Sinon le coach garde la charge UNE séance (`bord.confirmation`), neutre pour le compteur. Normal et Franc : inchangés.
+      var confirmee = reglage !== 'prudent' || (prec !== null && precedente !== null && memeCharge(nombre(precedente.seance.palier), P) &&
+        rk !== null && rk.etat !== 'bord_recul' && rk.etat !== 'bord_vague');
+      if (!confirmee) {
+        return fin('bord_garde', ligneDe(P, niv), { bord: { charge: P, reps: niv, confirmation: true } });
+      }
+      var monte = fin('bord', ligneDe(voisine(P, 1), niv), null);
+      // I239 relit le fait : en Prudent, la montée vient d'une séance d'avant au même palier (non énumérable, comme `_lues`).
+      if (monte && typeof monte === 'object' && reglage === 'prudent') {
+        Object.defineProperty(monte, '_confirmee', { value: { palier: nombre(precedente.seance.palier), etat: rk.etat }, enumerable: false });
+      }
+      return monte;
     }
     function auMoins(series, seuil) {
       return series.some(function (s) { var r = comptees(s); return r !== null && r >= seuil; });
@@ -4891,6 +4912,11 @@
       return chargeFois(b.charge, b.reps, cF) + DEUX_POINTS + 'une seule séance sous ' + nombreFr(RANGEMENT[0].jusqua + 1, regle('constante')) + ' reps. Je garde ' +
         enKg(b.charge, cite(FAIT, { quoi: 'bord.charge' })) + '.';
     }
+    // Lot E, A2 — la garde de confirmation du Prudent : le fait, puis ce que fait le coach (« je », jamais « on » : VOIX, I162).
+    if (etat === 'bord_garde' && b.confirmation === true) {
+      return chargeFois(b.charge, b.reps, cF) + ', toutes les reps. Je garde ' + enKg(b.charge, cite(FAIT, { quoi: 'bord.charge' })) +
+        ' une séance de plus avant de monter.';
+    }
     if (etat === 'bord_garde') {
       return chargeFois(b.charge, b.reps, cF) +
         (b.reserve === 0 ? ', sans marge' : ', avec ' + nombreFr(b.reserve, cite(FAIT, { quoi: 'bord.reserve' })) + ' en réserve') +
@@ -6000,6 +6026,11 @@
           return 'Sous ' + nombreFr(RANGEMENT[0].jusqua + 1, regle('constante')) + ' reps, je ne te demande jamais une rep de plus. ' +
             'Une seule séance ne fait pas une habitude' + DEUX_POINTS + 'je garde ' + enKg(f.bord.charge, cite(FAIT, { quoi: 'bord.charge' })) +
             ', la prochaine séance dira si c\'est ta zone.';
+        }
+        // Lot E, A2 — la garde de confirmation : la règle du réglage Prudent.
+        if (f.bord && f.bord.confirmation === true) {
+          return phraseDeBord(c.etat, f.bord) + ' Réglage « ' + libelleRythme('prudent') + ' »' + DEUX_POINTS + 'sous ' + nombreFr(RANGEMENT[0].jusqua + 1, regle('constante')) +
+            ' reps, je monte après deux séances de suite à la même charge.';
         }
         return !f.bord ? '' : phraseDeBord(c.etat, f.bord) + ' Sous ' + nombreFr(RANGEMENT[0].jusqua + 1, regle('constante')) +
           ' reps, une réserve sous ma visée garde la charge une séance.';

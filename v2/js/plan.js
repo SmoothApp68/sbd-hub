@@ -7598,6 +7598,21 @@
       var nom = ' — exercice ' + i + ' (' + x.slug + ') : ';
       var lues = k._lues, b = k.fondement.bord;   // `_lues` : non énumérable, posé par la règle de bord (absent d'une copie : rien n'est alors jugé)
       if (k.etat === 'bord' && lues === 1) erreurs.push('I152' + nom + 'une montée de bord sur une histoire d’une seule séance lue');
+      // I239 (lot E, A2, 20/11/2026, MOTEUR §9.1.2 et §9.8) — EN PRUDENT, aucune montée de bord sans une séance lue d'avant au même palier, non ratée
+      // (`_confirmee`, posé par la règle : le palier de la séance d'avant, l'état de la consigne qu'a reçue la dernière) ; la garde de confirmation
+      // n'existe qu'en Prudent, garde le palier aux reps faites, sans ligne haute.
+      if (k.etat === 'bord' && plan.reglage === 'prudent' && lues !== undefined) {
+        var cf = k._confirmee;
+        if (!cf || nombre(cf.palier) === null || !Moteur().memeCharge(nombre(cf.palier), nombre(k.palier)) || cf.etat === 'bord_recul' || cf.etat === 'bord_vague') {
+          erreurs.push('I239' + nom + 'une montée de bord en « Me ménager » sans une séance d’avant au même palier, non ratée');
+        }
+      }
+      if (b && b.confirmation === true) {
+        if (k.etat !== 'bord_garde' || plan.reglage !== 'prudent') erreurs.push('I239' + nom + 'une garde de confirmation hors de « Me ménager » (' + k.etat + ', ' + plan.reglage + ')');
+        if (!k.ligne || nombre(k.ligne.charge) !== nombre(k.palier) || nombre(k.ligne.vise) !== nombre(b.reps) || k.haut) {
+          erreurs.push('I239' + nom + 'une garde de confirmation qui ne garde pas le palier aux reps faites, sans ligne haute');
+        }
+      }
       if (b && b.unique === true) {
         if (k.etat !== 'bord_garde') erreurs.push('I152' + nom + 'une garde « unique » sur un état ' + k.etat);
         if (lues !== undefined && lues !== 1) erreurs.push('I152' + nom + 'une garde « unique » sur ' + lues + ' séances lues (une seule attendue)');

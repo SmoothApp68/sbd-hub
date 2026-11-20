@@ -1,6 +1,6 @@
 /** @jest-environment node */
 //
-// Lot E « revue des règles », A3 (20/11/2026, MOTEUR §9.30 delta, I238) — JAMAIS D'« AU MAX » POSÉ PAR LE COACH À UN DÉBUTANT.
+// Lot E « revue des règles », A3 (20/11/2026, MOTEUR §9.30 delta, I239) — JAMAIS D'« AU MAX » POSÉ PAR LE COACH À UN DÉBUTANT.
 // Remplace la décision du 31/10/2026 (193-6 : l'échec du débutant permis sur machine et isolation, garde 1 aux barres). Le coach ne pose ni
 // ligne ni carte ; une marque posée par la personne (menu ⋯, ou déjà écrite dans sa routine) reste, au plancher « en gardant 2 reps ».
 // UN prédicat de public prudent (`Moteur.publicPrudentAuMax`), lu par `auMaxDe` et par les mots (`motsDeLAuMax`, ses cinq appels).
@@ -94,12 +94,12 @@ describe('le plan — la carte, la marque, les mots', () => {
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
     expect(T.verifierPhrases(p)).toEqual([]);
   });
-  test('I238 forgé — une carte proposée à un débutant, le bouton « Au max » sur sa ligne', () => {
+  test('I239 forgé — une carte proposée à un débutant, le bouton « Au max » sur sa ligne', () => {
     const e = entrees(seance(CURL, true, true), CURL, { debutant: true });
     const p = T.planDeSeance(e);
     p.exercices[0].auMaxMots = M.motsDeLAuMax(false);
     p.exercices[0].propositionAuMax = { iSerie: 2, reserve: 0, sorte: 'echec' };
-    const err = T.verifierPlan(p, e).erreurs.filter((m) => /^I238/.test(m));
+    const err = T.verifierPlan(p, e).erreurs.filter((m) => /^I239/.test(m));
     expect(err.length).toBeGreaterThanOrEqual(2);
   });
 });
@@ -107,7 +107,7 @@ describe('le plan — la carte, la marque, les mots', () => {
 describe('les cinq appels de `motsDeLAuMax` lisent le prédicat', () => {
   const lire = (f) => fs.readFileSync(path.join(__dirname, '../../v2/js', f), 'utf8');
   test('aucun appel ne passe encore le seul âge', () => {
-    // Chaque appel, jusqu'à la fin de sa ligne ; I238 lit les mots « Au max » pour comparer (`motsDeLAuMax(false)`).
+    // Chaque appel, jusqu'à la fin de sa ligne ; I239 lit les mots « Au max » pour comparer (`motsDeLAuMax(false)`).
     const appels = ((lire('plan.js') + lire('app.js')).match(/motsDeLAuMax\([^\n]*/g) || []).filter((a) => !/^motsDeLAuMax\(false\)/.test(a));
     expect(appels.length).toBe(5);
     appels.forEach((a) => expect(a).toMatch(/publicPrudentAuMax|auMaxPrudentDuProfil/));

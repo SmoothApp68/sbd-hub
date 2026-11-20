@@ -14240,7 +14240,7 @@
   // Le type d'une série programmée — chauffe, travail, dégressive, échec. C'est
   // la MÊME feuille qu'en séance, `programme: true` en moins de la note de
   // série : `routine_sets` n'a pas de colonne où la mettre.
-  // Lot E, A3 (20/11/2026, MOTEUR §9.30, I238) — l'éditeur de routine n'a pas de plan : le public prudent de « Au max » se lit sur le profil
+  // Lot E, A3 (20/11/2026, MOTEUR §9.30, I239) — l'éditeur de routine n'a pas de plan : le public prudent de « Au max » se lit sur le profil
   // (65 ans et plus connus, débutant), par le même prédicat que le plan (`Moteur.publicPrudentAuMax`).
   function auMaxPrudentDuProfil() {
     return Moteur.publicPrudentAuMax({ plus65: Profil.plus65DuProfil(profil, new Date()) === true, debutant: Profil.estDebutant(profil) === true });

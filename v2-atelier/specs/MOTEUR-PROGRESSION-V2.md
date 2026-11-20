@@ -623,7 +623,7 @@ Le profil déclaré garde son rôle du §8.5 : une porte, pas une suggestion. Su
 
 **Delta 12/11/2026, décision d'Aurélien (chantier « première séance sûre », PR 2) — la règle de bord ne MONTE jamais sur une seule séance lue.** Sous 3 reps d'habitude, sur une histoire d'**une seule séance lue** (`lectureDuCouple().toutes`, une séance non neutre avec au moins une série au palier — le calage compte comme une séance lue), la consigne **garde la charge** : état `bord_garde`, fondement `bord = { charge, reps, unique: true }`, ligne `{ palier, reps faites }`, pas de ligne haute. « Une seule séance ne fait pas une habitude » : un calage fini à 25 kg × 2 ne propose pas 27,5 kg. L'ordre des cas de `consigneDeBord` devient : vague → recul (une barre ratée fait toujours reculer) → **unique** → garde par réserve → montée. Dès la **deuxième** séance lue, la décision 180 s'applique telle quelle (deux séances au même format sous 3 reps : inchangé). **Ce que ça ne guérit pas** : la séance suivante refera 25 × 1-2 et, avec deux séances sous 3, le bord s'ouvre légitimement au sens de 180 ; la vraie correction (redescendre à 20 × 8) demande les reps visées d'une séance passée, absentes de `sets` — une PR à part. Le rang 3 de §9.1.1 (l'habitude observée dès la première séance) n'est PAS amendé : la zone déduite n'est pas touchée. **I152** (`_lues`, non énumérable) : aucune montée de bord sur une seule séance lue ; la garde « unique » garde le palier aux reps faites.
 
-**Delta 20/11/2026 — lot E « revue des règles », A2 : en « Me ménager » (Prudent), sous 3 reps, deux séances au même palier avant de monter (I239).**
+**Delta 20/11/2026 — lot E « revue des règles », A2 : en « Me ménager » (Prudent), sous 3 reps, deux séances au même palier avant de monter (I240).**
 Tour de table TT2-A Q2, contradicteur à froid CONTRA-TT2 A2 (« tient avec corrections »). Constat : la règle de bord montait d'un cran à CHAQUE
 séance dès la deuxième séance lue, Prudent compris, alors que §9.8 dit pour Prudent « deux séances de suite, même palier » (écart relevé par F1 et
 CONTRA-A). **Règle** : en Prudent, la montée de bord (`bord`) n'est donnée que si la séance lue d'AVANT a aussi tenu cette charge — `precedente`
@@ -635,7 +635,7 @@ VOIX et I162) ; le Pourquoi ajoute « Réglage « Me ménager » : sous 3 reps, 
 de confirmation est neutre pour le compteur, sur ses CINQ champs** (`sans`, `total`, `aRecule`, `record`, `depuisRecord`, avec `meilleur`, `recul`,
 `repsRecord`), comme la tenue après un zéro (`tenueNeutre`) : sinon la vague (`sans ≥ 3`, −5 %) et la carte « Passer à 3-5 reps » (le compte long)
 arriveraient deux fois plus vite en Prudent. Une barre ratée fait toujours reculer ; l'absence de tolérance d'une rep (une série sous la visée =
-ratée) reste, exception nommée de la règle de bord. Normal et Franc : inchangés (une séance suffit). **I239** (`verifierBordUneSeance`) : en
+ratée) reste, exception nommée de la règle de bord. Normal et Franc : inchangés (une séance suffit). **I240** (`verifierBordUneSeance`) : en
 Prudent, aucune consigne `bord` sans une séance lue d'avant au même palier, non ratée (`_confirmee`, non énumérable, comme `_lues`) ; la garde de
 confirmation n'existe qu'en Prudent, garde le palier aux reps faites, sans ligne haute. Tests : `tests/unit/v2-lot-e-bord-prudent.test.js`.
 
@@ -2068,7 +2068,7 @@ d'une réserve sous `demandee + 2` ; une consigne figée avant le correctif (san
 
 **Delta 16/11/2026 (reprise longue, I207).** Décidé par Aurélien le 16/11/2026. **En reprise longue, la dernière série « Au max » ne va jamais à l'échec : réserve au moins 2**, comme pour une zone à ménager, un « J'ai mal » récent, un 65 ans et plus connu (I150) ou une première fois (règle 5 à 7 ci-dessus). Raison : contradiction avec §9.9 (delta du même jour, I204 à I206) — la ligne de la séance de reprise affiche « garde 2 » au plancher, quand `auMaxDe` proposait encore « Dernière série au max ? … jusqu'à l'échec ». Le prédicat est UN, `Moteur.enRepriseLongue(consigne)` (celui de §9.9) : `auMaxFaitsDe` (plan.js) le lit sur la consigne de l'exercice et le passe à `auMaxDe` (`entree.repriseLongue`), qui relève la réserve à `AU_MAX_RESERVE_PAR_DEFAUT` (2), sorte `garde`, y compris sur une marque posée à la main (la marque reste, la réserve passe au plancher ; `auMaxDuPlan` relit `dec.reserve`). La carte et le bouton disent « en gardant 2 reps » (`motsDeLAuMax`). La séance suivante revient à la règle normale. **I207** (`verifierAuMax`) : à la séance de reprise longue de l'exercice, aucune ligne « Au max » ni proposition à l'échec, réserve au moins 2, la carte proposée dit « en gardant 2 reps » ; une série déjà validée est un fait figé. Lecteurs relus : le générateur (`marquerAuMax`, sans consigne : ne connaît pas la reprise ; le plan relève la réserve de la marque à la lecture), `I84`/`I99`/`I150`/`I151` (inchangés, I207 s'y ajoute), le rendu (lit `x.auMaxMots` et `proposition.titre`), les bancs de séance (aucune fixture en reprise longue). Tests : `tests/unit/v2-au-max-reprise-longue.test.js`.
 
-**Delta 20/11/2026 — lot E « revue des règles », A3 : jamais d'« Au max » posé par le coach à un débutant (I238).** Décidé par Aurélien
+**Delta 20/11/2026 — lot E « revue des règles », A3 : jamais d'« Au max » posé par le coach à un débutant (I239).** Décidé par Aurélien
 (tour de table TT2-A Q3, contradicteur à froid CONTRA-TT2 A3 : « tient avec corrections »). **Cette règle REMPLACE la décision du 31/10/2026
 (193-6, règle 4 ci-dessus : « Débutant : squat et couché 1 ; accessoire à l'échec seulement à la machine ou à l'isolation, sinon 1 »)**, que
 CONTRA-A avait refusé de renverser sans preuve : ce n'est pas une preuve nouvelle, c'est une **convention de prudence** — on n'écrit pas que
@@ -2085,7 +2085,7 @@ appelants, par `motsDeLAuMax` (le titre de la carte et `x.auMaxMots` au plan ; l
 qui le lit sur le profil, `auMaxPrudentDuProfil`) : jamais un bouton « Au max » sur une ligne « en gardant 2 ». (Avant, les mots ne lisaient que
 le 65+ et la reprise longue au plan, le 65+ seul dans l'éditeur : dette fermée.) À la sortie de l'état débutant, le coach recommence à proposer
 la carte. **Invariants relus** : I84 (l'échec n'est plus demandé à un débutant nulle part ; avant : sur une barre), I150 et I151 (inchangés),
-I160 et I161 (cohérents : le C4 de F3 est résolu), I207 (le même plancher, le même prédicat). **I238** (`verifierAuMax`) : pour un débutant,
+I160 et I161 (cohérents : le C4 de F3 est résolu), I207 (le même plancher, le même prédicat). **I239** (`verifierAuMax`) : pour un débutant,
 aucune carte « Au max » proposée, aucune ligne « Au max » non validée sous 2, sa marque toujours lue ; pour le public prudent que le plan
 connaît (débutant, 65 ans et plus, reprise longue), `x.auMaxMots` n'est jamais celui de « Au max ». Tests : `tests/unit/v2-lot-e-au-max-debutant.test.js`.
 
@@ -2273,7 +2273,7 @@ n'affiche aucun effort visé (I154), la réaction garde sa propre garde et l'éc
 d'Au max » sur une série à au moins le bas de la zone, aucune porte fermée pour « échec » sur une telle série. **I216 étendu** : le plancher se
 recalcule au rôle `ligne`, il vaut donc aussi avec un test en dernière ligne. Tests : `tests/unit/v2-une-seule-garde.test.js`.
 
-**Delta 20/11/2026 — lot E « revue des règles », A5 : pas de dégressive après un raté hors de la règle de l'escalier (I237).** Tour de table
+**Delta 20/11/2026 — lot E « revue des règles », A5 : pas de dégressive après un raté hors de la règle de l'escalier (I238).** Tour de table
 (TT2-A, Q5) et contradicteur à froid (CONTRA-TT2, A5 : « tient »). Constat : `reactionDeSerie` avait une 3e branche (« sinon dégressive si
 `peutDegressive` ») qui proposait le bouton « Dégressive » sur les haltères polyarticulaires (ni isolation, ni matériel de rest-pause), en
 zone Lourd ou Mix et en sèche, alors que la dégressive proposée par l'escalier (§14.8) y est interdite. **Règle : le levier « Dégressive »
@@ -2286,7 +2286,7 @@ reste. Ce qui change à l'écran : plus de bouton « Dégressive » après un ra
 **Écart noté (le rest-pause)** : le levier « Rest-pause » de la réaction n'a pas la même exception (il passe par `peutRestPause`, la seule
 définition, §9.33), mais §9.33 ne l'exclut ni en Lourd ni en sèche : une machine en zone Lourd peut encore recevoir « Rest-pause » après un
 raté. Le contradicteur recommande « pas en Lourd/Mix, pas en sèche » ; non tranché dans ce lot (le menu ⋯ de la série le propose aussi en
-Lourd, la même question s'y pose) : à décider avec §9.33. **I237** (`verifierRate`) : tout bouton « Dégressive » d'une réaction satisfait
+Lourd, la même question s'y pose) : à décider avec §9.33. **I238** (`verifierRate`) : tout bouton « Dégressive » d'une réaction satisfait
 `degressivePossible`, relu depuis les entrées. Tests : `tests/unit/v2-lot-e-degressive-rate.test.js`.
 
 ### 9.40 Objectifs en entretien, activités notées, la veille des jambes lourdes — décidé le 04/11/2026 (chantier 225) (I123, I124)
@@ -3474,7 +3474,7 @@ Pourquoi : les méta-analyses ne montrent pas plus de croissance qu'en séries c
 - **Au poids du corps ou sur une aide** (charge de travail nulle ou négative) : pas de dégressive (§9.17, I30) — le silence, comme le repli.
 - **Pari** : `module = 'escalier'`, `fondement.marche = 'degressive'`, `reponse : acceptee | refusee`, `debut` (le début de la séance), `exercise_slug` vide ; observé comme la série de plus (1 au progrès avant le prochain déclenchement, 0 à ce déclenchement ; refusé, jamais observé).
 
-**Delta 20/11/2026 (lot E, A5)** : la réaction au raté (§9.39) lit la même règle : son levier « Dégressive » n'existe que si `degressivePossible` la permet (la condition « la routine en a déjà une » mise à part) ; la 3e branche de `reactionDeSerie` (haltères polyarticulaires, sans filtre de zone ni de phase) est supprimée. **I237**.
+**Delta 20/11/2026 (lot E, A5)** : la réaction au raté (§9.39) lit la même règle : son levier « Dégressive » n'existe que si `degressivePossible` la permet (la condition « la routine en a déjà une » mise à part) ; la 3e branche de `reactionDeSerie` (haltères polyarticulaires, sans filtre de zone ni de phase) est supprimée. **I238**.
 
 **Invariant I48** : une dégressive proposée (sa carte) ou en cours ne l'est que sur une isolation (`estPolyarticulaire` faux), hors sèche, hors zone force, hors semaine allégée ou décharge, hors Entretenir, jamais pour un débutant ; la carte n'apparaît qu'au deuxième déclenchement isolé, après une série de plus proposée, sur un exercice dont la routine n'a pas de ligne dégressive *(au plafond de la salle, l'ordre est celui du §10 bis, que vérifie I47 — 113)*. *(I47 est pris par « Ma salle », #439.)* **I17** reste vrai : la ligne dégressive est posée par le geste de l'utilisateur, jamais par le coach seul.
 

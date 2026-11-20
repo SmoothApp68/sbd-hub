@@ -1,6 +1,6 @@
 /** @jest-environment node */
 //
-// Lot E « revue des règles », A2 (20/11/2026, MOTEUR §9.1.2 et §9.8, I239) — LA RÈGLE DE BORD EN PRUDENT : sous 3 reps, deux séances de suite au
+// Lot E « revue des règles », A2 (20/11/2026, MOTEUR §9.1.2 et §9.8, I240) — LA RÈGLE DE BORD EN PRUDENT : sous 3 reps, deux séances de suite au
 // même palier avant de monter (comme les zones, §9.8). La garde de confirmation dit « Je garde 140 kg une séance de plus avant de monter. » (« je »,
 // jamais « on ») ; elle est NEUTRE pour les cinq champs du compteur (comme la tenue après un zéro) ; la garde « une seule séance » (`lues === 1`)
 // vaut confirmation. Normal et Franc : inchangés.
@@ -74,7 +74,7 @@ describe('A2 — Prudent : deux séances au même palier', () => {
   });
 });
 
-describe('I239 — le plan relit la règle', () => {
+describe('I240 — le plan relit la règle', () => {
   const S = require('../../v2/js/seance.js');
   const T = require('../../v2/js/plan.js');
   function plan(liste, reglage) {
@@ -91,7 +91,7 @@ describe('I239 — le plan relit la règle', () => {
     const p = T.planDeSeance(e);
     return { p, e, x: p.exercices[0] };
   }
-  const i239 = (p, e) => T.verifierPlan(p, e).erreurs.filter((m) => /^I239/.test(m));
+  const i239 = (p, e) => T.verifierPlan(p, e).erreurs.filter((m) => /^I240/.test(m));
   test('les plans vrais (garde de confirmation, montée confirmée) sont propres', () => {
     const a = plan([trois(137.5, 2), trois(140, 2)], 'prudent');
     expect(a.x.consigne.etat).toBe('bord_garde');

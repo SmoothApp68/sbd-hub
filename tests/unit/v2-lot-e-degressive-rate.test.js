@@ -1,6 +1,6 @@
 /** @jest-environment node */
 //
-// Lot E « revue des règles », A5 (20/11/2026, MOTEUR §9.39 et §14.8, I237) — PAS DE DÉGRESSIVE APRÈS UN RATÉ HORS DE LA RÈGLE DE L'ESCALIER.
+// Lot E « revue des règles », A5 (20/11/2026, MOTEUR §9.39 et §14.8, I238) — PAS DE DÉGRESSIVE APRÈS UN RATÉ HORS DE LA RÈGLE DE L'ESCALIER.
 // Le levier « Dégressive » de la réaction n'existe que si `Moteur.degressivePossible` la permet (isolation, ni Lourd ni Mix, ni sèche,
 // ni décharge, ni Entretenir, ni débutant). La 3e branche (haltères polyarticulaires, sans filtre de zone ni de phase) est supprimée.
 
@@ -53,7 +53,7 @@ describe('moteur — la 3e branche supprimée', () => {
 });
 
 describe('plan — le levier lit `degressivePossible`', () => {
-  test('témoin — isolation, Hypertrophie, hors sèche : le levier « Dégressive » sort, I237 propre', () => {
+  test('témoin — isolation, Hypertrophie, hors sèche : le levier « Dégressive » sort, I238 propre', () => {
     const { e, p, x } = scene({ muscles: ISOLATION });
     expect(cles(x)).toContain('degressive');
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
@@ -77,9 +77,9 @@ describe('plan — le levier lit `degressivePossible`', () => {
     expect(x.rate.phrase).toMatch(/sèche/);
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
   });
-  test('I237 forgé — un levier « Dégressive » posé en sèche est refusé', () => {
+  test('I238 forgé — un levier « Dégressive » posé en sèche est refusé', () => {
     const { e, p, x } = scene({ muscles: ISOLATION, phase: 'seche' });
     x.rate.boutons = x.rate.boutons.concat([{ cle: 'degressive', texte: 'Dégressive', pris: false }]);
-    expect(T.verifierPlan(p, e).erreurs.filter((m) => /^I237/.test(m))).toHaveLength(1);
+    expect(T.verifierPlan(p, e).erreurs.filter((m) => /^I238/.test(m))).toHaveLength(1);
   });
 });

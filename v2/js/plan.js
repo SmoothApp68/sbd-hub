@@ -2636,7 +2636,7 @@
         // réserve visée ni d'effort visé (la réserve affichée est celle de la variante), pas de réaction au raté (voir `reactionDExercice`).
         // D-A3 (chantier « première séance sûre », PR 1) — les mots de la carte et du bouton « Au max » du menu de la série : 65+ connu →
         // « en gardant 2 reps » ; l'écran les lit ici, il ne les décide pas.
-        // Lot E, A3 (20/11/2026, I238) : le public prudent est UN prédicat (`Moteur.publicPrudentAuMax`), lu sur les faits de « Au max » de
+        // Lot E, A3 (20/11/2026, I239) : le public prudent est UN prédicat (`Moteur.publicPrudentAuMax`), lu sur les faits de « Au max » de
         // l'exercice (débutant, 65+, première fois, après zéro, reprise longue, zone à ménager, douleur récente) ; sans eux (exercice muet), ceux du profil.
         x.auMaxMots = Moteur().motsDeLAuMax(Moteur().publicPrudentAuMax(faitsAuMaxX ? faitsAuMaxX.entree
           : { plus65: e.plus65 === true, debutant: e.debutant === true, repriseLongue: Moteur().enRepriseLongue(x.consigne) }));
@@ -3210,7 +3210,7 @@
     var isolation = x.polyarticulaire === false;
     return {
       reglage: plan.reglage, objectif: plan.objectif,
-      // Lot E, A5 (20/11/2026, MOTEUR §9.39 et §14.8, I237) — le levier « Dégressive » d'une réaction n'existe que là où la dégressive est permise
+      // Lot E, A5 (20/11/2026, MOTEUR §9.39 et §14.8, I238) — le levier « Dégressive » d'une réaction n'existe que là où la dégressive est permise
       // par la même fonction que l'escalier (`Moteur.degressivePossible` : une isolation, ni Lourd ni Mix, ni sèche, ni décharge, ni Entretenir,
       // ni débutant). Seule la condition « la routine n'en a pas déjà une » est ignorée : la réaction propose UNE ligne, elle ne se cumule pas.
       // Le matériel et la mesure (pas de barre, pas de durée ni de distance) restent ceux d'avant.
@@ -3237,7 +3237,7 @@
     };
   }
   // Lot E, A5 — les conditions de la dégressive pour la réaction : celles de l'escalier (`conditionsDegressive`, une seule lecture), sans
-  // « la routine en a déjà une ». Lue aussi par I237 (`verifierRate`).
+  // « la routine en a déjà une ». Lue aussi par I238 (`verifierRate`).
   function conditionsDegressiveDuRate(plan, x, e, seance) {
     var allegee = !!(plan && plan.allegee) || !!(x && x.consigne && x.consigne.allegee);
     var cond = conditionsDegressive(e || {}, seance, x && x.slug, x && x.consigne ? x.consigne.zone : null, plan ? plan.phase : null,
@@ -7005,11 +7005,11 @@
         if (r.pasDAuMax && (x.auMax || x.propositionAuMax || (x.lignes || []).some(function (l) { return l.auMax; }))) {
           erreurs.push('I120' + nom + 'un « Au max » après un échec franc');
         }
-        // I237 (lot E, A5, 20/11/2026, MOTEUR §9.39 et §14.8) — un levier « Dégressive » de la réaction satisfait la règle de l'escalier,
+        // I238 (lot E, A5, 20/11/2026, MOTEUR §9.39 et §14.8) — un levier « Dégressive » de la réaction satisfait la règle de l'escalier,
         // relue depuis les ENTRÉES (`Moteur.degressivePossible` : isolation, ni Lourd ni Mix, ni sèche, ni décharge, ni Entretenir, ni débutant).
         if ((r.boutons || []).some(function (b) { return b && b.cle === 'degressive'; }) &&
             !M.degressivePossible(conditionsDegressiveDuRate(plan, x, entrees || {}, entrees && entrees.seance))) {
-          erreurs.push('I237' + nom + 'un levier « Dégressive » là où la dégressive n’est pas permise (zone ' + (x.consigne ? x.consigne.zone : '?') + ', phase ' + plan.phase + ')');
+          erreurs.push('I238' + nom + 'un levier « Dégressive » là où la dégressive n’est pas permise (zone ' + (x.consigne ? x.consigne.zone : '?') + ', phase ' + plan.phase + ')');
         }
         // I232 (« Une seule garde », 19/11/2026, MOTEUR §9.39) — à garde 0 des lignes (recalculée depuis les entrées), la réaction ne demande pas une
         // marge que la ligne ne demande pas : aucun « garde N » > 0, aucun cas M, et aucun échec (L, « Pas d'Au max ») sur une série à fond à au moins
@@ -7598,19 +7598,19 @@
       var nom = ' — exercice ' + i + ' (' + x.slug + ') : ';
       var lues = k._lues, b = k.fondement.bord;   // `_lues` : non énumérable, posé par la règle de bord (absent d'une copie : rien n'est alors jugé)
       if (k.etat === 'bord' && lues === 1) erreurs.push('I152' + nom + 'une montée de bord sur une histoire d’une seule séance lue');
-      // I239 (lot E, A2, 20/11/2026, MOTEUR §9.1.2 et §9.8) — EN PRUDENT, aucune montée de bord sans une séance lue d'avant au même palier, non ratée
+      // I240 (lot E, A2, 20/11/2026, MOTEUR §9.1.2 et §9.8) — EN PRUDENT, aucune montée de bord sans une séance lue d'avant au même palier, non ratée
       // (`_confirmee`, posé par la règle : le palier de la séance d'avant, l'état de la consigne qu'a reçue la dernière) ; la garde de confirmation
       // n'existe qu'en Prudent, garde le palier aux reps faites, sans ligne haute.
       if (k.etat === 'bord' && plan.reglage === 'prudent' && lues !== undefined) {
         var cf = k._confirmee;
         if (!cf || nombre(cf.palier) === null || !Moteur().memeCharge(nombre(cf.palier), nombre(k.palier)) || cf.etat === 'bord_recul' || cf.etat === 'bord_vague') {
-          erreurs.push('I239' + nom + 'une montée de bord en « Me ménager » sans une séance d’avant au même palier, non ratée');
+          erreurs.push('I240' + nom + 'une montée de bord en « Me ménager » sans une séance d’avant au même palier, non ratée');
         }
       }
       if (b && b.confirmation === true) {
-        if (k.etat !== 'bord_garde' || plan.reglage !== 'prudent') erreurs.push('I239' + nom + 'une garde de confirmation hors de « Me ménager » (' + k.etat + ', ' + plan.reglage + ')');
+        if (k.etat !== 'bord_garde' || plan.reglage !== 'prudent') erreurs.push('I240' + nom + 'une garde de confirmation hors de « Me ménager » (' + k.etat + ', ' + plan.reglage + ')');
         if (!k.ligne || nombre(k.ligne.charge) !== nombre(k.palier) || nombre(k.ligne.vise) !== nombre(b.reps) || k.haut) {
-          erreurs.push('I239' + nom + 'une garde de confirmation qui ne garde pas le palier aux reps faites, sans ligne haute');
+          erreurs.push('I240' + nom + 'une garde de confirmation qui ne garde pas le palier aux reps faites, sans ligne haute');
         }
       }
       if (b && b.unique === true) {
@@ -8564,14 +8564,14 @@
       if (ee && ee.marquee && !ee.validee && !x.auMax) {
         if (ee.premiereFois) erreurs.push('I151' + nom + 'la marque « Au max » de la personne n’est pas respectée à la première fois');
         if (ee.plus65 || e65) erreurs.push('I150' + nom + 'la marque « Au max » de la personne n’est pas lue chez un 65 ans ou plus');
-        if (ee.debutant || plan.debutant) erreurs.push('I238' + nom + 'la marque « Au max » de la personne n’est pas respectée chez un débutant');
+        if (ee.debutant || plan.debutant) erreurs.push('I239' + nom + 'la marque « Au max » de la personne n’est pas respectée chez un débutant');
       }
-      // I238 (lot E, A3, 20/11/2026, MOTEUR §9.30 delta) — LE DÉBUTANT ET « AU MAX » : le coach ne lui propose jamais la carte ; une ligne « Au max »
+      // I239 (lot E, A3, 20/11/2026, MOTEUR §9.30 delta) — LE DÉBUTANT ET « AU MAX » : le coach ne lui propose jamais la carte ; une ligne « Au max »
       // (sa marque à lui) demande au moins « en gardant 2 reps » ; et pour tout le public prudent connu du plan (débutant, 65 ans et plus, reprise longue),
       // les mots de la carte et du bouton sont ceux du plancher, jamais « Au max » (`x.auMaxMots`).
       var prudentX = plan.debutant === true || e65 || M.enRepriseLongue(x.consigne);
-      if (prudentX && x.auMaxMots && x.auMaxMots.etiquette === M.motsDeLAuMax(false).etiquette) erreurs.push('I238' + nom + 'le bouton « Au max » chez un public prudent (la ligne dit « en gardant 2 reps »)');
-      if (plan.debutant === true && x.propositionAuMax) erreurs.push('I238' + nom + 'une carte « Au max » proposée à un débutant');
+      if (prudentX && x.auMaxMots && x.auMaxMots.etiquette === M.motsDeLAuMax(false).etiquette) erreurs.push('I239' + nom + 'le bouton « Au max » chez un public prudent (la ligne dit « en gardant 2 reps »)');
+      if (plan.debutant === true && x.propositionAuMax) erreurs.push('I239' + nom + 'une carte « Au max » proposée à un débutant');
       var a = x.auMax || x.propositionAuMax;
       if (!a) return;
       if (!(a.reserve === 0 || a.reserve === 1 || a.reserve === 2 || a.reserve === 3)) erreurs.push('I84' + nom + 'une réserve demandée hors de 0 à 3 (' + a.reserve + ')');
@@ -8581,7 +8581,7 @@
         if (plan.allegee) erreurs.push('I84' + nom + 'l’échec demandé pendant une semaine allégée');
         if (x.menagee && !x.menagee.choisie) erreurs.push('I84' + nom + 'l’échec demandé sur une zone à ménager');
         // Lot E, A3 (20/11/2026) : l'échec n'est plus demandé à un débutant nulle part (la décision du 31/10/2026, l'échec permis sur machine et
-        // isolation, est remplacée) ; I238 dit le plancher de 2.
+        // isolation, est remplacée) ; I239 dit le plancher de 2.
         if (plan.debutant) erreurs.push('I84' + nom + 'l’échec demandé à un débutant');
         // I99 (193-6b, MOTEUR §9.30 bis) — sur une barre, l'échec n'est demandé que le jour Lourd (zone de plan) ou, sans zone de plan, si la
         // barre n'est pas allée à l'échec dans les 6 jours précédents.
@@ -8594,7 +8594,7 @@
       // (une série déjà validée est un fait figé : on ne la juge pas).
       var lAu = x.auMax ? (x.lignes || [])[x.auMax.iSerie] : null;
       if (e65 && a.reserve < Moteur().RESERVE_PLANCHER && !(lAu && lAu.validee)) erreurs.push('I150' + nom + 'une réserve de ' + a.reserve + ' chez un 65 ans ou plus (jamais l’échec)');
-      if (plan.debutant === true && a.reserve < M.AU_MAX_RESERVE_PAR_DEFAUT && !(lAu && lAu.validee)) erreurs.push('I238' + nom + 'une réserve « Au max » de ' + a.reserve + ' chez un débutant (au moins ' + M.AU_MAX_RESERVE_PAR_DEFAUT + ')');
+      if (plan.debutant === true && a.reserve < M.AU_MAX_RESERVE_PAR_DEFAUT && !(lAu && lAu.validee)) erreurs.push('I239' + nom + 'une réserve « Au max » de ' + a.reserve + ' chez un débutant (au moins ' + M.AU_MAX_RESERVE_PAR_DEFAUT + ')');
       // I151 (idem) — une première fois d'un exercice (la consigne, `Moteur.estPremiereFois`) : aucune carte « au max » proposée et aucune réserve
       // < 2 ; la marque de la personne est respectée à « garde 2 », jamais effacée.
       if (M.estPremiereFois(x.consigne)) {

@@ -7571,7 +7571,7 @@
         if (ev.effet === 'test') {
           if (nombre(ev.charge) === null || nombre(ev.reps) === null || nombre(ev.reserve) === null || nombre(ev.visee) === null) {
             erreurs.push('I57' + nom + 'un test par la réserve sans sa série ou sa réserve dans le fondement');
-          } else if (ev.sortie !== true && ev.reserve < (ev.viseeTable !== undefined ? ev.viseeTable : ev.visee) + Moteur().RESERVE_ECART) {
+          } else if (ev.sortie !== true && !Moteur().reserveAtteintLeSeuil(ev.reserve, ev.viseeTable !== undefined ? ev.viseeTable : ev.visee, { reglage: plan.reglage })) {
             // PR 4a — le test se déclenche sur la TABLE, jamais sur le plancher.
             erreurs.push('I57' + nom + 'un test par la réserve avec ' + ev.reserve + ' en réserve pour ' + (ev.viseeTable !== undefined ? ev.viseeTable : ev.visee) + ' visées (table)');
           }
@@ -7585,7 +7585,7 @@
       }
       // I234 (« Une seule garde », C-2, MOTEUR §9.26) — la réponse de réserve ne vaut « facile » (double cran) que 2 au-dessus de la visée AFFICHÉE
       // (`ev.visee`, le plancher des populations protégées) : « il t'en restait 2 : c'est ce que je visais » n'est pas « facile ».
-      if (ev && ev.preuveFacile === true && nombre(ev.reserve) !== null && nombre(ev.visee) !== null && ev.reserve < ev.visee + Moteur().RESERVE_ECART) {
+      if (ev && ev.preuveFacile === true && nombre(ev.reserve) !== null && nombre(ev.visee) !== null && !Moteur().reserveAtteintLeSeuil(ev.reserve, ev.visee, { reglage: plan.reglage })) {
         erreurs.push('I234' + nom + 'une preuve « facile » tirée de ' + ev.reserve + ' en réserve pour une visée affichée de ' + ev.visee);
       }
       // I233 (« Une seule garde », C-1, MOTEUR §9.26 et §9.30) — sur une série « Au max » (`ev.demandee`, la réserve DEMANDÉE, écrite au fondement), la
@@ -7595,7 +7595,7 @@
         if (ev.effet === 'garde' && ev.reserve >= ev.demandee) {
           erreurs.push('I233' + nom + 'une garde pour une série « Au max » faite comme demandé (' + ev.reserve + ' en réserve, ' + ev.demandee + ' demandées)');
         }
-        if (ev.preuveFacile === true && ev.reserve < ev.demandee + Moteur().RESERVE_ECART) {
+        if (ev.preuveFacile === true && !Moteur().reserveAtteintLeSeuil(ev.reserve, ev.demandee, { reglage: plan.reglage })) {
           erreurs.push('I233' + nom + 'une preuve « facile » tirée de ' + ev.reserve + ' en réserve pour ' + ev.demandee + ' demandées « Au max »');
         }
       }
@@ -7654,7 +7654,7 @@
       var evx = x.effortVise;
       if (evx && evx.effet === 'test' && nombre(evx.reponse) !== null && nombre(evx.visee) !== null) {
         var phrE = evx.phrase ? String(evx.phrase) : '';
-        if (rvT !== null && evx.reponse < rvT + Moteur().RESERVE_ECART && !/Deux fois|au haut de ta zone/.test(phrE)) {
+        if (rvT !== null && !Moteur().reserveAtteintLeSeuil(evx.reponse, rvT, { reglage: plan.reglage }) && !/Deux fois|au haut de ta zone/.test(phrE)) {
           erreurs.push('I161' + nom + 'un test avec ' + evx.reponse + ' en réserve pour une table de ' + rvT);
         }
         if (/Au-dessus de ce que je visais/.test(phrE) && !(evx.reponse > evx.visee)) erreurs.push('I161' + nom + '« Au-dessus de ce que je visais » pour ' + evx.reponse + ' en réserve et une visée de ' + evx.visee);

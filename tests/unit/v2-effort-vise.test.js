@@ -171,7 +171,7 @@ describe('154 C — la règle, dans la consigne', () => {
   test('la phrase du test cite la série et la réserve ; celle de la garde dit « sans marge »', () => {
     const t = consigne(histoire(40, 9, { reps: 9, ressenti: 'reste_3_plus' }));
     const dit = M.libellesConsigne(t).gris.replace(/[\u00a0\u202f]/g, ' ');
-    expect(dit).toBe('On essaie 42,5 kg : la dernière fois, 40 kg × 9 avec 3 en réserve.');
+    expect(dit).toBe('On essaie 42,5 kg : la dernière fois, 40 kg × 9 avec 3 en réserve ou plus.');   // Lot F (I242) : la case du haut de la grille se dit telle qu’elle est notée
     const g = consigne(histoire(40, 12, { reps: 12, ressenti: 'reste_0' }));
     expect(M.libellesConsigne(g).gris.replace(/[\u00a0\u202f]/g, ' ')).toBe('40 kg × 12, sans marge. Je garde 40 kg : encore une fois au haut de ta zone et je teste plus lourd.');
   });

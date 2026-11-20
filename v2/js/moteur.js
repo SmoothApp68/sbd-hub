@@ -1618,6 +1618,20 @@
     return dem !== null && reserve !== null && reserve !== undefined && reserve >= dem;
   }
   var RESERVE_ECART = 2;   // la réserve notée ≥ visée + 2 : un vrai signal (l'erreur moyenne d'estimation est d'environ 1 rep)
+  // Lot F, « 3 ou + vaut le seuil » (20/11/2026, MOTEUR §9.26 quater, décision d'Aurélien, I242) — LE HAUT DE LA GRILLE : la saisie plafonne à « 3 ou + »
+  // (`reste_3_plus`) et le RPE à `min(3, 10 − RPE)` (`Palier.reserveDeSerie`) ; un test relie les trois. La case du haut est censurée à droite : quand le
+  // seuil (visée + 2) dépasse la grille, la case du haut vaut le seuil.
+  var RESERVE_GRILLE_MAX = 3;
+  // UNE fonction : la réserve notée `R` atteint-elle le seuil d'un signal au-dessus de `visee` ? `R > visee` ET `R ≥ min(RESERVE_GRILLE_MAX, visee + 2)`
+  // (visée 0 → 2, 1 → 3, 2 → 3, 3 → jamais). Lue par le test par la réserve (sur la TABLE), « facile » (sur l'affichée, ou la demandée d'un « Au max ») et
+  // les invariants I57, I161, I233, I234. **Exclue en Prudent** (`o.reglage === 'prudent'`) : sa prudence est dans son déclencheur (169), le seuil y
+  // reste visée + 2, sans borne de grille.
+  function reserveAtteintLeSeuil(R, visee, o) {
+    var r = nombre(R), v = nombre(visee);
+    if (r === null || v === null) return false;
+    if (o && o.reglage === 'prudent') return r >= v + RESERVE_ECART;
+    return r > v && r >= Math.min(RESERVE_GRILLE_MAX, v + RESERVE_ECART);
+  }
   function reserveVisee(o) {
     var x = o || {};
     var z = typeof x.zone === 'string' ? x.zone : (x.zone && x.zone.cle) || null;
@@ -2866,7 +2880,7 @@
       // C-1 (I233) — sur une série « Au max », la réserve DEMANDÉE (écrite au fondement : `demandee`).
       var demN = reserveDemandeeAuMax(derniereRetenue);
       if (Rn !== null && Vn !== null && repsN !== null && repsN >= lo) {
-        if (Rn >= VnT + RESERVE_ECART) {
+        if (reserveAtteintLeSeuil(Rn, VnT, { reglage: reglage })) {
           effortVise = { effet: 'test', charge: P, reps: nombre(derniereRetenue.reps), reserve: Rn, visee: Vn };
           if (Vn !== VnT) effortVise.viseeTable = VnT;
           if (protegee) { effortVise.viseeTable = VnT; effortVise.protegee = true; }
@@ -2940,7 +2954,7 @@
         // C-2 (I234) — et contre la visée AFFICHÉE (`effortVise.visee`, le plancher des populations protégées), pas la table : « il t'en restait 2 :
         // c'est ce que je visais » (§9.26 bis) n'est pas « facile ». Hors population protégée, l'affichée vaut la table : rien ne change.
         var parReserve = effortVise !== null && effortVise.effet === 'test' && effortVise.sortie !== true &&
-          effortVise.reserve >= Math.max(effortVise.visee, effortVise.demandee !== undefined ? effortVise.demandee : effortVise.visee) + RESERVE_ECART;
+          reserveAtteintLeSeuil(effortVise.reserve, Math.max(effortVise.visee, effortVise.demandee !== undefined ? effortVise.demandee : effortVise.visee), { reglage: reglage });
         if (parReserve) effortVise.preuveFacile = true;
         var facile = A.some(function (s) { return Palier().cranDeSerie(s) === 'facile'; }) || parReserve;
         if (haut3 || facile) { cransVoulus = 2; preuveDe = haut3 ? 'haut' : 'facile'; }
@@ -5468,7 +5482,7 @@
         if (f.effortVise && f.effortVise.effet === 'test' && c.haut && c.haut.charge !== null && c.haut.charge !== undefined) {
           return 'On essaie ' + enKg(c.haut.charge, cite(FAIT, { quoi: 'effort_vise.haut' })) + DEUX_POINTS + 'la dernière fois, ' +
             chargeFois(f.effortVise.charge, f.effortVise.reps, cite(FAIT, { quoi: 'effort_vise' })) + ' avec ' +
-            nombreFr(f.effortVise.reserve, cite(FAIT, { quoi: 'effort_vise.reserve' })) + ' en réserve.';
+            nombreFr(f.effortVise.reserve, cite(FAIT, { quoi: 'effort_vise.reserve' })) + ' en réserve' + (f.effortVise.reserve === RESERVE_GRILLE_MAX ? ' ou plus.' : '.');
         }
         // 175 — un gros cran : l'écart dit, et ce qui suffit pour s'y installer.
         if (f.cranGros && c.haut && c.haut.charge !== null && c.haut.charge !== undefined) return phraseGrosCran(f.cranGros);
@@ -5937,6 +5951,10 @@
               // n'est pas en soi une raison de tester ; la cause est le réglage (le test se lit sur la table) : elle se dit.
               ? ' en réserve, ce que je visais' + (reglage === 'franc' ? ' ; avec Me pousser, c’est assez pour tester' : DEUX_POINTS + 'c’est assez pour tester') +
                 ' le cran au-dessus sur la dernière série.'
+              // Lot F, « 3 ou + » (I242) — la case du haut de la grille se dit telle qu'elle est notée : « 3 en réserve ou plus, au-dessus des 2 visées ».
+              : f.effortVise.reserve === RESERVE_GRILLE_MAX
+                ? ' en réserve ou plus, au-dessus ' + (f.effortVise.visee === 1 ? 'du ' : 'des ') + nombreFr(f.effortVise.visee, cite(FAIT, { quoi: 'effort_vise.visee' })) +
+                  (f.effortVise.visee === 1 ? ' visé' : ' visées') + DEUX_POINTS + 'on teste le cran au-dessus sur la dernière série.'
               // Lot F, A1 — l'accord : « plus que le 1 visé », jamais « les 1 visées ».
               : ' en réserve, plus que ' + (f.effortVise.visee === 1 ? 'le ' : 'les ') + nombreFr(f.effortVise.visee, cite(FAIT, { quoi: 'effort_vise.visee' })) +
                 (f.effortVise.visee === 1 ? ' visé' : ' visées') + DEUX_POINTS + 'on teste le cran au-dessus sur la dernière série.');
@@ -14084,6 +14102,8 @@
     phraseDuPlancher: phraseDuPlancher,
     effortViseEligible: effortViseEligible,
     RESERVE_ECART: RESERVE_ECART,
+    RESERVE_GRILLE_MAX: RESERVE_GRILLE_MAX,
+    reserveAtteintLeSeuil: reserveAtteintLeSeuil,
     formatDe: formatDe,
     coupleDe: coupleDe,
     // Le pont entre `THPalier.analyser` et `niveauValide` : l'un rend une

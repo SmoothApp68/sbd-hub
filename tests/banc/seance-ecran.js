@@ -27221,7 +27221,7 @@ const SETS_IMPORTES = [
     const e1 = await entete154();
     ok('[EV154] DISCRIMINANT — la séance suivante pose le test à 42,5 kg, SOUS le haut de la zone, et dit pourquoi',
       e1.jaune.some((t) => /42,5/.test(sp154(t))) &&
-        sp154(e1.dit) === 'On essaie 42,5 kg : la dernière fois, 40 kg × 9 avec 3 en réserve.', JSON.stringify(e1));
+        sp154(e1.dit) === 'On essaie 42,5 kg : la dernière fois, 40 kg × 9 avec 3 en réserve ou plus.', JSON.stringify(e1));
     await abandonner();
 
     // C. « PASSER » : rien n’est écrit, plus de puces.

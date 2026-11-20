@@ -92,6 +92,11 @@ async function garderContexte(ctx) {
       return await route.fulfill({ response: r, body: corps });
     } catch (e) {
       if (/has been closed|has been disposed|Target closed|Target page, context or browser/i.test(String(e && e.message))) return undefined;
+      // CI-2 (20/11/2026) — la même fermeture, vue du côté du serveur de banc : `route.fetch: read ECONNRESET` (le navigateur coupe la
+      // connexion de config.js en fermant). Levée ici, elle devenait un rejet de promesse non rattrapé et tuait le processus du banc
+      // (groupe 2 du banc de séance, 19/11/2026). Une coupure de la connexion locale n'est pas une fuite vers la vraie base : la route
+      // est refusée, la page qui la demandait est en train de disparaître. Toute autre erreur reste levée.
+      if (/ECONNRESET|socket hang up|EPIPE|ECONNABORTED/i.test(String(e && e.message))) return route.abort('connectionreset').catch(() => undefined);
       throw e;
     }
   });

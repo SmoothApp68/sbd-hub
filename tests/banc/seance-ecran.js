@@ -2960,6 +2960,11 @@ const SETS_IMPORTES = [
 
   await attendre(1200);
   await saisirSerie(1, 100, 5);
+  // CI-2 (20/11/2026) — l'ÉTAT attendu : la deuxième série est en base. `serieMontee` rend la main quand la requête d'écriture est
+  // partie et le réseau calme ; sur GitHub (1 exécution sur 167), la base ne portait encore que la première (`repos_s = [null]`).
+  // Le contrôle lit donc l'état une fois qu'il est là (plafond nommé, jamais un délai fixe).
+  await jusqua(() => sets().length === 2 && sets()[1].repos_s !== null && sets()[1].repos_s !== undefined, 6000,
+    { nom: '[CI-2] la deuxième série est en base', detail: () => 'repos_s = ' + JSON.stringify(sets().map((s) => s.repos_s)) });
   ok('la deuxième porte un `repos_s` mesuré, pas déduit',
     sets().length === 2 && sets()[1].repos_s !== null && sets()[1].repos_s >= 1,
     'repos_s = ' + JSON.stringify(sets().map((s) => s.repos_s)));

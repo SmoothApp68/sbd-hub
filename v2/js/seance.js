@@ -102,8 +102,9 @@
     // 185 (v2_116) — « série gardée au journal, mais exclue des records, des crans et du moteur » : la réponse « Non, ne
     // compte pas » à la question de vraisemblance. NOT NULL, défaut false ; lue ET écrite, toujours envoyée.
     'hors_calcul',
-    // 193-6 (v2_123, MOTEUR §9.30) — la réserve DEMANDÉE d'une série « Au max » (0 = jusqu'à l'échec, 1 à 3 = en gardant N reps), NULL
-    // sinon : un fait d'intention écrit à la validation depuis la ligne du plan, comme `repos_s`. Lue ET écrite, toujours envoyée.
+    // 193-6 (v2_123) — `au_max_reserve`. « Au max » disparaît (20/11/2026, I251) : elle ne décide plus de rien. Elle reste lue et écrite pour
+    // la seule série de la semaine de test en mode « série » (`Modele.reserveDeLaSerieDuTest`, MOTEUR §9.32, jusqu'à la PR 3) ; toute autre
+    // série l'envoie à NULL. La colonne reste : les versions installées d'avant l'écrivent encore (SCHEMA-REEL).
     'au_max_reserve'
   ];
   // Lues, jamais écrites : le serveur les pose lui-même.
@@ -237,8 +238,6 @@
     var series = programmees.map(function (p) {
       var ligne = serieVide(idSerie);
       ligne.type_serie = (p && p.type_serie) || 'travail';
-      // 193-6 — la marque « Au max » vient de la ligne de routine (`routine_sets.au_max`), jamais du plan.
-      ligne.au_max = !!p && p.au_max === true;
       // 196 — une mini-série de rest-pause posée par « J'ai peu de temps » : sa charge se cale sur la série de travail qui la précède.
       if (p && p.rest_pause === true) ligne.rest_pause = true;
       // ⚠️ `p.reps`, PAS `p.reps_visees` — ET LES DEUX NOMS SONT JUSTES.
@@ -349,9 +348,9 @@
               repos_s: ligne.repos_s === undefined ? null : ligne.repos_s,
               // 185 (v2_116) — « Non, ne compte pas » relu de la base : rouvrir une séance ne le perd pas.
               hors_calcul: ligne.hors_calcul === true,
-              // 193-6 — « Au max » relu de la base : la réserve demandée fait la marque.
-              au_max_reserve: reserveAuMax(ligne.au_max_reserve),
-              au_max: reserveAuMax(ligne.au_max_reserve) !== null || ligne.au_max === true
+              // La série de la semaine de test en mode « série » relue de la base (MOTEUR §9.32 ; I251 : sa seule lecture, jusqu'à la PR 3).
+              au_max_reserve: reserveDuTest(ligne),
+              au_max: reserveDuTest(ligne) !== null
             });
           })
         }, occ ? { occurrence: 'o-' + occ } : {}, marque ? { douleur: true } : {}, marqueSansCoach ? { sans_coach: true } : {}));
@@ -440,8 +439,6 @@
       // 132 — le nom de l'élastique (une série notée par nom) : vide à la naissance.
       elastique: null,
       validee_a: null, repos_s: null, reps_visees: null, charge_cible_kg: null,
-      // 193-6 — la marque « Au max » de la ligne (la routine, le menu ⋯) ; la réserve demandée s'écrit à la validation.
-      au_max: false, au_max_reserve: null,
       // ECRAN-SAISIE §7 septendecies.3 (54-1) — la durée et la distance d'un
       // cardio de routine : des INTENTIONS, comme `reps_visees`, lues par le
       // fantôme et jamais écrites (`COLONNES_SET` ne les connaît pas).
@@ -589,9 +586,6 @@
     var exos = seance.exercices.slice();
     var exo = copie(exos[iExo]);
     var place = placeDeLaSerie(exo.series);
-    // 193-6 — la ligne « Au max » reste la DERNIÈRE série de travail : « + Série » s'insère avant elle.
-    var avant = exo.series[place - 1];
-    if (place > 0 && avant && avant.au_max === true && !avant.validee_a) place -= 1;
     exo.series = exo.series.slice(0, place).concat([serieVide(idSerie)], exo.series.slice(place));
     exos[iExo] = exo;
     return avecExercices(seance, exos);
@@ -1400,29 +1394,9 @@
     return avecSerie(seance, iExo, iSerie, c);
   }
 
-  // 193-6 — la réserve demandée d'une série « Au max » : un entier de 0 à 3, sinon `null`. UNE lecture (`THModele.reserveDemandee`).
-  function reserveAuMax(v) { return racine.THModele.reserveDemandee({ au_max_reserve: v }); }
-
-  // 193-6 — « Au max » posé ou retiré sur UNE série (le menu ⋯ de la série, la carte « Juste aujourd'hui ») : une seule par exercice,
-  // la nouvelle remplace l'ancienne. Ne touche jamais la routine. La réserve demandée s'écrit à la validation (`poserAuMaxReserve`).
-  function definirAuMax(seance, iExo, iSerie, auMax) {
-    var exos = seance.exercices.slice();
-    var exo = copie(exos[iExo]);
-    exo.series = exo.series.map(function (s, j) {
-      if (j === iSerie) return Object.assign({}, s, { au_max: auMax !== false, au_max_reserve: null });
-      return s && (s.au_max === true || reserveAuMax(s.au_max_reserve) !== null) && auMax !== false
-        ? Object.assign({}, s, { au_max: false, au_max_reserve: null }) : s;
-    });
-    exos[iExo] = exo;
-    return avecExercices(seance, exos);
-  }
-  // La réserve demandée, écrite sur la série marquée au moment de sa validation (la ligne du plan la porte).
-  function poserAuMaxReserve(seance, iExo, iSerie, reserve) {
-    var s = seance.exercices[iExo] && seance.exercices[iExo].series[iSerie];
-    if (!s || s.au_max !== true) return seance;
-    var r = reserveAuMax(reserve);
-    return r === s.au_max_reserve ? seance : avecSerie(seance, iExo, iSerie, { au_max_reserve: r });
-  }
+  // « Au max » disparaît (20/11/2026, MOTEUR §9.30, I251) : ni « Au max » posé sur une série (menu ⋯, carte), ni réserve demandée écrite à la validation.
+  // La réserve de la série de la semaine de test en mode « série » (MOTEUR §9.32) : UNE lecture (`THModele.reserveDeLaSerieDuTest`), `null` sinon.
+  function reserveDuTest(serie) { return racine.THModele.estSerieDuTestEnSerie(serie) ? racine.THModele.reserveDeLaSerieDuTest(serie) : null; }
 
   // 185 (v2_116) — « Non, ne compte pas » : la série reste au journal et au détail, mais n'entre ni dans les records, ni dans le
   // palier, le niveau et les crans voisins, ni dans les paris et le jeu (`THModele.estTravail` la lit). Posée par UNE réponse de
@@ -1606,12 +1580,6 @@
       var ligne = (exo.routine_exercise_id && parId[exo.routine_exercise_id]) || null;
       if (o.series) {
         var deSeance = (exo.series || []).map(structureDeLigne);
-        // 193-6 — la marque « Au max » de la ROUTINE ne s'efface pas en silence quand la structure change : elle reste sur la dernière
-        // série de travail. Celle posée « juste aujourd'hui » (menu ⋯) n'entre jamais dans la routine.
-        if (ligne && (ligne.series || []).some(function (q) { return q && q.au_max === true; }) && deSeance.length) {
-          var dl = deSeance[deSeance.length - 1];
-          if (dl.type_serie === 'recul' || racine.THModele.estTravail(dl)) dl.au_max = true;
-        }
         var garder = ligne && formeDesSeries(ligne.series) === formeDesSeries(deSeance);
         if (ligne && !garder) changees.push({ i: iVoulue, avant: ligne.series || [], apres: deSeance });
       }
@@ -2212,8 +2180,9 @@
           // 185 (v2_116) — la série « Non, ne compte pas » : gardée au journal, exclue du calcul. Toujours envoyée, `false` compris
           // (la colonne est NOT NULL) ; jamais déduite d'autre chose que de ce que l'utilisateur a répondu.
           hors_calcul: p.serie.hors_calcul === true,
-          // 193-6 (v2_123) — la réserve demandée de la série « Au max » (NULL sinon). Toujours envoyée : retirer la marque l'efface.
-          au_max_reserve: p.serie.au_max === true ? reserveAuMax(p.serie.au_max_reserve) : null
+          // 193-6 (v2_123) — `au_max_reserve` : la réserve de la série de la semaine de test en mode « série » (MOTEUR §9.32), NULL pour toute
+          // autre série (« Au max » disparaît, 20/11/2026, I251). Toujours envoyée.
+          au_max_reserve: reserveDuTest(p.serie)
         };
       });
   }
@@ -2569,7 +2538,7 @@
         return {
           seance: s, routine_id: s.routine_id || null,
           series: series.map(function (x) {
-            return { charge_kg: x.charge_kg, reps: x.reps, type_serie: x.type_serie, hors_calcul: x.hors_calcul === true, au_max_reserve: reserveAuMax(x.au_max_reserve) };
+            return { charge_kg: x.charge_kg, reps: x.reps, type_serie: x.type_serie, hors_calcul: x.hors_calcul === true };
           })
         };
       }
@@ -2592,7 +2561,6 @@
           seance: s, routine_id: s.routine_id || null,
           series: series.map(function (x) {
             return { charge_kg: x.charge_kg, reps: x.reps, type_serie: x.type_serie, hors_calcul: x.hors_calcul === true,
-                     au_max_reserve: reserveAuMax(x.au_max_reserve),
                      rpe: x.rpe === undefined ? null : x.rpe, ressenti: x.ressenti === undefined ? null : x.ressenti };
           })
         });
@@ -3565,8 +3533,6 @@
     marquerManquee: marquerManquee,
     typerSelonLePlan: typerSelonLePlan,
     marquerHorsCalcul: marquerHorsCalcul,
-    definirAuMax: definirAuMax,
-    poserAuMaxReserve: poserAuMaxReserve,
     definirEffort: definirEffort,
     definirNoteExercice: definirNoteExercice,
     definirNoteSerie: definirNoteSerie,

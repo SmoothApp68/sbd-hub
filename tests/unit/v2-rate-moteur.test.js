@@ -87,11 +87,11 @@ describe('niveau 1 — la grille A à O', () => {
     expect(e.charge.kg).toBeLessThan(100);
   });
 
-  test('I J K N O : le silence, avec sa raison', () => {
+  test('I J N O : le silence, avec sa raison (K, le rôle « Au max », est retiré avec l’objet, 20/11/2026)', () => {
     expect(r({ role: 'haut' })).toMatchObject({ silence: true, cas: 'I' });
     expect(r({ role: 'test' })).toMatchObject({ silence: true, cas: 'I' });
     expect(r({ derniere: true })).toMatchObject({ silence: true, cas: 'J' });
-    expect(r({ role: 'au_max' })).toMatchObject({ silence: true, cas: 'K' });
+    expect(r({ role: 'au_max' }).cas).not.toBe('K');
     expect(r({ reps: 13, vise: 10 })).toMatchObject({ silence: true, cas: 'N' });
     expect(r({ reps: 11, vise: 10 })).toMatchObject({ silence: true, cas: 'O' });
     expect(r({ reps: 10, vise: 10 })).toMatchObject({ silence: true });
@@ -192,11 +192,11 @@ describe('niveau 1 — les contextes', () => {
     expect(r({ reps: 9, ignorees: 1 }).silence).toBe(false);
     expect(r({ reps: 9, ignorees: 2 })).toMatchObject({ silence: true, raison: 'ignorees' });
   });
-  test('L : jamais d’« Au max » après un échec franc', () => {
+  test('L, l’échec franc : la phrase ne parle plus d’« Au max » (I251 ; avant : « Pas d’« Au max » sur cet exercice aujourd’hui »)', () => {
     const d = r({ reps: 9, reserve: 0 });
-    expect(d.pasDAuMax).toBe(true);
-    expect(M.phraseDeRate(d)).toMatch(/Pas d’« Au max »/);
-    expect(r({ reps: 9 }).pasDAuMax).toBe(false);
+    expect(d.cas).toBe('L');
+    expect(d.pasDAuMax).toBeUndefined();
+    expect(M.phraseDeRate(d)).not.toMatch(/au max/i);
   });
   test('rien de plus léger au pas du matériel : on garde, on ne baisse pas', () => {
     const d = r({ charge: 2.5, reps: 3, vise: 10, bas: 8, pas: 2.5 });
@@ -234,7 +234,7 @@ describe('niveau 3 — la forme du jour', () => {
     const d = f();
     expect(d).toMatchObject({ silence: false, n: 2, nSous: 1, sur: 3, boutons: ['ajuste', 'garde'] });
     expect(d.baisses).toEqual(['rowing']);
-    expect(d.effet).toEqual({ seriesEnMoins: 1, pasDAuMax: true });
+    expect(d.effet).toEqual({ seriesEnMoins: 1 });
     expect(M.phraseDeRate(d)).toBe('Tes séries sont sous la cible sur 1 des 3 derniers exercices, et tu as baissé la charge sur rowing. Pour la fin de séance\u00a0?');
     expect(M.phraseDeRate(f({ exercices: [ex('a', true), ex('b', true)] }))).toBe('Tes séries sont sous la cible sur les 2 derniers exercices. Pour la fin de séance\u00a0?');
     expect(M.phraseDeRate(f({ exercices: [ex('a', false, { chargeBaissee: true, nom: 'rowing' }), ex('b', false, { chargeBaissee: true, nom: 'élévations' })] }))).toBe('Tu as baissé la charge sur rowing et élévations. Pour la fin de séance\u00a0?');

@@ -175,7 +175,9 @@ describe('186 — « Passer en Séries longues »', () => {
   });
 });
 
-describe('193-6 — une série « Au max » ne propose jamais de changer de zone', () => {
+// « Au max » disparaît (20/11/2026, MOTEUR §9.30, I251) : `depassementLong` lit toutes les séries ; une marque `au_max_reserve` laissée par une version
+// d'avant ne change plus rien (avant : `niveauHorsAuMax`, une série « Au max » ne proposait jamais de changer de zone).
+describe('« Au max » disparaît — une marque d’avant ne retient plus la carte « Passer en… »', () => {
   const avecAuMax = () => VOLUME.concat([0, 1, 2].map(() => [40, [16]]));
   const groupesAu = (marque) => groupes(avecAuMax(marque)).map((g, i) => {
     if (i >= VOLUME.length && marque) g.series[g.series.length - 1].au_max_reserve = 0;
@@ -188,7 +190,7 @@ describe('193-6 — une série « Au max » ne propose jamais de changer de zone
   test('DISCRIMINANT — la même dernière série, sans marque, déclenche la carte', () => {
     expect(lire(false)).toMatchObject({ n: 3, zone: 'volume', vers: 'series_longues' });
   });
-  test('DISCRIMINANT — marquée « Au max » : aucune carte', () => {
-    expect(lire(true)).toBeNull();
+  test('DISCRIMINANT — avec une marque `au_max_reserve` d’avant : la même carte (avant : aucune)', () => {
+    expect(lire(true)).toMatchObject({ n: 3, zone: 'volume', vers: 'series_longues' });
   });
 });

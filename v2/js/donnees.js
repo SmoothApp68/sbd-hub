@@ -413,9 +413,10 @@
   }
 
   // Le miroir de `sets` pour les routines. Même forme, donc même rendu.
+  // « Au max » disparaît (20/11/2026, I251) : `au_max` (v2_123) n'est plus lue ; la colonne reste en base, les versions d'avant la sélectionnent encore.
   var COLONNES_ROUTINE_SET =
     'id, routine_exercise_id, rang, type_serie, reps_visees, charge_cible_kg, ' +
-    'duree_cible_s, distance_cible_m, au_max';
+    'duree_cible_s, distance_cible_m';
 
   // Les routines AVEC leurs exercices, en une requête. L'imbrication PostgREST
   // suit la clé étrangère `routine_exercises.routine_id`.

@@ -72,7 +72,7 @@ describe('201 — le registre SOURCES', () => {
 });
 
 describe('201 — le lexique', () => {
-  const ATTENDUS = ['zone', 'palier', 'recul', 'max_du_jour', 'max_estime', 'au_max', 'cinq_plus', 'garde', 'allegee', 'phase', 'semaine_de_test',
+  const ATTENDUS = ['zone', 'palier', 'recul', 'max_du_jour', 'max_estime', 'garde', 'allegee', 'phase', 'semaine_de_test',
     'marche', 'figure', 'rest_pause', 'zone_a_menager'];
   test('la liste fixe, une phrase chacun, dans l\'ordre', () => {
     const l = M.lexique();
@@ -96,7 +96,9 @@ describe('201 — le lexique', () => {
     expect(M.motDuLexique('inconnu')).toBeNull();
   });
   test('les mots qui ont une source la résolvent ; les autres n\'en inventent pas', () => {
-    expect(M.motDuLexique('au_max').sources[0].type).toBe('coachs');
+    expect(M.motDuLexique('au_max')).toBeNull();   // « Au max » et « 5+ » retirés du lexique (20/11/2026, I251)
+    expect(M.motDuLexique('cinq_plus')).toBeNull();
+    expect(M.motDuLexique('recul').sources[0]).toBeTruthy();
     expect(M.motDuLexique('phase').sources[0].type).toBe('convention');
     expect(M.motDuLexique('palier').sources).toEqual([]);
     expect(M.motDuLexique('figure').sources).toEqual([]);

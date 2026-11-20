@@ -109,7 +109,7 @@
 
   // ── 197 (MOTEUR §9.36) — « FORME ET SANTÉ » : 2 à 3 séances corps entier, six mouvements (squat ou fente, charnière, poussée,
   // tirage, porté, gainage), 2-3 séries « en gardant 2 à 3 reps » (OMS 2020, ANSES : du renforcement au moins 2 fois par semaine).
-  // Pas de figure, pas d'échec (`auMaxDe` forme = rien). La durée de séance du profil raccourcit comme pour les autres objectifs.
+  // Pas de figure, pas d'échec. La durée de séance du profil raccourcit comme pour les autres objectifs.
   // 65 ans et plus (`entree.plus65 === true`, lu sur `date_naissance` ; inconnue : rien de deviné) : un exercice d'équilibre en plus.
   var FORME_JOURS_MAX = 3;
   function tenue(motif, role, n, secondes) { return pl(motif, role, { n: n, reps: null, duree: secondes }); }
@@ -426,42 +426,7 @@
   }
 
 
-  // ── 193-6 — LA DERNIÈRE SÉRIE « AU MAX », posée par défaut (MOTEUR §9.30) ─────────────────────────────────────────────
-  // UNE SEULE FONCTION DE DÉCISION : `Moteur.auMaxDe` (pure). Le générateur la LIT pour chaque ligne d'une séance, dans l'ordre de la
-  // séance (un squat suivi d'une autre barre lourde de jambes ne va pas à l'échec) : aucune table ici. Elle dit oui (muscle, les_deux),
-  // oui aux accessoires seulement (force), non (forme, objectif absent) ; le débutant, la zone à ménager sont dans la fonction.
-  // `au_max: true` sur la ligne = la dernière série de travail ou de recul de l'exercice (posée à l'écriture, `routineDeduite`).
-  function marquerAuMax(catalogue, exercices, p, seuls) {
-    var Moteur = racine.THMoteur, Modele = racine.THModele, B = Modele.BARRES;
-    var debutant = racine.THProfil.estDebutant(p);
-    var lignes = liste(exercices);
-    lignes.forEach(function (l, i) {
-      if (seuls && seuls.indexOf(i) < 0) return;      // un remplacement ne touche que la ligne neuve
-      delete l.au_max;
-      var fiche = ficheDu(catalogue, l.exercise_slug);
-      if (!fiche) return;
-      var jambesApres = lignes.slice(i + 1).some(function (a) {
-        var fam = familleDeBarre(a.exercise_slug, catalogue);
-        return fam === B[0] || fam === B[2];
-      });
-      // Chantier « première séance sûre », PR 1 : un exercice sans historique (`p.faits`) est une première fois — le générateur n'y écrit AUCUNE
-      // marque ; il n'a pas la consigne (la notion du plan, `Moteur.estPremiereFois`), il lit l'absence d'historique, plus prudent : le plan
-      // reste la barrière (il relit la consigne, y compris sur une routine déjà écrite). 65+ : `p.plus65 === true` seulement, jamais deviné.
-      var dejaFait = possede(p.faits || {}, l.exercise_slug) || possede(p.faits || {}, barreDeLaPause(l.exercise_slug) || l.exercise_slug);
-      var a = Moteur.auMaxDe({
-        premiereFois: !dejaFait, plus65: p.plus65 === true,
-        // 266 — la version à pause d'une barre se décide comme sa barre (la même place, la même zone : jamais « au max » de plus).
-        objectif: p.objectif, debutant: debutant, famille: familleDeBarre(barreDeLaPause(l.exercise_slug) || l.exercise_slug, catalogue),
-        equipement: fiche.equipement || null,
-        isolation: Moteur.estIsolation({ prim: liste(fiche.muscles_primaires), sec: liste(fiche.muscles_secondaires), stab: liste(fiche.muscles_stabilisateurs) }),
-        allegee: false, menagee: !!l.menage, douleurRecente: false, barreDeJambesApres: jambesApres,
-        zoneDePlan: l.zone || null,     // 193-6b : jour Lourd → échec ; une autre zone de la même barre → garde 1
-        figure: fiche.mesure === 'temps'
-      });
-      if (a && a.pose === 'defaut') l.au_max = true;
-    });
-    return lignes;
-  }
+  // « Au max » disparaît (20/11/2026, MOTEUR §9.30, I251) : le générateur n'écrit plus aucune marque « Au max » (`marquerAuMax` est retiré).
 
   // ── 193-2 — QUELLE FAMILLE ? ───────────────────────────────────────────────────────────────────────────────────────
   // Force et Les deux, avec une barre à disposition (le squat ET le couché à la barre sont faisables : matériel, catalogue ; un
@@ -660,7 +625,7 @@
       ex = trier(ex, function (x, y) {
         return (x.prioritaire ? 0 : 1) - (y.prioritaire ? 0 : 1) || ROLES.indexOf(x.role) - ROLES.indexOf(y.role);
       });
-      return { nom: rt[0], exercices: marquerAuMax(catalogue, ex, p) };
+      return { nom: rt[0], exercices: liste(ex) };
     }), p).map(function (rt, k, tout) { return avecEntretien(catalogue, rt, k, tout.length, p, ok, ecartes); });
   }
 
@@ -766,7 +731,6 @@
     var barreDePause = barreDeLaPause(vieux.exercise_slug);
     if (barreDePause !== null && faisable(catalogue, p.materiel, faits, p.barre_traction)(barreDePause) && !contient(ecartes, barreDePause)) {
       nouveau[r].exercices[k] = ligneNeuve(catalogue, barreDePause, vieux.motif, vieux, p);
-      marquerAuMax(catalogue, nouveau[r].exercices, p, [k]);
       return { routines: nouveau, ecartes: ecartes };
     }
     var pris = {};
@@ -785,7 +749,6 @@
         nouveau[c[0]].exercices[c[1]] = ligneNeuve(catalogue, s, place.motif, place, p);
       });
     }
-    if (s !== null) liees.forEach(function (c) { marquerAuMax(catalogue, nouveau[c[0]].exercices, p, [c[1]]); });
     return { routines: nouveau, ecartes: ecartes };
   }
 
@@ -818,7 +781,6 @@
       var place = nouveau[c[0]].exercices[c[1]];
       nouveau[c[0]].exercices[c[1]] = ligneNeuve(catalogue, slug, motif, place, p);
     });
-    lieesDe(nouveau, r, k).forEach(function (c) { marquerAuMax(catalogue, nouveau[c[0]].exercices, p, [c[1]]); });
     return nouveau;
   }
 
@@ -2178,7 +2140,7 @@
         if (ex.some(function (l) { return l.exercise_slug === c.slug; })) return;
         ex.push(ligneCalisthenie(catalogue, c.slug, c.motif, 'T', 2, 3));
       });
-      var rt = { nom: 'Corps entier ' + 'ABCD'.charAt(k), exercices: marquerAuMax(catalogue, ex, p) };
+      var rt = { nom: 'Corps entier ' + 'ABCD'.charAt(k), exercices: liste(ex) };
       routines.push(rt);
     }
     return routines;

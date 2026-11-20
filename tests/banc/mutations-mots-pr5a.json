@@ -50,8 +50,8 @@
  {
   "nom": "mots-5a-cle-du-memo-sans-type",
   "fichier": "v2/js/app.js",
-  "ancien": "return [s.charge_kg, s.reps, s.rpe, s.ressenti, s.type_serie, s.au_max_reserve, s.hors_calcul === true ? 1 : 0].join('|');",
-  "nouveau": "return [s.charge_kg, s.reps, s.rpe, s.ressenti, s.au_max_reserve, s.hors_calcul === true ? 1 : 0].join('|');",
+  "ancien": "return [s.charge_kg, s.reps, s.rpe, s.ressenti, s.type_serie, s.hors_calcul === true ? 1 : 0].join('|');",
+  "nouveau": "return [s.charge_kg, s.reps, s.rpe, s.ressenti, s.hors_calcul === true ? 1 : 0].join('|');",
   "banc": "seance",
   "sections": ["7-G-quinquies"],
   "unitaires": ["tests/unit/v2-annonce-5a.test.js"]

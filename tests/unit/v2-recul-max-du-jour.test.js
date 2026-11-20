@@ -14,7 +14,7 @@ const g = (kg, reps, extra) => Object.assign({ charge_kg: kg, reps: reps, type_s
 const r = (kg, reps, extra) => Object.assign({ charge_kg: kg, reps: reps, type_serie: 'recul' }, extra || {});
 const sp = (t) => t.replace(/[  ]/g, ' ');
 const auMax = (grosse, grosseReps, marge, reps, extra) =>
-  M.reculAuMax(Object.assign({ grosse: grosse, grosseReps: grosseReps, marge: marge, reps: reps, cran: 2.5 }, extra || {}));
+  M.reculSurLeMaxDuJour(Object.assign({ grosse: grosse, grosseReps: grosseReps, marge: marge, reps: reps, cran: 2.5 }, extra || {}));
 
 describe('193-5 — la table', () => {
   test('les 12 valeurs, et la marge décale de m reps', () => {
@@ -60,7 +60,7 @@ describe('193-5 — les cas de la maquette (réglage Franc, visée Lourd = marge
   });
   test('haltères : une charge que la salle fait, jamais au-dessus de la grosse', () => {
     const salle = { materiel: 'halteres', charges: [10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32] };
-    const x = M.reculAuMax({ grosse: 30, grosseReps: 4, marge: 1, reps: 8, salle: salle });
+    const x = M.reculSurLeMaxDuJour({ grosse: 30, grosseReps: 4, marge: 1, reps: 8, salle: salle });
     expect(salle.charges).toContain(x.charge);
     expect(x.charge).toBeLessThan(30);
   });
@@ -103,19 +103,19 @@ describe('193-5 — la correction personnelle (rejouée)', () => {
 });
 
 describe('193-5 — les phrases', () => {
-  test('sous le recul', () => { expect(sp(M.phraseReculAuMax(112.5, 73.9))).toBe('Recul : 112,5 kg, 74 % de ton max aujourd’hui.'); });
+  test('sous le recul', () => { expect(sp(M.phraseReculMaxDuJour(112.5, 73.9))).toBe('Recul : 112,5 kg, 74 % de ton max aujourd’hui.'); });
   test('le Pourquoi, sans correction', () => {
-    expect(sp(M.pourquoiReculAuMax({ grosse: 132.5, grosseReps: 4, marge: 1, max: 154, reps: 8, pct: 73.9, charge: 112.5, correction: 0, pas: [] })))
+    expect(sp(M.pourquoiReculMaxDuJour({ grosse: 132.5, grosseReps: 4, marge: 1, max: 154, reps: 8, pct: 73.9, charge: 112.5, correction: 0, pas: [] })))
       .toBe('Ta grosse série, 132,5 kg × 4 en gardant 1 rep, dit que ton max aujourd’hui est d’environ 154 kg. Pour 8 reps en en gardant 2, c’est 74 % : 112,5 kg.');
   });
   test('sans marge ; avec correction (la dernière série a fait plus que la table)', () => {
-    const t = sp(M.pourquoiReculAuMax({ grosse: 132.5, grosseReps: 4, marge: 0, max: 148, reps: 8, pct: 73.9, charge: 112.5, correction: 0.025,
+    const t = sp(M.pourquoiReculMaxDuJour({ grosse: 132.5, grosseReps: 4, marge: 0, max: 148, reps: 8, pct: 73.9, charge: 112.5, correction: 0.025,
       pas: [{ charge: 112.5, faites: 12, prevision: 10, cible: 8, delta: 0.025 }] }));
     expect(t).toMatch(/132,5 kg × 4 sans marge/);
     expect(t).toMatch(/Ta dernière série à 112,5 kg a fait 12 reps, 2 de plus que la table ne le prévoyait pour toi : je te compte 2,5 % de plus\.$/);
   });
   test('correction négative', () => {
-    const t = sp(M.pourquoiReculAuMax({ grosse: 132.5, grosseReps: 4, marge: 1, max: 154, reps: 8, pct: 73.9, charge: 110, correction: -0.025,
+    const t = sp(M.pourquoiReculMaxDuJour({ grosse: 132.5, grosseReps: 4, marge: 1, max: 154, reps: 8, pct: 73.9, charge: 110, correction: -0.025,
       pas: [{ charge: 112.5, faites: 6, prevision: 8, cible: 8, delta: -0.025 }] }));
     expect(t).toMatch(/a fait 6 reps pour une cible de 8 : je te compte 2,5 % de moins\.$/);
   });

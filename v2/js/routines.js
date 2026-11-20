@@ -98,8 +98,9 @@
   // Le miroir de `sets`. Mêmes quatre types, et `rang` commence à 1 — pas à 0
   // comme celui de `routine_exercises`. Relevé sur les CHECK, pas supposé.
   var CHAMPS_SERIE = ['routine_exercise_id', 'user_id', 'rang', 'type_serie',
-                      'reps_visees', 'charge_cible_kg', 'duree_cible_s', 'distance_cible_m',
-                      'au_max'];   // 193-6 (v2_123) : la dernière série « Au max »
+                      'reps_visees', 'charge_cible_kg', 'duree_cible_s', 'distance_cible_m'];
+  // « Au max » disparaît (20/11/2026, I251) : `routine_sets.au_max` (v2_123) n'est plus ni lue ni écrite ; la colonne reste en base (défaut `false`)
+  // tant que des versions installées d'avant la lisent (SCHEMA-REEL ; Claude.ai la passera à `false`, puis la retirera).
   var TYPES_SERIE = ['travail', 'echauffement', 'degressive', 'echec', 'recul'];   // `recul` : v2_120 (193-1) ; `test` n'est pas un type de routine
   var DUREE_MIN = 1, DUREE_MAX = 35999;
   var DISTANCE_MIN = 0, DISTANCE_MAX = 100000;
@@ -370,7 +371,6 @@
     var ligne = {
       id: (set && set.id) || null,
       type_serie: typePropre(set && set.type_serie),
-      au_max: !!set && set.au_max === true,   // 193-6 (v2_123)
       note: null, rpe: null, ressenti: null, validee_a: null
     };
     CIBLES.forEach(function (c) {
@@ -392,8 +392,7 @@
       routine_exercise_id: routineExerciceId,
       user_id: userId || null,
       rang: rang,
-      type_serie: typePropre(s && s.type_serie),
-      au_max: !!s && s.au_max === true   // 193-6 (v2_123) : toujours envoyée, `false` compris
+      type_serie: typePropre(s && s.type_serie)
     };
     CIBLES.forEach(function (c) { l[c.cible] = c.borner(s ? s[c.saisie] : null); });
     return l;
@@ -926,16 +925,13 @@
     // 193-1 — la série de plus est une grosse série : elle suit la dernière série de travail qui n'est pas un recul, et la copie.
     for (var j = 0; j < series.length; j++) if (M.estTravail(series[j]) && !M.estRecul(series[j])) dernier = j;
     if (dernier < 0) return null;
-    // 193-6 — la ligne « Au max » reste la dernière : la copie (sans la marque) se place AVANT elle.
-    if (series[dernier].au_max === true) series.splice(dernier, 0, Object.assign({}, series[dernier], { id: null, au_max: false }));
-    else series.splice(dernier + 1, 0, Object.assign({}, series[dernier], { id: null }));
+    series.splice(dernier + 1, 0, Object.assign({}, series[dernier], { id: null }));
     return renumeroter(exercices);
   }
 
   // 16/11/2026 (MOTEUR §9.27 quater) — LE RETRAIT D'UN EXERCICE ENTIER (« la routine apprend de tes gestes ») : l'exercice
   // au slug `slug` quitte la routine ; `report` (facultatif, `{ vers, ajout }`) ajoute `ajout` séries de plus à l'exercice
-  // `vers`, chacune une copie de sa dernière série de travail (`ajoutDeSerie` : la même charge, la ligne « Au max » reste la
-  // dernière). Les supersets se relisent de la nouvelle adjacence (`renumeroter`) : un groupe tombé à un seul exercice se
+  // `vers`, chacune une copie de sa dernière série de travail (`ajoutDeSerie` : la même charge). Les supersets se relisent de la nouvelle adjacence (`renumeroter`) : un groupe tombé à un seul exercice se
   // dissout. Exercice absent, remplaçant absent ou sans série de travail : `null` (rien à écrire). Une copie, toujours.
   function retraitDExercice(routine, slug, report) {
     var base = { exercices: ((routine && routine.exercices) || []).map(copieExercice) };
@@ -949,21 +945,6 @@
       }
     }
     return renumeroter(base.exercices.filter(function (x) { return !x || x.exercise_slug !== slug; }));
-  }
-
-  // 193-6 (MOTEUR §9.30) — « Oui, dans ma routine » : la dernière série de travail ou de recul de l'exercice porte la marque « Au max »
-  // (une seule : les autres la perdent). Le chemin des routines (`poserRoutineVoulue`), jamais une écriture directe. `null` : exercice
-  // absent ou sans série de travail.
-  function marquerAuMax(routine, slug, auMax) {
-    var M = racine.THModele;
-    var exercices = ((routine && routine.exercices) || []).map(copieExercice);
-    var i = indexDuSlug(exercices, slug);
-    if (i < 0) return null;
-    var series = exercices[i].series, dernier = -1;
-    for (var j = 0; j < series.length; j++) if (M.estTravail(series[j])) dernier = j;
-    if (dernier < 0) return null;
-    exercices[i].series = series.map(function (x, j) { return Object.assign({}, x, { au_max: auMax !== false && j === dernier }); });
-    return exercices;
   }
 
   // ── Appliquer un plan d'écritures ───────────────────────────────────────
@@ -1531,17 +1512,6 @@
       if (!e.zone) return;
       routine.exercices.forEach(function (x) {
         if (x.exercise_slug === e.exercise_slug && x.groupe_superset === (e.groupe_superset === undefined ? null : e.groupe_superset)) x.zone = e.zone;
-      });
-    });
-    // 193-6 — la dernière série « Au max » (MOTEUR §9.30) : posée par le générateur (`Moteur.auMaxDe`) sur la DERNIÈRE série de travail ou
-    // de recul de l'exercice. Sans `au_max` donné, rien ne change.
-    (d.exercices || []).forEach(function (e) {
-      if (e.au_max !== true) return;
-      routine.exercices.forEach(function (x) {
-        if (x.exercise_slug !== e.exercise_slug || x.groupe_superset !== (e.groupe_superset === undefined ? null : e.groupe_superset)) return;
-        var dernier = -1;
-        x.series.forEach(function (sr, j) { if (racine.THModele.estTravail(sr)) dernier = j; });
-        if (dernier >= 0) x.series[dernier].au_max = true;
       });
     });
     // 187 (A5) — une CHARGE DE DÉPART donnée (`charge_cible_kg`, MOTEUR §9.21) va sur les séries de travail de l'exercice.
@@ -2349,7 +2319,6 @@
     retraitDExercice: retraitDExercice,
     roleDansLaRoutine: roleDansLaRoutine,
     signatureDesExercices: signatureDesExercices,
-    marquerAuMax: marquerAuMax,
     renumeroter: renumeroter,
     retraitDeSeries: retraitDeSeries,
     miseEnTete: miseEnTete,

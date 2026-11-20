@@ -67,7 +67,7 @@ describe('193-4 — le plan : la barre testée', () => {
     expect(sp(t.pourquoi.texte)).toMatch(/^Ton max estimé est d’environ 154 kg\./);
     expect(sp(t.pourquoi.texte)).toMatch(/Je parie sur 155 kg\./);
     expect(t.pari).toMatchObject({ module: 'test', grandeur: 'charge_kg', valeur_predite: 155, exercise_slug: DC });
-    expect(p.exercices[0].auMax).toBeNull();
+    expect(p.exercices[0].auMax).toBeUndefined();
     propre(p, e);
   });
 
@@ -209,7 +209,7 @@ describe('193-4 — le plan : la barre testée', () => {
     const e = entrees(se);
     e.catalogue.tractions_pronation = FICHES[ACC];
     const p = T.planDeSeance(e);
-    expect(p.exercices[1].auMax).toBeNull(); expect(p.exercices[1].propositionAuMax).toBeNull();
+    expect(p.exercices[1].auMax).toBeUndefined(); expect(p.exercices[1].propositionAuMax).toBeUndefined();
     expect(p.exercices.filter((x) => x.semaineDeTest && x.semaineDeTest.accessoire && x.semaineDeTest.garde).length).toBeLessThanOrEqual(M.TEST_ACCESSOIRES_MAX);
     propre(p, e);
   });
@@ -236,7 +236,7 @@ describe('193-4 — le plan : la barre testée', () => {
     expect(mal((t) => { t.etat = 'arret'; })).toMatch(/I92/);
     expect(mal((t) => { t.pari.valeur_predite = 120; })).toMatch(/I93/);
     expect(mal((t) => { t.pari.module = 'consigne'; })).toMatch(/I93/);
-    expect(mal((t, p) => { p.exercices[0].auMax = { reserve: 0 }; })).toMatch(/I91/);
+    expect(mal((t, p) => { p.exercices[0].auMax = { reserve: 0 }; })).toMatch(/I251/);   // I91 : sa clause « Au max » est retirée, I251 la couvre
     const e2 = entrees(seance([SQ, SDT]));
     const p2 = T.planDeSeance(e2);
     p2.exercices[1].semaineDeTest = Object.assign({}, p2.exercices[0].semaineDeTest, { slug: SDT, classe: 'souleve' });

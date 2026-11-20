@@ -1,5 +1,5 @@
 {
- "source": "193-2 — référence : la table « Les règles » de maquette-programmes-force-v2.html (31/10/2026), jamais gen60b.py",
+ "source": "193-2 — référence : la table « Les règles » de maquette-programmes-force-v2.html (31/10/2026), jamais gen60b.py · 20/11/2026 : « Au max » disparaît (MOTEUR §9.30, I251), la dernière colonne vaut toujours false",
  "format_exercice": [
   "exercise_slug",
   "motif",
@@ -6400,7 +6400,7 @@
        false,
        false,
        false,
-       true
+       false
       ],
       [
        "developpe_militaire_barre",
@@ -6416,7 +6416,7 @@
        false,
        false,
        false,
-       true
+       false
       ],
       [
        "tractions",
@@ -6432,7 +6432,7 @@
        false,
        false,
        true,
-       true
+       false
       ],
       [
        "elevation_laterale_poulie",
@@ -6448,7 +6448,7 @@
        false,
        false,
        false,
-       true
+       false
       ]
      ]
     },
@@ -6470,7 +6470,7 @@
        true,
        false,
        false,
-       true
+       false
       ],
       [
        "souleve_de_terre_roumain_barre",
@@ -6502,7 +6502,7 @@
        false,
        false,
        false,
-       true
+       false
       ],
       [
        "extension_mollets_debout_machine",
@@ -6518,7 +6518,7 @@
        false,
        false,
        false,
-       true
+       false
       ]
      ]
     },
@@ -6540,7 +6540,7 @@
        false,
        false,
        false,
-       true
+       false
       ],
       [
        "developpe_couche_barre",
@@ -6556,7 +6556,7 @@
        false,
        false,
        false,
-       true
+       false
       ],
       [
        "rowing_poulie_assis",
@@ -6572,7 +6572,7 @@
        false,
        false,
        false,
-       true
+       false
       ],
       [
        "curl_biceps_barre_ez",
@@ -6588,7 +6588,7 @@
        false,
        false,
        false,
-       true
+       false
       ]
      ]
     },
@@ -6610,7 +6610,7 @@
        true,
        false,
        false,
-       true
+       false
       ],
       [
        "souleve_de_terre_barre",
@@ -6626,7 +6626,7 @@
        false,
        false,
        false,
-       true
+       false
       ],
       [
        "presse_a_cuisses",
@@ -6642,7 +6642,7 @@
        false,
        false,
        false,
-       true
+       false
       ],
       [
        "releve_de_genoux_suspendu",
@@ -6658,7 +6658,7 @@
        false,
        false,
        true,
-       true
+       false
       ]
      ]
     },
@@ -6680,7 +6680,7 @@
        false,
        false,
        false,
-       true
+       false
       ],
       [
        "rowing_assis_machine",
@@ -6696,7 +6696,7 @@
        false,
        false,
        false,
-       true
+       false
       ],
       [
        "elevation_laterale_haltere",
@@ -6712,7 +6712,7 @@
        false,
        false,
        false,
-       true
+       false
       ],
       [
        "ecarte_machine",
@@ -6728,7 +6728,7 @@
        false,
        false,
        false,
-       true
+       false
       ],
       [
        "curl_marteau_haltere",
@@ -6744,7 +6744,7 @@
        false,
        false,
        false,
-       true
+       false
       ],
       [
        "extension_triceps_poulie_haute",
@@ -6760,7 +6760,7 @@
        false,
        false,
        false,
-       true
+       false
       ]
      ]
     }
@@ -6860,7 +6860,7 @@
        false,
        false,
        false,
-       true
+       false
       ],
       [
        "elevation_laterale_poulie",
@@ -6876,7 +6876,7 @@
        false,
        false,
        false,
-       true
+       false
       ]
      ]
     },
@@ -6946,7 +6946,7 @@
        false,
        false,
        true,
-       true
+       false
       ]
      ]
     },

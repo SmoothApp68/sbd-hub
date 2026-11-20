@@ -10552,17 +10552,13 @@ const SETS_IMPORTES = [
     await saisirSerie(0, 90, 5);
     await saisirSerie(1, 90, 5);
     await saisirSerie(2, 90, 5);
-    // 4e série en « Au max » (menu de la série), puis la grille d'effort : réserve 0.
+    // 4e série, puis la grille d'effort : réserve 1 (« Au max » disparaît, 20/11/2026 : l'effort noté seul ; avant, la 4e série « Au max » notée 0).
     gardeBanc.suspendue = true;
-    await page.evaluate(() => document.querySelectorAll('.ligne-serie')[3].querySelector('.no-serie').click());
-    await feuilleOuverte('.feuille-menu button');
-    await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => /^Au max/.test(b.textContent.trim()))[0].click());
-    await feuilleFermee().catch(() => {});
     await saisirSerie(3, 90, 5);
     await page.evaluate(() => { const e = document.querySelectorAll('.ligne-serie')[3].querySelector('.eff-serie'); if (e) e.click(); });
     await feuilleOuverte('.grille-rir, .grille-rpe');
     const departReserve = await departGeste();
-    await page.evaluate(() => { const b = Array.from(document.querySelectorAll('#feuille-contenu button')).filter((x) => x.textContent.trim().charAt(0) === '0')[0]; if (b) b.click(); });
+    await page.evaluate(() => { const b = Array.from(document.querySelectorAll('#feuille-contenu button')).filter((x) => x.textContent.trim().charAt(0) === '1')[0]; if (b) b.click(); });
     await calmeApres(departReserve);
     await attendreQue(() => page.evaluate(() => !!(document.querySelector('.legende-exo .constat-suite') || {}).textContent), 8000, '5a-bis · le constat de fin de bloc paraît');
     const live = await lire5ab();
@@ -10637,15 +10633,11 @@ const SETS_IMPORTES = [
     await saisirSerie(1, 90, 5);
     await saisirSerie(2, 90, 5);
     gardeBanc.suspendue = true;
-    await page.evaluate(() => document.querySelectorAll('.ligne-serie')[3].querySelector('.no-serie').click());
-    await feuilleOuverte('.feuille-menu button');
-    await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => /^Au max/.test(b.textContent.trim()))[0].click());
-    await feuilleFermee().catch(() => {});
     await saisirSerie(3, 90, 5);
     await page.evaluate(() => { const e = document.querySelectorAll('.ligne-serie')[3].querySelector('.eff-serie'); if (e) e.click(); });
     await feuilleOuverte('.grille-rir, .grille-rpe');
     const departReserve5b1 = await departGeste();
-    await page.evaluate(() => { const b = Array.from(document.querySelectorAll('#feuille-contenu button')).filter((x) => x.textContent.trim().charAt(0) === '0')[0]; if (b) b.click(); });
+    await page.evaluate(() => { const b = Array.from(document.querySelectorAll('#feuille-contenu button')).filter((x) => x.textContent.trim().charAt(0) === '1')[0]; if (b) b.click(); });
     await calmeApres(departReserve5b1);
     await attendreQue(() => page.evaluate(() => !!(document.querySelector('.legende-exo .constat-suite') || {}).textContent), 8000, '5b-1 · le constat de fin de bloc paraît');
     const live = await lire5b1();
@@ -27979,14 +27971,12 @@ const SETS_IMPORTES = [
       JSON.stringify([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), erreurs.slice(erreursAvant)]));
   }
 
-  console.log('\n══ au-max-pr3. LA CARTE « DERNIÈRE SÉRIE AU MAX ? » VIENT DÈS LA 2e SÉANCE D’UN EXERCICE DE ROUTINE (CHANTIER « PREMIÈRE SÉANCE SÛRE », PR 3, B5-01, MOTEUR §9.30) ══');
+  console.log('\n══ sans-au-max. « AU MAX » DISPARAÎT : NI CARTE, NI ENTRÉE DU MENU ⋯, NI MARQUE, MÊME DÈS LA 2e SÉANCE D’UN EXERCICE DE ROUTINE (MOTEUR §9.30, I251) ══');
   //
-  // ⚠️ CONFIGURATION DISCRIMINANTE : la séance part d'une ROUTINE (`seance.routine_id`), l'objectif est « les deux » (la table de §9.30 ne dit rien sans objectif).
-  // Avant la PR 3, `entreesDuPlan` ne passait pas `routine_id` au plan : `propositionAuMax` restait vide, la carte n'a jamais été vue sur un appareil. Trois exercices :
-  //   A — trois séances de 100 × 8 : la carte est dessinée (trois gestes) ; « Juste aujourd'hui » pose la marque sur la dernière ligne, n'écrit RIEN en base, la carte revient à la séance suivante ;
-  //   A2 — « Non merci » : la décision se range dans `cartes_semaine.au_max`, la carte ne revient plus ;
-  //   B — aucune séance : première fois, aucune carte (I151).
-  // La garde du plan ne signale rien, aucun refus du faux serveur, aucune erreur de page.
+  // ⚠️ CONFIGURATION DISCRIMINANTE : celle de l'ancienne section « au-max-pr3 » (chantier « première séance sûre », PR 3, B5-01) — la séance part d'une ROUTINE,
+  // l'objectif est « les deux », trois séances de 100 × 8 : sur main avant cette PR, la carte « Dernière série au max ? » était dans le plan ET à l'écran, avec trois
+  // gestes, et le menu ⋯ de la dernière série offrait « Au max ». Après : aucune carte, aucune entrée « Au max », aucune marque sur la dernière ligne, rien de rangé
+  // dans `cartes_semaine`, la garde (I251) ne signale rien.
   {
     const erreursAvant = erreurs.length;
     const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
@@ -27995,8 +27985,7 @@ const SETS_IMPORTES = [
     const catalogueAvant = CATALOGUE.length, routinesAvant = ROUTINES.length;
     const profilAvant = { objectif: base.profiles[0].objectif, depuis: base.profiles[0].objectif_depuis, cartes: base.profiles[0].cartes_semaine };
     const rendreBlocsAM = await retirerBlocsDeLAppareil();
-    ['a', 'b'].forEach((k) => CATALOGUE.push({ slug: 'am-' + k, nom: 'Exercice AM ' + k.toUpperCase() + ' (Barre)',
-      mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['pectoraux'], muscles_secondaires: [] }));
+    CATALOGUE.push({ slug: 'am-a', nom: 'Exercice AM A (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['pectoraux'], muscles_secondaires: [] });
     const tAM = Date.now();
     base.sessions = [];
     base.sets = [];
@@ -28004,84 +27993,44 @@ const SETS_IMPORTES = [
     base.profiles[0].objectif = 'les_deux';
     base.profiles[0].objectif_depuis = '2026-01-01';
     base.profiles[0].cartes_semaine = null;
-    const poserAM = (slug, liste) => liste.forEach(([j, series], i) => {
-      const id = 'am-' + slug + '-' + i, debut = ilYa(j * 86400000, tAM).toISOString();
-      base.sessions.push({ id, user_id: 'u-banc', titre: 'AM — ' + id, debut,
-        fin: finDe(debut, tAM).toISOString(), statut: 'terminee', note: null,
+    [9, 6, 3].forEach((j, i) => {
+      const id = 'am-am-a-' + i, debut = ilYa(j * 86400000, tAM).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'AM — ' + id, debut, fin: finDe(debut, tAM).toISOString(), statut: 'terminee', note: null,
         salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
-      series.forEach(([kg, r], k) => base.sets.push({
-        id: id + '-s' + (k + 1), session_id: id, user_id: 'u-banc', exercise_slug: slug,
-        charge_kg: kg, reps: r, duree_s: null, distance_m: null, type_serie: 'travail',
-        rang: k + 1, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
+      [1, 2, 3].forEach((k) => base.sets.push({ id: id + '-s' + k, session_id: id, user_id: 'u-banc', exercise_slug: 'am-a', charge_kg: 100, reps: 8,
+        duree_s: null, distance_m: null, type_serie: 'travail', rang: k, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null,
         repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null }));
     });
-    poserAM('am-a', [[9, [[100, 8], [100, 8], [100, 8]]], [6, [[100, 8], [100, 8], [100, 8]]], [3, [[100, 8], [100, 8], [100, 8]]]]);
-    ['a', 'b'].forEach((k) => ROUTINES.push({ id: 'r-am-' + k, nom: 'AuMax ' + k.toUpperCase() + ' AM', note: null, archivee_a: null,
-      created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
-      routine_exercises: [{ id: 'r-am-' + k + '-0', routine_id: 'r-am-' + k, exercise_slug: 'am-' + k, rang: 0,
-        routine_sets: progr(3, 8), repos_cible_s: 180, groupe_superset: null, note: null }] }));
-    const lireAM = (slug) => page.evaluate((sl) => {
+    ROUTINES.push({ id: 'r-am-a', nom: 'SansAuMax A AM', note: null, archivee_a: null, created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [{ id: 'r-am-a-0', routine_id: 'r-am-a', exercise_slug: 'am-a', rang: 0, routine_sets: progr(3, 8), repos_cible_s: 180, groupe_superset: null, note: null }] });
+    const lireAM = () => page.evaluate(() => {
       const d = window.THPlan && window.THPlan.dernier;
-      const x = d && d.plan.exercices.filter((e) => e.slug === sl)[0];
-      const c = document.querySelector('.proposition-au-max');
-      const derniere = x ? x.lignes.filter((l) => l.type !== 'chauffe').slice(-1)[0] : null;
-      return { etat: x && x.consigne ? x.consigne.etat : null, raison: x && x.consigne ? x.consigne.raison || null : null,
-        carte: !!(x && x.propositionAuMax), reserve: x && x.propositionAuMax ? x.propositionAuMax.reserve : null,
-        dessinee: !!c, boutons: c ? Array.from(c.querySelectorAll('button')).map((b) => b.textContent) : [],
-        marque: !!(derniere && derniere.auMax), routine: !!(d && d.entrees && d.entrees.seance && d.entrees.seance.routine_id),
+      const x = d && d.plan.exercices.filter((e) => e.slug === 'am-a')[0];
+      const textes = Array.from(document.querySelectorAll('.proposition-exercice, .etq-ligne, .reaction-serie')).map((n) => n.textContent);
+      return { routine: !!(d && d.entrees && d.entrees.seance && d.entrees.seance.routine_id), etat: x && x.consigne ? x.consigne.etat : null,
+        cles: x ? ['auMax', 'propositionAuMax', 'auMaxMots', 'auMaxEtat'].filter((k) => x[k] !== undefined && x[k] !== null) : ['pas de plan'],
+        marque: !!(x && x.lignes.some((l) => l.auMax)), carte: !!document.querySelector('.proposition-au-max'),
+        auMaxAffiche: textes.some((t) => /au max/i.test(t)),
         erreurs: d ? window.THPlan.verifierPlan(d.plan, d.entrees).erreurs : ['aucun plan calculé'] };
-    }, slug);
-    const pretAM = () => jusqua(() => page.evaluate(() => {
-      const d = window.THPlan && window.THPlan.dernier;
-      return !!d && d.plan.exercices.length > 0 && document.querySelectorAll('.legende-exo').length > 0;
-    }), 8000);
-    const auMaxRange = () => (base.profiles[0].cartes_semaine && base.profiles[0].cartes_semaine.au_max) || null;
-
-    // ── A. La carte est dessinée, depuis la routine, avec ses trois gestes.
+    });
     await aller('/saisie');
-    await demarrerRoutine('AuMax A AM');
-    await pretAM();
-    const aa = await lireAM('am-a');
-    ok('[AM] A — DISCRIMINANT : 3 séances de 100 × 8 puis la séance d\'une routine → la carte « Dernière série au max ? » est dans le plan ET à l\'écran, trois gestes',
-      aa.routine === true && aa.carte === true && aa.dessinee === true && aa.boutons.length === 3 && aa.marque === false && aa.erreurs.length === 0, JSON.stringify(aa));
-    const setsA = base.sets.length, sessionsA = base.sessions.length, routinesA = JSON.stringify(ROUTINES);
-    await page.click('.proposition-au-max .pam-aujourdhui');
-    await jusqua(() => page.evaluate(() => !document.querySelector('.proposition-au-max')), 8000);
-    const ab = await lireAM('am-a');
-    ok('[AM] A — « Juste aujourd\'hui » : la marque est sur la dernière ligne, plus de carte, RIEN n\'est écrit (ni série, ni routine, ni profil)',
-      ab.marque === true && ab.carte === false && ab.erreurs.length === 0 && base.sets.length === setsA && base.sessions.length === sessionsA &&
-        JSON.stringify(ROUTINES) === routinesA && auMaxRange() === null, JSON.stringify([ab, auMaxRange()]));
+    await demarrerRoutine('SansAuMax A AM');
+    await jusqua(() => page.evaluate(() => { const d = window.THPlan && window.THPlan.dernier; return !!d && d.plan.exercices.length > 0 && document.querySelectorAll('.legende-exo').length > 0; }), 8000);
+    const aa = await lireAM();
+    ok('[AM] DISCRIMINANT — 3 séances de 100 × 8 puis la séance d\'une routine : aucune carte « Au max » (ni au plan, ni à l\'écran), aucune marque, aucun mot « Au max » (avant : la carte et ses trois gestes)',
+      aa.routine === true && aa.cles.length === 0 && aa.marque === false && aa.carte === false && aa.auMaxAffiche === false && aa.erreurs.length === 0, JSON.stringify(aa));
+    // Le menu ⋯ de la dernière série : aucune entrée « Au max ».
+    const n = await page.evaluate(() => document.querySelectorAll('.ligne-serie').length);
+    await page.evaluate((k) => document.querySelectorAll('.ligne-serie')[k].querySelector('.no-serie').click(), n - 1);
+    await feuilleOuverte('.feuille-menu button');
+    const boutons = await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button')).map((b) => b.textContent.trim()));
+    ok('[AM] DISCRIMINANT — le menu ⋯ de la dernière série n\'offre plus « Au max » (avant : « Au max · Pour aujourd’hui seulement »)',
+      boutons.length > 0 && !boutons.some((t) => /au max|en gardant 2 reps/i.test(t)), JSON.stringify(boutons));
+    await page.click('#btn-fermer-feuille', { timeout: 3000 }).catch(() => {});
+    await feuilleFermee().catch(() => {});
     await abandonner();
-
-    // ── A2. « Non merci » : la décision se range, la carte ne revient plus.
-    await aller('/saisie');
-    await demarrerRoutine('AuMax A AM');
-    await pretAM();
-    const ac = await lireAM('am-a');
-    ok('[AM] A2 — la carte revient à la séance suivante (« Juste aujourd\'hui » n\'a rien rangé)', ac.carte === true && ac.dessinee === true, JSON.stringify(ac));
-    await page.click('.proposition-au-max .pam-non');
-    await jusqua(() => page.evaluate(() => !document.querySelector('.proposition-au-max')), 8000);
-    await jusqua(() => Promise.resolve(!!auMaxRange()), 8000);
-    ok('[AM] A2 — « Non merci » : la réponse est rangée dans `cartes_semaine.au_max` (r = non) et la carte se tait',
-      !!auMaxRange() && !!auMaxRange()['am-a'] && auMaxRange()['am-a'].r === 'non', JSON.stringify(auMaxRange()));
-    await abandonner();
-    await aller('/saisie');
-    await demarrerRoutine('AuMax A AM');
-    await pretAM();
-    const ad = await lireAM('am-a');
-    ok('[AM] A2 — la séance d\'après : aucune carte', ad.carte === false && ad.dessinee === false && ad.erreurs.length === 0, JSON.stringify(ad));
-    await abandonner();
-
-    // ── B. Première fois : aucune carte (I151).
-    await aller('/saisie');
-    await demarrerRoutine('AuMax B AM');
-    await pretAM();
-    const bb = await lireAM('am-b');
-    ok('[AM] B — DISCRIMINANT : un exercice jamais fait → aucune carte (première fois, I151), aucune marque', bb.carte === false && bb.dessinee === false && bb.marque === false && bb.erreurs.length === 0, JSON.stringify(bb));
-    await abandonner();
-
-    // ── C. Rien ne casse.
-    ok('[AM] la garde (I83 à I86, I150, I151, I154 compris) n\'a rien signalé', gardeBanc.violations === violationsAvant,
+    ok('[AM] rien de rangé dans `cartes_semaine` (ni `au_max`), la garde n\'a rien signalé',
+      !(base.profiles[0].cartes_semaine && base.profiles[0].cartes_semaine.au_max) && gardeBanc.violations === violationsAvant,
       String(gardeBanc.violations - violationsAvant) + ' ' + JSON.stringify(gardeBanc.liste.slice(-2)));
     ROUTINES.splice(routinesAvant, ROUTINES.length - routinesAvant);
     CATALOGUE.splice(catalogueAvant, CATALOGUE.length - catalogueAvant);
@@ -28155,15 +28104,11 @@ const SETS_IMPORTES = [
       await aller('/saisie');
       await demarrerRoutine('Haut B DL');
       await saisirSerie(0, 90, 5); await saisirSerie(1, 90, 5); await saisirSerie(2, 90, 5);
-      await page.evaluate(() => document.querySelectorAll('.ligne-serie')[3].querySelector('.no-serie').click());
-      await feuilleOuverte('.feuille-menu button');
-      await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu button')).filter((b) => /^Au max/.test(b.textContent.trim()))[0].click());
-      await feuilleFermee();
       await saisirSerie(3, 90, 5);
       await attendreQue(() => page.evaluate(() => !!document.querySelectorAll('.ligne-serie')[3].querySelector('.eff-serie')), 8000, 'f2 l’effort de la 4e série');
       await page.evaluate(() => document.querySelectorAll('.ligne-serie')[3].querySelector('.eff-serie').click());
       await feuilleOuverte('.grille-rir, .grille-rpe');
-      await page.evaluate(() => { const b = Array.from(document.querySelectorAll('#feuille-contenu .grille-rir button, #feuille-contenu button')).filter((x) => x.textContent.trim().charAt(0) === '0')[0]; if (b) b.click(); });
+      await page.evaluate(() => { const b = Array.from(document.querySelectorAll('#feuille-contenu .grille-rir button, #feuille-contenu button')).filter((x) => x.textContent.trim().charAt(0) === '1')[0]; if (b) b.click(); });
       await feuilleFermee();
     };
 
@@ -30445,7 +30390,7 @@ const SETS_IMPORTES = [
                phrase: R.phrase, fantomes: x.lignes.filter((l) => l.type === 'recul').map((l) => l.fantome ? l.fantome.charge : null),
                grosseReps: R.grosseReps === undefined ? null : R.grosseReps };
     });
-    const attendu193 = (grosse, reps) => page.evaluate(([g, r]) => window.THMoteur.reculAuMax({ grosse: g, grosseReps: r, marge: 1, reps: 8, cran: 2.5 }), [grosse, reps]);
+    const attendu193 = (grosse, reps) => page.evaluate(([g, r]) => window.THMoteur.reculSurLeMaxDuJour({ grosse: g, grosseReps: r, marge: 1, reps: 8, cran: 2.5 }), [grosse, reps]);
     const avant193 = await lirePlan193();
     const exAvant = await attendu193(avant193.grosse, avant193.grosseReps);
     ok('[RM193] DISCRIMINANT — les reculs ×8 après une grosse série ×4 sont sur le MAX DU JOUR, pas à 10 % de la grosse série',

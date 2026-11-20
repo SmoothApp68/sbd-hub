@@ -2,7 +2,7 @@
 // « Une seule garde » (19/11/2026, MOTEUR §9.39, I232 et I216 étendu) — la garde que le coach compare à ce que la personne a noté est la garde
 // des LIGNES de travail (`Plan.gardeDeLigne`, rôle `ligne`, exposée sur `x.gardeDeLigne`), jamais celle de la visée (`x.reserveAffichee`, parfois
 // un test). À garde 0, une série à fond à au moins le bas de la zone est SUR la cible (`Moteur.aFondSurLaCible`, un prédicat partagé avec #716) :
-// ni échec (cas L, porte du cran fermée, « Pas d'Au max »), ni cas M, ni « garde N » dans la phrase.
+// ni échec (cas L, porte du cran fermée), ni cas M, ni « garde N » dans la phrase.
 process.env.TZ = 'Europe/Paris';
 global.window = global;
 require('../../v2/js/palier.js');
@@ -39,7 +39,6 @@ describe('la réaction au raté (niveau 1) à garde 0', () => {
     expect(d.cas).toBe('B');
     expect(d.charge.action).toBe('garde');
     expect(d.garde).toBe(0);
-    expect(d.pasDAuMax).toBe(false);
     const t = sp(M.phraseDeRate(d));
     expect(t).toBe('9 au lieu de 10. Même charge, entre 8 et 10.');
   });
@@ -152,8 +151,10 @@ describe('les vérificateurs recalculent la garde depuis les entrées', () => {
   });
 });
 
-// ── C-1 (I233) — sur une série « Au max », la réserve notée se compare à la réserve DEMANDÉE (consignePour, la sortie, la garde de bord). ──
-describe('C-1 : « Au max » fait comme demandé', () => {
+// ── C-1 (I233) est RETIRÉ (« Au max » disparaît, 20/11/2026, MOTEUR §9.30, I251) : il n'y a plus de réserve demandée. Les mêmes cas, rejoués avec
+// l'EFFORT NOTÉ SEUL : la capacité tenue (I252) décide — reps saisies + réserve notée ≥ reps visées + visée affichée. Aucun ne régresse : celui qui va au
+// bout et fait plus que prévu ne garde pas ; celui qui fait juste la cible sans marge garde, comme sans la marque d'avant.
+describe('C-1 rejoué avec l’effort noté seul (la capacité tenue remplace « Au max » fait comme demandé)', () => {
   let n = 0;
   const brute = (kg, reps, res, extra) => Object.assign({ id: 'x' + (++n), rang: n, charge_kg: kg, reps, rpe: null, ressenti: res === undefined ? null : res,
     type_serie: 'travail', exercise_slug: 'dc' }, extra || {});
@@ -161,74 +162,79 @@ describe('C-1 : « Au max » fait comme demandé', () => {
   const hist = (kg, h, der, extra) => ['09-13', '09-06', '08-30', '08-23', '08-16'].map((x, i) => ({ seance: { id: 'H' + i, debut: jour(x) },
     series: [brute(kg, h), brute(kg, h), i === 0 ? brute(kg, der.reps, der.res, extra) : brute(kg, h)] }));
   const OPT = { mesure: 'charge_reps', equipement: 'barre', intention: 'progresser', edition: false };
-  const consigne = (reglage, res, extra) => M.consigneDExercice(hist(100, 12, { reps: 12, res }, extra), undefined, jour('09-20'),
+  const consigne = (reglage, res, extra, reps) => M.consigneDExercice(hist(100, 12, { reps: reps === undefined ? 12 : reps, res }, extra), undefined, jour('09-20'),
     Object.assign({}, OPT, { reglage })).consigne;
 
-  test.each([['normal'], ['prudent']])('%s : « Au max » jusqu’à l’échec noté « reste 0 » ne fait pas garder (avant : « sans marge, je garde 100 kg »)', (reglage) => {
-    const k = consigne(reglage, 'reste_0', { au_max_reserve: 0 });
+  test('Normal : à fond une rep au-dessus de la cible (13 « reste 0 » pour 12 en gardant 1) ne fait pas garder : la capacité est tenue', () => {
+    const k = consigne('normal', 'reste_0', {}, 13);
     expect(k.etat).toBe('test_propose');
     expect(k.fondement && k.fondement.effortVise && k.fondement.effortVise.effet === 'garde').toBeFalsy();
+    expect(k.fondement.capacite).toBeTruthy();
   });
-  test('Normal, le témoin : « reste 0 » sans « Au max » garde toujours', () => {
+  test('Prudent : à fond deux reps au-dessus (14 « reste 0 » pour 12 en gardant 2) ne fait pas garder ; une seule au-dessus garde', () => {
+    expect(consigne('prudent', 'reste_0', {}, 14).etat).toBe('test_propose');
+    expect(consigne('prudent', 'reste_0', {}, 13).fondement.effortVise.effet).toBe('garde');
+  });
+  test('Normal, le témoin : la cible juste, « reste 0 », garde toujours', () => {
     const k = consigne('normal', 'reste_0', {});
     expect(k.etat).toBe('progression');
     expect(k.fondement.effortVise.effet).toBe('garde');
     expect(k.fondement.effortVise.demandee).toBeUndefined();
   });
-  test('Franc : « Au max en gardant 2 » noté 2 garde le test mais pas le double cran (avant : 105 kg, « facile »)', () => {
-    const k = consigne('franc', 'reste_2', { au_max_reserve: 2 });
-    expect(k.etat).toBe('test_propose');
-    expect(k.haut.charge).toBe(102.5);
-    expect(k.fondement.preuve).toBeUndefined();
-    expect(k.fondement.effortVise.demandee).toBe(2);
-    expect(k.fondement.effortVise.preuveFacile).toBeUndefined();
+  test('une marque `au_max_reserve` laissée par une version d’avant ne change plus rien (I251) : 12 « reste 0 » avec `au_max_reserve: 0` garde comme sans', () => {
+    const avec = consigne('normal', 'reste_0', { au_max_reserve: 0 });
+    const sans = consigne('normal', 'reste_0', {});
+    expect(avec.etat).toBe(sans.etat);
+    expect(avec.fondement.effortVise.effet).toBe('garde');
+    expect(avec.fondement.effortVise.demandee).toBeUndefined();
   });
-  test('Franc, le témoin : « reste 2 » sans « Au max » vaut toujours la preuve facile (deux crans)', () => {
-    const k = consigne('franc', 'reste_2', {});
-    expect(k.haut.charge).toBe(105);
-    expect(k.fondement.preuve).toBe('facile');
-    expect(k.fondement.effortVise.preuveFacile).toBe(true);
+  test('Franc : « reste 2 » noté (sans demande) vaut la preuve facile (deux crans), avec ou sans une marque d’avant', () => {
+    [{}, { au_max_reserve: 2 }].forEach((extra) => {
+      const k = consigne('franc', 'reste_2', extra);
+      expect(k.haut.charge).toBe(105);
+      expect(k.fondement.preuve).toBe('facile');
+      expect(k.fondement.effortVise.preuveFacile).toBe(true);
+      expect(k.fondement.effortVise.demandee).toBeUndefined();
+    });
   });
-  test('la sortie (169) : une séance d’avant finie « Au max » comme demandé n’est pas une première garde', () => {
+  test('la sortie (169) : une séance d’avant finie à la cible sans marge est la première garde, marque d’avant ou non', () => {
     const h = hist(100, 12, { reps: 12, res: 'reste_0' }, {});
     h[1].series[2] = brute(100, 12, 'reste_0', { au_max_reserve: 0 });
     const k = M.consigneDExercice(h, undefined, jour('09-20'), Object.assign({}, OPT, { reglage: 'normal' })).consigne;
-    expect(k.etat).toBe('progression');
-    expect(k.fondement.effortVise.effet).toBe('garde');
-    expect(k.fondement.effortVise.deja).toBe(false);
+    expect(k.etat).toBe('test_propose');
+    expect(k.fondement.effortVise.sortie).toBe(true);
   });
-  // Contradicteur final (C2) : l'exemption de la garde de bord ne vaut que si l'« Au max » prouve une marge (reps + réserve notée > visée).
+  // La garde de bord (Lourd, visée 2 en Normal, 1 en Franc) : la capacité tenue seule — la rep de plus à fond compte comme une marge.
   const histB = (reps, res, extra) => [0, 1, 2].map((i) => ({ seance: { id: 'B' + i, debut: jour(['09-13', '09-06', '08-30'][i]) },
     series: [brute(150, 2), brute(150, 2), i === 0 ? brute(150, reps, res, extra) : brute(150, 2)] }));
   const optB = (reglage) => Object.assign({}, OPT, { reglage });
-  test.each([['normal'], ['franc']])('%s, garde de bord : « Au max » jusqu’à l’échec à 2 reps pour 2 visées garde 150 kg (aucune marge prouvée)', (reglage) => {
+  test.each([['normal'], ['franc']])('%s, garde de bord : 2 reps à fond pour 2 visées gardent 150 kg (aucune marge), marque d’avant ou non', (reglage) => {
     const sans = M.consigneDExercice(histB(2, 'reste_0', {}), undefined, jour('09-20'), optB(reglage)).consigne;
     const avec = M.consigneDExercice(histB(2, 'reste_0', { au_max_reserve: 0 }), undefined, jour('09-20'), optB(reglage)).consigne;
     expect(sans.etat).toBe('bord_garde');
     expect(avec.etat).toBe('bord_garde');
     expect(avec.ligne).toEqual({ charge: 150, vise: 2 });
   });
-  test.each([['normal'], ['franc']])('%s, garde de bord : « Au max » à l’échec à 3 reps, ou « en gardant 1 » noté 1, prouve une marge : la règle monte', (reglage) => {
-    const trois = M.consigneDExercice(histB(3, 'reste_0', { au_max_reserve: 0 }), undefined, jour('09-20'), optB(reglage)).consigne;
-    const un = M.consigneDExercice(histB(2, 'reste_1', { au_max_reserve: 1 }), undefined, jour('09-20'), optB(reglage)).consigne;
+  test('Franc, garde de bord : 3 reps à fond, ou « reste 1 » à 2 reps, tiennent la capacité (visée 1) : la règle monte', () => {
+    const trois = M.consigneDExercice(histB(3, 'reste_0', {}), undefined, jour('09-20'), optB('franc')).consigne;
+    const un = M.consigneDExercice(histB(2, 'reste_1', {}), undefined, jour('09-20'), optB('franc')).consigne;
     expect(trois.etat).toBe('bord');
     expect(trois.ligne.charge).toBe(152.5);
     expect(un.etat).toBe('bord');
     expect(un.ligne.charge).toBe(152.5);
   });
+  test('Normal, garde de bord : 4 reps à fond tiennent la capacité (2 + 2) et montent ; 3 à fond gardent', () => {
+    expect(M.consigneDExercice(histB(4, 'reste_0', {}), undefined, jour('09-20'), optB('normal')).consigne.etat).toBe('bord');
+    expect(M.consigneDExercice(histB(3, 'reste_0', {}), undefined, jour('09-20'), optB('normal')).consigne.etat).toBe('bord_garde');
+  });
 });
 
-describe('C-1 : I233 relit le fondement', () => {
+describe('I233 est retiré : un fondement d’avant portant `demandee` n’est plus comparé', () => {
   const ev = (o) => Object.assign({ effet: 'garde', charge: 70, reps: 10, reserve: 0, visee: 1, auHaut: true, deja: false }, o);
   const cons = (e) => Object.assign({}, sansTest, { etat: 'progression', fondement: { effortVise: e } });
-  test('une garde avec `demandee` atteinte est refusée ; sans `demandee` (consigne d’avant), elle ne l’est pas', () => {
-    expect(jouer(cons(ev({ demandee: 0 })), [], 'normal').erreurs.some((m) => /^I233/.test(m))).toBe(true);
+  test('aucune erreur I233, avec ou sans `demandee`', () => {
+    expect(jouer(cons(ev({ demandee: 0 })), [], 'normal').erreurs.some((m) => /^I233/.test(m))).toBe(false);
     expect(jouer(cons(ev({})), [], 'normal').erreurs.some((m) => /^I233/.test(m))).toBe(false);
-  });
-  test('une preuve facile tirée d’une réponse égale à la demande est refusée', () => {
-    const e = { effet: 'test', charge: 70, reps: 10, reserve: 2, visee: 0, demandee: 2, preuveFacile: true };
-    const k = Object.assign({}, avecTest, { etat: 'test_propose', fondement: { effortVise: e, preuve: 'facile' } });
-    expect(jouer(k, [], 'franc').erreurs.some((m) => /^I233/.test(m))).toBe(true);
   });
 });
 

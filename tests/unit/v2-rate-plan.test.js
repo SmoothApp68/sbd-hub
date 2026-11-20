@@ -116,7 +116,7 @@ describe('niveau 3 — la forme du jour : la carte au rowing', () => {
     expect(p.exercices.some((x) => x.carteForme)).toBe(false);
     propre(p, e);
   });
-  test('« Ajuster la fin » : cibles au bas de la zone, une série de moins par exercice restant, pas d’« Au max »', () => {
+  test('« Ajuster la fin » : cibles au bas de la zone, une série de moins par exercice restant', () => {
     const { e, p } = plan(fait, { gestes: [{ geste: 'forme_ajustee', slug: 'rowing' }] });
     expect(p.formeDuJour.reponse).toBe('ajuste');
     const retire = T.lignesAAjuster(p);
@@ -124,7 +124,7 @@ describe('niveau 3 — la forme du jour : la carte au rowing', () => {
     expect(retire[0].iSerie).toBe(3);
     const row = p.exercices[2];
     row.lignes.filter((l) => l.iSerie !== 3).forEach((l) => expect(l.vise).toBeLessThanOrEqual(8));
-    expect(row.auMax).toBeNull();
+    expect(row.auMax).toBeUndefined();
     propre(p, e);
   });
   test('un seul exercice qui flanche : pas de carte', () => {

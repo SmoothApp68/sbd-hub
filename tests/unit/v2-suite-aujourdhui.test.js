@@ -23,7 +23,8 @@ const ser = (l) => l.map(([kg, r, ex], i) => Object.assign({ id: 's' + (++n), ra
   exercise_slug: 'dc', au_max_reserve: null, validee_a: 'v', source: 'app' }, ex || {}));
 const mk = (id, d, l, rid) => ({ seance: Object.assign({ id, debut: d }, rid ? { routine_id: rid } : {}), series: ser(l) });
 const H = () => [mk('H0', '2026-11-04T18:00:00+01:00', [[90, 5], [90, 5], [90, 5]], 'R'), mk('H1', '2026-11-11T18:00:00+01:00', [[90, 5], [90, 4]], 'R')];
-const JOUR = [[90, 5], [90, 5], [90, 5], [90, 5, { ressenti: 'reste_0', au_max_reserve: 0 }]];
+// « Au max » disparaît (20/11/2026, I251) : la dernière série note l'effort seul (avant : « Au max » à réserve 0).
+const JOUR = [[90, 5], [90, 5], [90, 5], [90, 5, { ressenti: 'reste_1' }]];
 const DEBUT = '2026-11-14T10:00:00+01:00', APRES = '2026-11-14T11:00:00+01:00';
 const opts = { mesure: 'charge_reps', equipement: 'barre', intention: 'progresser', reglage: 'normal', edition: false, zonePlan: 'hypertrophie', zonesDeRoutine: { R: 'hypertrophie' } };
 const suite = (groupeDuJour) => M.suiteDExercice(H(), groupeDuJour, undefined, APRES, opts);

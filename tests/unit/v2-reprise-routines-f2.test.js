@@ -25,7 +25,8 @@ const ser = (l) => l.map(([kg, r, ex], i) => Object.assign({ id: 's' + (++n), ra
   exercise_slug: 'dc', au_max_reserve: null, validee_a: '2026-11-14T10:30:00Z', source: 'app' }, ex || {}));
 const mk = (id, d, l, rid) => ({ seance: Object.assign({ id, debut: d }, rid ? { routine_id: rid } : {}), series: ser(l) });
 const H = () => [mk('H0', '2026-11-04T18:00:00+01:00', [[90, 5], [90, 5], [90, 5]], 'R'), mk('H1', '2026-11-11T18:00:00+01:00', [[90, 5], [90, 4]], 'R')];
-const JOUR = [[90, 5], [90, 5], [90, 5], [90, 5, { ressenti: 'reste_0', au_max_reserve: 0 }]];
+// « Au max » disparaît (20/11/2026, I251) : la dernière série note l'effort seul (avant : « Au max » à réserve 0, `au_max_reserve: 0`).
+const JOUR = [[90, 5], [90, 5], [90, 5], [90, 5, { ressenti: 'reste_1' }]];
 const APRES = '2026-11-14T11:00:00+01:00';
 const opts = (zr) => ({ mesure: 'charge_reps', equipement: 'barre', intention: 'progresser', reglage: 'normal', edition: false, zonePlan: 'hypertrophie', zonesDeRoutine: zr });
 const suite = (zr) => M.suiteDExercice(H(), { seance: { debut: '2026-11-14T10:00:00+01:00', routine_id: 'R' }, series: ser(JOUR) }, undefined, APRES, opts(zr));
@@ -82,8 +83,8 @@ describe('F2 — jamais « La routine change » sans que la routine change (app.
     expect(corps).toMatch(/if \(!ligne\) return;[\s\S]*poserRoutineVoulue/);
     expect(APP).toMatch(/routineIndisponible: ligneDeRoutineDe\(slug\) \? null : PHRASE_ROUTINE_ILLISIBLE/);
   });
-  test('la carte « Oui, dans ma routine » refuse une routine illisible au lieu de poser la marque sur la ligne seule', () => {
-    expect(APP).toMatch(/if \(seance\.routine_id && !rt\) return;/);
+  test('la carte « Dernière série au max ? » n’existe plus (I251) : aucun geste n’écrit une marque sur la routine', () => {
+    expect(APP).not.toMatch(/repondreAuMax|marquerAuMax/);
   });
 });
 
@@ -119,10 +120,10 @@ describe('F2 — I168 : routines pas prêtes, le coach se tait sur ce qu\'elles 
     const sansZone = planAvec({ routinesPretes: false, consignes: { dc: Object.assign({}, consigne(), { plan: null }) } });
     expect(sansZone.plan.exercices[0].suiteMuette).toBe(false);
   });
-  test('la carte « Au max » ne se propose pas routines pas prêtes sur une séance de routine (forgée : I168)', () => {
+  test('une carte « Au max » forgée est refusée par I251 (avant : par I168, routines pas prêtes)', () => {
     const { plan, entrees } = planAvec({ routinesPretes: false, suites: { dc: null } });
     plan.exercices[0].propositionAuMax = { iSerie: 3, boutons: ['Oui, dans ma routine'] };
-    expect(i168(T.verifierPlan(plan, entrees)).join(' ')).toMatch(/Au max/);
+    expect(T.verifierPlan(plan, entrees).erreurs.some((e) => /^I251/.test(e))).toBe(true);
   });
   test('I168 est inscrite au CLAUDE.md et à la spec', () => {
     expect(fs.readFileSync(path.join(__dirname, '../../CLAUDE.md'), 'utf8')).toMatch(/I168/);

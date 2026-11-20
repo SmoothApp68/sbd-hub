@@ -127,12 +127,11 @@ describe('la consigne (vrai moteur, 100 kg, zone Hypertrophie 8-10, trois série
   });
 });
 
-describe('« Au max » lit la même table', () => {
-  const base = { objectif: 'muscle', debutant: false };
-  test('7. militaire 1, soulevé 2 : la constante, pas un littéral ; squat et couché gardent l’échec (0)', () => {
-    expect(M.auMaxDe(Object.assign({ famille: SOULEVE }, base)).reserve).toBe(M.PLANCHER_DE_BARRE.souleve);
-    expect(M.auMaxDe(Object.assign({ famille: MILITAIRE }, base)).reserve).toBe(M.PLANCHER_DE_BARRE.militaire);
-    expect(M.auMaxDe(Object.assign({ famille: SQUAT, zoneDePlan: 'lourd' }, base)).reserve).toBe(0);
+describe('« Au max » disparaît (20/11/2026, I251) : la table des planchers n’a plus qu’un lecteur, la visée affichée', () => {
+  test('7. `auMaxDe` n’existe plus ; militaire 1, soulevé 2 restent la constante de `plancherDeBarre`', () => {
+    expect(M.auMaxDe).toBeUndefined();
+    expect(M.plancherDeBarre(SOULEVE)).toBe(M.PLANCHER_DE_BARRE.souleve);
+    expect(M.plancherDeBarre(MILITAIRE)).toBe(M.PLANCHER_DE_BARRE.militaire);
   });
 });
 
@@ -177,50 +176,33 @@ describe('le plan : un seul chiffre par barre', () => {
     expect(rm.x.gardeDeLigne).toBe(0);
     expect(rm.x.porteDuCran).toBeNull();
   });
-  test('soulevé en Normal Hypertrophie : en-tête 2 et « Au max » 2, le même chiffre (main : 1 et 2)', () => {
+  test('soulevé en Normal Hypertrophie : en-tête 2 et garde des lignes 2, le même chiffre (main : 1 et 2)', () => {
     const r = jouer(SOULEVE, progression, [], 'normal');
     expect(r.x.reserveAffichee).toBe(2);
     expect(r.x.gardeDeLigne).toBe(2);
-    expect(M.auMaxDe({ objectif: 'muscle', famille: SOULEVE }).reserve).toBe(2);
     expect(r.erreurs).toEqual([]);
   });
   test('la ligne du Pourquoi, une fois, quand la barre relève la table (le soulevé en Normal compris)', () => {
     const r = jouer(SOULEVE, progression, [], 'normal');
     expect(r.x.plancher && sp(r.x.plancher.phrase)).toBe('Sur cette barre, je vise 2 en réserve. Tu notes ce que tu veux.');
-    // CONTRA-723 C2 — sans « Au max » à l'échec ce jour-là, la phrase n'annonce aucun échec (avant : « L’échec … passe par la série « Au max » » toujours).
+    // « Au max » disparaît (I251) : la phrase n'annonce jamais d'échec.
     const rf = jouer(SQUAT, progression, [], 'franc');
-    expect(rf.x.auMax).toBeNull();
+    expect(rf.x.auMax).toBeUndefined();
     expect(sp(rf.x.plancher.phrase)).toBe('Sur cette barre, je vise 1 en réserve, même avec Me pousser. Tu notes ce que tu veux.');
     expect(jouer(SQUAT, progression, [], 'normal').x.plancher).toBeNull();     // Normal Hypertrophie : table 1 = plancher, rien à dire
   });
-  test('CONTRA-723 C4 — la marge supposée de la série de référence du pari « Au max » lit l’affichée : 2 pour une personne protégée (65+), 1 sinon', () => {
-    const plan = (plus65) => {
-      let k = 0; const id = () => 'p-s' + (++k);
-      let se = S.creer({ id: 'S', userId: 'u', idSerie: id }); se = S.ajouterExercice(se, SQUAT, id, { series: 3 });
-      se.exercices[0].series[2].au_max = true;
-      const e = { seance: { id: 'S', debut: AVANT, edition: false, exercices: se.exercices }, plus65,
-        consignes: { [SQUAT]: { consigne: progression, contexte: { cran: 2.5, haut: null } } }, reglage: 'franc', paris: [], objectif: 'muscle', catalogue: CATALOGUE };
-      const p = T.planDeSeance(e);
-      return { x: p.exercices[0], erreurs: T.verifierPlan(p, e, null).erreurs };
-    };
-    const maxDe = (x) => Object.keys(x.paris).map((i) => x.paris[i]).filter((q) => q && q.fondement && q.fondement.au_max)[0].fondement.au_max.max_du_jour;
-    const prot = plan(true), non = plan(false);
-    expect(prot.x.reserveAffichee).toBe(2);
-    expect(maxDe(prot.x)).toBe(Math.round(M.maxDuJour(100, 10, 2)));
-    expect(maxDe(non.x)).toBe(Math.round(M.maxDuJour(100, 10, 1)));
-    expect(maxDe(prot.x)).not.toBe(maxDe(non.x));
-  });
-  test('CONTRA-723 C2 — la deuxième phrase seulement quand l’« Au max » du jour va à l’échec (squat marqué, Franc)', () => {
+  test('« Au max » disparaît (I251) — une marque `au_max` sur la ligne (une version d’avant) ne change ni la phrase, ni les paris (avant, CONTRA-723 C2 et C4 : la phrase d’échec et le pari de la table)', () => {
     let k = 0; const id = () => 'p-s' + (++k);
     let se = S.creer({ id: 'S', userId: 'u', idSerie: id }); se = S.ajouterExercice(se, SQUAT, id, { series: 3 });
     se.exercices[0].series[2].au_max = true;
     const e = { seance: { id: 'S', debut: AVANT, edition: false, exercices: se.exercices },
       consignes: { [SQUAT]: { consigne: progression, contexte: { cran: 2.5, haut: null } } }, reglage: 'franc', paris: [], objectif: 'muscle', catalogue: CATALOGUE };
-    const x = T.planDeSeance(e).exercices[0];
-    expect(x.auMax).toMatchObject({ sorte: 'echec' });
-    expect(sp(x.plancher.phrase)).toBe('Sur cette barre, je vise 1 en réserve, même avec Me pousser. L’échec sur une barre passe par la série « Au max ». Tu notes ce que tu veux.');
-    // le même jour en Force : pas d'« Au max » à l'échec, pas de phrase d'échec
-    expect(M.phraseDeLaBarre('squat', 1, 'franc', false)).toBe('Sur cette barre, je vise 1 en réserve, même avec Me pousser. Tu notes ce que tu veux.');
+    const p = T.planDeSeance(e), x = p.exercices[0];
+    expect(x.auMax).toBeUndefined();
+    expect(sp(x.plancher.phrase)).toBe('Sur cette barre, je vise 1 en réserve, même avec Me pousser. Tu notes ce que tu veux.');
+    expect(Object.keys(x.paris).map((i) => x.paris[i]).some((q) => q && q.fondement && q.fondement.au_max)).toBe(false);
+    expect(T.verifierPlan(p, e, null).erreurs).toEqual([]);
+    expect(sp(M.phraseDeLaBarre(1, 'franc'))).toBe('Sur cette barre, je vise 1 en réserve, même avec Me pousser. Tu notes ce que tu veux.');
   });
   test('ligne de test d’un squat en Normal Hypertrophie : 1 (main : 0)', () => {
     const avecTest = Object.assign({}, progression, { etat: 'test_propose', haut: { charge: 102.5, vise: 8, k: 1 } });

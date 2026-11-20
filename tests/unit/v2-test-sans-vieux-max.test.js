@@ -165,7 +165,7 @@ describe('3. le plan — le cas réel du squat', () => {
     expect(t.prochain).toBeUndefined(); expect(t.serie).toBeUndefined(); expect(t.montee).toBeUndefined(); expect(t.pari).toBeUndefined(); expect(t.ajout).toBeUndefined();
     expect(p.semaineDeTest.testee).toBeNull();
     expect(p.semaineDeTest.sansEssai).toEqual([SQ]);
-    expect(p.exercices[0].auMax).toBeNull(); expect(p.exercices[0].propositionAuMax).toBeNull();
+    expect(p.exercices[0].auMax).toBeUndefined(); expect(p.exercices[0].propositionAuMax).toBeUndefined();
     // l'ancien essai : 107,5 kg × 1 (92 % de 116,7) n'est écrit nulle part
     expect(JSON.stringify(p.exercices[0].phrases)).not.toMatch(/107,5/);
     // un max qui lit « 116,7 » n'est pas dit non plus (force estimée, jamais « max estimé » à l'écran)

@@ -2285,7 +2285,7 @@
           var g = vues[x.exercise_slug];
           if (!g) { g = vues[x.exercise_slug] = { jour: jr, series: [] }; e.seances.push(g); }
           g.series.push({ charge_kg: x.charge_kg, reps: x.reps, rpe: x.rpe, ressenti: x.ressenti, type_serie: x.type_serie,
-                          hors_calcul: x.hors_calcul === true, au_max_reserve: x.au_max_reserve === undefined ? null : x.au_max_reserve });
+                          hors_calcul: x.hors_calcul === true });
           if (x.douleur === true && e.douleurs.indexOf(jr) < 0) e.douleurs.push(jr);
         });
       });
@@ -2302,17 +2302,7 @@
         var cle = l.origine === 'bloc' ? 'blocs' : 'zones';
         (e[cle] = e[cle] || []).push(jr);
       });
-      // 193-6 (I87) — L'ARRIVÉE OU LE RETRAIT DE « AU MAX » sur un exercice compte comme un changement de bloc : la meilleure série de la
-      // séance saute (une série à l'échec, plus de reps), ce qui masquerait ou inventerait une baisse. Le jour de la séance où la
-      // présence de la marque bascule (la première séance n'est pas une bascule) entre dans `blocs`, exclu des fenêtres.
-      Object.keys(parSlug).forEach(function (slug) {
-        var e = parSlug[slug], avant = null;
-        e.seances.slice().sort(function (a, b) { return a.jour < b.jour ? -1 : a.jour > b.jour ? 1 : 0; }).forEach(function (g) {
-          var a = g.series.some(function (t) { return Modele.estAuMax(t); });
-          if (avant !== null && a !== avant) { e.blocs = e.blocs || []; if (e.blocs.indexOf(g.jour) < 0) e.blocs.push(g.jour); }
-          avant = a;
-        });
-      });
+      // « Au max » disparaît (20/11/2026, I251) : I87 (l'arrivée ou le retrait de la marque comptait comme un changement de bloc) est retiré avec l'objet.
       Object.keys(parSlug).forEach(function (slug) {
         var e = parSlug[slug];
         e.nom = typeof opt.nom === 'function' ? opt.nom(slug) : slug;
@@ -2359,33 +2349,6 @@
           if (!x || !x.exercise_slug || x.douleur !== true || vus[x.exercise_slug]) return;
           vus[x.exercise_slug] = true;
           sortie[x.exercise_slug] = (sortie[x.exercise_slug] || 0) + 1;
-        });
-      });
-      return sortie;
-    }
-
-    // 193-6b — L'ÉCHEC PAR BARRE : les jours des 6 jours civils précédant `jour` où une série à l'échec a été faite sur chaque barre
-    // (la famille de barre du slug, `THGenerateur.familleDeBarre` sur le catalogue du corpus, ou `null`). À l'échec : `au_max_reserve = 0`, un type `echec`, ou une réserve
-    // notée 0 (`Palier.reserveDeSerie`). Un fait ; la règle (`Moteur.echecRecentDeBarre`, `auMaxDe`) est au moteur.
-    function echecsDeBarre(c, jour) {
-      var J = Moteur.jourCivil(jour), sortie = {};
-      var G = racine.THGenerateur, cat = typeof c.catalogue === 'function' ? c.catalogue() : null;
-      if (!J || !G || !cat) return sortie;
-      var plancher = Moteur.jourCivil(new Date(Date.parse(J + 'T12:00:00') - 6 * 86400000));
-      var tJ = Date.parse(J + 'T12:00:00');
-      (c.seances || []).forEach(function (s) {
-        var d = s && s.debut ? Date.parse(s.debut) : NaN;
-        if (isNaN(d) || d < tJ - 8 * 86400000 || d > tJ + 2 * 86400000) return;   // 229 : hors des jours lus, sans le jour civil
-        var jr = jourDeLaSeance(s.debut);
-        if (!jr || jr < plancher || jr >= J) return;
-        (c.seriesDe(s.id) || []).forEach(function (x) {
-          if (!x || !x.exercise_slug || Modele.estHorsCalcul(x)) return;
-          var echec = Modele.reserveDemandee(x) === 0 || Modele.estAEchec(x) || racine.THPalier.reserveDeSerie(x) === 0;
-          if (!echec) return;
-          var fam = G.familleDeBarre(x.exercise_slug, cat);
-          if (!fam) return;
-          var l = sortie[fam] || (sortie[fam] = []);
-          if (l.indexOf(jr) < 0) l.push(jr);
         });
       });
       return sortie;
@@ -2582,7 +2545,6 @@
       joursDeCardioReguliers: joursDeCardioReguliers,
       minutesDeMobiliteParZone: minutesDeMobiliteParZone,
       douleursParExercice: douleursParExercice,
-      echecsDeBarre: echecsDeBarre,
       maxEstimesAvantLeTest: maxEstimesAvantLeTest,
       reprisesAvantLeTest: reprisesAvantLeTest,
       seriesDesMaxEstimesAvantLeTest: seriesDesMaxEstimesAvantLeTest,

@@ -17861,7 +17861,7 @@ const SETS_IMPORTES = [
     };
     ok('[R60] C — la structure de « En faire une routine » : chauffe puis séries de travail aux reps visées, le repos par défaut, JAMAIS de charge',
       JSON.stringify(formeR('Haut U603')) === JSON.stringify([
-        ['r60-dev-u603', 180, [['echauffement', null, null], ['travail', 10, null], ['travail', 10, null], ['travail', 10, null]]],
+        ['r60-dev-u603', 120, [['echauffement', null, null], ['travail', 10, null], ['travail', 10, null], ['travail', 10, null]]],
         ['r60-row-u603', 120, [['travail', 10, null], ['travail', 10, null], ['travail', 10, null]]],
         ['r60-cur-u603', 90, [['travail', 12, null], ['travail', 12, null], ['travail', 12, null]]]]),
       JSON.stringify(formeR('Haut U603')));
@@ -18110,9 +18110,9 @@ const SETS_IMPORTES = [
     ok('[R60] G — « Créer ces 4 routines » : QUATRE routines (deux taps n’écrivent pas deux fois), dans « Mon programme », dans l’ordre',
       rg.length === 4 && rg.every((r) => r.dossier === 'Mon programme') && rg.map((r) => r.nom).join('|') === 'Jour A|Jour B|Jour C|Jour D',
       JSON.stringify(ROUTINES.map((r) => [r.nom, r.dossier, r.rang])));
-    ok('[R60] G — la forme écrite : des séries de travail seulement (ni chauffe, ni charge), le premier exercice à 180 s de repos',
+    ok('[R60] G — la forme écrite : des séries de travail seulement (ni chauffe, ni charge), le premier exercice au repos conseillé de base (150 s)',
       rg.every((r) => formeG(r).every((x) => x[2].length >= 2 && x[2].every((l) => l[0] === 'travail' && l[1] === true))) &&
-        formeG(rg[0])[0][1] === 180, JSON.stringify(formeG(rg[0])));
+        formeG(rg[0])[0][1] === 150, JSON.stringify(formeG(rg[0])));
     ok('[R60] G — ce qui est écrit est ce qui était montré (les exercices, dans l’ordre) ; l’écarté n’y est pas',
       rg.every((r, i) => JSON.stringify(r.routine_exercises.slice().sort((a, b) => a.rang - b.rang)
         .map((x) => (CATALOGUE.filter((c) => c.slug === x.exercise_slug)[0] || {}).nom)) === JSON.stringify(nomsApercu[i][1])) &&
@@ -30320,8 +30320,8 @@ const SETS_IMPORTES = [
       return { ligne: x.pourquoi && x.pourquoi.repos || null, long: x.reposLong ? x.reposLong.reposS : null,
                compteur: x.compteur ? x.compteur.compteur : null, etat: x.consigne ? x.consigne.etat : null };
     });
-    ok('[EQ1882] DISCRIMINANT — le « Pourquoi » du squat qui stagne porte « Sur un gros mouvement, 2 min 30 à 3 min de repos aident. » (repos réglé 75 s)',
-      repos1882.ligne === 'Sur un gros mouvement, 2 min 30 à 3 min de repos aident.' && repos1882.long === 75, nb1882(repos1882));
+    ok('[EQ1882] DISCRIMINANT — le « Pourquoi » du squat qui stagne dit le fait sans chiffre de repos : « Sur un gros mouvement, ton repos réel est court ; le conseil est dans le minuteur. » (repos réglé 75 s ; 20/11/2026, I76)',
+      repos1882.ligne === 'Sur un gros mouvement, ton repos réel est court ; le conseil est dans le minuteur.' && repos1882.long === 75, nb1882(repos1882));
     ok('[EQ1882] la garde de l’app (I76 compris) n’a rien vu', gardeBanc.violations === violationsAvant, nb1882(gardeBanc.liste.slice(-2)));
     await abandonner();
 

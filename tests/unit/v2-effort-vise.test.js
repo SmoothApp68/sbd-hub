@@ -138,7 +138,7 @@ describe('154 C — la règle, dans la consigne', () => {
     const k = consigne(histoire(40, 12, { reps: 12, ressenti: 'reste_0' }));
     expect(k.etat).toBe('progression');
     expect(k.haut).toBeNull();
-    expect(k.fondement.effortVise).toEqual({ effet: 'garde', charge: 40, reps: 12, reserve: 0, visee: 1, auHaut: true, deja: false });
+    expect(k.fondement.effortVise).toEqual({ effet: 'garde', charge: 40, reps: 12, reserve: 0, visee: 1, auHaut: true, deja: false, vise: 12 });   // I252 (C1) : les reps visées lues
   });
 
   test('R = V au haut de la zone : la montée a lieu comme avant', () => {

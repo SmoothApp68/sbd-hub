@@ -96,7 +96,11 @@ describe('« Il te manque N reps pour tester X kg » : confirmée par le moteur,
     const dits = [];
     [[9, 9, 9], [8, 9, 9], [9, 9, 8]].forEach((reps) => dits.push([confirme('reste_2', reps), confirme('reste_0', reps)]));
     expect(dits.some((x) => x[0] === true)).toBe(true);
-    dits.forEach((x) => { expect(x[1]).not.toBe(true); });
+    // 20/11/2026 (« Capacité tenue », I252, C1) — sans marge ne confirme plus « jamais » : la réserve notée est rejouée telle quelle, et une série qui
+    // dépasse la consigne reçue (70 × 9) de la marge visée (10 + 0 ≥ 9 + 1) tient sa capacité. Ce qui reste vrai : sans marge n'est jamais PLUS
+    // favorable qu'avec de la marge (aucune réserve inventée), et la valeur de chaque cas est nommée.
+    dits.forEach((x) => { if (x[1] === true) expect(x[0]).toBe(true); });
+    expect(dits).toEqual([[false, false], [true, true], [false, false]]);
   });
 });
 

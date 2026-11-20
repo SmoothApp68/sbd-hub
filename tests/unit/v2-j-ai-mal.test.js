@@ -85,7 +85,11 @@ describe('51-3 — une séance marquée est neutre (les 4 cas d’Aurélien)', (
         ? Object.assign({}, ref, { etat: 'progression', haut: null }) : ref);
       expect(avec).toEqual(sansTest(c.attendu));
       expect(sans).toEqual(sansTest(c.sans_la_seance_douloureuse));
-      expect(nonMarquee).toEqual(sansTest(c.si_elle_n_etait_pas_marquee));
+      // 20/11/2026 (« Capacité tenue », MOTEUR §9.26 delta, I252) — non marquées, N01 (95 × 8 à RPE 9, R = 1) et N02 (95 × 7 à RPE 10) tiennent leur
+      // capacité (reps + R ≥ 5 + 2) : la garde de 154 n'a plus lieu, le test revient. N02 : celui du fichier (97,5 kg). N01 : 105 kg et non 100, le double
+      // cran du dépassement (186 : 8 reps, 3 au-dessus du haut de la zone), écrit après le fichier ; l'écart est nommé à sa valeur exacte.
+      const capacite = (ref) => (c.id === 'N01' ? Object.assign({}, ref, { haut: [105, 3, 1] }) : ref);
+      expect(nonMarquee).toEqual(capacite(c.si_elle_n_etait_pas_marquee));
       // LA PROPRIÉTÉ : la ligne avec la marque = la ligne sans la séance…
       expect(avec.ligne).toEqual(sans.ligne);
       // …et sans la marque, elle aurait reculé.

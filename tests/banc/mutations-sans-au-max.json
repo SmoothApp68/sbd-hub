@@ -5,7 +5,7 @@
   "ancien": "    // est à fond ; ce qui ne punit pas celui qui a fait la capacité prévue, c'est la capacité tenue du moteur (`Moteur.capaciteTenue`, I252).\n    return c;",
   "nouveau": "    // est à fond ; ce qui ne punit pas celui qui a fait la capacité prévue, c'est la capacité tenue du moteur (`Moteur.capaciteTenue`, I252).\n    if (c === 'max' && serie.au_max_reserve === 0) return null;\n    return c;",
   "banc": "aucun",
-  "unitaires": ["tests/unit/v2-une-seule-garde.test.js", "tests/unit/v2-architecture.test.js"]
+  "unitaires": ["tests/unit/v2-sans-au-max.test.js", "tests/unit/v2-une-seule-garde.test.js"]
  },
  {
   "nom": "carte-au-max-revient",
@@ -16,7 +16,7 @@
   "sections": ["sans-au-max"]
  },
  {
-  "nom": "recul-sans-note-bouge-la-correction",
+  "nom": "recul-sans-note-monte-la-correction",
   "fichier": "v2/js/moteur.js",
   "ancien": "      if (mr === null) { pas.push({ charge: d.charge, faites: d.reps, prevision: null, cible: l.cible, delta: 0, sansNote: true }); return; }",
   "nouveau": "      if (mr === null) mr = RECUL_MARGE_VISEE;",

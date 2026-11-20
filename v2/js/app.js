@@ -9923,8 +9923,6 @@
   //     suivante (le geste de l'étiquette, `poserZone`) et le REPLI figé dans
   //     la carte (§14.5) — le plan l'applique (`consigneRepli`), I35 le vérifie ;
   //   · « Sans coach cette fois » : la marque, comme « J'ai mal ».
-  // 193-6 — l'index de la dernière série de travail ou de recul d'un exercice (`Modele.estTravail` : une chauffe et une dégressive
-  // n'en sont pas), ou -1. Une seule définition pour les deux feuilles (séance, éditeur de routine).
   // 196 — le menu ⋯ d'une série propose-t-il « Rest-pause » ? `{ possible, aide }` ; la définition de l'exercice est celle du moteur
   // (`peutRestPause`), la semaine allégée et la zone à ménager sont lues dans le plan.
   function restPauseDeLaFeuille(iExo, iSerie) {

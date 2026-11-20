@@ -100,15 +100,21 @@ describe('193-5 — la correction personnelle (rejouée)', () => {
   });
   // « Au max » disparaît (20/11/2026, CONTRA-AUMAX-DEDUIT C4) — un recul SANS note de réserve ne bouge plus la correction : il n'est plus supposé « en gardant 2 »
   // (avant : prévision 8, 12 ≥ 8 + 2 → +2,5 % à chaque séance, jusqu'à +10 %, sur un recul fait à l'échec et non noté).
-  test('C4 — DISCRIMINANT : un recul sans note ne bouge pas la correction, ni vers le haut ni vers le bas', () => {
+  test('C4 — DISCRIMINANT : un recul sans note ne monte pas la correction', () => {
     const sans = { cible: 8, series: [g(132.5, 4, { rpe: 9 }), r(112.5, 12)] };
     const p = M.correctionDeRecul([sans]);
     expect(p.valeur).toBe(0);
     expect(p.pas[0]).toMatchObject({ prevision: null, delta: 0, sansNote: true, faites: 12 });
-    const sous = { cible: 8, series: [g(132.5, 4, { rpe: 9 }), r(112.5, 6)] };
-    expect(M.correctionDeRecul([sous]).valeur).toBe(0);
     const quatre = [1, 2, 3, 4].map(() => ({ cible: 8, series: [g(132.5, 4, { rpe: 9 }), r(112.5, 12)] }));
     expect(M.correctionDeRecul(quatre).valeur).toBe(0);
+  });
+  // CONTRA-728 D1 — la baisse ne lit aucune marge : un recul non noté sous la cible compte −2,5 %, comme sur main.
+  test('D1 — un recul sans note SOUS la cible baisse toujours la correction : deux séances 85 × 5 pour une cible de 7 → −5 %', () => {
+    const s = () => ({ cible: 7, series: [g(100, 3, { rpe: 9 }), r(85, 5)] });
+    const p = M.correctionDeRecul([s(), s()]);
+    expect(M.reculDePlusDeReps(s())).toBe(true);
+    expect(p.valeur).toBe(-0.05);
+    expect(p.pas.map((q) => [q.delta, q.prevision, q.sansNote])).toEqual([[-0.025, null, true], [-0.025, null, true]]);
   });
 });
 

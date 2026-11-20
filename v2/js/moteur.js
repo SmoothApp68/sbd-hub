@@ -12550,8 +12550,9 @@
   // récente d'abord (`{ series, cible }`). La prévision d'une séance : les reps que la table donne à la charge de son dernier recul, à
   // partir de son max du jour d'alors (même fonction), pour la marge de CE recul tel qu'il a été fait (`reserveDeSerie`, échec = 0).
   // Fait ≥ prévision + 2 : +2,5 % ; fait sous la cible : −2,5 % ; sinon 0.
-  // « Au max » disparaît (20/11/2026, CONTRA-AUMAX-DEDUIT C4) — UN RECUL SANS NOTE DE RÉSERVE NE BOUGE PAS LA CORRECTION (delta 0, `sansNote`) : il n'est
-  // plus supposé « en gardant 2 » (un recul fait à l'échec et non noté donnait une prévision plus basse de 2, donc +2,5 % à chaque séance, jusqu'à +10 %).
+  // « Au max » disparaît (20/11/2026, CONTRA-AUMAX-DEDUIT C4) — UN RECUL SANS NOTE DE RÉSERVE NE MONTE PLUS LA CORRECTION (`sansNote`, `prevision: null`) : il
+  // n'est plus supposé « en gardant 2 » (un recul fait à l'échec et non noté donnait une prévision plus basse de 2, donc +2,5 % à chaque séance, jusqu'à
+  // +10 %). La baisse, elle, ne lit aucune marge (CONTRA-728 D1) : un recul non noté SOUS la cible compte −2,5 %, comme avant.
   function correctionDeRecul(pool) {
     var P = Palier();
     var retenues = (pool || []).filter(reculDePlusDeReps).slice(0, RECUL_CORRECTION_SEANCES).reverse();
@@ -12563,7 +12564,12 @@
       if (max === null) return;
       var d = l.reculs[l.reculs.length - 1];
       var mr = P.reserveDeSerie(d.serie);
-      if (mr === null) { pas.push({ charge: d.charge, faites: d.reps, prevision: null, cible: l.cible, delta: 0, sansNote: true }); return; }
+      if (mr === null) {
+        var dSans = l.cible !== null && d.reps < l.cible ? -RECUL_CORRECTION_PAS : 0;
+        total = Math.round(Math.min(RECUL_CORRECTION_MAX, Math.max(-RECUL_CORRECTION_MAX, total + dSans)) * 1e6) / 1e6;
+        pas.push({ charge: d.charge, faites: d.reps, prevision: null, cible: l.cible, delta: dSans, sansNote: true });
+        return;
+      }
       var rt = repsDeLaTable(d.charge / max * 100);
       if (rt === null) return;
       var prevision = Math.max(1, Math.round(rt - mr));

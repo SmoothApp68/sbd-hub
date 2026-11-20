@@ -3205,6 +3205,12 @@
     var isolation = x.polyarticulaire === false;
     return {
       reglage: plan.reglage, objectif: plan.objectif,
+      // Lot E, A5 (20/11/2026, MOTEUR §9.39 et §14.8, I237) — le levier « Dégressive » d'une réaction n'existe que là où la dégressive est permise
+      // par la même fonction que l'escalier (`Moteur.degressivePossible` : une isolation, ni Lourd ni Mix, ni sèche, ni décharge, ni Entretenir,
+      // ni débutant). Seule la condition « la routine n'en a pas déjà une » est ignorée : la réaction propose UNE ligne, elle ne se cumule pas.
+      // Le matériel et la mesure (pas de barre, pas de durée ni de distance) restent ceux d'avant.
+      peutDegressive: equip !== 'barre' && x.mesure !== 'temps' && x.mesure !== 'charge_distance' && x.mesure !== 'charge_temps' &&
+        Moteur().degressivePossible(conditionsDegressiveDuRate(plan, x, e, seance)),
       // I216 — le plancher de la réaction = la réserve AFFICHÉE de la ligne, déjà calculée (`Moteur.reserveAffichee`, plus haut) : jamais recalculée ni copiée.
       // Il ne vaut que là où la réserve affichée est un PLANCHER (population protégée I160, reprise longue I206) : ailleurs c'est la table (Lourd, Mix : 2) et la
       // réaction garde sa règle propre (« garde 1 » en Normal).
@@ -3221,9 +3227,18 @@
       peuDeTemps: gs.concat(Array.isArray(seance.gestes) ? seance.gestes : []).some(function (g) { return g && g.geste === 'raccourci'; }),
       seche: plan.phase === 'seche', autreSalle: e.autreSalle === true,
       barre: equip === 'barre', materiel: equip, isolation: isolation,
-      peutRestPause: Moteur().peutRestPause(muscles), peutDegressive: equip !== 'barre' && x.mesure !== 'temps' && x.mesure !== 'charge_distance' && x.mesure !== 'charge_temps',
+      peutRestPause: Moteur().peutRestPause(muscles),
       pas: cs ? nombre(cs.pas) : null
     };
+  }
+  // Lot E, A5 — les conditions de la dégressive pour la réaction : celles de l'escalier (`conditionsDegressive`, une seule lecture), sans
+  // « la routine en a déjà une ». Lue aussi par I237 (`verifierRate`).
+  function conditionsDegressiveDuRate(plan, x, e, seance) {
+    var allegee = !!(plan && plan.allegee) || !!(x && x.consigne && x.consigne.allegee);
+    var cond = conditionsDegressive(e || {}, seance, x && x.slug, x && x.consigne ? x.consigne.zone : null, plan ? plan.phase : null,
+      { allegee: allegee }, plan ? plan.intention : null);
+    cond.aUneDegressive = false;
+    return cond;
   }
 
   // PR 4b — voir `Moteur.reactionAuZero`. Rend vrai quand la réaction au zéro parle (x.rate posé) ; faux : le reste du pipeline joue.
@@ -6984,6 +6999,12 @@
         }
         if (r.pasDAuMax && (x.auMax || x.propositionAuMax || (x.lignes || []).some(function (l) { return l.auMax; }))) {
           erreurs.push('I120' + nom + 'un « Au max » après un échec franc');
+        }
+        // I237 (lot E, A5, 20/11/2026, MOTEUR §9.39 et §14.8) — un levier « Dégressive » de la réaction satisfait la règle de l'escalier,
+        // relue depuis les ENTRÉES (`Moteur.degressivePossible` : isolation, ni Lourd ni Mix, ni sèche, ni décharge, ni Entretenir, ni débutant).
+        if ((r.boutons || []).some(function (b) { return b && b.cle === 'degressive'; }) &&
+            !M.degressivePossible(conditionsDegressiveDuRate(plan, x, entrees || {}, entrees && entrees.seance))) {
+          erreurs.push('I237' + nom + 'un levier « Dégressive » là où la dégressive n’est pas permise (zone ' + (x.consigne ? x.consigne.zone : '?') + ', phase ' + plan.phase + ')');
         }
         // I232 (« Une seule garde », 19/11/2026, MOTEUR §9.39) — à garde 0 des lignes (recalculée depuis les entrées), la réaction ne demande pas une
         // marge que la ligne ne demande pas : aucun « garde N » > 0, aucun cas M, et aucun échec (L, « Pas d'Au max ») sur une série à fond à au moins

@@ -2236,6 +2236,22 @@ n'affiche aucun effort visé (I154), la réaction garde sa propre garde et l'éc
 d'Au max » sur une série à au moins le bas de la zone, aucune porte fermée pour « échec » sur une telle série. **I216 étendu** : le plancher se
 recalcule au rôle `ligne`, il vaut donc aussi avec un test en dernière ligne. Tests : `tests/unit/v2-une-seule-garde.test.js`.
 
+**Delta 20/11/2026 — lot E « revue des règles », A5 : pas de dégressive après un raté hors de la règle de l'escalier (I237).** Tour de table
+(TT2-A, Q5) et contradicteur à froid (CONTRA-TT2, A5 : « tient »). Constat : `reactionDeSerie` avait une 3e branche (« sinon dégressive si
+`peutDegressive` ») qui proposait le bouton « Dégressive » sur les haltères polyarticulaires (ni isolation, ni matériel de rest-pause), en
+zone Lourd ou Mix et en sèche, alors que la dégressive proposée par l'escalier (§14.8) y est interdite. **Règle : le levier « Dégressive »
+d'une réaction n'existe que si `Moteur.degressivePossible` la permet** (une isolation, ni Lourd ni Mix, ni sèche, ni décharge, ni Entretenir,
+ni débutant), lue par le plan (`contexteDuRate` → `conditionsDegressiveDuRate`, la lecture de l'escalier `conditionsDegressive`, une seule) ;
+seule la condition « la routine en a déjà une » est ignorée (la réaction propose une ligne, elle ne se cumule pas). Le matériel et la mesure
+d'avant restent (pas de barre, pas de durée ni de distance). La 3e branche est supprimée : sans dégressive ni rest-pause permis, la réaction
+garde sa phrase (« +1 min » si le repos est court, « Prendre X kg » si la charge baisse), sans levier de poussée ; « en sèche, c'est attendu »
+reste. Ce qui change à l'écran : plus de bouton « Dégressive » après un raté sur un développé aux haltères, en zone Lourd ou Mix, en sèche.
+**Écart noté (le rest-pause)** : le levier « Rest-pause » de la réaction n'a pas la même exception (il passe par `peutRestPause`, la seule
+définition, §9.33), mais §9.33 ne l'exclut ni en Lourd ni en sèche : une machine en zone Lourd peut encore recevoir « Rest-pause » après un
+raté. Le contradicteur recommande « pas en Lourd/Mix, pas en sèche » ; non tranché dans ce lot (le menu ⋯ de la série le propose aussi en
+Lourd, la même question s'y pose) : à décider avec §9.33. **I237** (`verifierRate`) : tout bouton « Dégressive » d'une réaction satisfait
+`degressivePossible`, relu depuis les entrées. Tests : `tests/unit/v2-lot-e-degressive-rate.test.js`.
+
 ### 9.40 Objectifs en entretien, activités notées, la veille des jambes lourdes — décidé le 04/11/2026 (chantier 225) (I123, I124)
 
 *Delta daté du 04/11/2026. Recherche : `RECHERCHE-225-OBJECTIFS-ACTIVITES`. Migration proposée (appliquée par Claude.ai) : `v2_129_objectifs_activites`. (Le numéro §9.38 du prompt était déjà pris par le chantier 201.)*
@@ -3420,6 +3436,8 @@ Pourquoi : les méta-analyses ne montrent pas plus de croissance qu'en séries c
 - **Les boutons** : « Ajouter une dégressive » / « Non merci » (le libellé de la série de plus, « Ajouter une série », décrirait mal la ligne).
 - **Au poids du corps ou sur une aide** (charge de travail nulle ou négative) : pas de dégressive (§9.17, I30) — le silence, comme le repli.
 - **Pari** : `module = 'escalier'`, `fondement.marche = 'degressive'`, `reponse : acceptee | refusee`, `debut` (le début de la séance), `exercise_slug` vide ; observé comme la série de plus (1 au progrès avant le prochain déclenchement, 0 à ce déclenchement ; refusé, jamais observé).
+
+**Delta 20/11/2026 (lot E, A5)** : la réaction au raté (§9.39) lit la même règle : son levier « Dégressive » n'existe que si `degressivePossible` la permet (la condition « la routine en a déjà une » mise à part) ; la 3e branche de `reactionDeSerie` (haltères polyarticulaires, sans filtre de zone ni de phase) est supprimée. **I237**.
 
 **Invariant I48** : une dégressive proposée (sa carte) ou en cours ne l'est que sur une isolation (`estPolyarticulaire` faux), hors sèche, hors zone force, hors semaine allégée ou décharge, hors Entretenir, jamais pour un débutant ; la carte n'apparaît qu'au deuxième déclenchement isolé, après une série de plus proposée, sur un exercice dont la routine n'a pas de ligne dégressive *(au plafond de la salle, l'ordre est celui du §10 bis, que vérifie I47 — 113)*. *(I47 est pris par « Ma salle », #439.)* **I17** reste vrai : la ligne dégressive est posée par le geste de l'utilisateur, jamais par le coach seul.
 

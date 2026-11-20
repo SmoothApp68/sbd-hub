@@ -13327,10 +13327,12 @@
     if (tient && (lettre === 'A' || lettre === 'C' || lettre === 'D') && c.peuDeTemps !== true) leviers.push('repos');
     // Me pousser et la force : on protège la charge par le repos, puis par le rest-pause ou la dégressive ; jamais en Prudent,
     // jamais sur une zone à ménager.
+    // Lot E, A5 (20/11/2026, MOTEUR §9.39, §14.8, I237) : la dégressive seulement sur une isolation où `degressivePossible` la permet
+    // (`c.peutDegressive`, calculé par le plan) ; la 3e branche (la dégressive des haltères polyarticulaires, sans filtre de zone ni de
+    // phase) est supprimée : sans dégressive ni rest-pause permis, la réaction garde sa phrase, sans levier de poussée.
     if (tient && !prudent && !menage && (reg === 'franc' || protege) && (sous || ecart >= 2 || echec)) {
       if (c.isolation === true && c.peutDegressive === true) leviers.push('degressive');
       else if (c.peutRestPause === true) leviers.push('rest_pause');
-      else if (c.peutDegressive === true) leviers.push('degressive');
     }
     if (baisse) leviers.push('prendre');
     if (corps && (sous || echec || lettre === 'E')) {

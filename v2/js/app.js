@@ -10005,6 +10005,8 @@
     try {
       var g = { geste: 'rate_prise', slug: x.slug, rang: iSerie, bouton: cle };
       if (cle === 'prendre' && r.charge && r.charge.kg !== null && r.charge.kg !== undefined) g.kg = r.charge.kg;
+      // « Une seule voix après un zéro » (19/11/2026, règle 7) — le cas de la réaction au zéro suit le geste : le plan relit « Prendre X kg » après un zéro même si le zéro est corrigé.
+      if (cle === 'prendre' && r.niveau === 'zero' && r.cas === 'Z1') g.cas = r.cas;
       if (cle === 'repos') {
         ajusterRepos(Moteur.RATE_PLUS_REPOS_S);
       } else if (cle === 'rest_pause') {

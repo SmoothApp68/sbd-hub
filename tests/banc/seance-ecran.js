@@ -32049,6 +32049,7 @@ const SETS_IMPORTES = [
         parisL[0].valeur_observee === null && parisDuTest(SDT).length === 0, nb(parisL));
     await feuilleFermee();
 
+    try {
     // ── 4. La séance du jour : le soulevé est le premier de la routine.
     await aller('/saisie');
     await demarrerRoutine('Semaine ST');
@@ -32182,6 +32183,11 @@ const SETS_IMPORTES = [
     ok('[ST] I93 — à la fin de la séance, le pari du squat est observé : valeur observée = le max mesuré (107,5 kg), la série observée = l’essai 1 ; toujours aucun pari pour le soulevé',
       pariFin.valeur_observee === 107.5 && !!essai1En && pariFin.set_observe === essai1En.id && parisDuTest(SDT).length === 0 &&
         base.predictions.filter((l) => l.exercise_slug === SDT).length === 0, nb([pariFin, essai1En && essai1En.id]));
+    } catch (e) {
+      // une exception devient un contrôle en échec (jamais un banc qui s'arrête) ; la section rend un état propre
+      ok('[ST] [exception] la section a pu se jouer jusqu’au bout', false, String(e && e.stack || e).slice(0, 600));
+      await remettreAPropre();
+    }
     recapDesDefauts();
     ok('[ST] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,

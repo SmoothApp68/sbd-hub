@@ -2511,6 +2511,13 @@
       // la barre n'a pas été ratée, la séance est neutre pour le compte (`etatSuite = prec`, comme une décharge) — sinon deux séances suivies à la lettre
       // mèneraient à `bord_vague` (−5 %) alors que le coach tenait la charge. (`zero_rep`, livré avec la règle B, est hors PR : noté comme dette.)
       var tenueNeutre = rk !== null && rk.etat === 'tenue_apres_zero' && prec !== null && !ratee;
+      // Lot E, A2 (20/11/2026, MOTEUR §9.1.2 et §9.8, I240) — LA SÉANCE DE CONFIRMATION DU PRUDENT EST NEUTRE : quand la consigne reçue était la garde de
+      // confirmation (`bord.confirmation`) et que la barre n'a pas été ratée, la séance ne compte ni pour la vague (`sans`) ni pour le compte long (`total`,
+      // `aRecule`, `record`, `depuisRecord`) : les cinq champs reprennent `prec`, comme la tenue après un zéro. Sinon un Prudent qui confirme une séance sur
+      // deux atteindrait la vague (−5 %) et la carte « Passer à 3-5 reps » deux fois plus vite que les autres.
+      var confirmationNeutre = rk !== null && rk.etat === 'bord_garde' && !!(rk.fondement && rk.fondement.bord && rk.fondement.bord.confirmation === true) &&
+        prec !== null && !ratee;
+      tenueNeutre = tenueNeutre || confirmationNeutre;
       var meilleur, sans, recul;
       if (tenueNeutre) {
         meilleur = prec.meilleur; sans = prec.sans; recul = prec.recul;
@@ -2585,7 +2592,21 @@
           return fin('bord_garde', ligneDe(P, vise), { bord: { charge: P, reps: nombre(derniere.reps), reserve: Rb } });
         }
       }
-      return fin('bord', ligneDe(voisine(P, 1), niv), null);
+      // Lot E, A2 (20/11/2026, MOTEUR §9.1.2 et §9.8, I240) — EN PRUDENT, DEUX SÉANCES AU MÊME PALIER AVANT DE MONTER (comme dans les zones, §9.8) :
+      // la montée n'est donnée que si la séance lue d'AVANT a aussi tenu cette charge (`precedente` au même palier) et n'a pas été ratée (la consigne
+      // qu'a reçue L n'est ni un recul ni une vague, et elle vient de la règle de bord : `prec`). La garde « une seule séance » (`lues === 1`) compte
+      // comme une confirmation. Sinon le coach garde la charge UNE séance (`bord.confirmation`), neutre pour le compteur. Normal et Franc : inchangés.
+      var confirmee = reglage !== 'prudent' || (prec !== null && precedente !== null && memeCharge(nombre(precedente.seance.palier), P) &&
+        rk !== null && rk.etat !== 'bord_recul' && rk.etat !== 'bord_vague');
+      if (!confirmee) {
+        return fin('bord_garde', ligneDe(P, niv), { bord: { charge: P, reps: niv, confirmation: true } });
+      }
+      var monte = fin('bord', ligneDe(voisine(P, 1), niv), null);
+      // I240 relit le fait : en Prudent, la montée vient d'une séance d'avant au même palier (non énumérable, comme `_lues`).
+      if (monte && typeof monte === 'object' && reglage === 'prudent') {
+        Object.defineProperty(monte, '_confirmee', { value: { palier: nombre(precedente.seance.palier), etat: rk.etat }, enumerable: false });
+      }
+      return monte;
     }
     function auMoins(series, seuil) {
       return series.some(function (s) { var r = comptees(s); return r !== null && r >= seuil; });
@@ -4891,6 +4912,11 @@
       return chargeFois(b.charge, b.reps, cF) + DEUX_POINTS + 'une seule séance sous ' + nombreFr(RANGEMENT[0].jusqua + 1, regle('constante')) + ' reps. Je garde ' +
         enKg(b.charge, cite(FAIT, { quoi: 'bord.charge' })) + '.';
     }
+    // Lot E, A2 — la garde de confirmation du Prudent : le fait, puis ce que fait le coach (« je », jamais « on » : VOIX, I162).
+    if (etat === 'bord_garde' && b.confirmation === true) {
+      return chargeFois(b.charge, b.reps, cF) + ', toutes les reps. Je garde ' + enKg(b.charge, cite(FAIT, { quoi: 'bord.charge' })) +
+        ' une séance de plus avant de monter.';
+    }
     if (etat === 'bord_garde') {
       return chargeFois(b.charge, b.reps, cF) +
         (b.reserve === 0 ? ', sans marge' : ', avec ' + nombreFr(b.reserve, cite(FAIT, { quoi: 'bord.reserve' })) + ' en réserve') +
@@ -6000,6 +6026,11 @@
           return 'Sous ' + nombreFr(RANGEMENT[0].jusqua + 1, regle('constante')) + ' reps, je ne te demande jamais une rep de plus. ' +
             'Une seule séance ne fait pas une habitude' + DEUX_POINTS + 'je garde ' + enKg(f.bord.charge, cite(FAIT, { quoi: 'bord.charge' })) +
             ', la prochaine séance dira si c\'est ta zone.';
+        }
+        // Lot E, A2 — la garde de confirmation : la règle du réglage Prudent.
+        if (f.bord && f.bord.confirmation === true) {
+          return phraseDeBord(c.etat, f.bord) + ' Réglage « ' + libelleRythme('prudent') + ' »' + DEUX_POINTS + 'sous ' + nombreFr(RANGEMENT[0].jusqua + 1, regle('constante')) +
+            ' reps, je monte après deux séances de suite à la même charge.';
         }
         return !f.bord ? '' : phraseDeBord(c.etat, f.bord) + ' Sous ' + nombreFr(RANGEMENT[0].jusqua + 1, regle('constante')) +
           ' reps, une réserve sous ma visée garde la charge une séance.';
@@ -12045,7 +12076,10 @@
     }
     var pose = 'defaut';
     // Une première fois : le coach ne pose RIEN (aucune charge de travail n'est encore trouvée). Une marque de la personne, elle, reste.
-    if (x.premiereFois === true && !main) return rien;
+    // Lot E, A3 (20/11/2026, MOTEUR §9.30 delta, I239) : le DÉBUTANT non plus (`debutant`, `Profil.estDebutant` : « moins d'un an ») — le coach ne
+    // lui pose jamais « Au max » (ni sur une barre, ni sur une machine ou une isolation : la décision du 31/10/2026 est remplacée) ; sa marque à
+    // lui reste, au plancher « en gardant 2 reps » (`publicPrudentAuMax`).
+    if ((x.premiereFois === true || x.debutant === true) && !main) return rien;
     if (reserve === null) {
       if (!main) return rien;
       reserve = AU_MAX_RESERVE_PAR_DEFAUT; pose = 'main';
@@ -12061,7 +12095,8 @@
     // une zone à ménager, un « J'ai mal » récent, 65 ans et plus connus, une première fois : jamais d'échec ni « garde 1 », au plus « en
     // gardant 2 reps » (un seul plancher, un seul prédicat ; une marque de la personne n'est jamais effacée, elle passe au plancher)
     // 16/11/2026 (MOTEUR §9.30, delta) : la séance de REPRISE LONGUE de cet exercice (`enRepriseLongue(consigne)`, UN prédicat, lu par le plan) rejoint la liste.
-    if ((x.menagee || x.douleurRecente === true || x.plus65 === true || x.premiereFois === true || x.repriseLongue === true) && reserve < AU_MAX_RESERVE_PAR_DEFAUT) reserve = AU_MAX_RESERVE_PAR_DEFAUT;
+    // Lot E, A3 (20/11/2026) : le débutant aussi ; la liste est UN prédicat, `publicPrudentAuMax`, que lisent aussi les mots (`motsDeLAuMax`).
+    if (publicPrudentAuMax(x) && reserve < AU_MAX_RESERVE_PAR_DEFAUT) reserve = AU_MAX_RESERVE_PAR_DEFAUT;
     return { pose: pose, reserve: reserve, sorte: reserve === 0 ? 'echec' : 'garde',
              avecPareur: reserve === 0 && (classe === 'squat' || classe === 'couche'), classe: classe };
   }
@@ -12078,11 +12113,19 @@
     var c = consigne || null;
     return !!c && (c.etat === 'zero_rep' || c.etat === 'tenue_apres_zero' || (c.etat === 'silence' && c.raison === 'zero_plancher'));
   }
-  // D-A3 — les mots de la carte de la dernière série et du bouton du menu : pour un 65+ connu, « en gardant 2 reps » (le plancher), pas « au max ».
-  // Le plan les pose (`x.auMaxMots`, `proposition.titre`) ; l'écran les lit.
-  function motsDeLAuMax(plus65) {
+  // Lot E, A3 (20/11/2026, MOTEUR §9.30 delta, I239) — LE PUBLIC PRUDENT DE « AU MAX » : UN prédicat, lu par `auMaxDe` (le plancher « en gardant 2
+  // reps ») et, par ses appelants, par `motsDeLAuMax` (les mots : jamais un bouton « Au max » sur une ligne « en gardant 2 »). Une zone à ménager, un
+  // « J'ai mal » récent, 65 ans et plus CONNUS, une première fois (le plan y range l'après-zéro, `estApresZero`), la reprise longue de l'exercice,
+  // un débutant. `o` : les faits de `auMaxDe` (ceux qui manquent valent faux).
+  function publicPrudentAuMax(o) {
+    var x = o || {};
+    return !!x.menagee || x.douleurRecente === true || x.plus65 === true || x.premiereFois === true || x.repriseLongue === true || x.debutant === true;
+  }
+  // D-A3 — les mots de la carte de la dernière série et du bouton du menu : pour le public prudent (`publicPrudentAuMax`, lot E ; avant : un 65+ connu
+  // et la reprise longue), « en gardant 2 reps » (le plancher), pas « au max ». Le plan les pose (`x.auMaxMots`, `proposition.titre`) ; l'écran les lit.
+  function motsDeLAuMax(prudent) {
     var garde = 'en gardant ' + AU_MAX_RESERVE_PAR_DEFAUT + ' reps';
-    return plus65 === true
+    return prudent === true
       ? { titre: 'Dernière série' + DEUX_POINTS + garde + '\u00a0?', bouton: 'En gardant ' + AU_MAX_RESERVE_PAR_DEFAUT + ' reps',
           retirer: 'Retirer la réserve de ' + AU_MAX_RESERVE_PAR_DEFAUT + ' reps', etiquette: 'garde\u00a0' + AU_MAX_RESERVE_PAR_DEFAUT }
       : { titre: 'Dernière série au max\u00a0?', bouton: 'Au max', retirer: 'Retirer « Au max »', etiquette: 'Au max' };
@@ -13327,10 +13370,12 @@
     if (tient && (lettre === 'A' || lettre === 'C' || lettre === 'D') && c.peuDeTemps !== true) leviers.push('repos');
     // Me pousser et la force : on protège la charge par le repos, puis par le rest-pause ou la dégressive ; jamais en Prudent,
     // jamais sur une zone à ménager.
+    // Lot E, A5 (20/11/2026, MOTEUR §9.39, §14.8, I238) : la dégressive seulement sur une isolation où `degressivePossible` la permet
+    // (`c.peutDegressive`, calculé par le plan) ; la 3e branche (la dégressive des haltères polyarticulaires, sans filtre de zone ni de
+    // phase) est supprimée : sans dégressive ni rest-pause permis, la réaction garde sa phrase, sans levier de poussée.
     if (tient && !prudent && !menage && (reg === 'franc' || protege) && (sous || ecart >= 2 || echec)) {
       if (c.isolation === true && c.peutDegressive === true) leviers.push('degressive');
       else if (c.peutRestPause === true) leviers.push('rest_pause');
-      else if (c.peutDegressive === true) leviers.push('degressive');
     }
     if (baisse) leviers.push('prendre');
     if (corps && (sous || echec || lettre === 'E')) {
@@ -13849,6 +13894,7 @@
     tenterApresUnZero: tenterApresUnZero,
     SEANCES_DU_PLAFOND: SEANCES_DU_PLAFOND,
     motsDeLAuMax: motsDeLAuMax,
+    publicPrudentAuMax: publicPrudentAuMax,
     // 236 (§9.39) — le coach en temps réel après un raté : UNE fonction de décision, ses mots, ses constantes
     reactionAuRate: reactionAuRate,
     phraseDeRate: phraseDeRate,

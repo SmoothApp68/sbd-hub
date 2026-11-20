@@ -45,13 +45,14 @@ describe('auMaxDe — la table', () => {
     expect(d({ objectif: 'forme', famille: null, main: true })).toMatchObject({ pose: 'main', reserve: 2 });
     expect(d({ objectif: null, famille: SDT, main: true })).toMatchObject({ reserve: 2 });
   });
-  test('débutant : garde 1 au squat et au couché ; l’échec seulement aux machines et isolations', () => {
-    expect(d({ objectif: 'muscle', debutant: true, famille: DC }).reserve).toBe(1);
-    expect(d({ objectif: 'muscle', debutant: true, famille: SQ }).reserve).toBe(1);
-    expect(d({ objectif: 'muscle', debutant: true, famille: null, equipement: 'haltere' }).reserve).toBe(1);
-    expect(d({ objectif: 'muscle', debutant: true, famille: null, equipement: 'machine' }).reserve).toBe(0);
-    expect(d({ objectif: 'muscle', debutant: true, famille: null, equipement: 'haltere', isolation: true }).reserve).toBe(0);
-    expect(d({ objectif: 'muscle', debutant: true, famille: SDT }).reserve).toBe(2);
+  // Lot E, A3 (20/11/2026) : remplace la décision du 31/10/2026 (garde 1 aux barres, l'échec aux machines et isolations) — le coach ne pose
+  // plus rien ; la marque de la personne passe au plancher « en gardant 2 reps » (tests/unit/v2-lot-e-au-max-debutant.test.js).
+  test('débutant : le coach ne pose aucun « Au max » ; la marque de la personne, à garde 2', () => {
+    [{ famille: DC }, { famille: SQ }, { famille: null, equipement: 'haltere' }, { famille: null, equipement: 'machine' },
+     { famille: null, equipement: 'haltere', isolation: true }, { famille: SDT }].forEach((o) => {
+      expect(d(Object.assign({ objectif: 'muscle', debutant: true }, o)).pose).toBeNull();
+      expect(d(Object.assign({ objectif: 'muscle', debutant: true, main: true }, o))).toMatchObject({ pose: 'main', reserve: 2, sorte: 'garde' });
+    });
   });
   test('semaine allégée : aucun Au max, même posé à la main', () => {
     expect(d({ objectif: 'muscle', famille: DC, allegee: true, main: true }).pose).toBeNull();

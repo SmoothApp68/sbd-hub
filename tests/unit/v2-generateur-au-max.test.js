@@ -101,9 +101,13 @@ describe('193-2 — la dernière série « Au max », posée par défaut par `Mo
     const ls = lignes(G.generer(cat, entree({ objectif: 'muscle', materiel: 'maison_minimal', jours: 3 })));
     ls.forEach((x) => expect(!!x.au_max).toBe(decide(x, 'muscle')));
   });
-  test('le débutant : pas d’échec sur une barre — la fonction de décision lui met la réserve 1, la marque reste posée', () => {
+  // Lot E, A3 (20/11/2026, MOTEUR §9.30 delta) : remplace la décision du 31/10/2026 — le coach ne pose plus « Au max » à un débutant, le
+  // générateur non plus (il lit `Moteur.auMaxDe`) ; la marque que la personne pose elle-même reste, au plancher « en gardant 2 reps ».
+  test('le débutant : aucune marque « Au max » posée par le générateur', () => {
     const ls = lignes(G.generer(cat, entree({ objectif: 'les_deux', jours: 3, anciennete: 'moins_1_an' })));
-    expect(ls.some((x) => x.au_max === true)).toBe(true);
+    expect(ls.length).toBeGreaterThan(0);
+    expect(ls.some((x) => x.au_max === true)).toBe(false);
+    expect(lignes(G.generer(cat, entree({ objectif: 'les_deux', jours: 3 }))).some((x) => x.au_max === true)).toBe(true);   // témoin
   });
   test('pur : deux appels, même sortie', () => {
     const e = entree({ objectif: 'les_deux', jours: 4 });

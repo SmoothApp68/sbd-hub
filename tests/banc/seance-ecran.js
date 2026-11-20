@@ -30574,6 +30574,99 @@ const SETS_IMPORTES = [
     await aller('/saisie');
   }
 
+  console.log('\n══ plus-une-minute. « +1 MIN » APRÈS UN RATÉ : UN MINUTEUR QUI TOURNE GAGNE UNE MINUTE, SANS MINUTEUR LE GESTE EN ARME UNE (MOTEUR §9.39) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : la réaction C (8 au lieu de 10, dans la zone 8-10) propose « +1 min » SANS regarder si un minuteur existe. Avant
+  // la correction, le toucher ne faisait rien quand le repos n'était pas réglé (null) ou déjà fini : le bouton disparaissait, le geste était noté, la
+  // barre restait cachée. Trois configurations : (a) repos 90 s, minuteur en cours → cible 2:30 ; (b) repos 5 s, minuteur fini (attente) → une barre de
+  // 1:00 part du toucher ; (c) repos null → idem. À chaque fois : le geste noté UNE fois, le bouton disparu, aucune violation de la garde.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const nbCatAvant = CATALOGUE.length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, parisPlus1Avant = base.predictions;
+    const routinesAvantPlus1 = ROUTINES.splice(0, ROUTINES.length);
+    base.sessions = []; base.sets = []; base.predictions = [];
+    const rendreLesBlocsPlus1 = await retirerBlocsDeLAppareil();
+    const tPlus1 = Date.now();
+    const nbP1 = (x) => JSON.stringify(x === undefined ? null : x);
+    CATALOGUE.push({ slug: 'rtp1-curl', nom: 'Curl RTP1 (Haltères)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere',
+      muscles_primaires: ['biceps'], muscles_secondaires: [], schema_mouvement: 'tirer' });
+    const profilAvantP1 = Object.assign({}, base.profiles[0]);
+    base.profiles[0] = Object.assign({}, PROFIL_BANC, { rythme_progression: 'normal', intention: 'progresser', phase: 'maintien', phase_depuis: null,
+      cartes_semaine: null, priorites: null, jours_vises: null });
+    const lignePlus1 = (id, rang, debut) => ({ id, session_id: id.replace(/-s\d+$/, ''), user_id: 'u-banc', exercise_slug: 'rtp1-curl',
+      charge_kg: 20, reps: 10, duree_s: null, distance_m: null, denivele_m: null, etages: null, elastique: null,
+      type_serie: 'travail', rang, groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null,
+      note: null, source: 'app', created_at: debut, modifie_a: null, douleur: false, occurrence: null, hors_calcul: false });
+    for (let w = 1; w <= 6; w++) {
+      const id = 'rtp1-' + w;
+      const debut = ilYa((7 * w + 1) * 86400000, tPlus1).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'RTP1 — ' + id, debut, fin: finDe(debut, tPlus1).toISOString(),
+        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: 'r-rtp1', source: 'app', created_at: debut, gestes: [] });
+      for (let r = 1; r <= 4; r++) base.sets.push(lignePlus1(id + '-s' + r, r, debut));
+    }
+    const setsPlus1 = [1, 2, 3, 4].map((i) => ({ id: 'pr-rtp1-' + i, rang: i, type_serie: 'travail', reps_visees: 10, charge_cible_kg: null,
+      duree_cible_s: null, distance_cible_m: null }));
+    const routinePlus1 = { id: 'r-rtp1', nom: 'Curl RTP1', note: null, archivee_a: null, created_at: '2026-01-05T10:00:00.000Z',
+      updated_at: '2026-01-05T10:00:00.000Z', routine_exercises: [{ id: 're-rtp1-0', routine_id: 'r-rtp1', exercise_slug: 'rtp1-curl', rang: 0,
+        zone: 'hypertrophie', routine_sets: setsPlus1, repos_cible_s: 90, groupe_superset: null, note: null }] };
+    ROUTINES.push(routinePlus1);
+    const lirePlus1 = () => page.evaluate(() => {
+      const x = window.THPlan.dernier.plan.exercices.filter((q) => q.slug === 'rtp1-curl')[0];
+      return { rate: x.rate ? { iSerie: x.rate.iSerie, cas: x.rate.cas, pris: x.rate.pris, boutons: x.rate.boutons.map((b) => b.cle) } : null };
+    });
+    const barrePlus1 = () => page.evaluate(() => {
+      const r = document.querySelector('#repos');
+      const t = r ? r.textContent.replace(/\s+/g, ' ').trim() : '';
+      const m = /cible (\d+:\d\d)/.exec(t);
+      return { visible: !!r && !r.hidden && t !== '', cible: m ? m[1] : null, texte: t.slice(0, 60) };
+    });
+    const CONFIGS = [
+      { nom: 'a-en-cours', repos: 90, attente: 0, cible: '2:30' },
+      { nom: 'b-fini', repos: 5, attente: 8000, cible: '1:00' },
+      { nom: 'c-null', repos: null, attente: 0, cible: '1:00' }
+    ];
+    for (const cfg of CONFIGS) {
+      routinePlus1.routine_exercises[0].repos_cible_s = cfg.repos;
+      await aller('/saisie');
+      await demarrerRoutine('Curl RTP1');
+      await attendreQue(() => page.evaluate(() => !!(window.THPlan && window.THPlan.dernier && window.THPlan.dernier.plan &&
+        window.THPlan.dernier.plan.exercices.some((x) => x.slug === 'rtp1-curl' && x.consigne))), 15000, 'planRTP1');
+      await saisirSerie(0, 20, 8);
+      await attendreQue(() => lirePlus1().then((p) => !!p.rate), 15000, 'rateRTP1');
+      if (cfg.attente) await pause(cfg.attente);
+      const avant = await barrePlus1();
+      const pAvant = await lirePlus1();
+      const bouton = await page.$('.rate-reaction button[data-cle="repos"]');
+      ok('[RTP1 ' + cfg.nom + '] avant : la réaction C propose « +1 min »' + (cfg.nom === 'a-en-cours' ? ', barre visible' : ', barre absente'),
+        !!bouton && pAvant.rate.cas === 'C' && avant.visible === (cfg.nom === 'a-en-cours'), nbP1([avant, pAvant]));
+      if (!bouton) { await abandonner(); continue; }
+      await bouton.click();
+      await attendreQue(() => lirePlus1().then((p) => p.rate && p.rate.pris.indexOf('repos') >= 0), 15000, 'priseRTP1');
+      await pause(600);
+      const apres = await barrePlus1();
+      const pApres = await lirePlus1();
+      ok('[RTP1 ' + cfg.nom + '] DISCRIMINANT — la barre est visible avec la bonne cible (' + cfg.cible + ')', apres.visible && apres.cible === cfg.cible, nbP1([avant, apres]));
+      ok('[RTP1 ' + cfg.nom + '] le geste est noté UNE fois et le bouton a disparu',
+        pApres.rate.pris.filter((c) => c === 'repos').length === 1 && !(await page.$('.rate-reaction button[data-cle="repos"]')), nbP1(pApres));
+      ok('[RTP1 ' + cfg.nom + '] aucune violation de la garde, aucune erreur de page', gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+        nbP1([gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
+      await abandonner();
+    }
+    ok('[RTP1] aucun refus du faux serveur', base.journal.filter((j) => j.op === 'refus').length === refusAvant, nbP1(base.journal.filter((j) => j.op === 'refus').slice(refusAvant)));
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    base.predictions = parisPlus1Avant;
+    CATALOGUE.length = nbCatAvant;
+    ROUTINES.length = 0;
+    routinesAvantPlus1.forEach((r) => ROUTINES.push(r));
+    base.profiles[0] = profilAvantP1;
+    rendreLesBlocsPlus1();
+    await aller('/saisie');
+  }
+
   console.log('\n══ porte-251. LA PORTE DU CRAN : UN CRAN DE TEST SE MÉRITE DANS LA SÉANCE ; « TENTER… » LE REND, « ANNULER » LE REPREND (251, MOTEUR §9.39, I134 à I139) ══');
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE : un couché à la barre, six séances à 107,5 × 5 × 3 (le cran de test est 110 × 3, en 3e ligne), une routine

@@ -9965,7 +9965,10 @@
       // « Une seule voix après un zéro » (19/11/2026, règle 7) — le cas de la réaction au zéro suit le geste : le plan relit « Prendre X kg » après un zéro même si le zéro est corrigé.
       if (cle === 'prendre' && r.niveau === 'zero' && r.cas === 'Z1') g.cas = r.cas;
       if (cle === 'repos') {
-        ajusterRepos(Moteur.RATE_PLUS_REPOS_S);
+        // « +1 min » : un minuteur qui tourne gagne une minute ; sans minuteur (repos jamais réglé, désactivé, déjà fini) le geste en arme UNE, à partir du toucher.
+        // Un geste de la personne, pas le conseil (R2, #732) : ni `reposConseille` ni `repos_cible_s` ne sont lus. `-1` : aucune question de réserve ne repart avec.
+        if (chrono) ajusterRepos(Moteur.RATE_PLUS_REPOS_S);
+        else demarrerChrono(Moteur.RATE_PLUS_REPOS_S, iExo, x.slug, -1);
       } else if (cle === 'rest_pause') {
         seance = Seance.ajouterRestPause(seance, iExo, iSerie, uuid);
       } else if (cle === 'degressive') {

@@ -38,5 +38,35 @@
   "unitaires": [
    "tests/unit/v2-capacite-tenue.test.js"
   ]
+ },
+ {
+  "nom": "cap-c2-bord-sans-capacite",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "            !capaciteDe(derniere, Rb, visees !== null ? visees : vise, Vb, rk, L)) {",
+  "nouveau": "            true) {",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-capacite-tenue.test.js"
+  ]
+ },
+ {
+  "nom": "cap-c2-phrase-ecran",
+  "fichier": "v2/js/plan.js",
+  "ancien": "    if (R !== null && cap && cap.reserve === R && cap.visee === visee && memeChargeOuVides(cap.charge, s.charge_kg)) {",
+  "nouveau": "    if (false) {",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-capacite-tenue.test.js"
+  ]
+ },
+ {
+  "nom": "cap-c1-haut-de-zone",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "      return l && v !== null && memeCharge(nombre(l.charge), charge) ? v : repli;",
+  "nouveau": "      return repli;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-capacite-tenue.test.js"
+  ]
  }
 ]

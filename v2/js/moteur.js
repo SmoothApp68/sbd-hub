@@ -2562,26 +2562,59 @@
       var r = compter(s);
       return r === null ? null : r;
     }
-    // Capacité tenue (20/11/2026, MOTEUR §9.26 delta, I252) — la séance `se` (une vue) : ce qu'elle exclut de la règle. Après un zéro rep (le plafond de
-    // R-A était actif quand elle a été faite : sa consigne était `zero_rep` ou `tenue_apres_zero`, `Moteur.estApresZero`), en reprise longue (`repriseDe`
-    // au début de la séance : sa consigne était `reprise_longue`, `Moteur.enRepriseLongue`), population protégée (I160). `null` : rien n'exclut.
-    function horsCapacite(se) {
+    // Capacité tenue (20/11/2026, MOTEUR §9.26 delta, I252) — ce qui exclut la séance jugée de la règle, lu sur la consigne qu'elle a REÇUE (`rk`) : après un
+    // zéro rep (`estApresZero` : `zero_rep`, `tenue_apres_zero`, le silence au plancher), en reprise longue (`enRepriseLongue`), et la population protégée
+    // (I160). Repli, sans consigne reçue (au-delà de `BORD_PROFONDEUR`) : la même notion lue sur la séance `se` — le plafond R-A actif à son début, au
+    // palier de la séance (un zéro à ou sous le palier n'est jamais une limite), ou `repriseDe` à son début. `null` : rien n'exclut.
+    function horsCapacite(rk, se) {
       if (protegee) return 'protegee';
+      if (rk) {
+        if (estApresZero(rk)) return 'apres_zero';
+        if (enRepriseLongue(rk)) return 'reprise_longue';
+        return null;
+      }
       if (!se) return null;
-      if (plafondActif(seances, se.debut, null) !== null) return 'apres_zero';
+      if (plafondActif(seances, se.debut, nombre(se.palier)) !== null) return 'apres_zero';
       if (repriseDe(vues, se.debut) === REPRISE_LONGUE) return 'reprise_longue';
       return null;
     }
-    // I252 / I252 bis — la capacité de la série `s` de la séance `se` : ses reps SAISIES (`Palier.repsComptees`, jamais `repsPrudentes` : sinon le
-    // calcul prudent 68B rétablit la garde), la réserve notée `R`, contre `vise` reps visées et la visée AFFICHÉE `V`.
-    function capaciteDe(s, R, vise, V, se) {
-      var exclu = horsCapacite(se);
+    // I252 / I252 bis — la capacité de la série `s` : ses reps SAISIES (`Palier.repsComptees`, jamais `repsPrudentes` : sinon le calcul prudent 68B
+    // rétablit la garde), la réserve notée `R`, contre `vise` reps visées (celles de la consigne reçue) et la visée AFFICHÉE `V`.
+    function capaciteDe(s, R, vise, V, rk, se) {
+      var exclu = horsCapacite(rk, se);
       return capaciteTenue({ reps: Palier().repsComptees(s), reserve: R, vise: vise, visee: V,
         protegee: exclu === 'protegee', apresZero: exclu === 'apres_zero', repriseLongue: exclu === 'reprise_longue' });
     }
+    // I252 (C1, décision du 20/11/2026) — LA CONSIGNE REÇUE par la dernière séance `L` (celle que l'écran a montrée), calculée une fois, comme la règle de
+    // bord la relit (`consigneDeLaSeance`), hors calcul prudent (68B ne réécrit pas ce qui a été proposé) ; `null` au-delà de `BORD_PROFONDEUR`.
+    var recueMemo;
+    function consigneRecue() {
+      if (recueMemo !== undefined) return recueMemo;
+      recueMemo = null;
+      var profR = nombre(opt.bordProf) || 0;
+      if (profR >= BORD_PROFONDEUR) return null;
+      var bruteR = anterieures(seances, avant), iR = -1;
+      for (var q = bruteR.length - 1; q >= 0; q--) {
+        if (instant(bruteR[q].debut) === instant(L.debut)) { iR = q; break; }
+      }
+      if (iR < 0) return null;
+      var p0 = prudent;
+      prudent = false;
+      try {
+        recueMemo = consigneDeLaSeance(bruteR, iR, avant, { reglage: reglage, equipement: equipement, correction: correction,
+          salle: salleDeclaree, bordProf: profR + 1 });
+      } finally { prudent = p0; }
+      return recueMemo;
+    }
+    // Les reps visées de la série de travail au palier `charge` : la ligne de la consigne reçue à cette charge, sinon `repli` (le haut de la zone).
+    function repsVisees(rk, charge, repli) {
+      var l = rk && rk.ligne ? rk.ligne : null;
+      var v = l ? nombre(l.vise) : null;
+      return l && v !== null && memeCharge(nombre(l.charge), charge) ? v : repli;
+    }
     // 169 — la séance d'AVANT (du même couple, hors séances allégées : elles sont neutres) finissait-elle déjà au haut de la
-    // zone, à la même charge, avec une réserve notée sous la visée ? C'est la « première fois » de la garde.
-    // Une capacité tenue y compte aussi (CONTRA-726 B1) : la séance a touché le haut sans marge, c'est le fait que la sortie lit ; faire plus ne retient jamais plus.
+    // zone, à la même charge, avec une réserve notée sous la visée ? C'est la « première fois » de la garde. Une capacité tenue y compte aussi
+    // (CONTRA-726 B1) : la séance a touché le haut sans marge, c'est le fait que la sortie lit ; faire plus ne retient jamais plus.
     function precedenteAuHautSansMarge(prec, charge, haut, visee) {
       if (prec === null || nombre(prec.seance.palier) !== charge) return false;
       var rs = prec.seance.retenues || [];
@@ -2698,8 +2731,12 @@
         // I252 (20/11/2026) — la capacité tenue : les reps SAISIES + la réserve atteignent les reps que visait la consigne reçue (`visees`, sinon le niveau) + la
         // visée affichée : aucune garde, la règle monte.
         if (Rb !== null && Vb !== null && Rb < Vb && !debutant && !(auMaxCommeDemande(derniere, Rb) && nombre(derniere.reps) + Rb > vise) && !precedenteAuHautSansMarge(precedente, P, vise, Vb) &&
-            !capaciteDe(derniere, Rb, visees !== null ? visees : vise, Vb, L)) {
-          return fin('bord_garde', ligneDe(P, vise), { bord: { charge: P, reps: nombre(derniere.reps), reserve: Rb } });
+            !capaciteDe(derniere, Rb, visees !== null ? visees : vise, Vb, rk, L)) {
+          // I252 (C3) — ce que la garde a lu, pour que `verifierCapacite` la relise : les reps visées, la visée, l'exclusion qui la maintient.
+          var capB = { vise: visees !== null ? visees : vise, visee: Vb };
+          var excluB = horsCapacite(rk, L);
+          if (excluB !== null && excluB !== 'protegee' && capaciteTenue({ reps: Palier().repsComptees(derniere), reserve: Rb, vise: capB.vise, visee: Vb })) capB.horsCapacite = excluB;
+          return fin('bord_garde', ligneDe(P, vise), { bord: { charge: P, reps: nombre(derniere.reps), reserve: Rb, capacite: capB } });
         }
       }
       // Lot E, A2 (20/11/2026, MOTEUR §9.1.2 et §9.8, I240) — EN PRUDENT, DEUX SÉANCES AU MÊME PALIER AVANT DE MONTER (comme dans les zones, §9.8) :
@@ -2921,10 +2958,11 @@
           if (Vn !== VnT) effortVise.viseeTable = VnT;
           if (protegee) { effortVise.viseeTable = VnT; effortVise.protegee = true; }
           if (demN !== null) effortVise.demandee = demN;
-        } else if (Rn < Vn && !debutant && !auMaxCommeDemande(derniereRetenue, Rn) && capaciteDe(derniereRetenue, Rn, hi, Vn, L)) {
-          // I252 (20/11/2026) — la capacité tenue : reps SAISIES + réserve ≥ le haut de la zone (les reps que vise une consigne qui touche le haut :
-          // la garde ne mord que si la montée est due) + la visée affichée. Aucune garde ; le fait de la ligne de fin d'exercice (I254).
-          capacite = { charge: P, reps: nombre(derniereRetenue.reps), reserve: Rn, vise: hi, visee: Vn };
+        } else if (Rn < Vn && !debutant && !auMaxCommeDemande(derniereRetenue, Rn) &&
+                   capaciteDe(derniereRetenue, Rn, repsVisees(consigneRecue(), P, hi), Vn, consigneRecue(), L)) {
+          // I252 (20/11/2026 ; C1 : les reps visées sont celles de la consigne REÇUE, le haut de la zone en repli) — la capacité tenue : reps SAISIES +
+          // réserve ≥ reps visées + la visée affichée. Aucune garde ; le fait de la ligne de fin d'exercice (I254).
+          capacite = { charge: P, reps: nombre(derniereRetenue.reps), reserve: Rn, vise: repsVisees(consigneRecue(), P, hi), visee: Vn };
           var pbC = plancherDeBarre(famille);
           if (pbC !== null) capacite.barre = pbC;
         } else if (Rn < Vn && !debutant && !auMaxCommeDemande(derniereRetenue, Rn)) {
@@ -2938,8 +2976,11 @@
           if (protegee) { effortVise.viseeTable = VnT; effortVise.protegee = true; }
           if (demN !== null) effortVise.demandee = demN;
           // I252 — une garde que seule une exclusion maintient (après un zéro, reprise longue) le dit : I252 relit l'exclusion, pas le verdict.
-          var exclu = horsCapacite(L);
-          if (exclu !== null && exclu !== 'protegee' && capaciteTenue({ reps: Palier().repsComptees(derniereRetenue), reserve: Rn, vise: hi, visee: Vn })) effortVise.horsCapacite = exclu;
+          // C1 — les reps visées lues (celles de la consigne reçue, le haut en repli), écrites pour I252.
+          var rkG = consigneRecue(), viseG = repsVisees(rkG, P, hi);
+          effortVise.vise = viseG;
+          var exclu = horsCapacite(rkG, L);
+          if (exclu !== null && exclu !== 'protegee' && capaciteTenue({ reps: Palier().repsComptees(derniereRetenue), reserve: Rn, vise: viseG, visee: Vn })) effortVise.horsCapacite = exclu;
         }
       }
     }
@@ -5422,7 +5463,6 @@
     if (!ev && d.capacite && d.moment !== 'aujourdhui') return phraseDeLaCapacite(d.capacite);
     if (!ev) return null;
     if (d.moment === 'aujourdhui') {
-      if (!ev) return null;
       if (ev.effet === 'garde') return phraseDeLaGarde(ev);
       if (ev.sortie === true) return phraseDeLaSortie(ev, haut, true);
       return null;
@@ -5430,7 +5470,7 @@
     return phraseEffortVise(ev, haut, d.regime || null);
   }
 
-  // I254 (20/11/2026, MOTEUR §9.26 delta, VOIX-DU-COACH-V1) — « 100 kg × 7, sans marge : 2 de plus que prévu. » ; sur une barre dont la réserve notée est sous
+  // I254 (20/11/2026, MOTEUR §9.26 delta, VOIX-DU-COACH-V1) — « 100 kg × 7, sans marge : 2 de plus que prévu. » (l'écart aux reps de la consigne REÇUE) ; sur une barre dont la réserve notée est sous
   // le plancher (`c.barre`, `PLANCHER_DE_BARRE`) : « Sur cette barre, je vise 1 en réserve. » (2 au soulevé). Un fait et la visée : ni « bravo », ni injonction,
   // ni « je garde », ni promesse (l'annonce de la suite dit le test, `annonceDe('suite')`). `c` : le fait `fondement.capacite` de la consigne suivante.
   function phraseDeLaCapacite(c) {

@@ -14,6 +14,8 @@ require('../../v2/js/profil.js');
 require('../../v2/js/periode.js');
 require('../../v2/js/generateur.js');
 const M = require('../../v2/js/moteur.js');
+const S = require('../../v2/js/seance.js');
+require('../../v2/js/reserve.js');
 const P = require('../../v2/js/plan.js');
 
 const sp = (t) => String(t).replace(/[  ]/g, ' ');
@@ -173,5 +175,73 @@ describe('I254 — la ligne de fait en fin d’exercice', () => {
     const exclu = JSON.parse(JSON.stringify(faux)); exclu.fondement.effortVise.horsCapacite = 'reprise_longue';
     const e2 = []; P.verifierCapacite({ reglage: 'franc', protegee: false, exercices: [{ slug: 'squat_barre', consigne: exclu }] }, {}, e2);
     expect(e2).toEqual([]);
+  });
+});
+
+// ── C1 (CONTRA-726, décision du 20/11/2026) : les reps visées sont celles de la consigne REÇUE ; C2 : le chemin de l'écran et I254 ──
+const OPT = { mesure: 'charge_reps', equipement: 'barre', intention: 'progresser', edition: false, reglage: 'franc' };
+const AUJ = jour('09-13');
+const habitude = (slug, kg, reps) => HAB.map((x, i) => ({ seance: { id: 'H' + i, debut: jour(x) }, series: [0, 1, 2].map(() => brute(kg, reps, null, slug)) }));
+// La séance du jour, simulée comme l'app (Seance), jouée à `kg` × [r1, r2, r3], la dernière notée `ressenti` ; le plan, ses entrées et sa vérification.
+function seanceDuJour(slug, kg, reps, ressenti, hab) {
+  const recueObj = M.consigneDExercice(habitude(slug, kg, hab), undefined, AUJ, Object.assign({ famille: slug }, OPT));
+  const recue = recueObj.consigne;
+  let k = 0; const id = () => 's' + (++k);
+  let se = S.creer({ id: 'S', userId: 'u', idSerie: id });
+  se = S.ajouterExercice(se, slug, id, { series: 3 });
+  reps.forEach((r, i) => { se = S.modifierSerie(se, 0, i, { charge_kg: kg, reps: r }); se = S.valider(se, 0, i, new Date('2026-09-13T18:30:00Z')); });
+  se.exercices[0].series[2].ressenti = ressenti;
+  const jouee = { seance: { id: 'J', debut: AUJ }, series: reps.map((r, i) => brute(kg, r, i === 2 ? ressenti : null, slug)) };
+  const suite = M.consigneDExercice(habitude(slug, kg, hab).concat([jouee]), undefined, jour('09-16'), Object.assign({ famille: slug }, OPT)).consigne;
+  const entrees = { seance: { id: 'S', debut: AUJ, edition: false, exercices: se.exercices }, consignes: { [slug]: recueObj }, paris: [], reglage: 'franc',
+    plus65: false, debutant: false, suites: { [slug]: { consigne: suite, cranSuivant: kg + 2.5 } }, catalogue: {} };
+  const plan = P.planDeSeance(entrees);
+  return { recue, suite, entrees, plan, x: plan.exercices[0], erreurs: () => P.verifierPlan(plan, entrees, null).erreurs };
+}
+
+describe('C1 — les reps visées sont celles de la consigne reçue', () => {
+  test('consigne reçue 100 × 4 (garde 1) : 4, 4, 5 sans marge tient la capacité (aucune garde) ; 6 sans marge : « 2 de plus que prévu »', () => {
+    const j5 = seanceDuJour('squat_barre', 100, [4, 4, 5], 'reste_0', 3);
+    expect(j5.recue.ligne).toEqual({ charge: 100, vise: 4 });
+    expect(garde(j5.suite)).toBe(false);
+    expect(j5.suite.fondement.capacite).toMatchObject({ reps: 5, reserve: 0, vise: 4, visee: 1 });
+    const j6 = seanceDuJour('squat_barre', 100, [4, 4, 6], 'reste_0', 3);
+    expect(j6.suite.etat).toBe('test_propose');
+    expect(sp(j6.x.effortVise.phrase)).toMatch(/^100 kg × 6, sans marge : 2 de plus que prévu\./);
+    expect(j6.erreurs()).toEqual([]);
+  });
+  test('la règle de bord lit la même notion : bord 100 × 2 visé, 3 sans marge → monte (main : garde)', () => {
+    const k = consigne('squat', 100, 2, [[100, 2, 3, 'reste_0']]);
+    expect(k.etat).toBe('bord');
+    expect(k.ligne.charge).toBe(102.5);
+    const g = consigne('squat', 100, 2, [[100, 2, 2, 'reste_0']]);
+    expect(g.etat).toBe('bord_garde');
+    expect(g.fondement.bord.capacite).toEqual({ vise: 2, visee: 1 });
+  });
+});
+
+describe('C2 / C3 — I252 et I254 sur un plan de séance', () => {
+  test('I254 : une phrase sans capacité dans la suite est refusée ; une garde de bord à capacité tenue aussi (I252)', () => {
+    const j6 = seanceDuJour('squat_barre', 100, [4, 4, 6], 'reste_0', 3);
+    const plan = JSON.parse(JSON.stringify(j6.plan));
+    const sansCap = JSON.parse(JSON.stringify(j6.entrees));
+    delete sansCap.suites.squat_barre.consigne.fondement.capacite;
+    const e1 = []; P.verifierCapacite(plan, sansCap, e1);
+    expect(e1.join(' ')).toMatch(/I254/);
+    const faux = JSON.parse(JSON.stringify(plan));
+    faux.exercices[0].effortVise.phrase = '100 kg × 6, sans marge : 1 de plus que prévu.';
+    const e2 = []; P.verifierCapacite(faux, j6.entrees, e2);
+    expect(e2.join(' ')).toMatch(/I254 .*l’écart dit/);
+    const bord = { etat: 'bord_garde', zone: null, palier: 100, ligne: { charge: 100, vise: 2 }, haut: null,
+      fondement: { bord: { charge: 100, reps: 3, reserve: 0, capacite: { vise: 2, visee: 1 } } } };
+    const e3 = []; P.verifierCapacite({ reglage: 'franc', protegee: false, exercices: [{ slug: 'squat_barre', consigne: bord }] }, {}, e3);
+    expect(e3.join(' ')).toMatch(/I252 .*garde de bord/);
+  });
+  test('I252 bis : les reps du fondement sont recoupées avec la séance des entrées', () => {
+    const k = consigne('squat', 100, 4, [[100, 5, 5, 'reste_0']]);
+    const pr = { seance: { id: 'J0', debut: k.fondement.date }, series: [{ charge_kg: 100, reps: 5, type_serie: 'travail' }, { charge_kg: 100, reps: 5, type_serie: 'travail' }, { charge_kg: 100, reps: 7, type_serie: 'travail' }] };
+    const e = []; P.verifierCapacite({ reglage: 'franc', protegee: false, exercices: [{ slug: 'squat_barre', consigne: k }] }, { precedents: { squat_barre: pr } }, e);
+    expect(e.join(' ')).toMatch(/I252 bis/);
+    expect(e.join(' ')).toMatch(/I252 —/);
   });
 });

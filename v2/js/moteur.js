@@ -3520,7 +3520,54 @@
     // d'avant gardent la leur par leurs lignes figées (relues dans les paris).
     // Le message seulement si aucun autre ne l'est.
     var k = liste.length - 1;
-    if (k >= 0 && k + 1 < n && Palier().cranDeSerie(liste[k] || {}) === 'max') {
+    // Lot F, étape 1 (20/11/2026, MOTEUR §9.14 ter delta, CONTRA-AFOND-G0, I243) — À GARDE 0 DES LIGNES (`contexte.gardeAffichee === 0`, la garde que le
+    // plan a calculée), une série à fond À LA CHARGE DE SA LIGNE a fait ce que la ligne demandait dès le bas de la zone (`aFondSurLaCible`) : TOUTE la suite à
+    // cette charge (non figée, ni coach ni élan) suit, une voix. r − 1 ≥ bas : la suite vise r − 1 ; r = bas : la suite vise bas (jamais r + 1), et la parole
+    // est CÉDÉE à la réaction au raté (D, ses leviers) ; sous le bas : aucune ligne ne change, la parole est cédée (L) ; quand la réaction au raté est muette,
+    // le message cédé garde la parole (le plan tranche, `cede`). Garde ≥ 1, ou une série plus lourde que sa ligne (élan, B09) : la règle d'avant, k + 1 seule.
+    // UNE borne par charge, la plus basse des séries à fond de la séance (monotonie, I243) : une suite ne remonte jamais au-dessus d'une visée déjà baissée.
+    var aSaLigne = function (i) {
+      var s = liste[i] || {};
+      return Palier().cranDeSerie(s) === 'max' && !!plan[i] && nombre(s.charge_kg) !== null && memeCharge(nombre(plan[i].charge), nombre(s.charge_kg)) &&
+        nombre(s.reps) !== null && nombre(s.reps) >= 1;
+    };
+    var g0 = k >= 0 && k + 1 < n && ctx.gardeAffichee === 0;
+    var g0Dernier = g0 && aSaLigne(k);
+    if (g0) {
+      var bornesG0 = [];
+      for (var ig = 0; ig <= k; ig++) {
+        if (!aSaLigne(ig)) continue;
+        var rI = nombre(liste[ig].reps);
+        if (rI < z.bas) continue;
+        var bI = rI - 1 >= z.bas ? rI - 1 : rI, cI = nombre(liste[ig].charge_kg);
+        var deja = bornesG0.filter(function (q) { return memeCharge(q.charge, cI); })[0];
+        if (deja) deja.vise = Math.min(deja.vise, bI);
+        else bornesG0.push({ charge: cI, vise: bI });
+      }
+      var nb = 0, viseDit = null, change = false;
+      var cg = g0Dernier ? nombre(liste[k].charge_kg) : null;
+      bornesG0.forEach(function (bq) {
+        for (var jg = k + 1; jg < n; jg++) {
+          var xg = plan[jg];
+          if (!xg || xg.figee || xg.source === 'coach' || xg.source === 'elan' || !memeCharge(nombre(xg.charge), bq.charge)) continue;
+          if (nombre(xg.vise) === null || !(nombre(xg.vise) > bq.vise)) continue;
+          plan[jg] = Object.assign({}, xg, { vise: bq.vise, source: 'a_fond', sourceAvant: xg.source === 'a_fond' ? xg.sourceAvant : xg.source });
+          change = true;
+          if (cg !== null && memeCharge(bq.charge, cg)) { nb++; viseDit = bq.vise; }
+        }
+      });
+      if (change) revision += 1;
+      // Le message : quand une ligne a suivi (r − 1 dans la zone), ou cédé (au bas de la zone ou dessous). Rien qui ait suivi au-dessus du bas : rien à dire.
+      var rgD = g0Dernier ? nombre(liste[k].reps) : null;
+      if (g0Dernier && message === null && (nb > 0 || rgD <= z.bas)) {
+        var rg = rgD;
+        message = { type: 'a_fond_suite', rang: k + 1, charge: cg, reps: rg, vise: rg >= z.bas && nb > 0 ? viseDit : null, lignes: nb, garde0: true };
+        if (rg <= z.bas) message.cede = true;
+      }
+    }
+    if (g0Dernier) {
+      // (garde 0, la série à la charge de sa ligne : traitée plus haut)
+    } else if (k >= 0 && k + 1 < n && Palier().cranDeSerie(liste[k] || {}) === 'max') {
       var sk = liste[k];
       var ck = nombre(sk.charge_kg), rk = nombre(sk.reps);
       var x = plan[k + 1];
@@ -3837,7 +3884,8 @@
   // (`ligne`, `haut` pour un test, `retour`), sa source `a_fond`, et son
   // déclencheur : la série à fond juste avant elle.
   function pariAFond(r, liste, j, p, z, fondement, rev, o) {
-    var iDecl = j - 1;
+    // Lot F, étape 1 — la propagation : le déclencheur est la DERNIÈRE série validée avant la ligne, pas forcément la voisine.
+    var iDecl = Math.min(j - 1, (liste || []).length - 1);
     var dc = liste[iDecl] || {};
     var comptees = compter(dc);
     var viseDecl = r.plan[iDecl] ? nombre(r.plan[iDecl].vise) : null;
@@ -3913,8 +3961,11 @@
         if (m.a_fond) return fait + ' à fond' + DEUX_POINTS + 'la suite revient ' + laSuite(m.suite, z) + '.';
         return fait + DEUX_POINTS + 'pas encore. On revient à ' + enKg(m.palier, cite(CIBLE, { role: 'retour' })) + '.';
       // §9.14 ter (68B) — la suivante, une rep de moins.
+      // Lot F, étape 1 (VOIX : la réserve 0 se dit « sans marge », un fait, jamais une injonction) : « 70 kg × 9, sans marge : la suite vise 8. » ;
+      // « la suivante » si une seule ligne change ; sans visée (sous le bas de la zone, la parole cédée) : le fait seul.
       case 'a_fond_suite':
-        return fait + ' à fond' + DEUX_POINTS + 'la suivante vise ' +
+        if (m.vise === null || m.vise === undefined) return fait + ', sans marge.';
+        return fait + ', sans marge' + DEUX_POINTS + (m.lignes > 1 ? 'la suite' : 'la suivante') + ' vise ' +
           nombreFr(m.vise, cite(CIBLE, { role: 'suite', champ: 'reps' })) + '.';
       // §9.14 bis (68A) — QUAND LA SÉRIE S'ÉCARTE DE SA LIGNE.
       case 'elan': {

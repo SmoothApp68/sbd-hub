@@ -292,6 +292,8 @@
       position: m.rang, iSerie: indices[m.rang] === undefined ? null : indices[m.rang],
       type: m.type, phrase: dite.texte
     } : null;
+    // Lot F, étape 1 (I243) — « à fond » à garde 0, au bas de la zone ou dessous : le message CÈDE la parole à la réaction au raté (D, L) quand elle parle.
+    if (message && m.cede === true) message.cede = true;
 
     return {
       consigne: consigne, indices: indices, rangs: rangs, roles: roles,
@@ -3527,6 +3529,12 @@
     }
     if (d.silence) return;
     // La réaction existante (§9.14, y compris « à fond, la suivante vise une rep de moins », §9.14 ter) parle déjà sous cette série : elle garde la parole.
+    // Lot F, étape 1 (I243) — sauf un message « à fond » à garde 0 qui CÈDE (au bas de la zone ou dessous) : la réaction au raté parle seule, le message
+    // s'efface (une voix). Muette (débutant, entretien, décharge, test, première fois, douleur : `d.silence`, plus haut), le message cédé garde la parole.
+    if (x.message && x.message.cede === true) {
+      x.message = null;
+      x.phrases = (x.phrases || []).filter(function (ph) { return ph.ou !== 'message'; });
+    }
     if (x.message) return;
     var pris = prises(iSerie).map(function (g) { return g.bouton; });
     var cap = V.capturer(function () { return M.phraseDeRate(d); });
@@ -4808,16 +4816,31 @@
       });
       if (!porte) err('I43', '« ' + msg.type + ' » sans ligne d\'élan à ' + msg.charge);
     }
-    // I44 (MOTEUR §9.14 ter, 68B) — une ligne « à fond » (source `a_fond`) est
-    // à la charge de la série validée juste avant elle, qui est à fond, et vise
-    // ses reps moins une.
+    // I44 (MOTEUR §9.14 ter, 68B ; réécrit le 20/11/2026, Lot F étape 1) — une ligne « à fond » (source `a_fond`) suit la DERNIÈRE série validée avant
+    // elle : à fond, à la même charge, et vise ses reps moins une (la règle d'avant, garde ≥ 1 ou série plus lourde que sa ligne) ; OU, à garde 0
+    // (la propagation), elle vise la plus basse borne des séries validées avant elle, à fond et à sa charge, faites au moins au bas de la zone
+    // (r − 1 si r − 1 ≥ bas, sinon r) : jamais sous le bas de la zone.
+    var z44 = x.consigne ? Moteur().zoneParCle(x.consigne.zone) : null;
     couvertes.forEach(function (l, j) {
       if (l.source !== 'a_fond') return;
-      var d = couvertes[j - 1];
-      var f44 = d && d.validee && d.faite ? d.faite : null;
-      if (!f44) { err('I44', 'la ligne « à fond » ' + j + ' sans série validée juste avant elle'); return; }
-      var aFond = racine.THPalier.cranDeSerie({ rpe: f44.rpe, ressenti: f44.ressenti }) === 'max';
-      if (!aFond || !memeChargeOuVides(l.charge, f44.charge) || nombre(l.vise) !== nombre(f44.reps) - 1) {
+      var avant44 = [];
+      for (var q = j - 1; q >= 0; q--) if (couvertes[q] && couvertes[q].validee && couvertes[q].faite) avant44.push(couvertes[q].faite);
+      var f44 = avant44.length ? avant44[0] : null;
+      if (!f44) { err('I44', 'la ligne « à fond » ' + j + ' sans série validée avant elle'); return; }
+      var estAFond = function (f) { return racine.THPalier.cranDeSerie({ rpe: f.rpe, ressenti: f.ressenti }) === 'max'; };
+      var aFond = estAFond(f44);
+      var ancienne = aFond && memeChargeOuVides(l.charge, f44.charge) && nombre(l.vise) === nombre(f44.reps) - 1;
+      var borne = null;
+      if (z44) {
+        avant44.forEach(function (f) {
+          var r = nombre(f.reps);
+          if (!estAFond(f) || r === null || r < z44.bas || !memeChargeOuVides(l.charge, f.charge)) return;
+          var b = r - 1 >= z44.bas ? r - 1 : r;
+          borne = borne === null ? b : Math.min(borne, b);
+        });
+      }
+      var propagee = borne !== null && nombre(l.vise) === borne;
+      if (!ancienne && !propagee) {
         err('I44', 'la ligne « à fond » ' + j + ' (' + l.charge + ' × ' + l.vise + ') après ' + f44.charge + ' × ' + f44.reps +
           (aFond ? '' : ', une série qui n\'est pas à fond'));
       }
@@ -5359,7 +5382,9 @@
     }
 
     // Le message affiché est celui de la réaction, sur la bonne série.
-    if ((x.message ? 1 : 0) !== (msg ? 1 : 0) ||
+    // Lot F, étape 1 (I243) — un message « à fond » qui cède la parole à la réaction au raté s'efface quand elle parle (`x.rate`) : une voix.
+    var cedee = msg && msg.cede === true && !x.message && !!x.rate;
+    if (!cedee && (x.message ? 1 : 0) !== (msg ? 1 : 0) ||
         (x.message && msg && x.message.iSerie !== (couvertes[msg.rang] || {}).iSerie)) {
       err('I9', 'la phrase affichée ne correspond pas au message de la réaction');
     }
@@ -6895,6 +6920,7 @@
     verifierBaisseAttendue(plan, erreurs);
     verifierEffortVise(plan, entrees, erreurs);
     verifierPlancherDeBarre(plan, entrees, erreurs);
+    verifierMonotonieAFond(plan, entrees, erreurs);
     verifierBord(plan, erreurs);
     verifierZeroRep(plan, entrees, erreurs);
     verifierDecharge(plan, erreurs);
@@ -7519,6 +7545,38 @@
   // plan et celle recalculée depuis les entrées) ne sont jamais sous `Moteur.plancherDeBarre` (`null` admis : ligne de test d'une protégée, après un zéro rep,
   // règle hors jeu) ; une proposition « Au max » du coach sur le militaire ou le soulevé ne demande jamais moins que ce plancher (seuls le squat et le couché
   // gardent l'échec par « Au max »). Exemptée et nommée : la semaine de test (`x.semaineDeTest`, ses essais et sa série au max, §9.32).
+  // I243 (Lot F, étape 1, 20/11/2026, MOTEUR §9.14 ter delta) — « À FOND » À GARDE 0, LA MONOTONIE. À garde 0 des lignes (recalculée depuis les entrées),
+  // après une série à fond À LA CHARGE DE SA LIGNE faite au moins au bas de la zone, aucune ligne de travail non validée à cette charge (ni du coach ni
+  // d'élan) ne vise plus que la borne la plus basse posée par ces séries (r − 1 si r − 1 ≥ bas, sinon r) : quelle que soit la voix, la suite ne remonte
+  // jamais. Et la voix : quand la réaction au raté parle sous la dernière série, aucun message de la règle (une voix, I115).
+  function verifierMonotonieAFond(plan, entrees, erreurs) {
+    var M = Moteur(), Pa = racine.THPalier;
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      if (!x || !x.consigne || !Array.isArray(x.lignes) || gardeDeLigneDesEntrees(x, entrees) !== 0) return;
+      var z = M.zoneParCle(x.consigne.zone);
+      var series = (entrees && entrees.seance && entrees.seance.exercices && entrees.seance.exercices[i] && entrees.seance.exercices[i].series) || [];
+      if (!z) return;
+      var bornes = [];
+      x.lignes.forEach(function (l) {
+        if (!l.validee || l.type !== 'travail') return;
+        var s = series[l.iSerie] || {}, r = nombre(s.reps), c = nombre(s.charge_kg);
+        if (r === null || c === null || r < z.bas || Pa.cranDeSerie(s) !== 'max' || !memeChargeOuVides(nombre(l.charge), c)) return;
+        var b = r - 1 >= z.bas ? r - 1 : r;
+        var deja = bornes.filter(function (q) { return memeChargeOuVides(q.charge, c); })[0];
+        if (deja) deja.vise = Math.min(deja.vise, b); else bornes.push({ charge: c, vise: b });
+      });
+      if (!bornes.length) return;
+      x.lignes.forEach(function (l) {
+        if (l.validee || l.type !== 'travail' || l.source === 'coach' || l.source === 'elan' || l.role === 'elan') return;
+        bornes.forEach(function (q) {
+          if (memeChargeOuVides(nombre(l.charge), q.charge) && nombre(l.vise) !== null && nombre(l.vise) > q.vise) {
+            erreurs.push('I243 — exercice ' + i + ' (' + x.slug + ') : la ligne ' + l.iSerie + ' vise ' + l.vise + ' à ' + q.charge + ' kg, au-dessus de la borne « à fond » ' + q.vise);
+          }
+        });
+      });
+      if (x.rate && x.message && x.message.type === 'a_fond_suite') erreurs.push('I243 — exercice ' + i + ' (' + x.slug + ') : deux voix (« à fond » et la réaction au raté)');
+    });
+  }
   function verifierPlancherDeBarre(plan, entrees, erreurs) {
     var M = Moteur();
     ((plan && plan.exercices) || []).forEach(function (x, i) {

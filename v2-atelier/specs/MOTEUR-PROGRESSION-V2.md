@@ -1215,8 +1215,8 @@ l'est pas). Ces règles sont des étapes de la réaction, avec ses silences (§9
 - **La suivante, une rep de moins.** Après une série à fond à la charge C faite avec r reps, la ligne suivante, si elle
   n'est pas validée, n'est pas une ligne du coach ni d'élan, et est à la même charge C, vise **r − 1 reps quand sa
   visée était plus haute** (jamais moins d'une rep, jamais plus que sa visée) ; seule la ligne suivante change. Son
-  pari est une révision (source `a_fond`, `valeur_predite` = r − 1). La phrase : « 79 kg × 12 à fond : la suivante vise
-  11. » *(Sur toute la base, après une série à fond suivie d'une série à la même charge : −1,4 rep en moyenne, 14 cas.)*
+  pari est une révision (source `a_fond`, `valeur_predite` = r − 1). La phrase : « 79 kg × 12, sans marge : la suivante vise
+  11. » *(20/11/2026 ; avant : « à fond : »)* *(Sur toute la base, après une série à fond suivie d'une série à la même charge : −1,4 rep en moyenne, 14 cas.)*
 - **Pas d'élan.** Plus lourd que sa ligne, à fond : la suite reste au plan, même si la série tient. « 84 kg × 12 à fond :
   la suite reste à 79 kg × 12. » (sous la fourchette, sans réserve non plus : « 84 kg × 9 : pas encore. … », §9.14 bis).
 - **La proposition prise, à fond.** Les lignes suivantes reviennent à la charge de travail, comme « pas encore », mais
@@ -1238,8 +1238,27 @@ l'est pas). Ces règles sont des étapes de la réaction, avec ses silences (§9
 - **« La suite »** dans une phrase se lit sur les lignes après cette règle : « 81,3 kg × 10 à fond : la suite reste à
   81,3 kg × 9. » quand la ligne suivante, un test à 81,3, vient de passer à 9.
 - La dernière série de l'exercice : rien à dire.
-- **I44** : une ligne de source `a_fond` est à la charge de la série validée juste avant elle, qui est à fond, et vise
-  ses reps moins une.
+- **I44** *(réécrit le 20/11/2026)* : une ligne de source `a_fond` suit la DERNIÈRE série validée avant elle (à fond, à sa charge, ses reps moins
+  une) ou, à garde 0, la plus basse borne des séries à fond à sa charge faites au moins au bas de la zone.
+- **Delta du 20/11/2026 — « à fond » à garde 0, étape 1 (Lot F, TT-AFOND-G0 corrigé par CONTRA-AFOND-G0 ; décision d'Aurélien : garde 0 seule, la
+  garde ≥ 1 ne change pas).** À garde 0 des lignes (`contexte.gardeAffichee === 0`, `Plan.gardeDeLigne`), une série à fond **à la charge de sa ligne**
+  (`plan[k].charge`, jamais une série plus lourde : élan, proposition prise, B09 gardent la règle d'avant) :
+  - **r − 1 ≥ bas** : TOUTES les lignes suivantes à cette charge (non figées, ni coach ni élan ; test et « Au max » gardent leur rôle et leur marque)
+    qui visent plus visent **r − 1** ; une voix, la réaction au raté se tait (le bâillon) ;
+  - **r = bas** : elles visent **bas** (jamais r + 1 : la non-monotonie de la table D est fermée) et la parole est **cédée** à la réaction au raté (D, ses
+    leviers « +1 min », « Dégressive ») ; `poserSurLaLigne` ne relève jamais une visée ;
+  - **sous le bas** : aucune ligne ne change (aucune visée sous la zone), la parole est cédée (L : « On passe à 62,5 kg… », « Pas d'« Au max » ») ;
+  - **réaction au raté muette** (débutant/calage, entretien, décharge, semaine de test, première fois, douleur, figure) : le message cédé garde la parole
+    (`message.cede`, tranché par le plan : `x.message` s'efface seulement si `x.rate` parle ; I9 l'admet) — jamais un retour silencieux à la visée ;
+  - **la monotonie (I243)** : la borne est la plus basse des séries à fond de la séance à cette charge (r − 1 si r − 1 ≥ bas, sinon r), relue à chaque
+    série, lignes figées par les paris comprises ; aucune ligne non validée à cette charge ne la dépasse, quelle que soit la voix ;
+  - le pari `a_fond` d'une ligne propagée lit pour déclencheur la dernière série validée avant elle (`pariAFond`) ;
+  - **la phrase** (VOIX-DU-COACH-V1 : la réserve 0 se dit « sans marge ») : « 70 kg × 9, sans marge : la suite vise 8. » (« la suivante » si une seule
+    ligne change ; à garde ≥ 1 aussi : « 79 kg × 12, sans marge : la suivante vise 11. ») ; sous le bas, la parole gardée : « 70 kg × 7, sans marge. ».
+  Écarts notés : « à fond » des phrases `pas_encore` (« la suite revient ») reste (dette) ; sous le bas, une réaction muette laisse la ligne à sa visée
+  (CONTRA 4 demandait « r − 1, au moins bas » : la monotonie et « jamais sous la zone » l'emportent, le fait est dit) ; étape 2 (garde ≥ 1, « la suite vise
+  r − 1 − g » ou L) après la mesure Claude.ai (perte de reps par repos et par série). Interaction avec #722 (la descente en séance après un zéro lit
+  `ligne.vise`) : à rejouer quand #722 sera fusionnée.
 
 ---
 

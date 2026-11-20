@@ -11845,7 +11845,6 @@
       // Six lignes au plus, barre vide comprise (TT5 et CONTRA-TT5 : 220 kg en fait six ; au-delà, une charge absurde).
       k = Math.min(k, CHAUFFE_LIGNES_MAX - (bv ? 1 : 0));
     }
-    for (var v = 0; v < vides; v++) sortie.marches.push({ charge: null, reps: null, peu_de_temps: true });
     var dR = D === null ? null : D / R;
     var lo = deja ? CHAUFFE_PREMIERE_DEJA : CHAUFFE_PREMIERE;
     var parts = [];
@@ -11867,9 +11866,12 @@
       var nonDistincte = c === null || !(c > 0) || c >= R - 1e-9 || (prev !== null && c <= prev + 1e-9) ||
         (!derniere && c >= D - 1e-9);
       if (nonDistincte) { tropLegeres++; return; }
-      sortie.marches.push({ charge: c, reps: repsDeChauffe(c, R, false) });
+      // CONTRA-725 D9 — « peu de temps » sur un nombre fixé : les chauffes gardées prennent les reps de la règle (70 × 6 · 120 × 1, 40 × 3),
+      // pas celles des lignes du bas ; les lignes laissées vides viennent APRÈS (jamais deux lignes vides en tête de l'écran).
+      sortie.marches.push(vides ? { charge: c, reps: repsDeChauffe(c, R, false), peu: true } : { charge: c, reps: repsDeChauffe(c, R, false) });
       prev = c;
     });
+    for (var v = 0; v < vides; v++) sortie.marches.push({ charge: null, reps: null, peu_de_temps: true });
     for (var t = 0; t < tropLegeres; t++) sortie.marches.push({ charge: null, reps: null, trop_leger: true });
     return remplir();
   }
@@ -11930,7 +11932,7 @@
         lignes[idx] = { reps: reps, charge: null, trop_leger: true };
         return;
       }
-      var vide = reps === null || reps === undefined;
+      var vide = reps === null || reps === undefined || mj.peu === true;
       var l = { reps: vide ? mj.reps : reps, charge: mj.charge, reps_coach: vide };
       if (mj.barre) l.barre = true;
       // CONTRA-725 D6 — au lesté, la série au poids du corps (lest 0) garde sa nature : « poids du corps × 5 », jamais « Poids du corps de lest ».

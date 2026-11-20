@@ -4731,7 +4731,7 @@
         if (!l.chauffe) return;
         vues++;
         if (l.chauffe.charge !== null || l.validee || l.chauffe.corps) return;
-        // 20/11/2026 — « peu de temps » réduit un nombre fixé : les premières lignes restent vides, avec leur phrase.
+        // 20/11/2026 — « peu de temps » réduit un nombre fixé : les lignes laissées vides (après les chauffes gardées, CONTRA-725 D9), avec leur phrase.
         if (l.chauffe.peu_de_temps) {
           if ((ch.phrase || '').indexOf('Tu as peu de temps') < 0 && !lignes.some(function (q) { return q.validee; })) err('I16', 'une chauffe laissée par « peu de temps » sans sa phrase (série ' + l.iSerie + ')');
           return;

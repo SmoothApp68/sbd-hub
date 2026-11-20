@@ -58,11 +58,16 @@ describe('règle 2 — un nombre FIXÉ par la personne : ses montées ne bougent
     expect(lignes(routine(135, [null, null, null, null]))).toEqual([[20, 10], [70, 6], [90, 3], [120, 1]]);
     expect(lignes(routine(135, [12, 8, 4, 2])).map((l) => l[1])).toEqual([12, 8, 4, 2]);
   });
-  test('DISCRIMINANT — « peu de temps » réduit un nombre fixé : les premières lignes restent vides, avec la phrase', () => {
+  test('DISCRIMINANT (CONTRA-725 D9) — « peu de temps » réduit un nombre fixé : les chauffes gardées en tête, aux reps de la règle, les vides après', () => {
+    // avant : ∅ · ∅ · 70 × 3 · 120 × 1 (deux lignes vides en tête, les reps des lignes du bas) ; militaire ∅ · 40 × 2
     const r = routine(135, [10, 6, 3, 1], { peuDeTemps: true });
-    expect(lignes(r)).toEqual([[null, 10], [null, 6], [70, 3], [120, 1]]);
-    expect(r.lignes[0].peu_de_temps).toBe(true);
-    expect(sp(r.phrase)).toMatch(/Tu as peu de temps : deux chauffes\.$/);
+    expect(lignes(r)).toEqual([[70, 6], [120, 1], [null, 3], [null, 1]]);
+    expect(r.lignes[2].peu_de_temps).toBe(true);
+    expect(r.lignes[3].peu_de_temps).toBe(true);
+    expect(sp(r.phrase)).toBe('Chauffes calées sur 135 kg : 70 kg × 6 · 120 kg × 1. Tu as peu de temps : deux chauffes.');
+    const mil = routine(57.5, [10, 2], { peuDeTemps: true });
+    expect(lignes(mil)).toEqual([[40, 3], [null, 2]]);
+    expect(sp(mil.phrase)).toBe('Chauffes calées sur 57,5 kg : 40 kg × 3. Tu as peu de temps : une seule.');
   });
   test('la phrase dit l’unité et les reps de chaque chauffe', () => {
     expect(sp(routine(135, [10, 6, 3, 1]).phrase)).toBe('Chauffes calées sur 135 kg : 20 kg × 10 · 70 kg × 6 · 90 kg × 3 · 120 kg × 1.');
@@ -224,6 +229,13 @@ describe('le plan — + Chauffe, le lesté, le programme du coach', () => {
     const r30 = plan(seanceDe('tractions_leste'), 'tractions_leste', consigne(30, 5));
     expect(r30.x.proposition.lignes).toEqual([[0, 2], [15, 2]]);
     expect(r30.erreurs).toEqual([]);
+  });
+  test('DISCRIMINANT (CONTRA-725 D9) — « J’ai peu de temps » sur ses 4 lignes : 70 × 6 · 120 × 1 en tête, deux lignes vides après, I16 tenu', () => {
+    const r = plan(seanceDe('squat_barre', [10, 6, 3, 1]), 'squat_barre', consigne(135, 4), { raccourci: true });
+    const ch = r.x.lignes.filter((l) => l.type === 'echauffement');
+    expect(ch.map((l) => (l.fantome ? [l.fantome.charge, l.fantome.reps] : null))).toEqual([[70, 6], [120, 1], null, null]);
+    expect(ch.slice(2).every((l) => l.chauffe.peu_de_temps)).toBe(true);
+    expect(r.erreurs).toEqual([]);
   });
   test('DISCRIMINANT (CONTRA-725 D6) — lesté avec ses lignes : « poids du corps × 5 », jamais « Poids du corps de lest »', () => {
     const r = plan(seanceDe('tractions_leste', [5, 3]), 'tractions_leste', consigne(10, 6));

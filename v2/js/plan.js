@@ -812,7 +812,10 @@
       };
       if (deChauffe.length) {
         var entree = Object.assign({}, commun, {
-          coach: materiel.coach === true || materiel.duCoach === true,
+          // CONTRA-725 D5 — des lignes sont « du coach » seulement s'il les a posées dans cette séance (« Ajouter », l'ajout automatique, le
+          // programme : `materiel.coach` lit le geste) ; des lignes que la personne a écrites, même sur un exercice d'un programme du coach,
+          // sont un nombre fixé (88 %), jamais lues à la part de la zone.
+          coach: materiel.coach === true,
           routine: routineDe(),
           plus: deChauffe.map(function (l) { var sr = liste[l.iSerie]; return !!(sr && sr.id && plusIds.indexOf(sr.id) >= 0); }),
           // 265 (§9.15.7) — les chauffes FAITES (charge et reps réelles), à leur place ; `null` pour une ligne pas faite.

@@ -300,6 +300,52 @@ describe('le plan — + Chauffe, le lesté, le programme du coach', () => {
   });
 });
 
+describe('CONTRA-725 D5 — la personne fixe son nombre : la marque `chauffes_du_coach` s’efface, ses lignes sont les siennes', () => {
+  const R = require('../../v2/js/routines.js');
+  const travail = () => ({ type_serie: 'travail', reps_visees: 5 });
+  const chauffe = () => ({ type_serie: 'echauffement', reps_visees: null });
+  const exo = (series, marque) => ({ id: 'e1', exercise_slug: 'squat_barre', rang: 0, repos_cible_s: null, groupe_superset: null, note: null,
+    chauffes_du_coach: marque, series });
+  const marqueEcrite = (plan) => plan.majs.filter((m) => m.id === 'e1' && Object.prototype.hasOwnProperty.call(m.champs, 'chauffes_du_coach')).map((m) => m.champs.chauffes_du_coach);
+  test('DISCRIMINANT — des lignes d’échauffement ajoutées (éditeur ou report de fin de séance) : la marque passe à false (avant : gardée)', () => {
+    const avant = [exo([travail(), travail()], true)];
+    expect(marqueEcrite(R.planEcritures(avant, [exo([chauffe(), chauffe(), travail(), travail()], true)], 'r'))).toEqual([false]);
+  });
+  test('DISCRIMINANT — des lignes retirées : false aussi ; le même nombre (une charge, des reps changées) : rien', () => {
+    const avant = [exo([chauffe(), chauffe(), travail()], true)];
+    expect(marqueEcrite(R.planEcritures(avant, [exo([chauffe(), travail()], true)], 'r'))).toEqual([false]);
+    expect(marqueEcrite(R.planEcritures(avant, [exo([chauffe(), chauffe(), Object.assign(travail(), { reps_visees: 8 })], true)], 'r'))).toEqual([]);
+  });
+  test('sans la marque, rien n’est écrit ; le coach qui repose sa marque la garde', () => {
+    expect(marqueEcrite(R.planEcritures([exo([travail()], undefined)], [exo([chauffe(), travail()], undefined)], 'r'))).toEqual([]);
+    expect(marqueEcrite(R.planEcritures([exo([travail()], false)], [exo([travail()], true)], 'r'))).toEqual([true]);
+  });
+  test('DISCRIMINANT — le plan : des lignes que la personne a écrites sur un exercice du programme sont un nombre fixé (88 %), pas la zone', () => {
+    const SQ = { nom: 'Squat barre', equipement: 'barre', mesure: 'charge_reps', muscles_primaires: ['quadriceps', 'fessiers'], muscles_secondaires: [], muscles_stabilisateurs: [] };
+    const k = { etat: 'progression', zone: 'hypertrophie', palier: 135, niveau: 10, n: 3, ligne: { charge: 135, vise: 10 }, haut: null, fondement: {} };
+    let n0 = 0; const id = () => 'd5-' + (++n0);
+    const jouer = (gestes) => {
+      let se = S.creer({ id: 'S1', userId: 'u', idSerie: id });
+      se = S.ajouterExercice(se, 'squat_barre', id, { series: 3 });
+      se = S.insererChauffes(se, 0, [[null, 10], [null, 6], [null, 3], [null, 1]], id);
+      (gestes || []).forEach((g) => { se = S.noterGeste(se, g); });
+      const e = { seance: { id: 'S1', debut: '2026-10-20T10:00:00+00:00', edition: false, exercices: se.exercices, gestes: se.gestes || [] },
+        consignes: { squat_barre: { consigne: k, libelles: M.libellesConsigne(k), pas: null } }, catalogue: { squat_barre: SQ }, reglage: null,
+        paris: [], suites: {}, chauffesDuCoach: { squat_barre: true } };
+      const p = T.planDeSeance(e);
+      return { x: p.exercices[0], erreurs: T.verifierPlan(p, e).erreurs };
+    };
+    const siennes = jouer();
+    expect(siennes.x.chauffes.origine).toBe('routine');          // avant : 'coach'
+    expect(siennes.x.chauffes.derniere).toBe(120);               // 88 % de 135 (la zone aurait dit 100)
+    expect(siennes.erreurs).toEqual([]);
+    // Posées par le coach dans la séance (le geste `chauffes_auto` du programme) : la montée du coach.
+    const posees = jouer([{ geste: 'chauffes_auto', slug: 'squat_barre', programme: true }]);
+    expect(posees.x.chauffes.origine).toBe('coach');
+    expect(posees.x.chauffes.derniere).toBe(100);
+  });
+});
+
 describe('les invariants I244 à I250 attrapent une montée forgée', () => {
   const SQ = { nom: 'Squat barre', equipement: 'barre', mesure: 'charge_reps', muscles_primaires: ['quadriceps', 'fessiers'],
     muscles_secondaires: ['ischio_jambiers'], muscles_stabilisateurs: ['bas_du_dos'] };

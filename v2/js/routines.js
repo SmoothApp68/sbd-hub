@@ -414,6 +414,12 @@
   // liste vide effacerait la structure d'une routine à la première vidange, et
   // lever bloquerait la file définitivement — les deux pires issues possibles
   // pour une entrée qu'on ne peut plus corriger.
+  // Le nombre de lignes d'échauffement d'un exercice de routine (sa forme écrite), ou `null` quand ses séries ne sont pas lisibles.
+  function nombreDeChauffes(exo) {
+    var l = seriesEcrites(exo, null, null);
+    return l === null ? null : l.filter(function (s) { return s && s.type_serie === 'echauffement'; }).length;
+  }
+
   function seriesEcrites(exo, routineExerciceId, userId) {
     var liste = exo && exo.series;
     if (!Array.isArray(liste)) return null;
@@ -530,6 +536,13 @@
       if (!v.id || !parId[v.id]) { insertions.push(champs); return; }
 
       var vieux = parId[v.id];
+      // CONTRA-725 D5 — « le moteur propose, l'utilisateur décide » : quand la personne fixe elle-même le nombre de chauffes d'un exercice
+      // dont le coach les choisissait (des lignes d'échauffement ajoutées ou retirées, dans l'éditeur ou par le report de fin de séance),
+      // la marque s'efface : ses lignes sont les siennes (nombre fixé), et le coach ne les repose plus d'office.
+      if (vieux.chauffes_du_coach === true && champs.chauffes_du_coach !== false) {
+        var nA = nombreDeChauffes(vieux), nV = nombreDeChauffes(v);
+        if (nA !== null && nV !== null && nA !== nV) champs.chauffes_du_coach = false;
+      }
       var change = {};
       ['repos_cible_s', 'exercise_slug',
        'groupe_superset', 'note', 'zone', 'chauffes_du_coach'].forEach(function (c) {

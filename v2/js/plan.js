@@ -3231,7 +3231,7 @@
     };
   }
 
-  // « Une seule voix après un zéro » (19/11/2026, MOTEUR §9.39 et §9.42 bis, I158, I232, I233) — LA RÉACTION D'UNE SÉRIE À 0 REP, UNE FONCTION. Toute série validée
+  // « Une seule voix après un zéro » (19/11/2026, MOTEUR §9.39 et §9.42 bis, I158, I236, I237) — LA RÉACTION D'UNE SÉRIE À 0 REP, UNE FONCTION. Toute série validée
   // à 0 rep (charge > 0, de travail ou manquée : `Modele.estZeroDeTravail`) a SA réaction, Z1 ou Z2 (`Moteur.reactionAuZero`) : la même pour l'affichage (`x.rate`), pour
   // les étapes du niveau 2, pour le compte des propositions ignorées et pour le geste `rate_ignoree` ; jamais `reactionDeSerie`. En séance, la porte « plus lourd que
   // tout succès » ne joue plus (`zeroPartiel`, `porte: false`) : un 0 à ou sous une charge réussie est un incident (Z2). Le lest et l'aide passent par le cas E du
@@ -3327,7 +3327,7 @@
   }
 
   // Les réactions au zéro de TOUTES les séries à 0 rep de l'exercice (`zeroDeLaSerie`), calculées une fois : l'affichage, les étapes, le compte des propositions
-  // ignorées et `x.zeros` (ce que I233 relit) lisent la MÊME liste.
+  // ignorées et `x.zeros` (ce que I237 relit) lisent la MÊME liste.
   function zerosDeLExercice(plan, x, exo, e, seance, gs, travail) {
     var liste = [];
     ((exo && exo.series) || []).forEach(function (sr, i) {
@@ -3363,7 +3363,7 @@
     // PR 4b (R-A, O7, MOTEUR §9.42 bis) — APRÈS UN 0 REP, UNE BRANCHE DÉDIÉE, AVANT les sorties anticipées ci-dessous (elles contiennent le débutant, la première fois, la
     // zone et le pari : le zéro les traverse toutes). Elle lit les séries VALIDÉES de l'exercice (`Modele.zeroDeSeance`, O8) : une série manquée (`echec` à 0 rep,
     // « Oui, manquée ») n'est pas une ligne de travail pour le plan.
-    // « Une seule voix après un zéro » (19/11/2026) : les réactions de toutes les séries à 0 rep (`x.zeros`, relues par I233) et les « Prendre » déjà pris (règle 7).
+    // « Une seule voix après un zéro » (19/11/2026) : les réactions de toutes les séries à 0 rep (`x.zeros`, relues par I237) et les « Prendre » déjà pris (règle 7).
     var zrs = zerosDeLExercice(plan, x, exo, e, seance, gs, travail);
     if (zrs.length) x.zeros = zerosPourLePlan(zrs, gs, x);
     var iDerniere = derniereValideDeLExercice(exo);
@@ -3444,7 +3444,7 @@
       faites: faites.filter(function (l) { return l.type === 'travail'; }).map(function (l) {
         return { reps: nombre((series[l.iSerie] || {}).reps), vise: nombre(l.vise) };
       }), restantes: travail.filter(function (l) { return !l.validee; }).length }));
-    // I232 : sous une série à 0 rep (poids du corps, lest, aide), le niveau 2 ne parle pas (aucune fourchette ni « garde » sous un 0).
+    // I236 : sous une série à 0 rep (poids du corps, lest, aide), le niveau 2 ne parle pas (aucune fourchette ni « garde » sous un 0).
     var dernierAZero = nombre((series[dernier.l.iSerie] || {}).reps) === 0;
     if (!d2.silence && dernier.l.type === 'travail' && !autreCharge && !classeDOuL(dernier.l) && !dernierAZero) d = d2;
     if (!x.message) {
@@ -8193,7 +8193,7 @@
         if (pz && nombre(pz.charge) !== null && String(gris).replace(/\s/g, ' ').replace(/(\d),(\d)/g, '$1.$2').indexOf(String(pz.charge)) < 0) erreurs.push('I157' + nom + 'la phrase du plafond ne dit pas la charge restée à 0 rep (' + pz.charge + ')');
         if (/\b\d+\s+séances?\b/.test(dit) || /quand même|plafond|assidu/i.test(dit)) erreurs.push('I157' + nom + 'la phrase du plafond écrit un nombre de séances, « plafond » ou « quand même »');
       }
-      // I158 (étendu le 19/11/2026), I232, I233 — la lecture indépendante du plan : CHAQUE série validée à 0 rep (charge > 0, de travail ou manquée ; ni lest ni aide : le cas E)
+      // I158 (étendu le 19/11/2026), I236, I237 — la lecture indépendante du plan : CHAQUE série validée à 0 rep (charge > 0, de travail ou manquée ; ni lest ni aide : le cas E)
       // a sa réaction dans `x.zeros`, la même que `x.rate` sous la dernière, les étapes et le compte ; `D` ≤ min(C, le plus léger zéro de la séance), compatible avec la visée
       // (Epley inverse) sauf relevé à une série réussie du jour plus légère que C ; une série réussie à C ou au-dessus : Z2.
       var exo = exos[x.iExo];
@@ -8211,15 +8211,15 @@
         var estZero = T.estZeroDeTravail(sr);
         var entree = entrees.filter(function (q) { return q.iSerie === j; })[0] || null;
         if (!estZero || lestOuAide) {
-          if (entree) erreurs.push('I233' + nom + 'une réaction au zéro sous la série ' + j + ', qui n’est pas un zéro de travail à charge');
+          if (entree) erreurs.push('I237' + nom + 'une réaction au zéro sous la série ' + j + ', qui n’est pas un zéro de travail à charge');
           return;
         }
-        if (!entree) { erreurs.push('I233' + nom + 'un 0 rep à ' + ch + ' kg (série ' + j + ') sans réaction au zéro'); return; }
+        if (!entree) { erreurs.push('I237' + nom + 'un 0 rep à ' + ch + ' kg (série ' + j + ') sans réaction au zéro'); return; }
         if (muet) {
           if (!entree.silence || (rz && rz.iSerie === j)) erreurs.push('I158' + nom + 'une réaction au zéro dans un contexte où le coach se tait');
           return;
         }
-        if (entree.silence || (entree.cas !== 'Z1' && entree.cas !== 'Z2')) { erreurs.push('I233' + nom + 'un 0 rep à ' + ch + ' kg (série ' + j + ') sans réaction Z1 ou Z2'); return; }
+        if (entree.silence || (entree.cas !== 'Z1' && entree.cas !== 'Z2')) { erreurs.push('I237' + nom + 'un 0 rep à ' + ch + ' kg (série ' + j + ') sans réaction Z1 ou Z2'); return; }
         // C : le plus léger zéro de la séance jusqu'à cette série ; les séries réussies du jour jusque-là.
         var Cmin = ch, reussies = [];
         series.forEach(function (q, m) {
@@ -8263,16 +8263,16 @@
         series.forEach(function (q, m) { if (S.partEnBase(q) && T.typeDe(q) !== 'echauffement' && !T.estHorsCalcul(q) && !T.estTest(q)) dernierJ = m; });
         if (dernierJ === j && !rz) erreurs.push('I158' + nom + 'un 0 rep à ' + ch + ' kg sous la dernière série sans réaction au zéro affichée');
         // une seule réaction : l'affichage, les étapes et le geste ignoré disent le même cas
-        if (rz && rz.iSerie === j && rz.cas !== entree.cas) erreurs.push('I233' + nom + 'la série ' + j + ' dit ' + rz.cas + ' à l’écran et ' + entree.cas + ' dans les étapes');
-        if (entree.proposition !== (entree.cas === 'Z1')) erreurs.push('I233' + nom + 'la série ' + j + ' : ' + entree.cas + ' ' + (entree.proposition ? 'compte' : 'ne compte pas') + ' comme proposition ignorée');
+        if (rz && rz.iSerie === j && rz.cas !== entree.cas) erreurs.push('I237' + nom + 'la série ' + j + ' dit ' + rz.cas + ' à l’écran et ' + entree.cas + ' dans les étapes');
+        if (entree.proposition !== (entree.cas === 'Z1')) erreurs.push('I237' + nom + 'la série ' + j + ' : ' + entree.cas + ' ' + (entree.proposition ? 'compte' : 'ne compte pas') + ' comme proposition ignorée');
         gestesZ.forEach(function (g) {
-          if (g && g.geste === 'rate_ignoree' && g.slug === x.slug && g.rang === j && g.cas !== undefined && g.cas !== entree.cas) erreurs.push('I233' + nom + 'rate_ignoree dit ' + g.cas + ' sous la série ' + j + ', la réaction est ' + entree.cas);
-          if (g && g.geste === 'rate_ignoree' && g.slug === x.slug && g.rang === j && Array.isArray(g.boutons) && (g.boutons.length > 0) !== (entree.cas === 'Z1')) erreurs.push('I233' + nom + 'rate_ignoree sous la série ' + j + ' : boutons ' + JSON.stringify(g.boutons) + ' pour ' + entree.cas);
+          if (g && g.geste === 'rate_ignoree' && g.slug === x.slug && g.rang === j && g.cas !== undefined && g.cas !== entree.cas) erreurs.push('I237' + nom + 'rate_ignoree dit ' + g.cas + ' sous la série ' + j + ', la réaction est ' + entree.cas);
+          if (g && g.geste === 'rate_ignoree' && g.slug === x.slug && g.rang === j && Array.isArray(g.boutons) && (g.boutons.length > 0) !== (entree.cas === 'Z1')) erreurs.push('I237' + nom + 'rate_ignoree sous la série ' + j + ' : boutons ' + JSON.stringify(g.boutons) + ' pour ' + entree.cas);
         });
       });
-      // I232 — aucune fourchette ni « garde » sur une série à 0 rep, à aucun niveau : la réaction affichée sous une série à 0 rep, jamais « entre 1 et 1 ».
+      // I236 — aucune fourchette ni « garde » sur une série à 0 rep, à aucun niveau : la réaction affichée sous une série à 0 rep, jamais « entre 1 et 1 ».
       if (r && series[r.iSerie] && nombre(series[r.iSerie].reps) === 0 && (r.fourchette || (r.garde !== null && r.garde !== undefined) || r.niveau === 'exercice')) {
-        erreurs.push('I232' + nom + 'une fourchette ou un « garde » sous une série à 0 rep (série ' + r.iSerie + ')');
+        erreurs.push('I236' + nom + 'une fourchette ou un « garde » sous une série à 0 rep (série ' + r.iSerie + ')');
       }
     });
   }

@@ -1,6 +1,6 @@
 /** @jest-environment node */
 //
-// « Une seule voix après un zéro » (19/11/2026, MOTEUR §9.39 et §9.42 bis ; I158 étendu, I232, I233). Une série à 0 rep (charge > 0) a UNE réaction, la sienne : Z1 / Z2 en séance
+// « Une seule voix après un zéro » (19/11/2026, MOTEUR §9.39 et §9.42 bis ; I158 étendu, I236, I237). Une série à 0 rep (charge > 0) a UNE réaction, la sienne : Z1 / Z2 en séance
 // (`porte: false`), jamais `reactionDeSerie` (« entre 1 et 1 »), à aucun niveau. Le cran `D` de la séance : ≤ min(95 %, Epley inverse de la visée), jamais au-dessus d'une charge
 // déjà ratée, relevé à une série réussie du jour plus légère. Une série réussie à C ou au-dessus : un incident, Z2.
 
@@ -157,13 +157,13 @@ describe('la réaction en séance : une série à 0 rep, sa réaction Z1 / Z2', 
   });
   test('I158 : D mal calculé (au-dessus de C, au-dessus de l\'Epley inverse), Z1 sur un incident, un 0 sans réaction : refusés', () => {
     const r = planZ([[85, 0, echec0]]);
-    const avec = (patch) => { const p = Object.assign({}, r.p, { exercices: r.p.exercices.map((q, i) => (i === 0 ? Object.assign({}, q, patch) : q)) }); return T.verifierPlan(p, r.e).erreurs.filter((m) => /I158|I232|I233/.test(m)); };
+    const avec = (patch) => { const p = Object.assign({}, r.p, { exercices: r.p.exercices.map((q, i) => (i === 0 ? Object.assign({}, q, patch) : q)) }); return T.verifierPlan(p, r.e).erreurs.filter((m) => /I158|I236|I237/.test(m)); };
     expect(avec({}).length).toBe(0);
     const z = r.x.zeros[0];
     const faux = (kg) => avec({ zeros: [Object.assign({}, z, { descente: kg })], rate: Object.assign({}, r.x.rate, { charge: { kg, action: 'baisse' } }) });
     expect(faux(80).some((m) => /Epley/.test(m))).toBe(true);
     expect(faux(85).some((m) => /jamais à la charge déjà ratée/.test(m))).toBe(true);
-    expect(avec({ zeros: [] }).some((m) => /I233/.test(m))).toBe(true);
+    expect(avec({ zeros: [] }).some((m) => /I237/.test(m))).toBe(true);
     // un incident traité comme Z1
     const inc = planZ([[100, 5], [100, 0, echec0]]);
     const p2 = Object.assign({}, inc.p, { exercices: inc.p.exercices.map((q, i) => (i === 0 ? Object.assign({}, q, { zeros: [Object.assign({}, q.zeros[0], { cas: 'Z1', descente: 95, proposition: true })] }) : q)) });
@@ -210,7 +210,7 @@ describe('UNE réaction par série à 0 rep (règle 4) — « entre 1 et 1 » ne
     expect(d.silence).toBe(false);
     expect([d.avant, d.faites]).toEqual([4, 3]);
   });
-  test('x.zeros, x.rate et le compte des propositions disent la même chose (I233) : Z1 non pris compte comme ignorée', () => {
+  test('x.zeros, x.rate et le compte des propositions disent la même chose (I237) : Z1 non pris compte comme ignorée', () => {
     const un = planZ([[85, 0, echec0], [100, 2]], { nSeries: 5 });
     expect(un.x.zeros[0]).toMatchObject({ iSerie: 0, cas: 'Z1', proposition: true, prise: false });
     expect(un.x.rate.niveau).toBe('serie');                 // une seule proposition ignorée : le coach parle encore sous la série suivante

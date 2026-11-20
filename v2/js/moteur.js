@@ -13296,7 +13296,7 @@
     }
     var faites = nombre(c.reps), vise = nombre(c.vise), bas = nombre(c.bas);
     if (faites === null || vise === null || bas === null) return silence(null, 'sans_chiffres');
-    // « Une seule voix après un zéro » (19/11/2026, I232) — une série à 0 rep AVEC une charge a SA réaction (`reactionAuZero`, Z1 / Z2) : jamais celle-ci, à aucun
+    // « Une seule voix après un zéro » (19/11/2026, I236) — une série à 0 rep AVEC une charge a SA réaction (`reactionAuZero`, Z1 / Z2) : jamais celle-ci, à aucun
     // niveau (« entre 1 et 1 » ne se dit plus). Au poids du corps (sans charge, lest, aide), le cas E répond, sans fourchette ni « garde » (plus bas).
     var chargeZ = nombre(c.charge);
     if (faites === 0 && c.corps !== true && chargeZ !== null && chargeZ > 0) return silence('Z', 'zero');
@@ -13362,7 +13362,7 @@
       if (kgBaisse === null) baisse = false;                     // rien de plus léger au pas du matériel : on garde
     }
     var zeroCorps = corps && faites === 0;
-    if (zeroCorps) fourchette = null;                            // I232 : « 0 au lieu de 8. », ni fourchette ni « garde » sur une série à 0 rep
+    if (zeroCorps) fourchette = null;                            // I236 : « 0 au lieu de 8. », ni fourchette ni « garde » sur une série à 0 rep
     else if (baisse) fourchette = rateFourchette(bas, bas + 2);
     else if (lettre === 'E') fourchette = rateFourchette(faites - 1, faites);
     else fourchette = rateFourchette(faites - 1, Math.min(vise, faites + 1));
@@ -13411,7 +13411,7 @@
     var raison = rateRaisonDeSilence(c);
     if (raison) return silence(raison);
     if ((nombre(c.ignorees) || 0) >= RATE_IGNOREES_MAX) return silence('ignorees');
-    // « Une seule voix après un zéro » (19/11/2026, I232) — une série à 0 rep n'est jamais dans la paire (sa réaction est la sienne).
+    // « Une seule voix après un zéro » (19/11/2026, I236) — une série à 0 rep n'est jamais dans la paire (sa réaction est la sienne).
     var f = (c.faites || []).filter(function (s) { return s && nombre(s.reps) !== null && nombre(s.reps) > 0 && nombre(s.vise) !== null; });
     if (f.length < 2) return silence('pas_assez');
     var a = f[f.length - 2], b = f[f.length - 1];
@@ -13531,7 +13531,7 @@
         ? rateReps(d.faites) + ' au lieu de ' + rateReps(d.visees) + '. Tes reculs se recalent sur cette série.'
         : 'Ta grosse série dit ≈ ' + enKg(d.maxDuJour, regle('rate.charge')) + ' : tes reculs se recalent dessus.';
     }
-    // 19/11/2026 (I232) — une série à 0 rep (poids du corps, lest, aide) : « 0 au lieu de 8. », ni charge, ni « garde », ni fourchette.
+    // 19/11/2026 (I236) — une série à 0 rep (poids du corps, lest, aide) : « 0 au lieu de 8. », ni charge, ni « garde », ni fourchette.
     if (d.zero === true) {
       var z0 = rateReps(d.faites) + ' au lieu de ' + rateReps(d.visees) + '.';
       if (d.seche) z0 += ' En sèche, c’est attendu.';

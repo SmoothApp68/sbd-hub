@@ -127,6 +127,12 @@ describe('la réaction en séance : une série à 0 rep, sa réaction Z1 / Z2', 
     expect(zs[1].descente).toBeLessThan(100);
     expect(r.erreurs).toEqual([]);
   });
+  test('C : un zéro PLUS LOURD qu\'un zéro déjà fait ne relève pas la descente : 100 × 0 puis 105 × 0 → la descente du second part de 100', () => {
+    const r = planZ([[100, 0, echec0], [105, 0, echec0]]);
+    expect(r.x.zeros.map((z) => z.zeroMin)).toEqual([100, 100]);
+    expect(r.x.zeros[1].descente).toBeLessThan(100);
+    expect(r.erreurs).toEqual([]);
+  });
   test('Z2 : plancher du matériel (20 kg, rien de plus léger) et dernière ligne', () => {
     expect(sp(planZ([[20, 0, echec0]]).x.rate.phrase)).toBe('20 kg est resté à 0 rep.');
     const d = planZ([[100, 5], [100, 5], [100, 5], [105, 0, echec0]]);

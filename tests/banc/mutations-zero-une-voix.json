@@ -1,0 +1,113 @@
+[
+ {
+  "nom": "zv-sans-epley",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "Math.min(d, C / unRMEpley(1, v))",
+  "nouveau": "d",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-une-seule-voix-apres-un-zero.test.js"
+  ]
+ },
+ {
+  "nom": "zv-sans-releve",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "return succes !== null && succes > d ? succes : d;",
+  "nouveau": "return d;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-une-seule-voix-apres-un-zero.test.js"
+  ]
+ },
+ {
+  "nom": "zv-sans-incident",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "if (reussies.some(function (v) { return v >= C - 1e-9; })) return null;",
+  "nouveau": "if (false) return null;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-une-seule-voix-apres-un-zero.test.js"
+  ]
+ },
+ {
+  "nom": "zv-serie-a-zero-parle",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "if (faites === 0 && c.corps !== true && chargeZ !== null && chargeZ > 0) return silence('Z', 'zero');",
+  "nouveau": "if (false) return silence('Z', 'zero');",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-une-seule-voix-apres-un-zero.test.js"
+  ]
+ },
+ {
+  "nom": "zv-c-sans-plus-leger-zero",
+  "fichier": "v2/js/plan.js",
+  "ancien": "var C = z !== null && nombre(z.charge) !== null ? Math.min(Ch, nombre(z.charge)) : Ch;",
+  "nouveau": "var C = Ch;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-une-seule-voix-apres-un-zero.test.js"
+  ]
+ },
+ {
+  "nom": "zv-prise-effacee",
+  "fichier": "v2/js/plan.js",
+  "ancien": "      if (kg !== null) appliquerUnPrendre(x, kg);",
+  "nouveau": "      if (false) appliquerUnPrendre(x, kg);",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-une-seule-voix-apres-un-zero.test.js"
+  ]
+ },
+ {
+  "nom": "zv-zero-manquee-non-compte",
+  "fichier": "v2/js/plan.js",
+  "ancien": "!prises(q.iSerie).length) { q.compte = true; ignorees++;  }",
+  "nouveau": "!prises(q.iSerie).length) { q.compte = true; }",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-une-seule-voix-apres-un-zero.test.js"
+  ]
+ },
+ {
+  "nom": "zv-niveau2-garde-le-zero",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "nombre(s.reps) !== null && nombre(s.reps) > 0 && nombre(s.vise) !== null",
+  "nouveau": "nombre(s.reps) !== null && nombre(s.reps) >= 0 && nombre(s.vise) !== null",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-une-seule-voix-apres-un-zero.test.js"
+  ]
+ },
+ {
+  "nom": "zv-geste-sans-cas",
+  "fichier": "v2/js/seance.js",
+  "ancien": "if (g.geste === 'rate_prise' && g.cas === 'Z1') o.cas = g.cas;",
+  "nouveau": "if (false) o.cas = g.cas;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-une-seule-voix-apres-un-zero.test.js"
+  ]
+ },
+ {
+  "nom": "zv-phrase-pour-la-suite",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "' pour les séries qui restent.' : dit + '.';",
+  "nouveau": "' pour la suite.' : dit + '.';",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-une-seule-voix-apres-un-zero.test.js"
+  ]
+ },
+ {
+  "nom": "zv-temoin-commentaire",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "    // « Une seule voix après un zéro » (19/11/2026, I232) — une série à 0 rep n'est jamais dans la paire (sa réaction est la sienne).",
+  "nouveau": "    // « Une seule voix après un zéro » (19/11/2026, I232) — une série à 0 rep n'est jamais dans la paire (sa réaction est la sienne). (témoin)",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-une-seule-voix-apres-un-zero.test.js"
+  ],
+  "attendu": "survit"
+ }
+]

@@ -18,8 +18,8 @@
  {
   "nom": "recul-sans-note-monte-la-correction",
   "fichier": "v2/js/moteur.js",
-  "ancien": "      if (mr === null) { pas.push({ charge: d.charge, faites: d.reps, prevision: null, cible: l.cible, delta: 0, sansNote: true }); return; }",
-  "nouveau": "      if (mr === null) mr = RECUL_MARGE_VISEE;",
+  "ancien": "      if (mr === null) {\n        var dSans",
+  "nouveau": "      if (mr === null) mr = RECUL_MARGE_VISEE;\n      if (false) {\n        var dSans",
   "banc": "aucun",
   "unitaires": ["tests/unit/v2-recul-max-du-jour.test.js"]
  }

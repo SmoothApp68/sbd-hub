@@ -290,7 +290,7 @@ Bas A : squat Lourd 1 × 4 · 2 reculs × 6, roumain 3 × 8, leg curl 3 × 12, m
 (pas une barre lourde : le raccourci peut la couper), couché Hyper. 3 × 9, rowing 3 × 10, curl 3 × 12 · Bas B : soulevé Lourd 1 × 4 · 2 reculs × 5,
 squat Hyper. 3 × 9, presse 3 × 12, abdos 3 × 15.
 
-**La dernière série « Au max » (193-6, MOTEUR §9.30).** Le programme construit pose par défaut `routine_sets.au_max = true` sur la **dernière
+**La dernière série « Au max » (193-6, MOTEUR §9.30) — RETIRÉE le 20/11/2026 : le programme construit n'écrit plus aucune marque `routine_sets.au_max` (`Generateur.marquerAuMax` est retiré, MOTEUR §9.30 « Au max » disparaît, I251). Ce qui suit est l'historique.** Le programme construit pose par défaut `routine_sets.au_max = true` sur la **dernière
 série de travail ou de recul** de chaque exercice dont `Moteur.auMaxDe` dit « oui » pour l'objectif : **Muscle et Les deux** — partout, selon sa
 table (squat et couché à l'échec avec pareur ou sécurités, soulevé en gardant 2 reps, militaire 1, accessoires à l'échec) ; **Force** — les
 accessoires seulement (réserve 1), jamais une barre ; **Forme, objectif absent ou inconnu** — rien (on ne devine pas). Le débutant, la zone à

@@ -106,7 +106,14 @@ Forme unique : **Ta note dit « <extrait> » → je propose : <proposition>.** T
 | réglage | ta note de la presse. / ta note de la presse, à la place de « dossier cran 4 ». | Noté. *Annuler* |
 | douleur | douleur au coude, sur Curl marteau. | Douleur notée : coude. *Annuler* |
 
-Une réserve de 0 se dit « sans marge », jamais « 0 en réserve ». Les phrases sont balayées par `tests/unit/v2-notes-ia.test.js` avec les motifs de `fixtures/voix-regles-181.json`.
+Une réserve de 0 se dit « sans marge », jamais « 0 en réserve ».
+
+**« Au max » disparaît (20/11/2026, MOTEUR §9.30, I251, CONTRA-AUMAX-DEDUIT C9).** Le glossaire perd « Au max » et « 5+ » : ni carte « Dernière série au max ? »,
+ni bouton, ni « Au max en gardant N », ni « Jusqu'à l'échec » sous une ligne, ni étiquette « 5+ · garde N », ni « Ta dernière série me dit où tu en es »,
+ni « Pas d'« Au max » sur cet exercice aujourd'hui », ni « L'échec sur une barre passe par la série « Au max » ». Le coach ne demande l'échec que par la visée
+affichée. Celui qui va au bout le note : **« sans marge » = « tu n'aurais pas pu faire une rep de plus, propre »** (le mot « propre » : l'échec technique,
+TT-AUMAX-DEDUIT §6). En séance, le silence ; en fin d'exercice, la phrase de la capacité tenue (I254, ci-dessus : « 100 kg × 7, sans marge : 2 de plus que
+prévu. ») puis l'annonce, rien d'autre. La « Série au max » de la semaine de test reste jusqu'à la PR 3 (« Série de test »). Les phrases sont balayées par `tests/unit/v2-notes-ia.test.js` avec les motifs de `fixtures/voix-regles-181.json`.
 
 ## Les chauffes depuis ta charge (15/11/2026, MOTEUR §9.41 bis)
 

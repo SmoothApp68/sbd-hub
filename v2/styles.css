@@ -793,12 +793,23 @@ button.bloc-exo:active{background:var(--panneau-2)}
   padding:84px 0;position:relative;z-index:3;
   -ms-overflow-style:none;scrollbar-width:none;overscroll-behavior:contain}
 .molette .piste::-webkit-scrollbar{width:0}
-.molette .opt{height:48px;display:flex;align-items:center;justify-content:center;
+.molette .opt{position:relative;height:48px;display:flex;align-items:center;justify-content:center;
   scroll-snap-align:center;font-size:16px;font-weight:400;line-height:normal;font-family:inherit;
   color:var(--gris-moyen);font-variant-numeric:tabular-nums;transition:color .12s}
 .molette .opt.sel{color:var(--texte);font-size:22px;font-weight:700}
 .molette .opt.pres{color:var(--texte-3)}
 .molette .opt.eteint{color:var(--gris-moyen);font-size:16px;font-weight:600}
+/* 20/11/2026 (MOTEUR §9.52) — le repos conseillé, dans la feuille de la molette : une ligne ambre (la voix du coach) et son pourquoi. */
+.conseil-repos{border-top:1px solid var(--trait);padding:var(--e2) 0}
+.conseil-repos .conseil-tete{display:flex;align-items:baseline;justify-content:space-between;gap:var(--e2)}
+.conseil-repos .conseil-qui{font-size:13px;color:var(--accent);font-weight:600}
+.conseil-repos .conseil-qui b{font-variant-numeric:tabular-nums;font-size:15px}
+.conseil-repos .conseil-qui.raccourci{color:var(--texte-2)}
+.conseil-repos .conseil-reglage{font-size:12px;color:var(--texte-2)}
+.conseil-repos .conseil-pourquoi{font-size:13px;color:var(--texte-2);line-height:1.45;margin-top:4px}
+.conseil-repos .conseil-prendre{margin-top:8px;height:34px;padding:0 12px;border-radius:var(--r-bouton);background:transparent;border:1px solid var(--accent);color:var(--accent);font:inherit;font-size:13px;font-weight:600}
+.conseil-repos .conseil-mention{font-size:12px;color:var(--texte-3);margin-top:6px}
+.molette .opt .marque{position:absolute;right:14px;font-size:12px;font-weight:600;color:var(--accent);letter-spacing:.02em}
 
 /* Trois sorties, et « Désactiver » ne prend pas la place des deux autres :
    c'est le geste rare, il garde la largeur de son texte. */

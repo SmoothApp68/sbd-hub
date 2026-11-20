@@ -274,7 +274,7 @@ describe('seancesQuiReviennent — la référence fait foi (60-5)', () => {
 // ═══ LA STRUCTURE : celle de « En faire une routine » ══════════════════════
 describe('routineDeduite — la structure de « En faire une routine »', () => {
   const CATALOGUE = [
-    { slug: 'squat_barre', nom: 'Squat', mesure: 'charge_reps',
+    { slug: 'squat_barre', nom: 'Squat', mesure: 'charge_reps', equipement: 'barre',
       muscles_primaires: ['quadriceps', 'fessiers'], muscles_secondaires: ['ischios'] },
     { slug: 'presse', nom: 'Presse', mesure: 'charge_reps',
       muscles_primaires: ['quadriceps', 'fessiers'], muscles_secondaires: ['ischios'] },
@@ -304,7 +304,8 @@ describe('routineDeduite — la structure de « En faire une routine »', () => 
       exercices: [{ exercise_slug: 'presse', repos_cible_s: 150 }] }];
     const r = R.routineDeduite(DEDUITE, { exercices: CATALOGUE, routines: routines, existants: [] });
     expect(r.exercices.map((e) => [e.repos_cible_s, e.repos_origine])).toEqual([
-      [180, 'par défaut'], [150, 'Bas du corps'], [90, 'par défaut']]);
+      // 20/11/2026 (MOTEUR §9.52) : squat à la barre, 5 reps + garde 2 = P 7 → 2:30 ; leg extension, 15 reps → P 17 → 1:30.
+      [150, 'par défaut'], [150, 'Bas du corps'], [90, 'par défaut']]);
     // La même que `routineDepuisSeance` sur la même structure : pas une seconde règle.
     const lignes = [];
     DEDUITE.exercices.forEach((e) => {

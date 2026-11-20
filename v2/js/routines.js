@@ -1063,10 +1063,9 @@
   // l'ordre de la séance.
   //
   // LE REPOS, absent de l'export Hevy : celui de l'exercice dans la routine la
-  // plus récemment modifiée qui le contient, sinon un DÉFAUT par classe — les
-  // classes de « J'ai peu de temps » (`THMoteur.estPolyarticulaire`, une seule
-  // définition) : 180 s pour le premier polyarticulaire de la séance, 120 s
-  // pour les autres, 90 s pour une isolation, rien pour un exercice sans muscle.
+  // plus récemment modifiée qui le contient, sinon le repos CONSEILLÉ DE BASE
+  // (20/11/2026, `reposParDefaut` : famille × reps visées, MOTEUR §9.52), rien
+  // pour un exercice sans muscle ni reps visées.
   // L'origine se dit toujours. Dans un superset, seul le DERNIER exercice porte
   // le repos (celui qu'on prend après le tour) ; les autres disent « superset ».
   // Ce sont des valeurs par défaut, pas une règle du coach.
@@ -1078,7 +1077,17 @@
   // Rend `{ nom, exercices: [{ exercise_slug, groupe_superset, repos_cible_s,
   // repos_origine, series: [{ type_serie, reps_visees, duree_cible_s,
   // distance_cible_m }] }] }` — au vocabulaire de `routine_sets`.
-  var REPOS_PAR_DEFAUT = { premier: 180, poly: 120, isolation: 90 };
+  // 20/11/2026 (MOTEUR §9.52, décision d'Aurélien, I262) — LE REPOS PAR DÉFAUT EST LE REPOS CONSEILLÉ DE BASE : `Moteur.reposConseilleDeBase`, la même
+  // fonction que la molette du minuteur, avec les reps visées de la 1re série de travail + la garde Normal (`GARDE_DE_ROUTINE`, une convention) pour P. Les
+  // anciennes valeurs (180 le premier polyarticulaire, 120 les autres, 90 une isolation) disparaissent pour les routines CRÉÉES ou GÉNÉRÉES à l'avenir ;
+  // les routines existantes ne changent pas (aucune migration, aucune écriture de masse). Sans reps visées (une durée), aucun repos : le coach n'en invente pas.
+  var GARDE_DE_ROUTINE = 2;
+  function reposParDefaut(muscles, series) {
+    var Mo = racine.THMoteur;
+    var premiere = (series || []).filter(function (q) { return q && racine.THModele.estTravail(q); })[0];
+    var r = Mo.reposConseilleDeBase({ famille: Mo.familleDeRepos(muscles), reps: premiere ? premiere.reps_visees : null, garde: GARDE_DE_ROUTINE });
+    return r ? r.s : null;
+  }
   var ORIGINE_DEFAUT = 'par défaut', ORIGINE_SUPERSET = 'superset', ORIGINE_RACCOURCI = 'raccourci';
 
   function reposDansLesRoutines(slug, routines) {
@@ -1111,7 +1120,7 @@
     var catalogue = o.exercices || [];
     var index = racine.THModele.indexerExercices(catalogue);
     var blocs = racine.THModele.construireBlocs(series || [], catalogue);
-    var groupe = 0, premierVu = false;
+    var groupe = 0;
     var exercices = [];
     blocs.forEach(function (bloc) {
       var g = bloc.superset ? ++groupe : null;
@@ -1119,17 +1128,17 @@
         var cat = index[x.slug] || {};
         var muscles = { prim: cat.muscles_primaires || [], sec: cat.muscles_secondaires || [],
                         stab: cat.muscles_stabilisateurs || [] };
-        var classe = !Mo.aDesMuscles(muscles) ? null
-          : !Mo.estPolyarticulaire(muscles) ? 'isolation'
-          : premierVu ? 'poly' : 'premier';
-        if (classe === 'premier') premierVu = true;
         var repos = null, origine = null;
         if (bloc.superset && k < bloc.exercices.length - 1) {
           origine = ORIGINE_SUPERSET;
         } else {
           var dejaRegle = reposDansLesRoutines(x.slug, o.routines);
           if (dejaRegle) { repos = dejaRegle.repos; origine = dejaRegle.origine; }
-          else if (classe) { repos = REPOS_PAR_DEFAUT[classe]; origine = ORIGINE_DEFAUT; }
+          else {
+            // `equipement` : la barre fait le grand mouvement (la famille de repos), jamais lue ailleurs qu'au catalogue.
+            repos = reposParDefaut(Object.assign({ equipement: cat.equipement }, muscles), (x.series || []).map(serieDeStructure));
+            if (repos !== null) origine = ORIGINE_DEFAUT;
+          }
         }
         exercices.push({
           exercise_slug: x.slug, groupe_superset: g,
@@ -2263,7 +2272,7 @@
     zoneValide: zoneValide,
     CHAMPS_ROUTINE: CHAMPS_ROUTINE,
     DOSSIER_MAX: DOSSIER_MAX,
-    REPOS_PAR_DEFAUT: REPOS_PAR_DEFAUT,
+    GARDE_DE_ROUTINE: GARDE_DE_ROUTINE, reposParDefaut: reposParDefaut,
     ORIGINE_DEFAUT: ORIGINE_DEFAUT,
     ORIGINE_SUPERSET: ORIGINE_SUPERSET,
     ORIGINE_RACCOURCI: ORIGINE_RACCOURCI,

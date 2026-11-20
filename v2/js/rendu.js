@@ -6327,13 +6327,8 @@
   // 36 valeurs : de 5 en 5 jusqu'à 2:00 (24), puis de 15 en 15 jusqu'à 5:00
   // (12). Resserré là où la précision compte — 90 et 120 secondes ne sont pas
   // la même chose — large au-delà, où le quart de minute suffit.
-  var PAS_FIN = 5, FIN_MAX = 120, PAS_LARGE = 15, LARGE_MAX = 300;
-  var VALEURS_REPOS = (function () {
-    var v = [], s;
-    for (s = PAS_FIN; s <= FIN_MAX; s += PAS_FIN) v.push(s);
-    for (s = FIN_MAX + PAS_LARGE; s <= LARGE_MAX; s += PAS_LARGE) v.push(s);
-    return v;
-  }());
+  // 20/11/2026 : la liste vit dans `modele.js` (`VALEURS_DE_REPOS`), lue aussi par le repos conseillé ; elle n'est plus écrite deux fois.
+  var VALEURS_REPOS = M().VALEURS_DE_REPOS;
 
   // La hauteur d'une entrée, en pixels. Elle est dans le CSS ET ici, et c'est
   // assumé : le défilement se mesure en pixels, la sélection se calcule en
@@ -6392,15 +6387,47 @@
     cible.appendChild(t);
     if (vue.aide) cible.appendChild(el('p', 'feuille-aide', vue.aide));
 
+    // 20/11/2026 (MOTEUR §9.52, ECRAN-SAISIE §7 sexdecies bis) — LE REPOS CONSEILLÉ, dans la molette et nulle part ailleurs : une ligne
+    // ambre (« Conseillé : 2:30 », « Entre les tours : conseillé 1:30 ») et son pourquoi. `vue.conseil` : { s, cas, pourquoi, entreLesTours }.
+    // Aucun réglage : la molette se POSE sur le conseil. Un repos réglé : elle reste sur le réglage, « Ta routine : 2:00 » à côté, et
+    // « Prendre 2:30 » pose le conseil pour la séance et ferme en un geste. Le conseil n'ARME jamais le minuteur : rien ne part tant qu'on ne touche rien.
+    var conseil = vue.conseil && typeof vue.conseil.s === 'number' ? vue.conseil : null;
+    var regle = vue.repos !== null && vue.repos !== undefined && isFinite(vue.repos) && Number(vue.repos) > 0 ? Number(vue.repos) : null;
+    if (conseil) {
+      var bloc = el('div', 'conseil-repos');
+      var tete = el('div', 'conseil-tete');
+      if (conseil.cas === 'raccourci') {
+        tete.appendChild(el('span', 'conseil-qui raccourci', conseil.pourquoi));
+      } else {
+        var qui = el('span', 'conseil-qui', (conseil.entreLesTours ? 'Entre les tours\u00a0: conseillé ' : 'Conseillé\u00a0: '));
+        qui.appendChild(el('b', '', mmss(conseil.s)));
+        tete.appendChild(qui);
+        if (regle !== null) tete.appendChild(el('span', 'conseil-reglage', 'Ta routine\u00a0: ' + mmss(regle)));
+      }
+      bloc.appendChild(tete);
+      if (conseil.cas !== 'raccourci' && conseil.pourquoi) bloc.appendChild(el('p', 'conseil-pourquoi', conseil.pourquoi));
+      if (conseil.cas !== 'raccourci' && regle !== null && regle !== conseil.s && typeof vue.surPrendre === 'function') {
+        var prendre = el('button', 'conseil-prendre', 'Prendre ' + mmss(conseil.s));
+        prendre.type = 'button';
+        prendre.setAttribute('data-prendre', String(conseil.s));
+        prendre.addEventListener('click', function () { vue.surPrendre(conseil.s); });
+        bloc.appendChild(prendre);
+        bloc.appendChild(el('p', 'conseil-mention', 'Pour cette séance'));
+      }
+      cible.appendChild(bloc);
+    }
+
     var molette = el('div', 'molette');
     molette.appendChild(el('div', 'selection'));
     var piste = el('div', 'piste');
     piste.setAttribute('role', 'listbox');
     piste.setAttribute('aria-label', 'Temps de repos');
 
-    var rang = rangDeRepos(vue.repos);
+    // Un repos réglé garde la molette ; sans réglage, elle se pose sur le conseil (jamais écrit tant qu'on ne valide pas).
+    var rang = rangDeRepos(regle !== null || !conseil || conseil.cas === 'raccourci' ? vue.repos : conseil.s);
     var options = VALEURS_REPOS.map(function (v) {
       var o = el('div', 'opt', libelleRepos(v));
+      if (conseil && conseil.cas !== 'raccourci' && v === conseil.s) o.appendChild(el('span', 'marque', 'conseillé'));
       o.dataset.v = String(v);
       o.setAttribute('role', 'option');
       o.setAttribute('aria-label', libelleRepos(v));
@@ -6423,6 +6450,11 @@
     // Le positionnement initial est une conséquence de l'état, pas un geste :
     // on le pose après l'insertion, sinon le nœud n'a pas encore de hauteur.
     piste.scrollTop = rang * HAUTEUR_OPT;
+    // 20/11/2026 — la feuille est rendue AVANT que le voile ne s'ouvre (`ouvrirFeuille` : `rendreFeuille()` puis `ouvrirVoile()`) : sur un nœud encore `hidden`, la
+    // ligne ci-dessus est sans effet et la molette s'ouvrait en haut (5 s) alors que le cran « sélectionné » était plus bas. On la repose dès que le nœud a une
+    // hauteur (le tour suivant), jamais si la personne a déjà fait défiler. Le conseil se pose DESSUS : il fallait que « se poser sur le conseil » soit vrai à l'écran.
+    var reposer = function () { try { if (piste.isConnected !== false && piste.scrollTop === 0 && rang > 0) piste.scrollTop = rang * HAUTEUR_OPT; } catch (e) { /* le nœud a disparu */ } };
+    if (typeof racine.requestAnimationFrame === 'function') racine.requestAnimationFrame(reposer); else setTimeout(reposer, 0);
 
     var pied = el('div', 'feuille-pied');
     var des = el('button', 'des', 'Désactiver');

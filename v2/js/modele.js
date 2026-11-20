@@ -426,6 +426,26 @@
     return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2);
   }
 
+  // 20/11/2026 (MOTEUR §9.52) — LES CRANS DE LA MOLETTE DE REPOS, UNE SEULE FOIS : 36 valeurs, de 5 en 5 jusqu'à 2:00 (24), puis de 15 en
+  // 15 jusqu'à 5:00 (12). La molette (`Rendu.VALEURS_REPOS`) et le repos conseillé (`Moteur.reposConseilleDeBase`) lisent cette liste ;
+  // `reposAuCran` rend le cran le plus proche (à égalité, le plus long : un repos se rallonge plus volontiers qu'il ne se coupe).
+  var VALEURS_DE_REPOS = (function () {
+    var v = [], s;
+    for (s = 5; s <= 120; s += 5) v.push(s);
+    for (s = 135; s <= 300; s += 15) v.push(s);
+    return Object.freeze(v);
+  }());
+  function reposAuCran(secondes) {
+    var n = Number(secondes);
+    if (!isFinite(n)) return null;
+    var meilleur = VALEURS_DE_REPOS[0], ecart = Infinity;
+    VALEURS_DE_REPOS.forEach(function (x) {
+      var d = Math.abs(x - n);
+      if (d < ecart || (d === ecart && x > meilleur)) { ecart = d; meilleur = x; }
+    });
+    return meilleur;
+  }
+
   // « 2 oct. 2026 », « 1er nov. 2026 » (jamais « 01 nov. » : MOTEUR §9.51 quater).
   function dateCourte(iso) {
     if (!iso) return '';
@@ -3544,6 +3564,7 @@
     aideAffichee: aideAffichee,
     nombreGroupe: nombreGroupe,
     mmss: mmss,
+    VALEURS_DE_REPOS: VALEURS_DE_REPOS, reposAuCran: reposAuCran,
     dateCourte: dateCourte,
     dateLongue: dateLongue,
     jourMois: jourMois,

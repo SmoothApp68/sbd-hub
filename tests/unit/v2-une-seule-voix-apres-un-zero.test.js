@@ -114,6 +114,13 @@ describe('la réaction en séance : une série à 0 rep, sa réaction Z1 / Z2', 
     expect(r.x.rate.boutons).toEqual([]);
     expect(r.erreurs).toEqual([]);
   });
+  test('une seule voix : 105 × 5 (au-dessus de la charge de travail : élan) puis 100 × 0 → Z2 seule, ni message §9.14, ni ligne d\'élan, aucune erreur (I115, I157)', () => {
+    const r = planZ([[105, 5], [100, 0, echec0]]);
+    expect(r.x.rate && r.x.rate.cas).toBe('Z2');
+    expect(r.x.message || null).toBeNull();
+    expect(r.x.lignes.some((l) => l.role === 'elan' || l.source === 'elan')).toBe(false);
+    expect(r.erreurs).toEqual([]);
+  });
   test('Z1 relevé à une charge réussie : 100 × 5 puis 102,5 × 0 → 100 kg (et non 80 × 5)', () => {
     const r = planZ([[100, 5], [102.5, 0, echec0]]);
     expect(r.x.rate).toMatchObject({ cas: 'Z1', charge: { kg: 100 } });

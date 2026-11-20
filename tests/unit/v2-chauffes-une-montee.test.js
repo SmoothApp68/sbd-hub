@@ -268,11 +268,35 @@ describe('le plan — + Chauffe, le lesté, le programme du coach', () => {
     expect(r.x.proposition.annulable).toBe(true);
     expect(r.x.proposition.lignes).toEqual([[20, 10], [70, 6], [90, 3], [120, 1]]);
     expect(r.erreurs).toEqual([]);
-    // Deux « Annuler » d'affilée : le silence d'I128.
-    const tu = plan(seanceDe('squat_barre'), 'squat_barre', consigne(135, 4), { chauffesDuCoach: { squat_barre: true }, refusChauffes: { squat_barre: true } });
-    expect(tu.x.proposition).toBeNull();
     // Sans la marque : la carte d'avant.
     expect(plan(seanceDe('squat_barre'), 'squat_barre', consigne(135, 4)).x.proposition.mode).toBe('proposer');
+  });
+  test('DISCRIMINANT (CONTRA-725 D10) — deux « Annuler » d’affilée sur les chauffes du programme : le silence d’I128 (joué, pas injecté)', () => {
+    const duCoach = { chauffesDuCoach: { squat_barre: true } };
+    const JOUR = 24 * 3600 * 1000, t0 = Date.parse('2026-10-20T10:00:00Z');
+    // Une séance : le plan pose d'office (comme `poserLesChauffes` d'app.js : les lignes et le geste `chauffes_auto` marqué programme),
+    // puis « Annuler » : `chauffesPosees.origine === 'auto'` compte comme un « Non merci » (`Plan.refuserChauffes`).
+    const uneSeance = (memoire, idSeance, quand) => {
+      const refus = T.refusChauffesDe(memoire, idSeance, quand);
+      let se = seanceDe('squat_barre');
+      const r0 = plan(se, 'squat_barre', consigne(135, 4), Object.assign({ refusChauffes: refus }, duCoach));
+      if (!r0.x.proposition) return { memoire, proposee: false };
+      expect(r0.x.proposition.mode).toBe('auto');
+      se = S.insererChauffes(se, 0, r0.x.proposition.lignes, id);
+      se = S.noterGeste(se, { geste: 'chauffes_auto', slug: 'squat_barre', programme: true });
+      const r1 = plan(se, 'squat_barre', consigne(135, 4), Object.assign({ refusChauffes: refus }, duCoach));
+      expect(r1.x.chauffesPosees && r1.x.chauffesPosees.origine).toBe('auto');
+      return { memoire: T.refuserChauffes(memoire, 'squat_barre', idSeance, quand), proposee: true };
+    };
+    let m = {};
+    const a = uneSeance(m, 'A', t0); m = a.memoire;
+    const b = uneSeance(m, 'B', t0 + 3 * JOUR); m = b.memoire;
+    expect([a.proposee, b.proposee]).toEqual([true, true]);
+    expect(m.squat_barre.n).toBe(2);
+    // La 3e séance, une semaine plus tard : rien n'est posé ni proposé.
+    expect(uneSeance(m, 'C', t0 + 7 * JOUR).proposee).toBe(false);
+    // Quatre semaines après le 2e « Annuler » : elles reviennent.
+    expect(uneSeance(m, 'D', t0 + 3 * JOUR + 29 * JOUR).proposee).toBe(true);
   });
 });
 

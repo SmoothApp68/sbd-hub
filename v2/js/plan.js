@@ -8759,9 +8759,10 @@
           if (Math.abs(av - visePart) > marge + 1e-9 && av < 0.90 * ref - 10) erreurs.push('I245' + nom + ' : ' + q[0] + ' finit à ' + av + ' kg, loin de ' + Math.round(partDe(visee) * 100) + ' % de ' + ref + ' kg');
           if (barre && !sol && !deja && ref >= 20 + 5) {
             var chargees = m.lignes.filter(function (l) { return nombre(l[0]) !== null; });
-            var attendu = 1 + Math.max(1, Math.ceil((av - 20) / 40 - 1e-9));
+            var attendu = Math.min(6, 1 + Math.max(1, Math.ceil((av - 20) / 40 - 1e-9)));
             var b0 = nombre(chargees[0] && chargees[0][0]);
-            var avecBarre = b0 !== null && b0 <= 20 + 1e-9;
+            // La barre vide seule (une dernière marche qui ne dépasserait pas la barre) n'a pas de marche à compter.
+            var avecBarre = b0 !== null && b0 <= 20 + 1e-9 && chargees.length >= 2;
             if (avecBarre && chargees.length !== attendu) erreurs.push('I246' + nom + ' : ' + q[0] + ' compte ' + chargees.length + ' chauffes, la règle en donne ' + attendu);
           }
         }

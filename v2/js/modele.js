@@ -187,9 +187,14 @@
   // curl incliné…). Une préférence, jamais une obligation : le générateur et l'échange d'exercice la préfèrent à égalité, aucune
   // routine existante ne change. Une seule lecture, ici.
   function estAccentAllonge(fiche) { return !!fiche && fiche.accent_allonge === true; }
-  function estTravail(serie) {
+  // ⚠️ UN ESSAI DE TEST RATÉ (D-ST1, #727) garde son type `test` à 0 rep, pour que `faitsDeTest` le voie (I92/I93). Il n'est PAS une série de travail :
+  // `estTravail` le rejette, comme avant #727 (où il devenait `echec` à 0 rep, que `estAEchec` écarte). Une seule lecture du raté, ici.
+  function estEssaiRate(serie) { return !!serie && !estHorsCalcul(serie) && typeDe(serie) === 'test' && lireNombre(serie.reps) === 0; }
+  // La notion d'AVANT l'exclusion : une série qui PEUT être du travail, essai à 0 rep compris. Seule la question « 0 rep : tu l'as manquée ? » la lit.
+  function estTravailOuEssai(serie) {
     return !!serie && !estHorsCalcul(serie) && (typeDe(serie) === 'travail' || typeDe(serie) === 'test' || typeDe(serie) === 'recul' || estAEchec(serie));
   }
+  function estTravail(serie) { return estTravailOuEssai(serie) && !estEssaiRate(serie); }
   // Le type TEL QU'ON LE LIT : `travail` pour une série à l'échec (1 rep et +), le type de la base sinon. Le plan
   // (`plan.js`) l'écrit sur chacune de ses lignes : aucun invariant ne compare `type_serie` à `'echec'`.
   // 193-1 : une série de recul se lit `recul` (elle est du travail, mais la consigne ne la couvre pas : ligne `hors`, comme une dégressive).
@@ -3483,6 +3488,8 @@
     formatChrono: formatChrono,
     formatPrecedent: formatPrecedent,
     estTravail: estTravail,
+    estTravailOuEssai: estTravailOuEssai,
+    estEssaiRate: estEssaiRate,
     estTest: estTest,
     estRecul: estRecul,
     estAuMax: estAuMax,

@@ -2221,7 +2221,7 @@
 
       if (reps !== null) {
         // 0 rep : une tentative manquée, jamais « ton niveau est 0 ».
-        if (reps === 0 && Modele.estTravail({ type_serie: type, reps: 0 })) {   // un 0 déjà tagué « échec » est déjà une tentative manquée
+        if (reps === 0 && Modele.estTravailOuEssai({ type_serie: type, reps: 0 })) {   // un 0 déjà tagué « échec » est déjà une tentative manquée
           return question('zero', '0 rep : tu l’as manquée ?', [
             bouton('Oui, manquée', 'manquee', true), bouton('J’ai eu mal', 'mal'), bouton('Corriger', 'corriger')]);
         }

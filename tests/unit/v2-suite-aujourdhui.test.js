@@ -47,11 +47,20 @@ describe('la suite d\'un exercice, en séance (live)', () => {
     expect(lc(mauvais.apres.consigne)).toEqual([90, 5, 4]);
     expect(M.jourCivil(mauvais.apres.consigne.fondement.date)).toBe('2026-11-11');
   });
-  test('l\'annonce dit la ligne vraie (90 kg × 6), jamais le silence, quand le test n\'est pas confirmé (arbitrage du 14/11/2026)', () => {
-    const bon = suite(Faits.groupeDuJour({ debut: DEBUT, routine_id: 'R' }, ser(JOUR)));
+  // « Une seule garde » (19/11/2026, C-1, I233) — la dernière série du jour est « Au max » jusqu'à l'échec, notée « reste 0 » : c'est ce qui était
+  // demandé. Le rejeu (`testApresLeManque`) ne la lit plus comme une garde R < V : le test est confirmé, l'annonce le dit (avant : « une rep de plus,
+  // 90 kg × 6 »). L'arbitrage du 14/11 (un test NON confirmé : la ligne vraie, jamais le silence) se joue sur la même suite, le rejeu dit « non ».
+  const annonce = (jour, confirme) => {
+    const bon = suite(Faits.groupeDuJour({ debut: DEBUT, routine_id: 'R' }, ser(jour)));
     const cAvant = M.consigneDExercice(H(), undefined, DEBUT, opts).consigne;
-    const k = M.constatDuJour(cAvant, bon.apres.consigne, 'normal', bon.cranSuivant, { series: ser(JOUR).map((x) => ({ charge_kg: x.charge_kg, reps: x.reps })) }, DEBUT, false, bon.testConfirme === true);
-    expect(String(k.suite).replace(/[  ]/g, ' ')).toBe('La prochaine fois : une rep de plus, 90 kg × 6.');
+    const k = M.constatDuJour(cAvant, bon.apres.consigne, 'normal', bon.cranSuivant, { series: ser(jour).map((x) => ({ charge_kg: x.charge_kg, reps: x.reps })) }, DEBUT, false, confirme === undefined ? bon.testConfirme === true : confirme);
+    return String(k.suite).replace(/[  ]/g, ' ');
+  };
+  test('l\'annonce dit la ligne vraie (90 kg × 6), jamais le silence, quand le test n\'est pas confirmé (arbitrage du 14/11/2026)', () => {
+    expect(annonce(JOUR, false)).toBe('La prochaine fois : une rep de plus, 90 kg × 6.');
+  });
+  test('C-1 : « Au max » jusqu\'à l\'échec noté « reste 0 » ne fait plus garder : le test est confirmé, l\'annonce le dit', () => {
+    expect(annonce(JOUR)).toBe('Il te manque 5 reps pour tester 92,5 kg.');
   });
   test('garde de source : `suiteDe` (app.js) construit le groupe du jour par `faits.groupeDuJour`, jamais à la main', () => {
     const src = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');

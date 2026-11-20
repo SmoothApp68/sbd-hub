@@ -153,11 +153,14 @@ describe('I216 — verifierPlan voit un « garde N » sous la réserve affichée
     p.exercices[0].rate.garde = 1;
     expect(T.verifierPlan(p, e).erreurs.join('\n')).toMatch(/I216/);
   });
-  test('la comparaison à la réserve affichée seule (le pari inchangé) : garde 2 sous une réserve affichée de 3', () => {
+  // « Une seule garde » (19/11/2026) — le plancher se RECALCULE depuis les entrées au rôle `ligne` (`gardeDeLigne`) : un champ du plan changé
+  // (`reserveAffichee`, la visée, ou `gardeDeLigne`) ne le déplace pas. Avant, I216 lisait `x.reserveAffichee` (et criait ici).
+  test('le plancher est recalculé depuis les entrées : un champ du plan à 3 ne fait pas crier « garde 2 »', () => {
     const { e, p } = jouer([[100, 5]], PROGRESSION, { plus65: true });
     expect(p.exercices[0].rate.garde).toBe(2);
     p.exercices[0].reserveAffichee = 3;
-    expect(T.verifierPlan(p, e).erreurs.join('\n')).toMatch(/I216 — exercice 0 \(squat_barre\) : une réaction qui dit « garde 2 » sous la réserve affichée de 3/);
+    p.exercices[0].gardeDeLigne = 3;
+    expect(T.verifierPlan(p, e).erreurs.join('\n')).not.toMatch(/I216/);
   });
   test('le pari d’une ligne recalée au-dessus du garde dit', () => {
     const { e, p } = jouer([[100, 5]], PROGRESSION, { plus65: true });

@@ -99,15 +99,17 @@ describe('PR 4a — reserveAffichee : la table hors population, le plancher deda
 describe('PR 4a — la règle dans la consigne : la garde lit le plancher, le test lit la table', () => {
   // Franc, Hypertrophie : table 0. 40 kg, zone 8-10 en hypertrophie (haut 10).
   const franc = { reglage: 'franc' };
-  test('T-R2 séparation : R = 2 déclenche le test sur la TABLE (0 + 2), avec ou sans protégée ; le haut est le même', () => {
+  // « Une seule garde » (19/11/2026, C-2, I234) — le test se déclenche toujours sur la table ; la preuve « facile » (deux crans) se mesure contre la visée
+  // AFFICHÉE : un protégé qui note 2 sur une table à 0 a fait « ce que je visais », le test est d'un cran (avant : le haut était le même, 65 kg).
+  test('T-R2 séparation : R = 2 déclenche le test sur la TABLE (0 + 2), avec ou sans protégée ; le protégé monte d’un cran, pas de deux', () => {
     const g = histoire(60, 9, { reps: 9, ressenti: 'reste_2' });
     const sans = consigne(g, franc);
     const avec = consigne(g, Object.assign({ protegee: true }, franc));
     expect(sans.etat).toBe('test_propose');
     expect(avec.etat).toBe('test_propose');
-    expect(avec.haut).toEqual(sans.haut);
-    expect(avec.haut.charge).toBe(65);
-    expect(sans.fondement.effortVise).toEqual({ effet: 'test', charge: 60, reps: 9, reserve: 2, visee: 0 });
+    expect(sans.haut.charge).toBe(65);
+    expect(avec.haut.charge).toBe(62.5);
+    expect(sans.fondement.effortVise).toEqual({ effet: 'test', charge: 60, reps: 9, reserve: 2, visee: 0, preuveFacile: true });
     expect(avec.fondement.effortVise).toEqual({ effet: 'test', charge: 60, reps: 9, reserve: 2, visee: 2, viseeTable: 0, protegee: true });
   });
   test('T-R1 R = 2 protégé : la phrase dit « c’est ce que je visais » ; R = 3 : « Au-dessus de ce que je visais »', () => {
@@ -231,7 +233,8 @@ describe('PR 4a — le plan : l’affichage, le pari, la phrase', () => {
     sim.repondre('reste_2');
     const e = sim.exo().effortVise;
     expect(e).toMatchObject({ reponse: 2, effet: 'test', visee: 2 });
-    expect(sansEspaces(e.phrase)).toBe('40 kg × 9, il t’en restait 2 : c’est ce que je visais. La prochaine fois, on essaie 45 kg.');
+    // C-2 (I234) : « c'est ce que je visais » n'est pas « facile » — un cran (avant : 45 kg, deux crans).
+    expect(sansEspaces(e.phrase)).toBe('40 kg × 9, il t’en restait 2 : c’est ce que je visais. La prochaine fois, on essaie 42,5 kg.');
     expect(sim.verifier().erreurs).toEqual([]);
   });
   test('R = 3 notée : « Au-dessus de ce que je visais »', () => {

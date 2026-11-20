@@ -10569,8 +10569,11 @@ const SETS_IMPORTES = [
     const autres = (live.erreurs || []).filter((e) => !/^I4\b/.test(e));
     const etatApp = await page.evaluate(() => { const e = window.THPlan.garde.etat(); return { plans: e.plans, violations: e.violations.length }; });
     gardeBanc.app = etatApp; gardeBanc.suspendue = false; gardeBanc.avant = null;
-    ok('[5a-bis] DISCRIMINANT — EN SÉANCE, après 5, 5, 5, 5 à 90 kg, l’annonce est la vraie suite : « La prochaine fois : une rep de plus, 90 kg × 6. » (avant : « … 90 kg × 5 », la fois d’hier)',
-      esp(live.suite) === 'La prochaine fois : une rep de plus, 90 kg × 6.', esp(JSON.stringify(live)));
+    // « Une seule garde » (19/11/2026, C-1, I233) — la 4e série est « Au max » jusqu'à l'échec, notée 0 : c'est ce qui était demandé, le rejeu ne la lit plus
+    // comme une garde R < V et le test est confirmé (avant C-1 : « La prochaine fois : une rep de plus, 90 kg × 6. »). Le discriminant de 5a-bis (la suite
+    // lit AUJOURD'HUI, jamais la fois d'hier « 90 kg × 5 ») est tenu par l'annonce et par la ligne suivante (contrôle d'après).
+    ok('[5a-bis] DISCRIMINANT — EN SÉANCE, après 5, 5, 5, 5 à 90 kg (la dernière « Au max » faite comme demandé), l’annonce est la vraie suite : « Il te manque 5 reps pour tester ≈ 92,5 kg. » (avant 5a-bis : « … 90 kg × 5 », la fois d’hier)',
+      esp(live.suite) === 'Il te manque 5 reps pour tester ≈ 92,5 kg.', esp(JSON.stringify(live)));
     ok('[5a-bis] la suite du plan est la ligne 90 × 6 (niveau 5), datée du jour de la séance (I167) — pas la fois d’avant (niveau 4)',
       !!live.planConstat && live.planConstat.suiteLignes.ligne.charge === 90 && live.planConstat.suiteLignes.ligne.vise === 6 && live.planConstat.suiteLignes.niveau === 5 &&
       live.planConstat.chargeRepetee === true && live.planConstat.suiteDate === live.planConstat.jourDuConstat, esp(JSON.stringify(live.planConstat)));
@@ -28092,7 +28095,7 @@ const SETS_IMPORTES = [
   // ⚠️ CONFIGURATION DISCRIMINANTE : une séance REPRISE (page rechargée) dont l'exercice, passé par une ZONE DE ROUTINE (`zone_plan`), est FINI,
   // l'historique ne se lisant que par la routine (`zonesDeRoutine`). Le premier rendu part AVANT l'arrivée des routines : sans correctif la suite redit la
   // fois d'avant (« Prochaine séance : 80 kg × 8 »), et la vue visible est la SÉANCE (jamais `vues.saisie`) — aucun re-rendu ne la guérit. Le contrôle
-  // négatif (le LIVE : 90 kg × 6) prouve que la fixture déclenche bien le chemin ; l'état est lu à l'écran, jamais sur le plan seul.
+  // négatif (le LIVE : « Il te manque 5 reps pour tester ≈ 92,5 kg » ; avant « Une seule garde » C-1, I233 : « une rep de plus, 90 kg × 6 », la série « Au max » notée 0 bloquant le test) prouve que la fixture déclenche bien le chemin ; l'état est lu à l'écran, jamais sur le plan seul.
   {
     const rendreBlocsF2 = await retirerBlocsDeLAppareil();
     CATALOGUE.push({ slug: 'dl-a', nom: 'Développé Couché DL (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre', muscles_primaires: ['pectoraux'], muscles_secondaires: [] });
@@ -28131,7 +28134,7 @@ const SETS_IMPORTES = [
     const ecouteRoutinesF2 = (rq) => { if (rq.method() === 'GET' && /\/rest\/v1\/routines/.test(rq.url())) nRoutinesGET++; };
     page.on('request', ecouteRoutinesF2);
     const dit = (v) => esp(JSON.stringify(v));
-    const suiteDite = (e) => /^La prochaine fois : une rep de plus, 90 kg × 6\.$/.test(esp(e.suite));
+    const suiteDite = (e) => /^Il te manque 5 reps pour tester ≈ 92,5 kg\.$/.test(esp(e.suite));
     const avoirSuite = (nom) => attendreQue(async () => suiteDite(await lireF2()), 10000, nom);
     const recharger = async () => { await page.reload({ waitUntil: 'domcontentloaded' }).catch(() => {}); await ecranPose(); };
     const evenementOnline = () => page.evaluate(() => window.dispatchEvent(new Event('online')));
@@ -28160,7 +28163,7 @@ const SETS_IMPORTES = [
     await faireLaSeance();
     await avoirSuite('f2 LIVE : la suite');
     let e = await lireF2();
-    ok('[f2 LIVE — contrôle négatif] la séance en cours dit « La prochaine fois : une rep de plus, 90 kg × 6. » (routines lues avant la séance)', suiteDite(e), dit(e));
+    ok('[f2 LIVE — contrôle négatif] la séance en cours dit « Il te manque 5 reps pour tester ≈ 92,5 kg. » (« Au max » noté 0 = la réserve demandée, I233) (routines lues avant la séance)', suiteDite(e), dit(e));
     ok('[f2 LIVE] le verdict du jour et les invariants : « 90 kg : 4 reps mercredi, 5 aujourd\'hui. », aucune erreur', /5 aujourd/.test(esp(e.verdict)) && e.erreurs.length === 0 && e.routinesPretes === true, dit(e));
 
     // ── 2. RECHARGEMENT EN LIGNE : la suite redevient juste SANS aucun geste (le défaut : « Prochaine séance : 80 kg × 8 ») ─────────
@@ -28168,7 +28171,7 @@ const SETS_IMPORTES = [
     const surLaSeance = await vueAffichee('vue-seance').catch(() => false);
     const apresRecharge = await avoirSuite('f2 rechargement en ligne : la suite');
     e = await lireF2();
-    ok('[f2 rechargé en ligne] la vue visible est la séance et la suite redit « une rep de plus, 90 kg × 6 » — plus « Prochaine séance : 80 kg × 8 »',
+    ok('[f2 rechargé en ligne] la vue visible est la séance et la suite redit « Il te manque 5 reps pour tester ≈ 92,5 kg » — plus « Prochaine séance : 80 kg × 8 »',
       surLaSeance && apresRecharge && suiteDite(e) && !/80/.test(esp(e.suite)), dit(e));
     ok('[f2 rechargé en ligne] le verdict reste, l\'en-tête d\'avant ne revient pas sur l\'exercice fini, aucun invariant en échec',
       /5 aujourd/.test(esp(e.verdict)) && e.entete.length === 0 && e.erreurs.length === 0, dit(e));
@@ -28207,7 +28210,7 @@ const SETS_IMPORTES = [
     await evenementOnline();
     const revenue = await avoirSuite('f2 retour du réseau : la suite');
     e = await lireF2();
-    ok('[f2 retour du réseau] l\'évènement `online` relit les routines : la séance se redessine et redit « une rep de plus, 90 kg × 6 »', revenue && suiteDite(e) && e.routinesPretes === true && e.muet === false && e.erreurs.length === 0, dit(e));
+    ok('[f2 retour du réseau] l\'évènement `online` relit les routines : la séance se redessine et redit « Il te manque 5 reps pour tester ≈ 92,5 kg »', revenue && suiteDite(e) && e.routinesPretes === true && e.muet === false && e.erreurs.length === 0, dit(e));
 
     // ── 7. JAMAIS SOUS LA FRAPPE : un champ du journal a le focus quand les routines arrivent ─────────────────────────────────────────
     base.reseau = false;

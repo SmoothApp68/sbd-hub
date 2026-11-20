@@ -8738,6 +8738,8 @@
       var partDe = function (v) { var b = v === null ? null : racine.THModele.bandeDeReps(v); return b && PARTS[b] ? PARTS[b] : 0.88; };
       var lest = fiche.charge === 'ajoutee';
       var corps = fiche.mesure === 'reps' && fiche.equipement === 'aucun' && fiche.charge !== 'assistance' && !lest;
+      // CONTRA-725 D3 — la barre vide pèse la barre de la salle (la source que l'app branche, `brancherBarreDeLaSalle`), jamais 20 en dur.
+      var B = barre ? M.barreDesChauffes() : 0;
       var p = x.proposition;
       // I244 — la proposition et la demande.
       [['la proposition', p], ['la demande', x.surDemande]].forEach(function (q) {
@@ -8756,19 +8758,22 @@
         if (m.situation === 'paliers' && av !== null && ref !== null && !m.peuDeTemps) {
           var marge = barre ? I244_MARGE_BARRE : 1.5 * Math.max(nombre(fiche.cran) || 2.5, 2.5);
           var visePart = partDe(visee) * ref;
-          if (Math.abs(av - visePart) > marge + 1e-9 && av < 0.90 * ref - 10) erreurs.push('I245' + nom + ' : ' + q[0] + ' finit à ' + av + ' kg, loin de ' + Math.round(partDe(visee) * 100) + ' % de ' + ref + ' kg');
-          if (barre && !sol && !deja && ref >= 20 + 5) {
+          // CONTRA-725 D11 — loin dans les DEUX sens (une dernière trop haute pour la zone aussi) ; la salle déclarée seule garde la tolérance
+          // de ses charges (une dernière plus basse que la part quand la salle n'a rien entre deux).
+          var loin = Math.abs(av - visePart) > marge + 1e-9 && (!x.salle || av < 0.90 * ref - 10);
+          if (loin) erreurs.push('I245' + nom + ' : ' + q[0] + ' finit à ' + av + ' kg, loin de ' + Math.round(partDe(visee) * 100) + ' % de ' + ref + ' kg');
+          if (barre && !sol && !deja && ref >= B + 5) {
             var chargees = m.lignes.filter(function (l) { return nombre(l[0]) !== null; });
-            var attendu = Math.min(6, 1 + Math.max(1, Math.ceil((av - 20) / 40 - 1e-9)));
+            var attendu = Math.min(6, 1 + Math.max(1, Math.ceil((av - B) / 40 - 1e-9)));
             var b0 = nombre(chargees[0] && chargees[0][0]);
             // La barre vide seule (une dernière marche qui ne dépasserait pas la barre) n'a pas de marche à compter.
-            var avecBarre = b0 !== null && b0 <= 20 + 1e-9 && chargees.length >= 2;
+            var avecBarre = b0 !== null && b0 <= B + 1e-9 && chargees.length >= 2;
             if (avecBarre && chargees.length !== attendu) erreurs.push('I246' + nom + ' : ' + q[0] + ' compte ' + chargees.length + ' chauffes, la règle en donne ' + attendu);
           }
         }
         // I248 — une marche seule à froid.
         var ch = m.lignes.filter(function (l) { return nombre(l[0]) !== null && nombre(l[0]) > 0; });
-        if (m.situation === 'paliers' && ch.length === 1 && ref !== null && !(barre && !sol && nombre(ch[0][0]) <= 20 + 1e-9) && nombre(ch[0][0]) > 0.70 * ref + 1e-9) {
+        if (m.situation === 'paliers' && ch.length === 1 && ref !== null && !(barre && !sol && nombre(ch[0][0]) <= B + 1e-9) && nombre(ch[0][0]) > 0.70 * ref + 1e-9) {
           erreurs.push('I248' + nom + ' : ' + q[0] + ' : une seule chauffe à froid à ' + ch[0][0] + ' kg, au-dessus de 70 % de ' + ref + ' kg');
         }
         // I249 — le poids du corps et le lest.
@@ -8825,7 +8830,9 @@
       if (av2 !== null && refL !== null && av2 > 0.90 * refL + 1e-9 && !lignes.some(function (l) { return l.validee; })) erreurs.push('I244' + nom + ' : la dernière chauffe (' + av2 + ' kg) dépasse 90 % de ' + refL + ' kg');
       var chargeesL = lignes.filter(function (l) { return !l.validee && !l.chauffe.ajoutee && nombre(l.chauffe.charge) !== null; });
       var froidSeule = chargeesL.length === 1 && !chargeesL[0].chauffe.barre;
-      if (ch2.origine === 'routine' && av2 !== null && refL !== null && !froidSeule && !deja && !(chargeesL.length === 1 && chargeesL[0].chauffe.barre) &&
+      // CONTRA-725 D7 — I245 « routine » ne lit qu'une montée chargée : ni le lest (sa 2e ligne est la moitié du lest, pas 88 %), ni le poids du corps.
+      var monteeChargee = ch2.situation !== 'lest' && ch2.situation !== 'corps' && !lest && !corps;
+      if (monteeChargee && ch2.origine === 'routine' && av2 !== null && refL !== null && !froidSeule && !deja && !(chargeesL.length === 1 && chargeesL[0].chauffe.barre) &&
           !lignes.some(function (l) { return l.validee || l.chauffe.ajoutee || l.chauffe.peu_de_temps; }) &&
           Math.abs(av2 - 0.88 * refL) > (barre ? 10 : 1.5 * Math.max(nombre(fiche.cran) || 2.5, 2.5)) + 1e-9 && av2 < 0.90 * refL - 10) {
         erreurs.push('I245' + nom + ' : la dernière chauffe de la routine (' + av2 + ' kg) loin de 88 % de ' + refL + ' kg');

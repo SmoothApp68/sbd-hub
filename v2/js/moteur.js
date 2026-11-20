@@ -14140,7 +14140,7 @@
     arrondieALaSalle: arrondieALaSalle,
     BARRE_VIDE: BARRE_VIDE,
     SOULEVES_AU_SOL: SOULEVES_AU_SOL,
-    monteeDeChauffe: monteeDeChauffe, brancherBarreDeLaSalle: brancherBarreDeLaSalle, chargeDeLaChauffeAjoutee: chargeDeLaChauffeAjoutee,
+    monteeDeChauffe: monteeDeChauffe, brancherBarreDeLaSalle: brancherBarreDeLaSalle, barreDesChauffes: barreDesChauffes, chargeDeLaChauffeAjoutee: chargeDeLaChauffeAjoutee,
     plafondDeLaChauffeAjoutee: plafondDeLaChauffeAjoutee, repsDuMouvement: repsDuMouvement,
     CHAUFFE_DERNIERE_FIXEE: CHAUFFE_DERNIERE_FIXEE, CHAUFFE_DERNIERE_PAR_BANDE: CHAUFFE_DERNIERE_PAR_BANDE, CHAUFFE_KG_PAR_MARCHE: CHAUFFE_KG_PAR_MARCHE,
     CHAUFFE_FROID_MAX: CHAUFFE_FROID_MAX, CHAUFFE_PEU_DE_TEMPS_BARRE: CHAUFFE_PEU_DE_TEMPS_BARRE, CHAUFFE_PLAFOND_AJOUTEE: CHAUFFE_PLAFOND_AJOUTEE,

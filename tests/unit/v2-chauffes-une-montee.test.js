@@ -224,6 +224,11 @@ describe('le plan — + Chauffe, le lesté, le programme du coach', () => {
     expect(r30.x.proposition.lignes).toEqual([[0, 2], [15, 2]]);
     expect(r30.erreurs).toEqual([]);
   });
+  test('DISCRIMINANT (CONTRA-725 D7) — tractions lestées +30 kg, routine à 2 lignes : aucun faux I245 (avant : « loin de 88 % de 30 kg »)', () => {
+    const r = plan(seanceDe('tractions_leste', [null, null]), 'tractions_leste', consigne(30, 5));
+    expect(chauffes(r.x)).toEqual([0, 15]);
+    expect(r.erreurs).toEqual([]);
+  });
   test('DISCRIMINANT — un programme du coach : ses chauffes posées d’office avec « Annuler », aucune carte (I250)', () => {
     const r = plan(seanceDe('squat_barre'), 'squat_barre', consigne(135, 4), { chauffesDuCoach: { squat_barre: true } });
     expect(r.x.proposition.mode).toBe('auto');
@@ -245,12 +250,13 @@ describe('les invariants I244 à I250 attrapent une montée forgée', () => {
   const c = { etat: 'progression', zone: 'force', palier: 135, niveau: 4, n: 3, ligne: { charge: 135, vise: 4 }, haut: null, fondement: {} };
   let n0 = 0;
   const id = () => 'w' + (++n0);
-  const base = (extra, chauffes) => {
+  const base = (extra, chauffes, cons) => {
+    const k = cons || c;
     let se = S.creer({ id: 'S1', userId: 'u', idSerie: id });
     se = S.ajouterExercice(se, 'squat_barre', id, { series: 3 });
     if (chauffes) se = S.insererChauffes(se, 0, chauffes.map((r) => [null, r]), id);
     const e = Object.assign({ seance: { id: 'S1', debut: '2026-10-20T10:00:00+00:00', edition: false, exercices: se.exercices, gestes: [] },
-      consignes: { squat_barre: { consigne: c, libelles: M.libellesConsigne(c), pas: null } }, catalogue: { squat_barre: SQ }, reglage: null, paris: [], suites: {} }, extra || {});
+      consignes: { squat_barre: { consigne: k, libelles: M.libellesConsigne(k), pas: null } }, catalogue: { squat_barre: SQ }, reglage: null, paris: [], suites: {} }, extra || {});
     return { e, p: T.planDeSeance(e) };
   };
   const err = (e, p) => T.verifierPlan(p, e).erreurs.join('\n');
@@ -268,6 +274,27 @@ describe('les invariants I244 à I250 attrapent une montée forgée', () => {
     p.exercices[0].proposition.lignes[3][0] = 100;
     p.exercices[0].surDemande = null;
     expect(err(e, p)).toMatch(/^I245 — .*loin de 88 %/m);
+  });
+  test('DISCRIMINANT (CONTRA-725 D11) — I245 voit aussi une dernière trop HAUTE pour la zone (135 × 10 : 120 au lieu de 100 ; avant : rien)', () => {
+    const k10 = { etat: 'progression', zone: 'hypertrophie', palier: 135, niveau: 10, n: 3, ligne: { charge: 135, vise: 10 }, haut: null, fondement: {} };
+    const { e, p } = base(null, null, k10);
+    expect(p.exercices[0].proposition.lignes.slice(-1)[0][0]).toBe(100);
+    expect(err(e, p)).toBe('');
+    p.exercices[0].proposition.lignes[2][0] = 120;
+    p.exercices[0].surDemande = null;
+    expect(err(e, p)).toMatch(/^I245 — .*finit à 120 kg, loin de 75 %/m);
+  });
+  test('DISCRIMINANT (CONTRA-725 D3) — I246 et I248 lisent la barre de la salle (15 kg : 15 · 35 · 60, deux marches ; avant : « la règle en donne 2 » contre 3)', () => {
+    const k = { etat: 'progression', zone: 'force', palier: 67.5, niveau: 5, n: 3, ligne: { charge: 67.5, vise: 5 }, haut: null, fondement: {} };
+    M.brancherBarreDeLaSalle(() => 15);
+    try {
+      const { e, p } = base(null, null, k);
+      expect(p.exercices[0].proposition.lignes.map((l) => l[0])).toEqual([15, 35, 60]);
+      expect(err(e, p)).toBe('');
+      p.exercices[0].proposition.lignes.splice(1, 1);
+      p.exercices[0].surDemande = null;
+      expect(err(e, p)).toMatch(/^I246 — .*compte 2 chauffes, la règle en donne 3/m);
+    } finally { M.brancherBarreDeLaSalle(null); }
   });
   test('I246 — une marche de moins que la règle', () => {
     const { e, p } = base();

@@ -30636,7 +30636,7 @@ const SETS_IMPORTES = [
         window.THPlan.dernier.plan.exercices.some((x) => x.slug === 'rtp1-curl' && x.consigne))), 15000, 'planRTP1');
       await saisirSerie(0, 20, 8);
       await attendreQue(() => lirePlus1().then((p) => !!p.rate), 15000, 'rateRTP1');
-      if (cfg.attente) await pause(cfg.attente);
+      if (cfg.attente) await attendreQue(() => barrePlus1().then((b) => !b.visible), 20000, 'finRTP1');   // le minuteur de 5 s est fini : la barre s'en va
       const avant = await barrePlus1();
       const pAvant = await lirePlus1();
       const bouton = await page.$('.rate-reaction button[data-cle="repos"]');
@@ -30645,7 +30645,7 @@ const SETS_IMPORTES = [
       if (!bouton) { await abandonner(); continue; }
       await bouton.click();
       await attendreQue(() => lirePlus1().then((p) => p.rate && p.rate.pris.indexOf('repos') >= 0), 15000, 'priseRTP1');
-      await pause(600);
+      await attendreQue(() => barrePlus1().then((b) => b.visible && b.cible === cfg.cible), 6000, 'barreRTP1');
       const apres = await barrePlus1();
       const pApres = await lirePlus1();
       ok('[RTP1 ' + cfg.nom + '] DISCRIMINANT — la barre est visible avec la bonne cible (' + cfg.cible + ')', apres.visible && apres.cible === cfg.cible, nbP1([avant, apres]));

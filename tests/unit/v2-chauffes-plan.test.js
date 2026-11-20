@@ -178,8 +178,8 @@ describe('§9.15.2 — sans ligne de chauffe, une proposition', () => {
     const p = T.planDeSeance(e);
     const x = p.exercices[0];
     // 20/11/2026 — le coach choisit : la barre vide, ⌈(110 − 20) / 40⌉ = 3 marches, la dernière à 88 % (5 reps visées).
-    expect(x.proposition.phrase).toBe('Chauffe : 20' + NB + 'kg × 10 · 60' + NB + 'kg × 6 · 85' + NB + 'kg × 3 · 110' + NB + 'kg × 1.');
-    expect(x.proposition.lignes).toEqual([[20, 10], [60, 6], [85, 3], [110, 1]]);
+    expect(x.proposition.phrase).toBe('Chauffe : 20' + NB + 'kg × 10 · 60' + NB + 'kg × 6 · 90' + NB + 'kg × 3 · 110' + NB + 'kg × 1.');
+    expect(x.proposition.lignes).toEqual([[20, 10], [60, 6], [90, 3], [110, 1]]);
     expect(se.exercices[0].series.every((s) => S.typeDe(s) === 'travail')).toBe(true);
     ok(p, e);
   });
@@ -194,7 +194,7 @@ describe('§9.15.2 — sans ligne de chauffe, une proposition', () => {
     const e = entreesDe(se, EXOS);
     const p = T.planDeSeance(e);
     expect(p.exercices[0].proposition).toBeNull();
-    expect(charges(p.exercices[0])).toEqual([20, 60, 85, 110]);
+    expect(charges(p.exercices[0])).toEqual([20, 60, 90, 110]);
     ok(p, e);
   });
 

@@ -11808,16 +11808,19 @@
     };
     if (R === null || !(R > 0)) return remplir();
     var barre = estBarre(e.equipement), libre = barre && !e.sol;
-    var pas = fixee ? pasDeChauffe(e)
-      : (barre ? Math.max(CHAUFFE_PAS_DU_COACH, pasDeLaBarre(plusPetitDisqueConnu())) : pasDeChauffe(e));
+    // CONTRA-725 D1 — les marches au pas de la routine (`pasDeChauffe`), dans les deux modes ; seule la DERNIÈRE, quand le coach choisit,
+    // descend sous le plafond de 5 kg en 5 kg (`CHAUFFE_PAS_DU_COACH`, CONTRA-TT6 correction 4 : 110 kg → 95, pas 90) au lieu d'un pas de 10.
+    var pas = pasDeChauffe(e);
+    var pasD = fixee || !barre ? pas : Math.max(CHAUFFE_PAS_DU_COACH, pasDeLaBarre(plusPetitDisqueConnu()));
     var g = grilleDeChauffe(e, R, pas);
+    var gD = pasD === pas ? g : grilleDeChauffe(e, R, pasD);
     var B = barre ? (nombre(e.barre) !== null && nombre(e.barre) > 0 ? nombre(e.barre) : barreDesChauffes()) : 0;
     if (g.salle) { if (g.plancher === null) return remplir(); if (barre) B = g.plancher; }
     sortie.pas = pas; sortie.barre = B;
     var pD = fixee ? CHAUFFE_DERNIERE_FIXEE : (CHAUFFE_DERNIERE_PAR_BANDE[Modele().bandeDeReps(e.reps)] || CHAUFFE_DERNIERE_FIXEE);
     var D = g.proche(R * pD);
-    var marge = g.salle ? 0 : pas;
-    while (D !== null && (D > CHAUFFE_PLAFOND * R + 1e-9 || D > R - marge + 1e-9)) D = g.dessous(D);
+    var marge = g.salle ? 0 : pasD;
+    while (D !== null && (D > CHAUFFE_PLAFOND * R + 1e-9 || D > R - marge + 1e-9)) D = gD.dessous(D);
     // Une dernière marche qui ne dépasse pas la barre n'en est pas une : la barre vide seule, si elle est due.
     if (D !== null && (!(D > 0) || (barre && D <= B + 1e-9))) D = null;
     sortie.derniere = D;

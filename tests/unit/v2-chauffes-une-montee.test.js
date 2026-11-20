@@ -72,12 +72,24 @@ describe('règle 2 — un nombre FIXÉ par la personne : ses montées ne bougent
 describe('règle 3 — le COACH choisit le nombre : la barre vide, une marche par 40 kg, la dernière selon la zone', () => {
   const coach = (ref, reps, extra) => montee(Object.assign({ equipement: 'barre', reference: ref, reps }, extra || {}));
   test('DISCRIMINANT — squat 135 : Lourd 88 %, Mix 80 %, Hypertrophie 75 % (avant : la même montée en toute zone)', () => {
-    expect(coach(135, 4)).toEqual([[20, 10], [65, 6], [95, 3], [120, 1]]);
-    expect(coach(135, 7)).toEqual([[20, 10], [65, 6], [95, 3], [110, 2]]);
-    expect(coach(135, 10)).toEqual([[20, 10], [65, 6], [100, 3]]);
+    expect(coach(135, 4)).toEqual([[20, 10], [70, 6], [90, 3], [120, 1]]);
+    expect(coach(135, 7)).toEqual([[20, 10], [70, 6], [90, 3], [110, 2]]);
+    expect(coach(135, 10)).toEqual([[20, 10], [70, 6], [100, 3]]);
   });
-  test('arrondi au pas de 5 kg à la barre (jamais 10) ; un pas sous R ; 90 % au plus', () => {
-    expect(coach(140, 4).slice(-1)[0][0]).toBe(125);           // 123,2 → 125 (au pas de 10 : 120)
+  test('DISCRIMINANT (CONTRA-725 D1) — le coach redonne ses montées : les marches au pas de la routine (avant : 20 · 65 · 95 · 120, 125 au couché)', () => {
+    expect(coach(135, 4)).toEqual([[20, 10], [70, 6], [90, 3], [120, 1]]);
+    expect(coach(140, 4)).toEqual([[20, 10], [70, 6], [100, 3], [120, 1]]);
+    const avecLignes = (ref, reps) => lignes(M.chauffesDe({ equipement: 'barre', reference: ref, deja_sollicite: false, routine: reps, coach: true, reps: 4 }));
+    expect(avecLignes(135, [10, 6, 3, 1])).toEqual([[20, 10], [70, 6], [90, 3], [120, 1]]);
+    expect(avecLignes(140, [10, 6, 3, 1])).toEqual([[20, 10], [70, 6], [100, 3], [120, 1]]);
+    expect(avecLignes(57.5, [10, 2])).toEqual([[20, 10], [50, 2]]);
+  });
+  test('DISCRIMINANT (CONTRA-TT6 correction 4) — seule la dernière descend de 5 kg sous 90 % : squat 110 Lourd → 95 (le nombre fixé : 90)', () => {
+    expect(coach(110, 4).slice(-1)[0][0]).toBe(95);
+    expect(coach(132.5, 4).slice(-1)[0][0]).toBe(115);
+    expect(lignes(M.chauffesDe({ equipement: 'barre', reference: 132.5, routine: [10, 6, 3, 1] })).slice(-1)[0][0]).toBe(110);
+  });
+  test('un pas sous R ; 90 % au plus ; des marches qui montent', () => {
     for (let r = 30; r <= 260; r += 2.5) {
       const m = coach(r, 5).filter(Boolean);
       if (!m.length) continue;
@@ -96,7 +108,7 @@ describe('règle 3 — le COACH choisit le nombre : la barre vide, une marche pa
     expect(coach(180, 4, { sol: true })[0][0]).toBe(60);
   });
   test('muscle déjà sollicité : deux marches sur une barre de 70 kg et plus (60 %, D), rien ailleurs', () => {
-    expect(coach(140, 4, { deja_sollicite: true })).toEqual([[85, 3], [125, 1]]);
+    expect(coach(140, 4, { deja_sollicite: true })).toEqual([[80, 3], [120, 1]]);   // TT6 : 80 × 3 · 120 × 1
     expect(montee({ equipement: 'machine', reference: 80, cran: 5, reps: 10, deja_sollicite: true })).toEqual([]);
   });
   test('DISCRIMINANT — la barre de la salle (15 kg) : la barre vide pèse 15 kg (avant : 20 en dur)', () => {
@@ -111,7 +123,7 @@ describe('règle 3 — le COACH choisit le nombre : la barre vide, une marche pa
 
 describe('règle 5 — « peu de temps »', () => {
   test('DISCRIMINANT — dès 100 kg à la barre : 50 % et la dernière ; en dessous et hors barre : une, 70 % au plus × 3 (avant : 80 × 5)', () => {
-    expect(montee({ equipement: 'barre', reference: 135, reps: 4, peuDeTemps: true })).toEqual([[65, 6], [120, 1]]);
+    expect(montee({ equipement: 'barre', reference: 135, reps: 4, peuDeTemps: true })).toEqual([[70, 6], [120, 1]]);
     expect(montee({ equipement: 'barre', reference: 57.5, reps: 4, peuDeTemps: true })).toEqual([[40, 3]]);
     expect(montee({ equipement: 'machine', reference: 100, cran: 5, reps: 10, peuDeTemps: true })).toEqual([[70, 3]]);
   });
@@ -217,7 +229,7 @@ describe('le plan — + Chauffe, le lesté, le programme du coach', () => {
     expect(r.x.proposition.mode).toBe('auto');
     expect(r.x.proposition.raison).toBe('programme');
     expect(r.x.proposition.annulable).toBe(true);
-    expect(r.x.proposition.lignes).toEqual([[20, 10], [65, 6], [95, 3], [120, 1]]);
+    expect(r.x.proposition.lignes).toEqual([[20, 10], [70, 6], [90, 3], [120, 1]]);
     expect(r.erreurs).toEqual([]);
     // Deux « Annuler » d'affilée : le silence d'I128.
     const tu = plan(seanceDe('squat_barre'), 'squat_barre', consigne(135, 4), { chauffesDuCoach: { squat_barre: true }, refusChauffes: { squat_barre: true } });

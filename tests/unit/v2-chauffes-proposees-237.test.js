@@ -55,7 +55,7 @@ describe('règle 2 — les paliers', () => {
   // 20/11/2026 (MOTEUR §9.15 delta) — la montée du coach : la barre vide, une marche par 40 kg, la dernière à 88 % (bande inconnue).
   test('une barre lourde : la barre vide et trois marches qui montent, la dernière vers 88 %, jamais au-delà de 90 %', () => {
     const r = P({ equipement: 'barre', reference: 140, e1rm: 160, premier: true });
-    expect(charges(r)).toEqual([20, 70, 100, 125]);
+    expect(charges(r)).toEqual([20, 70, 100, 120]);
     expect(reps(r)).toEqual([10, 6, 3, 1]);
     expect(Math.max.apply(null, charges(r))).toBeLessThanOrEqual(0.9 * 140);
   });

@@ -87,7 +87,7 @@ describe('règle 8-9 — la demande est la proposition, sans la raison, sans le 
   test('I127 — « J’ai peu de temps » : deux chauffes dès 100 kg à la barre, une en dessous, même pour la demande', () => {
     expect(P({ equipement: 'barre', reference: 60, premier: false, peuDeTemps: true, demande: true }).lignes).toEqual([[40, 3]]);
     expect(P({ equipement: 'barre', reference: 100, premier: false, peuDeTemps: true, demande: true }).lignes).toEqual([[50, 6], [90, 1]]);
-    expect(P({ equipement: 'barre', reference: 140, premier: false, peuDeTemps: true, demande: true }).lignes).toEqual([[70, 6], [125, 1]]);
+    expect(P({ equipement: 'barre', reference: 140, premier: false, peuDeTemps: true, demande: true }).lignes).toEqual([[70, 6], [120, 1]]);
   });
   test('sans référence : rien (I188) ; au poids du corps : le mouvement au tiers des reps visées', () => {
     expect(P({ equipement: 'barre', reference: null, premier: true, demande: true }).lignes).toEqual([]);
@@ -98,8 +98,8 @@ describe('règle 8-9 — la demande est la proposition, sans la raison, sans le 
   test('rejeu des montées : crans du matériel, plancher, plafond 90 %, charge absurde', () => {
     const d = (eq, ref, extra) => P(Object.assign({ equipement: eq, reference: ref, premier: false, demande: true, cran: 2.5 }, extra || {}));
     expect(charges(d('barre', 90))).toEqual([20, 45, 80]);
-    expect(charges(d('barre', 110))).toEqual([20, 55, 95]);
-    expect(charges(d('barre', 140))).toEqual([20, 70, 100, 125]);
+    expect(charges(d('barre', 110))).toEqual([20, 50, 95]);
+    expect(charges(d('barre', 140))).toEqual([20, 70, 100, 120]);
     expect(charges(d('barre', 160)).length).toBe(4);
     expect(charges(d('barre', 60))).toEqual([20, 50]);
     expect(charges(d('haltere', 24, { cran: 2 }))).toEqual([12, 20]);

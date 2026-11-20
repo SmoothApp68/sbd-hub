@@ -213,6 +213,11 @@ describe('le plan — + Chauffe, le lesté, le programme du coach', () => {
     expect(chauffes(r.x)).toEqual([20, 70, 90, 120, 125]);
     expect(r.erreurs).toEqual([]);
   });
+  test('DISCRIMINANT (CONTRA-725, note) — une chauffe ajoutée sans chauffe d’avant dit « sous 135 kg », jamais « entre 20 et 135 kg »', () => {
+    const r = M.chauffesDe({ equipement: 'barre', reference: 135, routine: [null], plus: [true], reps: 4 });
+    expect(sp(r.phrase)).toBe('Chauffe ajoutée : 75 kg × 3, sous 135 kg.');
+    expect(r.lignes[0].entre).toBeNull();
+  });
   test('le plafond : 90 % hors d’une visée de 3 à 5 reps, ou pour une population protégée', () => {
     const se = plusUne(seanceDe('squat_barre', [10, 6, 3, 1]));
     expect(chauffes(plan(se, 'squat_barre', consigne(135, 8)).x)[4]).toBeNull();   // visée 8 : 90 %, 121,5 → 120, pas au-dessus de 120

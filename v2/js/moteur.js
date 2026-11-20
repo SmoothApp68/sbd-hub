@@ -11956,7 +11956,9 @@
       var c = m.nature === 'charge' ? chargeDeLaChauffeAjoutee(e, avant) : null;
       if (c === null) { lignes[idx] = { reps: reps, charge: null, trop_proche: true, ajoutee: true }; tropProches++; return; }
       var r = vide ? repsDeChauffe(c, ref, false) : reps;
-      lignes[idx] = { reps: r, charge: c, reps_coach: vide, ajoutee: true, entre: [avant === null ? (estBarre(e.equipement) ? barreDesChauffes() : 0) : avant, ref] };
+      // CONTRA-725 (note) — sans chauffe d'avant (aucune ligne chargée, faite ou prévue), la phrase dit « sous 135 kg » : elle ne cite pas une
+      // barre vide qui n'est pas une ligne.
+      lignes[idx] = { reps: r, charge: c, reps_coach: vide, ajoutee: true, entre: avant === null ? null : [avant, ref], sous: ref };
       ajoutees.push(lignes[idx]);
     });
     var tropLegeres = lignes.filter(function (l) { return l && l.trop_leger; }).length;
@@ -11976,7 +11978,8 @@
       if (!ajoutees.length) return null;
       return ajoutees.map(function (l) {
         return 'Chauffe ajoutée : ' + Modele().charge(l.charge, undefined, regle('chauffe')) + ' × ' + nombreFr(l.reps, regle('chauffe.reps')) +
-          ', entre ' + nombreFr(l.entre[0], regle('chauffe')) + ' et ' + Modele().charge(l.entre[1], undefined, regle('reference')) + '.';
+          (l.entre ? ', entre ' + nombreFr(l.entre[0], regle('chauffe')) + ' et ' + Modele().charge(l.entre[1], undefined, regle('reference'))
+                   : ', sous ' + Modele().charge(l.sous, undefined, regle('reference'))) + '.';
       }).join(' ');
     });
     Modele().reporter(capP.citations); Modele().reporter(capA.citations);

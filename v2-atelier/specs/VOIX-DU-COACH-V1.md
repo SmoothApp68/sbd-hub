@@ -131,7 +131,7 @@ Le chiffre d'abord, l'unité sur chaque charge, « tu », un fait. Jamais « une
 | Proposition, ajout d'office | Chauffe : 20 kg × 10 · 70 kg × 6 · 90 kg × 3 · 120 kg × 1. |
 | Pourquoi (la part VRAIE, charge affichée ÷ référence) | Tes séries visent 4 reps : la dernière chauffe est à 120 kg, 89 % de 135 kg. |
 | Pourquoi, programme du coach | Dans le programme que je t'ai construit, je choisis tes chauffes. |
-| Après « + Chauffe » | Chauffe ajoutée : 125 kg × 1, entre 120 et 135 kg. — sans place : Trop proche de ta charge de travail pour une chauffe de plus. |
+| Après « + Chauffe » | Chauffe ajoutée : 125 kg × 1, entre 120 et 135 kg. — sans chauffe d'avant : Chauffe ajoutée : 75 kg × 3, sous 135 kg. — sans place : Trop proche de ta charge de travail pour une chauffe de plus. |
 | Poids du corps | Chauffe : poids du corps × 3. — Pourquoi : Le mouvement lui-même, avec de la marge. |
 | Lesté | Chauffe : poids du corps × 2 · 15 kg de lest × 2. — Pourquoi : Avec un lest, tu passes d'abord au poids du corps. |
 | Peu de temps | Tu as peu de temps : deux chauffes. / Tu as peu de temps : une seule. |

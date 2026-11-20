@@ -32204,7 +32204,8 @@ const SETS_IMPORTES = [
       // ── 1. AUCUN repos réglé : la molette se pose sur le conseil.
       const patchs0 = patchsAvant();
       await ouvrirFeuilleBloc(0, '.repos-cible');
-      await attendre(700);
+      // La molette doit être PHYSIQUEMENT posée sur le conseil (la feuille se rend avant que le voile ne s'ouvre : le défilement se repose au tour suivant).
+      await attendreQue(() => page.evaluate(() => { const p = document.querySelector('#feuille-contenu .molette .piste'); const i = p ? Array.from(p.querySelectorAll('.opt')).findIndex((o) => o.classList.contains('sel')) : -1; return i > 0 && p.scrollTop === i * 48; }), 6000, 'molettePoseeRC');
       const f1 = await lireFeuille();
       ok('[RC] sans réglage : la molette est CENTRÉE sur le conseil (pas sur 1:30), le cran porte la marque « conseillé »',
         f1.nbOpts === 36 && f1.centre === plan[0].r.s && f1.marque === plan[0].r.s && f1.defile === (await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .molette .opt')).findIndex((o) => o.classList.contains('sel')) * 48)),
@@ -32226,7 +32227,7 @@ const SETS_IMPORTES = [
         f2.centre === 60 && sp(f2.reglage) === 'Ta routine : 1:00' && sp(f2.entete) === 'Conseillé : ' + txt2 && sp(f2.prendre) === 'Prendre ' + txt2 && sp(f2.mention) === 'Pour cette séance', nb(f2));
       const patchs2 = patchsAvant();
       await page.click('#feuille-contenu .conseil-prendre');
-      await attendre(900);
+      await attendreQue(() => page.evaluate(() => document.getElementById('feuille-seance').hidden === true), 6000, 'prendreFermeRC');
       ok('[RC] « Prendre » pose le conseil pour la séance ET ferme la feuille en un seul geste',
         sp(await lireBloc(1, '.repos-cible')).indexOf(txt2) >= 0 && (await page.evaluate(() => document.getElementById('feuille-seance').hidden)) === true, sp(await lireBloc(1, '.repos-cible')));
       ok('[RC] …sans rien écrire dans la routine au moment du geste (la question se pose à la fin)',

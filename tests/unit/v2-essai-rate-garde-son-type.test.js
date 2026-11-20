@@ -57,12 +57,12 @@ describe('l’essai raté garde son type (Seance.marquerManquee)', () => {
     se = S.changerType(se, 0, 0, type);
     return se;
   };
-  test('test et degressive gardent leur type ; travail et recul passent à echec ; reps, charge, douleur intactes', () => {
-    ['test', 'degressive'].forEach((t) => {
+  test('test, degressive et recul gardent leur type ; travail passe à echec ; reps, charge, douleur intactes', () => {
+    ['test', 'degressive', 'recul'].forEach((t) => {
       const se = S.marquerManquee(avec(t), 0, 0);
       expect(se.exercices[0].series[0].type_serie).toBe(t);
     });
-    ['travail', 'recul'].forEach((t) => {
+    ['travail'].forEach((t) => {
       const se = S.marquerManquee(avec(t), 0, 0);
       expect(se.exercices[0].series[0].type_serie).toBe('echec');
     });

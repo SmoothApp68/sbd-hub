@@ -12382,24 +12382,43 @@
   // (`routine_id`) quand l'app les a, sinon celles d'aujourd'hui : une APPROXIMATION (la routine a pu changer entre-temps), dite
   // telle. Sans cible, l'écart réel est gardé tel quel. L'écart réel est arrondi au demi-point (135 ÷ 150 et 137,5 ÷ 152,5 sont « 10 % »).
   // Rend `{ ecart, depart, reel, sens, reps, cible }` ; `sens` : 'rapproche' | 'eloigne' | null.
-  function ecartDeRecul(precedent, cible, depart) {
+  //
+  // R1 (20/11/2026, MOTEUR §9.28 et §9.39 (6), « le recul raté ») — UN RECUL À 0 REP S'Y LIT : l'écart était trop petit, il s'éloigne de 2,5 points (« Je les éloigne »), SAUF dans
+  // trois cas où le 0 n'est pas un fait sur l'écart (jamais payer deux fois) : (a) un recul a RÉUSSI à cette charge ou plus lourd dans la même séance ; (b) « J'ai eu mal » est noté
+  // sur l'exercice (`douleur`) ; (c) la grosse série a raté elle aussi (`rateSousLaZone`, la notion partagée) SANS que ses reculs aient été recalés sur le max du jour : le cas G recale les
+  // reculs dès qu'une grosse série de 1 rep ou plus reste sous la zone — un recul à 0 après ce recalage dit bien que l'écart est trop petit (pas d'exception) ; une grosse série à 0 rep n'est
+  // jamais suivie d'un recalage (le zéro a sa propre réaction, Z1/Z2), et son 0 de recul n'apprend rien sur l'écart. `opt` : `{ bas, objectif, barre }` — la zone de la séance lue
+  // (une approximation : celle d'aujourd'hui, comme `cible`) ; sans `bas`, un 0 est sous la zone.
+  function ecartDeRecul(precedent, cible, depart, opt) {
     var serie = (precedent && precedent.series) || [];
     var M = Modele();
-    var grosse = null, reculs = [];
+    var grosse = null, reculs = [], lourde = null, douleur = false;
     serie.forEach(function (x) {
       var kg = nombre(x && x.charge_kg), r = nombre(x && x.reps);
+      if (x && x.douleur === true) douleur = true;
       if (kg === null || kg <= 0 || r === null) return;
       if (M.estRecul(x)) reculs.push({ charge: kg, reps: r });
       else if (M.estTravail(x) && (grosse === null || kg > grosse)) grosse = kg;
+      // La ligne la plus lourde hors recul, hors chauffe et hors « Non, ne compte pas » — qu'elle ait été faite ou manquée (c).
+      if (!M.estRecul(x) && M.typeDe(x) !== 'echauffement' && !M.estHorsCalcul(x) && (lourde === null || kg > lourde.charge)) lourde = { charge: kg, reps: r };
     });
     if (grosse === null || !reculs.length) {
       return { ecart: depart !== null && depart !== undefined ? depart : RECUL_ECART_DEPART, depart: true, deduit: depart != null, reel: null, sens: null, reps: [], cible: null };
     }
     var reel = bornerEcartDeRecul(Math.round((1 - reculs[0].charge / grosse) * 200) / 200);
     var c = nombre(cible);
-    var reps = reculs.map(function (x) { return x.reps; });
+    // (c) la grosse série a raté, ses reculs ne se sont pas recalés
+    var basZone = opt ? nombre(opt.bas) : null;
+    var grosseRatee = lourde !== null && lourde.reps < 1 &&
+      rateSousLaZone({ reps: lourde.reps, bas: basZone === null ? 1 : basZone, objectif: opt ? opt.objectif : null, barre: opt ? opt.barre : false, reserve: null, charge: lourde.charge }).sousZone;
+    var lus = reculs.filter(function (q) {
+      if (q.reps !== 0) return true;
+      if (douleur || grosseRatee) return false;
+      return !reculs.some(function (u) { return u.reps >= 1 && u.charge >= q.charge - 1e-9; });   // (a)
+    });
+    var reps = lus.map(function (x) { return x.reps; });
     var ecart = reel, sens = null;
-    if (c !== null && c >= 1) {
+    if (c !== null && c >= 1 && reps.length) {
       if (reps.some(function (r) { return r < c; })) { ecart = bornerEcartDeRecul(reel + RECUL_ECART_PAS); sens = 'eloigne'; }
       else if (reps.every(function (r) { return r >= c + RECUL_MARGE_REPS; })) { ecart = bornerEcartDeRecul(reel - RECUL_ECART_PAS); sens = 'rapproche'; }
     }
@@ -13811,9 +13830,9 @@
   //   c = { muet, charge (la charge restée à 0 rep), descente (`D`, ou null : rien de plus léger), role, restantes (les charges des lignes non validées, null = sans
   //   chiffre), derniere }
   //   Muet : entretien, décharge, semaine de test, calage, douleur, figure, veille légère, édition, poids du corps / aide / lest, mesure ≠ charge × reps.
-  //   Z1 : rôle travail ou recul et au moins une ligne non validée plus lourde que `D` (une ligne sans chiffre compte plus lourde : O20) → « 30 kg est resté à
+  //   Z1 : rôle travail (jamais un recul : R1, 20/11/2026) et au moins une ligne non validée plus lourde que `D` (une ligne sans chiffre compte plus lourde : O20) → « 30 kg est resté à
   //        0 rep : je propose 27,5 kg pour les séries qui restent. » + « Prendre 27,5 kg » (le geste `rate_prise` : on propose, la personne tape).
-  //   Z2 : tout le reste (dernière ligne, grosse série, test, haut, plancher du matériel) → « 30 kg est resté à 0 rep. »
+  //   Z2 : tout le reste (recul, dernière ligne, grosse série, test, haut, plancher du matériel) → « 30 kg est resté à 0 rep. »
   //   Indépendante du réglage, de l'objectif, du rang et du débutant (hors calage). Aucune fourchette, aucun « garde N », aucun recalcul des reculs.
   function reactionAuZero(c) {
     var x = c || {};
@@ -13822,7 +13841,9 @@
     var D = nombre(x.descente);
     var role = x.role || 'travail';
     var plusLourde = D !== null && (x.restantes || []).some(function (q) { var v = nombre(q); return v === null || v > D + 1e-9; });
-    if ((role === 'travail' || role === 'recul') && plusLourde) {
+    // R1 (20/11/2026, MOTEUR §9.39 (6)) — un RECUL à 0 rep : toujours Z2, une phrase seule. Jamais de bouton « Prendre », de fourchette ni de « garde » : la grosse
+    // série a déjà mesuré la force du jour, le recul ne propose rien (I236, I237).
+    if (role === 'travail' && plusLourde) {
       return { silence: false, niveau: 'zero', cas: 'Z1', role: role, zero: Ch, charge: { kg: D, action: 'baisse' }, leviers: ['prendre'] };
     }
     return { silence: false, niveau: 'zero', cas: 'Z2', role: role, zero: Ch, charge: null, leviers: [] };

@@ -300,11 +300,12 @@ describe('règle 8 : pendant la tenue après un zéro, un NOUVEAU 0 fait parler 
 });
 
 describe('Modele.estZeroDeTravail — une seule lecture', () => {
-  test('travail ou manquée, 0 rep, charge > 0 ; jamais chauffe, test, hors calcul, recul, dégressive', () => {
+  test('travail, recul ou manquée, 0 rep, charge > 0 ; jamais chauffe, test, hors calcul, dégressive (R1 : le recul est ADMIS, 20/11/2026)', () => {
     const z = (extra, kg) => Modele.estZeroDeTravail(Object.assign({ charge_kg: kg === undefined ? 80 : kg, reps: 0, type_serie: 'travail' }, extra || {}));
     expect(z()).toBe(true);
     expect(z({ type_serie: 'echec' })).toBe(true);
-    ['echauffement', 'test', 'recul', 'degressive'].forEach((t) => expect(z({ type_serie: t })).toBe(false));
+    expect(z({ type_serie: 'recul' })).toBe(true);
+    ['echauffement', 'test', 'degressive'].forEach((t) => expect(z({ type_serie: t })).toBe(false));
     expect(z({ hors_calcul: true })).toBe(false);
     expect(z({}, null)).toBe(false);
     expect(z({}, -40)).toBe(false);

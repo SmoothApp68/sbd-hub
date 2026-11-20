@@ -1172,7 +1172,10 @@
       if (margeGrosse === null) margeGrosse = 0;
     }
     // 266 (§9.28) — sans séance à reculs, le départ de l'écart se lit sur la table des reps (grosse série, recul), sinon le 10 % d'avant.
-    var lu = M.ecartDeRecul(precEcart, cible, M.ecartDeDepartDeRecul(grosseReps, margeGrosse, aujourdhui));
+    // R1 — la zone d'aujourd'hui lit « la grosse série a raté » de la séance d'avant (une approximation, comme `cible`) ; `rateSousLaZone` reste la seule notion.
+    var zoneDuJour = consigne && consigne.zone ? M.zoneParCle(consigne.zone) : null;
+    var lu = M.ecartDeRecul(precEcart, cible, M.ecartDeDepartDeRecul(grosseReps, margeGrosse, aujourdhui),
+      { bas: zoneDuJour ? zoneDuJour.bas : null, objectif: o.objectif || null, barre: !!(materiel && materiel.equipement === 'barre') });
     var correction = M.correctionDeRecul(pool);
     var capM = V.capturer(function () {
       return M.reculSurLeMaxDuJour({ grosse: grosse, grosseReps: grosseReps, marge: margeGrosse, reps: aujourdhui, correction: correction.valeur,
@@ -8338,11 +8341,13 @@
         series.forEach(function (q, m) {
           if (m > j || !S.partEnBase(q) || T.typeDe(q) === 'echauffement' || T.estHorsCalcul(q)) return;
           var cq = nombre(q.charge_kg), rq = nombre(q.reps);
-          if (T.estZeroDeTravail(q) && cq < Cmin) Cmin = cq;
+          if (T.estZeroDeTravail(q) && !T.estRecul(q) && cq < Cmin) Cmin = cq;   // R1 : la plus légère charge de TRAVAIL restée à 0 (un recul n'y entre pas, `zeroPartiel`)
           if (rq !== null && rq >= 1 && cq !== null && cq > 0) reussies.push(cq);
         });
         var incident = reussies.some(function (v) { return v >= Cmin - 1e-9; });
         if (incident && entree.cas !== 'Z2') erreurs.push('I158' + nom + 'une série réussie du jour à ' + Cmin + ' kg ou au-dessus : un incident, Z2 sans bouton (pas Z1)');
+        // R1 (20/11/2026, I237 étendu) — un RECUL à 0 rep : Z2, une phrase seule ; jamais Z1, bouton, fourchette ni « garde ».
+        if (T.estRecul(sr) && entree.cas !== 'Z2') erreurs.push('I237' + nom + 'un recul à 0 rep (série ' + j + ') dit ' + entree.cas + ' : une phrase seule (Z2), jamais un bouton');
         if (entree.cas === 'Z1') {
           var D = nombre(entree.descente);
           if (D === null) { erreurs.push('I158' + nom + 'Z1 sans descente'); return; }

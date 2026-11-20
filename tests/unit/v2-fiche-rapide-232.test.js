@@ -29,7 +29,9 @@ const RAPIECES_255 = [
   ['var r = reportSur(seances, avant, zoneAvant, consigne.zone, o.equipement);', 'var r = reportSur(seances, avant, zoneAvant, consigne.zone, o.equipement, o.reglage, o.salle || null);'],
   ['depuis: { date: r.depuis.debut, palier: r.depuis.palier, niveau: r.depuis.niveau },',
     'depuis: r.depuis.reserve === null || r.depuis.reserve === undefined ? { date: r.depuis.debut, palier: r.depuis.palier, niveau: r.depuis.niveau } : { date: r.depuis.debut, palier: r.depuis.palier, niveau: r.depuis.niveau, reserve: r.depuis.reserve },'],
-  ['{ equipement: o.equipement, salle: salle }),', '{ equipement: o.equipement, salle: salle, reglage: o.reglage }),']
+  ['{ equipement: o.equipement, salle: salle }),', '{ equipement: o.equipement, salle: salle, reglage: o.reglage }),'],
+  // « Une seule garde » (19/11/2026, C-3) — le fondement du report écrit la réserve visée qu'il a utilisée (relue par I143).
+  ['ligne: origineDeLaLigne(o.ligneDeZone) };', 'ligne: origineDeLaLigne(o.ligneDeZone) }; if (r.reserve !== null && r.reserve !== undefined) fondement.report.reserve = r.reserve;']
 ];
 function lireAncien(nom) {
   let src = cp.execFileSync('git', ['show', AVANT_232 + ':v2/js/' + nom + '.js'], { cwd: RACINE, maxBuffer: 64 * 1024 * 1024 }).toString('utf8');
@@ -37,7 +39,12 @@ function lireAncien(nom) {
     const courant = fs.readFileSync(path.join(RACINE, 'v2/js/moteur.js'), 'utf8');
     FONCTIONS_255.forEach((f) => { const o = fonction255(src, f), n = fonction255(courant, f); src = src.slice(0, o.i) + n.texte + src.slice(o.j); });
     const gros = courant.slice(courant.indexOf('  // 255 bis — au-dessus de cette perte'), courant.indexOf('  function reportDeZone(o) {'));
+    // « Une seule garde » (19/11/2026, C-3) — le report lit la réserve AFFICHÉE (`reserveAffichee`, absente d'avant 232) : ce test ne passe jamais
+    // `protegee`, l'affichée y vaut donc la table (`reserveVisee`, présente avant 232).
     src = src.replace('  function reportDeZone(o) {', () => gros + '  function reportDeZone(o) {');
+    if (src.indexOf('  function reserveAffichee(') === -1) {
+      src = src.replace('  function reportDeZone(o) {', () => '  function reserveAffichee(o) { return reserveVisee(o); }\n  function reportDeZone(o) {');
+    }
     RAPIECES_255.forEach(([a, b]) => {
       if (src.indexOf(a) === -1) throw new Error('255 : le moteur d\'avant 232 ne contient plus « ' + a + ' »');
       src = src.replace(a, () => b);

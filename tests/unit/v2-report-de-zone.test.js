@@ -77,7 +77,9 @@ describe('53-1 — reportDeZone, les 39 cas du fichier', () => {
   test('la sortie ne porte AUCUNE estimation brute : seule la charge arrondie en sort', () => {
     const r = M.reportDeZone({ seances: [{ debut: '2026-09-01T10:00:00Z', palier: 100, niveau: 5 }],
       avant: '2026-09-08T10:00:00Z', zoneAvant: 'lourd', zone: 'mix', cran: (x, s) => x + s * 2.5 });
-    expect(Object.keys(r).sort()).toEqual(['charge', 'depuis', 'origine', 'visee']);
+    // « Une seule garde » (19/11/2026, C-3) : `reserve`, la réserve visée utilisée (l'affichée), sort aussi — un chiffre de la règle, pas une estimation.
+    expect(Object.keys(r).sort()).toEqual(['charge', 'depuis', 'origine', 'reserve', 'visee']);
+    expect(r.reserve).toBe(2);
     expect(r.charge).toBe(90);   // 255 : 100 × 5 → Mix, réglage Normal (2 en réserve visée) : 92,2 estimé, au cran inférieur (avant 255 : 97,2 → 95)
   });
 
@@ -132,7 +134,7 @@ describe('53-1 — le câblage : la correction à l’étiquette (Lourd → Mix)
     expect([r.consigne.etat, r.consigne.zone, r.consigne.ligne, r.consigne.haut])
       .toEqual(['nouvelle_zone', 'mix', { charge: 90, vise: 6 }, null]);
     expect(r.consigne.fondement.report).toEqual({ origine: 'estimee', zoneAvant: 'lourd',
-      depuis: { date: '2026-09-08T10:00:00Z', palier: 100, niveau: 5 }, ligne: 'personne' });
+      depuis: { date: '2026-09-08T10:00:00Z', palier: 100, niveau: 5 }, ligne: 'personne', reserve: 2 });   // C-3 : la réserve visée lue, relue par I143
     expect(norm(r.libelles.gris)).toBe('Nouvelle zone : Mix. Estimée depuis ton 100 kg × 5, un peu en dessous pour démarrer.');
     expect(r.libelles.jaune.map(norm)).toEqual(['90 kg × 6']);
     // 255 (06/11/2026) : 95 avant que la réserve visée (2 au réglage Normal) soit comptée. Avant 53-1 : 100 kg × 6 — le palier gardé, une rep de plus (le relevé du 05/10).

@@ -146,6 +146,20 @@
   // `figees` : `{ [id de série]: { rang, role, ligne } }`, les lignes figées
   // relues dans les paris (`THSeance.figeesDe`) ; `options` : `{ slug,
   // seance, reglage }`, ce que porte le pari. Pur : ne lit rien d'autre.
+  // « Une seule garde » (19/11/2026, MOTEUR §9.39, I232, I216) — LA GARDE DES LIGNES DE TRAVAIL d'un exercice : la réserve AFFICHÉE au rôle `ligne`
+  // (`Moteur.reserveAffichee`), pour un exercice à charge × reps et palier > 0 (`Moteur.effortViseEligible`), sinon `null`. UNE fonction, appelée une
+  // fois par exercice (avant la porte du cran), exposée sur `x.gardeDeLigne` et lue par la réaction au raté (`gardeAffichee` et le plancher), la
+  // porte et `reactionPour`. DISTINCTE de `x.reserveAffichee`, la garde de la VISÉE (la dernière ligne, parfois un test : la puce, le pari).
+  //   o = { mesure, reglage, protegee }
+  // Contradicteur final (C3, 19/11/2026) — après un zéro rep (`Moteur.estApresZero` : la descente, la tenue, le silence au plancher), aucune garde
+  // de ligne : le plan n'affiche aucun effort visé (I154 : 2 ou rien), la réaction au raté garde sa propre garde (l'échec allège).
+  function gardeDeLigne(consigne, o) {
+    var M = Moteur(), x = o || {};
+    if (M.estApresZero(consigne)) return null;
+    return consigne && M.effortViseEligible(consigne.palier, x.mesure) ? M.reserveAffichee({ zone: consigne.zone, role: 'ligne', reglage: x.reglage,
+      protegee: x.protegee === true, repriseLongue: M.enRepriseLongue(consigne) }) : null;
+  }
+
   function planDesLignes(series, consigneDonnee, contexte, figees, options) {
     var o = options || {};
     var S = Seance(), M = Moteur();
@@ -172,10 +186,10 @@
       faites.push({ charge_kg: chargeLue(s, pdc), reps: s.reps, rpe: s.rpe, ressenti: s.ressenti });
     }
     var planInitial = M.planDeCouverture(consigne, couvertes);
-    // « Garde 0 » (19/11/2026) — la réserve AFFICHÉE de la ligne, déjà calculée par la fonction unique (`Moteur.reserveAffichee` : le plancher des
-    // populations protégées et de la reprise longue la relève, donc 0 ne reste que pour qui a choisi d'aller à l'échec). À garde 0, « à fond » est
-    // la cible : la réaction ne le traite plus comme un doute (`Moteur.reactionPour`, `gardeAffichee`).
-    var gardeLigne = consigne && M.effortViseEligible(consigne.palier, o.mesure) ? M.reserveAffichee({ zone: consigne.zone, role: 'ligne', reglage: o.reglage, protegee: o.protegee === true, repriseLongue: M.enRepriseLongue(consigne) }) : null;
+    // « Garde 0 » (19/11/2026) — la réserve AFFICHÉE de la ligne (`gardeDeLigne`, UNE fonction : le plancher des populations protégées et de la
+    // reprise longue la relève, donc 0 ne reste que pour qui a choisi d'aller à l'échec). À garde 0, « à fond » est la cible : la réaction ne le
+    // traite plus comme un doute (`Moteur.reactionPour`, `gardeAffichee`). Le plan d'exercice la calcule une fois et la passe (`o.gardeDeLigne`).
+    var gardeLigne = o.gardeDeLigne !== undefined ? o.gardeDeLigne : gardeDeLigne(consigne, o);
     var contexteR = gardeLigne === 0 ? Object.assign({}, contexte || {}, { gardeAffichee: 0 }) : (contexte || null);
     var reaction = M.reactionPour(consigne, faites, contexteR, planInitial);
 
@@ -1491,7 +1505,8 @@
       lues.push({ iSerie: i, charge: ch, reps: nombre(s.reps), vise: vise, reserve: P.reserveDeSerie(s) });
     });
     var r = M.decisionDeLaPorte({ zone: { bas: zone.bas, haut: zone.haut }, cran: cran, travail: chargeDeTravail(consigne), series: lues,
-      formeAjustee: ctx.formeAjustee === true, tente: ctx.tente === true, prise: ctx.prise || null, objectif: ctx.objectif || null, barre: ctx.barre === true });
+      formeAjustee: ctx.formeAjustee === true, tente: ctx.tente === true, prise: ctx.prise || null, objectif: ctx.objectif || null, barre: ctx.barre === true,
+      gardeAffichee: ctx.gardeAffichee === 0 ? 0 : null });
     if (!r.fermee) return null;
     var f = lues.filter(function (q) { return q.iSerie === r.serie; })[0] || null;
     return Object.assign(r, { zone: { bas: zone.bas, haut: zone.haut }, cran: cran, travail: chargeDeTravail(consigne),
@@ -1629,9 +1644,13 @@
     var compteurOuverture = c.compteur && typeof c.compteur.compteur === 'number' ? c.compteur.compteur : undefined;
     // 251 (D2) — LA PORTE DU CRAN : lue AVANT les lignes (elle décide si la couverture pose un test). `porteCtx` est `null` dans les contextes
     // où le coach se tait (Édition, Entretenir, « J'ai mal », semaine allégée, semaine de test, repli) ; sans `ligne` ET `haut`, elle se tait aussi.
+    // « Une seule garde » (I232) — la garde des lignes de travail, UNE fois, avant la porte : la porte, les lignes et la réaction au raté la lisent.
+    var gardeX = gardeDeLigne(consigne, { mesure: materiel ? materiel.mesure || null : null, reglage: reglage === undefined ? null : reglage, protegee: protegee === true });
     var porte = porteCtx && consigne.haut && consigne.ligne && !consigne.allegee && !consigne.repli && consigne.etat !== 'silence'
-      ? porteDeLExercice(series, consigne, Object.assign({}, porteCtx, { objectif: objectif, barre: !!(materiel && materiel.equipement === 'barre') })) : null;
+      ? porteDeLExercice(series, consigne, Object.assign({}, porteCtx, { objectif: objectif, barre: !!(materiel && materiel.equipement === 'barre'),
+        gardeAffichee: gardeX === 0 ? 0 : null })) : null;
     var r = planDesLignes(series, consigne, c.contexte || null, figees, {
+      gardeDeLigne: gardeX,
       sansTest: !!(porte && porte.fermee && !porte.tente),
       slug: base.slug, seance: seanceId === undefined ? null : seanceId,
       reglage: reglage === undefined ? null : reglage, phase: phase, objectif: objectif, protegee: protegee === true,
@@ -1893,6 +1912,8 @@
     return {
       iExo: iExo, slug: base.slug, occurrence: base.occurrence,
       consigne: consigne, contexte: c.contexte || null,
+      // « Une seule garde » (I232) — la garde des lignes de travail (`gardeDeLigne`), distincte de `reserveAffichee` (la visée).
+      gardeDeLigne: gardeX,
       // 193-3 — la zone que la routine fixe pour ce jour (`{ zone, mode, n, perimee }`), ou `null` : I79 à I81 la relisent.
       zonePlan: c.plan || null,
       // I8 (122) — les rangs quittés par des séries faites : aucune ligne non figée ne les porte.
@@ -2324,6 +2345,13 @@
     return Moteur().populationProtegee({ plus65: x.plus65 === true, debutant: x.debutant === true, objectif: objectifDuPlan(x.objectif) });
   }
   function reglageDe(e) { return e.reglage === 'franc' || e.reglage === 'prudent' ? e.reglage : 'normal'; }
+  // « Une seule garde » (I232, I216) — la garde des lignes d'un exercice du plan, RECALCULÉE depuis les entrées (réglage, population protégée,
+  // mesure du catalogue) par la même fonction que le plan (`gardeDeLigne`) : les vérificateurs ne lisent jamais `x.gardeDeLigne`.
+  function gardeDeLigneDesEntrees(x, entrees) {
+    var e = entrees || {};
+    var cat = x && x.slug && e.catalogue && Object.prototype.hasOwnProperty.call(e.catalogue, x.slug) ? e.catalogue[x.slug] || {} : {};
+    return gardeDeLigne(x ? x.consigne : null, { mesure: cat.mesure === undefined ? null : cat.mesure, reglage: e.reglage, protegee: protegeeDeEntrees(e) });
+  }
   function nomParleDe(cat, slug) {
     var n = racine.THModele.nomCourt(cat && cat.nom ? cat.nom : slug);
     return n ? n.charAt(0).toUpperCase() + n.slice(1) : slug;
@@ -3180,7 +3208,11 @@
       // I216 — le plancher de la réaction = la réserve AFFICHÉE de la ligne, déjà calculée (`Moteur.reserveAffichee`, plus haut) : jamais recalculée ni copiée.
       // Il ne vaut que là où la réserve affichée est un PLANCHER (population protégée I160, reprise longue I206) : ailleurs c'est la table (Lourd, Mix : 2) et la
       // réaction garde sa règle propre (« garde 1 » en Normal).
-      plancher: plan.protegee === true || Moteur().enRepriseLongue(x.consigne) ? nombre(x.reserveAffichee) : null,
+      // « Une seule garde » (19/11/2026) : lu sur la garde des LIGNES (`x.gardeDeLigne`, rôle `ligne`), jamais sur celle de la visée (`x.reserveAffichee`,
+      // `null` pour une protégée dont la dernière ligne est un test : le trou de I216).
+      plancher: plan.protegee === true || Moteur().enRepriseLongue(x.consigne) ? nombre(x.gardeDeLigne) : null,
+      // I232 — à garde 0 de la ligne, une série à fond dans la zone est sur la cible (`Moteur.aFondSurLaCible`) ; la réaction ne dit pas « garde N ».
+      gardeAffichee: x.gardeDeLigne === 0 ? 0 : null,
       entretien: plan.intention === 'entretien' || x.intention === 'entretien' || x.mode === 'entretien',
       decharge: !!plan.allegee || !!(x.consigne && x.consigne.allegee),
       semaineDeTest: !!plan.semaineDeTest || !!x.semaineDeTest, debutant: plan.debutant === true, calage: !!x.calage,
@@ -3274,7 +3306,7 @@
     // cran et que `reactionDeSerie`) ; sous la zone, le niveau 1 garde la parole et ses leviers, le niveau 2 reste pour « sous la cible, DANS la zone ».
     var classeDOuL = function (l) {
       var s = series[l.iSerie] || {}, reps = nombre(s.reps), vise = nombre(l.vise);
-      var lu = M.rateSousLaZone({ reps: reps, bas: zone.bas, objectif: cx.objectif, barre: cx.barre, reserve: P.reserveDeSerie(s), charge: nombre(s.charge_kg) });
+      var lu = M.rateSousLaZone({ reps: reps, bas: zone.bas, objectif: cx.objectif, barre: cx.barre, reserve: P.reserveDeSerie(s), charge: nombre(s.charge_kg), gardeAffichee: cx.gardeAffichee });
       // Au poids du corps, le niveau 1 classe E (jamais D ni L, `reactionDeSerie`) : le niveau 2 y garde la parole (les tractions 7, 7 de 236).
       return reps !== null && vise !== null && reps < vise && !lu.corps && (lu.sous || lu.echec);
     };
@@ -6721,7 +6753,7 @@
     verifierBlocHypertrophie(plan, erreurs);
     verifierRate(plan, entrees, erreurs);
     verifierPorte(plan, entrees, erreurs);
-    verifierReportDeZone(plan, erreurs);
+    verifierReportDeZone(plan, erreurs, entrees);
     verifierRepriseAuBasDeZone(plan, entrees, erreurs);
     verifierRestPause(plan, erreurs);
     verifierBaisseAttendue(plan, erreurs);
@@ -6940,7 +6972,8 @@
         }
         // I216 (16/11/2026, MOTEUR §9.39 delta) — là où la réserve affichée est un plancher (population protégée I160, reprise longue I206), le « garde N » d'une réaction affichée n'est jamais dessous : la même carte
         // ne dit pas « garde 2 » puis « garde 1 ». Le pari des lignes qu'elle recale porte `fondement.reserve_visee` (la réserve affichée) : jamais au-dessus du garde dit.
-        var plancherR = plan.protegee === true || M.enRepriseLongue(x.consigne) ? nombre(x.reserveAffichee) : null;
+        // « Une seule garde » (19/11/2026) — le plancher au rôle `ligne`, recalculé depuis les entrées : il vaut aussi quand la dernière ligne est un test.
+        var plancherR = plan.protegee === true || M.enRepriseLongue(x.consigne) ? nombre(gardeDeLigneDesEntrees(x, entrees)) : null;
         if (r.garde !== null && r.garde !== undefined && plancherR !== null && r.garde < plancherR) erreurs.push('I216' + nom + 'une réaction qui dit « garde ' + r.garde + ' » sous la réserve affichée de ' + plancherR);
         if (r.garde !== null && r.garde !== undefined && plancherR !== null) {
           (x.lignes || []).forEach(function (l) {
@@ -6951,6 +6984,19 @@
         }
         if (r.pasDAuMax && (x.auMax || x.propositionAuMax || (x.lignes || []).some(function (l) { return l.auMax; }))) {
           erreurs.push('I120' + nom + 'un « Au max » après un échec franc');
+        }
+        // I232 (« Une seule garde », 19/11/2026, MOTEUR §9.39) — à garde 0 des lignes (recalculée depuis les entrées), la réaction ne demande pas une
+        // marge que la ligne ne demande pas : aucun « garde N » > 0, aucun cas M, et aucun échec (L, « Pas d'Au max ») sur une série à fond à au moins
+        // le bas de la zone.
+        if (r.niveau !== 'zero' && x.consigne && gardeDeLigneDesEntrees(x, entrees) === 0) {
+          if (nombre(r.garde) !== null && nombre(r.garde) > 0) erreurs.push('I232' + nom + 'une réaction qui dit « garde ' + r.garde + ' » sur des lignes en garde 0');
+          if (r.cas === 'M') erreurs.push('I232' + nom + 'le cas M (« sans marge ») sur des lignes en garde 0');
+          var zone7 = M.zoneParCle(x.consigne.zone);
+          var sr7 = ((entrees && entrees.seance && entrees.seance.exercices && entrees.seance.exercices[i] && entrees.seance.exercices[i].series) || [])[r.iSerie] || null;
+          var rp7 = sr7 ? nombre(sr7.reps) : null;
+          if (zone7 && rp7 !== null && rp7 >= zone7.bas && (r.cas === 'L' || r.base === 'L' || r.pasDAuMax)) {
+            erreurs.push('I232' + nom + 'un échec (cas ' + r.cas + (r.pasDAuMax ? ', pas d’« Au max »' : '') + ') sur ' + rp7 + ' reps, dans la zone, à garde 0');
+          }
         }
       }
       if (x.forme && x.forme.ajuste && (x.auMax || x.propositionAuMax || (x.lignes || []).some(function (l) { return l.auMax; }))) {
@@ -7005,15 +7051,31 @@
   // donne, au bas de la zone PLUS la réserve visée de la zone pour le réglage de la séance, un max estimé qui ne dépasse jamais celui de
   // la série dont elle part (palier × (niveau + la plus petite réserve notée, 0 si inconnue : l’hypothèse prudente)), reps visées montées par un gros cran comprises (255 bis). Sans cela, la nouvelle zone était plus dure
   // que le plan ne le disait (152,5 × 5 en Lourd → Mix 147,5 × 6, soit 2 % de plus).
-  function verifierReportDeZone(plan, erreurs) {
+  // I235 (« Une seule garde », C-3, MOTEUR §9.10 et §9.26 bis) — le report de zone lit la réserve AFFICHÉE (le plancher des populations protégées) :
+  // `fondement.report.reserve`, quand il est écrit, est `Moteur.reserveAffichee` au rôle `ligne` recalculée depuis les entrées (zone, réglage, population
+  // protégée). I143 relit la réserve écrite ; une consigne d'avant (sans `report.reserve`) garde la table. (La borne de domaine 3-10 reps de la source,
+  // proposée avec C-3, n'est PAS appliquée : elle supprimait le report depuis Volume ou Séries longues et alourdissait « Plus léger ».)
+  function verifierReportDeZone(plan, erreurs, entrees) {
     var M = Moteur();
     ((plan && plan.exercices) || []).forEach(function (x, i) {
       var c = x && x.consigne;
-      if (!c || c.etat !== 'nouvelle_zone' || !c.fondement || !c.fondement.report || c.fondement.report.origine !== 'estimee') return;
+      if (!c || c.etat !== 'nouvelle_zone' || !c.fondement || !c.fondement.report) return;
+      var rEcrite = nombre(c.fondement.report.reserve);
+      if (entrees && rEcrite !== null) {
+        var protegeeE = protegeeDeEntrees(entrees);
+        var rAttendue = M.reserveAffichee({ zone: c.zone, role: 'ligne', reglage: reglageDe(entrees), protegee: protegeeE });
+        // Contradicteur final (R1, 19/11/2026) — la clé du gel d'une consigne (séance, intention, réglage) ne porte pas la population : une consigne
+        // figée avant que l'objectif, l'ancienneté ou l'âge changent garde la réserve de la population d'AVANT. Elle est admise aussi (le patron
+        // d'I64) ; toute autre valeur reste une erreur.
+        var rAutre = M.reserveAffichee({ zone: c.zone, role: 'ligne', reglage: reglageDe(entrees), protegee: !protegeeE });
+        if (rEcrite !== rAttendue && rEcrite !== rAutre) erreurs.push('I235 — exercice ' + i + ' (' + x.slug + ') : le report en ' + c.zone + ' a lu une réserve de ' + rEcrite + ', la réserve affichée est ' + rAttendue);
+      }
+      if (c.fondement.report.origine !== 'estimee') return;
       var charge = nombre(c.ligne && c.ligne.charge), vise = nombre(c.ligne && c.ligne.vise), d = c.fondement.report.depuis || {};
       var P = nombre(d.palier), n = nombre(d.niveau);
       if (charge === null || vise === null || P === null || n === null) return;
-      var rv = M.reserveVisee({ zone: c.zone, role: 'ligne', reglage: plan.reglage });
+      // C-3 — la réserve que le report a utilisée (écrite) ; une consigne d'avant : la table.
+      var rv = rEcrite !== null ? rEcrite : M.reserveVisee({ zone: c.zone, role: 'ligne', reglage: plan.reglage });
       var tenable = M.unRMEpley(charge, vise + (rv === null ? 0 : rv)), rs = nombre(d.reserve), source = M.unRMEpley(P, n + (rs === null ? 0 : rs));
       if (tenable > source + 1e-6) {
         erreurs.push('I143 — exercice ' + i + ' (' + x.slug + ') : le report en ' + c.zone + ' propose ' + charge + ' kg × ' + vise +
@@ -7114,7 +7176,8 @@
         var ch = nombre(sr.charge_kg), rp = nombre(sr.reps), vi = nombre(dernierFait.vise);
         if (zone && rp !== null && vi !== null && ch !== null && ch > 0 && rp < vi) {
           var cat = catalogue[x.slug] || {};
-          var lu = M.rateSousLaZone({ reps: rp, bas: zone.bas, objectif: entrees.objectif || null, barre: cat.equipement === 'barre', reserve: P.reserveDeSerie(sr), charge: ch });
+          var lu = M.rateSousLaZone({ reps: rp, bas: zone.bas, objectif: entrees.objectif || null, barre: cat.equipement === 'barre', reserve: P.reserveDeSerie(sr), charge: ch,
+            gardeAffichee: gardeDeLigneDesEntrees(x, entrees) === 0 ? 0 : null });
           if (lu.sous || lu.echec) erreurs.push('I137' + nom + 'le niveau 2 parle après une série classée ' + (lu.echec ? 'L' : 'D') + ' (le niveau 1 garde la parole)');
         }
       }
@@ -7170,6 +7233,10 @@
           if (ch2 === null || cran2 === null || !(ch2 < cran2)) erreurs.push('I136' + nom + 'la série qui ferme n’est pas sous le cran');
           if (q.raison === 'sous_la_zone' && zone2 && !(rep2 !== null && rep2 < zone2.bas)) erreurs.push('I136' + nom + 'la porte se ferme sur ' + rep2 + ' reps, pas sous la zone');
           if (q.raison === 'echec' && P.reserveDeSerie(sr2) !== 0) erreurs.push('I136' + nom + 'la porte se ferme sur un échec que la série ne note pas');
+          // I232 (« Une seule garde ») — à garde 0 des lignes (recalculée depuis les entrées), une série à fond à au moins le bas de la zone a fait l'effort demandé.
+          if (q.raison === 'echec' && zone2 && rep2 !== null && rep2 >= zone2.bas && gardeDeLigneDesEntrees(x, entrees) === 0) {
+            erreurs.push('I232' + nom + 'la porte se ferme pour « échec » sur ' + rep2 + ' reps dans la zone, à garde 0');
+          }
         }
         // I138 — la phrase et le bouton, sous la PREMIÈRE série qui ferme.
         var attendu0 = /^Pas de test à .+ kg aujourd’hui : (ta série est (sous ta zone|allée jusqu’à l’échec)|tu as baissé la charge)\.$/;
@@ -7186,7 +7253,8 @@
           var cat4 = catalogue[x.slug] || {};
           var prise4 = gestes.filter(function (g) { return g && g.geste === 'rate_prise' && g.bouton === 'prendre' && g.slug === x.slug; })[0];
           var relue = porteDeLExercice((exos[i] && exos[i].series) || [], x.consigne, { tente: q.tente === true, formeAjustee: false,
-            prise: prise4 ? { iSerie: prise4.rang, kg: prise4.kg } : null, objectif: entrees.objectif || null, barre: cat4.equipement === 'barre' });
+            prise: prise4 ? { iSerie: prise4.rang, kg: prise4.kg } : null, objectif: entrees.objectif || null, barre: cat4.equipement === 'barre',
+            gardeAffichee: gardeDeLigneDesEntrees(x, entrees) === 0 ? 0 : null });
           if (!relue || relue.serie !== q.iSerie) erreurs.push('I138' + nom + 'la phrase est sous la série ' + q.iSerie + ', la première série qui ferme est la ' + (relue ? relue.serie : 'aucune'));
         }
         if (portePhrases.length !== 1) erreurs.push('I138' + nom + portePhrases.length + ' phrases de porte (une seule, sous la série qui ferme)');
@@ -7338,6 +7406,22 @@
           if (x.consigne.haut || ETATS_TEST_PLAN[x.consigne.etat] === true) erreurs.push('I58' + nom + 'une montée ouverte malgré une réserve sous la visée');
         } else {
           erreurs.push('I57' + nom + 'un effet « ' + ev.effet + ' » inconnu');
+        }
+      }
+      // I234 (« Une seule garde », C-2, MOTEUR §9.26) — la réponse de réserve ne vaut « facile » (double cran) que 2 au-dessus de la visée AFFICHÉE
+      // (`ev.visee`, le plancher des populations protégées) : « il t'en restait 2 : c'est ce que je visais » n'est pas « facile ».
+      if (ev && ev.preuveFacile === true && nombre(ev.reserve) !== null && nombre(ev.visee) !== null && ev.reserve < ev.visee + Moteur().RESERVE_ECART) {
+        erreurs.push('I234' + nom + 'une preuve « facile » tirée de ' + ev.reserve + ' en réserve pour une visée affichée de ' + ev.visee);
+      }
+      // I233 (« Une seule garde », C-1, MOTEUR §9.26 et §9.30) — sur une série « Au max » (`ev.demandee`, la réserve DEMANDÉE, écrite au fondement), la
+      // réserve notée se compare à la demande : aucune garde quand elle l'atteint, et la réponse ne vaut « facile » que 2 au-dessus. Une consigne figée
+      // avant le correctif n'a pas `demandee` : elle n'est pas comparée.
+      if (ev && ev.demandee !== undefined && nombre(ev.demandee) !== null && nombre(ev.reserve) !== null) {
+        if (ev.effet === 'garde' && ev.reserve >= ev.demandee) {
+          erreurs.push('I233' + nom + 'une garde pour une série « Au max » faite comme demandé (' + ev.reserve + ' en réserve, ' + ev.demandee + ' demandées)');
+        }
+        if (ev.preuveFacile === true && ev.reserve < ev.demandee + Moteur().RESERVE_ECART) {
+          erreurs.push('I233' + nom + 'une preuve « facile » tirée de ' + ev.reserve + ' en réserve pour ' + ev.demandee + ' demandées « Au max »');
         }
       }
       // 169 — I62 : la garde au haut de la zone ne dure qu'UNE séance (une garde est « première fois », une sortie est
@@ -9287,7 +9371,7 @@
     lignesAEnlever: lignesAEnlever,
     lignesAAjouter: lignesAAjouter,
     degressivesAAjouter: degressivesAAjouter,
-    planDesLignes: planDesLignes,
+    planDesLignes: planDesLignes, gardeDeLigne: gardeDeLigne,
     rejouer: rejouer,
     verifierPlan: verifierPlan,
     verifierCalisthenie: verifierCalisthenie,

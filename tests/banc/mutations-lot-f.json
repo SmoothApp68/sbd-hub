@@ -62,8 +62,8 @@
  {
   "nom": "g0-sans-monotonie",
   "fichier": "v2/js/moteur.js",
-  "ancien": "        if (deja) deja.vise = Math.min(deja.vise, bI);\n        else bornesG0.push({ charge: cI, vise: bI });",
-  "nouveau": "        if (ig === k) bornesG0 = [{ charge: cI, vise: bI }];",
+  "ancien": "      if (deja) deja.vise = Math.min(deja.vise, b); else bornes.push({ charge: c, vise: b });",
+  "nouveau": "      if (i === kFin) bornes = [{ charge: c, vise: b }];",
   "banc": "seance",
   "sections": [
    "a-fond"
@@ -75,8 +75,8 @@
  {
   "nom": "g0-k-plus-1-seule",
   "fichier": "v2/js/moteur.js",
-  "ancien": "        for (var jg = k + 1; jg < n; jg++) {",
-  "nouveau": "        for (var jg = k + 1; jg < Math.min(n, k + 2); jg++) {",
+  "ancien": "      for (var j = kFin + 1; j < plan.length; j++) {",
+  "nouveau": "      for (var j = kFin + 1; j < Math.min(plan.length, kFin + 2); j++) {",
   "banc": "aucun",
   "unitaires": [
    "tests/unit/v2-lot-f-a-fond-garde0.test.js"
@@ -87,6 +87,26 @@
   "fichier": "v2/js/moteur.js",
   "ancien": "        if (rg <= z.bas) message.cede = true;",
   "nouveau": "",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-lot-f-a-fond-garde0.test.js"
+  ]
+ },
+ {
+  "nom": "b1-zero-oublie-les-bornes",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "      if (zZ !== null && contexte && contexte.gardeAffichee === 0 && appliquerBornesAFond(plan, faites, zZ, faites.length - 1, null).change) sortie.revision = 1;",
+  "nouveau": "",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-lot-f-a-fond-garde0.test.js"
+  ]
+ },
+ {
+  "nom": "b2-sous-le-bas-retour-a-la-visee",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "      var r = nombre(liste[i].reps), b = Math.max(z.bas, r - 1), c = nombre(liste[i].charge_kg);",
+  "nouveau": "      var r = nombre(liste[i].reps), b = r < z.bas ? Infinity : Math.max(z.bas, r - 1), c = nombre(liste[i].charge_kg);",
   "banc": "aucun",
   "unitaires": [
    "tests/unit/v2-lot-f-a-fond-garde0.test.js"

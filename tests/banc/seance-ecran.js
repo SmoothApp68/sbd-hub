@@ -12574,10 +12574,13 @@ const SETS_IMPORTES = [
     // Mix : la charge se reporte, 57,5 kg × 6 (estimée, 58,3), et les chauffes
     // se calent sur elle (avant 53-1 : 52,5, « 20 · 45 kg » ; 255 : 55, la réserve visée comptée).
     const etape1 = (t1.split('── Étape 1 ')[1] || '').split('── Étape 2 ')[0];
+    // 20/11/2026 (MOTEUR §9.15 delta, règle 8) — la phrase dit l'unité et les reps de chaque chauffe : « 20 kg × 10 · 50 kg × 2 » (avant :
+    // « 20 · 50 kg »). Et la dernière ne dépasse plus 90 % (règle 2 : 88 % de 55 = 48,4 → 50, soit 90,9 % → un pas plus bas, 45 kg) : la
+    // phrase disparaît toujours après la chauffe faite (49-U18 bis, ce que ce contrôle discrimine).
     ok('[RJ] 49-U18 bis — la phrase des chauffes du militaire disparaît après la chauffe à 40 × 6',
-      /chauffes : « Chauffes calées sur 55.kg.: 20 · 50.kg\. »/.test(mil) &&
+      /chauffes : « Chauffes calées sur 55.kg.: 20.kg × \d+ · 45.kg × \d+\. »/.test(mil) &&
       /chauffes : \(sans phrase\)/.test(etape1) && !/Chauffes calées/.test(etape1),
-      (etape1.split('\n').filter((l) => /chauffes/.test(l))[0] || ''));
+      (mil.split('\n').filter((l) => /chauffes/.test(l))[0] || '') + ' | ' + (etape1.split('\n').filter((l) => /chauffes/.test(l))[0] || ''));
     ok('[RJ] 49-U18 bis — le couché : « Ta première série à 88 kg passe à 92 kg. » (une montée)',
       /en-tête \(gris\) : « Ta première série à 88.kg passe à 92.kg\. »/.test(cou),
       (cou.split('\n').filter((l) => /gris/.test(l))[0] || ''));
@@ -13183,6 +13186,7 @@ const SETS_IMPORTES = [
         carte: x.carteLest ? { titre: x.carteLest.titre, detail: x.carteLest.detail, oui: x.carteLest.oui,
           non: x.carteLest.non, leste: x.carteLest.leste } : null,
         chauffes: !!(x.chauffes || x.proposition), degressive: !!x.degressive,
+        proposition: x.proposition ? x.proposition.lignes : null, lignesDeChauffe: !!x.chauffes,
         lignes: x.lignes.map((l) => [l.role, l.charge, l.vise]) } : null;
     }, slug);
     const cartes = () => page.evaluate(() => Array.from(document.querySelectorAll('.proposition-lest')).map((c) => ({
@@ -13269,9 +13273,11 @@ const SETS_IMPORTES = [
       !!c1 && sp(c1.jaune[0]) === '2,5 kg × 6' && /Corps Lesté U50/.test(await blocSeance()) &&
         !/Corps Libre U50/.test(await blocSeance()),
       JSON.stringify([c1, await jauneDom()]));
-    ok('[P50] la colonne s’appelle « LEST (KG) », et le lesté n’a ni chauffes ni dégressive',
-      (await entetesCols()).indexOf('LEST (KG)') >= 0 && !!c1 && !c1.chauffes && !c1.degressive,
-      JSON.stringify([await entetesCols(), c1 && c1.chauffes]));
+    // 20/11/2026 (MOTEUR §9.17 delta, I249) — le lesté a sa chauffe : la série au poids du corps, à ⌈6 / 3⌉ = 2 reps (sous 20 kg de lest,
+    // pas de 2e ligne) ; une PROPOSITION (aucune ligne posée d'office), et toujours aucune dégressive (avant : ni chauffes ni dégressive).
+    ok('[P50] la colonne s’appelle « LEST (KG) » ; le lesté a sa chauffe au poids du corps (× 2, proposée) et aucune dégressive',
+      (await entetesCols()).indexOf('LEST (KG)') >= 0 && !!c1 && !c1.lignesDeChauffe && JSON.stringify(c1.proposition) === '[[0,2]]' && !c1.degressive,
+      JSON.stringify([await entetesCols(), c1 && c1.proposition, c1 && c1.lignesDeChauffe, c1 && c1.degressive]));
     await page.evaluate(() => document.querySelector('.ok-serie').click());
     await attendre(1500);
     const serieLeste = base.sets.filter((x) => x.exercise_slug === 'pdc-u50-l' && x.rang === 1)[0];

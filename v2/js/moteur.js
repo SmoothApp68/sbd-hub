@@ -5122,11 +5122,13 @@
     return 'Pour cet exercice, je vise ' + nombreFr(n, regle('constante')) + ' en réserve. Tu notes ce que tu veux.';
   }
   // Lot F, A1 (MOTEUR §9.26 ter, I241) — le plancher de la BARRE relève la table : une ligne du « Pourquoi », une fois par exercice, sur le modèle de
-  // `phraseDuPlancher`. `classe` : `classeAuMax` de la barre ; `n` : la réserve affichée ; `reglage` : « même avec Me pousser » seulement en Franc. Aucune raison
-  // médicale, aucun « pour ta sécurité ».
-  function phraseDeLaBarre(classe, n, reglage) {
+  // `phraseDuPlancher`. `classe` : `classeAuMax` de la barre ; `n` : la réserve affichée ; `reglage` : « même avec Me pousser » seulement en Franc ; `echec` :
+  // l'« Au max » du jour va à l'échec (`sorte === 'echec'`, ligne ou proposition) — CONTRA-723 C2 : la deuxième phrase seulement ce jour-là (en Force, en
+  // Hypertrophie « en gardant 1 », débutant, première fois, reprise longue, il n'y a pas d'échec : la phrase du militaire). Aucune raison médicale, aucun
+  // « pour ta sécurité ».
+  function phraseDeLaBarre(classe, n, reglage, echec) {
     var d = 'Sur cette barre, je vise ' + nombreFr(n, regle('constante')) + ' en réserve' + (reglage === 'franc' ? ', même avec Me pousser' : '') + '.';
-    if (classe === 'squat' || classe === 'couche') d += ' L’échec sur une barre passe par la série « Au max ».';
+    if ((classe === 'squat' || classe === 'couche') && echec === true) d += ' L’échec sur une barre passe par la série « Au max ».';
     return d + ' Tu notes ce que tu veux.';
   }
   // ══ PR 4a (chantier « Les mots disent vrai », MOTEUR §9.47) — LE VERBE UNIQUE DE LA CONSIGNE ═══════════════════════════════════════════

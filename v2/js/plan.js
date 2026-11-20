@@ -2780,7 +2780,9 @@
         var parBarre = !parPopulation && pbX !== null && rvTable !== null && pbX > rvTable;
         if ((parPopulation || parBarre) && rvX !== null && rvTable !== null && rvX > rvTable && x.pourquoi) {
           var capPl = Voix().capturer(function () {
-            return parBarre ? Moteur().phraseDeLaBarre(Moteur().testClasse(x.familleDeBarre), rvX, reglagePlan) : Moteur().phraseDuPlancher(rvX);
+            // CONTRA-723 C2 — « L’échec … passe par la série « Au max » » seulement si l'« Au max » du jour (ligne ou proposition) va à l'échec.
+            var echecDuJour = !!((x.auMax && x.auMax.sorte === 'echec') || (x.propositionAuMax && x.propositionAuMax.sorte === 'echec'));
+            return parBarre ? Moteur().phraseDeLaBarre(Moteur().testClasse(x.familleDeBarre), rvX, reglagePlan, echecDuJour) : Moteur().phraseDuPlancher(rvX);
           });
           x.pourquoi.plancher = capPl.texte;
           x.plancher = { visee: rvX, table: rvTable, phrase: capPl.texte };

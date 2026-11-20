@@ -187,9 +187,23 @@ describe('le plan : un seul chiffre par barre', () => {
   test('la ligne du Pourquoi, une fois, quand la barre relève la table (le soulevé en Normal compris)', () => {
     const r = jouer(SOULEVE, progression, [], 'normal');
     expect(r.x.plancher && sp(r.x.plancher.phrase)).toBe('Sur cette barre, je vise 2 en réserve. Tu notes ce que tu veux.');
+    // CONTRA-723 C2 — sans « Au max » à l'échec ce jour-là, la phrase n'annonce aucun échec (avant : « L’échec … passe par la série « Au max » » toujours).
     const rf = jouer(SQUAT, progression, [], 'franc');
-    expect(sp(rf.x.plancher.phrase)).toBe('Sur cette barre, je vise 1 en réserve, même avec Me pousser. L’échec sur une barre passe par la série « Au max ». Tu notes ce que tu veux.');
+    expect(rf.x.auMax).toBeNull();
+    expect(sp(rf.x.plancher.phrase)).toBe('Sur cette barre, je vise 1 en réserve, même avec Me pousser. Tu notes ce que tu veux.');
     expect(jouer(SQUAT, progression, [], 'normal').x.plancher).toBeNull();     // Normal Hypertrophie : table 1 = plancher, rien à dire
+  });
+  test('CONTRA-723 C2 — la deuxième phrase seulement quand l’« Au max » du jour va à l’échec (squat marqué, Franc)', () => {
+    let k = 0; const id = () => 'p-s' + (++k);
+    let se = S.creer({ id: 'S', userId: 'u', idSerie: id }); se = S.ajouterExercice(se, SQUAT, id, { series: 3 });
+    se.exercices[0].series[2].au_max = true;
+    const e = { seance: { id: 'S', debut: AVANT, edition: false, exercices: se.exercices },
+      consignes: { [SQUAT]: { consigne: progression, contexte: { cran: 2.5, haut: null } } }, reglage: 'franc', paris: [], objectif: 'muscle', catalogue: CATALOGUE };
+    const x = T.planDeSeance(e).exercices[0];
+    expect(x.auMax).toMatchObject({ sorte: 'echec' });
+    expect(sp(x.plancher.phrase)).toBe('Sur cette barre, je vise 1 en réserve, même avec Me pousser. L’échec sur une barre passe par la série « Au max ». Tu notes ce que tu veux.');
+    // le même jour en Force : pas d'« Au max » à l'échec, pas de phrase d'échec
+    expect(M.phraseDeLaBarre('squat', 1, 'franc', false)).toBe('Sur cette barre, je vise 1 en réserve, même avec Me pousser. Tu notes ce que tu veux.');
   });
   test('ligne de test d’un squat en Normal Hypertrophie : 1 (main : 0)', () => {
     const avecTest = Object.assign({}, progression, { etat: 'test_propose', haut: { charge: 102.5, vise: 8, k: 1 } });

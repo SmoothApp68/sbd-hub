@@ -274,5 +274,67 @@
   "unitaires": [
    "tests/unit/v2-chauffes-du-coach-colonne.test.js"
   ]
+ },
+ {
+  "nom": "coach-marches-au-pas-de-5",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "    var pas = pasDeChauffe(e);\n    var pasD =",
+  "nouveau": "    var pas = fixee || !barre ? pasDeChauffe(e) : Math.max(CHAUFFE_PAS_DU_COACH, pasDeLaBarre(plusPetitDisqueConnu()));\n    var pasD =",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-chauffes-une-montee.test.js",
+   "tests/unit/v2-chauffes.test.js",
+   "tests/unit/v2-chauffes-plan.test.js",
+   "tests/unit/v2-chauffes-proposees-237.test.js",
+   "tests/unit/v2-chauffes-depuis-la-charge.test.js"
+  ]
+ },
+ {
+  "nom": "marque-coach-jamais-effacee",
+  "fichier": "v2/js/routines.js",
+  "ancien": "if (nA !== null && nV !== null && nA !== nV) champs.chauffes_du_coach = false;",
+  "nouveau": "if (false) champs.chauffes_du_coach = false;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-chauffes-une-montee.test.js"
+  ]
+ },
+ {
+  "nom": "lignes-siennes-lues-coach",
+  "fichier": "v2/js/plan.js",
+  "ancien": "          coach: materiel.coach === true,\n",
+  "nouveau": "          coach: materiel.coach === true || materiel.duCoach === true,\n",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-chauffes-une-montee.test.js"
+  ]
+ },
+ {
+  "nom": "peu-reps-des-lignes-du-bas",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var vide = reps === null || reps === undefined || mj.peu === true;",
+  "nouveau": "var vide = reps === null || reps === undefined;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-chauffes-une-montee.test.js",
+   "tests/unit/v2-chauffes.test.js",
+   "tests/unit/v2-chauffes-plan.test.js",
+   "tests/unit/v2-chauffes-proposees-237.test.js",
+   "tests/unit/v2-chauffes-depuis-la-charge.test.js"
+  ]
+ },
+ {
+  "nom": "peu-vides-en-tete",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "    var dR = D === null ? null : D / R;",
+  "nouveau": "    for (var v0 = 0; v0 < vides; v0++) sortie.marches.push({ charge: null, reps: null, peu_de_temps: true }); vides = 0;\n    var dR = D === null ? null : D / R;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-chauffes-une-montee.test.js",
+   "tests/unit/v2-chauffes.test.js",
+   "tests/unit/v2-chauffes-plan.test.js",
+   "tests/unit/v2-chauffes-proposees-237.test.js",
+   "tests/unit/v2-chauffes-depuis-la-charge.test.js"
+  ]
  }
 ]

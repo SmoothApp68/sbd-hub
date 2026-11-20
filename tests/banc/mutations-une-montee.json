@@ -1,0 +1,268 @@
+[
+ {
+  "nom": "fixee-88",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var CHAUFFE_DERNIERE_FIXEE = 0.88;",
+  "nouveau": "var CHAUFFE_DERNIERE_FIXEE = 0.85;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-chauffes-une-montee.test.js",
+   "tests/unit/v2-chauffes.test.js",
+   "tests/unit/v2-chauffes-plan.test.js",
+   "tests/unit/v2-chauffes-proposees-237.test.js",
+   "tests/unit/v2-chauffes-depuis-la-charge.test.js"
+  ]
+ },
+ {
+  "nom": "fixee-barre-vide-tombe",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "bv = bvPossible && (!fixee || n >= (R >= SEUIL_BARRE_LOURDE ? 4 : 2));",
+  "nouveau": "bv = bvPossible;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-chauffes-une-montee.test.js",
+   "tests/unit/v2-chauffes.test.js",
+   "tests/unit/v2-chauffes-plan.test.js",
+   "tests/unit/v2-chauffes-proposees-237.test.js",
+   "tests/unit/v2-chauffes-depuis-la-charge.test.js"
+  ]
+ },
+ {
+  "nom": "fixee-peu-ne-reduit-pas",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "if (peu && k > kPeu) { vides = n - kPeu; k = kPeu; }",
+  "nouveau": "",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-chauffes-une-montee.test.js",
+   "tests/unit/v2-chauffes.test.js",
+   "tests/unit/v2-chauffes-plan.test.js",
+   "tests/unit/v2-chauffes-proposees-237.test.js",
+   "tests/unit/v2-chauffes-depuis-la-charge.test.js"
+  ]
+ },
+ {
+  "nom": "coach-zone-hautes",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var CHAUFFE_DERNIERE_PAR_BANDE = { lourdes: 0.88, moyennes: 0.80, hautes: 0.75, longues: 0.75 };",
+  "nouveau": "var CHAUFFE_DERNIERE_PAR_BANDE = { lourdes: 0.88, moyennes: 0.80, hautes: 0.88, longues: 0.75 };",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-chauffes-une-montee.test.js",
+   "tests/unit/v2-chauffes.test.js",
+   "tests/unit/v2-chauffes-plan.test.js",
+   "tests/unit/v2-chauffes-proposees-237.test.js",
+   "tests/unit/v2-chauffes-depuis-la-charge.test.js"
+  ]
+ },
+ {
+  "nom": "coach-40-kg",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var CHAUFFE_KG_PAR_MARCHE = 40;",
+  "nouveau": "var CHAUFFE_KG_PAR_MARCHE = 50;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-chauffes-une-montee.test.js",
+   "tests/unit/v2-chauffes.test.js",
+   "tests/unit/v2-chauffes-plan.test.js",
+   "tests/unit/v2-chauffes-proposees-237.test.js",
+   "tests/unit/v2-chauffes-depuis-la-charge.test.js"
+  ]
+ },
+ {
+  "nom": "coach-pas-10",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var CHAUFFE_PAS_DU_COACH = 5;",
+  "nouveau": "var CHAUFFE_PAS_DU_COACH = 10;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-chauffes-une-montee.test.js",
+   "tests/unit/v2-chauffes.test.js",
+   "tests/unit/v2-chauffes-plan.test.js",
+   "tests/unit/v2-chauffes-proposees-237.test.js",
+   "tests/unit/v2-chauffes-depuis-la-charge.test.js"
+  ]
+ },
+ {
+  "nom": "plus-95",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var CHAUFFE_PLAFOND_AJOUTEE = 0.95;",
+  "nouveau": "var CHAUFFE_PLAFOND_AJOUTEE = 0.90;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-chauffes-une-montee.test.js",
+   "tests/unit/v2-chauffes.test.js",
+   "tests/unit/v2-chauffes-plan.test.js",
+   "tests/unit/v2-chauffes-proposees-237.test.js",
+   "tests/unit/v2-chauffes-depuis-la-charge.test.js"
+  ]
+ },
+ {
+  "nom": "plus-protegee",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "return lourde && e.protegee !== true && e.repriseLongue !== true ? CHAUFFE_PLAFOND_AJOUTEE : CHAUFFE_PLAFOND;",
+  "nouveau": "return lourde ? CHAUFFE_PLAFOND_AJOUTEE : CHAUFFE_PLAFOND;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-chauffes-une-montee.test.js",
+   "tests/unit/v2-chauffes.test.js",
+   "tests/unit/v2-chauffes-plan.test.js",
+   "tests/unit/v2-chauffes-proposees-237.test.js",
+   "tests/unit/v2-chauffes-depuis-la-charge.test.js"
+  ]
+ },
+ {
+  "nom": "plus-geste-ignore",
+  "fichier": "v2/js/plan.js",
+  "ancien": "return !!(sr && sr.id && plusIds.indexOf(sr.id) >= 0);",
+  "nouveau": "return false;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-chauffes-une-montee.test.js",
+   "tests/unit/v2-chauffes.test.js",
+   "tests/unit/v2-chauffes-plan.test.js",
+   "tests/unit/v2-chauffes-proposees-237.test.js",
+   "tests/unit/v2-chauffes-depuis-la-charge.test.js"
+  ]
+ },
+ {
+  "nom": "peu-seuil-100",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var CHAUFFE_PEU_DE_TEMPS_BARRE = 100;",
+  "nouveau": "var CHAUFFE_PEU_DE_TEMPS_BARRE = 130;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-chauffes-une-montee.test.js",
+   "tests/unit/v2-chauffes.test.js",
+   "tests/unit/v2-chauffes-plan.test.js",
+   "tests/unit/v2-chauffes-proposees-237.test.js",
+   "tests/unit/v2-chauffes-depuis-la-charge.test.js"
+  ]
+ },
+ {
+  "nom": "peu-froid-70",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "c = g.bas(CHAUFFE_FROID_MAX * R);",
+  "nouveau": "c = g.proche(0.80 * R);",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-chauffes-une-montee.test.js",
+   "tests/unit/v2-chauffes.test.js",
+   "tests/unit/v2-chauffes-plan.test.js",
+   "tests/unit/v2-chauffes-proposees-237.test.js",
+   "tests/unit/v2-chauffes-depuis-la-charge.test.js"
+  ]
+ },
+ {
+  "nom": "peu-deux",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "(libre && R >= CHAUFFE_PEU_DE_TEMPS_BARRE - 1e-9 ? 2 : 1)",
+  "nouveau": "(libre && R >= CHAUFFE_PEU_DE_TEMPS_BARRE - 1e-9 ? 1 : 1)",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-chauffes-une-montee.test.js",
+   "tests/unit/v2-chauffes.test.js",
+   "tests/unit/v2-chauffes-plan.test.js",
+   "tests/unit/v2-chauffes-proposees-237.test.js",
+   "tests/unit/v2-chauffes-depuis-la-charge.test.js"
+  ]
+ },
+ {
+  "nom": "corps-tiers",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var CHAUFFE_CORPS_PART = 3, CHAUFFE_CORPS_MIN = 2, CHAUFFE_CORPS_MAX = 5;",
+  "nouveau": "var CHAUFFE_CORPS_PART = 2, CHAUFFE_CORPS_MIN = 2, CHAUFFE_CORPS_MAX = 5;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-chauffes-une-montee.test.js",
+   "tests/unit/v2-chauffes.test.js",
+   "tests/unit/v2-chauffes-plan.test.js",
+   "tests/unit/v2-chauffes-proposees-237.test.js",
+   "tests/unit/v2-chauffes-depuis-la-charge.test.js"
+  ]
+ },
+ {
+  "nom": "lest-20",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var CHAUFFE_LEST_DES = 20,",
+  "nouveau": "var CHAUFFE_LEST_DES = 10,",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-chauffes-une-montee.test.js",
+   "tests/unit/v2-chauffes.test.js",
+   "tests/unit/v2-chauffes-plan.test.js",
+   "tests/unit/v2-chauffes-proposees-237.test.js",
+   "tests/unit/v2-chauffes-depuis-la-charge.test.js"
+  ]
+ },
+ {
+  "nom": "pompes",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "if (nature !== 'charge' && e.pompes === true) return rien;",
+  "nouveau": "",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-chauffes-une-montee.test.js",
+   "tests/unit/v2-chauffes.test.js",
+   "tests/unit/v2-chauffes-plan.test.js",
+   "tests/unit/v2-chauffes-proposees-237.test.js",
+   "tests/unit/v2-chauffes-depuis-la-charge.test.js"
+  ]
+ },
+ {
+  "nom": "programme-raison",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "else if (e.duCoach === true && !sousLeSeuil) raison = 'programme';",
+  "nouveau": "",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-chauffes-une-montee.test.js",
+   "tests/unit/v2-chauffes.test.js",
+   "tests/unit/v2-chauffes-plan.test.js",
+   "tests/unit/v2-chauffes-proposees-237.test.js",
+   "tests/unit/v2-chauffes-depuis-la-charge.test.js"
+  ]
+ },
+ {
+  "nom": "programme-faits",
+  "fichier": "v2/js/faits.js",
+  "ancien": "if (parLeProgramme && !annulee) continue;",
+  "nouveau": "",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-chauffes-une-montee.test.js",
+   "tests/unit/v2-chauffes.test.js",
+   "tests/unit/v2-chauffes-plan.test.js",
+   "tests/unit/v2-chauffes-proposees-237.test.js",
+   "tests/unit/v2-chauffes-depuis-la-charge.test.js"
+  ]
+ },
+ {
+  "nom": "programme-materiel",
+  "fichier": "v2/js/plan.js",
+  "ancien": "duCoach: !!(c.duCoach && ",
+  "nouveau": "duCoach: !!(false && ",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-chauffes-une-montee.test.js",
+   "tests/unit/v2-chauffes.test.js",
+   "tests/unit/v2-chauffes-plan.test.js",
+   "tests/unit/v2-chauffes-proposees-237.test.js",
+   "tests/unit/v2-chauffes-depuis-la-charge.test.js"
+  ]
+ },
+ {
+  "nom": "barre-de-la-salle",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var b = sourceDeLaBarre ? nombre(sourceDeLaBarre()) : null;",
+  "nouveau": "var b = null;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-chauffes-une-montee.test.js",
+   "tests/unit/v2-chauffes.test.js",
+   "tests/unit/v2-chauffes-plan.test.js",
+   "tests/unit/v2-chauffes-proposees-237.test.js",
+   "tests/unit/v2-chauffes-depuis-la-charge.test.js"
+  ]
+ }
+]

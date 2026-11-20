@@ -1761,7 +1761,7 @@
   }
 
   // 19/11/2026 — LA RÉPONSE D'UNE CARTE SE VOIT AU TOUCHER (même défaut que les gestes de routine, PR #704) : « Pas maintenant »,
-  // « Régler mes séances » et « Répartir mes priorités » attendaient le serveur (`await poserProfil`, 3 à 9 s) avant de céder la place à
+  // « Régler mes séances » et « Ajouter un 2e passage à mes priorités » attendaient le serveur (`await poserProfil`, 3 à 9 s) avant de céder la place à
   // leur ligne : la carte restait là, boutons touchables. Le calcul et la vérification se font d'abord (sans écriture) ; la ligne se pose
   // et se peint tout de suite ; les écritures partent derrière, et seulement leur ÉCHEC change la ligne (`direLEchecDeLaCarte`).
   // `poserProfil` met le profil local à jour AVANT son premier `await` : la carte se tait dès l'appel, l'écriture suit.

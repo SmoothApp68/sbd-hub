@@ -562,7 +562,7 @@ Question posée : peut-on tirer des 1 221 séances la logique d'entraînement id
 
 **Ce qui est autorisé :**
 1. **Descriptif assumé** — ce qui a été fait, quand, combien, et comment les barres ont bougé pendant ces périodes. Aucune causalité affirmée. Déjà précieux, jamais vu par l'utilisateur.
-2. **Confrontation à la littérature** — la science ne valide pas le résultat, elle indique quel mécanisme est plausible. Exemple : Pelland 2025 montre que la fréquence n'a pas d'effet propre à volume égalisé. Donc si 6 séances semblent battre 4, l'explication probable est *plus de volume total*, pas un nombre magique.
+2. **Confrontation à la littérature** — la science ne valide pas le résultat, elle indique quel mécanisme est plausible. Exemple : Pelland 2025 montre que, **pour la masse** (hypertrophie), la fréquence n'a pas d'effet propre à volume égalisé (pour la force, un petit effet subsiste : Pelland et al., Sports Med 2026;56(2):481-505, REGLE-VOLUME §11.7, delta du 20/11/2026). Donc si 6 séances semblent battre 4, l'explication probable est *plus de volume total*, pas un nombre magique.
 3. **Convergence entre profils** — un même schéma chez Aurélien, Jordan et Léa, avec des vies et des corps différents, commence à ressembler à un signal.
 
 **Interdit :** « fais 5 séances parce que ça a marché pour toi ». C'est un mensonge à l'air scientifique — le pire type.

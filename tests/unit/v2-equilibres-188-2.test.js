@@ -361,13 +361,14 @@ describe('188-2 — Tes priorités, combien de fois par semaine', () => {
   }
   const e = (b, extra) => entree(b, Object.assign({ routines: [RA, RB], priorites: ['tractions'] }, extra || {}));
 
-  test('une priorité faite une fois par semaine : la carte, la table (fois / sem.), le repère de Grgic 2018', () => {
+  test('une priorité faite une fois par semaine : la carte, la table (fois / sem.), le repère de Pelland 2026 (la force) et la masse à volume égal', () => {
     const a = Eq.analyser(e(bati(sem())));
     const c = carte(a, 'frequence');
     expect(c).not.toBeNull();
     expect(c.famille).toBe('frequence');
     expect(c.lignes).toEqual([{ libelle: 'Tractions', texte: '1 fois / sem.', cle: 'tractions' }]);
-    expect(c.repere).toMatch(/Deux séances par semaine sur un mouvement donnent un peu plus de force, surtout parce qu’on y fait plus de séries : à volume égal, aucune différence \(Grgic, 2018\)/);
+    expect(c.repere).toMatch(/^Deux séances par semaine sur un mouvement donnent un peu plus de force \(Pelland, 2026\) ; la part due aux séries en plus et celle due à la pratique ne se séparent pas\. Pour la masse, à volume égal, aucune différence\. /);
+    expect(c.repere).not.toMatch(/indépendamment|Grgic/);
     expect(JSON.stringify(c)).not.toMatch(/Schoenfeld/);       // Schoenfeld 2019 dit que la fréquence compte peu pour l'hypertrophie : pas pour la force
   });
   test('⚠️ le seuil 1,5 des deux côtés : 11 séances sur 8 semaines (1,375) est un écart, 12 (1,5) n’en est pas un', () => {
@@ -381,13 +382,13 @@ describe('188-2 — Tes priorités, combien de fois par semaine', () => {
   });
   // 224 : un exercice du haut ne va jamais dans une routine sans exercice du haut. « Haut B » (non faite) reçoit les tractions.
   const RH = routine('r-h', 'Haut B', { curl: 3, elevations_laterales: 3 });
-  test('la proposition : « Ajouter … à Haut B » (une priorité), ou « Répartir mes priorités sur deux jours » (plusieurs)', () => {
+  test('la proposition : « Ajouter … à Haut B » (une priorité), ou « Ajouter un 2e passage à mes priorités » (plusieurs)', () => {
     const une = carte(Eq.analyser(e(bati(sem()), { routines: [RA, RB, RH] })), 'frequence');
     expect(une.propositions.map((p) => [p.type, p.routine_id, p.slug])).toEqual([['ajouter', 'r-h', 'tractions']]);
     expect(une.propositions[0]).toMatchObject({ series: 2, reps: 8 });   // 2 séries de travail, les reps de l’historique
     const deux = carte(Eq.analyser(e(bati(sem()), { routines: [RA, RB, RH], priorites: ['tractions', 'developpe_militaire_barre'] })), 'frequence');
     expect(deux.propositions[0].type).toBe('repartir');
-    expect(deux.propositions[0].libelle).toBe('Répartir mes priorités sur deux jours');
+    expect(deux.propositions[0].libelle).toBe('Ajouter un 2e passage à mes priorités');
     expect(deux.propositions[0].ajouts.map((x) => x.slug).sort()).toEqual(['developpe_militaire_barre', 'tractions']);
     expect(deux.propositions[0].details).toHaveLength(2);
   });

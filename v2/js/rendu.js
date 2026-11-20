@@ -1912,7 +1912,7 @@
         c.causes.forEach(function (x) { ul.appendChild(el('li', null, x.texte)); });
         carte.appendChild(ul);
       }
-      // 224 — la carte dit tout avant le geste : un ajout multiple (« Répartir mes priorités ») liste ce qui sera ajouté, et où.
+      // 224 — la carte dit tout avant le geste : un ajout multiple (« Ajouter un 2e passage à mes priorités ») liste ce qui sera ajouté, et où.
       (c.propositions || []).forEach(function (p) { (p.details || []).forEach(function (t) { carte.appendChild(el('p', 'pc-note', t)); }); });
       var actions = el('div', 'eq-actions');
       (c.propositions || []).forEach(function (p, i) {

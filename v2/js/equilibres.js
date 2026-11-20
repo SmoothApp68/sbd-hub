@@ -75,7 +75,7 @@
   var PART_DES_SEANCES = 0.5;       // la carte du temps : au moins la moitié des séances des 8 dernières semaines
   var ARRONDI_MINUTES = 5;          // la durée proposée : la médiane réelle des séances écourtées, arrondie aux 5 minutes
   var DUREE_MIN = 10, DUREE_MAX = 300;   // les bornes de `profiles_rythme_borne`
-  var SEUIL_FREQUENCE = 1.5;        // une priorité faite moins de 1,5 fois par semaine en moyenne (Grgic 2018)
+  var SEUIL_FREQUENCE = 1.5;        // une priorité faite moins de 1,5 fois par semaine en moyenne (Pelland 2026, pour la force)
   var TIERS = 2 / 3;                // le dernier tiers d'une séance (Simão 2012)
 
   // Les muscles principaux (l'épaule arrière et le côté compris) : un à 0 série sur 4 semaines fait une carte.
@@ -1019,7 +1019,7 @@
 
   // ── La FRÉQUENCE : combien de fois par semaine chaque priorité ─────────────────────────────────────────────────
   // Une priorité d'exercice (une des quatre barres, ou les tractions) : le nombre de séances de la semaine qui la portent.
-  // Les muscles prioritaires ne sont pas des mouvements : la règle porte sur des mouvements (Grgic 2018, la force sur un
+  // Les muscles prioritaires ne sont pas des mouvements : la règle porte sur des mouvements (Pelland 2026, la force sur un
   // mouvement ; Schoenfeld 2019 : à volume égal la fréquence compte peu pour l'hypertrophie).
   function famillesDeMouvement(prep, cle) {
     var cat = prep.cat, M = Modele();
@@ -1076,7 +1076,7 @@
     var nomsLents = lents.map(function (x) { return x.cle === 'tractions' ? 'tractions' : M.NOM_DE_BARRE[x.cle]; });
     var deadLent = lents.some(function (x) { return x.cle === DEAD; });
     c.fait = '';
-    c.repere = 'Deux séances par semaine sur un mouvement donnent un peu plus de force, surtout parce qu’on y fait plus de séries : à volume égal, aucune différence (Grgic, 2018). ' +
+    c.repere = 'Deux séances par semaine sur un mouvement donnent un peu plus de force (Pelland, 2026) ; la part due aux séries en plus et celle due à la pratique ne se séparent pas. Pour la masse, à volume égal, aucune différence. ' +
       (lents.length === lignes.length && lents.length > 1 ? 'Tes ' + (lents.length === 3 ? 'trois ' : '') + 'priorités reviennent une fois ou moins.'
         : lents.length === 1 ? 'Ta priorité ' + nomsLents[0] + ' revient une fois ou moins.' : 'Tes priorités ' + Modele().enumerer(nomsLents) + ' reviennent une fois ou moins.');
     var causes = [];
@@ -1095,7 +1095,7 @@
       pa.cle = 'ajouter|' + a.routine_id + '|' + a.slug + '|';
       props.push(pa);
     } else if (ajouts.length) {
-      props.push({ type: 'repartir', cle: 'repartir', libelle: 'Répartir mes priorités sur deux jours', ajouts: ajouts.map(propositionAjouter),
+      props.push({ type: 'repartir', cle: 'repartir', libelle: 'Ajouter un 2e passage à mes priorités', ajouts: ajouts.map(propositionAjouter),
                    details: ajouts.map(function (x) { return libelleDAjout(prep, x); }) });
     }
     c.causes = causes.map(function (x) { return { texte: x.texte, proposition: null }; });

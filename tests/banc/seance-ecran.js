@@ -7785,7 +7785,7 @@ const SETS_IMPORTES = [
     await demarrerRoutine('Terre');
     const avantCorrection = await enTete();
     ok('[Z] l’étiquette est un BOUTON, au contour, et dit la zone déduite',
-      JSON.stringify(await puce()) === JSON.stringify({ balise: 'BUTTON', texte: '3-5\u00a0reps · garde\u00a01', choisie: false }),
+      JSON.stringify(await puce()) === JSON.stringify({ balise: 'BUTTON', texte: '3-5\u00a0reps · réserve\u00a01', choisie: false }),
       JSON.stringify(await puce()));
 
     await ouvrirMenu();
@@ -7807,7 +7807,7 @@ const SETS_IMPORTES = [
       (await enTete()).length > 0,
       JSON.stringify(avantCorrection) + ' → ' + JSON.stringify(await enTete()));
     ok('[Z] et l’étiquette passe au fond plein : Volume 10-12, choisie',
-      JSON.stringify(await puce()) === JSON.stringify({ balise: 'BUTTON', texte: '10-12\u00a0reps · garde\u00a01', choisie: true }),
+      JSON.stringify(await puce()) === JSON.stringify({ balise: 'BUTTON', texte: '10-12\u00a0reps · réserve\u00a01', choisie: true }),
       JSON.stringify(await puce()));
     ok('[Z] une ligne est montée en base, avec son identifiant et sa date',
       base.zones.length === 1 && base.zones[0].exercise_slug === 'souleve-terre' &&
@@ -7843,7 +7843,7 @@ const SETS_IMPORTES = [
     await ouvrirMenu();
     await choisirZone('mix');
     ok('[Z] HORS LIGNE, le choix s’affiche quand même',
-      (await puce()).texte === '6-8\u00a0reps · garde\u00a02' && (await puce()).choisie === true,
+      (await puce()).texte === '6-8\u00a0reps · réserve\u00a02' && (await puce()).choisie === true,
       JSON.stringify(await puce()));
     ok('[Z] …et il attend dans la file, rien n’est monté',
       (await enFileZones()).length === 1 && base.zones.length === 2,
@@ -7852,7 +7852,7 @@ const SETS_IMPORTES = [
     // ── L'APP RECHARGÉE, TOUJOURS HORS LIGNE : le choix tient ─────────────
     await aller('/saisie');
     ok('[Z] l’app rechargée garde le choix, sans réseau',
-      (await puce()).texte === '6-8\u00a0reps · garde\u00a02' && (await puce()).choisie === true,
+      (await puce()).texte === '6-8\u00a0reps · réserve\u00a02' && (await puce()).choisie === true,
       JSON.stringify(await puce()));
 
     // ── LE RÉSEAU REVIENT : la ligne monte, et UNE SEULE FOIS ────────────
@@ -7937,7 +7937,7 @@ const SETS_IMPORTES = [
     await demarrerRoutine('Terre');
     const avecPlan = await enTeteO();
     ok('[O] l’étiquette dit d’où vient la zone : « Volume · ta routine »',
-      (await puceO()) && (await puceO()).texte === '10-12\u00a0reps · garde\u00a01' && (await puceO()).balise === 'BUTTON',   // 200-3 : une puce, le nom de la zone est dans la feuille
+      (await puceO()) && (await puceO()).texte === '10-12\u00a0reps · réserve\u00a01' && (await puceO()).balise === 'BUTTON',   // 200-3 : une puce, le nom de la zone est dans la feuille
       JSON.stringify(await puceO()) + ' (sans plan : ' + JSON.stringify(puceSansPlan) + ')');
     ok('[O] la consigne est celle de la zone du plan, pas celle de la correction d’exercice',
       JSON.stringify(avecPlan) !== JSON.stringify(sansPlan) && avecPlan.length > 0,
@@ -7958,9 +7958,9 @@ const SETS_IMPORTES = [
       .filter((b) => /Juste pour/.test(b.textContent))[0].click());
     await attendreQue(() => page.evaluate(() => !!document.querySelector('#feuille-contenu .option-zone[data-cle="mix"]')), 6000);
     await page.click('#feuille-contenu .option-zone[data-cle="mix"]');
-    await attendreQue(async () => (await puceO()).texte === '6-8\u00a0reps · garde\u00a02', 6000);
+    await attendreQue(async () => (await puceO()).texte === '6-8\u00a0reps · réserve\u00a02', 6000);
     ok('[O] « Juste pour aujourd’hui » : la consigne se recalcule, l’étiquette le dit',
-      JSON.stringify(await enTeteO()) !== JSON.stringify(avecPlan) && (await puceO()).texte === '6-8\u00a0reps · garde\u00a02',
+      JSON.stringify(await enTeteO()) !== JSON.stringify(avecPlan) && (await puceO()).texte === '6-8\u00a0reps · réserve\u00a02',
       JSON.stringify(await puceO()) + ' ' + JSON.stringify(await enTeteO()));
     ok('[O] …sans rien écrire : ni correction d’exercice, ni ligne de routine',
       JSON.stringify(base.zones) === zonesAvant && ligneTerre.zone === 'volume' &&
@@ -7970,7 +7970,7 @@ const SETS_IMPORTES = [
     await aller('/saisie');
     await demarrerRoutine('Terre');
     ok('[O] la séance suivante retrouve la zone de la routine',
-      (await puceO()).texte === '10-12\u00a0reps · garde\u00a01' && JSON.stringify(await enTeteO()) === JSON.stringify(avecPlan),
+      (await puceO()).texte === '10-12\u00a0reps · réserve\u00a01' && JSON.stringify(await enTeteO()) === JSON.stringify(avecPlan),
       JSON.stringify(await puceO()));
 
     // ── CHANGER LA ZONE DE LA ROUTINE : la ligne de routine est écrite ───────
@@ -7984,7 +7984,7 @@ const SETS_IMPORTES = [
     ok('[O] « Changer la zone de cette routine » écrit la ligne de routine (hypertrophie)',
       ligneTerre.zone === 'hypertrophie', 'zone = ' + ligneTerre.zone);
     ok('[O] et la consigne suit aussitôt : « Hypertrophie · ta routine »',
-      (await puceO()).texte === '8-10\u00a0reps · garde\u00a01', JSON.stringify(await puceO()));
+      (await puceO()).texte === '8-10\u00a0reps · réserve\u00a01', JSON.stringify(await puceO()));
     ok('[O] aucune correction d’exercice écrite non plus',
       JSON.stringify(base.zones) === zonesAvant, JSON.stringify(base.zones));
     await abandonner();
@@ -8072,7 +8072,7 @@ const SETS_IMPORTES = [
       !!fini.suite,
       JSON.stringify(fini).replace(/\u00a0/g, '·'));
     ok('[C6] l’étiquette de zone, elle, reste',
-      (await puceZone()) === '3-5\u00a0reps · garde\u00a01', String(await puceZone()));
+      (await puceZone()) === '3-5\u00a0reps · réserve\u00a01', String(await puceZone()));
 
     // ── CE QUI LE DÉFAIT ──────────────────────────────────────────────────
     await valider(2);   // dévalide : la coche est une bascule
@@ -14547,7 +14547,7 @@ const SETS_IMPORTES = [
         sp(b0.gris) === 'Nouvelle zone : Mix. Estimée depuis ton 100 kg × 5, un peu en dessous pour démarrer.' &&
         eb.dit.map(sp).indexOf(sp(b0.gris)) >= 0 && !/\b1\s?RM\b|\bmax/i.test(JSON.stringify(eb)), JSON.stringify([b0, eb]));
     ok('[R53] l’étiquette dit Mix, choisie ; le jaune dit la ligne',
-      eb.puce && eb.puce.texte === '6-8\u00a0reps · garde\u00a02' && eb.puce.choisie && JSON.stringify((b0.jaune || []).map(sp)) === JSON.stringify(['90 kg × 6']),
+      eb.puce && eb.puce.texte === '6-8\u00a0reps · réserve\u00a02' && eb.puce.choisie && JSON.stringify((b0.jaune || []).map(sp)) === JSON.stringify(['90 kg × 6']),
       JSON.stringify([eb.puce, b0.jaune]));
     ok('[R53] DISCRIMINANT — le compteur repart à zéro (§12.2 bis, déjà câblé)', b0.compteur === 0, String(b0.compteur));
 

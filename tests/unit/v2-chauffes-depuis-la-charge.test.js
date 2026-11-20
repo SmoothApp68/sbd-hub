@@ -46,12 +46,13 @@ describe('I184 — Moteur.referenceDesChauffes : une seule référence', () => {
 
 describe('règle 8-9 — la demande est la proposition, sans la raison, sans le silence', () => {
   const base = { equipement: 'barre', reference: 100, e1rm: 120, premier: true };
-  test('barre 100 kg : 50 × 8 · 80 × 3', () => {
+  // 20/11/2026 (MOTEUR §9.15 delta) — la montée unique : la barre vide, ⌈(90 − 20) / 40⌉ = 2 marches, la dernière à 88 %.
+  test('barre 100 kg : 20 × 10 · 50 × 6 · 90 × 1', () => {
     const r = P(Object.assign({}, base, { demande: true }));
     expect(r.mode).toBe('demande');
     expect(r.raison).toBe('demande');
-    expect(charges(r)).toEqual([50, 80]);
-    expect(reps(r)).toEqual([8, 3]);
+    expect(charges(r)).toEqual([20, 50, 90]);
+    expect(reps(r)).toEqual([10, 6, 1]);
     expect(r.annulable).toBe(true);
   });
   test('I185 — mêmes charges et mêmes reps que la proposition quand elle existe', () => {
@@ -74,7 +75,7 @@ describe('règle 8-9 — la demande est la proposition, sans la raison, sans le 
   });
   test('I187 — la demande ignore le silence ; la proposition, elle, se tait', () => {
     expect(P(Object.assign({}, base, { silence: true })).mode).toBe('rien');
-    expect(P(Object.assign({}, base, { silence: true, demande: true })).lignes.length).toBe(2);
+    expect(P(Object.assign({}, base, { silence: true, demande: true })).lignes.length).toBe(3);
   });
   test('la demande ignore la règle 7 (isolation déjà échauffée) et l’ajout automatique', () => {
     const iso = { equipement: 'poulie', reference: 30, e1rm: 40, premier: true, premierExercice: false, isolation: true, dejaTravaille: true, cran: 2.5 };
@@ -82,27 +83,29 @@ describe('règle 8-9 — la demande est la proposition, sans la raison, sans le 
     expect(P(Object.assign({}, iso, { demande: true })).lignes.length).toBeGreaterThan(0);
     expect(P(Object.assign({}, base, { ajoutees: 5, demande: true })).mode).toBe('demande');
   });
-  test('I127 — « J’ai peu de temps » : une chauffe, même pour la demande', () => {
-    [60, 100, 140].forEach((ref) => {
-      expect(P({ equipement: 'barre', reference: ref, premier: false, peuDeTemps: true, demande: true }).lignes.length).toBe(1);
-    });
+  // 20/11/2026 (I127 réécrit) — deux chauffes dès 100 kg à la barre libre (50 %, la dernière), une seule en dessous (70 % au plus × 3).
+  test('I127 — « J’ai peu de temps » : deux chauffes dès 100 kg à la barre, une en dessous, même pour la demande', () => {
+    expect(P({ equipement: 'barre', reference: 60, premier: false, peuDeTemps: true, demande: true }).lignes).toEqual([[40, 3]]);
+    expect(P({ equipement: 'barre', reference: 100, premier: false, peuDeTemps: true, demande: true }).lignes).toEqual([[50, 6], [90, 1]]);
+    expect(P({ equipement: 'barre', reference: 140, premier: false, peuDeTemps: true, demande: true }).lignes).toEqual([[70, 6], [125, 1]]);
   });
-  test('sans référence : rien (I188) ; au poids du corps : la série facile', () => {
+  test('sans référence : rien (I188) ; au poids du corps : le mouvement au tiers des reps visées', () => {
     expect(P({ equipement: 'barre', reference: null, premier: true, demande: true }).lignes).toEqual([]);
     expect(P({ equipement: 'barre', reference: 0, demande: true }).lignes).toEqual([]);
-    expect(P({ equipement: 'aucun', corps: true, premier: false, demande: true }).lignes).toEqual([[null, 8]]);
+    expect(P({ equipement: 'aucun', corps: true, premier: false, demande: true, reps: 8 }).lignes).toEqual([[null, 3]]);
+    expect(P({ equipement: 'aucun', corps: true, premier: false, demande: true }).lignes).toEqual([]);
   });
   test('rejeu des montées : crans du matériel, plancher, plafond 90 %, charge absurde', () => {
     const d = (eq, ref, extra) => P(Object.assign({ equipement: eq, reference: ref, premier: false, demande: true, cran: 2.5 }, extra || {}));
-    expect(charges(d('barre', 90))).toEqual([50, 75]);
-    expect(charges(d('barre', 110))).toEqual([40, 70, 90]);
-    expect(charges(d('barre', 140))).toEqual([50, 90, 120]);
+    expect(charges(d('barre', 90))).toEqual([20, 45, 80]);
+    expect(charges(d('barre', 110))).toEqual([20, 55, 95]);
+    expect(charges(d('barre', 140))).toEqual([20, 70, 100, 125]);
     expect(charges(d('barre', 160)).length).toBe(4);
-    expect(charges(d('barre', 60))).toEqual([50]);
-    expect(charges(d('haltere', 24, { cran: 2 }))).toEqual([20]);
-    expect(charges(d('machine', 80, { cran: 2.5 }))).toEqual([35, 67.5]);
+    expect(charges(d('barre', 60))).toEqual([20, 50]);
+    expect(charges(d('haltere', 24, { cran: 2 }))).toEqual([12, 20]);
+    expect(charges(d('machine', 80, { cran: 2.5 }))).toEqual([40, 70]);
     const gros = d('barre', 500);
-    expect(gros.lignes.length).toBeLessThanOrEqual(4);
+    expect(gros.lignes.length).toBeLessThanOrEqual(6);
     charges(gros).forEach((c, i) => { expect(c).toBeLessThanOrEqual(0.9 * 500 + 1e-9); if (i) expect(c).toBeGreaterThan(charges(gros)[i - 1]); });
     ['elastique', 'disque', 'kettlebell'].forEach((eq) => expect(d(eq, 30).lignes.length).toBeGreaterThanOrEqual(0));
   });
@@ -144,7 +147,7 @@ describe('le plan — la référence suit la saisie', () => {
     expect(r.x.chauffesReference).toEqual({ charge: 100, source: 'saisie', plan: 90 });
     expect(r.x.proposition.reference).toBe(100);
     expect(r.x.surDemande.reference).toBe(100);
-    expect(r.x.surDemande.lignes).toEqual([[50, 8], [80, 3]]);
+    expect(r.x.surDemande.lignes).toEqual([[20, 10], [50, 6], [90, 1]]);
     expect(r.x.surDemande.lignes).toEqual(r.x.proposition.lignes);
     expect(r.x.consigne.ligne.charge).toBe(90);
     expect(r.erreurs).toEqual([]);
@@ -175,7 +178,7 @@ describe('le plan — la référence suit la saisie', () => {
     expect(fantomesDeChauffe(sansSaisie.x)).toEqual([]);
     const avecSaisie = plan(tape(seanceDe(), 0, 100), { consignes: { squat_barre: { consigne: SILENCE, libelles: M.libellesConsigne(SILENCE), pas: null } }, e1rms: {} });
     expect(avecSaisie.x.chauffesReference).toEqual({ charge: 100, source: 'saisie', plan: null });
-    expect(avecSaisie.x.surDemande.lignes).toEqual([[50, 8], [80, 3]]);
+    expect(avecSaisie.x.surDemande.lignes).toEqual([[20, 10], [50, 6], [90, 1]]);
     expect(avecSaisie.erreurs).toEqual([]);
   });
 
@@ -187,7 +190,7 @@ describe('le plan — la référence suit la saisie', () => {
     const r = plan(tape(seanceDe(), 0, 100), sans);
     expect(r.x.proposition).toBeNull();
     expect(r.x.surDemande.reference).toBe(100);
-    expect(r.x.surDemande.lignes).toEqual([[50, 8], [80, 3]]);
+    expect(r.x.surDemande.lignes).toEqual([[20, 10], [50, 6], [90, 1]]);
     expect(r.erreurs).toEqual([]);
   });
 
@@ -203,7 +206,7 @@ describe('le plan — la référence suit la saisie', () => {
   test('I187 — le silence tait la carte, pas la demande', () => {
     const r = plan(tape(seanceDe(), 0, 100), { refusChauffes: { squat_barre: true } });
     expect(r.x.proposition).toBeNull();
-    expect(r.x.surDemande.lignes).toEqual([[50, 8], [80, 3]]);
+    expect(r.x.surDemande.lignes).toEqual([[20, 10], [50, 6], [90, 1]]);
     expect(r.erreurs).toEqual([]);
   });
 
@@ -222,25 +225,26 @@ describe('le plan — la référence suit la saisie', () => {
     se = tape(se, 0, 100);
     se = S.insererChauffes(se, 0, d.lignes, id);
     const r = plan(se);
-    expect(fantomesDeChauffe(r.x)).toEqual([50, 80]);
+    expect(fantomesDeChauffe(r.x)).toEqual([20, 50, 90]);
     const chauffes = se.exercices[0].series.filter((q) => S.typeDe(q) === 'echauffement');
-    expect(chauffes.length).toBe(2);
+    expect(chauffes.length).toBe(3);
     chauffes.forEach((q) => expect(q.charge_kg).toBeNull());
-    expect(chauffes.map((q) => q.reps_visees)).toEqual([8, 3]);
+    expect(chauffes.map((q) => q.reps_visees)).toEqual([10, 6, 1]);
     expect(r.x.chauffesReference.charge).toBe(100);
     expect(r.erreurs).toEqual([]);
   });
 
   test('la montée posée suit la charge quand on la change (aucune chauffe faite)', () => {
     let se = seanceDe([{ geste: 'chauffes_ajoutees', slug: 'squat_barre' }]);
+    // 20/11/2026 — deux lignes posées par le coach : sa montée à deux lignes (la barre vide, puis la dernière à 88 %).
     se = S.insererChauffes(tape(se, 0, 100), 0, [[50, 8], [80, 3]], id);
-    expect(fantomesDeChauffe(plan(se).x)).toEqual([50, 80]);
+    expect(fantomesDeChauffe(plan(se).x)).toEqual([20, 90]);
     // la 1re ligne de travail est maintenant la ligne 2 (après les deux chauffes) : sa charge est la référence
     expect(plan(se).x.chauffesReference.charge).toBe(100);
     const lourd = plan(S.modifierSerie(se, 0, 2, { charge_kg: 140 }));
     expect(lourd.x.chauffesReference.charge).toBe(140);
     expect(fantomesDeChauffe(lourd.x).length).toBe(2);
-    expect(fantomesDeChauffe(lourd.x)[1]).toBeGreaterThan(80);
+    expect(fantomesDeChauffe(lourd.x)[1]).toBeGreaterThan(90);
     expect(lourd.erreurs).toEqual([]);
   });
 

@@ -639,7 +639,8 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     expect(parFamille.constat).toBeGreaterThan(50);
     // 30 phrases des 37 cas (les cas sans chauffe ni proposition n'en ont
     // pas) + la phrase et la note de la feuille sur le plan.
-    expect(parFamille.chauffes).toBe(36);
+    // 20/11/2026 (MOTEUR §9.15 delta) : 35 — une routine à 5 chauffes les a toutes remplies, la note « le coach en calcule 4 » n'existe plus.
+    expect(parFamille.chauffes).toBe(35);
     // 6 phrases des 14 cas (les 8 autres sont à 0-3 : rien) + 24 synthétiques.
     expect(parFamille.compteur).toBe(30);
     // 6 cartes × 2 phrases + 14 consignes allégées × 2 (moins les 2 à 1 série de routine, dont la clause des séries n'existe plus : « Les mots
@@ -704,7 +705,8 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     // La phrase « Je ne compte pas la dernière série » est bien jouée.
     expect(vues.filter((v) => v.famille === 'chute' && /Je ne compte pas la dernière série/.test(v.phrase)).length)
       .toBeGreaterThanOrEqual(14);
-    expect(vues.filter((v) => v.source === 'plan 49-U10').length).toBe(2);
+    // 20/11/2026 : 1 — la note « le coach en calcule 4 » n'existe plus (chaque ligne a sa marche).
+    expect(vues.filter((v) => v.source === 'plan 49-U10').length).toBe(1);
     // Sans ces phrases, la règle des dates ne serait jamais éprouvée.
     const jours = vues.filter((v) => /(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)/i.test(v.phrase));
     expect(jours.length).toBeGreaterThan(50);

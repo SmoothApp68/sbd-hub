@@ -143,7 +143,6 @@ const ok = (nom, cond, detail) => {
 // la marque doit partir — la liste dit ce qui est, comme `AUTORISATIONS`. Un défaut inconnu de la liste → ❌.
 const DEFAUTS_PROUVES = {
   'D-R1': 'le journal des records (jeu, guilde, groupe, médailles du social) n’est pas revu quand une séance ANTÉRIEURE est corrigée ou supprimée ; la Progression, elle, recalcule',
-  'D-ST1': 'une série à 0 rep validée par « Oui, manquée » est retypée `echec` (app.js, `changerType`) ; la semaine de test ne lit que les essais de type `test` (plan.js, `faitsDeTest`) : l’essai raté disparaît, le plan propose encore l’essai suivant et ne s’arrête pas (I92)',
 };
 const defautsVus = [];
 const okDefaut = (defaut, nom, cond, detail) => {
@@ -32148,10 +32147,10 @@ const SETS_IMPORTES = [
     const dom6 = await domSt();
     ok('[ST] l’essai 2 est une série à 0 rep, validée, à 112,5 kg',
       base.sets.some((x) => x.session_id === seanceCourante() && x.exercise_slug === SQ && x.charge_kg === charge2 && x.reps === 0), nb(base.sets.filter((x) => x.session_id === seanceCourante()).map((x) => [x.type_serie, x.charge_kg, x.reps])));
-    // ⚠️ DÉFAUT DE L'APP (D-ST1), décrit au rapport, non corrigé ici : « Oui, manquée » RETYPE la série en `echec` (app.js, `b.action === 'manquee'` →
-    // `Seance.changerType(…, 'echec')`), et `faitsDeTest` (plan.js) ne lit que le type `test` : l'essai raté disparaît des essais, le plan propose encore
-    // l'essai 2 et ne s'arrête pas. Le contrôle porte l'état COHÉRENT (I92 : « Un essai raté : on s’arrête là. », rien de plus proposé).
-    okDefaut('D-ST1', '[ST] I92 — un essai raté (0 rep, « Oui, manquée ») arrête le test : « Un essai raté : on s’arrête là. », plus aucun essai ni bouton « Ajouter l’essai suivant »',
+    // D-ST1 CORRIGÉ : « Oui, manquée » ne retype plus un essai (`Seance.marquerManquee`) : il reste `test`, `faitsDeTest` le compte, le plan s'arrête (I92).
+    ok('[ST] D-ST1 — l’essai 2 raté garde son type `test` en base (pas `echec`)',
+      base.sets.some((x) => x.session_id === seanceCourante() && x.exercise_slug === SQ && x.charge_kg === charge2 && x.reps === 0 && x.type_serie === 'test'), nb(base.sets.filter((x) => x.session_id === seanceCourante()).map((x) => [x.type_serie, x.charge_kg, x.reps])));
+    ok('[ST] I92 — un essai raté (0 rep, « Oui, manquée ») arrête le test : « Un essai raté : on s’arrête là. », plus aucun essai ni bouton « Ajouter l’essai suivant »',
       !!p6.exos[SQ].t && p6.exos[SQ].t.arret === 'rate' && p6.exos[SQ].t.prochain === null && p6.exos[SQ].t.ajout === null &&
         /Un essai raté : on s’arrête là\./.test(sp(dom6.tests[0] ? dom6.tests[0].texte : '')) && dom6.boutons.indexOf('Ajouter l’essai suivant') < 0,
       nb([p6.exos[SQ].t.arret, p6.exos[SQ].t.prochain, p6.exos[SQ].t.essais, dom6.boutons]));

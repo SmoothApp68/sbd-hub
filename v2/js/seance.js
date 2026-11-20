@@ -1436,6 +1436,17 @@
     return avecSerie(seance, iExo, iSerie, { type_serie: type });
   }
 
+  // « Oui, manquée » et « J'ai eu mal » (0 rep, `app.js` `repondreQuestionDeSaisie`) : la série devient une tentative manquée (`echec`), SAUF un essai
+  // de la semaine de test (`test`) et une dégressive, qui GARDENT leur type : le raté se lit alors par `reps === 0`. Un essai retypé `echec` sortait de
+  // `faitsDeTest` (le plan proposait encore l'essai suivant, I92 ; le max mesuré n'était pas rangé, I93) et se lisait comme un zéro de travail. Le
+  // recul, lui, continue de passer à `echec` (question ouverte, MOTEUR §9.39). `changerType` (le menu « ⋯ », un choix explicite) reste intact.
+  var TYPES_QUI_GARDENT_LE_LEUR = ['test', 'degressive'];
+  function marquerManquee(seance, iExo, iSerie) {
+    var s = seance && seance.exercices && seance.exercices[iExo] && seance.exercices[iExo].series[iSerie];
+    if (s && TYPES_QUI_GARDENT_LE_LEUR.indexOf(racine.THModele.typeDe(s)) >= 0) return seance;
+    return changerType(seance, iExo, iSerie, 'echec');
+  }
+
   // 234 — LE TYPE ENREGISTRÉ SUIT LE PLAN : en bloc Hypertrophie à grosse série (MOTEUR §19.2), le plan lit les séries de travail suivant la
   // première comme des RECULS (`Moteur.seriesEnGrosseEtReculs`), mais la séance les ouvre `travail` (la routine ne porte pas le type). Une
   // série NON VALIDÉE de type `travail` que le plan porte `recul` s'écrit `recul`, juste avant sa validation ; une série déjà validée ou
@@ -3546,6 +3557,7 @@
     retirerSerie: retirerSerie,
     modifierSerie: modifierSerie,
     changerType: changerType,
+    marquerManquee: marquerManquee,
     typerSelonLePlan: typerSelonLePlan,
     marquerHorsCalcul: marquerHorsCalcul,
     definirAuMax: definirAuMax,

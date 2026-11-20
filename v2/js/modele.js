@@ -97,7 +97,8 @@
   // ⚠️ « UNE SÉRIE À 0 REP » (19/11/2026, MOTEUR §9.39 et §9.42 bis, « Une seule voix après un zéro ») : UNE LECTURE, ICI. Une série de TRAVAIL ou MANQUÉE
   // (le zéro saisi dans l'app est typé `echec`), à 0 rep lisible et à charge > 0 ; jamais une chauffe, un « Non, ne compte pas », un test, un recul ni une
   // mini-série (dégressive, rest-pause : leur type n'est pas `travail`). `zeroPartiel` (le plafond, l'historique) et la réaction en séance (`plan.js`) la lisent.
-  // Dette notée : une mini-série ou un recul passé en « manquée » (`echec`) perd son type d'origine et se lit comme un zéro de travail.
+  // Une dégressive et un essai de test « manquée » gardent leur type (`Seance.marquerManquee`) ; le recul passe encore à `echec` et se lit comme un zéro
+  // de travail : QUESTION OUVERTE (MOTEUR §9.39), non décidée.
   function estZeroDeTravail(s) {
     if (!s || typeDe(s) === 'echauffement' || estHorsCalcul(s) || estTest(s)) return false;
     if (lireNombre(s.reps) !== 0) return false;

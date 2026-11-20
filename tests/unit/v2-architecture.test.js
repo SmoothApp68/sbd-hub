@@ -1968,6 +1968,12 @@ const NOTIONS = [
     module: 'moteur.js', fonction: 'periodesDecharge', lecteurs: ['app.js'],
     raison: 'une ENTRÉE du compteur, préparée par l’app : la décharge part du même jour que la carte qui se tait ' +
       '(`debutDecharge`).' },
+  { notion: 'l’instant de l’arrêt d’un bloc (`arrete_a`, à défaut `modifie_a`)', pr: 'correctif 21/11/2026',   // I267
+    module: 'moteur.js', fonction: 'arretDuBloc', lecteurs: [],
+    par: ['periodesDecharge', 'lignesDeZoneValides'],
+    interdit: { motif: /statut === 'arrete' \? instant\(\w+\.modifie_a\)/,
+                raison: 'l’arrêt lu sur l’horloge de fusion (`modifie_a`), qu’un renommage du dossier pousse (CONTRA-MARQUES §2)' },
+    raison: 'MOTEUR §9.22 : la décharge vécue avant l’arrêt et les lignes de zone inertes d’un bloc arrêté lisent le même instant.' },
   { notion: 'les exercices qui ont progressé sur un bloc (l’observation du pari de programme)', pr: '124-U1',
     module: 'moteur.js', fonction: 'progresDuBilan', lecteurs: ['app.js'],
     raison: 'MOTEUR §9.22 : la carte de fin de bloc et l’observation écrite en base lisent le même nombre.' },

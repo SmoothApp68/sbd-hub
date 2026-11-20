@@ -779,9 +779,12 @@
 
   // Le bloc qui finit (`termine`) ou qu'on arrête (`arrete`). Fini, son pari
   // de programme s'observe : combien de ses exercices ont progressé.
+  // 21/11/2026 (MOTEUR §9.22, I267) — l'ARRÊT est daté une fois, au geste : `arrete_a` (lue par `Moteur.arretDuBloc`). `modifie_a` reste
+  // l'horloge de fusion (`fondreBlocs`) : un renommage du dossier la pousse, jamais `arrete_a`.
   async function terminerBloc(bloc, statut, fini) {
     if (fini) await observerPariDeProgramme(bloc);
-    await poserBloc(Object.assign({}, bloc, { statut: statut, modifie_a: instantDuJour() }));
+    var t = instantDuJour();
+    await poserBloc(Object.assign({}, bloc, { statut: statut, modifie_a: t }, statut === 'arrete' ? { arrete_a: t } : {}));
   }
 
   async function poserPariDeProgramme(bloc, precedent) {

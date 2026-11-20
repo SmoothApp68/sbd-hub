@@ -8718,12 +8718,34 @@
     return p;
   }
 
+  // 21/11/2026 (MOTEUR §9.22, I267) — L'INSTANT DE L'ARRÊT d'un bloc : `blocs.arrete_a` (posée par `terminerBloc` au geste « Arrêter », et
+  // par un déclencheur de la base pour les versions d'avant), sinon — une base sans la colonne (facultative, `donnees.js`) — `modifie_a`.
+  // `null` pour un bloc qui n'est pas arrêté. ⚠️ `modifie_a` est l'HORLOGE DE FUSION (`fondreBlocs`) : un renommage du dossier la pousse
+  // (`Routines.planRenommageDossier`) ; elle n'est une date d'arrêt qu'à défaut de la colonne. UNE lecture : `periodesDecharge` et
+  // `lignesDeZoneValides` passent par elle.
+  function arretDuBloc(bloc) {
+    if (!bloc || bloc.statut !== 'arrete') return null;
+    if (bloc.arrete_a !== undefined && bloc.arrete_a !== null) return instant(bloc.arrete_a);
+    return instant(bloc.modifie_a);
+  }
+
   // Les périodes des décharges planifiées (blocs en cours et terminés) : le
   // compteur ne compte ni ne juge leurs séances, comme une semaine allégée.
+  // 21/11/2026 (I267) — un bloc ARRÊTÉ pendant sa décharge garde la part de la décharge déjà vécue : de son début au jour de l'arrêt
+  // (`arretDuBloc`, au jour civil), sans dépasser le 7ᵉ jour. Arrêté avant la décharge, ou décharge sautée : rien. Sans date d'arrêt : rien.
   function periodesDecharge(blocs, finsAllegees) {
-    return (blocs || []).filter(function (b) {
-      return b && (b.statut === BLOC_EN_COURS || b.statut === 'termine') && dechargePlanifiee(b, finsAllegees);
-    }).map(function (b) { return { debut: debutDecharge(b), fin: ajouterJours(debutDecharge(b), 6) }; });
+    var out = [];
+    (blocs || []).forEach(function (b) {
+      if (!b || !dechargePlanifiee(b, finsAllegees)) return;
+      var d = debutDecharge(b), f = ajouterJours(d, 6);
+      if (b.statut === BLOC_EN_COURS || b.statut === 'termine') { out.push({ debut: d, fin: f }); return; }
+      if (b.statut !== 'arrete') return;
+      var t = arretDuBloc(b);
+      var a = t === null ? null : jourCivil(t);
+      if (a === null || a < d) return;
+      out.push({ debut: d, fin: a < f ? a : f });
+    });
+    return out;
   }
 
   // AU DÉBUT D'UN BLOC, une ligne de zone par exercice du bloc, datée du début
@@ -8950,7 +8972,7 @@
   // §9.22 (53-2 bis, 53-2 ter) — LES LIGNES INERTES. Un bloc pose ses lignes
   // datées de son début ; arrêté AVANT, il ne doit rien changer : une ligne
   // POSÉE par un bloc arrêté (`arrete`), datée de son début, après l'arrêt
-  // (`modifie_a`), est IGNORÉE — retirée de la liste, comme absente, et jamais
+  // (`arretDuBloc` : `arrete_a`, à défaut `modifie_a`), est IGNORÉE — retirée de la liste, comme absente, et jamais
   // lue comme « sans zone » : la lecture retombe sur la ligne d'avant (une
   // correction de la personne d'avant le programme tient). Les lignes d'un
   // bloc arrêté en cours de route ont valu jusqu'à l'arrêt ; la ligne de
@@ -8959,7 +8981,7 @@
   function lignesDeZoneValides(lignes, blocs) {
     var arretes = {};
     (blocs || []).forEach(function (b) {
-      var t = b && b.statut === 'arrete' ? instant(b.modifie_a) : null;
+      var t = arretDuBloc(b);   // 21/11/2026 (I267) : `arrete_a`, jamais l'horloge de fusion quand la colonne existe
       var m = t !== null ? instant(minuitDuDebut(b)) : null;
       if (m !== null) arretes[b.id] = { arret: t, debut: m };
     });
@@ -14620,6 +14642,7 @@
     carteAllegeeAutorisee: carteAllegeeAutorisee,
     dechargeDuJour: dechargeDuJour,
     periodesDecharge: periodesDecharge,
+    arretDuBloc: arretDuBloc,
     zonesPosees: zonesPosees,
     zoneDuPremierBloc: zoneDuPremierBloc,
     blocSuivant: blocSuivant,

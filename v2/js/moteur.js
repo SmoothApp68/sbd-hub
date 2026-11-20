@@ -2023,15 +2023,110 @@
     var succes = reussies.reduce(function (m, v) { return m === null || v > m ? v : m; }, null);
     return succes !== null && succes > d ? succes : d;
   }
+  // ══ R2 (20/11/2026, MOTEUR §9.42 bis, « le jour sans ») — UN ZÉRO À OU SOUS LA CHARGE DE TRAVAIL EST UN JOUR SANS, PAS UNE BAISSE ═════════════════════════
+  //
+  // Un 0 à ou sous la charge de travail tenue n'est pas le maximum de la personne : un 3RM tenu quatre jours plus tôt rend un 0 à 89 % aberrant (un test-retest de 1RM
+  // varie de 4,2 % en médiane, Grgic 2020 ; une nuit courte coûte ~3 %). Le coach allège UNE séance, puis revient. Quand la séance de zéro `Z` est lue à `Ch` ≤ la charge de
+  // travail `P` de la consigne d'avant (hors population protégée — 65 ans et plus connus, débutant, Forme —, avec au moins `JOUR_SANS_LUES` séances lues à `P`, I152) :
+  //   · la séance SUIVANTE est plus légère (la descente de la règle B, I153) et NEUTRE : elle ne vote ni pour la charge de travail, ni pour le compte long, ni pour la
+  //     stagnation, ni pour le compteur ; son pari ne se compte pas (`Bilan.compteLe`, drapeau `jourSans`) ;
+  //   · si elle PASSE (aucune série couverte sous le bas de la zone de `base`, `rateSousLaZone`), la fois d'après reprend la charge ET le niveau de `base`, jamais au-dessus
+  //     (`retour_jour_sans`) ; si elle rate à 0 : la règle B, la vraie baisse (le zéro de la séance légère n'est pas un 2e jour sans) ; si elle rate sous la zone sans être à 0 :
+  //     une séance ordinaire ;
+  //   · UN SEUL jour sans par charge de travail, jusqu'à une séance réussie à cette charge (`jeton`) : un 2e zéro avant elle passe à la règle B directement ;
+  //   · un zéro AU-DESSUS de `P` (un essai raté) garde la règle B ; la reprise (§9.9) prime ; la décharge oublie le zéro ; une séance « sans coach » (plus léger aujourd'hui,
+  //     « J'ai eu mal ») n'a jamais de drapeau `zero` ; jamais en semaine de test (aucune série de test n'est lue : `seanceAZero`).
+  // Le jour sans se lit sur l'HISTOIRE (le début de chaque zéro et de la séance qui le suit), jamais sur un état : la consigne reçue par la séance suivante est REJOUÉE
+  // (`consigneApresUnZero` sur l'histoire d'avant elle) — la séance légère n'est « jour sans » que si elle a reçu cette consigne.
+  var JOUR_SANS_LUES = 2;
+  var ETATS_DU_RETOUR = { progression: true, tenue_apres_chute: true, test_propose: true, retest: true, retest_un_cran: true };
+  function neutraliserLeZero(se) {
+    return { debut: se.debut, palier: null, neutre: true, series: se.series || [], plafondZero: se.plafondZero, decharge: se.decharge };
+  }
+  // La séance de zéro `triees[i]` ouvre-t-elle un jour sans ? `legeres` : les séances légères passées d'avant (neutres), `jeton` : un jour sans ouvert, pas encore clos.
+  // Rend `{ palier, charge, niveau, zoneBas, tenue, grosse, reculs }` ou `null`.
+  function jourSansOuvrable(triees, i, legeres, jeton, opt, protegee) {
+    var Z = triees[i];
+    if (protegee || jeton !== null || !Z || !Z.zero || Z.decharge === true) return null;
+    var Ch = nombre(Z.zero.charge);
+    if (Ch === null || !(Ch > 0)) return null;
+    var avantZ = triees.slice(0, i).map(function (se) {
+      return se.zero ? neutraliserLeZero(se) : (legeres[instant(se.debut)] !== undefined ? { debut: se.debut, palier: null, neutre: true, series: se.series || [], decharge: se.decharge } : se);
+    });
+    var base = consignePour(avantZ, Z.debut, Object.assign({}, opt, { sansZero: true }));
+    if (!base || typeof base !== 'object' || base.etat === 'silence' || base.etat === 'reprise_courte' || base.etat === 'reprise_longue') return null;
+    var P = nombre(base.palier);
+    if (P === null || !(P > 0) || Ch > P + 1e-9) return null;
+    // I152 — au moins deux séances lues à la charge de travail (jamais un jour sans sur une histoire d'une séance).
+    var lues = avantZ.filter(function (se) { return se.neutre !== true && se.decharge !== true && nombre(se.palier) !== null && memeCharge(nombre(se.palier), P); });
+    if (lues.length < JOUR_SANS_LUES) return null;
+    var zone = zoneParCle(base.zone);
+    return { palier: P, charge: Ch, niveau: nombre(base.niveau), zoneBas: zone === null ? null : zone.bas,
+             tenue: lues[lues.length - 1].debut, grosse: (Z.series || []).some(function (x) { return x && x.origine === 'recul'; }),
+             reculs: (Z.series || []).some(function (x) { return x && x.origine === 'recul'; }) };
+  }
+  // « Elle passe » : au moins une série couverte (palier ou travail), et aucune sous le bas de la zone de `base` (`rateSousLaZone`, la notion partagée).
+  function legerePasse(se, zoneBas) {
+    var couvertes = parRole(se && se.series, ROLES_RETENUS);
+    if (!couvertes.length || zoneBas === null || zoneBas === undefined) return false;
+    return couvertes.every(function (s) {
+      var r = nombre(s.reps);
+      return r !== null && !rateSousLaZone({ reps: r, bas: zoneBas, charge: nombre(s.charge_kg) }).sousZone;
+    });
+  }
+  // L'histoire avant `avant` : `ouverts[débutDuZéro]` (les jours sans ouverts) et `legeres[débutDeLaSéance]` (les séances légères PASSÉES, neutres, avec leur zéro `z`).
+  function jourSansDe(seances, avant, opt, protegee) {
+    var coupure = instant(avant);
+    var triees = (seances || []).filter(function (se) { var t = instant(se && se.debut); return t !== null && (coupure === null || t < coupure); })
+      .sort(function (a, b) { return instant(a.debut) - instant(b.debut); });
+    var legeres = {}, ouverts = {}, jeton = null, memo = opt.jourSansMemo;
+    triees.forEach(function (se, i) {
+      var t = instant(se.debut);
+      if (se.zero) {
+        var el = jourSansOuvrable(triees, i, legeres, jeton, opt, protegee);
+        if (el !== null) { ouverts[t] = Object.assign({ date: se.debut }, el); jeton = { charge: el.palier }; }
+        return;
+      }
+      var prec = i > 0 ? triees[i - 1] : null;
+      var ouvert = prec ? ouverts[instant(prec.debut)] : undefined;
+      if (ouvert !== undefined && se.decharge !== true && se.neutre !== true) {
+        if (memo[t] === undefined) {
+          var recue = consigneApresUnZero(triees.slice(0, i), se.debut, opt);
+          memo[t] = !!recue && recue.etat === 'zero_rep' && !!(recue.fondement && recue.fondement.zeroRep && recue.fondement.zeroRep.jourSans);
+        }
+        if (memo[t] === true && legerePasse(se, ouvert.zoneBas)) { legeres[t] = { z: instant(prec.debut) }; return; }
+      }
+      if (jeton !== null && se.neutre !== true && se.decharge !== true && nombre(se.palier) !== null && nombre(se.palier) >= jeton.charge - 1e-9) jeton = null;
+    });
+    return { legeres: legeres, ouverts: ouverts };
+  }
+  // La consigne de la fois qui suit un jour sans PASSÉ : la charge de travail ET le niveau de `base`, jamais au-dessus, sans ligne haute. Un état de `base` qui n'est pas
+  // une progression ordinaire (bord, reprise, silence, échelle…) reste tel quel : la séance légère est neutre, rien de plus.
+  function retourDuJourSans(base, ouvert) {
+    if (!base || ETATS_DU_RETOUR[base.etat] !== true || !base.ligne) return base;
+    var P = nombre(base.palier), niv = nombre(base.niveau), ch = nombre(base.ligne.charge), vi = nombre(base.ligne.vise);
+    if (P === null || !(P > 0) || niv === null || !(niv >= 1) || ch === null || ch < P - 1e-9) return base;
+    var vise = memeCharge(ch, P) && vi !== null && vi >= 1 ? Math.min(niv, vi) : niv;
+    // Le fondement est RECONSTRUIT minimal (comme le plafond, O4) : la date, les reps et la séance d'avant, jamais l'effort visé, la capacité ni un test.
+    var fo = base.fondement || {}, fm = {};
+    ['date', 'reps', 'seance', 'habitude', 'deuxSeances'].forEach(function (cle) { if (fo[cle] !== undefined) fm[cle] = fo[cle]; });
+    fm.jourSans = { retour: true, charge: ouvert.charge, date: ouvert.date, tenue: { charge: P, reps: niv, date: ouvert.tenue } };
+    return copieDeConsigne(base, { etat: 'retour_jour_sans', ligne: { charge: P, vise: vise }, haut: null, fondement: fm });
+  }
   function consigneApresUnZero(seances, avant, opt) {
     var coupure = instant(avant);
     var liste = seances || [];
+    var protegee = protegeeEnCours || (opt && opt.protegee === true);
+    var optJ = opt && opt.jourSansMemo ? opt : Object.assign({}, opt, { jourSansMemo: {} });
+    var js = jourSansDe(liste, avant, optJ, protegee);
     var neutres = liste.map(function (se) {
       // PR 4b — le drapeau du plafond suit la séance neutralisée : les consignes REJOUÉES dans `base` (la règle de bord relit la consigne que sa dernière
-      // séance a reçue) doivent voir la même tenue que la consigne vivante.
-      return se && se.zero ? { debut: se.debut, palier: null, neutre: true, series: se.series || [], plafondZero: se.plafondZero, decharge: se.decharge } : se;
+      // séance a reçue) doivent voir la même tenue que la consigne vivante. R2 — une séance légère PASSÉE d'un jour sans est neutre pour toujours.
+      if (se && se.zero) return neutraliserLeZero(se);
+      if (se && js.legeres[instant(se.debut)] !== undefined) return { debut: se.debut, palier: null, neutre: true, series: se.series || [], decharge: se.decharge };
+      return se;
     });
-    var base = consignePour(neutres, avant, Object.assign({}, opt, { sansZero: true }));
+    var base = consignePour(neutres, avant, Object.assign({}, optJ, { sansZero: true }));
     // La séance la plus récente avant `avant`, neutres comprises : un zéro plus ancien ne parle plus.
     var Z = null, zt = null;
     liste.forEach(function (se) {
@@ -2039,6 +2134,11 @@
       if (t === null || coupure === null || t >= coupure) return;
       if (zt === null || t >= zt) { Z = se; zt = t; }
     });
+    // R2 — la séance la plus récente est une séance légère PASSÉE : la fois d'après reprend la charge de travail et son niveau.
+    if (Z && !Z.zero && base && js.legeres[instant(Z.debut)] !== undefined) {
+      var ouvertZ = js.ouverts[js.legeres[instant(Z.debut)].z];
+      return ouvertZ !== undefined ? retourDuJourSans(base, ouvertZ) : base;
+    }
     if (!Z || !Z.zero || Z.decharge === true || !base) return base;
     var Ch = nombre(Z.zero.charge);
     if (Ch === null || !(Ch > 0)) return base;
@@ -2062,6 +2162,12 @@
     var C = Math.min(dessous, charge0, P);
     var ligne = { charge: C, vise: vise0 };
     var fondement = { date: Z.debut, zeroRep: { charge: Ch, series: Z.zero.n, vers: C, visees: vise0, bornee: !memeCharge(C, dessous) } };
+    // R2 — le jour sans ouvert par CE zéro : le fait que dit le « Pourquoi » (la date du zéro, ce qui était tenu, la grosse série, les reculs) et la zone de `base`.
+    var ouvert = js.ouverts[instant(Z.debut)];
+    if (ouvert !== undefined && !(base.etat === 'tenue_apres_zero')) {
+      fondement.zeroRep.jourSans = { date: Z.debut, grosse: ouvert.grosse === true, reculs: ouvert.reculs === true, zoneBas: ouvert.zoneBas,
+        tenue: { charge: ouvert.palier, reps: ouvert.niveau, date: ouvert.tenue } };
+    }
     // 163 — une charge jamais faite se dit approchée (I51) : la ligne `zero_rep` passe par la même lecture que `rendre`.
     if (!salle && estApprochee(vuesBase, avant, C, opt.equipement)) {
       ligne = Object.assign({}, ligne, { approchee: true });
@@ -2080,7 +2186,7 @@
   }
   // Les états que le plafond ne touche jamais (leur charge est déjà au palier ou n'est pas une proposition) : ils portent le drapeau (`mord: false`).
   var ETATS_SANS_PLAFOND = { zero_rep: true, reprise_courte: true, reprise_longue: true, silence: true, fini: true, arret: true,
-                             depart_routine: true, depart_leste: true, tenue_apres_zero: true };
+                             depart_routine: true, depart_leste: true, tenue_apres_zero: true, retour_jour_sans: true };
   function copieDeConsigne(r, ajout) {
     var c = Object.assign({}, r, ajout);
     // `_bord` (le compte long de la règle de bord) et `_lues` (les séances lues, I152) sont non énumérables : ils suivent la consigne remplacée (O1).
@@ -2637,7 +2743,7 @@
       // PR 4b (R-A, O2, « 3b ») — UNE TENUE IMPOSÉE PAR LE COACH N'EST NI UNE STAGNATION NI UN RECUL : quand la consigne reçue était la `tenue_apres_zero` et que
       // la barre n'a pas été ratée, la séance est neutre pour le compte (`etatSuite = prec`, comme une décharge) — sinon deux séances suivies à la lettre
       // mèneraient à `bord_vague` (−5 %) alors que le coach tenait la charge. (`zero_rep`, livré avec la règle B, est hors PR : noté comme dette.)
-      var tenueNeutre = rk !== null && rk.etat === 'tenue_apres_zero' && prec !== null && !ratee;
+      var tenueNeutre = rk !== null && (rk.etat === 'tenue_apres_zero' || rk.etat === 'retour_jour_sans') && prec !== null && !ratee;   // R2 : le retour après un jour sans est une tenue imposée aussi
       // Lot E, A2 (20/11/2026, MOTEUR §9.1.2 et §9.8, I240) — LA SÉANCE DE CONFIRMATION DU PRUDENT EST NEUTRE : quand la consigne reçue était la garde de
       // confirmation (`bord.confirmation`) et que la barre n'a pas été ratée, la séance ne compte ni pour la vague (`sans`) ni pour le compte long (`total`,
       // `aRecule`, `record`, `depuisRecord`) : les cinq champs reprennent `prec`, comme la tenue après un zéro. Sinon un Prudent qui confirme une séance sur
@@ -5140,7 +5246,29 @@
   function phraseDeZeroRep(z) {
     var cF = cite(FAIT, { quoi: 'zero_rep' });
     return chargeFois(z.charge, 0, cF) + DEUX_POINTS + 'pas encore. ' + (z.bornee === true ? 'Je reviens à ' : 'Je baisse à ') +
-      enKg(z.vers, cite(FAIT, { quoi: 'zero_rep.vers' })) + '.';
+      enKg(z.vers, cite(FAIT, { quoi: 'zero_rep.vers' })) + (z.jourSans ? ' pour cette séance' : '') + '.';
+  }
+  // R2 (20/11/2026, MOTEUR §9.42 bis) — LES PHRASES DU JOUR SANS : des dates ABSOLUES (`quand(…, null, …)`), un fait, aucune promesse (une promesse tomberait en cas de reprise,
+  // de décharge, de bloc, de semaine de test : l'annonce de fin d'exercice dit la suite quand elle est vraie), jamais l'assiduité ni une durée d'absence.
+  //   le jour sans : « Le 20 nov., ta grosse série à 140 kg est restée à 0 rep, et tes reculs aussi. Le 16 nov., tu tenais 140 kg × 3. Je baisse à 132,5 kg pour cette séance. »
+  //   « ta grosse série » seulement en bloc à reculs, les reculs seulement s'il y en a.
+  function pourquoiDuJourSans(z) {
+    var j = z.jourSans, cZ = cite(FAIT, { quoi: 'jour_sans.zero' }), cT = cite(FAIT, { quoi: 'jour_sans.tenue' });
+    var zero = nombreFr(0, cite(FAIT, { quoi: 'jour_sans.zero', champ: 'reps' }));
+    var debut = quand(j.date, null, true, cZ) + ', ' + (j.grosse ? 'ta grosse série' : 'ta série') + ' à ' + enKg(z.charge, cZ) + ' est restée à ' + zero + ' rep' +
+      (j.reculs ? ', et tes reculs aussi' : '') + '. ';
+    var tenu = j.tenue && j.tenue.date && nombre(j.tenue.reps) !== null ? quand(j.tenue.date, null, true, cT) + ', tu tenais ' + chargeFois(j.tenue.charge, j.tenue.reps, cT) + '. ' : '';
+    return debut + tenu + (z.bornee === true ? 'Je reviens à ' : 'Je baisse à ') + enKg(z.vers, cite(FAIT, { quoi: 'jour_sans.vers' })) + ' pour cette séance.';
+  }
+  //   le retour : « Je reviens à ta charge de travail : 140 kg × 3. » (« je » : le coach décide la charge, I162)
+  function phraseDuRetourDuJourSans(c) {
+    return 'Je reviens à ta charge de travail' + DEUX_POINTS + chargeFois(c.ligne.charge, c.ligne.vise, cite(CIBLE, { role: 'ligne' })) + '.';
+  }
+  function pourquoiDuRetourDuJourSans(j) {
+    var cZ = cite(FAIT, { quoi: 'jour_sans.zero' }), cT = cite(FAIT, { quoi: 'jour_sans.tenue' });
+    return 'Ta séance plus légère est passée. ' + quand(j.date, null, true, cZ) + ', ton ' + nombreFr(0, cite(FAIT, { quoi: 'jour_sans.zero', champ: 'reps' })) + ' rep à ' +
+      enKg(j.charge, cZ) + ' ne change pas ta charge de travail' + DEUX_POINTS +
+      'je reviens à ' + chargeFois(j.tenue.charge, j.tenue.reps, cT) + '.';
   }
   // PR 4b (R-A, MOTEUR §9.42 bis) — LES PHRASES DU PLAFOND (VOIX : « je » quand le coach décide, un fait, jamais « plafond » ni un nombre de séances en chiffres ; O21).
   function phraseDeLaTenueApresZero(z, c) {
@@ -5208,7 +5336,7 @@
     progression: 'progression', tenue_apres_chute: 'progression', etirement_reps: 'progression',
     reprise_courte: 'reprise', reprise_longue: 'reprise',
     bord: 'bord', bord_garde: 'bord', bord_recul: 'bord', bord_vague: 'bord',
-    zero_rep: 'zero', tenue_apres_zero: 'zero',
+    zero_rep: 'zero', tenue_apres_zero: 'zero', retour_jour_sans: 'zero',
     test_propose: 'test', retest: 'test', retest_un_cran: 'test', etirement: 'test',
     garde: 'echelle', etend: 'echelle', rejoint: 'echelle', attend: 'echelle', tout_passe: 'echelle',
     nouvelle_zone: 'depart', depart_leste: 'depart', depart_routine: 'depart', carte_lest: 'depart', salle_max: 'salle',
@@ -5255,8 +5383,8 @@
       }
     } else if (c.etat === 'bord_garde' || c.etat === 'tenue_apres_zero') {
       r.verbe = VERBES.GARDE_CHARGE;
-    } else if (c.etat === 'zero_rep' && f.zeroRep && f.zeroRep.bornee === true) {
-      r.verbe = VERBES.REPREND;
+    } else if (c.etat === 'retour_jour_sans' || (c.etat === 'zero_rep' && f.zeroRep && f.zeroRep.bornee === true)) {
+      r.verbe = VERBES.REPREND;   // R2 : le retour après un jour sans reprend la charge de travail (« Je reviens à ta charge de travail »)
     } else if (fam === 'test' && c.haut && nombre(c.haut.charge) !== null && nombre(c.haut.charge) > P && !memeCharge(nombre(c.haut.charge), P)) {
       r.verbe = VERBES.TESTE;
     }
@@ -5732,6 +5860,10 @@
 
       case 'zero_rep':
         return f.zeroRep ? phraseDeZeroRep(f.zeroRep) : '';
+
+      // R2 — le retour après un jour sans.
+      case 'retour_jour_sans':
+        return f.jourSans ? phraseDuRetourDuJourSans(c) : '';
 
       // PR 4b (R-A) — le plafond après un zéro : « 102,5 kg × 0 : pas encore. Je garde 100 kg. » (la ligne EST le palier, par construction).
       case 'tenue_apres_zero':
@@ -6278,7 +6410,9 @@
         return !f.bord ? '' : phraseDeBord(c.etat, f.bord) + ' Sous ' + nombreFr(RANGEMENT[0].jusqua + 1, regle('constante')) +
           ' reps, une réserve sous ma visée garde la charge une séance.';
       case 'zero_rep':
-        return f.zeroRep ? pourquoiDeZeroRep(f.zeroRep, c.palier) : '';
+        return f.zeroRep ? (f.zeroRep.jourSans ? pourquoiDuJourSans(f.zeroRep) : pourquoiDeZeroRep(f.zeroRep, c.palier)) : '';
+      case 'retour_jour_sans':
+        return f.jourSans ? pourquoiDuRetourDuJourSans(f.jourSans) : '';
       case 'tenue_apres_zero':
         return f.plafondZero ? pourquoiDeLaTenueApresZero(f.plafondZero, c) : '';
       case 'bord_vague':
@@ -7403,7 +7537,7 @@
       var sansZoneMaisCompte = !!k && k.etat === 'etirement_reps' && nombre(k.palier) === 0;
       // PR 4b (R-A, I2) — une séance dont la consigne reçue était la tenue après un zéro est traitée comme une décharge : ni comptée ni jugée (le coach
       // tenait la charge ; suivre sans progrès ne ferait pas monter la stagnation), une présence pour la reprise.
-      if (se.neutre === true || se.decharge === true || !k || k.etat === 'silence' || k.etat === 'tenue_apres_zero' ||
+      if (se.neutre === true || se.decharge === true || !k || k.etat === 'silence' || k.etat === 'tenue_apres_zero' || k.etat === 'retour_jour_sans' ||
           ((k.zone === null || k.zone === undefined) && !sansZoneMaisCompte) || P === null) {
         if (!premiere && k && repriseDe(liste.slice(0, i), se.debut) !== AUCUNE_REPRISE) repriseEnAttente = true;
         return;

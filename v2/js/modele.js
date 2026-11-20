@@ -50,8 +50,11 @@
   // une seule rep lisible différente de 0 suffit à ne pas l'être. Rend `{ n, charge }` — `n` : le nombre de séries lues, `charge` : la
   // plus légère charge tentée (`null` si une charge manque) — ou `null`. Lue par le moteur (`contratDe`, le drapeau `zero`) et par
   // `faits.premierEssaiRate` ; aucune autre copie.
+  // R2a (20/11/2026, MOTEUR §9.42 bis) — la charge `Ch` IGNORE les reculs (« la plus légère charge tentée » d'une séance à zéro est celle de la grosse série, pas d'un recul
+  // plus léger : le coach ne baisse pas sur la charge d'un recul), sauf si la séance n'a que des reculs. La DÉTECTION du zéro ne change pas : toutes les séries lues,
+  // reculs compris, sont à 0 rep (un recul réussi après une grosse série à 0 : la séance n'est pas « toute à zéro »).
   function seanceAZero(series) {
-    var n = 0, charge = null, manque = false;
+    var n = 0, charge = null, manque = false, chargeTout = null, manqueTout = false, horsRecul = 0;
     var lues = (series || []).filter(function (s) {
       return !!s && typeDe(s) !== 'echauffement' && !estHorsCalcul(s) && !estTest(s);
     });
@@ -61,9 +64,15 @@
       if (r === null || r !== 0) return null;
       n++;
       var c = lireNombre(lues[i].charge_kg);
-      if (c === null) manque = true;
-      else if (charge === null || c < charge) charge = c;
+      if (c === null) manqueTout = true;
+      else if (chargeTout === null || c < chargeTout) chargeTout = c;
+      if (!estRecul(lues[i])) {
+        horsRecul++;
+        if (c === null) manque = true;
+        else if (charge === null || c < charge) charge = c;
+      }
     }
+    if (horsRecul === 0) { charge = chargeTout; manque = manqueTout; }
     return { n: n, charge: manque ? null : charge };
   }
   // ⚠️ PR 4b (R-A, MOTEUR §9.42 bis) — « UN ZÉRO PARTIEL » : UNE LECTURE, ICI. Sur les mêmes séries lues que `seanceAZero` (hors chauffes, hors

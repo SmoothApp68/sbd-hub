@@ -1,0 +1,95 @@
+[
+ {
+  "nom": "a1-vb-sans-famille",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "reserveVisee({ zone: 'lourd', role: 'ligne', reglage: reglage }), protegee, famille);",
+  "nouveau": "reserveVisee({ zone: 'lourd', role: 'ligne', reglage: reglage }), protegee);",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-lot-f-plancher-barre.test.js"
+  ]
+ },
+ {
+  "nom": "a1-facile-sur-la-table",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "      var Vn = plancherDeReserve(VnT, protegee, famille);",
+  "nouveau": "      var Vn = plancherDeReserve(VnT, protegee, null);",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-lot-f-plancher-barre.test.js"
+  ]
+ },
+ {
+  "nom": "a1-auMax-litteral",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "      if (gros) reserve = PLANCHER_DE_BARRE[classe];",
+  "nouveau": "      if (gros) reserve = classe === 'souleve' ? 1 : 1;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-lot-f-plancher-barre.test.js"
+  ]
+ },
+ {
+  "nom": "3p-sans-r-sup-visee",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "    return r > v && r >= Math.min(RESERVE_GRILLE_MAX, v + RESERVE_ECART);",
+  "nouveau": "    return r >= Math.min(RESERVE_GRILLE_MAX, v + RESERVE_ECART);",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-lot-f-trois-ou-plus.test.js"
+  ]
+ },
+ {
+  "nom": "3p-applique-en-prudent",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "    if (o && o.reglage === 'prudent') return r >= v + RESERVE_ECART;",
+  "nouveau": "",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-lot-f-trois-ou-plus.test.js"
+  ]
+ },
+ {
+  "nom": "3p-i57-ancien-ecart",
+  "fichier": "v2/js/plan.js",
+  "ancien": "!Moteur().reserveAtteintLeSeuil(ev.reserve, ev.viseeTable !== undefined ? ev.viseeTable : ev.visee, { reglage: plan.reglage })",
+  "nouveau": "ev.reserve < (ev.viseeTable !== undefined ? ev.viseeTable : ev.visee) + 2",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-lot-f-trois-ou-plus.test.js"
+  ]
+ },
+ {
+  "nom": "g0-sans-monotonie",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "        if (deja) deja.vise = Math.min(deja.vise, bI);\n        else bornesG0.push({ charge: cI, vise: bI });",
+  "nouveau": "        if (ig === k) bornesG0 = [{ charge: cI, vise: bI }];",
+  "banc": "seance",
+  "sections": [
+   "a-fond"
+  ],
+  "unitaires": [
+   "tests/unit/v2-lot-f-a-fond-garde0.test.js"
+  ]
+ },
+ {
+  "nom": "g0-k-plus-1-seule",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "        for (var jg = k + 1; jg < n; jg++) {",
+  "nouveau": "        for (var jg = k + 1; jg < Math.min(n, k + 2); jg++) {",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-lot-f-a-fond-garde0.test.js"
+  ]
+ },
+ {
+  "nom": "g0-pas-de-cede",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "        if (rg <= z.bas) message.cede = true;",
+  "nouveau": "",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-lot-f-a-fond-garde0.test.js"
+  ]
+ }
+]

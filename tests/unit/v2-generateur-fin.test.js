@@ -264,8 +264,8 @@ describe('66D — la création : une paire s’écrit en superset (`Routines.rou
       { exercise_slug: 'rowing_poulie_assis', series: 3, reps: 10, chauffes: 0, groupe_superset: null },
       { exercise_slug: 'developpe_couche_haltere', series: 3, reps: 10, chauffes: 0, groupe_superset: null }] }, opts);
     expect(nuls).toEqual(sans);
-    // Le rowing, premier polyarticulaire, reprend son repos de 180 s ; le couché, 120 s.
-    expect(sans.exercices.map((e) => [e.groupe_superset, e.repos_cible_s])).toEqual([[null, 180], [null, 120]]);
+    // 20/11/2026 (MOTEUR §9.52) : le repos par défaut est le repos conseillé de base (10 reps + garde 2 = P 12 : poly 2:00, quelle que soit la place dans la séance).
+    expect(sans.exercices.map((e) => [e.groupe_superset, e.repos_cible_s])).toEqual([[null, 120], [null, 120]]);
   });
 });
 

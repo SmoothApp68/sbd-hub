@@ -17861,7 +17861,7 @@ const SETS_IMPORTES = [
     };
     ok('[R60] C — la structure de « En faire une routine » : chauffe puis séries de travail aux reps visées, le repos par défaut, JAMAIS de charge',
       JSON.stringify(formeR('Haut U603')) === JSON.stringify([
-        ['r60-dev-u603', 180, [['echauffement', null, null], ['travail', 10, null], ['travail', 10, null], ['travail', 10, null]]],
+        ['r60-dev-u603', 120, [['echauffement', null, null], ['travail', 10, null], ['travail', 10, null], ['travail', 10, null]]],
         ['r60-row-u603', 120, [['travail', 10, null], ['travail', 10, null], ['travail', 10, null]]],
         ['r60-cur-u603', 90, [['travail', 12, null], ['travail', 12, null], ['travail', 12, null]]]]),
       JSON.stringify(formeR('Haut U603')));
@@ -18110,9 +18110,9 @@ const SETS_IMPORTES = [
     ok('[R60] G — « Créer ces 4 routines » : QUATRE routines (deux taps n’écrivent pas deux fois), dans « Mon programme », dans l’ordre',
       rg.length === 4 && rg.every((r) => r.dossier === 'Mon programme') && rg.map((r) => r.nom).join('|') === 'Jour A|Jour B|Jour C|Jour D',
       JSON.stringify(ROUTINES.map((r) => [r.nom, r.dossier, r.rang])));
-    ok('[R60] G — la forme écrite : des séries de travail seulement (ni chauffe, ni charge), le premier exercice à 180 s de repos',
+    ok('[R60] G — la forme écrite : des séries de travail seulement (ni chauffe, ni charge), le premier exercice au repos conseillé de base (150 s)',
       rg.every((r) => formeG(r).every((x) => x[2].length >= 2 && x[2].every((l) => l[0] === 'travail' && l[1] === true))) &&
-        formeG(rg[0])[0][1] === 180, JSON.stringify(formeG(rg[0])));
+        formeG(rg[0])[0][1] === 150, JSON.stringify(formeG(rg[0])));
     ok('[R60] G — ce qui est écrit est ce qui était montré (les exercices, dans l’ordre) ; l’écarté n’y est pas',
       rg.every((r, i) => JSON.stringify(r.routine_exercises.slice().sort((a, b) => a.rang - b.rang)
         .map((x) => (CATALOGUE.filter((c) => c.slug === x.exercise_slug)[0] || {}).nom)) === JSON.stringify(nomsApercu[i][1])) &&
@@ -30320,8 +30320,8 @@ const SETS_IMPORTES = [
       return { ligne: x.pourquoi && x.pourquoi.repos || null, long: x.reposLong ? x.reposLong.reposS : null,
                compteur: x.compteur ? x.compteur.compteur : null, etat: x.consigne ? x.consigne.etat : null };
     });
-    ok('[EQ1882] DISCRIMINANT — le « Pourquoi » du squat qui stagne porte « Sur un gros mouvement, 2 min 30 à 3 min de repos aident. » (repos réglé 75 s)',
-      repos1882.ligne === 'Sur un gros mouvement, 2 min 30 à 3 min de repos aident.' && repos1882.long === 75, nb1882(repos1882));
+    ok('[EQ1882] DISCRIMINANT — le « Pourquoi » du squat qui stagne dit le fait sans chiffre de repos : « Sur un gros mouvement, ton repos réel est court ; le conseil est dans le minuteur. » (repos réglé 75 s ; 20/11/2026, I76)',
+      repos1882.ligne === 'Sur un gros mouvement, ton repos réel est court ; le conseil est dans le minuteur.' && repos1882.long === 75, nb1882(repos1882));
     ok('[EQ1882] la garde de l’app (I76 compris) n’a rien vu', gardeBanc.violations === violationsAvant, nb1882(gardeBanc.liste.slice(-2)));
     await abandonner();
 
@@ -32141,6 +32141,115 @@ const SETS_IMPORTES = [
     }
     recapDesDefauts();
     ok('[ST] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      nb([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    base.predictions = parisAvant;
+    CATALOGUE.length = nbCatAvant;
+    ROUTINES.length = 0;
+    routinesAvant.forEach((r) => ROUTINES.push(r));
+    base.profiles[0] = profilAvant;
+    rendreLesBlocs();
+    await aller('/saisie');
+  }
+
+  console.log('\n══ repos-conseille. LE REPOS CONSEILLÉ DANS LA MOLETTE : SANS RÉGLAGE ELLE SE POSE SUR LE CONSEIL, AVEC UN RÉGLAGE « PRENDRE » LE POSE POUR LA SÉANCE ; LE CONSEIL N’ARME RIEN ; LES CHAUFFES NE BOUGENT PAS (MOTEUR §9.52, I256 à I266) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : un squat à la barre 3 × 5 SANS repos réglé (un grand mouvement : 5 reps visées, garde lue → la case « grand » ;
+  // la molette doit se poser sur le conseil et non sur 1:30), et un curl 3 × 12 dont la routine règle 1:00 (une isolation à 1:30 : « Ta routine : 1:00 · Conseillé : 1:30 »
+  // et « Prendre 1:30 », qui pose `repos_cible_s` pour la séance et ferme en UN geste). Aucun test ne touche la routine : aucun PATCH de routine au geste.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const nbCatAvant = CATALOGUE.length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, parisAvant = base.predictions;
+    const routinesAvant = ROUTINES.splice(0, ROUTINES.length);
+    const profilAvant = Object.assign({}, base.profiles[0]);
+    base.sessions = []; base.sets = []; base.predictions = [];
+    const rendreLesBlocs = await retirerBlocsDeLAppareil();
+    const nb = (x) => JSON.stringify(x === undefined ? null : x);
+    const sp = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const SQ = 'rc-squat', CU = 'rc-curl';
+    CATALOGUE.push({ slug: SQ, nom: 'Squat RC (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+      muscles_primaires: ['quadriceps'], muscles_secondaires: ['fessiers', 'ischio_jambiers'], muscles_stabilisateurs: [], schema_mouvement: 'squat' });
+    CATALOGUE.push({ slug: CU, nom: 'Curl RC (Haltères)', mesure: 'charge_reps', charge: 'externe', equipement: 'haltere',
+      muscles_primaires: ['biceps'], muscles_secondaires: [], muscles_stabilisateurs: [], schema_mouvement: 'tirer' });
+    base.profiles[0] = Object.assign({}, PROFIL_BANC, { rythme_progression: 'normal', intention: 'progresser', phase: 'maintien', phase_depuis: null,
+      cartes_semaine: null, priorites: null, jours_vises: null });
+    ROUTINES.push({ id: 'r-rc', nom: 'Repos RC', note: null, archivee_a: null, created_at: '2026-01-05T10:00:00.000Z', updated_at: '2026-01-05T10:00:00.000Z',
+      routine_exercises: [[SQ, null, 5], [CU, 60, 12]].map(([slug, repos, reps], k) => ({ id: 're-rc-' + k, routine_id: 'r-rc', exercise_slug: slug, rang: k,
+        zone: null, repos_cible_s: repos, groupe_superset: null, note: null,
+        routine_sets: [1, 2, 3].map((i) => ({ id: 'rs-rc-' + k + '-' + i, rang: i, type_serie: 'travail', reps_visees: reps, charge_cible_kg: null,
+          duree_cible_s: null, distance_cible_m: null })) })) });
+    const patchsAvant = () => (typeof patchsRoutine === 'function' ? patchsRoutine().length : 0);
+    const lireFeuille = () => page.evaluate(() => {
+      const f = document.getElementById('feuille-contenu');
+      const piste = f.querySelector('.molette .piste');
+      const sel = f.querySelector('.molette .opt.sel');
+      const marque = f.querySelector('.molette .opt .marque');
+      return { entete: (f.querySelector('.conseil-qui') || {}).textContent || '', reglage: (f.querySelector('.conseil-reglage') || {}).textContent || '',
+               pourquoi: (f.querySelector('.conseil-pourquoi') || {}).textContent || '', prendre: f.querySelector('.conseil-prendre') ? f.querySelector('.conseil-prendre').textContent : null,
+               mention: (f.querySelector('.conseil-mention') || {}).textContent || '', centre: sel ? Number(sel.dataset.v) : null,
+               marque: marque ? Number(marque.parentNode.dataset.v) : null, defile: piste ? piste.scrollTop : null, nbOpts: f.querySelectorAll('.molette .opt').length };
+    });
+    try {
+      await aller('/saisie');
+      await demarrerRoutine('Repos RC');
+      await attendreQue(() => page.evaluate(() => !!(window.THPlan && window.THPlan.dernier && window.THPlan.dernier.plan && window.THPlan.dernier.plan.exercices.length >= 2)), 15000, 'planRC');
+      const plan = await page.evaluate(() => window.THPlan.dernier.plan.exercices.map((x) => ({ slug: x.slug, r: x.reposConseille })));
+      ok('[RC] le plan porte un repos conseillé par exercice : squat (grand, 5 reps) 2:30 ou 3:00 selon la garde, curl (isolation, 12 reps) 1:30 ou 2:00',
+        !!plan[0].r && plan[0].r.famille === 'grand' && (plan[0].r.s === 150 || plan[0].r.s === 180) && !!plan[1].r && plan[1].r.famille === 'isolation' && (plan[1].r.s === 90 || plan[1].r.s === 120), nb(plan));
+      // ── 1. AUCUN repos réglé : la molette se pose sur le conseil.
+      const patchs0 = patchsAvant();
+      await ouvrirFeuilleBloc(0, '.repos-cible');
+      // La molette doit être PHYSIQUEMENT posée sur le conseil (la feuille se rend avant que le voile ne s'ouvre : le défilement se repose au tour suivant).
+      await attendreQue(() => page.evaluate(() => { const p = document.querySelector('#feuille-contenu .molette .piste'); const i = p ? Array.from(p.querySelectorAll('.opt')).findIndex((o) => o.classList.contains('sel')) : -1; return i > 0 && p.scrollTop === i * 48; }), 6000, 'molettePoseeRC');
+      const f1 = await lireFeuille();
+      ok('[RC] sans réglage : la molette est CENTRÉE sur le conseil (pas sur 1:30), le cran porte la marque « conseillé »',
+        f1.nbOpts === 36 && f1.centre === plan[0].r.s && f1.marque === plan[0].r.s && f1.defile === (await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .molette .opt')).findIndex((o) => o.classList.contains('sel')) * 48)),
+        nb([f1, plan[0].r.s]));
+      ok('[RC] …avec « Conseillé : m:ss » et la phrase du coach (3 reps… « je conseille … entre les séries »), sans « Prendre », sans « Ta routine »',
+        new RegExp('^Conseillé : ' + Math.floor(plan[0].r.s / 60) + ':' + String(plan[0].r.s % 60).padStart(2, '0') + '$').test(sp(f1.entete)) && /^5 reps.* : je conseille .* entre les séries\.$/.test(sp(f1.pourquoi)) &&
+          f1.prendre === null && f1.reglage === '', nb(f1));
+      ok('[RC] …et la phrase dit « min », jamais le « 4 min » arrondi de `dureeEnMinutes` pour 3 min 30',
+        !(plan[0].r.s === 210 && /4 min/.test(f1.pourquoi)), f1.pourquoi);
+      ok('[RC] le conseil n’ARME rien : aucun chronomètre ni PATCH de routine à l’ouverture',
+        patchsAvant() === patchs0 && !(await page.evaluate(() => !!document.querySelector('.chrono-actif, .repos-en-cours'))), String(patchsAvant() - patchs0));
+      await fermerFeuille();
+      ok('[RC] « Annuler » ne pose rien : le repos du squat reste « — »', /—/.test(sp(await lireBloc(0, '.repos-cible'))), sp(await lireBloc(0, '.repos-cible')));
+      // ── 2. UN repos réglé (1:00) : la molette reste sur le réglage ; « Prendre » le remplace pour la séance.
+      await ouvrirFeuilleBloc(1, '.repos-cible');
+      const f2 = await lireFeuille();
+      const c2 = plan[1].r.s, txt2 = Math.floor(c2 / 60) + ':' + String(c2 % 60).padStart(2, '0');
+      ok('[RC] avec un réglage (1:00) : la molette RESTE sur 1:00, « Ta routine : 1:00 », « Conseillé : ' + txt2 + ' », le bouton « Prendre ' + txt2 + ' » et « Pour cette séance »',
+        f2.centre === 60 && sp(f2.reglage) === 'Ta routine : 1:00' && sp(f2.entete) === 'Conseillé : ' + txt2 && sp(f2.prendre) === 'Prendre ' + txt2 && sp(f2.mention) === 'Pour cette séance', nb(f2));
+      const patchs2 = patchsAvant();
+      await page.click('#feuille-contenu .conseil-prendre');
+      await attendreQue(() => page.evaluate(() => document.getElementById('feuille-seance').hidden === true), 6000, 'prendreFermeRC');
+      ok('[RC] « Prendre » pose le conseil pour la séance ET ferme la feuille en un seul geste',
+        sp(await lireBloc(1, '.repos-cible')).indexOf(txt2) >= 0 && (await page.evaluate(() => document.getElementById('feuille-seance').hidden)) === true, sp(await lireBloc(1, '.repos-cible')));
+      ok('[RC] …sans rien écrire dans la routine au moment du geste (la question se pose à la fin)',
+        patchsAvant() === patchs2 && ROUTINES[0].routine_exercises[1].repos_cible_s === 60, patchsAvant() - patchs2 + ' PATCH · routine à ' + ROUTINES[0].routine_exercises[1].repos_cible_s);
+      await ouvrirFeuilleBloc(1, '.repos-cible');
+      const f3 = await lireFeuille();
+      ok('[RC] réglage = conseil : plus de bouton « Prendre »', f3.prendre === null && f3.centre === c2, nb(f3));
+      await fermerFeuille();
+      // ── 3. Les chauffes automatiques ne changent pas.
+      const chauffes = await page.evaluate(() => ({ entre: window.THMoteur.REPOS_ENTRE_CHAUFFES, apres: window.THMoteur.REPOS_APRES_CHAUFFES }));
+      ok('[RC] les chauffes automatiques : 60 s entre deux chauffes, 120 s avant la première série de travail', chauffes.entre === 60 && chauffes.apres === 120, nb(chauffes));
+      // ── 4. La question de fin ne dit jamais « conseillé ».
+      const ecart = await page.evaluate(() => window.THRendu && window.THRendu.libelleEcart ? window.THRendu.libelleEcart({ type: 'repos', nom: 'Curl', avant: 60, apres: 90 }) : null);
+      ok('[RC] la question de fin dit « repos 1:00 → 1:30 », jamais « conseillé »', ecart === null || (/1:00/.test(ecart) && /1:30/.test(ecart) && !/conseill/i.test(ecart)), nb(ecart));
+      ok('[RC] le plan reste propre après chaque geste (invariants I256 à I266, garde du banc)', gardeBanc.violations === violationsAvant, nb(gardeBanc.liste.slice(-2)));
+      await abandonner();
+    } catch (e) {
+      ok('[RC] [exception] la section a pu se jouer jusqu’au bout', false, String(e && e.stack || e).slice(0, 600));
+      await remettreAPropre();
+    }
+    recapDesDefauts();
+    ok('[RC] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
       base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
       nb([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
     base.sessions = sessionsAvant;

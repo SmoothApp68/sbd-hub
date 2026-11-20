@@ -66,6 +66,6 @@ describe('structureDepuisLignesSociales', () => {
   });
   test('la forme est celle de ma séance : repos par défaut, origine dite', () => {
     const s = faire([l('squat_barre', 1, 'travail', 5)]);
-    expect(s.exercices[0]).toEqual(expect.objectContaining({ repos_cible_s: 180, repos_origine: 'par défaut' }));
+    expect(s.exercices[0]).toEqual(expect.objectContaining({ repos_cible_s: 150, repos_origine: 'par défaut' }));
   });
 });

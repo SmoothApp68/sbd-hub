@@ -566,12 +566,14 @@ describe('188-2 — la compression d’une séance : supersets, repos, une séri
 });
 
 // ══ LE REPOS LONG (aucune carte : une ligne au « Pourquoi ») ══════════════════════════════════════════════════════
-describe('188-2 — « Sur un gros mouvement, 2 min 30 à 3 min de repos aident. »', () => {
+describe('188-2 — « Sur un gros mouvement, ton repos réel est court ; le conseil est dans le minuteur. »', () => {
   const M = require('../../v2/js/moteur.js');
   const bon = () => ({ grand: true, stagne: true, chutes: [0.35, 0.4, 0.31], reposS: 75 });
   test('les trois conditions réunies : la ligne', () => {
     expect(M.reposAConseiller(bon())).toBe(true);
-    expect(M.phraseReposLong()).toBe('Sur un gros mouvement, 2 min 30 à 3 min de repos aident.');
+    // 20/11/2026 (MOTEUR §9.52, I264) : la ligne garde le fait et perd son chiffre — le seul chiffre de repos est celui de la molette.
+    expect(M.phraseReposLong()).toBe('Sur un gros mouvement, ton repos réel est court ; le conseil est dans le minuteur.');
+    expect(M.phraseReposLong()).not.toMatch(/\d/);
   });
   test('⚠️ il suffit d’une seule condition manquante pour se taire', () => {
     expect(M.reposAConseiller(Object.assign(bon(), { grand: false }))).toBe(false);

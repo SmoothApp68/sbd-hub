@@ -12680,7 +12680,11 @@
       return Rendu.rendreFeuilleRepos(cible, {
         exercice: nom,
         repos: exo.repos_cible_s,
-        aide: 'Pour cette séance. La routine n\u2019est pas touchée : la question se pose à la fin.',
+        // 20/11/2026 (MOTEUR §9.52) — le repos conseillé du plan, lu tel quel (l'écran ne calcule rien) ; « Prendre » est la seule façon de l'écrire
+        // dans la séance, et c'est un geste : le conseil n'arme jamais le minuteur.
+        conseil: (planDeLExercice(feuille.iExo) || {}).reposConseille || null,
+        surPrendre: poserRepos,
+        aide: 'Pour cette séance. La routine n\u2019est pas touchée sans ta réponse à la question de fin.',
         surValider: poserRepos,
         // ⚠️ `null`, JAMAIS ZÉRO. `definirReposCible` refuse tout ce qui sort
         // de ses bornes — un zéro serait donc ignoré en silence, et le repos

@@ -115,15 +115,15 @@ describe('le polyarticulaire compte ses muscles dans les trois listes', () => {
     expect(Moteur.aDesMuscles({ prim: [], sec: [], stab: ['abdominaux'] })).toBe(true);
   });
 
-  test('⚠️ « En faire une routine » : un tel exercice reçoit le repos d’un polyarticulaire (180 s en premier, 120 s ensuite), pas 90 s', () => {
+  test('⚠️ « En faire une routine » : un tel exercice reçoit le repos d’un polyarticulaire (120 s à 10 reps + garde 2, quelle que soit sa place), pas 90 s', () => {
     const s = (slug, rang) => ({ exercise_slug: slug, rang, type_serie: 'travail', reps: 8, groupe_superset: null, occurrence: null });
     const cat = [GAINE, CURL, SQUAT];
     const premier = Routines.routineDepuisSeance([s('curl_u65', 1), s('gaine_u65', 2), s('squat_u65', 3)],
       { titre: 'X', exercices: cat, routines: [] });
     expect(premier.exercices.map((e) => [e.exercise_slug, e.repos_cible_s]))
-      .toEqual([['curl_u65', 90], ['gaine_u65', 180], ['squat_u65', 120]]);
+      .toEqual([['curl_u65', 90], ['gaine_u65', 120], ['squat_u65', 120]]);
     const ensuite = Routines.routineDepuisSeance([s('squat_u65', 1), s('gaine_u65', 2)], { titre: 'X', exercices: cat, routines: [] });
-    expect(ensuite.exercices.map((e) => [e.exercise_slug, e.repos_cible_s])).toEqual([['squat_u65', 180], ['gaine_u65', 120]]);
+    expect(ensuite.exercices.map((e) => [e.exercise_slug, e.repos_cible_s])).toEqual([['squat_u65', 120], ['gaine_u65', 120]]);
   });
 
   test('⚠️ le raccourci (§9.18) : priorité 2, plancher 2 — pas le plancher 1 d’une isolation', () => {

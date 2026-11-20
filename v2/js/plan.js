@@ -1104,6 +1104,82 @@
     return { grand: true, stagne: true, chutes: chutes.slice(0, M.SEANCES_DE_CHUTE), reposS: reposS, phrase: cap.texte };
   }
 
+  // ── 20/11/2026 (MOTEUR §9.52, I256 à I266) — LE REPOS CONSEILLÉ DE BASE, dans la molette du minuteur ───────────────────────────────────────
+  //
+  // Une valeur par exercice (`x.reposConseille = { s, cas, pourquoi, … }`), le porteur du tour pour un superset (le dernier membre ; les
+  // autres : `null`). Le plan la calcule UNE fois (`Moteur.reposConseilleDeBase`) ; la molette la lit, rien n'est écrit : ni le minuteur
+  // (le conseil n'ARME jamais), ni `repos_cible_s`, ni la routine. Silence (`null`) : sans reps visées (une durée), sans famille (aucun muscle au
+  // catalogue), en Entretenir (profil ou exercice), en Édition, et là où le coach se tait pour l'exercice (« J'ai mal », « Sans coach cette fois »).
+  // Les chauffes automatiques (60 s, puis 120 s) ne passent pas ici. L'adaptation en séance (+1 min après un raté) est un autre chantier.
+  function nombreDeSeriesDeTravail(x, liste) {
+    return (x.lignes || []).filter(function (l) {
+      var s = liste[l.iSerie];
+      return l.type === 'travail' && s && racine.THModele.estTravail(s) && s.test_pose !== true;
+    }).length;
+  }
+  function reposConseillesDuPlan(plan, e, seance) {
+    var M = Moteur();
+    var exos = seance.exercices || [];
+    var cat = e.catalogue || {};
+    var xs = plan.exercices || [];
+    var muet = plan.intention === 'entretien' || !!plan.edition || !!seance.edition;
+    var fiche = function (slug) {
+      var f = slug && Object.prototype.hasOwnProperty.call(cat, slug) ? cat[slug] : null;
+      return f ? { slug: slug, prim: f.muscles_primaires || [], sec: f.muscles_secondaires || [], stab: f.muscles_stabilisateurs || [], equipement: f.equipement } : null;
+    };
+    var contexteDe = function (x, i) {
+      var exo = exos[i] || {}, liste = exo.series || [];
+      var allegee = x.consigne && x.consigne.allegee ? { reps: nombre(x.consigne.allegee.avant && x.consigne.allegee.avant.vise) } : null;
+      return { famille: M.familleDeRepos(fiche(x.slug)), reps: repsDeLaPremiereLigne(x.lignes || [], liste), garde: nombre(x.gardeDeLigne),
+               series: nombreDeSeriesDeTravail(x, liste), test: !!x.semaineDeTest, allegee: allegee };
+    };
+    var poser = function (x, i, o, groupe) {
+      var r = M.reposConseilleDeBase(o);
+      if (!r) return;
+      var gardeDite = r.cas !== 'test' && r.cas !== 'superset' && nombre(o.garde) !== null && nombre(x.reserveAffichee) !== null && nombre(o.garde) === nombre(x.reserveAffichee);
+      var cap = Voix().capturer(function () { return M.phraseDuReposConseille({ r: r, reps: o.reps, garde: o.garde, gardeDite: gardeDite }); });
+      x.reposConseille = { s: r.s, cas: r.cas, base: r.base, famille: r.famille, reps: o.reps === undefined ? null : o.reps, garde: nombre(o.garde), gardeDite: gardeDite,
+                           series: r.series, membres: r.membres, entreLesTours: !!groupe, pourquoi: cap.texte };
+      x.phrases = x.phrases || [];
+      x.phrases.push({ ou: 'repos.conseil', texte: cap.texte, citations: cap.citations });
+    };
+    xs.forEach(function (x) { if (x) x.reposConseille = null; });
+    if (muet) return;
+    // Là où le coach se tait pour l'exercice : Entretenir, « Sans coach cette fois » / « J'ai mal », une mesure en durée ou en distance (une planche, le cardio :
+    // I13 — aucune phrase du coach), une figure (les secondes).
+    var tait = function (q) {
+      return !q || q.intention === 'entretien' || !!q.sansCoach || !!q.douleur || !!q.figure ||
+        q.mesure === 'temps' || q.mesure === 'distance_temps' || q.mesure === 'charge_distance' || q.mesure === 'charge_temps';
+    };
+    var vus = {};
+    xs.forEach(function (x, i) {
+      if (!x || vus[i] || tait(x)) return;
+      var exo = exos[i] || {};
+      var g = exo.groupe_superset === undefined ? null : exo.groupe_superset;
+      var o = contexteDe(x, i);
+      o.raccourci = !!e.raccourci;
+      if (g === null || g === '') {
+        o.reposPose = nombre(exo.repos_cible_s);
+        poser(x, i, o, false);
+        return;
+      }
+      // Un superset : le tour (les exercices qui partagent `groupe_superset`, côte à côte) ; le conseil vit sur le DERNIER membre, qui porte le repos du tour.
+      var rangs = [];
+      exos.forEach(function (q, k) { if (q && q.groupe_superset === g && xs[k]) rangs.push(k); });
+      rangs.forEach(function (k) { vus[k] = true; });
+      var dernier = rangs[rangs.length - 1];
+      var porteur = xs[dernier];
+      if (rangs.length < 2) { o.reposPose = nombre(exo.repos_cible_s); poser(x, i, o, false); return; }
+      if (rangs.some(function (k) { return tait(xs[k]); })) return;
+      var oS = contexteDe(porteur, dernier);
+      oS.raccourci = !!e.raccourci;
+      oS.reposPose = nombre((exos[dernier] || {}).repos_cible_s);
+      oS.test = rangs.some(function (k) { return !!xs[k].semaineDeTest; });
+      oS.membres = rangs.map(function (k) { var c = contexteDe(xs[k], k); return { famille: c.famille, reps: c.reps, garde: c.garde }; });
+      poser(porteur, dernier, oS, true);
+    });
+  }
+
   // ── 193-1 (MOTEUR §9.28) — LES SÉRIES DE RECUL ─────────────────────────────
   //
   // Une ligne de recul (`type === 'recul'`, rôle `hors`) n'est jamais couverte par la consigne : sa charge est celle de la GROSSE
@@ -2493,6 +2569,8 @@
     };
     // PR 3 (§9.45, B4) — le bandeau ne dit « avec de la marge » que si une cible baisse dans la séance.
     margeDuBandeau(plan236);
+    // 20/11/2026 (MOTEUR §9.52) — le repos conseillé de chaque exercice, lu sur le plan fini ; rien n'est écrit.
+    reposConseillesDuPlan(plan236, e, seance);
     // 236 (MOTEUR §9.39) — le coach en temps réel après un raté : lu sur le plan fini, posé sur lui.
     return reactionsDuPlan(plan236, e, seance);
     function planDeLOccurrence(exo, i, salleEl) {
@@ -6244,7 +6322,9 @@
                           // 236 — les chiffres de la réaction après un raté (reps, garde, charges) : plusieurs faits distincts par clé.
                           'regle|rate.reps': true, 'regle|rate.garde': true, 'regle|rate.charge': true,
                           // 251 — la porte du cran : les reps de la série fermante, du cran et de la table (plusieurs faits sous une clé).
-                          'regle|porte.reps': true };
+                          'regle|porte.reps': true,
+                          // 20/11/2026 — le repos conseillé : reps, garde, séries, durée et membres, un fait distinct par clé.
+                          'regle|repos.reps': true, 'regle|repos.garde': true, 'regle|repos.series': true, 'regle|repos.duree': true, 'regle|repos.membres': true };
 
   function texteDuChiffre(v) {
     return v === null || v === undefined ? String(v) : (typeof v === 'number' ? Voix().nombre(v) || String(v) : String(v));
@@ -6583,6 +6663,13 @@
       'test.visee_bas': x.semaineDeTest && x.semaineDeTest.serie ? { valeur: x.semaineDeTest.serie.visee[0] } : null,
       'test.visee_haut': x.semaineDeTest && x.semaineDeTest.serie ? { valeur: x.semaineDeTest.serie.visee[1] } : null,
       'test.plafond': x.semaineDeTest && x.semaineDeTest.serie ? { valeur: x.semaineDeTest.serie.plafond } : null,
+      // 20/11/2026 (MOTEUR §9.52, I266) — le repos conseillé : les chiffres de sa phrase (reps visées, garde des lignes, séries, durée, membres du tour). Leur arithmétique
+      // est relue par `verifierReposConseille` (I256 à I266), jamais par la source ici : ils ne sont citables que s'ils sont écrits au plan.
+      'repos.reps': x.reposConseille && x.reposConseille.reps !== null ? { valeur: x.reposConseille.reps } : null,
+      'repos.garde': x.reposConseille && x.reposConseille.garde !== null ? { valeur: x.reposConseille.garde } : null,
+      'repos.series': x.reposConseille && x.reposConseille.series !== null ? { valeur: x.reposConseille.series } : null,
+      'repos.duree': x.reposConseille ? { valeur: x.reposConseille.s } : null,
+      'repos.membres': x.reposConseille && x.reposConseille.membres !== null ? { valeur: x.reposConseille.membres } : null,
       'test.pct1': x.semaineDeTest && x.semaineDeTest.testee ? { valeur: Moteur().TEST_ESSAI_1 } : null,
       'test.pct2': x.semaineDeTest && x.semaineDeTest.testee ? { valeur: Moteur().TEST_ESSAI_2 } : null,
       'test.pct_serie': x.semaineDeTest && x.semaineDeTest.serie ? { valeur: x.semaineDeTest.serie.pct } : null,
@@ -6856,6 +6943,7 @@
     verifierLeviers(plan, erreurs);
     verifierHorsCalcul(plan, entrees, erreurs);
     verifierReposLong(plan, erreurs);
+    verifierReposConseille(plan, entrees, erreurs);
     verifierDepassement(plan, erreurs);
     verifierDessous(plan, erreurs);
     verifierGrosCran(plan, erreurs);
@@ -9221,6 +9309,147 @@
         if (x && x.escalier && x.escalier.marche === M.MARCHE_SERIE_DE_PLUS) pose(nom + 'une carte de série de plus pendant la série de moins');
       });
     }
+  }
+
+  // ══ I256 à I266 (20/11/2026, MOTEUR §9.52) — LE REPOS CONSEILLÉ DE BASE, relu par une arithmétique à part ══════════════════════════════════
+  //   I256 une valeur par exercice (le porteur du tour pour un superset), `null` sans reps visées, sans famille, en Entretenir, en Édition, sans coach ;
+  //   I257 monotonie : la table ne raccourcit jamais quand P baisse, grand ≥ poly ≥ isolation, « près de l'échec » ne raccourcit jamais, une décharge ≤ le jour normal ;
+  //   I258 bornes : planchers 2:00 (grand) et 1:30, plafond 4:00, au cran de la molette (hors raccourci) ;
+  //   I259 rien n'est écrit : le conseil ne porte aucun champ d'écriture (minuteur, `repos_cible_s`) ;
+  //   I260 les chauffes automatiques restent 60 s puis 120 s ; aucune ligne de chauffe ne porte de conseil ;
+  //   I261 la garde est celle des LIGNES (`gardeDeLigne`) et n'est dite que si elle égale la visée affichée ; « sans marge » seulement à garde 0 ;
+  //   I262 `Routines.reposParDefaut` donne, à P égal (reps visées + 2), la base du conseil ;
+  //   I263 sous « J'ai peu de temps », jamais au-dessus de la valeur posée ;
+  //   I264 aucun chiffre de repos hors de la molette (la ligne I76 n'en dit plus) ;
+  //   I265 un superset : le plus grand des repos de base moins 60 s par autre membre, jamais sous 1:30, sur le dernier membre ;
+  //   I266 la durée de la phrase est `formatDuree(s)` (« 3 min 30 »), jamais `dureeEnMinutes` (« 4 min »).
+  // Le tableau, le plancher et le plafond sont RÉÉCRITS ici (une relecture qui lirait la table du moteur ne prouverait rien).
+  var I256_TABLE = { grand: [180, 150, 150], poly: [150, 120, 120], isolation: [120, 90, 90] };
+  var I256_RANG = { grand: 2, poly: 1, isolation: 0 };
+  function i256Base(f, p) { return I256_TABLE[f][p <= 6 ? 0 : (p <= 12 ? 1 : 2)]; }
+  function i256Borne(v, f) { return Math.min(240, Math.max(f === 'grand' ? 120 : 90, v)); }
+  function i256Secondes(texte) {
+    var m = /(\d+) min(?: (\d+))?/.exec(texte || '');
+    if (m) return nombre(m[1]) * 60 + (m[2] ? nombre(m[2]) : 0);
+    m = /(\d+) s\b/.exec(texte || '');
+    return m ? nombre(m[1]) : null;
+  }
+  function verifierReposConseille(plan, entrees, erreurs) {
+    var M = Moteur();
+    var xs = (plan && plan.exercices) || [];
+    var e = entrees || null;
+    var seance = e && e.seance ? e.seance : null;
+    // I257 — la table : jamais plus courte quand P baisse, grand ≥ poly ≥ isolation.
+    Object.keys(I256_TABLE).forEach(function (f) {
+      for (var p = 1; p < 40; p++) if (i256Base(f, p) < i256Base(f, p + 1)) erreurs.push('I257 — la table de ' + f + ' raccourcit quand P baisse (' + p + ' → ' + (p + 1) + ')');
+    });
+    for (var pp = 1; pp < 40; pp++) {
+      if (!(i256Base('grand', pp) >= i256Base('poly', pp) && i256Base('poly', pp) >= i256Base('isolation', pp))) erreurs.push('I257 — grand ≥ poly ≥ isolation rompu à P = ' + pp);
+    }
+    // I260 — les chauffes automatiques ne bougent pas.
+    if (M.REPOS_ENTRE_CHAUFFES !== 60 || M.REPOS_APRES_CHAUFFES !== 120) erreurs.push('I260 — les repos des chauffes ne sont plus 60 s puis 120 s');
+    var contexte = function (x) {
+      var exo = seance && seance.exercices ? seance.exercices[x.iExo] || {} : {};
+      var cat = e && e.catalogue && x.slug && Object.prototype.hasOwnProperty.call(e.catalogue, x.slug) ? e.catalogue[x.slug] : null;
+      var f = cat ? M.familleDeRepos({ prim: cat.muscles_primaires || [], sec: cat.muscles_secondaires || [], stab: cat.muscles_stabilisateurs || [], equipement: cat.equipement }) : null;
+      var garde = e ? gardeDeLigneDesEntrees(x, e) : nombre(x.gardeDeLigne);
+      // Sans entrées (un plan vérifié seul), on ne relit que ce que le plan porte : la famille et les reps du conseil, les lignes pour les séries.
+      var rr = x.reposConseille || {};
+      var liste = exo.series || [];
+      return { exo: exo, famille: f !== null ? f : (e && e.catalogue ? null : (rr.famille || null)),
+               reps: seance ? repsDeLaPremiereLigne(x.lignes || [], liste) : (rr.reps === undefined ? null : rr.reps), garde: garde,
+               series: seance ? nombreDeSeriesDeTravail(x, liste) : (rr.series === undefined ? null : rr.series) };
+    };
+    xs.forEach(function (x, i) {
+      if (!x) return;
+      var nom = 'I256 — exercice ' + i + ' (' + x.slug + ') : ';
+      (x.lignes || []).forEach(function (l) {
+        if (l && l.type === 'echauffement' && (l.reposConseille !== undefined || l.repos_conseille !== undefined)) erreurs.push('I260 — exercice ' + i + ' : une chauffe porte un repos conseillé');
+      });
+      if (x.pourquoi && typeof x.pourquoi.repos === 'string' && /\d+\s*(?:min|s\b)|\d+:\d\d/.test(x.pourquoi.repos)) {
+        erreurs.push('I264 — exercice ' + i + ' : la ligne du repos long dit un chiffre de repos : ' + x.pourquoi.repos);
+      }
+      var r = x.reposConseille;
+      var coachTait = plan.intention === 'entretien' || !!plan.edition || x.intention === 'entretien' || !!x.sansCoach || !!x.douleur || !!x.figure ||
+        x.mesure === 'temps' || x.mesure === 'distance_temps' || x.mesure === 'charge_distance' || x.mesure === 'charge_temps';
+      if (!r) {
+        // Un superset : seul le porteur du tour a une valeur ; les autres n'en ont pas, c'est normal.
+        return;
+      }
+      if (coachTait) erreurs.push(nom + 'un repos conseillé là où le coach se tait (Entretenir, Édition, « J’ai mal », « Sans coach cette fois »)');
+      if (typeof r.s !== 'number' || !isFinite(r.s) || !(r.s > 0)) { erreurs.push(nom + 'une durée qui n’en est pas une : ' + r.s); return; }
+      // I259 — rien n'est écrit, rien n'est armé.
+      Object.keys(r).forEach(function (k) { if (/repos_cible|arme|minuteur|chrono|routine/i.test(k)) erreurs.push('I259' + nom.slice(4) + 'le conseil porte un champ d’écriture : ' + k); });
+      var c = contexte(x);
+      var exo = c.exo;
+      var g = exo.groupe_superset === undefined ? null : exo.groupe_superset;
+      var rangs = [];
+      if (g !== null && g !== '' && seance && seance.exercices) seance.exercices.forEach(function (q, k) { if (q && q.groupe_superset === g && xs[k]) rangs.push(k); });
+      var enTour = rangs.length > 1;
+      var pose = nombre(exo.repos_cible_s);
+      var raccourci = !!(e && e.raccourci);
+      // I256 — une valeur par exercice : le porteur d'un tour est le dernier membre, et seulement lui.
+      if (enTour && rangs[rangs.length - 1] !== x.iExo) erreurs.push(nom + 'un repos conseillé sur un membre du tour qui n’en est pas le dernier');
+      if (!enTour && r.entreLesTours) erreurs.push(nom + '« entre les tours » sur un exercice seul');
+      // I263 — « J'ai peu de temps » : jamais au-dessus de la valeur posée par le raccourci.
+      if (raccourci && pose !== null && pose > 0 && r.s > pose) erreurs.push('I263' + nom.slice(4) + 'le conseil (' + r.s + ' s) est au-dessus de la valeur du raccourci (' + pose + ' s)');
+      if (r.cas === 'raccourci' && !raccourci) erreurs.push('I263' + nom.slice(4) + 'un conseil « raccourci » sans « J’ai peu de temps »');
+      if (r.cas === 'raccourci') return;
+      // I258 — bornes, planchers, crans.
+      var plancher = r.cas === 'superset' || r.famille !== 'grand' ? 90 : 120;
+      if (r.cas === 'test') plancher = 240;
+      if (r.s < plancher || r.s > 240) erreurs.push('I258' + nom.slice(4) + r.s + ' s hors des bornes (' + plancher + ' à 240)');
+      if (r.s % 15 !== 0 || M.REPOS_PLAFOND_S !== 240 || racine.THModele.VALEURS_DE_REPOS.indexOf(r.s) < 0) erreurs.push('I258' + nom.slice(4) + r.s + ' s n’est pas un cran de la molette');
+      // I266 — la durée de la phrase est celle de `formatDuree`.
+      var dit = i256Secondes(r.pourquoi);
+      if (dit !== r.s) erreurs.push('I266' + nom.slice(4) + 'la phrase dit ' + dit + ' s, le conseil vaut ' + r.s + ' s : « ' + r.pourquoi + ' »');
+      if (/\b4 min\b/.test(r.pourquoi || '') && r.s !== 240) erreurs.push('I266' + nom.slice(4) + '« 4 min » pour ' + r.s + ' s (dureeEnMinutes arrondit)');
+      // I261 — la garde.
+      var cG = nombre(c.garde), visee = nombre(x.reserveAffichee);
+      var diteAttendue = cG !== null && visee !== null && cG === visee;
+      if (e && r.cas !== 'test' && r.cas !== 'superset') {
+        if (nombre(r.garde) !== cG) erreurs.push('I261' + nom.slice(4) + 'la garde du conseil (' + r.garde + ') n’est pas celle des lignes (' + cG + ')');
+        if (!!r.gardeDite !== diteAttendue) erreurs.push('I261' + nom.slice(4) + 'la garde est dite ' + (r.gardeDite ? 'alors qu’elle n’est pas celle de la visée affichée' : 'ou tue à tort'));
+        if (!r.gardeDite && /en gardant|sans marge/.test(r.pourquoi || '')) erreurs.push('I261' + nom.slice(4) + 'la phrase dit une garde qui n’est pas celle de la ligne : ' + r.pourquoi);
+        if (/sans marge/.test(r.pourquoi || '') && cG !== 0) erreurs.push('I261' + nom.slice(4) + '« sans marge » hors garde 0');
+      }
+      // I256, I257, I265 — la valeur attendue, recalculée.
+      var test = !!x.semaineDeTest;
+      if (enTour) test = rangs.some(function (k) { return !!(xs[k] && xs[k].semaineDeTest); });
+      var attendu = null;
+      if (test) attendu = 240;
+      else if (enTour) {
+        var bases = rangs.map(function (k) {
+          var ck = contexte(xs[k]);
+          return ck.famille && ck.reps !== null && ck.reps > 0 ? i256Base(ck.famille, ck.reps + (nombre(ck.garde) === null ? 0 : nombre(ck.garde))) : null;
+        }).filter(function (b) { return b !== null; });
+        if (bases.length) attendu = Math.min(240, Math.max(90, Math.max.apply(null, bases) - 60 * (rangs.length - 1)));
+        if (r.membres !== rangs.length) erreurs.push('I265' + nom.slice(4) + 'le tour compte ' + rangs.length + ' exercices, le conseil en dit ' + r.membres);
+      } else {
+        if (c.famille === null || c.reps === null || !(c.reps > 0)) { erreurs.push(nom + 'un conseil sans famille ni reps visées'); return; }
+        var P = c.reps + (cG === null ? 0 : cG), base = i256Base(c.famille, P);
+        var al = x.consigne && x.consigne.allegee ? nombre(x.consigne.allegee.avant && x.consigne.allegee.avant.vise) : undefined;
+        var v;
+        if (x.consigne && x.consigne.allegee) {
+          v = al === null || al === undefined ? base : Math.min(base, i256Base(c.famille, al + (cG === null ? 0 : cG)));
+          // I257 — une décharge n'est jamais plus longue que le jour normal.
+          if (al !== null && al !== undefined && r.s > i256Borne(i256Base(c.famille, al + (cG === null ? 0 : cG)) + 30, c.famille)) erreurs.push('I257' + nom.slice(4) + 'une décharge plus longue que le jour normal');
+        } else v = (cG === 0 || (cG === 1 && c.series >= 5)) ? base + 30 : base;
+        attendu = i256Borne(v, c.famille);
+        if (r.s < i256Borne(base, c.famille) && !(x.consigne && x.consigne.allegee)) erreurs.push('I257' + nom.slice(4) + 'le conseil (' + r.s + ' s) est sous la base (' + base + ' s)');
+        // I262 — les repos par défaut d'une routine sont la base, à P égal (reps visées + garde Normal).
+        var R = racine.THRoutines;
+        if (R && R.reposParDefaut && e && e.catalogue && Object.prototype.hasOwnProperty.call(e.catalogue, x.slug)) {
+          var ct = e.catalogue[x.slug];
+          var def = R.reposParDefaut({ prim: ct.muscles_primaires || [], sec: ct.muscles_secondaires || [], stab: ct.muscles_stabilisateurs || [], equipement: ct.equipement },
+            [{ type_serie: 'travail', reps_visees: c.reps }]);
+          if (def !== i256Base(c.famille, c.reps + 2)) erreurs.push('I262' + nom.slice(4) + 'le repos par défaut d’une routine (' + def + ' s) n’est pas la base du conseil à P égal (' + i256Base(c.famille, c.reps + 2) + ' s)');
+        }
+      }
+      if (seance && e.catalogue && attendu !== null && attendu !== r.s && !(raccourci && pose !== null && pose > 0 && pose < attendu && r.s === pose)) {
+        erreurs.push((enTour ? 'I265' : 'I257') + nom.slice(4) + 'le conseil vaut ' + r.s + ' s, la règle donne ' + attendu + ' s');
+      }
+    });
   }
 
   // I76 (MOTEUR §9.27 bis, 188-2) — LE REPOS D'UN GROS MOUVEMENT QUI STAGNE EST UNE LIGNE DU « POURQUOI », JAMAIS UNE CARTE :

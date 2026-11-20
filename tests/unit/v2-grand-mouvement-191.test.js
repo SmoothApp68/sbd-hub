@@ -112,6 +112,7 @@ describe('191 — aucun lecteur ne garde sa propre définition du grand mouvemen
   test('la compression l’appelle (une fois par exercice, jamais une liste d’équipements recopiée)', () => {
     const m = lire('moteur.js');
     expect(m).toMatch(/!estGrandMouvement\(e\)/);
-    expect((m.match(/EQUIPEMENTS_DES_GRANDS/g) || []).length).toBe(2);
+    // 20/11/2026 : la définition, `estGrandMouvement` et la famille « grand » du repos (`familleDeRepos`, MOTEUR §9.52 : la barre seule, sans le poids du corps) — jamais une liste recopiée.
+    expect((m.match(/EQUIPEMENTS_DES_GRANDS/g) || []).length).toBe(3);
   });
 });

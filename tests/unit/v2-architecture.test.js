@@ -114,6 +114,10 @@ const GARDEES = [
   { fn: 'propositionDeChauffes', module: 'moteur.js' },
   // 20/11/2026 (§9.15 delta, I244) — LA montée de chauffe : toutes les sources (routine, coach, proposition, demande, peu de temps) ; seul le moteur l'appelle.
   { fn: 'monteeDeChauffe', module: 'moteur.js' },
+  // 20/11/2026 (MOTEUR §9.52, I256 à I266) — LE repos conseillé de base : la table, « près de l'échec », la semaine de test, le superset, le raccourci et les bornes ; seul `planDeSeance`
+  // l'appelle, et `Routines.reposParDefaut` (les repos par défaut d'une routine créée ou générée : la même fonction, décision d'Aurélien — voir AUTORISATIONS).
+  { fn: 'reposConseilleDeBase', module: 'moteur.js' },
+  { fn: 'phraseDuReposConseille', module: 'moteur.js' },
   // 15/11/2026 (§9.41 bis, I184) — la référence des chauffes : la saisie d'abord, la consigne en repli ; seul `planDeSeance` l'appelle.
   { fn: 'referenceDesChauffes', module: 'moteur.js' },
   { fn: 'degressiveDe', module: 'moteur.js' },
@@ -303,6 +307,12 @@ const LE_COACH = 'plan.js';
 // (29/09/2026) et sont RAPPORTÉES dans sa PR pour décision : elles ne sont pas
 // forcées dans le plan par ce commit.
 const AUTORISATIONS = {
+  // 20/11/2026 (MOTEUR §9.52, décision d'Aurélien, I262) — les repos par défaut d'une routine créée ou générée sont le repos conseillé de base : une fonction, deux lecteurs.
+  reposConseilleDeBase: {
+    'routines.js': '20/11/2026 (MOTEUR §9.52, I262) : `Routines.reposParDefaut` (lue par `routineDepuisSeance`, donc par « En faire une routine », le programme construit, ' +
+      '« Dupliquer » et le social) donne à une routine CRÉÉE le repos conseillé de base — famille × reps visées + la garde Normal (2) — au lieu de la table 180 / 120 / 90 ; ' +
+      'les routines existantes ne changent pas. Aucune table en double : le routage appelle la fonction du coach.'
+  },
   // 193-4 (MOTEUR §9.32) — la semaine de test : la décision par barre est au plan ; HORS séance (la carte de fin de phase, la feuille du
   // Profil, le bilan en tête de Saisie, les paris posés au lancement), l'app passe les faits à la règle et montre ce qu'elle rend.
   testProposable: {
@@ -926,17 +936,22 @@ const NOTIONS = [
     raison: 'une routine NEUVE que `enregistrer` crée comme les autres (rang suivant, annulation) ; ' +
       'aucun identifiant partagé : l’originale ne peut pas être touchée.' },
   { notion: 'un polyarticulaire (au moins 3 muscles) : le raccourci et les repos par défaut', pr: '52-U1',
-    module: 'moteur.js', fonction: 'estPolyarticulaire', lecteurs: ['routines.js', 'generateur.js', 'plan.js', 'app.js', 'equilibres.js'],
-    par: ['raccourcirRoutine', 'estIsolation'],
-    parAilleurs: { 'routines.js': ['routineDepuisSeance'], 'generateur.js': ['relecture'],
+    module: 'moteur.js', fonction: 'estPolyarticulaire', lecteurs: ['generateur.js', 'plan.js', 'app.js', 'equilibres.js'],
+    par: ['raccourcirRoutine', 'estIsolation', 'familleDeRepos'],
+    parAilleurs: { 'generateur.js': ['relecture'],
                    'plan.js': ['polyarticulaireDe'], 'app.js': ['degressiveDeDemo'],
                    'equilibres.js': ['estCharniereLegere', 'estGros'] },
     raison: 'les repos par défaut d’« En faire une routine » sont les classes de « J’ai peu de temps » : ' +
-      'une définition, lue aux deux endroits. 66A : la relecture de la semaine (§5 ter.4) la lit aussi — l’isolation ' +
+      'une définition, lue aux deux endroits (depuis le 20/11/2026, par `familleDeRepos`, qui la lit pour la famille du repos). 66A : la relecture de la semaine (§5 ter.4) la lit aussi — l’isolation ' +
       'avant la barre, et les séries que la sèche peut retirer (jamais un polyarticulaire). 108 (MOTEUR §10 bis, ' +
       '16/10/2026) : la salle d’un exercice d’isolation, dont la fourchette s’étend à 15 reps à la plus lourde. 111 : la dégressive ' +
       'proposée (MOTEUR §14), en isolation seulement — le plan la lit (`polyarticulaireDe`), et la démonstration ' +
       '`?escalier=degressive` de l’app y choisit son exercice (`degressiveDeDemo`).' },
+  { notion: 'la famille du repos (grand = polyarticulaire à la barre · poly · isolation ; ce n’est PAS « un grand mouvement » de la compression)', pr: 'correctif 20/11/2026',
+    module: 'moteur.js', fonction: 'familleDeRepos', lecteurs: ['plan.js', 'routines.js'],
+    parAilleurs: { 'plan.js': ['reposConseillesDuPlan'], 'routines.js': ['reposParDefaut'] },
+    raison: 'MOTEUR §9.52 : la famille propre au repos — les pompes, tractions et dips (poids du corps) sont des polyarticulaires ordinaires, pas des « grands » ; `estGrandMouvement` (191) reste la ' +
+      'notion de la compression et de l’ordre. Une définition, lue par le plan (la molette) et par les repos par défaut d’une routine.' },
   { notion: 'la prudence de montée (le plafond d’un saut à 10 % : débutant ou 65 ans et plus ; un cran à la fois : débutant de 50 ans et plus)', pr: '191-U1',
     module: 'moteur.js', fonction: 'prudenceDeMontee', lecteurs: ['profil.js'],
     par: ['prudenceEffective'],

@@ -36,6 +36,8 @@ const F = require('./fixtures/cas-52-1-organiser.json');
 // deviennent des tableaux, le tapis se mesure en distance et durée.
 const CATALOGUE = Object.keys(F.catalogue).map((slug) => ({
   slug, nom: slug,
+  // 20/11/2026 (MOTEUR §9.52) : le repos par défaut lit la barre (la famille « grand ») ; le fichier de cas ne la porte pas, le catalogue réel oui.
+  equipement: /_barre$/.test(slug) ? 'barre' : null,
   mesure: slug === 'tapis_roulant' ? 'distance_temps' : 'charge_reps',
   muscles_primaires: F.catalogue[slug].prim.split('/').filter(Boolean),
   muscles_secondaires: F.catalogue[slug].sec.split('/').filter(Boolean)
@@ -53,6 +55,9 @@ const routinesDe = (c) => c.routines.map((r) => ({ nom: r.nom, modifiee_a: r.mod
 const auFormat = (r) => ({ nom: r.nom, exercices: r.exercices.map((e) => ({
   slug: e.exercise_slug, groupe_superset: e.groupe_superset, repos_s: e.repos_cible_s,
   repos_origine: e.repos_origine, series: e.series })) });
+// 20/11/2026 : les cas du fichier (reçu de Claude.ai, empreinte figée) disent encore 180 / 120 / 90 pour les repos « par défaut » ; ce défaut est devenu
+// le repos conseillé de base (décision d'Aurélien, MOTEUR §9.52) et se vérifie à part. Ici, tout le reste du cas doit rester tel quel.
+const sansDefaut = (o) => Object.assign({}, o, { exercices: o.exercices.map((e) => (e.repos_origine === 'par défaut' ? Object.assign({}, e, { repos_s: 'défaut' }) : e)) });
 const enRoutine = (c, extra) => R.routineDepuisSeance(seriesDe(c.seance), Object.assign({
   titre: c.seance.titre, exercices: CATALOGUE, routines: routinesDe(c), existants: [] }, extra || {}));
 
@@ -74,13 +79,24 @@ describe('le fichier de cas', () => {
 describe('52-1 — « En faire une routine » (ECRAN-SAISIE §7 quindecies.4)', () => {
   F.cas.en_faire_une_routine.forEach((c) => {
     test(c.titre, () => {
-      expect(auFormat(enRoutine(c))).toEqual(c.attendu);
+      expect(sansDefaut(auFormat(enRoutine(c)))).toEqual(sansDefaut(c.attendu));
     });
   });
 
-  test('les repos par défaut sont ceux du fichier, définis une fois', () => {
-    expect(R.REPOS_PAR_DEFAUT).toEqual({ premier: F.repos_defaut[3], poly: F.repos_defaut[2],
-      isolation: F.repos_defaut[1] });
+  test('20/11/2026 — les repos par défaut sont le repos conseillé de base : une fonction, plus de table 180 / 120 / 90', () => {
+    expect(R.REPOS_PAR_DEFAUT).toBeUndefined();
+    F.cas.en_faire_une_routine.forEach((c) => {
+      const r = enRoutine(c);
+      const catalogue = {};
+      CATALOGUE.forEach((q) => { catalogue[q.slug] = q; });
+      r.exercices.filter((e) => e.repos_origine === 'par défaut').forEach((e) => {
+        const q = catalogue[e.exercise_slug];
+        const reps = e.series.filter((l) => l.type_serie === 'travail').map((l) => l.reps_visees)[0];
+        const attendu = M.reposConseilleDeBase({ famille: M.familleDeRepos({ prim: q.muscles_primaires, sec: q.muscles_secondaires, stab: [], equipement: q.equipement }),
+          reps, garde: 2 });
+        expect(e.repos_cible_s).toBe(attendu === null ? null : attendu.s);
+      });
+    });
   });
 
   test('⚠️ DISCRIMINANT (a) — JAMAIS UNE CHARGE : aucune ligne ne porte de charge, quelle que soit la séance', () => {
@@ -117,8 +133,9 @@ describe('52-1 — « En faire une routine » (ECRAN-SAISIE §7 quindecies.4)', 
       { exercise_slug: 'developpe_couche_barre', rang: 3, type_serie: 'travail', reps: 5, groupe_superset: null, occurrence: null }];
     const r = R.routineDepuisSeance(series, { titre: 'X', exercices: CATALOGUE, routines: [] });
     expect(r.exercices.map((e) => [e.exercise_slug, e.repos_cible_s, e.repos_origine])).toEqual([
-      ['curl_biceps_haltere', 90, 'par défaut'], ['squat_barre', 180, 'par défaut'],
-      ['developpe_couche_barre', 120, 'par défaut']]);
+      // 20/11/2026 : 10 reps + garde 2 = P 12 (isolation : 1:30) ; 5 reps + garde 2 = P 7 sur une barre (grand : 2:30), aucun « premier » n'y change rien.
+      ['curl_biceps_haltere', 90, 'par défaut'], ['squat_barre', 150, 'par défaut'],
+      ['developpe_couche_barre', 150, 'par défaut']]);
   });
 
   test('l’échec devient une série de travail ; les chauffes et les dégressives gardent leur type', () => {

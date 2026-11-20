@@ -7681,9 +7681,105 @@
     return { parSeance: l, habituel: vus.length ? Math.round(mediane(vus)) : null };
   }
 
+  // 20/11/2026 (MOTEUR §9.52, I264) — la ligne du « Pourquoi » garde le FAIT (le repos réel est court) et ne dit plus de chiffre : le seul
+  // chiffre de repos de l'écran est celui de la molette (`reposConseilleDeBase`). Elle disait « 2 min 30 à 3 min » quand le conseil d'un
+  // gros mouvement va de 2:00 à 4:00 : deux voix, deux chiffres.
   function phraseReposLong() {
-    var c = function (v) { return nombreFr(v, regle('constante')); };
-    return 'Sur un gros mouvement, ' + c(2) + ' min ' + c(30) + ' à ' + c(3) + ' min de repos aident.';
+    return 'Sur un gros mouvement, ton repos réel est court ; le conseil est dans le minuteur.';
+  }
+
+  // ══ 20/11/2026 (MOTEUR §9.52, I256 à I266) — LE REPOS CONSEILLÉ DE BASE ═══════════════════════════════════════════
+  //
+  // UNE SEULE FONCTION, `reposConseilleDeBase`, lue par le plan (la molette du minuteur) ET par les repos par défaut d'une routine créée ou
+  // générée (`Routines.REPOS_PAR_DEFAUT` n'existe plus : `routineDepuisSeance` l'appelle). Le coach lit le mouvement, les reps visées, la
+  // marge visée et le nombre de séries ; l'âge, le sexe, la place dans la séance et les habitudes n'y entrent pas, exprès. Les sources sont
+  // dans MOTEUR §9.52 ; TOUS les pas de 30 s, les seuils de P (6, 12) et de 5 séries, 4:00 et les familles sont des CONVENTIONS nommées.
+  //
+  // La famille PROPRE AU REPOS (pas `estGrandMouvement`, qui range les pompes avec le squat pour la compression, 191) : « grand » =
+  // polyarticulaire à la barre (la liste des équipements des grands, une seule) ; « poly » = les autres polyarticulaires (le poids du corps, les machines
+  // lourdes) ; « isolation ». Un exercice sans muscle au catalogue n'a aucune famille : aucun conseil.
+  var REPOS_FAMILLES = ['grand', 'poly', 'isolation'];
+  var REPOS_P_COURT = 6, REPOS_P_LONG = 12;                      // P ≤ 6 · 7 à 12 · ≥ 13 (convention)
+  var TABLE_DE_REPOS = Object.freeze({ grand: [180, 150, 150], poly: [150, 120, 120], isolation: [120, 90, 90] });
+  var REPOS_PRES_DE_L_ECHEC_S = 30;                              // garde 0, ou garde 1 sur 5 séries ou plus : +30 s, une seule fois
+  var REPOS_SERIES_PRES_DE_L_ECHEC = 5;
+  var REPOS_DE_TEST_S = 240;                                     // semaine de test : entre deux essais lourds (convention prudente)
+  var REPOS_PAR_MEMBRE_S = DUREE_PAR_DEFAUT.serie;               // superset : −60 s par autre membre du tour (le temps passé sur l'autre est du repos)
+  var REPOS_PLANCHER_GRAND_S = 120, REPOS_PLANCHER_S = 90, REPOS_PLAFOND_S = 240;
+  function familleDeRepos(e) {
+    if (!e || !aDesMuscles(e)) return null;
+    if (!estPolyarticulaire(e)) return 'isolation';
+    return EQUIPEMENTS_DES_GRANDS.indexOf(e.equipement) >= 0 ? 'grand' : 'poly';
+  }
+  function trancheDeRepos(p) { return p <= REPOS_P_COURT ? 0 : (p <= REPOS_P_LONG ? 1 : 2); }
+  // La base : la table, sans aucun ajustement. `p` = reps visées + garde de la ligne (les reps seules sans garde lisible).
+  function baseDeRepos(famille, p) {
+    var n = nombre(p);
+    if (REPOS_FAMILLES.indexOf(famille) < 0 || n === null || !(n > 0)) return null;
+    return TABLE_DE_REPOS[famille][trancheDeRepos(n)];
+  }
+  function bornerLeRepos(s, famille) {
+    var plancher = famille === 'grand' ? REPOS_PLANCHER_GRAND_S : REPOS_PLANCHER_S;
+    return Modele().reposAuCran(Math.min(REPOS_PLAFOND_S, Math.max(plancher, s)));
+  }
+  // `o` : { famille, reps, garde (la garde des LIGNES, `Plan.gardeDeLigne`, ou null), series (de travail), test, raccourci, reposPose,
+  //         allegee: { reps (avant la décharge) }, membres: [{ famille, reps, garde }] (le tour d'un superset, porteur compris) }.
+  // Rend `{ s, cas, base, famille, p, pres, series, membres }` ou `null` (silence : sans reps visées, sans famille).
+  //   cas : 'base' · 'pres_echec' · 'test' · 'superset' · 'raccourci'
+  function reposConseilleDeBase(o) {
+    var x = o || {};
+    var garde = nombre(x.garde), reps = nombre(x.reps);
+    if (x.test === true) return { s: REPOS_DE_TEST_S, cas: 'test', base: REPOS_DE_TEST_S, famille: REPOS_FAMILLES.indexOf(x.famille) >= 0 ? x.famille : null, p: null, pres: null, series: null, membres: null };
+    if (Array.isArray(x.membres) && x.membres.length > 1) {
+      var bases = x.membres.map(function (m) { return baseDeRepos(m.famille, nombre(m.reps) === null ? null : nombre(m.reps) + (nombre(m.garde) === null ? 0 : nombre(m.garde))); })
+        .filter(function (b) { return b !== null; });
+      if (!bases.length) return null;
+      var plus = Math.max.apply(null, bases);
+      var ss = Math.min(REPOS_PLAFOND_S, Math.max(REPOS_PLANCHER_S, plus - REPOS_PAR_MEMBRE_S * (x.membres.length - 1)));
+      var sS = Modele().reposAuCran(ss);
+      var poseS = nombre(x.reposPose);
+      if (x.raccourci === true && poseS !== null && poseS > 0 && poseS < sS) return { s: poseS, cas: 'raccourci', base: sS, famille: null, p: null, pres: null, series: null, membres: x.membres.length };
+      return { s: sS, cas: 'superset', base: plus, famille: null, p: null, pres: null, series: null, membres: x.membres.length };
+    }
+    if (reps === null || !(reps > 0)) return null;
+    var famille = REPOS_FAMILLES.indexOf(x.famille) >= 0 ? x.famille : null;
+    if (famille === null) return null;
+    var p = reps + (garde === null ? 0 : garde);
+    var base = baseDeRepos(famille, p);
+    var series = nombre(x.series);
+    var al = x.allegee && typeof x.allegee === 'object' ? x.allegee : null;
+    var s = base, pres = null, cas = 'base';
+    if (al) {
+      // La décharge lit la ligne allégée (ses reps), sans le terme « près de l'échec », et ne dépasse jamais la cellule du jour normal.
+      var avant = nombre(al.reps);
+      var normale = avant === null ? base : baseDeRepos(famille, avant + (garde === null ? 0 : garde));
+      s = Math.min(base, normale);
+    } else if (garde === 0 || (garde === 1 && series !== null && series >= REPOS_SERIES_PRES_DE_L_ECHEC)) {
+      s = base + REPOS_PRES_DE_L_ECHEC_S;
+      pres = garde === 0 ? 'garde' : 'series';
+      cas = 'pres_echec';
+    }
+    var borne = bornerLeRepos(s, famille);
+    var pose = nombre(x.reposPose);
+    if (x.raccourci === true && pose !== null && pose > 0 && pose < borne) return { s: pose, cas: 'raccourci', base: borne, famille: famille, p: p, pres: null, series: series, membres: null };
+    return { s: borne, cas: cas, base: base, famille: famille, p: p, pres: pres, series: series, membres: null };
+  }
+  // La phrase du « pourquoi » du conseil, UNE seule : « 3 reps en gardant 1, sur 5 séries : je conseille 3 min 30 entre les séries. » La durée passe
+  // par `Modele.secondes` (`formatDuree` : « 3 min 30 »), JAMAIS `dureeEnMinutes` (il prend des minutes et arrondit : 3,5 devient « 4 min », I266).
+  // `o` : { r (la sortie de `reposConseilleDeBase`), reps (visées), garde (des lignes), gardeDite (= la garde des lignes égale la visée affichée) }.
+  // « sans marge » seulement à garde 0 lisible et dite ; la garde ne se dit jamais quand elle n'est pas celle de la ligne affichée (I261).
+  function phraseDuReposConseille(o) {
+    var x = o || {}, r = x.r;
+    if (!r) return null;
+    var S = Modele().secondes, cible = regle('repos.duree');
+    if (r.cas === 'test') return 'Entre deux essais lourds, je conseille ' + S(r.s, cible) + '.';
+    if (r.cas === 'raccourci') return 'Raccourci « peu de temps » : valeur posée.';
+    if (r.cas === 'superset') return nombreFr(r.membres, regle('repos.membres')) + ' exercices dans le tour : je conseille ' + S(r.s, cible) + ' entre les tours.';
+    var reps = nombre(x.reps), garde = nombre(x.garde);
+    var t = nombreFr(reps, regle('repos.reps')) + (reps > 1 ? ' reps' : ' rep');
+    if (x.gardeDite === true && garde !== null) t += garde === 0 ? ' sans marge' : ' en gardant ' + nombreFr(garde, regle('repos.garde'));
+    if (r.pres === 'series') t += ', sur ' + nombreFr(r.series, regle('repos.series')) + ' séries';
+    return t + ' : je conseille ' + S(r.s, cible) + ' entre les séries.';
   }
 
   // ══ §13.6 (49-U20) — LES FRÈRES : CÔTE À CÔTE, SANS CONCLURE ════════════
@@ -14167,6 +14263,10 @@
     estGrandMouvement: estGrandMouvement,
     estUnMouvementAuPoidsDuCorps: estUnMouvementAuPoidsDuCorps,
     reposAConseiller: reposAConseiller, phraseReposLong: phraseReposLong,
+    reposConseilleDeBase: reposConseilleDeBase, phraseDuReposConseille: phraseDuReposConseille, familleDeRepos: familleDeRepos, baseDeRepos: baseDeRepos,
+    REPOS_FAMILLES: REPOS_FAMILLES, TABLE_DE_REPOS: TABLE_DE_REPOS, REPOS_PRES_DE_L_ECHEC_S: REPOS_PRES_DE_L_ECHEC_S, REPOS_SERIES_PRES_DE_L_ECHEC: REPOS_SERIES_PRES_DE_L_ECHEC,
+    REPOS_DE_TEST_S: REPOS_DE_TEST_S, REPOS_PAR_MEMBRE_S: REPOS_PAR_MEMBRE_S, REPOS_PLANCHER_GRAND_S: REPOS_PLANCHER_GRAND_S, REPOS_PLANCHER_S: REPOS_PLANCHER_S,
+    REPOS_PLAFOND_S: REPOS_PLAFOND_S, REPOS_P_COURT: REPOS_P_COURT, REPOS_P_LONG: REPOS_P_LONG,
     reposReel: reposReel, reposReelHabituel: reposReelHabituel, REPOS_REEL_MAX_S: REPOS_REEL_MAX_S,
     CHUTE_DE_REPS: CHUTE_DE_REPS, SEANCES_DE_CHUTE: SEANCES_DE_CHUTE, REPOS_COURT_S: REPOS_COURT_S,
     consigneDepartRoutine: consigneDepartRoutine,

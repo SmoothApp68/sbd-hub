@@ -2565,6 +2565,23 @@ c'est le repos le plus courant. Le défaut est **visible**, et rien n'est écrit
 
 ---
 
+## 7 sexdecies bis. Le repos conseillé dans la molette — décidé le 20/11/2026 (chantier « repos conseillé », MOTEUR §9.52)
+
+La feuille « Temps de repos » (§7 sexdecies) montre le repos conseillé du coach, **dans la feuille et nulle part ailleurs** : rien sous les séries, rien dans « Pourquoi », rien dans la question de fin.
+
+- **Aucun repos réglé** : la molette **se pose sur le conseil** (au lieu de 1:30), le cran porte la marque « conseillé » (ambre), et, en tête de la feuille, une ligne « **Conseillé : 2:30** » (« **Entre les tours : conseillé 1:30** » pour un superset, sur son dernier membre) puis la phrase du coach. Rien n'est écrit tant que « Valider » n'a pas été touché.
+- **Un repos réglé** : la molette **reste sur le réglage**. La ligne dit « Conseillé : 2:30 » et, à droite, « Ta routine : 2:00 » ; le bouton « **Prendre 2:30** » pose `repos_cible_s` pour la séance et ferme en un seul geste, avec la mention « Pour cette séance ». Si le réglage égale déjà le conseil, il n'y a pas de bouton.
+- **Sous « J'ai peu de temps »** : « Raccourci "peu de temps" : valeur posée », la molette sur la valeur du raccourci, ni conseil ni « Prendre ».
+- **Le conseil n'ARME jamais le minuteur** ; il ne touche ni `repos_cible_s` (hors « Prendre »), ni la routine. Les chauffes automatiques (60 s, puis 120 s) ne changent pas.
+- **La question de fin de séance** peut proposer d'écrire dans la routine un repos pris (`ecartsRoutine` : « 2:00 → 2:30 »), c'est un geste de la personne, demandé une seconde fois ; **elle ne dit jamais « conseillé »**. « La routine n'est jamais touchée » se lit « jamais sans ta réponse à la question de fin ».
+- **Silence** : une durée (planche, tapis), un exercice sans muscle au catalogue, Entretenir, l'Édition d'une séance passée : la molette est celle d'avant, sans ligne ambre.
+- Le rendu est pur : l'écran lit `x.reposConseille` (le plan), il ne calcule rien. Les mots : « 3:30 » dans la molette (`mmss`), « 3 min 30 » dans la phrase (`formatDuree`), jamais `dureeEnMinutes`.
+- L'adaptation en séance (+1 min après une série ratée) n'est pas dans cette feuille : un autre chantier.
+
+Maquette : `maquette-repos-finale.html` (repos5, 20/11/2026). Tailles de texte sur l'échelle (12 · 13 · 15) ; trois usages de l'ambre de plus, justifiés au plafond de `v2-ambre.test.js`.
+
+---
+
 ## 7 septendecies. Deux ajustements du 15/09/2026
 
 ### 7 septendecies.1 La carte de routine ne mentionne plus les chauffes

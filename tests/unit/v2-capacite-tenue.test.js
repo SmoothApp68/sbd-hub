@@ -101,7 +101,6 @@ describe('I252 — les cas de TT-CAPACITE-BARRES (Franc, la fois suivante)', () 
 
 describe('I252 bis — la capacité lit les reps SAISIES (le calcul prudent 68B ne rétablit pas la garde)', () => {
   test('100 × 6 sans marge : 68B compte 5, la capacité compte 6 : le plafond §17.4 rend le test du calcul prudent', () => {
-    expect(M.consigneDExercice).toBeDefined();
     const k = consigne('squat', 100, 4, [[100, 5, 6, 'reste_0']]);
     expect(k.etat).toBe('test_propose');
     // la ligne garde 100 kg et dit « sans marge » au fondement (un fait), jamais comme cause devant la ligne qui monte (I162)

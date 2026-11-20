@@ -143,6 +143,7 @@ const ok = (nom, cond, detail) => {
 // la marque doit partir — la liste dit ce qui est, comme `AUTORISATIONS`. Un défaut inconnu de la liste → ❌.
 const DEFAUTS_PROUVES = {
   'D-R1': 'le journal des records (jeu, guilde, groupe, médailles du social) n’est pas revu quand une séance ANTÉRIEURE est corrigée ou supprimée ; la Progression, elle, recalcule',
+  'D-ST1': 'une série à 0 rep validée par « Oui, manquée » est retypée `echec` (app.js, `changerType`) ; la semaine de test ne lit que les essais de type `test` (plan.js, `faitsDeTest`) : l’essai raté disparaît, le plan propose encore l’essai suivant et ne s’arrête pas (I92)',
 };
 const defautsVus = [];
 const okDefaut = (defaut, nom, cond, detail) => {
@@ -31917,6 +31918,288 @@ const SETS_IMPORTES = [
     routinesAvant2.forEach((r) => ROUTINES.push(r));
     base.profiles[0] = profilAvant2;
     rendreLesBlocs2();
+    await aller('/saisie');
+  }
+
+  console.log('\n══ semaine-de-test. LA SEMAINE DE TEST DE BOUT EN BOUT, DANS L’ÉCRAN : UNE BARRE EN REPRISE LONGUE N’A NI ESSAI NI PARI, LA RÉCENTE PREND LE CRÉNEAU, LES ESSAIS, L’ARRÊT, LE MAX MESURÉ ; AUCUNE BARRE TESTABLE, AUCUNE SEMAINE PROPOSÉE (MOTEUR §9.32, I88 à I93, I224 à I227) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : le soulevé est LE PREMIER de la routine (le créneau lui irait si la règle n'écartait pas sa reprise longue) ; il n'a été
+  // fait qu'UNE fois, il y a 100 jours (140 kg × 5) ; le squat, deuxième de la routine, est fait toutes les semaines. Le tout par le vrai chemin : « Faire … la
+  // semaine de test » du Profil (la réponse part par la file, les paris aussi), puis la séance. Avant cela, les DEUX barres sont en reprise longue : le Profil
+  // ne propose rien (`aucune_barre`) ; dès que le squat redevient récent, la ligne revient (la seule différence, donc la cause).
+  //   · le squat prend le créneau du jour ; le soulevé dit « pas d’essai cette semaine. Ta force estimée vient de 140 kg × 5, le … » ;
+  //   · aucune montée, aucun essai, aucune série « Au max », aucune ligne de test et aucun pari pour le soulevé (I224, I227) ;
+  //   · le squat : montée, trois essais au plus (I88), aux pourcentages du max estimé (I90) ; un essai réussi, un essai raté → l'arrêt (I92), le max
+  //     mesuré rangé dans `cartes_semaine.test.mesures` (I93), le pari du squat observé à la fin de la séance.
+  // Les invariants du plan (`verifierPlan`, la garde du banc) sont relus après chaque geste. Aucun refus du faux serveur, aucune erreur de page.
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const nbCatAvant = CATALOGUE.length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, parisAvant = base.predictions;
+    const routinesAvant = ROUTINES.splice(0, ROUTINES.length);
+    const profilAvant = Object.assign({}, base.profiles[0]);
+    base.sessions = []; base.sets = []; base.predictions = [];
+    const rendreLesBlocs = await retirerBlocsDeLAppareil();
+    const tST = Date.now();
+    const nb = (x) => JSON.stringify(x === undefined ? null : x);
+    const sp = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const SQ = 'squat_barre', SDT = 'souleve_de_terre_barre', NOM_SDT = 'Soulevé de Terre (Barre)';
+    CATALOGUE.push({ slug: SQ, nom: 'Squat (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+      muscles_primaires: ['quadriceps'], muscles_secondaires: ['fessiers'], muscles_stabilisateurs: [], schema_mouvement: 'squat' });
+    CATALOGUE.push({ slug: SDT, nom: NOM_SDT, mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+      muscles_primaires: ['ischio_jambiers'], muscles_secondaires: ['fessiers', 'lombaires'], muscles_stabilisateurs: [], schema_mouvement: 'charniere' });
+    base.profiles[0] = Object.assign({}, PROFIL_BANC, { rythme_progression: 'normal', intention: 'progresser', phase: 'maintien', phase_depuis: null,
+      cartes_semaine: null, priorites: null, jours_vises: null });
+    // Une séance passée : `[jours, [[kg, reps]…]]`.
+    const poserST = (slug, id, jours, series) => {
+      const debut = ilYa(jours * 86400000, tST).toISOString();
+      base.sessions.push({ id, user_id: 'u-banc', titre: 'ST — ' + id, debut, fin: finDe(debut, tST).toISOString(), statut: 'terminee', note: null,
+        salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut, gestes: [] });
+      series.forEach(([kgS, r], k) => base.sets.push({ id: id + '-s' + (k + 1), session_id: id, user_id: 'u-banc', exercise_slug: slug,
+        charge_kg: kgS, reps: r, duree_s: null, distance_m: null, denivele_m: null, etages: null, elastique: null, type_serie: 'travail', rang: k + 1,
+        groupe_superset: null, validee_a: debut, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null,
+        douleur: false, occurrence: null, hors_calcul: false }));
+    };
+    // Le soulevé : UNE séance, il y a 100 jours (plus de 84 : reprise longue) ; le squat : d'abord vieux aussi (110 et 103 jours).
+    poserST(SDT, 'st-sdt-0', 100, [[140, 5]]);
+    poserST(SQ, 'st-sq-v0', 110, [[100, 5], [100, 5], [100, 5]]);
+    poserST(SQ, 'st-sq-v1', 103, [[100, 5], [100, 5], [100, 5]]);
+    // La routine : le soulevé D'ABORD, puis le squat.
+    ROUTINES.push({ id: 'r-st', nom: 'Semaine ST', note: null, archivee_a: null, created_at: '2026-09-01T10:00:00.000Z', updated_at: '2026-09-01T10:00:00.000Z',
+      routine_exercises: [SDT, SQ].map((slug, k) => ({ id: 're-st-' + k, routine_id: 'r-st', exercise_slug: slug, rang: k, routine_sets: progr(3, 5),
+        repos_cible_s: 180, groupe_superset: null, note: null })) });
+
+    const lignesProfil = () => page.evaluate(() => Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+      .map((x) => ((x.querySelector('.p-lib') || {}).textContent || '')));
+    const ouvrirProfil = async (idsAttendus) => {
+      await aller('/profil');
+      await jusqua(() => page.evaluate(() => document.querySelectorAll('#profil-corps .p-ligne').length > 3), 10000, 'profilST');
+      // la base de l'appareil porte les séances posées (sinon « aucune ligne » ne prouverait rien : le Profil n'aurait rien lu)
+      await attendreQue(() => page.evaluate(async (ids) => {
+        const l = (await window.THCache.lireTout('seances')) || [];
+        return ids.every((id) => l.some((s) => s.id === id));
+      }, idsAttendus), 10000, 'seancesDansLeCacheST');
+      await reseauCalme();
+    };
+    const ligneTest = async () => (await lignesProfil()).filter((t) => t.indexOf('Semaine de test') === 0).length;
+    const bouton = (t) => page.evaluate((x) => { const b = Array.from(document.querySelectorAll('#feuille-contenu button')).filter((q) => q.textContent.indexOf(x) >= 0)[0];
+      if (b) b.click(); return !!b; }, t);
+    const lireSt = () => page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      if (!d || !d.plan) return null;
+      const exos = {};
+      d.plan.exercices.forEach((x) => {
+        const t = x.semaineDeTest || null;
+        exos[x.slug] = { iExo: x.iExo,
+          types: x.lignes.map((l) => l.type), validees: x.lignes.map((l) => l.validee === true),
+          lignes: x.lignes.map((l) => ({ i: l.iSerie, type: l.type, base: l.typeBase || null, role: l.role || null, validee: l.validee === true, charge: l.charge === undefined ? null : l.charge })),
+          auMax: !!x.propositionAuMax, chauffes: !!x.proposition || !!(x.surDemande && x.surDemande.lignes && x.surDemande.lignes.length),
+          t: t ? { testee: t.testee === true, etat: t.etat || null, accessoire: !!t.accessoire, raison: t.pasDEssai ? t.pasDEssai.raison : null,
+            phrase: t.pasDEssai ? t.pasDEssai.phrase : null, source: t.pasDEssai ? t.pasDEssai.source : null, max: t.max === undefined ? null : t.max,
+            montee: (t.montee || []).map((m) => [m.charge, m.reps]), essais: (t.essais || []).length,
+            prochain: t.prochain ? { rang: t.prochain.rang, charge: t.prochain.charge, reps: t.prochain.reps, pct: t.prochain.pct } : null,
+            serie: !!t.serie, pari: !!t.pari, ajout: t.ajout ? { n: t.ajout.lignes.length, suite: t.ajout.suite === true } : null, arret: t.arret || null,
+            mesure: t.mesure ? { valeur: t.mesure.valeur, charge: t.mesure.charge, reps: t.mesure.reps, vrai: t.mesure.vrai === true } : null,
+            consigne: t.consigne ? t.consigne.texte : null } : null };
+      });
+      return { exos, erreurs: window.THPlan.verifierPlan(d.plan, d.entrees).erreurs };
+    });
+    const domSt = () => page.evaluate(() => ({
+      tests: Array.from(document.querySelectorAll('.proposition-test')).map((n) => ({ iexo: n.getAttribute('data-iexo'), texte: n.textContent })),
+      sansEssai: Array.from(document.querySelectorAll('.test-sans-essai')).map((n) => n.textContent),
+      boutons: Array.from(document.querySelectorAll('.proposition-test button')).map((b) => b.textContent) }));
+    const parisDuTest = (slug) => base.predictions.filter((l) => l.module === 'test' && (!slug || l.exercise_slug === slug));
+    const planPret = () => attendreQue(() => page.evaluate(() => !!(window.THPlan && window.THPlan.dernier && window.THPlan.dernier.plan &&
+      window.THPlan.dernier.plan.exercices.length >= 2 && document.querySelectorAll('.legende-exo').length > 0)), 15000, 'planST');
+    const mesuresEnBase = () => ((base.profiles[0].cartes_semaine || {}).test || {}).mesures || {};
+
+    // ── 1. AUCUNE BARRE TESTABLE : le soulevé (100 j) ET le squat (103 j) sont en reprise longue → le Profil ne propose aucune semaine (`aucune_barre`).
+    await ouvrirProfil(['st-sdt-0', 'st-sq-v0', 'st-sq-v1']);
+    ok('[ST] 3 — DISCRIMINANT — les deux barres en reprise longue (soulevé 100 j, squat 103 j) : aucune semaine de test proposée, aucune ligne « Semaine de test » au Profil',
+      (await ligneTest()) === 0, nb(await lignesProfil()));
+
+    // ── 2. Le squat redevient récent (13 et 6 jours) : la ligne revient — c'est la reprise du squat, la seule différence, qui l'avait fait taire.
+    poserST(SQ, 'st-sq-r0', 13, [[100, 5], [100, 5], [100, 5]]);
+    poserST(SQ, 'st-sq-r1', 6, [[100, 5], [100, 5], [100, 5]]);
+    await ouvrirProfil(['st-sq-r0', 'st-sq-r1']);
+    ok('[ST] 3 — DISCRIMINANT — le squat refait (il y a 6 jours) : la ligne « Semaine de test » revient au Profil (la barre testable est la seule différence)',
+      (await ligneTest()) === 1, nb(await lignesProfil()));
+    ok('[ST] avant le lancement : aucun pari de test', parisDuTest().length === 0, nb(base.predictions));
+
+    // ── 3. Lancer la semaine : le vrai geste du Profil. La réponse part par la file (`cartes_semaine.test`), UN pari — celui du squat.
+    await page.evaluate(() => { const l = Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
+      .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Semaine de test') === 0)[0]; if (l) l.click(); });
+    await feuilleOuverte('button');
+    const feuille1 = sp(await texte('#feuille-contenu'));
+    ok('[ST] la feuille « Semaine de test » propose de la faire (la semaine précédente n’était pas allégée : « quand même »)',
+      /Semaine de test/.test(feuille1) && /Faire quand même la semaine de test|Faire une semaine de test/.test(feuille1), feuille1);
+    const depart = await departGeste();
+    ok('[ST] « Faire … la semaine de test » est touché', await bouton('semaine de test'), '');
+    await attendreQue(() => parisDuTest().length >= 1 && !!(base.profiles[0].cartes_semaine || {}).test, 15000, 'lancerST');
+    await calmeApres(depart, 0);
+    const test0 = (base.profiles[0].cartes_semaine || {}).test || {};
+    const joursST = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+    ok('[ST] la réponse est rangée dans `profiles.cartes_semaine.test` par la file du faux serveur : acceptée (`r: oui`), de aujourd’hui à six jours plus tard',
+      test0.r === 'oui' && test0.debut === joursST(0) && test0.fin === joursST(6), nb(test0));
+    const parisL = parisDuTest();
+    ok('[ST] I227 — UN seul pari, celui du squat (module test, charge_kg, vers 116,7 kg au cran) : aucun pour le soulevé en reprise longue',
+      parisL.length === 1 && parisL[0].exercise_slug === SQ && parisL[0].grandeur === 'charge_kg' && Math.abs(parisL[0].valeur_predite - 116.67) <= 2.5 &&
+        parisL[0].valeur_observee === null && parisDuTest(SDT).length === 0, nb(parisL));
+    await feuilleFermee();
+
+    try {
+    // ── 4. La séance du jour : le soulevé est le premier de la routine.
+    await aller('/saisie');
+    await demarrerRoutine('Semaine ST');
+    await planPret();
+    await attendreQue(() => lireSt().then((p) => p && p.exos[SQ] && p.exos[SQ].t), 15000, 'testSQ');
+    const p1 = await lireSt();
+    const sq = p1.exos[SQ], sdt = p1.exos[SDT];
+    ok('[ST] I225 — DISCRIMINANT — le squat (testable) prend le créneau du jour, bien que le soulevé soit le premier de la routine',
+      !!sq.t && sq.t.testee === true && sq.t.etat === 'a_faire' && !!sdt.t && sdt.t.testee === false, nb([sq.t && sq.t.testee, sdt.t]));
+    // La phrase, mot pour mot, avec la date absolue de la série (140 kg × 5), calculée ici à part de l'app.
+    const dSdt = new Date(tST - 100 * 86400000);
+    const jourSdt = dSdt.getDate() === 1 ? '1er' : String(dSdt.getDate());
+    const attendu = new RegExp('^' + NOM_SDT.replace(/[()]/g, '\\$&') + ' : pas d’essai cette semaine\\. Ta force estimée vient de 140 kg × 5, le ' + jourSdt +
+      ' [^\\s,:]+( \\d{4})? : je n’ai pas de série assez récente pour régler un essai\\.$');
+    const dom1 = await domSt();
+    ok('[ST] I224 — la carte du soulevé dit « Soulevé de Terre (Barre) : pas d’essai cette semaine. Ta force estimée vient de 140 kg × 5, le <jour> : je n’ai pas de série assez récente pour régler un essai. » (apostrophe typographique, date absolue)',
+      !!sdt.t && sdt.t.raison === 'reprise_longue' && attendu.test(sp(sdt.t.phrase)) && dom1.sansEssai.length === 1 && attendu.test(sp(dom1.sansEssai[0])),
+      nb([sdt.t && sdt.t.phrase, dom1.sansEssai]));
+    ok('[ST] I224 — aucune montée, aucun essai, aucune série « Au max », aucune ligne de test ni d’ajout, aucun pari, aucune carte « Au max » pour le soulevé',
+      !!sdt.t && sdt.t.montee.length === 0 && sdt.t.essais === 0 && sdt.t.prochain === null && sdt.t.serie === false && sdt.t.pari === false && sdt.t.ajout === null &&
+        sdt.t.mesure === null && sdt.t.consigne === null && sdt.auMax === false && sdt.types.every((t) => t !== 'test' && t !== 'echauffement') &&
+        parisDuTest(SDT).length === 0 && base.predictions.filter((l) => l.exercise_slug === SDT).length === 0, nb(sdt));
+    ok('[ST] une seule carte de test à l’écran, celle du squat (la carte du soulevé n’a ni montée, ni consigne, ni bouton)',
+      dom1.tests.length === 1 && Number(dom1.tests[0].iexo) === sq.iExo && !/Montée|Essai/.test(sp(dom1.sansEssai[0])), nb(dom1));
+    ok('[ST] I88 — le squat : « Semaine de test · viser ton max », la montée (5 paliers), UN essai proposé à la fois (le premier, ≈ 92 % de 116,7 kg, en gardant 2 reps, sur les sécurités)',
+      /viser ton max/.test(dom1.tests[0].texte) && sq.t.montee.length === 5 && sq.t.max === 117 && !!sq.t.prochain && sq.t.prochain.rang === 1 && sq.t.prochain.reps === 1 &&
+        Math.abs(sq.t.prochain.charge - 116.67 * 0.92) <= 2.5 && /^Essai 1 : [\d,]+ kg × 1, en gardant 2 reps, sur les sécurités ou avec un pareur\.$/.test(sp(sq.t.consigne)), nb(sq.t));
+    ok('[ST] I90 — la montée suit 50 · 60 · 70 · 80 · 87 % du max estimé (5, 3, 2, 1, 1 reps), à un cran près',
+      [[50, 5], [60, 3], [70, 2], [80, 1], [87, 1]].every(([pc, r], k) => sq.t.montee[k][1] === r && Math.abs(sq.t.montee[k][0] - 116.67 * pc / 100) <= 2.5), nb(sq.t.montee));
+    ok('[ST] la garde du plan (I88 à I93, I224 à I227) n’a rien vu', p1.erreurs.length === 0 && gardeBanc.violations === violationsAvant, nb([p1.erreurs, gardeBanc.liste.slice(-2)]));
+
+    // ── 5. Le squat : « Ajouter ces lignes » (la montée, puis le 1er essai), les lignes se valident une à une.
+    const globale = (iExo, iSerie) => page.evaluate(([e, k]) => Array.from(document.querySelectorAll('.ligne-serie')).findIndex((l) => {
+      const r = l.querySelector('.serie'); return !!r && r.getAttribute('data-iexo') === String(e) && r.getAttribute('data-iserie') === String(k); }), [iExo, iSerie]);
+    const validerLigne = async (iExo, iSerie, charge, reps) => {
+      const g = await globale(iExo, iSerie);
+      if (g < 0) { ok('[prémisse ST] la ligne ' + iExo + '/' + iSerie + ' est à l’écran', false, ''); return; }
+      await saisirSerie(g, charge, reps);
+    };
+    // Après chaque geste : les invariants du plan (`verifierPlan`, I88 à I93, I224 à I227) et la garde du banc.
+    const invariants = async (quand) => {
+      const p = await lireSt();
+      ok('[ST] ' + quand + ' : les invariants du plan sont tenus (verifierPlan, garde du banc)', !!p && p.erreurs.length === 0 && gardeBanc.violations === violationsAvant,
+        nb([p && p.erreurs, gardeBanc.liste.slice(-2)]));
+      return p;
+    };
+    const departAj = await departGeste();
+    await page.click('.proposition-test .pt-ajouter');
+    await attendreQue(() => lireSt().then((p) => p && p.exos[SQ].lignes.some((q) => q.base === 'test')), 15000, 'ajoutST');
+    await calmeApres(departAj, 0);
+    const p2 = await invariants('« Ajouter ces lignes »');
+    const lignes2 = p2.exos[SQ].lignes, montee2 = p2.exos[SQ].t.montee;
+    ok('[ST] « Ajouter ces lignes » pose la montée (5 échauffements aux charges du plan) et le 1er essai en type test ; le soulevé n’a reçu aucune ligne',
+      lignes2.filter((q) => q.type === 'echauffement').length === 5 && lignes2.filter((q) => q.base === 'test').length === 1 &&
+        p2.exos[SDT].types.length === 3 && p2.exos[SDT].types.every((t) => t === 'travail'), nb([lignes2, p2.exos[SDT].types]));
+    for (const l of lignes2.filter((q) => q.type === 'echauffement' && !q.validee)) {
+      const k = lignes2.filter((q) => q.type === 'echauffement').indexOf(l);
+      await validerLigne(sq.iExo, l.i, montee2[k][0], montee2[k][1]);
+    }
+    // ESSAI 1 : réussi (1 rep).
+    const p3 = await lireSt();
+    const lt = p3.exos[SQ].lignes.filter((q) => q.base === 'test' && !q.validee)[0];
+    const charge1 = p3.exos[SQ].t.prochain.charge;
+    await validerLigne(sq.iExo, lt.i, charge1, 1);
+    await attendreQue(() => lireSt().then((p) => p.exos[SQ].t.essais === 1), 15000, 'essai1ST');
+    const p4 = await invariants('l’essai 1 réussi');
+    const t4 = p4.exos[SQ].t, dom4 = await domSt();
+    ok('[ST] I88 / I90 — après l’essai 1 (107,5 kg × 1) : UN seul essai est proposé, le 2e, ≈ 97 % de 116,7 kg ; l’essai fait est lu comme mesuré (107,5 kg × 1)',
+      t4.essais === 1 && !!t4.prochain && t4.prochain.rang === 2 && t4.prochain.reps === 1 && Math.abs(t4.prochain.charge - 116.67 * 0.97) <= 2.5 &&
+        t4.prochain.charge > charge1 && !!t4.mesure && t4.mesure.valeur === charge1 && t4.mesure.vrai === true &&
+        /^Essai 2 : [\d,]+ kg × 1, sur les sécurités ou avec un pareur\.$/.test(sp(t4.consigne)) && /Mesuré : 107,5 kg × 1/.test(sp(dom4.tests[0].texte)), nb([t4, dom4.tests]));
+    ok('[ST] I88 — jamais plus de trois essais : le moteur ne propose rien après le 3e (état fini) ; trois essais réussis, aucun 4e',
+      await page.evaluate((m) => { const e = window.THMoteur.testEssai(m, [{ charge: 107.5, reps: 1, reserve: 1 }, { charge: 112.5, reps: 1, reserve: 1 }, { charge: 117.5, reps: 1, reserve: 0 }],
+        { famille: 'squat_barre' }); return e.etat === 'fini' && e.charge === null; }, 116.67), '');
+
+    // ESSAI 2 : raté (0 rep) → « Oui, manquée ». Le plan doit s'arrêter (I92) : « Un essai raté : on s’arrête là. »
+    await page.click('.proposition-test .pt-ajouter');
+    await attendreQue(() => lireSt().then((p) => p.exos[SQ].lignes.filter((q) => q.base === 'test').length === 2), 15000, 'ajout2ST');
+    const p5 = await lireSt();
+    const lt2 = p5.exos[SQ].lignes.filter((q) => q.base === 'test' && !q.validee)[0];
+    const charge2 = p5.exos[SQ].t.prochain.charge;
+    {
+      const g2 = await globale(sq.iExo, lt2.i);
+      const champ = (k) => page.locator('.ligne-serie').nth(g2).locator('input').nth(k);
+      await champ(0).fill(String(charge2));
+      await champ(1).fill('0');
+      await page.evaluate((k) => document.querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie').click(), g2);
+      await attendreQue(() => page.evaluate(() => !!document.querySelector('.question-saisie[data-genre="zero"]')), 8000, 'questionZeroST');
+      const depart2 = await departGeste();
+      await page.evaluate(() => { const b = Array.from(document.querySelectorAll('.question-saisie[data-genre="zero"] button')).filter((x) => /^Oui, manquée/.test(x.textContent))[0]; if (b) b.click(); });
+      await attendreQue(() => page.evaluate(() => !document.querySelector('.question-saisie[data-genre="zero"]')), 8000, 'reponseZeroST');
+      await calmeApres(depart2, 0);
+      await poseApresGeste();
+    }
+    const p6 = await invariants('l’essai 2 raté (0 rep, « Oui, manquée »)');
+    const dom6 = await domSt();
+    ok('[ST] l’essai 2 est une série à 0 rep, validée, à 112,5 kg',
+      base.sets.some((x) => x.session_id === seanceCourante() && x.exercise_slug === SQ && x.charge_kg === charge2 && x.reps === 0), nb(base.sets.filter((x) => x.session_id === seanceCourante()).map((x) => [x.type_serie, x.charge_kg, x.reps])));
+    // ⚠️ DÉFAUT DE L'APP (D-ST1), décrit au rapport, non corrigé ici : « Oui, manquée » RETYPE la série en `echec` (app.js, `b.action === 'manquee'` →
+    // `Seance.changerType(…, 'echec')`), et `faitsDeTest` (plan.js) ne lit que le type `test` : l'essai raté disparaît des essais, le plan propose encore
+    // l'essai 2 et ne s'arrête pas. Le contrôle porte l'état COHÉRENT (I92 : « Un essai raté : on s’arrête là. », rien de plus proposé).
+    okDefaut('D-ST1', '[ST] I92 — un essai raté (0 rep, « Oui, manquée ») arrête le test : « Un essai raté : on s’arrête là. », plus aucun essai ni bouton « Ajouter l’essai suivant »',
+      !!p6.exos[SQ].t && p6.exos[SQ].t.arret === 'rate' && p6.exos[SQ].t.prochain === null && p6.exos[SQ].t.ajout === null &&
+        /Un essai raté : on s’arrête là\./.test(sp(dom6.tests[0] ? dom6.tests[0].texte : '')) && dom6.boutons.indexOf('Ajouter l’essai suivant') < 0,
+      nb([p6.exos[SQ].t.arret, p6.exos[SQ].t.prochain, p6.exos[SQ].t.essais, dom6.boutons]));
+
+    // ARRÊT : « Arrêter le test » (la technique lâche) — l'autre chemin de l'arrêt (I92) : plus aucune charge proposée, le max mesuré est l'essai 1 (I93).
+    await attendreQue(() => page.evaluate(() => !!document.querySelector('.proposition-test .pt-arret')), 8000, 'boutonArretST');
+    const depart3 = await departGeste();
+    await page.click('.proposition-test .pt-arret');
+    await attendreQue(() => lireSt().then((p) => p.exos[SQ].t.etat === 'arret'), 15000, 'arretST');
+    await attendreQue(() => !!mesuresEnBase()[SQ], 15000, 'mesureST');
+    await calmeApres(depart3, 0);
+    const p7 = await invariants('« Arrêter le test »');
+    const t7 = p7.exos[SQ].t, dom7 = await domSt();
+    ok('[ST] I92 — DISCRIMINANT — après l’arrêt : plus aucun essai proposé, plus de bouton d’ajout ni d’arrêt, la phrase du coach « On s’arrête là »',
+      t7.etat === 'arret' && t7.prochain === null && t7.ajout === null && t7.consigne === null && t7.arret === 'technique' &&
+        dom7.boutons.indexOf('Ajouter l’essai suivant') < 0 && dom7.boutons.indexOf('Arrêter le test') < 0 && /La technique lâche : on s’arrête là\./.test(sp(dom7.tests[0].texte)), nb([t7, dom7]));
+    const m7 = mesuresEnBase()[SQ];
+    ok('[ST] I93 — DISCRIMINANT — le max mesuré est rangé dans `cartes_semaine.test.mesures` : 107,5 kg (l’essai 1 réussi), jamais en dessous, d’une vraie mesure, avec le max d’avant (≈ 117 kg)',
+      !!m7 && m7.valeur >= charge1 && m7.valeur === 107.5 && m7.charge === 107.5 && m7.reps === 1 && m7.vrai === true && Math.abs(m7.avant - 116.67) <= 1 && m7.arret === 'technique' &&
+        Object.keys(mesuresEnBase()).length === 1 && !mesuresEnBase()[SDT], nb(mesuresEnBase()));
+    ok('[ST] I93 — le pari du squat (posé au lancement, avant toute série) vaut le max estimé au cran (117,5 kg) : un seul, du module test',
+      parisDuTest().length === 1 && parisDuTest(SQ).length === 1 && parisDuTest(SQ)[0].valeur_predite === 117.5 && parisDuTest(SQ)[0].fondement.max_estime === 116.7, nb(parisDuTest()));
+
+    // FIN DE SÉANCE : le pari est observé (le max mesuré), le soulevé n'a toujours aucun pari.
+    await terminer();
+    await attendreQue(() => parisDuTest(SQ).length === 1 && parisDuTest(SQ)[0].valeur_observee !== null, 15000, 'observationST');
+    const pariFin = parisDuTest(SQ)[0];
+    const essai1En = base.sets.filter((x) => x.exercise_slug === SQ && x.type_serie === 'test' && x.charge_kg === charge1)[0];
+    ok('[ST] I93 — à la fin de la séance, le pari du squat est observé : valeur observée = le max mesuré (107,5 kg), la série observée = l’essai 1 ; toujours aucun pari pour le soulevé',
+      pariFin.valeur_observee === 107.5 && !!essai1En && pariFin.set_observe === essai1En.id && parisDuTest(SDT).length === 0 &&
+        base.predictions.filter((l) => l.exercise_slug === SDT).length === 0, nb([pariFin, essai1En && essai1En.id]));
+    } catch (e) {
+      // une exception devient un contrôle en échec (jamais un banc qui s'arrête) ; la section rend un état propre
+      ok('[ST] [exception] la section a pu se jouer jusqu’au bout', false, String(e && e.stack || e).slice(0, 600));
+      await remettreAPropre();
+    }
+    recapDesDefauts();
+    ok('[ST] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      nb([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    base.predictions = parisAvant;
+    CATALOGUE.length = nbCatAvant;
+    ROUTINES.length = 0;
+    routinesAvant.forEach((r) => ROUTINES.push(r));
+    base.profiles[0] = profilAvant;
+    rendreLesBlocs();
     await aller('/saisie');
   }
 

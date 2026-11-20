@@ -1,0 +1,42 @@
+[
+ {
+  "nom": "st1-filtre-testable-retire-du-creneau",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "b && b.slug && b.testable !== false && !f[b.slug]",
+  "nouveau": "b && b.slug && !f[b.slug]",
+  "banc": "seance",
+  "sections": [
+   "semaine-de-test"
+  ]
+ },
+ {
+  "nom": "st2-reprise-longue-testable",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "x.reprise === REPRISE_LONGUE) return { testable: false, raison: 'reprise_longue' }",
+  "nouveau": "false) return { testable: false, raison: 'reprise_longue' }",
+  "banc": "seance",
+  "sections": [
+   "semaine-de-test"
+  ]
+ },
+ {
+  "nom": "st3-phrase-sans-essai-cassee",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var t = nom + DEUX_POINTS + 'pas d’essai cette semaine.';",
+  "nouveau": "var t = nom + DEUX_POINTS + 'pas d’essai.';",
+  "banc": "seance",
+  "sections": [
+   "semaine-de-test"
+  ]
+ },
+ {
+  "nom": "st4-aucune-barre-jamais-dite",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "!(nombre(x.barresTestables) >= 1)) return non('aucune_barre')",
+  "nouveau": "false) return non('aucune_barre')",
+  "banc": "seance",
+  "sections": [
+   "semaine-de-test"
+  ]
+ }
+]

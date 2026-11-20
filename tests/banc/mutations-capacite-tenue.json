@@ -22,8 +22,8 @@
  {
   "nom": "cap-sans-exclusion-reprise",
   "fichier": "v2/js/moteur.js",
-  "ancien": "      if (repriseDe(vues, se.debut) === REPRISE_LONGUE) return 'reprise_longue';",
-  "nouveau": "      if (false) return 'reprise_longue';",
+  "ancien": "        if (enRepriseLongue(rk)) return 'reprise_longue';",
+  "nouveau": "        if (false) return 'reprise_longue';",
   "banc": "aucun",
   "unitaires": [
    "tests/unit/v2-capacite-tenue.test.js"

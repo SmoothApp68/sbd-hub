@@ -120,7 +120,9 @@ describe('la campagne des annonces : l’annonce dit la fois suivante RÉELLE (P
         expect([C.verbe_faux, C.prochaine_fausse]).toEqual([0, 0]);
         // PR 5a-bis : la zone du plan et celle des routines sont passées comme l'app le fait (la 5a lisait la zone par l'habitude : 283 verbes et 520
         // « Prochaine séance » en Normal), et la candidate « Il te manque » non confirmée retombe sur la ligne vraie au lieu du silence.
-        expect([C.verbe, C.prochaine]).toEqual(reglage === 'normal' ? [252, 591] : [132, 707]);
+        // 20/11/2026 (« Capacité tenue », I252, C1) — en Normal, trois candidates « Il te manque » sont désormais confirmées (la série simulée, à fond,
+        // dépasse la consigne reçue de la marge visée : capacité tenue, le test vient) : trois annonces du verbe deviennent « Il te manque » (252 → 249).
+        expect([C.verbe, C.prochaine]).toEqual(reglage === 'normal' ? [249, 591] : [132, 707]);
         // I167 : aucune suite n'est écrite sur la consigne d'AVANT la séance du jour.
         expect(C.suite_datee_avant).toBe(0);
       });
@@ -128,7 +130,8 @@ describe('la campagne des annonces : l’annonce dit la fois suivante RÉELLE (P
         expect(C.manque_non_tenue).toBe(0);
         // Avant la 5a : 77 « Il te manque » en Normal, dont 38 démenties. Zone du plan passée (5a-bis) : Normal 37 dites (toutes tenues) et 21 candidates non
         // confirmées, Franc 41 dites et 1 candidate ; chaque candidate dit désormais la ligne vraie (aucun silence : `silence` = 0 dans les deux réglages).
-        expect([C.manque, C.manque_candidates]).toEqual(reglage === 'normal' ? [37, 21] : [41, 1]);
+        // 20/11/2026 (I252, C1) : Normal 40 dites (37 + 3 confirmées par la capacité tenue, toujours tenues) et 18 candidates non confirmées.
+        expect([C.manque, C.manque_candidates]).toEqual(reglage === 'normal' ? [40, 18] : [41, 1]);
         expect(C.silence).toBe(0);
       });
       test('le silence reste rare (C6 : alerte à 15 % des séances-exercices)', () => {

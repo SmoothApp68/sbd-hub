@@ -46,7 +46,7 @@ describe('la réaction au raté (niveau 1) à garde 0', () => {
     const d = M.reactionAuRate(Object.assign({}, base, { reps: 9, vise: 10, reserve: 0 }));
     expect(d.cas).toBe('L');
     expect(d.garde).toBe(1);
-    expect(sp(M.phraseDeRate(d))).toMatch(/garde 1/);
+    expect(sp(M.phraseDeRate(d))).toMatch(/1 en réserve/);
   });
   test('pile sur la cible, à fond : silence (pas de cas M)', () => {
     const d = M.reactionAuRate(Object.assign({}, base, { reps: 10, vise: 10, reserve: 0, gardeAffichee: 0 }));

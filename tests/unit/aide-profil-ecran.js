@@ -67,11 +67,11 @@ function profilEcran(profil, options) {
     // l'écran ouvre, relevé (`ouverts`), et le questionnaire (`questionnairesOuverts`).
     ouvrirReponseProfil: (cle) => { ouverts.push(cle); },
     ouvrirQuestionnaire: () => { questionnairesOuverts.push(true); },
-    // 60-4 — le programme construit : « Zone à ménager », « Exercices écartés », « Refaire mon programme ».
+    // 60-4 — le programme construit : « À ménager », « Exercices écartés », « Refaire mon programme ».
     ouvrirProgrammeProfil: (quoi) => { programmesOuverts.push(quoi); },
     // 108 — « Ma salle » (MOTEUR §10 bis) : la feuille qu'ouvre la ligne.
     ouvrirSalleProfil: () => { sallesOuvertes.push(true); },
-    // 193-4 — « Semaine de test » : la ligne n'existe que s'il y a quelque chose à dire (aucune ici).
+    // 193-4 — « Semaine de mesure » : la ligne n'existe que s'il y a quelque chose à dire (aucune ici).
     ligneSemaineDeTest: () => null,
     // 16/11/2026 (§9.27 quater) — « Ce que le coach a retenu » : la ligne n'existe qu'avec une réponse (aucune ici).
     ligneRetenusDuCoach: () => [],

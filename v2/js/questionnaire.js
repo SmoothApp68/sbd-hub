@@ -555,7 +555,7 @@
       blocs: [
         { type: 'faits', lignes: [
           { libelle: 'Tes données', valeur: 'depuis quand, et ce que je sais déjà' },
-          { libelle: 'Ta salle', valeur: 'où, et ta zone à ménager' },
+          { libelle: 'Ta salle', valeur: 'où, et ce que tu ménages' },
           { libelle: 'Toi', valeur: '4 réponses, facultatives' },
           { libelle: 'Ton but', valeur: 'objectif, phase, priorités' },
           { libelle: 'Ton coach', valeur: 'comment je te parle' }
@@ -639,7 +639,7 @@
     var choisies = Array.isArray(rep.menager) ? rep.menager : [];
     return {
       id: ZONE, etape: 'Ton corps · facultatif',
-      titre: 'Une zone à ménager ?',
+      titre: 'Quelque chose à ménager ?',
       voix: 'Je ne te proposerai pas de série lourde dessus, et « J’ai mal » sera à portée de main.',
       blocs: [{ type: 'puces', cle: 'zone', multiple: true, valeurs: choisies.length ? choisies : ['aucune'], options: zones }]
     };
@@ -849,7 +849,7 @@
       voix: null,
       blocs: [
         { type: 'puces', cle: 'seances', valeur: rep.seances, options: jours },
-        { type: 'voix', texte: 'Ta zone à ménager, je la garde : l’exercice et toutes ses séries, sans série lourde.' }
+        { type: 'voix', texte: 'Ce que tu ménages, je le garde : l’exercice et toutes ses séries, sans série lourde.' }
       ]
     };
   }
@@ -924,7 +924,7 @@
         { libelle: 'Plus petit disque', valeur: Moteur().plusPetitDisquePresent(materielDe(rep)) !== null
             ? Modele().kgTexte(Moteur().plusPetitDisquePresent(materielDe(rep))) : tiret, ecran: SALLE },
         { libelle: 'Barre de traction', valeur: rep.barreTraction === true ? 'Oui' : rep.barreTraction === false ? 'Non' : tiret, ecran: SALLE },
-        { libelle: 'Zone à ménager', valeur: zonesTexte(rep.menager), ecran: ZONE },
+        { libelle: 'À ménager', valeur: zonesTexte(rep.menager), ecran: ZONE },
         { libelle: 'Zones raides', valeur: Array.isArray(rep.raides) ? (rep.raides.length ? rep.raides.map(function (z) { return Profil().libelleDe(Profil().ZONES_RAIDES, z) || z; }).join(', ') : 'Aucune') : tiret, ecran: RAIDES }
       ]).concat(programme, [
         { libelle: 'Coach', valeur: coach || tiret, ecran: COACH }

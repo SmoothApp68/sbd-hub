@@ -14362,7 +14362,7 @@ const SETS_IMPORTES = [
     const b0 = await planD();
     const kb = await carteD();
     ok('[D53] DISCRIMINANT — la dernière séance porte la marque : la carte, sans question',
-      kb && sp(kb.titre) === 'Ta dernière séance de Douleur U53 (Barre) était douloureuse.' &&
+      kb && /^Douleur U53 \(Barre\) : tu as noté une douleur( le \d{1,2}(er)? [^ ]+)?\.$/.test(sp(kb.titre)) &&
         sp(kb.phrase) === 'On reprend comme tu veux. Tu peux toujours changer d’avis depuis l’étiquette de l’exercice.' &&
         !/\?/.test(JSON.stringify(kb)), JSON.stringify(kb));
     ok('[D53] DISCRIMINANT — trois choix : « Comme avant » dit la consigne, « Plus léger » le repli (110 kg × 6)',
@@ -15227,7 +15227,7 @@ const SETS_IMPORTES = [
       JSON.stringify(b0 && b0.x));
     const etiqB = [await puceC('cyc-squat-u53'), await puceC('cyc-curl-u53')];
     ok('[C53] DISCRIMINANT (D3) — l’étiquette porte l’origine : « Mix 6-8 · bloc » ; l’exercice hors bloc, la sienne',
-      sp(etiqB[0]) === '6-8 reps · garde 2' && !!etiqB[1] && !/bloc/.test(etiqB[1]), JSON.stringify(etiqB));
+      sp(etiqB[0]) === '6-8 reps · réserve 2' && !!etiqB[1] && !/bloc/.test(etiqB[1]), JSON.stringify(etiqB));
     ok('[C53] l’exercice décoché garde sa zone (pas de report)', bCurl && bCurl.x.etat !== 'nouvelle_zone' && bCurl.x.zone !== 'mix',
       JSON.stringify(bCurl && bCurl.x));
     await abandonner();
@@ -15345,7 +15345,7 @@ const SETS_IMPORTES = [
     const i0 = await planC('cyc-couche-u53');
     const etiqI = await puceC('cyc-couche-u53');
     ok('[C53] DISCRIMINANT (D3) — entre la fin et le choix : la zone du bloc tient (Mix · bloc), aucune décharge de plus',
-      i0 && i0.x.zone === 'mix' && sp(etiqI) === '6-8 reps · garde 2' && i0.allegee === null && i0.carte === null &&
+      i0 && i0.x.zone === 'mix' && sp(etiqI) === '6-8 reps · réserve 2' && i0.allegee === null && i0.carte === null &&
         i0.x.couvertes === 3 && i0.enBloc && i0.enBloc['cyc-couche-u53'] === true, JSON.stringify([i0, etiqI]));
     await abandonner();
     await sauter(31);
@@ -16941,12 +16941,12 @@ const SETS_IMPORTES = [
     ecritsAvant = ecritsProfil();
     await continuerQ();
     ok('[Q60] écran 3a — « Continuer » n’écrit rien (c’est une lecture)', ecritsProfil() === ecritsAvant, JSON.stringify(ecritsProfil() - ecritsAvant));
-    // 187 — « Où tu t’entraînes ? » puis « Une zone à ménager ? » : sans réponse, rien n’est écrit.
+    // 187 — « Où tu t’entraînes ? » puis « Quelque chose à ménager ? » : sans réponse, rien n’est écrit.
     e = await ecranQ();
     ok('[Q60] écran 3b (187) — « Où tu t’entraînes ? »', e.ecran === 'salle' && e.titre === 'Où tu t’entraînes ?', JSON.stringify(e));
     await continuerQ();
     e = await ecranQ();
-    ok('[Q60] écran 3c (187) — « Une zone à ménager ? » pour tout le monde', e.ecran === 'zone' && e.titre === 'Une zone à ménager ?', JSON.stringify(e));
+    ok('[Q60] écran 3c (187) — « Quelque chose à ménager ? » pour tout le monde', e.ecran === 'zone' && e.titre === 'Quelque chose à ménager ?', JSON.stringify(e));
     ecritsAvant = ecritsProfil();
     await continuerQ();
     ok('[Q60] écrans 3b et 3c — sans réponse, rien n’est écrit', ecritsProfil() === ecritsAvant, JSON.stringify(ecritsProfil() - ecritsAvant));
@@ -17038,7 +17038,7 @@ const SETS_IMPORTES = [
     await continuerQ();
     await continuerQ();
     await continuerQ();
-    await continuerQ();                                               // 187 : + « Où tu t’entraînes ? », « Une zone à ménager ? »
+    await continuerQ();                                               // 187 : + « Où tu t’entraînes ? », « Quelque chose à ménager ? »
     await continuerQ();
     await continuerQ();                                               // 194-1 : + « Des zones raides ? »
     e = await ecranQ();
@@ -17134,7 +17134,7 @@ const SETS_IMPORTES = [
     ok('[Q60] écran 9 — « Voici ce que j’ai compris. » : les onze lignes (187 : + la zone ; 190 : + le plus petit disque et la barre de traction ; 194-1 : + les zones raides), avec ce qui vient d’être répondu ; « Commencer »',
       e.ecran === 'recap' && e.bouton === 'Commencer' && e.lignes.length === 11 && /^Tes exercices/.test(e.lignes[10]) &&
         /But d’entraînement.*Muscle/.test(e.lignes[0]) && /Phase.*Maintien/.test(e.lignes[1]) && /^Matériel/.test(e.lignes[4]) &&
-        /^Plus petit disque/.test(e.lignes[5]) && /^Barre de traction/.test(e.lignes[6]) && /^Zone à ménager/.test(e.lignes[7]) &&
+        /^Plus petit disque/.test(e.lignes[5]) && /^Barre de traction/.test(e.lignes[6]) && /^À ménager/.test(e.lignes[7]) &&
         /^Zones raides/.test(e.lignes[8]) && /Coach.*Me pousser/.test(e.lignes[9]), JSON.stringify(e));
     ok('[Q60] écran 9 — rien ne dit « fait » avant « Commencer » : `questionnaire_fait_le` est encore vide',
       profilBase().questionnaire_fait_le === null, JSON.stringify(profilBase().questionnaire_fait_le));
@@ -17386,7 +17386,7 @@ const SETS_IMPORTES = [
     await continuerQ();
     await cliquerQ('.q-puce[data-cle="1_a_3_ans"]'); await cliquerQ('.q-opt[data-cle="non"]');
     await continuerQ();
-    await continuerQ(); await continuerQ(); await continuerQ(); await continuerQ();      // 3a, « Où tu t’entraînes ? », « Une zone à ménager ? », « Des zones raides ? »
+    await continuerQ(); await continuerQ(); await continuerQ(); await continuerQ();      // 3a, « Où tu t’entraînes ? », « Quelque chose à ménager ? », « Des zones raides ? »
     e = await ecranQ();
     ok('[Q60] K — hors ligne, on avance quand même : l’écran « Toi » est atteint', e.ecran === 'toi', JSON.stringify(e));
     await cliquerQ('.q-puce[data-cle="femme"]');
@@ -17933,7 +17933,7 @@ const SETS_IMPORTES = [
       h.ecran === 'construit' && h.titre === 'Combien de jours par semaine, réalistement ?' &&
         JSON.stringify(h.jours) === '[["2",false],["3",false],["4",false],["5",false],["6",false]]' && h.actif === false, JSON.stringify(h));
     ok('[R60] F — l’écran 8b ne porte plus la zone (187 : elle a son écran) : une seule rangée de puces, et la voix du coach',
-      h.nbPuces === 1 && /^Ta zone à ménager, je la garde : l’exercice et toutes ses séries, sans série lourde\.$/.test(sp(h.voix)),
+      h.nbPuces === 1 && /^Ce que tu ménages, je le garde : l’exercice et toutes ses séries, sans série lourde\.$/.test(sp(h.voix)),
       JSON.stringify([h.nbPuces, h.voix]));
     await cliquerR('.q-puce[data-cle="4"]');
     h = await huitB();
@@ -18170,21 +18170,21 @@ const SETS_IMPORTES = [
     // Les lignes se lisent PAR LIBELLÉ, jamais par position (30/10/2026, 190 : « Ma salle » est toujours là et décale tout).
     const lh = (rows, lib) => (rows || []).filter((l) => l.lib === lib)[0] || {};
     // 108 — « Ma salle » (ECRAN-PROFIL 2.4 quinquies) ; 190 : toujours visible ; 213 : elle est dans « Moi », plus sous « Matériel ».
-    ok('[R60] H — « CE QUE JE FAIS » : Matériel, Ma salle, puis Zone à ménager (Dos), Exercices écartés (1), Refaire mon programme',
-      !!sh && sh.map((l) => l.lib).join('|') === 'Matériel|Zone à ménager|Exercices écartés|Refaire mon programme|Zones raides' &&
-        lh(sh, 'Zone à ménager').val === 'Dos' && lh(sh, 'Exercices écartés').val === '1' && lh(sh, 'Refaire mon programme').val === null, JSON.stringify(sh));
+    ok('[R60] H — « CE QUE JE FAIS » : Matériel, Ma salle, puis À ménager (Dos), Exercices écartés (1), Refaire mon programme',
+      !!sh && sh.map((l) => l.lib).join('|') === 'Matériel|À ménager|Exercices écartés|Refaire mon programme|Zones raides' &&
+        lh(sh, 'À ménager').val === 'Dos' && lh(sh, 'Exercices écartés').val === '1' && lh(sh, 'Refaire mon programme').val === null, JSON.stringify(sh));
     ok('[R60] H — les phrases de la spec (G10), au mot près',
-      !!sh && lh(sh, 'Zone à ménager').sous === 'Je ne te propose pas de série lourde dessus, ni dans ton programme ni en séance.' &&
+      !!sh && lh(sh, 'À ménager').sous === 'Je ne te propose pas de série lourde dessus, ni dans ton programme ni en séance.' &&
         lh(sh, 'Exercices écartés').sous === 'Un exercice écarté n’est plus proposé dans tes programmes. Il reste au catalogue, en fin de liste.' &&
         lh(sh, 'Refaire mon programme').sous === 'Je te pose deux questions et je te construis un nouveau dossier. Le tien reste tel quel.', JSON.stringify(sh));
-    // Zone à ménager : une feuille à puces.
-    await toucherH('Zone à ménager');
+    // À ménager : une feuille à puces.
+    await toucherH('À ménager');
     const puces = () => page.evaluate(() => ({ titre: ((document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || ''),
       cochees: Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu.choix button[aria-pressed="true"]')).map((b) => b.dataset.cle),
       toutes: Array.from(document.querySelectorAll('#feuille-contenu .feuille-menu.choix button')).map((b) => b.dataset.cle) }));
     let pu = await puces();
-    ok('[R60] H — « Zone à ménager » : les cinq zones et « Aucune », « Dos » cochée',
-      pu.titre === 'Zone à ménager' && pu.toutes.join('|') === 'epaule|dos|genou|coude|hanche|aucune' && pu.cochees.join('|') === 'dos', JSON.stringify(pu));
+    ok('[R60] H — « À ménager » : les cinq zones et « Aucune », « Dos » cochée',
+      pu.titre === 'À ménager' && pu.toutes.join('|') === 'epaule|dos|genou|coude|hanche|aucune' && pu.cochees.join('|') === 'dos', JSON.stringify(pu));
     await page.click('#feuille-contenu button[data-cle="genou"]');
     await attendre(250);
     ok('[R60] H — rien n’est écrit avant « Valider »', JSON.stringify(profilBase().zones_a_menager) === '["dos"]', JSON.stringify(profilBase().zones_a_menager));
@@ -18192,15 +18192,15 @@ const SETS_IMPORTES = [
     await attendre(900);
     sh = await sectionH();
     ok('[R60] H — « Valider » : Dos et Genou écrits (dans l’ordre de la liste), la ligne dit « Dos, Genou »',
-      JSON.stringify(profilBase().zones_a_menager) === '["dos","genou"]' && lh(sh, 'Zone à ménager').val === 'Dos, Genou',
-      JSON.stringify([profilBase().zones_a_menager, lh(sh, 'Zone à ménager').val]));
-    await toucherH('Zone à ménager');
+      JSON.stringify(profilBase().zones_a_menager) === '["dos","genou"]' && lh(sh, 'À ménager').val === 'Dos, Genou',
+      JSON.stringify([profilBase().zones_a_menager, lh(sh, 'À ménager').val]));
+    await toucherH('À ménager');
     await page.click('#feuille-contenu button[data-cle="aucune"]');
     await page.click('#feuille-contenu .feuille-pied .pri');
     await attendre(900);
     sh = await sectionH();
     ok('[R60] H — « Aucune » écrit le vide (NULL) ; la ligne dit « Aucune »',
-      profilBase().zones_a_menager === null && lh(sh, 'Zone à ménager').val === 'Aucune', JSON.stringify([profilBase().zones_a_menager, lh(sh, 'Zone à ménager').val]));
+      profilBase().zones_a_menager === null && lh(sh, 'À ménager').val === 'Aucune', JSON.stringify([profilBase().zones_a_menager, lh(sh, 'À ménager').val]));
     // Exercices écartés : la liste, « Reprendre ».
     await toucherH('Exercices écartés');
     const liste = () => page.evaluate(() => ({ titre: ((document.querySelector('#feuille-contenu .feuille-t') || {}).textContent || ''),
@@ -18214,7 +18214,7 @@ const SETS_IMPORTES = [
     li = await liste();
     sh = await sectionH();
     ok('[R60] H — « Reprendre » : l’exercice n’est plus écarté (NULL), la feuille se ferme, la ligne « Exercices écartés » s’efface',
-      !profilBase().exercices_ecartes && !li.ouverte && sh.map((l) => l.lib).join('|') === 'Matériel|Zone à ménager|Refaire mon programme|Zones raides',
+      !profilBase().exercices_ecartes && !li.ouverte && sh.map((l) => l.lib).join('|') === 'Matériel|À ménager|Refaire mon programme|Zones raides',
       JSON.stringify([profilBase().exercices_ecartes, li.ouverte, sh && sh.map((l) => l.lib)]));
     // Refaire mon programme : « Retour » ramène au Profil sans rien écrire.
     const avantRefaire = JSON.stringify([profilBase().seances_par_semaine, profilBase().zones_a_menager, ROUTINES.length]);
@@ -18240,8 +18240,8 @@ const SETS_IMPORTES = [
         JSON.stringify([profilBase().seances_par_semaine, profilBase().zones_a_menager, ROUTINES.length]) === avantRefaire,
       JSON.stringify([vuesRetour, avantRefaire]));
     // Refaire : 3 jours, genou → l'aperçu → « Créer » : un NOUVEAU dossier, l'ancien reste.
-    // 187 — la zone ne se répond plus à l'écran des jours : elle se pose dans le Profil (« Zone à ménager »), que le programme lit.
-    await toucherH('Zone à ménager');
+    // 187 — la zone ne se répond plus à l'écran des jours : elle se pose dans le Profil (« À ménager »), que le programme lit.
+    await toucherH('À ménager');
     await page.click('#feuille-contenu button[data-cle="genou"]');
     await page.click('#feuille-contenu .feuille-pied .pri');
     await attendreQue(() => JSON.stringify(profilBase().zones_a_menager) === '["genou"]', 8000);
@@ -25881,7 +25881,7 @@ const SETS_IMPORTES = [
     const seance127 = () => page.evaluate(() => (document.querySelector('#vue-seance') || {}).textContent || '');
     const TITRE_127 = 'Aide 25 kg × 12 sur toutes tes séries, deux séances de suite.';
     // 16/11/2026 (« Essayer la marche ») — la carte en reps propose d'ESSAYER la marche à la place des séries restantes.
-    const DETAIL_127 = 'La marche au-dessus : Tractions U127. Je la mets à la place de tes séries restantes de Tractions U127 (Élastique), pour essayer aujourd’hui. Ta routine ne change pas.';
+    const DETAIL_127 = 'Une variante plus dure : Tractions U127. Je la mets à la place de tes séries restantes de Tractions U127 (Élastique), pour essayer aujourd’hui. Ta routine ne change pas.';
     const ESSAI_127 = 'C’est fait : Tractions U127, 3 séries, autant de reps que tu peux, en en gardant 2. La prochaine fois, je pars de ce que tu auras noté.';
     const essai127 = () => page.evaluate(() => Array.from(document.querySelectorAll('#vue-seance .proposition-marche-essai')).map((c) => ({
       texte: (c.querySelector('.pc-texte') || {}).textContent, boutons: Array.from(c.querySelectorAll('button')).map((b) => b.textContent) })));
@@ -26691,7 +26691,7 @@ const SETS_IMPORTES = [
         eb.champs.slice(1).every((c) => /13/.test(c.ph)) && JSON.stringify(eb.eti) === '["max"]', JSON.stringify(eb));
     ok('[149] B — la carte « marche suivante » : 20 s la séance d’avant, 22 s aujourd’hui — « 22 s tenues, deux séances de suite. », la marche juste au-dessus, deux boutons, aucun point d’interrogation',
       eb.cartes.length === 1 && sp149(eb.cartes[0].texte) === '22 s tenues, deux séances de suite.' &&
-        sp149(eb.cartes[0].detail).replace(/'/g, '’') === 'La marche au-dessus : Front Lever U149 Groupé Avancé. Je te propose d’en faire 2 tenues avant, autant de secondes que tu peux.' &&
+        sp149(eb.cartes[0].detail).replace(/'/g, '’') === 'Une variante plus dure : Front Lever U149 Groupé Avancé. Je te propose d’en faire 2 tenues avant, autant de secondes que tu peux.' &&
         JSON.stringify(eb.cartes[0].boutons.map(sp149)) === '["Ajouter Front Lever U149 Groupé Avancé","Pas maintenant"]' &&
         !/\?/.test(eb.cartes[0].texte + eb.cartes[0].detail), JSON.stringify(eb));
 
@@ -27174,8 +27174,8 @@ const SETS_IMPORTES = [
     await demarrerRoutine('Effort visé U154');
     await jusqua(() => page.evaluate(() => document.querySelectorAll('.bloc-seance .ligne-serie').length >= 3), 8000);
     const e0 = await entete154();
-    ok('[EV154] DISCRIMINANT — l’en-tête dit « garde-en 1 », une seule fois (pas sur chaque ligne)',
-      e0.garde !== null && sp154(e0.garde) === 'garde-en 1' && e0.nb === 1, JSON.stringify(e0));
+    ok('[EV154] DISCRIMINANT — l’en-tête dit « réserve 1 », une seule fois (pas sur chaque ligne)',
+      e0.garde !== null && sp154(e0.garde) === 'réserve 1' && e0.nb === 1, JSON.stringify(e0));
     await valider154(0);
     await valider154(1);
     ok('[EV154] DISCRIMINANT — jamais de puces avant la DERNIÈRE série de travail', (await puces154()) === null, JSON.stringify(await puces154()));
@@ -27311,8 +27311,8 @@ const SETS_IMPORTES = [
     base.profiles[0].date_naissance = '1955-03-10';
     await demarrerPL('Plancher PL4A A', 'pl4a-a');
     const a = await lirePL('pl4a-a');
-    ok('[PL4A] DISCRIMINANT — 70 ans, « Me pousser » : l’en-tête dit « garde-en 2 » (le plancher), une seule fois ; la table reste 0',
-      a.protegee === true && a.garde !== null && spPL(a.garde) === 'garde-en 2' && a.nbGarde === 1 && a.affichee === 2 && a.table === 0, JSON.stringify(a));
+    ok('[PL4A] DISCRIMINANT — 70 ans, « Me pousser » : l’en-tête dit « réserve 2 » (le plancher), une seule fois ; la table reste 0',
+      a.protegee === true && a.garde !== null && spPL(a.garde) === 'réserve 2' && a.nbGarde === 1 && a.affichee === 2 && a.table === 0, JSON.stringify(a));
     ok('[PL4A] DISCRIMINANT — la phrase du Pourquoi : « Pour cet exercice, je vise 2 en réserve. Tu notes ce que tu veux. »',
       spPL(a.phrase) === 'Pour cet exercice, je vise 2 en réserve. Tu notes ce que tu veux.', JSON.stringify(a.phrase));
     ok('[PL4A] invariants du plan (I56 à I58, I160, I161 compris)', a.erreurs.length === 0, JSON.stringify(a.erreurs.slice(0, 3)));
@@ -27333,8 +27333,8 @@ const SETS_IMPORTES = [
     base.profiles[0].date_naissance = '1990-03-10';
     await demarrerPL('Plancher PL4A A', 'pl4a-a');
     const b = await lirePL('pl4a-a');
-    ok('[PL4A] DISCRIMINANT — 36 ans, même historique, même réglage : « garde-en 0 », aucune phrase du plancher (octet pour octet comme avant)',
-      b.protegee === false && b.garde !== null && spPL(b.garde) === 'garde-en 0' && b.affichee === 0 && b.table === 0 && b.phrase === null && b.erreurs.length === 0, JSON.stringify(b));
+    ok('[PL4A] DISCRIMINANT — 36 ans, même historique, même réglage : « jusqu’au bout », aucune phrase du plancher (octet pour octet comme avant)',
+      b.protegee === false && b.garde !== null && spPL(b.garde) === 'jusqu’au bout' && b.affichee === 0 && b.table === 0 && b.phrase === null && b.erreurs.length === 0, JSON.stringify(b));
     await abandonner();
 
     // C. 70 ans, le test est posé : la ligne de test n'a ni chiffre ni question.
@@ -30524,7 +30524,7 @@ const SETS_IMPORTES = [
     });
     ok('[RT236] DISCRIMINANT — 5 au lieu de 10, sous la zone : une phrase sous la série, qui propose la baisse au max du jour',
       !!apres236.rate && apres236.rate.charge && apres236.rate.charge.action === 'baisse' && apres236.rate.charge.kg < 20 &&
-      /^5 au lieu de 10\. On passe à [\d,]+ kg, garde 1, entre 8 et 10\.$/.test(sp236(apres236.rate.phrase)), nb236(apres236));
+      /^5 au lieu de 10\. On passe à [\d,]+ kg, vise 1 en réserve, entre 8 et 10\.$/.test(sp236(apres236.rate.phrase)), nb236(apres236));
     ok('[RT236] l’écran dit la phrase du plan, UNE fois, annoncée poliment (role status, aria-live polite)',
       !!dom236 && dom236.nb === 1 && dom236.role === 'status' && dom236.live === 'polite' && sp236(dom236.texte) === sp236(apres236.rate.phrase), nb236(dom236));
     ok('[RT236] les gestes tiennent au doigt (44 px), « Prendre X kg » en fait partie',
@@ -31878,7 +31878,7 @@ const SETS_IMPORTES = [
   //
   // ⚠️ CONFIGURATION DISCRIMINANTE : le soulevé est LE PREMIER de la routine (le créneau lui irait si la règle n'écartait pas sa reprise longue) ; il n'a été
   // fait qu'UNE fois, il y a 100 jours (140 kg × 5) ; le squat, deuxième de la routine, est fait toutes les semaines. Le tout par le vrai chemin : « Faire … la
-  // semaine de test » du Profil (la réponse part par la file, les paris aussi), puis la séance. Avant cela, les DEUX barres sont en reprise longue : le Profil
+  // semaine de mesure » du Profil (la réponse part par la file, les paris aussi), puis la séance. Avant cela, les DEUX barres sont en reprise longue : le Profil
   // ne propose rien (`aucune_barre`) ; dès que le squat redevient récent, la ligne revient (la seule différence, donc la cause).
   //   · le squat prend le créneau du jour ; le soulevé dit « pas d’essai cette semaine. Ta force estimée vient de 140 kg × 5, le … » ;
   //   · aucune montée, aucun essai, aucune série « Au max », aucune ligne de test et aucun pari pour le soulevé (I224, I227) ;
@@ -31936,7 +31936,7 @@ const SETS_IMPORTES = [
       }, idsAttendus), 10000, 'seancesDansLeCacheST');
       await reseauCalme();
     };
-    const ligneTest = async () => (await lignesProfil()).filter((t) => t.indexOf('Semaine de test') === 0).length;
+    const ligneTest = async () => (await lignesProfil()).filter((t) => t.indexOf('Semaine de mesure') === 0).length;
     const bouton = (t) => page.evaluate((x) => { const b = Array.from(document.querySelectorAll('#feuille-contenu button')).filter((q) => q.textContent.indexOf(x) >= 0)[0];
       if (b) b.click(); return !!b; }, t);
     const lireSt = () => page.evaluate(() => {
@@ -31970,26 +31970,26 @@ const SETS_IMPORTES = [
 
     // ── 1. AUCUNE BARRE TESTABLE : le soulevé (100 j) ET le squat (103 j) sont en reprise longue → le Profil ne propose aucune semaine (`aucune_barre`).
     await ouvrirProfil(['st-sdt-0', 'st-sq-v0', 'st-sq-v1']);
-    ok('[ST] 3 — DISCRIMINANT — les deux barres en reprise longue (soulevé 100 j, squat 103 j) : aucune semaine de test proposée, aucune ligne « Semaine de test » au Profil',
+    ok('[ST] 3 — DISCRIMINANT — les deux barres en reprise longue (soulevé 100 j, squat 103 j) : aucune semaine de mesure proposée, aucune ligne « Semaine de mesure » au Profil',
       (await ligneTest()) === 0, nb(await lignesProfil()));
 
     // ── 2. Le squat redevient récent (13 et 6 jours) : la ligne revient — c'est la reprise du squat, la seule différence, qui l'avait fait taire.
     poserST(SQ, 'st-sq-r0', 13, [[100, 5], [100, 5], [100, 5]]);
     poserST(SQ, 'st-sq-r1', 6, [[100, 5], [100, 5], [100, 5]]);
     await ouvrirProfil(['st-sq-r0', 'st-sq-r1']);
-    ok('[ST] 3 — DISCRIMINANT — le squat refait (il y a 6 jours) : la ligne « Semaine de test » revient au Profil (la barre testable est la seule différence)',
+    ok('[ST] 3 — DISCRIMINANT — le squat refait (il y a 6 jours) : la ligne « Semaine de mesure » revient au Profil (la barre testable est la seule différence)',
       (await ligneTest()) === 1, nb(await lignesProfil()));
     ok('[ST] avant le lancement : aucun pari de test', parisDuTest().length === 0, nb(base.predictions));
 
     // ── 3. Lancer la semaine : le vrai geste du Profil. La réponse part par la file (`cartes_semaine.test`), UN pari — celui du squat.
     await page.evaluate(() => { const l = Array.from(document.querySelectorAll('#profil-corps .p-ligne'))
-      .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Semaine de test') === 0)[0]; if (l) l.click(); });
+      .filter((x) => ((x.querySelector('.p-lib') || {}).textContent || '').indexOf('Semaine de mesure') === 0)[0]; if (l) l.click(); });
     await feuilleOuverte('button');
     const feuille1 = sp(await texte('#feuille-contenu'));
-    ok('[ST] la feuille « Semaine de test » propose de la faire (la semaine précédente n’était pas allégée : « quand même »)',
-      /Semaine de test/.test(feuille1) && /Faire quand même la semaine de test|Faire une semaine de test/.test(feuille1), feuille1);
+    ok('[ST] la feuille « Semaine de mesure » propose de la faire (la semaine précédente n’était pas allégée : « quand même »)',
+      /Semaine de mesure/.test(feuille1) && /Faire quand même la semaine de mesure|Faire une semaine de mesure/.test(feuille1), feuille1);
     const depart = await departGeste();
-    ok('[ST] « Faire … la semaine de test » est touché', await bouton('semaine de test'), '');
+    ok('[ST] « Faire … la semaine de mesure » est touché', await bouton('semaine de mesure'), '');
     await attendreQue(() => parisDuTest().length >= 1 && !!(base.profiles[0].cartes_semaine || {}).test, 15000, 'lancerST');
     await calmeApres(depart, 0);
     const test0 = (base.profiles[0].cartes_semaine || {}).test || {};
@@ -32027,7 +32027,7 @@ const SETS_IMPORTES = [
         parisDuTest(SDT).length === 0 && base.predictions.filter((l) => l.exercise_slug === SDT).length === 0, nb(sdt));
     ok('[ST] une seule carte de test à l’écran, celle du squat (la carte du soulevé n’a ni montée, ni consigne, ni bouton)',
       dom1.tests.length === 1 && Number(dom1.tests[0].iexo) === sq.iExo && !/Montée|Essai/.test(sp(dom1.sansEssai[0])), nb(dom1));
-    ok('[ST] I88 — le squat : « Semaine de test · viser ton max », la montée (5 paliers), UN essai proposé à la fois (le premier, ≈ 92 % de 116,7 kg, en gardant 2 reps, sur les sécurités)',
+    ok('[ST] I88 — le squat : « Semaine de mesure · viser ton max », la montée (5 paliers), UN essai proposé à la fois (le premier, ≈ 92 % de 116,7 kg, en gardant 2 reps, sur les sécurités)',
       /viser ton max/.test(dom1.tests[0].texte) && sq.t.montee.length === 5 && sq.t.max === 117 && !!sq.t.prochain && sq.t.prochain.rang === 1 && sq.t.prochain.reps === 1 &&
         Math.abs(sq.t.prochain.charge - 116.67 * 0.92) <= 2.5 && /^Essai 1 : [\d,]+ kg × 1, en gardant 2 reps, sur les sécurités ou avec un pareur\.$/.test(sp(sq.t.consigne)), nb(sq.t));
     ok('[ST] I90 — la montée suit 50 · 60 · 70 · 80 · 87 % du max estimé (5, 3, 2, 1, 1 reps), à un cran près',

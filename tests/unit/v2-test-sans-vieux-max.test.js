@@ -1,7 +1,7 @@
 /** @jest-environment node */
 //
 // « PAS D'ESSAI SUR UN VIEUX MAX » (19/11/2026, MOTEUR §9.32) — une barre en reprise longue (`Moteur.repriseDe` = `longue` au premier jour de la
-// semaine) ou sans max ne reçoit, en semaine de test, ni essai, ni montée, ni série « au max », ni pari. Le cas réel : le squat fait UNE fois le
+// semaine) ou sans max ne reçoit, en semaine de mesure, ni essai, ni montée, ni série « au max », ni pari. Le cas réel : le squat fait UNE fois le
 // 18/04/2026 (100 kg × 5, force estimée 116,7 kg) a reçu un essai à 107,5 kg × 1 le 16/11.
 //
 //   1. la règle du moteur (`testBarreTestable`, `testBarreDuJour`, `testProposable`, `phraseSansEssai`) ;

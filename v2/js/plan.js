@@ -1397,7 +1397,7 @@
     return { essais: essais, serie: serie };
   }
 
-  // 202 (MOTEUR §9.32) — LES FAITS DU DÉFAUT de la semaine de test, d'une barre : le débutant, les 65 ans et plus, les reps de la série d'où
+  // 202 (MOTEUR §9.32) — LES FAITS DU DÉFAUT de la semaine de mesure, d'une barre : le débutant, les 65 ans et plus, les reps de la série d'où
   // vient le max estimé (rien si elles ne sont pas connues). La feuille du Profil (app.js) lit la MÊME fonction de moteur avec les mêmes faits.
   function defautDeTest(e, slug) {
     var T = e.semaineDeTest || {}, s = T.seriesDuMax && T.seriesDuMax[slug];
@@ -1648,7 +1648,7 @@
     // inventé se lirait comme un progrès (mémoire et observation, §14.4).
     var compteurOuverture = c.compteur && typeof c.compteur.compteur === 'number' ? c.compteur.compteur : undefined;
     // 251 (D2) — LA PORTE DU CRAN : lue AVANT les lignes (elle décide si la couverture pose un test). `porteCtx` est `null` dans les contextes
-    // où le coach se tait (Édition, Entretenir, « J'ai mal », semaine allégée, semaine de test, repli) ; sans `ligne` ET `haut`, elle se tait aussi.
+    // où le coach se tait (Édition, Entretenir, « J'ai mal », semaine allégée, semaine de mesure, repli) ; sans `ligne` ET `haut`, elle se tait aussi.
     // « Une seule garde » (I232) — la garde des lignes de travail, UNE fois, avant la porte : la porte, les lignes et la réaction au raté la lisent.
     var gardeX = gardeDeLigne(consigne, { mesure: materiel ? materiel.mesure || null : null, reglage: reglage === undefined ? null : reglage, protegee: protegee === true, famille: famille || null });
     var porte = porteCtx && consigne.haut && consigne.ligne && !consigne.allegee && !consigne.repli && consigne.etat !== 'silence'
@@ -2324,14 +2324,14 @@
     return x;
   }
 
-  // ── 225 (MOTEUR §9.40) — LA VEILLE D'UNE ACTIVITÉ DURE : « Squat plus léger aujourd'hui » ou « Garder le plan » ───────────────────────
+  // ── 225 (MOTEUR §9.40) — LA VEILLE D'UNE ACTIVITÉ DURE : « Squat plus léger aujourd'hui » ou « Comme prévu » ───────────────────────
   // Le FAIT vient de l'app (`faits.activiteDeLaVeille` : une activité NOTÉE, intense, qui charge les jambes — jamais une habitude déclarée) ;
   // la décision est ici, une fois : une barre de jambes (squat, soulevé) en zone Lourd ce jour-là, la proposition de `Moteur.veilleActivite`,
   // UNE fois (`e.veilleChoix` : la réponse, quelle qu'elle soit, la fait taire). Le plan se tait en Édition et en « Juste un carnet ».
   // La barre est lue sur la ZONE DE LA CONSIGNE du jour.
   // 253 (X2, décision d'Aurélien du 06/11/2026) — « plus léger » N'EST PAS UNE ZONE : même zone, mêmes reps, même nombre de séries ; la charge du plan
   // × 0,95 au cran le plus proche (`Moteur.veilleLegere`), la réserve affichée + 2 (3 au plus). Une variante de la consigne du jour, cette séance
-  // seulement. Elle ne s'applique ni en semaine de test, ni en décharge ou semaine allégée, ni au calage, ni à une consigne déjà allégée (repli,
+  // seulement. Elle ne s'applique ni en semaine de mesure, ni en décharge ou semaine allégée, ni au calage, ni à une consigne déjà allégée (repli,
   // « plus léger » de la douleur) ou qui porte un test : `legereDeLaBarre` rend alors `null` et la barre n'est pas proposée.
   function legereDeLaBarre(e, slug, entree) {
     var k = entree && entree.consigne ? entree.consigne : null;
@@ -2385,7 +2385,7 @@
     return sortie;
   }
   // La barre de la variante « plus léger » — la première barre de jambes en Lourd qui admet la variante — ou `null` : ni activité notée hier, ni
-  // réponse « plus léger », ni barre admise, ni séance où la règle se tait (Édition, « Juste un carnet », semaine de test, décharge).
+  // réponse « plus léger », ni barre admise, ni séance où la règle se tait (Édition, « Juste un carnet », semaine de mesure, décharge).
   function barreLegereDuPlan(e, seance, exos, consignes, intentionProfil, bloquee) {
     var a = e.activiteVeille;
     if (!a || typeof a !== 'object' || !a.slug || !Moteur().activiteChargeLesJambes(a.slug)) return null;
@@ -2511,9 +2511,9 @@
     // séance ne la porte que sur sa première occurrence ; le repli, lui, est la
     // consigne de l'exercice — les deux occurrences la lisent.
     var portee = {};
-    // 193-4 — la semaine de test de ce jour, ou `null` : la barre testée, les barres qui restent normales.
+    // 193-4 — la semaine de mesure de ce jour, ou `null` : la barre testée, les barres qui restent normales.
     var jourDeTest = intentionProfil === 'entretien' ? null : semaineDeTestDuJour(e, seance, exos);
-    // 253 (X2) — la variante « plus léger » de la veille : se tait en semaine de test et en semaine allégée / décharge ; la barre qui la porte aujourd'hui
+    // 253 (X2) — la variante « plus léger » de la veille : se tait en semaine de mesure et en semaine allégée / décharge ; la barre qui la porte aujourd'hui
     // (réponse « plus léger » donnée) est lue ici, une fois, et lue par `planDeLOccurrence`.
     var blocageVeille = !!esc.allegee || !!jourDeTest;
     var barreLegere = e.veilleChoix === 'leger' ? barreLegereDuPlan(e, seance, exos, consignes, intentionProfil, blocageVeille) : null;
@@ -2550,7 +2550,7 @@
       mobilite: mobiliteDuPlan(e, seance, exos, intentionProfil),
       // 197 (MOTEUR §9.36) — la puissance des 65 ans et plus : un exercice et sa phrase, ou `null`.
       puissance: puissanceDuPlan(e, seance, exos, intentionProfil),
-      // 225 (MOTEUR §9.40) — la veille d'une activité dure : une proposition (« … en Mix aujourd'hui » / « Garder le plan »), ou `null`.
+      // 225 (MOTEUR §9.40) — la veille d'une activité dure : une proposition (« … en Mix aujourd'hui » / « Comme prévu »), ou `null`.
       veilleActivite: veilleActiviteDuPlan(e, seance, exos, consignes, intentionProfil, blocageVeille),
       // X3 (253) — la réponse du matin REPRISE par une nouvelle séance du jour : sa ligne et son « Changer », ou `null`.
       veilleReprise: veilleRepriseDuPlan(e, seance, exos, consignes, intentionProfil, blocageVeille),
@@ -2787,7 +2787,10 @@
           // 202 — la douleur répétée : le compte des séances avec douleur (42 jours) et le premier frère proposé, lus sur les entrées.
           var compteR = e.nbDouleurs && Object.prototype.hasOwnProperty.call(e.nbDouleurs, slug) ? e.nbDouleurs[slug] : null;
           var frereR = e.freresDeReprise && e.freresDeReprise[slug] ? e.freresDeReprise[slug] : null;
-          var textesR = M3.carteRepriseTextes(nomR, x.consigne, c.reprise, { compte: compteR, frere: frereR });
+          // 20/11/2026 — le dernier jour noté (≤ aujourd'hui), pour dater le titre de la carte.
+          var jourR = M3.jourCivil(seance.debut);
+          var joursR = e.douleurs && e.douleurs[slug] ? e.douleurs[slug].map(function (j) { return M3.jourCivil(j); }).filter(function (j) { return j && (!jourR || j <= jourR); }).sort() : [];
+          var textesR = M3.carteRepriseTextes(nomR, x.consigne, c.reprise, { compte: compteR, frere: frereR, jour: joursR.length ? joursR[joursR.length - 1] : null });
           x.carteReprise = { titre: textesR.titre, phrase: textesR.phrase, choix: textesR.choix,
                              zone: c.reprise.zone, repli: c.reprise.repli || null, compte: compteR };
           x.phrases.push({ ou: 'reprise.avant', texte: capAv.texte, citations: capAv.citations });
@@ -4406,7 +4409,7 @@
     });
     return enBloc;
   }
-  // PR 5b-1 (MOTEUR §9.50) — LE RÉGIME À VENIR d'un exercice, calculé AU RENDU depuis les entrées (blocs du programme, cartes allégées acceptées, semaine de test
+  // PR 5b-1 (MOTEUR §9.50) — LE RÉGIME À VENIR d'un exercice, calculé AU RENDU depuis les entrées (blocs du programme, cartes allégées acceptées, semaine de mesure
   // acceptée) : la suite que l'app donne est copiée avec son `regime` ; le moteur écrit la date ou se tait. Rien n'est écrit, rien n'est mémorisé. Un exercice
   // sans suite, ou dont la suite se tait, n'a pas de régime : le régime ne crée jamais d'annonce.
   function suiteSousRegime(suite, e, seance, slug) {
@@ -6656,7 +6659,7 @@
         x.porteDuCran.repsAuCran].filter(function (v) { return nombre(v) !== null; }) } : null,
       'porte.bas': x.porteDuCran && x.porteDuCran.zone ? { valeur: x.porteDuCran.zone.bas } : null,
       'porte.haut': x.porteDuCran && x.porteDuCran.zone ? { valeur: x.porteDuCran.zone.haut } : null,
-      // 193-4 — la semaine de test : la charge proposée (l'essai ou la série), le rang de l'essai, les reps, les pourcentages, le max, la réserve, le pari.
+      // 193-4 — la semaine de mesure : la charge proposée (l'essai ou la série), le rang de l'essai, les reps, les pourcentages, le max, la réserve, le pari.
       test: x.semaineDeTest && x.semaineDeTest.charge !== null && x.semaineDeTest.charge !== undefined ? { charge: x.semaineDeTest.charge } : null,
       'test.rang': x.semaineDeTest && x.semaineDeTest.prochain ? { valeur: x.semaineDeTest.prochain.rang } : null,
       'test.reps': x.semaineDeTest && x.semaineDeTest.prochain ? { valeur: x.semaineDeTest.prochain.reps } : null,
@@ -7111,8 +7114,8 @@
   //   I116  jamais une charge baissée sans geste : une ligne dont la charge a changé le doit à « Prendre X kg » ou à « un cran dessous » ; (251) jamais
   //         une charge SOUS la charge de travail sans geste — une ligne abaissée par la porte du cran repasse à la charge de travail, elle ne porte aucune
   //         charge de réaction (`l.rate.charge`) ;
-  //   I117  « Garder le plan » respecté : une réponse à la forme du jour, et la carte ne revient pas ;
-  //   I118  aucune réaction en Entretenir, décharge, semaine de test, calage, « J'ai mal », Édition ; (251) la PORTE du cran, elle, parle même au calage et
+  //   I117  « Comme prévu » respecté : une réponse à la forme du jour, et la carte ne revient pas ;
+  //   I118  aucune réaction en Entretenir, décharge, semaine de mesure, calage, « J'ai mal », Édition ; (251) la PORTE du cran, elle, parle même au calage et
   //         au débutant : elle change le plan, ce n'est pas une réaction au raté (I138 la tait dans les autres contextes) ;
   //   I119  la fourchette tient (bornes entières, basse ≤ haute) et contient les reps faites, sauf la baisse (bas de zone à bas + 2) ;
   //   I120  (« Au max » disparaît, 20/11/2026 : sa clause « pas d'« Au max » après un échec franc ou « Ajuster la fin » » est sans objet, I251 la couvre) ;
@@ -7549,7 +7552,7 @@
   // I241 (Lot F, A1, 20/11/2026, MOTEUR §9.26 ter) — LE PLANCHER DE RÉSERVE PAR BARRE. Sur un exercice dont la barre (`familleDeLExercice`, recalculée depuis
   // le catalogue des entrées, jamais lue sur le plan) n'est pas nulle : la réserve affichée de la visée (`x.reserveAffichee`) et la garde des lignes (celle du
   // plan et celle recalculée depuis les entrées) ne sont jamais sous `Moteur.plancherDeBarre` (`null` admis : ligne de test d'une protégée, après un zéro rep,
-  // règle hors jeu). (La clause « Au max » est retirée avec l'objet, 20/11/2026.) Exemptée et nommée : la semaine de test (`x.semaineDeTest`, ses essais et
+  // règle hors jeu). (La clause « Au max » est retirée avec l'objet, 20/11/2026.) Exemptée et nommée : la semaine de mesure (`x.semaineDeTest`, ses essais et
   // sa série au max, §9.32).
   // I243 (Lot F, étape 1, 20/11/2026, MOTEUR §9.14 ter delta ; CONTRA-723 B1, B2) — « À FOND » À GARDE 0, LA MONOTONIE. À garde 0 des lignes (recalculée
   // depuis les entrées), après une série à fond À LA CHARGE DE SA LIGNE, aucune ligne de travail non validée à cette charge (ni du coach ni d'élan) ne
@@ -8204,16 +8207,16 @@
   }
 
   // I169 (chantier « Les mots disent vrai », PR 5b-1, MOTEUR §9.50) — UNE ANNONCE NE PROMET PAS CE QU'UN RÉGIME À VENIR DÉMENTIRA. Quand la fois suivante peut tomber dans une
-  // décharge planifiée, une semaine de test acceptée ou un bloc qui pose une autre zone, l'annonce dit la DATE du régime (absolue) ou se tait.
+  // décharge planifiée, une semaine de mesure acceptée ou un bloc qui pose une autre zone, l'annonce dit la DATE du régime (absolue) ou se tait.
   //   Sens 1 (rien de chiffré) : `constat.regime` posé ⇒ `suite` est exactement l'une des trois phrases, sans `kg`, `×`, `rep`, ni « la prochaine fois » ; l'effort sans « je garde » ni « on essaie/teste ».
-  //   Sens 2 (la date est celle du moteur) : la date dite est RECALCULÉE depuis les entrées (blocs, cartes, semaine de test : `debutDecharge`, `dechargePlanifiee`), jamais lue du champ du plan, et tombe dans [jour + 1, jour + 14].
+  //   Sens 2 (la date est celle du moteur) : la date dite est RECALCULÉE depuis les entrées (blocs, cartes, semaine de mesure : `debutDecharge`, `dechargePlanifiee`), jamais lue du champ du plan, et tombe dans [jour + 1, jour + 14].
   //   Sens 3 (fenêtre) : la décharge ou le test dont la période recoupe la fenêtre recalculée de l'écart posé est DIT (si l'annonce existe) ; un régime dit sans période qui recoupe est une erreur.
   //   Sens 4 (pas de spam) : « commence le » ne se dit jamais sans régime.
   //   Sens 5 (lexique) : aucune date relative, « jusqu'au », « repos », « semaine allégée », « séances plus légères », sur la suite et la phrase d'effort, tous plans.
   //   Sens 6 (le silence ne crée rien) : tenu par construction (`annonceDeLaSuite` rend `null` avant de lire le régime) et par le test unitaire.
   // Aveu : le contrôle indépendant de la fois suivante RÉELLE est la campagne (`v2-mots-campagne.test.js`) ; le bloc (zone posée) n'est recontrôlé ici que par sa date.
   var LEXIQUE_DES_DATES = /demain|semaine prochaine|bientôt|plus tard|dans \d+ (?:jours?|séances?)|jusqu.au|séances? plus légères|semaine allégée|repos/i;
-  var PHRASE_DE_REGIME = /^(?:Ta décharge commence le (\d{1,2} [^\s,.]+\.?), prévue par ton programme\.|Ta semaine de test commence le (\d{1,2} [^\s,.]+\.?)|Ton bloc commence le (\d{1,2} [^\s,.]+\.?))$/;
+  var PHRASE_DE_REGIME = /^(?:Ta décharge commence le (\d{1,2} [^\s,.]+\.?), prévue par ton programme\.|Ta semaine de mesure commence le (\d{1,2} [^\s,.]+\.?)|Ton bloc commence le (\d{1,2} [^\s,.]+\.?))$/;
   function verifierRegimes(plan, entrees, erreurs) {
     var M = Moteur(), e = entrees || {};
     var norm = function (t) { return String(t || '').replace(/[\u00a0\u202f]/g, ' '); };
@@ -8258,7 +8261,7 @@
       }
     });
   }
-  // Décharge planifiée et semaine de test dont la période recoupe la fenêtre de la fois suivante, d'après les ENTRÉES (jamais le champ du plan).
+  // Décharge planifiée et semaine de mesure dont la période recoupe la fenêtre de la fois suivante, d'après les ENTRÉES (jamais le champ du plan).
   function regimesRecalcules(e, M, jn, ecart) {
     var f = M.fenetreDeLaProchaineFois(ecart);
     var lo = jn + f.lo, hi = jn + f.hi, sortie = [];
@@ -8899,10 +8902,10 @@
 
   // I123 et I124 (225, MOTEUR §9.40) — la veille d'une activité dure.
   //   I123 : la proposition ne naît que d'une activité NOTÉE de la veille, intense, d'un sport qui charge les jambes (la table du moteur),
-  //          jamais en Édition ni en « Juste un carnet » ni en semaine de test ou allégée, pour UNE barre de jambes (squat, soulevé) en zone Lourd
-  //          dans la séance qui admet la variante, avec les deux gestes du moteur (« <barre> plus léger aujourd'hui » / « Garder le plan ») et
+  //          jamais en Édition ni en « Juste un carnet » ni en semaine de mesure ou allégée, pour UNE barre de jambes (squat, soulevé) en zone Lourd
+  //          dans la séance qui admet la variante, avec les deux gestes du moteur (« <barre> plus léger aujourd'hui » / « Comme prévu ») et
   //          la convention dite comme telle.
-  //   I124 : une réponse donnée (plus léger ou Garder le plan) fait taire la proposition — « Garder le plan » est respecté, UNE seule fois — et
+  //   I124 : une réponse donnée (plus léger ou Comme prévu) fait taire la proposition — « Comme prévu » est respecté, UNE seule fois — et
   //          sans activité notée (une simple habitude déclarée, ou rien), le plan ne propose rien.
   function verifierVeilleActivite(plan, entrees, erreurs) {
     var M = Moteur(), e = entrees || {}, v = plan && plan.veilleActivite;
@@ -8913,10 +8916,10 @@
     if (!M.activiteChargeLesJambes(a.slug)) erreurs.push('I123 — un sport qui ne charge pas les jambes : ' + a.slug);
     if (plan.edition) erreurs.push('I123 — une proposition de veille en Édition');
     if (plan.intention === 'entretien') erreurs.push('I123 — une proposition de veille en « Juste un carnet »');
-    if (plan.semaineDeTest || plan.allegee) erreurs.push('I123 — une proposition de veille en semaine de test ou allégée');
+    if (plan.semaineDeTest || plan.allegee) erreurs.push('I123 — une proposition de veille en semaine de mesure ou allégée');
     var attendue = jambesLourdesDuPlan(e, (e.seance && e.seance.exercices) || [], e.consignes || {}).filter(function (j) { return j.legere; });
     if (!attendue.length || attendue[0].slug !== v.slug) erreurs.push('I123 — l\u2019exercice proposé n\u2019est pas la première barre de jambes en Lourd de la séance : ' + v.slug);
-    if (!v.boutons || !/ plus léger aujourd\u2019hui$/.test(v.boutons.leger || '') || v.boutons.garder !== 'Garder le plan') erreurs.push('I123 — les deux gestes ne sont pas ceux du moteur');
+    if (!v.boutons || !/ plus léger aujourd\u2019hui$/.test(v.boutons.leger || '') || v.boutons.garder !== 'Comme prévu') erreurs.push('I123 — les deux gestes ne sont pas ceux du moteur');
     if (!/convention de coachs/.test(v.pourquoi || '')) erreurs.push('I123 — la convention n\u2019est pas dite comme telle');
   }
 
@@ -9098,7 +9101,7 @@
     var jt = plan && plan.semaineDeTest;
     if (!jt) {
       ((plan && plan.exercices) || []).forEach(function (x, i) {
-        if (x && x.semaineDeTest) erreurs.push('I89 — exercice ' + i + ' : une semaine de test hors de sa semaine');
+        if (x && x.semaineDeTest) erreurs.push('I89 — exercice ' + i + ' : une semaine de mesure hors de sa semaine');
       });
       return;
     }

@@ -72,7 +72,7 @@ describe('la consigne du jour en héros (173)', () => {
     expect(h.getAttribute('aria-label')).toBe(F('102,5', 9));
     expect(h.querySelector('.c-charge').textContent).toBe('102,5');
     expect(h.querySelector('.c-reps').textContent).toBe('9');
-    expect(h.getAttribute('data-garde')).toBe('garde-en' + NB + '1');
+    expect(h.getAttribute('data-garde')).toBe('réserve' + NB + '1');
   });
 
   test('« Aujourd\'hui : » garde son étiquette ; « ≈ », « sur les 2 dernières séries », décharge : le chiffre en héros, texte identique', () => {

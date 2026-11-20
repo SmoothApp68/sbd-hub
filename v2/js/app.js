@@ -540,10 +540,10 @@
     var pari = pariDuBloc(b);
     var fin = Moteur.carteFinDeBloc(b, bilan, nomsDuCatalogue(),
       pari ? { predite: pari.valeur_predite, observee: Moteur.progresDuBilan(bilan) } : null, phases);
-    // 193-4 — la proposition de la semaine de test, à la fin de la 2ᵉ phase (la chaîne `precedent` des phases du dossier).
+    // 193-4 — la proposition de la semaine de mesure, à la fin de la 2ᵉ phase (la chaîne `precedent` des phases du dossier).
     if (fin && phases) {
       var prop = proposerSemaineDeTestDuProgramme(b);
-      if (prop.propose) fin.test = { phrase: Moteur.phraseProposeTest(prop), faire: 'Faire la semaine de test' };
+      if (prop.propose) fin.test = { phrase: Moteur.phraseProposeTest(prop), faire: 'Faire la semaine de mesure' };
     }
     return { badge: badge, fin: fin };
   }
@@ -8605,7 +8605,7 @@
       // et, pour ceux qui en ont 2 ou plus, le premier frère proposé : le plan décide de la carte de reprise, il ne relit rien.
       nbDouleurs: nbDouleursDesEntrees(),
       freresDeReprise: freresDeRepriseDesEntrees(),
-      // 193-4 (MOTEUR §9.32) — la semaine de test (`profiles.cartes_semaine.test`) et le max estimé d'avant, par exercice : le plan décide.
+      // 193-4 (MOTEUR §9.32) — la semaine de mesure (`profiles.cartes_semaine.test`) et le max estimé d'avant, par exercice : le plan décide.
       semaineDeTest: semaineDeTestDesEntrees(exos),
       // 188-2 (I76) — les chutes de reps de chaque exercice de la séance (les 3 dernières séances, un fait de `faits.js`) : le plan
       // décide de la ligne du repos, il ne relit pas l'historique.
@@ -10135,7 +10135,7 @@
     await poser({ table: Attente.OBSERVATIONS, op: Attente.OBSERVER, id: ligne.id, depend: seance ? seance.id : ligne.id, alaFin: true,
                   donnees: { valeur_observee: ligne.valeur_observee, observee_a: ligne.observee_a, set_observe: ligne.set_observe } });
   }
-  // « Faire la semaine de test » — depuis la carte de fin de phase (`dossier`) ou le Profil (sans dossier). Annulable (`annulerLaSemaineDeTest`).
+  // « Faire la semaine de mesure » — depuis la carte de fin de phase (`dossier`) ou le Profil (sans dossier). Annulable (`annulerLaSemaineDeTest`).
   async function lancerLaSemaineDeTest(dossier) {
     if (testDesCartes() && testDesCartes().fin >= jourDuJour()) return;
     var jour = jourDuJour();
@@ -10233,17 +10233,17 @@
       }
     }
   }
-  // Le Profil : « Semaine de test » — son état, la proposition (hors programme), l'annulation.
+  // Le Profil : « Semaine de mesure » — son état, la proposition (hors programme), l'annulation.
   function ligneSemaineDeTest() {
     if (Moteur.coachSeTait(profil && profil.intention)) return null;
     var T = testDesCartes();
     var jour = jourDuJour();
     if (T && T.fin >= jour) {
-      return { libelle: 'Semaine de test', valeur: 'Jusqu’au ' + Rendu.dateCourte(T.fin), surChoix: ouvrirSemaineDeTest };
+      return { libelle: 'Semaine de mesure', valeur: 'Jusqu’au ' + Rendu.dateCourte(T.fin), surChoix: ouvrirSemaineDeTest };
     }
     // la ligne n'existe que s'il y a quelque chose à dire : une semaine en cours, ou une proposition possible (4 semaines, pas avant une décharge)
     var prop = proposerSemaineDeTestHorsProgramme();
-    return prop.propose ? { libelle: 'Semaine de test', valeur: null, surChoix: ouvrirSemaineDeTest } : null;
+    return prop.propose ? { libelle: 'Semaine de mesure', valeur: null, surChoix: ouvrirSemaineDeTest } : null;
   }
   function proposerSemaineDeTestHorsProgramme() {
     var jour = jourDuJour();
@@ -10291,7 +10291,7 @@
       actif: actif,
       phrase: actif ? Moteur.phraseTestEnCours() : Moteur.phraseTestPropose(prop),
       peutLancer: !actif && !!prop && prop.propose,
-      libelleLancer: prop && prop.voie === 'alleger' ? 'Faire quand même la semaine de test' : 'Faire une semaine de test',
+      libelleLancer: prop && prop.voie === 'alleger' ? 'Faire quand même la semaine de mesure' : 'Faire une semaine de mesure',
       barres: barres,
       surMode: function (slug, mode) {
         var modes = Object.assign({}, T.modes || {}); modes[slug] = mode;
@@ -11237,7 +11237,7 @@
         var x = planDeLExercice(iExo);
         return x && x.reserveAffichee !== undefined ? x.reserveAffichee : null;
       },
-      // 200-3 — UNE PUCE D'INTENTION par exercice : « 6-8 reps · garde 1 » (la fourchette de la zone, la réserve visée) ; `null` quand
+      // 200-3 — UNE PUCE D'INTENTION par exercice : « 6-8 reps · réserve 1 » (la fourchette de la zone, la réserve visée) ; `null` quand
       // l'étiquette de zone ne dit pas une zone chiffrée (zone à ménager, entretien). Les deux valeurs viennent de la consigne et du plan.
       puceIntention: function (slug, iExo) {
         var eti = etiquetteDe(slug, iExo), c = eti ? consigneDe(slug) : null;
@@ -11245,7 +11245,8 @@
         if (!z || /m\u00e9nager/.test(eti)) return null;
         var x = planDeLExercice(iExo), g = x && x.reserveAffichee !== undefined ? x.reserveAffichee : null;
         var reps = z.bas + '-' + z.haut + '\u00a0reps';
-        return { texte: reps + (g !== null ? ' \u00b7 garde\u00a0' + g : ''), aria: z.bas + ' \u00e0 ' + z.haut + ' reps' + (g !== null ? ', garde ' + g + ' en r\u00e9serve' : '') };
+        // 20/11/2026 — un mot par notion : « réserve N » en en-tête, « N en réserve » dans les phrases ; la réserve 0 se dit « jusqu'au bout ».
+        return { texte: reps + (g !== null ? ' \u00b7 ' + (g === 0 ? 'jusqu\u2019au bout' : 'r\u00e9serve\u00a0' + g) : ''), aria: z.bas + ' \u00e0 ' + z.haut + ' reps' + (g !== null ? ', ' + (g === 0 ? 'jusqu\u2019au bout' : g + ' en r\u00e9serve') : '') };
       },
       // 256 (D14) — la ligne que le plan déclare « recul » (type lu sur le plan), pour l'annoncer avant la validation.
       reculDuPlan: function (iExo, iSerie) {
@@ -11341,7 +11342,7 @@
         return p && p.mobilite && (p.mobilite.avant || p.mobilite.fin) ? p.mobilite : null;
       },
       // 225 (MOTEUR §9.40) — la veille d'une activité dure, lue sur le plan ; « <barre> plus léger aujourd'hui » est une variante de la consigne du
-      // jour (253, X2 : la zone ne change pas, rien n'est écrit sur la routine) ; « Garder le plan » ne change rien ; les deux font taire la carte.
+      // jour (253, X2 : la zone ne change pas, rien n'est écrit sur la routine) ; « Comme prévu » ne change rien ; les deux font taire la carte.
       propositionVeille: function () {
         if (enEdition() || !seance) return null;
         var p = planActuel();
@@ -13347,7 +13348,7 @@
         if (p) objectifs.push(p);
       });
     });
-    return { titre: 'Ta semaine de test est finie.', lignes: lignes, objectifs: objectifs };
+    return { titre: 'Ta semaine de mesure est finie.', lignes: lignes, objectifs: objectifs };
   }
 
   // 171 (famille A) — la fin de cycle en tête de Saisie. Mêmes dossiers, même règle (`programmeDuDossier`) que la
@@ -13371,7 +13372,7 @@
         if ((pr && pr.variations && pr.variations.length) || fait) items.push({ dossier: d, variations: (pr && pr.variations) || [], fait: fait });
       });
     }
-    // 193-4 — le bilan de la semaine de test, une fois la semaine finie : « avant → mesuré », l'objectif « Pas encore ».
+    // 193-4 — le bilan de la semaine de mesure, une fois la semaine finie : « avant → mesuré », l'objectif « Pas encore ».
     var bilanTest = !seance && etatRoutines.code === 'ok' ? bilanDeLaSemaineDeTest() : null;
     if (bilanTest) items.unshift({ dossier: null, bilanTest: bilanTest });
     Rendu.rendreFinsDeCycleSaisie(noeud, items, Object.assign({}, gestesFinDeCycle, {
@@ -15284,7 +15285,7 @@
     // 206 — LA COURBE EN TÊTE : les points sont un fait (`faits.pointsDeLExercice`), la géométrie est pure (`THCourbe`), la
     // période choisie ne vit que le temps de la page. « Un seul max » (MOTEUR §9.51) : elle juge une série comme la fiche
     // (`Modele.eligibilite1RM`), ancre sa fenêtre sur AUJOURD'HUI (un point d'avant la fenêtre de la fiche est creux, hors de la
-    // tendance), dit cette fenêtre sous le titre, et montre le max mesuré d'une semaine de test à part.
+    // tendance), dit cette fenêtre sous le titre, et montre le max mesuré d'une semaine de mesure à part.
     var mesureDeTestCourbe = testDesCartes() && testDesCartes().mesures ? testDesCartes().mesures[slug] : null;
     var pts = faits.pointsDeLExercice(corpus(), slug, maintenant,
       { mesures: mesureDeTestCourbe && mesureDeTestCourbe.valeur !== null && mesureDeTestCourbe.valeur !== undefined ? [mesureDeTestCourbe] : [] });
@@ -15448,7 +15449,7 @@
     // §9.23 (55-1) — LE PÉRIMÈTRE D'UN RECORD : celui de la médaille (12 mois pour un matériel de salle, toute la
     // vie ailleurs).
     var optionsRecords = Modele.optionsDeRecord(exo);
-    // 193-4 (MOTEUR §9.32) — le max MESURÉ par une semaine de test prime sur l'estimation (90 jours) ; jamais une ligne du journal des records.
+    // 193-4 (MOTEUR §9.32) — le max MESURÉ par une semaine de mesure prime sur l'estimation (90 jours) ; jamais une ligne du journal des records.
     var mesureDeTest = testDesCartes() && testDesCartes().mesures ? testDesCartes().mesures[slug] : null;
     if (mesureDeTest && mesureDeTest.valeur !== null && mesureDeTest.valeur !== undefined) {
       optionsRecords = Object.assign({}, optionsRecords, { mesures: [mesureDeTest] });
@@ -17817,7 +17818,7 @@
       else racine.localStorage.removeItem(CLE_NIVEAU_ANNONCE + id);
     } catch (e) { /* stockage refusé : la carte reste en mémoire pour cette ouverture */ }
   }
-  // MOTEUR : jamais pendant une décharge (la semaine allégée ou la décharge planifiée, `semaineAllegeeEnCours`), une semaine de test
+  // MOTEUR : jamais pendant une décharge (la semaine allégée ou la décharge planifiée, `semaineAllegeeEnCours`), une semaine de mesure
   // (`testDesCartes`) ou quand « J'ai mal » est actif (une série marquée dans les 42 jours, `faits.douleursParExercice`, ou dans la
   // séance ouverte) : l'évaluation attend la prochaine ouverture.
   // …et tant que l'écran du questionnaire est ouvert : la personne y répond sur son niveau. (`questionnaire_fait_le` vide ne bloque pas : les comptes d'avant le questionnaire l'ont vide.)
@@ -18996,7 +18997,7 @@
     var redessiner = function () { feuilleProfil($('feuille-contenu')); };
     feuilleProfil = function (cible) {
       Rendu.rendreFeuilleChoixMultiple(cible, {
-        titre: 'Zone à ménager',
+        titre: 'À ménager',
         aide: Profil.PHRASE_ZONES,
         groupes: [{ options: Profil.ZONES_A_MENAGER }],
         valeurs: liste,
@@ -19468,7 +19469,7 @@
             ligneChoix('materiel', 'Matériel'),
             // 108 (MOTEUR §10 bis, ECRAN-PROFIL §2.4 quinquies) — Ma salle ; 163 : les élastiques seulement, et seulement si un
             // exercice à l'élastique est dans une routine, l'historique ou la séance en cours.
-            // 193-4 (MOTEUR §9.32) — « Semaine de test » : son état, la proposition hors programme, l'annulation.
+            // 193-4 (MOTEUR §9.32) — « Semaine de mesure » : son état, la proposition hors programme, l'annulation.
             facultative(ligneSemaineDeTest())
           ].filter(Boolean).concat(Profil.lignesProgramme(p, ouvrirProgrammeProfil), ligneRetenusDuCoach()) },
           // 213 — « Mes exercices » rejoint le programme.

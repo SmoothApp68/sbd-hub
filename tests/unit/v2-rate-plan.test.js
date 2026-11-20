@@ -65,7 +65,7 @@ describe('niveau 1 — la 1re série des tractions : 7 au lieu de 8', () => {
     expect(x.rate).toBeTruthy();
     expect(x.rate.niveau).toBe('serie');
     expect(x.rate.iSerie).toBe(0);
-    expect(sp(x.rate.phrase)).toBe('7 au lieu de 8. Même charge, garde 1, entre 6 et 7.');
+    expect(sp(x.rate.phrase)).toBe('7 au lieu de 8. Même charge, vise 1 en réserve, entre 6 et 7.');
     expect(x.rate.recale).toBe(true);
     // la fourchette est le pari des lignes suivantes (toutes : la 1re série ratée recale d'un coup) ; la charge ne bouge pas
     x.lignes.slice(1).forEach((l) => { expect(l.vise).toBeLessThanOrEqual(7); expect(l.charge).toBe(0); });
@@ -80,7 +80,7 @@ describe('niveau 2 — après 2 séries sous la cible', () => {
     const { e, p } = plan({ tractions: [[0, 7], [0, 7]] });
     const x = p.exercices[0];
     expect(x.rate.niveau).toBe('exercice');
-    expect(sp(x.rate.phrase)).toBe('7 puis 7, sous la cible. La suite vise 7, garde 1, entre 6 et 8.');
+    expect(sp(x.rate.phrase)).toBe('7 puis 7, sous la cible. La suite vise 7, avec 1 en réserve, entre 6 et 8.');
     expect(x.lignes[2].vise).toBe(7);
     expect(x.lignes[3].vise).toBe(7);
     expect(x.phrases.filter((q) => q.ou === 'rate')).toHaveLength(1);
@@ -110,7 +110,7 @@ describe('niveau 3 — la forme du jour : la carte au rowing', () => {
     expect(sp(p.exercices[3].carteForme.phrase)).toBe('Tes séries sont sous la cible sur 2 des 3 derniers exercices, et tu as baissé la charge sur rowing. Pour la fin de séance ?');
     propre(p, e);
   });
-  test('« Garder le plan » : la carte ne revient jamais', () => {
+  test('« Comme prévu » : la carte ne revient jamais', () => {
     const { e, p } = plan(fait, { gestes: [{ geste: 'forme_gardee', slug: 'rowing' }] });
     expect(p.formeDuJour).toMatchObject({ reponse: 'garde', carte: null });
     expect(p.exercices.some((x) => x.carteForme)).toBe(false);
@@ -149,7 +149,7 @@ describe('la charge ne baisse que par un geste', () => {
 });
 
 describe('les contextes qui se taisent', () => {
-  test('Entretenir, décharge, semaine de test : aucune réaction', () => {
+  test('Entretenir, décharge, semaine de mesure : aucune réaction', () => {
     const se = monter({ tractions: [[0, 7]] });
     const e = entrees(se);
     expect(T.planDeSeance(Object.assign({}, e, { intention: 'entretien' })).exercices[0].rate).toBeNull();
@@ -178,14 +178,14 @@ describe('une phrase seule ne fait jamais taire le coach (propositions ignorées
     expect(x.rate.iSerie).toBe(3);
     expect(x.rate.cas).toBe('D');
     expect(cles(x)).toEqual(['prendre']);
-    expect(sp(x.rate.phrase)).toBe('7 au lieu de 10. On passe à 80 kg, garde 1, entre 8 et 10.');
+    expect(sp(x.rate.phrase)).toBe('7 au lieu de 10. On passe à 80 kg, vise 1 en réserve, entre 8 et 10.');
     propre(p, e);   // I115 (une seule phrase, sous la dernière série validée) est vérifié par `verifierPlan`
   });
   test('(b) le témoin 10, 7 : cas D, « Prendre 80 kg »', () => {
     const { e, p, x } = rowing([10, 7]);
     expect(x.rate.cas).toBe('D');
     expect(cles(x)).toEqual(['prendre']);
-    expect(sp(x.rate.phrase)).toBe('7 au lieu de 10. On passe à 80 kg, garde 1, entre 8 et 10.');
+    expect(sp(x.rate.phrase)).toBe('7 au lieu de 10. On passe à 80 kg, vise 1 en réserve, entre 8 et 10.');
     propre(p, e);
   });
   test('(c) deux réactions À BOUTONS ignorées (7, 7) : la 3e série est muette PAR `ignorees` (5 séries : ce n’est pas la dernière, cas J)', () => {
@@ -348,7 +348,7 @@ describe('236 × 225 — la forme du jour et la veille d’une activité dure (I
     expect(p.exercices.some((x) => x.carteForme)).toBe(false);
     propre(p, e);
   });
-  test('« Garder le plan » : la carte nomme le fait noté, sans cause', () => {
+  test('« Comme prévu » : la carte nomme le fait noté, sans cause', () => {
     const { e, p } = avec('garder');
     const c = p.exercices[2].carteForme;
     expect(c.veille).toBe('football');
@@ -477,7 +477,7 @@ describe('251 D2 — la porte du cran', () => {
     expect(sp(q.bouton)).toBe('Tenter 110 kg quand même');
     expect(q.annuler).toBeNull();
     expect(x.entete.jaune.join(' ')).not.toMatch(/Si ça passe/);
-    expect(sp(x.rate.phrase)).toBe('2 au lieu de 5. On passe à 92,5 kg, garde 1, entre 3 et 5.');
+    expect(sp(x.rate.phrase)).toBe('2 au lieu de 5. On passe à 92,5 kg, vise 1 en réserve, entre 3 et 5.');
     expect(x.rate.boutons.map((b) => b.cle)).toContain('prendre');
     // le Pourquoi : la raison, avec ta force du jour (113 kg ≈ 2 reps à 110 kg)
     expect(sp(x.pourquoi.porte)).toBe('Ta série à 107,5 kg × 2 est sous ta zone (3 à 5 reps) : le test à 110 kg × 3 attend une autre séance. ' +
@@ -493,7 +493,7 @@ describe('251 D2 — la porte du cran', () => {
     expect(x.rate.niveau).toBe('serie');
     expect(x.rate.charge.action).toBe('baisse');
     expect(x.rate.boutons.map((b) => b.cle)).toContain('prendre');
-    expect(sp(x.rate.phrase)).toBe('2 au lieu de 5. On passe à 92,5 kg, garde 1, entre 3 et 5.');
+    expect(sp(x.rate.phrase)).toBe('2 au lieu de 5. On passe à 92,5 kg, vise 1 en réserve, entre 3 et 5.');
     expect(x.porteDuCran.iSerie).toBe(0);                                        // la première série qui ferme
     propre(r.p, r.e);
   });
@@ -619,7 +619,7 @@ describe('251 D2 — la porte du cran', () => {
     propre(r.p, r.e);
   });
 
-  test('contextes muets — Entretenir, « J’ai mal », semaine de test, semaine allégée : aucune porte', () => {
+  test('contextes muets — Entretenir, « J’ai mal », semaine de mesure, semaine allégée : aucune porte', () => {
     const base = planH({ couche: [[107.5, 2]] });
     const sans = (patch) => X0({ p: T.planDeSeance(Object.assign({}, base.e, patch)) });
     expect(sans({ intention: 'entretien' }).porteDuCran).toBeFalsy();

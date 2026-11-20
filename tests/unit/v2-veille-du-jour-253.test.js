@@ -74,7 +74,7 @@ describe('253 — le plan d’une nouvelle séance du jour (I140)', () => {
     expect(p.veilleReprise).toEqual({ choix: 'leger', slug: 'squat_barre', nom: 'Squat', lien: 'Changer', repris: true, phrase: 'Comme ce matin\u00a0: squat plus léger.' });
     expect(i140(p, e)).toEqual([]);
   });
-  test('« Garder le plan » repris : « Comme ce matin : plan gardé. »', () => {
+  test('« Comme prévu » repris : « Comme ce matin : plan gardé. »', () => {
     const se = seanceDe(['squat_barre', 'developpe_couche_barre']), e = entrees(se, { veilleChoix: 'garder' });
     const p = T.planDeSeance(e);
     expect(p.veilleActivite).toBeNull();

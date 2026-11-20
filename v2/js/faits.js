@@ -330,7 +330,7 @@
     //     AUJOURD'HUI, jamais sur la dernière séance) — un matériel de salle seulement ; une barre n'en a jamais. La courbe
     //     le montre creux, hors de sa tendance, de son dernier chiffre et de son écart (I175).
     // Rend `{ mesure: 'charge' | 'reps' | 'temps' | null, points, mesures, plancher }` : `plancher` est l'instant de la fenêtre
-    // (`null` : tout l'historique) ; `mesures` : le max MESURÉ par une semaine de test encore valable (`o.mesures`, ce que le profil
+    // (`null` : tout l'historique) ; `mesures` : le max MESURÉ par une semaine de mesure encore valable (`o.mesures`, ce que le profil
     // a rangé), à part des points — jamais un point Epley (I177). Un fait : rien n'est lissé, formaté ni projeté ici.
     var memoPoints = { cle: null, parSlug: {} };
     function pointsDeLExercice(c, slug, maintenant, o) {
@@ -2394,7 +2394,7 @@
       return sortie;
     }
     // 202 (MOTEUR §9.32) — D'OÙ VIENT CE MAX : la série (charge, reps) dont `maxEstimesAvantLeTest` tire son estimation, par exercice. Les
-    // reps ne sont plus jetées : au-delà de 5, le calcul est moins fiable et le défaut de la semaine de test devient « Série au max ».
+    // reps ne sont plus jetées : au-delà de 5, le calcul est moins fiable et le défaut de la semaine de mesure devient « Série au max ».
     // `null` : aucun max estimé, ou un max sans reps connues (un import, un ancien) — alors aucune condition sur les reps.
     function seriesDesMaxEstimesAvantLeTest(c, slugs, debut) {
       var sortie = {};
@@ -2404,7 +2404,7 @@
       });
       return sortie;
     }
-    // 19/11/2026 (MOTEUR §9.32, « Pas d'essai sur un vieux max ») — LA REPRISE DE CHAQUE BARRE au premier jour de la semaine de test : un FAIT, lu par
+    // 19/11/2026 (MOTEUR §9.32, « Pas d'essai sur un vieux max ») — LA REPRISE DE CHAQUE BARRE au premier jour de la semaine de mesure : un FAIT, lu par
     // la notion existante (`Moteur.repriseDe` : les séances de la barre STRICTEMENT avant le jour, l'écart habituel, la coupure ; aucune fenêtre de
     // plus). Même gel que `unRMAvantLeTest` (minuit local du jour de début). `aucune` · `courte` · `longue` ; `Moteur.testBarreTestable` décide.
     function reprisesAvantLeTest(c, slugs, debut) {

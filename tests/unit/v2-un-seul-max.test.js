@@ -145,7 +145,7 @@ describe('§9.51.3-4 — recordsDeLExercice : `force` à l\'affichage, `unRM` au
 
     const seul = fiche('squat_barre', [seanceDe([sq(100, 1)])]);
     expect(seul.force).toMatchObject({ mode: 'plancher', charge: 100, reps: 1, valeur: 100 });
-    expect(seul.unRM).toBeNull();                                                      // la semaine de test ne lit pas un single
+    expect(seul.unRM).toBeNull();                                                      // la semaine de mesure ne lit pas un single
   });
 
   test('deux planchers égaux : le plus ancien ; 2 reps comptent avec le single', () => {
@@ -447,14 +447,14 @@ describe('§9.51.6.3 — la ligne de fenêtre : un lexique fermé', () => {
 
 // ── 7. LE COACH NE LIT PAS LE PLANCHER ; PROGRESSION PERD LE LESTÉ ET L'ASSISTÉ ──
 describe('I172-I173 — maxEstimesAvantLeTest ne lit que `unRM` ; Progression', () => {
-  test('un single de 150 kg ne bouge ni le max estimé ni la série dont il vient (semaine de test, pari, chauffes)', () => {
+  test('un single de 150 kg ne bouge ni le max estimé ni la série dont il vient (semaine de mesure, pari, chauffes)', () => {
     const avec = corpus([{ debut: jourLocal('2026-11-03'), series: [S('squat_barre', 150, 1), S('squat_barre', 120, 5)] }]);
     const sans = corpus([{ debut: jourLocal('2026-11-03'), series: [S('squat_barre', 120, 5)] }]);
     const f = () => Faits.creer();   // un mémo par corpus (la clé du mémo est le nombre de séances et de séries)
     expect(f().maxEstimesAvantLeTest(avec, ['squat_barre'], '2026-11-10')).toEqual(f().maxEstimesAvantLeTest(sans, ['squat_barre'], '2026-11-10'));
     expect(f().maxEstimesAvantLeTest(avec, ['squat_barre'], '2026-11-10').squat_barre).toBe(140);
     expect(f().seriesDesMaxEstimesAvantLeTest(avec, ['squat_barre'], '2026-11-10')).toEqual(f().seriesDesMaxEstimesAvantLeTest(sans, ['squat_barre'], '2026-11-10'));
-    // Un single seul : la semaine de test l'ignore, comme avant.
+    // Un single seul : la semaine de mesure l'ignore, comme avant.
     const single = corpus([{ debut: jourLocal('2026-11-03'), series: [S('squat_barre', 150, 1)] }]);
     expect(f().maxEstimesAvantLeTest(single, ['squat_barre'], '2026-11-10').squat_barre).toBeNull();
   });

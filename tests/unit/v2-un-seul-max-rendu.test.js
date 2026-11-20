@@ -93,7 +93,7 @@ describe('la courbe : plancher et max mesuré', () => {
     const cibles = d.querySelectorAll('.courbe-cible');
     expect(cibles).toHaveLength(3);
     cibles[2].dispatchEvent(new window.Event('click'));
-    expect(texte(d.querySelector('.courbe-bulle'))).toBe('Max mesuré 160 kg, à ta semaine de test');
+    expect(texte(d.querySelector('.courbe-bulle'))).toBe('Max mesuré 160 kg, à ta semaine de mesure');
   });
 });
 
@@ -111,7 +111,7 @@ describe('la fiche : la ligne « Force estimée »', () => {
   });
   test('projection (inchangée) et mesure', () => {
     expect(texte(fiche({ mode: 'projection', valeur: 144.67, charge: 124, reps: 5 }))).toMatch(/d’après 124 kg × 5\s*≈ 145 kg/);
-    expect(texte(fiche({ mode: 'mesure', valeur: 150, charge: 150, reps: 1 }))).toMatch(/Max mesuré\s*à ta semaine de test, 150 kg × 1\s*150 kg/);
+    expect(texte(fiche({ mode: 'mesure', valeur: 150, charge: 150, reps: 1 }))).toMatch(/Max mesuré\s*à ta semaine de mesure, 150 kg × 1\s*150 kg/);
   });
   test('sans force : aucune ligne', () => { expect(fiche(null)).toBeNull(); });
 });

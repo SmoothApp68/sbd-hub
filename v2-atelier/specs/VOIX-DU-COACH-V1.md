@@ -12,7 +12,7 @@
 4. **Des phrases courtes, au « tu »** : le fait, puis la suite. *(28/10/2026, 181 D2 : « je » partout où le coach décide — « je garde », « je teste », « je visais » ; les aides des réglages restent neutres, sans « je » ni « le coach ».)*
    *(13/11/2026, « Les mots disent vrai » PR 4a, MOTEUR §9.47 : la règle des personnes — **je** = le coach décide la charge (« Je garde 130 kg », « Je baisse à 97,5 kg ») ; **tu** = ce que fait la personne (« Tu restes à 70 kg × 8 », jamais « Je garde 8 reps ») ; **on** = l'essai à deux seulement (« On essaie 72,5 kg »). Le lexique du verbe est fermé : « Une rep de plus : 70 kg × 9 » (toujours avec son chiffre), « Tu restes à … », « sans marge » (défini au Pourquoi : « il ne t'en restait aucune »), « la dernière » seulement pour la dernière série de la séance.)*
    *(14/11/2026, « Les mots disent vrai » PR 5a, MOTEUR §9.48 : le lexique des ANNONCES est fermé et n'a qu'un auteur (`Moteur.annonceDe`). **« La prochaine fois : une rep de plus, 65 kg × 9 »** (le verbe de la consigne suivante, la même fonction que son en-tête), **« La prochaine fois : tu restes à 157,5 kg × 4, la dernière sans marge »** (la cause, six mots au plus, seulement quand le verbe garde ou borne ; jamais devant « de plus »), **« La prochaine fois : 70 kg × 10, puis ≈ 72,5 kg × 8 sur la dernière série »** (les lignes de la consigne suivante ; PR 5b-2, 16/11/2026 : « Prochaine séance » n'existe plus dans une annonce, un seul libellé), **« Il te manque 2 reps pour tester 55 kg »** (seulement si le moteur confirme, sinon rien). **Supprimés** : « Même cible » (il compare cible à cible quand « une rep de plus » compare à ce qui a été fait), « Le test te ramènera à X kg » (une promesse non datée). Une annonce ne promet que ce que le moteur fera ; quand il ne peut pas le confirmer, elle se tait.)*
-   *(14/11/2026, PR 5b-1, MOTEUR §9.50 : quand la fois suivante peut tomber dans un régime daté, l'annonce dit la DATE, absolue, ou rien — **« Ta décharge commence le 16 nov., prévue par ton programme. »** (les mots du bandeau), **« Ta semaine de test commence le 23 nov. »**, **« Ton bloc commence le 23 nov. »** — et la phrase d'effort se réduit à sa tête : **« 130 kg × 5, sans marge. »**, **« 34 kg × 9, il t'en restait 3. Au-dessus de ce que je visais. »**, **« Deux fois 30 kg × 10 au haut de ta zone. »**. Refusés : « séances plus légères » (faux : la charge reste), « semaine allégée », « repos », « jusqu'au », toute date relative, « je garde », « on essaie ».)*
+   *(14/11/2026, PR 5b-1, MOTEUR §9.50 : quand la fois suivante peut tomber dans un régime daté, l'annonce dit la DATE, absolue, ou rien — **« Ta décharge commence le 16 nov., prévue par ton programme. »** (les mots du bandeau), **« Ta semaine de mesure commence le 23 nov. »**, **« Ton bloc commence le 23 nov. »** — et la phrase d'effort se réduit à sa tête : **« 130 kg × 5, sans marge. »**, **« 34 kg × 9, il t'en restait 3. Au-dessus de ce que je visais. »**, **« Deux fois 30 kg × 10 au haut de ta zone. »**. Refusés : « séances plus légères » (faux : la charge reste), « semaine allégée », « repos », « jusqu'au », toute date relative, « je garde », « on essaie ».)*
    *(14/11/2026, « Les mots disent vrai » PR 4b, MOTEUR §9.47 ter : le verdict de fin d'exercice dit la cause comme la consigne — **« Cible faite : 70 kg × 8, 8, 8, la dernière sans marge. »** (« une série sans marge » si ce n'est pas la dernière ; rien pour un public protégé ; jamais « tenu, sans marge », qui n'existe plus) ; et la montée tenue perd la troisième personne : **« 127,5 kg × 4, dans ta zone : la montée a tenu. Elle compte comme un test tenu. »**)*
 5. **Un fait, jamais un « bravo »** ; aucun rouge, aucun vocabulaire de risque ; jamais la durée d'une absence ni un commentaire d'assiduité (inchangé).
 6. **Une question seulement quand le coach propose** (« tu passes à 130 kg ? »).
@@ -51,7 +51,7 @@
 | Courbe, un pic d'avant la fenêtre qui est un plancher (15/11/2026, « Un seul chiffre de force ») | Pic ancien au moins 152,5 kg, le 18 sept. 2025, hors fenêtre. |
 | Courbe, la tête (la force de la fiche) | ≈ 93 kg · force estimée · d'après 73,5 kg × 8, le 12 juil. |
 | Courbe, la tête d'une borne basse | au moins 150 kg · force estimée · d'après 150 kg × 1, le 1er oct. |
-| Courbe, la tête d'un max mesuré | 150 kg · max mesuré · à ta semaine de test, 150 kg × 1, le 3 nov. |
+| Courbe, la tête d'un max mesuré | 150 kg · max mesuré · à ta semaine de mesure, 150 kg × 1, le 3 nov. |
 | Courbe, le trajet (deux projections, deux dates) | 87 → 92 kg, du 18 mai au 18 oct. |
 | Courbe, le trajet, deux chiffres égaux | 92 kg, inchangé, du 18 mai au 18 oct. |
 | Courbe, la bulle d'un point | Le 18 sept. 2025 · 200 kg × 5 · force estimée 233 kg |
@@ -63,7 +63,7 @@
 
 | Situation | Phrase |
 |---|---|
-| En-tête d'un exercice | garde-en 1 |
+| En-tête d'un exercice (20/11/2026 : « réserve 1 », plus « garde-en 1 » ; à 0 : « jusqu'au bout ») | réserve 1 |
 | Question dans la barre de repos, après la dernière série de travail (259 : une seule fois ; la case « Effort » de la ligne répond aussi) | Il t’en restait combien ? — 0 · 1 · 2 · 3 ou + · Passer |
 | Réserve au-dessus de la visée (le seuil, `reserveAtteintLeSeuil`) | 34 kg × 9, il t'en restait 3 ou plus. Au-dessus de ce que je visais : la prochaine fois, on essaie 36 kg. (« ou plus » à la case du haut de la grille, « 3 ou + » ; 2 se dit « 2 ») |
 | Réserve égale à la visée relevée par un plancher, en « Me pousser » (le test se lit sur la table, 20/11/2026, CONTRA-TT3-A1 C) | 100 kg × 10, il t'en restait 2 : c'est ce que je visais ; avec Me pousser, c'est assez pour tester. La prochaine fois, on essaie 102,5 kg. |
@@ -106,7 +106,7 @@ Forme unique : **Ta note dit « <extrait> » → je propose : <proposition>.** T
 | réglage | ta note de la presse. / ta note de la presse, à la place de « dossier cran 4 ». | Noté. *Annuler* |
 | douleur | douleur au coude, sur Curl marteau. | Douleur notée : coude. *Annuler* |
 
-Une réserve de 0 se dit « sans marge », jamais « 0 en réserve ».
+Une réserve de 0 se dit « sans marge », jamais « 0 en réserve » *(20/11/2026 : exception unique pour l'en-tête d'un exercice, où la réserve visée 0 se dit « jusqu'au bout » — jamais « réserve 0 », jamais « sans marge », qui dit ce qui s'est passé et reste réservé à la cause, I162)*. Les phrases sont balayées par `tests/unit/v2-notes-ia.test.js` avec les motifs de `fixtures/voix-regles-181.json`.
 
 **« Au max » disparaît (20/11/2026, MOTEUR §9.30, I251, CONTRA-AUMAX-DEDUIT C9).** Le glossaire perd « Au max » et « 5+ » : ni carte « Dernière série au max ? »,
 ni bouton, ni « Au max en gardant N », ni « Jusqu'à l'échec » sous une ligne, ni étiquette « 5+ · garde N », ni « Ta dernière série me dit où tu en es »,
@@ -143,6 +143,23 @@ Le chiffre d'abord, l'unité sur chaque charge, « tu », un fait. Jamais « une
 | Lesté | Chauffe : poids du corps × 2 · 15 kg de lest × 2. — Pourquoi : Avec un lest, tu passes d'abord au poids du corps. |
 | Peu de temps | Tu as peu de temps : deux chauffes. / Tu as peu de temps : une seule. |
 | Une ligne qui n'a plus de marche | Trop léger pour une chauffe de plus. |
+
+## Un mot par notion (20/11/2026, revue des règles, décision du fondateur)
+
+Un sens, un mot ; un mot, un sens. Appliqué à tous les textes affichés (le code, le lexique de l'app, les bancs).
+
+| Notion | Le mot | Avant | Exemple |
+|---|---|---|---|
+| La marge visée sur la dernière série | **réserve** : « réserve 1 » en en-tête, « N en réserve » dans les phrases | « garde-en 1 », « garde 1 » | « 3 × 8 · réserve 1 » ; « Je baisse à 80 kg : vise 1 en réserve. » (dans une phrase de raté : « On passe à 80 kg, vise 1 en réserve, entre 8 et 10. ») |
+| Une réserve visée de 0 | **jusqu'au bout** (en-tête et puce) | « garde 0 » | « 3 × 8 · jusqu'au bout » (jamais « réserve 0 », jamais « sans marge ») |
+| La semaine où l'on mesure ses barres | **semaine de mesure** ; « test » reste pour la charge au-dessus | « semaine de test » | « Ta semaine de mesure commence le 23 nov. » ; « Faire une semaine de mesure » |
+| Laisser le coach tel qu'il avait dit, un geste de séance | **Comme prévu** (parallèle à « Comme avant ») ; « Garder N jours » reste pour refuser une carte | « Garder le plan » | « <barre> plus léger aujourd'hui » / « Comme prévu » |
+| Reprendre une séance en cours | **Continuer la séance** ; « Reprendre » reste pour une routine en cours d'édition | « Reprendre » | le bandeau « · en cours », la carte « Prochaine séance » |
+| La carte après une douleur | titre daté, sans « on » ni « hier » | « Ta dernière séance de Squat était douloureuse. » | « Squat : tu as noté une douleur le 12 nov. » (les trois choix ne changent pas) |
+| Un exercice plus dur de la même famille | **une variante plus dure** (le bouton reste « Essayer <exercice> ») ; « marche », « échelle » restent internes | « La marche au-dessus » | « Une variante plus dure : pompes déclinées. » |
+| Une plage de reps | **zone** (jamais autre chose) ; les muscles se disent **groupe** ; la douleur se dit **à ménager** | « Zone à ménager » | « À ménager » (le Profil, la feuille) ; « Ce que tu ménages, je le garde » |
+
+Inchangés : « je garde » (la charge, pour cette seule décision), « tu restes à » (l'objectif de reps tenu), « test » (la charge au-dessus, « Pas de test à 110 kg »), « reprise après une pause ». Restent à trancher (relevés, non faits) : « en gardant N reps » (les phrases de l'« Au max », du recul et du test disent encore « en gardant » pour la même notion), « la marche d'en dessous » (I55), « Des zones raides ? » (un troisième sens de « zone »).
 
 ## Ce qui reste à faire
 

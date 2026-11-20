@@ -188,7 +188,7 @@ describe('UNE réaction par série à 0 rep (règle 4) — « entre 1 et 1 » ne
       });
     });
   });
-  test('LE DÉFAUT D\'ORIGINE (origin/main) : Franc, 100 × 5 puis 100 × 0 (typé `travail`) → « 0 au lieu de 5. Même charge, garde 1, entre 1 et 1. » (I119 violé) ; maintenant Z2', () => {
+  test('LE DÉFAUT D\'ORIGINE (origin/main) : Franc, 100 × 5 puis 100 × 0 (typé `travail`) → « 0 au lieu de 5. Même charge, vise 1 en réserve, entre 1 et 1. » (I119 violé) ; maintenant Z2', () => {
     const r = planZ([[100, 5], [100, 0]], { reglage: 'franc' });
     const dit = r.x.phrases.filter((q) => q.ou === 'rate').map((q) => sp(q.texte));
     expect(dit).toEqual(['100 kg est resté à 0 rep.']);

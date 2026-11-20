@@ -3,7 +3,7 @@
 // Lot F, A1 (20/11/2026, MOTEUR §9.26 ter, décision d'Aurélien, I241) — LE PLANCHER DE RÉSERVE PAR BARRE. Sur un exercice à la barre
 // (`Generateur.familleDeBarre`), la réserve AFFICHÉE ne descend jamais sous le plancher de sa barre, quel que soit le réglage : squat, couché,
 // militaire 1, soulevé 2 (`Moteur.PLANCHER_DE_BARRE`, lue aussi par `auMaxDe`). Le test par la réserve reste sur la TABLE ; « facile » se lit contre
-// l'affichée (I234). Exemptée : la semaine de test. Chaque test ci-dessous échoue sur main.
+// l'affichée (I234). Exemptée : la semaine de mesure. Chaque test ci-dessous échoue sur main.
 
 process.env.TZ = 'Europe/Paris';
 
@@ -220,7 +220,7 @@ describe('le plan : un seul chiffre par barre', () => {
 });
 
 describe('I241 : le vérificateur', () => {
-  test('une réserve affichée sous le plancher de la barre est une erreur ; la semaine de test est exemptée', () => {
+  test('une réserve affichée sous le plancher de la barre est une erreur ; la semaine de mesure est exemptée', () => {
     const r = jouer(SQUAT, progression, [], 'franc');
     const faux = Object.assign({}, r.p, { exercices: [Object.assign({}, r.x, { reserveAffichee: 0, gardeDeLigne: 0 })] });
     const er = T.verifierPlan(faux, r.e, null).erreurs.filter((x) => /^I241/.test(x));

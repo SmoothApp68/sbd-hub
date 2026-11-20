@@ -151,7 +151,7 @@
 
   // La géométrie complète d'une courbe de page : points (pâles), trait (moyenne glissante), graduations, repères de mois.
   //   cadre : { largeur, hauteur, gauche, droite, haut, bas } (valeurs par défaut : le 340 × 150 de la maquette).
-  //   mesures : les max MESURÉS d'une semaine de test dans la vue (`[{ debut, valeur, charge, reps }]`) — des repères à part, sur la
+  //   mesures : les max MESURÉS d'une semaine de mesure dans la vue (`[{ debut, valeur, charge, reps }]`) — des repères à part, sur la
   //   même échelle, jamais dans le trait (I177).
   function geometrie(points, cadre, genre, mesures) {
     var c = cadre || {};

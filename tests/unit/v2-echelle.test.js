@@ -81,7 +81,7 @@ describe('127 — concordance avec echelle127.py', () => {
     if (!a) return a;
     const nom = INDEX[c.slug].nom, cible = a.oui.replace(/^Ajouter /, '');
     return Object.assign({}, a, { oui: 'Essayer ' + cible,
-      detail: 'La marche au-dessus : ' + cible + '. Je la mets à la place de tes séries restantes de ' + nom + ', pour essayer aujourd\'hui. Ta routine ne change pas.' });
+      detail: 'Une variante plus dure : ' + cible + '. Je la mets à la place de tes séries restantes de ' + nom + ', pour essayer aujourd\'hui. Ta routine ne change pas.' });
   };
   F.carte.forEach((c) => {
     test('carte — ' + c.nom, () => {
@@ -228,7 +228,7 @@ describe('127 — la carte « marche suivante » dans le plan (§9.17 bis)', () 
     expect(x.carteMarche).toMatchObject({
       titre: 'Aide 25 kg × 12 sur toutes tes séries, deux séances de suite.',
       // 16/11/2026 (« Essayer la marche ») — la marche prend la place des séries restantes, aujourd'hui.
-      detail: 'La marche au-dessus : Tractions. Je la mets à la place de tes séries restantes de Tractions (Élastique), pour essayer aujourd\'hui. Ta routine ne change pas.',
+      detail: 'Une variante plus dure : Tractions. Je la mets à la place de tes séries restantes de Tractions (Élastique), pour essayer aujourd\'hui. Ta routine ne change pas.',
       oui: 'Essayer Tractions', non: 'Pas maintenant', cible: 'tractions', aide: true, essai: true, restantes: 3
     });
     // On tient la ligne : la consigne n'est pas touchée.

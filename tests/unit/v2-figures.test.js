@@ -543,7 +543,7 @@ describe('149 C — la carte « marche suivante » en secondes', () => {
     const { x, erreurs } = carte({ tenues: [20], faites: [22, null, null, null] });
     expect(x.carteMarche).toMatchObject({
       titre: '22 s tenues, deux séances de suite.',
-      detail: 'La marche au-dessus : Front Lever Groupé Avancé. Je te propose d\'en faire 2 tenues avant, autant de secondes que tu peux.',
+      detail: 'Une variante plus dure : Front Lever Groupé Avancé. Je te propose d\'en faire 2 tenues avant, autant de secondes que tu peux.',
       oui: 'Ajouter Front Lever Groupé Avancé', non: 'Pas maintenant', cible: 'front_lever_groupe_avance',
       secondes: true, seuil: 20, aide: false, type: 'marche', proposable: true
     });

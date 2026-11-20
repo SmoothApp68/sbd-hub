@@ -122,7 +122,7 @@ describe('175 / 1 — la carte du lest propose les deux', () => {
       oui: 'Ajouter du lest', non: 'Rester aux Pompes', variante: { slug: 'pompes_declinees', nom: 'Pompes Déclinées' }
     });
     expect(esp(x.carteLest.titre)).toBe('12 reps sur toutes tes séries, deux séances de suite.');
-    expect(esp(x.carteLest.detail)).toBe('Le haut de ta zone tient. La marche au-dessus : du lest (2,5 kg, en revenant à 10 reps), ' +
+    expect(esp(x.carteLest.detail)).toBe('Le haut de ta zone tient. Une variante plus dure : du lest (2,5 kg, en revenant à 10 reps), ' +
       'ou Pompes Déclinées, sans matériel.');
     expect(x.carteMarche).toBeNull();
     expect(erreurs(plan, e)).toEqual([]);

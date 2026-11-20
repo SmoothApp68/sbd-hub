@@ -368,7 +368,7 @@
     var t = el('span', 'exo-bandeau-t', vue.seanceEnCours.titre || 'Séance');
     t.appendChild(el('em', null, ' · en cours'));
     bandeau.appendChild(t);
-    var b = el('button', 'exo-reprendre', 'Reprendre');
+    var b = el('button', 'exo-reprendre', 'Continuer la séance');
     b.type = 'button';
     b.addEventListener('click', vue.seanceEnCours.surReprendre);
     bandeau.appendChild(b);
@@ -530,7 +530,7 @@
     if (t.force) {
       var force = el('div', 'exo-fiche exo-force');
       // « Un seul chiffre de force » (MOTEUR §9.51 bis, I180) — le mot, le « au moins », l'arrondi (au kg une projection, au dixième un
-      // plancher), la série : `Modele.libelleDeForce`, le même que la tête de la courbe. 193-4 : un max MESURÉ par une semaine de test
+      // plancher), la série : `Modele.libelleDeForce`, le même que la tête de la courbe. 193-4 : un max MESURÉ par une semaine de mesure
       // se dit mesuré, sans « ≈ » (c'est une mesure, pas une estimation).
       var lf = M().libelleDeForce(t.force);
       if (lf) ligneFiche(force, lf.mot, lf.sous, lf.valeur, lf.devant);
@@ -860,7 +860,7 @@
       geo.points.forEach(function (p) {
         if (p.record) dessin.appendChild(svg('circle', 'courbe-rec', { cx: p.x, cy: p.y, r: 4.5 }));
       });
-      // Le max MESURÉ d'une semaine de test : un losange à part (§9.51.6.7), jamais un point Epley.
+      // Le max MESURÉ d'une semaine de mesure : un losange à part (§9.51.6.7), jamais un point Epley.
       (geo.mesures || []).forEach(function (m) {
         dessin.appendChild(svg('polygon', 'courbe-mesure', { points: listePoints([{ x: m.x, y: m.y - 5.5 }, { x: m.x + 5.5, y: m.y }, { x: m.x, y: m.y + 5.5 }, { x: m.x - 5.5, y: m.y }]) }));
       });
@@ -3267,7 +3267,7 @@
     }
     // 194-1 (MOTEUR §9.31) — la préparation avant la séance, en mouvement seulement : lue sur le plan, jamais calculée ici.
     var mob = !vue.modifier && typeof vue.propositionMobilite === 'function' ? vue.propositionMobilite() : null;
-    // 225 (MOTEUR §9.40) — la veille d'une activité dure : UNE carte, lue sur le plan (« … plus léger aujourd'hui » / « Garder le plan »).
+    // 225 (MOTEUR §9.40) — la veille d'une activité dure : UNE carte, lue sur le plan (« … plus léger aujourd'hui » / « Comme prévu »).
     var veille = !vue.modifier && typeof vue.propositionVeille === 'function' ? vue.propositionVeille() : null;
     if (veille) cible.appendChild(carteDeVeille(veille, vue));
     // X3 (253) — la réponse du matin reprise : UNE ligne et « Changer » (la question ne revient pas).
@@ -3618,7 +3618,7 @@
         if (cp) hoteCartes.appendChild(carteDeRate(cp, 'rate-paris', s._iExo, function (cle) { vue.surParis(s._iExo, cle); }));
         var cf = typeof vue.carteForme === 'function' ? vue.carteForme(s._iExo) : null;
         if (cf) hoteCartes.appendChild(carteDeRate(cf, 'rate-forme', s._iExo, function (cle) { vue.surForme(s._iExo, cle); }));
-        // 193-4 (MOTEUR §9.32) — la semaine de test : la barre testée aujourd'hui, ou la note d'un accessoire.
+        // 193-4 (MOTEUR §9.32) — la semaine de mesure : la barre testée aujourd'hui, ou la note d'un accessoire.
         var pt = typeof vue.semaineDeTest === 'function' ? vue.semaineDeTest(s._iExo) : null;
         if (pt) { var ct = carteDeTest(pt, s._iExo, vue); if (ct) hoteCartes.appendChild(ct); }
       }
@@ -3937,7 +3937,7 @@
         (lib.jaune || []).forEach(function (l, iJ) {
           var ligneJ = consigneVivante(l, iJ);
           // Un attribut, rendu par CSS (`::after`) : le texte de la consigne reste celui du moteur, mot pour mot.
-          if (iJ === 0 && gardeEn !== null && gardeEn !== undefined) ligneJ.setAttribute('data-garde', 'garde-en\u00a0' + gardeEn);
+          if (iJ === 0 && gardeEn !== null && gardeEn !== undefined) ligneJ.setAttribute('data-garde', gardeEn === 0 ? 'jusqu\u2019au bout' : 'r\u00e9serve\u00a0' + gardeEn);   // 20/11/2026 : « réserve N », la réserve 0 se dit « jusqu'au bout »
           // 175 — « un cran de moins » : le badge du recul, au bout du chiffre du jour (couleur --donnees) ; la phrase lue le dit aussi.
           if (iJ === 0 && !vue.programme && typeof vue.cranDeMoins === 'function') {
             var recul = vue.cranDeMoins(x._iExo);
@@ -4622,17 +4622,17 @@
     rate: 'Un essai raté : on s’arrête là.', technique: 'La technique lâche : on s’arrête là.', sans_cran: 'Rien de plus lourd à ta salle : on s’arrête là.' };
   function carteDeTest(t, iExo, vue) {
     var M = function () { return racine.THModele; };
-    // 200-2 — une barre que la semaine de test ne mesure pas CE JOUR-LÀ (une autre barre l'est) : ni « accessoire » ni test.
+    // 200-2 — une barre que la semaine de mesure ne mesure pas CE JOUR-LÀ (une autre barre l'est) : ni « accessoire » ni test.
     // 19/11/2026 — « Squat : pas d'essai cette semaine. Ta force estimée vient de … » : la phrase du plan, sans geste.
     if (t.pasDEssai) return el('div', 'proposition-exercice proposition-test-acc test-sans-essai', t.pasDEssai.phrase);
     if (t.pasDeTest) return el('div', 'proposition-exercice proposition-test-acc', 'Pas de test pour ce mouvement aujourd\u2019hui\u00a0: s\u00e9ance l\u00e9g\u00e8re.');
     if (t.accessoire) {
       return el('div', 'proposition-exercice proposition-test-acc', t.garde
-        ? 'Semaine de test : cet accessoire reste léger, sans aller au bout.' : 'Semaine de test : tu peux passer cet accessoire.');
+        ? 'Semaine de mesure : cet accessoire reste léger, sans aller au bout.' : 'Semaine de mesure : tu peux passer cet accessoire.');
     }
     var n = el('div', 'proposition-exercice proposition-test');
     n.setAttribute('data-iexo', String(iExo));
-    n.appendChild(el('div', 'pc-texte', 'Semaine de test · ' + (t.mode === 'max' ? 'viser ton max' : 'série au max')));
+    n.appendChild(el('div', 'pc-texte', 'Semaine de mesure · ' + (t.mode === 'max' ? 'viser ton max' : 'série au max')));
     if (t.montee && t.montee.length && t.etat === 'a_faire') {
       n.appendChild(el('div', 'pc-detail test-montee', 'Montée : ' + t.montee.map(function (m) { return M().chargeFois(m.charge, m.reps); }).join(' · ')));
     }
@@ -4663,7 +4663,7 @@
   // 193-4 — LA FEUILLE « SEMAINE DE TEST » du Profil : l'état, la façon barre par barre, lancer / annuler.
   function rendreFeuilleSemaineDeTest(cible, vue) {
     vider(cible);
-    cible.appendChild(el('div', 'feuille-t', 'Semaine de test'));
+    cible.appendChild(el('div', 'feuille-t', 'Semaine de mesure'));
     if (vue.phrase) cible.appendChild(el('p', 'feuille-aide', vue.phrase));
     var menu = el('div', 'feuille-menu');
     (vue.barres || []).forEach(function (b) {
@@ -4679,8 +4679,8 @@
         if (b.raison.sources && b.raison.sources.length) menu.appendChild(sourcesRepliees(b.raison.sources));
       }
     });
-    if (vue.peutLancer) entreeMenu(menu, vue.libelleLancer || 'Faire une semaine de test', { surClic: vue.surLancer });
-    if (vue.actif) entreeMenu(menu, 'Annuler la semaine de test', { surClic: vue.surAnnuler });
+    if (vue.peutLancer) entreeMenu(menu, vue.libelleLancer || 'Faire une semaine de mesure', { surClic: vue.surLancer });
+    if (vue.actif) entreeMenu(menu, 'Annuler la semaine de mesure', { surClic: vue.surAnnuler });
     cible.appendChild(menu);
     return cible;
   }
@@ -7948,7 +7948,7 @@
       b.addEventListener('click', function () { if (fn) fn(dossier); });
       gestes.appendChild(b);
     };
-    // 193-4 — la proposition de la semaine de test (la phrase vient du moteur, la proposition de l'app).
+    // 193-4 — la proposition de la semaine de mesure (la phrase vient du moteur, la proposition de l'app).
     if (k.test) c.appendChild(el('p', 'cfb-suivant cfb-test', k.test.phrase));
     if (k.test) bouton('cfb-faire-test', k.test.faire, v.surFaireTest);
     if (k.commencer) bouton('cfb-commencer', k.commencer, v.surCommencerBloc);
@@ -8129,7 +8129,7 @@
       a.nbExercices + ' exercice' + (a.nbExercices > 1 ? 's' : '') + ' \u00b7 ' + a.nbSeries + ' série' + (a.nbSeries > 1 ? 's' : '') +
       (temps && temps.texte ? ' \u00b7 ' + temps.texte : '')));
     var pied = el('div', 'prochaine-pied');
-    var go = el('button', 'principal prochaine-go', vue.enCours ? 'Reprendre' : 'Démarrer');
+    var go = el('button', 'principal prochaine-go', vue.enCours ? 'Continuer la séance' : 'Démarrer');
     go.type = 'button';
     go.addEventListener('click', function () { if (vue.enCours) { if (vue.surReprendre) vue.surReprendre(); } else if (vue.surDemarrer) vue.surDemarrer(r.id); });
     pied.appendChild(go);

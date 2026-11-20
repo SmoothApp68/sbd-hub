@@ -84,14 +84,14 @@ describe('I180 — Modele.libelleDeForce : le seul formateur du chiffre de force
     expect(l.sous.replace(NBSP, ' ')).toBe('d’après 152,5 kg × 1');
     expect(Modele.libelleDeForce(F(J(2026, 9, 1), 150, 1, 'plancher'), MAINT).valeur.replace(NBSP, ' ')).toBe('150 kg');
   });
-  test('mesure : « Max mesuré », sans ≈ ; « à ta semaine de test, 150 kg × 1 »', () => {
+  test('mesure : « Max mesuré », sans ≈ ; « à ta semaine de mesure, 150 kg × 1 »', () => {
     const l = Modele.libelleDeForce(F(J(2026, 10, 3), 150, 1, 'mesure'), MAINT);
     expect(l.mode).toBe('mesure');
     expect(l.mot).toBe('Max mesuré');
     expect(l.devant).toBeNull();
     expect(l.valeur.replace(NBSP, ' ')).toBe('150 kg');
-    expect(l.sous.replace(NBSP, ' ')).toBe('à ta semaine de test, 150 kg × 1');
-    expect(l.dit.replace(NBSP, ' ')).toBe('Max mesuré 150 kg, à ta semaine de test');
+    expect(l.sous.replace(NBSP, ' ')).toBe('à ta semaine de mesure, 150 kg × 1');
+    expect(l.dit.replace(NBSP, ' ')).toBe('Max mesuré 150 kg, à ta semaine de mesure');
   });
   test('un point de courbe se lit comme une force (`debut`, `mesure: true`) ; rien à lire : null', () => {
     const l = Modele.libelleDeForce(plan(J(2026, 10, 3), 152.5, 1), MAINT);
@@ -212,9 +212,9 @@ describe('I179 — la tête de la courbe est la force de la fiche : les trois te
     const pts = [proj(J(2026, 8, 24), 120, 5), proj(J(2026, 9, 29), 122, 5)];
     const c = page(pts, F(J(2026, 10, 3), 150, 1, 'mesure'));
     expect(texte(c.querySelector('.courbe-val'))).toBe('150 kg');
-    expect(texte(c.querySelector('.courbe-sous'))).toBe('max mesuré · à ta semaine de test, 150 kg × 1, le 3 nov.');
+    expect(texte(c.querySelector('.courbe-sous'))).toBe('max mesuré · à ta semaine de mesure, 150 kg × 1, le 3 nov.');
     expect(c.querySelector('.exo-force .exo-li-k').firstChild.textContent).toBe('Max mesuré');
-    expect(texte(c.querySelector('.exo-force .exo-li-k em'))).toBe('à ta semaine de test, 150 kg × 1');
+    expect(texte(c.querySelector('.exo-force .exo-li-k em'))).toBe('à ta semaine de mesure, 150 kg × 1');
     expect(texte(c.querySelector('.exo-force .exo-li-v'))).toBe('150 kg');
   });
   test('le plancher se dit au dixième partout : tête, fiche, bulle, pic ancien (152,5 jamais 153)', () => {

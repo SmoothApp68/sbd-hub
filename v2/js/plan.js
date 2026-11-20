@@ -1172,7 +1172,10 @@
       if (margeGrosse === null) margeGrosse = 0;
     }
     // 266 (§9.28) — sans séance à reculs, le départ de l'écart se lit sur la table des reps (grosse série, recul), sinon le 10 % d'avant.
-    var lu = M.ecartDeRecul(precEcart, cible, M.ecartDeDepartDeRecul(grosseReps, margeGrosse, aujourdhui));
+    // R1 — la zone d'aujourd'hui lit « la grosse série a raté » de la séance d'avant (une approximation, comme `cible`) ; `rateSousLaZone` reste la seule notion.
+    var zoneDuJour = consigne && consigne.zone ? M.zoneParCle(consigne.zone) : null;
+    var lu = M.ecartDeRecul(precEcart, cible, M.ecartDeDepartDeRecul(grosseReps, margeGrosse, aujourdhui),
+      { bas: zoneDuJour ? zoneDuJour.bas : null, objectif: o.objectif || null, barre: !!(materiel && materiel.equipement === 'barre') });
     var correction = M.correctionDeRecul(pool);
     var capM = V.capturer(function () {
       return M.reculSurLeMaxDuJour({ grosse: grosse, grosseReps: grosseReps, marge: margeGrosse, reps: aujourdhui, correction: correction.valeur,
@@ -1582,7 +1585,8 @@
       sansTest: !!(porte && porte.fermee && !porte.tente),
       slug: base.slug, seance: seanceId === undefined ? null : seanceId,
       reglage: reglage === undefined ? null : reglage, phase: phase, objectif: objectif, protegee: protegee === true, famille: famille || null,
-      compteur: compteurOuverture, allegee: !!consigne.allegee, mesure: materiel ? materiel.mesure || null : null,
+      compteur: compteurOuverture, allegee: !!consigne.allegee,
+      mesure: materiel ? materiel.mesure || null : null,
       occurrence: base.occurrence || undefined,
       // I8 (122) — les rangs que des séries faites ont quittés (supprimées, ou passées hors du travail) : leurs
       // paris restent ; aucune autre série ne les reprend (`Seance.quitterRang`).
@@ -1836,7 +1840,7 @@
       rangsQuittes: exo && Array.isArray(exo.rangsQuittes) ? exo.rangsQuittes.slice() : [],
       indices: r.indices, rangs: r.rangs, roles: r.roles, figees: figees,
       planInitial: r.planInitial, faites: r.faites, reaction: r.reaction,
-      lignes: r.lignes, message: r.message, paris: r.paris,
+      lignes: r.lignes, message: r.message, paris: pariDuJourSans(r.paris, consigne),
       constat: constat,
       // PR 4a (MOTEUR §9.47) — LE VERBE UNIQUE, calculé une fois sur la consigne finale : le gris, le Pourquoi et le constat le disent, I162 le relit.
       verbe: M.verbeDeLaConsigne(consigne),
@@ -2964,6 +2968,14 @@
   // interdit, et que les bilans des paris liraient comme des kilos. L'exercice est donc tenu hors de la règle, comme le
   // demande le prompt : ses lignes ne parient rien (I7 : « non pariée »), son compteur ne compte pas (il ne lit que les
   // séances sous consigne), l'escalier ne s'y déclenche pas. La décision (un pari qui écrit le NOM) est à prendre.
+  // R2 (jour sans) — TOUS les paris de la séance plus légère après un zéro (la couverture, les reculs, la dégressive) ne se comptent pas (`Bilan.compteLe`, drapeau
+  // `jourSans` du fondement) : la charge est descendue exprès, le pari est tenu à peu de frais. Rien n'est supprimé : `faits.parisRatesALaSuite` le lit toujours.
+  function pariDuJourSans(paris, consigne) {
+    var z = consigne && consigne.etat === 'zero_rep' && consigne.fondement ? consigne.fondement.zeroRep : null;
+    if (!z || !z.jourSans || !Array.isArray(paris)) return paris;
+    paris.forEach(function (q) { if (q && q.fondement) q.fondement.jourSans = true; });
+    return paris;
+  }
   function sansParis(x, salleEl) {
     if (!x || !salleEl || !Array.isArray(x.paris)) return x;
     x.paris = x.paris.map(function () { return null; });
@@ -6386,6 +6398,15 @@
       if (f.zeroRep.vers !== undefined) fait['zero_rep.vers'] = { charge: f.zeroRep.vers };
       if (f.zeroRep.visees !== undefined) fait['zero_rep.visees'] = { valeur: f.zeroRep.visees };
     }
+    // R2 (jour sans) — le zéro d'une séance d'avant et ce qui était tenu : des faits datés (jamais écrits autrement que cités, I26).
+    var js = f.zeroRep && f.zeroRep.jourSans ? { zero: { charge: f.zeroRep.charge, date: f.zeroRep.jourSans.date, vers: f.zeroRep.vers, tenue: f.zeroRep.jourSans.tenue } }
+      : f.jourSans && f.jourSans.retour === true ? { zero: { charge: f.jourSans.charge, date: f.jourSans.date }, tenue: f.jourSans.tenue } : null;
+    if (js) {
+      fait['jour_sans.zero'] = { charge: js.zero.charge, reps: [0], date: js.zero.date || null };
+      var tn = js.zero.tenue || js.tenue || null;
+      if (tn) fait['jour_sans.tenue'] = { charge: tn.charge, reps: [tn.reps], date: tn.date || null };
+      if (js.zero.vers !== undefined) fait['jour_sans.vers'] = { charge: js.zero.vers };
+    }
     // PR 4b (R-A) — la réaction au zéro : le « 0 » de « … est resté à 0 rep » est un fait de la série (I26).
     if (x.rate && x.rate.niveau === 'zero') fait.rate_zero = { charge: x.rate.zero, reps: [0] };
     // PR 4b (R-A) — le plafond après un zéro : la charge restée à 0 rep (jamais écrite autrement que citée, I26).
@@ -6824,6 +6845,7 @@
     verifierMonotonieAFond(plan, entrees, erreurs);
     verifierBord(plan, erreurs);
     verifierZeroRep(plan, entrees, erreurs);
+    verifierJourSans(plan, entrees, erreurs);
     verifierDecharge(plan, erreurs);
     verifierVerbe(plan, erreurs);
     verifierAnnonce(plan, erreurs);
@@ -8257,6 +8279,39 @@
   //   · I158 — toute série validée à 0 rep (la dernière de l'exercice, hors cas muets, au-dessus du palier tenu, plus lourde que tout succès) a une réaction `Z1` ou
   //     `Z2` ; Z1 : la charge est `D(charge)` et au moins une ligne non validée est plus lourde que `D` ; Z1 et Z2 : aucune fourchette, aucun `garde`, aucun
   //     `recalculeReculs` ; les cas muets : aucune réaction au zéro.
+  // I255 (R2, 20/11/2026, MOTEUR §9.42 bis) — LE JOUR SANS. Une `zero_rep` qui porte `zeroRep.jourSans` : jamais une population protégée, une charge restée à 0 à ou sous la charge de
+  // travail (`palier`, relu ici par une comparaison indépendante), ce qui était tenu dit au palier, et ses paris sont marqués `jourSans` (ils ne se comptent pas). Un `retour_jour_sans` :
+  // la ligne EST la charge de travail ET son niveau (jamais au-dessus), aucune ligne haute ni zéro rep ; tout fait `jourSans` sans état de retour est une erreur. La séance légère ne
+  // vote nulle part et un 2e zéro donne B, jamais un 2e jour sans : cela se lit sur l'HISTOIRE (le moteur), pas sur un plan — `v2-jour-sans.test.js`.
+  function verifierJourSans(plan, e, erreurs) {
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var k = x && x.consigne;
+      if (!k) return;
+      var nom = ' — exercice ' + i + ' (' + x.slug + ') : ';
+      var f = k.fondement || {};
+      var z = f.zeroRep || null, js = z ? z.jourSans : null;
+      if (js) {
+        var P = nombre(k.palier), Ch = nombre(z.charge);
+        if (k.etat !== 'zero_rep') erreurs.push('I255' + nom + 'un jour sans sur une consigne ' + k.etat);
+        if (plan.protegee === true) erreurs.push('I255' + nom + 'un jour sans pour une population protégée');
+        if (P === null || Ch === null || Ch > P + 1e-9) erreurs.push('I255' + nom + 'un jour sans à ' + z.charge + ' kg, au-dessus de la charge de travail (' + k.palier + ' kg)');
+        if (!js.tenue || nombre(js.tenue.charge) !== P) erreurs.push('I255' + nom + 'un jour sans dont la charge tenue n’est pas le palier');
+        (x.paris || []).forEach(function (q, j) {
+          if (q && !(q.fondement && q.fondement.jourSans === true)) erreurs.push('I255' + nom + 'le pari de la série ' + j + ' d’une séance plus légère ne dit pas « jourSans » (il serait compté)');
+        });
+      }
+      if (k.etat === 'retour_jour_sans') {
+        var r = f.jourSans || null, Pr = nombre(k.palier), nv = nombre(k.niveau);
+        if (!r || r.retour !== true) erreurs.push('I255' + nom + 'un retour sans le fait du jour sans');
+        if (!k.ligne || Pr === null || nombre(k.ligne.charge) !== Pr) erreurs.push('I255' + nom + 'un retour dont la ligne (' + (k.ligne ? k.ligne.charge : 'aucune') + ' kg) n’est pas la charge de travail (' + k.palier + ' kg)');
+        else if (nv === null || nombre(k.ligne.vise) !== nv) erreurs.push('I255' + nom + 'un retour dont la ligne vise ' + k.ligne.vise + ' pour un niveau de ' + k.niveau + ' : jamais au-dessus du niveau d’avant');
+        if (k.haut) erreurs.push('I255' + nom + 'une ligne haute au retour d’un jour sans');
+        if (f.zeroRep) erreurs.push('I255' + nom + 'un retour qui porte un zéro rep');
+      } else if (f.jourSans) {
+        erreurs.push('I255' + nom + 'le fait du retour sur une consigne ' + k.etat);
+      }
+    });
+  }
   function verifierVoixDuZero(plan, e, erreurs) {
     var M = Moteur(), S = Seance(), T = racine.THModele;
     var exos = e && e.seance && Array.isArray(e.seance.exercices) ? e.seance.exercices : [];
@@ -8338,11 +8393,13 @@
         series.forEach(function (q, m) {
           if (m > j || !S.partEnBase(q) || T.typeDe(q) === 'echauffement' || T.estHorsCalcul(q)) return;
           var cq = nombre(q.charge_kg), rq = nombre(q.reps);
-          if (T.estZeroDeTravail(q) && cq < Cmin) Cmin = cq;
+          if (T.estZeroDeTravail(q) && !T.estRecul(q) && cq < Cmin) Cmin = cq;   // R1 : la plus légère charge de TRAVAIL restée à 0 (un recul n'y entre pas, `zeroPartiel`)
           if (rq !== null && rq >= 1 && cq !== null && cq > 0) reussies.push(cq);
         });
         var incident = reussies.some(function (v) { return v >= Cmin - 1e-9; });
         if (incident && entree.cas !== 'Z2') erreurs.push('I158' + nom + 'une série réussie du jour à ' + Cmin + ' kg ou au-dessus : un incident, Z2 sans bouton (pas Z1)');
+        // R1 (20/11/2026, I237 étendu) — un RECUL à 0 rep : Z2, une phrase seule ; jamais Z1, bouton, fourchette ni « garde ».
+        if (T.estRecul(sr) && entree.cas !== 'Z2') erreurs.push('I237' + nom + 'un recul à 0 rep (série ' + j + ') dit ' + entree.cas + ' : une phrase seule (Z2), jamais un bouton');
         if (entree.cas === 'Z1') {
           var D = nombre(entree.descente);
           if (D === null) { erreurs.push('I158' + nom + 'Z1 sans descente'); return; }

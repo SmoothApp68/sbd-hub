@@ -50,8 +50,11 @@
   // une seule rep lisible différente de 0 suffit à ne pas l'être. Rend `{ n, charge }` — `n` : le nombre de séries lues, `charge` : la
   // plus légère charge tentée (`null` si une charge manque) — ou `null`. Lue par le moteur (`contratDe`, le drapeau `zero`) et par
   // `faits.premierEssaiRate` ; aucune autre copie.
+  // R2a (20/11/2026, MOTEUR §9.42 bis) — la charge `Ch` IGNORE les reculs (« la plus légère charge tentée » d'une séance à zéro est celle de la grosse série, pas d'un recul
+  // plus léger : le coach ne baisse pas sur la charge d'un recul), sauf si la séance n'a que des reculs. La DÉTECTION du zéro ne change pas : toutes les séries lues,
+  // reculs compris, sont à 0 rep (un recul réussi après une grosse série à 0 : la séance n'est pas « toute à zéro »).
   function seanceAZero(series) {
-    var n = 0, charge = null, manque = false;
+    var n = 0, charge = null, manque = false, chargeTout = null, manqueTout = false, horsRecul = 0;
     var lues = (series || []).filter(function (s) {
       return !!s && typeDe(s) !== 'echauffement' && !estHorsCalcul(s) && !estTest(s);
     });
@@ -61,9 +64,15 @@
       if (r === null || r !== 0) return null;
       n++;
       var c = lireNombre(lues[i].charge_kg);
-      if (c === null) manque = true;
-      else if (charge === null || c < charge) charge = c;
+      if (c === null) manqueTout = true;
+      else if (chargeTout === null || c < chargeTout) chargeTout = c;
+      if (!estRecul(lues[i])) {
+        horsRecul++;
+        if (c === null) manque = true;
+        else if (charge === null || c < charge) charge = c;
+      }
     }
+    if (horsRecul === 0) { charge = chargeTout; manque = manqueTout; }
     return { n: n, charge: manque ? null : charge };
   }
   // ⚠️ PR 4b (R-A, MOTEUR §9.42 bis) — « UN ZÉRO PARTIEL » : UNE LECTURE, ICI. Sur les mêmes séries lues que `seanceAZero` (hors chauffes, hors
@@ -85,7 +94,7 @@
     });
     var cands = [];
     lues.forEach(function (s) {
-      if (!estZeroDeTravail(s)) return;
+      if (!estZeroDeTravail(s) || estRecul(s)) return;   // R1 : un recul raté ne plafonne jamais (MOTEUR §9.42 bis)
       var c = lireNombre(s.charge_kg);
       if (porte && succes !== null && !(c > succes + 1e-9)) return;
       cands.push(c);
@@ -97,12 +106,12 @@
   // ⚠️ « UNE SÉRIE À 0 REP » (19/11/2026, MOTEUR §9.39 et §9.42 bis, « Une seule voix après un zéro ») : UNE LECTURE, ICI. Une série de TRAVAIL ou MANQUÉE
   // (le zéro saisi dans l'app est typé `echec`), à 0 rep lisible et à charge > 0 ; jamais une chauffe, un « Non, ne compte pas », un test, un recul ni une
   // mini-série (dégressive, rest-pause : leur type n'est pas `travail`). `zeroPartiel` (le plafond, l'historique) et la réaction en séance (`plan.js`) la lisent.
-  // Une dégressive et un essai de test « manquée » gardent leur type (`Seance.marquerManquee`) ; le recul passe encore à `echec` et se lit comme un zéro
-  // de travail : QUESTION OUVERTE (MOTEUR §9.39), non décidée.
+  // Une dégressive, un essai de test et (R1, 20/11/2026) un RECUL « manquée » gardent leur type (`Seance.marquerManquee`). Le recul est ADMIS ici : UNE seule
+  // lecture du zéro en séance (sa réaction est toujours Z2, une phrase seule, `Moteur.reactionAuZero`) ; le plafond entre les séances (`zeroPartiel`) l'exclut.
   function estZeroDeTravail(s) {
     if (!s || typeDe(s) === 'echauffement' || estHorsCalcul(s) || estTest(s)) return false;
     if (lireNombre(s.reps) !== 0) return false;
-    if (typeDe(s) !== 'travail' && !estManquee(s)) return false;
+    if (typeDe(s) !== 'travail' && typeDe(s) !== 'recul' && !estManquee(s)) return false;
     var c = lireNombre(s.charge_kg);
     return c !== null && c > 0;
   }
@@ -116,7 +125,7 @@
   function motDEchec(serie) {
     if (estHorsCalcul(serie)) return 'hors calcul';   // 185 — la série « Non, ne compte pas » se dit, à part
     if (estTest(serie)) return 'test';                // 186 — la série de test se dit aussi
-    if (estRecul(serie)) return 'recul';              // 193-1 — la série de recul se dit aussi
+    if (estRecul(serie)) return lireNombre(serie.reps) === 0 ? 'recul · manquée' : 'recul';   // 193-1 — la série de recul se dit aussi ; R1 (20/11/2026) : un recul à 0 rep, « manquée »
     return estAEchec(serie) ? 'à l’échec' : (estManquee(serie) ? 'manquée' : null);
   }
   // ⚠️ 185 (v2_116, décision d'Aurélien du 29/10/2026) — « NON, NE COMPTE PAS » : UNE LECTURE, ICI. Une série `hors_calcul` reste
@@ -184,7 +193,11 @@
   function estAccentAllonge(fiche) { return !!fiche && fiche.accent_allonge === true; }
   // ⚠️ UN ESSAI DE TEST RATÉ (D-ST1, #727) garde son type `test` à 0 rep, pour que `faitsDeTest` le voie (I92/I93). Il n'est PAS une série de travail :
   // `estTravail` le rejette, comme avant #727 (où il devenait `echec` à 0 rep, que `estAEchec` écarte). Une seule lecture du raté, ici.
-  function estEssaiRate(serie) { return !!serie && !estHorsCalcul(serie) && typeDe(serie) === 'test' && lireNombre(serie.reps) === 0; }
+  // R1 (20/11/2026, MOTEUR §9.39 (6)) — le RECUL « manquée » garde son type lui aussi (`Seance.marquerManquee`) : à 0 rep il n'est pas non plus une série de
+  // travail (hors volume, hors séries faites, hors jeu) — UN prédicat, jamais un cas par type. Son nom garde l'historique (#727).
+  function estEssaiRate(serie) {
+    return !!serie && !estHorsCalcul(serie) && (typeDe(serie) === 'test' || typeDe(serie) === 'recul') && lireNombre(serie.reps) === 0;
+  }
   // La notion d'AVANT l'exclusion : une série qui PEUT être du travail, essai à 0 rep compris. Seule la question « 0 rep : tu l'as manquée ? » la lit.
   function estTravailOuEssai(serie) {
     return !!serie && !estHorsCalcul(serie) && (typeDe(serie) === 'travail' || typeDe(serie) === 'test' || typeDe(serie) === 'recul' || estAEchec(serie));

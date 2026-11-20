@@ -1413,8 +1413,8 @@
   // « Oui, manquée » et « J'ai eu mal » (0 rep, `app.js` `repondreQuestionDeSaisie`) : la série devient une tentative manquée (`echec`), SAUF un essai
   // de la semaine de test (`test`) et une dégressive, qui GARDENT leur type : le raté se lit alors par `reps === 0`. Un essai retypé `echec` sortait de
   // `faitsDeTest` (le plan proposait encore l'essai suivant, I92 ; le max mesuré n'était pas rangé, I93) et se lisait comme un zéro de travail. Le
-  // recul, lui, continue de passer à `echec` (question ouverte, MOTEUR §9.39). `changerType` (le menu « ⋯ », un choix explicite) reste intact.
-  var TYPES_QUI_GARDENT_LE_LEUR = ['test', 'degressive'];
+  // recul GARDE le sien depuis R1 (20/11/2026, MOTEUR §9.39 (6)) : un recul manquée reste un recul (hors volume à 0 rep, hors stagnation : son origine reste `recul`, une phrase Z2 seule). `changerType` (le menu « ⋯ », un choix explicite) reste intact.
+  var TYPES_QUI_GARDENT_LE_LEUR = ['test', 'degressive', 'recul'];
   function marquerManquee(seance, iExo, iSerie) {
     var s = seance && seance.exercices && seance.exercices[iExo] && seance.exercices[iExo].series[iSerie];
     if (s && TYPES_QUI_GARDENT_LE_LEUR.indexOf(racine.THModele.typeDe(s)) >= 0) return seance;
@@ -2538,7 +2538,8 @@
         return {
           seance: s, routine_id: s.routine_id || null,
           series: series.map(function (x) {
-            return { charge_kg: x.charge_kg, reps: x.reps, type_serie: x.type_serie, hors_calcul: x.hors_calcul === true };
+            return { charge_kg: x.charge_kg, reps: x.reps, type_serie: x.type_serie, hors_calcul: x.hors_calcul === true,
+                     douleur: x.douleur === true };   // R1 : « J'ai eu mal » sur la série — un 0 de recul n'éloigne pas l'écart
           })
         };
       }

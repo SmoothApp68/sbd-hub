@@ -230,7 +230,9 @@
     nouvelle_zone: ['Pourquoi cette charge ?', 'Pourquoi ma zone change ?', 'Et ensuite ?'],
     // PR 2 (MOTEUR §9.42) — après un zéro rep.
     zero_rep: ['Pourquoi tu baisses la charge ?', 'Quand tu remontes ?', 'Et ensuite ?'],
-    tenue_apres_zero: ['Pourquoi tu tiens la charge ?', 'Quand tu remontes ?', 'Et ensuite ?']
+    tenue_apres_zero: ['Pourquoi tu tiens la charge ?', 'Quand tu remontes ?', 'Et ensuite ?'],
+    // R2 — le retour après un jour sans.
+    retour_jour_sans: ['Pourquoi je reviens à cette charge ?', 'Pourquoi ma séance plus légère ne compte pas ?', 'Et ensuite ?']
   };
   var PUCES_DEFAUT = ['Pourquoi cette charge ?', 'Pourquoi pas plus ?', 'Et ensuite ?'];
   function puces(etat) {

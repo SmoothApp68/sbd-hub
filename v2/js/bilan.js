@@ -84,7 +84,8 @@
   // LES PARIS DE DÉCHARGE NE SONT PAS COMPTÉS (MOTEUR §9.46) : un pari `allegee` (la charge de la ligne, `vise − 2` reps) est tenu par
   // construction — ce n'est pas une vérification. `compteLe(q)` est le seul endroit qui le dit ; un pari sans drapeau (écrit avant lui) compte.
   // Lecture seulement : rien n'est supprimé ni écrit, et `faits.parisRatesALaSuite` le lit toujours (un raté de Décharge reste un signal).
-  function compteLe(q) { return !!q && q.allegee !== true; }
+  // R2 (20/11/2026, le jour sans) : le pari de la séance plus légère après un zéro (`jourSans`) non plus — la charge est descendue exprès, il est tenu à peu de frais.
+  function compteLe(q) { return !!q && q.allegee !== true && q.jourSans !== true; }
   function compterParis(paris, garder) {
     var verifies = 0, tenus = 0;
     (paris || []).forEach(function (q) {

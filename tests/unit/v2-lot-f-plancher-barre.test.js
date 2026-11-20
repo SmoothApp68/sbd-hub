@@ -193,6 +193,23 @@ describe('le plan : un seul chiffre par barre', () => {
     expect(sp(rf.x.plancher.phrase)).toBe('Sur cette barre, je vise 1 en réserve, même avec Me pousser. Tu notes ce que tu veux.');
     expect(jouer(SQUAT, progression, [], 'normal').x.plancher).toBeNull();     // Normal Hypertrophie : table 1 = plancher, rien à dire
   });
+  test('CONTRA-723 C4 — la marge supposée de la série de référence du pari « Au max » lit l’affichée : 2 pour une personne protégée (65+), 1 sinon', () => {
+    const plan = (plus65) => {
+      let k = 0; const id = () => 'p-s' + (++k);
+      let se = S.creer({ id: 'S', userId: 'u', idSerie: id }); se = S.ajouterExercice(se, SQUAT, id, { series: 3 });
+      se.exercices[0].series[2].au_max = true;
+      const e = { seance: { id: 'S', debut: AVANT, edition: false, exercices: se.exercices }, plus65,
+        consignes: { [SQUAT]: { consigne: progression, contexte: { cran: 2.5, haut: null } } }, reglage: 'franc', paris: [], objectif: 'muscle', catalogue: CATALOGUE };
+      const p = T.planDeSeance(e);
+      return { x: p.exercices[0], erreurs: T.verifierPlan(p, e, null).erreurs };
+    };
+    const maxDe = (x) => Object.keys(x.paris).map((i) => x.paris[i]).filter((q) => q && q.fondement && q.fondement.au_max)[0].fondement.au_max.max_du_jour;
+    const prot = plan(true), non = plan(false);
+    expect(prot.x.reserveAffichee).toBe(2);
+    expect(maxDe(prot.x)).toBe(Math.round(M.maxDuJour(100, 10, 2)));
+    expect(maxDe(non.x)).toBe(Math.round(M.maxDuJour(100, 10, 1)));
+    expect(maxDe(prot.x)).not.toBe(maxDe(non.x));
+  });
   test('CONTRA-723 C2 — la deuxième phrase seulement quand l’« Au max » du jour va à l’échec (squat marqué, Franc)', () => {
     let k = 0; const id = () => 'p-s' + (++k);
     let se = S.creer({ id: 'S', userId: 'u', idSerie: id }); se = S.ajouterExercice(se, SQUAT, id, { series: 3 });

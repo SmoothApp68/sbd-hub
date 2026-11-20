@@ -1109,8 +1109,10 @@
       }
       if (ligneGrosse.validee) margeGrosse = Palier().reserveDeSerie(srG);
       if (margeGrosse === null && consigne) {
-        // Lot F, A1 (CONTRA-TT3-A1, G) — la grosse série affichée « garde-en 1 » sur une barre n'est pas supposée faite à 0 : la table relevée au plancher de la barre.
-        margeGrosse = M.plancherDeReserve(M.reserveVisee({ zone: consigne.zone, role: roleDeLaVisee({ lignes: lignes }), reglage: o.reglage }), false, o.famille || null);
+        // Lot F, A1 (CONTRA-TT3-A1, G) — la grosse série affichée « garde-en 1 » sur une barre n'est pas supposée faite à 0 : la table relevée au plancher de la barre,
+        // et à celui de la population protégée ou de la reprise longue (CONTRA-723 C4 : l'affichée, comme I235 ; un chiffre même sur une ligne de test).
+        margeGrosse = M.plancherDeReserve(M.reserveVisee({ zone: consigne.zone, role: roleDeLaVisee({ lignes: lignes }), reglage: o.reglage }),
+          o.protegee === true || M.enRepriseLongue(consigne), o.famille || null);
       }
       if (margeGrosse === null) margeGrosse = 0;
     }
@@ -1481,8 +1483,10 @@
     var chRef = ref.validee ? nombre(srRef.charge_kg) : (ref.fantome ? nombre(ref.fantome.charge) : nombre(ref.charge));
     var repsRef = ref.validee ? nombre(srRef.reps) : (nombre(ref.vise) !== null ? nombre(ref.vise) : nombre(srRef.reps_visees));
     var margeRef = ref.validee ? Palier().reserveDeSerie(srRef) : null;
-    // Lot F, A1 (CONTRA-TT3-A1, G) — la série de référence d'une barre n'est pas supposée faite sous le plancher de sa barre.
-    if (margeRef === null) margeRef = M.plancherDeReserve(M.reserveVisee({ zone: consigne.zone, role: roleDeLaVisee({ lignes: lignes }), reglage: o.reglage }), false, o.famille || null);
+    // Lot F, A1 (CONTRA-TT3-A1, G) — la série de référence d'une barre n'est pas supposée faite sous le plancher de sa barre, ni sous celui de la population
+    // protégée ou de la reprise longue (CONTRA-723 C4).
+    if (margeRef === null) margeRef = M.plancherDeReserve(M.reserveVisee({ zone: consigne.zone, role: roleDeLaVisee({ lignes: lignes }), reglage: o.reglage }),
+      o.protegee === true || M.enRepriseLongue(consigne), o.famille || null);
     if (margeRef === null) margeRef = 0;
     var max = chRef !== null && repsRef !== null ? M.maxDuJour(chRef, repsRef, margeRef) : null;
     var prevu = max !== null && charge !== null ? M.prevoirRepsAuMax(charge, max, reserve) : null;
@@ -1763,11 +1767,11 @@
     // se cale sur la dernière série de travail OU de recul.
     var rec = reculsDuPlan(r.lignes, series, consigne, materiel || null, reculPrec || null, {
       slug: base.slug, seance: seanceId === undefined ? null : seanceId, reglage: reglage === undefined ? null : reglage,
-      phase: phase, objectif: objectif, occurrence: base.occurrence || undefined, famille: famille || null
+      phase: phase, objectif: objectif, occurrence: base.occurrence || undefined, famille: famille || null, protegee: protegee === true
     });
     Object.keys(rec.paris).forEach(function (i) { r.paris[Number(i)] = rec.paris[i]; });
     // 193-6 — la dernière série « Au max » : sa consigne, son pari (les reps de la table), sa proposition.
-    var au = auMaxDuPlan(r.lignes, series, consigne, auMaxFaits || null, { reglage: reglage, famille: famille || null });
+    var au = auMaxDuPlan(r.lignes, series, consigne, auMaxFaits || null, { reglage: reglage, famille: famille || null, protegee: protegee === true });
     if (au.auMax) {
       var lAu = r.lignes[au.auMax.iSerie];
       if (lAu) lAu.auMax = { reserve: au.auMax.reserve, sorte: au.auMax.sorte, avecPareur: au.auMax.avecPareur, consigne: au.auMax.consigne };

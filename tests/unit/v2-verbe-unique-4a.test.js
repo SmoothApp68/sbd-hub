@@ -229,11 +229,14 @@ describe('les cas du contradicteur à froid : le verbe lit la LIGNE finale', () 
     expect(A(c)).toBe("Première fois ici : ce que tu notes aujourd'hui servira de départ.");
     expect(Q(c)).not.toMatch(/rep de plus|restes à/);
   });
-  test('une série « Au max » demandée à fond n’est pas « sans marge » : aucune cause, la phrase habituelle', () => {
-    const c = consigneDe([g(SIX[1], S_(70, [8, 8, 8], [null, null, 'reste_0']).map((x, i) => i === 2 ? Object.assign(x, { au_max_reserve: 0 }) : x))]);
-    expect(M.verbeDeLaConsigne(c.consigne).sansMarge).toBeNull();
-    expect(A(c)).not.toMatch(/sans marge/);
-    expect(A(c)).toMatch(/Une rep de plus : 70 kg × 9\.$/);
+  // « Au max » disparaît (20/11/2026, I251) : une marque `au_max_reserve` d'avant ne change plus rien. La dernière série notée à fond EST sans marge
+  // (avant : la série « Au max » demandée à fond n'avait pas de cause) ; la même série sans la marque dit la même chose.
+  test('une marque « Au max » d’avant ne change ni le verbe ni la cause : la série notée à fond est sans marge, avec ou sans elle', () => {
+    const avec = consigneDe([g(SIX[1], S_(70, [8, 8, 8], [null, null, 'reste_0']).map((x, i) => i === 2 ? Object.assign(x, { au_max_reserve: 0 }) : x))]);
+    const sans = consigneDe([g(SIX[1], S_(70, [8, 8, 8], [null, null, 'reste_0']))]);
+    expect(M.verbeDeLaConsigne(avec.consigne)).toEqual(M.verbeDeLaConsigne(sans.consigne));
+    expect(M.verbeDeLaConsigne(avec.consigne).sansMarge).toMatchObject({ derniere: true });
+    expect(A(avec)).toBe(A(sans));
   });
 });
 

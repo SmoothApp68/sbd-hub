@@ -2940,7 +2940,7 @@
     input.inputMode = 'decimal';
     input.value = vide ? '' : nombreFr(valeur);
     if (vide && fantomeVal !== null && fantomeVal !== undefined) {
-      input.placeholder = nombreFr(fantomeVal) + (o.plus ? '+' : '');   // 193-6 : « 8+ », la ligne « Au max »
+      input.placeholder = nombreFr(fantomeVal) + (o.plus ? '+' : '');   // « 5+ » : la série de la semaine de test en mode « série » (MOTEUR §9.32)
       if (o.plus) input.setAttribute('aria-label', 'Reps\u00a0: ' + nombreFr(fantomeVal) + ' ou plus');   // 200-4 : « 5+ » se lit « 5 ou plus »
     } else if (indication) {
       input.placeholder = indication;
@@ -3517,7 +3517,7 @@
         tour._lignes = lignes; tour._phrase = bt.genre === 'seul' ? 'Fait seul, à la suite.' : bt.phrase;
         zoneTours.appendChild(tour);
       });
-      // Les cartes du coach d'un exercice (chauffes proposées, schéma, au max…) : AVANT les tours, une ligne de nom pour dire à qui
+      // Les cartes du coach d'un exercice (chauffes proposées, schéma…) : AVANT les tours, une ligne de nom pour dire à qui
       // elles parlent (elles étaient dans la carte de l'exercice).
       carteDe = {};
     }
@@ -3613,9 +3613,6 @@
           classe: 'proposition-chauffes chauffes-silence', texte: psl.texte,
           gestes: [{ texte: psl.annuler, classe: 'pc-annuler-silence', secondaire: true, surClic: function () { vue.surAnnulerSilenceChauffes(s._iExo); } }]
         }, s._iExo));
-        // 193-6 (MOTEUR §9.30) — « Dernière série au max ? » : une fois par exercice, du plan ; trois gestes.
-        var pa = typeof vue.propositionAuMax === 'function' ? vue.propositionAuMax(s._iExo) : null;
-        if (pa) hoteCartes.appendChild(propositionDAuMax(pa, s._iExo, vue));
         // 236 (MOTEUR §9.39) — « un cran dessous » (deux paris ratés de suite) et la forme du jour : deux cartes du plan, une fois chacune.
         var cp = typeof vue.carteParis === 'function' ? vue.carteParis(s._iExo) : null;
         if (cp) hoteCartes.appendChild(carteDeRate(cp, 'rate-paris', s._iExo, function (cle) { vue.surParis(s._iExo, cle); }));
@@ -3903,7 +3900,6 @@
         if (constat.escalier) entree.appendChild(el('div', 'constat-suite constat-escalier', constat.escalier));
         // 193-1 — « Tes reculs tiennent 6-6-6. » (un fait, du plan).
         if (constat.reculs) entree.appendChild(el('div', 'constat-suite constat-reculs', constat.reculs));
-        if (constat.auMax) entree.appendChild(el('div', 'constat-suite constat-au-max', constat.auMax));
       }
       // §7 quindecies.3 (52-1) — DANS L'ÉDITEUR, CE QUE DEVIENT LA CHARGE, en
       // gris : un point de départ la première fois, le coach seul ensuite.
@@ -4620,18 +4616,6 @@
     }, iExo);
   }
 
-  // 193-6 (MOTEUR §9.30) — la carte « Dernière série au max ? » : le titre et la phrase viennent du plan, les trois gestes aussi
-  // (« Oui, dans ma routine », « Juste aujourd’hui », « Non merci »). Le MÊME composant que la reprise.
-  var CLES_AU_MAX = ['routine', 'aujourdhui', 'non'];
-  function propositionDAuMax(carte, iExo, vue) {
-    return propositionDExercice({
-      classe: 'proposition-au-max', texte: carte.titre, detail: carte.phrase,
-      gestes: (carte.boutons || []).map(function (texte, k) {
-        return { texte: texte, classe: 'pam-' + CLES_AU_MAX[k], surClic: function () { vue.surAuMax(iExo, CLES_AU_MAX[k]); } };
-      })
-    }, iExo);
-  }
-
   // 193-4 (MOTEUR §9.32) — LA SEMAINE DE TEST dans la séance : la barre testée aujourd'hui (la montée, la consigne, le « Pourquoi », la
   // mesure, les gestes) et, sur un accessoire, une ligne. Tout vient du plan (`vue.semaineDeTest`) ; rien n'est recalculé ici.
   var ARRETS_DU_TEST = { mal: 'Tu as mal : on ne teste pas ce mouvement.', sans_marge: 'Ton premier essai n’a rien laissé : on s’arrête là, ton max aujourd’hui est lu sur lui.',
@@ -5119,7 +5103,7 @@
         versChamp(enUniteDeSaisie(f[c.cle], c.facteur)),
         c.unite,
         function (v) { vue.surChamp(iExo, iSerie, nom, aide && !vue.programme ? M().rangerAide(v) : v); },
-        { indication: fourchette, max: M().maxDeSaisie(nom), plus: s.au_max === true && c.cle === 'reps',
+        { indication: fourchette, max: M().maxDeSaisie(nom), plus: M().estSerieDuTestEnSerie(s) && c.cle === 'reps',
           surQuitte: typeof vue.surChampQuitte === 'function'
             ? function () { vue.surChampQuitte(iExo, iSerie); } : null });
       caseSerie.setAttribute('data-champ', nom);
@@ -5151,31 +5135,13 @@
     var info233 = !vue.programme && typeof vue.tenueDe === 'function' ? vue.tenueDe(iExo, iSerie) : null;
     if (info233) ligne.appendChild(chronoDeTenue(info233, vue, iExo, iSerie));
     // 152 — le mot d'une série `echec` : « à l'échec » (ambre) à 1 rep et plus, « manquée » à 0.
-    // 200-4 — « 5+ · garde 1 » à la place d'« Au max » quand la consigne garde N reps (lu sur le plan).
     var motLigne = s.motEchec;
     // 256 (D14) — UNE LIGNE DE RECUL S'ANNONCE DÈS LE PLAN : avant la validation la série est encore `travail` en base (le type s'écrit à
     // « ✓ », `typerSelonLePlan`) ; le plan, lui, sait déjà que c'est un recul (`vue.reculDuPlan`, lu sur `lignes[i].type`).
     if (!vue.programme && !s.faite && typeof vue.reculDuPlan === 'function' && !/^recul/.test(motLigne || '') && vue.reculDuPlan(iExo, iSerie)) {
       motLigne = motLigne ? 'recul \u00b7 ' + motLigne : 'recul';
     }
-    // Éditeur de routine : le mot « Au max » d'un 65 ans et plus connu est celui du moteur (`vue.motAuMax`, « garde 2 »).
-    if (motLigne && vue.programme && typeof vue.motAuMax === 'string' && /(^|· )Au max$|au max$/.test(motLigne)) motLigne = motLigne.replace(/Au max$|au max$/, vue.motAuMax);
-    var ea = motLigne && !vue.programme && typeof vue.etiquetteAuMax === 'function' && /(^|· )Au max$|au max$/.test(motLigne) ? vue.etiquetteAuMax(iExo, iSerie) : null;
-    if (ea) motLigne = (/^recul/.test(motLigne) ? 'recul · ' : '') + ea.texte;
-    if (motLigne) {
-      var etqL = el('div', 'etq-ligne etq' + (s.estTravail ? ' fond' : ''), motLigne);
-      if (ea) {
-        etqL.setAttribute('aria-label', ea.aria);
-        // 201 — « 5+ · garde 1 » ouvre la définition de son mot.
-        if (typeof vue.surMot === 'function') {
-          etqL.setAttribute('role', 'button');
-          etqL.setAttribute('tabindex', '0');
-          etqL.classList.add('etq-mot');
-          etqL.addEventListener('click', function (ev) { ev.stopPropagation(); vue.surMot('au_max'); });
-        }
-      }
-      ligne.appendChild(etqL);
-    }
+    if (motLigne) ligne.appendChild(el('div', 'etq-ligne etq' + (s.estTravail ? ' fond' : ''), motLigne));
     ligne.appendChild(fond);
     brancherGlissement(ligne, function () { vue.surSupprimerSerie(iExo, iSerie); });
     return ligne;
@@ -5507,19 +5473,6 @@
         menu.appendChild(b);
       });
       cible.appendChild(menu);
-
-      // 193-6 (MOTEUR §9.30) — « Au max » : un interrupteur, pas un type (une série de recul peut l'être aussi). Seulement sur la
-      // dernière série de travail ; en séance il ne vaut que pour aujourd'hui, la routine ne change pas.
-      if (vue.auMax && vue.auMax.possible) {
-        var menuAu = el('div', 'feuille-menu');
-        var motAu = vue.auMax.bouton || 'Au max';   // D-A3 : le plan donne le mot (65+ connu : « En gardant 2 reps »)
-        var bAu = el('button', vue.auMax.actif ? 'sel' : '', vue.auMax.actif ? (vue.auMax.retirer || 'Retirer « ' + motAu + ' »') : motAu);
-        bAu.appendChild(el('small', 'aide-type', vue.auMax.aide));
-        bAu.type = 'button';
-        bAu.addEventListener('click', function () { vue.surAuMax(!vue.auMax.actif); });
-        menuAu.appendChild(bAu);
-        cible.appendChild(menuAu);
-      }
 
       // 245 (D-S3) — une série que tu as sortie du calcul (« Non, ne compte pas ») peut y rentrer : la réponse se retire.
       if (vue.horsCalcul && vue.horsCalcul.actif && !vue.programme) {

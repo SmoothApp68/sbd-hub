@@ -108,7 +108,7 @@ describe('253 X2 — le plan : la variante est la consigne du jour, pas une zone
   test('pas de « Au max », pas de pari, pas de réserve visée de table ni d’effort visé sur la barre', () => {
     const { p } = plan({});
     const x = p.exercices[0];
-    expect(x.auMax).toBeNull(); expect(x.propositionAuMax).toBeNull();
+    expect(x.auMax).toBeUndefined(); expect(x.propositionAuMax).toBeUndefined();
     expect(x.lignes.every((l) => !l.auMax)).toBe(true);
     expect((x.paris || []).every((q) => q === null)).toBe(true);
     expect(x.reserveVisee).toBeNull(); expect(x.effortVise).toBeNull();
@@ -246,8 +246,8 @@ describe('253 X2 — I142 et les invariants adaptés', () => {
     expect(i142(p, e).join('|')).toMatch(/les reps ont changé/);
     ({ e, p } = plan({})); p.exercices[0].consigne.zone = 'mix';
     expect(i142(p, e).join('|')).toMatch(/la zone a changé/);
-    ({ e, p } = plan({})); p.exercices[0].lignes[0].auMax = { x: 1 };
-    expect(i142(p, e).join('|')).toMatch(/Au max/);
+    ({ e, p } = plan({})); p.exercices[0].lignes[0].auMax = { x: 1 };   // la clause « Au max » d'I142 est retirée : I251 la couvre
+    expect(T.verifierPlan(p, e).erreurs.join('|')).toMatch(/^I251|\|I251/);
     ({ e, p } = plan({})); p.exercices[0].paris = [{ valeur_predite: 5 }];
     expect(i142(p, e).join('|')).toMatch(/un pari écrit/);
     ({ e, p } = plan({})); p.exercices[0].veilleLegere.reserve = 1;

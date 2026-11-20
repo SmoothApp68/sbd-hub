@@ -85,8 +85,6 @@ const GARDEES = [
   { fn: 'chargeVoisine', module: 'moteur.js' },
   { fn: 'pasDeSalle', module: 'moteur.js' },
   { fn: 'repriseDe', module: 'moteur.js' },
-  // moteur.js — la dernière série « Au max » (193-6, MOTEUR §9.30) : une seule fonction de décision, lue par le plan et le générateur
-  { fn: 'auMaxDe', module: 'moteur.js' },
   { fn: 'ecartHabituel', module: 'moteur.js' },
   // moteur.js — la réaction, la seconde charge, la couverture, les paris
   { fn: 'reactionPour', module: 'moteur.js' },
@@ -149,11 +147,11 @@ const GARDEES = [
   { fn: 'phraseBilanTest', module: 'moteur.js' },
   { fn: 'phraseObjectifTest', module: 'moteur.js' },
   // moteur.js — les reculs à plus de reps, calés sur le max du jour (193-5, §9.28, I82)
-  { fn: 'reculAuMax', module: 'moteur.js' },
+  { fn: 'reculSurLeMaxDuJour', module: 'moteur.js' },
   { fn: 'reculDePlusDeReps', module: 'moteur.js' },
   { fn: 'correctionDeRecul', module: 'moteur.js' },
-  { fn: 'phraseReculAuMax', module: 'moteur.js' },
-  { fn: 'pourquoiReculAuMax', module: 'moteur.js' },
+  { fn: 'phraseReculMaxDuJour', module: 'moteur.js' },
+  { fn: 'pourquoiReculMaxDuJour', module: 'moteur.js' },
   // moteur.js — la chute de fin de séance (§9.2 bis, 49-U12)
   { fn: 'chuteDe', module: 'moteur.js' },
   // moteur.js — le compteur de stagnation (§12.9, 49-U13)
@@ -305,12 +303,6 @@ const LE_COACH = 'plan.js';
 // (29/09/2026) et sont RAPPORTÉES dans sa PR pour décision : elles ne sont pas
 // forcées dans le plan par ce commit.
 const AUTORISATIONS = {
-  // 193-2 (MOTEUR §9.30) — le générateur pose la dernière série « Au max » par défaut en lisant la décision du moteur.
-  auMaxDe: {
-    'generateur.js': '193-2 (MOTEUR §9.30, QUESTIONNAIRE-COACH §5 bis.1) : le programme construit marque la dernière série de travail ou de ' +
-      'recul d\u2019un exercice « Au max » quand `Moteur.auMaxDe` le dit pour l\u2019objectif (muscle, les_deux : oui ; force : accessoires ; ' +
-      'forme, objectif absent : rien) ; aucune table en double — le générateur ne décide pas, il lit (generateur.js, `marquerAuMax`).'
-  },
   // 193-4 (MOTEUR §9.32) — la semaine de test : la décision par barre est au plan ; HORS séance (la carte de fin de phase, la feuille du
   // Profil, le bilan en tête de Saisie, les paris posés au lancement), l'app passe les faits à la règle et montre ce qu'elle rend.
   testProposable: {
@@ -967,12 +959,11 @@ const NOTIONS = [
     raison: '196 (MOTEUR §9.33) : une définition, lue par le menu ⋯ d’une série et par « J’ai peu de temps » en objectif Muscle ; 236 : le plan la lit pour le levier « Rest-pause » de la réaction après un raté (jamais une seconde définition).' },
   { notion: 'l’isolation (des muscles au catalogue, moins de trois ; sans muscle connu : ni l’un ni l’autre)', pr: '124-U3',
     module: 'moteur.js', fonction: 'estIsolation', lecteurs: ['profil.js', 'plan.js', 'app.js', 'generateur.js', 'routines.js'],
-    parAilleurs: { 'profil.js': ['avecIsolation'], 'plan.js': ['polyarticulaireDe'], 'app.js': ['optionsDeConsigne'], 'generateur.js': ['marquerAuMax', 'verifierAssociation'], 'routines.js': ['supersetsHabituels'] },
+    parAilleurs: { 'profil.js': ['avecIsolation'], 'plan.js': ['polyarticulaireDe'], 'app.js': ['optionsDeConsigne'], 'generateur.js': ['verifierAssociation'], 'routines.js': ['supersetsHabituels'] },
     raison: 'audit du 16/10/2026 (01 #15) : pour un exercice sans muscle connu, la salle (`avecIsolation`) n’en faisait pas ' +
       'une isolation, la dégressive du plan si ; une définition, lue aux deux endroits (MOTEUR §10 bis et §14 : « la ' +
       'même définition que la salle »). 175 (MOTEUR §9.7 bis) : le gros cran — le plancher de son test ne descend pas sous 8 reps ' +
-      'sur une isolation — la lit pour la donner au moteur (`optionsDeConsigne`, l\'option `isolation`). 193-2 : le générateur la donne à ' +
-      '`auMaxDe` (l\u2019accessoire à l\u2019isolation va à l\u2019échec, le débutant sur une barre non, `marquerAuMax`).' },
+      'sur une isolation — la lit pour la donner au moteur (`optionsDeConsigne`, l\'option `isolation`). (« Au max » disparaît, 20/11/2026 : le générateur ne la donne plus à `auMaxDe`.)' },
   { notion: 'le débutant (« Moins d’un an » d’ancienneté)', pr: '111-U1',
     module: 'profil.js', fonction: 'estDebutant', lecteurs: ['app.js', 'generateur.js'],
     parAilleurs: { 'app.js': ['entreeDeLaSemaine', 'debutantDeLaSeance'], 'generateur.js': ['generer', 'neVeuxPas'] },
@@ -2118,8 +2109,8 @@ const NOTIONS = [
     module: 'generateur.js', fonction: 'familleDeBarre', lecteurs: ['equilibres.js', 'faits.js', 'plan.js', 'app.js'],
     parAilleurs: { 'app.js': ['famillesDeBlocs'] },
     raison: 'La carte « Tes priorités, faites ou non » compte les séries d’une barre (et de ses variantes à la barre) par la ' +
-      'définition de la relecture (66A), pas par une seconde liste. 193-6 : le plan lit la même famille pour la dernière série ' +
-      '« Au max » (squat, couché, soulevé, militaire et leurs variantes à la barre), jamais une liste à part.' },
+      'définition de la relecture (66A), pas par une seconde liste. Lot F (I241) : le plan lit la même famille pour le plancher de ' +
+      'réserve par barre (squat, couché, soulevé, militaire et leurs variantes à la barre), jamais une liste à part.' },
   // ── 221 — LE BLOC HYPERTROPHIE (MOTEUR §19.2, amendement 221) ──
   { notion: 'les zones qu’un bloc propose selon l’objectif (Hypertrophie seulement en Muscle et Les deux)', pr: '221-U1',
     module: 'moteur.js', fonction: 'zonesDeBloc', lecteurs: ['app.js', 'plan.js'], parAilleurs: { 'app.js': ['rendreFeuilleProgramme'] },
@@ -2327,13 +2318,6 @@ const NOTIONS = [
     parAilleurs: { 'plan.js': ['chauffesEtDegressive'] },
     raison: 'MOTEUR §9.41 bis (I184) : la séance en cours fait foi — la carte, la demande « + Chauffe » et les lignes posées se calent sur la même ' +
       'charge ; une copie dans un écran ferait dire deux charges à deux endroits.' },
-  { notion: 'les mots de la dernière série « Au max » (titre, bouton, étiquette ; « en gardant 2 reps » pour un 65 ans et plus connu)', pr: 'correctif 12/11/2026',
-    module: 'moteur.js', fonction: 'motsDeLAuMax', lecteurs: ['plan.js', 'app.js'],
-    raison: 'le plan pose `x.auMaxMots` et le titre de la carte ; l’éditeur de routine, sans plan, lit la même fonction : aucun « Au max » à un 65+ connu, dans aucun écran.' },
-  { notion: 'le public prudent de « Au max » (zone à ménager, douleur récente, 65 ans et plus connus, première fois, reprise longue, débutant)', pr: 'correctif 20/11/2026',
-    module: 'moteur.js', fonction: 'publicPrudentAuMax', lecteurs: ['plan.js', 'app.js'],
-    raison: 'MOTEUR §9.30 (delta 20/11/2026, I239) : un seul prédicat lu par `auMaxDe` (le plancher « en gardant 2 reps ») et par les cinq appels de ' +
-      '`motsDeLAuMax` ; l’éditeur de routine, sans plan, le lit sur le profil : jamais un bouton « Au max » sur une ligne « en gardant 2 ».' },
   // MOTEUR §9.51 quinquies (PR A, 15/11/2026) : la table des coupures de reps. Aucun lecteur hors `modele.js` pour l'instant : les
   // trois copies du seuil lourd (bilans, plan, faits) ont été des exceptions NOMMÉES, retirées une à une (PR B : plan ; PR C : bilans ; PR D : faits) — la liste blanche est vide.
   { notion: 'la bande de reps d\u2019une série (lourdes ≤ 5, moyennes 6 à 8, hautes 9 à 12, longues 13 et plus)', pr: 'correctif 15/11/2026',
@@ -4181,5 +4165,55 @@ describe('architecture — le menu d’un exercice : une seule copie (PR 2 « sa
   });
   test('les deux menus (bloc d’un seul et exercice de superset) appellent la même fonction', () => {
     expect((rendu.match(/^\s+entreesDeLExercice\(menu, vue\);/gm) || []).length).toBe(2);
+  });
+});
+
+// I251 (« Au max » disparaît, 20/11/2026, MOTEUR §9.30) — `au_max` et `au_max_reserve` ne se lisent ni ne s'écrivent dans `v2/js/` pour décider. La SEULE
+// exception est la série de la semaine de test en mode « série » (MOTEUR §9.32, jusqu'à la PR 3 : une identité persistée) : sa lecture passe par
+// `Modele.reserveDeLaSerieDuTest` / `Modele.estSerieDuTestEnSerie`, et la séance la pose, l'envoie et la relit. La liste blanche dit chaque ligne, par
+// fichier, avec sa raison ; une ligne de plus échoue, une ligne de moins aussi (la liste dit ce qui est). Les identifiants de l'objet retiré sont interdits.
+describe('I251 — « Au max » n’existe plus dans v2/js', () => {
+  const fs = require('fs'), path = require('path');
+  const dossier = path.join(__dirname, '../../v2/js');
+  const sansCommentaires = (src) => src.split('\n').map((l) => (/^\s*\/\//.test(l) ? '' : l.replace(/\s\/\/\s.*$/, '')));
+  const LISTE_BLANCHE = {
+    'modele.js': { n: 2, raison: 'la seule lecture : `reserveDeLaSerieDuTest` et `estSerieDuTestEnSerie` (la série de la semaine de test, §9.32)' },
+    'seance.js': { n: 5, raison: 'la colonne `au_max_reserve` (COLONNES_SET), sa relecture et son envoi par `reserveDuTest`, la pose de la série de test (`insererChauffes`)' },
+    'plan.js': { n: 1, raison: 'I251 lui-même : `verifierSansAuMax` refuse un pari fondé sur `fondement.au_max`' }
+  };
+  const lignes = {};
+  fs.readdirSync(dossier).filter((f) => f.endsWith('.js')).forEach((f) => {
+    sansCommentaires(fs.readFileSync(path.join(dossier, f), 'utf8')).forEach((l, k) => {
+      if (/\bau_max(_reserve)?\b/.test(l)) (lignes[f] = lignes[f] || []).push((k + 1) + ': ' + l.trim());
+    });
+  });
+  test('aucune lecture ni écriture de `au_max` / `au_max_reserve` hors de la liste blanche', () => {
+    Object.keys(lignes).forEach((f) => {
+      expect([f, LISTE_BLANCHE[f] ? 'liste blanche' : 'hors liste']).toEqual([f, 'liste blanche']);
+    });
+  });
+  test.each(Object.keys(LISTE_BLANCHE))('%s : exactement les lignes inscrites', (f) => {
+    expect([f, (lignes[f] || []).length, lignes[f]]).toEqual([f, LISTE_BLANCHE[f].n, lignes[f]]);
+  });
+  test('les identifiants de l’objet retiré n’apparaissent plus dans le code servi', () => {
+    const interdits = /\b(estAuMax|reserveDemandee|reserveDemandeeAuMax|auMaxCommeDemande|auMaxDe|publicPrudentAuMax|motsDeLAuMax|consigneAuMax|constatAuMax|pourquoiAuMax\w*|niveauHorsAuMax|classeAuMax|auMaxFaitsDe|auMaxDuPlan|retirerLAuMax|propositionAuMax|propositionDAuMax|definirAuMax|poserAuMaxReserve|marquerAuMax|repondreAuMax|etiquetteAuMax|echecRecentDeBarre|echecsDeBarre|pasDAuMax|AU_MAX_RESERVE_PAR_DEFAUT)\b/;
+    const trouves = [];
+    fs.readdirSync(dossier).filter((f) => f.endsWith('.js')).forEach((f) => {
+      sansCommentaires(fs.readFileSync(path.join(dossier, f), 'utf8')).forEach((l, k) => {
+        if (interdits.test(l) && !/verifierSansAuMax|\['auMax', 'propositionAuMax'/.test(l)) trouves.push(f + ':' + (k + 1) + ' ' + l.trim());
+      });
+    });
+    expect(trouves).toEqual([]);
+  });
+  test('aucun texte affiché « Au max » dans les écrans (rendu.js, app.js, index.html), la semaine de test exceptée (« série au max », PR 3)', () => {
+    const trouves = [];
+    ['rendu.js', 'app.js'].forEach((f) => {
+      sansCommentaires(fs.readFileSync(path.join(dossier, f), 'utf8')).forEach((l, k) => {
+        if (/['"][^'"]*\bAu max\b/.test(l)) trouves.push(f + ':' + (k + 1) + ' ' + l.trim());
+      });
+    });
+    const html = fs.readFileSync(path.join(__dirname, '../../v2/index.html'), 'utf8');
+    if (/\bAu max\b/.test(html)) trouves.push('index.html');
+    expect(trouves).toEqual([]);
   });
 });

@@ -131,10 +131,10 @@ describe('les invariants I152 à I154 voient ce qu\'ils doivent voir (cas négat
     l.prerempli = Object.assign({}, l.prerempli, { charge_kg: 60 });
     expect(dedans(erreurs(p, e), /I153.*calage/).length).toBeGreaterThan(0);
   });
-  test('I154 : une carte « Au max » proposée après un zéro rep', () => {
+  test('une carte « Au max » forgée après un zéro rep est refusée par I251 (la clause « Au max » d’I154 est retirée avec l’objet)', () => {
     const { p, e, x } = monPlan([BONNE, [102.5, 0]]);
     x.propositionAuMax = { iSerie: 2, reserve: 0 };
-    expect(dedans(erreurs(p, e), /I154/).length).toBeGreaterThan(0);
+    expect(dedans(erreurs(p, e), /^I251/).length).toBeGreaterThan(0);
   });
   test('I152 : un état « bord » sur une histoire d\'une seule séance lue ; une garde « unique » qui ne garde pas', () => {
     const { p, e, x } = monPlan([[140, [1, 1, 1]], [140, [1, 1, 1]]]);

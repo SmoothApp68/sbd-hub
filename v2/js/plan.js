@@ -555,10 +555,6 @@
       cles.push('recul.max');
       if (x.reculs.derniere) cles.push('recul.correction');
     }
-    if (x.auMax) {
-      cles.push('au_max');
-      if (x.auMax.reserve !== null && x.auMax.reserve !== undefined && x.auMax.reserve >= 1) cles.push('au_max.reserve');
-    }
     if (x.degressive) cles.push('degressive');
     if (x.reposLong) cles.push('repos_long');
     if (x.escalier && x.escalier.carte) cles.push('marche.seuil');
@@ -1179,12 +1175,12 @@
     var lu = M.ecartDeRecul(precEcart, cible, M.ecartDeDepartDeRecul(grosseReps, margeGrosse, aujourdhui));
     var correction = M.correctionDeRecul(pool);
     var capM = V.capturer(function () {
-      return M.reculAuMax({ grosse: grosse, grosseReps: grosseReps, marge: margeGrosse, reps: aujourdhui, correction: correction.valeur,
+      return M.reculSurLeMaxDuJour({ grosse: grosse, grosseReps: grosseReps, marge: margeGrosse, reps: aujourdhui, correction: correction.valeur,
                             cran: cran, salle: salle });
     });
-    var auMax = capM.texte;
+    var surMax = capM.texte;
     var capR = V.capturer(function () {
-      return auMax !== null ? { charge: auMax.charge, ecart: auMax.ecart, vise: aujourdhui, phrase: null }
+      return surMax !== null ? { charge: surMax.charge, ecart: surMax.ecart, vise: aujourdhui, phrase: null }
         : M.reculDe({ grosse: grosse, ecart: lu.ecart, cran: cran, salle: salle, reps: aujourdhui });
     });
     var d = capR.texte;
@@ -1192,14 +1188,14 @@
     // La phrase s'écrit sous capture (I26) : un recul rempli la dit, un recul vide dit pourquoi.
     var capF = V.capturer(function () {
       if (d.charge === null) return d.phrase;
-      return auMax !== null ? M.phraseReculAuMax(d.charge, auMax.pct) : M.phraseRecul(d.charge, d.ecart);
+      return surMax !== null ? M.phraseReculMaxDuJour(d.charge, surMax.pct) : M.phraseRecul(d.charge, d.ecart);
     });
     var phrase = capF.texte;
     if (d.charge !== null) {
       var capQ = V.capturer(function () {
-        if (auMax !== null) {
-          return M.pourquoiReculAuMax({ grosse: grosse, grosseReps: grosseReps, marge: auMax.marge, max: Math.round(auMax.max), reps: aujourdhui,
-                                        pct: auMax.pct, charge: d.charge, correction: auMax.correction, pas: correction.pas });
+        if (surMax !== null) {
+          return M.pourquoiReculMaxDuJour({ grosse: grosse, grosseReps: grosseReps, marge: surMax.marge, max: Math.round(surMax.max), reps: aujourdhui,
+                                        pct: surMax.pct, charge: d.charge, correction: surMax.correction, pas: correction.pas });
         }
         return M.pourquoiRecul({ grosse: grosse, charge: d.charge, ecart: d.ecart, depart: lu.depart, sens: lu.sens, reel: lu.reel,
                                  reps: lu.reps, cible: lu.cible, deduit: lu.deduit === true, grosseReps: grosseReps, marge: margeGrosse, vise: aujourdhui });
@@ -1225,8 +1221,8 @@
           niveau: consigne.niveau === undefined ? null : consigne.niveau, seance: o.seance === undefined ? null : o.seance,
           role: 'recul', grosse: grosse, ecart: d.ecart
         };
-        if (auMax !== null) {
-          fondement.max_du_jour = Math.round(auMax.max); fondement.marge = auMax.marge; fondement.correction = auMax.correction;
+        if (surMax !== null) {
+          fondement.max_du_jour = Math.round(surMax.max); fondement.marge = surMax.marge; fondement.correction = surMax.correction;
         }
         if (o.phase !== undefined) fondement.phase = o.phase;
         if (o.objectif !== undefined) fondement.objectif = o.objectif;
@@ -1248,13 +1244,13 @@
       vise: aujourdhui, phrase: phrase, pourquoi: pourquoi, constat: constat, faites: fait
     };
     // 193-5 — le recul calé sur le max du jour (`null` : la 193-1). `max_du_jour` arrondi à l'entier, `marge` celle de la grosse série.
-    if (auMax !== null && d.charge !== null) {
+    if (surMax !== null && d.charge !== null) {
       var dernierPas = correction.pas.length ? correction.pas[correction.pas.length - 1] : null;
       sortie.reculs.mode = 'max_du_jour';
-      sortie.reculs.max_du_jour = Math.round(auMax.max);
-      sortie.reculs.pct = Math.round(auMax.pct);
-      sortie.reculs.marge = auMax.marge;
-      sortie.reculs.correction = auMax.correction;
+      sortie.reculs.max_du_jour = Math.round(surMax.max);
+      sortie.reculs.pct = Math.round(surMax.pct);
+      sortie.reculs.marge = surMax.marge;
+      sortie.reculs.correction = surMax.correction;
       sortie.reculs.grosseReps = grosseReps;
       sortie.reculs.derniere = dernierPas;
       sortie.reculs.cran = cran === undefined ? null : cran;
@@ -1273,7 +1269,7 @@
   //   { debut, fin, modes: { slug: 'max' | 'serie' }, mesures: { slug: { valeur, le, seance } }, refus: { slug: jour },
   //     maxEstimes: { slug: kg }, seriesDuMax: { slug: { charge, reps } | null } }   // 202 : la série d'où vient le max (le défaut prudent)
   // Ce que le plan en fait : UN SEUL mouvement testé par séance (le premier non mesuré, ni refusé aujourd'hui) ; le squat et le soulevé
-  // jamais le même jour (le second reste en séance normale) ; les accessoires sans « Au max » ; la montée, les essais ou la série au max
+  // jamais le même jour (le second reste en séance normale) ; les accessoires légers ; la montée, les essais ou la série au max
   // de la barre testée, son « Pourquoi », son pari. La structure de la séance reste celle de la routine : le plan PROPOSE des lignes, il
   // n'en écrit aucune.
   function semaineDeTestDuJour(e, seance, exos) {
@@ -1317,7 +1313,7 @@
       if (charge === null) return;
       var reserve = P.reserveDeSerie(s);
       if (S.typeDe(s) === 'test') essais.push({ charge: charge, reps: reps === null ? 0 : reps, reserve: reserve, douleur: s.douleur === true, id: s.id === undefined ? null : s.id });
-      else if (racine.THModele.estAuMax(s)) serie = { charge: charge, reps: reps === null ? 0 : reps, reserve: reserve === null ? 0 : reserve, id: s.id === undefined ? null : s.id };
+      else if (racine.THModele.estSerieDuTestEnSerie(s)) serie = { charge: charge, reps: reps === null ? 0 : reps, reserve: reserve === null ? 0 : reserve, id: s.id === undefined ? null : s.id };
     });
     return { essais: essais, serie: serie };
   }
@@ -1334,7 +1330,7 @@
     var M = Moteur(), T = e.semaineDeTest;
     var b = jt.barres.filter(function (q) { return q.slug === x.slug; })[0] || null;
     if (!b) {
-      // un accessoire : 1 à 2 au plus, légers, sans « Au max » ni échec (`auMaxFaitsDe` se tait pendant la semaine)
+      // un accessoire : 1 à 2 au plus, légers, sans échec
       jt.accessoires += 1;
       return { accessoire: true, garde: jt.accessoires <= M.TEST_ACCESSOIRES_MAX, rang: jt.accessoires };
     }
@@ -1413,158 +1409,9 @@
     return out;
   }
 
-  // 193-6 — les faits que `Moteur.auMaxDe` lit pour l'exercice `i` de la séance. `null` : le coach n'a rien à dire de cet exercice
-  // (pas coaché, « J'ai mal », « Juste un carnet », édition, semaine allégée). `propose` : la carte peut se poser (séance venue d'une
-  // routine, aucune décision enregistrée dans `entrees.auMaxReponses`).
-  var MUSCLES_DE_JAMBES = ['quadriceps', 'fessiers', 'ischio_jambiers'];
-  function auMaxFaitsDe(e, seance, exos, i, coachee, douloureuse, intentionX, allegee, consignes) {
-    var M = Moteur(), G = racine.THGenerateur;
-    var slug = exos[i] && exos[i].exercise_slug;
-    if (!slug || !coachee || douloureuse || seance.edition || intentionX === 'entretien' || allegee) return null;
-    // 16/11/2026 (« Essayer la marche », I221) — une marche essayée est une première fois : « en en gardant 2 », jamais « Au max ».
-    if (exos[i].essai_marche) return null;
-    var cat = e.catalogue || {};
-    var fiche = Object.prototype.hasOwnProperty.call(cat, slug) ? cat[slug] : null;
-    var famille = G && G.familleDeBarre ? G.familleDeBarre(slug, cat) : null;
-    var musclesDe = function (f) { return { prim: (f && f.muscles_primaires) || [], sec: (f && f.muscles_secondaires) || [], stab: (f && f.muscles_stabilisateurs) || [] }; };
-    // Une barre lourde de jambes (ou une presse lourde) PLUS LOIN dans la séance : un squat n'ira pas à l'échec avant elle.
-    var jambesApres = false;
-    for (var j = i + 1; j < exos.length && !jambesApres; j++) {
-      var sj = exos[j] && exos[j].exercise_slug;
-      var fj = sj && Object.prototype.hasOwnProperty.call(cat, sj) ? cat[sj] : null;
-      if (!fj) continue;
-      var fam = G && G.familleDeBarre ? G.familleDeBarre(sj, cat) : null;
-      var B = racine.THModele.BARRES;
-      if (fam === B[0] || fam === B[2]) { jambesApres = true; continue; }
-      var mj = musclesDe(fj);
-      var jambes = mj.prim.some(function (m) { return MUSCLES_DE_JAMBES.indexOf(m) >= 0; });
-      var cj = Object.prototype.hasOwnProperty.call(consignes, sj) && consignes[sj] && consignes[sj].consigne ? consignes[sj].consigne : null;
-      var zj = cj && cj.zone ? (cj.zone.cle || cj.zone) : null;
-      if (jambes && M.estPolyarticulaire(mj) && fj.equipement === 'machine' && (M.estZoneForce(zj))) jambesApres = true;
-    }
-    var zm = e.zonesMenagees && Object.prototype.hasOwnProperty.call(e.zonesMenagees, slug) ? e.zonesMenagees[slug] : null;
-    var jour = M.jourCivil(seance.debut);
-    var douleurs = e.douleurs && Object.prototype.hasOwnProperty.call(e.douleurs, slug) ? e.douleurs[slug] : [];
-    // 193-6b — le jour le plus récent où cette barre est allée à l'échec dans les 6 jours précédents, ou null
-    var echecs = famille && e.echecsDeBarre && Object.prototype.hasOwnProperty.call(e.echecsDeBarre, famille) ? e.echecsDeBarre[famille] : [];
-    var jourEchec = M.echecRecentDeBarre(echecs, jour);
-    var reps = e.auMaxReponses && Object.prototype.hasOwnProperty.call(e.auMaxReponses, slug) ? e.auMaxReponses[slug] : null;
-    return {
-      nom: fiche && fiche.nom ? fiche.nom : null,
-      propose: !!seance.routine_id && !reps,
-      entree: {
-        objectif: objectifDuPlan(e.objectif), debutant: e.debutant === true, famille: famille,
-        equipement: fiche ? fiche.equipement || null : null, isolation: fiche ? M.estIsolation(musclesDe(fiche)) : false,
-        allegee: false, menagee: !!(zm && !zm.choisie), douleurRecente: M.douleurRecente(douleurs, jour),
-        barreDeJambesApres: jambesApres, echecRecent: jourEchec !== null,
-        figure: !!fiche && fiche.mesure === 'temps',   // 195 : jamais d'échec sur une figure
-        // Chantier « première séance sûre », PR 1 : 65 ans et plus CONNUS (jamais deviné) ; première fois = la consigne (UNE notion, `Moteur.estPremiereFois`).
-        plus65: e.plus65 === true,
-        // PR 2 (§9.42, I154) : après un zéro rep, « Au max » suit la règle de la première fois (aucune carte, « garde 2 » au moins).
-        premiereFois: (function (cz) { return M.estPremiereFois(cz) || M.estApresZero(cz); })(Object.prototype.hasOwnProperty.call(consignes || {}, slug) && consignes[slug] ? consignes[slug].consigne : null),
-        // 16/11/2026 (MOTEUR §9.30, delta ; I207) : la reprise longue de CET exercice — « Au max » jamais à l'échec, « garde 2 » au moins (UN prédicat : `Moteur.enRepriseLongue`).
-        repriseLongue: M.enRepriseLongue(Object.prototype.hasOwnProperty.call(consignes || {}, slug) && consignes[slug] ? consignes[slug].consigne : null)
-      },
-      jourEchec: jourEchec
-    };
-  }
-
-  // ── 193-6 (MOTEUR §9.30) — LA DERNIÈRE SÉRIE « AU MAX » ────────────────────
-  //
-  // La décision est `Moteur.auMaxDe` (une seule fonction) ; le plan la LIT sur la dernière ligne de travail ou de recul de l'exercice
-  // quand elle porte la marque (la routine, le menu ⋯ de la série), et PROPOSE la marque une fois par exercice quand la table la
-  // pose par défaut et que rien n'est décidé. Il n'écrit rien. Le pari de la ligne vaut les reps de la table 193-5 à la charge de
-  // la ligne et à la réserve demandée (`prevoirRepsAuMax`), jamais moins que la visée ; la réserve demandée part avec la ligne
-  // (`au_max_reserve`, écrite à la validation). `faits` : `{ facts de auMaxDe, propose: bool, nom }`, ou `null`.
-  function auMaxDuPlan(lignes, series, consigne, faits, o) {
-    var vide = { auMax: null, proposition: null, pari: null, phrases: [], etat: null };
-    // Un silence « première fois » (aucune charge de départ) passe : la marque de la personne y est respectée à « garde 2 » (D-D1) ; tout autre silence se tait.
-    if (!faits || !consigne || (consigne.etat === 'silence' && !Moteur().estPremiereFois(consigne) && !Moteur().estApresZero(consigne)) || consigne.allegee) return vide;
-    var M = Moteur(), V = Voix(), Mo = racine.THModele;
-    var liste = series || [];
-    var dernier = null;
-    (lignes || []).forEach(function (l) {
-      var t = l.type;
-      if (t === 'travail' || t === 'recul') dernier = l;
-    });
-    if (dernier === null) return vide;
-    var sr = liste[dernier.iSerie] || {};
-    var marquee = Mo.estAuMax(sr);
-    var zdp = consigne.plan && consigne.plan.zone ? (consigne.plan.zone.cle || consigne.plan.zone) : null;
-    var dec = M.auMaxDe(Object.assign({}, faits.entree, { main: marquee, zoneDePlan: zdp }));
-    // I150/I151 relisent ce que le plan a vu : la marque, l'âge, la première fois (le plan seul le sait ; la série validée est un fait figé).
-    var etat = { marquee: marquee, validee: !!dernier.validee, plus65: faits.entree.plus65 === true, premiereFois: faits.entree.premiereFois === true, repriseLongue: faits.entree.repriseLongue === true,
-                 debutant: faits.entree.debutant === true };
-    if (!marquee) {
-      // La proposition : la table pose « Au max » par défaut, la personne n'a rien dit, aucune décision n'est enregistrée.
-      if (!faits.propose || dec.pose !== 'defaut' || dernier.validee) return vide;
-      var capP = V.capturer(function () {
-        return 'Va au bout de ta dernière série de ' + (faits.nom || 'cet exercice') + ' : ' + M.consigneAuMax(dec).charAt(0).toLowerCase() +
-          M.consigneAuMax(dec).slice(1) + '.';
-      });
-      return { auMax: null, pari: null, etat: etat, phrases: [{ ou: 'au_max.proposition', texte: capP.texte, citations: capP.citations }],
-               proposition: { iSerie: dernier.iSerie, reserve: dec.reserve, sorte: dec.sorte, avecPareur: dec.avecPareur, titre: M.motsDeLAuMax(M.publicPrudentAuMax(faits.entree)).titre,
-                              phrase: capP.texte, boutons: ['Oui, dans ma routine', 'Juste aujourd’hui', 'Non merci'] } };
-    }
-    // Une marque sur une exercice où la table ne dit rien : garde 2 (la personne l'a posée). `pose` null ne se produit pas (main).
-    var reserve = Mo.reserveDemandee(sr);
-    if (reserve === null) reserve = dec.reserve;
-    if (reserve === null || reserve === undefined) return Object.assign({}, vide, { etat: etat });
-    // Jamais d'échec là où la décision l'interdit (zone à ménager, allégée…) : la réserve demandée est celle de la décision.
-    if (dec.reserve !== null && reserve < dec.reserve && !dernier.validee) reserve = dec.reserve;
-    var a = Object.assign({}, dec, { reserve: reserve, sorte: reserve === 0 ? 'echec' : 'garde',
-                                     avecPareur: reserve === 0 && (dec.classe === 'squat' || dec.classe === 'couche') });
-    var capC = V.capturer(function () { return M.consigneAuMax(a); });
-    var phrases = [{ ou: 'au_max.consigne', texte: capC.texte, citations: capC.citations }];
-    var pourquoi = null;
-    // 193-6b — la barre est allée à l'échec il y a moins de 7 jours et rien (zone de plan) ne l'autorise : garde 1, et le Pourquoi le dit
-    var sansEchec = !zdp && faits.entree.echecRecent === true && reserve === 1 && faits.jourEchec &&
-      M.auMaxDe(Object.assign({}, faits.entree, { main: marquee, zoneDePlan: null, echecRecent: false })).reserve === 0;
-    if (sansEchec) {
-      var capE = V.capturer(function () { return M.pourquoiAuMaxEchecRecent(dec.classe, faits.jourEchec, reserve); });
-      pourquoi = capE.texte;
-      phrases.push({ ou: 'pourquoi.au_max', texte: capE.texte, citations: capE.citations });
-    } else if (dec.classe === 'souleve') {
-      var capS = V.capturer(function () { return M.pourquoiAuMaxSouleve(); });
-      pourquoi = capS.texte;
-      phrases.push({ ou: 'pourquoi.au_max', texte: capS.texte, citations: capS.citations });
-    }
-    // Le pari : les reps de la table à la charge de la ligne, à la réserve demandée, depuis le max du jour de la première série de
-    // travail (ou de la ligne elle-même, à la réserve visée).
-    var charge = dernier.validee ? nombre(sr.charge_kg) : (dernier.fantome ? nombre(dernier.fantome.charge) : nombre(dernier.charge));
-    if (charge === null && !dernier.validee) charge = nombre(sr.charge_kg);
-    var ref = null;
-    (lignes || []).forEach(function (l) {
-      if (ref === null && l.type === 'travail' && l.role !== 'hors') ref = l;
-    });
-    if (ref === null) ref = dernier;
-    var srRef = liste[ref.iSerie] || {};
-    var chRef = ref.validee ? nombre(srRef.charge_kg) : (ref.fantome ? nombre(ref.fantome.charge) : nombre(ref.charge));
-    var repsRef = ref.validee ? nombre(srRef.reps) : (nombre(ref.vise) !== null ? nombre(ref.vise) : nombre(srRef.reps_visees));
-    var margeRef = ref.validee ? Palier().reserveDeSerie(srRef) : null;
-    // Lot F, A1 (CONTRA-TT3-A1, G) — la série de référence d'une barre n'est pas supposée faite sous le plancher de sa barre, ni sous celui de la population
-    // protégée ou de la reprise longue (CONTRA-723 C4).
-    if (margeRef === null) margeRef = M.plancherDeReserve(M.reserveVisee({ zone: consigne.zone, role: roleDeLaVisee({ lignes: lignes }), reglage: o.reglage }),
-      o.protegee === true || M.enRepriseLongue(consigne), o.famille || null);
-    if (margeRef === null) margeRef = 0;
-    var max = chRef !== null && repsRef !== null ? M.maxDuJour(chRef, repsRef, margeRef) : null;
-    var prevu = max !== null && charge !== null ? M.prevoirRepsAuMax(charge, max, reserve) : null;
-    var vise = nombre(dernier.vise);
-    if (vise === null) vise = nombre(sr.reps_visees);
-    var pari = null;
-    if (prevu !== null) pari = { valeur: vise !== null ? Math.max(vise, prevu) : prevu, prevu: prevu, max: Math.round(max), reserve: reserve };
-    var constat = null;
-    if (dernier.validee && nombre(sr.reps) !== null && charge !== null) {
-      var capK = V.capturer(function () { return M.constatAuMax(charge, nombre(sr.reps), prevu); });
-      constat = { texte: capK.texte, charge: charge, reps: nombre(sr.reps), prevu: prevu };
-      phrases.push({ ou: 'constat.au_max', texte: capK.texte, citations: capK.citations });
-    }
-    return { proposition: null, pari: pari, phrases: phrases, etat: etat,
-             auMax: { iSerie: dernier.iSerie, reserve: reserve, sorte: a.sorte, avecPareur: a.avecPareur, classe: dec.classe, pose: dec.pose,
-                      zoneDePlan: zdp, echecRecent: faits.entree.echecRecent === true,
-                      consigne: capC.texte, pourquoi: pourquoi, constat: constat, prevu: prevu, max: max === null ? null : Math.round(max),
-                      pari: pari !== null } };
-  }
+  // « Au max » disparaît (20/11/2026, MOTEUR §9.30, I251) : ni faits de « Au max », ni ligne, ni carte, ni pari de la table (`auMaxFaitsDe`,
+  // `auMaxDuPlan` sont retirés). La dernière série redevient une série de travail, avec sa réaction normale ; le coach ne demande l'échec que par
+  // la visée affichée. Celui qui va au bout le note, et la capacité tenue (I252) le lit.
 
   // ── 251 (D2, MOTEUR §9.39) — LA PORTE DU CRAN, côté plan ───────────────────────────────────────────────────────────────────
   // Les faits que lit `Moteur.porteDuCran` : la zone, le cran (la ligne haute), les séries de travail validées du jour SOUS le cran (un test pris
@@ -1648,7 +1495,7 @@
   }
 
   // Lot F, A1 (I241) — `famille` : la barre de l'exercice (`familleDeLExercice`), ou `null`.
-  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase, allegee, seriesRoutine, marche, routinePlus, fini, precedent, objectif, allege, moins, reculPrec, auMaxFaits, porteCtx, protegee, famille) {
+  function planDExercice(exo, iExo, consigneDuSlug, paris, seanceId, reglage, suite, debut, materiel, phase, allegee, seriesRoutine, marche, routinePlus, fini, precedent, objectif, allege, moins, reculPrec, porteCtx, protegee, famille) {
     var S = Seance(), M = Moteur();
     var series = (exo && exo.series) || [];
     var c = consigneDuSlug && consigneDuSlug.consigne ? consigneDuSlug : null;
@@ -1829,17 +1676,6 @@
       phase: phase, objectif: objectif, occurrence: base.occurrence || undefined, famille: famille || null, protegee: protegee === true
     });
     Object.keys(rec.paris).forEach(function (i) { r.paris[Number(i)] = rec.paris[i]; });
-    // 193-6 — la dernière série « Au max » : sa consigne, son pari (les reps de la table), sa proposition.
-    var au = auMaxDuPlan(r.lignes, series, consigne, auMaxFaits || null, { reglage: reglage, famille: famille || null, protegee: protegee === true });
-    if (au.auMax) {
-      var lAu = r.lignes[au.auMax.iSerie];
-      if (lAu) lAu.auMax = { reserve: au.auMax.reserve, sorte: au.auMax.sorte, avecPareur: au.auMax.avecPareur, consigne: au.auMax.consigne };
-      var pAu = r.paris[au.auMax.iSerie];
-      if (pAu && au.pari) {
-        pAu.valeur_predite = au.pari.valeur;
-        pAu.fondement = Object.assign({}, pAu.fondement, { au_max: { reserve: au.pari.reserve, max_du_jour: au.pari.max, prevu: au.pari.prevu } });
-      }
-    }
     var autour = chauffesEtDegressive(r.lignes, series, consigne, materiel || null);
     var capP = V.capturer(function () { return pourquoiDuPlan(consigne, r.lignes, donc); });
     var pourquoi = capP.texte;
@@ -1948,7 +1784,6 @@
       if (rec.reculs.constat) dire('constat.reculs', rec.reculs.constat, rec.citations.constat || []);
     }
     if (marche && marche.carte) dire('escalier.carte', marche.carte.phrase, citationsDeCarte(marche.carte));
-    au.phrases.forEach(function (q) { dire(q.ou, q.texte, q.citations); });
 
     // 251 (D2) — la porte du cran, dite : sous la série qui l'a fermée (la phrase et son geste), et au « Pourquoi ».
     var porteX = porte && porte.fermee ? porteDit(porte, V, dire, pourquoi) : null;
@@ -2031,8 +1866,6 @@
       degressivesPlus: autour.degressivesPlus || null,
       // 193-1 — les séries de recul, ou `null` : I78 la relit.
       reculs: rec.reculs,
-      // 193-6 — la dernière série « Au max » (réserve demandée, consigne, constat) et la carte qui la propose, ou `null` : I83 à I87 les relisent.
-      auMax: au.auMax, propositionAuMax: au.proposition, auMaxEtat: au.etat || null,
       // 251 (D2) — la porte du cran fermée (`{ fermee, tente, raison, iSerie, cran, travail, serie, force, repsAuCran, zone, phrase, bouton, annuler }`), ou `null`.
       porteDuCran: porteX,
       phrases: phrases
@@ -2717,7 +2550,6 @@
         // matériel, `chauffesEtDegressive` se tait : une seule porte, ici.
         var modeX = Object.prototype.hasOwnProperty.call(modes, slug) && modes[slug] ? modes[slug] : null;
         var intentionX = Moteur().intentionDe(intentionProfil, modeX);
-        var faitsAuMaxX = auMaxFaitsDe(e, seance, exos, i, coachee, sansCoachX, intentionX, !!esc.allegee || !!jourDeTest, consignes);
         var x = planDExercice(exo, i, c, Seance().parisDeLOccurrence(e.paris || [], seance, i), seance.id, e.reglage, suite, seance.debut,
           intentionX === 'entretien' || salleEl ? null : materielDe(exos, i, e.catalogue || null, c, e.refusChauffes || {}, ctxChauffes), phase,
           esc.allegee ? { decharge: esc.allegee.source === SOURCE_DECHARGE, semaine: esc.allegee.semaine, semaines: esc.allegee.semaines } : null, Object.prototype.hasOwnProperty.call(seriesRoutine, slug) ? seriesRoutine[slug] : null, m,
@@ -2727,19 +2559,12 @@
           objectif, Object.prototype.hasOwnProperty.call(alleges, slug) ? alleges[slug] : null,
           coachee && Object.prototype.hasOwnProperty.call(moins, slug) ? moins[slug] : null,
           e.reculs && Object.prototype.hasOwnProperty.call(e.reculs, slug) ? e.reculs[slug] : null,
-          faitsAuMaxX,
-          // 251 (D2) — la porte du cran (ses gestes), sauf là où le coach se tait. (Un 22e argument : aucun objet d'options existant ne porte ces faits.)
+          // 251 (D2) — la porte du cran (ses gestes), sauf là où le coach se tait. (Un 21e argument : aucun objet d'options existant ne porte ces faits.)
           coachee && c && !sansCoachX && intentionX !== 'entretien' && !seance.edition && !esc.allegee && !jourDeTest && !legereX
             ? { tente: cranTenteDe(seance.gestes, slug), formeAjustee: formeAjusteeAvant(seance, i), prise: priseDe(seance.gestes, slug) } : null,
           protegee, familleDeLExercice(e, slug));
-        // 253 (X2) — ce jour-là, sur cette barre : pas de « Au max », pas d'échec, pas de pari (donc ni pari perdu, ni compteur, ni escalier), pas de
+        // 253 (X2) — ce jour-là, sur cette barre : pas d'échec, pas de pari (donc ni pari perdu, ni compteur, ni escalier), pas de
         // réserve visée ni d'effort visé (la réserve affichée est celle de la variante), pas de réaction au raté (voir `reactionDExercice`).
-        // D-A3 (chantier « première séance sûre », PR 1) — les mots de la carte et du bouton « Au max » du menu de la série : 65+ connu →
-        // « en gardant 2 reps » ; l'écran les lit ici, il ne les décide pas.
-        // Lot E, A3 (20/11/2026, I239) : le public prudent est UN prédicat (`Moteur.publicPrudentAuMax`), lu sur les faits de « Au max » de
-        // l'exercice (débutant, 65+, première fois, après zéro, reprise longue, zone à ménager, douleur récente) ; sans eux (exercice muet), ceux du profil.
-        x.auMaxMots = Moteur().motsDeLAuMax(Moteur().publicPrudentAuMax(faitsAuMaxX ? faitsAuMaxX.entree
-          : { plus65: e.plus65 === true, debutant: e.debutant === true, repriseLongue: Moteur().enRepriseLongue(x.consigne) }));
         x.tenueZero = null;
         if (tenueZ && !(x.lignes || []).some(function (l) { return laLigneAUnSens(l) && l.validee; })) {   // une fois la 1re série de travail validée, le choix est fait
           var lTenue = (x.lignes || []).filter(function (l) { return laLigneAUnSens(l) && !l.validee; })[0];
@@ -2749,21 +2574,16 @@
         if (legereX) {
           x.veilleLegere = { charge: legereX.charge, reps: legereX.reps, reserve: legereX.reserve, plan: legereX.plan, baisse: legereX.baisse,
                              phrase: Moteur().phraseDeLaVeilleLegere(legereX, e.activiteVeille && e.activiteVeille.nom) };
-          retirerLAuMax(x);
           x.paris = (x.paris || []).map(function () { return null; });
           x.premierPari = null;
           if (x.pourquoi) x.pourquoi.veille = x.veilleLegere.phrase;
         }
         // F2 (MOTEUR §9.49, I168) — LES ROUTINES NE SONT PAS PRÊTES (`entrees.routinesPretes === false` ; absent = prêtes) : l'app ne donne ni suite ni consigne
         // figée à un exercice à zone de plan. Un exercice FINI dont la suite se tait ne montre ni constat ni l'en-tête d'avant (`x.suiteMuette`, lu par
-        // l'écran) ; et la carte « Dernière série au max ? » ne se propose pas (« dans ma routine » ne s'écrirait nulle part).
+        // l'écran).
         x.suiteMuette = false;
         if (e.routinesPretes === false) {
           if (x.zonePlan && Seance().exerciceFini(seance, slug)) x.suiteMuette = true;
-          if (seance.routine_id && x.propositionAuMax) {
-            x.propositionAuMax = null;
-            x.phrases = (x.phrases || []).filter(function (p) { return p.ou !== 'au_max.proposition'; });
-          }
         }
         x.blocHypertrophie = stBloc ? { zone: stBloc.zone, grosse: stBloc.grosse === true,
           reculs: stBloc.grosse ? (exo.series || []).filter(function (q) { return racine.THModele.typeDe(q) === 'recul'; }).length : 0 } : null;
@@ -2854,9 +2674,7 @@
         var parBarre = !parPopulation && pbX !== null && rvTable !== null && pbX > rvTable;
         if ((parPopulation || parBarre) && rvX !== null && rvTable !== null && rvX > rvTable && x.pourquoi) {
           var capPl = Voix().capturer(function () {
-            // CONTRA-723 C2 — « L’échec … passe par la série « Au max » » seulement si l'« Au max » du jour (ligne ou proposition) va à l'échec.
-            var echecDuJour = !!((x.auMax && x.auMax.sorte === 'echec') || (x.propositionAuMax && x.propositionAuMax.sorte === 'echec'));
-            return parBarre ? Moteur().phraseDeLaBarre(Moteur().testClasse(x.familleDeBarre), rvX, reglagePlan, echecDuJour) : Moteur().phraseDuPlancher(rvX);
+            return parBarre ? Moteur().phraseDeLaBarre(rvX, reglagePlan) : Moteur().phraseDuPlancher(rvX);
           });
           x.pourquoi.plancher = capPl.texte;
           x.plancher = { visee: rvX, table: rvTable, phrase: capPl.texte };
@@ -3394,7 +3212,7 @@
     var muet = plan.intention === 'entretien' || x.intention === 'entretien' || x.mode === 'entretien' || !!plan.allegee || !!k.allegee || !!seance.edition ||
       !!plan.semaineDeTest || !!x.semaineDeTest || !!x.calage || !!x.sansCoach || !!x.figure || !!x.veilleLegere || !!x.douleur || !mesureOk;
     var ligne = (x.lignes || []).filter(function (l) { return l.iSerie === i; })[0] || null;
-    var role = T.estRecul(sr) ? 'recul' : (ligne && (ligne.auMax || ligne.role === 'au_max')) || sr.au_max === true ? 'au_max'
+    var role = T.estRecul(sr) ? 'recul'
       : ligne && ligne.role === 'test' ? 'test' : ligne && ligne.role === 'haut' ? 'haut'
       : (x.reculs && travail[0] && travail[0].iSerie === i) ? 'grosse' : 'travail';
     var restantes = (x.lignes || []).filter(function (l) { return laLigneAUnSens(l) && l.iSerie !== i && (!l.validee || l.iSerie > i); });
@@ -3432,7 +3250,7 @@
     x.rate = {
       iSerie: derniere, niveau: 'zero', cas: d.cas, base: null, phrase: cap.texte,
       boutons: (d.leviers || []).map(function (cle) { return { cle: cle, texte: M.boutonDeRate(cle, d), pris: pris.indexOf(cle) >= 0 }; }),
-      charge: d.charge || null, garde: null, fourchette: null, recale: false, pasDAuMax: false, approche: false, recalculeReculs: false,
+      charge: d.charge || null, garde: null, fourchette: null, recale: false, approche: false, recalculeReculs: false,
       faites: 0, visees: null, fait: false, pris: pris, chiffres: chiffres, role: d.role, zero: Ch
     };
     x.phrases.push({ ou: 'rate', texte: cap.texte, citations: cap.citations });
@@ -3532,7 +3350,7 @@
       var reps = nombre(s.reps), ch = nombre(s.charge_kg);
       var rang = travail.indexOf(l);
       var role = (ch !== null && nombre(l.charge) !== null && Math.abs(ch - nombre(l.charge)) > 1e-9) ? 'autre_charge'
-        : l.type === 'recul' ? 'recul' : (l.auMax || s.au_max === true) ? 'au_max'
+        : l.type === 'recul' ? 'recul'
         // 251 (D2 bis) — la grosse série d'un bloc se teste AVANT le test : portée en ligne de test (155 × 3 après 152,5 × 5) et ratée, elle recale les
         // reculs (cas G, « Ta grosse série dit ≈ X kg »), elle ne se tait plus (cas I, « pas encore »).
         : (x.reculs && travail[0] && l.iSerie === travail[0].iSerie) ? 'grosse' : l.role === 'test' ? 'test' : 'travail';
@@ -3630,7 +3448,7 @@
       iSerie: iSerie, niveau: d.niveau, cas: d.cas, base: d.base || null, phrase: cap.texte,
       boutons: (d.leviers || []).map(function (cle) { return { cle: cle, texte: M.boutonDeRate(cle, d), pris: pris.indexOf(cle) >= 0 }; }),
       charge: d.charge || null, garde: d.garde === undefined ? null : d.garde, fourchette: d.fourchette || null, recale: d.recale === true,
-      pasDAuMax: d.pasDAuMax === true, approche: d.approche === true, recalculeReculs: d.recalculeReculs === true,
+      approche: d.approche === true, recalculeReculs: d.recalculeReculs === true,
       faites: d.faites === undefined ? null : d.faites, visees: d.visees === undefined ? null : d.visees,
       fait: d.fait === true, pris: pris, chiffres: chiffres, role: d.role || null
     };
@@ -3647,14 +3465,6 @@
         poserSurLaLigne(x, t, { vise: vise, fourchette: d.fourchette, charge: prend ? d.charge.kg : undefined });
       });
     }
-    // L : jamais d'« Au max » sur cet exercice aujourd'hui.
-    if (d.pasDAuMax) retirerLAuMax(x);
-  }
-
-  function retirerLAuMax(x) {
-    x.auMax = null;
-    x.propositionAuMax = null;
-    (x.lignes || []).forEach(function (l) { if (l.auMax) l.auMax = null; });
   }
 
   // La carte « un cran dessous » : deux séances de suite où le pari n'a pas tenu (`entrees.parisRates[slug]` = `{ n, charge, reps }`, un
@@ -3719,7 +3529,7 @@
       if (!dj.silence) { carteSur = j; decision = dj; }
     }
     if (rep !== null) {
-      // Répondue : « Ajuster » tient la fin de séance (cibles au bas de la zone, une série de moins, pas d'« Au max »), « Garder » ne revient jamais.
+      // Répondue : « Ajuster » tient la fin de séance (cibles au bas de la zone, une série de moins), « Garder » ne revient jamais.
       var depuis = null;
       gs.forEach(function (g) { if (g.geste === 'forme_ajustee' && depuis === null) depuis = g.slug; });
       if (rep === 'ajuste') appliquerLaForme(plan, seance, depuis);
@@ -3740,7 +3550,7 @@
   }
 
   // « Ajuster la fin à ma forme du jour » : à partir de l'exercice qui portait la carte, les cibles au bas de la zone, une série de moins
-  // (jamais sous 2 séries de travail), pas d'« Au max ». Le plan décide ; l'app retire la ligne (`lignesAAjuster`).
+  // (jamais sous 2 séries de travail). Le plan décide ; l'app retire la ligne (`lignesAAjuster`).
   function appliquerLaForme(plan, seance, depuisSlug) {
     var M = Moteur();
     var debut = null;
@@ -3765,7 +3575,6 @@
           poserSurLaLigne(x, t, { vise: zone.bas, fourchette: [Math.max(1, zone.bas - 1), zone.bas + 1] });
         });
       }
-      retirerLAuMax(x);
     });
   }
 
@@ -4571,9 +4380,7 @@
       if (travail.length !== m.routine || m.series >= m.routine) return;
       var libres = travail.filter(function (l) { return !l.validee; });
       if (!libres.length) return;
-      // 193-6 — la ligne « Au max » reste : c'est une ligne du milieu qui part.
       var cible = libres[libres.length - 1];
-      if (cible.auMax && libres.length > 1) cible = libres[libres.length - 2];
       sortie.push({ iExo: x.iExo, iSerie: cible.iSerie });
     });
     return sortie;
@@ -4966,7 +4773,7 @@
         if (mg === null || mg < 0 || co === null || Math.abs(co) > 0.10 + 1e-9 || Math.abs(Math.round(co / 0.025) * 0.025 - co) > 1e-6) {
           err('I82', 'la marge (' + mg + ') ou la correction (' + co + ') des reculs sort de ses bornes (± 10 %, par pas de 2,5 %)');
         } else if (!R.surSalle) {
-          var attendu = M.reculAuMax({ grosse: g, grosseReps: gr, marge: mg, reps: vi, correction: co, cran: R.cran === null ? undefined : R.cran });
+          var attendu = M.reculSurLeMaxDuJour({ grosse: g, grosseReps: gr, marge: mg, reps: vi, correction: co, cran: R.cran === null ? undefined : R.cran });
           if (attendu === null || attendu.charge !== c) err('I82', 'le recul à ' + c + ' kg n\u2019est pas celui de la table (' + (attendu === null ? 'aucun' : attendu.charge) + ' kg)');
         }
         if (Math.abs(R.max_du_jour - (g / (M.pctDuMax(gr, mg) / 100))) > 0.5 + 1e-9) err('I82', 'le max du jour (' + R.max_du_jour + ' kg) n\u2019est pas celui de la grosse série');
@@ -6422,8 +6229,6 @@
                           'regle|series': true,
                           // 193-1 — l'écart d'aujourd'hui et l'écart d'avant ; les reps de la fois d'avant, de la cible, du jour.
                           'regle|recul.ecart': true, 'regle|recul.reps': true, 'regle|recul.marge': true,
-                          // 193-6 — la réserve demandée de la ligne et de la carte.
-                          'regle|au_max.reserve': true,
                           // 236 — les chiffres de la réaction après un raté (reps, garde, charges) : plusieurs faits distincts par clé.
                           'regle|rate.reps': true, 'regle|rate.garde': true, 'regle|rate.charge': true,
                           // 251 — la porte du cran : les reps de la série fermante, du cran et de la table (plusieurs faits sous une clé).
@@ -6727,7 +6532,7 @@
       'recul.ecart': x.reculs ? { valeurs: [x.reculs.ecart, x.reculs.reel].filter(function (v) { return nombre(v) !== null; })
         .map(function (v) { return Math.round(v * 1000) / 10; }) } : null,
       'recul.reps': x.reculs ? { valeurs: (x.reculs.reps || []).concat(x.reculs.faites || [], [x.reculs.cible], x.reculs.mode === 'max_du_jour'
-        ? [x.reculs.grosseReps, x.reculs.vise].concat(x.reculs.derniere ? [x.reculs.derniere.faites, x.reculs.derniere.faites - x.reculs.derniere.prevision, x.reculs.derniere.cible] : [])
+        ? [x.reculs.grosseReps, x.reculs.vise].concat(x.reculs.derniere ? [x.reculs.derniere.faites, x.reculs.derniere.prevision === null ? null : x.reculs.derniere.faites - x.reculs.derniere.prevision, x.reculs.derniere.cible] : [])
         : (x.reculs.depart === true && x.reculs.deduit === true ? [x.reculs.grosseReps, x.reculs.vise] : [])).filter(function (v) { return nombre(v) !== null; }) } : null,
       // 193-5 — le recul sur le max du jour : le max (entier), son pourcentage, la marge de la grosse série et celle du recul (2), la correction, la dernière série.
       'recul.max': x.reculs && x.reculs.mode === 'max_du_jour' ? { charge: x.reculs.max_du_jour } : null,
@@ -6738,9 +6543,6 @@
       'recul.depart': x.reculs && x.reculs.depart === true && x.reculs.deduit === true ? { valeur: Math.round(Moteur().RECUL_ECART_MIN * 1000) / 10 } : null,
       'recul.correction': x.reculs && x.reculs.mode === 'max_du_jour' ? { valeur: Math.round(Math.abs(x.reculs.correction) * 1000) / 10 } : null,
       'recul.derniere': x.reculs && x.reculs.derniere ? { charge: x.reculs.derniere.charge } : null,
-      // 193-6 — « Au max » : la réserve demandée (de la ligne, de la carte), les reps et la charge de la dernière série, l'écart à la table.
-      'au_max.reserve': x.auMax || x.propositionAuMax
-        ? { valeurs: [x.auMax ? x.auMax.reserve : null, x.propositionAuMax ? x.propositionAuMax.reserve : null, Moteur().AU_MAX_RESERVE_PAR_DEFAUT].filter(function (v) { return nombre(v) !== null; }) } : null,
       // 236 — le coach après un raté : les reps, la garde et les charges dits par la réaction, la carte de la forme du jour, la carte des paris.
       'rate.reps': chiffresDuRate(x).reps.length ? { valeurs: chiffresDuRate(x).reps } : null,
       'rate.garde': chiffresDuRate(x).garde.length ? { valeurs: chiffresDuRate(x).garde } : null,
@@ -6753,9 +6555,6 @@
         x.porteDuCran.repsAuCran].filter(function (v) { return nombre(v) !== null; }) } : null,
       'porte.bas': x.porteDuCran && x.porteDuCran.zone ? { valeur: x.porteDuCran.zone.bas } : null,
       'porte.haut': x.porteDuCran && x.porteDuCran.zone ? { valeur: x.porteDuCran.zone.haut } : null,
-      'au_max.reps': x.auMax && x.auMax.constat ? { valeur: x.auMax.constat.reps } : null,
-      'au_max.charge': x.auMax && x.auMax.constat ? { charge: x.auMax.constat.charge } : null,
-      'au_max.ecart': x.auMax && x.auMax.constat && x.auMax.constat.prevu !== null ? { valeur: Math.abs(x.auMax.constat.reps - x.auMax.constat.prevu) } : null,
       // 193-4 — la semaine de test : la charge proposée (l'essai ou la série), le rang de l'essai, les reps, les pourcentages, le max, la réserve, le pari.
       test: x.semaineDeTest && x.semaineDeTest.charge !== null && x.semaineDeTest.charge !== undefined ? { charge: x.semaineDeTest.charge } : null,
       'test.rang': x.semaineDeTest && x.semaineDeTest.prochain ? { valeur: x.semaineDeTest.prochain.rang } : null,
@@ -7040,7 +6839,7 @@
     verifierGrosCran(plan, erreurs);
     verifierAlleger(plan, erreurs);
     verifierFatigue(plan, entrees, erreurs);
-    verifierAuMax(plan, erreurs, entrees);
+    verifierSansAuMax(plan, erreurs);
     verifierMobilite(plan, entrees, erreurs);
     verifierVeilleActivite(plan, entrees, erreurs);
     verifierVeilleReprise(plan, entrees, erreurs);
@@ -7206,7 +7005,7 @@
   //   I118  aucune réaction en Entretenir, décharge, semaine de test, calage, « J'ai mal », Édition ; (251) la PORTE du cran, elle, parle même au calage et
   //         au débutant : elle change le plan, ce n'est pas une réaction au raté (I138 la tait dans les autres contextes) ;
   //   I119  la fourchette tient (bornes entières, basse ≤ haute) et contient les reps faites, sauf la baisse (bas de zone à bas + 2) ;
-  //   I120  pas d'« Au max » après un échec franc, ni après « Ajuster la fin à ma forme du jour » ;
+  //   I120  (« Au max » disparaît, 20/11/2026 : sa clause « pas d'« Au max » après un échec franc ou « Ajuster la fin » » est sans objet, I251 la couvre) ;
   //   I121  la carte de la forme du jour : une seule, 2 exercices au moins sur 3 au plus ;
   //   I122  « un cran dessous » est le palier ou moins, jamais plus lourd que le pari raté.
   function verifierRate(plan, entrees, erreurs) {
@@ -7249,9 +7048,6 @@
             if (l.rate && !l.validee && rvp !== null && r.garde < rvp) erreurs.push('I216' + nom + 'un pari de réserve ' + rvp + ' sous une réaction qui dit « garde ' + r.garde + ' »');
           });
         }
-        if (r.pasDAuMax && (x.auMax || x.propositionAuMax || (x.lignes || []).some(function (l) { return l.auMax; }))) {
-          erreurs.push('I120' + nom + 'un « Au max » après un échec franc');
-        }
         // I238 (lot E, A5, 20/11/2026, MOTEUR §9.39 et §14.8) — un levier « Dégressive » de la réaction satisfait la règle de l'escalier,
         // relue depuis les ENTRÉES (`Moteur.degressivePossible` : isolation, ni Lourd ni Mix, ni sèche, ni décharge, ni Entretenir, ni débutant).
         if ((r.boutons || []).some(function (b) { return b && b.cle === 'degressive'; }) &&
@@ -7259,7 +7055,7 @@
           erreurs.push('I238' + nom + 'un levier « Dégressive » là où la dégressive n’est pas permise (zone ' + (x.consigne ? x.consigne.zone : '?') + ', phase ' + plan.phase + ')');
         }
         // I232 (« Une seule garde », 19/11/2026, MOTEUR §9.39) — à garde 0 des lignes (recalculée depuis les entrées), la réaction ne demande pas une
-        // marge que la ligne ne demande pas : aucun « garde N » > 0, aucun cas M, et aucun échec (L, « Pas d'Au max ») sur une série à fond à au moins
+        // marge que la ligne ne demande pas : aucun « garde N » > 0, aucun cas M, et aucun échec (L) sur une série à fond à au moins
         // le bas de la zone.
         if (r.niveau !== 'zero' && x.consigne && gardeDeLigneDesEntrees(x, entrees) === 0) {
           if (nombre(r.garde) !== null && nombre(r.garde) > 0) erreurs.push('I232' + nom + 'une réaction qui dit « garde ' + r.garde + ' » sur des lignes en garde 0');
@@ -7267,13 +7063,10 @@
           var zone7 = M.zoneParCle(x.consigne.zone);
           var sr7 = ((entrees && entrees.seance && entrees.seance.exercices && entrees.seance.exercices[i] && entrees.seance.exercices[i].series) || [])[r.iSerie] || null;
           var rp7 = sr7 ? nombre(sr7.reps) : null;
-          if (zone7 && rp7 !== null && rp7 >= zone7.bas && (r.cas === 'L' || r.base === 'L' || r.pasDAuMax)) {
-            erreurs.push('I232' + nom + 'un échec (cas ' + r.cas + (r.pasDAuMax ? ', pas d’« Au max »' : '') + ') sur ' + rp7 + ' reps, dans la zone, à garde 0');
+          if (zone7 && rp7 !== null && rp7 >= zone7.bas && (r.cas === 'L' || r.base === 'L')) {
+            erreurs.push('I232' + nom + 'un échec (cas ' + r.cas + ') sur ' + rp7 + ' reps, dans la zone, à garde 0');
           }
         }
-      }
-      if (x.forme && x.forme.ajuste && (x.auMax || x.propositionAuMax || (x.lignes || []).some(function (l) { return l.auMax; }))) {
-        erreurs.push('I120' + nom + 'un « Au max » après « Ajuster la fin à ma forme du jour »');
       }
       // I116 — une charge changée a son geste.
       (x.lignes || []).forEach(function (l) {
@@ -7646,8 +7439,8 @@
   // I241 (Lot F, A1, 20/11/2026, MOTEUR §9.26 ter) — LE PLANCHER DE RÉSERVE PAR BARRE. Sur un exercice dont la barre (`familleDeLExercice`, recalculée depuis
   // le catalogue des entrées, jamais lue sur le plan) n'est pas nulle : la réserve affichée de la visée (`x.reserveAffichee`) et la garde des lignes (celle du
   // plan et celle recalculée depuis les entrées) ne sont jamais sous `Moteur.plancherDeBarre` (`null` admis : ligne de test d'une protégée, après un zéro rep,
-  // règle hors jeu) ; une proposition « Au max » du coach sur le militaire ou le soulevé ne demande jamais moins que ce plancher (seuls le squat et le couché
-  // gardent l'échec par « Au max »). Exemptée et nommée : la semaine de test (`x.semaineDeTest`, ses essais et sa série au max, §9.32).
+  // règle hors jeu). (La clause « Au max » est retirée avec l'objet, 20/11/2026.) Exemptée et nommée : la semaine de test (`x.semaineDeTest`, ses essais et
+  // sa série au max, §9.32).
   // I243 (Lot F, étape 1, 20/11/2026, MOTEUR §9.14 ter delta ; CONTRA-723 B1, B2) — « À FOND » À GARDE 0, LA MONOTONIE. À garde 0 des lignes (recalculée
   // depuis les entrées), après une série à fond À LA CHARGE DE SA LIGNE, aucune ligne de travail non validée à cette charge (ni du coach ni d'élan) ne
   // vise plus que la borne la plus basse posée par ces séries (max(bas, r − 1)), un 0 rep venu après compris : quelle que soit la voix, la suite ne remonte
@@ -7692,11 +7485,6 @@
       var gP = nombre(x.gardeDeLigne), gE = nombre(gardeDeLigneDesEntrees(x, entrees));
       if (gP !== null && gP < pb) erreurs.push('I241' + nom + 'une garde des lignes de ' + gP + ' sous le plancher de la barre (' + pb + ')');
       if (gE !== null && gE < pb) erreurs.push('I241' + nom + 'la garde des lignes recalculée vaut ' + gE + ', sous le plancher de la barre (' + pb + ')');
-      var classe = M.testClasse(famille);
-      var prop = x.propositionAuMax;
-      if (prop && (classe === 'militaire' || classe === 'souleve') && nombre(prop.reserve) !== null && prop.reserve < pb) {
-        erreurs.push('I241' + nom + 'une proposition « Au max » en gardant ' + prop.reserve + ', sous le plancher de la barre (' + pb + ')');
-      }
     });
   }
   // I252, I252 bis et I254 (« Capacité tenue », 20/11/2026, MOTEUR §9.26 delta ; décision d'Aurélien : variante A, la règle vaut aussi sur les barres).
@@ -7821,17 +7609,7 @@
       if (ev && ev.preuveFacile === true && nombre(ev.reserve) !== null && nombre(ev.visee) !== null && !Moteur().reserveAtteintLeSeuil(ev.reserve, ev.visee, { reglage: plan.reglage })) {
         erreurs.push('I234' + nom + 'une preuve « facile » tirée de ' + ev.reserve + ' en réserve pour une visée affichée de ' + ev.visee);
       }
-      // I233 (« Une seule garde », C-1, MOTEUR §9.26 et §9.30) — sur une série « Au max » (`ev.demandee`, la réserve DEMANDÉE, écrite au fondement), la
-      // réserve notée se compare à la demande : aucune garde quand elle l'atteint, et la réponse ne vaut « facile » que 2 au-dessus. Une consigne figée
-      // avant le correctif n'a pas `demandee` : elle n'est pas comparée.
-      if (ev && ev.demandee !== undefined && nombre(ev.demandee) !== null && nombre(ev.reserve) !== null) {
-        if (ev.effet === 'garde' && ev.reserve >= ev.demandee) {
-          erreurs.push('I233' + nom + 'une garde pour une série « Au max » faite comme demandé (' + ev.reserve + ' en réserve, ' + ev.demandee + ' demandées)');
-        }
-        if (ev.preuveFacile === true && !Moteur().reserveAtteintLeSeuil(ev.reserve, ev.demandee, { reglage: plan.reglage })) {
-          erreurs.push('I233' + nom + 'une preuve « facile » tirée de ' + ev.reserve + ' en réserve pour ' + ev.demandee + ' demandées « Au max »');
-        }
-      }
+      // I233 (C-1) est RETIRÉ (20/11/2026, « Au max » disparaît) : il n'y a plus de réserve demandée ; la capacité tenue (I252) le remplace.
       // 169 — I62 : la garde au haut de la zone ne dure qu'UNE séance (une garde est « première fois », une sortie est
       // « deuxième fois » et pose un test d'un cran) ; I63 : les puces et « garde-en N » n'existent que si la règle peut
       // jouer (ni poids du corps, ni aide) ; I64 : la visée et la charge du fondement sont celles de la table et du palier.
@@ -8233,8 +8011,6 @@
     ((plan && plan.exercices) || []).forEach(function (x, i) {
       if (!x) return;
       var nom = 'I168 — exercice ' + i + ' (' + x.slug + ') : ';
-      // La carte « Dernière série au max ? » promet « dans ma routine » : routines pas prêtes, sur une séance partie d'une routine, elle ne se propose pas.
-      if (x.propositionAuMax && entrees.seance && entrees.seance.routine_id) erreurs.push(nom + 'la carte « Au max » est proposée alors que les routines ne sont pas prêtes');
       if (!x.zonePlan) return;
       if (suites[x.slug]) erreurs.push(nom + 'une suite est donnée alors que les routines ne sont pas prêtes');
       if (x.constat && (x.constat.suite || x.constat.verdict)) erreurs.push(nom + 'un constat est dit alors que les routines ne sont pas prêtes');
@@ -8399,8 +8175,8 @@
   //   · I153 — jamais la charge échouée ni au-dessus : toute consigne qui porte `fondement.zeroRep` a une ligne STRICTEMENT plus légère que la charge
   //     échouée ; une `zero_rep` est la ligne dite (`vers`, `visees`), au plus le palier, sans ligne haute ni zone, et aucune ligne non validée
   //     n'est préremplie au-dessus de `vers` ;
-  //   · I154 — rien d'ambitieux : sur `zero_rep` et `silence/zero_plancher`, aucune carte « Au max » proposée, aucune réserve demandée ou visée
-  //     sous « garde 2 », aucune ligne de test.
+  //   · I154 — rien d'ambitieux : sur `zero_rep` et `silence/zero_plancher`, aucune réserve visée sous « garde 2 », aucune ligne de test (sa clause
+  //     « Au max » est retirée avec l'objet, 20/11/2026, I251).
   function verifierZeroRep(plan, e, erreurs) {
     var M = Moteur();
     ((plan && plan.exercices) || []).forEach(function (x, i) {
@@ -8467,10 +8243,6 @@
         erreurs.push('I155' + nom + 'une tenue après un zéro sans plafond qui mord');
       }
       if (M.estApresZero(k)) {
-        if (x.propositionAuMax) erreurs.push('I154' + nom + 'une carte « Au max » proposée après un zéro rep');
-        var a = x.auMax;
-        var lAu = a ? (x.lignes || [])[a.iSerie] : null;
-        if (a && a.reserve < Moteur().RESERVE_PLANCHER && !(lAu && lAu.validee)) erreurs.push('I154' + nom + 'une réserve de ' + a.reserve + ' après un zéro rep (au moins 2)');
         if (nombre(x.reserveAffichee) !== null && nombre(x.reserveAffichee) < Moteur().RESERVE_PLANCHER) erreurs.push('I154' + nom + 'un effort visé à ' + x.reserveAffichee + ' en réserve après un zéro rep');
         var test = (x.planInitial || []).concat(x.lignes || []).some(function (l) { return l && l.role === 'test'; });
         if (test) erreurs.push('I154' + nom + 'une ligne de test après un zéro rep');
@@ -9036,7 +8808,7 @@
   }
 
   // I142 (253, X2, MOTEUR §9.40) — LA VARIANTE « PLUS LÉGER » : sur la barre qui la porte, la charge des lignes à faire est au plus le plan moins UN cran
-  //   et au moins le plan × 0,90, aux MÊMES reps ; la zone de la consigne est celle du plan (jamais une zone changée) ; aucun « Au max », aucun pari,
+  //   et au moins le plan × 0,90, aux MÊMES reps ; la zone de la consigne est celle du plan (jamais une zone changée) ; aucun pari,
   //   aucune réserve visée de table ; la réserve affichée = min(réserve du plan + 2, 3) ; et elle n'existe que si la réponse est « plus léger ».
   function verifierVeilleLegere(plan, entrees, erreurs) {
     var e = entrees || {}, M = Moteur();
@@ -9065,9 +8837,7 @@
         if (l.validee || l.type !== 'travail') return;
         if (l.charge !== null && l.charge !== undefined && nombre(l.charge) !== v.charge) erreurs.push(nom + 'la ligne ' + l.iSerie + ' est \u00e0 ' + l.charge + ', la variante \u00e0 ' + v.charge);
         if (nombre(l.vise) !== null && nombre(l.vise) !== rp) erreurs.push(nom + 'la ligne ' + l.iSerie + ' vise ' + l.vise + ', le plan ' + rp);
-        if (l.auMax) erreurs.push(nom + 'un \u00ab Au max \u00bb sur la ligne ' + l.iSerie);
       });
-      if (x.auMax || x.propositionAuMax) erreurs.push(nom + 'un \u00ab Au max \u00bb propos\u00e9');
       if ((x.paris || []).some(function (q) { return q; })) erreurs.push(nom + 'un pari \u00e9crit sur une s\u00e9ance volontairement plus l\u00e9g\u00e8re (il serait lu comme perdu)');
       if (x.rate || x.parisRates || x.carteForme) erreurs.push(nom + 'une r\u00e9action au rat\u00e9 ou une carte de forme sur une s\u00e9ance volontairement plus l\u00e9g\u00e8re');
     });
@@ -9139,84 +8909,35 @@
     }
   }
 
-  // I83 à I86 (MOTEUR §9.30, 193-6) — LA DERNIÈRE SÉRIE « AU MAX » :
-  //   · I83 — au plus une ligne « Au max » par exercice, et c'est la dernière ligne de travail ou de recul ;
-  //   · I84 — jamais d'échec demandé : au soulevé ni au militaire, en semaine allégée, sur une zone à ménager, au débutant (nulle part,
-  //     lot E, A3 ; avant : sur une barre), en Force sur une barre, en Forme ; la réserve demandée est un entier de 0 à 3 ; la consigne dite est celle de la réserve ;
-  //   · I85 — le pari d'une ligne « Au max » vaut les reps de la table (1 à 12), jamais moins que la visée ; sa visée reste celle de
-  //     la consigne ;
-  //   · I99 (193-6b) — sur une barre, l’échec n’est demandé que le jour Lourd, ou sans zone de plan si la barre n’est pas allée à l’échec dans les 6 jours ;
-  //   · I86 — aucun dépassement (« Passer en… ») sur un exercice dont la seule série de travail est « Au max ».
-  // (I87, la fatigue, vit dans `faits.entreeFatigue` : l'arrivée ou le retrait de « Au max » exclut l'exercice des fenêtres.)
-  function verifierAuMax(plan, erreurs, entrees) {
-    var M = Moteur(), e65 = entrees && entrees.plus65 === true;
+  // I251 (« Au max » disparaît, 20/11/2026, MOTEUR §9.30 ; remplace I83 à I87, I99, I150, I151, I207, I233 et la partie « Au max » de I238/I239) —
+  // AUCUN « AU MAX » DANS UN PLAN NI DANS UN TEXTE. Aucun exercice ne porte de ligne marquée, de carte, de mots ni d'état de « Au max », aucun pari ne
+  // porte `fondement.au_max`, et aucun texte du coach (phrases capturées, message, constat, « Pourquoi », réaction) ne dit « Au max » (« jusqu'à
+  // l'échec » reste dit ailleurs : le rest-pause, 196, et ce que la porte du cran constate, 251). Le coach ne demande l'échec que par la visée affichée. Exemptée et nommée : la semaine de test (`x.semaineDeTest`), dont la « Série au
+  // max » reste jusqu'à la PR 3 (une identité persistée de la série de test). La lecture de `au_max` et `au_max_reserve` dans `v2/js/` est gardée
+  // par `tests/unit/v2-architecture.test.js` (I251, hors la seule fonction de la semaine de test).
+  var MOTS_DE_L_AU_MAX = /au\s*max\b/i;
+  function textesDuCoachDe(x) {
+    var t = [];
+    var pousse = function (v) { if (typeof v === 'string' && v) t.push(v); };
+    (x.phrases || []).forEach(function (p) { if (p) pousse(p.texte); });
+    if (x.message) pousse(x.message.phrase);
+    if (x.rate) pousse(x.rate.phrase);
+    [x.constat, x.pourquoi].forEach(function (o) {
+      if (o && typeof o === 'object') Object.keys(o).forEach(function (k) { pousse(o[k]); });
+    });
+    return t;
+  }
+  function verifierSansAuMax(plan, erreurs) {
     ((plan && plan.exercices) || []).forEach(function (x, i) {
       if (!x) return;
-      var nom = ' — exercice ' + i + ' (' + x.slug + ') : ';
-      var marquees = (x.lignes || []).filter(function (l) { return l && l.auMax; });
-      var travail = (x.lignes || []).filter(function (l) { return l && (l.type === 'travail' || l.type === 'recul'); });
-      if (marquees.length > 1) erreurs.push('I83' + nom + marquees.length + ' lignes « Au max »');
-      if (marquees.length && travail[travail.length - 1] !== marquees[0]) erreurs.push('I83' + nom + 'la ligne « Au max » n’est pas la dernière série de travail');
-      // Une marque de la personne que le plan n'a pas lue (non validée) chez un 65+ connu ou à la première fois : jamais silencieuse (D-D1).
-      var ee = x.auMaxEtat;
-      if (ee && ee.marquee && !ee.validee && !x.auMax) {
-        if (ee.premiereFois) erreurs.push('I151' + nom + 'la marque « Au max » de la personne n’est pas respectée à la première fois');
-        if (ee.plus65 || e65) erreurs.push('I150' + nom + 'la marque « Au max » de la personne n’est pas lue chez un 65 ans ou plus');
-        if (ee.debutant || plan.debutant) erreurs.push('I239' + nom + 'la marque « Au max » de la personne n’est pas respectée chez un débutant');
-      }
-      // I239 (lot E, A3, 20/11/2026, MOTEUR §9.30 delta) — LE DÉBUTANT ET « AU MAX » : le coach ne lui propose jamais la carte ; une ligne « Au max »
-      // (sa marque à lui) demande au moins « en gardant 2 reps » ; et pour tout le public prudent connu du plan (débutant, 65 ans et plus, reprise longue),
-      // les mots de la carte et du bouton sont ceux du plancher, jamais « Au max » (`x.auMaxMots`).
-      var prudentX = plan.debutant === true || e65 || M.enRepriseLongue(x.consigne);
-      if (prudentX && x.auMaxMots && x.auMaxMots.etiquette === M.motsDeLAuMax(false).etiquette) erreurs.push('I239' + nom + 'le bouton « Au max » chez un public prudent (la ligne dit « en gardant 2 reps »)');
-      if (plan.debutant === true && x.propositionAuMax) erreurs.push('I239' + nom + 'une carte « Au max » proposée à un débutant');
-      var a = x.auMax || x.propositionAuMax;
-      if (!a) return;
-      if (!(a.reserve === 0 || a.reserve === 1 || a.reserve === 2 || a.reserve === 3)) erreurs.push('I84' + nom + 'une réserve demandée hors de 0 à 3 (' + a.reserve + ')');
-      if (a.reserve === 0) {
-        var classe = x.auMax ? x.auMax.classe : null;
-        if (classe === 'souleve' || classe === 'militaire') erreurs.push('I84' + nom + 'l’échec demandé au ' + classe);
-        if (plan.allegee) erreurs.push('I84' + nom + 'l’échec demandé pendant une semaine allégée');
-        if (x.menagee && !x.menagee.choisie) erreurs.push('I84' + nom + 'l’échec demandé sur une zone à ménager');
-        // Lot E, A3 (20/11/2026) : l'échec n'est plus demandé à un débutant nulle part (la décision du 31/10/2026, l'échec permis sur machine et
-        // isolation, est remplacée) ; I239 dit le plancher de 2.
-        if (plan.debutant) erreurs.push('I84' + nom + 'l’échec demandé à un débutant');
-        // I99 (193-6b, MOTEUR §9.30 bis) — sur une barre, l'échec n'est demandé que le jour Lourd (zone de plan) ou, sans zone de plan, si la
-        // barre n'est pas allée à l'échec dans les 6 jours précédents.
-        if (x.auMax && (classe === 'squat' || classe === 'couche' || classe === 'militaire')) {
-          if (x.auMax.zoneDePlan ? x.auMax.zoneDePlan !== 'lourd' : x.auMax.echecRecent === true)
-            erreurs.push('I99' + nom + 'l’échec demandé sur une barre ' + (x.auMax.zoneDePlan ? 'un jour ' + x.auMax.zoneDePlan : 'déjà allée à l’échec dans les 6 jours'));
-        }
-      }
-      // I150 (chantier « première séance sûre », PR 1, MOTEUR §9.30) — 65 ans et plus CONNUS : aucune réserve d'échec sur la ligne « Au max »
-      // (une série déjà validée est un fait figé : on ne la juge pas).
-      var lAu = x.auMax ? (x.lignes || [])[x.auMax.iSerie] : null;
-      if (e65 && a.reserve < Moteur().RESERVE_PLANCHER && !(lAu && lAu.validee)) erreurs.push('I150' + nom + 'une réserve de ' + a.reserve + ' chez un 65 ans ou plus (jamais l’échec)');
-      if (plan.debutant === true && a.reserve < M.AU_MAX_RESERVE_PAR_DEFAUT && !(lAu && lAu.validee)) erreurs.push('I239' + nom + 'une réserve « Au max » de ' + a.reserve + ' chez un débutant (au moins ' + M.AU_MAX_RESERVE_PAR_DEFAUT + ')');
-      // I151 (idem) — une première fois d'un exercice (la consigne, `Moteur.estPremiereFois`) : aucune carte « au max » proposée et aucune réserve
-      // < 2 ; la marque de la personne est respectée à « garde 2 », jamais effacée.
-      if (M.estPremiereFois(x.consigne)) {
-        if (x.propositionAuMax) erreurs.push('I151' + nom + 'une carte « Au max » proposée à la première fois');
-        if (a.reserve < Moteur().RESERVE_PLANCHER && !(lAu && lAu.validee)) erreurs.push('I151' + nom + 'une réserve de ' + a.reserve + ' à la première fois (au moins 2)');
-      }
-      // I207 (16/11/2026, MOTEUR §9.30 delta) — la séance de REPRISE LONGUE de cet exercice (`Moteur.enRepriseLongue`, la consigne) : « Au max » ne va jamais à
-      // l'échec, réserve au moins 2 ; la carte proposée dit « en gardant 2 reps ». Cohérent avec la réserve affichée de la ligne (I206, §9.9).
-      if (M.enRepriseLongue(x.consigne) && !(lAu && lAu.validee)) {
-        if (a.reserve < M.AU_MAX_RESERVE_PAR_DEFAUT || (x.auMax && x.auMax.sorte === 'echec') || (x.propositionAuMax && x.propositionAuMax.sorte === 'echec')) erreurs.push('I207' + nom + 'une réserve « Au max » de ' + a.reserve + ' à la séance de reprise longue (au moins ' + M.AU_MAX_RESERVE_PAR_DEFAUT + ', jamais l’échec)');
-        if (x.propositionAuMax && !/gardant 2 reps/.test(String(x.propositionAuMax.titre || ''))) erreurs.push('I207' + nom + 'la carte « Au max » de la reprise longue ne dit pas « en gardant 2 reps »');
-      }
-      var texte = x.auMax ? x.auMax.consigne : null;
-      if (texte && (a.reserve === 0) !== /^Jusqu/.test(texte)) erreurs.push('I84' + nom + 'la consigne « ' + texte + ' » ne dit pas la réserve ' + a.reserve);
-      if (x.auMax) {
-        var l = marquees[0];
-        var p = l ? x.paris && x.paris[l.iSerie] : null;
-        var au = p && p.fondement ? p.fondement.au_max : null;
-        if (au) {
-          if (!(au.prevu >= 1 && au.prevu <= 12)) erreurs.push('I85' + nom + 'la prévision de la table (' + au.prevu + ') hors de 1 à 12');
-          if (nombre(l.vise) !== null && nombre(p.valeur_predite) < nombre(l.vise)) erreurs.push('I85' + nom + 'le pari (' + p.valeur_predite + ') sous la visée (' + l.vise + ')');
-        }
-        if (x.consigne && x.consigne.depassement && travail.length === 1) erreurs.push('I86' + nom + 'un dépassement lu sur la seule série « Au max »');
-      }
+      var nom = 'I251 — exercice ' + i + ' (' + x.slug + ') : ';
+      ['auMax', 'propositionAuMax', 'auMaxMots', 'auMaxEtat'].forEach(function (cle) {
+        if (x[cle] !== undefined && x[cle] !== null) erreurs.push(nom + 'le plan porte « ' + cle + ' »');
+      });
+      (x.lignes || []).forEach(function (l) { if (l && l.auMax) erreurs.push(nom + 'la ligne ' + l.iSerie + ' est marquée « Au max »'); });
+      (x.paris || []).forEach(function (p) { if (p && p.fondement && p.fondement.au_max) erreurs.push(nom + 'un pari fondé sur « Au max »'); });
+      if (x.semaineDeTest) return;
+      textesDuCoachDe(x).forEach(function (t) { if (MOTS_DE_L_AU_MAX.test(t)) erreurs.push(nom + 'le coach dit « ' + t + ' »'); });
     });
   }
 
@@ -9225,7 +8946,7 @@
   //   · I89 — une seule barre testée par séance ; le squat et le soulevé jamais le même jour (le second reste normal) ;
   //   · I90 — la montée (50/60/70/80/87 %) et les charges des essais (≈ 92 %, ≈ 97 %) ou de la série (≈ 85 %, ≈ 80 % au débutant) sont
   //     celles du max estimé, à un cran près ; la série au soulevé : en gardant 1, 6 reps au plus ;
-  //   · I91 — aucun « Au max » en semaine de test, ni sur un accessoire ni sur la barre ; au plus deux accessoires gardés ;
+  //   · I91 — au plus deux accessoires gardés (sa clause « Au max » est retirée avec l'objet, 20/11/2026, I251) ;
   //   · I92 — un arrêt (« J'ai mal », un 1ᵉʳ essai sans marge, 0 rep) ne propose plus rien : ni essai, ni série ;
   //   · I93 — le max mesuré n'est jamais sous le plus lourd essai réussi à RPE 10, et le pari est le max estimé au cran, module `test`.
   function verifierSemaineDeTest(plan, erreurs, entrees) {
@@ -9261,7 +8982,6 @@
     ((plan && plan.exercices) || []).forEach(function (x, i) {
       if (!x) return;
       var nom = ' — exercice ' + i + ' (' + x.slug + ') : ';
-      if (x.auMax || x.propositionAuMax) erreurs.push('I91' + nom + 'un « Au max » pendant la semaine de test');
       var t = x.semaineDeTest;
       if (!t) return;
       // I224 — aucun essai, aucune montée, aucune série au max, aucun ajout proposés d'office pour une barre en reprise longue ou sans max.
@@ -9341,7 +9061,7 @@
 
   // I220 à I222 (16/11/2026, MOTEUR §9.17 bis delta) — LA MARCHE ESSAYÉE, relue par une arithmétique indépendante :
   //   · I220 — « C'est fait … en en gardant 2 » tant qu'aucune série de la marche n'est faite (et « Annuler » avec), jamais
-  //     après ; jamais « échec » ni « Au max » sur la marche (ni ligne, ni proposition) : c'est une première fois (I151, I160) ;
+  //     après ; jamais « échec » sur la marche : c'est une première fois (I160) ;
   //   · I221 — la carte de fin seulement si la marche est TENUE (au moins 2 séries de travail faites, chacune à au moins
   //     max(3, min(5, bas)) reps), sur une routine manuelle, hors d'un bloc du programme ; ses reps sont celles des séries ;
   //   · I222 — le repli seulement si la 1re série de travail faite est entre 1 rep et sous le seuil, une seule fois ; jamais
@@ -9358,8 +9078,7 @@
     if (!faites.length && (!ex.texte || !ex.annuler)) err('I220', 'la marche essayée sans « C’est fait » ni « Annuler »');
     if (ex.texte && !/en en gardant 2\./.test(ex.texte)) err('I220', 'l’essai ne dit pas « en en gardant 2 » (' + ex.texte + ')');
     var tous = [ex.texte, ex.repli && ex.repli.texte, ex.fin && ex.fin.texte].filter(Boolean).join(' ');
-    if (/échec|au max/i.test(tous)) err('I220', 'l’échec ou « Au max » sur la marche (' + tous + ')');
-    if (x.auMax || x.propositionAuMax || (x.lignes || []).some(function (l) { return l && l.auMax; })) err('I220', '« Au max » sur la marche essayée');
+    if (/échec/i.test(tous)) err('I220', 'l’échec sur la marche (' + tous + ')');
     var b = nombre(em.bas);
     var seuil = Math.max(3, Math.min(5, b === null ? 5 : b));
     var tenue = reps.length >= 2 && reps.every(function (r) { return r !== null && r >= seuil; });
@@ -9384,7 +9103,7 @@
 
   // I100 et I104 (195-3) — LA CALISTHÉNIE :
   //   · I100 — une marche d'habileté (pistol, équilibre, archer : `cibleHabilete`) ne se propose qu'en objectif calisthénie ;
-  //   · I104 — jamais « Au max » sur une figure (une tenue en secondes) : ni ligne marquée, ni proposition.
+  //   · I104 — (sa clause « Au max » sur une figure est retirée avec l'objet, 20/11/2026 : I251 la couvre ; le numéro reste réservé).
   // (I101 à I103, les figures de bras tendus par semaine, la zone coude/épaule et la barre de traction, sont ceux du programme :
   //  `Generateur.verifierCalisthenie`.)
   function verifierCalisthenie(plan, erreurs) {
@@ -9394,9 +9113,6 @@
       var c = x.carteMarche;
       if (c && c.cibleHabilete === true && c.proposable === true && plan.objectif !== 'calisthenie') {
         erreurs.push('I100' + nom + 'une marche d’habileté proposée hors objectif calisthénie (' + c.cible + ')');
-      }
-      if (x.figure && (x.auMax || x.propositionAuMax || (x.lignes || []).some(function (l) { return l && l.auMax; }))) {
-        erreurs.push('I104' + nom + '« Au max » sur une figure');
       }
     });
   }

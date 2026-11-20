@@ -576,10 +576,10 @@ describe('T-A14 — la réaction au zéro : une branche, une table', () => {
     expect(avec({ rate: Object.assign({}, r.x.rate, { charge: { kg: 95, action: 'baisse' } }) }).length).toBeGreaterThan(0);
     expect(avec({}).length).toBe(0);
   });
-  test('Moteur.reactionAuZero (table) : rôles grosse / test / au_max / haut → Z2 ; plancher (D nul) → Z2 ; ligne sans chiffre → Z1 (O20)', () => {
+  test('Moteur.reactionAuZero (table) : rôles grosse / test / haut → Z2 (le rôle au_max n’existe plus, I251) ; plancher (D nul) → Z2 ; ligne sans chiffre → Z1 (O20)', () => {
     const base = { charge: 30, descente: 27.5, role: 'travail', restantes: [30] };
     expect(M.reactionAuZero(base)).toMatchObject({ cas: 'Z1', charge: { kg: 27.5 } });
-    ['grosse', 'test', 'au_max', 'haut'].forEach((role) => expect(M.reactionAuZero(Object.assign({}, base, { role })).cas).toBe('Z2'));
+    ['grosse', 'test', 'haut'].forEach((role) => expect(M.reactionAuZero(Object.assign({}, base, { role })).cas).toBe('Z2'));
     expect(M.reactionAuZero(Object.assign({}, base, { descente: null })).cas).toBe('Z2');
     expect(M.reactionAuZero(Object.assign({}, base, { restantes: [null] })).cas).toBe('Z1');
     expect(M.reactionAuZero(Object.assign({}, base, { restantes: [25] })).cas).toBe('Z2');

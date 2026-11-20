@@ -32,8 +32,8 @@
  {
   "nom": "cap-b1-sortie-non-monotone",
   "fichier": "v2/js/moteur.js",
-  "ancien": " && !auMaxCommeDemande(d, r);\n    }",
-  "nouveau": " && !auMaxCommeDemande(d, r) && !capaciteDe(d, r, haut, visee, prec.seance);\n    }",
+  "ancien": " && r < visee;\n    }",
+  "nouveau": " && r < visee && !capaciteDe(d, r, haut, visee, prec.seance);\n    }",
   "banc": "aucun",
   "unitaires": [
    "tests/unit/v2-capacite-tenue.test.js"

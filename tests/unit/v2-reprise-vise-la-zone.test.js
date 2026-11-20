@@ -232,7 +232,7 @@ describe('Décharge planifiée et semaine de test pendant une reprise', () => {
       semaineDeTest: { debut: '2026-11-16', fin: '2026-11-22', modes: {}, mesures: {}, refus: {}, maxEstimes: { [BARRES[0]]: 100 } } };
     const p = T.planDeSeance(e);
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
-    expect(p.exercices[0].auMax).toBeNull();
+    expect(p.exercices[0].auMax).toBeUndefined();
   });
 });
 

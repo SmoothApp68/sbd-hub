@@ -200,8 +200,9 @@ describe('I164 — verifierAnnonce relit l’annonce du plan (DISCRIMINANTS)', (
 describe('la clé du mémo de la suite porte le type de série (B4)', () => {
   const src = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
   const corps = /function empreinteSerie\(s\) \{([^}]*)\}/.exec(src)[1];
-  test('`empreinteSerie` lit type_serie, au_max_reserve et hors_calcul en plus de la charge, des reps et de l’effort', () => {
-    ['charge_kg', 'reps', 'rpe', 'ressenti', 'type_serie', 'au_max_reserve', 'hors_calcul'].forEach((c) => expect([c, corps.indexOf(c) >= 0]).toEqual([c, true]));
+  test('`empreinteSerie` lit type_serie et hors_calcul en plus de la charge, des reps et de l’effort (plus `au_max_reserve` : « Au max » disparaît, I251)', () => {
+    ['charge_kg', 'reps', 'rpe', 'ressenti', 'type_serie', 'hors_calcul'].forEach((c) => expect([c, corps.indexOf(c) >= 0]).toEqual([c, true]));
+    expect(corps.indexOf('au_max')).toBe(-1);
   });
   test('et la valeur du mémo porte `testConfirme` (le plan le relit par I164)', () => {
     expect(/testConfirme: r\.testConfirme === true/.test(src)).toBe(true);

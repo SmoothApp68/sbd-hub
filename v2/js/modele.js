@@ -116,12 +116,6 @@
   function motDEchec(serie) {
     if (estHorsCalcul(serie)) return 'hors calcul';   // 185 — la série « Non, ne compte pas » se dit, à part
     if (estTest(serie)) return 'test';                // 186 — la série de test se dit aussi
-    // 193-6 — « Au max » se dit aussi, à côté du mot du type (« recul · au max »).
-    // 200-4 — « Au max » seulement quand la consigne est l'échec ; quand elle garde N reps, le mot dit « garde N ».
-    if (estAuMax(serie)) {
-      var rAu = reserveDemandee(serie), garde = rAu !== null && rAu >= 1;
-      return estRecul(serie) ? 'recul · ' + (garde ? 'garde ' + rAu : 'au max') : (garde ? 'garde ' + rAu : 'Au max');
-    }
     if (estRecul(serie)) return 'recul';              // 193-1 — la série de recul se dit aussi
     return estAEchec(serie) ? 'à l’échec' : (estManquee(serie) ? 'manquée' : null);
   }
@@ -141,17 +135,18 @@
   // `estTravail` reste vrai), mais elle ne décide JAMAIS de la charge : ni palier, ni habitude, ni cran voisin, ni test
   // (`palier.js`, rôle `recul`), et la consigne ne la couvre pas (`seance.js` `couvertureSeance`).
   function estRecul(serie) { return !!serie && !estHorsCalcul(serie) && typeDe(serie) === 'recul'; }
-  // ⚠️ 193-6 (v2_123, MOTEUR §9.30) — « AU MAX » : UNE LECTURE, ICI. La dernière série d'un exercice peut être « Au max » : un DRAPEAU,
-  // pas un type (une série de recul peut l'être aussi). Dans la base : `sets.au_max_reserve` (0 = jusqu'à l'échec, 1 à 3 = en gardant N
-  // reps, la réserve DEMANDÉE) ; dans la séance en cours : `au_max` (booléen) sur la ligne, la réserve s'écrit à la validation.
-  // L'échec n'est PAS un type ici (le type reste `travail` ou `recul`) : il se lit dans la réserve demandée.
-  function reserveDemandee(serie) {
+  // ⚠️ « Au max » disparaît (20/11/2026, MOTEUR §9.30, I251). La dernière série « Au max » n'existe plus : `routine_sets.au_max` et
+  // `sets.au_max_reserve` ne décident plus de rien. UNE exception, isolée ici jusqu'à la PR 3 (CONTRA-AUMAX-DEDUIT C5 : une identité persistée
+  // de la série de test, avec sa migration) : LA SÉRIE DE LA SEMAINE DE TEST EN MODE « SÉRIE » (MOTEUR §9.32). « Ajouter ces lignes »
+  // (`Seance.insererChauffes`) la pose avec sa réserve (`au_max_reserve`, 0 à 3) ; le plan la reconnaît par cette marque (`faitsDeTest`).
+  // Aucun autre lecteur : la garde d'architecture (I251) refuse toute autre lecture de ces deux champs dans `v2/js/`.
+  function reserveDeLaSerieDuTest(serie) {
     if (!serie) return null;
     var r = lireNombre(serie.au_max_reserve);
     return r !== null && r >= 0 && r <= 3 ? r : null;
   }
-  function estAuMax(serie) {
-    return !!serie && !estHorsCalcul(serie) && (reserveDemandee(serie) !== null || serie.au_max === true);
+  function estSerieDuTestEnSerie(serie) {
+    return !!serie && !estHorsCalcul(serie) && (reserveDeLaSerieDuTest(serie) !== null || serie.au_max === true);
   }
   // ⚠️ 196 (MOTEUR §9.33) — « REST-PAUSE » : UNE LECTURE, ICI, SANS COLONNE NI TYPE (« on ne stocke que l'observé »,
   // MODIFICATEURS-SERIE §2.2). Une série de travail suivie de lignes `degressive` à la MÊME charge : la première partie est la
@@ -3492,8 +3487,8 @@
     estEssaiRate: estEssaiRate,
     estTest: estTest,
     estRecul: estRecul,
-    estAuMax: estAuMax,
-    reserveDemandee: reserveDemandee,
+    estSerieDuTestEnSerie: estSerieDuTestEnSerie,
+    reserveDeLaSerieDuTest: reserveDeLaSerieDuTest,
     estHorsCalcul: estHorsCalcul,
     estAEchec: estAEchec,
     estManquee: estManquee,

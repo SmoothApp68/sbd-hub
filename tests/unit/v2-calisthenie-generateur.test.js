@@ -126,24 +126,16 @@ describe('195-3 — une figure se tient en secondes : duree_cible_s, jamais reps
   });
 });
 
-describe('195-3 — « Au max, en gardant 1 » ; une figure jamais', () => {
-  test('auMaxDe : calisthénie = réserve 1 sur un exercice de poids du corps, rien sur une figure', () => {
-    const a = M.auMaxDe({ objectif: 'calisthenie', famille: null, equipement: 'aucun', isolation: false });
-    expect(a).toMatchObject({ pose: 'defaut', reserve: 1, sorte: 'garde' });
-    expect(M.auMaxDe({ objectif: 'calisthenie', famille: null, figure: true }).pose).toBeNull();
-  });
-  test('le programme marque la dernière série des exercices, pas la figure', () => {
-    const faits = {}; Object.keys(CAT).forEach((s) => { faits[s] = 4; });   // déjà faits : la première fois ne reçoit aucune marque (PR 1)
+describe('« Au max » disparaît (20/11/2026, I251) — le programme de calisthénie n’écrit plus aucune marque', () => {
+  test('aucune ligne ne porte `au_max`, exercices déjà faits compris (avant : « Au max, en gardant 1 » sur la dernière série)', () => {
+    const faits = {}; Object.keys(CAT).forEach((s) => { faits[s] = 4; });
     const r = G.generer(CAT, entree({ faits }));
-    expect(r[0].exercices.filter((l) => l.au_max).length).toBeGreaterThan(0);
-    expect(r[0].exercices[0].au_max).toBeUndefined();
-  });
-  test('les autres objectifs ne changent pas', () => {
-    expect(M.auMaxDe({ objectif: 'forme', famille: null, equipement: 'aucun' }).pose).toBeNull();
+    r.forEach((rt) => rt.exercices.forEach((l) => expect([l.exercise_slug, l.au_max]).toEqual([l.exercise_slug, undefined])));
+    expect(M.auMaxDe).toBeUndefined();
   });
 });
 
-describe('195-3 — I100 et I104 sur le plan', () => {
+describe('195-3 — I100 sur le plan (I104 est retiré avec « Au max », I251)', () => {
   const plan = (o, x) => Object.assign({ objectif: 'calisthenie', exercices: [Object.assign({ slug: 'pistol_squat', lignes: [] }, x)] }, o);
   const carte = { cible: 'pistol_squat', cibleHabilete: true, proposable: true };
   test('I100 : une marche d\'habileté proposée hors calisthénie est refusée', () => {
@@ -154,17 +146,11 @@ describe('195-3 — I100 et I104 sur le plan', () => {
     T.verifierCalisthenie(plan({}, { carteMarche: carte }), ok);
     expect(ok).toEqual([]);
   });
-  test('I104 : « Au max » sur une figure est refusé', () => {
-    ['auMax', 'propositionAuMax'].forEach((cle) => {
-      const e = [];
-      T.verifierCalisthenie(plan({}, { figure: { tenues: [] }, [cle]: { reserve: 1 } }), e);
-      expect(e.join()).toMatch(/I104/);
-    });
-    const e = [];
-    T.verifierCalisthenie(plan({}, { figure: { tenues: [] }, lignes: [{ auMax: true }] }), e);
-    expect(e.join()).toMatch(/I104/);
+  test('une figure ne lève rien dans `verifierCalisthenie` ; un « Au max » est refusé par I251 (`verifierSansAuMax`), pour tout exercice', () => {
     const ok = [];
     T.verifierCalisthenie(plan({}, { figure: { tenues: [] } }), ok);
     expect(ok).toEqual([]);
+    const r = T.verifierPlan(plan({}, { figure: { tenues: [] }, propositionAuMax: { reserve: 1 } }), {});
+    expect(r.erreurs.some((m) => /^I251/.test(m))).toBe(true);
   });
 });

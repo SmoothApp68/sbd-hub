@@ -102,16 +102,17 @@ describe('les invariants relisent la même fonction', () => {
     const p = T.planDeSeance(e);
     expect(T.verifierPlan(p, e, null).erreurs.filter((x) => /^I57|^I161|^I234|^I233/.test(x))).toEqual([]);
   });
-  // CONTRA-723 C3 — par le chemin du moteur (`parReserve`, `Math.max(visee, demandee)`), pas la fonction seule.
-  test('4. Franc Hypertrophie, « Au max » demandé 3, noté « 3 ou + » : le test, sans preuve « facile » ; demandé 2 : la preuve tient', () => {
-    const auMax = (dem) => { const h = histoire(100, 8, { ressenti: 'reste_3_plus' }); h[0].series[2].au_max_reserve = dem;
+  // CONTRA-723 C3 — par le chemin du moteur (`parReserve`), pas la fonction seule. « Au max » disparaît (20/11/2026, I251) : plus de réserve demandée ;
+  // « 3 ou + » noté contre une visée affichée de 0 vaut la preuve, qu'une marque `au_max_reserve` d'avant soit là ou non (avant : demandé 3, pas de preuve).
+  test('4. Franc Hypertrophie, noté « 3 ou + » : le test et la preuve « facile », avec ou sans une marque d’avant', () => {
+    const k = (dem) => { const h = histoire(100, 8, { ressenti: 'reste_3_plus' }); if (dem !== undefined) h[0].series[2].au_max_reserve = dem;
       return consigne(h, { reglage: 'franc', correction: 'hypertrophie' }); };
-    const k3 = auMax(3);
-    expect(k3.etat).toBe('test_propose');
-    expect(k3.fondement.effortVise).toMatchObject({ effet: 'test', reserve: 3, visee: 0, demandee: 3 });
-    expect(k3.fondement.effortVise.preuveFacile).toBeUndefined();
-    const k2 = auMax(2);
-    expect(k2.fondement.effortVise).toMatchObject({ effet: 'test', reserve: 3, demandee: 2, preuveFacile: true });
+    [undefined, 3, 2].forEach((dem) => {
+      const c = k(dem);
+      expect(c.etat).toBe('test_propose');
+      expect(c.fondement.effortVise).toMatchObject({ effet: 'test', reserve: 3, visee: 0, preuveFacile: true });
+      expect(c.fondement.effortVise.demandee).toBeUndefined();
+    });
   });
 });
 

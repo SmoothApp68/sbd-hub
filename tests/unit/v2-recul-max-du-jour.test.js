@@ -14,7 +14,7 @@ const g = (kg, reps, extra) => Object.assign({ charge_kg: kg, reps: reps, type_s
 const r = (kg, reps, extra) => Object.assign({ charge_kg: kg, reps: reps, type_serie: 'recul' }, extra || {});
 const sp = (t) => t.replace(/[  ]/g, ' ');
 const auMax = (grosse, grosseReps, marge, reps, extra) =>
-  M.reculAuMax(Object.assign({ grosse: grosse, grosseReps: grosseReps, marge: marge, reps: reps, cran: 2.5 }, extra || {}));
+  M.reculSurLeMaxDuJour(Object.assign({ grosse: grosse, grosseReps: grosseReps, marge: marge, reps: reps, cran: 2.5 }, extra || {}));
 
 describe('193-5 — la table', () => {
   test('les 12 valeurs, et la marge décale de m reps', () => {
@@ -60,7 +60,7 @@ describe('193-5 — les cas de la maquette (réglage Franc, visée Lourd = marge
   });
   test('haltères : une charge que la salle fait, jamais au-dessus de la grosse', () => {
     const salle = { materiel: 'halteres', charges: [10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32] };
-    const x = M.reculAuMax({ grosse: 30, grosseReps: 4, marge: 1, reps: 8, salle: salle });
+    const x = M.reculSurLeMaxDuJour({ grosse: 30, grosseReps: 4, marge: 1, reps: 8, salle: salle });
     expect(salle.charges).toContain(x.charge);
     expect(x.charge).toBeLessThan(30);
   });
@@ -92,30 +92,46 @@ describe('193-5 — la correction personnelle (rejouée)', () => {
     expect(M.reculDePlusDeReps(memes)).toBe(false);
     expect(M.correctionDeRecul([memes]).valeur).toBe(0);
   });
-  test('la marge du recul tel que fait : un échec compte 0 ; sans note, la marge visée (2)', () => {
+  test('la marge du recul tel que fait : un échec compte 0', () => {
     // à l’échec (marge 0) : 112,5 correspond à 73,3 % → 10,3 reps − 0 = 10 prévues ; 12 ≥ 10 + 2 : +2,5 %
     const s = { cible: 8, series: [g(132.5, 4, { rpe: 9 }), r(112.5, 12, { rpe: 10 })] };
     expect(M.correctionDeRecul([s]).pas[0].prevision).toBe(10);
     expect(M.correctionDeRecul([s]).valeur).toBe(0.025);
+  });
+  // « Au max » disparaît (20/11/2026, CONTRA-AUMAX-DEDUIT C4) — un recul SANS note de réserve ne bouge plus la correction : il n'est plus supposé « en gardant 2 »
+  // (avant : prévision 8, 12 ≥ 8 + 2 → +2,5 % à chaque séance, jusqu'à +10 %, sur un recul fait à l'échec et non noté).
+  test('C4 — DISCRIMINANT : un recul sans note ne monte pas la correction', () => {
     const sans = { cible: 8, series: [g(132.5, 4, { rpe: 9 }), r(112.5, 12)] };
-    expect(M.correctionDeRecul([sans]).pas[0].prevision).toBe(8);
+    const p = M.correctionDeRecul([sans]);
+    expect(p.valeur).toBe(0);
+    expect(p.pas[0]).toMatchObject({ prevision: null, delta: 0, sansNote: true, faites: 12 });
+    const quatre = [1, 2, 3, 4].map(() => ({ cible: 8, series: [g(132.5, 4, { rpe: 9 }), r(112.5, 12)] }));
+    expect(M.correctionDeRecul(quatre).valeur).toBe(0);
+  });
+  // CONTRA-728 D1 — la baisse ne lit aucune marge : un recul non noté sous la cible compte −2,5 %, comme sur main.
+  test('D1 — un recul sans note SOUS la cible baisse toujours la correction : deux séances 85 × 5 pour une cible de 7 → −5 %', () => {
+    const s = () => ({ cible: 7, series: [g(100, 3, { rpe: 9 }), r(85, 5)] });
+    const p = M.correctionDeRecul([s(), s()]);
+    expect(M.reculDePlusDeReps(s())).toBe(true);
+    expect(p.valeur).toBe(-0.05);
+    expect(p.pas.map((q) => [q.delta, q.prevision, q.sansNote])).toEqual([[-0.025, null, true], [-0.025, null, true]]);
   });
 });
 
 describe('193-5 — les phrases', () => {
-  test('sous le recul', () => { expect(sp(M.phraseReculAuMax(112.5, 73.9))).toBe('Recul : 112,5 kg, 74 % de ton max aujourd’hui.'); });
+  test('sous le recul', () => { expect(sp(M.phraseReculMaxDuJour(112.5, 73.9))).toBe('Recul : 112,5 kg, 74 % de ton max aujourd’hui.'); });
   test('le Pourquoi, sans correction', () => {
-    expect(sp(M.pourquoiReculAuMax({ grosse: 132.5, grosseReps: 4, marge: 1, max: 154, reps: 8, pct: 73.9, charge: 112.5, correction: 0, pas: [] })))
+    expect(sp(M.pourquoiReculMaxDuJour({ grosse: 132.5, grosseReps: 4, marge: 1, max: 154, reps: 8, pct: 73.9, charge: 112.5, correction: 0, pas: [] })))
       .toBe('Ta grosse série, 132,5 kg × 4 en gardant 1 rep, dit que ton max aujourd’hui est d’environ 154 kg. Pour 8 reps en en gardant 2, c’est 74 % : 112,5 kg.');
   });
   test('sans marge ; avec correction (la dernière série a fait plus que la table)', () => {
-    const t = sp(M.pourquoiReculAuMax({ grosse: 132.5, grosseReps: 4, marge: 0, max: 148, reps: 8, pct: 73.9, charge: 112.5, correction: 0.025,
+    const t = sp(M.pourquoiReculMaxDuJour({ grosse: 132.5, grosseReps: 4, marge: 0, max: 148, reps: 8, pct: 73.9, charge: 112.5, correction: 0.025,
       pas: [{ charge: 112.5, faites: 12, prevision: 10, cible: 8, delta: 0.025 }] }));
     expect(t).toMatch(/132,5 kg × 4 sans marge/);
     expect(t).toMatch(/Ta dernière série à 112,5 kg a fait 12 reps, 2 de plus que la table ne le prévoyait pour toi : je te compte 2,5 % de plus\.$/);
   });
   test('correction négative', () => {
-    const t = sp(M.pourquoiReculAuMax({ grosse: 132.5, grosseReps: 4, marge: 1, max: 154, reps: 8, pct: 73.9, charge: 110, correction: -0.025,
+    const t = sp(M.pourquoiReculMaxDuJour({ grosse: 132.5, grosseReps: 4, marge: 1, max: 154, reps: 8, pct: 73.9, charge: 110, correction: -0.025,
       pas: [{ charge: 112.5, faites: 6, prevision: 8, cible: 8, delta: -0.025 }] }));
     expect(t).toMatch(/a fait 6 reps pour une cible de 8 : je te compte 2,5 % de moins\.$/);
   });

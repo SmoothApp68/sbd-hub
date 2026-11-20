@@ -1281,7 +1281,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .records-fin-l{display:flex;flex-direction:column;gap:2px;padding-left:26px;font-size:14px;color:var(--texte-2)}
 /* MOTEUR §9.15 (49-U10) — les chauffes et la dégressive : la voix du coach, en
    retrait (elles ne comptent pas), et la proposition de chauffes à accepter. */
-.reaction-serie.chauffe,.reaction-serie.degressive,.reaction-serie.avant_degressive,.reaction-serie.recul,.reaction-serie.au_max{color:var(--texte-2);font-weight:500}
+.reaction-serie.chauffe,.reaction-serie.degressive,.reaction-serie.avant_degressive,.reaction-serie.recul{color:var(--texte-2);font-weight:500}
 /* La proposition d'exercice (49-U10, généralisée en 49-U15) : les chauffes,
    la carte de schéma. */
 .proposition-exercice{margin:6px 0 4px;padding:8px 10px;border:1px dashed var(--trait);border-radius:8px}
@@ -3364,7 +3364,7 @@ button[id^="btn-retour"]{padding:0 14px;font-size:15px}
 .p-ac-tout{display:block;width:100%;min-height:44px;padding:0 var(--e3);border:none;border-top:1px solid var(--filet);background:transparent;color:var(--texte-2);font-family:inherit;font-size:13px;font-weight:600;text-align:left}
 
 /* ── 210 — L'ambre ne signale que l'action principale et l'actif ───────────────────────────────
-   Ambre gardé pour : bouton principal, onglet/période actif, cible du jour, records. Étiquettes « Au max »/« recul »,
+   Ambre gardé pour : bouton principal, onglet/période actif, cible du jour, records. Étiquettes « recul »,
    titres de section du récap et puces de zone passent en texte normal / --texte-2.
    UN SEUL bouton secondaire (260-c) : contour 1 px --trait (= --trait-controle, 3:1, voir 260-b), fond transparent, 44 px mini,
    rayon 10 px (--r-bouton), 15 px / 600. Les variantes (Saisie, pilule du Fil/Jeu, gros contour du récap, retour, fermer, flèches de

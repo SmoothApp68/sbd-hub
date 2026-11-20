@@ -20,16 +20,6 @@
   ]
  },
  {
-  "nom": "a1-auMax-litteral",
-  "fichier": "v2/js/moteur.js",
-  "ancien": "      if (gros) reserve = PLANCHER_DE_BARRE[classe];",
-  "nouveau": "      if (gros) reserve = classe === 'souleve' ? 1 : 1;",
-  "banc": "aucun",
-  "unitaires": [
-   "tests/unit/v2-lot-f-plancher-barre.test.js"
-  ]
- },
- {
   "nom": "3p-sans-r-sup-visee",
   "fichier": "v2/js/moteur.js",
   "ancien": "    return r > v && r >= Math.min(RESERVE_GRILLE_MAX, v + RESERVE_ECART);",

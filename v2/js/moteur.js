@@ -2581,14 +2581,14 @@
     }
     // 169 — la séance d'AVANT (du même couple, hors séances allégées : elles sont neutres) finissait-elle déjà au haut de la
     // zone, à la même charge, avec une réserve notée sous la visée ? C'est la « première fois » de la garde.
-    // I252 — une séance d'avant dont la dernière série a tenu sa capacité n'a pas eu de garde : elle ne compte pas pour la sortie.
+    // Une capacité tenue y compte aussi (CONTRA-726 B1) : la séance a touché le haut sans marge, c'est le fait que la sortie lit ; faire plus ne retient jamais plus.
     function precedenteAuHautSansMarge(prec, charge, haut, visee) {
       if (prec === null || nombre(prec.seance.palier) !== charge) return false;
       var rs = prec.seance.retenues || [];
       var d = rs.length ? rs[rs.length - 1] : null;
       if (d === null || nombre(d.charge_kg) !== charge) return false;
       var r = Palier().reserveDeSerie(d), n = comptees(d);
-      return r !== null && n !== null && n >= haut && r < visee && !auMaxCommeDemande(d, r) && !capaciteDe(d, r, haut, visee, prec.seance);
+      return r !== null && n !== null && n >= haut && r < visee && !auMaxCommeDemande(d, r);
     }
     // 174 — LA RÈGLE DE BORD AVEC CHARGE (MOTEUR §9.1.2). Rend la consigne ; son état (`bord`, `bord_garde`, `bord_recul`,
     // `bord_vague`) et ce qu'elle porte pour la suite (`_bord`, non énumérable : ni le fondement ni les cas de fichier ne le

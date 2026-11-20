@@ -130,6 +130,16 @@ describe('I252 — exclusions : la garde reste', () => {
   });
 });
 
+describe('I252 — la sortie 169 reste monotone (CONTRA-726 B1)', () => {
+  test('squat Franc 100 × 6 sans marge, puis 100 × 5 sans marge (le test n’a pas été pris) → test 102,5, comme 5 puis 5', () => {
+    const k = consigne('squat', 100, 4, [[100, 5, 6, 'reste_0'], [100, 5, 5, 'reste_0']]);
+    expect(etat(k)).toBe('test_propose 100×5 test 102.5×3');
+    expect(k.fondement.effortVise).toMatchObject({ effet: 'test', sortie: true, deja: true });
+    const t = consigne('squat', 100, 4, [[100, 5, 5, 'reste_0'], [100, 5, 5, 'reste_0']]);
+    expect(etat(t)).toBe('test_propose 100×5 test 102.5×3');
+  });
+});
+
 describe('I252 — deux séances (témoin) : le test vérifie lui-même la preuve', () => {
   test('squat 100 × 6 sans marge, puis le test 102,5 × 4 sans marge : « Le bas de ta zone : il tient », le test reste sur la dernière série', () => {
     const k = consigne('squat', 100, 4, [[100, 5, 6, 'reste_0'], [100, 5, 4, 'reste_0', 102.5]]);

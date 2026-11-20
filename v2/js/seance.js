@@ -684,6 +684,26 @@
 
   }
 
+  // 21/11/2026 (MOTEUR §9.32, I253) — LA PASSERELLE D'UN BROUILLON D'AVANT. Un brouillon posé par une version d'avant la marque porte sa série
+  // de mesure sous l'ancienne forme (`test_pose` et `au_max_reserve`), sans `serie_de_mesure` : relu tel quel, le plan reproposerait « Ajouter
+  // ces lignes ». À la relecture d'un BROUILLON seulement (`chargerSeanceLocale`), une série VALIDÉE posée par le test et qui porte une
+  // réserve de test reçoit la marque. Jamais sur une séance lue de la base : là, `au_max_reserve` est aussi la marque d'un « Au max » de routine.
+  function marquerLeBrouillonDAvant(seance) {
+    if (!seance || !seance.exercices) return seance;
+    var change = false;
+    var exos = seance.exercices.map(function (e) {
+      if (!e || !e.series) return e;
+      var series = e.series.map(function (q) {
+        if (!q || q.test_pose !== true || !q.validee_a || q.serie_de_mesure === true) return q;
+        if (racine.THModele.lireNombre(q.au_max_reserve) === null) return q;
+        change = true;
+        return Object.assign({}, q, { serie_de_mesure: true });
+      });
+      return Object.assign({}, e, { series: series });
+    });
+    return change ? Object.assign({}, seance, { exercices: exos }) : seance;
+  }
+
   // 193-4 — « Annuler » la semaine de mesure dans la séance : retire les lignes que le test a posées et que personne n'a validées.
   function retirerLignesDeTest(seance, iExo) {
     var exos = seance.exercices.slice();
@@ -3545,6 +3565,7 @@
     tourAtteint: tourAtteint,
     normaliserGroupes: normaliserGroupes,
     reprendre: reprendre,
+    marquerLeBrouillonDAvant: marquerLeBrouillonDAvant,
     refaire: refaire,
     deplacerVers: deplacerVers,
     deplacerExercice: deplacerExercice,

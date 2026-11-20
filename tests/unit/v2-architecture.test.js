@@ -4198,6 +4198,7 @@ describe('I251 — « Au max » n’existe plus dans v2/js', () => {
   const dossier = path.join(__dirname, '../../v2/js');
   const sansCommentaires = (src) => src.split('\n').map((l) => (/^\s*\/\//.test(l) ? '' : l.replace(/\s\/\/\s.*$/, '')));
   const LISTE_BLANCHE = {
+    'seance.js': { n: 1, raison: 'I253, la passerelle d’un brouillon d’avant (`marquerLeBrouillonDAvant`) : au brouillon seulement, une série validée posée par le test avec une réserve de test reçoit la marque `serie_de_mesure`' },
     'plan.js': { n: 1, raison: 'I251 lui-même : `verifierSansAuMax` refuse un pari fondé sur `fondement.au_max`' }
   };
   const lignes = {};
@@ -4218,7 +4219,7 @@ describe('I251 — « Au max » n’existe plus dans v2/js', () => {
   // la pose par « Ajouter ces lignes », l'envoi) ; `donnees.js` la nomme dans ses colonnes facultatives. Le plan (`faitsDeTest`, I253) passe par
   // le prédicat.
   test('I253 — `serie_de_mesure` : une lecture (`Modele.estSerieDeMesure`), un écrivain (`seance.js`), exactement les lignes inscrites', () => {
-    const ATTENDU = { 'modele.js': 1, 'seance.js': 4, 'donnees.js': 1 };
+    const ATTENDU = { 'modele.js': 1, 'seance.js': 6, 'donnees.js': 1 };   // seance.js : + 2 lignes de la passerelle du brouillon d'avant
     const vues = {};
     fs.readdirSync(dossier).filter((f) => f.endsWith('.js')).forEach((f) => {
       sansCommentaires(fs.readFileSync(path.join(dossier, f), 'utf8')).forEach((l) => {

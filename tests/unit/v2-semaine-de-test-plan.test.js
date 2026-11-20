@@ -473,3 +473,82 @@ describe('I253 — la première série marquée : des instants, pas du texte', (
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
   });
 });
+
+// 21/11/2026 (I253) — LA PASSERELLE D'UN BROUILLON D'AVANT : posé par une version d'avant la marque (`test_pose` + `au_max_reserve`), le
+// brouillon relu reçoit la marque sur sa série validée ; le plan ne repropose pas la série et la mesure déjà rangée ne s'écrase pas.
+describe('I253 — la passerelle d’un brouillon d’avant', () => {
+  require('../../v2/js/semaine.js');
+  // Le brouillon tel qu'une version d'avant le laissait : la série posée par le test, validée, avec `au_max_reserve` et `au_max`, sans marque.
+  function brouillonDAvant() {
+    const e0 = entrees(seance([SDT]), { modes: { [SDT]: 'serie' } });
+    const aj = T.planDeSeance(e0).exercices[0].semaineDeTest.ajout;
+    let k = 0;
+    let se = seance([SDT], 3);
+    se = S.insererChauffes(se, 0, aj.lignes.map((q) => Object.assign([q.charge, q.reps], { test: true, type: q.type, mesure: q.mesure })), () => 'b' + (++k));
+    const j = se.exercices[0].series.findIndex((s) => s.serie_de_mesure === true);
+    // la montée faite (toutes les lignes posées par le test sont validées) : il ne reste rien de vide
+    for (let m = 0; m < j; m++) {
+      const q = se.exercices[0].series[m];
+      se = S.valider(S.modifierSerie(se, 0, m, { charge_kg: q.charge_kg, reps: q.reps_visees }), 0, m, new Date('2026-11-03T10:0' + m + ':00Z'));
+    }
+    se = S.valider(S.modifierSerie(se, 0, j, { charge_kg: 150, reps: 6 }), 0, j, new Date('2026-11-03T10:20:00Z'));
+    se = JSON.parse(JSON.stringify(se));
+    const s = se.exercices[0].series[j];
+    delete s.serie_de_mesure; s.au_max_reserve = 1; s.au_max = true;
+    return { se, j };
+  }
+
+  test('DISCRIMINANT — relu sans passerelle, le plan repropose « Ajouter ces lignes » ; avec, la série est mesurée et rien n’est reproposé', () => {
+    const { se, j } = brouillonDAvant();
+    const sans = T.planDeSeance(entrees(se, { modes: { [SDT]: 'serie' } })).exercices[0].semaineDeTest;
+    expect(sans.mesure).toBeNull();
+    expect(sans.ajout).not.toBeNull();                                         // le défaut que la passerelle ferme
+    const relu = S.marquerLeBrouillonDAvant(se);
+    expect(relu.exercices[0].series[j].serie_de_mesure).toBe(true);
+    const e = entrees(relu, { modes: { [SDT]: 'serie' } });
+    const p = T.planDeSeance(e);
+    const t = p.exercices[0].semaineDeTest;
+    expect(t.ajout).toBeNull();
+    expect(t.etat).toBe('fini');
+    expect(t.mesureSerieId).toBe(se.exercices[0].series[j].id);
+    propre(p, e);
+  });
+
+  test('jamais une série non validée, une série sans réserve de test, ni une série que le test n’a pas posée ; un brouillon à jour ne change pas', () => {
+    const { se, j } = brouillonDAvant();
+    const nonValidee = JSON.parse(JSON.stringify(se)); nonValidee.exercices[0].series[j].validee_a = null;
+    expect(S.marquerLeBrouillonDAvant(nonValidee).exercices[0].series[j].serie_de_mesure).toBeUndefined();
+    const sansReserve = JSON.parse(JSON.stringify(se)); sansReserve.exercices[0].series[j].au_max_reserve = null;
+    expect(S.marquerLeBrouillonDAvant(sansReserve).exercices[0].series[j].serie_de_mesure).toBeUndefined();
+    const routine = JSON.parse(JSON.stringify(se)); delete routine.exercices[0].series[j].test_pose;   // un « Au max » de routine d'avant
+    expect(S.marquerLeBrouillonDAvant(routine).exercices[0].series[j].serie_de_mesure).toBeUndefined();
+    const aJour = S.marquerLeBrouillonDAvant(se);
+    expect(S.marquerLeBrouillonDAvant(aJour)).toBe(aJour);
+  });
+
+  test('`rangerLesMesuresDeTest` n’écrase pas la mesure déjà rangée par la version d’avant', async () => {
+    const fs = require('fs');
+    const path = require('path');
+    const vm = require('vm');
+    const APP = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8');
+    const m = APP.match(/^  async function rangerLesMesuresDeTest\b[\s\S]*?^  }/m);
+    const { se } = brouillonDAvant();
+    const relu = S.marquerLeBrouillonDAvant(se);
+    const e = entrees(relu, { modes: { [SDT]: 'serie' } });
+    const p = T.planDeSeance(e);
+    const t = p.exercices[0].semaineDeTest;
+    // la mesure rangée par la version d'avant, sur la même série (même séance, même valeur)
+    const rangee = { valeur: t.mesure.valeur, charge: t.mesure.charge, reps: t.mesure.reps, source: 'serie', vrai: false, avant: t.max, arret: null,
+                     le: '2026-11-03', date: '2026-11-03T10:21:00.000Z', seance: 'S' };
+    const T0 = Object.assign({}, e.semaineDeTest, { mesures: { [SDT]: rangee } });
+    const ecrits = [];
+    const ctx = { Object, seance: relu, testDesCartes: () => T0, enEdition: () => false, planActuel: () => p,
+                  ecrireTest: async (x) => { ecrits.push(x); }, observerLePariDeTest: async () => { ecrits.push('pari'); },
+                  jourDuJour: () => '2026-11-03', instantDuJour: () => '2026-11-03T12:00:00.000Z' };
+    vm.createContext(ctx);
+    vm.runInContext(m[0], ctx);
+    await vm.runInContext('rangerLesMesuresDeTest()', ctx);
+    expect(ecrits).toEqual([]);
+    expect(T0.mesures[SDT]).toBe(rangee);
+  });
+});

@@ -5201,6 +5201,8 @@
   async function chargerSeanceLocale() {
     try {
       seance = await Cache.lireBrouillon('seance');
+      // 21/11/2026 (I253) — un brouillon d'une version d'avant la marque de la série de mesure : la passerelle, au brouillon seulement.
+      if (seance) seance = Seance.marquerLeBrouillonDAvant(seance);
       attente = await Cache.lireAttente();
     } catch (e) {
       console.warn('Séance locale illisible :', texteErreur(e));

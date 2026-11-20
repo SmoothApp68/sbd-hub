@@ -37,6 +37,22 @@ function jouer(faites, reglage, extra) {
   return { p, e, x: p.exercices[0], erreurs: Plan.verifierPlan(p, e, null).erreurs };
 }
 const restantes = (x) => x.lignes.filter((l) => l.type === 'travail' && !l.validee).map((l) => [l.charge, l.vise]);
+// Le chemin réel de l'app, série par série : les paris posés par le plan d'avant, observés sur la série validée (`set_observe`), figent les lignes
+// validées (`Seance.figeesDe`) ; les paris non observés restent posés.
+function jouerFige(faites, reglage, extra) {
+  const ex = Object.assign({}, extra || {});
+  let observes = [];
+  let r = jouer([], reglage, Object.assign({}, ex, { paris: [] }));
+  for (let t = 1; t <= faites.length; t++) {
+    const ids = seanceAvec(faites.slice(0, t), ex.n || 4).exercices[0].series.map((q) => q.id);
+    const avant = Object.keys(r.x.paris).map((k) => r.x.paris[k]).filter(Boolean);
+    const pt = avant.find((q) => Number(q.fondement.rang) === t);
+    if (pt) observes.push(Object.assign({ id: 'pari-' + t }, pt, { set_observe: ids[t - 1] }));
+    const libres = avant.filter((q) => Number(q.fondement.rang) > t).map((q, i) => Object.assign({ id: 'pn-' + t + '-' + i }, q));
+    r = jouer(faites.slice(0, t), reglage, Object.assign({}, ex, { paris: observes.concat(libres) }));
+  }
+  return r;
+}
 
 describe('garde 0 (Franc, une machine), la série dans la zone, au-dessus du bas', () => {
   test('1. 70 × 9 à fond, 4 séries : toute la suite vise 8, une voix (main : 8, 10, 10)', () => {
@@ -63,21 +79,42 @@ describe('garde 0, au bas de la zone ou dessous : la réaction au raté parle', 
     restantes(r.x).forEach(([c, v]) => { if (c === 70) expect(v).toBe(8); });
     expect(r.erreurs).toEqual([]);
   });
-  test('2. 70 × 7 à fond (sous le bas) : L parle, aucune visée sous la zone (main : « vise 6 », L tu)', () => {
+  test('2. 70 × 7 à fond (sous le bas) : L parle, la suite à 70 kg vise le bas, 8 (main : « vise 6 », L tu ; CONTRA-723 B2 : avant, 10)', () => {
     const r = jouer([[70, 7, 10]], 'franc');
     expect(r.x.message).toBeNull();
     expect(r.x.rate && r.x.rate.cas).toBe('L');
-    expect(r.x.lignes.some((l) => l.source === 'a_fond')).toBe(false);
-    restantes(r.x).forEach(([, v]) => expect(v).toBeGreaterThanOrEqual(8));
+    expect(restantes(r.x)).toEqual([[70, 8], [70, 8], [70, 8]]);
     expect(r.erreurs).toEqual([]);
   });
-  test('la réaction muette : le message cédé garde la parole (le moteur le marque, le plan le garde)', () => {
-    const plan = undefined;   // le plan de la consigne seule (`planDeConsigne`)
-    const rp = M.reactionPour(cons, [{ charge_kg: 70, reps: 8, rpe: 10, ressenti: null }], { gardeAffichee: 0 }, plan);
-    expect(rp.message).toMatchObject({ type: 'a_fond_suite', cede: true, vise: 8 });
-    const rs = M.reactionPour(cons, [{ charge_kg: 70, reps: 7, rpe: 10, ressenti: null }], { gardeAffichee: 0 }, plan);
-    expect(rs.message).toMatchObject({ type: 'a_fond_suite', cede: true, vise: null });
-    expect(sp(M.phraseReaction(rs.message, 'hypertrophie'))).toBe('70 kg × 7, sans marge.');
+  test('la réaction muette, par le plan (CONTRA-723 B2, C3) : deux L ignorés puis 70 × 7 à fond — le message garde la parole, la suite vise 8, jamais 10', () => {
+    const r = jouerFige([[70, 7, 10], [70, 7, 10], [70, 7, 10]], 'franc', { n: 5 });
+    expect(r.x.rate).toBeNull();
+    expect(sp(r.x.message.phrase)).toBe('70 kg × 7, sans marge : la suite vise 8.');
+    expect(restantes(r.x)).toEqual([[70, 8], [70, 8]]);
+    expect(r.erreurs).toEqual([]);
+  });
+  test('le vérificateur : sous le bas, une ligne laissée à sa visée est une erreur I243', () => {
+    const r = jouer([[70, 7, 10]], 'franc');
+    const lignes = r.x.lignes.map((l) => (l.validee || l.type !== 'travail' ? l : Object.assign({}, l, { vise: 10, source: 'consigne' })));
+    const faux = Object.assign({}, r.p, { exercices: [Object.assign({}, r.x, { lignes })] });
+    expect(Plan.verifierPlan(faux, r.e, null).erreurs.some((m) => /^I243/.test(m))).toBe(true);
+  });
+});
+
+describe('après un 0 rep, les bornes « à fond » tiennent (CONTRA-723 B1) : la réaction au zéro parle, la suite ne remonte pas', () => {
+  test('70 × 9 à fond puis 70 × 0 : la suite à 70 kg vise 8, jamais 10 ; aucun message « à fond » (une voix)', () => {
+    const r = jouerFige([[70, 9, 10], [70, 0, null]], 'franc');
+    expect(r.x.message).toBeNull();
+    expect(r.x.rate && r.x.rate.cas).toBe('Z2');
+    expect(restantes(r.x)).toEqual([[70, 8], [70, 8]]);
+    expect(r.erreurs).toEqual([]);
+  });
+  test('70 × 9 à fond puis 75 × 0 (plus lourd) : les lignes à 70 kg visent 8, Z parle seule', () => {
+    const r = jouerFige([[70, 9, 10], [75, 0, null]], 'franc', { n: 5 });
+    expect(r.x.message).toBeNull();
+    expect(r.x.rate && r.x.rate.cas).toBe('Z2');
+    expect(restantes(r.x)).toEqual([[70, 8], [70, 8], [70, 8]]);
+    expect(r.erreurs).toEqual([]);
   });
 });
 

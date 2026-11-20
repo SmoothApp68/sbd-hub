@@ -199,8 +199,9 @@
     var gardeLigne = o.gardeDeLigne !== undefined ? o.gardeDeLigne : gardeDeLigne(consigne, o);
     var contexteR = gardeLigne === 0 ? Object.assign({}, contexte || {}, { gardeAffichee: 0 }) : (contexte || null);
     // « Une seule voix après un zéro » (19/11/2026, I157) — sous une série à 0 rep, la réaction au zéro (`Moteur.reactionAuZero`) parle SEULE : la réaction §9.14 (le
-    // message, l'élan, « plus léger ») ne se lit pas sur les séries d'avant ; les lignes qui restent sont celles de la consigne (`planInitial`).
-    var reaction = o.apresUnZero === true ? M.reactionPour(consigne, [], contexteR, planInitial) : M.reactionPour(consigne, faites, contexteR, planInitial);
+    // message, l'élan, « plus léger ») ne se lit pas sur les séries d'avant ; les lignes qui restent sont celles de la consigne (`planInitial`). Lot F (CONTRA-723 B1) :
+    // les séries faites sont passées, avec `apresUnZero` : `reactionPour` n'en tire aucune voix, seulement les bornes « à fond » à garde 0 déjà posées (I243).
+    var reaction = M.reactionPour(consigne, faites, o.apresUnZero === true ? Object.assign({}, contexteR || {}, { apresUnZero: true }) : contexteR, planInitial);
 
     var lignes = liste.map(function (sr, i) {
       var cov = couverture[i];
@@ -4818,8 +4819,8 @@
     }
     // I44 (MOTEUR §9.14 ter, 68B ; réécrit le 20/11/2026, Lot F étape 1) — une ligne « à fond » (source `a_fond`) suit la DERNIÈRE série validée avant
     // elle : à fond, à la même charge, et vise ses reps moins une (la règle d'avant, garde ≥ 1 ou série plus lourde que sa ligne) ; OU, à garde 0
-    // (la propagation), elle vise la plus basse borne des séries validées avant elle, à fond et à sa charge, faites au moins au bas de la zone
-    // (r − 1 si r − 1 ≥ bas, sinon r) : jamais sous le bas de la zone.
+    // (la propagation), elle vise la plus basse borne des séries validées avant elle, à fond et à sa charge (`max(bas, r − 1)`, CONTRA-723 B2) :
+    // jamais sous le bas de la zone.
     var z44 = x.consigne ? Moteur().zoneParCle(x.consigne.zone) : null;
     couvertes.forEach(function (l, j) {
       if (l.source !== 'a_fond') return;
@@ -4834,8 +4835,8 @@
       if (z44) {
         avant44.forEach(function (f) {
           var r = nombre(f.reps);
-          if (!estAFond(f) || r === null || r < z44.bas || !memeChargeOuVides(l.charge, f.charge)) return;
-          var b = r - 1 >= z44.bas ? r - 1 : r;
+          if (!estAFond(f) || r === null || r < 1 || !memeChargeOuVides(l.charge, f.charge)) return;
+          var b = Math.max(z44.bas, r - 1);   // CONTRA-723 B2 : sous le bas, le bas
           borne = borne === null ? b : Math.min(borne, b);
         });
       }
@@ -7545,9 +7546,9 @@
   // plan et celle recalculée depuis les entrées) ne sont jamais sous `Moteur.plancherDeBarre` (`null` admis : ligne de test d'une protégée, après un zéro rep,
   // règle hors jeu) ; une proposition « Au max » du coach sur le militaire ou le soulevé ne demande jamais moins que ce plancher (seuls le squat et le couché
   // gardent l'échec par « Au max »). Exemptée et nommée : la semaine de test (`x.semaineDeTest`, ses essais et sa série au max, §9.32).
-  // I243 (Lot F, étape 1, 20/11/2026, MOTEUR §9.14 ter delta) — « À FOND » À GARDE 0, LA MONOTONIE. À garde 0 des lignes (recalculée depuis les entrées),
-  // après une série à fond À LA CHARGE DE SA LIGNE faite au moins au bas de la zone, aucune ligne de travail non validée à cette charge (ni du coach ni
-  // d'élan) ne vise plus que la borne la plus basse posée par ces séries (r − 1 si r − 1 ≥ bas, sinon r) : quelle que soit la voix, la suite ne remonte
+  // I243 (Lot F, étape 1, 20/11/2026, MOTEUR §9.14 ter delta ; CONTRA-723 B1, B2) — « À FOND » À GARDE 0, LA MONOTONIE. À garde 0 des lignes (recalculée
+  // depuis les entrées), après une série à fond À LA CHARGE DE SA LIGNE, aucune ligne de travail non validée à cette charge (ni du coach ni d'élan) ne
+  // vise plus que la borne la plus basse posée par ces séries (max(bas, r − 1)), un 0 rep venu après compris : quelle que soit la voix, la suite ne remonte
   // jamais. Et la voix : quand la réaction au raté parle sous la dernière série, aucun message de la règle (une voix, I115).
   function verifierMonotonieAFond(plan, entrees, erreurs) {
     var M = Moteur(), Pa = racine.THPalier;
@@ -7560,8 +7561,8 @@
       x.lignes.forEach(function (l) {
         if (!l.validee || l.type !== 'travail') return;
         var s = series[l.iSerie] || {}, r = nombre(s.reps), c = nombre(s.charge_kg);
-        if (r === null || c === null || r < z.bas || Pa.cranDeSerie(s) !== 'max' || !memeChargeOuVides(nombre(l.charge), c)) return;
-        var b = r - 1 >= z.bas ? r - 1 : r;
+        if (r === null || c === null || r < 1 || Pa.cranDeSerie(s) !== 'max' || !memeChargeOuVides(nombre(l.charge), c)) return;
+        var b = Math.max(z.bas, r - 1);   // CONTRA-723 B2 : sous le bas, le bas (jamais un retour silencieux à la visée)
         var deja = bornes.filter(function (q) { return memeChargeOuVides(q.charge, c); })[0];
         if (deja) deja.vise = Math.min(deja.vise, b); else bornes.push({ charge: c, vise: b });
       });

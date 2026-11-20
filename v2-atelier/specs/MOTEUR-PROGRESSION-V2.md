@@ -1239,7 +1239,7 @@ l'est pas). Ces règles sont des étapes de la réaction, avec ses silences (§9
   81,3 kg × 9. » quand la ligne suivante, un test à 81,3, vient de passer à 9.
 - La dernière série de l'exercice : rien à dire.
 - **I44** *(réécrit le 20/11/2026)* : une ligne de source `a_fond` suit la DERNIÈRE série validée avant elle (à fond, à sa charge, ses reps moins
-  une) ou, à garde 0, la plus basse borne des séries à fond à sa charge faites au moins au bas de la zone.
+  une) ou, à garde 0, la plus basse borne des séries à fond à sa charge (`max(bas, r − 1)`, CONTRA-723 B2).
 - **Delta du 20/11/2026 — « à fond » à garde 0, étape 1 (Lot F, TT-AFOND-G0 corrigé par CONTRA-AFOND-G0 ; décision d'Aurélien : garde 0 seule, la
   garde ≥ 1 ne change pas).** À garde 0 des lignes (`contexte.gardeAffichee === 0`, `Plan.gardeDeLigne`), une série à fond **à la charge de sa ligne**
   (`plan[k].charge`, jamais une série plus lourde : élan, proposition prise, B09 gardent la règle d'avant) :
@@ -1247,18 +1247,26 @@ l'est pas). Ces règles sont des étapes de la réaction, avec ses silences (§9
     qui visent plus visent **r − 1** ; une voix, la réaction au raté se tait (le bâillon) ;
   - **r = bas** : elles visent **bas** (jamais r + 1 : la non-monotonie de la table D est fermée) et la parole est **cédée** à la réaction au raté (D, ses
     leviers « +1 min », « Dégressive ») ; `poserSurLaLigne` ne relève jamais une visée ;
-  - **sous le bas** : aucune ligne ne change (aucune visée sous la zone), la parole est cédée (L : « On passe à 62,5 kg… », « Pas d'« Au max » ») ;
-  - **réaction au raté muette** (débutant/calage, entretien, décharge, semaine de test, première fois, douleur, figure) : le message cédé garde la parole
-    (`message.cede`, tranché par le plan : `x.message` s'efface seulement si `x.rate` parle ; I9 l'admet) — jamais un retour silencieux à la visée ;
-  - **la monotonie (I243)** : la borne est la plus basse des séries à fond de la séance à cette charge (r − 1 si r − 1 ≥ bas, sinon r), relue à chaque
-    série, lignes figées par les paris comprises ; aucune ligne non validée à cette charge ne la dépasse, quelle que soit la voix ;
+  - **sous le bas** *(corrigé le 20/11/2026, CONTRA-723 B2)* : les lignes à cette charge qui visent plus visent **bas** (jamais sous la zone, jamais un
+    retour silencieux à la visée), la parole est cédée (L : « On passe à 62,5 kg… », « Pas d'« Au max » » : vrai devant 70 × 8, la charge ne baisse que
+    sur un geste) ;
+  - **réaction au raté muette** (débutant/calage, entretien, décharge, semaine de test, première fois, douleur, figure, propositions ignorées) : le message
+    cédé garde la parole (`message.cede`, tranché par le plan : `x.message` s'efface seulement si `x.rate` parle ; I9 l'admet) : « 70 kg × 7, sans
+    marge : la suite vise 8. » ;
+  - **la monotonie (I243)** : la borne est la plus basse des séries à fond de la séance à cette charge, `max(bas, r − 1)` (r − 1 dans la zone, bas au
+    bas de la zone ou dessous), relue à chaque série, lignes figées par les paris comprises ; aucune ligne non validée à cette charge ne la dépasse,
+    quelle que soit la voix ;
+  - **après un 0 rep** *(CONTRA-723 B1)* : la réaction au zéro parle seule (une voix, aucun message « à fond »), mais les bornes déjà posées par les
+    séries à fond d'avant tiennent (`appliquerBornesAFond`, appliquée avant le retour de `reactionPour` sur un zéro) : 70 × 9 à fond puis 70 × 0, ou
+    puis 75 × 0, laissent la suite à 70 × 8, jamais 70 × 10 ;
   - le pari `a_fond` d'une ligne propagée lit pour déclencheur la dernière série validée avant elle (`pariAFond`) ;
   - **la phrase** (VOIX-DU-COACH-V1 : la réserve 0 se dit « sans marge ») : « 70 kg × 9, sans marge : la suite vise 8. » (« la suivante » si une seule
-    ligne change ; à garde ≥ 1 aussi : « 79 kg × 12, sans marge : la suivante vise 11. ») ; sous le bas, la parole gardée : « 70 kg × 7, sans marge. ».
-  Écarts notés : « à fond » des phrases `pas_encore` (« la suite revient ») reste (dette) ; sous le bas, une réaction muette laisse la ligne à sa visée
-  (CONTRA 4 demandait « r − 1, au moins bas » : la monotonie et « jamais sous la zone » l'emportent, le fait est dit) ; étape 2 (garde ≥ 1, « la suite vise
-  r − 1 − g » ou L) après la mesure Claude.ai (perte de reps par repos et par série). Interaction avec #722 (la descente en séance après un zéro lit
-  `ligne.vise`) : à rejouer quand #722 sera fusionnée.
+    ligne change ; à garde ≥ 1 aussi : « 79 kg × 12, sans marge : la suivante vise 11. ») ; sans ligne qui change, le fait seul : « 70 kg × 7, sans marge. ».
+  Écarts notés : « à fond » des phrases `pas_encore` (« la suite revient ») et `elan` reste (dette, CONTRA-723 N2) ; avec le plancher de réserve par barre
+  (§9.26 ter, I241), les barres en « Me pousser » ne sont plus à garde 0 : la propagation ne vaut qu'aux machines, haltères et isolations (CONTRA-723 N1) ;
+  étape 2 (garde ≥ 1, « la suite vise r − 1 − g » ou L) après la mesure Claude.ai (perte de reps par repos et par série). Interaction avec #721 (« une seule
+  voix après un zéro ») : son `apresUnZero` appelait `reactionPour` sans les séries faites, et B1 revenait (rejoué le 20/11/2026 : I243 ×2 et ×3) ; le plan
+  passe désormais `faites` avec `contexte.apresUnZero: true`, qui entre dans la condition du retour sur un zéro de `reactionPour` (bornes, aucun message).
 
 ---
 

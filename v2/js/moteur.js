@@ -3160,6 +3160,38 @@
   // `planInitial` (49-C) : le plan de la séance en cours (`planDeCouverture`).
   // Absent, c'est le plan de la consigne seule, sur ses `n` séries — la forme
   // que rejoue le fichier de cas de 49-R1, qui ne change pas.
+  // Lot F, étape 1 (I243) — une série à fond À LA CHARGE DE SA LIGNE (au moins une rep).
+  function aFondASaLigne(plan, liste, i) {
+    var s = (liste || [])[i] || {};
+    return Palier().cranDeSerie(s) === 'max' && !!plan[i] && nombre(s.charge_kg) !== null && memeCharge(nombre(plan[i].charge), nombre(s.charge_kg)) &&
+      nombre(s.reps) !== null && nombre(s.reps) >= 1;
+  }
+  // Lot F, étape 1 (I243, corrigé par CONTRA-723 B2) — LES BORNES « À FOND » À GARDE 0 : UNE borne par charge, la plus basse des séries à fond de la
+  // séance à leur ligne, `max(bas, r − 1)` (r − 1 dans la zone ; r = bas → bas, jamais r + 1 ; sous le bas → bas : jamais sous la zone, jamais un retour
+  // silencieux à la visée), appliquée à TOUTES les lignes non figées, ni coach ni élan, après `kFin`, à cette charge, qui visent plus. Lue par
+  // `reactionPour` après une série, et AVANT son retour sur un 0 rep (CONTRA-723 B1 : la parole reste à la réaction au zéro, les visées tiennent).
+  // `cg` : la charge dont on compte les lignes changées (le message).
+  function appliquerBornesAFond(plan, liste, z, kFin, cg) {
+    var bornes = [];
+    for (var i = 0; i <= kFin; i++) {
+      if (!aFondASaLigne(plan, liste, i)) continue;
+      var r = nombre(liste[i].reps), b = Math.max(z.bas, r - 1), c = nombre(liste[i].charge_kg);
+      var deja = bornes.filter(function (q) { return memeCharge(q.charge, c); })[0];
+      if (deja) deja.vise = Math.min(deja.vise, b); else bornes.push({ charge: c, vise: b });
+    }
+    var sortie = { nb: 0, vise: null, change: false };
+    bornes.forEach(function (bq) {
+      for (var j = kFin + 1; j < plan.length; j++) {
+        var x = plan[j];
+        if (!x || x.figee || x.source === 'coach' || x.source === 'elan' || !memeCharge(nombre(x.charge), bq.charge)) continue;
+        if (nombre(x.vise) === null || !(nombre(x.vise) > bq.vise)) continue;
+        plan[j] = Object.assign({}, x, { vise: bq.vise, source: 'a_fond', sourceAvant: x.source === 'a_fond' ? x.sourceAvant : x.source });
+        sortie.change = true;
+        if (cg !== null && cg !== undefined && memeCharge(bq.charge, cg)) { sortie.nb++; sortie.vise = bq.vise; }
+      }
+    });
+    return sortie;
+  }
   function reactionPour(consigne, faites, contexte, planInitial) {
     var c = consigne || null;
     var plan = Array.isArray(planInitial)
@@ -3171,8 +3203,15 @@
     // proposition en séance (§9.14). La ligne reste la ligne.
     if (c.allegee) return sortie;
     // PR 4b (R-A, O7) — UNE SEULE VOIX APRÈS UN 0 REP : la dernière série lue est restée à 0 rep, la réaction au zéro (`reactionAuZero`) parle seule.
+    // « Une seule voix après un zéro » (#721) : le plan le dit aussi par `contexte.apresUnZero` (la dernière série validée de l'exercice est un zéro de travail).
     var derniereLue = faites && faites.length ? faites[faites.length - 1] : null;
-    if (derniereLue && nombre(derniereLue.reps) === 0 && nombre(derniereLue.charge_kg) !== null && nombre(derniereLue.charge_kg) > 0) return sortie;
+    if ((contexte && contexte.apresUnZero === true) ||
+        (derniereLue && nombre(derniereLue.reps) === 0 && nombre(derniereLue.charge_kg) !== null && nombre(derniereLue.charge_kg) > 0)) {
+      // Lot F (CONTRA-723 B1) — à garde 0, les bornes « à fond » déjà posées par les séries d'avant tiennent après le zéro (I243) ; aucun message.
+      var zZ = typeof c.zone === 'string' ? zoneParCle(c.zone) : null;
+      if (zZ !== null && contexte && contexte.gardeAffichee === 0 && appliquerBornesAFond(plan, faites, zZ, faites.length - 1, null).change) sortie.revision = 1;
+      return sortie;
+    }
     // `zone` : une clé chez `consignePour` ; la table des zones donne les bornes.
     var z = typeof c.zone === 'string' ? zoneParCle(c.zone) : null;
     var P = c.ligne ? nombre(c.ligne.charge) : null;
@@ -3523,45 +3562,22 @@
     // Lot F, étape 1 (20/11/2026, MOTEUR §9.14 ter delta, CONTRA-AFOND-G0, I243) — À GARDE 0 DES LIGNES (`contexte.gardeAffichee === 0`, la garde que le
     // plan a calculée), une série à fond À LA CHARGE DE SA LIGNE a fait ce que la ligne demandait dès le bas de la zone (`aFondSurLaCible`) : TOUTE la suite à
     // cette charge (non figée, ni coach ni élan) suit, une voix. r − 1 ≥ bas : la suite vise r − 1 ; r = bas : la suite vise bas (jamais r + 1), et la parole
-    // est CÉDÉE à la réaction au raté (D, ses leviers) ; sous le bas : aucune ligne ne change, la parole est cédée (L) ; quand la réaction au raté est muette,
-    // le message cédé garde la parole (le plan tranche, `cede`). Garde ≥ 1, ou une série plus lourde que sa ligne (élan, B09) : la règle d'avant, k + 1 seule.
+    // est CÉDÉE à la réaction au raté (D, ses leviers) ; sous le bas : la suite vise bas (CONTRA-723 B2 : jamais sous la zone, jamais un retour silencieux
+    // à la visée), la parole est cédée (L) ; quand la réaction au raté est muette, le message cédé garde la parole (le plan tranche, `cede`). Garde ≥ 1, ou une série plus lourde que sa ligne (élan, B09) : la règle d'avant, k + 1 seule.
     // UNE borne par charge, la plus basse des séries à fond de la séance (monotonie, I243) : une suite ne remonte jamais au-dessus d'une visée déjà baissée.
-    var aSaLigne = function (i) {
-      var s = liste[i] || {};
-      return Palier().cranDeSerie(s) === 'max' && !!plan[i] && nombre(s.charge_kg) !== null && memeCharge(nombre(plan[i].charge), nombre(s.charge_kg)) &&
-        nombre(s.reps) !== null && nombre(s.reps) >= 1;
-    };
     var g0 = k >= 0 && k + 1 < n && ctx.gardeAffichee === 0;
-    var g0Dernier = g0 && aSaLigne(k);
+    var g0Dernier = g0 && aFondASaLigne(plan, liste, k);
     if (g0) {
-      var bornesG0 = [];
-      for (var ig = 0; ig <= k; ig++) {
-        if (!aSaLigne(ig)) continue;
-        var rI = nombre(liste[ig].reps);
-        if (rI < z.bas) continue;
-        var bI = rI - 1 >= z.bas ? rI - 1 : rI, cI = nombre(liste[ig].charge_kg);
-        var deja = bornesG0.filter(function (q) { return memeCharge(q.charge, cI); })[0];
-        if (deja) deja.vise = Math.min(deja.vise, bI);
-        else bornesG0.push({ charge: cI, vise: bI });
-      }
-      var nb = 0, viseDit = null, change = false;
       var cg = g0Dernier ? nombre(liste[k].charge_kg) : null;
-      bornesG0.forEach(function (bq) {
-        for (var jg = k + 1; jg < n; jg++) {
-          var xg = plan[jg];
-          if (!xg || xg.figee || xg.source === 'coach' || xg.source === 'elan' || !memeCharge(nombre(xg.charge), bq.charge)) continue;
-          if (nombre(xg.vise) === null || !(nombre(xg.vise) > bq.vise)) continue;
-          plan[jg] = Object.assign({}, xg, { vise: bq.vise, source: 'a_fond', sourceAvant: xg.source === 'a_fond' ? xg.sourceAvant : xg.source });
-          change = true;
-          if (cg !== null && memeCharge(bq.charge, cg)) { nb++; viseDit = bq.vise; }
-        }
-      });
+      var appl = appliquerBornesAFond(plan, liste, z, k, cg);
+      var nb = appl.nb, viseDit = appl.vise, change = appl.change;
       if (change) revision += 1;
-      // Le message : quand une ligne a suivi (r − 1 dans la zone), ou cédé (au bas de la zone ou dessous). Rien qui ait suivi au-dessus du bas : rien à dire.
+      // Le message : quand une ligne a suivi, ou cédé (au bas de la zone ou dessous). Rien qui ait suivi au-dessus du bas : rien à dire. `vise` : la borne
+      // dite quand une ligne à cette charge a suivi (« 70 kg × 7, sans marge : la suite vise 8. ») ; aucune : le fait seul.
       var rgD = g0Dernier ? nombre(liste[k].reps) : null;
       if (g0Dernier && message === null && (nb > 0 || rgD <= z.bas)) {
         var rg = rgD;
-        message = { type: 'a_fond_suite', rang: k + 1, charge: cg, reps: rg, vise: rg >= z.bas && nb > 0 ? viseDit : null, lignes: nb, garde0: true };
+        message = { type: 'a_fond_suite', rang: k + 1, charge: cg, reps: rg, vise: nb > 0 ? viseDit : null, lignes: nb, garde0: true };
         if (rg <= z.bas) message.cede = true;
       }
     }

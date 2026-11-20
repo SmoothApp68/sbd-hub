@@ -264,5 +264,15 @@
    "tests/unit/v2-chauffes-proposees-237.test.js",
    "tests/unit/v2-chauffes-depuis-la-charge.test.js"
   ]
+ },
+ {
+  "nom": "colonne-coach-pgrst204-avale",
+  "fichier": "v2/js/donnees.js",
+  "ancien": "if (!err || (err.code !== '42703' && err.code !== 'PGRST204' && err.code !== 'PGRST200')) return null;",
+  "nouveau": "if (!err || (err.code !== '42703' && err.code !== 'PGRST200')) return null;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-chauffes-du-coach-colonne.test.js"
+  ]
  }
 ]

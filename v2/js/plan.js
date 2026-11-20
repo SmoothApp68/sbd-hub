@@ -1145,9 +1145,15 @@
     };
     xs.forEach(function (x) { if (x) x.reposConseille = null; });
     if (muet) return;
+    // Là où le coach se tait pour l'exercice : Entretenir, « Sans coach cette fois » / « J'ai mal », une mesure en durée ou en distance (une planche, le cardio :
+    // I13 — aucune phrase du coach), une figure (les secondes).
+    var tait = function (q) {
+      return !q || q.intention === 'entretien' || !!q.sansCoach || !!q.douleur || !!q.figure ||
+        q.mesure === 'temps' || q.mesure === 'distance_temps' || q.mesure === 'charge_distance' || q.mesure === 'charge_temps';
+    };
     var vus = {};
     xs.forEach(function (x, i) {
-      if (!x || vus[i] || x.intention === 'entretien' || x.sansCoach || x.douleur) return;
+      if (!x || vus[i] || tait(x)) return;
       var exo = exos[i] || {};
       var g = exo.groupe_superset === undefined ? null : exo.groupe_superset;
       var o = contexteDe(x, i);
@@ -1164,7 +1170,7 @@
       var dernier = rangs[rangs.length - 1];
       var porteur = xs[dernier];
       if (rangs.length < 2) { o.reposPose = nombre(exo.repos_cible_s); poser(x, i, o, false); return; }
-      if (rangs.some(function (k) { var q = xs[k]; return !q || q.intention === 'entretien' || q.sansCoach || q.douleur; })) return;
+      if (rangs.some(function (k) { return tait(xs[k]); })) return;
       var oS = contexteDe(porteur, dernier);
       oS.raccourci = !!e.raccourci;
       oS.reposPose = nombre((exos[dernier] || {}).repos_cible_s);
@@ -9364,7 +9370,8 @@
         erreurs.push('I264 — exercice ' + i + ' : la ligne du repos long dit un chiffre de repos : ' + x.pourquoi.repos);
       }
       var r = x.reposConseille;
-      var coachTait = plan.intention === 'entretien' || !!plan.edition || x.intention === 'entretien' || !!x.sansCoach || !!x.douleur;
+      var coachTait = plan.intention === 'entretien' || !!plan.edition || x.intention === 'entretien' || !!x.sansCoach || !!x.douleur || !!x.figure ||
+        x.mesure === 'temps' || x.mesure === 'distance_temps' || x.mesure === 'charge_distance' || x.mesure === 'charge_temps';
       if (!r) {
         // Un superset : seul le porteur du tour a une valeur ; les autres n'en ont pas, c'est normal.
         return;

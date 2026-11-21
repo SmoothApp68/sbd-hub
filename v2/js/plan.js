@@ -7118,7 +7118,10 @@
     var vus = [];
     (function marcher(v, chemin, cle) {
       if (typeof v === 'string') {
-        if (cle !== 'source' && /rest[-_ ]?pause/i.test(v)) erreurs.push('I268 — le coach propose le rest-pause (« ' + v.slice(0, 60) + ' ») à ' + chemin);
+        // Deux lectures permises, nommées par leur chemin : `fantome.source` d'une mini-série d'un vieux brouillon, et `rate.pris`, la trace
+        // d'un geste DE LA PERSONNE noté avant la mise à jour (contradicteur à froid de #741, défaut 1) — jamais le coach qui parle.
+        var lecture = /\.fantome\.source$/.test(chemin) || /\.rate\.pris\.\d+$/.test(chemin);
+        if (!lecture && /rest[-_ ]?pause/i.test(v)) erreurs.push('I268 — le coach propose le rest-pause (« ' + v.slice(0, 60) + ' ») à ' + chemin);
         return;
       }
       if (!v || typeof v !== 'object' || vus.indexOf(v) >= 0) return;

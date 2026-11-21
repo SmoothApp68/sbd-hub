@@ -55,7 +55,7 @@ tête de bloc — ce qui règle le problème de largeur sur téléphone.
 **2.4** — Les étiquettes A1/B1/C1 **ne sont jamais stockées**. Elles se
 recalculent à l'affichage. La base ne contient que « cette série appartient à cet
 exercice, qui appartient à ce bloc, à cette position ». Même mécanisme que la
-dégressive et le rest-pause.
+dégressive et le rest-pause (lecture seule depuis le 21/11/2026 : le menu ne propose plus le geste, MOTEUR §9.33).
 
 Conséquence : tous les cas de figure tombent d'eux-mêmes — séries inégales entre
 exercices, tours incomplets, chauffe avant l'enchaînement. Il n'y a pas de grille

@@ -5485,17 +5485,6 @@
         cible.appendChild(menuHc);
       }
 
-      // 196 (MOTEUR §9.33) — « Rest-pause » : deux mini-séries à la même charge, une seule série de travail.
-      if (vue.restPause && vue.restPause.possible) {
-        var menuRp = el('div', 'feuille-menu');
-        var bRp = el('button', '', 'Rest-pause');
-        bRp.appendChild(el('small', 'aide-type', vue.restPause.aide));
-        bRp.type = 'button';
-        bRp.addEventListener('click', function () { vue.surRestPause(); });
-        menuRp.appendChild(bRp);
-        cible.appendChild(menuRp);
-      }
-
       // ⚠️ LA NOTE DE SÉRIE EXISTE, ET ELLE RESTE (§7 septies.1).
       //
       // 11 couples séance-exercice sur 196 portent des notes réellement

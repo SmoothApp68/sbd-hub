@@ -756,6 +756,8 @@
     if (materiel.mesure && materiel.mesure !== 'charge_reps') return sortie;
     // 196 (MOTEUR §9.33) — LES MINI-SÉRIES DU REST-PAUSE ne sont jamais des dégressives du coach (pas de baisse de charge, pas de
     // phrase) : la charge est celle de la série de travail qui les précède, en fantôme tant qu'elles ne sont pas faites.
+    // 21/11/2026 : le coach n'en POSE plus (décision du fondateur) ; cette lecture reste pour ce qui se lit « rest-pause » (une dégressive
+    // faite à la même charge, `Modele.restPauseDe`) et pour un brouillon en cours qui porte encore une marque `rest_pause` : affichée, neutre.
     var rp = racine.THModele.restPauseDe(liste);
     lignes.forEach(function (l, i) {
       if (!rp[i] || rp[i].role !== 'mini') return;
@@ -3296,7 +3298,6 @@
       peuDeTemps: gs.concat(Array.isArray(seance.gestes) ? seance.gestes : []).some(function (g) { return g && g.geste === 'raccourci'; }),
       seche: plan.phase === 'seche', autreSalle: e.autreSalle === true,
       barre: equip === 'barre', materiel: equip, isolation: isolation,
-      peutRestPause: Moteur().peutRestPause(muscles),
       pas: cs ? nombre(cs.pas) : null
     };
   }
@@ -6963,6 +6964,7 @@
     verifierReportDeZone(plan, erreurs, entrees);
     verifierRepriseAuBasDeZone(plan, entrees, erreurs);
     verifierRestPause(plan, erreurs);
+    verifierSansRestPause(plan, erreurs);
     verifierBaisseAttendue(plan, erreurs);
     verifierEffortVise(plan, entrees, erreurs);
     verifierCapacite(plan, entrees, erreurs);
@@ -7093,8 +7095,9 @@
   // générateur) ne reçoit AUCUNE série lourde — ni zone Lourd (3-5 reps), ni ligne à 5 reps ou moins —, sauf une zone que la
   // personne a choisie elle-même (le moteur propose, elle décide). Les approches du calage sont des séries de travail à 6 reps au moins.
   // 15/11/2026 (§9.51 quinquies, PR B) : la « série lourde » est `Modele.estSerieLourde` (5 reps ou moins), jamais un seuil copié ici.
-  // I105 et I106 (MOTEUR §9.33, 196) — LE REST-PAUSE : une mini-série (une ligne dégressive à la charge de la série de travail qui la
-  // précède) n'est jamais une dégressive du coach ni une série de travail.
+  // I105 et I106 (MOTEUR §9.33, 196) — LE REST-PAUSE, À LA LECTURE SEULEMENT (21/11/2026 : le coach ne le propose plus, I268) : une
+  // mini-série (une ligne dégressive à la charge de la série de travail qui la précède, vue par `Modele.restPauseDe`, ou un vieux brouillon
+  // qui porte la marque) n'est jamais une dégressive du coach ni une série de travail.
   //   · I105 — sa charge proposée est CELLE de la série de travail qui la précède (jamais une baisse de 22,5 %), sans phrase ni
   //     dégressive du coach sur elle ;
   //   · I106 — elle est hors couverture (rôle `hors`), sans pari, et ne compte pas : une série rest-pause = UNE série de travail.
@@ -7119,6 +7122,25 @@
         }
       });
     });
+  }
+
+  // I268 (MOTEUR §9.33, delta 21/11/2026, décision du fondateur) — LE COACH NE PROPOSE PLUS LE REST-PAUSE : aucune chaîne d'un plan (une phrase,
+  // un bouton, un levier de la réaction au raté, une carte) ne le dit ni ne le nomme. La seule trace permise est la LECTURE d'une mini-série
+  // déjà posée (`ligne.restPause`, la clé ; `fantome.source`, d'un vieux brouillon) : jamais une valeur de texte.
+  function verifierSansRestPause(plan, erreurs) {
+    var vus = [];
+    (function marcher(v, chemin, cle) {
+      if (typeof v === 'string') {
+        // Deux lectures permises, nommées par leur chemin : `fantome.source` d'une mini-série d'un vieux brouillon, et `rate.pris`, la trace
+        // d'un geste DE LA PERSONNE noté avant la mise à jour (contradicteur à froid de #741, défaut 1) — jamais le coach qui parle.
+        var lecture = /\.fantome\.source$/.test(chemin) || /\.rate\.pris\.\d+$/.test(chemin);
+        if (!lecture && /rest[-_ ]?pause/i.test(v)) erreurs.push('I268 — le coach propose le rest-pause (« ' + v.slice(0, 60) + ' ») à ' + chemin);
+        return;
+      }
+      if (!v || typeof v !== 'object' || vus.indexOf(v) >= 0) return;
+      vus.push(v);
+      Object.keys(v).forEach(function (k) { marcher(v[k], chemin + '.' + k, k); });
+    })(plan, 'plan', '');
   }
 
   // I107 et I108 (MOTEUR §9.34, 198) — LA BAISSE ATTENDUE EN SÈCHE.
@@ -10091,6 +10113,7 @@
     verifierCalisthenie: verifierCalisthenie,
     verifierOndulation: verifierOndulation,
     verifierRestPause: verifierRestPause,
+    verifierSansRestPause: verifierSansRestPause,
     verifierBaisseAttendue: verifierBaisseAttendue,
     verifierSilenceDuProgramme: verifierSilenceDuProgramme,
     verifierPhrases: verifierPhrases,

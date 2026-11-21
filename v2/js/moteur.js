@@ -4394,17 +4394,6 @@
   function estIsolation(e) {
     return !!e && aDesMuscles(e) && !estPolyarticulaire(e);
   }
-  // 196 (MOTEUR §9.33) — LE REST-PAUSE est permis sur une isolation ou une machine (poulie comprise), jamais à la barre, jamais à un
-  // soulevé, jamais sur une mesure en durée. UNE définition, lue par le menu ⋯ d'une série (`app.js`) et par « J'ai peu de temps »
-  // en objectif Muscle (`raccourcirRoutine`). `e` : `{ prim, sec, stab, equipement, mesure, slug }`.
-  var MINI_SERIES_REST_PAUSE = 2;       // deux mini-séries après la série de travail
-  var SERIES_POUR_REST_PAUSE = 3;       // il faut 3 séries de travail pour que 2 deviennent une (3 → 2, la dernière en rest-pause)
-  var EQUIPEMENTS_REST_PAUSE = ['machine', 'machine_smith', 'poulie'];
-  function peutRestPause(e) {
-    if (!e || enDuree(e) || e.equipement === 'barre') return false;
-    if (/(^|_)souleve(_|$)/.test(String(e.slug || ''))) return false;
-    return EQUIPEMENTS_REST_PAUSE.indexOf(e.equipement) >= 0 || estIsolation(e);
-  }
   // 191 (décision d'Aurélien du 30/10/2026) — LES MOUVEMENTS AU POIDS DU CORPS qui comptent comme de grands mouvements : les
   // tractions, les dips, les pompes et le rowing inversé, avec toutes leurs variantes (lestées, assistées, à l'élastique,
   // en supination, déclinées…). Le catalogue n'a pas de colonne qui le dise : le slug, lu par ses mots, comme
@@ -4446,8 +4435,6 @@
     // 193-1 — une série de recul se fait et se repose comme une série de travail (le repos de l'exercice).
     t += rec * (D.serie + (repos === null ? D.reposSuperset : repos));
     t += deg * D.degressive;
-    // 196 — une série rest-pause : deux mini-séries de plus, comme deux dégressives.
-    t += compteDe(e.rp) * MINI_SERIES_REST_PAUSE * D.degressive;
     return t;
   }
 
@@ -4460,7 +4447,7 @@
     return (structure || []).map(function (e) {
       return { slug: e.slug, mesure: e.mesure === undefined ? null : e.mesure,
                repos: e.repos === undefined ? null : e.repos,
-               ch: compteDe(e.ch), tr: compteDe(e.tr), deg: compteDe(e.deg), rec: compteDe(e.rec), rp: compteDe(e.rp),
+               ch: compteDe(e.ch), tr: compteDe(e.tr), deg: compteDe(e.deg), rec: compteDe(e.rec),
                duree: e.duree === undefined ? null : e.duree,
                prim: musclesDe(e.prim), sec: musclesDe(e.sec), stab: musclesDe(e.stab),
                equipement: e.equipement === undefined ? null : e.equipement,
@@ -4481,7 +4468,6 @@
   // se prend ailleurs). Sans lui (le défaut), rien n'est exempté : le comportement est celui de toujours. Quand
   // il ne reste que des exemptés à couper, la cible n'est pas atteinte : `tient = false`, la durée rendue est la
   // durée RÉELLE.
-  // 196 : `options.objectif === 'muscle'` ajoute la première coupe (le rest-pause), avant toutes les autres.
   function raccourcirRoutine(structure, cibleMin, exemptes, options) {
     var r = copieStructure(structure);
     var max = Number(cibleMin) * SECONDES_PAR_MINUTE;
@@ -4497,26 +4483,6 @@
       return estPolyarticulaire(e) ? PRIORITE_POLY : PRIORITE_ISOLATION;
     };
     if (tient()) return fin();
-
-    // 0. 196 (MOTEUR §9.33) — en objectif MUSCLE, les 2 dernières séries d'UNE isolation (ou machine) deviennent UNE série rest-pause
-    // (jusqu'à l'échec, 15 s, encore, 15 s, encore) : le muscle progresse autant à volume égal (Enes 2021, Sodal 2023) ; le gain de temps vient d'Iversen 2021. Avant toute
-    // autre coupe ; le bloc de mobilité est déjà retiré (l'appelant). Jamais un exercice sans 3 séries de travail, jamais un
-    // exempté ou un grand mouvement ; l'exercice qui y gagne le plus de temps passe d'abord, un seul.
-    if (options && options.objectif === 'muscle') {
-      var choisi = -1, gainMax = 0;
-      r.forEach(function (e, i) {
-        if (intouchable(e) || estGrandMouvement(e) || !peutRestPause(e) || e.tr < SERIES_POUR_REST_PAUSE || e.rp > 0 || e.deg > 0 || e.rec > 0) return;
-        var avantD = dureeExercice(e);
-        var essai = Object.assign({}, e, { tr: e.tr - 1, rp: 1 });
-        var g = avantD - dureeExercice(essai);
-        if (g > gainMax) { choisi = i; gainMax = g; }
-      });
-      if (choisi >= 0) {
-        r[choisi].tr--; r[choisi].rp = 1;
-        journal.push({ quoi: 'rest_pause', i: choisi, slug: r[choisi].slug });
-      }
-      if (tient()) return fin();
-    }
 
     // 1. le cardio de fin (sans muscle, après le premier rang) : mis à part.
     r.forEach(function (e, i) {
@@ -4710,14 +4676,6 @@
         }
         if (t.quoi === 'repos' && t.i === i) plus.repos_cible_s = t.apres;
       });
-      // 196 — le rest-pause : deux lignes de mini-série (des dégressives marquées, la charge se cale sur la dernière série de travail
-      // au plan), juste après la dernière série de travail gardée.
-      if (((resultat && resultat.journal) || []).some(function (t) { return t.quoi === 'rest_pause' && t.i === i; })) {
-        var dernierTravail = -1;
-        series.forEach(function (q, j) { var t = typeLigne(q); if (t === 'travail' || t === 'recul') dernierTravail = j; });
-        var minis = new Array(MINI_SERIES_REST_PAUSE).fill(0).map(function () { return { id: null, type_serie: 'degressive', rest_pause: true }; });
-        series = series.slice(0, dernierTravail + 1).concat(minis, series.slice(dernierTravail + 1));
-      }
       exercices.push(Object.assign({}, e, { series: series }, plus));
     });
     return { routine: Object.assign({}, routine, { exercices: exercices }), retires: retires };
@@ -4760,8 +4718,6 @@
         lignes.push(nom(a.slug) + ' ' + nombreFr(ta, regle('series.avant')) + ' → ' +
           nombreFr(b.tr, regle('series.apres')) + (b.tr > 1 ? ' séries' : ' série'));
       }
-      // 196 — la dernière série devient un rest-pause : dit sur la carte, comme le reste.
-      if (compteDe(b.rp) > compteDe(a.rp)) lignes.push(nom(a.slug) + ' : la dernière série en rest-pause (jusqu’à l’échec, 15 s, encore)');
       // 188-2 — un repos d'isolation raccourci, un superset : dits, comme le reste.
       if (b.repos !== a.repos && b.repos !== null && b.repos !== undefined && a.repos !== null && a.repos !== undefined && b.tr > 0) {
         lignes.push(nom(a.slug) + ' : repos ' + nombreFr(a.repos, regle('repos.avant')) + ' s → ' + nombreFr(b.repos, regle('repos.apres')) + ' s');
@@ -4785,11 +4741,7 @@
                    : 'Au plus court : ' + minutesFr(court) + ' min (estimation)',
       lignes: lignes,
       phrase: 'Tous tes muscles du jour gardent leurs premières séries : ce sont celles qui comptent le plus. ' +
-              'Les charges ne changent pas.' +
-              // 196 — le « Pourquoi » du rest-pause (maquette muscle-et-phase v1) : un fait sourcé, sans promesse.
-              (((resultat && resultat.journal) || []).some(function (t) { return t.quoi === 'rest_pause'; })
-                ? ' Une série en rest-pause fait le travail de deux séries en moins de temps (Iversen 2021) : à volume égal, le muscle progresse autant (Enes 2021, Sodal 2023), la séance raccourcit.'
-                : ''),
+              'Les charges ne changent pas.',
       oui: tient ? 'Raccourcir' : 'Raccourcir à ' + minutesFr(court) + ' min',
       non: 'Garder la séance'
     };
@@ -13708,9 +13660,6 @@
     // La dégressive.
     degressive: { type: 'etude', auteur: 'Sodal', annee: 2023, effectif: '6 études',
       texte: 'Sodal 2023 (6 études) : les séries dégressives donnent le même résultat en 54 à 70 % de temps en moins.' },
-    // Le rest-pause.
-    rest_pause: { type: 'coachs', auteur: 'Jeff Nippard, Renaissance Periodization',
-      texte: 'Le rest-pause et les myo-reps : la pratique de Jeff Nippard et de Renaissance Periodization (Israetel).' },
     // La semaine de mesure.
     test: { type: 'coachs', auteur: 'Juggernaut, 5/3/1, SBS, Candito',
       texte: 'Juggernaut, 5/3/1, SBS et Candito recalent sur une série lourde ou une série de mesure plutôt que sur un vrai max.' },
@@ -13809,8 +13758,8 @@
       phrase: 'En poids du corps, l’exercice suivant de l’échelle, plus dur.' },
     { cle: 'figure', mot: 'Figure',
       phrase: 'Un exercice qui se tient en secondes (planche, front lever) : on compte la durée, pas les reps.' },
-    { cle: 'rest_pause', mot: 'Rest-pause', source: 'rest_pause',
-      phrase: 'Une série jusqu’à l’échec, 15 s de pause, encore, deux fois.' },
+    { cle: 'rest_pause', mot: 'Rest-pause',
+      phrase: 'Des mini-séries à la même charge que ta série de travail, juste après elle : une dégressive à la même charge se lit ainsi.' },
     { cle: 'zone_a_menager', mot: 'À ménager',
       phrase: 'Une articulation que tu m’as demandé de ménager : pas de série lourde sur les exercices qui la chargent.' }
   ];
@@ -14019,14 +13968,13 @@
     var menage = c.zoneAMenager === true || c.douleurHier === true;
     var tient = !baisse && !corps;
     if (tient && (lettre === 'A' || lettre === 'C' || lettre === 'D') && c.peuDeTemps !== true) leviers.push('repos');
-    // Me pousser et la force : on protège la charge par le repos, puis par le rest-pause ou la dégressive ; jamais en Prudent,
+    // Me pousser et la force : on protège la charge par le repos, puis par la dégressive ; jamais en Prudent,
     // jamais sur une zone à ménager.
     // Lot E, A5 (20/11/2026, MOTEUR §9.39, §14.8, I238) : la dégressive seulement sur une isolation où `degressivePossible` la permet
     // (`c.peutDegressive`, calculé par le plan) ; la 3e branche (la dégressive des haltères polyarticulaires, sans filtre de zone ni de
-    // phase) est supprimée : sans dégressive ni rest-pause permis, la réaction garde sa phrase, sans levier de poussée.
+    // phase) est supprimée : sans dégressive permise, la réaction garde sa phrase, sans levier de poussée.
     if (tient && !prudent && !menage && (reg === 'franc' || protege) && (sous || ecart >= 2 || echec)) {
       if (c.isolation === true && c.peutDegressive === true) leviers.push('degressive');
-      else if (c.peutRestPause === true) leviers.push('rest_pause');
     }
     if (baisse) leviers.push('prendre');
     if (corps && (sous || echec || lettre === 'E')) {
@@ -14126,7 +14074,7 @@
   }
 
   // ── Les mots (voix du coach, I26) : un fait, jamais un bravo. Chaque chiffre est cité (`regle|rate.*`). ─────────────────
-  var RATE_NOMS_DE_LEVIER = { repos: '+1 min', rest_pause: 'Rest-pause', degressive: 'Dégressive', approche: 'Série d’approche',
+  var RATE_NOMS_DE_LEVIER = { repos: '+1 min', degressive: 'Dégressive', approche: 'Série d’approche',
     elastique: 'Avec un élastique', negatives: 'En négatives', marche_dessous: 'Marche d’en dessous', plus_d_aide: 'Plus d’aide' };
   function rateReps(v) { return nombreFr(v, regle('rate.reps')); }
   function rateGarde(v) { return nombreFr(v, regle('rate.garde')); }
@@ -14200,7 +14148,7 @@
     if (d.autreSalle) s += ' Autre salle que d’habitude.';
     return s;
   }
-  // Le libellé d'un bouton de la réaction : « +1 min », « Prendre 80 kg », « Rest-pause »…
+  // Le libellé d'un bouton de la réaction : « +1 min », « Prendre 80 kg »…
   function boutonDeRate(cle, d) {
     if (cle === 'prendre') return 'Prendre ' + enKg(d.charge.kg, regle('rate.charge'));
     return RATE_NOMS_DE_LEVIER[cle] || cle;
@@ -14329,7 +14277,6 @@
     DUREE_PAR_DEFAUT: DUREE_PAR_DEFAUT,
     dureeEstimee: dureeEstimee,
     raccourcirRoutine: raccourcirRoutine,
-    peutRestPause: peutRestPause,
     structureDeRoutine: structureDeRoutine,
     estPolyarticulaire: estPolyarticulaire,
     prudenceDeMontee: prudenceDeMontee,

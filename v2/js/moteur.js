@@ -7794,7 +7794,7 @@
     if (r.cas === 'superset') return nombreFr(r.membres, regle('repos.membres')) + ' exercices dans le tour : je conseille ' + S(r.s, cible) + ' entre les tours.';
     var reps = nombre(x.reps), garde = nombre(x.garde);
     var t = nombreFr(reps, regle('repos.reps')) + (reps > 1 ? ' reps' : ' rep');
-    if (x.gardeDite === true && garde !== null) t += garde === 0 ? ' sans marge' : ' en gardant ' + nombreFr(garde, regle('repos.garde'));
+    if (x.gardeDite === true && garde !== null) t += garde === 0 ? ' jusqu\u2019au bout' : ' avec ' + nombreFr(garde, regle('repos.garde')) + ' en r\u00e9serve';   // 21/11/2026 (VOIX l. 109, 154) : la réserve visée 0 se dit « jusqu'au bout » (« sans marge » dit ce qui s'est passé), « N en réserve » dans les phrases
     if (r.pres === 'series') t += ', sur ' + nombreFr(r.series, regle('repos.series')) + ' séries';
     return t + ' : je conseille ' + S(r.s, cible) + ' entre les séries.';
   }

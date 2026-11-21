@@ -183,16 +183,18 @@ describe('les mots : « 3 min 30 », jamais « 4 min » (dureeEnMinutes arrondit
     expect(Modele.formatDuree(150)).toBe('2 min 30');
   });
   test('les exemples de la règle', () => {
-    expect(phrase({ famille: 'grand', reps: 3, garde: 1, series: 5 }, 3, 1, true)).toBe('3 reps en gardant 1, sur 5 séries : je conseille 3 min 30 entre les séries.');
-    expect(phrase({ famille: 'grand', reps: 10, garde: 1, series: 4 }, 10, 1, true)).toBe('10 reps en gardant 1 : je conseille 2 min 30 entre les séries.');
-    expect(phrase({ famille: 'isolation', reps: 12, garde: 0, series: 3 }, 12, 0, true)).toBe('12 reps sans marge : je conseille 2 min entre les séries.');
+    expect(phrase({ famille: 'grand', reps: 3, garde: 1, series: 5 }, 3, 1, true)).toBe('3 reps avec 1 en réserve, sur 5 séries : je conseille 3 min 30 entre les séries.');
+    expect(phrase({ famille: 'grand', reps: 10, garde: 1, series: 4 }, 10, 1, true)).toBe('10 reps avec 1 en réserve : je conseille 2 min 30 entre les séries.');
+    expect(phrase({ famille: 'isolation', reps: 12, garde: 0, series: 3 }, 12, 0, true)).toBe('12 reps jusqu’au bout : je conseille 2 min entre les séries.');
     expect(phrase({ famille: 'grand', reps: 3, garde: 1, series: 3, test: true }, 3, 1, true)).toBe('Entre deux essais lourds, je conseille 4 min.');
     expect(phrase({ membres: [{ famille: 'grand', reps: 8, garde: 1 }, { famille: 'poly', reps: 10, garde: 1 }] })).toBe('2 exercices dans le tour : je conseille 1 min 30 entre les tours.');
   });
   test('la garde ne se dit que si elle est celle de la ligne affichée (I261)', () => {
     expect(phrase({ famille: 'grand', reps: 10, garde: 1, series: 3 }, 10, 1, false)).toBe('10 reps : je conseille 2 min 30 entre les séries.');
-    expect(phrase({ famille: 'grand', reps: 10, garde: 1, series: 3 }, 10, 1, false)).not.toMatch(/gardant|marge/);
-    expect(phrase({ famille: 'grand', reps: 1, garde: 2, series: 3 }, 1, 2, true)).toMatch(/^1 rep en gardant 2/);
+    expect(phrase({ famille: 'grand', reps: 10, garde: 1, series: 3 }, 10, 1, false)).not.toMatch(/gardant|marge|réserve|jusqu/);
+    expect(phrase({ famille: 'grand', reps: 1, garde: 2, series: 3 }, 1, 2, true)).toMatch(/^1 rep avec 2 en réserve/);
+    // VOIX l. 109, 154 : « sans marge » dit ce qui s'est passé, jamais ce qu'on vise ; « en gardant » n'est plus la forme du conseil
+    [0, 1, 2, 3].forEach((n) => expect(phrase({ famille: 'grand', reps: 8, garde: n, series: 3 }, 8, n, true)).not.toMatch(/sans marge|en gardant/));
   });
   test('la ligne du repos long (I76) garde le fait sans chiffre (I264)', () => {
     expect(M.phraseReposLong()).toBe('Sur un gros mouvement, ton repos réel est court ; le conseil est dans le minuteur.');
@@ -258,7 +260,7 @@ describe('le plan : `x.reposConseille`', () => {
     const m = monter([{ slug: 'squat_barre', vise: 3, series: 5 }], 'franc');
     const x = m.plan.exercices[0];
     expect(x.reposConseille).toEqual(expect.objectContaining({ s: 210, cas: 'pres_echec', famille: 'grand', gardeDite: true, entreLesTours: false }));
-    expect(x.reposConseille.pourquoi).toBe('3 reps en gardant 1, sur 5 séries : je conseille 3 min 30 entre les séries.');
+    expect(x.reposConseille.pourquoi).toBe('3 reps avec 1 en réserve, sur 5 séries : je conseille 3 min 30 entre les séries.');
     expect(x.phrases.some((p) => p.ou === 'repos.conseil')).toBe(true);
     expect(erreurs(m)).toEqual([]);
   });
@@ -277,12 +279,15 @@ describe('le plan : `x.reposConseille`', () => {
     expect(m.plan.exercices[1].reposConseille.famille).toBe('isolation');
     expect(m.plan.exercices[1].reposConseille.s).toBe(90);    // 12 reps, garde 1 : P = 13, isolation : 1:30 (3 séries : pas de « près de l'échec »)
   });
-  test('la garde dite est celle de la visée affichée (jamais une autre)', () => {
-    const m = monter([{ slug: 'squat_barre', zone: 'volume', vise: 12, series: 3 }], 'franc');
+  test('la garde dite est celle de la visée affichée (jamais une autre) ; une réserve visée de 0 se dit « jusqu’au bout »', () => {
+    // Hors barre : sans `generateur.js` chargé la barre n'a pas de plancher de réserve (I241), le squat Franc Volume afficherait 0 ici et 1 dans l'app.
+    const m = monter([{ slug: 'ecarte_poulie', zone: 'volume', vise: 12, series: 3 }], 'franc');
     const x = m.plan.exercices[0];
     expect(x.gardeDeLigne).toBe(x.reserveAffichee);
+    expect(x.reserveAffichee).toBe(0);
     expect(x.reposConseille.gardeDite).toBe(true);
-    expect(x.reposConseille.pourquoi).toMatch(/sans marge/);
+    expect(x.reposConseille.pourquoi).toBe('12 reps jusqu’au bout : je conseille 2 min entre les séries.');
+    expect(x.reposConseille.pourquoi).not.toMatch(/sans marge/);
     expect(erreurs(m)).toEqual([]);
   });
   test('un superset : le conseil vit sur le dernier membre, −60 s ; l\'autre n\'en a pas', () => {
@@ -363,6 +368,10 @@ describe('des violations FORGÉES sont attrapées par `verifierPlan`', () => {
   test('I261 — une garde dite alors que ce n\'est pas celle de la visée affichée', () => {
     expect(avec((r) => { r.gardeDite = false; }).some((x) => /^I261/.test(x))).toBe(true);
     expect(avec((r, x) => { r.garde = 0; }).some((x) => /^I261/.test(x))).toBe(true);
+  });
+  test('I261 — les anciens mots du conseil (« en gardant 1 », « sans marge ») sont refusés (VOIX l. 109, 154)', () => {
+    expect(avec((r) => { r.pourquoi = r.pourquoi.replace('avec 1 en réserve', 'en gardant 1'); }).some((x) => /^I261/.test(x))).toBe(true);
+    expect(avec((r) => { r.pourquoi = r.pourquoi.replace('avec 1 en réserve', 'sans marge'); }).some((x) => /^I261/.test(x))).toBe(true);
   });
   test('I264 — un chiffre de repos dans la ligne du repos long', () => {
     expect(avec((r, x) => { x.pourquoi = Object.assign({}, x.pourquoi, { repos: 'Sur un gros mouvement, 2 min 30 à 3 min de repos aident.' }); }).some((e) => /^I264/.test(e))).toBe(true);

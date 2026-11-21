@@ -29665,7 +29665,17 @@ const SETS_IMPORTES = [
     CATALOGUE.push(ficheCA('ca-squat', 'Squat CA (Barre)', ['quadriceps', 'fessiers'], 'accroupir', 'barre'));
     base.sessions = base.sessions.slice();
     base.sets = base.sets.slice();
-    base.profiles[0] = Object.assign({}, base.profiles[0], { rythme_progression: 'franc', intention: 'progresser', cartes_semaine: {} });
+    // L'ÉTAT DONT LA SECTION DÉPEND, POSÉ À L'ENTRÉE (règle `remettreAPropre`). Une carte du coach ne monte pas le jour où l'accueil
+    // annonce un NIVEAU (`niveauParle`, `th-v2-niveau-annonce-<compte>` dans le stockage local de l'appareil). Or l'app évalue le niveau
+    // UNE fois par ouverture, et l'évaluation attend (douleur récente, décharge, test) : au banc en parallèle, une section d'avant laisse
+    // `anciennete` à null, l'évaluation tombe PENDANT cette section (après « Pas maintenant »), l'annonce se pose et fait taire la carte
+    // (`carte: null` après « Annuler »). Le niveau est donc déjà au plus haut rang (rien à annoncer : `changementDeNiveau` rend null) et
+    // l'annonce d'une autre section est retirée de l'appareil, à l'entrée comme à la sortie.
+    const effacerAnnonceNiveauCA = () => page.evaluate(() => {
+      Object.keys(localStorage).filter((k) => k.indexOf('th-v2-niveau-annonce-') === 0).forEach((k) => localStorage.removeItem(k));
+    }).catch(() => {});
+    await effacerAnnonceNiveauCA();
+    base.profiles[0] = Object.assign({}, base.profiles[0], { rythme_progression: 'franc', intention: 'progresser', cartes_semaine: {}, anciennete: 'plus_5_ans', anciennete_choisie_le: null });
     const EXOS_CA = { 'r-ca-h': [['ca-dev', 3], ['ca-curl', 3]], 'r-ca-b': [['ca-squat', 3], ['ca-curl', 3]] };
     for (let h = 1; h <= 4; h++) {
       // Une séance par semaine, en alternance (la plus récente il y a une heure) ; le tapis retiré à chaque fois.
@@ -29802,6 +29812,7 @@ const SETS_IMPORTES = [
     CATALOGUE.length = nbCatAvant;
     ROUTINES.length = nbRoutinesAvant;
     base.profiles[0] = profilAvant;
+    await effacerAnnonceNiveauCA();
     rendreBlocsCA();
   }
 

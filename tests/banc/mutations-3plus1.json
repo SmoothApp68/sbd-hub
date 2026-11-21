@@ -1,0 +1,42 @@
+[
+ {
+  "nom": "3plus1-cinquieme-chose-frere-et-compteur",
+  "fichier": "v2/js/app.js",
+  "ancien": "frere: x.entete.frere && (!tete || tete.tiers === 'frere') ? x.entete.frere : null",
+  "nouveau": "frere: x.entete.frere ? x.entete.frere : null",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-simplifier-3plus1.test.js"
+  ]
+ },
+ {
+  "nom": "3plus1-tiers-frere-avant-compteur",
+  "fichier": "v2/js/plan.js",
+  "ancien": "var tiers = en.compteur ? 'compteur' : (en.frere ? 'frere' : null);\n      var peutLaFeuille",
+  "nouveau": "var tiers = en.frere ? 'frere' : (en.compteur ? 'compteur' : null);\n      var peutLaFeuille",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-simplifier-3plus1.test.js"
+  ]
+ },
+ {
+  "nom": "3plus1-phrase-approchee-sous-la-puce",
+  "fichier": "v2/js/plan.js",
+  "ancien": "? (peutLaFeuille ? 'feuille' : 'tete') : null,\n        chauffe",
+  "nouveau": "? 'tete' : null,\n        chauffe",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-simplifier-3plus1.test.js"
+  ]
+ },
+ {
+  "nom": "3plus1-decharge-courte-coupee-par-rendu",
+  "fichier": "v2/js/rendu.js",
+  "ancien": "var ligneGris = el('div', 'consigne-dit', lib.gris);",
+  "nouveau": "var ligneGris = el('div', 'consigne-dit', lib.gris.replace(/ au lieu de.*$/, '.'));",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-simplifier-3plus1.test.js"
+  ]
+ }
+]

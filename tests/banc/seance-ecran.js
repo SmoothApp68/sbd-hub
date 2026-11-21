@@ -11196,9 +11196,14 @@ const SETS_IMPORTES = [
     ok('[163] DISCRIMINANT — la machine à 30 kg × 12 trois fois : le test est ≈ 35 kg (le pas d’une machine), approché, jamais « le cran au-dessus »',
       !!p1 && p1.etat === 'test_propose' && !!p1.haut && p1.haut.charge === 35 && p1.haut.approchee === true && p1.fondement === true &&
       esp((p1.jaune || []).join(' ')).indexOf('≈ 35 kg') >= 0 && esp((p1.jaune || []).join(' ')).indexOf('cran') < 0, JSON.stringify(p1));
-    const dits = esp(await page.evaluate(() => Array.from(document.querySelectorAll('.legende-exo .consigne-dit'))
+    // 21/11/2026 (3+1, décision 6) : la phrase du « ≈ » est à la feuille « Pourquoi ? », plus sous la ligne.
+    await page.evaluate(() => { const c = document.querySelector('.legende-exo .lien-pourquoi'); if (c) c.click(); });
+    await attendre(500);
+    const dits = esp(await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu, #feuille-seance, .feuille'))
       .map((x) => x.textContent).join(' | ')));
-    ok('[163] la phrase sous la ligne : « ≈ 35 kg : vise la charge la plus proche que ta machine permet — la plaque au-dessus, ou un petit poids ajouté si elle en a. Note ce que tu as mis. »',
+    await page.evaluate(() => { const b = Array.from(document.querySelectorAll('#feuille-seance button, .feuille button')).find((x) => /Fermer/.test(x.textContent)); if (b) b.click(); });
+    await attendre(300);
+    ok('[163] la phrase du « ≈ » (feuille « Pourquoi ? ») : « ≈ 35 kg : vise la charge la plus proche que ta machine permet — la plaque au-dessus, ou un petit poids ajouté si elle en a. Note ce que tu as mis. »',
       dits.indexOf('≈ 35 kg : vise la charge la plus proche que ta machine permet — la plaque au-dessus, ou un petit poids ajouté si elle en a. Note ce que tu as mis.') >= 0, dits);
     ok('[163] DISCRIMINANT — la case de la dernière série est préremplie avec la charge approchée (35), les autres à 30',
       JSON.stringify(f1.slice(0, 3)) === JSON.stringify(['30', '30', '35']), JSON.stringify(f1));
@@ -12746,10 +12751,11 @@ const SETS_IMPORTES = [
     // `germain-u20`, à 5 : la ligne du compteur, PUIS celle du frère.
     const lignesB = (lu.lignes[1] || []).map((l) => [l[0], espF(l[1])]);
     const iK = lignesB.findIndex((l) => /\bcompteur\b/.test(l[0]));
-    ok('[U20] DISCRIMINANT — à 5, sans marche : la ligne du compteur, puis celle du frère, juste après',
+    // 21/11/2026 (3+1, règle des trois éléments) : le compteur prend le troisième élément ; « Pendant ce temps » reste à la feuille « Pourquoi ? » (49-U20 plus bas).
+    ok('[U20] DISCRIMINANT — à 5, sans marche : la ligne du compteur seule en tête ; le frère n’est plus un cinquième élément',
       !!lu.b && lu.b.compteur.compteur === 5 && lu.b.marche === null && iK >= 0 &&
       lignesB[iK][1] === '25 kg × 12 reste ta meilleure charge de travail depuis 5 séances.' &&
-      lignesB[iK + 1] && /\bfrere\b/.test(lignesB[iK + 1][0]) && lignesB[iK + 1][1] === PHRASE_GERMAIN,
+      !lignesB.some((l) => /\bfrere\b/.test(l[0])),
       JSON.stringify([lu.b && lu.b.compteur, lu.b && lu.b.marche, lignesB]));
     ok('[U20] ouvrir la séance n’écrit aucun pari (la phrase ne parie rien)', base.predictions.length === parisAvant,
       base.predictions.length + ' / ' + parisAvant);
@@ -13012,7 +13018,6 @@ const SETS_IMPORTES = [
       .map((l) => { const f = l.querySelector('.consigne-dit.frere'); return f ? f.textContent : null; }));
     const feuilleD = [];
     for (let i = 0; i < enteteD.length; i++) {
-      if (!enteteD[i]) { feuilleD.push(null); continue; }
       await page.evaluate((k) => document.querySelectorAll('.legende-exo')[k].querySelector('.lien-pourquoi').click(), i);   // 230 : le lien seul ouvre la feuille
       await attendre(700);
       const pq = await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .pq-p')).map((n) => n.textContent));
@@ -13021,8 +13026,10 @@ const SETS_IMPORTES = [
       await attendre(600);
     }
     ok('[E] 49-U20 — DISCRIMINANT : la phrase du frère, la même dans le plan, l’en-tête et la feuille « Pourquoi » (deux exercices)',
+      // 21/11/2026 (3+1) : le compteur prend le troisième élément de la tête ; « Pendant ce temps » y reste seulement sans compteur, et la feuille le dit toujours.
       freresD.length === 2 && freresD.every(Boolean) && enteteD.length === 2 &&
-      freresD.every((f, i) => sp(enteteD[i]) === sp(f) && feuilleD[i].length === 1 && feuilleD[i][0] === sp(f)),
+      freresD.every((f, i) => (enteteD[i] === null || sp(enteteD[i]) === sp(f)) && feuilleD[i].length === 1 && feuilleD[i][0] === sp(f)) &&
+      enteteD.filter(Boolean).length >= 1,
       JSON.stringify([freresD, enteteD, feuilleD]));
     await abandonner();
     masquesD.forEach((l, i) => { l.fondement = fondementsD[i]; });
@@ -27301,7 +27308,15 @@ const SETS_IMPORTES = [
     const e1 = await entete154();
     ok('[EV154] DISCRIMINANT — la séance suivante pose le test à 42,5 kg, SOUS le haut de la zone, et dit pourquoi',
       e1.jaune.some((t) => /42,5/.test(sp154(t))) &&
-        sp154(e1.dit) === 'On essaie 42,5 kg : la dernière fois, 40 kg × 9 avec 3 en réserve ou plus.', JSON.stringify(e1));
+        // 21/11/2026 (3+1) : la tête dit le verbe avec son chiffre ; la raison datée est à la feuille « Pourquoi ? ».
+        sp154(e1.dit) === 'On essaie 42,5 kg.', JSON.stringify(e1));
+    await page.evaluate(() => { const c = document.querySelector('.legende-exo .lien-pourquoi'); if (c) c.click(); });
+    await attendre(500);
+    const feuille154 = sp154(await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu')).map((x) => x.textContent).join(' | ')));
+    ok('[EV154] la raison de l’essai (« la dernière fois, 40 kg × 9 avec 3 en réserve ou plus ») est à la feuille « Pourquoi ? »',
+      /40 kg × 9/.test(feuille154) && /3 en réserve ou plus/.test(feuille154), feuille154.slice(0, 400));
+    await page.evaluate(() => { const b = document.querySelector('#btn-fermer-feuille'); if (b) b.click(); });
+    await attendre(300);
     await abandonner();
 
     // C. « PASSER » : rien n’est écrit, plus de puces.
@@ -30496,7 +30511,7 @@ const SETS_IMPORTES = [
       avant193.fantomes.every((c) => String(c).replace('.', ',') === String(phAvant[1]).replace(/\s/g, '') ), nb193([avant193.fantomes, phAvant]));
     // 200b — la cible (130 × 5) est sous le bas de la zone Mix (6-8) : la phrase datée le dit.
     const grise200 = await page.evaluate(() => { const g = document.querySelector('.consigne-grise, .consigne .gris, .gris-consigne'); return g ? g.textContent : document.body.innerText; });
-    ok('[RM193] 200b — cible sous la zone : « Une rep de plus : 130 kg × 5, vers tes 6-8. »', /130 kg × 4\. Une rep de plus : 130 kg × 5, vers tes 6-8\./.test(sp193(grise200)), nb193(sp193(grise200).slice(0, 300)));
+    ok('[RM193] 200b — cible sous la zone : « Une rep de plus : 130 kg × 5, vers tes 6-8. »', /Une rep de plus : 130 kg × 5, vers tes 6-8\./.test(sp193(grise200)), nb193(sp193(grise200).slice(0, 300)));
     // 200b — au repos, aucun pixel du fond « Supprimer » ne se voit : sous la rangée comme sous l'étiquette, l'élément au point n'est pas le fond.
     const fond200 = await page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).map((l) => {
       const r = l.getBoundingClientRect(), pts = [];
@@ -30944,9 +30959,15 @@ const SETS_IMPORTES = [
     const resume1 = await page.evaluate(() => { const n = document.querySelector('.proposition-chauffes'); return n ? { replie: !!n.closest('details'), texte: n.querySelector('.pc-texte').textContent.replace(/\s+/g, ' ').trim() } : null; });
     ok('[RT237] DISCRIMINANT — séance 1 : le coach PROPOSE (premier exercice du muscle, 100 kg au-dessus de 60 % du max), sans rien écrire',
       !!s1.prop && s1.prop.mode === 'proposer' && s1.prop.raison === 'muscle' && s1.prop.lignes.length >= 2 && s1.types.every((t) => t === 'travail'), nb237(s1));
-    const raison19 = await page.evaluate(() => { const n = document.querySelector('.proposition-chauffes:not(.chauffes-auto)'); const d = n && n.querySelector('details.pc-raison'); return d ? { ouvert: d.open, resume: d.querySelector('summary').textContent, detail: d.querySelector('.pc-detail').textContent, apresGestes: !!(n.querySelector('.pc-gestes').compareDocumentPosition(d) & 4) } : null; });
-    ok('[RT237] 19/11 — la raison de la chauffe est REPLIÉE sous « Pourquoi cette chauffe ? », après les gestes, son texte intact',
-      !!raison19 && raison19.ouvert === false && raison19.resume === 'Pourquoi cette chauffe ?' && /^Premier exercice de la séance sur ce muscle.*60 %/.test(raison19.detail.replace(/\s+/g, ' ')) && raison19.apresGestes, JSON.stringify(raison19));
+    // 21/11/2026 (3+1, décision 3) : « Pourquoi cette chauffe ? » rejoint le « Pourquoi ? » de l'exercice : plus de pli sur la carte, une section « La chauffe » à la feuille.
+    const raison19 = await page.evaluate(() => { const n = document.querySelector('.proposition-chauffes:not(.chauffes-auto)'); return n ? { pli: !!n.querySelector('details.pc-raison') } : null; });
+    await page.evaluate(() => { const c = document.querySelector('.legende-exo .lien-pourquoi'); if (c) c.click(); });
+    await attendre(500);
+    const sectionChauffe = await page.evaluate(() => { const n = document.querySelector('#feuille-contenu [data-pq-section="chauffe"]'); return n ? n.textContent.replace(/\s+/g, ' ').trim() : null; });
+    await page.evaluate(() => { const b = document.querySelector('#btn-fermer-feuille'); if (b) b.click(); });
+    await attendre(300);
+    ok('[RT237] 21/11 — la raison de la chauffe n’est plus repliée sur la carte : elle est la section « La chauffe » du « Pourquoi ? », son texte intact',
+      !!raison19 && raison19.pli === false && !!sectionChauffe && /Premier exercice de la séance sur ce muscle.*60 %/.test(sp237(sectionChauffe)), JSON.stringify([raison19, sectionChauffe]));
     ok('[RT237] 265 — la proposition est la ligne du coach, dépliée, ses charges en clair ; le Pourquoi dit la règle',
       !!resume1 && resume1.replie === false && /^Chauffe : \d/.test(resume1.texte) && /^Premier exercice de la séance sur ce muscle.*60 %/.test(sp237(s1.prop && s1.prop.pourquoi)), nb237([resume1, s1.prop && s1.prop.pourquoi]));
     ok('[RT237] I126 — les charges montent, aucune n’atteint 100 kg, la dernière ≤ 90 kg',

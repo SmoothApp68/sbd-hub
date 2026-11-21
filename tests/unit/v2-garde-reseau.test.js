@@ -161,6 +161,16 @@ describe('59-4 — la garde réseau elle-même', () => {
     expect(Garde.fuites()[1]).toBe('WebSocket wss://' + Garde.HOTE + '/realtime/v1');
   });
 
+  test('CI-2 — config.js : une connexion locale coupée (ECONNRESET) refuse la route, elle ne tue pas le banc ; une autre erreur reste levée', async () => {
+    const ctx = await Garde.garderContexte(contexte());
+    const coupees = [];
+    const route = (message) => ({ fetch: async () => { throw new Error(message); }, abort: async (r) => { coupees.push(r); }, fulfill: async () => {} });
+    await expect(ctx.routes[1].f(route('route.fetch: read ECONNRESET'))).resolves.toBeUndefined();
+    await expect(ctx.routes[1].f(route('route.fetch: Target page, context or browser has been closed'))).resolves.toBeUndefined();
+    expect(coupees).toEqual(['connectionreset']);
+    await expect(ctx.routes[1].f(route('route.fetch: autre chose'))).rejects.toThrow('autre chose');
+  });
+
   test('elle se pose une fois par contexte, et AVANT les intercepteurs du banc', async () => {
     const ctx = contexte();
     await Garde.garderContexte(ctx);

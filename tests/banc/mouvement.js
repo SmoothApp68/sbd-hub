@@ -176,8 +176,16 @@ const vivants = (p) => p.evaluate(() => window.__gl.crees - window.__gl.perdus);
     {
       const errs = [];
       const ctx = await contexte(nav, port); const p = await page(ctx, port, errs);
-      await ctx.route(/\/(mouvements|vendor\/(three|GLTF))/, (r) => r.abort('internetdisconnected'));
+      // CI-2 (20/11/2026) — l'état attendu est « l'essai a eu lieu ET s'est retiré », pas « le bloc est vide » : le bloc est vide
+      // AVANT que `monter` y pose son « Chargement… » (montées à 0 aussi), la condition était vraie d'avance et la lecture
+      // suivante tombait pendant le chargement (display ≠ none sur GitHub, 4 fois sur 167 exécutions). Chaque requête refusée est comptée ;
+      // l'attente exige au moins une requête refusée, puis le bloc vide, puis plus aucune vue montée.
+      let refusees = 0;
+      await ctx.route(/\/(mouvements|vendor\/(three|GLTF))/, (r) => { refusees++; return r.abort('internetdisconnected'); });
       await ouvrirFiche(p, port, 'squat_barre');
+      const finEssai = Date.now() + 60000;
+      while (refusees === 0 && Date.now() < finEssai) await p.waitForTimeout(50);   // le pas d'une boucle qui lit l'état, plafond 60 s
+      verifier(refusees > 0, 'D · prémisse : la vue a bien tenté de charger ses fichiers (' + refusees + ' requête(s) refusée(s))');
       await p.waitForFunction(() => { const m = document.querySelector('.exo-mouvement'); return m && !m.childNodes.length && THMouvement.etat().montees === 0; }, null, { timeout: 60000 });
       const d = await p.evaluate(() => ({ visible: getComputedStyle(document.querySelector('.exo-mouvement')).display, etapes: document.querySelectorAll('.etapes .etape').length }));
       verifier(d.visible === 'none' && d.etapes === 3, 'D · hors ligne, jamais vu : le bloc ne s’affiche pas, la page reste (' + d.etapes + ' étapes)');

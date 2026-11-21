@@ -1740,8 +1740,17 @@ const SETS_IMPORTES = [
           const ids = brutSid.slice(4, -1).split(',').map((x) => x.replace(/"/g, ''));
           return json(projeter(base.sets.filter((s) => ids.indexOf(s.session_id) >= 0), url));
         }
+        // 21/11/2026 (synchro-filet) — `id=in.(…)` : les séries qui manquent au cache (`Donnees.seriesParIds`).
+        const brutIdS = url.searchParams.get('id') || '';
+        if (brutIdS.startsWith('in.')) {
+          const ids = brutIdS.slice(4, -1).split(',').map((x) => x.replace(/"/g, ''));
+          return json(projeter(base.sets.filter((s) => ids.indexOf(s.id) >= 0), url));
+        }
         const sid = brutSid.replace('eq.', '');
-        return json(projeter(sid ? base.sets.filter((s) => s.session_id === sid) : base.sets, url));
+        // `seriesSautees` : la lecture INCRÉMENTALE (ni `session_id`, ni `id`) ne les rend pas — une série que la pagination par
+        // `id` a sautée. Les lectures par séance et par identifiant, elles, les rendent.
+        const sautees = base.seriesSautees || [];
+        return json(projeter(sid ? base.sets.filter((s) => s.session_id === sid) : base.sets.filter((s) => sautees.indexOf(s.id) < 0), url));
       }
       // 55-1 — les pesées (le rapport au poids de la page d'exercice).
       if (table === 'body_weight_log') {
@@ -27077,6 +27086,62 @@ const SETS_IMPORTES = [
     ok('[S154] la garde (C6) n’a rien signalé, aucun refus du faux serveur, aucune erreur de page',
       gardeBanc.violations === violations154 && base.journal.filter((j) => j.op === 'refus').length === refus154 && erreurs.length === erreurs154,
       JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus154), erreurs.slice(erreurs154)]));
+  }
+
+  console.log('\n══ synchro-filet. UNE SÉRIE SAUTÉE PAR LA PAGINATION EST RAPATRIÉE (21/11/2026, le filet du déficit) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : 3 séries d'une séance existent en base mais la lecture incrémentale ne les rend pas (`seriesSautees` :
+  // ce que la pagination par `id` saute). Le compte, lui, les compte. Sans le filet, le cache reste court de 3 séries ; avec lui, le compte
+  // relu dépasse le magasin, les identifiants des séances se relisent, et SEULES les absentes se téléchargent.
+  {
+    const erreurs155 = erreurs.length;
+    const refus155 = base.journal.filter((j) => j.op === 'refus').length;
+    const violations155 = gardeBanc.violations;
+    const nb155 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const synchroLibre155 = () => page.evaluate(() => { const e = document.getElementById('etat-sync');
+      return !!e && (e.textContent || '').trim() !== '' && !e.classList.contains('sync'); }).catch(() => false);
+    const rafraichir155 = () => page.evaluate(() => document.getElementById('btn-rafraichir').click());
+    const cacheSeries155 = () => page.evaluate(() => window.THCache.lireTout('series')
+      .then((l) => (l || []).map((x) => x.id).sort())).catch(() => null);
+    const slug155 = CATALOGUE[0].slug;
+    const seance155 = 's155-seance';
+    const ids155 = ['s155-1', 's155-2', 's155-3'];
+
+    await aller('/saisie');
+    await jusqua(synchroLibre155, 60000);
+    base.seriesSautees = [];
+    await rafraichir155();
+    await jusqua(synchroLibre155, 60000);
+    await reseauCalme();
+
+    const maintenant155 = new Date();
+    const debut155 = new Date(maintenant155.getTime() - 3600000).toISOString();
+    base.sessions.push({ id: seance155, user_id: 'u-banc', titre: 'Synchro — filet', debut: debut155,
+      fin: maintenant155.toISOString(), statut: 'terminee', note: null, salle: null, salle_norme: null,
+      routine_id: null, source: 'app', created_at: debut155 });
+    ids155.forEach((id, i) => base.sets.push({ id, session_id: seance155, user_id: 'u-banc', exercise_slug: slug155,
+      charge_kg: 100, reps: 5, duree_s: null, distance_m: null, type_serie: 'travail', rang: i + 1, groupe_superset: null,
+      validee_a: debut155, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app',
+      created_at: debut155, modifie_a: null }));
+    base.seriesSautees = ids155.slice();
+    await rafraichir155();
+    await jusqua(synchroLibre155, 60000);
+    await reseauCalme();
+    const cache155 = await cacheSeries155();
+    ok('[F155] DISCRIMINANT — 3 séries que la lecture incrémentale ne rend pas : le cache les porte après la synchronisation, et autant de séries que la base',
+      !!cache155 && ids155.every((id) => cache155.indexOf(id) >= 0) && cache155.length === base.sets.length,
+      nb155([cache155 && cache155.length, base.sets.length, cache155 && ids155.filter((id) => cache155.indexOf(id) < 0)]));
+
+    // LA REMISE EN ÉTAT.
+    base.seriesSautees = [];
+    base.sessions = base.sessions.filter((x) => x.id !== seance155);
+    base.sets = base.sets.filter((x) => ids155.indexOf(x.id) < 0);
+    await rafraichir155();
+    await jusqua(synchroLibre155, 60000);
+    await reseauCalme();
+    ok('[F155] la garde (C6) n’a rien signalé, aucun refus du faux serveur, aucune erreur de page',
+      gardeBanc.violations === violations155 && base.journal.filter((j) => j.op === 'refus').length === refus155 && erreurs.length === erreurs155,
+      JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus155), erreurs.slice(erreurs155)]));
   }
 
   console.log('\n══ hors-barres. LES RECORDS HORS DES BARRES : L’ALLURE, LA PREMIÈRE FOIS SUR UNE MARCHE, LE RÉCAP ET LES CAPS DU JEU (153, MOTEUR §9.23) ══');

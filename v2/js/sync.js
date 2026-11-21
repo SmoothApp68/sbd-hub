@@ -300,6 +300,36 @@
     return { series: gardees, retirees: retirees };
   }
 
+  // 21/11/2026 (synchro-filet) — LE FILET DU DÉFICIT, symétrique du surplus de 117. L'incrémental ne rend pas une série
+  // SAUTÉE : la pagination par `id` (uuid aléatoires) avec le filtre incrémental perd une série insérée, pendant la
+  // passe, avec un `id` inférieur à la page en cours, alors que le curseur avance au maximum ; une ligne insérée en
+  // SQL avec un `created_at` ancien ne repasse jamais non plus. Le cache reste court, pour toujours.
+  //
+  // LE DÉTECTEUR : le compte, encore. Le DÉFICIT est le compte du serveur moins les séries du cache des séances que le
+  // serveur rend — PROTÉGÉES COMPRISES (une série locale pas encore envoyée gonfle le cache : un déficit se sous-estime,
+  // jamais l'inverse ; compter hors file le gonflerait et relirait les identifiants à chaque synchronisation tant qu'une
+  // séance attend). Un compte inconnu ne prouve rien : 0. Un surplus et un déficit de même taille s'annulent : le
+  // rapprochement du surplus (117) passe avant.
+  function deficitDeSeries(series, seancesServeur, compteServeur) {
+    if (typeof compteServeur !== 'number' || !isFinite(compteServeur) || compteServeur < 0) return 0;
+    return compteServeur - seriesComptables(series, seancesServeur, null).length;
+  }
+
+  // Les identifiants que le serveur rend pour les séances du lot et que le cache n'a pas. Les séances qui attendent dans
+  // la file en sont exclues : l'envoi met la base à l'image de l'appareil, il ne faut pas leur rendre ce qu'il retire.
+  function seriesAbsentes(series, lignesServeur, lot, protegees) {
+    var dansLot = {}, ici = {};
+    (lot || []).forEach(function (id) { dansLot[id] = true; });
+    (series || []).forEach(function (s) { if (s && s.id) ici[s.id] = true; });
+    var p = protegees || {}, vues = {}, ids = [];
+    (lignesServeur || []).forEach(function (l) {
+      if (!l || !l.id || ici[l.id] || vues[l.id]) return;
+      if (!dansLot[l.session_id] || p[l.session_id]) return;
+      vues[l.id] = true; ids.push(l.id);
+    });
+    return ids;
+  }
+
   // État affiché à l'utilisateur. Jamais bloquant : dès qu'il y a quelque chose
   // à montrer, on le montre, et l'état dit seulement d'où ça vient.
   function deciderEtat(situation) {
@@ -429,6 +459,8 @@
     LOT_RAPPROCHEMENT: LOT_RAPPROCHEMENT,
     lotsDeRapprochement: lotsDeRapprochement,
     rapprocherSeries: rapprocherSeries,
+    deficitDeSeries: deficitDeSeries,
+    seriesAbsentes: seriesAbsentes,
     deciderEtat: deciderEtat
   };
 

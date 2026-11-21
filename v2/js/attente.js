@@ -885,6 +885,13 @@
     return ids;
   }
 
+  // 21/11/2026 (synchro-filet) — UNE SÉANCE ATTEND-ELLE, QUEL QUE SOIT LE GESTE ? Contrairement à `seancesEnAttente`, la
+  // SUPPRESSION compte : une séance supprimée ici dont la suppression n'est pas encore partie existe toujours côté serveur,
+  // avec ses séries. Le filet du déficit (`completerSeriesDuServeur`) ne joue pas tant que c'est vrai.
+  function uneSeanceAttend(file) {
+    return (file || []).some(function (e) { return e && (e.table === SESSIONS || e.table === SETS); });
+  }
+
   // Ce que l'utilisateur voit. Un fait, un chiffre, aucune alarme — la même
   // règle que l'état de synchronisation en lecture.
   // ⚠️ « N À ENVOYER » QUAND RIEN NE PEUT MONTER EST UNE PERTE SILENCIEUSE
@@ -1016,6 +1023,7 @@
     CODES_BORNES: CODES_BORNES,
     protegees: protegees,
     seancesEnAttente: seancesEnAttente,
+    uneSeanceAttend: uneSeanceAttend,
     resume: resume,
     deciderEtat: deciderEtat
   };

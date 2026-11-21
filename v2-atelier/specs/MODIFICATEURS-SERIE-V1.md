@@ -200,7 +200,7 @@ L'écran de saisie. Le menu d'appui long sur le numéro de série contient, dans
 tempo · élastique
 ```
 
-Trois types de série, deux modificateurs. C'est tout, et la liste est fermée. *(Périmé le 19/11/2026 : `THModele.TYPES_CONNUS` compte six valeurs — travail, échauffement, dégressive, échec, test, recul — et le menu porte aussi le geste « Rest-pause » ; le tableau des types fait foi dans MOTEUR §4.)*
+Trois types de série, deux modificateurs. C'est tout, et la liste est fermée. *(Périmé le 19/11/2026 : `THModele.TYPES_CONNUS` compte six valeurs — travail, échauffement, dégressive, échec, test, recul — et le menu portait aussi un geste « Rest-pause », retiré le 21/11/2026 (MOTEUR §9.33 : le coach ne le propose plus ; la lecture « rest-pause » d'une dégressive à charge constante, elle, reste) ; le tableau des types fait foi dans MOTEUR §4.)*
 
 ---
 

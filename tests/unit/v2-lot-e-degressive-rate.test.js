@@ -41,14 +41,25 @@ function scene(o) {
 describe('moteur — la 3e branche supprimée', () => {
   const sous = { niveau: 'serie', role: 'travail', charge: 20, reps: 6, vise: 10, bas: 8, haut: 12, rang: 1, derniere: false, reglage: 'franc',
     objectif: 'muscle', barre: false, materiel: 'haltere', pas: 2, chauffeValidee: true, reposReel: 120, reposCible: 120, sousZoneAvant: 0 };
-  test('⚠️ DISCRIMINANT — un polyarticulaire aux haltères (ni isolation ni rest-pause) : plus de « Dégressive »', () => {
-    const d = M.reactionAuRate(Object.assign({}, sous, { isolation: false, peutDegressive: true, peutRestPause: false }));
+  test('⚠️ DISCRIMINANT — un polyarticulaire aux haltères (ni isolation) : plus de « Dégressive »', () => {
+    const d = M.reactionAuRate(Object.assign({}, sous, { isolation: false, peutDegressive: true }));
     expect(d.leviers).not.toContain('degressive');
     expect(d.leviers).toEqual(['repos']);
   });
   test('témoin — une isolation où la dégressive est permise : « Dégressive »', () => {
-    const d = M.reactionAuRate(Object.assign({}, sous, { isolation: true, peutDegressive: true, peutRestPause: true }));
+    const d = M.reactionAuRate(Object.assign({}, sous, { isolation: true, peutDegressive: true }));
     expect(d.leviers).toEqual(['repos', 'degressive']);
+  });
+});
+
+describe('moteur — plus de levier « Rest-pause » (21/11/2026, I268)', () => {
+  const sous = { niveau: 'serie', role: 'travail', charge: 20, reps: 6, vise: 10, bas: 8, haut: 12, rang: 1, derniere: false, reglage: 'franc',
+    objectif: 'muscle', barre: false, materiel: 'machine', pas: 2, chauffeValidee: true, reposReel: 120, reposCible: 120, sousZoneAvant: 0 };
+  test('⚠️ DISCRIMINANT — même un contexte qui dirait « permis » n\'offre aucun rest-pause, ni sur une machine sans dégressive', () => {
+    const d = M.reactionAuRate(Object.assign({}, sous, { isolation: false, peutDegressive: false, peutRestPause: true }));
+    expect(d.leviers).not.toContain('rest_pause');
+    expect(d.leviers).toEqual(['repos']);
+    expect(M.boutonDeRate('rest_pause', {})).not.toMatch(/Rest-pause/);
   });
 });
 

@@ -9,7 +9,7 @@ const SOURCE = fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8
 function brancheRepos() {
   const debut = SOURCE.indexOf('async function repondreRate(');
   expect(debut).toBeGreaterThan(0);
-  const fin = SOURCE.indexOf("} else if (cle === 'rest_pause')", debut);
+  const fin = SOURCE.indexOf("} else if (cle === 'degressive')", debut);
   const d = SOURCE.indexOf("if (cle === 'repos') {", debut);
   expect(d).toBeGreaterThan(debut);
   expect(fin).toBeGreaterThan(d);

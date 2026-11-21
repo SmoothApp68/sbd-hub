@@ -107,15 +107,15 @@ describe('niveau 1 — la grille A à O', () => {
 
 describe('niveau 1 — réglage × objectif', () => {
   const sous = { reps: 6, vise: 10, bas: 8, charge: 100 };
-  test('Me pousser : le repos et le rest-pause d’abord ; la baisse à la 2e série sous la zone', () => {
-    const premiere = r(Object.assign({ reglage: 'franc', peutRestPause: true, sousZoneAvant: 0 }, sous));
+  test('Me pousser : le repos d’abord (plus de rest-pause, I268) ; la baisse à la 2e série sous la zone', () => {
+    const premiere = r(Object.assign({ reglage: 'franc', sousZoneAvant: 0 }, sous));
     expect(premiere.charge.action).toBe('garde');
-    expect(premiere.leviers).toEqual(['repos', 'rest_pause']);
-    const seconde = r(Object.assign({ reglage: 'franc', peutRestPause: true, sousZoneAvant: 1 }, sous));
+    expect(premiere.leviers).toEqual(['repos']);
+    const seconde = r(Object.assign({ reglage: 'franc', sousZoneAvant: 1 }, sous));
     expect(seconde.charge.action).toBe('baisse');
   });
   test('Me pousser sur une isolation : la dégressive', () => {
-    const d = r(Object.assign({ reglage: 'franc', isolation: true, peutDegressive: true, peutRestPause: true, sousZoneAvant: 0 }, sous));
+    const d = r(Object.assign({ reglage: 'franc', isolation: true, peutDegressive: true, sousZoneAvant: 0 }, sous));
     expect(d.leviers).toEqual(['repos', 'degressive']);
   });
   test('Normal : le repos, la même charge et la fourchette ; la baisse dès sous la zone', () => {
@@ -124,25 +124,29 @@ describe('niveau 1 — réglage × objectif', () => {
     expect(r(sous).leviers).toEqual(['prendre']);
   });
   test('Prudent : la baisse dès sous la zone, garde 2, jamais de rest-pause', () => {
-    const d = r(Object.assign({ reglage: 'prudent', peutRestPause: true }, sous));
+    const d = r(Object.assign({ reglage: 'prudent', isolation: true, peutDegressive: true }, sous));
     expect(d.charge.action).toBe('baisse');
     expect(d.garde).toBe(2);
     expect(d.leviers).not.toContain('rest_pause');
-    const e = r({ reglage: 'prudent', reps: 9, peutRestPause: true });
+    expect(d.leviers).not.toContain('degressive');
+    const e = r({ reglage: 'prudent', reps: 9, isolation: true, peutDegressive: true });
     expect(e.garde).toBe(2);
     expect(e.leviers).not.toContain('rest_pause');
+    expect(e.leviers).not.toContain('degressive');
   });
-  test('⚠️ DISCRIMINANT — Prudent en Force, 8 au lieu de 10 (la charge tient) : jamais de rest-pause, alors que Normal le propose', () => {
-    const en = (reglage) => r({ reglage, objectif: 'force', reps: 8, rang: 0, barre: false, materiel: 'machine', peutRestPause: true });
+  test('⚠️ DISCRIMINANT — Prudent en Force, 8 au lieu de 10 (la charge tient) : jamais de poussée ; Normal offre seulement la dégressive (I268)', () => {
+    const en = (reglage) => r({ reglage, objectif: 'force', reps: 8, rang: 0, barre: false, materiel: 'machine', isolation: true, peutDegressive: true });
     expect(en('normal').charge.action).toBe('garde');
-    expect(en('normal').leviers).toContain('rest_pause');
+    expect(en('normal').leviers).not.toContain('rest_pause');
+    expect(en('normal').leviers).toContain('degressive');
     expect(en('prudent').charge.action).toBe('garde');
     expect(en('prudent').leviers).not.toContain('rest_pause');
+    expect(en('prudent').leviers).not.toContain('degressive');
   });
-  test('Force protège la charge : la grosse série (rang 0) ne baisse pas, le rest-pause passe avant', () => {
-    const d = r(Object.assign({ objectif: 'force', rang: 0, peutRestPause: true }, sous));
+  test('Force protège la charge : la grosse série (rang 0) ne baisse pas, la charge est gardée, sans rest-pause (I268)', () => {
+    const d = r(Object.assign({ objectif: 'force', rang: 0 }, sous));
     expect(d.charge.action).toBe('garde');
-    expect(d.leviers).toContain('rest_pause');
+    expect(d.leviers).not.toContain('rest_pause');
     expect(r(Object.assign({ objectif: 'force', rang: 2 }, sous)).charge.action).toBe('baisse');
     expect(r(Object.assign({ objectif: 'force', rang: 0, reglage: 'prudent' }, sous)).charge.action).toBe('baisse');
   });
@@ -176,7 +180,7 @@ describe('niveau 1 — les contextes', () => {
   });
   test('zone à ménager ou douleur la veille : le rappel, jamais pousser', () => {
     ['zoneAMenager', 'douleurHier'].forEach((cle) => {
-      const d = r({ reglage: 'franc', reps: 6, vise: 10, bas: 8, sousZoneAvant: 0, peutRestPause: true, [cle]: true });
+      const d = r({ reglage: 'franc', reps: 6, vise: 10, bas: 8, sousZoneAvant: 0, [cle]: true });
       expect(d.rappelMal).toBe(true);
       expect(d.leviers).not.toContain('rest_pause');
       expect(d.leviers).not.toContain('degressive');
@@ -295,11 +299,11 @@ describe('les mots, la pureté', () => {
     expect(textes[0]).toBe('9 au lieu de 10. Même charge, vise 1 en réserve, entre 8 et 10.');
     expect(textes[1]).toMatch(/^6 au lieu de 10\. On passe à \d+(,\d+)? kg, vise 1 en réserve, entre 8 et 10\.$/);
   });
-  test('les boutons : « +1 min », « Prendre X kg », « Rest-pause »', () => {
+  test('les boutons : « +1 min », « Prendre X kg », « Dégressive » ; plus de « Rest-pause »', () => {
     const d = r({ reps: 6, vise: 10, bas: 8, charge: 100 });
     expect(M.boutonDeRate('repos')).toBe('+1 min');
     expect(M.boutonDeRate('prendre', d)).toBe('Prendre ' + Modele.charge(d.charge.kg));
-    expect(M.boutonDeRate('rest_pause')).toBe('Rest-pause');
+    expect(M.boutonDeRate('rest_pause')).not.toBe('Rest-pause');
     expect(M.boutonDeRate('degressive')).toBe('Dégressive');
   });
   test('pure : l’entrée n’est pas modifiée, la même entrée donne la même sortie', () => {

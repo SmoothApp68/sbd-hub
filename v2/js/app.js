@@ -9929,33 +9929,11 @@
   //     suivante (le geste de l'étiquette, `poserZone`) et le REPLI figé dans
   //     la carte (§14.5) — le plan l'applique (`consigneRepli`), I35 le vérifie ;
   //   · « Sans coach cette fois » : la marque, comme « J'ai mal ».
-  // 196 — le menu ⋯ d'une série propose-t-il « Rest-pause » ? `{ possible, aide }` ; la définition de l'exercice est celle du moteur
-  // (`peutRestPause`), la semaine allégée et la zone à ménager sont lues dans le plan.
-  function restPauseDeLaFeuille(iExo, iSerie) {
-    var exo = seance && seance.exercices[iExo], serie = exo && exo.series[iSerie];
-    var aide = 'Jusqu’à l’échec, 15 s, encore, 15 s, encore : une seule série de travail.';
-    var non = { possible: false, aide: aide };
-    if (!exo || !serie || !Modele.estTravail(serie)) return non;
-    var charge = Number(serie.charge_kg);
-    if (!(charge > 0)) return non;
-    var fiche = catalogueIndexe()[exo.exercise_slug];
-    if (!fiche || !Moteur.peutRestPause({ prim: fiche.muscles_primaires || [], sec: fiche.muscles_secondaires || [],
-        stab: fiche.muscles_stabilisateurs || [], equipement: fiche.equipement || null, mesure: fiche.mesure || null,
-        slug: exo.exercise_slug })) return non;
-    var deja = Modele.restPauseDe(exo.series);
-    if (deja[iSerie] || (exo.series[iSerie + 1] && deja[iSerie + 1])) return non;
-    var p = planActuel();
-    var x = p && (p.exercices || []).filter(function (e) { return e.iExo === iExo; })[0];
-    if (p && p.allegee) return non;
-    if (x && ((x.consigne && x.consigne.allegee) || (x.menagee && !x.menagee.choisie))) return non;
-    return { possible: true, aide: aide };
-  }
-
   // ══ 236 (MOTEUR §9.39) — LE COACH EN TEMPS RÉEL APRÈS UN RATÉ ═══════════════════════════════════════════════════════════
   //
   // Le plan décide (`x.rate`, `x.carteForme`, `x.parisRates`) ; ici, seulement poser le geste de la personne. Rien n'est écrit dans une série :
   //   · « +1 min » : le repos en cours repart d'une minute ; « Prendre X kg » : un geste que le plan lit (les lignes restantes à X kg) ;
-  //   · « Rest-pause » : deux mini-séries à la charge de la série (`Seance.ajouterRestPause`) ; « Dégressive » : une ligne dégressive ;
+  //   · « Dégressive » : une ligne dégressive ;
   //   · « Ajuster la fin » : une série de moins par exercice restant (`Plan.lignesAAjuster`), le reste est dans le plan.
   // Chaque geste (et chaque proposition passée sans réponse, à la série suivante) s'écrit dans `sessions.gestes`, pour recaler les seuils.
   async function repondreRate(iExo, iSerie, cle) {
@@ -9974,8 +9952,6 @@
         // Un geste de la personne, pas le conseil (R2, #732) : ni `reposConseille` ni `repos_cible_s` ne sont lus. `-1` : aucune question de réserve ne repart avec.
         if (chrono) ajusterRepos(Moteur.RATE_PLUS_REPOS_S);
         else demarrerChrono(Moteur.RATE_PLUS_REPOS_S, iExo, x.slug, -1);
-      } else if (cle === 'rest_pause') {
-        seance = Seance.ajouterRestPause(seance, iExo, iSerie, uuid);
       } else if (cle === 'degressive') {
         seance = Seance.ajouterDegressive(seance, iExo, uuid);
       }
@@ -12714,9 +12690,6 @@
       // Ce que porterait la série faute de note propre : le placeholder dit
       // donc ce qui s'écrira si on ne tape rien.
       noteExercice: exo.note,
-      // 196 (MOTEUR §9.33) — « Rest-pause » : sur une isolation ou une machine, jamais une barre ni un soulevé ; hors semaine
-      // allégée, hors zone à ménager ; une série de travail avec sa charge, pas déjà prolongée.
-      restPause: restPauseDeLaFeuille(feuille.iExo, feuille.iSerie),
       // 245 (D-S3) — « Compter cette série » : retire « Non, ne compte pas » (un geste, comme les autres) et refait l'observation.
       horsCalcul: { actif: Modele.estHorsCalcul(serie) },
       surCompter: async function () {
@@ -12726,11 +12699,6 @@
         fermerVoile();
         await apresGeste();
         await observerSerie(i, j);
-      },
-      surRestPause: function () {
-        seance = Seance.ajouterRestPause(seance, feuille.iExo, feuille.iSerie, uuid);
-        fermerVoile();
-        apresGeste();
       },
       surNoteSerie: function (v) {
         seance = Seance.definirNoteSerie(seance, feuille.iExo, feuille.iSerie, v);

@@ -14,13 +14,12 @@ const iso = (slug, extra) => Object.assign({ slug, mesure: 'charge_reps', repos:
 const barre = (slug) => ({ slug, mesure: 'charge_reps', repos: 180, ch: 2, tr: 4, deg: 0, rec: 0, duree: null,
   prim: ['pectoraux'], sec: ['triceps'], stab: ['deltoide_anterieur'], equipement: 'barre', groupe: null });
 
-describe('peutRestPause', () => {
-  test('isolation, machine, poulie : oui ; barre, soulevé, durée : non', () => {
-    expect(Mo.peutRestPause({ prim: ['biceps'], sec: [], stab: [], equipement: 'haltere', slug: 'curl' })).toBe(true);
-    expect(Mo.peutRestPause({ prim: ['quadriceps', 'fessiers'], sec: ['a'], stab: ['b'], equipement: 'machine', slug: 'presse' })).toBe(true);
-    expect(Mo.peutRestPause({ prim: ['biceps'], sec: [], stab: [], equipement: 'barre', slug: 'curl_barre' })).toBe(false);
-    expect(Mo.peutRestPause({ prim: ['dos'], sec: [], stab: [], equipement: 'machine', slug: 'souleve_de_terre_machine' })).toBe(false);
-    expect(Mo.peutRestPause({ prim: ['biceps'], sec: [], stab: [], equipement: 'machine', mesure: 'temps', slug: 'x' })).toBe(false);
+// 21/11/2026 (décision du fondateur, I268) : le coach ne PROPOSE plus le rest-pause (ni le menu ⋯, ni « J'ai peu de temps »,
+// ni la réaction au raté). Reste LA LECTURE (`Modele.restPauseDe`) : une dégressive à la même charge se dit « rest-pause ».
+describe('retrait : plus aucune porte', () => {
+  test('ni `peutRestPause` (moteur) ni `ajouterRestPause` (séance) ne sont exportés', () => {
+    expect(Mo.peutRestPause).toBeUndefined();
+    expect(S.ajouterRestPause).toBeUndefined();
   });
 });
 
@@ -44,56 +43,34 @@ describe('restPauseDe', () => {
   });
 });
 
-describe('ajouterRestPause', () => {
-  const seance = (charge) => ({ exercices: [{ exercise_slug: 'curl', series: [
-    { id: 'a', type_serie: 'travail', charge_kg: charge, reps: 12, validee_a: '2026-10-31T10:00:00Z' }] }] });
-  test('deux mini-séries à la même charge, juste après', () => {
-    let n = 0;
-    const r = S.ajouterRestPause(seance(20), 0, 0, () => 'id' + (++n));
-    const ss = r.exercices[0].series;
-    expect(ss.length).toBe(3);
-    expect(ss.slice(1).map(x => [x.type_serie, x.charge_kg, x.rest_pause])).toEqual([['degressive', 20, true], ['degressive', 20, true]]);
-    expect(M.restPauseDe(ss)[0].role).toBe('tete');
+describe('« J\'ai peu de temps » en objectif Muscle : aucune coupe rest-pause', () => {
+  const structure = [barre('developpe'), iso('curl'), iso('triceps', { prim: ['triceps'] })];
+  test('la même cible, en Muscle : plus de coupe `rest_pause`, une série retirée à la place', () => {
+    const cible = Math.floor(Mo.dureeEstimee(structure) / 60) - 2;
+    const r = Mo.raccourcirRoutine(structure, cible, [], { objectif: 'muscle' });
+    expect(r.journal.some(j => j.quoi === 'rest_pause')).toBe(false);
+    expect(r.exercices.every(e => !e.rp)).toBe(true);
+    expect(r.journal.length).toBeGreaterThan(0);
+    expect(r.exercices[0].tr).toBe(4);   // la barre n'est jamais touchée
+    const c = Mo.carteRaccourcir(structure, r, cible, s => s, false);
+    expect(c.lignes.some(l => /rest-pause/i.test(l))).toBe(false);
+    expect(/rest-pause|Enes|Sodal|Iversen/i.test(c.phrase)).toBe(false);
   });
-  test('sans charge, rien', () => {
-    const s = seance(null);
-    expect(S.ajouterRestPause(s, 0, 0, () => 'x')).toBe(s);
+  test('appliquerRaccourci ne pose jamais de mini-série', () => {
+    const routine = { exercices: [{ id: 'e1', exercise_slug: 'curl', series: [
+      { id: 1, type_serie: 'travail' }, { id: 2, type_serie: 'travail' }, { id: 3, type_serie: 'travail' }] }] };
+    const resultat = { exercices: [iso('curl', { tr: 2 })], journal: [{ quoi: 'rest_pause', i: 0, slug: 'curl' }] };
+    const out = Mo.appliquerRaccourci(routine, resultat).routine.exercices[0].series;
+    expect(out.some(x => x.rest_pause)).toBe(false);
   });
 });
 
-describe('« J\'ai peu de temps » en objectif Muscle', () => {
-  const structure = [barre('developpe'), iso('curl'), iso('triceps', { prim: ['triceps'] })];
-  test('une isolation passe de 3 à 2 séries, la dernière en rest-pause, avant toute autre coupe', () => {
-    const complet = Mo.dureeEstimee(structure);
-    const r = Mo.raccourcirRoutine(structure, Math.floor(complet / 60) - 2, [], { objectif: 'muscle' });
-    expect(r.journal[0].quoi).toBe('rest_pause');
-    const i = r.journal[0].i;
-    expect(r.exercices[i].tr).toBe(2); expect(r.exercices[i].rp).toBe(1);
-    expect(r.journal.filter(j => j.quoi === 'rest_pause').length).toBe(1);
-    expect(r.exercices[0].tr).toBe(4);   // la barre n'est jamais touchée
-  });
-  test('un autre objectif, ou sans options : aucun rest-pause', () => {
-    const cible = Math.floor(Mo.dureeEstimee(structure) / 60) - 2;
-    expect(Mo.raccourcirRoutine(structure, cible, [], { objectif: 'force' }).journal.some(j => j.quoi === 'rest_pause')).toBe(false);
-    expect(Mo.raccourcirRoutine(structure, cible).journal.some(j => j.quoi === 'rest_pause')).toBe(false);
-  });
-  test('un exercice exempté (zone à ménager) n\'y passe pas', () => {
-    const r = Mo.raccourcirRoutine([iso('curl')], 1, ['curl'], { objectif: 'muscle' });
-    expect(r.journal.some(j => j.quoi === 'rest_pause')).toBe(false);
-  });
-  test('appliquerRaccourci pose les deux mini-séries marquées après la dernière série gardée', () => {
-    const routine = { exercices: [{ id: 'e1', exercise_slug: 'curl', series: [
-      { id: 1, type_serie: 'travail' }, { id: 2, type_serie: 'travail' }, { id: 3, type_serie: 'travail' }] }] };
-    const resultat = { exercices: [iso('curl', { tr: 2, rp: 1 })], journal: [{ quoi: 'rest_pause', i: 0, slug: 'curl' }] };
-    const out = Mo.appliquerRaccourci(routine, resultat).routine.exercices[0].series;
-    expect(out.map(x => x.type_serie + (x.rest_pause ? '*' : ''))).toEqual(['travail', 'travail', 'degressive*', 'degressive*']);
-  });
-  test('la carte le dit, avec son pourquoi', () => {
-    const cible = Math.floor(Mo.dureeEstimee(structure) / 60) - 2;
-    const r = Mo.raccourcirRoutine(structure, cible, [], { objectif: 'muscle' });
-    const c = Mo.carteRaccourcir(structure, r, cible, s => s, false);
-    expect(c.lignes.some(l => /rest-pause/.test(l))).toBe(true);
-    expect(c.phrase).toMatch(/Enes 2021/);
+describe('un vieux brouillon qui porte encore une mini-série marquée', () => {
+  test('la lecture la garde : une mini-série, hors travail, rest-pause affiché', () => {
+    const series = [{ type_serie: 'travail', charge_kg: 20, reps: 12 }, { type_serie: 'degressive', charge_kg: 20, reps: 5, rest_pause: true }];
+    const rp = M.restPauseDe(series);
+    expect(rp[1].role).toBe('mini');
+    expect(series.filter(M.estTravail).length).toBe(1);
   });
 });
 

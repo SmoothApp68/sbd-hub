@@ -32478,7 +32478,7 @@ const SETS_IMPORTES = [
         routine_exercises: EXOS_AE[rid].map(([slug, n], rang) => ({ id: 're-' + rid + '-' + rang, routine_id: rid, exercise_slug: slug, rang,
           zone: null, repos_cible_s: 90, groupe_superset: null, note: null, routine_sets: progr(n, 8) })) });
     });
-    const debutAE = new Date(Date.now() - 3 * 86400000).toISOString(), finAE = new Date(Date.now() - 3 * 86400000 + 3600000).toISOString();
+    const tAE = Date.now(), debutAE = mercrediEcoule(1, tAE).toISOString(), finAE = finDe(debutAE, tAE).toISOString();
     base.sessions = [{ id: 'ae-s1', user_id: 'u-banc', titre: 'Haut AE', debut: debutAE, fin: finAE, statut: 'terminee', note: null, salle: null,
       salle_norme: null, routine_id: 'r-ae-h', source: 'app', created_at: debutAE, gestes: null }];
     base.sets = [1, 2, 3].map((k) => ({ id: 'ae-s1-s' + k, session_id: 'ae-s1', user_id: 'u-banc', exercise_slug: 'ae-dev', charge_kg: 60, reps: 8,

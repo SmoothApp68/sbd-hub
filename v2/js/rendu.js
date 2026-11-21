@@ -8116,7 +8116,7 @@
       c2.appendChild(el('div', 'prochaine-eti', 'SÉANCE EN COURS'));
       c2.appendChild(el('div', 'prochaine-nom', se.titre || 'Séance'));
       c2.appendChild(el('div', 'prochaine-meta',
-        se.nbExercices + ' exercice' + (se.nbExercices > 1 ? 's' : '') + ' \u00b7 ' + se.faites + '/' + se.nbSeries + ' ' + M().pluriel(se.nbSeries, 'série')));
+        se.nbExercices + ' exercice' + (se.nbExercices > 1 ? 's' : '') + ' \u00b7 ' + se.faites + '/' + se.nbSeries + ' ' + 'série' + (se.nbSeries > 1 ? 's' : '')));
       var p2 = el('div', 'prochaine-pied');
       var go2 = el('button', 'principal prochaine-go', 'Continuer la séance');
       go2.type = 'button';

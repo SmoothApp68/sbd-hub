@@ -67,7 +67,8 @@ const BANCS = {
   'profil-creation': 'tests/banc/profil-creation.js',
   routines: 'tests/banc/routines-ecran.js',
   'sw-navigation': 'tests/banc/sw-navigation.js',
-  vitesse: 'tests/banc/vitesse.js'
+  vitesse: 'tests/banc/vitesse.js',
+  'tete-3plus1': 'tests/banc/tete-3plus1.js'
 };
 const NOMS_DE_BANC = ['seance', 'aucun'].concat(Object.keys(BANCS));
 

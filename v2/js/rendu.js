@@ -3547,9 +3547,11 @@
     if (memeGabarit && memeCharge) {
       // 204 — le repos d'un exercice seul, « ⏱ 3:00 », en tête de la colonne ✓ (réglable au toucher). Un superset garde un repos par branche.
       var xSeul = !vue.programme && !bloc.superset && typeof vue.surRepos === 'function' ? bloc.exercices[0] : null;
+      // 21/11/2026 (« Simplifier », pilote 3+1) — l'unité (« kg, les deux haltères ») répète la question de la charge habituelle tant qu'elle est posée : elle revient ensuite.
+      var aideRedite = !vue.programme && !bloc.superset && typeof vue.habituelle === 'function' && !!vue.habituelle(bloc.exercices[0]._iExo);
       var enTetes = enTetesColonnes(gabarits[0], vue.programme, charges && charges.length ? charges[0] : null,
         bloc.series.some(function (q) { return q.faite; }),
-        xSeul ? { secondes: xSeul.repos_cible_s, nom: xSeul.nom, sur: function () { vue.surRepos(xSeul._iExo); } } : null);
+        xSeul ? { secondes: xSeul.repos_cible_s, nom: xSeul.nom, sur: function () { vue.surRepos(xSeul._iExo); } } : null, aideRedite);
       // 261 — dans les tours, une colonne de plus (le nom court de la ligne) : l'en-tête la tient, vide, pour que PRÉC., KG et
       // REPS restent au-dessus de leurs cases.
       if (tours) {
@@ -3928,12 +3930,13 @@
           var a = el('button', 'lien-pourquoi', 'Pourquoi\u00a0?');
           a.type = 'button';
           // 211 — un petit point d'accent tant que cet appareil n'a jamais ouvert un « Pourquoi » (CSS, `::before`).
-          if (typeof vue.pourquoiNeuf === 'function' && vue.pourquoiNeuf()) a.classList.add('pourquoi-neuf');
+          if (typeof vue.pourquoiNeuf === 'function' && vue.pourquoiNeuf(x.slug)) a.classList.add('pourquoi-neuf');
           a.addEventListener('click', function (e) { e.stopPropagation(); vue.surPourquoi(x.slug); });
           return a;
         };
         // 154 — « garde-en N » : l'étiquette de la réserve visée, UNE FOIS, au bout de la première ligne de la consigne.
         var gardeEn = !vue.programme && typeof vue.reserveVisee === 'function' ? vue.reserveVisee(x._iExo) : null;
+        var derniereJaune = null;
         (lib.jaune || []).forEach(function (l, iJ) {
           var ligneJ = consigneVivante(l, iJ);
           // Un attribut, rendu par CSS (`::after`) : le texte de la consigne reste celui du moteur, mot pour mot.
@@ -3958,17 +3961,31 @@
               chargeHero.addEventListener('click', function (e) { e.stopPropagation(); vue.surDisques(x._iExo, nbHero); });
             }
           }
+          // 21/11/2026 (« Simplifier », décision 6) — la puce « Si ça passe, ≈ 92,5 kg × 8 » se touche : la feuille s'ouvre sur la phrase qui dit comment charger ce « ≈ » (le « ≈ » reste dans la puce, I61).
+          if (ligneJ.classList.contains('si-ca-passe') && lib.puce && vue.surPourquoi && x.slug) {
+            ligneJ.classList.add('sp-ouvre');
+            ligneJ.setAttribute('role', 'button');
+            ligneJ.tabIndex = 0;
+            var ouvrirAppr = function () { vue.surPourquoi(x.slug, 'approchee'); };
+            ligneJ.addEventListener('click', function (e) { e.stopPropagation(); ouvrirAppr(); });
+            ligneJ.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ouvrirAppr(); } });
+          }
+          derniereJaune = ligneJ;
           entree.appendChild(tapable(ligneJ));
         });
+        // 21/11/2026 (« Simplifier », décision 1) — « Pourquoi ? » AU BOUT de la ligne grise (230 : le SEUL geste qui ouvre la feuille ; sa cible reste à 44 px). Le texte de la ligne est celui du moteur, mot pour
+        // mot (sa forme courte quand il en a écrit une) ; sans phrase grise — « pourquoi rien ? » —, le lien suit le titre du calage, sinon il a sa ligne.
+        var lp = lienPourquoi();
         if (lib.gris) {
           var ligneGris = el('div', 'consigne-dit', lib.gris);
-          // 204 — « Pourquoi ? » en lien discret au bout de la phrase datée ; 230 : c'est le SEUL geste qui ouvre la feuille.
-          entree.appendChild(ligneGris);
-        }
-        // Le lien sur sa ligne, juste sous la consigne (le texte du coach reste mot pour mot ; sans phrase grise — « pourquoi
-        // rien ? » —, le lien est là quand même).
-        var lp = lienPourquoi();
-        if (lp) { var dLien = el('div', 'pourquoi-ligne'); dLien.appendChild(lp); entree.appendChild(dLien); }
+          if (lp) { var rangGris = el('div', 'ligne-gris'); rangGris.appendChild(ligneGris); rangGris.appendChild(lp); entree.appendChild(rangGris); }
+          else entree.appendChild(ligneGris);
+        } else if (lp && derniereJaune && derniereJaune.classList.contains('consigne-grande')) {
+          var rangTitre = el('div', 'ligne-gris ligne-titre');
+          entree.replaceChild(rangTitre, derniereJaune);
+          rangTitre.appendChild(derniereJaune);
+          rangTitre.appendChild(lp);
+        } else if (lp) { var dLien = el('div', 'pourquoi-ligne'); dLien.appendChild(lp); entree.appendChild(dLien); }
         poserEncadre();
         // 211 — « Mon premier pari : … » : la phrase du plan, une fois, sous la consigne (la ligne est déjà la porte du « Pourquoi »).
         var phrasePari = typeof vue.premierPari === 'function' ? vue.premierPari(x._iExo) : null;
@@ -4059,8 +4076,11 @@
   }
 
   function blocHabituelle(hab) {
+    // 21/11/2026 (« Simplifier », pilote 3+1) — la question du calage est LA carte de décision de l'exercice (le +1) : le style des cartes du coach ; « Pour 12 reps environ » sous la question
+    // (c'est elle qu'il précise), puis le champ et « Je ne sais pas ».
     var b = el('div', 'habituelle');
     b.appendChild(el('div', 'habituelle-q', hab.question));
+    if (hab.pour) b.appendChild(el('div', 'consigne-dit habituelle-pour', hab.pour));
     var champ = el('input', 'habituelle-champ');
     champ.type = 'text';
     champ.setAttribute('inputmode', 'decimal');
@@ -4074,7 +4094,6 @@
     ok.addEventListener('click', function () { hab.surValider(champ.value); });
     ligne.appendChild(ok);
     b.appendChild(ligne);
-    if (hab.pour) b.appendChild(el('div', 'consigne-dit', hab.pour));
     var passer = el('button', 'discret habituelle-passer', hab.passer);
     passer.type = 'button';
     passer.addEventListener('click', function () { hab.surPasser(); });
@@ -4188,7 +4207,7 @@
   // la seconde ce qui vient d'être fait — deux observations, et une routine
   // n'observe rien. `EFFORT` tombe avec elles pour la même raison, et parce
   // que `routine_sets` n'a pas de colonne où le mettre.
-  function enTetesColonnes(g, programme, chargeProgramme, effortVu, repos) {
+  function enTetesColonnes(g, programme, chargeProgramme, effortVu, repos, sansAide) {
     var noms = colonnesDe(g);
     var champs = noms.map(function (n) { return M().champDeMesure(n); });
     var cp = programme ? chargeProgramme : null;
@@ -4218,7 +4237,7 @@
       entetes.appendChild(el('span', 'centre', ''));
     }
     // 245 — l'unité des haltères, une ligne sous les en-têtes (12 px, couleur secondaire) : « kg, les deux haltères ».
-    if (g.aide) {
+    if (g.aide && sansAide !== true) {
       var enSemble = doc.createDocumentFragment();
       enSemble.appendChild(entetes);
       enSemble.appendChild(el('div', 'aide-unite', g.aide));
@@ -5613,6 +5632,27 @@
       n.appendChild(el('span', 'pq-role', [l.libelle, l.raison, l.faite].filter(Boolean).join(' · ')));
       cible.appendChild(n);
     });
+    // 21/11/2026 (« Simplifier », décisions 3 et 6) — les deux phrases qui ont quitté la tête d'exercice, mot pour mot, du plan : comment charger un « ≈ » (la puce « Si ça passe » ouvre la feuille ici) et la
+    // raison de la chauffe proposée (« La chauffe », qui éteint le point ambre de « Pourquoi ? »).
+    var sections = {};
+    if (p.approchee) {
+      cible.appendChild(el('div', 'pq-sec pq-sec-approchee', 'Si ça passe'));
+      var pa = el('p', 'pq-p pq-approchee', p.approchee);
+      pa.setAttribute('data-pq-section', 'approchee');
+      cible.appendChild(pa);
+      sections.approchee = pa;
+    }
+    if (p.chauffe) {
+      cible.appendChild(el('div', 'pq-sec pq-sec-chauffe', 'La chauffe'));
+      var pch = el('p', 'pq-p pq-chauffe', p.chauffe);
+      pch.setAttribute('data-pq-section', 'chauffe');
+      cible.appendChild(pch);
+      sections.chauffe = pch;
+    }
+    if (vue.section && sections[vue.section] && typeof sections[vue.section].scrollIntoView === 'function') {
+      var versSection = sections[vue.section];
+      setTimeout(function () { try { versSection.scrollIntoView({ block: 'nearest' }); } catch (e) { /* tant pis : la feuille reste lisible */ } }, 0);
+    }
     // MOTEUR §12.9 (49-U13) — le compteur de stagnation, en une ligne.
     if (p.compteur) cible.appendChild(el('p', 'pq-p', p.compteur));
     // MOTEUR §13.6 (49-U20) — le frère qui progresse, après le compteur.

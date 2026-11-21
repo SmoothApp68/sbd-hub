@@ -3503,3 +3503,18 @@ input,select,textarea,.ch-serie,.rp-serie,.eff-serie{
 .page-publique-corps h1{font-size:22px;color:var(--texte)}
 .page-publique-pied{font-size:14px;color:var(--texte-2)}
 .page-publique-pied a{color:var(--texte);text-decoration:underline;display:inline-block;padding:10px 4px}
+
+/* ── 21/11/2026 — « SIMPLIFIER », PILOTE 3+1 : la tête d'un exercice en séance (ECRAN-SAISIE, delta du 21/11/2026) ──────────────────────────────────
+   Trois éléments et une carte. « Pourquoi ? » est au BOUT de la ligne grise (sa cible reste à 44 px : padding 12 / marge −12) ; la puce « Si ça passe » se touche (feuille) ;
+   la question du calage et les chauffes proposées sont la carte de décision, dans le style des cartes du coach. */
+.ligne-gris{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:10px;margin-top:3px}
+.ligne-gris .consigne-dit{margin-top:0;flex:0 1 auto;min-width:0}
+.ligne-gris .consigne.consigne-grande{margin-top:0;flex:0 1 auto;min-width:0}
+.ligne-gris .lien-pourquoi{flex:0 0 auto}
+.ligne-gris.ligne-titre{margin-top:6px}
+.consigne.si-ca-passe.sp-ouvre{position:relative;cursor:pointer}
+.consigne.si-ca-passe.sp-ouvre::after{content:"";position:absolute;left:0;right:0;top:-7px;bottom:-7px}
+.habituelle{margin:8px 0 4px;padding:8px 10px;border-left:3px solid var(--texte-2);border-radius:0 8px 8px 0;background:var(--panneau-2)}
+.habituelle-q{font-size:15px;font-weight:600;line-height:1.35;color:var(--texte)}
+.habituelle .habituelle-pour{margin-top:2px;font-size:13px}
+.habituelle .habituelle-saisie{margin:8px 0 6px}

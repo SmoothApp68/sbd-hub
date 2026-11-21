@@ -7820,9 +7820,9 @@
     if (!r) return null;
     var S = Modele().secondes, cible = regle('repos.duree');
     if (r.cas === 'test') {
-      // 21/11/2026 : « Entre deux essais lourds » seulement en mode essais ; une série au max : « Série au max : … entre les séries » ; hors mesure : « Semaine de mesure ».
+      // 21/11/2026 : « Entre deux essais lourds » seulement en mode essais ; une série au max : « Série de mesure : … entre les séries » ; hors mesure : « Semaine de mesure ».
       if (r.mode === 'max') return 'Entre deux essais lourds, je conseille ' + S(r.s, cible) + '.';
-      return (r.mode === 'serie' ? 'Série au max' : 'Semaine de mesure') + DEUX_POINTS + 'je conseille ' + S(r.s, cible) + ' entre les séries.';
+      return (r.mode === 'serie' ? 'Série de mesure' : 'Semaine de mesure') + DEUX_POINTS + 'je conseille ' + S(r.s, cible) + ' entre les séries.';
     }
     if (r.cas === 'raccourci') return 'Raccourci « peu de temps » : valeur posée.';
     if (r.cas === 'superset') return nombreFr(r.membres, regle('repos.membres')) + ' exercices dans le tour : je conseille ' + S(r.s, cible) + ' entre les tours.';

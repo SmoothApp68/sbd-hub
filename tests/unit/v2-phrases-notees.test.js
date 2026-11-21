@@ -4,7 +4,7 @@
 //   1. « Tes séries y ont fait . » : la phrase vide du « Pourquoi » d'une consigne `zero_rep`.
 //   2. « en gardant N » / « en en gardant N » : le vocabulaire de VOIX-DU-COACH-V1.md est « avec N en réserve » (0 : « jusqu’au bout »).
 //   3. En semaine de mesure, la phrase des chauffes ne contredit plus les lignes posées par « Ajouter ces lignes ».
-//   4. Le repos conseillé d'une série au max ne parle pas d'« essais » ; un exercice non mesuré non plus.
+//   4. Le repos conseillé d'une série de mesure ne parle pas d'« essais » ; un exercice non mesuré non plus.
 
 process.env.TZ = 'Europe/Paris';
 global.self = global;
@@ -137,7 +137,7 @@ describe('3 et 4. la semaine de mesure : les chauffes et le repos disent ce qui 
     expect(sp(x.chauffes.phrase)).toMatch(/^Chauffes calées sur 100 kg/);
   });
 
-  test('4. le repos conseillé : essais, série au max, exercice non mesuré', () => {
+  test('4. le repos conseillé : essais, série de mesure, exercice non mesuré', () => {
     const lire = (extra) => {
       const d = depart(extra);
       const e = entrees(d.se, extra);
@@ -149,8 +149,9 @@ describe('3 et 4. la semaine de mesure : les chauffes et le repos disent ce qui 
     expect(barreMax).toBe('Entre deux essais lourds, je conseille 4 min.');
     expect(curlMax).toBe('Semaine de mesure : je conseille 4 min entre les séries.');
     const [barreSerie, curlSerie] = lire({ debutant: true });
-    expect(barreSerie).toBe('Série au max : je conseille 4 min entre les séries.');
+    expect(barreSerie).toBe('Série de mesure : je conseille 4 min entre les séries.');
     expect(barreSerie).not.toMatch(/essais/);
+    [barreMax, curlMax, barreSerie, curlSerie].forEach((t) => expect(t).not.toMatch(/au max/i));   // « Au max » est interdit depuis I251 (20/11/2026)
     expect(curlSerie).toBe('Semaine de mesure : je conseille 4 min entre les séries.');
   });
 
@@ -159,7 +160,8 @@ describe('3 et 4. la semaine de mesure : les chauffes et le repos disent ce qui 
     const base = { famille: 'grand', reps: 3, garde: 1, series: 3, test: true };
     expect(M.reposConseilleDeBase(Object.assign({}, base, { modeDeTest: 'serie' })).s).toBe(M.reposConseilleDeBase(Object.assign({}, base, { modeDeTest: 'max' })).s);
     expect(sp(phrase(Object.assign({}, base, { modeDeTest: 'max' })))).toBe('Entre deux essais lourds, je conseille 4 min.');
-    expect(sp(phrase(Object.assign({}, base, { modeDeTest: 'serie' })))).toBe('Série au max : je conseille 4 min entre les séries.');
+    expect(sp(phrase(Object.assign({}, base, { modeDeTest: 'serie' })))).toBe('Série de mesure : je conseille 4 min entre les séries.');
     expect(sp(phrase(base))).toBe('Semaine de mesure : je conseille 4 min entre les séries.');
+    ['max', 'serie', null].forEach((m) => expect(sp(phrase(Object.assign({}, base, { modeDeTest: m })))).not.toMatch(/au max/i));
   });
 });

@@ -94,6 +94,8 @@ describe('I270 — la tête : trois éléments, deux phrases qui partent à la f
     const { e, p } = decor({ bloc: false, vise: 6, niveau: 5 });
     const x = p.exercices[0];
     x.approchee = { phrase: '≈ 92,5 kg : vise la barre au-dessus.' };
+    x.consigne = Object.assign({}, x.consigne, { etat: 'test_propose' });
+    x.entete.jaune = ['Aujourd\u2019hui : 90 kg × 8.', 'Si ça passe, ≈ 92,5 kg × 6.'];
     T.tetesDuPlan(p, e);
     expect(x.tete.approchee).toBe('feuille');
     expect(x.pourquoi.approchee).toBe('≈ 92,5 kg : vise la barre au-dessus.');
@@ -144,5 +146,77 @@ describe('l\'écran lit, il ne coupe pas', () => {
     // le troisième élément : le compteur OU le frère, jamais les deux (la tête lit `x.tete.tiers`)
     expect(app).toMatch(/compteur: x\.entete\.compteur && \(!tete \|\| tete\.tiers === 'compteur'\)/);
     expect(app).toMatch(/frere: x\.entete\.frere && \(!tete \|\| tete\.tiers === 'frere'\)/);
+  });
+});
+
+
+describe('contradicteur du 21/11/2026 : cinq défauts, chacun avec son test discriminant', () => {
+  test('1. la veille ne compte que pour SA barre : les chauffes des autres exercices ne l\u2019attendent pas', () => {
+    const p = { veilleActivite: { slug: 'squat' }, exercices: [
+      { slug: 'couche', entete: {}, proposition: { pourquoi: null, lignes: [] } },
+      { slug: 'squat', entete: {}, carteReprise: { titre: 't' } }] };
+    T.tetesDuPlan(p, {});
+    expect(p.exercices[0].file.carte).toBe('chauffes');
+    expect(p.exercices[0].file.enAttente).toEqual([]);
+    expect(p.exercices[1].file.carte).toBe('reprise');
+    expect(p.exercices[1].file.enAttente).toEqual(['veille']);
+    // l\u2019app lit la file de la barre de la veille avant d\u2019afficher la carte
+    expect(fs.readFileSync(path.join(__dirname, '../../v2/js/app.js'), 'utf8')).toMatch(/carteEnAttente\(iV, 'veille'\)/);
+  });
+  test('1 bis. I271 relit la veille par barre, à part', () => {
+    const { e, p } = decor({ bloc: false });
+    const x = p.exercices[0];
+    p.veilleActivite = { slug: 'squat' };            // une autre barre que le couché
+    x.proposition = { phrase: 'Chauffe : 45 kg × 15.', pourquoi: null, lignes: [] };
+    T.tetesDuPlan(p, e);
+    expect(x.file.carte).toBe('chauffes');
+    expect(erreurs(p, e, /^I271/)).toEqual([]);
+    x.file = { ordre: T.ORDRE_DE_LA_FILE.slice(), carte: 'veille', enAttente: ['chauffes'] };
+    expect(erreurs(p, e, /^I271/).length).toBeGreaterThan(0);
+  });
+  test('2. une ligne approchée HORS test (pas de puce « Si ça passe ») garde sa phrase en tête', () => {
+    const K = { etat: 'progression', zone: 'mix', palier: 32.5, niveau: 8, n: 3, ligne: { charge: 32.5, vise: 9, approchee: true }, haut: null,
+      fondement: { date: '2026-10-28T17:00:00.000Z', reps: [8, 8, 8], approchee: true } };
+    const { e, p } = decor({ bloc: false });
+    const x = p.exercices[0];
+    x.approchee = { phrase: '≈ 32,5 kg : vise la charge la plus proche.' };
+    x.consigne = Object.assign({}, x.consigne, K);
+    x.entete.jaune = ['Aujourd\u2019hui : 32,5 kg × 9.'];
+    T.tetesDuPlan(p, e);
+    expect(x.tete.approchee).toBe('tete');
+    expect(x.pourquoi.approchee).toBeUndefined();
+    expect(erreurs(p, e, /^I270/)).toEqual([]);
+    x.tete.approchee = 'feuille'; x.pourquoi.approchee = x.approchee.phrase;
+    expect(erreurs(p, e, /^I270/).length).toBeGreaterThan(0);
+  });
+  test('3. en Décharge, la tête courte ne remplace jamais la phrase du repli', () => {
+    let n = 0; const id = () => 's' + (++n);
+    let se = S.creer({ id: 'S1', userId: 'u', idSerie: id });
+    se = S.ajouterExercice(se, 'couche', id, { series: 4 });
+    const debut = '2026-11-03T10:00:00+00:00';
+    const K0 = { etat: 'progression', zone: 'lourd', palier: 125, niveau: 5, n: 4, ligne: { charge: 125, vise: 5 }, haut: null, fondement: { date: '2026-10-26T17:00:00.000Z', reps: [5, 5, 5, 5] } };
+    const K = M.consignePlusLegere(K0, { palier: 120, niveau: 4, debut: '2026-10-01T17:00:00.000Z', reps: [4, 4, 4], ligne: [120, 4] });
+    const e = { seance: { id: 'S1', debut, edition: false, exercices: se.exercices },
+      consignes: { couche: { consigne: K, libelles: M.libellesConsigne(K, debut), compteur: { compteur: 0, meilleur: null, blocages: [] }, repli: null } },
+      reglage: 'franc', paris: [], suites: {}, phase: 'maintien', catalogue: null,
+      escalier: { cartes: [], compteurs: [], noms: { couche: 'Développé Couché (Barre)' }, seriesRoutine: { couche: 4 }, marches: [] },
+      programme: { blocs: [BLOC], lignes: [] } };
+    const p = T.planDeSeance(e); const x = p.exercices[0];
+    expect(x.consigne.repli).toBeTruthy();
+    expect(x.entete.court).toBeUndefined();
+    expect(T.verifierPlan(p, e).erreurs.filter((m) => /^I269/.test(m))).toEqual([]);
+  });
+  test('5. I271 : une décision appliquée (chauffes posées, silence) n\u2019est jamais une carte de la file', () => {
+    const { e, p } = decor({ bloc: false });
+    const x = p.exercices[0];
+    x.proposition = { phrase: 'Chauffe : 45 kg × 15.', pourquoi: null, lignes: [] };
+    x.chauffesPosees = { texte: 'posées' };
+    T.tetesDuPlan(p, e);                    // la file retient les chauffes alors qu\u2019elles sont posées
+    expect(x.file.carte).toBe('chauffes');
+    expect(erreurs(p, e, /^I271.*décision appliquée/).length).toBe(1);
+    delete x.chauffesPosees; x.silenceChauffes = { texte: 's', annuler: 'Annuler' };
+    expect(erreurs(p, e, /^I271.*décision appliquée/).length).toBe(1);
+    delete x.silenceChauffes;
+    expect(erreurs(p, e, /^I271/)).toEqual([]);
   });
 });

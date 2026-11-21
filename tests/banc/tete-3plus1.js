@@ -19,6 +19,8 @@
 const path = require('path');
 const fs = require('fs');
 const R = path.join(__dirname, '../..');
+// 21/11/2026 — la colonne : 380 par défaut ; `LARGEUR=360 node tests/banc/tete-3plus1.js` rejoue les cinq états sur un téléphone étroit (tout.js joue les deux).
+const LARGEUR = +(process.env.LARGEUR || 380);
 const { chromium } = require(path.join(R, 'node_modules/playwright-core'));
 const Garde = require(path.join(R, 'tests/banc/garde-reseau.js'));
 const { creer } = require(path.join(R, 'v2-atelier/banc/serveur-pages.js'));
@@ -185,6 +187,8 @@ const MESURER = () => {
       gris: gris.map(T),
       grisDansRang: !!(lien && lien.closest('.ligne-gris')),
       lien: rl ? { h: Math.round(rl.height), neuf: lien.classList.contains('pourquoi-neuf') } : null,
+      cible: rl ? (() => { lien.scrollIntoView({ block: 'center' }); const q = lien.getBoundingClientRect(); const out = {}; for (let ix = 0; ix <= 10; ix++) for (let iy = 0; iy <= 10; iy++) { const X = q.left + 0.5 + (q.width - 1) * ix / 10, Y = q.top + 0.5 + (q.height - 1) * iy / 10; const z = document.elementFromPoint(X, Y); const k = z === lien || lien.contains(z) ? 'ok' : (z ? z.tagName + '.' + String(z.className).slice(0, 30) + '@' + JSON.stringify((r => [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)])(z.getBoundingClientRect())) : 'rien'); out[k] = (out[k] || 0) + 1; } return out; })() : null,
+      lienRect: rl ? [Math.round(rl.left), Math.round(rl.top), Math.round(rl.width), Math.round(rl.height)] : null, docW: document.documentElement.scrollWidth,
       tiers: tiers.map(T),
       elements: (consignes.length ? 1 : 0) + (gris.length || dansLeg('.ligne-titre').length ? 1 : 0) + (tiers.length ? 1 : 0),
       cartes: cartes.map((c) => c.className.replace(/\s+/g, ' ') + ' | ' + T(c)),
@@ -211,7 +215,7 @@ async function jouer(code, sc, port) {
   const nav = await Garde.lancer(chromium, { executablePath: CHROME, args: ['--no-sandbox'] });
   const errs = [];
   try {
-    const ctx = await nav.newContext({ viewport: { width: 380, height: 800 }, deviceScaleFactor: 2, serviceWorkers: 'block', locale: 'fr-FR', timezoneId: 'Europe/Paris' });
+    const ctx = await nav.newContext({ viewport: { width: LARGEUR, height: 800 }, deviceScaleFactor: 2, serviceWorkers: 'block', locale: 'fr-FR', timezoneId: 'Europe/Paris' });
     await ctx.addInitScript((u) => {
       const J = JSON.stringify({ access_token: 'faux', refresh_token: 'faux', expires_at: 4102444800, token_type: 'bearer', user: { id: u, email: 'tete@test' } });
       localStorage.setItem('th-v2-auth', J);
@@ -282,6 +286,8 @@ async function jouer(code, sc, port) {
         verifier(m.every((x) => x.tiers.length <= 1), 'un seul troisième élément (compteur ou « Pendant ce temps »)');
         verifier(m.every((x) => x.cartes.length <= 1), 'une seule carte de décision par exercice', JSON.stringify(m.map((x) => x.cartes)));
         verifier(m.every((x) => !x.lien || x.lien.h >= 44), '« Pourquoi ? » garde une cible de 44 px', JSON.stringify(m.map((x) => x.lien && x.lien.h)));
+        // La cible se SONDE (`elementFromPoint`, grille 11 × 11 sur la boîte du lien) : une boîte de 44 px que la puce ou un voisin recouvre n'est pas une cible.
+        verifier(m.every((x) => !x.cible || (x.cible.ok === 121 && x.lien.h >= 44)), '« Pourquoi ? » : les 121 points de sa cible de 44 px touchent le lien (' + LARGEUR + ' px)', JSON.stringify(m.map((x) => x.cible)));
         verifier(m.every((x) => !/\b(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|hier)\s*:\s*[\d]/i.test(x.tete)), 'aucun fait daté (« Mardi : 90 kg × 8, 8, 8. ») dans la tête', m.map((x) => x.tete).join(' || '));
         verifier(m.every((x) => !x.raison), 'plus de « Pourquoi cette chauffe ? » sous la carte');
         verifier(h <= AVANT_PX[code] - GAIN_MIN[code], 'gain de hauteur ≥ ' + GAIN_MIN[code] + ' px (' + h + ' ≤ ' + (AVANT_PX[code] - GAIN_MIN[code]) + ')');

@@ -13014,6 +13014,10 @@ const SETS_IMPORTES = [
       const d = window.THPlan && window.THPlan.dernier;
       return d ? d.plan.exercices.map((x) => x.entete.frere || null) : [];
     });
+    const compteursD = await page.evaluate(() => {
+      const d = window.THPlan && window.THPlan.dernier;
+      return d ? d.plan.exercices.map((x) => !!(x.entete && x.entete.compteur)) : [];
+    });
     const enteteD = await page.evaluate(() => Array.from(document.querySelectorAll('.legende-exo'))
       .map((l) => { const f = l.querySelector('.consigne-dit.frere'); return f ? f.textContent : null; }));
     const feuilleD = [];
@@ -13028,9 +13032,9 @@ const SETS_IMPORTES = [
     ok('[E] 49-U20 — DISCRIMINANT : la phrase du frère, la même dans le plan, l’en-tête et la feuille « Pourquoi » (deux exercices)',
       // 21/11/2026 (3+1) : le compteur prend le troisième élément de la tête ; « Pendant ce temps » y reste seulement sans compteur, et la feuille le dit toujours.
       freresD.length === 2 && freresD.every(Boolean) && enteteD.length === 2 &&
-      freresD.every((f, i) => (enteteD[i] === null || sp(enteteD[i]) === sp(f)) && feuilleD[i].length === 1 && feuilleD[i][0] === sp(f)) &&
-      enteteD.filter(Boolean).length >= 1,
-      JSON.stringify([freresD, enteteD, feuilleD]));
+      freresD.every((f, i) => (compteursD[i] ? enteteD[i] === null : sp(enteteD[i]) === sp(f)) && feuilleD[i].length === 1 && feuilleD[i][0] === sp(f)) &&
+      compteursD.length === 2 && compteursD.some(Boolean) && !compteursD.every(Boolean),
+      JSON.stringify([freresD, enteteD, feuilleD, compteursD]));
     await abandonner();
     masquesD.forEach((l, i) => { l.fondement = fondementsD[i]; });
     await aller('/saisie');

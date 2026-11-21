@@ -3510,7 +3510,7 @@ input,select,textarea,.ch-serie,.rp-serie,.eff-serie{
 .ligne-gris{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:10px;margin-top:3px}
 .ligne-gris .consigne-dit{margin-top:0;flex:0 1 auto;min-width:0}
 .ligne-gris .consigne.consigne-grande{margin-top:0;flex:0 1 auto;min-width:0}
-.ligne-gris .lien-pourquoi{flex:0 0 auto}
+.ligne-gris .lien-pourquoi{flex:0 0 auto;position:relative;z-index:1;padding-inline:0;margin-inline:0}  /* 21/11/2026 : au-dessus de la zone de touche de la puce « Si ça passe », sans déborder sous le bouton du repos (sondé en 11 × 11, 380 et 360 px) */
 .ligne-gris.ligne-titre{margin-top:6px}
 .consigne.si-ca-passe.sp-ouvre{position:relative;cursor:pointer}
 .consigne.si-ca-passe.sp-ouvre::after{content:"";position:absolute;left:0;right:0;top:-7px;bottom:-7px}

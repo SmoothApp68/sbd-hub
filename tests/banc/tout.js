@@ -51,6 +51,7 @@ if (require.main === module) (async () => {
     lancer('banc du mouvement', [path.join(__dirname, 'mouvement.js')]),
     // 21/11/2026 — « Simplifier », pilote 3+1 : les cinq états de la tête d'un exercice, la hauteur gagnée
     lancer('banc de la tête 3+1', [path.join(__dirname, 'tete-3plus1.js')]),
+    lancer('banc de la tête 3+1 (360 px)', [path.join(__dirname, 'tete-3plus1.js')], { LARGEUR: '360' }),
     lancer('banc d’écran de séance', [path.join(__dirname, 'seance-rapide.js')].concat(seq ? ['--sequentiel'] : []))
   ]).then((r) => v.concat(r))).then((r) => {
     console.log('\n══ TOUT (sur l’état commité) ══');

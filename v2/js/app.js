@@ -11364,7 +11364,11 @@
       propositionVeille: function () {
         if (enEdition() || !seance) return null;
         var p = planActuel();
-        return p && p.veilleActivite ? p.veilleActivite : null;
+        if (!p || !p.veilleActivite) return null;
+        // 21/11/2026 (3+1) — la veille lit la file de SA barre : une carte de décision d'avant elle (la reprise) la retient ; les chauffes des autres exercices ne l'attendent pas.
+        var iV = (p.exercices || []).findIndex(function (x) { return x.slug === p.veilleActivite.slug; });
+        if (iV >= 0 && carteEnAttente(iV, 'veille')) return null;
+        return p.veilleActivite;
       },
       surVeille: async function (choix) {
         var p = planActuel(), v = p && p.veilleActivite;

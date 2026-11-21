@@ -1794,8 +1794,11 @@
     if (gris) {
       try {
         if (consigne.allegee) {
+          // La Décharge ne pose son court que sur SA phrase (jamais sur le repli, ni sur une charge allégée qui l'a remplacée) : même garde que la branche normale.
+          if (capDA && gris === capDA.texte && !consigne.repli) {
           var capCA = V.capturer(function () { return M.grisAllegee(consigne, true); });
           if (capCA.texte && capCA.texte !== gris) { grisCourt = capCA.texte; citesCourt = (capCA.citations || []).filter(function (q) { return q.texte && capCA.texte.indexOf(q.texte) >= 0; }); }
+          }
         } else if (capG && capG.texte === gris && !consigne.repli) {
           var capCK = V.capturer(function () { return M.grisCourt(consigne, debut); });
           if (capCK.texte) { grisCourt = capCK.texte; citesCourt = (capCK.citations || []).filter(function (q) { return q.texte && capCK.texte.indexOf(q.texte) >= 0; }); }
@@ -3786,9 +3789,15 @@
       paris: !!(x.parisRates && x.parisRates.carte),
       calage: !!(x.calage && x.calage.demandeHabituelle),
       autre: !!(x.carteLest || x.carteMarche || (x.escalier && x.escalier.carte)),
-      veille: !!plan.veilleActivite,
+      // La veille est la carte d'UNE barre (`veilleActivite.slug`) : elle ne compte que pour cet exercice, jamais pour les autres (les chauffes du couché ne l'attendent pas).
+      veille: !!(plan.veilleActivite && plan.veilleActivite.slug === x.slug),
       chauffes: !!x.proposition
     };
+  }
+  // La phrase du « ≈ » ne va à la feuille que si la puce « Si ça passe » la porte (un test proposé, sa ligne de jaune) : sinon elle reste en tête, là où elle est dite.
+  function approcheeParLaPuce(x) {
+    var c = x && x.consigne, en = (x && x.entete) || {};
+    return !!(c && c.etat === 'test_propose' && (en.jaune || []).some(function (l) { return /^Si ça passe/.test(String(l)); }));
   }
   function tetesDuPlan(plan, e) {
     if (!plan || !Array.isArray(plan.exercices)) return plan;
@@ -3808,7 +3817,7 @@
         ligne: en.court ? 'court' : (en.gris ? 'gris' : null),
         tiers: tiers,
         // Les deux phrases qui quittent la tête pour la feuille, quand une feuille existe (sinon elles restent là où elles étaient : rien d'annoncé n'est caché).
-        approchee: x.approchee && x.approchee.phrase ? (peutLaFeuille ? 'feuille' : 'tete') : null,
+        approchee: x.approchee && x.approchee.phrase ? (peutLaFeuille && approcheeParLaPuce(x) ? 'feuille' : 'tete') : null,
         chauffe: x.proposition && x.proposition.pourquoi ? (peutLaFeuille ? 'feuille' : 'carte') : null
       };
       if (x.pourquoi) {
@@ -8272,7 +8281,7 @@
       if (en.compteur && en.frere && !(x.pourquoi && x.pourquoi.frere)) erreurs.push('I270' + nom + 'le « Pendant ce temps » quitte la tête sans être au « Pourquoi »');
       var phr = x.approchee && x.approchee.phrase ? x.approchee.phrase : null;
       if (phr) {
-        if (x.pourquoi ? t.approchee !== 'feuille' || x.pourquoi.approchee !== phr : t.approchee !== 'tete') erreurs.push('I270' + nom + 'la phrase du « ≈ » n’est ni à la feuille ni dans la tête');
+        if (x.pourquoi && approcheeParLaPuce(x) ? t.approchee !== 'feuille' || x.pourquoi.approchee !== phr : t.approchee !== 'tete') erreurs.push('I270' + nom + 'la phrase du « ≈ » n’est ni à la feuille ni dans la tête');
       } else if (t.approchee) erreurs.push('I270' + nom + 'une place pour la phrase du « ≈ » alors qu’il n’y en a pas');
       var rai = x.proposition && x.proposition.pourquoi ? x.proposition.pourquoi : null;
       if (rai) {
@@ -8287,14 +8296,14 @@
       present.paris = !!(x.parisRates && x.parisRates.carte);
       present.calage = !!(x.calage && x.calage.demandeHabituelle);
       present.autre = !!x.carteLest || !!x.carteMarche || !!(x.escalier && x.escalier.carte);
-      present.veille = !!plan.veilleActivite;
+      present.veille = !!(plan.veilleActivite && plan.veilleActivite.slug === x.slug);
       present.chauffes = !!x.proposition;
       var attendue = null, reste = [];
       NOMS.forEach(function (n) { if (!present[n]) return; if (attendue === null) attendue = n; else reste.push(n); });
       if (f.carte !== attendue) erreurs.push('I271' + nom + 'la carte retenue est « ' + f.carte + ' », la première de l’ordre est « ' + attendue + ' »');
       if (f.enAttente.join('|') !== reste.join('|')) erreurs.push('I271' + nom + 'les cartes en attente sont « ' + f.enAttente.join(', ') + ' », elles devraient être « ' + reste.join(', ') + ' »');
       if (f.ordre.join('|') !== NOMS.join('|')) erreurs.push('I271' + nom + 'l’ordre de la file n’est pas celui de la règle');
-      if ((x.chauffesPosees || x.silenceChauffes) && f.enAttente.concat(f.carte ? [f.carte] : []).some(function (n) { return NOMS.indexOf(n) < 0; })) erreurs.push('I271' + nom + 'une décision appliquée est entrée dans la file');
+      if ((x.chauffesPosees || x.silenceChauffes) && (f.carte === 'chauffes' || f.enAttente.indexOf('chauffes') >= 0)) erreurs.push('I271' + nom + 'une décision appliquée (chauffes posées ou silence) est entrée dans la file');
     });
   }
   // I167 (chantier « Les mots disent vrai », PR 5a-bis, MOTEUR §9.48 bis) — LA SUITE LIT AUJOURD'HUI. Quand une charge est répétée aujourd'hui (au moins deux

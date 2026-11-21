@@ -38,5 +38,15 @@
   "unitaires": [
    "tests/unit/v2-simplifier-3plus1.test.js"
   ]
+ },
+ {
+  "nom": "3plus1-veille-masque-les-chauffes-de-tous",
+  "fichier": "v2/js/plan.js",
+  "ancien": "veille: !!(plan.veilleActivite && plan.veilleActivite.slug === x.slug),\n      chauffes: !!x.proposition",
+  "nouveau": "veille: !!plan.veilleActivite,\n      chauffes: !!x.proposition",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-simplifier-3plus1.test.js"
+  ]
  }
 ]

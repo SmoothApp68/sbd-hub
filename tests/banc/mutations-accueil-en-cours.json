@@ -2,8 +2,8 @@
  {
   "nom": "ae-1-la-routine-suivante-pendant-la-seance",
   "fichier": "v2/js/app.js",
-  "ancien": "var suivante = !seance && (etatRoutines.code === 'ok' || routines.length)",
-  "nouveau": "var suivante = (etatRoutines.code === 'ok' || routines.length)",
+  "ancien": "var suivante = !seance && (etatRoutines.code === 'ok' || routines.length) ? Routines.routineSuivante(routines, local.seances) : null;\n    var enCours = null;\n    if (seance) {",
+  "nouveau": "var suivante = (etatRoutines.code === 'ok' || routines.length) ? Routines.routineSuivante(routines, local.seances) : null;\n    var enCours = null;\n    if (false) {",
   "unitaires": [
    "tests/unit/v2-vivant-accueil.test.js"
   ],

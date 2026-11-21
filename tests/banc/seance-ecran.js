@@ -32013,7 +32013,9 @@ const SETS_IMPORTES = [
     ok('[ST] I225 — DISCRIMINANT — le squat (testable) prend le créneau du jour, bien que le soulevé soit le premier de la routine',
       !!sq.t && sq.t.testee === true && sq.t.etat === 'a_faire' && !!sdt.t && sdt.t.testee === false, nb([sq.t && sq.t.testee, sdt.t]));
     // La phrase, mot pour mot, avec la date absolue de la série (140 kg × 5), calculée ici à part de l'app.
-    const dSdt = new Date(tST - 100 * 86400000);
+    // Le même calcul que la fixture (`ilYa`, jours CIVILS) : 100 × 24 h franchit le passage à l'heure d'hiver et, entre 23 h et minuit,
+    // tombait un jour plus tard que la série posée (attendu « 13 août », servi « 12 août »).
+    const dSdt = ilYa(100 * 86400000, tST);
     const jourSdt = dSdt.getDate() === 1 ? '1er' : String(dSdt.getDate());
     const attendu = new RegExp('^' + NOM_SDT.replace(/[()]/g, '\\$&') + ' : pas d’essai cette semaine\\. Ta force estimée vient de 140 kg × 5, le ' + jourSdt +
       ' [^\\s,:]+( \\d{4})? : je n’ai pas de série assez récente pour régler un essai\\.$');

@@ -1725,6 +1725,15 @@ const SETS_IMPORTES = [
         return json(projeter(st ? base.sessions.filter((s) => s.statut === st) : base.sessions, url));
       }
       if (table === 'sets') {
+        // 21/11/2026 (synchro-ordre) — `seriesRetenir` : UNE lecture des séries (celle de `synchroniser`, sans `session_id`)
+        // retenue jusqu'à `seriesLibere`. ⚠️ À l'inverse de la pesée (148), la réponse est CONSTRUITE APRÈS la retenue :
+        // c'est un serveur lent qui sert, à la fin, ce qu'il a MAINTENANT — la séance montée par un autre appareil pendant
+        // le téléchargement y est, et la liste des séances lue avant, non.
+        if (base.seriesRetenir && !url.searchParams.get('session_id')) {
+          base.seriesRetenir = false; base.seriesLibere = false; base.seriesRetenue = true;
+          for (let k = 0; k < 1200 && !base.seriesLibere; k++) await pause(50);   // le pas d'une attente d'état : le verrou
+          base.seriesRetenue = false;
+        }
         // 117 — `session_id=in.(…)` aussi (le rapprochement des séries, `Donnees.seriesDesSeances`).
         const brutSid = url.searchParams.get('session_id') || '';
         if (brutSid.startsWith('in.')) {
@@ -27002,6 +27011,72 @@ const SETS_IMPORTES = [
     ok('[P148] la garde (C6) n’a rien signalé, aucun refus du faux serveur, aucune erreur de page',
       gardeBanc.violations === violations148 && base.journal.filter((j) => j.op === 'refus').length === refus148 && erreurs.length === erreurs148,
       JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus148), erreurs.slice(erreurs148)]));
+  }
+
+  console.log('\n══ synchro-ordre. UNE SÉANCE MONTÉE PENDANT LE TÉLÉCHARGEMENT DES SÉRIES NE PERD PAS SES SÉRIES (21/11/2026, « 32 séries manquantes ») ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : la lecture des séries de `synchroniser` est retenue ; pendant la retenue, un AUTRE
+  // appareil (ici : le faux serveur directement) crée une séance et monte ses séries ; la lecture est libérée et sert, à
+  // la fin, ce que le serveur a maintenant. Avec la liste des séances lue AVANT les séries (l'ordre d'avant), la liste ne
+  // contient pas la séance neuve, la purge jette ses séries, et le curseur les dépasse. Lues APRÈS, séance et séries y sont.
+  {
+    const erreurs154 = erreurs.length;
+    const refus154 = base.journal.filter((j) => j.op === 'refus').length;
+    const violations154 = gardeBanc.violations;
+    const nb154 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    const synchroLibre154 = () => page.evaluate(() => { const e = document.getElementById('etat-sync');
+      return !!e && (e.textContent || '').trim() !== '' && !e.classList.contains('sync'); }).catch(() => false);
+    const rafraichir154 = () => page.evaluate(() => document.getElementById('btn-rafraichir').click());
+    const cacheSeries154 = () => page.evaluate(() => window.THCache.lireTout('series')
+      .then((l) => (l || []).map((x) => x.id).sort())).catch(() => null);
+    const slug154 = CATALOGUE[0].slug;
+    const neuveSeance154 = 's154-neuve';
+    const ids154 = ['s154-1', 's154-2', 's154-3'];
+
+    await aller('/saisie');
+    await jusqua(synchroLibre154, 60000);
+    base.seriesRetenir = false; base.seriesRetenue = false; base.seriesLibere = true;
+    await rafraichir154();
+    await jusqua(synchroLibre154, 60000);
+    await reseauCalme();
+
+    // La synchronisation part, sa lecture des séries est retenue.
+    base.seriesRetenir = true;
+    await rafraichir154();
+    const enVol154 = await jusqua(async () => base.seriesRetenue === true, 60000);
+    // Pendant la retenue : une séance neuve et ses séries arrivent en base (un autre appareil).
+    const maintenant154 = new Date();
+    const debut154 = new Date(maintenant154.getTime() - 3600000).toISOString();
+    base.sessions.push({ id: neuveSeance154, user_id: 'u-banc', titre: 'Synchro — ordre', debut: debut154,
+      fin: maintenant154.toISOString(), statut: 'terminee', note: null, salle: null, salle_norme: null,
+      routine_id: null, source: 'app', created_at: debut154 });
+    ids154.forEach((id, i) => base.sets.push({ id, session_id: neuveSeance154, user_id: 'u-banc', exercise_slug: slug154,
+      charge_kg: 100, reps: 5, duree_s: null, distance_m: null, type_serie: 'travail', rang: i + 1, groupe_superset: null,
+      validee_a: maintenant154.toISOString(), rpe: null, ressenti: null, repos_s: null, note: null, source: 'app',
+      created_at: maintenant154.toISOString(), modifie_a: null }));
+    ok('[S154] prémisse : la lecture des séries est en vol, la séance neuve et ses 3 séries sont en base AVANT qu’elle rende',
+      enVol154 && base.sessions.some((x) => x.id === neuveSeance154) && base.sets.filter((x) => x.session_id === neuveSeance154).length === 3,
+      nb154([enVol154]));
+    base.seriesLibere = true;
+    await jusqua(async () => base.seriesRetenue === false, 60000);
+    await jusqua(synchroLibre154, 60000);
+    await reseauCalme();
+    // ⚠️ SANS RAFRAÎCHIR : la synchronisation suivante redescendrait tout (le faux serveur ignore le curseur) et cacherait le défaut.
+    const cache154 = await cacheSeries154();
+    ok('[S154] DISCRIMINANT — la synchronisation finie, le cache porte les 3 séries de la séance montée pendant le téléchargement, et autant de séries que la base',
+      !!cache154 && ids154.every((id) => cache154.indexOf(id) >= 0) && cache154.length === base.sets.length,
+      nb154([cache154 && cache154.length, base.sets.length, cache154 && ids154.filter((id) => cache154.indexOf(id) < 0)]));
+
+    // LA REMISE EN ÉTAT.
+    base.sessions = base.sessions.filter((x) => x.id !== neuveSeance154);
+    base.sets = base.sets.filter((x) => ids154.indexOf(x.id) < 0);
+    base.seriesRetenir = false; base.seriesLibere = true;
+    await rafraichir154();
+    await jusqua(synchroLibre154, 60000);
+    await reseauCalme();
+    ok('[S154] la garde (C6) n’a rien signalé, aucun refus du faux serveur, aucune erreur de page',
+      gardeBanc.violations === violations154 && base.journal.filter((j) => j.op === 'refus').length === refus154 && erreurs.length === erreurs154,
+      JSON.stringify([gardeBanc.liste.slice(-2), base.journal.filter((j) => j.op === 'refus').slice(refus154), erreurs.slice(erreurs154)]));
   }
 
   console.log('\n══ hors-barres. LES RECORDS HORS DES BARRES : L’ALLURE, LA PREMIÈRE FOIS SUR UNE MARCHE, LE RÉCAP ET LES CAPS DU JEU (153, MOTEUR §9.23) ══');

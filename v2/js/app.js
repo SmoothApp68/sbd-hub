@@ -1231,8 +1231,15 @@
 
       // sessions : complet (545 Ko, aucune colonne de modification, capte aussi
       // les suppressions). sets : incrémental (15 Mo, 28× plus lourd).
-      var seances = await Donnees.toutesLesSeances();
+      //
+      // ⚠️ LES SÉRIES AVANT LES SÉANCES (21/11/2026, diagnostic « 32 séries manquantes »). `sets.session_id` est une
+      // clé étrangère NOT NULL vers `sessions` (SCHEMA-REEL) : une série
+      // lue a donc sa séance en base, et la liste lue APRÈS la contient. Lue AVANT, la liste ignorait une séance créée
+      // et montée pendant le téléchargement des séries ; la purge jetait ses séries alors que le curseur les avait
+      // dépassées, et le cache restait amputé pour toujours. La seule séance absente de la liste qui garde des séries
+      // lues est une séance SUPPRIMÉE entre les deux lectures : la purge est alors juste.
       var nouvellesSeries = await Donnees.seriesDepuis(curseur);
+      var seances = await Donnees.toutesLesSeances();
       var exercices = await Donnees.tousLesExercices();
       // 126 (ES §7 quindecies.11) — LES NOMS ALTERNATIFS COMMUNS (`exercise_alias`), au même moment que le catalogue
       // et rangés comme lui (vider-puis-écrire, plus bas). ACCESSOIRES comme les pesées : une lecture qui échoue

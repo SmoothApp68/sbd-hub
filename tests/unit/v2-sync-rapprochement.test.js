@@ -31,14 +31,26 @@ function serveur() {
 
 function appareil() { return { series: [], seances: [], curseur: null, file: [] }; }
 
-// La synchronisation d'un appareil, dans l'ordre de `synchroniser`.
-function synchroniser(app, srv) {
+// La synchronisation d'un appareil, dans l'ordre de `synchroniser`. `entre` joue ENTRE les deux lectures (une
+// séance montée par un autre appareil pendant le téléchargement) ; `ordre` vaut 'series-d-abord' (21/11/2026) ou
+// 'seances-d-abord' (l'ordre d'avant, gardé pour montrer le défaut).
+function synchroniser(app, srv, opts) {
+  const o = opts || {};
   const compte = srv.sets.length;
-  const seances = srv.sessions.slice();
-  const nouvelles = srv.seriesDepuis(app.curseur);
+  const compteSeances = srv.sessions.length;
+  let seances, nouvelles;
+  if (o.ordre === 'seances-d-abord') {
+    seances = srv.sessions.slice();
+    if (o.entre) o.entre();
+    nouvelles = srv.seriesDepuis(app.curseur);
+  } else {
+    nouvelles = srv.seriesDepuis(app.curseur);
+    if (o.entre) o.entre();
+    seances = srv.sessions.slice();
+  }
   const protegees = A.seancesEnAttente(app.file);
   app.seances = Sync.remplacer(seances, { conserver: protegees, existants: app.seances });
-  const listeComplete = Sync.verifierCompletude(seances.length, srv.sessions.length).complet;
+  const listeComplete = Sync.verifierCompletude(seances.length, compteSeances).complet;
   let series = Sync.purgerSeriesOrphelines(Sync.fusionner(app.series, nouvelles), app.seances, listeComplete);
   let surplus = Sync.surplusDeSeries(series, seances, protegees, compte);
   if (listeComplete && surplus > 0) {
@@ -186,5 +198,58 @@ describe('les briques', () => {
     const r = Sync.rapprocherSeries(series, [{ id: '1', session_id: 'a' }], ['a'], {});
     expect(r.retirees).toEqual(['2']);
     expect(ids(r.series)).toEqual(['1', '3']);
+  });
+});
+
+describe('une séance montée PENDANT la synchronisation (21/11/2026, « 32 séries manquantes »)', () => {
+  const monter = (srv) => () => {
+    srv.sessions.push(seance('neuve', '2026-10-20T08:00'));
+    srv.sets.push(serie('ne-1', 'neuve', 't5'), serie('ne-2', 'neuve', 't5'));
+  };
+
+  test('⚠️ DISCRIMINANT — l’ordre de app.js : les séries sont lues AVANT les séances', () => {
+    const src = require('fs').readFileSync(require('path').join(__dirname, '../../v2/js/app.js'), 'utf8');
+    const debut = src.indexOf('async function synchroniser()');
+    const corps = src.slice(debut, debut + 12000);
+    const iSeries = corps.indexOf('await Donnees.seriesDepuis(curseur)');
+    const iSeances = corps.indexOf('await Donnees.toutesLesSeances()');
+    expect(iSeries).toBeGreaterThan(0);
+    expect(iSeances).toBeGreaterThan(iSeries);
+  });
+
+  test('⚠️ DISCRIMINANT — séries d’abord : le cache est complet à la synchronisation suivante', () => {
+    const srv = decor();
+    const tel = appareil();
+    synchroniser(tel, srv);
+    synchroniser(tel, srv, { entre: monter(srv) });
+    synchroniser(tel, srv);
+    expect(ids(tel.series)).toEqual(ids(srv.sets));
+  });
+
+  test('l’ordre d’avant montre le défaut : les séries lues sont purgées et le curseur les dépasse', () => {
+    const srv = decor();
+    const tel = appareil();
+    synchroniser(tel, srv);
+    synchroniser(tel, srv, { ordre: 'seances-d-abord', entre: monter(srv) });
+    synchroniser(tel, srv, { ordre: 'seances-d-abord' });
+    expect(ids(tel.series)).not.toContain('ne-1');
+    expect(ids(tel.series).length).toBeLessThan(srv.sets.length);
+  });
+
+  test('une séance SUPPRIMÉE entre les deux lectures : ses séries lues ne créent aucun trou', () => {
+    const srv = decor();
+    const tel = appareil();
+    synchroniser(tel, srv);
+    srv.sets.push(serie('lu-2', 'lundi', 't5'));
+    synchroniser(tel, srv, { entre: () => {
+      srv.sessions = srv.sessions.filter((s) => s.id !== 'lundi');
+      srv.sets = srv.sets.filter((s) => s.session_id !== 'lundi');   // la cascade de la clé étrangère
+    } });
+    // Le compte des séances, lu en premier, dépasse la liste : la liste est « incertaine », la purge s'abstient
+    // (mieux vaut du surplus qu'une amputation). La synchronisation suivante, à comptes cohérents, purge.
+    expect(ids(tel.series)).toContain('lu-2');
+    synchroniser(tel, srv);
+    expect(ids(tel.series)).not.toContain('lu-2');
+    expect(ids(tel.series)).toEqual(ids(srv.sets));
   });
 });

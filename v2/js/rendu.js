@@ -8106,6 +8106,26 @@
   // surAutre }`. Sans routine, le conteneur se cache. Rien n'est calculé ici : l'app a choisi la routine.
   function rendreProchaineSeance(cible, vue) {
     vider(cible);
+    // 21/11/2026 — pendant une séance en cours, la carte décrit CETTE séance (`vue.seance` : `{ titre, nbExercices, nbSeries, faites }`,
+    // lus par l'app sur la séance) : elle ne nomme plus une routine que « Continuer la séance » ne reprend pas. Pas d'« Autre routine ».
+    var enCours = !!(vue && vue.enCours && vue.seance);
+    if (enCours) {
+      var se = vue.seance;
+      cible.hidden = false;
+      var c2 = el('div', 'prochaine prochaine-en-cours');
+      c2.appendChild(el('div', 'prochaine-eti', 'SÉANCE EN COURS'));
+      c2.appendChild(el('div', 'prochaine-nom', se.titre || 'Séance'));
+      c2.appendChild(el('div', 'prochaine-meta',
+        se.nbExercices + ' exercice' + (se.nbExercices > 1 ? 's' : '') + ' \u00b7 ' + se.faites + '/' + se.nbSeries + ' ' + 'série' + (se.nbSeries > 1 ? 's' : '')));
+      var p2 = el('div', 'prochaine-pied');
+      var go2 = el('button', 'principal prochaine-go', 'Continuer la séance');
+      go2.type = 'button';
+      go2.addEventListener('click', function () { if (vue.surReprendre) vue.surReprendre(); });
+      p2.appendChild(go2);
+      c2.appendChild(p2);
+      cible.appendChild(c2);
+      return cible;
+    }
     var r = vue && vue.routine;
     if (!r) { cible.hidden = true; return cible; }
     cible.hidden = false;

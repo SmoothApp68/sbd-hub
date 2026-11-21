@@ -217,7 +217,7 @@ describe('une séance montée PENDANT la synchronisation (21/11/2026, « 32 sér
     expect(iSeances).toBeGreaterThan(iSeries);
   });
 
-  test('⚠️ DISCRIMINANT — séries d’abord : le cache est complet à la synchronisation suivante', () => {
+  test('modèle (rejoue sa propre copie de `synchroniser`, pas app.js ; la garde réelle est le test de texte ci-dessus et le banc `synchro-ordre`) — séries d’abord : le cache est complet à la synchronisation suivante', () => {
     const srv = decor();
     const tel = appareil();
     synchroniser(tel, srv);

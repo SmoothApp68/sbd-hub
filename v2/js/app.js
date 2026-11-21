@@ -1233,7 +1233,8 @@
       // les suppressions). sets : incrémental (15 Mo, 28× plus lourd).
       //
       // ⚠️ LES SÉRIES AVANT LES SÉANCES (21/11/2026, diagnostic « 32 séries manquantes »). `sets.session_id` est une
-      // clé étrangère NOT NULL vers `sessions` (SCHEMA-REEL) : une série
+      // clé étrangère NOT NULL vers `sessions`, `sets_session_id_fkey` ON DELETE CASCADE (SCHEMA-REEL, table `sets`, constatée le
+      // 21/11/2026) : une série
       // lue a donc sa séance en base, et la liste lue APRÈS la contient. Lue AVANT, la liste ignorait une séance créée
       // et montée pendant le téléchargement des séries ; la purge jetait ses séries alors que le curseur les avait
       // dépassées, et le cache restait amputé pour toujours. La seule séance absente de la liste qui garde des séries

@@ -1,0 +1,10 @@
+[
+ {
+  "nom": "reaction-raté-touche-le-bord-gauche",
+  "fichier": "v2/styles.css",
+  "ancien": ".rate-reaction{padding:var(--e2) var(--e3) var(--e1)}",
+  "nouveau": ".rate-reaction{padding:var(--e2) 0 var(--e1)}",
+  "banc": "tete-3plus1",
+  "unitaires": []
+ }
+]

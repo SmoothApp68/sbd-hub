@@ -472,11 +472,24 @@
 
   // 211 — le point du « Pourquoi » : tant que cet appareil n'en a jamais ouvert un (préférence locale, sans base).
   var CLE_POURQUOI_OUVERT = 'th-v2-pourquoi-ouvert';
-  function pourquoiNeuf() {
-    try { return !racine.localStorage.getItem(CLE_POURQUOI_OUVERT); } catch (e) { return false; }
+  // 21/11/2026 (« Simplifier », décision 3) — la raison de la chauffe vit désormais dans la feuille du « Pourquoi » (section « La chauffe ») : le point ambre de « Pourquoi ? » reste allumé, sur
+  // l'exercice dont la chauffe est proposée, TANT QUE cette section n'a pas été lue (préférence locale, sans base ; lue = la feuille s'est ouverte avec elle).
+  var CLE_CHAUFFE_LUE = 'th-v2-pourquoi-chauffe-lue';
+  function pourquoiNeuf(slug) {
+    try {
+      if (!racine.localStorage.getItem(CLE_POURQUOI_OUVERT)) return true;
+      if (slug) {
+        var x = planDuSlug(slug);
+        if (x && x.tete && x.tete.chauffe === 'feuille' && !racine.localStorage.getItem(CLE_CHAUFFE_LUE)) return true;
+      }
+      return false;
+    } catch (e) { return false; }
   }
-  function pourquoiOuvert() {
-    try { racine.localStorage.setItem(CLE_POURQUOI_OUVERT, '1'); } catch (e) { /* tant pis : le point reste */ }
+  function pourquoiOuvert(avecLaChauffe) {
+    try {
+      racine.localStorage.setItem(CLE_POURQUOI_OUVERT, '1');
+      if (avecLaChauffe) racine.localStorage.setItem(CLE_CHAUFFE_LUE, '1');
+    } catch (e) { /* tant pis : le point reste */ }
   }
 
   // LE BILAN D'UN BLOC : les charges de travail de chacun de ses exercices
@@ -6231,11 +6244,18 @@
     return Object.keys(sortie).length ? sortie : null;
   }
 
+  // 21/11/2026 (« Simplifier », pilote 3+1) — UNE SEULE CARTE DE DÉCISION à la fois : le plan range les cartes d'un exercice (`x.file`) ; celles qui ATTENDENT ne se dessinent pas (elles reviennent
+  // dès que la précédente est répondue). L'écran ne choisit rien : il lit la file.
+  function carteEnAttente(iExo, nom) {
+    var x = planDeLExercice(iExo);
+    return !!(x && x.file && Array.isArray(x.file.enAttente) && x.file.enAttente.indexOf(nom) >= 0);
+  }
+
   // 187 (MOTEUR §9.21) — « Ta charge habituelle ? » : ce que l'écran en lit sur le plan, et les deux gestes.
   function habituelleDe(iExo) {
     var x = planDeLExercice(iExo);
     var k = x && x.calage;
-    if (!k || !k.demandeHabituelle || !k.libelles) return null;
+    if (!k || !k.demandeHabituelle || !k.libelles || carteEnAttente(iExo, 'calage')) return null;
     return {
       question: k.libelles.question, pour: k.libelles.pour, passer: k.libelles.passer,
       surValider: async function (texte) {
@@ -9129,10 +9149,14 @@
       return { jaune: [lc.titre], gris: [lc.consigne, lc.pourquoi].filter(Boolean).join(' '), compteur: null, frere: null,
                plus: null, moins: null, alleger: null, tempo: null, approchee: null };
     }
-    return x ? { jaune: x.entete.jaune, gris: x.entete.gris, compteur: x.entete.compteur || null,
-                 frere: x.entete.frere || null, plus: x.entete.plus || null, moins: x.entete.moins || null, alleger: x.entete.alleger || null,
+    // 21/11/2026 (« Simplifier », pilote 3+1) — la tête lit le plan : la phrase grise est sa forme COURTE quand le moteur en a écrit une (`entete.court`) ; le troisième élément est UN seul
+    // (`x.tete.tiers` : le compteur, sinon « Pendant ce temps ») ; la phrase du « ≈ » ne reste dans la tête que s'il n'y a pas de feuille pour la dire (`x.tete.approchee`).
+    var tete = x && x.tete ? x.tete : null;
+    return x ? { jaune: x.entete.jaune, gris: x.entete.court || x.entete.gris, compteur: x.entete.compteur && (!tete || tete.tiers === 'compteur') ? x.entete.compteur : null,
+                 frere: x.entete.frere && (!tete || tete.tiers === 'frere') ? x.entete.frere : null, plus: x.entete.plus || null, moins: x.entete.moins || null, alleger: x.entete.alleger || null,
                  tempo: x.entete.tempo || null,
-                 approchee: x.approchee ? x.approchee.phrase : null } : c.libelles;
+                 approchee: x.approchee && (!tete || tete.approchee === 'tete') ? x.approchee.phrase : null,
+                 puce: x.approchee && tete && tete.approchee === 'feuille' ? x.approchee.phrase : null } : c.libelles;
   }
 
   // §3.8 et §3.10 — l'étiquette de zone et le calcul, tirés du MÊME mémo que
@@ -11350,9 +11374,11 @@
       },
       // MOTEUR §9.15.2 (49-U10) — la proposition de chauffes, lue sur le plan.
       propositionChauffes: function (i) {
-        if (enEdition()) return null;
+        if (enEdition() || carteEnAttente(i, 'chauffes')) return null;
         var x = planDeLExercice(i);
-        return x && x.proposition ? x.proposition : null;
+        if (!x || !x.proposition) return null;
+        // 21/11/2026 (« Simplifier », décision 3) — la raison de la chauffe est à la feuille du « Pourquoi » (`x.pourquoi.chauffe`) quand le plan l'y a mise : la carte n'a plus sa porte « Pourquoi cette chauffe ? ».
+        return x.tete && x.tete.chauffe === 'feuille' ? Object.assign({}, x.proposition, { pourquoi: null }) : x.proposition;
       },
       surAjouterChauffes: async function (i) { await poserLesChauffes(i, false); },
       // 237 (MOTEUR §9.41) — « Annuler » : les chauffes non faites partent, le geste est noté. 15/11/2026 (§9.41 bis, règle 11) : pour les TROIS
@@ -11385,7 +11411,11 @@
       propositionVeille: function () {
         if (enEdition() || !seance) return null;
         var p = planActuel();
-        return p && p.veilleActivite ? p.veilleActivite : null;
+        if (!p || !p.veilleActivite) return null;
+        // 21/11/2026 (3+1) — la veille lit la file de SA barre : une carte de décision d'avant elle (la reprise) la retient ; les chauffes des autres exercices ne l'attendent pas.
+        var iV = (p.exercices || []).findIndex(function (x) { return x.slug === p.veilleActivite.slug; });
+        if (iV >= 0 && carteEnAttente(iV, 'veille')) return null;
+        return p.veilleActivite;
       },
       surVeille: async function (choix) {
         var p = planActuel(), v = p && p.veilleActivite;
@@ -11433,7 +11463,7 @@
       // MOTEUR §14.5 (49-U15) — la carte de schéma, sous l'exercice, lue sur
       // le plan ; ses deux gestes.
       propositionSchema: function (i) {
-        if (enEdition()) return null;
+        if (enEdition() || carteEnAttente(i, 'autre')) return null;
         var x = planDeLExercice(i);
         return x && x.escalier && x.escalier.carte ? x.escalier.carte : null;
       },
@@ -11442,14 +11472,14 @@
       // MOTEUR §9.17 (50-1) — la carte du lest : UNE, en tête de l'exercice,
       // lue sur le plan ; ses deux gestes écrivent la réponse au profil.
       propositionLest: function (i) {
-        if (enEdition()) return null;
+        if (enEdition() || carteEnAttente(i, 'autre')) return null;
         var x = planDeLExercice(i);
         return x && x.carteLest ? x.carteLest : null;
       },
       surLest: function (i, reponse) { return repondreLest(i, reponse); },
       // MOTEUR §9.17 bis (127) — la carte « marche suivante » : le composant de la carte du lest, à la même place.
       propositionMarche: function (i) {
-        if (enEdition()) return null;
+        if (enEdition() || carteEnAttente(i, 'autre')) return null;
         var x = planDeLExercice(i);
         return x && x.carteMarche ? x.carteMarche : null;
       },
@@ -11464,7 +11494,7 @@
       // MOTEUR §9.20 (51-3) — la carte de reprise : lue sur le plan ; ses trois
       // gestes passent par les mécanismes existants.
       propositionReprise: function (i) {
-        if (enEdition()) return null;
+        if (enEdition() || carteEnAttente(i, 'reprise')) return null;
         var x = planDeLExercice(i);
         return x && x.carteReprise ? x.carteReprise : null;
       },
@@ -11492,13 +11522,13 @@
       },
       surTenue: function (i, cle) { return repondreTenue(i, cle); },
       carteForme: function (i) {
-        if (enEdition()) return null;
+        if (enEdition() || carteEnAttente(i, 'forme')) return null;
         var x = planDeLExercice(i);
         return x && x.carteForme ? x.carteForme : null;
       },
       surForme: function (i, cle) { return repondreForme(i, cle); },
       carteParis: function (i) {
-        if (enEdition()) return null;
+        if (enEdition() || carteEnAttente(i, 'paris')) return null;
         var x = planDeLExercice(i);
         return x && x.parisRates && x.parisRates.carte ? x.parisRates.carte : null;
       },
@@ -12311,10 +12341,12 @@
   // §3.10 — La feuille « Pourquoi ». Elle vise un EXERCICE par son slug, pas
   // une série ni un bloc : la consigne est celle de l'exercice, et un superset
   // en a une par branche.
-  function ouvrirPourquoi(slug) {
-    if (!pourquoiDe(slug)) return;
-    pourquoiOuvert();
-    feuille = { quoi: 'pourquoi', slug: slug, vue: 'fiche', conv: { bulles: [], saisie: '', enCours: false } };
+  // `section` : « approchee » (toucher la puce « Si ça passe, ≈ … ») ou « chauffe » — la feuille s'ouvre sur cette section.
+  function ouvrirPourquoi(slug, section) {
+    var pq = pourquoiDe(slug);
+    if (!pq) return;
+    pourquoiOuvert(!!pq.chauffe);
+    feuille = { quoi: 'pourquoi', slug: slug, vue: 'fiche', section: typeof section === 'string' ? section : null, conv: { bulles: [], saisie: '', enCours: false } };
     rendreFeuille();
     ouvrirVoile($('feuille-seance'), function () {
       feuille = null;
@@ -12621,6 +12653,7 @@
       return Rendu.rendreFeuillePourquoi(cible, {
         nom: Modele.nommer(index, feuille.slug),
         pourquoi: pourquoiDe(feuille.slug),
+        section: feuille.section || null,
         // 160 — le bouton « Demander au coach », en bas de la feuille (connecté seulement).
         assistant: userId() ? {
           bouton: Assistant.TEXTES.bouton,

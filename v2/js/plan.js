@@ -1067,7 +1067,9 @@
     // (`habituelles[slug] = 0`). En attendant, rien n'est proposé : on ne devine pas.
     var declinee = habEcartee || (Object.prototype.hasOwnProperty.call(habs, slug) && habs[slug] === 0);
     r.demandeHabituelle = e.debutant !== true && r.faites === 0 && r.habituelle === null && !declinee;
-    if (r.demandeHabituelle) { r.suivante = null; r.iSerie = null; r.libelles = Object.assign({}, r.libelles, {
+    // 21/11/2026 (« Simplifier », décision 4) — tant que la question de la charge habituelle est posée, le mode d'emploi des deux séries de chauffe (`consigne`) et le « Commence au plus
+    // petit cran » (`pourquoi`) décrivent un chemin PAS ENCORE CHOISI : ils ne se disent qu'après « Je ne sais pas » (la demande levée, ils reviennent tels quels, du moteur).
+    if (r.demandeHabituelle) { r.suivante = null; r.iSerie = null; r.libelles = Object.assign({}, r.libelles, { consigne: null, pourquoi: null,
       // 256 — aux haltères la charge notée est la PAIRE (`THModele.chargeEstLaPaire`, MOTEUR §10.1) : la question le dit, le calcul ne change pas.
       // 16/11/2026 — à un bras (`haltere_seul`, le matériel effectif du catalogue du plan) : l'haltère tenu, un seul.
       question: racine.THModele.chargeEstLaPaire(cat) ? 'Ta charge habituelle, les deux haltères ensemble ?'
@@ -1785,6 +1787,24 @@
       enteteAlleger = capAl.texte;
       citesAlleger = capAl.citations;
     }
+    // 21/11/2026 (« Simplifier », pilote 3+1, décisions 2 et 5) — LA TÊTE COURTE : la forme que l'en-tête affiche, ÉCRITE PAR LE MOTEUR (`Moteur.grisCourt`, `Moteur.grisAllegee(c, true)`),
+    // jamais coupée à l'écran. Elle n'existe que pour la phrase grise de base (une décharge a la sienne) ; une forme que le moteur ne sait pas raccourcir (repli, alléger, silence, ...) reste
+    // entière. Rédigée sous capture, pour I26 ; I269 la relit contre le gris, I162 et I165 contre le verbe et la clause.
+    var grisCourt = null, citesCourt = [];
+    if (gris) {
+      try {
+        if (consigne.allegee) {
+          // La Décharge ne pose son court que sur SA phrase (jamais sur le repli, ni sur une charge allégée qui l'a remplacée) : même garde que la branche normale.
+          if (capDA && gris === capDA.texte && !consigne.repli) {
+          var capCA = V.capturer(function () { return M.grisAllegee(consigne, true); });
+          if (capCA.texte && capCA.texte !== gris) { grisCourt = capCA.texte; citesCourt = (capCA.citations || []).filter(function (q) { return q.texte && capCA.texte.indexOf(q.texte) >= 0; }); }
+          }
+        } else if (capG && capG.texte === gris && !consigne.repli) {
+          var capCK = V.capturer(function () { return M.grisCourt(consigne, debut); });
+          if (capCK.texte) { grisCourt = capCK.texte; citesCourt = (capCK.citations || []).filter(function (q) { return q.texte && capCK.texte.indexOf(q.texte) >= 0; }); }
+        }
+      } catch (exCourt) { grisCourt = null; citesCourt = []; }
+    }
     var donc = jauneDonc.length ? 'Donc ' + jauneDonc.join(', ') + '.' : null;
     // 193-1 — les reculs : leur charge, leur fantôme et leur pari (jamais un rang de la couverture). AVANT la dégressive, qui
     // se cale sur la dernière série de travail OU de recul.
@@ -1870,6 +1890,7 @@
     };
     dire('entete.jaune', entete.jaune.join(', '), citesJaune);
     dire('entete.gris', gris, citesGris);
+    dire('entete.court', grisCourt, citesCourt);
     dire('entete.compteur', phraseDuCompteur, citesCompteur);
     dire('entete.frere', phraseDuFrere, citesFrere);
     dire('entete.plus', grisPlus, []);
@@ -1958,7 +1979,7 @@
       // PR 4a (MOTEUR §9.47) — LE VERBE UNIQUE, calculé une fois sur la consigne finale : le gris, le Pourquoi et le constat le disent, I162 le relit.
       verbe: M.verbeDeLaConsigne(consigne),
       entete: Object.assign({ jaune: entete.jaune, gris: gris, segments: entete.segments, compteur: phraseDuCompteur, plus: grisPlus, moins: grisMoins },
-                            phraseDuFrere ? { frere: phraseDuFrere } : {}, enteteAlleger ? { alleger: enteteAlleger } : {}),
+                            phraseDuFrere ? { frere: phraseDuFrere } : {}, enteteAlleger ? { alleger: enteteAlleger } : {}, grisCourt ? { court: grisCourt } : {}),
       // §14.5 (49-U15) — la marche de l'escalier de cet exercice, ou `null` :
       // `{ marche, n, compteur, declenchement, zone, carte?, repli?, reponse? }`.
       escalier: marche || null,
@@ -2609,7 +2630,8 @@
     // 20/11/2026 (MOTEUR §9.52) — le repos conseillé de chaque exercice, lu sur le plan fini ; rien n'est écrit.
     reposConseillesDuPlan(plan236, e, seance);
     // 236 (MOTEUR §9.39) — le coach en temps réel après un raté : lu sur le plan fini, posé sur lui.
-    return reactionsDuPlan(plan236, e, seance);
+    // 21/11/2026 (« Simplifier », pilote 3+1) — LA TÊTE DE CHAQUE EXERCICE et sa file de décision, lues sur le plan fini (rien n'est écrit en base).
+    return tetesDuPlan(reactionsDuPlan(plan236, e, seance), e);
     function planDeLOccurrence(exo, i, salleEl) {
         var slug = exo && exo.exercise_slug;
         // 221 (MOTEUR §19.2) — LE BLOC HYPERTROPHIE : squat et couché gardent une grosse série (Lourd, garde 1) puis des reculs aux reps
@@ -3743,6 +3765,66 @@
     });
     formeDuJourDuPlan(plan, e, seance, gs, resumes);
     (plan.exercices || []).forEach(recomposerLaFeuille);
+    return plan;
+  }
+
+  // ══ 21/11/2026 — « SIMPLIFIER », PILOTE 3+1 : LA TÊTE D'UN EXERCICE EN SÉANCE (ECRAN-SAISIE, delta du 21/11/2026) ══════════════════════════════════════
+  //
+  // La règle, par exercice : TROIS éléments au plus, plus UNE carte de décision.
+  //   · la consigne (le chiffre, et la puce « Si ça passe » d'un test, qui en fait partie) ;
+  //   · UNE ligne grise (le verbe avec son chiffre — sa forme courte, écrite par le moteur —, ou la clause de la Décharge, ou le titre du calage) ; « Pourquoi ? » est
+  //     au bout de cette ligne ;
+  //   · UN troisième élément, jamais plus : le compteur de stagnation ; le « Pendant ce temps, … » qui le suit ne vit plus qu'au « Pourquoi » (où il est déjà) ;
+  //   · +1 CARTE de décision, une seule à la fois, dans l'ordre : reprise après douleur, réaction au raté (la forme du jour, puis « un cran dessous »), question du calage, les autres
+  //     questions du coach sur l'exercice (le lest, la marche, le schéma), la veille d'une activité dure, les chauffes proposées.
+  // HORS COMPTE, toujours visible : ce qui annonce une décision DÉJÀ PRISE (chauffes posées et leur « Annuler », silence des chauffes, plafond après un zéro, « Cible faite » / « Pas encore »,
+  // « La prochaine fois », le bandeau de la Décharge, la série de plus ou de moins acceptée, le nom et la puce de zone). Une décision appliquée n'est JAMAIS une carte en attente.
+  // Le plan décide ; l'écran obéit (`x.file`, `x.tete`) et ne calcule rien. I269 à I271 le relisent.
+  var ORDRE_DE_LA_FILE = ['reprise', 'forme', 'paris', 'calage', 'autre', 'veille', 'chauffes'];
+  // Les cartes EN ATTENTE d'une réponse sur un exercice, par famille : la lecture unique (le plan la pose, I271 la recalcule à part).
+  function cartesPresentesDe(plan, x) {
+    return {
+      reprise: !!x.carteReprise,
+      forme: !!x.carteForme,
+      paris: !!(x.parisRates && x.parisRates.carte),
+      calage: !!(x.calage && x.calage.demandeHabituelle),
+      autre: !!(x.carteLest || x.carteMarche || (x.escalier && x.escalier.carte)),
+      // La veille est la carte d'UNE barre (`veilleActivite.slug`) : elle ne compte que pour cet exercice, jamais pour les autres (les chauffes du couché ne l'attendent pas).
+      veille: !!(plan.veilleActivite && plan.veilleActivite.slug === x.slug),
+      chauffes: !!x.proposition
+    };
+  }
+  // La phrase du « ≈ » ne va à la feuille que si la puce « Si ça passe » la porte (un test proposé, sa ligne de jaune) : sinon elle reste en tête, là où elle est dite.
+  function approcheeParLaPuce(x) {
+    var c = x && x.consigne, en = (x && x.entete) || {};
+    return !!(c && c.etat === 'test_propose' && (en.jaune || []).some(function (l) { return /^Si ça passe/.test(String(l)); }));
+  }
+  function tetesDuPlan(plan, e) {
+    if (!plan || !Array.isArray(plan.exercices)) return plan;
+    plan.exercices.forEach(function (x) {
+      var presentes = cartesPresentesDe(plan, x);
+      var retenue = null, attente = [];
+      ORDRE_DE_LA_FILE.forEach(function (nom) {
+        if (!presentes[nom]) return;
+        if (retenue === null) retenue = nom; else attente.push(nom);
+      });
+      x.file = { ordre: ORDRE_DE_LA_FILE.slice(), carte: retenue, enAttente: attente };
+      var en = x.entete || {};
+      // Le troisième élément : le compteur d'abord ; « Pendant ce temps » ne s'ajoute pas au compteur (il reste dans la feuille, `pourquoi.frere`).
+      var tiers = en.compteur ? 'compteur' : (en.frere ? 'frere' : null);
+      var peutLaFeuille = !!x.pourquoi;
+      x.tete = {
+        ligne: en.court ? 'court' : (en.gris ? 'gris' : null),
+        tiers: tiers,
+        // Les deux phrases qui quittent la tête pour la feuille, quand une feuille existe (sinon elles restent là où elles étaient : rien d'annoncé n'est caché).
+        approchee: x.approchee && x.approchee.phrase ? (peutLaFeuille && approcheeParLaPuce(x) ? 'feuille' : 'tete') : null,
+        chauffe: x.proposition && x.proposition.pourquoi ? (peutLaFeuille ? 'feuille' : 'carte') : null
+      };
+      if (x.pourquoi) {
+        if (x.tete.approchee === 'feuille') x.pourquoi.approchee = x.approchee.phrase;
+        if (x.tete.chauffe === 'feuille') x.pourquoi.chauffe = x.proposition.pourquoi;
+      }
+    });
     return plan;
   }
 
@@ -6974,6 +7056,7 @@
     verifierZeroRep(plan, entrees, erreurs);
     verifierJourSans(plan, entrees, erreurs);
     verifierDecharge(plan, erreurs);
+    verifierTete(plan, erreurs);
     verifierVerbe(plan, erreurs);
     verifierAnnonce(plan, erreurs);
     verifierRegimes(plan, entrees, erreurs);
@@ -7990,7 +8073,11 @@
       var nom = 'exercice ' + i + ' (' + x.slug + ')';
       var gris = x.entete && typeof x.entete.gris === 'string' ? x.entete.gris : '';
       var pq = x.pourquoi && typeof x.pourquoi.etat === 'string' ? x.pourquoi.etat : '';
+      // 21/11/2026 (« Simplifier », décision 5) — la forme COURTE que l'en-tête affiche : le moteur l'écrit, I165 la vérifie comme le gris (elle ne dit plus la semaine, le bandeau la dit).
+      var court = x.entete && typeof x.entete.court === 'string' ? x.entete.court : '';
       texte(nom + ', le gris', gris);
+      texte(nom + ', la tête', court);
+      if (court && /\bsemaine\b/i.test(court)) erreurs.push('I165 — ' + nom + ', la tête dit la semaine (« ' + court + ' ») : elle est au bandeau de la séance');
       texte(nom + ', le « Pourquoi »', pq);
       var connue = a.routine !== null && a.routine !== undefined;
       var base = connue ? a.routine : nombre(a.base);
@@ -7999,12 +8086,12 @@
       // PR 3 (N6) — UNE fonction dit « les cibles diffèrent » : `Moteur.ciblesDifferent` (reps OU charge), lue par le texte et par ici.
       var cibles = M.ciblesDifferent(k);
       var sans = base !== null && a.series === base && !cibles;
-      [['le gris', gris], ['le « Pourquoi »', pq]].forEach(function (p) {
+      [['le gris', gris], ['la tête', court], ['le « Pourquoi »', pq]].forEach(function (p) {
         if (!p[1]) return;
         if (/\bséries?\s+au\s+lieu\s+de\b/.test(p[1]) !== (connue && retirees)) erreurs.push('I165 — ' + nom + ', ' + p[0] + ' : ' + (connue && retirees ? 'la clause des séries manque' : 'une clause de séries sans routine connue ou sans séries retirées'));
         if (/\b\d+\s+séries?\b/.test(p[1]) !== retirees) erreurs.push('I165 — ' + nom + ', ' + p[0] + ' : ' + (retirees ? 'le nombre de séries gardées manque' : 'un nombre de séries alors que rien n\u2019est retiré'));
         if (/ne\s+change\s+pas/.test(p[1]) !== sans) erreurs.push('I165 — ' + nom + ', ' + p[0] + ' : « cet exercice ne change pas » ' + (sans ? 'manque alors que rien ne change' : 'alors que quelque chose change'));
-        if (!/^Décharge\b/.test(p[1]) && p[0] === 'le gris') erreurs.push('I165 — ' + nom + ', le gris ne nomme pas « Décharge »');
+        if (!/^Décharge\b/.test(p[1]) && (p[0] === 'le gris' || p[0] === 'la tête')) erreurs.push('I165 — ' + nom + ', ' + p[0] + ' ne nomme pas « Décharge »');
       });
       var dit = false;
       if (pq) {
@@ -8108,7 +8195,7 @@
         if (dit === 'monte_reps' && !meme) erreurs.push('I162' + nom + '« monte_reps » à une autre charge que le palier');
       }
       // — Sens 2 et 3 —
-      var textes = [['le gris', x.entete && x.entete.gris], ['le « Pourquoi »', x.pourquoi && x.pourquoi.etat],
+      var textes = [['le gris', x.entete && x.entete.gris], ['la tête courte', x.entete && x.entete.court], ['le « Pourquoi »', x.pourquoi && x.pourquoi.etat],
                     ['le constat', x.constat && (x.constat.verdict || '')]];
       // PR 5a — la SUITE du constat parle de la consigne suivante : I164 la lit, pas I162.
       var ligneDite = l && ch !== null && vise !== null ? norm(Voix().chargeFois(ch, vise)) : null;
@@ -8156,6 +8243,67 @@
         }
         if (/jusqu[’']à l[’']échec|à l[’']échec/.test(t) && lieu !== 'le constat' && v.cause) erreurs.push('I162' + nom + lieu + ' dit « échec » : le verbe ne le dit jamais (aucune marque d’échec posée) : ' + t);
       });
+    });
+  }
+  // I269 à I271 (« Simplifier », pilote 3+1, ECRAN-SAISIE delta du 21/11/2026) — LA TÊTE D'UN EXERCICE EN SÉANCE : trois éléments au plus et une carte de décision, rien d'annoncé de caché.
+  //   I269  la forme COURTE du gris (`entete.court`) est un EXTRAIT fidèle du gris : le gris moins le fait daté qui précède le verbe, ou son début (« On essaie 92,5 kg. »), ou sans la semaine
+  //         (décharge) ; jamais un autre texte, jamais un chiffre que le gris ne dit pas, jamais sans gris.
+  //   I270  la tête compte trois éléments au plus (la consigne, UNE ligne grise, UN troisième : le compteur, sinon le « Pendant ce temps ») ; les deux phrases qui partent à la feuille (le
+  //         « ≈ » développé, la raison de la chauffe) y sont bien, mot pour mot, et restent dans la tête ou la carte quand il n'y a pas de feuille.
+  //   I271  une seule carte de décision à la fois, dans l'ordre reprise → forme du jour → « un cran dessous » → calage → autres questions → veille → chauffes ; les autres attendent ; une décision appliquée (chauffes posées,
+  //         silence, plafond) n'entre jamais dans la file.
+  function verifierTete(plan, erreurs) {
+    var norm = function (t) { return String(t || '').replace(/[\u00a0\u202f]/g, ' ').replace(/\s+/g, ' ').trim(); };
+    var nombres = function (t) { return (norm(t).match(/\d+(?:,\d+)?/g) || []); };
+    var NOMS = ['reprise', 'forme', 'paris', 'calage', 'autre', 'veille', 'chauffes'];
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      if (!x) return;
+      var nom = ' — exercice ' + i + ' (' + x.slug + ') : ';
+      var en = x.entete || {};
+      // I269
+      if (typeof en.court === 'string' && en.court !== '') {
+        var g = norm(en.gris), c = norm(en.court);
+        var extrait = g !== '' && c !== g && c.length < g.length && (
+          g.slice(-c.length) === c ||
+          (g.indexOf(c.replace(/\.$/, '')) === 0 && /^\s/.test(g.slice(c.replace(/\.$/, '').length))) ||
+          g.replace(/,\s+semaine\s+\d+\s+sur\s+\d+/, '') === c);
+        if (!extrait) erreurs.push('I269' + nom + 'la tête courte « ' + c + ' » n’est pas un extrait du gris « ' + g + ' »');
+        var gn = nombres(g);
+        nombres(c).forEach(function (n) { if (gn.indexOf(n) < 0) erreurs.push('I269' + nom + 'la tête courte dit « ' + n + ' », que le gris ne dit pas'); });
+      }
+      // I270
+      var t = x.tete;
+      if (!t || typeof t !== 'object') { erreurs.push('I270' + nom + 'aucune tête calculée par le plan'); return; }
+      var tiers = en.compteur ? 'compteur' : (en.frere ? 'frere' : null);
+      if (t.tiers !== tiers) erreurs.push('I270' + nom + 'le troisième élément de la tête est « ' + t.tiers + ' », il devrait être « ' + tiers + ' »');
+      var compte = ((en.jaune || []).length ? 1 : 0) + ((en.court || en.gris) ? 1 : 0) + (t.tiers ? 1 : 0);
+      if (compte > 3) erreurs.push('I270' + nom + 'la tête compte ' + compte + ' éléments');
+      if (en.compteur && en.frere && !(x.pourquoi && x.pourquoi.frere)) erreurs.push('I270' + nom + 'le « Pendant ce temps » quitte la tête sans être au « Pourquoi »');
+      var phr = x.approchee && x.approchee.phrase ? x.approchee.phrase : null;
+      if (phr) {
+        if (x.pourquoi && approcheeParLaPuce(x) ? t.approchee !== 'feuille' || x.pourquoi.approchee !== phr : t.approchee !== 'tete') erreurs.push('I270' + nom + 'la phrase du « ≈ » n’est ni à la feuille ni dans la tête');
+      } else if (t.approchee) erreurs.push('I270' + nom + 'une place pour la phrase du « ≈ » alors qu’il n’y en a pas');
+      var rai = x.proposition && x.proposition.pourquoi ? x.proposition.pourquoi : null;
+      if (rai) {
+        if (x.pourquoi ? t.chauffe !== 'feuille' || x.pourquoi.chauffe !== rai : t.chauffe !== 'carte') erreurs.push('I270' + nom + 'la raison de la chauffe n’est ni à la feuille ni sur la carte');
+      } else if (t.chauffe) erreurs.push('I270' + nom + 'une place pour la raison de la chauffe alors qu’il n’y en a pas');
+      // I271 — relue à part, famille par famille.
+      var f = x.file;
+      if (!f || !Array.isArray(f.enAttente)) { erreurs.push('I271' + nom + 'aucune file de décision'); return; }
+      var present = {};
+      present.reprise = !!x.carteReprise;
+      present.forme = !!x.carteForme;
+      present.paris = !!(x.parisRates && x.parisRates.carte);
+      present.calage = !!(x.calage && x.calage.demandeHabituelle);
+      present.autre = !!x.carteLest || !!x.carteMarche || !!(x.escalier && x.escalier.carte);
+      present.veille = !!(plan.veilleActivite && plan.veilleActivite.slug === x.slug);
+      present.chauffes = !!x.proposition;
+      var attendue = null, reste = [];
+      NOMS.forEach(function (n) { if (!present[n]) return; if (attendue === null) attendue = n; else reste.push(n); });
+      if (f.carte !== attendue) erreurs.push('I271' + nom + 'la carte retenue est « ' + f.carte + ' », la première de l’ordre est « ' + attendue + ' »');
+      if (f.enAttente.join('|') !== reste.join('|')) erreurs.push('I271' + nom + 'les cartes en attente sont « ' + f.enAttente.join(', ') + ' », elles devraient être « ' + reste.join(', ') + ' »');
+      if (f.ordre.join('|') !== NOMS.join('|')) erreurs.push('I271' + nom + 'l’ordre de la file n’est pas celui de la règle');
+      if ((x.chauffesPosees || x.silenceChauffes) && (f.carte === 'chauffes' || f.enAttente.indexOf('chauffes') >= 0)) erreurs.push('I271' + nom + 'une décision appliquée (chauffes posées ou silence) est entrée dans la file');
     });
   }
   // I167 (chantier « Les mots disent vrai », PR 5a-bis, MOTEUR §9.48 bis) — LA SUITE LIT AUJOURD'HUI. Quand une charge est répétée aujourd'hui (au moins deux
@@ -10100,6 +10248,8 @@
 
   var api = {
     planDeSeance: planDeSeance,
+    tetesDuPlan: tetesDuPlan,
+    ORDRE_DE_LA_FILE: ORDRE_DE_LA_FILE,
     lignesARetirer: lignesARetirer,
     // 236 (MOTEUR §9.39) — « Ajuster la fin à ma forme du jour » : les lignes à retirer, lues sur le plan
     lignesAAjuster: lignesAAjuster,

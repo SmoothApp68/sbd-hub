@@ -5399,17 +5399,22 @@
   }
 
   // Le gris d'une consigne qui progresse ou garde à la même charge : la série du jour, la cause (si le verbe la rend vraie), puis le verbe.
-  function grisDuVerbe(c, v, tete, zoneBas, zoneHaut) {
+  // 21/11/2026 (« Simplifier », pilote 3+1, décision 2) — LA FORME COURTE DE LA TÊTE : `court` retire le FAIT daté qui précède le verbe (« Mardi : 90 kg × 8, 8, 8. »,
+  // que la colonne PRÉC. et la feuille du « Pourquoi » disent déjà) et garde le verbe avec son chiffre (I162). Une CAUSE (« la dernière sans marge ») est un fait que le
+  // verbe annonce : avec elle, la phrase reste entière. `tete` peut être une fonction : le fait n'est rédigé (donc cité, I26) que s'il est dit.
+  function grisDuVerbe(c, v, tete, zoneBas, zoneHaut, court) {
     var cause = v.cause ? (v.sansMarge.derniere ? ', la dernière sans marge' : ', une série sans marge') : '';
+    var seul = court === true && !v.cause;
+    var debut = function (sep) { return seul ? '' : (typeof tete === 'function' ? tete() : tete) + sep; };
     if (v.verbe === VERBES.MONTE_REPS) {
       if (zoneBas !== null && v.vers.reps < zoneBas) {
-        return tete + '. ' + dePlus(v.plus, true) + ' : ' + ligneDeLaConsigne(c) + ', vers tes ' + nombreFr(zoneBas, regle('zone.bas')) + '-' + nombreFr(zoneHaut, regle('zone.haut')) + '.';
+        return debut('. ') + dePlus(v.plus, true) + ' : ' + ligneDeLaConsigne(c) + ', vers tes ' + nombreFr(zoneBas, regle('zone.bas')) + '-' + nombreFr(zoneHaut, regle('zone.haut')) + '.';
       }
-      return tete + '. ' + dePlus(v.plus, true) + ' : ' + ligneDeLaConsigne(c) + '.';
+      return debut('. ') + dePlus(v.plus, true) + ' : ' + ligneDeLaConsigne(c) + '.';
     }
-    if (v.verbe === VERBES.GARDE_CIBLE) return tete + cause + '. ' + tuRestes(c).charAt(0).toUpperCase() + tuRestes(c).slice(1) + '.';
-    if (v.verbe === VERBES.BORNE) return tete + cause + '. Ta cible : ' + ligneDeLaConsigne(c) + '.';
-    return tete + '.';
+    if (v.verbe === VERBES.GARDE_CIBLE) return debut(cause + '. ') + tuRestes(c).charAt(0).toUpperCase() + tuRestes(c).slice(1) + '.';
+    if (v.verbe === VERBES.BORNE) return debut(cause + '. ') + 'Ta cible : ' + ligneDeLaConsigne(c) + '.';
+    return (typeof tete === 'function' ? tete() : tete) + '.';
   }
   // Le Pourquoi (`tete` : la phrase qui précède, ses deux-points compris).
   function pourquoiDuVerbe(c, v) {
@@ -5669,7 +5674,7 @@
 
   // ══ FIN DE L'ANNONCE ═════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
-  function phraseGrise(c, reference) {
+  function phraseGrise(c, reference, court) {
     var f = c.fondement || {};
     var z = zoneParCle(c.zone);
     var hi = z === null ? null : z.haut;
@@ -5721,7 +5726,7 @@
         if (f.effortVise && f.effortVise.effet === 'garde') return annonceDe('effort', { ev: f.effortVise, moment: 'aujourdhui' });
         // PR 4a — LE VERBE VIENT DE LA LIGNE (`verbeDeLaConsigne`), plus de l'état : « sans marge » ne se dit que si le verbe le rend vrai.
         // 200b — la cible (dernière fois + 1) encore sous le bas de la zone : « vers tes 6-8 » (VOIX, I26).
-        return grisDuVerbe(c, verbeDeLaConsigne(c), jour() + DEUX_POINTS + auPalier(), z === null ? null : z.bas, z === null ? null : z.haut);
+        return grisDuVerbe(c, verbeDeLaConsigne(c), function () { return jour() + DEUX_POINTS + auPalier(); }, z === null ? null : z.bas, z === null ? null : z.haut, court);
 
       case 'test_propose':
         // 154 (§9.26) — le test posé « par la réserve » dit la réserve notée, pas le haut de la zone.
@@ -5729,6 +5734,8 @@
           return annonceDe('effort', { ev: f.effortVise, haut: c.haut, moment: 'aujourdhui' });
         }
         if (f.effortVise && f.effortVise.effet === 'test' && c.haut && c.haut.charge !== null && c.haut.charge !== undefined) {
+          // 21/11/2026 (« Simplifier ») — le verbe du test, seul : « On essaie 92,5 kg. » ; « la dernière fois, 90 kg × 9 avec 3 en réserve ou plus » est dit au « Pourquoi ».
+          if (court === true) return 'On essaie ' + enKg(c.haut.charge, cite(FAIT, { quoi: 'effort_vise.haut' })) + '.';
           return 'On essaie ' + enKg(c.haut.charge, cite(FAIT, { quoi: 'effort_vise.haut' })) + DEUX_POINTS + 'la dernière fois, ' +
             chargeFois(f.effortVise.charge, f.effortVise.reps, cite(FAIT, { quoi: 'effort_vise' })) + ' avec ' +
             nombreFr(f.effortVise.reserve, cite(FAIT, { quoi: 'effort_vise.reserve' })) + ' en réserve' + (f.effortVise.reserve === RESERVE_GRILLE_MAX ? ' ou plus.' : '.');
@@ -5791,7 +5798,7 @@
       case 'tenue_apres_chute':
         // 74 — sans chute sur les reps faites (l'état vient du calcul prudent,
         // la ligne des reps faites) : la phrase de la rep de plus, qui est vraie.
-        if (!f.chute) return grisDuVerbe(c, verbeDeLaConsigne(c), jour() + DEUX_POINTS + auPalier(), null, null);
+        if (!f.chute) return grisDuVerbe(c, verbeDeLaConsigne(c), function () { return jour() + DEUX_POINTS + auPalier(); }, null, null, court);
         return jour() + DEUX_POINTS + auPalier() + '. Je ne compte pas la dernière série' + DEUX_POINTS + tuRestes(c) + '.';
 
       case 'etirement':
@@ -5861,7 +5868,7 @@
         // 175 — au plafond sans lest (30 reps), plus jamais « une rep de plus ».
         if (f.plafondReps === 'atteint') return jour() + DEUX_POINTS + auPalier() + '. Ton plafond sans lest.';
         if (f.plafondReps === 'vise') return jour() + DEUX_POINTS + auPalier() + '. Vise ' + nombreFr(PLAFOND_CIBLE, regle('constante')) + ' sur toutes tes séries.';
-        return grisDuVerbe(c, verbeDeLaConsigne(c), jour() + DEUX_POINTS + auPalier(), null, null);
+        return grisDuVerbe(c, verbeDeLaConsigne(c), function () { return jour() + DEUX_POINTS + auPalier(); }, null, null, court);
 
       // §10 bis (108, décidé le 15/10/2026) — « 30 kg, la plus lourde de ta
       // salle : on monte en reps. » La charge citée est celle de la ligne : la
@@ -7021,6 +7028,15 @@
     return { jaune: jaune, gris: phraseGrise(consigne, reference) };
   }
 
+  // 21/11/2026 (« Simplifier », pilote 3+1) — LA TÊTE COURTE, écrite par le moteur : la phrase grise sans le fait daté (« Une rep de plus : 90 kg × 9. », « On essaie
+  // 92,5 kg. »), ou `null` quand la phrase est déjà ce qu'elle est (aucune forme plus courte). Le plan la rédige sous capture (I26) et I162 la relit ; l'écran ne coupe rien.
+  function grisCourt(consigne, reference) {
+    if (!consigne) return null;
+    var pleine = phraseGrise(consigne, reference);
+    var court = phraseGrise(consigne, reference, true);
+    return typeof court === 'string' && court !== '' && court !== pleine ? court : null;
+  }
+
   // ── §9.13 — LE PONT DEPUIS `analyser`, ET LA CONSIGNE D'UN EXERCICE ──────
   //
   // `analyser` ne connaît pas de rôle « palier » : une série au palier y est
@@ -8161,10 +8177,12 @@
 
   // La phrase grise de l'exercice : « Décharge, semaine 4 sur 4 : 2 séries au lieu de 3. » (planifiée) ; « Décharge : 2 séries au lieu de 3. »
   // (acceptée) ; sans clause de séries, « Décharge, semaine 4 sur 4. » ; et « … : cet exercice ne change pas. » quand rien ne change.
-  function grisAllegee(c) {
+  // 21/11/2026 (« Simplifier », décision 5) — `court` : « Décharge : 2 séries au lieu de 3. » SANS la semaine (« , semaine 5 sur 5 », dite par le bandeau de la séance) ;
+  // la clause de séries, elle, reste (I165) : c'est elle que cet exercice annonce.
+  function grisAllegee(c, court) {
     var a = c && c.allegee;
     if (!a) return null;
-    var tete = 'Décharge' + rangDeLaDecharge(a);
+    var tete = 'Décharge' + (court === true ? '' : rangDeLaDecharge(a));
     if (allegeeSansChangement(c)) return tete + DEUX_POINTS + 'cet exercice ne change pas.';
     var d = detailAllegee(c);
     return d ? tete + DEUX_POINTS + d + '.' : tete + '.';
@@ -13728,6 +13746,10 @@
   function textesFixesDeLaDecharge() {
     var t = [detailAllegeeProposee(), libelleAlleger(), bandeauAllegee('2026-01-07'), bandeauDecharge(4, 4), texteDureeAllegee(2400),
              bandeauAllegee('2026-01-07', false), bandeauDecharge(4, 4, false), FIN_ALLEGEE, FIN_DECHARGE];
+    // 21/11/2026 (« Simplifier », décision 5) — la forme COURTE de la tête, écrite ici et non coupée à l'écran : la même clause, sans la semaine (le bandeau la dit).
+    [{ series: 2, routine: 3, base: 3 }, { series: 3, routine: 3, base: 3 }].forEach(function (a) {
+      t.push(grisAllegee({ allegee: Object.assign({ decharge: true, semaine: 4, semaines: 4, avant: { charge: 100, vise: 8 } }, a), ligne: { charge: 100, vise: 8 } }, true));
+    });
     LEXIQUE.forEach(function (e) { if (e.cle === 'allegee' || e.cle === 'phase') t.push(e.mot, e.phrase); });
     sourcesDe('allegee').concat(sourcesDe('bloc.semaines')).forEach(function (s) { t.push(s.texte); });
     return t;
@@ -14620,6 +14642,7 @@
     planDeCouverture: planDeCouverture,
     phraseReaction: phraseReaction,
     libellesConsigne: libellesConsigne,
+    grisCourt: grisCourt,
     pourquoiConsigne: pourquoiConsigne,
     constatDe: constatDe,
     constatDuJour: constatDuJour,

@@ -383,7 +383,7 @@
     return { cle: actuel.cle, date: rangDeLAnciennete(ce.cle) >= rangDeLAnciennete(actuel.cle) ? new Date(t).toISOString() : null };
   }
   // RÈGLES 4 à 6 : `null`, ou `{ de, vers }` (`de` : l'ancienneté du profil, `null` si vide). Jamais vers le bas ; le choix de moins de
-  // 182 jours prime ; `bloque` (décharge, semaine de test, « J'ai mal » : l'app les lit dans leurs prédicats) : l'évaluation attend.
+  // 182 jours prime ; `bloque` (décharge, semaine de mesure, « J'ai mal » : l'app les lit dans leurs prédicats) : l'évaluation attend.
   function changementDeNiveau(profil, calcul, aujourdhui, bloque) {
     if (bloque === true || !calcul || !calcul.cle) return null;
     var p = profil || {};
@@ -1035,7 +1035,7 @@
     anciennete: 'Ancienneté', intention: 'Progresser ou carnet', rythme_progression: 'Ton rythme', phase: 'Ta phase',
     phase_depuis: 'Ta phase', lest_reponse: 'Lest', materiel: 'Matériel', seances_par_semaine: 'Séances par semaine',
     duree_seance_min: 'Durée d’une séance', objectif: 'But d’entraînement', priorites: 'Priorités', temps_reponse: 'Ton temps',
-    historique_declare: 'Historique', programme_choix: 'Ton programme', zones_a_menager: 'Zone à ménager', zones_raides: 'Zones raides',
+    historique_declare: 'Historique', programme_choix: 'Ton programme', zones_a_menager: 'À ménager', zones_raides: 'Zones raides',
     exercices_ecartes: 'Exercices écartés', jeu_actif: 'Le jeu', compte_prive: 'Compte privé', ma_salle: 'Ma salle',
     marche_reponses: 'Marche suivante', completer_refus: 'Ce qui manque à tes séances', assistant_accord_a: 'Demander au coach', cartes_semaine: 'Les cartes de ta semaine', objectifs_entretien: 'Objectifs en entretien', notes_exercices: 'Tes notes d’exercice', notes_ia_accord_a: 'Lire mes notes', notes_ia_question_a: 'Lire mes notes'
   };
@@ -1595,7 +1595,7 @@
 
   // `ouvrir(quoi)` : 'zones', 'ecartes' ou 'refaire'. Les lignes sont rendues par `rendreProfil` comme les autres.
   function lignesProgramme(profil, ouvrir) {
-    var lignes = [{ libelle: 'Zone à ménager', sous: PHRASE_ZONES, valeur: libelleDesZones(profil),
+    var lignes = [{ libelle: 'À ménager', sous: PHRASE_ZONES, valeur: libelleDesZones(profil),
                     surChoix: function () { ouvrir('zones'); } }];
     var ecartes = ecartesDe(profil);
     if (ecartes.length) {

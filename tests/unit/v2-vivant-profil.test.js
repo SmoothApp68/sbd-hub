@@ -14,7 +14,7 @@ const PROFIL = {
 
 // Les lignes du Profil AVANT 173 (liste relevée sur l'écran de main, dans l'ordre de l'écran), « Objectif » devenu « But d’entraînement » ; 190 : + « Ma salle ».
 const LIGNES_D_AVANT = [
-  'Matériel', 'Ma salle', 'Zone à ménager', 'Exercices écartés', 'Exporter mes données', 'Refaire mon programme', 'Zones raides',   // 190 : « Ma salle » toujours là
+  'Matériel', 'Ma salle', 'À ménager', 'Exercices écartés', 'Exporter mes données', 'Refaire mon programme', 'Zones raides',   // 190 : « Ma salle » toujours là
   'But d’entraînement', 'Objectifs en entretien', 'Priorités', 'Entraînement régulier', 'Tous mes exercices', 'Importer depuis Hevy ou Strong',
   'Poids', 'Taille', 'Date de naissance', 'Sexe', 'Séances par semaine', 'Durée d’une séance', 'Ton temps',
   'Jalons', 'Faits seulement',   // 273

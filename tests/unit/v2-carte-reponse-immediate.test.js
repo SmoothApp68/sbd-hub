@@ -2,7 +2,7 @@
 //
 // 19/11/2026 — LA RÉPONSE D'UNE CARTE DE LA SEMAINE SE VOIT AU TOUCHER (suite de la PR #704, qui l'a réglé pour les gestes de routine).
 //
-// LE DÉFAUT : « Pas maintenant », « Régler mes séances » et « Répartir mes priorités » attendaient le serveur (`await poserProfil`)
+// LE DÉFAUT : « Pas maintenant », « Régler mes séances » et « Ajouter un 2e passage à mes priorités » attendaient le serveur (`await poserProfil`)
 // avant de poser leur ligne : la carte restait là, boutons touchables. LE CORRECTIF : la ligne se pose et se peint avant toute attente
 // d'écriture ; les écritures partent derrière ; un échec la remplace par « Je n'ai pas pu … » (+ « Revoir la carte ») et rend les
 // réponses d'avant ; « Annuler » attend l'écriture.
@@ -132,7 +132,7 @@ describe('« Régler mes séances sur N min » : la ligne se voit avant la répo
   });
 });
 
-describe('« Répartir mes priorités » : la ligne se voit avant la réponse du serveur', () => {
+describe('« Ajouter un 2e passage à mes priorités » : la ligne se voit avant la réponse du serveur', () => {
   const p = { type: 'repartir', ajouts: [{ routine_id: 'r1', slug: 'b', series: 2, reps: '8' }] };
   test('ligne + « Annuler » posées avant toute réponse ; la routine et la réponse sont parties', async () => {
     const b = banc();

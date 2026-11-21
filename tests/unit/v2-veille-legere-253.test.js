@@ -134,12 +134,12 @@ describe('253 X2 — le plan : la variante est la consigne du jour, pas une zone
     expect(p.exercices[0].lignes.filter((l) => l.type === 'travail').every((l) => l.charge === 152.5)).toBe(true);
     expect(p.veilleActivite).not.toBeNull();
   });
-  test('« Garder le plan » : la charge du plan, aucune variante', () => {
+  test('« Comme prévu » : la charge du plan, aucune variante', () => {
     const se = monter({}), p = T.planDeSeance(entrees(se, { veilleChoix: 'garder' }));
     expect(p.exercices[0].veilleLegere).toBeNull();
     expect(p.exercices[0].lignes[0].charge).toBe(152.5);
   });
-  test('ne s’applique pas : Édition, « Juste un carnet », semaine de test, consigne déjà allégée ou avec un test', () => {
+  test('ne s’applique pas : Édition, « Juste un carnet », semaine de mesure, consigne déjà allégée ou avec un test', () => {
     const se = monter({});
     const ed = entrees(se); ed.seance.edition = true;
     expect(T.planDeSeance(ed).exercices[0].veilleLegere).toBeNull();
@@ -257,9 +257,9 @@ describe('253 X2 — I142 et les invariants adaptés', () => {
     const { e, p } = plan({});
     expect(i142(p, Object.assign({}, e, { veilleChoix: null })).join('|')).toMatch(/sans que la personne l’ait choisie/);
   });
-  test('I123 : la proposition en semaine de test ou allégée est refusée', () => {
+  test('I123 : la proposition en semaine de mesure ou allégée est refusée', () => {
     const se = monter({}), e = entrees(se, { veilleChoix: null }), p = T.planDeSeance(e);
     p.allegee = { source: 'x' };
-    expect(T.verifierPlan(p, e).erreurs.join('|')).toMatch(/I123 — une proposition de veille en semaine de test ou allégée/);
+    expect(T.verifierPlan(p, e).erreurs.join('|')).toMatch(/I123 — une proposition de veille en semaine de mesure ou allégée/);
   });
 });

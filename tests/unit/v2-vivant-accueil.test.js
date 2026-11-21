@@ -1,6 +1,6 @@
 //
 // 173 (refonte « Vivant », lot 3) — l'accueil : « Prochaine séance » = la routine qui SUIT la dernière faite dans son dossier ;
-// [Démarrer] est le même démarrage que Saisie ; pendant une séance en cours, [Reprendre].
+// [Démarrer] est le même démarrage que Saisie ; pendant une séance en cours, [Continuer la séance].
 require('../../v2/js/modele.js');
 require('../../v2/js/semaine.js');
 require('../../v2/js/palier.js');
@@ -62,9 +62,9 @@ describe('la carte « Prochaine séance » (173)', () => {
     expect(appels).toEqual({ demarrer: ['b'], reprendre: 0, autre: 1 });
   });
 
-  test('pendant une séance en cours, le bouton devient Reprendre', () => {
+  test('pendant une séance en cours, le bouton devient « Continuer la séance »', () => {
     const { cible, appels } = rendre({ enCours: true });
-    expect(cible.querySelector('.prochaine-go').textContent).toBe('Reprendre');
+    expect(cible.querySelector('.prochaine-go').textContent).toBe('Continuer la séance');
     cible.querySelector('.prochaine-go').click();
     expect(appels.reprendre).toBe(1);
     expect(appels.demarrer).toEqual([]);

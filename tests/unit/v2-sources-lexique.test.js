@@ -86,13 +86,13 @@ describe('201 — le lexique', () => {
     const z = M.motDuLexique('zone').phrase;
     M.ZONES.forEach((x) => expect(z.indexOf(x.libelle + ' ' + x.bas + '-' + x.haut) >= 0).toBe(true));
   });
-  test('« Garde N » prend son N (« garde 1 » : une rep possible), avec la source de Refalo', () => {
+  test('« Réserve N » prend son N (« réserve 1 » : une rep possible), avec la source de Refalo', () => {
     const g1 = M.motDuLexique('garde', 1), g2 = M.motDuLexique('garde', 2);
-    expect(g1.mot).toBe('Garde 1');
+    expect(g1.mot).toBe('Réserve 1');
     expect(g1.phrase).toMatch(/il te reste 1 rep possible\./);
     expect(g2.phrase).toMatch(/il te reste 2 reps possibles\./);
     expect(g1.sources[0].auteur).toBe('Refalo');
-    expect(M.motDuLexique('garde').mot).toBe('Garde N');
+    expect(M.motDuLexique('garde').mot).toBe('Réserve N');
     expect(M.motDuLexique('inconnu')).toBeNull();
   });
   test('les mots qui ont une source la résolvent ; les autres n\'en inventent pas', () => {

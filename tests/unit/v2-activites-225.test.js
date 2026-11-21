@@ -152,10 +152,10 @@ describe('225 — la veille dans planDeSeance (I123, I124)', () => {
   const erreurs = (p, e) => T.verifierPlan(p, e).erreurs.filter((x) => /I12[34]/.test(x));
   const se = seanceDe(['squat_barre', 'developpe_couche_barre']);
 
-  test('le lendemain d’un football intense, le squat en Lourd propose UNE fois « plus léger » ou Garder le plan', () => {
+  test('le lendemain d’un football intense, le squat en Lourd propose UNE fois « plus léger » ou Comme prévu', () => {
     const p = T.planDeSeance(entrees(se));
     expect(p.veilleActivite.slug).toBe('squat_barre');
-    expect(p.veilleActivite.boutons).toEqual({ leger: 'Squat plus léger aujourd’hui', garder: 'Garder le plan' });
+    expect(p.veilleActivite.boutons).toEqual({ leger: 'Squat plus léger aujourd’hui', garder: 'Comme prévu' });
     expect(p.veilleActivite.phrase).toBe('Tu as noté football hier. Squat plus léger aujourd’hui\u00a0?');
     expect(p.veilleActivite.pourquoi).toMatch(/convention de coachs, pas une règle prouvée/);
     expect(erreurs(p, entrees(se))).toEqual([]);
@@ -166,7 +166,7 @@ describe('225 — la veille dans planDeSeance (I123, I124)', () => {
     expect(c.veilleActivite.pourquoi).not.toMatch(/Wilson|Courir réduit/);
     expect(T.planDeSeance(entrees(se)).veilleActivite.pourquoi).not.toMatch(/Wilson/);
   });
-  test('« Garder le plan » est respecté : la réponse fait taire la carte, et la zone ne bouge pas', () => {
+  test('« Comme prévu » est respecté : la réponse fait taire la carte, et la zone ne bouge pas', () => {
     ['garder', 'leger'].forEach((c) => expect(T.planDeSeance(entrees(se, { veilleChoix: c })).veilleActivite).toBeNull());
     expect(erreurs(T.planDeSeance(entrees(se)), entrees(se, { veilleChoix: 'garder' })).join('|')).toMatch(/I124 — la proposition revient/);
   });

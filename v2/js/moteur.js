@@ -1663,7 +1663,7 @@
   // `Generateur.familleDeBarre`, la barre ou un de ses frères à la barre ; `null` : pas une barre, aucun plancher — un nom inconnu n'est jamais deviné), la
   // réserve AFFICHÉE ne descend jamais sous le plancher de sa barre, quel que soit le réglage : squat, développé couché et militaire 1, soulevé de terre 2.
   // Le mécanisme est celui des populations protégées (deux valeurs) : le test par la réserve reste sur la TABLE (`reserveVisee`). Exemptée et nommée : la
-  // semaine de test (`testEssai`, `testSerieAuMax`, §9.32), le test planifié sur les sécurités, garde ses propres réserves.
+  // semaine de mesure (`testEssai`, `testSerieAuMax`, §9.32), le test planifié sur les sécurités, garde ses propres réserves.
   var PLANCHER_DE_BARRE = { squat: 1, couche: 1, militaire: 1, souleve: 2 };
   // `famille` : la barre (`Modele.BARRES`), ou `null`. Rend le plancher de la barre, ou `null` (pas une barre).
   function plancherDeBarre(famille) {
@@ -5006,8 +5006,9 @@
     return n + 'ᵉ séance avec douleur sur cet exercice en ' + (JOURS_DE_DOULEUR_RECENTE / 7) + ' semaines. ' + PHRASE_KINE;
   }
   var PHRASE_KINE = 'Si ça revient, un kiné peut chercher pourquoi.';
-  // `o` : `{ compte, frere }` — le nombre de séances avec douleur, et le nom du premier frère proposé (ou rien).
+  // `o` : `{ compte, frere, jour }` — le nombre de séances avec douleur, le nom du premier frère proposé (ou rien) et le dernier jour noté (« AAAA-MM-JJ »).
   function carteRepriseTextes(nom, consigne, reprise, o) {
+    var jourDit = o && o.jour ? Modele().jourCourt(o.jour) : '';   // « 12 nov. » (le point de l'abréviation finit la phrase)
     var choix = [{ cle: 'avant', texte: texteRepriseAvant(consigne) }];
     var leger = texteRepriseLeger(reprise && reprise.repli, consigne);
     var repetee = douleurRepetee(o && o.compte);
@@ -5017,7 +5018,9 @@
     if (repetee) choix.sort(function (a, b) { return RANG_REPETEE[a.cle] - RANG_REPETEE[b.cle]; });
     choix.push({ cle: 'sans', texte: TEXTES_DOULEUR.sansCoach });
     return {
-      titre: 'Ta dernière séance de ' + nom + ' était douloureuse.',
+      // 20/11/2026 — daté, sans « on » ni « hier » (« hier » ment dès que la douleur date d'il y a dix jours) : « Squat : tu as noté une douleur
+      // le 12 nov. ». La date est celle du dernier jour noté (`o.jour`), dite par le formateur de jours ; sans elle, la phrase se tait sur le jour.
+      titre: (function () { var t = nom + DEUX_POINTS + 'tu as noté une douleur' + (jourDit ? ' le ' + jourDit : ''); return /\.$/.test(t) ? t : t + '.'; })(),
       phrase: repetee ? phraseDouleurRepetee(o.compte) : TEXTES_DOULEUR.reprisePhrase,
       choix: choix
     };
@@ -5502,7 +5505,7 @@
   function annonceDeLaSuite(d) {
     var cAvant = d.cAvant, cApres = d.cApres, z = d.z, reglage = d.reglage, fait = d.fait;
     if (cApres.etat === 'silence') return null;
-    // PR 5b-1 (MOTEUR §9.50) — un régime À VENIR (décharge, semaine de test, début de bloc) dans la fenêtre de la fois suivante : l'annonce ne promet NI charge NI
+    // PR 5b-1 (MOTEUR §9.50) — un régime À VENIR (décharge, semaine de mesure, début de bloc) dans la fenêtre de la fois suivante : l'annonce ne promet NI charge NI
     // rep, elle dit la date du régime. Elle REMPLACE une annonce (le silence ci-dessus reste le silence), elle n'en crée jamais.
     if (d.regime) return phraseDuRegime(d.regime);
     // Rédigée à la demande : seule la branche qui l'écrit la déclare (§20 bis).
@@ -5631,7 +5634,7 @@
       enKg(charge, cite(FAIT, { quoi: 'effort_vise.haut' })) + '.';
   }
   // ── PR 5b-1 (MOTEUR §9.50) — LES RÉGIMES À VENIR ────────────────────────────────────────────────────────────────────────────────────────
-  // Quand la fois suivante de l'exercice peut tomber dans une décharge planifiée, une semaine de test acceptée ou un bloc qui pose une autre zone, l'annonce
+  // Quand la fois suivante de l'exercice peut tomber dans une décharge planifiée, une semaine de mesure acceptée ou un bloc qui pose une autre zone, l'annonce
   // ne promet NI charge NI rep : elle dit la DATE du régime (absolue, une seule horloge : le jour civil de la séance) ou se tait. Un régime se calcule ici,
   // d'après les entrées du plan ; il ne s'écrit jamais.
   // La fois suivante est une FENÊTRE, pas un point : autour de l'écart habituel `e` (médiane arrondie au jour, 7 sans histoire), de `e − 2` à `e + 3` jours,
@@ -5680,7 +5683,7 @@
   var fin = function (date) { return /\.$/.test(date) ? date : date + '.'; };
   var PHRASES_DU_REGIME = {
     decharge: function (date) { return 'Ta décharge commence le ' + date + ', prévue par ton programme.'; },
-    test: function (date) { return 'Ta semaine de test commence le ' + fin(date); },
+    test: function (date) { return 'Ta semaine de mesure commence le ' + fin(date); },
     bloc: function (date) { return 'Ton bloc commence le ' + fin(date); }
   };
   function phraseDuRegime(r) {
@@ -10262,7 +10265,7 @@
   function carteLestDetail(e) {
     var x = e || {};
     if (typeof x.variante === 'string' && x.variante) {
-      return 'Le haut de ta zone tient. La marche au-dessus : du lest (' + enKg(SAUT_LEST, regle('lest.saut')) +
+      return 'Le haut de ta zone tient. Une variante plus dure : du lest (' + enKg(SAUT_LEST, regle('lest.saut')) +
              ', en revenant à ' + nombreFr(x.bas, regle('zone.bas')) + ' reps), ou ' + x.variante + ', sans matériel.';
     }
     return 'Au haut de ta zone, un lest te fait continuer en force. Avec une ceinture ou un gilet, ' +
@@ -10429,11 +10432,11 @@
   function carteMarcheDetail(d) {
     var x = d || {};
     if (x.secondes === true) {
-      return 'La marche au-dessus : ' + x.nom + '. Je te propose d\'en faire ' + nombreFr(SERIES_MARCHE, regle('constante')) +
+      return 'Une variante plus dure : ' + x.nom + '. Je te propose d\'en faire ' + nombreFr(SERIES_MARCHE, regle('constante')) +
              ' tenues avant, autant de secondes que tu peux.';
     }
     // 16/11/2026 — en reps, l'essai : la marche prend la place des séries restantes, aujourd'hui.
-    return 'La marche au-dessus : ' + x.nom + '. ' + phraseDeLEssaiALaPlace(x.nomDepart, true);
+    return 'Une variante plus dure : ' + x.nom + '. ' + phraseDeLEssaiALaPlace(x.nomDepart, true);
   }
   // 16/11/2026 (« Essayer la marche ») — LA PHRASE DE L'ESSAI, UNE SOURCE : la carte (« … pour essayer aujourd'hui. Ta routine ne
   // change pas. ») et la page d'exercice (`phraseDeLaSuivante` : « … pour essayer : ta routine ne change pas. ») la lisent ici.
@@ -12386,7 +12389,7 @@
     if (q.raison === 'muscle') {
       pourquoi = 'Premier exercice de la séance sur ce muscle' + (q.muscle ? ' (' + q.muscle + ')' : '') +
         (q.max ? ', et tu montes au-dessus de ' + nombreFr(CHAUFFE_SEUIL_MAX * 100, regle('constante')) + ' % de ta force estimée' : '') + '.';
-    } else if (q.raison === 'zone') pourquoi = 'Une zone à ménager passe par cet exercice : tu montes doucement.';
+    } else if (q.raison === 'zone') pourquoi = 'Ce que tu ménages passe par cet exercice : tu montes doucement.';
     else if (q.raison === 'demande') pourquoi = 'Tu as demandé une chauffe.';
     else if (q.raison === 'programme') pourquoi = 'Dans le programme que je t’ai construit, je choisis tes chauffes.';
     else pourquoi = 'En objectif Forme, on monte doucement dans la charge.';
@@ -13151,7 +13154,7 @@
   var TEST_SERIE_VISEE = 5, TEST_SERIE_VISEE_DEBUTANT = Object.freeze([6, 8]);
   var TEST_SERIE_PLAFOND = 10, TEST_SERIE_PLAFOND_SOULEVE = 6;
   var TEST_REPOS_ESSAI_S = Object.freeze([240, 300, 300]);                          // 4 à 5 min
-  var TEST_SEMAINES_MIN = 4;                                                         // d'entraînement, avant « Faire une semaine de test »
+  var TEST_SEMAINES_MIN = 4;                                                         // d'entraînement, avant « Faire une semaine de mesure »
   var TEST_ACCESSOIRES_MAX = 2;
   var TEST_VALIDITE_JOURS = 90;                                                      // un max mesuré prime sur l'estimation, 90 jours
   var TEST_PHASES_AVANT = 2;                                                         // la proposition, à la fin de la 2ᵉ phase
@@ -13197,7 +13200,7 @@
   function testModeParDefaut(f) {
     return testRaisonDuDefaut(f) === null ? TEST_MODE_MAX : TEST_MODE_SERIE;
   }
-  // La raison du défaut, dite par le coach (la feuille « Semaine de test » du Profil), avec sa source. `null` : le défaut « Viser mon max »
+  // La raison du défaut, dite par le coach (la feuille « Semaine de mesure » du Profil), avec sa source. `null` : le défaut « Viser mon max »
   // n'a rien à justifier. `f` : les faits de `testModeParDefaut`, plus `max` et `chargeDuMax` (la série d'où vient le max) pour la phrase.
   function testPhraseDuDefaut(f) {
     var raison = testRaisonDuDefaut(f);
@@ -13358,7 +13361,7 @@
   }
 
   // LA PROPOSITION. `e` : { programme: bool, phasesFaites, allegeeTerminee (la semaine allégée qui suit la 2ᵉ phase est finie), maillonManquant,
-  // semainesEntrainement, semainePrecedenteAllegee, dechargeDansJours, deja (une semaine de test est posée ou refusée cette semaine) }.
+  // semainesEntrainement, semainePrecedenteAllegee, dechargeDansJours, deja (une semaine de mesure est posée ou refusée cette semaine) }.
   // `{ propose, voie: 'programme' | 'bibliotheque' | 'alleger' | null, raison }`.
   //   · programme : 2 phases faites et la semaine allégée qui les suit terminée : allégée → test → phase suivante (le test SUIT l'allégée) ;
   //     un maillon manquant dans la chaîne des phases : rien ;
@@ -13429,12 +13432,12 @@
     if (prop.propose) return phraseProposeTest(prop);
     if (prop.raison === 'semaines') return 'Pas encore : il faut quatre semaines d’entraînement avant de tester.';
     if (prop.raison === 'decharge') return 'Pas maintenant : ta décharge arrive dans moins de deux semaines.';
-    if (prop.raison === 'deja') return 'Une semaine de test est déjà posée.';
+    if (prop.raison === 'deja') return 'Une semaine de mesure est déjà posée.';
     if (prop.raison === 'aucune_barre') return 'Pas maintenant : aucune de tes quatre barres n’a de série assez récente pour régler un essai.';
     return 'Pas maintenant.';
   }
   function phraseTestEnCours() {
-    return 'Ta semaine de test est en cours : un mouvement par jour, sur tes barres. Ta charge de travail ne change pas.';
+    return 'Ta semaine de mesure est en cours : un mouvement par jour, sur tes barres. Ta charge de travail ne change pas.';
   }
   // Le bilan de fin de semaine : « Couché 154 kg → 157,5 kg ». `avant`, `mesure` : des charges (kg) ou `null`.
   function phraseBilanTest(nom, avant, mesure) {
@@ -13540,7 +13543,7 @@
   }
   // La proposition de la veille (§9.40) : UNE fois, pour UN exercice. `e` : { activite: { slug, nom, intense } | null, jambes: [{ slug, nom,
   // legere }] (les barres de jambes en zone Lourd ce jour-là, dans l'ordre de la séance, `legere` : le résultat de `veilleLegere`), choix:
-  // 'leger' | 'garder' | null (la réponse, une fois donnée), muet: Édition, « Juste un carnet », semaine de test, décharge }. Rend `null` ou
+  // 'leger' | 'garder' | null (la réponse, une fois donnée), muet: Édition, « Juste un carnet », semaine de mesure, décharge }. Rend `null` ou
   // { slug, nom, activite, boutons: { leger, garder }, phrase, pourquoi, legere, source }. `nom` : le nom court, parlé, de la barre.
   function veilleActivite(e) {
     var x = e || {};
@@ -13553,7 +13556,7 @@
     var nomAct = a.nom || a.slug;
     return {
       slug: j.slug, nom: nomEx, activite: a.slug, nomActivite: nomAct,
-      boutons: { leger: nomEx + ' plus léger aujourd\u2019hui', garder: 'Garder le plan' },
+      boutons: { leger: nomEx + ' plus léger aujourd\u2019hui', garder: 'Comme prévu' },
       phrase: 'Tu as noté ' + String(nomAct).toLowerCase() + ' hier. ' + nomEx + ' plus léger aujourd\u2019hui\u00a0?',
       pourquoi: phraseDeLaVeilleLegere(j.legere, nomAct) + ' ' + VEILLE_CONVENTION,
       legere: j.legere,
@@ -13636,10 +13639,10 @@
     // Le rest-pause.
     rest_pause: { type: 'coachs', auteur: 'Jeff Nippard, Renaissance Periodization',
       texte: 'Le rest-pause et les myo-reps : la pratique de Jeff Nippard et de Renaissance Periodization (Israetel).' },
-    // La semaine de test.
+    // La semaine de mesure.
     test: { type: 'coachs', auteur: 'Juggernaut, 5/3/1, SBS, Candito',
       texte: 'Juggernaut, 5/3/1, SBS et Candito recalent sur une série lourde ou une série au max plutôt que sur un vrai max.' },
-    // Le défaut de la semaine de test : « Série au max » quand le max vient d'une série de plus de 5 reps, ou à partir de 65 ans.
+    // Le défaut de la semaine de mesure : « Série au max » quand le max vient d'une série de plus de 5 reps, ou à partir de 65 ans.
     'test.defaut.reps': { type: 'etude', auteur: 'Reynolds', annee: 2006, effectif: '70 adultes',
       texte: 'Reynolds 2006 (70 adultes) : le max se calcule le mieux à partir d’une série de 5 reps ou moins.' },
     'test.defaut.age': { type: 'convention',
@@ -13722,13 +13725,13 @@
       phrase: 'Ce que ta grosse série dit de ta force du jour.' },
     { cle: 'max_estime', mot: 'Max estimé',
       phrase: 'Ce que ta meilleure série dit de ta force, calculé ; un record est ce que tu as vraiment soulevé.' },
-    { cle: 'garde', mot: 'Garde N', source: 'reserve',
+    { cle: 'garde', mot: 'Réserve N', source: 'reserve',
       phrase: 'Arrête la série quand il te reste N reps possibles. C’est la marge que vise ta zone aujourd’hui.' },
     { cle: 'allegee', mot: 'Décharge', source: 'allegee',
       phrase: 'Moins de séries et des cibles plus basses, pour récupérer.' },
     { cle: 'phase', mot: 'Phase', source: 'bloc.semaines',
       phrase: '5 semaines : 4 de travail, 1 de décharge.' },
-    { cle: 'semaine_de_test', mot: 'Semaine de test', source: 'test',
+    { cle: 'semaine_de_test', mot: 'Semaine de mesure', source: 'test',
       phrase: 'Une semaine où tu testes tes barres sur une série lourde, pour recaler tes charges. Ta charge de travail ne change pas.' },
     { cle: 'marche', mot: 'Marche', source: 'marche.seuil',
       phrase: 'En poids du corps, l’exercice suivant de l’échelle, plus dur.' },
@@ -13736,7 +13739,7 @@
       phrase: 'Un exercice qui se tient en secondes (planche, front lever) : on compte la durée, pas les reps.' },
     { cle: 'rest_pause', mot: 'Rest-pause', source: 'rest_pause',
       phrase: 'Une série jusqu’à l’échec, 15 s de pause, encore, deux fois.' },
-    { cle: 'zone_a_menager', mot: 'Zone à ménager',
+    { cle: 'zone_a_menager', mot: 'À ménager',
       phrase: 'Une articulation que tu m’as demandé de ménager : pas de série lourde sur les exercices qui la chargent.' }
   ];
   // Le lexique, chaque mot avec ses sources résolues.
@@ -13745,14 +13748,14 @@
       return { cle: m.cle, mot: m.mot, phrase: m.phrase, sources: m.source ? sourcesDe(m.source) : [] };
     });
   }
-  // `n` (facultatif) : le N de « Garde N », quand une puce le dit (« garde 1 »).
+  // `n` (facultatif) : le N de « Réserve N », quand une puce le dit (« garde 1 »).
   function motDuLexique(cle, n) {
     var tous = lexique();
     for (var i = 0; i < tous.length; i++) {
       if (tous[i].cle !== cle) continue;
       var m = tous[i];
       if (cle === 'garde' && typeof n === 'number' && n >= 0 && Math.floor(n) === n) {
-        m.mot = 'Garde' + INSECABLE + n;
+        m.mot = 'Réserve' + INSECABLE + n;
         m.phrase = 'Arrête la série quand il te reste ' + n + ' rep' + (n > 1 ? 's' : '') + ' possible' + (n > 1 ? 's' : '') +
           '. C\u2019est la marge que vise ta zone aujourd\u2019hui.';
       }
@@ -13802,8 +13805,8 @@
     return rateGardeAuPlancher(garde, c);
   }
   // La clause « , garde N » d'une phrase de raté ; à garde 0, rien (« garde 0 » se lirait mal à côté de « je garde 70 kg » : c'est la puce qui le dit).
-  function rateClauseGarde(g) {
-    return nombre(g) === 0 ? '' : ', garde ' + rateGarde(g);
+  function rateClauseGarde(g, dejaVise) {   // 20/11/2026 : « vise 1 en réserve » (la réserve, un seul mot) ; « avec 1 en réserve » quand la phrase dit déjà « vise »
+    return nombre(g) === 0 ? '' : (dejaVise === true ? ', avec ' : ', vise ') + rateGarde(g) + ' en réserve';
   }
   // Le contexte où le coach ne dit rien du tout (Entretenir, décharge, test, calage, « J'ai mal », 1re fois, figure).
   // 251 (D2, MOTEUR §9.39) — « SOUS LA ZONE » : UNE notion, lue trois fois — le niveau 1 (`reactionDeSerie`, le cas D et le cas L), le niveau 2
@@ -14059,7 +14062,7 @@
   // PR 4b (R-A, MOTEUR §9.42 bis) — LA RÉACTION APRÈS UN ZÉRO REP, UNE BRANCHE DÉDIÉE, UNE TABLE (pure ; lue par `plan.js` seul).
   //   c = { muet, charge (la charge restée à 0 rep), descente (`D`, ou null : rien de plus léger), role, restantes (les charges des lignes non validées, null = sans
   //   chiffre), derniere }
-  //   Muet : entretien, décharge, semaine de test, calage, douleur, figure, veille légère, édition, poids du corps / aide / lest, mesure ≠ charge × reps.
+  //   Muet : entretien, décharge, semaine de mesure, calage, douleur, figure, veille légère, édition, poids du corps / aide / lest, mesure ≠ charge × reps.
   //   Z1 : rôle travail (jamais un recul : R1, 20/11/2026) et au moins une ligne non validée plus lourde que `D` (une ligne sans chiffre compte plus lourde : O20) → « 30 kg est resté à
   //        0 rep : je propose 27,5 kg pour les séries qui restent. » + « Prendre 27,5 kg » (le geste `rate_prise` : on propose, la personne tape).
   //   Z2 : tout le reste (recul, dernière ligne, grosse série, test, haut, plancher du matériel) → « 30 kg est resté à 0 rep. »
@@ -14101,7 +14104,7 @@
     }
     if (d.niveau === 'exercice') {
       return rateReps(d.avant) + ' puis ' + rateReps(d.faites) + ', sous la cible. La suite vise ' + rateReps(d.vise) +
-        rateClauseGarde(d.garde) + ', ' + rateEntre(d.fourchette) + '.';
+        rateClauseGarde(d.garde, true) + ', ' + rateEntre(d.fourchette) + '.';
     }
     if (d.cas === 'R') return rateReps(d.faites) + ' cette fois.';
     if (d.cas === 'G') {
@@ -14204,7 +14207,7 @@
     }
     return t;
   }
-  var RATE_BOUTONS_FORME = { ajuste: 'Ajuster la fin à ma forme du jour', garde: 'Garder le plan' };
+  var RATE_BOUTONS_FORME = { ajuste: 'Ajuster la fin à ma forme du jour', garde: 'Comme prévu' };
   var RATE_BOUTONS_PARIS = { cran: 'Un cran dessous', retente: 'Je retente' };
 
   var api = {
@@ -14222,7 +14225,7 @@
     zonesRaidesConnues: zonesRaidesConnues, exerciceDeMobilite: exerciceDeMobilite, zoneDeMobilite: zoneDeMobilite,
     dureeDeMobilite: dureeDeMobilite, coteDeMobilite: coteDeMobilite, blocDeMobilite: blocDeMobilite, mobiliteTitre: mobiliteTitre,
     mobiliteSousTitre: mobiliteSousTitre, mobilitePourquoi: mobilitePourquoi,
-    // 193-4 (MOTEUR §9.32) — la semaine de test.
+    // 193-4 (MOTEUR §9.32) — la semaine de mesure.
     MODULE_TEST: MODULE_TEST, GRANDEUR_TEST: GRANDEUR_TEST,
     TEST_MODE_MAX: TEST_MODE_MAX, TEST_MODE_SERIE: TEST_MODE_SERIE, TEST_MONTEE: TEST_MONTEE, TEST_ESSAIS_MAX: TEST_ESSAIS_MAX,
     TEST_ACCESSOIRES_MAX: TEST_ACCESSOIRES_MAX, TEST_SEMAINES_MIN: TEST_SEMAINES_MIN, TEST_VALIDITE_JOURS: TEST_VALIDITE_JOURS,

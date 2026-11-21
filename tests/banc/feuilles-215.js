@@ -48,7 +48,7 @@ const PAGE = '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta n
         const sorties = {};
         const essai = (nom, f) => { try { f(); sorties[nom] = nb(); } catch (e) { sorties[nom] = 'exception ' + e.message; } };
         essai('mentions', () => R.rendreFeuilleMentions(c, { titre: 'Santé', blocs: [{ texte: 'x' }], surFermer: rien }));
-        essai('semaine de test', () => R.rendreFeuilleSemaineDeTest(c, { actif: false, phrase: 'p', peutLancer: true, barres: [], surFermer: rien, surMode: rien, surLancer: rien, surAnnuler: rien }));
+        essai('semaine de mesure', () => R.rendreFeuilleSemaineDeTest(c, { actif: false, phrase: 'p', peutLancer: true, barres: [], surFermer: rien, surMode: rien, surLancer: rien, surAnnuler: rien }));
         essai('mots', () => R.rendreFeuilleMots(c, { mots: window.THMoteur.lexique(), surFermer: rien }));
         essai('export', () => R.rendreFeuilleExport(c, { aide: 'a', libelleJson: 'j', libelleCsv: 'c', surJson: rien, surCsv: rien, surFermer: rien, etat: '' }));
         essai('écartés', () => R.rendreFeuilleEcartes(c, { titre: 't', aide: 'a', exercices: [{ nom: 'n', surReprendre: rien }], surFermer: rien }));

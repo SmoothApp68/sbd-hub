@@ -212,7 +212,7 @@ describe('niveau 2 — l’exercice', () => {
     expect(d).toMatchObject({ silence: false, vise: 7, garde: 1 });
     expect(d.fourchette).toEqual([6, 8]);
     expect(d.charge).toEqual({ action: 'garde', kg: 80 });
-    expect(M.phraseDeRate(d)).toBe('7 puis 7, sous la cible. La suite vise 7, garde 1, entre 6 et 8.');
+    expect(M.phraseDeRate(d)).toBe('7 puis 7, sous la cible. La suite vise 7, avec 1 en réserve, entre 6 et 8.');
   });
   test('une seule série sous la cible, ou la dernière tenue : rien', () => {
     expect(e({ faites: [{ reps: 8, vise: 8 }, { reps: 7, vise: 8 }] }).silence).toBe(true);
@@ -292,8 +292,8 @@ describe('les mots, la pureté', () => {
       expect(t).toMatch(/^\S/);
       expect(t).not.toMatch(/bravo|super|génial|!|null|undefined|NaN/i);
     });
-    expect(textes[0]).toBe('9 au lieu de 10. Même charge, garde 1, entre 8 et 10.');
-    expect(textes[1]).toMatch(/^6 au lieu de 10\. On passe à \d+(,\d+)? kg, garde 1, entre 8 et 10\.$/);
+    expect(textes[0]).toBe('9 au lieu de 10. Même charge, vise 1 en réserve, entre 8 et 10.');
+    expect(textes[1]).toMatch(/^6 au lieu de 10\. On passe à \d+(,\d+)? kg, vise 1 en réserve, entre 8 et 10\.$/);
   });
   test('les boutons : « +1 min », « Prendre X kg », « Rest-pause »', () => {
     const d = r({ reps: 6, vise: 10, bas: 8, charge: 100 });

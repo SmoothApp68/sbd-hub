@@ -70,8 +70,8 @@ describe('reprise longue, Franc : jamais « garde 1 » devant « garde 2 »', ()
     expect(x.reserveAffichee).toBe(2);
     expect(x.rate.niveau).toBe('serie');
     expect(x.rate.garde).toBe(2);
-    expect(sp(x.rate.phrase)).toMatch(/garde 2/);
-    expect(sp(x.rate.phrase)).not.toMatch(/garde 1/);
+    expect(sp(x.rate.phrase)).toMatch(/2 en réserve/);
+    expect(sp(x.rate.phrase)).not.toMatch(/1 en réserve/);
     propre(p, e);
   });
   test('niveau 2 (cas X) : « la suite vise N, garde 2 »', () => {
@@ -81,7 +81,7 @@ describe('reprise longue, Franc : jamais « garde 1 » devant « garde 2 »', ()
     const x = p.exercices[0];
     expect(x.rate.cas).toBe('X');
     expect(x.rate.garde).toBe(2);
-    expect(sp(x.rate.phrase)).toMatch(/garde 2/);
+    expect(sp(x.rate.phrase)).toMatch(/2 en réserve/);
     propre(p, e);
   });
 });
@@ -93,7 +93,7 @@ describe('population protégée : le plancher vaut aussi hors reprise longue', (
     expect(x.reserveVisee).toBe(1);
     expect(x.reserveAffichee).toBe(2);
     expect(x.rate.garde).toBe(2);
-    expect(sp(x.rate.phrase)).toMatch(/garde 2/);
+    expect(sp(x.rate.phrase)).toMatch(/2 en réserve/);
     propre(p, e);
   });
   test('objectif Forme : garde 2', () => {
@@ -117,7 +117,7 @@ describe('le témoin : hors protection, la réserve de la table (1) et « garde 
     const x = p.exercices[0];
     expect(x.reserveAffichee).toBe(1);
     expect(x.rate.garde).toBe(1);
-    expect(sp(x.rate.phrase)).toMatch(/garde 1/);
+    expect(sp(x.rate.phrase)).toMatch(/1 en réserve/);
     propre(p, e);
   });
   test('Normal, zone Lourd (la table affiche déjà 2, ce n’est pas un plancher) : la réaction garde sa règle, garde 1', () => {
@@ -176,12 +176,12 @@ describe('I216 — verifierPlan voit un « garde N » sous la réserve affichée
 test('la preuve du constat : squat 97,5 × 5 en reprise longue Franc, puis la baisse — « garde 2 » partout, aucune erreur', () => {
   const c = REPRISE.ligne.charge;
   const a = jouer([[c, 5]], REPRISE, { reglage: 'franc' });
-  expect(sp(a.p.exercices[0].rate.phrase)).toBe('5 au lieu de 9. Même charge, garde 2, entre 4 et 6.');
+  expect(sp(a.p.exercices[0].rate.phrase)).toBe('5 au lieu de 9. Même charge, vise 2 en réserve, entre 4 et 6.');
   propre(a.p, a.e);
   const b = jouer([[c, 5], [c, 5]], REPRISE, { reglage: 'franc' });
   const r = b.p.exercices[0].rate;
   expect(r.garde).toBe(2);
-  expect(sp(r.phrase)).toMatch(/garde 2/);
-  expect(sp(r.phrase)).not.toMatch(/garde 1/);
+  expect(sp(r.phrase)).toMatch(/2 en réserve/);
+  expect(sp(r.phrase)).not.toMatch(/1 en réserve/);
   propre(b.p, b.e);
 });

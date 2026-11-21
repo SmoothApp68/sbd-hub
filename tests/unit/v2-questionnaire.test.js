@@ -393,7 +393,7 @@ describe('60-2a — ce que chaque écran ÉCRIT', () => {
     expect(ecrit('salle', { halteresMax: 30, halteresPas: 2.5 }, avec).champs).toEqual({});
     expect(ecrit('salle', { materiel: 'salle_basique', halteresMax: 40, halteresPas: 2 }).champs).toEqual({ materiel: 'salle_basique' });
   });
-  test('187 (A4) — « Une zone à ménager ? » → zones_a_menager (vide = NULL, rien d’inchangé)', () => {
+  test('187 (A4) — « Quelque chose à ménager ? » → zones_a_menager (vide = NULL, rien d’inchangé)', () => {
     expect(ecrit('zone', { menager: ['genou', 'dos'] }).champs).toEqual({ zones_a_menager: ['dos', 'genou'] });
     expect(ecrit('zone', { menager: [] }).champs).toEqual({});
     expect(ecrit('zone', { menager: [] }, { zones_a_menager: ['genou'] }).champs).toEqual({ zones_a_menager: null });
@@ -580,9 +580,9 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
     expect(sp(blocs(vue('salle'), 'replie')[0].resume)).toBe('Rien de réglé : je pars de disques de 1,25 kg.');
     expect(vue('salle').bouton.actif).toBe(true);
   });
-  test('187 (A4) — « Une zone à ménager ? » : cinq zones et « Aucune », posée à tout le monde', () => {
+  test('187 (A4) — « Quelque chose à ménager ? » : cinq zones et « Aucune », posée à tout le monde', () => {
     const v = vue('zone');
-    expect(v.titre).toBe('Une zone à ménager ?');
+    expect(v.titre).toBe('Quelque chose à ménager ?');
     expect(v.voix).toBe('Je ne te proposerai pas de série lourde dessus, et « J’ai mal » sera à portée de main.');
     const puces = blocs(v, 'puces')[0];
     expect(puces.options.map((o) => o.libelle)).toEqual(['Épaule', 'Dos', 'Genou', 'Coude', 'Hanche', 'Aucune']);
@@ -757,7 +757,7 @@ describe('60-2a — les TEXTES des écrans (la maquette v4, avec ses écarts dé
       temps: 'moins', materiel: 'maison_minimal', coach: 'franc', duree: 60, plusPetitDisque: 2.5, barreTraction: false });
     const v = vue('recap', { rep });
     const lignes = blocs(v, 'resume')[0].lignes;
-    expect(lignes.map((l) => l.libelle)).toEqual(['But d’entraînement', 'Phase', 'Priorités', 'Temps', 'Matériel', 'Plus petit disque', 'Barre de traction', 'Zone à ménager', 'Zones raides', 'Coach']);
+    expect(lignes.map((l) => l.libelle)).toEqual(['But d’entraînement', 'Phase', 'Priorités', 'Temps', 'Matériel', 'Plus petit disque', 'Barre de traction', 'À ménager', 'Zones raides', 'Coach']);
     expect(lignes.map((l) => l.valeur)).toEqual(['Force', 'Sèche', 'Squat, Dos', '60 min · j’ai moins de temps en ce moment',
       'Maison, minimum', '2,5\u00a0kg', 'Non', 'Aucune', '—', 'Me pousser']);
     expect(lignes.map((l) => l.ecran)).toEqual(['but', 'but', 'priorites', 'temps', 'salle', 'salle', 'salle', 'zone', 'raides', 'coach']);
@@ -873,7 +873,7 @@ describe('60-3 — l’écran 8 : « Ton programme », sans routine', () => {
     const rep = Object.assign(Q.reponsesInitiales({}, {}), { programme: 'deduit' });
     const lignes = (visibles) => vue('recap', { rep, visibles }).blocs[0].lignes;
     const avec = lignes(Q.ecransVisibles({ aDesSeances: true, historique: 'import', aDesRoutines: false }));
-    expect(avec.map((l) => l.libelle)).toEqual(['But d’entraînement', 'Phase', 'Priorités', 'Temps', 'Matériel', 'Plus petit disque', 'Barre de traction', 'Zone à ménager', 'Zones raides', 'Programme', 'Coach']);
+    expect(avec.map((l) => l.libelle)).toEqual(['But d’entraînement', 'Phase', 'Priorités', 'Temps', 'Matériel', 'Plus petit disque', 'Barre de traction', 'À ménager', 'Zones raides', 'Programme', 'Coach']);
     expect(avec[9]).toEqual({ libelle: 'Programme', valeur: 'Garder ce que je fais', ecran: 'programme' });
     const sans = lignes(Q.ecransVisibles({ aDesSeances: true, historique: 'import', aDesRoutines: true }));
     expect(sans.map((l) => l.libelle)).not.toContain('Programme');
@@ -896,7 +896,7 @@ describe('60-4 — l’écran 8b : les jours et la zone à ménager', () => {
     expect(v.blocs[0]).toMatchObject({ type: 'puces', cle: 'seances' });
     expect(v.blocs[0].options).toEqual([2, 3, 4, 5, 6].map((n) => ({ cle: n, libelle: String(n) })));
     expect(v.blocs[1]).toEqual({ type: 'voix',
-      texte: 'Ta zone à ménager, je la garde : l’exercice et toutes ses séries, sans série lourde.' });
+      texte: 'Ce que tu ménages, je le garde : l’exercice et toutes ses séries, sans série lourde.' });
     expect(v.bouton).toEqual({ libelle: 'Continuer', actif: false });
   });
 

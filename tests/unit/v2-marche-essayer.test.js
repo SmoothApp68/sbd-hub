@@ -81,7 +81,7 @@ describe('la carte « Essayer » (I49 réécrit)', () => {
     const e = entrees(se);
     const x = plan(e).exercices[0];
     expect(sp(x.carteMarche.titre)).toBe('Aide 25 kg × 12 sur toutes tes séries, deux séances de suite.');
-    expect(x.carteMarche.detail).toBe('La marche au-dessus : Tractions. Je la mets à la place de tes séries restantes de Tractions (Élastique), pour essayer aujourd\'hui. Ta routine ne change pas.');
+    expect(x.carteMarche.detail).toBe('Une variante plus dure : Tractions. Je la mets à la place de tes séries restantes de Tractions (Élastique), pour essayer aujourd\'hui. Ta routine ne change pas.');
     expect(x.carteMarche.oui).toBe('Essayer Tractions');
     expect(x.carteMarche.non).toBe('Pas maintenant');
     expect(erreurs(plan(e), e)).toEqual([]);
@@ -319,7 +319,7 @@ describe('inchangés : les figures en secondes, la variante du lest', () => {
   test('la carte en secondes garde « Ajouter … » et son détail', () => {
     const d = M.carteMarcheEnSecondes({ marche: { proposable: true, cible: ['fl'] }, nomCible: 'Front Lever', seuil: 15,
       tenues: [16, 22], duJour: true, reglage: 'normal' });
-    expect(M.carteMarcheDetail(d)).toBe('La marche au-dessus : Front Lever. Je te propose d\'en faire 2 tenues avant, autant de secondes que tu peux.');
+    expect(M.carteMarcheDetail(d)).toBe('Une variante plus dure : Front Lever. Je te propose d\'en faire 2 tenues avant, autant de secondes que tu peux.');
     expect(M.ajouterMarche('Front Lever')).toBe('Ajouter Front Lever');
   });
   test('`repondreMarche` venu du lest (la variante) AJOUTE toujours ; la carte en reps passe par l’essai', async () => {

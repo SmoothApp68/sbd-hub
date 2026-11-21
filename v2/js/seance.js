@@ -643,7 +643,7 @@
     var a = 0;
     while (a < series.length && !estTravail(series[a])) a++;
     if (a === series.length) a = 0;
-    // 193-4 — la suite d'une semaine de test (`apres` : « test ») : juste après la dernière ligne que le test a posée.
+    // 193-4 — la suite d'une semaine de mesure (`apres` : « test ») : juste après la dernière ligne que le test a posée.
     if (apres === 'test') {
       var dernier = -1;
       series.forEach(function (q, j) { if (q && q.test_pose === true) dernier = j; });
@@ -653,7 +653,7 @@
       var s = serieVide(idSerie);
       s.type_serie = 'echauffement';
       s.reps_visees = q && q[1] !== undefined ? q[1] : null;
-      // 193-4 (MOTEUR §9.32) — une ligne de la semaine de test porte sa charge, son type et sa marque (`test_pose`, pour « Annuler »).
+      // 193-4 (MOTEUR §9.32) — une ligne de la semaine de mesure porte sa charge, son type et sa marque (`test_pose`, pour « Annuler »).
       if (q && q.test === true) {
         s.type_serie = q.type || 'echauffement';
         s.test_pose = true;
@@ -683,7 +683,7 @@
 
   }
 
-  // 193-4 — « Annuler » la semaine de test dans la séance : retire les lignes que le test a posées et que personne n'a validées.
+  // 193-4 — « Annuler » la semaine de mesure dans la séance : retire les lignes que le test a posées et que personne n'a validées.
   function retirerLignesDeTest(seance, iExo) {
     var exos = seance.exercices.slice();
     var exo = copie(exos[iExo]);
@@ -1411,7 +1411,7 @@
   }
 
   // « Oui, manquée » et « J'ai eu mal » (0 rep, `app.js` `repondreQuestionDeSaisie`) : la série devient une tentative manquée (`echec`), SAUF un essai
-  // de la semaine de test (`test`) et une dégressive, qui GARDENT leur type : le raté se lit alors par `reps === 0`. Un essai retypé `echec` sortait de
+  // de la semaine de mesure (`test`) et une dégressive, qui GARDENT leur type : le raté se lit alors par `reps === 0`. Un essai retypé `echec` sortait de
   // `faitsDeTest` (le plan proposait encore l'essai suivant, I92 ; le max mesuré n'était pas rangé, I93) et se lisait comme un zéro de travail. Le
   // recul GARDE le sien depuis R1 (20/11/2026, MOTEUR §9.39 (6)) : un recul manquée reste un recul (hors volume à 0 rep, hors stagnation : son origine reste `recul`, une phrase Z2 seule). `changerType` (le menu « ⋯ », un choix explicite) reste intact.
   var TYPES_QUI_GARDENT_LE_LEUR = ['test', 'degressive', 'recul'];

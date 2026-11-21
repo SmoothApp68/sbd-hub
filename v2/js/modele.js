@@ -2815,13 +2815,13 @@
     var chiffre = kgTexte(nombre, 1);
     var devant = mode === 'plancher' ? MOTS_DE_FORCE.devant : null;
     var serie = chargeOuNul(f.charge) !== null && f.reps !== null && f.reps !== undefined && f.reps !== '' ? chargeFois(f.charge, f.reps) : '';
-    var sous = mode === 'mesure' ? 'à ta semaine de test' + (serie ? ', ' + serie : '') : (serie ? 'd\u2019après ' + serie : '');
+    var sous = mode === 'mesure' ? 'à ta semaine de mesure' + (serie ? ', ' + serie : '') : (serie ? 'd\u2019après ' + serie : '');
     var quand = '', iso = f.date || f.debut, d = iso ? new Date(iso) : null;
     if (d && !isNaN(d.getTime())) {
       var P = racine.THPeriode, jour = P ? P.jourISO(d) : null;
       quand = jour ? plageDeJours(jour, jour, aujourdhui) : '';
     }
-    var dit = mode === 'mesure' ? MOTS_DE_FORCE.mesure + ' ' + chiffre + ', à ta semaine de test'
+    var dit = mode === 'mesure' ? MOTS_DE_FORCE.mesure + ' ' + chiffre + ', à ta semaine de mesure'
       : mode === 'plancher' ? devant + ' ' + chiffre : MOTS_DE_FORCE.force.toLowerCase() + ' ' + chiffre;
     return { mode: mode, mot: mode === 'mesure' ? MOTS_DE_FORCE.mesure : MOTS_DE_FORCE.force, devant: devant, nombre: nombre, chiffre: chiffre,
              valeur: mode === 'projection' ? '\u2248' + INSECABLE + chiffre : chiffre, texteCourt: devant ? devant + ' ' + chiffre : chiffre,
@@ -2856,7 +2856,7 @@
     });
     var table = tableCumulee(series, function (x) { return x._debut; }, { corps: o.corps });
     // §9.51 — UNE éligibilité (`eligibilite1RM`), DEUX champs : `unRM` (la meilleure PROJECTION de 3 à 10 reps, ou le max mesuré
-    // actif) est ce que lit le COACH (semaine de test, chauffes, paris) — il ne change pas ; `force` (le plus grand de `unRM` et de
+    // actif) est ce que lit le COACH (semaine de mesure, chauffes, paris) — il ne change pas ; `force` (le plus grand de `unRM` et de
     // la plus lourde charge à 1 ou 2 reps) est ce que lit l'AFFICHAGE (fiche, courbe). `force` = `unRM` dès que le plancher ne le
     // dépasse pas : à l'égalité, le libellé d'avant est tenu.
     var unRM = null, plancher = null;

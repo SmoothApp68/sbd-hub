@@ -300,7 +300,7 @@ change (voulu) ; Forme, sans objectif et maison sans barre restent identiques oc
 
 **Doutes tranchés.** Les citations (Pelland 2026, Williams 2017, Helms 2018, Zourdos 2016, Moesgaard 2022, Bell 2023) ont été relues le 31/10/2026 ;
 les charges ne sont jamais des pourcentages prévus (Helms 2018 : au moins aussi bien que les %), le coach règle chaque jour sur les
-séries et le ressenti. Hors de cette PR : 193-2b (les comptes avec historique), 193-4 (la semaine de test toutes les 2 phases), la puissance.
+séries et le ressenti. Hors de cette PR : 193-2b (les comptes avec historique), 193-4 (la semaine de mesure toutes les 2 phases), la puissance.
 
 **266 (07/11/2026, décision d'Aurélien) — la variante à pause.** En objectif Force (pas débutant), la deuxième exposition hebdomadaire du squat et du couché (la place liée, zone Mix) est leur version à pause (`squat_avec_pause_barre`, `developpe_couche_avec_pause`), si la salle la permet, si elle n'est pas écartée et si aucune zone à ménager ne charge son motif ; sinon la barre. Visible dans l'aperçu (une phrase), retirable (« Je n'en veux pas » rend la barre ; remplacer la barre emporte la pause). Elle a son palier à elle (« Première fois ici »). Aucune routine existante n'est modifiée. I148 (`Generateur.verifierPauses`).
 

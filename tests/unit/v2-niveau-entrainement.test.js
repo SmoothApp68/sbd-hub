@@ -117,7 +117,7 @@ describe('272 — changementDeNiveau : jamais vers le bas, le choix prime, la d�
     expect(Profil.changementDeNiveau({ anciennete: 'moins_1_an', anciennete_choisie_le: jourAvant(181) }, calc13, MAINTENANT, false)).toBeNull();
     expect(Profil.changementDeNiveau({ anciennete: 'moins_1_an', anciennete_choisie_le: jourAvant(182) }, calc13, MAINTENANT, false)).not.toBeNull();
   });
-  test('décharge, semaine de test, « J’ai mal » (bloque) : aucun changement', () => {
+  test('décharge, semaine de mesure, « J’ai mal » (bloque) : aucun changement', () => {
     expect(Profil.changementDeNiveau({ anciennete: 'moins_1_an' }, calc13, MAINTENANT, true)).toBeNull();
   });
 });

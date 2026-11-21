@@ -272,7 +272,11 @@ describe('51-3 — les phrases de §9.20', () => {
     const se = M.sansPalierRetenues(contrat(c), {});
     const k = M.consignePour(se, c.avant, {});
     const t = M.carteRepriseTextes('Squat (Barre)', k, M.reprisePour(se, c.avant, k, { palier: 120, niveau: 5 }));
-    expect(t.titre).toBe('Ta dernière séance de Squat (Barre) était douloureuse.');
+    expect(t.titre).toBe('Squat (Barre)\u00a0: tu as noté une douleur.');      // 20/11/2026 : sans « on » ni « hier » ; la date quand on la connaît
+    expect(M.carteRepriseTextes('Squat', k, M.reprisePour(se, c.avant, k, { palier: 120, niveau: 5 }), { jour: '2026-11-12' }).titre)
+      .toBe('Squat\u00a0: tu as noté une douleur le 12\u00a0nov.');
+    expect(M.carteRepriseTextes('Squat', k, null, { jour: '2026-11-01' }).titre).toBe('Squat\u00a0: tu as noté une douleur le 1er\u00a0nov.');
+    expect(JSON.stringify(t)).not.toMatch(/hier|\bon fait\b/i);
     expect(t.phrase).toBe('On reprend comme tu veux. Tu peux toujours changer d’avis depuis l’étiquette de l’exercice.');
     expect(t.choix.map((q) => q.texte)).toEqual(['Comme avant : 120 kg × 5',
       'Plus léger, plus de reps : 110 kg × 6', 'Sans coach cette fois']);
@@ -442,7 +446,9 @@ describe('51-3 — I35 : la carte de reprise, et « Plus léger » par le repli'
     const e = avecReprise(entreesDe(se));
     const p = T.planDeSeance(e);
     const k = p.exercices[0].carteReprise;
-    expect(k.titre).toBe('Ta dernière séance de Squat X était douloureuse.');
+    expect(k.titre).toBe('Squat X\u00a0: tu as noté une douleur.');      // sans le jour noté dans les entrées : la phrase se tait sur la date
+    const pd = T.planDeSeance(Object.assign({}, e, { douleurs: { x: ['2026-09-20', '2026-10-01'] } }));
+    expect(pd.exercices[0].carteReprise.titre).toBe('Squat X\u00a0: tu as noté une douleur le 1er\u00a0oct.');   // 20/11/2026 : daté (le dernier jour noté, avant la séance), sans « hier » ni « on »
     expect(k.choix.map((q) => q.cle)).toEqual(['avant', 'leger', 'sans']);
     expect([k.zone, k.repli]).toEqual(['mix', REPLI]);
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);

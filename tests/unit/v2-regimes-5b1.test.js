@@ -1,6 +1,6 @@
 /** @jest-environment node */
 //
-// « Les mots disent vrai » PR 5b-1 (MOTEUR §9.50, I169) — LES RÉGIMES À VENIR : décharge planifiée, semaine de test, début de bloc.
+// « Les mots disent vrai » PR 5b-1 (MOTEUR §9.50, I169) — LES RÉGIMES À VENIR : décharge planifiée, semaine de mesure, début de bloc.
 //   1. `Moteur.regimeAVenir` : la fenêtre de la fois suivante [max(1, e − 2), min(14, e + 3)] (B1), aux bornes ; priorité (B8) ; bloc (B5) ; décharge sautée (B4).
 //   2. Les phrases (B3) et les têtes d'effort ; le silence ne crée rien (B7) ; trois fuseaux.
 //   3. B2 : une médiane, deux bornes : `ecartDuRythme` est INCHANGÉ (copie de l'ancienne fonction, comparée sur des histoires de 2 à 14 jours).
@@ -107,7 +107,7 @@ describe('le début d’un bloc (B5) : seulement s’il POSE une zone, et une au
   });
 });
 
-describe('la semaine de test (cas 6) et la priorité (B8)', () => {
+describe('la semaine de mesure (cas 6) et la priorité (B8)', () => {
   test('commence après aujourd’hui et recoupe la fenêtre : dite ; commencée : la séance du jour', () => {
     expect(rg({ test: { debut: plusJ(7), fin: plusJ(13) } })).toEqual({ genre: 'test', debut: plusJ(7) });
     expect(rg({ test: { debut: plusJ(11), fin: plusJ(17) } })).toBeNull();
@@ -143,7 +143,7 @@ describe('les phrases (B3, Q3) : date absolue, aucune charge, aucun rep, tête f
   const suite = (regime, cApres) => M.annonceDe('suite', { cAvant: cA, cApres: cApres || cA, z: M.zoneParCle('hypertrophie'), reglage: 'normal', fait: 8, cranSuivant: 72.5, cranApproche: false, testConfirme: false, regime });
   test('trois phrases exactes', () => {
     expect(esp(suite({ genre: 'decharge', debut: '2026-11-16' }))).toBe('Ta décharge commence le 16 nov., prévue par ton programme.');
-    expect(esp(suite({ genre: 'test', debut: '2026-11-23' }))).toBe('Ta semaine de test commence le 23 nov.');
+    expect(esp(suite({ genre: 'test', debut: '2026-11-23' }))).toBe('Ta semaine de mesure commence le 23 nov.');
     expect(esp(suite({ genre: 'bloc', debut: '2026-11-23' }))).toBe('Ton bloc commence le 23 nov.');
   });
   test('sans régime : l’annonce d’avant, inchangée', () => {
@@ -271,9 +271,9 @@ describe('I169 — verifierRegimes relit l’annonce du plan (DISCRIMINANTS)', (
     expect(q.plan.exercices[0].constat.regime).toBeNull();
     expect(i169(q)).toEqual([]);
   });
-  test('semaine de test acceptée dans la fenêtre : « Ta semaine de test commence le … »', () => {
+  test('semaine de mesure acceptée dans la fenêtre : « Ta semaine de mesure commence le … »', () => {
     const q = plan({ semaineDeTest: { debut: '2026-09-30', fin: '2026-10-06', modes: {}, mesures: {}, refus: {}, maxEstimes: {}, seriesDuMax: {} } });
-    expect(esp(q.plan.exercices[0].constat.suite)).toBe('Ta semaine de test commence le 30 sept.');
+    expect(esp(q.plan.exercices[0].constat.suite)).toBe('Ta semaine de mesure commence le 30 sept.');
     expect(i169(q)).toEqual([]);
   });
 

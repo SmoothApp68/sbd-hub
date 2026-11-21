@@ -69,11 +69,13 @@
   var SAUTS_MIN = 4;                // 5-6 jours : la même séance de la routine a sauté au moins 4 fois sur 8 semaines…
   var ECART_MEDIANE_LONG = 1.5;     // … ou la médiane est ≤ prévu − 1,5
   var ECART_MEDIANE_COURT = 1;      // ≤ 4 jours : la médiane est inférieure (ou supérieure) d'au moins 1 jour au prévu
+  var SEMAINES_MIN_JOURS = 6;       // la carte « Jours » : l'habitude se lit sur au moins 6 semaines d'entraînement (20/11/2026)
+  var SEMAINES_DE_SUITE = 3;        // … et ne parle qu'après 3 semaines FINIES de suite sous le programme, au moins 1 jour chacune
   var PART_ECOURTEE = 0.75;         // une séance est écourtée sous 75 % des séries prévues par sa routine, ou par « J'ai peu de temps »
   var PART_DES_SEANCES = 0.5;       // la carte du temps : au moins la moitié des séances des 8 dernières semaines
   var ARRONDI_MINUTES = 5;          // la durée proposée : la médiane réelle des séances écourtées, arrondie aux 5 minutes
   var DUREE_MIN = 10, DUREE_MAX = 300;   // les bornes de `profiles_rythme_borne`
-  var SEUIL_FREQUENCE = 1.5;        // une priorité faite moins de 1,5 fois par semaine en moyenne (Grgic 2018)
+  var SEUIL_FREQUENCE = 1.5;        // une priorité faite moins de 1,5 fois par semaine en moyenne (Pelland 2026, pour la force)
   var TIERS = 2 / 3;                // le dernier tiers d'une séance (Simão 2012)
 
   // Les muscles principaux (l'épaule arrière et le côté compris) : un à 0 série sur 4 semaines fait une carte.
@@ -851,20 +853,34 @@
 
   // ── Les JOURS : le prévu et le réel ──────────────────────────────────────────────────────────────────────────
   // Le prévu : le nombre de jours du programme (les jours posés sur ses routines), sinon, pour un programme du coach, son
-  // nombre de séances, sinon `profiles.seances_par_semaine`.
+  // nombre de séances. JAMAIS `profiles.seances_par_semaine` (20/11/2026 : comparer au nombre déclaré, c'était une alerte
+  // trois semaines sur quatre) : sans jours posés ni programme du coach, la carte « Jours » se tait.
   function joursPrevus(prep) {
     var e = prep.e, routines = liste(e.routines), set = {}, any = false;
     routines.forEach(function (r) { liste(r.jours).forEach(function (j) { set[j] = true; any = true; }); });
     if (any) return Object.keys(set).length;
     if (e.programmeDuCoach && routines.length) return routines.length;
-    var n = Number(e.seancesParSemaine);
-    return n >= 1 && n <= 14 && Math.floor(n) === n ? n : null;
+    return null;
+  }
+  // Les 3 dernières semaines FINIES (le calendrier, pas la liste des semaines non nulles) ont chacune au moins 1 jour et moins
+  // de `prevu` jours : une semaine à zéro rompt la suite (la carte est repoussée de 3 semaines, jamais déclenchée sur un creux de vie).
+  function troisSemainesSousLeProgramme(prep, prevu, apres) {
+    var ref = prep.e.jour ? lundiDe(prep.e.jour) : null;
+    if (!ref) return false;
+    var d = dateDe(ref), parLundi = {};
+    prep.semaines.forEach(function (w) { parLundi[w.lundi] = w; });
+    for (var k = 1; k <= SEMAINES_DE_SUITE; k++) {
+      var l = cleDeJour(new Date(d.getFullYear(), d.getMonth(), d.getDate() - 7 * k));
+      var w = parLundi[l];
+      if (!w || !w.complete || (apres && l <= apres) || !(w.jours >= 1) || !(w.jours < prevu)) return false;
+    }
+    return true;
   }
   function constatDesJours(prep, apres) {
     var e = prep.e, prevu = joursPrevus(prep);
     if (prevu === null) return null;
     var ws = huitSemaines(prep, apres);
-    if (ws.length < SEMAINES_MIN) return null;
+    if (ws.length < SEMAINES_MIN_JOURS) return null;
     var jours = ws.map(function (w) { return w.jours; });
     var med = mediane(jours), moy = moyenne(jours);
     var routines = liste(e.routines);
@@ -885,6 +901,8 @@
       if (mmax >= SAUTS_MIN || med <= prevu - ECART_MEDIANE_LONG) sens = 'moins';
       tenu = sens ? SEMAINES_HABITUDE : 0;   // la règle porte son propre seuil : l'habitude est jugée
     }
+    // Le sens « moins » ne parle qu'après 3 semaines finies de suite sous le programme (le sens « plus » ne change pas).
+    if (sens === 'moins' && !troisSemainesSousLeProgramme(prep, prevu, apres)) sens = null;
     var c = { cle: 'jours', famille: 'jours', kind: 'jours', titre: 'Ta semaine prévue et ta semaine réelle', ecart: !!sens,
               prevu: prevu, reel: moy, mediane: med, sens: sens, fenetre: { semaines: ws }, jourslongs: prevu > JOURS_COURTS_MAX };
     if (!sens) return c;
@@ -895,25 +913,11 @@
     var visee = Generateur().bornerJours(viseeBrute);
     c.vers = visee;
     if (visee === prevu) { c.ecart = false; return c; }
-    var duAu = quandDesSemaines(ws, e.jour);
-    c.fait = 'Ton programme est prévu pour ' + prevu + ' ' + Modele().pluriel(prevu, 'jour') + '. ' + (duAu ? duAu.charAt(0).toUpperCase() + duAu.slice(1) + ', tes ' : 'Tes ') +
-      ws.length + ' semaines d’entraînement en comptent ' + nb(moy) + ' en moyenne.';
+    // Le chiffre affiché est celui qui décide : la médiane (sans le mot). Le programme est le sujet ; jamais « tu » sujet d'un écart.
+    c.fait = 'Ton programme a ' + prevu + ' ' + Modele().pluriel(prevu, 'jour') + '. La plupart de tes ' + ws.length + ' dernières semaines d’entraînement en ont eu ' + nb(med) + '.';
     var causes = [];
     if (sens === 'moins') {
-      var qui = sauts.filter(function (x) { return x.n >= FOIS_MIN && x.n >= PART_MIN * ws.length; }).slice(0, 2);
-      if (qui.length) {
-        var porte = [];
-        qui.forEach(function (x) {
-          var autres = routines.filter(function (r2) { return r2.id !== x.r.id; });
-          var siens = liste(x.r.exercices).map(function (y) { return y.exercise_slug; });
-          var uniques = siens.filter(function (sl) { return !autres.some(function (r2) { return liste(r2.exercices).some(function (y) { return y.exercise_slug === sl; }); }); });
-          (uniques.length ? uniques : siens).slice(0, 2).forEach(function (sl) { if (porte.indexOf(sl) < 0) porte.push(sl); });
-        });
-        porte = porte.slice(0, 2);
-        causes.push({ texte: 'Les séances qui sautent sont surtout ' + Modele().enumerer(qui.map(function (x) { return '« ' + x.r.nom + ' »'; })) +
-          ' : ce sont elles qui portent ' + Modele().enumerer(porte.map(function (sl) { return nomDe(e, sl); })) + '.', proposition: null });
-      }
-      causes.push({ texte: 'Un programme en ' + visee + ' ' + Modele().pluriel(visee, 'jour') + ' répartirait tout sur les jours que tu fais vraiment.', proposition: null });
+      causes.push({ texte: 'Un programme en ' + visee + ' ' + Modele().pluriel(visee, 'jour') + ' tiendrait sur la semaine que tu fais.', proposition: null });
     } else {
       causes.push({ texte: 'Un programme en ' + visee + ' ' + Modele().pluriel(visee, 'jour') + ' donnerait une place aux jours que tu fais en plus.', proposition: null });
     }
@@ -921,7 +925,7 @@
     c.propositions = [{ type: 'refaire_jours', cle: 'refaire_jours|' + visee, libelle: 'Refaire mon programme sur ' + visee + ' ' + Modele().pluriel(visee, 'jour'),
                         jours: visee, refait: true }];
     c.libelleRefus = 'Garder ' + prevu + ' ' + Modele().pluriel(prevu, 'jour');
-    c.repere = 'Les semaines sans aucune séance (vacances, coupure) ne comptent pas dans la moyenne. Si tu gardes ' + prevu + ' ' + Modele().pluriel(prevu, 'jour') +
+    c.repere = 'Je ne compte que les semaines où tu t’es entraîné. Si tu gardes ' + prevu + ' ' + Modele().pluriel(prevu, 'jour') +
       ', je ne repose pas la question avant ' + silenceDe(reglageDe(e), reponseDe(e, 'jours')) + ' semaines.';
     c.garni = true;
     return c;
@@ -1015,7 +1019,7 @@
 
   // ── La FRÉQUENCE : combien de fois par semaine chaque priorité ─────────────────────────────────────────────────
   // Une priorité d'exercice (une des quatre barres, ou les tractions) : le nombre de séances de la semaine qui la portent.
-  // Les muscles prioritaires ne sont pas des mouvements : la règle porte sur des mouvements (Grgic 2018, la force sur un
+  // Les muscles prioritaires ne sont pas des mouvements : la règle porte sur des mouvements (Pelland 2026, la force sur un
   // mouvement ; Schoenfeld 2019 : à volume égal la fréquence compte peu pour l'hypertrophie).
   function famillesDeMouvement(prep, cle) {
     var cat = prep.cat, M = Modele();
@@ -1072,7 +1076,7 @@
     var nomsLents = lents.map(function (x) { return x.cle === 'tractions' ? 'tractions' : M.NOM_DE_BARRE[x.cle]; });
     var deadLent = lents.some(function (x) { return x.cle === DEAD; });
     c.fait = '';
-    c.repere = 'Deux séances par semaine sur un mouvement donnent un peu plus de force, surtout parce qu’on y fait plus de séries : à volume égal, aucune différence (Grgic, 2018). ' +
+    c.repere = 'Deux séances par semaine sur un mouvement donnent un peu plus de force (Pelland, 2026) ; la part due aux séries en plus et celle due à la pratique ne se séparent pas. Pour la masse, à volume égal, aucune différence. ' +
       (lents.length === lignes.length && lents.length > 1 ? 'Tes ' + (lents.length === 3 ? 'trois ' : '') + 'priorités reviennent une fois ou moins.'
         : lents.length === 1 ? 'Ta priorité ' + nomsLents[0] + ' revient une fois ou moins.' : 'Tes priorités ' + Modele().enumerer(nomsLents) + ' reviennent une fois ou moins.');
     var causes = [];
@@ -1091,7 +1095,7 @@
       pa.cle = 'ajouter|' + a.routine_id + '|' + a.slug + '|';
       props.push(pa);
     } else if (ajouts.length) {
-      props.push({ type: 'repartir', cle: 'repartir', libelle: 'Répartir mes priorités sur deux jours', ajouts: ajouts.map(propositionAjouter),
+      props.push({ type: 'repartir', cle: 'repartir', libelle: 'Ajouter un 2e passage à mes priorités', ajouts: ajouts.map(propositionAjouter),
                    details: ajouts.map(function (x) { return libelleDAjout(prep, x); }) });
     }
     c.causes = causes.map(function (x) { return { texte: x.texte, proposition: null }; });
@@ -1574,6 +1578,24 @@
     }).filter(Boolean);
   }
 
+  // I211 étendu (20/11/2026) : la garde de lexique vaut pour TOUTES les cartes de « Ta semaine » (jours, temps, fréquence, ordre,
+  // équilibres, priorités, gestes), pas seulement celles des gestes. Le coach ne juge, n'explique et ne compte jamais la personne :
+  // jamais l'assiduité, une cause devinée, « sauté », un point d'exclamation. Rend la liste des fautes (les gestes sont relus plus haut).
+  var MOTS_INTERDITS_DE_LA_SEMAINE = /assidu|manqu|oubli|absen|parce que|\bcar\b|flemme|motivation|semaines? sans|sauté|!/i;
+  function verifierLexique(analyse) {
+    var fautes = [];
+    liste(analyse && analyse.cartes).concat(liste(analyse && analyse.constats)).forEach(function (c) {
+      if (!c || c.kind === 'geste') return;
+      var textes = [c.fait, c.court, c.repere, c.libelleRefus].concat(liste(c.phrases))
+        .concat(liste(c.causes).map(function (x) { return x && x.texte; }))
+        .concat(liste(c.propositions).map(function (p) { return p && (p.fait || '') + ' ' + (p.libelle || ''); }));
+      textes.forEach(function (t) {
+        if (MOTS_INTERDITS_DE_LA_SEMAINE.test(String(t || ''))) fautes.push('I211 : ' + c.cle + ' « ' + t + ' »');
+      });
+    });
+    return fautes;
+  }
+
   // I208, I209, I211, I212, I213, I217, I218, rejoués depuis l'ENTRÉE par une lecture à part (aucun appel au décompte ni aux groupes ;
   // seuls le prédicat « fait ce jour-là » et le rôle, des notions, sont relus par leur fonction) : rend la liste des fautes.
   //   I208 chaque carte a 3 retraits (ou 3 fois la même paire) sur les 4 dernières séances terminées et non allégées de SA fenêtre
@@ -1668,7 +1690,7 @@
         }
       });
     });
-    return fautes;
+    return fautes.concat(verifierLexique(analyse));
   }
 
   // I213 sur l'écriture : la routine VOULUE d'un retrait (avec ou sans report) contre la routine d'avant. Rien d'autre ne
@@ -1934,6 +1956,7 @@
     reponseAuGesteDe: reponseAuGesteDe,
     gestesRetenus: gestesRetenus,
     verifierGestes: verifierGestes,
+    verifierLexique: verifierLexique,
     verifierRetrait: verifierRetrait,
     ORDRE_DES_FAMILLES: ORDRE_DES_FAMILLES,
     SEUIL_TIRAGE: SEUIL_TIRAGE,

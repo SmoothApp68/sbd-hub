@@ -213,13 +213,13 @@ describe('la réserve affichée : 2 à la séance de reprise, le réglage normal
   });
 });
 
-describe('Décharge planifiée et semaine de test pendant une reprise', () => {
+describe('Décharge planifiée et semaine de mesure pendant une reprise', () => {
   test('Décharge : la charge ne dépasse jamais la ligne de la reprise (I166)', () => {
     const k = JSON.parse(JSON.stringify(calc(REEL, { correction: 'hypertrophie' })));
     const a = M.consigneAllegee(k, 3, true, { semaine: 4, semaines: 4 });
     expect(a.ligne.charge).toBeLessThanOrEqual(k.ligne.charge + 1e-9);
   });
-  test('semaine de test acceptée : verifierPlan propre, aucune série « Au max »', () => {
+  test('semaine de mesure acceptée : verifierPlan propre, aucune série « Au max »', () => {
     const k = JSON.parse(JSON.stringify(calc(REEL, { correction: 'hypertrophie' })));
     const BARRES = require('../../v2/js/modele.js').BARRES;
     let q = 0;

@@ -83,36 +83,38 @@ describe('188-2 — Ta semaine prévue et ta semaine réelle', () => {
   const huit = (n) => Array.from({ length: 8 }, () => n);
 
   test('prévu 4 jours, 2 réels chaque semaine : la carte, le fait (prévu et réel), la proposition « sur 2 jours »', () => {
-    const a = Eq.analyser(entree(bati(semainesDeJours(huit(2))), { seancesParSemaine: 4, routines: R(4) }));
+    const a = Eq.analyser(entree(bati(semainesDeJours(huit(2))), { programmeDuCoach: true, routines: R(4) }));
     const c = carte(a, 'jours');
     expect(c).not.toBeNull();
     expect(c.famille).toBe('jours');
-    expect(c.fait).toBe('Ton programme est prévu pour 4 jours. Du 31\u00a0août au 25\u00a0oct., tes 8 semaines d’entraînement en comptent 2 en moyenne.');
+    expect(c.fait).toBe('Ton programme a 4 jours. La plupart de tes 8 dernières semaines d’entraînement en ont eu 2.');
+    expect(c.causes.map((x) => x.texte)).toEqual(['Un programme en 2 jours tiendrait sur la semaine que tu fais.']);
     expect(c.propositions.map((p) => [p.type, p.libelle, p.jours])).toEqual([['refaire_jours', 'Refaire mon programme sur 2 jours', 2]]);
     expect(c.libelleRefus).toBe('Garder 4 jours');
-    expect(c.repere).toMatch(/Les semaines sans aucune séance .* ne comptent pas/);
+    expect(c.repere).toMatch(/^Je ne compte que les semaines où tu t’es entraîné\./);
+    expect(c.repere).not.toMatch(/vacances|coupure/);
   });
   test('⚠️ un jour d’entraînement est un JOUR distinct : deux séances le même jour comptent pour un seul', () => {
     const sem = {};
     for (let k = 0; k < 8; k++) sem[k] = [SEANCE('r1', 0), SEANCE('r2', 0), SEANCE('r3', 2), SEANCE('r4', 2)];       // 4 séances, 2 jours
-    const a = Eq.analyser(entree(bati(sem), { seancesParSemaine: 4, routines: R(4) }));
+    const a = Eq.analyser(entree(bati(sem), { programmeDuCoach: true, routines: R(4) }));
     expect(constat(a, 'jours').reel).toBe(2);
     expect(carte(a, 'jours')).not.toBeNull();
   });
   test('la médiane inférieure d’au moins 1 jour : 3 pour 4 prévus déclenche ; 4 pour 4 non', () => {
-    expect(carte(Eq.analyser(entree(bati(semainesDeJours(huit(3))), { seancesParSemaine: 4, routines: R(4) })), 'jours')).not.toBeNull();
-    expect(constat(Eq.analyser(entree(bati(semainesDeJours(huit(4))), { seancesParSemaine: 4, routines: R(4) })), 'jours')).toBeNull();
+    expect(carte(Eq.analyser(entree(bati(semainesDeJours(huit(3))), { programmeDuCoach: true, routines: R(4) })), 'jours')).not.toBeNull();
+    expect(constat(Eq.analyser(entree(bati(semainesDeJours(huit(4))), { programmeDuCoach: true, routines: R(4) })), 'jours')).toBeNull();
   });
   test('l’autre sens : prévu 3, 4 réels chaque semaine — « sur 4 jours »', () => {
-    const a = Eq.analyser(entree(bati(semainesDeJours(huit(4))), { seancesParSemaine: 3, routines: R(4) }));
+    const a = Eq.analyser(entree(bati(semainesDeJours(huit(4))), { programmeDuCoach: true, routines: R(3) }));
     const c = carte(a, 'jours');
     expect(c.sens).toBe('plus');
     expect(c.propositions[0].libelle).toBe('Refaire mon programme sur 4 jours');
-    expect(c.fait).toMatch(/prévu pour 3 jours/);
+    expect(c.fait).toMatch(/^Ton programme a 3 jours\. La plupart de tes 8 dernières semaines d’entraînement en ont eu 4\./);
   });
   test('l’habitude suit le réglage : 3 jours pour 4 prévus sur 5 semaines de 8 — Normal (5) et Me pousser (4) parlent, Me ménager (6) se tait', () => {
     const jours = [3, 3, 3, 3, 3, 4, 4, 4];
-    const e = (r) => entree(bati(semainesDeJours(jours)), { seancesParSemaine: 4, routines: R(4), reglage: r });
+    const e = (r) => entree(bati(semainesDeJours(jours)), { programmeDuCoach: true, routines: R(4), reglage: r });
     expect(carte(Eq.analyser(e('normal')), 'jours')).not.toBeNull();
     expect(carte(Eq.analyser(e('franc')), 'jours')).not.toBeNull();
     const m = Eq.analyser(e('prudent'));
@@ -120,56 +122,92 @@ describe('188-2 — Ta semaine prévue et ta semaine réelle', () => {
     expect(constat(m, 'jours').habitude.tenu).toBe(5);           // le fait est le même : seul « quand » change
   });
   test('un accident n’est pas une habitude : 2 semaines à 3 jours sur 8 ne font rien', () => {
-    expect(constat(Eq.analyser(entree(bati(semainesDeJours([3, 3, 4, 4, 4, 4, 4, 4])), { seancesParSemaine: 4, routines: R(4) })), 'jours')).toBeNull();
+    expect(constat(Eq.analyser(entree(bati(semainesDeJours([3, 3, 4, 4, 4, 4, 4, 4])), { programmeDuCoach: true, routines: R(4) })), 'jours')).toBeNull();
   });
   test('prévu 5 : une rotation sans trou (4 jours, la séance qui manque tourne) ne déclenche rien', () => {
     const sem = {};
     for (let k = 0; k < 8; k++) sem[k] = [0, 1, 2, 3, 4].filter((i) => i !== k % 5).map((i, j) => SEANCE('r' + (i + 1), j));
-    const a = Eq.analyser(entree(bati(sem), { seancesParSemaine: 5, routines: R(5) }));
+    const a = Eq.analyser(entree(bati(sem), { programmeDuCoach: true, routines: R(5) }));
     expect(constat(a, 'jours')).toBeNull();
   });
   test('prévu 5 : la MÊME séance sautée 4 fois sur 8 (ou plus) déclenche — et la proposition tombe sur 4 jours', () => {
     const sem = {};
     for (let k = 0; k < 8; k++) sem[k] = [0, 1, 2, 3, 4].filter((i) => !(i === 4 && k < 4)).map((i, j) => SEANCE('r' + (i + 1), j));
-    const a = Eq.analyser(entree(bati(sem), { seancesParSemaine: 5, routines: R(5) }));
+    const a = Eq.analyser(entree(bati(sem), { programmeDuCoach: true, routines: R(5) }));
     const c = constat(a, 'jours');
     expect(c).not.toBeNull();
-    expect(c.causes.map((x) => x.texte).join(' ')).toMatch(/« Séance 5 »/);
+    expect(c.causes.map((x) => x.texte).join(' ')).not.toMatch(/sautent|« Séance 5 »/);      // 20/11/2026 : plus de « les séances qui sautent sont surtout … »
     // 3 sauts seulement : rien.
     const sem3 = {};
     for (let k = 0; k < 8; k++) sem3[k] = [0, 1, 2, 3, 4].filter((i) => !(i === 4 && k < 3)).map((i, j) => SEANCE('r' + (i + 1), j));
-    expect(constat(Eq.analyser(entree(bati(sem3), { seancesParSemaine: 5, routines: R(5) })), 'jours')).toBeNull();
+    expect(constat(Eq.analyser(entree(bati(sem3), { programmeDuCoach: true, routines: R(5) })), 'jours')).toBeNull();
   });
   test('prévu 6 : une médiane ≤ prévu − 1,5 (4 jours) déclenche, sans séance sautée toujours la même', () => {
     const sem = {};
     for (let k = 0; k < 8; k++) sem[k] = [0, 1, 2, 3, 4, 5].filter((i) => i % 6 !== k % 6 && i % 6 !== (k + 3) % 6).map((i, j) => SEANCE('r' + (i + 1), j));
-    const a = Eq.analyser(entree(bati(sem), { seancesParSemaine: 6, routines: R(6) }));
+    const a = Eq.analyser(entree(bati(sem), { programmeDuCoach: true, routines: R(6) }));
     expect(constat(a, 'jours')).not.toBeNull();
     // 5 jours pour 6 prévus : la médiane 5 > 6 − 1,5, sans séance qui saute 4 fois : rien.
     const sem5 = {};
     for (let k = 0; k < 8; k++) sem5[k] = [0, 1, 2, 3, 4, 5].filter((i) => i !== k % 6).map((i, j) => SEANCE('r' + (i + 1), j));
-    expect(constat(Eq.analyser(entree(bati(sem5), { seancesParSemaine: 6, routines: R(6) })), 'jours')).toBeNull();
+    expect(constat(Eq.analyser(entree(bati(sem5), { programmeDuCoach: true, routines: R(6) })), 'jours')).toBeNull();
   });
   test('les semaines à zéro sont exclues (une coupure n’est pas un retard) et la semaine en cours n’est pas finie', () => {
     const sem = {};
     [0, 2, 4, 6, 8, 10, 12, 14].forEach((k) => { sem[k] = Array.from({ length: 4 }, (_, j) => SEANCE('r' + (j + 1), j)); });
-    const e = entree(bati(sem, [SEANCE('r1', 0)]), { seancesParSemaine: 4, routines: R(4) });
+    const e = entree(bati(sem, [SEANCE('r1', 0)]), { programmeDuCoach: true, routines: R(4) });
     expect(constat(Eq.analyser(e), 'jours')).toBeNull();      // 4 jours chaque semaine non nulle ; 1 jour cette semaine, pas finie
+  });
+  // 20/11/2026 — la carte « Jours » ne parle qu'après 3 semaines FINIES de suite sous le programme (au moins 1 jour chacune),
+  // sur au moins 6 semaines d'habitude ; une semaine à zéro remet le compte à zéro ; jamais contre le nombre déclaré.
+  describe('le déclenchement : 3 semaines de suite', () => {
+    const e = (jours) => Eq.analyser(entree(bati(semainesDeJours(jours)), { programmeDuCoach: true, routines: R(4) }));
+    test('3 dernières semaines à 3 jours pour 4 prévus, habitude de 3 : la carte', () => {
+      expect(carte(e([3, 3, 3, 3, 3, 3, 3, 3]), 'jours')).not.toBeNull();
+    });
+    test('MUTATION GARDÉE : 2 semaines sous le programme ne suffisent pas (la 3e est au programme)', () => {
+      expect(constat(e([3, 3, 4, 3, 3, 3, 3, 3]), 'jours')).toBeNull();
+    });
+    test('une semaine à zéro dans les 3 dernières remet le compte à zéro : la carte est repoussée de 3 semaines', () => {
+      const sem = semainesDeJours([3, 3, 3, 3, 3, 3, 3, 3]);
+      delete sem[1];                                       // un trou : la semaine du 12/10 est à zéro
+      expect(constat(Eq.analyser(entree(bati(sem), { programmeDuCoach: true, routines: R(4) })), 'jours')).toBeNull();
+      const sem2 = semainesDeJours([3, 3, 3, 3, 3, 3, 3, 3, 3, 3]);
+      delete sem2[3];                                      // trou plus loin : les 3 dernières semaines sont pleines, 6 semaines non nulles tiennent
+      expect(carte(Eq.analyser(entree(bati(sem2), { programmeDuCoach: true, routines: R(4) })), 'jours')).not.toBeNull();
+    });
+    test('au moins 6 semaines d’entraînement : 5 semaines de 3 jours ne font rien', () => {
+      expect(constat(e([3, 3, 3, 3, 3]), 'jours')).toBeNull();
+      expect(carte(e([3, 3, 3, 3, 3, 3]), 'jours')).not.toBeNull();
+    });
+    test('MUTATION GARDÉE : jamais contre le nombre DÉCLARÉ (`seances_par_semaine`)', () => {
+      const a = Eq.analyser(entree(bati(semainesDeJours([2, 2, 2, 2, 2, 2, 2, 2])), { seancesParSemaine: 4, routines: R(4) }));
+      expect(constat(a, 'jours')).toBeNull();
+    });
+  });
+  test('I211 étendu : aucune carte de « Ta semaine » ne dit l’assiduité, une cause ou « sauté » ; le lexique rattrape une carte fautive', () => {
+    const a = Eq.analyser(entree(bati(semainesDeJours(huit(2))), { programmeDuCoach: true, routines: R(4) }));
+    expect(Eq.verifierLexique(a)).toEqual([]);
+    const faux = JSON.parse(JSON.stringify(a));
+    faux.cartes[0].causes.push({ texte: 'Tu as sauté « Jambes » trois fois.', proposition: null });
+    faux.cartes[0].repere = 'Tu as manqué trois semaines !';
+    expect(Eq.verifierLexique(faux).length).toBe(2);
+    expect(Eq.verifierGestes(entree(bati(semainesDeJours(huit(2))), { programmeDuCoach: true, routines: R(4) }), faux).some((f) => /^I211/.test(f))).toBe(true);
   });
   test('mesure : « 5 prévus, 4,9 réels » → aucune carte des jours', () => {
     const jours = [5, 5, 5, 5, 5, 5, 5, 4];
     const sem = {};
     jours.forEach((n, k) => { sem[k] = [0, 1, 2, 3, 4].slice(0, n).map((i, j) => SEANCE('r' + (i + 1), j)); });
-    const a = Eq.analyser(entree(bati(sem), { seancesParSemaine: 5, routines: R(5) }));
+    const a = Eq.analyser(entree(bati(sem), { programmeDuCoach: true, routines: R(5) }));
     expect(constat(a, 'jours')).toBeNull();
     expect(a.cartes.map((c) => c.cle)).not.toContain('jours');
   });
   test('mesure : « 4 prévus, 2 réels » → la carte des jours, la première de l’ordre', () => {
-    const a = Eq.analyser(entree(bati(semainesDeJours(huit(2))), { seancesParSemaine: 4, routines: R(4) }));
+    const a = Eq.analyser(entree(bati(semainesDeJours(huit(2))), { programmeDuCoach: true, routines: R(4) }));
     expect(a.cartes[0].cle).toBe('jours');
   });
   test('« Garder 4 jours » (Pas maintenant) fait taire la carte la durée du réglage, doublée après deux refus', () => {
-    const e = (cartes, jour) => entree(bati(semainesDeJours(huit(2))), { seancesParSemaine: 4, routines: R(4), cartes, jour: jour || JOUR });
+    const e = (cartes, jour) => entree(bati(semainesDeJours(huit(2))), { programmeDuCoach: true, routines: R(4), cartes, jour: jour || JOUR });
     expect(carte(Eq.analyser(e({ jours: { r: 'non', le: '2026-10-20', refus: 1 } })), 'jours')).toBeNull();
     expect(carte(Eq.analyser(e({ jours: { r: 'non', le: '2026-08-20', refus: 1 } })), 'jours')).not.toBeNull();
     expect(carte(Eq.analyser(e({ jours: { r: 'non', le: '2026-08-20', refus: 2 } })), 'jours')).toBeNull();
@@ -177,10 +215,12 @@ describe('188-2 — Ta semaine prévue et ta semaine réelle', () => {
   test('le prévu d’un programme du coach : le nombre de ses séances ; celui d’un programme à jours posés : ses jours', () => {
     const rs = R(4).map((r, i) => Object.assign({}, r, { jours: [i + 1] }));
     const a = Eq.analyser(entree(bati(semainesDeJours(huit(2))), { routines: rs, programmeDuCoach: false }));
-    expect(carte(a, 'jours').fait).toMatch(/prévu pour 4 jours/);
+    expect(carte(a, 'jours').fait).toMatch(/^Ton programme a 4 jours\./);
     const b = Eq.analyser(entree(bati(semainesDeJours(huit(2))), { routines: R(4), programmeDuCoach: true }));
-    expect(carte(b, 'jours').fait).toMatch(/prévu pour 4 jours/);
-    expect(constat(Eq.analyser(entree(bati(semainesDeJours(huit(2))), { routines: R(4) })), 'jours')).toBeNull();   // ni coach, ni jours, ni profil : rien à comparer
+    expect(carte(b, 'jours').fait).toMatch(/^Ton programme a 4 jours\./);
+    expect(constat(Eq.analyser(entree(bati(semainesDeJours(huit(2))), { routines: R(4) })), 'jours')).toBeNull();   // ni coach, ni jours posés : rien à comparer
+    // 20/11/2026 : JAMAIS contre le nombre déclaré — même avec `seancesParSemaine`, sans jours posés ni programme du coach, la carte se tait.
+    expect(constat(Eq.analyser(entree(bati(semainesDeJours(huit(2))), { routines: R(4), seancesParSemaine: 4 })), 'jours')).toBeNull();
   });
 });
 
@@ -321,13 +361,14 @@ describe('188-2 — Tes priorités, combien de fois par semaine', () => {
   }
   const e = (b, extra) => entree(b, Object.assign({ routines: [RA, RB], priorites: ['tractions'] }, extra || {}));
 
-  test('une priorité faite une fois par semaine : la carte, la table (fois / sem.), le repère de Grgic 2018', () => {
+  test('une priorité faite une fois par semaine : la carte, la table (fois / sem.), le repère de Pelland 2026 (la force) et la masse à volume égal', () => {
     const a = Eq.analyser(e(bati(sem())));
     const c = carte(a, 'frequence');
     expect(c).not.toBeNull();
     expect(c.famille).toBe('frequence');
     expect(c.lignes).toEqual([{ libelle: 'Tractions', texte: '1 fois / sem.', cle: 'tractions' }]);
-    expect(c.repere).toMatch(/Deux séances par semaine sur un mouvement donnent un peu plus de force, surtout parce qu’on y fait plus de séries : à volume égal, aucune différence \(Grgic, 2018\)/);
+    expect(c.repere).toMatch(/^Deux séances par semaine sur un mouvement donnent un peu plus de force \(Pelland, 2026\) ; la part due aux séries en plus et celle due à la pratique ne se séparent pas\. Pour la masse, à volume égal, aucune différence\. /);
+    expect(c.repere).not.toMatch(/indépendamment|Grgic/);
     expect(JSON.stringify(c)).not.toMatch(/Schoenfeld/);       // Schoenfeld 2019 dit que la fréquence compte peu pour l'hypertrophie : pas pour la force
   });
   test('⚠️ le seuil 1,5 des deux côtés : 11 séances sur 8 semaines (1,375) est un écart, 12 (1,5) n’en est pas un', () => {
@@ -341,13 +382,13 @@ describe('188-2 — Tes priorités, combien de fois par semaine', () => {
   });
   // 224 : un exercice du haut ne va jamais dans une routine sans exercice du haut. « Haut B » (non faite) reçoit les tractions.
   const RH = routine('r-h', 'Haut B', { curl: 3, elevations_laterales: 3 });
-  test('la proposition : « Ajouter … à Haut B » (une priorité), ou « Répartir mes priorités sur deux jours » (plusieurs)', () => {
+  test('la proposition : « Ajouter … à Haut B » (une priorité), ou « Ajouter un 2e passage à mes priorités » (plusieurs)', () => {
     const une = carte(Eq.analyser(e(bati(sem()), { routines: [RA, RB, RH] })), 'frequence');
     expect(une.propositions.map((p) => [p.type, p.routine_id, p.slug])).toEqual([['ajouter', 'r-h', 'tractions']]);
     expect(une.propositions[0]).toMatchObject({ series: 2, reps: 8 });   // 2 séries de travail, les reps de l’historique
     const deux = carte(Eq.analyser(e(bati(sem()), { routines: [RA, RB, RH], priorites: ['tractions', 'developpe_militaire_barre'] })), 'frequence');
     expect(deux.propositions[0].type).toBe('repartir');
-    expect(deux.propositions[0].libelle).toBe('Répartir mes priorités sur deux jours');
+    expect(deux.propositions[0].libelle).toBe('Ajouter un 2e passage à mes priorités');
     expect(deux.propositions[0].ajouts.map((x) => x.slug).sort()).toEqual(['developpe_militaire_barre', 'tractions']);
     expect(deux.propositions[0].details).toHaveLength(2);
   });
@@ -459,7 +500,7 @@ describe('188-2 — la mécanique commune', () => {
   const base = (extra) => {
     const s = {};
     for (let k = 0; k < 8; k++) s[k] = [{ routine: 'r-a', jour: 0, exos: A, minutes: 60 }, { routine: 'r-b', jour: 2, exos: B, minutes: 60 }];
-    return entree(bati(s), Object.assign({ routines: [routine('r-a', 'Haut A', A), routine('r-b', 'Bas B', B)], priorites: ['tractions'], seancesParSemaine: 4 }, extra || {}));
+    return entree(bati(s), Object.assign({ routines: [routine('r-a', 'Haut A', A, [1, 3]), routine('r-b', 'Bas B', B, [2, 5])], priorites: ['tractions'] }, extra || {}));
   };
   test('l’ordre des cartes : les jours d’abord, puis la fréquence, puis l’ordre ; le nombre suit le réglage (1, 2, 3)', () => {
     const franc = Eq.analyser(base({ reglage: 'franc' }));

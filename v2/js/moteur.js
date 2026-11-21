@@ -2098,12 +2098,11 @@
       if (ouvert !== undefined && se.decharge !== true && se.neutre !== true) {
         if (memo[t] === undefined) {
           var recue = consigneApresUnZero(triees.slice(0, i), se.debut, opt);
-          // `memo[t]` : la charge de la ligne que le jour sans proposait (`false` : cette séance n'a pas reçu un jour sans).
-          memo[t] = !!recue && recue.etat === 'zero_rep' && !!(recue.fondement && recue.fondement.zeroRep && recue.fondement.zeroRep.jourSans) && recue.ligne
-            ? nombre(recue.ligne.charge) : false;
+          memo[t] = !!recue && recue.etat === 'zero_rep' && !!(recue.fondement && recue.fondement.zeroRep && recue.fondement.zeroRep.jourSans);
         }
-        // Elle n'est LA séance légère que si sa charge est à ou sous la ligne proposée : une séance faite au-dessus (145 pour une ligne à 132,5) est une séance ordinaire.
-        if (memo[t] !== false && memo[t] !== null && chargeDeLaSeance(se) <= memo[t] + 1e-9 && legerePasse(se, ouvert.zoneBas)) { legeres[t] = { z: instant(prec.debut) }; return; }
+        // Elle n'est LA séance légère que si sa charge est STRICTEMENT sous la charge de travail `P` (`ouvert.palier`) : faite à `P` ou au-dessus (140, 145), c'est une séance
+        // ordinaire, elle vote ; entre la ligne proposée et `P` (137,5 pour une ligne à 132,5 et `P` = 140), elle reste la légère (neutre).
+        if (memo[t] === true && chargeDeLaSeance(se) < ouvert.palier - 1e-9 && legerePasse(se, ouvert.zoneBas)) { legeres[t] = { z: instant(prec.debut) }; return; }
       }
       // Le jeton ne se lève que sur une séance RÉUSSIE à cette charge (jamais un retour raté : sous le bas de la zone, il ne clôt pas le jour sans) ;
       // sans zone connue (`zoneBas` nul), la lecture d'avant : une séance au palier.

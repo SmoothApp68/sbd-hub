@@ -115,7 +115,7 @@ describe('Défaut 2 bis — le zéro ne remet pas à zéro le compte long de la 
   });
 });
 
-describe('Défaut 3 bis — une séance n\'est LA séance légère que si sa charge est à ou sous la ligne du jour sans', () => {
+describe('Défaut 3 bis — une séance n\'est LA séance légère que si sa charge est strictement sous la charge de travail', () => {
   const plus = () => [g(145, 4, 'travail', 8), g(130, 6, 'recul'), g(130, 6, 'recul')];
   test('0 à 140, puis 145 × 4 (au-dessus de la charge de travail), puis 145 × 2 sans marge : une séance ordinaire, « Tu restes à 145 kg × 2 » (avant : 140 × 4)', () => {
     const k = K([...h, zero(), plus(), rate(145)]);
@@ -127,6 +127,18 @@ describe('Défaut 3 bis — une séance n\'est LA séance légère que si sa cha
     expect(k.etat).toBe('zero_rep');
     expect(k.fondement.zeroRep.jourSans).toBeDefined();
     expect(gris(k)).toMatch(/pour cette séance\.$/);
+  });
+  test('entre la ligne (132,5) et la charge de travail (140) : 0, 137,5 × 4, 135 × 4 restent LA légère, le retour est « 140 kg × 3 » (pas un palier à 137,5)', () => {
+    [137.5, 135].forEach((c) => {
+      const k = K([...h, zero(), [g(c, 4), g(Math.round(c * 0.89 / 2.5) * 2.5, 6, 'recul'), g(Math.round(c * 0.89 / 2.5) * 2.5, 6, 'recul')]]);
+      expect(k.etat).toBe('retour_jour_sans');
+      expect([k.palier, k.ligne.charge, k.ligne.vise]).toEqual([140, 140, 3]);
+      expect(gris(k)).toBe('Je reviens à ta charge de travail : 140 kg × 3.');
+    });
+  });
+  test('faite à la charge de travail (140 × 3) ou au-dessus (145 × 4) : une séance ordinaire, jamais « retour_jour_sans »', () => {
+    expect(K([...h, zero(), bonne()]).etat).not.toBe('retour_jour_sans');
+    expect(K([...h, zero(), plus()]).etat).not.toBe('retour_jour_sans');
   });
   test('une séance à la ligne du jour sans (132,5 × 4) reste LA légère, neutre', () => {
     expect(K([...h, zero(), legere()]).etat).toBe('retour_jour_sans');

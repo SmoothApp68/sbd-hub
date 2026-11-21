@@ -171,6 +171,22 @@ describe('59-4 — la garde réseau elle-même', () => {
     await expect(ctx.routes[1].f(route('route.fetch: autre chose'))).rejects.toThrow('autre chose');
   });
 
+  test('CI-3 — config.js : une coupure ECONNRESET passagère est REDEMANDÉE, la page reçoit sa configuration ; trois coupures de suite refusent la route', async () => {
+    const ctx = await Garde.garderContexte(contexte());
+    let appels = 0; const servis = []; const coupees = [];
+    const reponse = { text: async () => "window.THConfig = { URL: 'x', TURNSTILE_SITE_KEY: 'vraie' };" };
+    const passagere = { fetch: async () => { appels++; if (appels === 1) throw new Error('route.fetch: read ECONNRESET'); return reponse; },
+      abort: async (r) => { coupees.push(r); }, fulfill: async (o) => { servis.push(o.body); } };
+    await ctx.routes[1].f(passagere);
+    expect(appels).toBe(2);
+    expect(coupees).toEqual([]);
+    expect(servis).toEqual(["window.THConfig = { URL: 'x', TURNSTILE_SITE_KEY: '' };"]);
+    let n = 0; const tenace = { fetch: async () => { n++; throw new Error('route.fetch: read ECONNRESET'); }, abort: async (r) => { coupees.push(r); }, fulfill: async () => {} };
+    await expect(ctx.routes[1].f(tenace)).resolves.toBeUndefined();
+    expect(n).toBe(3);
+    expect(coupees).toEqual(['connectionreset']);
+  });
+
   test('elle se pose une fois par contexte, et AVANT les intercepteurs du banc', async () => {
     const ctx = contexte();
     await Garde.garderContexte(ctx);

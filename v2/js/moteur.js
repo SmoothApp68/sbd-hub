@@ -2712,8 +2712,14 @@
       var p0 = prudent;
       prudent = false;
       try {
-        recueMemo = consigneDeLaSeance(bruteR, iR, avant, { reglage: reglage, equipement: equipement, correction: correction,
-          salle: salleDeclaree, bordProf: profR + 1 });
+        var oR = { reglage: reglage, equipement: equipement, correction: correction, salle: salleDeclaree, bordProf: profR + 1 };
+        recueMemo = consigneDeLaSeance(bruteR, iR, avant, oR);
+        // Jour sans (R2) : l'histoire brute ne sert qu'à lire `retour_jour_sans` ; une `zero_rep` reçue se rejoue comme avant, sur les séances neutres (le plafond, la dette de B).
+        if (recueMemo && recueMemo.etat === 'zero_rep' && opt.brutes) {
+          var neutresR = anterieures(seances, avant), jR = -1;
+          for (var qr = neutresR.length - 1; qr >= 0; qr--) { if (instant(neutresR[qr].debut) === instant(L.debut)) { jR = qr; break; } }
+          if (jR >= 0) recueMemo = consigneDeLaSeance(neutresR, jR, avant, oR);
+        }
       } finally { prudent = p0; }
       return recueMemo;
     }
@@ -2748,8 +2754,14 @@
           if (instant(brute[q].debut) === instant(L.debut)) { iL = q; break; }
         }
         if (iL >= 0) {
-          rk = consigneDeLaSeance(brute, iL, avant, { reglage: reglage, equipement: equipement, correction: correction,
-            salle: salleDeclaree, bordProf: prof + 1 });
+          var oL = { reglage: reglage, equipement: equipement, correction: correction, salle: salleDeclaree, bordProf: prof + 1 };
+          rk = consigneDeLaSeance(brute, iL, avant, oL);
+          // Jour sans (R2) : voir `consigneRecue` : une `zero_rep` reçue se rejoue comme avant, sur les séances neutres.
+          if (rk && rk.etat === 'zero_rep' && opt.brutes) {
+            var neutresL = anterieures(seances, avant), jL = -1;
+            for (var ql = neutresL.length - 1; ql >= 0; ql--) { if (instant(neutresL[ql].debut) === instant(L.debut)) { jL = ql; break; } }
+            if (jL >= 0) rk = consigneDeLaSeance(neutresL, jL, avant, oL);
+          }
         }
       }
       var visees = rk && rk.ligne ? nombre(rk.ligne.vise) : null;

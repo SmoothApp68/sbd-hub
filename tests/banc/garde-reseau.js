@@ -85,19 +85,29 @@ async function garderContexte(ctx) {
     // Un banc qui ferme son navigateur pendant que config.js est en vol (le service worker le redemande à la fermeture) fait
     // échouer `route.fetch` : « Target page, context or browser has been closed ». Ce n'est pas une fuite réseau : on
     // l'ignore, la page n'existe plus. Toute autre erreur reste levée.
-    try {
-      // CI-1 (16/11/2026) : « Response has been disposed » (r.text() après la fermeture du navigateur) est la même fermeture en vol.
-      const r = await route.fetch();
-      const corps = (await r.text()).replace(/TURNSTILE_SITE_KEY\s*:\s*'[^']*'/, "TURNSTILE_SITE_KEY: ''");
-      return await route.fulfill({ response: r, body: corps });
-    } catch (e) {
-      if (/has been closed|has been disposed|Target closed|Target page, context or browser/i.test(String(e && e.message))) return undefined;
-      // CI-2 (20/11/2026) — la même fermeture, vue du côté du serveur de banc : `route.fetch: read ECONNRESET` (le navigateur coupe la
-      // connexion de config.js en fermant). Levée ici, elle devenait un rejet de promesse non rattrapé et tuait le processus du banc
-      // (groupe 2 du banc de séance, 19/11/2026). Une coupure de la connexion locale n'est pas une fuite vers la vraie base : la route
-      // est refusée, la page qui la demandait est en train de disparaître. Toute autre erreur reste levée.
-      if (/ECONNRESET|socket hang up|EPIPE|ECONNABORTED/i.test(String(e && e.message))) return route.abort('connectionreset').catch(() => undefined);
-      throw e;
+    // CI-3 (21/11/2026) — `ECONNRESET` ne veut pas toujours dire « la page se ferme » : sur la CI, la connexion locale de config.js a
+    // été coupée alors que la page restait ouverte (exécution 44863863986, [O109]) ; la route refusée, l'app démarrait sans
+    // configuration (« Cannot read properties of undefined (reading 'URL') »). On REDEMANDE donc le fichier, deux fois au plus, avant
+    // de refuser la route ; une page qui se ferme vraiment échoue alors par « has been closed », traité comme avant.
+    const COUPURE = /ECONNRESET|socket hang up|EPIPE|ECONNABORTED/i;
+    const FERMEE = /has been closed|has been disposed|Target closed|Target page, context or browser/i;
+    for (let essai = 0; ; essai++) {
+      try {
+        // CI-1 (16/11/2026) : « Response has been disposed » (r.text() après la fermeture du navigateur) est la même fermeture en vol.
+        const r = await route.fetch();
+        const corps = (await r.text()).replace(/TURNSTILE_SITE_KEY\s*:\s*'[^']*'/, "TURNSTILE_SITE_KEY: ''");
+        return await route.fulfill({ response: r, body: corps });
+      } catch (e) {
+        const m = String(e && e.message);
+        if (FERMEE.test(m)) return undefined;
+        // CI-2 (20/11/2026) — `route.fetch: read ECONNRESET` levé tel quel tuait le processus du banc (rejet non rattrapé). Une coupure
+        // de la connexion locale n'est pas une fuite vers la vraie base : après deux nouvelles demandes, la route est refusée.
+        if (COUPURE.test(m)) {
+          if (essai < 2) continue;
+          return route.abort('connectionreset').catch(() => undefined);
+        }
+        throw e;
+      }
     }
   });
   await ctx.routeWebSocket(versSupabase, (ws) => {

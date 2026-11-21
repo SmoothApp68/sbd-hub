@@ -192,6 +192,22 @@ describe('doitResynchroniser — une seule fois', () => {
     expect(Sync.doitResynchroniser({ version: Sync.VERSION_SYNC + 1 })).toBe(false);
   });
 
+  test('⚠️ DISCRIMINANT — de la version 5 à la 6 : une seule passe complète, malgré un `attendu` périmé', () => {
+    expect(Sync.VERSION_SYNC).toBe(6);
+    // L'état relevé en prod : forme 5, `attendu` à 0, magasin plus court que le serveur.
+    let marque = { version: 5 };
+    const attendu = { series: 0 };
+    const tour = () => {
+      const doit = Sync.doitReprendre(marque, 102, attendu);
+      if (doit) marque = { version: Sync.VERSION_SYNC };   // écrit après une passe réussie
+      return doit;
+    };
+    expect([tour(), tour(), tour()]).toEqual([true, false, false]);
+    expect(marque.version).toBe(6);
+    expect(Sync.doitReprendre({ version: 5 }, 102, attendu)).toBe(true);
+    expect(Sync.doitReprendre({ version: 6 }, 102, attendu)).toBe(false);
+  });
+
   test('le cycle complet : une fois oui, puis non — fermer et rouvrir ne relance pas', () => {
     let marque = null;
     const tour = () => {

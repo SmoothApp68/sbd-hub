@@ -46,7 +46,11 @@
   //     `etages`. Un cache existant porte des séries SANS ces colonnes ; une passe complète,
   //     une fois, les redescend — un D+ posé depuis un autre appareil avant la mise à jour
   //     ne resterait pas invisible derrière un curseur incrémental déjà au maximum.
-  var VERSION_SYNC = 5;
+  // 6 — l'ordre des lectures de `synchroniser` (21/11/2026) : la liste des séances était lue AVANT les séries ;
+  //     une séance créée et montée entre les deux voyait ses séries purgées, et le curseur les dépassait. Le cache
+  //     d'un appareil touché reste amputé derrière un curseur déjà au maximum (`attendu` périmé, `doitReprendre`
+  //     désarmé). Une passe complète, une fois, les redescend.
+  var VERSION_SYNC = 6;
 
   // Un marqueur de version plutôt qu'un drapeau à usage unique : il est
   // idempotent, il survit aux rechargements, et le prochain défaut de ce genre

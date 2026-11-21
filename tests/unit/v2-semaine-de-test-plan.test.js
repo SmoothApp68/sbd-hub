@@ -63,7 +63,7 @@ describe('193-4 — le plan : la barre testée', () => {
     expect(t).toMatchObject({ testee: true, mode: 'max', max: 154, etat: 'a_faire', surLesSecurites: true });
     expect(t.montee.map((m) => m.charge)).toEqual([77.5, 92.5, 107.5, 122.5, 135]);
     expect(t.prochain).toMatchObject({ rang: 1, charge: 142.5, reserve: 2 });
-    expect(sp(t.consigne.texte)).toBe('Essai 1 : 142,5 kg × 1, en gardant 2 reps, sur les sécurités ou avec un pareur.');
+    expect(sp(t.consigne.texte)).toBe('Essai 1 : 142,5 kg × 1, avec 2 en réserve, sur les sécurités ou avec un pareur.');
     expect(sp(t.pourquoi.texte)).toMatch(/^Ton max estimé est d’environ 154 kg\./);
     expect(sp(t.pourquoi.texte)).toMatch(/Je parie sur 155 kg\./);
     expect(t.pari).toMatchObject({ module: 'test', grandeur: 'charge_kg', valeur_predite: 155, exercise_slug: DC });

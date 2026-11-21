@@ -152,6 +152,7 @@ Un sens, un mot ; un mot, un sens. Appliqué à tous les textes affichés (le co
 |---|---|---|---|
 | La marge visée sur la dernière série | **réserve** : « réserve 1 » en en-tête, « N en réserve » dans les phrases | « garde-en 1 », « garde 1 » | « 3 × 8 · réserve 1 » ; « Je baisse à 80 kg : vise 1 en réserve. » (dans une phrase de raté : « On passe à 80 kg, vise 1 en réserve, entre 8 et 10. ») |
 | Une réserve visée de 0 | **jusqu'au bout** (en-tête et puce) | « garde 0 » | « 3 × 8 · jusqu'au bout » (jamais « réserve 0 », jamais « sans marge ») |
+| La marge d'une série dans une phrase du recul, du test ou de l'essai d'une marche (21/11/2026) | **N en réserve**, 0 : **jusqu'au bout** ; « sans marge » reste pour ce qui s'est passé (une série faite) | « en gardant N reps », « en en gardant N » | « Essai 1 : 142,5 kg × 1, avec 2 en réserve. » ; « Pour 8 reps avec 2 en réserve, c’est 74 % : 112,5 kg. » ; « C’est fait : Tractions, 3 séries, autant de reps que tu peux, avec 2 en réserve. » |
 | La semaine où l'on mesure ses barres | **semaine de mesure** ; « test » reste pour la charge au-dessus | « semaine de test » | « Ta semaine de mesure commence le 23 nov. » ; « Faire une semaine de mesure » |
 | Laisser le coach tel qu'il avait dit, un geste de séance | **Comme prévu** (parallèle à « Comme avant ») ; « Garder N jours » reste pour refuser une carte | « Garder le plan » | « <barre> plus léger aujourd'hui » / « Comme prévu » |
 | Reprendre une séance en cours | **Continuer la séance** ; « Reprendre » reste pour une routine en cours d'édition | « Reprendre » | le bandeau « · en cours », la carte « Prochaine séance » |
@@ -159,7 +160,7 @@ Un sens, un mot ; un mot, un sens. Appliqué à tous les textes affichés (le co
 | Un exercice plus dur de la même famille | **une variante plus dure** (le bouton reste « Essayer <exercice> ») ; « marche », « échelle » restent internes | « La marche au-dessus » | « Une variante plus dure : pompes déclinées. » |
 | Une plage de reps | **zone** (jamais autre chose) ; les muscles se disent **groupe** ; la douleur se dit **à ménager** | « Zone à ménager » | « À ménager » (le Profil, la feuille) ; « Ce que tu ménages, je le garde » |
 
-Inchangés : « je garde » (la charge, pour cette seule décision), « tu restes à » (l'objectif de reps tenu), « test » (la charge au-dessus, « Pas de test à 110 kg »), « reprise après une pause ». Restent à trancher (relevés, non faits) : « en gardant N reps » (les phrases de l'« Au max », du recul et du test disent encore « en gardant » pour la même notion), « la marche d'en dessous » (I55), « Des zones raides ? » (un troisième sens de « zone »).
+Inchangés : « je garde » (la charge, pour cette seule décision), « tu restes à » (l'objectif de reps tenu), « test » (la charge au-dessus, « Pas de test à 110 kg »), « reprise après une pause ». Restent à trancher (relevés, non faits) : « la marche d'en dessous » (I55), « Des zones raides ? » (un troisième sens de « zone »).
 
 ## Ce qui reste à faire
 

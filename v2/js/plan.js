@@ -715,7 +715,13 @@
     // catalogue) garde le contrat d'avant.
     var M = Moteur();
     var liste = series || [];
-    var deChauffe = lignes.filter(function (l) { return l.type === 'echauffement'; });
+    // 21/11/2026 — LES LIGNES POSÉES PAR LA SEMAINE DE MESURE (`test_pose` : la montée vers l'essai, aux charges de `Moteur.testMontee`) portent leur
+    // charge et ne sont pas des chauffes calées sur la charge de travail : ni fantôme, ni phrase « Chauffes calées sur 100 kg : … » qui contredirait
+    // les lignes posées, ni proposition par-dessus. Les chauffes d'une autre main restent lues comme avant.
+    var duTest = function (l) { var sr = liste[l.iSerie]; return !!sr && sr.test_pose === true; };
+    var montee = lignes.filter(function (l) { return l.type === 'echauffement' && duTest(l); });
+    var deChauffe = lignes.filter(function (l) { return l.type === 'echauffement' && !duTest(l); });
+    if (montee.length && !deChauffe.length) return sortie;
     var rienDeFait = !lignes.some(function (l) { return l.validee; });
     var repsVisees = repsDeLaPremiereLigne(lignes, liste);
     // 20/11/2026 — les lignes ajoutées par « + Chauffe » (le geste `chauffe_plus` nomme la série) : hors de la montée, au milieu du dernier saut.
@@ -1123,6 +1129,11 @@
     var cat = e.catalogue || {};
     var xs = plan.exercices || [];
     var muet = plan.intention === 'entretien' || !!plan.edition || !!seance.edition;
+    // Le mode de la mesure de l'exercice (`'max'` | `'serie'`), seulement s'il est mesuré aujourd'hui ; `null` sinon (accessoire, autre barre, pas d'essai).
+    var modeDeTestDe = function (x) {
+      var t = x && x.semaineDeTest;
+      return t && t.testee === true && (t.mode === 'max' || t.mode === 'serie') ? t.mode : null;
+    };
     var fiche = function (slug) {
       var f = slug && Object.prototype.hasOwnProperty.call(cat, slug) ? cat[slug] : null;
       return f ? { slug: slug, prim: f.muscles_primaires || [], sec: f.muscles_secondaires || [], stab: f.muscles_stabilisateurs || [], equipement: f.equipement } : null;
@@ -1131,7 +1142,7 @@
       var exo = exos[i] || {}, liste = exo.series || [];
       var allegee = x.consigne && x.consigne.allegee ? { reps: nombre(x.consigne.allegee.avant && x.consigne.allegee.avant.vise) } : null;
       return { famille: M.familleDeRepos(fiche(x.slug)), reps: repsDeLaPremiereLigne(x.lignes || [], liste), garde: nombre(x.gardeDeLigne),
-               series: nombreDeSeriesDeTravail(x, liste), test: !!x.semaineDeTest, allegee: allegee };
+               series: nombreDeSeriesDeTravail(x, liste), test: !!x.semaineDeTest, modeDeTest: modeDeTestDe(x), allegee: allegee };
     };
     var poser = function (x, i, o, groupe) {
       var r = M.reposConseilleDeBase(o);
@@ -1175,6 +1186,8 @@
       oS.raccourci = !!e.raccourci;
       oS.reposPose = nombre((exos[dernier] || {}).repos_cible_s);
       oS.test = rangs.some(function (k) { return !!xs[k].semaineDeTest; });
+      var modes = rangs.map(function (k) { return modeDeTestDe(xs[k]); });
+      oS.modeDeTest = modes.indexOf('max') >= 0 ? 'max' : (modes.indexOf('serie') >= 0 ? 'serie' : null);
       oS.membres = rangs.map(function (k) { var c = contexteDe(xs[k], k); return { famille: c.famille, reps: c.reps, garde: c.garde }; });
       poser(porteur, dernier, oS, true);
     });
@@ -9269,7 +9282,7 @@
     var reps = travail.map(function (q) { return nombre(q.reps); });
     if (faites.length && (ex.texte || ex.annuler)) err('I220', '« C’est fait » ou « Annuler » avec une série de la marche faite');
     if (!faites.length && (!ex.texte || !ex.annuler)) err('I220', 'la marche essayée sans « C’est fait » ni « Annuler »');
-    if (ex.texte && !/en en gardant 2\./.test(ex.texte)) err('I220', 'l’essai ne dit pas « en en gardant 2 » (' + ex.texte + ')');
+    if (ex.texte && !/avec 2 en réserve\./.test(ex.texte)) err('I220', 'l’essai ne dit pas « avec 2 en réserve » (' + ex.texte + ')');
     var tous = [ex.texte, ex.repli && ex.repli.texte, ex.fin && ex.fin.texte].filter(Boolean).join(' ');
     if (/échec/i.test(tous)) err('I220', 'l’échec sur la marche (' + tous + ')');
     var b = nombre(em.bas);

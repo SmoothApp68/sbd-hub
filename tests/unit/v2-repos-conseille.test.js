@@ -186,7 +186,7 @@ describe('les mots : « 3 min 30 », jamais « 4 min » (dureeEnMinutes arrondit
     expect(phrase({ famille: 'grand', reps: 3, garde: 1, series: 5 }, 3, 1, true)).toBe('3 reps avec 1 en réserve, sur 5 séries : je conseille 3 min 30 entre les séries.');
     expect(phrase({ famille: 'grand', reps: 10, garde: 1, series: 4 }, 10, 1, true)).toBe('10 reps avec 1 en réserve : je conseille 2 min 30 entre les séries.');
     expect(phrase({ famille: 'isolation', reps: 12, garde: 0, series: 3 }, 12, 0, true)).toBe('12 reps jusqu’au bout : je conseille 2 min entre les séries.');
-    expect(phrase({ famille: 'grand', reps: 3, garde: 1, series: 3, test: true }, 3, 1, true)).toBe('Entre deux essais lourds, je conseille 4 min.');
+    expect(phrase({ famille: 'grand', reps: 3, garde: 1, series: 3, test: true, modeDeTest: 'max' }, 3, 1, true)).toBe('Entre deux essais lourds, je conseille 4 min.');
     expect(phrase({ membres: [{ famille: 'grand', reps: 8, garde: 1 }, { famille: 'poly', reps: 10, garde: 1 }] })).toBe('2 exercices dans le tour : je conseille 1 min 30 entre les tours.');
   });
   test('la garde ne se dit que si elle est celle de la ligne affichée (I261)', () => {

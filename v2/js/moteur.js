@@ -6172,8 +6172,13 @@
     // ⚠️ PAS `.map(nombreFr)` : `map` passe l'INDEX en second argument, et il
     // se déclarait comme la citation (relevé du 01/10).
     var cR = cite(FAIT, { quoi: 'palier', champ: 'reps' });
-    return 'Ta charge de travail' + DEUX_POINTS + enKg(c.palier, cite(FAIT, { quoi: 'palier' })) + ', validée à ' + nombreFr(c.niveau, cite(FAIT, { quoi: 'palier', champ: 'niveau' })) +
-           ' reps. Tes séries y ont fait ' + (f.reps || []).map(function (r) { return nombreFr(r, cR); }).join(', ') + '.';
+    var t = 'Ta charge de travail' + DEUX_POINTS + enKg(c.palier, cite(FAIT, { quoi: 'palier' })) + ', validée à ' + nombreFr(c.niveau, cite(FAIT, { quoi: 'palier', champ: 'niveau' })) +
+            ' reps.';
+    // 21/11/2026 — la phrase des séries ne se dit que s'il y a des reps à dire : le fondement d'un zéro rep (`zero_rep`) n'en porte pas
+    // (« Tes séries y ont fait . » était une phrase vide).
+    var faites = (f.reps || []).filter(function (r) { return nombre(r) !== null; });
+    if (!faites.length) return t;
+    return t + ' Tes séries y ont fait ' + faites.map(function (r) { return nombreFr(r, cR); }).join(', ') + '.';
   }
 
   // §3.10 (relevé du 01/10, PR 1 de la consolidation) — LA FEUILLE DÉCRIT LA
@@ -7768,7 +7773,10 @@
   function reposConseilleDeBase(o) {
     var x = o || {};
     var garde = nombre(x.garde), reps = nombre(x.reps);
-    if (x.test === true) return { s: REPOS_DE_TEST_S, cas: 'test', base: REPOS_DE_TEST_S, famille: REPOS_FAMILLES.indexOf(x.famille) >= 0 ? x.famille : null, p: null, pres: null, series: null, membres: null };
+    // 21/11/2026 — `modeDeTest` : le mode de la mesure de CET exercice (`'max'` : des essais ; `'serie'` : une série au max), `null` pour un exercice qui n'est
+    // pas mesuré aujourd'hui (un accessoire, une autre barre) : la phrase ne dit « essais » que devant des essais. La valeur ne change pas.
+    if (x.test === true) return { s: REPOS_DE_TEST_S, cas: 'test', base: REPOS_DE_TEST_S, famille: REPOS_FAMILLES.indexOf(x.famille) >= 0 ? x.famille : null, p: null, pres: null, series: null, membres: null,
+                                  mode: x.modeDeTest === 'max' || x.modeDeTest === 'serie' ? x.modeDeTest : null };
     if (Array.isArray(x.membres) && x.membres.length > 1) {
       var bases = x.membres.map(function (m) { return baseDeRepos(m.famille, nombre(m.reps) === null ? null : nombre(m.reps) + (nombre(m.garde) === null ? 0 : nombre(m.garde))); })
         .filter(function (b) { return b !== null; });
@@ -7811,7 +7819,11 @@
     var x = o || {}, r = x.r;
     if (!r) return null;
     var S = Modele().secondes, cible = regle('repos.duree');
-    if (r.cas === 'test') return 'Entre deux essais lourds, je conseille ' + S(r.s, cible) + '.';
+    if (r.cas === 'test') {
+      // 21/11/2026 : « Entre deux essais lourds » seulement en mode essais ; une série au max : « Série au max : … entre les séries » ; hors mesure : « Semaine de mesure ».
+      if (r.mode === 'max') return 'Entre deux essais lourds, je conseille ' + S(r.s, cible) + '.';
+      return (r.mode === 'serie' ? 'Série au max' : 'Semaine de mesure') + DEUX_POINTS + 'je conseille ' + S(r.s, cible) + ' entre les séries.';
+    }
     if (r.cas === 'raccourci') return 'Raccourci « peu de temps » : valeur posée.';
     if (r.cas === 'superset') return nombreFr(r.membres, regle('repos.membres')) + ' exercices dans le tour : je conseille ' + S(r.s, cible) + ' entre les tours.';
     var reps = nombre(x.reps), garde = nombre(x.garde);
@@ -10408,8 +10420,8 @@
   // Les textes (le prompt du 16/11/2026, mot pour mot).
   function phraseEssaiDeMarche(e) {
     var x = e || {};
-    var t = 'C\'est fait : ' + x.nom + ', ' + nombreFr(x.n) + ' séries, autant de reps que tu peux, en en gardant ' +
-            nombreFr(RESERVE_ESSAI_MARCHE) + '.';
+    var t = 'C\'est fait : ' + x.nom + ', ' + nombreFr(x.n) + ' séries, autant de reps que tu peux, avec ' +
+            nombreFr(RESERVE_ESSAI_MARCHE) + ' en réserve.';
     var f = nombre(x.faites);
     if (f === 1) t += ' Ta série de ' + x.nomDepart + ' déjà faite reste notée.';
     else if (f > 1) t += ' Tes ' + nombreFr(f) + ' séries de ' + x.nomDepart + ' déjà faites restent notées.';
@@ -12937,8 +12949,8 @@
       enKg(f.charge, regle('recul')) + '. Elles comptent dans ton volume et tes records, jamais comme un test.';
     if (f.depart === true) {
       t += f.deduit === true
-        ? ' Premier écart, tiré de la table des reps' + DEUX_POINTS + 'ta grosse série à ' + nombreFr(f.grosseReps, regle('recul.reps')) + ' reps ' + gardantMarge(f.marge) +
-          ', tes reculs à ' + nombreFr(f.vise, regle('recul.reps')) + ' en gardant ' + nombreFr(RECUL_MARGE_VISEE, regle('recul.marge')) + ' ; jamais moins de ' +
+        ? ' Premier écart, tiré de la table des reps' + DEUX_POINTS + 'ta grosse série à ' + nombreFr(f.grosseReps, regle('recul.reps')) + ' reps ' + margeDite(f.marge) +
+          ', tes reculs à ' + nombreFr(f.vise, regle('recul.reps')) + ' avec ' + nombreFr(RECUL_MARGE_VISEE, regle('recul.marge')) + ' en réserve ; jamais moins de ' +
           nombreFr(5, regle('recul.depart')) + INSECABLE + '%.'
         : ' Premier écart' + DEUX_POINTS + nombreFr(pctDeRecul(f.ecart), regle('recul.ecart')) + INSECABLE + '%, la convention des coachs.';
     }
@@ -12958,14 +12970,15 @@
     return 'Recul' + DEUX_POINTS + enKg(charge, regle('recul')) + ', ' + nombreFr(Math.round(pct), regle('recul.pct')) + INSECABLE +
       '% de ton max aujourd’hui.';
   }
-  function gardantMarge(m) {
-    return nombre(m) === 0 ? 'sans marge' : 'en gardant ' + nombreFr(m, regle('recul.marge')) + ' rep' + (m > 1 ? 's' : '');
+  // 21/11/2026 (VOIX : « N en réserve ») — la marge d'une série FAITE : « sans marge » (ce qui s'est passé) à 0, sinon « avec N en réserve ».
+  function margeDite(m) {
+    return nombre(m) === 0 ? 'sans marge' : 'avec ' + nombreFr(m, regle('recul.marge')) + ' en réserve';
   }
   // `f` : `{ grosse, grosseReps, marge, max, reps, pct, charge, correction, pas }` — `max` arrondi à l'entier, `pas` : les pas de la correction.
   function pourquoiReculMaxDuJour(f) {
     var t = 'Ta grosse série, ' + enKg(f.grosse, regle('recul.grosse')) + ' × ' + nombreFr(f.grosseReps, regle('recul.reps')) + ' ' +
-      gardantMarge(f.marge) + ', dit que ton max aujourd’hui est d’environ ' + enKg(f.max, regle('recul.max')) + '. Pour ' +
-      nombreFr(f.reps, regle('recul.reps')) + ' reps en en gardant ' + nombreFr(RECUL_MARGE_VISEE, regle('recul.marge')) + ', c’est ' +
+      margeDite(f.marge) + ', dit que ton max aujourd’hui est d’environ ' + enKg(f.max, regle('recul.max')) + '. Pour ' +
+      nombreFr(f.reps, regle('recul.reps')) + ' reps avec ' + nombreFr(RECUL_MARGE_VISEE, regle('recul.marge')) + ' en réserve, c’est ' +
       nombreFr(Math.round(f.pct), regle('recul.pct')) + INSECABLE + '% : ' + enKg(f.charge, regle('recul')) + '.';
     var corr = nombre(f.correction);
     if (corr !== null && corr !== 0) {
@@ -13446,11 +13459,12 @@
   }
 
   // Les PHRASES. Chaque chiffre est cité (I26) : `test` (charges), `test.pct`, `test.max`, `test.reps`, `test.reserve`.
-  function testGardant(n) { return 'en gardant ' + nombreFr(n, regle('test.reserve')) + ' rep' + (n > 1 ? 's' : ''); }
+  // 21/11/2026 (VOIX : « N en réserve », 0 = « jusqu’au bout ») : plus « en gardant N reps ».
+  function testReserve(n) { return n === 0 ? 'jusqu’au bout' : 'avec ' + nombreFr(n, regle('test.reserve')) + ' en réserve'; }
   function testConsigneEssai(a) {
     if (!a || a.etat !== 'propose') return null;
     var t = 'Essai ' + nombreFr(a.rang, regle('test.rang')) + DEUX_POINTS + enKg(a.charge, regle('test')) + ' × ' + nombreFr(a.reps, regle('test.reps'));
-    if (a.rang === 1) t += ', ' + testGardant(a.reserve);
+    if (a.rang === 1) t += ', ' + testReserve(a.reserve);
     return t + (a.surLesSecurites ? ', sur les sécurités ou avec un pareur' : '') + '.';
   }
   function testConsigneSerie(s) {
@@ -13458,7 +13472,7 @@
     var visee = s.visee[0] === s.visee[1] ? nombreFr(s.visee[0], regle('test.visee_bas'))
       : nombreFr(s.visee[0], regle('test.visee_bas')) + ' à ' + nombreFr(s.visee[1], regle('test.visee_haut'));
     var t = 'Série de mesure' + DEUX_POINTS + enKg(s.charge, regle('test')) + ', visée ' + visee + ' reps, ' +
-      (s.reserve > 0 ? testGardant(s.reserve) + ', ' : 'autant que tu peux, ') + nombreFr(s.plafond, regle('test.plafond')) + ' reps au plus.';
+      (s.reserve > 0 ? testReserve(s.reserve) + ', ' : 'autant que tu peux, ') + nombreFr(s.plafond, regle('test.plafond')) + ' reps au plus.';
     return t + ' Tu t’arrêtes quand la technique lâche.';
   }
   // Le « Pourquoi ». `f` : { mode, max, pariCharge, serie }. Aucun chiffre écrit à la main (I26) : les rangs se disent en mots.

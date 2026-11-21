@@ -195,9 +195,9 @@ describe('« Essayer » remplace (I223), « Annuler » remet tout', () => {
 describe('la marche essayée dans le plan', () => {
   const essai = (n) => S.essayerMarche(seanceDe(['tractions_elastique'], n || 3), 0, 'tractions', id, { bas: 8 });
   const ex = (se, extra) => { const e = entrees(se, extra); const p = plan(e); return { e, p, x: p.exercices[0] }; };
-  test('après le clic : « C’est fait … en en gardant 2 », « Annuler » ; aucune carte ; aucune erreur', () => {
+  test('après le clic : « C’est fait … avec 2 en réserve », « Annuler » ; aucune carte ; aucune erreur', () => {
     const { e, p, x } = ex(essai());
-    expect(x.essaiMarche.texte).toBe('C\'est fait : Tractions, 3 séries, autant de reps que tu peux, en en gardant 2. La prochaine fois, je pars de ce que tu auras noté.');
+    expect(x.essaiMarche.texte).toBe('C\'est fait : Tractions, 3 séries, autant de reps que tu peux, avec 2 en réserve. La prochaine fois, je pars de ce que tu auras noté.');
     expect(x.essaiMarche.annuler).toBe('Annuler');
     expect(x.carteMarche).toBeNull();
     expect(x.propositionAuMax || null).toBeNull();
@@ -211,7 +211,7 @@ describe('la marche essayée dans le plan', () => {
   });
   test('séries du départ déjà faites : la phrase le dit (une, puis deux)', () => {
     const un = S.essayerMarche(valider(seanceDe(['tractions_elastique'], 3), 0, 0, 12), 0, 'tractions', id, { bas: 8 });
-    expect(plan(entrees(un)).exercices[1].essaiMarche.texte).toBe('C\'est fait : Tractions, 2 séries, autant de reps que tu peux, en en gardant 2. Ta série de Tractions (Élastique) déjà faite reste notée. La prochaine fois, je pars de ce que tu auras noté.');
+    expect(plan(entrees(un)).exercices[1].essaiMarche.texte).toBe('C\'est fait : Tractions, 2 séries, autant de reps que tu peux, avec 2 en réserve. Ta série de Tractions (Élastique) déjà faite reste notée. La prochaine fois, je pars de ce que tu auras noté.');
     let deux = valider(valider(seanceDe(['tractions_elastique'], 4), 0, 0, 12), 0, 1, 12);
     deux = S.essayerMarche(deux, 0, 'tractions', id, { bas: 8 });
     expect(plan(entrees(deux)).exercices[1].essaiMarche.texte).toMatch(/Tes 2 séries de Tractions \(Élastique\) déjà faites restent notées\./);

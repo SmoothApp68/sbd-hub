@@ -63,7 +63,7 @@ function synchroniser(app, S, opts) {
   app.seances = Sync.remplacer(seances, { conserver: protegees, existants: app.seances });
   const listeComplete = Sync.verifierCompletude(seances.length, compteSeances).complet;
   let series = Sync.purgerSeriesOrphelines(Sync.fusionner(app.series, nouvelles), app.seances, listeComplete);
-  if (listeComplete && o.filet !== false) {
+  if (listeComplete && o.filet !== false && !A.uneSeanceAttend(app.file)) {   // pas tant qu'une séance attend, suppressions comprises
     // completerSeriesDuServeur
     if (Sync.deficitDeSeries(series, seances, compteSeries) > 0) {
       const deficit = Sync.deficitDeSeries(series, seances, S.sets.length);
@@ -187,6 +187,79 @@ describe('le filet du déficit — la pagination par id saute une série', () =>
   });
 });
 
+describe('le filet ne joue pas tant qu’une séance attend dans la file (contradicteur de #743)', () => {
+  test('⚠️ DISCRIMINANT — une séance supprimée ici, suppression en file, `attendu` bas : ni elle ni ses séries ne reviennent', () => {
+    const S = serveur(); graine = 1300; historique(S, 12, 10);
+    const tel = appareil();
+    synchroniser(tel, S);
+    const mardi = S.sessions[3].id;
+    // Supprimée sur l'appareil (cache), la suppression n'est pas encore partie : le serveur l'a toujours.
+    tel.series = tel.series.filter((x) => x.session_id !== mardi);
+    tel.seances = tel.seances.filter((x) => x.id !== mardi);
+    tel.file = A.poser([], { table: A.SESSIONS, op: A.SUPPRIMER, id: mardi });
+    tel.meta.attendu = { series: 0 };
+    expect(A.seancesEnAttente(tel.file)[mardi]).toBeUndefined();   // c'est le trou : l'ancienne protection ignore SUPPRIMER
+    expect(A.uneSeanceAttend(tel.file)).toBe(true);
+    synchroniser(tel, S);
+    expect(tel.series.filter((x) => x.session_id === mardi).length).toBe(0);
+    expect(S.rapatriees).toBe(0);
+    expect(S.lots).toBe(0);
+  });
+
+  test('⚠️ DISCRIMINANT — une correction en échec qui reste dans la file : aucune relecture de l’historique, synchronisation après synchronisation', () => {
+    const S = serveur(); graine = 1500; historique(S, 12, 10);
+    const tel = appareil();
+    synchroniser(tel, S);
+    const mardi = S.sessions[3].id;
+    tel.series = tel.series.filter((x) => x.session_id !== mardi).concat([]);   // le cache local de mardi est celui de la correction
+    tel.file = A.poser([], { table: A.SETS, op: A.REMPLACER, id: mardi, donnees: [] });
+    tel.meta.attendu = { series: 0 };
+    for (let i = 0; i < 3; i++) synchroniser(tel, S);
+    expect(S.lots).toBe(0);
+    expect(S.rapatriees).toBe(0);
+  });
+
+  test('une fois la file vidée, le filet reprend à la synchronisation suivante', () => {
+    const S = serveur(); graine = 1700; historique(S, 12, 10);
+    const tel = appareil();
+    synchroniser(tel, S);
+    const mardi = S.sessions[3].id;
+    tel.series = tel.series.filter((x) => x.session_id !== mardi);
+    tel.file = A.poser([], { table: A.SETS, op: A.REMPLACER, id: mardi, donnees: [] });
+    tel.meta.attendu = { series: 0 };
+    synchroniser(tel, S);
+    expect(S.rapatriees).toBe(0);
+    tel.file = [];
+    synchroniser(tel, S);
+    expect(ids(tel.series)).toEqual(ids(S.sets));
+  });
+
+  test('uneSeanceAttend : toute entrée de sessions ou de sets, suppression comprise ; rien d’autre', () => {
+    expect(A.uneSeanceAttend([])).toBe(false);
+    expect(A.uneSeanceAttend(null)).toBe(false);
+    expect(A.uneSeanceAttend(A.poser([], { table: A.SESSIONS, op: A.SUPPRIMER, id: 'x' }))).toBe(true);
+    expect(A.uneSeanceAttend(A.poser([], { table: A.SETS, op: A.UPSERT, id: 'x', donnees: {} }))).toBe(true);
+    expect(A.uneSeanceAttend(A.poser([], { table: A.ROUTINE_EXOS, op: A.UPSERT, id: 'x', donnees: {} }))).toBe(false);
+  });
+});
+
+describe('une dette prouvée : un surplus et un déficit égaux s’annulent (S3 du contradicteur de #743)', () => {
+  test('une série effacée ailleurs ET une série sautée : le compte ne bouge pas, aucun des deux filets ne joue', () => {
+    const S = serveur(); graine = 1900; historique(S, 12, 10);
+    const tel = appareil();
+    synchroniser(tel, S);
+    const [vieille, autre] = [S.sets[0].id, S.sets[50].id];
+    // Effacée ailleurs (reste dans le cache) ET sautée (absente du cache, sous le curseur) : surplus 1, déficit 1.
+    tel.series = tel.series.filter((x) => x.id !== autre);
+    S.sets = S.sets.filter((x) => x.id !== vieille);
+    tel.meta.attendu = { series: 0 };
+    synchroniser(tel, S);
+    expect(ids(tel.series)).toContain(vieille);   // la dette : la série effacée reste
+    expect(ids(tel.series)).not.toContain(autre); // la dette : la série sautée manque
+    expect(tel.series.length).toBe(S.sets.length);
+  });
+});
+
 describe('les briques', () => {
   const seances = [{ id: 'a', debut: '2' }, { id: 'b', debut: '1' }];
   const serie = (id, sid) => ({ id, session_id: sid });
@@ -221,6 +294,10 @@ describe('ce qu’app.js fait vraiment (garde de texte)', () => {
     expect(corps.slice(iSurplus - 80, iFilet)).toMatch(/if \(listeComplete\)/);
     const fn = src.slice(src.indexOf('async function completerSeriesDuServeur('), src.indexOf('function idsRetires('));
     expect(fn).toMatch(/Sync\.deficitDeSeries/);
+    // La garde de file (suppressions comprises) passe AVANT le détecteur, et se rejoue avant le téléchargement.
+    expect(fn.indexOf('Attente.uneSeanceAttend(attente)')).toBeGreaterThan(0);
+    expect(fn.indexOf('Attente.uneSeanceAttend(attente)')).toBeLessThan(fn.indexOf('Sync.deficitDeSeries'));
+    expect(fn.split('Attente.uneSeanceAttend(attente)').length - 1).toBeGreaterThanOrEqual(2);
     expect(fn).toMatch(/Donnees\.seriesParIds/);
     expect(fn).not.toMatch(/curseurSeries/);
   });

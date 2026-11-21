@@ -1508,6 +1508,11 @@
       Object.keys(Attente.seancesEnAttente(attente)).forEach(function (id) { p[id] = true; });
       return p;
     };
+    // ⚠️ PAS TANT QU'UNE SÉANCE ATTEND DANS LA FILE, SUPPRESSIONS COMPRISES (contradicteur de #743). Une séance supprimée ici dont
+    // la suppression n'est pas partie existe encore sur le serveur : le filet la ferait revenir avec ses séries ; et le déficit dû à
+    // une séance en file (une correction en échec) relirait tout l'historique à chaque synchronisation. Le filet reprend à la
+    // synchronisation qui suit la vidange.
+    if (Attente.uneSeanceAttend(attente) || Object.keys(fileAuDepart || {}).length) return series;
     if (Sync.deficitDeSeries(series, seancesServeur, compteServeur) <= 0) return series;
     try {
       var compteApres = await Donnees.compterSeries();
@@ -1522,7 +1527,7 @@
         if (!generationValide(g) || envoisDeSeries !== envoisAuDepart) return series;
         absentes = absentes.concat(Sync.seriesAbsentes(series, lignes, lots[i], proteger()));
       }
-      if (!absentes.length) return series;
+      if (!absentes.length || Attente.uneSeanceAttend(attente)) return series;
       var recues = await Donnees.seriesParIds(absentes);
       if (!generationValide(g) || envoisDeSeries !== envoisAuDepart) return series;
       // Une série d'une séance qui attend dans la file n'est jamais rendue au cache ; les autres, oui.

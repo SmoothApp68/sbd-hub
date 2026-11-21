@@ -32450,6 +32450,90 @@ const SETS_IMPORTES = [
     await aller('/saisie');
   }
 
+  console.log('\n══ accueil-en-cours. PENDANT UNE SÉANCE EN COURS, LA CARTE DE L’ACCUEIL DÉCRIT CETTE SÉANCE ET LE BOUTON LA REPREND (21/11/2026) ══');
+  //
+  // ⚠️ CONFIGURATION DISCRIMINANTE : deux routines, la dernière séance faite est celle de « Haut AE » : la routine qui SUIT est donc « Bas AE ».
+  // On démarre « Haut AE » (la séance en cours n'est PAS la routine qui suit), on revient à l'accueil : la carte doit nommer « Haut AE »,
+  // dire « SÉANCE EN COURS », ne pas porter « Autre routine » ; « Continuer la séance » rouvre la séance de « Haut AE », jamais « Bas AE ».
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const nbCatAvant = CATALOGUE.length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, parisAvant = base.predictions;
+    const routinesAvant = ROUTINES.splice(0, ROUTINES.length);
+    const profilAvant = Object.assign({}, base.profiles[0]);
+    const rendreLesBlocs = await retirerBlocsDeLAppareil();
+    const nb = (x) => JSON.stringify(x === undefined ? null : x);
+    const sp = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
+    CATALOGUE.push({ slug: 'ae-dev', nom: 'Développé AE (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+      muscles_primaires: ['pectoraux'], muscles_secondaires: [], muscles_stabilisateurs: [], schema_mouvement: 'pousser_horizontal' });
+    CATALOGUE.push({ slug: 'ae-squat', nom: 'Squat AE (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+      muscles_primaires: ['quadriceps'], muscles_secondaires: [], muscles_stabilisateurs: [], schema_mouvement: 'squat' });
+    base.profiles[0] = Object.assign({}, PROFIL_BANC, { rythme_progression: 'normal', intention: 'progresser', phase: 'maintien', phase_depuis: null,
+      cartes_semaine: null, priorites: null, jours_vises: null });
+    const EXOS_AE = { 'r-ae-h': [['ae-dev', 3]], 'r-ae-b': [['ae-squat', 4], ['ae-dev', 2]] };
+    [['r-ae-h', 'Haut AE', 1], ['r-ae-b', 'Bas AE', 2]].forEach(([rid, nom, rang0]) => {
+      ROUTINES.push({ id: rid, nom, note: null, archivee_a: null, created_at: '2026-01-05T10:00:00.000Z', updated_at: '2026-01-05T10:00:00.000Z',
+        routine_exercises: EXOS_AE[rid].map(([slug, n], rang) => ({ id: 're-' + rid + '-' + rang, routine_id: rid, exercise_slug: slug, rang,
+          zone: null, repos_cible_s: 90, groupe_superset: null, note: null, routine_sets: progr(n, 8) })) });
+    });
+    const debutAE = new Date(Date.now() - 3 * 86400000).toISOString(), finAE = new Date(Date.now() - 3 * 86400000 + 3600000).toISOString();
+    base.sessions = [{ id: 'ae-s1', user_id: 'u-banc', titre: 'Haut AE', debut: debutAE, fin: finAE, statut: 'terminee', note: null, salle: null,
+      salle_norme: null, routine_id: 'r-ae-h', source: 'app', created_at: debutAE, gestes: null }];
+    base.sets = [1, 2, 3].map((k) => ({ id: 'ae-s1-s' + k, session_id: 'ae-s1', user_id: 'u-banc', exercise_slug: 'ae-dev', charge_kg: 60, reps: 8,
+      duree_s: null, distance_m: null, denivele_m: null, etages: null, elastique: null, type_serie: 'travail', rang: k, groupe_superset: null,
+      validee_a: debutAE, rpe: null, ressenti: null, repos_s: null, note: null, source: 'app', created_at: debutAE, modifie_a: null,
+      douleur: false, occurrence: null, hors_calcul: false }));
+    base.predictions = [];
+    const lireCarte = () => page.evaluate(() => {
+      const c = document.getElementById('prochaine-seance');
+      return { cache: !c || c.hidden, eti: (c.querySelector('.prochaine-eti') || {}).textContent || '', nom: (c.querySelector('.prochaine-nom') || {}).textContent || '',
+               meta: (c.querySelector('.prochaine-meta') || {}).textContent || '', go: (c.querySelector('.prochaine-go') || {}).textContent || '',
+               autre: !!c.querySelector('.prochaine-autre') };
+    });
+    try {
+      // Hors séance : « Bas AE » est la routine qui suit, avec son « Démarrer » et « Autre routine » (rien ne change).
+      await aller('/');
+      await attendreQue(async () => (await lireCarte()).nom === 'Bas AE', 15000, 'carteHorsSeanceAE');
+      const hors = await lireCarte();
+      ok('[AE] hors séance : « PROCHAINE SÉANCE », « Bas AE », « Démarrer » et « Autre routine › » (non-régression)',
+        hors.eti === 'PROCHAINE SÉANCE' && hors.nom === 'Bas AE' && hors.go === 'Démarrer' && hors.autre === true, nb(hors));
+      await aller('/saisie');
+      await demarrerRoutine('Haut AE');
+      await aller('/');
+      await attendreQue(async () => (await lireCarte()).eti === 'SÉANCE EN COURS', 15000, 'carteEnCoursAE');
+      const c = await lireCarte();
+      ok('[AE] séance « Haut AE » en cours : la carte dit « SÉANCE EN COURS » et nomme « Haut AE », pas la routine qui suit',
+        c.eti === 'SÉANCE EN COURS' && c.nom === 'Haut AE' && !/Bas AE/.test(c.nom + c.meta), nb(c));
+      ok('[AE] …« 1 exercice · 0/3 séries », « Continuer la séance », et plus d’« Autre routine › »',
+        sp(c.meta) === '1 exercice · 0/3 séries' && c.go === 'Continuer la séance' && c.autre === false, nb(c));
+      await page.click('#prochaine-seance .prochaine-go');
+      await attendreQue(() => page.evaluate(() => { const v = document.getElementById('vue-seance'); return !!v && !v.hidden && document.querySelectorAll('#vue-seance .ligne-serie').length > 0; }), 10000, 'reprendreAE');
+      const titre = await page.evaluate(() => (window.THApp && THApp.seance ? (THApp.seance() || {}).titre : null)).catch(() => null);
+      const nomsVus = await page.evaluate(() => document.getElementById('vue-seance').textContent);
+      ok('[AE] « Continuer la séance » reprend LA séance nommée (« Développé AE », pas le « Squat AE » de « Bas AE »)',
+        /Développé AE/.test(nomsVus) && !/Squat AE/.test(nomsVus) && (titre === null || /Haut AE/.test(titre)), nb([titre, sp(nomsVus).slice(0, 200)]));
+      await abandonner();
+    } catch (e) {
+      ok('[AE] [exception] la section a pu se jouer jusqu’au bout', false, String(e && e.stack || e).slice(0, 600));
+      await remettreAPropre();
+    }
+    recapDesDefauts();
+    ok('[AE] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      nb([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    base.predictions = parisAvant;
+    CATALOGUE.length = nbCatAvant;
+    ROUTINES.length = 0;
+    routinesAvant.forEach((r) => ROUTINES.push(r));
+    base.profiles[0] = profilAvant;
+    rendreLesBlocs();
+    await aller('/saisie');
+  }
+
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');
   // Le compte vit dans `garde-compte.js` : le lanceur parallèle refait les
   // mêmes contrôles sur le compte fusionné de ses groupes.

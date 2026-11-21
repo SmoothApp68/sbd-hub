@@ -13466,8 +13466,15 @@
   function rendreProchaineSeance() {
     var cible = $('prochaine-seance');
     if (!cible) return;
-    var suivante = etatRoutines.code === 'ok' || routines.length ? Routines.routineSuivante(routines, local.seances) : null;
+    // Séance en cours : la carte décrit CETTE séance (21/11/2026), jamais la routine qui suit.
+    var suivante = !seance && (etatRoutines.code === 'ok' || routines.length) ? Routines.routineSuivante(routines, local.seances) : null;
+    var enCours = null;
+    if (seance) {
+      var ap = Routines.apercu(seance.exercices, local.exercices);
+      enCours = { titre: seance.titre || 'Séance', nbExercices: ap.nbExercices, nbSeries: ap.nbSeries, faites: Seance.compter(seance, local.exercices).travail };
+    }
     Rendu.rendreProchaineSeance(cible, {
+      seance: enCours,
       routine: suivante ? suivante.routine : null,
       catalogue: local.exercices,
       temps: tempsDeLaRoutine,

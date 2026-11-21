@@ -1,0 +1,28 @@
+[
+ {
+  "nom": "ae-1-la-routine-suivante-pendant-la-seance",
+  "fichier": "v2/js/app.js",
+  "ancien": "var suivante = !seance && (etatRoutines.code === 'ok' || routines.length)",
+  "nouveau": "var suivante = (etatRoutines.code === 'ok' || routines.length)",
+  "unitaires": [
+   "tests/unit/v2-vivant-accueil.test.js"
+  ],
+  "banc": "seance",
+  "sections": [
+   "accueil-en-cours"
+  ]
+ },
+ {
+  "nom": "ae-2-la-carte-ignore-la-seance",
+  "fichier": "v2/js/rendu.js",
+  "ancien": "var enCours = !!(vue && vue.enCours && vue.seance);",
+  "nouveau": "var enCours = false;",
+  "unitaires": [
+   "tests/unit/v2-vivant-accueil.test.js"
+  ],
+  "banc": "seance",
+  "sections": [
+   "accueil-en-cours"
+  ]
+ }
+]

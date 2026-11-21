@@ -76,3 +76,37 @@ describe('la carte « Prochaine séance » (173)', () => {
     expect(cible.children.length).toBe(0);
   });
 });
+
+describe('la carte pendant une séance en cours (21/11/2026)', () => {
+  function rendre(extra) {
+    const cible = document.createElement('div');
+    const appels = { reprendre: 0, autre: 0, demarrer: [] };
+    window.THRendu.rendreProchaineSeance(cible, Object.assign({
+      routine: R('b', 'Bas A', 2, 'Prise'), catalogue: [], temps: () => ({ texte: '≈ 42 min' }),
+      enCours: true, seance: { titre: 'Haut B', nbExercices: 5, nbSeries: 16, faites: 3 },
+      surDemarrer: (id) => appels.demarrer.push(id), surReprendre: () => { appels.reprendre++; }, surAutre: () => { appels.autre++; }
+    }, extra || {}));
+    return { cible, appels };
+  }
+
+  test('elle nomme la séance en cours, pas la routine qui suit', () => {
+    const { cible, appels } = rendre();
+    expect(cible.querySelector('.prochaine-eti').textContent).toBe('SÉANCE EN COURS');
+    expect(cible.querySelector('.prochaine-nom').textContent).toBe('Haut B');
+    expect(cible.querySelector('.prochaine-meta').textContent).toBe('5 exercices · 3/16 séries');
+    expect(cible.textContent).not.toMatch(/Bas A|PROCHAINE/);
+    expect(cible.querySelector('.prochaine-go').textContent).toBe('Continuer la séance');
+    cible.querySelector('.prochaine-go').click();
+    expect(appels).toEqual({ reprendre: 1, autre: 0, demarrer: [] });
+  });
+
+  test('« Autre routine » est masqué', () => {
+    expect(rendre().cible.querySelector('.prochaine-autre')).toBeNull();
+  });
+
+  test('sans routine suivante, la séance en cours a quand même sa carte', () => {
+    const { cible } = rendre({ routine: null });
+    expect(cible.hidden).toBe(false);
+    expect(cible.querySelector('.prochaine-nom').textContent).toBe('Haut B');
+  });
+});

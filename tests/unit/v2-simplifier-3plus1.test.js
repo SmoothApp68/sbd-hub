@@ -81,6 +81,14 @@ describe('I270 — la tête : trois éléments, deux phrases qui partent à la f
     expect(erreurs(p, e, /^I270/)).toEqual([]);
     x.tete.tiers = 'frere';
     expect(erreurs(p, e, /^I270/).length).toBeGreaterThan(0);
+    // Le plan lui-même : avec les deux, UN seul troisième élément, le compteur.
+    x.tete.tiers = null;
+    T.tetesDuPlan(p, e);
+    expect(x.tete.tiers).toBe('compteur');
+    expect(erreurs(p, e, /^I270/)).toEqual([]);
+    delete x.entete.compteur;
+    T.tetesDuPlan(p, e);
+    expect(x.tete.tiers).toBe('frere');
   });
   test('la phrase du « ≈ » et la raison de la chauffe sont à la feuille, mot pour mot, ou restent où elles étaient', () => {
     const { e, p } = decor({ bloc: false, vise: 6, niveau: 5 });
@@ -133,5 +141,8 @@ describe('l\'écran lit, il ne coupe pas', () => {
   test('app.js lit la forme courte du plan et la file', () => {
     expect(app).toMatch(/gris: x\.entete\.court \|\| x\.entete\.gris/);
     expect(app).toMatch(/carteEnAttente\(i, 'chauffes'\)/);
+    // le troisième élément : le compteur OU le frère, jamais les deux (la tête lit `x.tete.tiers`)
+    expect(app).toMatch(/compteur: x\.entete\.compteur && \(!tete \|\| tete\.tiers === 'compteur'\)/);
+    expect(app).toMatch(/frere: x\.entete\.frere && \(!tete \|\| tete\.tiers === 'frere'\)/);
   });
 });

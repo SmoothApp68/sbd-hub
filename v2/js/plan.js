@@ -9413,8 +9413,9 @@
       if (e && r.cas !== 'test' && r.cas !== 'superset') {
         if (nombre(r.garde) !== cG) erreurs.push('I261' + nom.slice(4) + 'la garde du conseil (' + r.garde + ') n’est pas celle des lignes (' + cG + ')');
         if (!!r.gardeDite !== diteAttendue) erreurs.push('I261' + nom.slice(4) + 'la garde est dite ' + (r.gardeDite ? 'alors qu’elle n’est pas celle de la visée affichée' : 'ou tue à tort'));
-        if (!r.gardeDite && /en gardant|sans marge/.test(r.pourquoi || '')) erreurs.push('I261' + nom.slice(4) + 'la phrase dit une garde qui n’est pas celle de la ligne : ' + r.pourquoi);
-        if (/sans marge/.test(r.pourquoi || '') && cG !== 0) erreurs.push('I261' + nom.slice(4) + '« sans marge » hors garde 0');
+        if (!r.gardeDite && /avec \d+ en réserve|jusqu’au bout/.test(r.pourquoi || '')) erreurs.push('I261' + nom.slice(4) + 'la phrase dit une garde qui n’est pas celle de la ligne : ' + r.pourquoi);
+        if (/jusqu’au bout/.test(r.pourquoi || '') && cG !== 0) erreurs.push('I261' + nom.slice(4) + '« jusqu’au bout » hors garde 0');
+        if (/sans marge|en gardant/.test(r.pourquoi || '')) erreurs.push('I261' + nom.slice(4) + 'le conseil de repos dit « sans marge » ou « en gardant » (VOIX : « jusqu’au bout », « N en réserve ») : ' + r.pourquoi);
       }
       // I256, I257, I265 — la valeur attendue, recalculée.
       var test = !!x.semaineDeTest;

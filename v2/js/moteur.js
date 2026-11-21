@@ -2074,6 +2074,12 @@
       return r !== null && !rateSousLaZone({ reps: r, bas: zoneBas, charge: nombre(s.charge_kg) }).sousZone;
     });
   }
+  // La charge de la séance : son palier, sinon la plus lourde série couverte.
+  function chargeDeLaSeance(se) {
+    var p = nombre(se && se.palier);
+    if (p !== null) return p;
+    return parRole(se && se.series, ROLES_RETENUS).reduce(function (m, s) { var c = nombre(s.charge_kg); return c !== null && c > m ? c : m; }, 0);
+  }
   // L'histoire avant `avant` : `ouverts[débutDuZéro]` (les jours sans ouverts) et `legeres[débutDeLaSéance]` (les séances légères PASSÉES, neutres, avec leur zéro `z`).
   function jourSansDe(seances, avant, opt, protegee) {
     var coupure = instant(avant);
@@ -2084,7 +2090,7 @@
       var t = instant(se.debut);
       if (se.zero) {
         var el = jourSansOuvrable(triees, i, legeres, jeton, opt, protegee);
-        if (el !== null) { ouverts[t] = Object.assign({ date: se.debut }, el); jeton = { charge: el.palier }; }
+        if (el !== null) { ouverts[t] = Object.assign({ date: se.debut }, el); jeton = { charge: el.palier, zoneBas: el.zoneBas }; }
         return;
       }
       var prec = i > 0 ? triees[i - 1] : null;
@@ -2094,9 +2100,14 @@
           var recue = consigneApresUnZero(triees.slice(0, i), se.debut, opt);
           memo[t] = !!recue && recue.etat === 'zero_rep' && !!(recue.fondement && recue.fondement.zeroRep && recue.fondement.zeroRep.jourSans);
         }
-        if (memo[t] === true && legerePasse(se, ouvert.zoneBas)) { legeres[t] = { z: instant(prec.debut) }; return; }
+        // Elle n'est LA séance légère que si sa charge est STRICTEMENT sous la charge de travail `P` (`ouvert.palier`) : faite à `P` ou au-dessus (140, 145), c'est une séance
+        // ordinaire, elle vote ; entre la ligne proposée et `P` (137,5 pour une ligne à 132,5 et `P` = 140), elle reste la légère (neutre).
+        if (memo[t] === true && chargeDeLaSeance(se) < ouvert.palier - 1e-9 && legerePasse(se, ouvert.zoneBas)) { legeres[t] = { z: instant(prec.debut) }; return; }
       }
-      if (jeton !== null && se.neutre !== true && se.decharge !== true && nombre(se.palier) !== null && nombre(se.palier) >= jeton.charge - 1e-9) jeton = null;
+      // Le jeton ne se lève que sur une séance RÉUSSIE à cette charge (jamais un retour raté : sous le bas de la zone, il ne clôt pas le jour sans) ;
+      // sans zone connue (`zoneBas` nul), la lecture d'avant : une séance au palier.
+      if (jeton !== null && se.neutre !== true && se.decharge !== true && nombre(se.palier) !== null && nombre(se.palier) >= jeton.charge - 1e-9 &&
+          (jeton.zoneBas === null || jeton.zoneBas === undefined || legerePasse(se, jeton.zoneBas))) jeton = null;
     });
     return { legeres: legeres, ouverts: ouverts };
   }
@@ -2126,7 +2137,7 @@
       if (se && js.legeres[instant(se.debut)] !== undefined) return { debut: se.debut, palier: null, neutre: true, series: se.series || [], decharge: se.decharge };
       return se;
     });
-    var base = consignePour(neutres, avant, Object.assign({}, optJ, { sansZero: true }));
+    var base = consignePour(neutres, avant, Object.assign({}, optJ, { sansZero: true, brutes: liste }));
     // La séance la plus récente avant `avant`, neutres comprises : un zéro plus ancien ne parle plus.
     var Z = null, zt = null;
     liste.forEach(function (se) {
@@ -2173,7 +2184,13 @@
       ligne = Object.assign({}, ligne, { approchee: true });
       fondement.approchee = true;
     }
-    return { etat: 'zero_rep', zone: null, palier: base.palier, niveau: base.niveau, n: base.n, ligne: ligne, haut: null, fondement: fondement };
+    // `_bord` (le compte long de la règle de bord) et `_lues` (I152) suivent `base` : la règle de bord ne remet pas son compte à zéro après un zéro (comme `copieDeConsigne`).
+    var rendue = { etat: 'zero_rep', zone: null, palier: base.palier, niveau: base.niveau, n: base.n, ligne: ligne, haut: null, fondement: fondement };
+    ['_bord', '_lues'].forEach(function (cle) {
+      var d = Object.getOwnPropertyDescriptor(base, cle);
+      if (d) Object.defineProperty(rendue, cle, { value: d.value, enumerable: false });
+    });
+    return rendue;
   }
 
   // PR 4b (R-A, MOTEUR §9.42 bis) — LE PLAFOND APRÈS UN ZÉRO REP, UN SEUL ENVELOPPEUR. `consignePour` = `plafonner(consigneSansPlafond(…))` ; il
@@ -2686,7 +2703,7 @@
       recueMemo = null;
       var profR = nombre(opt.bordProf) || 0;
       if (profR >= BORD_PROFONDEUR) return null;
-      var bruteR = anterieures(seances, avant), iR = -1;
+      var bruteR = anterieures(opt.brutes || seances, avant), iR = -1;
       for (var q = bruteR.length - 1; q >= 0; q--) {
         if (instant(bruteR[q].debut) === instant(L.debut)) { iR = q; break; }
       }
@@ -2694,8 +2711,9 @@
       var p0 = prudent;
       prudent = false;
       try {
-        recueMemo = consigneDeLaSeance(bruteR, iR, avant, { reglage: reglage, equipement: equipement, correction: correction,
-          salle: salleDeclaree, bordProf: profR + 1 });
+        var oR = { reglage: reglage, equipement: equipement, correction: correction, salle: salleDeclaree, bordProf: profR + 1 };
+        recueMemo = consigneDeLaSeance(bruteR, iR, avant, oR);
+        // Une `zero_rep` reçue reste telle quelle ici : `estApresZero` exclut la capacité (I252) ; seule la règle de bord la rejoue sur les neutres.
       } finally { prudent = p0; }
       return recueMemo;
     }
@@ -2725,13 +2743,19 @@
       // remonter : la ratée ne se juge plus, la série repart de L (le coût reste borné).
       var rk = null;
       if (prof < BORD_PROFONDEUR) {
-        var brute = anterieures(seances, avant), iL = -1;
+        var brute = anterieures(opt.brutes || seances, avant), iL = -1;
         for (var q = brute.length - 1; q >= 0; q--) {
           if (instant(brute[q].debut) === instant(L.debut)) { iL = q; break; }
         }
         if (iL >= 0) {
-          rk = consigneDeLaSeance(brute, iL, avant, { reglage: reglage, equipement: equipement, correction: correction,
-            salle: salleDeclaree, bordProf: prof + 1 });
+          var oL = { reglage: reglage, equipement: equipement, correction: correction, salle: salleDeclaree, bordProf: prof + 1 };
+          rk = consigneDeLaSeance(brute, iL, avant, oL);
+          // Jour sans (R2) : voir `consigneRecue` : une `zero_rep` reçue se rejoue comme avant, sur les séances neutres.
+          if (rk && rk.etat === 'zero_rep' && opt.brutes) {
+            var neutresL = anterieures(seances, avant), jL = -1;
+            for (var ql = neutresL.length - 1; ql >= 0; ql--) { if (instant(neutresL[ql].debut) === instant(L.debut)) { jL = ql; break; } }
+            if (jL >= 0) rk = consigneDeLaSeance(neutresL, jL, avant, oL);
+          }
         }
       }
       var visees = rk && rk.ligne ? nombre(rk.ligne.vise) : null;
@@ -7133,7 +7157,7 @@
       if (seanceSansCoach((g && g.series) || [])) se.sansCoach = true;
       return se;
     });
-    var valeur = options ? sansPalierRetenues(seances, options) : seances;
+    var valeur = options ? sansPalierRetenues(seances, options, poserLesZeros(seances, groupes, mesure)) : seances;
     // PR 2 (MOTEUR §9.42) — LE DRAPEAU « ZÉRO REP », posé APRÈS `sansPalierRetenues` (qui reconstruit les séances neutres et le perdrait).
     valeur = poserLesZeros(valeur, groupes, mesure);
     if (cle !== null) {
@@ -7280,7 +7304,7 @@
   // Pure : les séances d'entrée ne sont jamais modifiées, l'ordre d'arrivée
   // est gardé. `consignePour` n'est appelée QUE pour les séances sans palier —
   // cinq sur cent — et jamais pour les autres.
-  function sansPalierRetenues(seances, options) {
+  function sansPalierRetenues(seances, options, zeros) {
     var o = options || {};
     var opts = { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null, salle: o.salle || null };
     var liste = seances || [];
@@ -7289,6 +7313,17 @@
     }).sort(function (a, b) { return instant(liste[a].debut) - instant(liste[b].debut); });
     var sortie = liste.slice();
     var faites = [];
+    // La même histoire AVEC ses drapeaux de zéro (posés après cette fonction, `poserLesZeros`) : la consigne d'avant de la règle 193-1 doit connaître le jour sans, dont la séance
+    // légère n'est jamais un palier de comparaison. `zeros` : le contrat avec ses drapeaux, mêmes indices (absent : l'histoire d'avant).
+    var faitesZ = [];
+    var optsZ = Object.assign({}, opts, { protegee: o.protegee === true, rallonge: o.rallonge });
+    function empiler(x, i) {
+      faites.push(x);
+      faitesZ.push(zeros && zeros[i] && zeros[i].zero ? Object.assign({}, x, { zero: zeros[i].zero }) : x);
+    }
+    function consigneAvantAvecZeros(debut) {
+      return faitesZ.some(function (x) { return !!x && !!x.zero; }) ? consignePour(faitesZ, debut, optsZ) : consignePour(faites, debut, opts);
+    }
     ordre.forEach(function (i) {
       var se = liste[i];
       // §9.20 (51-3) — UNE SÉANCE MARQUÉE « DOULEUR » EST NEUTRE, DÉCLARÉE AU
@@ -7301,7 +7336,7 @@
           ? { debut: se.debut, palier: null, neutre: true, douleur: true, series: se.series || [] }
           : { debut: se.debut, palier: null, neutre: true, sansCoach: true, series: se.series || [] };
         sortie[i] = se;
-        faites.push(se);
+        empiler(se, i);
         return;
       }
       // 180 (A-F-01, 28/10/2026, décision d'Aurélien, MOTEUR §7.5) — UNE EXPLORATION RATÉE N'EST JAMAIS LE PALIER. Une
@@ -7332,13 +7367,14 @@
       // d'étirement ici (option B, à décider). Sans recul, une série unique garde son comportement d'avant.
       if (!exploRatee && nombre(se.palier) !== null && parRole(se.series, { palier: true }).length === 1 &&
           parRole(se.series, { travail: true }).length === 0 && (se.series || []).some(function (x) { return x && x.origine === 'recul'; })) {
-        var cAvant = consignePour(faites, se.debut, opts) || {};
-        var zUne = zoneParCle(cAvant.zone), pAvant = nombre(cAvant.palier);
+        var cAvant = consigneAvantAvecZeros(se.debut) || {};
+        // La consigne `zero_rep` n'a pas de zone (`zone: null`) : la zone se lit alors sur la consigne calculée SANS les zéros (celle d'avant ce changement) ; le palier reste celui de `cAvant`.
+        var zUne = zoneParCle(cAvant.zone !== null && cAvant.zone !== undefined ? cAvant.zone : (consignePour(faites, se.debut, opts) || {}).zone), pAvant = nombre(cAvant.palier);
         var rUne = compter(parRole(se.series, { palier: true })[0]);
         if (zUne !== null && pAvant !== null && rUne !== null && rUne < zUne.bas && nombre(se.palier) > pAvant) {
           se = { debut: se.debut, palier: null, neutre: true, series: se.series || [] };
           sortie[i] = se;
-          faites.push(se);
+          empiler(se, i);
           return;
         }
       }
@@ -7356,7 +7392,7 @@
         if (C === null) {
           se = { debut: se.debut, palier: null, neutre: true, series: se.series || [] };
           sortie[i] = se;
-          faites.push(se);
+          empiler(se, i);
           return;
         }
         var fin = se.fin;
@@ -7376,7 +7412,7 @@
         if (fin) se.fin = fin;
         sortie[i] = se;
       }
-      faites.push(se);
+      empiler(se, i);
     });
     return sortie;
   }
@@ -7767,7 +7803,7 @@
     if (x.raccourci === true && pose !== null && pose > 0 && pose < borne) return { s: pose, cas: 'raccourci', base: borne, famille: famille, p: p, pres: null, series: series, membres: null };
     return { s: borne, cas: cas, base: base, famille: famille, p: p, pres: pres, series: series, membres: null };
   }
-  // La phrase du « pourquoi » du conseil, UNE seule : « 3 reps en gardant 1, sur 5 séries : je conseille 3 min 30 entre les séries. » La durée passe
+  // La phrase du « pourquoi » du conseil, UNE seule : « 3 reps avec 1 en réserve, sur 5 séries : je conseille 3 min 30 entre les séries. » La durée passe
   // par `Modele.secondes` (`formatDuree` : « 3 min 30 »), JAMAIS `dureeEnMinutes` (il prend des minutes et arrondit : 3,5 devient « 4 min », I266).
   // `o` : { r (la sortie de `reposConseilleDeBase`), reps (visées), garde (des lignes), gardeDite (= la garde des lignes égale la visée affichée) }.
   // « sans marge » seulement à garde 0 lisible et dite ; la garde ne se dit jamais quand elle n'est pas celle de la ligne affichée (I261).
@@ -7780,7 +7816,7 @@
     if (r.cas === 'superset') return nombreFr(r.membres, regle('repos.membres')) + ' exercices dans le tour : je conseille ' + S(r.s, cible) + ' entre les tours.';
     var reps = nombre(x.reps), garde = nombre(x.garde);
     var t = nombreFr(reps, regle('repos.reps')) + (reps > 1 ? ' reps' : ' rep');
-    if (x.gardeDite === true && garde !== null) t += garde === 0 ? ' sans marge' : ' en gardant ' + nombreFr(garde, regle('repos.garde'));
+    if (x.gardeDite === true && garde !== null) t += garde === 0 ? ' jusqu\u2019au bout' : ' avec ' + nombreFr(garde, regle('repos.garde')) + ' en r\u00e9serve';   // 21/11/2026 (VOIX l. 109, 154) : la réserve visée 0 se dit « jusqu'au bout » (« sans marge » dit ce qui s'est passé), « N en réserve » dans les phrases
     if (r.pres === 'series') t += ', sur ' + nombreFr(r.series, regle('repos.series')) + ' séries';
     return t + ' : je conseille ' + S(r.s, cible) + ' entre les séries.';
   }

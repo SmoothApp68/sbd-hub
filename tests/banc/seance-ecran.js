@@ -25887,7 +25887,7 @@ const SETS_IMPORTES = [
     const TITRE_127 = 'Aide 25 kg × 12 sur toutes tes séries, deux séances de suite.';
     // 16/11/2026 (« Essayer la marche ») — la carte en reps propose d'ESSAYER la marche à la place des séries restantes.
     const DETAIL_127 = 'Une variante plus dure : Tractions U127. Je la mets à la place de tes séries restantes de Tractions U127 (Élastique), pour essayer aujourd’hui. Ta routine ne change pas.';
-    const ESSAI_127 = 'C’est fait : Tractions U127, 3 séries, autant de reps que tu peux, en en gardant 2. La prochaine fois, je pars de ce que tu auras noté.';
+    const ESSAI_127 = 'C’est fait : Tractions U127, 3 séries, autant de reps que tu peux, avec 2 en réserve. La prochaine fois, je pars de ce que tu auras noté.';
     const essai127 = () => page.evaluate(() => Array.from(document.querySelectorAll('#vue-seance .proposition-marche-essai')).map((c) => ({
       texte: (c.querySelector('.pc-texte') || {}).textContent, boutons: Array.from(c.querySelectorAll('button')).map((b) => b.textContent) })));
     const gestes127 = () => page.evaluate(() => { const d = window.THPlan && window.THPlan.dernier; return d && d.entrees && d.entrees.seance ? d.entrees.seance.gestes : null; });
@@ -25929,7 +25929,7 @@ const SETS_IMPORTES = [
         ((await gestes127()) || []).some((g) => g.geste === 'marche_essayee' && g.slug === 'tr-u127-elastique' && g.vers === E127),
       JSON.stringify([profil127().marche_reponses, await gestes127()]));
     const eb = await essai127();
-    ok('[127] B — « C’est fait … en en gardant 2 » et « Annuler », sur la marche',
+    ok('[127] B — « C’est fait … avec 2 en réserve » et « Annuler », sur la marche',
       eb.length === 1 && sp(eb[0].texte).replace(/'/g, '’') === ESSAI_127 && JSON.stringify(eb[0].boutons) === '["Annuler"]', JSON.stringify(eb));
     await page.evaluate(() => document.querySelector('#vue-seance .proposition-marche-essai .pme-annuler').click());
     await jusqua(async () => JSON.stringify(((await plan127()) || []).map((x) => x.slug)) === JSON.stringify(['tr-u127-elastique']), 8000);
@@ -32138,9 +32138,9 @@ const SETS_IMPORTES = [
         parisDuTest(SDT).length === 0 && base.predictions.filter((l) => l.exercise_slug === SDT).length === 0, nb(sdt));
     ok('[ST] une seule carte de test à l’écran, celle du squat (la carte du soulevé n’a ni montée, ni consigne, ni bouton)',
       dom1.tests.length === 1 && Number(dom1.tests[0].iexo) === sq.iExo && !/Montée|Essai/.test(sp(dom1.sansEssai[0])), nb(dom1));
-    ok('[ST] I88 — le squat : « Semaine de mesure · viser ton max », la montée (5 paliers), UN essai proposé à la fois (le premier, ≈ 92 % de 116,7 kg, en gardant 2 reps, sur les sécurités)',
+    ok('[ST] I88 — le squat : « Semaine de mesure · viser ton max », la montée (5 paliers), UN essai proposé à la fois (le premier, ≈ 92 % de 116,7 kg, avec 2 en réserve, sur les sécurités)',
       /viser ton max/.test(dom1.tests[0].texte) && sq.t.montee.length === 5 && sq.t.max === 117 && !!sq.t.prochain && sq.t.prochain.rang === 1 && sq.t.prochain.reps === 1 &&
-        Math.abs(sq.t.prochain.charge - 116.67 * 0.92) <= 2.5 && /^Essai 1 : [\d,]+ kg × 1, en gardant 2 reps, sur les sécurités ou avec un pareur\.$/.test(sp(sq.t.consigne)), nb(sq.t));
+        Math.abs(sq.t.prochain.charge - 116.67 * 0.92) <= 2.5 && /^Essai 1 : [\d,]+ kg × 1, avec 2 en réserve, sur les sécurités ou avec un pareur\.$/.test(sp(sq.t.consigne)), nb(sq.t));
     ok('[ST] I90 — la montée suit 50 · 60 · 70 · 80 · 87 % du max estimé (5, 3, 2, 1, 1 reps), à un cran près',
       [[50, 5], [60, 3], [70, 2], [80, 1], [87, 1]].every(([pc, r], k) => sq.t.montee[k][1] === r && Math.abs(sq.t.montee[k][0] - 116.67 * pc / 100) <= 2.5), nb(sq.t.montee));
     ok('[ST] la garde du plan (I88 à I93, I224 à I227) n’a rien vu', p1.erreurs.length === 0 && gardeBanc.violations === violationsAvant, nb([p1.erreurs, gardeBanc.liste.slice(-2)]));

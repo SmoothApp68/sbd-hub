@@ -1328,6 +1328,8 @@
       // l'incrémental ne voit jamais : rapprochées par séance, seulement quand le compte dit qu'il y en a.
       if (listeComplete) {
         local.series = await rapprocherSeriesDuServeur(local.series, seances, compteSeries, fileAuDepart, envoisAuDepart, g);
+        // 21/11/2026 — et le DÉFICIT : une série sautée par la pagination ne redescend jamais (le curseur l'a dépassée).
+        local.series = await completerSeriesDuServeur(local.series, seances, compteSeries, fileAuDepart, envoisAuDepart, g);
         if (!generationValide(g)) return;
       }
       local.exercices = Sync.remplacer(exercices);
@@ -1490,6 +1492,46 @@
       if (retirees) console.warn('Synchronisation : ' + retirees + ' série(s) effacée(s) sur un autre appareil retirée(s) du cache.');
     } catch (e) {
       console.warn('Rapprochement des séries impossible :', texteErreur(e));
+    }
+    return series;
+  }
+
+  // 21/11/2026 (synchro-filet) — LE FILET DU DÉFICIT (`Sync.deficitDeSeries`, `Sync.seriesAbsentes`), en miroir de 117.
+  // Un déficit au compte lu AVANT la liste se vérifie au compte relu APRÈS (une série montée ailleurs entre les deux
+  // n'est pas une série sautée). Puis les identifiants des séances, par lots, des plus récentes aux plus anciennes,
+  // jusqu'à ce que les absentes couvrent le déficit ; puis SEULES les absentes se téléchargent, par identifiant. Le
+  // curseur n'est JAMAIS remis à zéro (un déficit durable d'une autre cause coûterait 15 Mo à chaque synchronisation).
+  // Une lecture qui échoue n'emporte pas la synchronisation : on garde ce qu'on a.
+  async function completerSeriesDuServeur(series, seancesServeur, compteServeur, fileAuDepart, envoisAuDepart, g) {
+    var proteger = function () {
+      var p = Object.assign({}, fileAuDepart || {});
+      Object.keys(Attente.seancesEnAttente(attente)).forEach(function (id) { p[id] = true; });
+      return p;
+    };
+    if (Sync.deficitDeSeries(series, seancesServeur, compteServeur) <= 0) return series;
+    try {
+      var compteApres = await Donnees.compterSeries();
+      if (!generationValide(g)) return series;
+      var deficit = Sync.deficitDeSeries(series, seancesServeur, compteApres);
+      if (deficit <= 0) return series;
+      var lots = Sync.lotsDeRapprochement(seancesServeur);
+      var absentes = [];
+      for (var i = 0; i < lots.length && absentes.length < deficit; i++) {
+        if (envoisDeSeries !== envoisAuDepart) return series;
+        var lignes = await Donnees.seriesDesSeances(lots[i]);
+        if (!generationValide(g) || envoisDeSeries !== envoisAuDepart) return series;
+        absentes = absentes.concat(Sync.seriesAbsentes(series, lignes, lots[i], proteger()));
+      }
+      if (!absentes.length) return series;
+      var recues = await Donnees.seriesParIds(absentes);
+      if (!generationValide(g) || envoisDeSeries !== envoisAuDepart) return series;
+      // Une série d'une séance qui attend dans la file n'est jamais rendue au cache ; les autres, oui.
+      var p = proteger();
+      recues = recues.filter(function (r) { return r && !p[r.session_id]; });
+      if (recues.length) console.warn('Synchronisation : ' + recues.length + ' série(s) sautée(s) par la pagination rapatriée(s) dans le cache.');
+      series = Sync.fusionner(series, recues);
+    } catch (e) {
+      console.warn('Rapatriement des séries manquantes impossible :', texteErreur(e));
     }
     return series;
   }

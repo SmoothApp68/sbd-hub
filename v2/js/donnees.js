@@ -214,6 +214,22 @@
     }, 'id'), 'id');
   }
 
+  // 21/11/2026 (synchro-filet) — LES SEULES SÉRIES QUI MANQUENT au cache, par identifiant, par paquets de 100 (une URL
+  // d'identifiants ne grandit pas sans fin). Toutes les colonnes, comme `seriesDepuis` : ce sont des séries entières.
+  async function seriesParIds(ids) {
+    var tous = (ids || []).filter(Boolean), out = [];
+    for (var i = 0; i < tous.length; i += 100) {
+      var paquet = tous.slice(i, i + 100);
+      var lignes = await avecSeriesFacultatives(async function () {
+        var r = await client().from('sets').select(colonnesSerie()).in('id', paquet);
+        if (r.error) throw r.error;
+        return r.data || [];
+      });
+      out = out.concat(lignes);
+    }
+    return out;
+  }
+
   // ⚠️ 118 (audit du 16/10, 03 #3) — LES SÉANCES D'UN IMPORT DÉJÀ EN BASE, lues juste avant de les écrire : par
   // l'identifiant tiré du nom (`import|<personne>|<source_ref>`, celui qu'on s'apprête à écrire) et par la référence
   // d'import (`source_ref` : une séance importée autrement, l'import d'août, n'a pas cet identifiant). L'anti-doublon
@@ -1408,6 +1424,7 @@
     toutesLesSeances: toutesLesSeances,
     inspecterLectures: inspecterLectures,
     seriesDepuis: seriesDepuis,
+    seriesParIds: seriesParIds,
     seriesDesSeances: seriesDesSeances,
     seancesDejaEnBase: seancesDejaEnBase,
     tousLesExercices: tousLesExercices,

@@ -29,9 +29,9 @@ const K = (liste) => M.consigneDExercice(liste.map((s, i) => seance(i, s)), unde
 const gris = (k) => sp(M.libellesConsigne(k).gris);
 
 const bonne = () => [g(140, 3), g(125, 6, 'recul'), g(125, 6, 'recul')];
-const zero = () => [g(140, 0, 'echec'), g(125, 0, 'recul'), g(125, 0, 'recul')];
+const zero = (c) => [g(c || 140, 0, 'echec'), g(125, 0, 'recul'), g(125, 0, 'recul')];
 const legere = () => [g(132.5, 4), g(117.5, 6, 'recul'), g(117.5, 6, 'recul')];
-const rate = () => [g(140, 2, 'travail', 10), g(125, 6, 'recul'), g(125, 6, 'recul')];   // une seule grosse série, sous la zone, sans marge, reculs tenus
+const rate = (c) => [g(c || 140, 2, 'travail', 10), g(125, 6, 'recul'), g(125, 6, 'recul')];   // une seule grosse série, sous la zone, sans marge, reculs tenus
 const h = [bonne(), bonne()];
 
 describe('Défaut 1 — la séance légère d\'un jour sans n\'est jamais le palier de comparaison (193-1)', () => {
@@ -46,7 +46,14 @@ describe('Défaut 1 — la séance légère d\'un jour sans n\'est jamais le pal
     expect([k.ligne.charge, k.ligne.vise]).toEqual([140, 2]);
     expect(gris(k)).toMatch(/Tu restes à 140 kg × 2\.$/);
   });
-  test('193-1 intacte : un test raté à une seule grosse série PLUS LOURDE que le palier tenu (152,5 × 2 après 150 × 4) reste neutre', () => {
+  test('193-1 intacte APRÈS un zéro (règle B, `zone: null`) : essai 145 × 0 puis 147,5 × 2 sans marge, une seule grosse série : la séance est neutre, « Une rep de plus : 140 kg × 4 »', () => {
+    const k = K([...h, zero(145), rate(147.5)]);
+    expect(k.palier).toBe(140);
+    expect([k.ligne.charge, k.ligne.vise]).toEqual([140, 4]);
+    expect(gris(k)).toBe('Le 12 nov. : 140 kg × 3. Une rep de plus : 140 kg × 4.');
+    expect(gris(K([...h, rate(147.5)]))).toBe(gris(k));   // le témoin sans zéro
+  });
+  test('193-1 intacte sans zéro : 152,5 × 2 après 150 × 4 reste neutre', () => {
     const t = () => [g(150, 4), g(135, 6, 'recul'), g(135, 6, 'recul')];
     const k = K([t(), t(), [g(152.5, 2, 'travail', 10), g(135, 6, 'recul'), g(135, 6, 'recul')]]);
     expect(k.palier).toBe(150);
@@ -88,5 +95,40 @@ describe('Défaut 3 — le jeton du jour sans ne se lève que sur une séance r�
   });
   test('0, légère, 0 : toujours la règle B (inchangé)', () => {
     expect(jourSans(K([b3(), b3(), z3(), l3(), z3()]))).toBe(false);
+  });
+});
+
+describe('Défaut 2 bis — le zéro ne remet pas à zéro le compte long de la règle de bord (`_bord`, `_lues` suivent `base`)', () => {
+  const b3 = (c, r) => [g(c, r, 'travail', 9), g(c, r, 'travail', 9), g(c, r, 'travail', 9)];
+  const z3 = (c) => [g(c, 0, 'echec'), g(c, 0, 'echec'), g(c, 0, 'echec')];
+  test('140 × 2 trois fois, 0 à 145, 137,5 × 2 : bord_vague, record 140 depuis le 8 nov. (comme avant le jour sans)', () => {
+    const k = K([b3(140, 2), b3(140, 2), b3(140, 2), z3(145), b3(137.5, 2)]);
+    expect(k.etat).toBe('bord_vague');
+    expect(k._bord).toMatchObject({ record: 140, total: 3, depuisRecord: jour(0) });
+  });
+  test('la consigne `zero_rep` porte `_bord` et `_lues`, non énumérables (ni le fondement ni les cas de fichier ne les voient)', () => {
+    const k = K([b3(140, 2), b3(140, 2), b3(140, 2), z3(145)]);
+    expect(k.etat).toBe('zero_rep');
+    expect(k._bord).toBeDefined();
+    expect(Object.keys(k)).not.toContain('_bord');
+    expect(Object.keys(k)).not.toContain('_lues');
+  });
+});
+
+describe('Défaut 3 bis — une séance n\'est LA séance légère que si sa charge est à ou sous la ligne du jour sans', () => {
+  const plus = () => [g(145, 4, 'travail', 8), g(130, 6, 'recul'), g(130, 6, 'recul')];
+  test('0 à 140, puis 145 × 4 (au-dessus de la charge de travail), puis 145 × 2 sans marge : une séance ordinaire, « Tu restes à 145 kg × 2 » (avant : 140 × 4)', () => {
+    const k = K([...h, zero(), plus(), rate(145)]);
+    expect(gris(k)).toBe('Le 24 nov. : 145 kg × 2, la dernière sans marge. Tu restes à 145 kg × 2.');
+    expect(K([...h, zero(), plus()]).etat).not.toBe('retour_jour_sans');
+  });
+  test('0, 140 × 3 réussi, 140 × 2, 0 : 140 × 3 est une séance ordinaire qui lève le jeton ; le nouveau zéro ouvre un nouveau jour sans (pas la règle B)', () => {
+    const k = K([...h, zero(), bonne(), rate(), zero()]);
+    expect(k.etat).toBe('zero_rep');
+    expect(k.fondement.zeroRep.jourSans).toBeDefined();
+    expect(gris(k)).toMatch(/pour cette séance\.$/);
+  });
+  test('une séance à la ligne du jour sans (132,5 × 4) reste LA légère, neutre', () => {
+    expect(K([...h, zero(), legere()]).etat).toBe('retour_jour_sans');
   });
 });

@@ -1381,9 +1381,27 @@
   }
 
   // Les séries de l'exercice, lues comme des FAITS (les lignes validées), jamais des propositions.
+  // 21/11/2026 (MOTEUR §9.32, I253) — la série de mesure est la série MARQUÉE (`Modele.estSerieDeMesure`, la seule lecture de
+  // `serie_de_mesure`), jamais une position : une série ordinaire posée après elle n'entre pas dans la mesure. Deux séries marquées (deux
+  // appareils hors ligne) : la PREMIÈRE par `validee_a`, puis par sa place dans l'exercice ; rien ne lève d'erreur.
+  // L'ordre de validation : l'INSTANT de `validee_a` (lu, jamais comparé en texte : deux écritures d'un même instant sont égales), une série
+  // validée sans `validee_a` (relue de la base, `partEnBase`) après toutes les autres ; puis sa place dans l'exercice. Une règle, lue par
+  // `faitsDeTest` ET par I253.
+  function instantDeValidation(v) {
+    var t = v ? Date.parse(v) : NaN;
+    return isFinite(t) ? t : Infinity;
+  }
+  function avantEnValidation(a, b) {
+    var ta = instantDeValidation(a.validee_a), tb = instantDeValidation(b.validee_a);
+    if (ta !== tb) return ta < tb ? -1 : 1;
+    return a.rang - b.rang;
+  }
+  function premiereSerieDeMesure(candidates) {
+    return candidates.slice().sort(avantEnValidation)[0] || null;
+  }
   function faitsDeTest(x, series) {
     var S = Seance(), P = Palier();
-    var essais = [], serie = null;
+    var essais = [], marquees = [];
     (x.lignes || []).forEach(function (l) {
       if (!l || !l.validee) return;
       var s = series[l.iSerie];
@@ -1392,9 +1410,13 @@
       if (charge === null) return;
       var reserve = P.reserveDeSerie(s);
       if (S.typeDe(s) === 'test') essais.push({ charge: charge, reps: reps === null ? 0 : reps, reserve: reserve, douleur: s.douleur === true, id: s.id === undefined ? null : s.id });
-      else if (racine.THModele.estSerieDuTestEnSerie(s)) serie = { charge: charge, reps: reps === null ? 0 : reps, reserve: reserve === null ? 0 : reserve, id: s.id === undefined ? null : s.id };
+      else if (racine.THModele.estSerieDeMesure(s)) {
+        marquees.push({ charge: charge, reps: reps === null ? 0 : reps, reserve: reserve === null ? 0 : reserve, id: s.id === undefined ? null : s.id,
+                        validee_a: s.validee_a || null, rang: l.iSerie });
+      }
     });
-    return { essais: essais, serie: serie };
+    var p = premiereSerieDeMesure(marquees);
+    return { essais: essais, serie: p ? { charge: p.charge, reps: p.reps, reserve: p.reserve, id: p.id } : null };
   }
 
   // 202 (MOTEUR §9.32) — LES FAITS DU DÉFAUT de la semaine de mesure, d'une barre : le débutant, les 65 ans et plus, les reps de la série d'où
@@ -1459,7 +1481,7 @@
       : (out.mesure && out.mesure.rang ? (f.essais[out.mesure.rang - 1] || {}).id || null : null);
     out.charge = out.prochain ? out.prochain.charge : (out.serie ? out.serie.charge : null);
     // « Ajouter ces lignes » (geste de la personne, rien en silence) : la montée (échauffements) puis le 1ᵉʳ essai en type `test` (ou la
-    // « Série au max » avec sa réserve) ; les essais suivants un à un, quand les lignes posées sont toutes validées. « Annuler » retire les vides.
+    // série de mesure, marquée `mesure` : I253) ; les essais suivants un à un, quand les lignes posées sont toutes validées. « Annuler » retire les vides.
     var posees = series.filter(function (q) { return q && q.test_pose === true; });
     out.posees = posees.length;
     out.videsPosees = posees.filter(function (q) { return !q.validee_a; }).length;
@@ -1468,7 +1490,7 @@
       var aj = [];
       if (posees.length === 0) out.montee.forEach(function (m) { aj.push({ charge: m.charge, reps: m.reps, type: 'echauffement' }); });
       if (out.prochain) aj.push({ charge: out.prochain.charge, reps: out.prochain.reps, type: 'test', essai: out.prochain.rang });
-      else if (out.serie && !f.serie) aj.push({ charge: out.serie.charge, reps: out.serie.vise, type: 'travail', reserve: out.serie.reserve });
+      else if (out.serie && !f.serie) aj.push({ charge: out.serie.charge, reps: out.serie.vise, type: 'travail', mesure: true });
       if (aj.length) out.ajout = { lignes: aj, suite: posees.length > 0 };
     }
     var pari = M.testPari(maxEstime, o);
@@ -9096,7 +9118,8 @@
   //     celles du max estimé, à un cran près ; la série au soulevé : en gardant 1, 6 reps au plus ;
   //   · I91 — au plus deux accessoires gardés (sa clause « Au max » est retirée avec l'objet, 20/11/2026, I251) ;
   //   · I92 — un arrêt (« J'ai mal », un 1ᵉʳ essai sans marge, 0 rep) ne propose plus rien : ni essai, ni série ;
-  //   · I93 — le max mesuré n'est jamais sous le plus lourd essai réussi à RPE 10, et le pari est le max estimé au cran, module `test`.
+  //   · I93 — le max mesuré n'est jamais sous le plus lourd essai réussi à RPE 10, et le pari est le max estimé au cran, module `test` ;
+  //   · I253 (21/11/2026) — en mode « série », la série de mesure est la première série marquée `serie_de_mesure` (jamais une position).
   function verifierSemaineDeTest(plan, erreurs, entrees) {
     var jt = plan && plan.semaineDeTest;
     if (!jt) {
@@ -9135,7 +9158,7 @@
       // I224 — aucun essai, aucune montée, aucune série au max, aucun ajout proposés d'office pour une barre en reprise longue ou sans max.
       if (ent !== null && t.barre && x.slug && !testable(x.slug)) {
         if (t.testee || t.prochain || t.serie || (t.montee && t.montee.length) || t.ajout || (t.charge !== null && t.charge !== undefined) || t.pari) {
-          erreurs.push('I224' + nom + 'un essai, une montée, une série au max ou un pari proposé pour une barre en reprise longue ou sans max');
+          erreurs.push('I224' + nom + 'un essai, une montée, une série de mesure ou un pari proposé pour une barre en reprise longue ou sans max');
         }
         if (!t.pasDEssai) erreurs.push('I224' + nom + 'la barre non testable ne dit pas « pas d’essai cette semaine »');
       }
@@ -9176,13 +9199,13 @@
         if (t.prochain.rang === 3 && t.essais[1] && !(t.prochain.charge > t.essais[1].charge)) erreurs.push('I88' + nom + 'le 3ᵉ essai (' + t.prochain.charge + ') n’est pas plus lourd que le 2ᵉ (' + t.essais[1].charge + ')');
         if (t.prochain.rang === 1 && !pres(t.prochain.charge, M.TEST_ESSAI_1)) erreurs.push('I90' + nom + 'le 1ᵉʳ essai (' + t.prochain.charge + ') n’est pas à ' + M.TEST_ESSAI_1 + ' % du max estimé (' + max + ')');
         if (t.prochain.rang === 2 && !pres(t.prochain.charge, M.TEST_ESSAI_2)) erreurs.push('I90' + nom + 'le 2ᵉ essai (' + t.prochain.charge + ') n’est pas à ' + M.TEST_ESSAI_2 + ' % du max estimé (' + max + ')');
-        if (t.mode !== M.TEST_MODE_MAX) erreurs.push('I90' + nom + 'un essai proposé en mode « série au max »');
+        if (t.mode !== M.TEST_MODE_MAX) erreurs.push('I90' + nom + 'un essai proposé en mode « série de mesure »');
       }
       if (t.serie) {
         var pc = plan.debutant ? M.TEST_SERIE_PCT_DEBUTANT : M.TEST_SERIE_PCT;
-        if (!pres(t.serie.charge, pc)) erreurs.push('I90' + nom + 'la série au max (' + t.serie.charge + ') n’est pas à ' + pc + ' % du max estimé (' + max + ')');
+        if (!pres(t.serie.charge, pc)) erreurs.push('I90' + nom + 'la série de mesure (' + t.serie.charge + ') n’est pas à ' + pc + ' % du max estimé (' + max + ')');
         if (t.classe === 'souleve' && !(t.serie.reserve === 1 && t.serie.plafond <= M.TEST_SERIE_PLAFOND_SOULEVE)) erreurs.push('I90' + nom + 'la série au soulevé doit garder 1 rep, ' + M.TEST_SERIE_PLAFOND_SOULEVE + ' reps au plus');
-        if (t.mode !== M.TEST_MODE_SERIE) erreurs.push('I90' + nom + 'une série au max proposée en mode « viser mon max »');
+        if (t.mode !== M.TEST_MODE_SERIE) erreurs.push('I90' + nom + 'une série de mesure proposée en mode « viser mon max »');
       }
       (t.montee || []).forEach(function (m, k) {
         if (!pres(m.charge, M.TEST_MONTEE[k][0])) erreurs.push('I90' + nom + 'la montée ' + (k + 1) + ' (' + m.charge + ') n’est pas à ' + M.TEST_MONTEE[k][0] + ' % du max estimé (' + max + ')');
@@ -9192,6 +9215,28 @@
       if ((t.essais || []).some(function (q) { return q.douleur === true; }) && t.prochain) erreurs.push('I92' + nom + '« J’ai mal » noté et un essai de plus proposé');
       if (t.essais && t.essais[0] && t.essais[0].reserve === 0 && t.prochain) erreurs.push('I92' + nom + 'un 1ᵉʳ essai sans marge et un 2ᵉ proposé');
       if (t.essais && t.essais.length && !(nombre(t.essais[t.essais.length - 1].reps) >= 1) && t.prochain) erreurs.push('I92' + nom + 'un essai raté et un essai de plus proposé');
+      // I253 (21/11/2026, MOTEUR §9.32) — en mode « série », la série lue est la PREMIÈRE série validée de l'exercice qui porte la marque
+      // `serie_de_mesure`, de type travail, qui compte (par `validee_a`, puis sa place) ; aucune série sans la marque n'entre dans la mesure,
+      // quelle que soit sa place. Recalculée depuis les ENTRÉES (les séries de la séance), par une lecture à part (jamais `faitsDeTest`) ; la
+      // marque d'une série se lit par son seul prédicat (`Modele.estSerieDeMesure`, une notion), le choix de la première se refait ici.
+      if (t.mode === M.TEST_MODE_SERIE && entrees && entrees.seance && entrees.seance.exercices) {
+        var exoI = typeof x.iExo === 'number' ? entrees.seance.exercices[x.iExo] : null;
+        var seriesI = (exoI && exoI.series) || [];
+        var marquees = [];
+        seriesI.forEach(function (q, k) {
+          if (!q || !Seance().partEnBase(q) || !racine.THModele.estSerieDeMesure(q)) return;
+          if (nombre(q.charge_kg) === null) return;
+          marquees.push({ q: q, validee_a: q.validee_a || null, rang: k });
+        });
+        marquees.sort(avantEnValidation);
+        var lue = marquees.length ? marquees[0].q : null;
+        var idLu = lue ? (lue.id === undefined ? null : lue.id) : null;
+        if ((t.mesureSerieId || null) !== idLu) erreurs.push('I253' + nom + 'la série de mesure lue (' + t.mesureSerieId + ') n’est pas la première série marquée (' + idLu + ')');
+        if (!lue && t.mesure) erreurs.push('I253' + nom + 'une mesure sans série marquée');
+        if (lue && t.mesure && (t.mesure.charge !== nombre(lue.charge_kg) || t.mesure.reps !== nombre(lue.reps))) {
+          erreurs.push('I253' + nom + 'la mesure (' + t.mesure.charge + ' × ' + t.mesure.reps + ') ne vient pas de la série marquée (' + lue.charge_kg + ' × ' + lue.reps + ')');
+        }
+      }
       if (t.mesure && t.mode === M.TEST_MODE_MAX) {
         var reussis = t.essais.filter(function (q) { return nombre(q.reps) >= 1 && (q.reserve === null || q.reserve === 0); });
         reussis.forEach(function (q) { if (t.mesure.valeur + 1e-9 < q.charge) erreurs.push('I93' + nom + 'le max mesuré (' + t.mesure.valeur + ') est sous un essai réussi à RPE 10 (' + q.charge + ')'); });

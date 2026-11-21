@@ -8754,12 +8754,34 @@
     return p;
   }
 
+  // 21/11/2026 (MOTEUR §9.22, I267) — L'INSTANT DE L'ARRÊT d'un bloc : `blocs.arrete_a` (posée par `terminerBloc` au geste « Arrêter », et
+  // par un déclencheur de la base pour les versions d'avant), sinon — une base sans la colonne (facultative, `donnees.js`) — `modifie_a`.
+  // `null` pour un bloc qui n'est pas arrêté. ⚠️ `modifie_a` est l'HORLOGE DE FUSION (`fondreBlocs`) : un renommage du dossier la pousse
+  // (`Routines.planRenommageDossier`) ; elle n'est une date d'arrêt qu'à défaut de la colonne. UNE lecture : `periodesDecharge` et
+  // `lignesDeZoneValides` passent par elle.
+  function arretDuBloc(bloc) {
+    if (!bloc || bloc.statut !== 'arrete') return null;
+    if (bloc.arrete_a !== undefined && bloc.arrete_a !== null) return instant(bloc.arrete_a);
+    return instant(bloc.modifie_a);
+  }
+
   // Les périodes des décharges planifiées (blocs en cours et terminés) : le
   // compteur ne compte ni ne juge leurs séances, comme une semaine allégée.
+  // 21/11/2026 (I267) — un bloc ARRÊTÉ pendant sa décharge garde la part de la décharge déjà vécue : de son début au jour de l'arrêt
+  // (`arretDuBloc`, au jour civil), sans dépasser le 7ᵉ jour. Arrêté avant la décharge, ou décharge sautée : rien. Sans date d'arrêt : rien.
   function periodesDecharge(blocs, finsAllegees) {
-    return (blocs || []).filter(function (b) {
-      return b && (b.statut === BLOC_EN_COURS || b.statut === 'termine') && dechargePlanifiee(b, finsAllegees);
-    }).map(function (b) { return { debut: debutDecharge(b), fin: ajouterJours(debutDecharge(b), 6) }; });
+    var out = [];
+    (blocs || []).forEach(function (b) {
+      if (!b || !dechargePlanifiee(b, finsAllegees)) return;
+      var d = debutDecharge(b), f = ajouterJours(d, 6);
+      if (b.statut === BLOC_EN_COURS || b.statut === 'termine') { out.push({ debut: d, fin: f }); return; }
+      if (b.statut !== 'arrete') return;
+      var t = arretDuBloc(b);
+      var a = t === null ? null : jourCivil(t);
+      if (a === null || a < d) return;
+      out.push({ debut: d, fin: a < f ? a : f });
+    });
+    return out;
   }
 
   // AU DÉBUT D'UN BLOC, une ligne de zone par exercice du bloc, datée du début
@@ -8986,7 +9008,7 @@
   // §9.22 (53-2 bis, 53-2 ter) — LES LIGNES INERTES. Un bloc pose ses lignes
   // datées de son début ; arrêté AVANT, il ne doit rien changer : une ligne
   // POSÉE par un bloc arrêté (`arrete`), datée de son début, après l'arrêt
-  // (`modifie_a`), est IGNORÉE — retirée de la liste, comme absente, et jamais
+  // (`arretDuBloc` : `arrete_a`, à défaut `modifie_a`), est IGNORÉE — retirée de la liste, comme absente, et jamais
   // lue comme « sans zone » : la lecture retombe sur la ligne d'avant (une
   // correction de la personne d'avant le programme tient). Les lignes d'un
   // bloc arrêté en cours de route ont valu jusqu'à l'arrêt ; la ligne de
@@ -8995,7 +9017,7 @@
   function lignesDeZoneValides(lignes, blocs) {
     var arretes = {};
     (blocs || []).forEach(function (b) {
-      var t = b && b.statut === 'arrete' ? instant(b.modifie_a) : null;
+      var t = arretDuBloc(b);   // 21/11/2026 (I267) : `arrete_a`, jamais l'horloge de fusion quand la colonne existe
       var m = t !== null ? instant(minuitDuDebut(b)) : null;
       if (m !== null) arretes[b.id] = { arret: t, debut: m };
     });
@@ -13244,17 +13266,17 @@
     var o = f || {}, c = regle('test.defaut'), texte, cle;
     if (raison === 'debutant') {
       cle = null;
-      texte = 'Moins d’un an de pratique : le coach propose une série au max plutôt qu’une tentative. Tu peux viser ton max si tu le connais.';
+      texte = 'Moins d’un an de pratique : le coach propose une série de mesure plutôt qu’une tentative. Tu peux viser ton max si tu le connais.';
     } else if (raison === 'plus65') {
       cle = 'test.defaut.age';
-      texte = 'À partir de ' + nombreFr(AGE_PLAFOND_BAS, c) + ' ans, le coach propose une série au max. Tu peux viser ton max si tu le connais.';
+      texte = 'À partir de ' + nombreFr(AGE_PLAFOND_BAS, c) + ' ans, le coach propose une série de mesure. Tu peux viser ton max si tu le connais.';
     } else {
       cle = 'test.defaut.reps';
       var k = nombre(o.chargeDuMax), m = nombre(o.max), r = nombre(o.repsDuMax);
       texte = (m !== null && k !== null
         ? 'Ton max estimé, ' + enKg(m, c) + ', vient de ' + chargeFois(k, r, c) + '. '
         : 'Ton max estimé vient d’une série de ' + nombreFr(r, c) + ' reps. ') +
-        'Au-delà de ' + nombreFr(TEST_REPS_FIABLES_MAX, c) + ' reps, ce calcul est moins fiable : le coach propose une série au max plutôt qu’une tentative.';
+        'Au-delà de ' + nombreFr(TEST_REPS_FIABLES_MAX, c) + ' reps, ce calcul est moins fiable : le coach propose une série de mesure plutôt qu’une tentative.';
     }
     return { raison: raison, texte: texte, sources: cle ? sourcesDeRegles([cle]) : [] };
   }
@@ -13435,7 +13457,7 @@
     if (!s) return null;
     var visee = s.visee[0] === s.visee[1] ? nombreFr(s.visee[0], regle('test.visee_bas'))
       : nombreFr(s.visee[0], regle('test.visee_bas')) + ' à ' + nombreFr(s.visee[1], regle('test.visee_haut'));
-    var t = 'Série au max' + DEUX_POINTS + enKg(s.charge, regle('test')) + ', visée ' + visee + ' reps, ' +
+    var t = 'Série de mesure' + DEUX_POINTS + enKg(s.charge, regle('test')) + ', visée ' + visee + ' reps, ' +
       (s.reserve > 0 ? testGardant(s.reserve) + ', ' : 'autant que tu peux, ') + nombreFr(s.plafond, regle('test.plafond')) + ' reps au plus.';
     return t + ' Tu t’arrêtes quand la technique lâche.';
   }
@@ -13459,7 +13481,7 @@
   function phraseProposeTest(e) {
     if (!e) return null;
     if (e.voie === 'alleger') return 'Pour tester, allège d’abord une semaine : après des semaines dures, la fatigue masque ta force. Tu peux quand même la faire.';
-    if (e.voie === 'bibliotheque') return 'Tes quatre barres, un mouvement par jour, sur une semaine. Tu choisis, barre par barre, de viser ton max ou de faire une série au max.';
+    if (e.voie === 'bibliotheque') return 'Tes quatre barres, un mouvement par jour, sur une semaine. Tu choisis, barre par barre, de viser ton max ou de faire une série de mesure.';
     return 'Deux phases sont faites, la décharge aussi. Je te propose de tester tes quatre barres, un mouvement par jour.';
   }
   // La feuille du Profil : pourquoi pas encore, ou la proposition.
@@ -13677,12 +13699,12 @@
       texte: 'Le rest-pause et les myo-reps : la pratique de Jeff Nippard et de Renaissance Periodization (Israetel).' },
     // La semaine de mesure.
     test: { type: 'coachs', auteur: 'Juggernaut, 5/3/1, SBS, Candito',
-      texte: 'Juggernaut, 5/3/1, SBS et Candito recalent sur une série lourde ou une série au max plutôt que sur un vrai max.' },
-    // Le défaut de la semaine de mesure : « Série au max » quand le max vient d'une série de plus de 5 reps, ou à partir de 65 ans.
+      texte: 'Juggernaut, 5/3/1, SBS et Candito recalent sur une série lourde ou une série de mesure plutôt que sur un vrai max.' },
+    // Le défaut de la semaine de mesure : « Série de mesure » quand le max vient d'une série de plus de 5 reps, ou à partir de 65 ans.
     'test.defaut.reps': { type: 'etude', auteur: 'Reynolds', annee: 2006, effectif: '70 adultes',
       texte: 'Reynolds 2006 (70 adultes) : le max se calcule le mieux à partir d’une série de 5 reps ou moins.' },
     'test.defaut.age': { type: 'convention',
-      texte: 'Le défaut « série au max » à partir de 65 ans : un choix de l’app, aucune étude ne fixe d’âge.' },
+      texte: 'Le défaut « série de mesure » à partir de 65 ans : un choix de l’app, aucune étude ne fixe d’âge.' },
     // La baisse de force attendue en sèche (198).
     'seche.baisse': { type: 'convention',
       texte: 'Une baisse de 2 à 5 % sur les charges en sèche : un choix de l’app, une convention du coach. Garthe 2011 (24 athlètes) suit la masse maigre, pas la force : il ne mesure pas cette baisse.' },
@@ -14656,6 +14678,7 @@
     carteAllegeeAutorisee: carteAllegeeAutorisee,
     dechargeDuJour: dechargeDuJour,
     periodesDecharge: periodesDecharge,
+    arretDuBloc: arretDuBloc,
     zonesPosees: zonesPosees,
     zoneDuPremierBloc: zoneDuPremierBloc,
     blocSuivant: blocSuivant,

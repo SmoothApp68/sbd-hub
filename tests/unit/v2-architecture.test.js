@@ -1968,6 +1968,12 @@ const NOTIONS = [
     module: 'moteur.js', fonction: 'periodesDecharge', lecteurs: ['app.js'],
     raison: 'une ENTRÉE du compteur, préparée par l’app : la décharge part du même jour que la carte qui se tait ' +
       '(`debutDecharge`).' },
+  { notion: 'l’instant de l’arrêt d’un bloc (`arrete_a`, à défaut `modifie_a`)', pr: 'correctif 21/11/2026',   // I267
+    module: 'moteur.js', fonction: 'arretDuBloc', lecteurs: [],
+    par: ['periodesDecharge', 'lignesDeZoneValides'],
+    interdit: { motif: /statut === 'arrete' \? instant\(\w+\.modifie_a\)/,
+                raison: 'l’arrêt lu sur l’horloge de fusion (`modifie_a`), qu’un renommage du dossier pousse (CONTRA-MARQUES §2)' },
+    raison: 'MOTEUR §9.22 : la décharge vécue avant l’arrêt et les lignes de zone inertes d’un bloc arrêté lisent le même instant.' },
   { notion: 'les exercices qui ont progressé sur un bloc (l’observation du pari de programme)', pr: '124-U1',
     module: 'moteur.js', fonction: 'progresDuBilan', lecteurs: ['app.js'],
     raison: 'MOTEUR §9.22 : la carte de fin de bloc et l’observation écrite en base lisent le même nombre.' },
@@ -4183,17 +4189,16 @@ describe('architecture — le menu d’un exercice : une seule copie (PR 2 « sa
   });
 });
 
-// I251 (« Au max » disparaît, 20/11/2026, MOTEUR §9.30) — `au_max` et `au_max_reserve` ne se lisent ni ne s'écrivent dans `v2/js/` pour décider. La SEULE
-// exception est la série de la semaine de test en mode « série » (MOTEUR §9.32, jusqu'à la PR 3 : une identité persistée) : sa lecture passe par
-// `Modele.reserveDeLaSerieDuTest` / `Modele.estSerieDuTestEnSerie`, et la séance la pose, l'envoie et la relit. La liste blanche dit chaque ligne, par
-// fichier, avec sa raison ; une ligne de plus échoue, une ligne de moins aussi (la liste dit ce qui est). Les identifiants de l'objet retiré sont interdits.
+// I251 (« Au max » disparaît, 20/11/2026, MOTEUR §9.30) — `au_max` et `au_max_reserve` ne se lisent ni ne s'écrivent dans `v2/js/`. Depuis le 21/11/2026
+// (I253), la série de mesure a sa propre marque (`sets.serie_de_mesure`, `Modele.estSerieDeMesure`) : l'exception de la semaine de test est retirée.
+// Reste I251 lui-même. La liste blanche dit chaque ligne, par fichier, avec sa raison ; une ligne de plus échoue, une ligne de moins aussi (la liste dit
+// ce qui est). Les identifiants de l'objet retiré sont interdits.
 describe('I251 — « Au max » n’existe plus dans v2/js', () => {
   const fs = require('fs'), path = require('path');
   const dossier = path.join(__dirname, '../../v2/js');
   const sansCommentaires = (src) => src.split('\n').map((l) => (/^\s*\/\//.test(l) ? '' : l.replace(/\s\/\/\s.*$/, '')));
   const LISTE_BLANCHE = {
-    'modele.js': { n: 2, raison: 'la seule lecture : `reserveDeLaSerieDuTest` et `estSerieDuTestEnSerie` (la série de la semaine de test, §9.32)' },
-    'seance.js': { n: 5, raison: 'la colonne `au_max_reserve` (COLONNES_SET), sa relecture et son envoi par `reserveDuTest`, la pose de la série de test (`insererChauffes`)' },
+    'seance.js': { n: 1, raison: 'I253, la passerelle d’un brouillon d’avant (`marquerLeBrouillonDAvant`) : au brouillon seulement, une série validée posée par le test avec une réserve de test reçoit la marque `serie_de_mesure`' },
     'plan.js': { n: 1, raison: 'I251 lui-même : `verifierSansAuMax` refuse un pari fondé sur `fondement.au_max`' }
   };
   const lignes = {};
@@ -4210,8 +4215,23 @@ describe('I251 — « Au max » n’existe plus dans v2/js', () => {
   test.each(Object.keys(LISTE_BLANCHE))('%s : exactement les lignes inscrites', (f) => {
     expect([f, (lignes[f] || []).length, lignes[f]]).toEqual([f, LISTE_BLANCHE[f].n, lignes[f]]);
   });
+  // I253 (21/11/2026) — `serie_de_mesure` ne se LIT que par `Modele.estSerieDeMesure` et ne s'ÉCRIT que dans `seance.js` (la colonne, la relecture,
+  // la pose par « Ajouter ces lignes », l'envoi) ; `donnees.js` la nomme dans ses colonnes facultatives. Le plan (`faitsDeTest`, I253) passe par
+  // le prédicat.
+  test('I253 — `serie_de_mesure` : une lecture (`Modele.estSerieDeMesure`), un écrivain (`seance.js`), exactement les lignes inscrites', () => {
+    const ATTENDU = { 'modele.js': 1, 'seance.js': 6, 'donnees.js': 1 };   // seance.js : + 2 lignes de la passerelle du brouillon d'avant
+    const vues = {};
+    fs.readdirSync(dossier).filter((f) => f.endsWith('.js')).forEach((f) => {
+      sansCommentaires(fs.readFileSync(path.join(dossier, f), 'utf8')).forEach((l) => {
+        if (/\bserie_de_mesure\b/.test(l)) vues[f] = (vues[f] || 0) + 1;
+      });
+    });
+    expect(vues).toEqual(ATTENDU);
+    const modele = fs.readFileSync(path.join(dossier, 'modele.js'), 'utf8');
+    expect(modele).toMatch(/function estSerieDeMesure\(serie\) \{\n\s+return [^\n]*serie\.serie_de_mesure === true;/);
+  });
   test('les identifiants de l’objet retiré n’apparaissent plus dans le code servi', () => {
-    const interdits = /\b(estAuMax|reserveDemandee|reserveDemandeeAuMax|auMaxCommeDemande|auMaxDe|publicPrudentAuMax|motsDeLAuMax|consigneAuMax|constatAuMax|pourquoiAuMax\w*|niveauHorsAuMax|classeAuMax|auMaxFaitsDe|auMaxDuPlan|retirerLAuMax|propositionAuMax|propositionDAuMax|definirAuMax|poserAuMaxReserve|marquerAuMax|repondreAuMax|etiquetteAuMax|echecRecentDeBarre|echecsDeBarre|pasDAuMax|AU_MAX_RESERVE_PAR_DEFAUT)\b/;
+    const interdits = /\b(estSerieDuTestEnSerie|reserveDeLaSerieDuTest|reserveDuTest|estAuMax|reserveDemandee|reserveDemandeeAuMax|auMaxCommeDemande|auMaxDe|publicPrudentAuMax|motsDeLAuMax|consigneAuMax|constatAuMax|pourquoiAuMax\w*|niveauHorsAuMax|classeAuMax|auMaxFaitsDe|auMaxDuPlan|retirerLAuMax|propositionAuMax|propositionDAuMax|definirAuMax|poserAuMaxReserve|marquerAuMax|repondreAuMax|etiquetteAuMax|echecRecentDeBarre|echecsDeBarre|pasDAuMax|AU_MAX_RESERVE_PAR_DEFAUT)\b/;
     const trouves = [];
     fs.readdirSync(dossier).filter((f) => f.endsWith('.js')).forEach((f) => {
       sansCommentaires(fs.readFileSync(path.join(dossier, f), 'utf8')).forEach((l, k) => {
@@ -4220,15 +4240,17 @@ describe('I251 — « Au max » n’existe plus dans v2/js', () => {
     });
     expect(trouves).toEqual([]);
   });
-  test('aucun texte affiché « Au max » dans les écrans (rendu.js, app.js, index.html), la semaine de test exceptée (« série au max », PR 3)', () => {
+  // 21/11/2026 (I253) — l'exception de la semaine de test (« série au max ») est retirée : le mot est « série de mesure ». La garde lit les LITTÉRAUX
+  // (une chaîne entre apostrophes ou guillemets, commentaires ôtés), en minuscules comme en majuscules, et s'étend aux phrases du coach (`moteur.js`).
+  test('aucun texte affiché « au max » dans les écrans ni dans les phrases du coach (rendu.js, app.js, moteur.js, index.html)', () => {
     const trouves = [];
-    ['rendu.js', 'app.js'].forEach((f) => {
+    ['rendu.js', 'app.js', 'moteur.js'].forEach((f) => {
       sansCommentaires(fs.readFileSync(path.join(dossier, f), 'utf8')).forEach((l, k) => {
-        if (/['"][^'"]*\bAu max\b/.test(l)) trouves.push(f + ':' + (k + 1) + ' ' + l.trim());
+        if (/['"][^'"]*\bau max\b/i.test(l)) trouves.push(f + ':' + (k + 1) + ' ' + l.trim());
       });
     });
     const html = fs.readFileSync(path.join(__dirname, '../../v2/index.html'), 'utf8');
-    if (/\bAu max\b/.test(html)) trouves.push('index.html');
+    if (/\bau max\b/i.test(html)) trouves.push('index.html');
     expect(trouves).toEqual([]);
   });
 });

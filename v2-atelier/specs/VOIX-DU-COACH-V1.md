@@ -113,7 +113,7 @@ ni bouton, ni « Au max en gardant N », ni « Jusqu'à l'échec » sous une lig
 ni « Pas d'« Au max » sur cet exercice aujourd'hui », ni « L'échec sur une barre passe par la série « Au max » ». Le coach ne demande l'échec que par la visée
 affichée. Celui qui va au bout le note : **« sans marge » = « tu n'aurais pas pu faire une rep de plus, propre »** (le mot « propre » : l'échec technique,
 TT-AUMAX-DEDUIT §6). En séance, le silence ; en fin d'exercice, la phrase de la capacité tenue (I254, ci-dessus : « 100 kg × 7, sans marge : 2 de plus que
-prévu. ») puis l'annonce, rien d'autre. La « Série au max » de la semaine de test reste jusqu'à la PR 3 (« Série de test »). Les phrases sont balayées par `tests/unit/v2-notes-ia.test.js` avec les motifs de `fixtures/voix-regles-181.json`.
+prévu. ») puis l'annonce, rien d'autre. La « Série au max » de la semaine de test devient « Série de mesure » le 21/11/2026 (MOTEUR §9.32, I253) ; l'autre façon garde « viser ton max ». Les phrases sont balayées par `tests/unit/v2-notes-ia.test.js` avec les motifs de `fixtures/voix-regles-181.json`.
 
 ## Les chauffes depuis ta charge (15/11/2026, MOTEUR §9.41 bis)
 

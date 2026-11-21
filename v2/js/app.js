@@ -779,9 +779,12 @@
 
   // Le bloc qui finit (`termine`) ou qu'on arrête (`arrete`). Fini, son pari
   // de programme s'observe : combien de ses exercices ont progressé.
+  // 21/11/2026 (MOTEUR §9.22, I267) — l'ARRÊT est daté une fois, au geste : `arrete_a` (lue par `Moteur.arretDuBloc`). `modifie_a` reste
+  // l'horloge de fusion (`fondreBlocs`) : un renommage du dossier la pousse, jamais `arrete_a`.
   async function terminerBloc(bloc, statut, fini) {
     if (fini) await observerPariDeProgramme(bloc);
-    await poserBloc(Object.assign({}, bloc, { statut: statut, modifie_a: instantDuJour() }));
+    var t = instantDuJour();
+    await poserBloc(Object.assign({}, bloc, { statut: statut, modifie_a: t }, statut === 'arrete' ? { arrete_a: t } : {}));
   }
 
   async function poserPariDeProgramme(bloc, precedent) {
@@ -5198,6 +5201,8 @@
   async function chargerSeanceLocale() {
     try {
       seance = await Cache.lireBrouillon('seance');
+      // 21/11/2026 (I253) — un brouillon d'une version d'avant la marque de la série de mesure : la passerelle, au brouillon seulement.
+      if (seance) seance = Seance.marquerLeBrouillonDAvant(seance);
       attente = await Cache.lireAttente();
     } catch (e) {
       console.warn('Séance locale illisible :', texteErreur(e));
@@ -10172,7 +10177,7 @@
     } else {
       if (!t.ajout) return;
       var lignes = t.ajout.lignes.map(function (q) {
-        return Object.assign([q.charge, q.reps], { test: true, type: q.type, reserve: q.reserve });
+        return Object.assign([q.charge, q.reps], { test: true, type: q.type, mesure: q.mesure === true });   // I253 : la marque de la série de mesure
       });
       seance = Seance.insererChauffes(seance, iExo, lignes, uuid, t.ajout.suite ? 'test' : undefined);
     }

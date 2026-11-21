@@ -102,10 +102,10 @@
     // 185 (v2_116) — « série gardée au journal, mais exclue des records, des crans et du moteur » : la réponse « Non, ne
     // compte pas » à la question de vraisemblance. NOT NULL, défaut false ; lue ET écrite, toujours envoyée.
     'hors_calcul',
-    // 193-6 (v2_123) — `au_max_reserve`. « Au max » disparaît (20/11/2026, I251) : elle ne décide plus de rien. Elle reste lue et écrite pour
-    // la seule série de la semaine de test en mode « série » (`Modele.reserveDeLaSerieDuTest`, MOTEUR §9.32, jusqu'à la PR 3) ; toute autre
-    // série l'envoie à NULL. La colonne reste : les versions installées d'avant l'écrivent encore (SCHEMA-REEL).
-    'au_max_reserve'
+    // 21/11/2026 (MOTEUR §9.32, I253) — la marque de la SÉRIE DE MESURE (v2_1xx, NOT NULL DEFAULT false) : lue ET écrite, toujours envoyée,
+    // `false` compris. FACULTATIVE tant que la migration n'est pas passée (`donnees.js`, COLONNES_SERIE_FACULTATIVES). Elle remplace
+    // `au_max_reserve` (193-6, v2_123), qui n'est plus ni lue ni écrite : la colonne reste en base, les versions d'avant l'écrivent encore.
+    'serie_de_mesure'
   ];
   // Lues, jamais écrites : le serveur les pose lui-même.
   var COLONNES_SET_EN_PLUS = ['created_at', 'modifie_a'];
@@ -348,9 +348,9 @@
               repos_s: ligne.repos_s === undefined ? null : ligne.repos_s,
               // 185 (v2_116) — « Non, ne compte pas » relu de la base : rouvrir une séance ne le perd pas.
               hors_calcul: ligne.hors_calcul === true,
-              // La série de la semaine de test en mode « série » relue de la base (MOTEUR §9.32 ; I251 : sa seule lecture, jusqu'à la PR 3).
-              au_max_reserve: reserveDuTest(ligne),
-              au_max: reserveDuTest(ligne) !== null
+              // 21/11/2026 (I253) — la marque de la série de mesure relue de la base : « Modifier » ne la perd pas. (`refaire` passe par `vider` :
+              // une séance neuve ne la recopie jamais.)
+              serie_de_mesure: ligne.serie_de_mesure === true
             });
           })
         }, occ ? { occurrence: 'o-' + occ } : {}, marque ? { douleur: true } : {}, marqueSansCoach ? { sans_coach: true } : {}));
@@ -658,7 +658,8 @@
         s.type_serie = q.type || 'echauffement';
         s.test_pose = true;
         if (q[0] !== null && q[0] !== undefined) s.charge_kg = q[0];
-        if (q.reserve !== undefined && q.reserve !== null) { s.au_max_reserve = q.reserve; s.au_max = true; }
+        // 21/11/2026 (I253) — la série de mesure (mode « série ») : LA marque, posée par ce seul geste. Ni réserve, ni place.
+        if (q.mesure === true) s.serie_de_mesure = true;   // (le plan ne la pose que sur la ligne de travail ; le prédicat relit le type)
       }
       return s;
     });
@@ -681,6 +682,26 @@
     var exos = ou === 'avant' ? neufs.concat(seance.exercices) : seance.exercices.concat(neufs);
     return avecExercices(seance, exos);
 
+  }
+
+  // 21/11/2026 (MOTEUR §9.32, I253) — LA PASSERELLE D'UN BROUILLON D'AVANT. Un brouillon posé par une version d'avant la marque porte sa série
+  // de mesure sous l'ancienne forme (`test_pose` et `au_max_reserve`), sans `serie_de_mesure` : relu tel quel, le plan reproposerait « Ajouter
+  // ces lignes ». À la relecture d'un BROUILLON seulement (`chargerSeanceLocale`), une série VALIDÉE posée par le test et qui porte une
+  // réserve de test reçoit la marque. Jamais sur une séance lue de la base : là, `au_max_reserve` est aussi la marque d'un « Au max » de routine.
+  function marquerLeBrouillonDAvant(seance) {
+    if (!seance || !seance.exercices) return seance;
+    var change = false;
+    var exos = seance.exercices.map(function (e) {
+      if (!e || !e.series) return e;
+      var series = e.series.map(function (q) {
+        if (!q || q.test_pose !== true || !q.validee_a || q.serie_de_mesure === true) return q;
+        if (racine.THModele.lireNombre(q.au_max_reserve) === null) return q;
+        change = true;
+        return Object.assign({}, q, { serie_de_mesure: true });
+      });
+      return Object.assign({}, e, { series: series });
+    });
+    return change ? Object.assign({}, seance, { exercices: exos }) : seance;
   }
 
   // 193-4 — « Annuler » la semaine de mesure dans la séance : retire les lignes que le test a posées et que personne n'a validées.
@@ -1395,8 +1416,6 @@
   }
 
   // « Au max » disparaît (20/11/2026, MOTEUR §9.30, I251) : ni « Au max » posé sur une série (menu ⋯, carte), ni réserve demandée écrite à la validation.
-  // La réserve de la série de la semaine de test en mode « série » (MOTEUR §9.32) : UNE lecture (`THModele.reserveDeLaSerieDuTest`), `null` sinon.
-  function reserveDuTest(serie) { return racine.THModele.estSerieDuTestEnSerie(serie) ? racine.THModele.reserveDeLaSerieDuTest(serie) : null; }
 
   // 185 (v2_116) — « Non, ne compte pas » : la série reste au journal et au détail, mais n'entre ni dans les records, ni dans le
   // palier, le niveau et les crans voisins, ni dans les paris et le jeu (`THModele.estTravail` la lit). Posée par UNE réponse de
@@ -2180,9 +2199,9 @@
           // 185 (v2_116) — la série « Non, ne compte pas » : gardée au journal, exclue du calcul. Toujours envoyée, `false` compris
           // (la colonne est NOT NULL) ; jamais déduite d'autre chose que de ce que l'utilisateur a répondu.
           hors_calcul: p.serie.hors_calcul === true,
-          // 193-6 (v2_123) — `au_max_reserve` : la réserve de la série de la semaine de test en mode « série » (MOTEUR §9.32), NULL pour toute
-          // autre série (« Au max » disparaît, 20/11/2026, I251). Toujours envoyée.
-          au_max_reserve: reserveDuTest(p.serie)
+          // 21/11/2026 (MOTEUR §9.32, I253) — la marque de la série de mesure, posée par « Ajouter ces lignes » seulement. Toujours envoyée,
+          // `false` compris (la colonne est NOT NULL) ; facultative tant que la migration n'est pas passée (`donnees.js`).
+          serie_de_mesure: p.serie.serie_de_mesure === true
         };
       });
   }
@@ -3546,6 +3565,7 @@
     tourAtteint: tourAtteint,
     normaliserGroupes: normaliserGroupes,
     reprendre: reprendre,
+    marquerLeBrouillonDAvant: marquerLeBrouillonDAvant,
     refaire: refaire,
     deplacerVers: deplacerVers,
     deplacerExercice: deplacerExercice,

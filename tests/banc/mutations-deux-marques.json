@@ -1,0 +1,44 @@
+[
+ {
+  "nom": "m1-la-marque-lue-sans-le-type",
+  "fichier": "v2/js/modele.js",
+  "ancien": "return !!serie && typeDe(serie) === 'travail' && !estHorsCalcul(serie) && serie.serie_de_mesure === true;",
+  "nouveau": "return !!serie && !estHorsCalcul(serie) && serie.serie_de_mesure === true;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-semaine-de-test-plan.test.js"
+  ]
+ },
+ {
+  "nom": "m2-periodesDecharge-ignore-encore-l-arret",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "      if (b.statut !== 'arrete') return;\n      var t = arretDuBloc(b);",
+  "nouveau": "      if (b.statut !== 'arrete' || true) return;\n      var t = arretDuBloc(b);",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-arret-pendant-la-decharge.test.js",
+   "tests/unit/v2-cycles.test.js"
+  ]
+ },
+ {
+  "nom": "m3-l-arret-lu-sur-modifie_a-quand-arrete_a-existe",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "    if (bloc.arrete_a !== undefined && bloc.arrete_a !== null) return instant(bloc.arrete_a);\n",
+  "nouveau": "",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-arret-pendant-la-decharge.test.js",
+   "tests/unit/v2-cycles.test.js"
+  ]
+ },
+ {
+  "nom": "m4-la-passerelle-du-brouillon-ne-marque-rien",
+  "fichier": "v2/js/seance.js",
+  "ancien": "        change = true;\n        return Object.assign({}, q, { serie_de_mesure: true });",
+  "nouveau": "        return q;",
+  "banc": "aucun",
+  "unitaires": [
+   "tests/unit/v2-semaine-de-test-plan.test.js"
+  ]
+ }
+]

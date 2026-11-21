@@ -111,7 +111,9 @@
   // qu'elle n'existe pas, elle quitte la lecture et l'écriture POUR LA SESSION, et la même requête repart une fois sans elle. La valeur
   // reste sur l'appareil (la séance locale la garde) et part avec la prochaine écriture, la migration lancée. Une colonne obligatoire n'entre
   // JAMAIS ici.
-  var COLONNES_SERIE_FACULTATIVES = ['pente_pct', 'sans_coach'];
+  // 21/11/2026 (I253) — `serie_de_mesure` (la marque de la série de mesure, MOTEUR §9.32) aussi : absente, la série de mesure se tait (pas de
+  // mesure, jamais une mesure fausse), la marque reste sur l'appareil.
+  var COLONNES_SERIE_FACULTATIVES = ['pente_pct', 'sans_coach', 'serie_de_mesure'];
   var seriesAbsentes = {};
   function serieFacultativeAbsente(err) {
     if (!err || (err.code !== '42703' && err.code !== 'PGRST204')) return null;
@@ -747,16 +749,56 @@
   var COLONNES_BLOC = 'id, user_id, dossier, zone, debut, semaines, decharge, exercices, statut, precedent, ' +
     'created_at, modifie_a, grosse_serie';
 
+  // 21/11/2026 (MOTEUR §9.22, I267) — `blocs.arrete_a` (timestamptz NULL, l'instant de l'arrêt, posé par `terminerBloc`) : COLONNE
+  // FACULTATIVE tant que la migration (Claude.ai) n'est pas passée — le même filet que les séries (268) : si la base dit qu'elle n'existe pas,
+  // elle quitte la lecture et l'écriture pour la session et la requête repart sans elle (le moteur relit alors `modifie_a`,
+  // `Moteur.arretDuBloc`). Sans ce filet, l'`upsert` d'un bloc arrêté resterait dans la file pour toujours (PGRST204).
+  var COLONNES_BLOC_FACULTATIVES = ['arrete_a'];
+  var blocsAbsentes = {};
+  function colonnesBloc() {
+    return COLONNES_BLOC + COLONNES_BLOC_FACULTATIVES.filter(function (c) { return !blocsAbsentes[c]; })
+      .map(function (c) { return ', ' + c; }).join('');
+  }
+  function blocFacultativeAbsente(err) {
+    if (!err || (err.code !== '42703' && err.code !== 'PGRST204')) return null;
+    var txt = String(err.message || '') + ' ' + String(err.details || '') + ' ' + String(err.hint || '');
+    for (var i = 0; i < COLONNES_BLOC_FACULTATIVES.length; i++) {
+      var c = COLONNES_BLOC_FACULTATIVES[i];
+      if (!blocsAbsentes[c] && txt.indexOf(c) >= 0) return c;
+    }
+    return null;
+  }
+  // Rejoue `faire` une fois par colonne facultative absente (la boucle finit : chaque colonne ne sort qu'une fois).
+  async function avecBlocsFacultatives(faire) {
+    for (;;) {
+      try { return await faire(); }
+      catch (e) {
+        var absente = blocFacultativeAbsente(e);
+        if (!absente) throw e;
+        blocsAbsentes[absente] = true;
+      }
+    }
+  }
+  function sansBlocsAbsentes(ligne) {
+    var out = {};
+    Object.keys(ligne || {}).forEach(function (c) { if (!blocsAbsentes[c]) out[c] = ligne[c]; });
+    return out;
+  }
+
   function mesBlocs() {
-    return paginerParCle(trancheur(function () {
-      return client().from('blocs').select(COLONNES_BLOC);
-    }, 'id'), 'id');
+    return avecBlocsFacultatives(function () {
+      return paginerParCle(trancheur(function () {
+        return client().from('blocs').select(colonnesBloc());
+      }, 'id'), 'id');
+    });
   }
 
   async function enregistrerBloc(ligne) {
-    var r = await client().from('blocs').upsert(ligne, { onConflict: 'id' }).select(COLONNES_BLOC).single();
-    if (r.error) throw r.error;
-    return r.data;
+    return avecBlocsFacultatives(async function () {
+      var r = await client().from('blocs').upsert(sansBlocsAbsentes(ligne), { onConflict: 'id' }).select(colonnesBloc()).single();
+      if (r.error) throw r.error;
+      return r.data;
+    });
   }
 
   // L'outil de rejeu (développement seulement, `rejeu.js`) — les paris d'UNE

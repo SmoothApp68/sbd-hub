@@ -2714,12 +2714,7 @@
       try {
         var oR = { reglage: reglage, equipement: equipement, correction: correction, salle: salleDeclaree, bordProf: profR + 1 };
         recueMemo = consigneDeLaSeance(bruteR, iR, avant, oR);
-        // Jour sans (R2) : l'histoire brute ne sert qu'à lire `retour_jour_sans` ; une `zero_rep` reçue se rejoue comme avant, sur les séances neutres (le plafond, la dette de B).
-        if (recueMemo && recueMemo.etat === 'zero_rep' && opt.brutes) {
-          var neutresR = anterieures(seances, avant), jR = -1;
-          for (var qr = neutresR.length - 1; qr >= 0; qr--) { if (instant(neutresR[qr].debut) === instant(L.debut)) { jR = qr; break; } }
-          if (jR >= 0) recueMemo = consigneDeLaSeance(neutresR, jR, avant, oR);
-        }
+        // Une `zero_rep` reçue reste telle quelle ici : `estApresZero` exclut la capacité (I252) ; seule la règle de bord la rejoue sur les neutres.
       } finally { prudent = p0; }
       return recueMemo;
     }

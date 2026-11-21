@@ -11198,11 +11198,11 @@ const SETS_IMPORTES = [
       esp((p1.jaune || []).join(' ')).indexOf('≈ 35 kg') >= 0 && esp((p1.jaune || []).join(' ')).indexOf('cran') < 0, JSON.stringify(p1));
     // 21/11/2026 (3+1, décision 6) : la phrase du « ≈ » est à la feuille « Pourquoi ? », plus sous la ligne.
     await page.evaluate(() => { const c = document.querySelector('.legende-exo .lien-pourquoi'); if (c) c.click(); });
-    await attendre(500);
+    await feuilleOuverte();
     const dits = esp(await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu, #feuille-seance, .feuille'))
       .map((x) => x.textContent).join(' | ')));
     await page.evaluate(() => { const b = Array.from(document.querySelectorAll('#feuille-seance button, .feuille button')).find((x) => /Fermer/.test(x.textContent)); if (b) b.click(); });
-    await attendre(300);
+    await feuilleFermee();
     ok('[163] la phrase du « ≈ » (feuille « Pourquoi ? ») : « ≈ 35 kg : vise la charge la plus proche que ta machine permet — la plaque au-dessus, ou un petit poids ajouté si elle en a. Note ce que tu as mis. »',
       dits.indexOf('≈ 35 kg : vise la charge la plus proche que ta machine permet — la plaque au-dessus, ou un petit poids ajouté si elle en a. Note ce que tu as mis.') >= 0, dits);
     ok('[163] DISCRIMINANT — la case de la dernière série est préremplie avec la charge approchée (35), les autres à 30',
@@ -27315,12 +27315,12 @@ const SETS_IMPORTES = [
         // 21/11/2026 (3+1) : la tête dit le verbe avec son chiffre ; la raison datée est à la feuille « Pourquoi ? ».
         sp154(e1.dit) === 'On essaie 42,5 kg.', JSON.stringify(e1));
     await page.evaluate(() => { const c = document.querySelector('.legende-exo .lien-pourquoi'); if (c) c.click(); });
-    await attendre(500);
+    await feuilleOuverte();
     const feuille154 = sp154(await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu')).map((x) => x.textContent).join(' | ')));
     ok('[EV154] la raison de l’essai (« la dernière fois, 40 kg × 9 avec 3 en réserve ou plus ») est à la feuille « Pourquoi ? »',
       /40 kg × 9/.test(feuille154) && /3 en réserve ou plus/.test(feuille154), feuille154.slice(0, 400));
     await page.evaluate(() => { const b = document.querySelector('#btn-fermer-feuille'); if (b) b.click(); });
-    await attendre(300);
+    await feuilleFermee();
     await abandonner();
 
     // C. « PASSER » : rien n’est écrit, plus de puces.
@@ -30966,10 +30966,10 @@ const SETS_IMPORTES = [
     // 21/11/2026 (3+1, décision 3) : « Pourquoi cette chauffe ? » rejoint le « Pourquoi ? » de l'exercice : plus de pli sur la carte, une section « La chauffe » à la feuille.
     const raison19 = await page.evaluate(() => { const n = document.querySelector('.proposition-chauffes:not(.chauffes-auto)'); return n ? { pli: !!n.querySelector('details.pc-raison') } : null; });
     await page.evaluate(() => { const c = document.querySelector('.legende-exo .lien-pourquoi'); if (c) c.click(); });
-    await attendre(500);
+    await feuilleOuverte();
     const sectionChauffe = await page.evaluate(() => { const n = document.querySelector('#feuille-contenu [data-pq-section="chauffe"]'); return n ? n.textContent.replace(/\s+/g, ' ').trim() : null; });
     await page.evaluate(() => { const b = document.querySelector('#btn-fermer-feuille'); if (b) b.click(); });
-    await attendre(300);
+    await feuilleFermee();
     ok('[RT237] 21/11 — la raison de la chauffe n’est plus repliée sur la carte : elle est la section « La chauffe » du « Pourquoi ? », son texte intact',
       !!raison19 && raison19.pli === false && !!sectionChauffe && /Premier exercice de la séance sur ce muscle.*60 %/.test(sp237(sectionChauffe)), JSON.stringify([raison19, sectionChauffe]));
     ok('[RT237] 265 — la proposition est la ligne du coach, dépliée, ses charges en clair ; le Pourquoi dit la règle',

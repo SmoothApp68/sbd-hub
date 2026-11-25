@@ -7009,116 +7009,7 @@
     cible.appendChild(el('h2', 'recap-titre', r.titre || 'Séance'));
     cible.appendChild(el('div', 'recap-quand', M().plageDeSeance(r.debut, r.fin)));
 
-    var tuiles = el('div', 'recap-tuiles');
-    var tuile = function (valeur, libelle) {
-      var t = el('div', 'recap-tuile');
-      t.appendChild(el('b', null, valeur));
-      t.appendChild(el('span', null, libelle));
-      tuiles.appendChild(t);
-    };
-    // La durée en minutes (« 45 min »), en heures au-delà (« 1 h 03 ») — jamais en secondes.
-    var dm = r.duree_min;
-    tuile(dm === null || dm === undefined ? '\u2014' : M().dureeEnMinutes(dm), 'durée');
-    tuile(String(r.series || 0), 'séries');
-    tuile(r.volume_texte, 'volume');
-    tuile(String(r.exercices || 0), 'exercices');
-    cible.appendChild(tuiles);
-    if (r.phraseVolume) cible.appendChild(el('p', 'recap-comp', r.phraseVolume));
-
-    // 250 (L9) — « LIRE MES NOTES » : l'accord (une seule fois), puis le bloc « Dans tes notes ». Ce rendu ne calcule rien et n'écrit rien :
-    // `vue.accord` et `vue.notes` viennent de `app.js`, les phrases de `notes-ia.js`. Absents, il n'y a RIEN (ni titre, ni bloc vide).
-    if (vue.accord) {
-      var zoneAccord = el('div', 'recap-accord');
-      rendreAccordNotes(zoneAccord, vue.accord);
-      cible.appendChild(zoneAccord);
-    }
-    var zoneNotes = el('div', 'recap-notes');
-    zoneNotes.setAttribute('aria-live', 'polite');
-    rendreNotesDuRecap(zoneNotes, vue.notes);
-    cible.appendChild(zoneNotes);
-
-    var groupe = function (texte, classe) {
-      var g = el('div', 'recap-groupe' + (classe ? ' ' + classe : ''));
-      g.appendChild(el('i', 'recap-point'));
-      g.appendChild(doc.createTextNode(texte));
-      cible.appendChild(g);
-      return g;
-    };
-
-    // Les séries par muscle : les cinq premiers, puis « N autres » et leur somme. Barres grises.
-    var mu = r.muscles || { premiers: [], autres: null };
-    if (mu.premiers.length) {
-      groupe('Séries par muscle');
-      var lignes = mu.premiers.map(function (m) { return { libelle: m.libelle, series: m.series }; });
-      if (mu.autres) lignes.push({ libelle: mu.autres.n + (mu.autres.n > 1 ? ' autres' : ' autre'), series: mu.autres.series });
-      var max = 0;
-      lignes.forEach(function (l) { if (l.series > max) max = l.series; });
-      lignes.forEach(function (l) {
-        var ligne = el('div', 'recap-mu');
-        ligne.appendChild(el('span', null, l.libelle));
-        var barre = el('i');
-        barre.style.width = (max ? Math.max(4, Math.round(l.series / max * 100)) : 0) + '%';
-        ligne.appendChild(barre);
-        ligne.appendChild(el('b', null, nombreFr(l.series)));
-        cible.appendChild(ligne);
-      });
-    }
-
-    // 119 (audit du 16/10/2026, E12) — LE CARDIO ET LES SORTIES : ni séries de travail ni volume, mais faits. Le récap
-    // dit ce qui a été fait, exercice par exercice, dans sa mesure (« Tapis de course · 20 min · 3,2 km »).
-    if (r.cardio && r.cardio.length) {
-      groupe('Cardio');
-      r.cardio.forEach(function (x) {
-        var ligne = el('div', 'recap-cardio');
-        ligne.appendChild(el('span', 'n', x.nom));
-        ligne.appendChild(el('span', 'v', x.fait));
-        cible.appendChild(ligne);
-      });
-    }
-
-    // Les records du jour (or) : une ligne par série médaillée, la phrase de la médaille.
-    if (r.records && r.records.length) {
-      groupe(r.records.length + (r.records.length > 1 ? ' records' : ' record'), 'or');
-      r.records.forEach(function (x, i) {
-        var rec = el('div', 'recap-rec');
-        rec.appendChild(el('div', 'l1', x.nom + ' : ' + x.mesure));
-        var p = x.phrase || [];
-        var texte = [p[0], p[1]].filter(Boolean).join(' ');
-        if (texte) rec.appendChild(el('div', 'l2', texte));
-        cible.appendChild(rec);
-      });
-    }
-
-    // 211 — la toute première séance : « Point de départ », à la place du bloc des paris (qui n'a pas de matière).
-    if (r.pointDeDepart) {
-      groupe('Point de départ', 'coach');
-      cible.appendChild(el('p', 'recap-voix recap-depart', r.pointDeDepart));
-    }
-    // Ce que le coach avait visé (ambre) : la phrase aux chiffres tels quels, puis une ligne par exercice.
-    if (r.paris && r.paris.verifies) {
-      groupe('Ce que le coach avait visé', 'coach');
-      if (r.paris.premier) cible.appendChild(el('p', 'recap-voix recap-premier', r.paris.premier));
-      cible.appendChild(el('p', 'recap-voix', r.paris.phrase));
-      r.paris.lignes.forEach(function (l) {
-        var ligne = el('div', 'recap-pari');
-        ligne.appendChild(el('span', 'n', l.nom));
-        ligne.appendChild(el('span', 'v' + (l.vise ? ' pe' : ''), l.fait + (l.vise ? ' \u00b7 visé ' + l.vise : '')));
-        cible.appendChild(ligne);
-      });
-    }
-
-    // 64B (JEU-V1 §9.4) — le bloc « Le jeu », tel quel. Un rendu qui échouerait ne coûte que son bloc.
-    if (vue.jeu) {
-      try {
-        var bj = blocJeuFin(vue.jeu, vue.sobre);
-        if (bj) cible.appendChild(bj);
-      } catch (e) { /* pas de bloc */ }
-    }
-
-    if (r.note) {
-      groupe('Ta note');
-      cible.appendChild(el('p', 'recap-note', r.note));
-    }
+    recapCorps(cible, vue, { accord: true });
 
     var f = el('button', 'principal recap-bouton recap-fermer', 'Fermer');
     f.type = 'button';
@@ -7165,6 +7056,164 @@
     }
     return cible;
   }
+
+  // 25/11/2026 (lot 3, changements 1 et 2) — LE CORPS DU RÉCAP, un seul dessin pour deux écrans : le récap d'après « Terminer » et
+  // l'écran de fin d'avant « Terminer » (`rendreFeuilleFin`). COURT : les quatre chiffres, le cardio, les records (une médaille par
+  // ligne, sa phrase), « Point de départ » ou ce que le coach avait visé (sa phrase et les paris RATÉS, avec « · visé N » : ce que le
+  // coach doit à la personne). Le reste — la comparaison, les séries par muscle, les paris TENUS, le jeu, la note — est sous
+  // « Détail » : un toucher le rend mot pour mot, dans le DOM dès le départ (le texte de « Partager » ne change pas). Un bloc sans
+  // matière n'apparaît pas. Ce rendu ne calcule rien : `vue.recap` vient de `faits.recapDeLaSeance`.
+  //   o.accord : le bloc « Lire mes notes » et « Dans tes notes » (le récap d'après seulement).
+  function recapCorps(cible, vue, o) {
+    var r = vue.recap || {};
+    var tuiles = el('div', 'recap-tuiles');
+    var tuile = function (valeur, libelle) {
+      var t = el('div', 'recap-tuile');
+      t.appendChild(el('b', null, valeur));
+      t.appendChild(el('span', null, libelle));
+      tuiles.appendChild(t);
+    };
+    // La durée en minutes (« 45 min »), en heures au-delà (« 1 h 03 ») — jamais en secondes.
+    var dm = r.duree_min;
+    tuile(dm === null || dm === undefined ? '—' : M().dureeEnMinutes(dm), 'durée');
+    tuile(String(r.series || 0), 'séries');
+    tuile(r.volume_texte, 'volume');
+    tuile(String(r.exercices || 0), 'exercices');
+    cible.appendChild(tuiles);
+
+    // 250 (L9) — « LIRE MES NOTES » : l'accord (une seule fois), puis le bloc « Dans tes notes ». Ce rendu ne calcule rien et n'écrit rien :
+    // `vue.accord` et `vue.notes` viennent de `app.js`, les phrases de `notes-ia.js`. Absents, il n'y a RIEN (ni titre, ni bloc vide).
+    if (o && o.accord) {
+      if (vue.accord) {
+        var zoneAccord = el('div', 'recap-accord');
+        rendreAccordNotes(zoneAccord, vue.accord);
+        cible.appendChild(zoneAccord);
+      }
+      var zoneNotes = el('div', 'recap-notes');
+      zoneNotes.setAttribute('aria-live', 'polite');
+      rendreNotesDuRecap(zoneNotes, vue.notes);
+      cible.appendChild(zoneNotes);
+    }
+
+    var groupe = function (texte, classe, dans) {
+      var g = el('div', 'recap-groupe' + (classe ? ' ' + classe : ''));
+      g.appendChild(el('i', 'recap-point'));
+      g.appendChild(doc.createTextNode(texte));
+      (dans || cible).appendChild(g);
+      return g;
+    };
+    var ligneDePari = function (l) {
+      var ligne = el('div', 'recap-pari');
+      ligne.appendChild(el('span', 'n', l.nom));
+      ligne.appendChild(el('span', 'v' + (l.vise ? ' pe' : ''), l.fait + (l.vise ? ' · visé ' + l.vise : '')));
+      return ligne;
+    };
+
+    // 119 (audit du 16/10/2026, E12) — LE CARDIO ET LES SORTIES : ni séries de travail ni volume, mais faits. Le récap dit
+    // ce qui a été fait, exercice par exercice, dans sa mesure (« Tapis de course · 20 min · 3,2 km »).
+    if (r.cardio && r.cardio.length) {
+      groupe('Cardio');
+      r.cardio.forEach(function (x) {
+        var ligne = el('div', 'recap-cardio');
+        ligne.appendChild(el('span', 'n', x.nom));
+        ligne.appendChild(el('span', 'v', x.fait));
+        cible.appendChild(ligne);
+      });
+    }
+
+    // Les records du jour (or) : une ligne par série médaillée, la phrase de la médaille.
+    if (r.records && r.records.length) {
+      groupe(r.records.length + (r.records.length > 1 ? ' records' : ' record'), 'or');
+      r.records.forEach(function (x) {
+        var rec = el('div', 'recap-rec');
+        rec.appendChild(el('div', 'l1', x.nom + ' : ' + x.mesure));
+        var p = x.phrase || [];
+        var texte = [p[0], p[1]].filter(Boolean).join(' ');
+        if (texte) rec.appendChild(el('div', 'l2', texte));
+        cible.appendChild(rec);
+      });
+    }
+
+    // 211 — la toute première séance : « Point de départ », à la place du bloc des paris (qui n'a pas de matière).
+    if (r.pointDeDepart) {
+      groupe('Point de départ', 'coach');
+      cible.appendChild(el('p', 'recap-voix recap-depart', r.pointDeDepart));
+    }
+    // Ce que le coach avait visé (ambre) : la phrase aux chiffres tels quels, puis les paris RATÉS (une ligne par exercice, « · visé N »).
+    // Les paris tenus passent sous « Détail » : du bruit tant qu'ils sont tenus.
+    var tenus = [];
+    if (r.paris && r.paris.verifies) {
+      groupe('Ce que le coach avait visé', 'coach');
+      if (r.paris.premier) cible.appendChild(el('p', 'recap-voix recap-premier', r.paris.premier));
+      cible.appendChild(el('p', 'recap-voix', r.paris.phrase));
+      r.paris.lignes.forEach(function (l) {
+        if (l.vise) cible.appendChild(ligneDePari(l));
+        else tenus.push(l);
+      });
+    }
+
+    // « Détail » : la comparaison, les séries par muscle, les paris tenus, le jeu, la note. Tels qu'avant, mot pour mot.
+    var detail = el('div', 'recap-detail');
+    detail.id = 'recap-detail-' + (o && o.accord ? 'recap' : 'fin');
+    detail.hidden = true;
+    var dit = [];
+    if (r.phraseVolume) {
+      detail.appendChild(el('p', 'recap-comp', r.phraseVolume));
+    }
+    // Les séries par muscle : les cinq premiers, puis « N autres » et leur somme. Barres grises.
+    var mu = r.muscles || { premiers: [], autres: null };
+    if (mu.premiers.length) {
+      dit.push('muscles');
+      groupe('Séries par muscle', null, detail);
+      var lignes = mu.premiers.map(function (m) { return { libelle: m.libelle, series: m.series }; });
+      if (mu.autres) lignes.push({ libelle: mu.autres.n + (mu.autres.n > 1 ? ' autres' : ' autre'), series: mu.autres.series });
+      var max = 0;
+      lignes.forEach(function (l) { if (l.series > max) max = l.series; });
+      lignes.forEach(function (l) {
+        var ligne = el('div', 'recap-mu');
+        ligne.appendChild(el('span', null, l.libelle));
+        var barre = el('i');
+        barre.style.width = (max ? Math.max(4, Math.round(l.series / max * 100)) : 0) + '%';
+        ligne.appendChild(barre);
+        ligne.appendChild(el('b', null, nombreFr(l.series)));
+        detail.appendChild(ligne);
+      });
+    }
+    if (tenus.length) {
+      dit.push('paris tenus');
+      groupe('Paris tenus', 'coach', detail);
+      tenus.forEach(function (l) { detail.appendChild(ligneDePari(l)); });
+    }
+    // 64B (JEU-V1 §9.4) — le bloc « Le jeu », tel quel. Un rendu qui échouerait ne coûte que son bloc.
+    if (vue.jeu) {
+      try {
+        var bj = blocJeuFin(vue.jeu, vue.sobre);
+        if (bj) { dit.push('jeu'); detail.appendChild(bj); }
+      } catch (e) { /* pas de bloc */ }
+    }
+    if (r.note) {
+      dit.push('note');
+      groupe('Ta note', null, detail);
+      detail.appendChild(el('p', 'recap-note', r.note));
+    }
+    if (!dit.length && r.phraseVolume) dit.push('comparaison');
+    if (dit.length) {
+      var plus = el('button', 'recap-plus');
+      plus.type = 'button';
+      plus.setAttribute('aria-expanded', 'false');
+      plus.setAttribute('aria-controls', detail.id);
+      plus.appendChild(el('span', 'recap-plus-t', 'Détail'));
+      plus.appendChild(el('small', 'recap-plus-d', dit.join(' · ') + ' ›'));
+      plus.addEventListener('click', function () {
+        detail.hidden = !detail.hidden;
+        plus.setAttribute('aria-expanded', detail.hidden ? 'false' : 'true');
+      });
+      cible.appendChild(plus);
+      cible.appendChild(detail);
+    }
+    return cible;
+  }
+
   // social 2 — le bouton de « Partager en image » : l'image se dessine sur l'appareil ; une feuille de partage ou un téléchargement.
   // Une annulation de la feuille n'est pas une erreur ; le téléchargement se dit.
   function boutonDePartage(libelle, surClic, classe) {

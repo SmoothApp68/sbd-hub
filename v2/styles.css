@@ -2631,6 +2631,13 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .recap-partage-liste[hidden]{display:none}
 .recap-partage-choix{display:block;width:100%;min-height:44px;text-align:left}
 .recap-voir{margin-top:8px}
+/* 25/11/2026 (lot 3, changement 2) — « Détail » : la comparaison, les séries par muscle, les paris tenus, le jeu et la note, repliés.
+   Une ligne de 48 px (44 au moins), le titre à gauche, ce qu'elle contient à droite ; le même geste sur le récap et l'écran de fin. */
+.recap-plus{display:flex;justify-content:space-between;align-items:center;gap:var(--e2);width:100%;min-height:48px;margin:14px 0 0;
+  padding:0 2px;background:none;border:0;border-top:1px solid var(--trait);border-bottom:1px solid var(--trait);border-radius:0;
+  color:var(--texte-2);font-size:14px;text-align:left}
+.recap-plus-d{color:var(--texte-3);font-size:12px;font-weight:400}
+.recap-detail[hidden]{display:none}
 
 /* ── 75 — « TON PARCOURS » (ECRAN-SAISIE §7 bis.14 ter, maquette v3). L'ambre pour la voix du coach (la phrase, le
    levier), l'or pour « ton meilleur » (la ligne de la courbe), le vert pour le sens « en hausse » seulement. Aucun

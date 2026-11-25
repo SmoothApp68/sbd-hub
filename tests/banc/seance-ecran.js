@@ -19343,11 +19343,15 @@ const SETS_IMPORTES = [
       const enfants = Array.from(c.children);
       const iRec = enfants.findIndex((x) => x.classList.contains('recap-rec'));
       return { bloc: !!bloc && c.contains(bloc), lignes: bloc ? Array.from(bloc.querySelectorAll('.j-ligne')).map((l) => l.textContent) : [],
-        apresRecords: !!bloc && iRec >= 0 && enfants.indexOf(bloc) > iRec };
+        // Lot 3 (changement 2) — le bloc est sous « Détail » (replié) : il suit les records dans le DOM, il n'est plus un enfant direct.
+        apresRecords: !!bloc && iRec >= 0 && (enfants[iRec].compareDocumentPosition(bloc) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
+        replie: !!bloc && !!bloc.closest('.recap-detail') && bloc.closest('.recap-detail').hidden === true };
     });
     const xp = (/^XP\+ ([\d ]+)$/.exec(recapJ.lignes[0] || '') || [])[1];
     ok('[jeu] DISCRIMINANT — le récap après un record : le bloc « Le jeu », APRÈS les records, une ligne XP > 0',
       recapJ.bloc && recapJ.apresRecords && !!xp && Number(xp.replace(/ /g, '')) > 0, JSON.stringify(recapJ));
+    ok('[jeu] lot 3 — le bloc « Le jeu » est sous « Détail », replié : un toucher le rend',
+      recapJ.replie === true, JSON.stringify(recapJ));
     await mesurerLargeur('fin');
     await fermerRecapBanc();
     await garderRecap(false);
@@ -22830,12 +22834,12 @@ const SETS_IMPORTES = [
       nbR(a.tuiles.map((t) => t[1])) === nbR(['durée', 'séries', 'volume', 'exercices']) &&
       /^\d+ min$/.test(a.tuiles[0][0]) && a.tuiles[1][0] === '4' && nbR(a.tuiles[2][0]) === nbR('3,8 t') && a.tuiles[3][0] === '1',
       nbR(a.tuiles));
-    ok('[R71] (a) la comparaison : « 3,8 t soulevées : à peu près … »',
+    ok('[R71] (a) la comparaison : « 3,8 t soulevées : à peu près … » (sous « Détail » depuis le lot 3)',
       /^3,8 t soulevées : à peu près .+\.$/.test((a.comp || '').replace(/[\u00a0\u202f]/g, ' ')), nbR(a.comp));
     // Deux records : la série 1 (80 kg à 12, contre 79) et la série 4 (le volume de la séance passe 3 792 kg).
     // 140 : le volume de la séance reste un record (revient sur 137, D9).
-    ok('[R71] (a) les séries par muscle (la fonction du bloc Volume), les records (or), ce que le coach avait visé (ambre)',
-      a.groupes.map((g) => g.trim()).slice(0, 3).join(' | ') === 'Séries par muscle | 2 records | Ce que le coach avait visé' &&
+    ok('[R71] (a) les records (or), ce que le coach avait visé (ambre), puis sous « Détail » les séries par muscle (la fonction du bloc Volume) et les paris tenus',
+      a.groupes.map((g) => g.trim()).slice(0, 4).join(' | ') === '2 records | Ce que le coach avait visé | Séries par muscle | Paris tenus' &&
       nbR(a.muscles) === nbR(['Grand dorsal', 'Biceps']) && nbR(a.records) === nbR(['Rowing r71 : 80 kg × 12', 'Rowing r71 : 80 kg × 12']),
       nbR([a.groupes, a.muscles, a.records]));
     // 211 — ce compte n'avait aucun pari avant cette séance : le bloc des paris s'ouvre sur « Mon premier pari », un fait ; et
@@ -22845,11 +22849,28 @@ const SETS_IMPORTES = [
     ok('[R71] (a) la phrase des paris aux chiffres tels quels, et la ligne de l’exercice : « 80 kg × 12, 12, 12, 12 »',
       /^Sur \d+ paris? vérifiés?, le coach en a tenu \d+\.$/.test(a.voix || '') &&
       nbR(a.paris) === nbR([['Rowing r71', '80 kg × 12, 12, 12, 12']]), nbR([a.voix, a.paris]));
-    ok('[R71] (a) l’ordre de L1 : en-tête, chiffres, comparaison, muscles, records, coach… puis « Fermer », « Voir la séance » et les partages',
+    ok('[R71] (a) l’ordre (lot 3) : en-tête, chiffres, records, coach, « Détail » (comparaison, muscles, paris tenus) … puis « Fermer », « Voir la séance » et les partages',
       nbR(a.boutons) === nbR(['Fermer', 'Voir la séance', 'Partager']) &&
-      a.ordre.indexOf('recap-tuiles') < a.ordre.indexOf('recap-comp') && a.ordre.indexOf('recap-comp') < a.ordre.indexOf('recap-mu') &&
-      a.ordre.indexOf('recap-mu') < a.ordre.indexOf('recap-rec') && a.ordre.indexOf('recap-rec') < a.ordre.indexOf('recap-voix') &&
-      a.ordre.lastIndexOf('recap-bouton') === a.ordre.length - 1, nbR([a.boutons, a.ordre]));
+      a.ordre.indexOf('recap-tuiles') < a.ordre.indexOf('recap-rec') && a.ordre.indexOf('recap-rec') < a.ordre.indexOf('recap-voix') &&
+      a.ordre.indexOf('recap-voix') < a.ordre.indexOf('recap-plus') && a.ordre.indexOf('recap-plus') < a.ordre.indexOf('recap-detail') &&
+      a.ordre.indexOf('recap-detail') < a.ordre.indexOf('recap-bouton') &&
+      a.ordre.lastIndexOf('recap-bouton') === a.ordre.length - 1 && !a.ordre.some((c) => c === 'recap-mu' || c === 'recap-comp'),
+      nbR([a.boutons, a.ordre]));
+    // Lot 3 (changement 2) — le récap est COURT : « Détail » est replié, il dit ce qu'il contient, un toucher le rend ; moins de 800 caractères visibles.
+    const court = await page.evaluate(() => {
+      const c = document.getElementById('recap-corps');
+      const d = c.querySelector('.recap-detail'), b = c.querySelector('.recap-plus');
+      const copie = c.cloneNode(true);
+      copie.querySelectorAll('[hidden], .recap-bouton, .recap-partage-liste').forEach((n) => n.remove());
+      const avant = { replie: d.hidden, expanded: b.getAttribute('aria-expanded'), dit: b.querySelector('.recap-plus-d').textContent,
+        visibles: copie.textContent.replace(/\s+/g, ' ').trim().length, muscleVu: !!c.querySelector('.recap-mu').offsetParent };
+      b.click();
+      return Object.assign(avant, { apres: { replie: d.hidden, expanded: b.getAttribute('aria-expanded'), muscleVu: !!c.querySelector('.recap-mu').offsetParent } });
+    });
+    ok('[lot 3] le récap court : « Détail » replié (muscles, paris tenus invisibles), moins de 800 caractères visibles ; un toucher rend le détail',
+      court.replie === true && court.expanded === 'false' && court.muscleVu === false && court.visibles < 800 &&
+      /muscles/.test(court.dit) && /paris tenus/.test(court.dit) &&
+      court.apres.replie === false && court.apres.expanded === 'true' && court.apres.muscleVu === true, nbR(court));
     // 214 — « Partager » : secondaire (pas l'ambre), la feuille de partage reçoit le texte court ; sans elle, le presse-papiers.
     if (process.env.BANC_CAPTURES_214) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_214, 'recap.png'), fullPage: true });
     await page.evaluate(() => {

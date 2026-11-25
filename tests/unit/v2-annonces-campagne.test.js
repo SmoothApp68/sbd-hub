@@ -70,10 +70,14 @@ function campagne(reglage) {
         if (m) {
           C.verbe++;
           // Arithmétique à part : le verbe et la ligne se relisent sur la consigne suivante réelle, jamais sur `su.apres`.
-          const plus = suivante.ligne.vise - suivante.niveau;
+          // §9.2 ter (25/11/2026) : « une rep de plus » dépasse ce qui a été fait ET la cible d'avant (`fondement.cibleAvant`) ; entre les deux, « tu restes » ou « ta cible passe à ».
+          const cA = suivante.fondement && typeof suivante.fondement.cibleAvant === 'number' ? suivante.fondement.cibleAvant : null;
+          const nA = suivante.fondement && suivante.fondement.chuteDeFin ? suivante.fondement.chuteDeFin.niveauAvant : null;
+          const fait = nA !== null && nA > suivante.niveau ? nA : suivante.niveau;
+          const plus = suivante.ligne.vise - (cA !== null && cA > fait && suivante.ligne.vise > fait ? cA : fait);
           const dePlus = /^(une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|\d+) reps? de plus, /.exec(m[1]);
-          const reste = /^tu restes à /.test(m[1]), cibleDite = /^ta cible, /.test(m[1]), garde = /^je garde /.test(m[1]);
-          const ok = (dePlus ? plus > 0 : reste ? plus === 0 : cibleDite ? plus < 0 : garde ? true : false) &&
+          const reste = /^tu restes à /.test(m[1]), cibleDite = /^ta cible, /.test(m[1]), baisse = /^ta cible passe à /.test(m[1]), garde = /^je garde /.test(m[1]);
+          const ok = (dePlus ? plus > 0 : reste ? plus === 0 : cibleDite ? plus < 0 && suivante.ligne.vise < fait : baisse ? plus < 0 && suivante.ligne.vise > fait : garde ? true : false) &&
             lg(suivante) === lg(su.apres.consigne);
           if (!ok) { C.verbe_faux++; C.ligne_des_annonces.push('VERBE ' + ann + ' | ' + lg(suivante) + ' niveau ' + suivante.niveau); }
         }
@@ -122,7 +126,9 @@ describe('la campagne des annonces : l’annonce dit la fois suivante RÉELLE (P
         // « Prochaine séance » en Normal), et la candidate « Il te manque » non confirmée retombe sur la ligne vraie au lieu du silence.
         // 20/11/2026 (« Capacité tenue », I252, C1) — en Normal, trois candidates « Il te manque » sont désormais confirmées (la série simulée, à fond,
         // dépasse la consigne reçue de la marge visée : capacité tenue, le test vient) : trois annonces du verbe deviennent « Il te manque » (252 → 249).
-        expect([C.verbe, C.prochaine]).toEqual(reglage === 'normal' ? [249, 591] : [132, 707]);
+        // 25/11/2026 (§9.2 ter, « Les chutes ») — en Franc, quinze fois de plus la consigne suivante garde sans test (une série à −2 reps ou plus sur des séries stables) : 132 → 147 verbes ;
+        // Normal ne change pas (aucun test à retirer : son déclencheur est le haut de la zone partout). Les phrases du verbe ne changent que de mots (« tu restes », « ta cible passe à »).
+        expect([C.verbe, C.prochaine]).toEqual(reglage === 'normal' ? [249, 591] : [147, 707]);
         // I167 : aucune suite n'est écrite sur la consigne d'AVANT la séance du jour.
         expect(C.suite_datee_avant).toBe(0);
       });
@@ -131,7 +137,9 @@ describe('la campagne des annonces : l’annonce dit la fois suivante RÉELLE (P
         // Avant la 5a : 77 « Il te manque » en Normal, dont 38 démenties. Zone du plan passée (5a-bis) : Normal 37 dites (toutes tenues) et 21 candidates non
         // confirmées, Franc 41 dites et 1 candidate ; chaque candidate dit désormais la ligne vraie (aucun silence : `silence` = 0 dans les deux réglages).
         // 20/11/2026 (I252, C1) : Normal 40 dites (37 + 3 confirmées par la capacité tenue, toujours tenues) et 18 candidates non confirmées.
-        expect([C.manque, C.manque_candidates]).toEqual(reglage === 'normal' ? [40, 18] : [41, 1]);
+        // 25/11/2026 (§9.2 ter) : en Franc, 41 → 26 « Il te manque » dites et 1 → 16 candidates non confirmées : la tenue sans test (une fois) retire le test que la phrase promettait ; chacune
+        // des seize se tait ou retombe sur la ligne vraie (`manque_non_tenue` reste 0, `silence` reste 0).
+        expect([C.manque, C.manque_candidates]).toEqual(reglage === 'normal' ? [40, 18] : [26, 16]);
         expect(C.silence).toBe(0);
       });
       test('le silence reste rare (C6 : alerte à 15 % des séances-exercices)', () => {

@@ -140,10 +140,11 @@ describe('les phrases disent le verbe, avec la ligne (C2 : jamais le nombre nu)'
     expect(gris(k)).toBe('Reprise après une pause : ta charge de travail, sans rep de plus. Ta zone Lourd va jusqu\'à 5 reps : 160 kg × 5.');
     expect(gris(k)).not.toMatch(/je vise/);
   });
-  test('la chute : « Je ne compte pas la dernière série : tu restes à 80 kg × 10. » (le fait est gardé, le verbe est celui de la ligne)', () => {
+  // 25/11/2026 (« Les chutes », §9.2 ter) : « Je ne compte pas la dernière série » n'est plus dit ; la dernière série tombée est NOMMÉE (« Dernière série à 6 »).
+  test('la chute : « Dernière série à 6 : tu restes à 80 kg × 10. » (le fait est dit, le verbe est celui de la ligne)', () => {
     const k = { etat: 'tenue_apres_chute', zone: 'volume', palier: 80, niveau: 10, n: 3, ligne: { charge: 80, vise: 10 }, haut: null,
       fondement: { date: '2026-09-29T18:00:00+02:00', reps: [10, 10, 6], chute: 4 } };
-    expect(gris(k)).toBe('Mardi : 80 kg × 10, 10, 6. Je ne compte pas la dernière série : tu restes à 80 kg × 10.');
+    expect(gris(k)).toBe('Mardi : 80 kg × 10, 10, 6. Dernière série à 6 : tu restes à 80 kg × 10.');
     expect(M.verbeDeLaConsigne(k).verbe).toBe('garde_cible');
   });
   test('« Je garde » est la charge seulement ; « On » n’est plus un verbe de consigne (je = le coach décide)', () => {
@@ -242,7 +243,9 @@ describe('les cas du contradicteur à froid : le verbe lit la LIGNE finale', () 
 
 // ── 4. I162 : DISCRIMINANTS ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
 describe('I162 — le verbe ne contredit jamais le chiffre, et les trois champs le disent', () => {
-  const c0 = () => consigneDe([g(SIX[0], S_(70, [8, 8, 8])), g(SIX[1], S_(70, [8, 8, 8]))]);
+  // 25/11/2026 : deux séances à 8, 8, 8 disent désormais « tu restes à 9 » (la 9 demandée n'a pas été faite : « une rep de plus » exigerait de dépasser la cible d'avant) ;
+  // la ligne qui MONTE de une rep est celle d'une première séance lue (aucune cible d'avant).
+  const c0 = () => consigneDe([g(SIX[1], S_(70, [8, 8, 8]))]);
   test('un plan réel : x.verbe posé sur la consigne finale, aucune erreur I162', () => {
     const p = planDe(c0());
     expect(p.exercices[0].verbe).toMatchObject({ verbe: 'monte_reps', plus: 1 });

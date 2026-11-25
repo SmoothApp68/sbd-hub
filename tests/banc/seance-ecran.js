@@ -11631,8 +11631,8 @@ const SETS_IMPORTES = [
       cons.ligne.charge === 80 && cons.ligne.vise === 10, JSON.stringify(cons));
     ok('[U12] l’en-tête dit « 80 kg × 10 », et rien de plus lourd',
       jaune.length === 1 && jaune[0] === '80 kg × 10', JSON.stringify(jaune));
-    ok('[U12] la phrase grise : « … : 80 kg × 10, 10, 6. Je ne compte pas la dernière série : tu restes à 80 kg × 10. »',
-      /^\S+ : 80 kg × 10, 10, 6\. Je ne compte pas la dernière série : tu restes à 80 kg × 10\.$/.test(gris), gris);
+    ok('[U12] la phrase grise : « … : 80 kg × 10, 10, 6. Dernière série à 6 : tu restes à 80 kg × 10. » (25/11/2026, « Les chutes »)',
+      /^\S+ : 80 kg × 10, 10, 6\. Dernière série à 6 : tu restes à 80 kg × 10\.$/.test(gris), gris);
     // La réaction en séance n'est pas touchée : 13 reps sur la première série, le coach réagit.
     await saisirSerie(0, 80, 13);
     await attendre(900);

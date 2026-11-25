@@ -816,7 +816,36 @@ Avec **une seule série au palier**, le niveau est son nombre de reps compté ; 
 
 **Phrase** (voix du coach) : dans l'en-tête de la séance suivante, en gris, « Mardi : 80 kg × 10, 10, 6. Je ne compte pas la dernière série : on tient 80 kg × 10. » — un fait, puis sa conséquence.
 
+**Delta 25/11/2026 (« Les chutes », §9.2 ter) — la phrase et le plancher changent.** « Je ne compte pas la dernière série » n'existe plus : la phrase dit le fait puis la conséquence, « Dernière série à 6 : tu restes à 80 kg × 10. ». La chute reste retirée du NIVEAU (`niveauValide`, `chuteDe`, leurs autres lecteurs : format, zone, stagnation, `testDe`, cartes de lest et de marche) ; seule la CONSIGNE lit désormais le plancher de la dernière série (§9.2 ter).
+
 **Delta 12/11/2026 (PR 2, §9.42) — amende les décisions 152 et 185.** La décision 152 (23/10/2026, §4) dit qu'une série `echec` à 0 rep « reste une tentative manquée, ignorée » ; la décision 185 (29/10/2026, §9.2) la compte « dans la stagnation si sa charge est au plus la charge de travail ». **Cela ne change pas pour une série isolée** (une tentative manquée parmi des séries qui ont des reps reste ignorée du palier ; le compteur la lit comme avant). **Cela change pour une séance ENTIÈRE à zéro rep** : elle n'est plus « ignorée » (ce qui reconduisait la charge échouée, ou se taisait : `silence/pas_de_palier`) — elle devient neutre pour la consigne ET la consigne suivante est plus légère (`zero_rep`, §9.42). Les reps **vides** restent ignorées (152) : une rep vide n'est pas un zéro (`Modele.seanceAZero`). La question « 0 rep : tu l'as manquée ? » de la saisie reste la porte ; « J'ai eu mal » pose la marque `douleur` dans le geste (§9.20), donc ne devient jamais un « je baisse ». I4 inchangé : la tentative manquée reste hors couverture du coach.
+
+### 9.2 ter Le plancher de la dernière série — décidé le 25/11/2026 (« Les chutes », règle validée par Aurélien, seuil −2)
+
+> **La dernière série ne fait jamais descendre la cible sous ce que les séries d'avant ont prouvé, et ne la pousse jamais au-dessus.**
+
+**Où.** Dans la consigne seulement (`Moteur.plancherDeFin`, appelée par `consigneSansPlafond` quand `consigneDExercice` passe l'option `plancherDesChutes`), jamais dans `niveauValide`. Ni le compteur, ni la règle de bord, ni `consigneDeLaSeance`, ni `consigneRecue` ne la lisent.
+
+**Règle.** Sur 3 séries ou plus à la charge du palier, séries d'avant la dernière à une rep de la première, aucune à 0 rep, quand la dernière a perdu **2 reps ou plus** (`PERTE_DE_FIN`) : visée suivante = max(niveau validé + 1 borné au haut de zone, niveau des séries d'avant). Rien n'est lu en population protégée, sur une aide, un élastique ou le poids du corps.
+
+**Tenue sans test, une fois de suite.** Quand le plancher a servi, la fois suivante tient la ligne SANS ligne de test (état `tenue_apres_chute`, comme au §9.2 bis). Si la consigne reçue était déjà cette tenue (`tenueDeFinRecue`), le test revient : on ne tient pas deux fois de suite. Prix accepté : en Franc, au haut de zone, une dernière série à −2/−3 retire le test de la séance suivante, une fois ; en Normal et en Prudent seules la ligne et la phrase changent.
+
+**La phrase.** « Une rep de plus » ne se dit que si la visée dépasse ce qui a été fait ET la cible d'avant (`fondement.cibleAvant`, relue par `consigneRecue`). Sinon : « Dernière série à 9 : tu restes à 81,3 kg × 12. » (visée = fait), ou « ta cible passe à 90 kg × 6 » (visée entre le fait et la cible d'avant : point B de #746, 5, 6, 9 pour une cible de 9). Une seule fonction, `Moteur.verbeDeLaConsigne` (champs `baisse`, `tombee`), lue par le gris, le Pourquoi et l'annonce (`annonceDeLaSuite`).
+
+| Séries (cible) | Avant | Avec la règle |
+|---|---|---|
+| 12, 12, 12, 11 (12) | 13 | 13 |
+| 12, 12, 12, 10 (12) | 12, « une rep de plus » | 12, « tu restes » |
+| 12, 12, 12, 9 (12) | 11 | 12 |
+| 12, 12, 12, 8 (12) | 12 (13 hors haut de zone) | 12 |
+| 10, 10, 10, 7 (10) | 9 | 10 |
+| 10, 10, 10, 6 (10) | 11 | 10 |
+| 4, 3, 2 (4) | 4, « une rep de plus » | 4, « tu restes » |
+| 9, 8, 6 (9) | 8, « une rep de plus » | 8, « tu restes » |
+
+**D3 expliqué.** Le 24/11, l'état `tenue_apres_chute` sortait pour 12, 12, 12, 9 alors que `chuteDe` ne voit pas de chute : la série à fond (§17.4, `plafonnerAFond`) adoptait l'état du calcul prudent (une série à fond compte une rep de moins), où la dernière série était retirée comme chute. Le plancher remplace ce chemin, sans changer `niveauValide`.
+
+**Invariant I272** (`Plan.verifierChutes`, `tests/unit/v2-chutes-plancher.test.js`) : (1) depuis les entrées, la visée n'est jamais sous le niveau des séries d'avant quand la dernière a perdu 2 reps ou plus ; (2) « une rep de plus » ne se dit jamais sans dépasser le niveau ET la cible d'avant, « Dernière série à N » est celle des entrées, l'ancienne phrase est absente. I162 et I164 lisent la même référence (le fait, relevé à la cible d'avant quand la ligne ne la dépasse pas).
 
 ### 9.3 Réserve honnête
 

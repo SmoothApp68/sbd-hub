@@ -51,12 +51,21 @@ describe('186 — le plafond des reps de l\'habitude', () => {
     const c = envelope(l, { seancesSousConsigne: toutes(l) });
     expect(c.consigne.zone).not.toBe('lourd');
   });
-  test('A7 — 40 kg x 17, 16, 15 en Franc : 45 kg, la zone reste Volume', () => {
-    const l = VOLUME.concat([[40, [17, 16, 15]]]);
+  test('A7 — 40 kg x 17, 17, 16 en Franc : 45 kg, la zone reste Volume', () => {
+    // 25/11/2026 (« Les chutes », §9.2 ter) : la séance d'origine, 17, 16, 15, finit à −2 reps sur des séries stables, donc la fois suivante garde sans test (voir ci-dessous) ;
+    // le dépassement de deux crans se joue sur 17, 17, 16 (−1 : le niveau validé le tolère déjà).
+    const l = VOLUME.concat([[40, [17, 17, 16]]]);
     const c = envelope(l, { reglage: 'franc', seancesSousConsigne: toutes(l) });
     expect(c.consigne.zone).toBe('volume');
     expect(haut(c)).toBe(45);
     expect(c.consigne.fondement.crans).toBe(2);
+  });
+  test('A7 bis — 40 kg x 17, 16, 15 en Franc : −2 reps sur des séries stables, la fois suivante garde (tenue sans test, une fois), la zone reste Volume', () => {
+    const l = VOLUME.concat([[40, [17, 16, 15]]]);
+    const c = envelope(l, { reglage: 'franc', seancesSousConsigne: toutes(l) });
+    expect(c.consigne.zone).toBe('volume');
+    expect(c.consigne.etat).toBe('tenue_apres_chute');
+    expect(haut(c)).toBeNull();
   });
 });
 

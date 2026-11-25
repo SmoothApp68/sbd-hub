@@ -46,11 +46,11 @@ describe('Défaut 1 — la séance légère d\'un jour sans n\'est jamais le pal
     expect([k.ligne.charge, k.ligne.vise]).toEqual([140, 2]);
     expect(gris(k)).toMatch(/Tu restes à 140 kg × 2\.$/);
   });
-  test('193-1 intacte APRÈS un zéro (règle B, `zone: null`) : essai 145 × 0 puis 147,5 × 2 sans marge, une seule grosse série : la séance est neutre, « Une rep de plus : 140 kg × 4 »', () => {
+  test('193-1 intacte APRÈS un zéro (règle B, `zone: null`) : essai 145 × 0 puis 147,5 × 2 sans marge, une seule grosse série : la séance est neutre, « Tu restes à 140 kg × 4 » (la cible d’avant était déjà 4 : « une rep de plus » ne se dit plus, §9.2 ter)', () => {
     const k = K([...h, zero(145), rate(147.5)]);
     expect(k.palier).toBe(140);
     expect([k.ligne.charge, k.ligne.vise]).toEqual([140, 4]);
-    expect(gris(k)).toBe('Le 12 nov. : 140 kg × 3. Une rep de plus : 140 kg × 4.');
+    expect(gris(k)).toBe('Le 12 nov. : 140 kg × 3. Tu restes à 140 kg × 4.');   // INVERSÉ le 25/11/2026 (« Les chutes ») : avant, « Une rep de plus : 140 kg × 4 » (faux : 4 était déjà demandé)
     expect(gris(K([...h, rate(147.5)]))).toBe(gris(k));   // le témoin sans zéro
   });
   test('193-1 intacte sans zéro : 152,5 × 2 après 150 × 4 reste neutre', () => {

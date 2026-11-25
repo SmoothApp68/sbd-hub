@@ -103,9 +103,16 @@ describe('YO-YO-ZERO règle 3 — la règle B consomme le jeton', () => {
     expect(jourSans(k)).toBe(true);
     expect(k.fondement.zeroRep.jourSans).toMatchObject({ tenue: { charge: 132.5 } });
   });
-  test('la consommation vaut aussi quand le zéro suivant est AU-DESSUS de P (un essai raté, déjà en B) : le jeton est consommé, le palier change', () => {
-    // 2e zéro (B), 132,5 × 4 et × 5 tenus, un essai à 137,5 raté (0), puis 132,5 × 5 tenu, puis 0 à 132,5 : un jour sans (jeton consommé)
-    const k = K([...base(), trois(132.5, 4), trois(132.5, 5), z(137.5), trois(132.5, 5), trois(132.5, 5), z(132.5)]);
+  test('S3 sans séance réussie entre : B, deux séances à 132,5 ratées sous la zone (elles ne relèvent rien), puis 0 à 132,5 : un jour sans (seule la consommation le permet)', () => {
+    const k = K([...base(), trois(132.5, 2, 10), trois(132.5, 2, 10), z(132.5)]);
+    expect(k.etat).toBe('zero_rep');
+    expect(jourSans(k)).toBe(true);
+  });
+  test('S3 direct : B, puis tout de suite un nouveau 0 à 132,5 : un jour sans', () => {
+    expect(jourSans(K([...base(), z(132.5)]))).toBe(true);
+  });
+  test('la consommation vaut aussi quand le zéro suivant est AU-DESSUS de P (un essai à 137,5 raté, déjà en B, n\'ouvre rien) : le jeton est consommé, le palier change', () => {
+    const k = K([...base(), trois(132.5, 2, 10), trois(132.5, 2, 10), z(137.5), z(132.5)]);
     expect(k.etat).toBe('zero_rep');
     expect(jourSans(k)).toBe(true);
   });

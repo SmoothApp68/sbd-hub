@@ -5537,6 +5537,9 @@
     finsMarche.forEach(function (f) {
       if (finsDeMarcheVoulues[cleDeFinDeMarche(f)] === true) seance = Seance.noterGeste(seance, { geste: 'marche_routine', slug: f.depart, vers: f.vers });
     });
+    // 25/11/2026 (lot 3, changement 3) — la salle proposée s'écrit ICI, à « Terminer », et nulle part avant.
+    seance = Seance.avecSalleDeFin(seance, salleFin.proposee, salleFin.effacee);
+    salleFin = { proposee: null, effacee: false };
     seance = Seance.terminer(seance, fin || new Date());
     await sauverSeance();
     await poserSeries();
@@ -12868,9 +12871,16 @@
   // « Ce qui manque à tes séances » la reprendra. Jamais en Édition (« Enregistrer » ne passe pas par cette feuille).
   var manqueFin = null;
 
+  // 25/11/2026 (lot 3, changement 3) — LA SALLE D'AVANT, PROPOSÉE à l'ouverture de l'écran de fin : celle de la dernière séance
+  // terminée qui en a déclaré une (`faits.derniereSalleDeclaree`). Elle est ÉCRITE EN CLAIR sur la ligne et ne part que si la personne
+  // termine : `terminerSeance` l'écrit (`Seance.avecSalleDeFin`), jamais avant. `effacee` : la personne a vidé le champ, la
+  // proposition ne revient pas. La salle se déclare toujours (§7 septies.4) : rien n'est deviné du réseau ni d'une position.
+  var salleFin = { proposee: null, effacee: false };
+
   function confirmerFin() {
     majRoutineVoulue = false;
     manqueFin = seance ? Seance.donneeFacultativeVide(seance, local.exercices) : null;
+    salleFin = { proposee: seance ? faits.derniereSalleDeclaree(corpus(), seance.id) : null, effacee: false };
     ouvrirFeuille('fin', null, null);
   }
 
@@ -12915,7 +12925,10 @@
       manque: vueManqueFin(index),
       titre: seance.titre,
       note: seance.note,
-      salle: seance.salle,
+      // 25/11/2026 (lot 3, changement 3) — la salle que l'écran dit, et que « Terminer » écrira : la sienne, sinon celle d'avant.
+      salle: Seance.salleDeFin(seance, salleFin.proposee, salleFin.effacee),
+      modifier: !!(feuille && feuille.modifier),
+      surModifier: function () { if (feuille) feuille.modifier = true; rendreFeuille(); },
       salleMax: Seance.SALLE_MAX,
       routine: routine ? routine.nom : '',
       ecarts: verdict.ecarts.map(function (e) {
@@ -12936,7 +12949,11 @@
       // séance part entière au moment de terminer. Poser la file à chaque
       // frappe d'un titre n'apporterait rien — la séance est déjà montée.
       surTitre: function (v) { seance = Seance.decrire(seance, { titre: v }); sauverSeance(); },
-      surSalle: function (v) { seance = Seance.decrire(seance, { salle: v }); sauverSeance(); },
+      surSalle: function (v) {
+        seance = Seance.decrire(seance, { salle: v });
+        salleFin.effacee = !seance.salle;   // vidée à la main : la proposition ne revient pas
+        sauverSeance();
+      },
       surNoteSeance: function (v) { seance = Seance.decrire(seance, { note: v }); sauverSeance(); },
       // 115 (audit du 16/10, E4 ; décision D10) — des séries remplies mais pas validées ne partent pas en
       // silence : une phrase d'abord, « Les valider » ou « Terminer quand même ».

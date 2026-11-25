@@ -4258,6 +4258,13 @@ const SETS_IMPORTES = [
   // ── L'écran de fin ─────────────────────────────────────────────────────
   await page.click('#bandeau-seance .bandeau-fin');
   await attendre(600);
+  // Lot 3 (25/11/2026, changement 3) — titre, salle et note tiennent sur UNE ligne ; « Modifier » ouvre les trois champs déclarés.
+  ok('[lot 3] l’écran de fin porte UNE ligne « Titre, salle, note » et « Modifier » — aucun champ ouvert d’emblée',
+    (await compter('#feuille-contenu .resume-fin')) === 1 && (await compter('#feuille-contenu .champs-fin')) === 0 &&
+    (await texte('#feuille-contenu .resume-fin-m')) === 'Modifier',
+    (await texte('#feuille-contenu .resume-fin')).replace(/\s+/g, ' '));
+  await page.click('#feuille-contenu .resume-fin-m');
+  await attendre(400);
   ok('l’écran de fin porte les trois champs déclarés',
     (await compter('#feuille-contenu .champs-fin .champ-texte')) === 3,
     (await compter('#feuille-contenu .champs-fin .champ-texte')) + ' champ(s)');

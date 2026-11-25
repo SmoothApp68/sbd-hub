@@ -6911,14 +6911,35 @@
 
     // §7 septies.4 — trois champs déclarés, pas déduits. La salle surtout :
     // elle se déclare, on ne la devine ni du réseau ni d'une position.
-    var champs = el('div', 'champs-fin');
-    champs.appendChild(champTexte('Titre', vue.titre,
-      { placeholder: 'Séance' }, vue.surTitre));
-    champs.appendChild(champTexte('Salle', vue.salle,
-      { max: vue.salleMax, placeholder: 'Où t’es-tu entraîné ?' }, vue.surSalle));
-    champs.appendChild(champTexte('Note de séance', vue.note,
-      { lignes: 3, placeholder: 'Comment ça s’est passé ?' }, vue.surNoteSeance));
-    cible.appendChild(champs);
+    //
+    // 25/11/2026 (lot 3, changement 3) — UNE LIGNE, pas trois champs vides : « Haut du corps A · Basic-Fit Colmar » et
+    // « Modifier ». Rien n'est retiré : les trois champs existent toujours, ouverts par « Modifier ». ⚠️ LA SALLE EST
+    // ÉCRITE EN CLAIR sur la ligne, jamais cachée derrière « Modifier » : la salle proposée (celle d'avant) ne part que
+    // si la personne termine, et elle se voit avant.
+    if (vue.modifier || typeof vue.surModifier !== 'function') {
+      var champs = el('div', 'champs-fin');
+      champs.appendChild(champTexte('Titre', vue.titre,
+        { placeholder: 'Séance' }, vue.surTitre));
+      champs.appendChild(champTexte('Salle', vue.salle,
+        { max: vue.salleMax, placeholder: 'Où t’es-tu entraîné ?' }, vue.surSalle));
+      champs.appendChild(champTexte('Note de séance', vue.note,
+        { lignes: 3, placeholder: 'Comment ça s’est passé ?' }, vue.surNoteSeance));
+      cible.appendChild(champs);
+    } else {
+      var ligneR = el('div', 'resume-fin');
+      var texteR = el('div', 'resume-fin-t');
+      texteR.appendChild(el('span', 'resume-fin-l', 'Titre, salle, note'));
+      var dit = [vue.titre ? vue.titre : 'Séance'];
+      if (vue.salle) dit.push(vue.salle);
+      if (vue.note) dit.push('note ajoutée');
+      texteR.appendChild(el('span', 'resume-fin-v', dit.join(' \u00b7 ')));
+      ligneR.appendChild(texteR);
+      var bMod = el('button', 'resume-fin-m', 'Modifier');
+      bMod.type = 'button';
+      bMod.addEventListener('click', vue.surModifier);
+      ligneR.appendChild(bMod);
+      cible.appendChild(ligneR);
+    }
 
     // ⚠️ UNE SEULE QUESTION, ET SEULEMENT S'IL Y A UN ÉCART (§6.2).
     //

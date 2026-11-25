@@ -1515,6 +1515,22 @@
     return Object.assign({}, seance, maj);
   }
 
+  // lot 3 (25/11/2026, changement 3) — LA SALLE DE L'ÉCRAN DE FIN : celle que la séance porte (tapée), sinon la salle
+  // PROPOSÉE (celle de la dernière séance terminée qui en a déclaré une, `faits.derniereSalleDeclaree`) tant que la
+  // personne ne l'a pas vidée. Une seule règle : l'écran l'écrit en clair sur sa ligne, et « Terminer » écrit exactement
+  // cette valeur (`avecSalleDeFin`) — jamais avant, jamais une autre. `effacee` : la personne a vidé le champ.
+  function salleDeFin(seance, proposee, effacee) {
+    var propre = texteOuNul(seance && seance.salle, SALLE_MAX);
+    if (propre) return propre;
+    if (effacee) return '';
+    return texteOuNul(proposee, SALLE_MAX) || '';
+  }
+  function avecSalleDeFin(seance, proposee, effacee) {
+    var salle = salleDeFin(seance, proposee, effacee);
+    if (!salle || texteOuNul(seance.salle, SALLE_MAX)) return seance;
+    return decrire(seance, { salle: salle });
+  }
+
   // ── Les écarts avec la routine (§6) ─────────────────────────────────────
   //
   // UNE SEULE QUESTION, À LA FIN, et seulement s'il y a vraiment un écart :
@@ -3529,6 +3545,8 @@
     definirNoteSerie: definirNoteSerie,
     definirReposCible: definirReposCible,
     decrire: decrire,
+    salleDeFin: salleDeFin,
+    avecSalleDeFin: avecSalleDeFin,
     ecartsRoutine: ecartsRoutine,
     poserZoneDePlan: poserZoneDePlan,
     activite: activite,

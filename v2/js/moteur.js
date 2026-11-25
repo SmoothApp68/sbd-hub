@@ -2620,7 +2620,10 @@
       if (pf !== null) f.chuteDeFin = { derniere: pf.derniere, premiere: pf.premiere, niveauAvant: pf.niveauAvant };
       // §9.2 ter — la CIBLE D'AVANT (la visée de la consigne que la dernière séance a reçue, à cette charge) : « une rep de plus » ne se dit que
       // devant une visée qui la dépasse (`verbeDeLaConsigne`). Une clé n'y figure que si elle a un sens ; sans elle, le niveau fait foi.
-      if (plancherActif && ligne && (etat === 'progression' || etat === 'tenue_apres_chute') && nombre(ligne.charge) !== null && memeCharge(nombre(ligne.charge), P)) {
+      // Écart A (25/11/2026) : POUR TOUT LE MONDE, protégés, aide et poids du corps compris — la phrase suit la règle même là où le plancher n'agit pas (sa visée, elle, ne change pas).
+      // Seulement dans la consigne (`options.plancherDesChutes`) : le compteur, le bord et `consigneDeLaSeance` gardent leur fondement.
+      // Un élastique nommé reste hors de la portée : I162 relit « tu restes à Noir × 9 » contre « Aide 3 kg × 9 » (dette notée, hors de ce correctif).
+      if (opt.plancherDesChutes === true && !elastique && ligne && (etat === 'progression' || etat === 'tenue_apres_chute') && nombre(ligne.charge) !== null && memeCharge(nombre(ligne.charge), P)) {
         var cibleAvant = cibleDAvant();
         if (cibleAvant !== null) f.cibleAvant = cibleAvant;
       }

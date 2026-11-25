@@ -264,3 +264,48 @@ describe('« Les chutes » — le niveau validé n’est pas touché', () => {
     expect(M.chuteDe(ser)).not.toBeNull();
   });
 });
+
+// ── 7. ÉCART A (25/11/2026) — LA PHRASE DES PROTÉGÉS SUIT LA RÈGLE, SA VISÉE NE CHANGE PAS ──────────────────────────────────────────────────
+// `fondement.cibleAvant` se pose pour TOUT le monde (avant : seulement si le plancher est actif, donc jamais pour un protégé). Le plancher, lui, n'agit toujours pas sur eux.
+describe('Écart A — la population protégée : la phrase est vraie, la consigne est celle d’avant', () => {
+  const prot = (g, zone) => M.consigneDExercice(g, undefined, AVANT,
+    { mesure: 'charge_reps', equipement: 'barre', intention: 'progresser', reglage: 'normal', correction: zone, protegee: true });
+  test('12, 12, 12, 9 (cible 12), protégé : la cible passe à 11, jamais « Une rep de plus » ; la visée reste 11 (le plancher ne les touche pas)', () => {
+    const r = prot(histoire(80, 12, [[12, 12, 12, 9]], 'volume'), 'volume');
+    expect(r.consigne.ligne.vise).toBe(11);
+    expect(r.consigne.fondement.cibleAvant).toBe(12);
+    expect(r.consigne.fondement.chuteDeFin).toBeUndefined();
+    expect(gris(r)).toMatch(/Ta cible passe à 80 kg × 11/);
+    expect(gris(r)).not.toMatch(/rep de plus/);
+  });
+  test('10, 10, 10, 6 (11 reçue), protégé : la visée vaut 11, égale à la cible d’avant : « tu restes à », jamais « Une rep de plus »', () => {
+    const g = [groupe('a', '04', 80, [10, 10, 10, 10]), groupe('b', '11', 80, [10, 10, 10, 10]), groupe('c', '18', 80, [10, 10, 10, 6])];
+    const r = prot(g, 'volume');
+    expect(r.consigne.ligne.vise).toBe(11);
+    expect(r.consigne.fondement.cibleAvant).toBe(11);
+    expect(gris(r)).not.toMatch(/rep de plus/);
+    expect(gris(r)).toMatch(/tu restes à 80 kg × 11/);
+  });
+  test('une montée vraie reste « Une rep de plus » pour un protégé (12, 12, 12, 11 → 13 ; la cible d’avant est 12)', () => {
+    const r = prot(histoire(80, 12, [[12, 12, 12, 11]], 'series_longues'), 'series_longues');
+    expect(r.consigne.ligne.vise).toBe(13);
+    expect(gris(r)).toMatch(/Une rep de plus : 80 kg × 13/);
+  });
+  test('la consigne du protégé n’a pas bougé : même ligne, même état qu’avec `cibleAvant` ignorée (comparaison à l’arbre d’avant #751 : visées 11 et 11)', () => {
+    const a = prot(histoire(80, 12, [[12, 12, 12, 9]], 'volume'), 'volume').consigne;
+    expect([a.etat, a.ligne.charge, a.ligne.vise]).toEqual(['progression', 80, 11]);
+  });
+  test('I272 sur un plan protégé : la phrase fausse (« Une rep de plus » devant une cible qui baisse) est attrapée, la vraie passe', () => {
+    let n = 0;
+    const id = () => 's' + (++n);
+    let se = S.creer({ id: 'S1', userId: 'u', idSerie: id });
+    se = S.ajouterExercice(se, 'x', id, { series: 3 });
+    const r = prot(histoire(80, 12, [[12, 12, 12, 9]], 'volume'), 'volume');
+    const p = T.planDeSeance({ seance: { id: 'S1', debut: AVANT, edition: false, exercices: se.exercices }, consignes: { x: r }, reglage: 'normal', paris: [], suites: {} });
+    const err = (q) => T.verifierPlan(q, {}).erreurs.filter((e) => /^I272/.test(e));
+    expect(err(p)).toEqual([]);
+    p.exercices[0].entete.gris = 'Le 15 nov. : 80 kg × 12, 12, 12, 9. Une rep de plus : 80 kg × 11.';
+    p.exercices[0].verbe = Object.assign({}, p.exercices[0].verbe, { verbe: 'monte_reps' });
+    expect(err(p).join('\n')).toMatch(/ne dépasse pas la cible d’avant \(12\)/);
+  });
+});

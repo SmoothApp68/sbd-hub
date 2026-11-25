@@ -3537,3 +3537,11 @@ input,select,textarea,.ch-serie,.rp-serie,.eff-serie{
 .habituelle-q{font-size:15px;font-weight:600;line-height:1.35;color:var(--texte)}
 .habituelle .habituelle-pour{margin-top:2px;font-size:13px}
 .habituelle .habituelle-saisie{margin:8px 0 6px}
+
+/* Lot 3 (25/11/2026, changement 6) — « Rafraîchir » : le geste « tirer vers le bas » sur Séances. Le retour dit où en est le geste puis la
+   lecture ; il pousse la liste (pas de recouvrement). `touch-action` reste celui du navigateur : seul le tirage en haut de page est pris. */
+.aide-tirage{margin-top:2px;font-size:12px;color:var(--texte-3)}
+.aide-tirage[hidden]{display:none}
+.tirage{display:flex;align-items:center;justify-content:center;overflow:hidden;height:0;font-size:13px;color:var(--texte-2)}
+.tirage[hidden]{display:none}
+.tirage.lecture{height:40px}

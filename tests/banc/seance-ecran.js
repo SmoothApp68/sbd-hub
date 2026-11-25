@@ -2252,6 +2252,18 @@ const SETS_IMPORTES = [
     } finally { enCours = false; }
   };
 
+  // Lot 3 (changement 6) — « Rafraîchir » n'est plus un bouton : le banc TIRE la liste vers le bas, comme le pouce (touchstart, touchmove, touchend
+  // sur Séances, en haut de page). C'est le même appel `rafraichir` que l'ancien bouton ; le geste est ainsi couvert par tout ce qui rafraîchit.
+  const tirerPourRafraichir = () => page.evaluate(() => {
+    const vue = document.getElementById('vue-liste');
+    window.scrollTo(0, 0);
+    const pt = (y) => new Touch({ identifier: 1, target: vue, clientX: 180, clientY: y });
+    const ev = (type, y, liste) => vue.dispatchEvent(new TouchEvent(type, { bubbles: true, cancelable: true, touches: liste ? [pt(y)] : [], changedTouches: [pt(y)] }));
+    ev('touchstart', 120, true);
+    ev('touchmove', 150, true);
+    ev('touchmove', 240, true);
+    ev('touchend', 240, false);
+  });
   // 71 — garder le récap ouvert (les sections qui le testent), ou le laisser se refermer (les autres).
   const garderRecap = (oui) => page.evaluate((o) => {
     if (o) sessionStorage.setItem('banc-garder-recap', '1'); else sessionStorage.removeItem('banc-garder-recap');
@@ -9336,8 +9348,33 @@ const SETS_IMPORTES = [
     // La consigne de la séance ne change pas : elle servira à la suivante.
     poserHip('hip-d', 0.1, [[130, 5], [130, 5], [130, 5], [135, 3]]);
     await onglet('racine');
-    await page.evaluate(() => document.getElementById('btn-rafraichir').click());
+    // Lot 3 (changement 6) — « Rafraîchir » a quitté l'en-tête : plus de bouton, le geste « tirer vers le bas » le remplace. Un petit
+    // tirage ne fait rien ; un vrai tirage appelle la lecture (« Synchronisation… » sur l'état), avec son retour visible.
+    await page.evaluate(() => {
+      window.__lecturesManuelles = 0;
+      const e = document.getElementById('etat-sync');
+      new MutationObserver(() => { if (/Synchronisation/.test(e.textContent)) window.__lecturesManuelles++; }).observe(e, { childList: true, subtree: true, characterData: true });
+    });
+    const entete = await page.evaluate(() => ({ bouton: !!document.getElementById('btn-rafraichir'),
+      texte: document.querySelector('#vue-liste .entete').textContent, aide: document.getElementById('aide-tirage').textContent }));
+    await page.evaluate(() => {
+      const vue = document.getElementById('vue-liste');
+      const pt = (y) => new Touch({ identifier: 1, target: vue, clientX: 180, clientY: y });
+      const ev = (type, y, l) => vue.dispatchEvent(new TouchEvent(type, { bubbles: true, cancelable: true, touches: l ? [pt(y)] : [], changedTouches: [pt(y)] }));
+      ev('touchstart', 120, true); ev('touchmove', 140, true); ev('touchend', 140, false);   // 20 px : trop court
+    });
+    await attendre(500);
+    const court = await page.evaluate(() => window.__lecturesManuelles);
+    await tirerPourRafraichir();
+    await jusqua(() => page.evaluate(() => window.__lecturesManuelles > 0), 5000, 'tirage: lecture');
+    ok('[lot 3] « Rafraîchir » n’est plus dans l’en-tête de Séances ; un tirage de 20 px ne lit rien, un vrai tirage lit (« Synchronisation… »)',
+      entete.bouton === false && !/Rafraîchir/.test(entete.texte) && court === 0 && (await page.evaluate(() => window.__lecturesManuelles)) > 0,
+      nb([entete, court]));
     await reseauCalme();   // 143 — l'état (la synchronisation est revenue), plus 2 600 ms fixes
+    const apres = await page.evaluate(() => ({ tirage: document.getElementById('tirage').hidden, etat: document.getElementById('etat-sync').textContent.trim(),
+      aide: document.getElementById('aide-tirage').hidden }));
+    ok('[lot 3] la lecture finie : le retour « Mise à jour… » est parti ; la ligne qui dit le geste ne se montre que si l’état n’est pas « À jour » (et l’état dit toujours vrai)',
+      apres.tirage === true && (apres.etat === 'À jour' ? apres.aide === true : apres.aide === false), nb(apres));
     await onglet('saisie');
     await attendre(900);
     ok('[U] D7 — une synchronisation en pleine séance ne change pas la consigne : même en-tête',
@@ -9811,7 +9848,7 @@ const SETS_IMPORTES = [
     // (b) de 49-U3, survivante avant ce correctif).
     await page.click('.onglet[data-vue="racine"]');
     await attendre(900);
-    await page.click('#btn-rafraichir');
+    await tirerPourRafraichir();
     await attendre(2500);
     await page.click('.onglet[data-vue="saisie"]');
     await attendre(900);
@@ -12954,7 +12991,7 @@ const SETS_IMPORTES = [
     // l'en-tête, à la même seconde.
     [2, 3, 4, 5, 6].forEach((j) => poserE('ecr-sync-' + j, ilYa(j * 86400000, tE).toISOString(), [[60, 20], [60, 20], [60, 20]]));
     await aller('/');
-    await page.evaluate(() => document.getElementById('btn-rafraichir').click());
+    await tirerPourRafraichir();
     await attendre(2500);
     await aller('/exercice/ecrans-u5');
     const puceApresSync = await puceE();
@@ -12989,7 +13026,7 @@ const SETS_IMPORTES = [
         rang: k + 1, groupe_superset: null, validee_a: null, rpe: null, ressenti: null, repos_s: null, note: null,
         source: 'hevy', created_at: debutCpt, modifie_a: null }));
     await aller('/');
-    await page.evaluate(() => document.getElementById('btn-rafraichir').click());
+    await tirerPourRafraichir();
     await attendre(2500);
     const carteCpt = await page.evaluate(() => Array.from(document.querySelectorAll('button.seance'))
       .filter((c) => /Écrans — comptes/.test(c.textContent)).map((c) => (c.querySelector('.seance-meta') || {}).textContent).filter(Boolean)[0] || null);
@@ -25221,7 +25258,7 @@ const SETS_IMPORTES = [
         // d'une page qui n'est plus celle de l'exercice (relevé : pages ralenties ×4).
         await jusqua(dernierSync, 60000);
         base.objectifsRetenue = false; base.lenteurObjectifs = RETENUE;
-        await page.evaluate(() => document.getElementById('btn-rafraichir').click());
+        await tirerPourRafraichir();
         return jusqua(async () => base.objectifsRetenue === true, 60000);
       };
       // La lecture est rendue (l'heure de sa libération passée) et la synchronisation est finie.
@@ -25262,7 +25299,7 @@ const SETS_IMPORTES = [
       // a mis 160 × 1 en base ; une synchronisation sans aucun geste la ramène.
       base.objectifs[0] = Object.assign({}, base.objectifs[0], { charge_kg: 160 });
       base.lenteurObjectifs = 0;
-      await page.evaluate(() => document.getElementById('btn-rafraichir').click());
+      await tirerPourRafraichir();
       await jusqua(async () => { const b = await brouillonO(); return !!b && (b.lignes || []).some((l) => l.charge_kg === 160); }, 30000);
       await jusqua(dernierSync, 60000);
       await aller('/exercice/squat-o109');
@@ -25298,7 +25335,7 @@ const SETS_IMPORTES = [
       base.objectifsRetenue = false; base.lenteurObjectifs = RETENUE; base.ecritureApresLecture = true;
       await feuilleO(155, 1);
       const dansLaFileD = !(await fileObjectifsVide());
-      await page.evaluate(() => document.getElementById('btn-rafraichir').click());
+      await tirerPourRafraichir();
       const enVolD = await jusqua(async () => base.objectifsRetenue === true, 60000);
       await jusqua(async () => (base.objectifs[0] || {}).charge_kg === 155 && await fileObjectifsVide(), 8000);
       base.ecritureApresLecture = false;
@@ -27024,7 +27061,7 @@ const SETS_IMPORTES = [
     base.peseesRetenir = false; base.peseesRetenue = false; base.peseesLibere = true;
     const synchroLibre = () => page.evaluate(() => { const e = document.getElementById('etat-sync');
       return !!e && (e.textContent || '').trim() !== '' && !e.classList.contains('sync'); }).catch(() => false);
-    const rafraichir = () => page.evaluate(() => document.getElementById('btn-rafraichir').click());
+    const rafraichir = () => tirerPourRafraichir();
     const cachePesees = () => page.evaluate(() => window.THCache.lireTout('pesees')
       .then((l) => (l || []).map((x) => x.date + '=' + x.poids_kg).sort())).catch(() => null);
     const filePesees = () => page.evaluate(() => window.THCache.lireAttente()
@@ -27124,7 +27161,7 @@ const SETS_IMPORTES = [
     const nb154 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
     const synchroLibre154 = () => page.evaluate(() => { const e = document.getElementById('etat-sync');
       return !!e && (e.textContent || '').trim() !== '' && !e.classList.contains('sync'); }).catch(() => false);
-    const rafraichir154 = () => page.evaluate(() => document.getElementById('btn-rafraichir').click());
+    const rafraichir154 = () => tirerPourRafraichir();
     const cacheSeries154 = () => page.evaluate(() => window.THCache.lireTout('series')
       .then((l) => (l || []).map((x) => x.id).sort())).catch(() => null);
     const slug154 = CATALOGUE[0].slug;
@@ -27189,7 +27226,7 @@ const SETS_IMPORTES = [
     const nb155 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
     const synchroLibre155 = () => page.evaluate(() => { const e = document.getElementById('etat-sync');
       return !!e && (e.textContent || '').trim() !== '' && !e.classList.contains('sync'); }).catch(() => false);
-    const rafraichir155 = () => page.evaluate(() => document.getElementById('btn-rafraichir').click());
+    const rafraichir155 = () => tirerPourRafraichir();
     const cacheSeries155 = () => page.evaluate(() => window.THCache.lireTout('series')
       .then((l) => (l || []).map((x) => x.id).sort())).catch(() => null);
     const slug155 = CATALOGUE[0].slug;
@@ -31583,7 +31620,7 @@ const SETS_IMPORTES = [
     const nb246 = (x) => JSON.stringify(x === undefined ? null : x);
     const synchroLibre246 = () => page.evaluate(() => { const e = document.getElementById('etat-sync');
       return !!e && (e.textContent || '').trim() !== '' && !e.classList.contains('sync'); }).catch(() => false);
-    const rafraichir246 = async () => { await jusqua(synchroLibre246, 60000); await page.evaluate(() => document.getElementById('btn-rafraichir').click());
+    const rafraichir246 = async () => { await jusqua(synchroLibre246, 60000); await tirerPourRafraichir();
       await jusqua(synchroLibre246, 60000); };
     // Six semaines civiles COMPLÈTES derrière la semaine en cours (lundi → dimanche, comme `tendanceDuPoids`), deux pesées chacune :
     // le lundi et le mercredi. `mercrediEcoule(k)` (decor-dates.js) porte l'ancre : aucun jour de la semaine lu dans le banc (banc-dates).

@@ -125,11 +125,13 @@
       <div class="entete-titre">
         <h1>Mes séances</h1>
         <div id="etat-sync" class="etat-sync"></div>
-      </div>
-      <div class="actions">
-        <button id="btn-rafraichir" type="button" class="discret">Rafraîchir</button>
+        <!-- Lot 3 (25/11/2026, changement 6) — « Rafraîchir » a quitté l'en-tête : on tire la liste vers le bas. Cette ligne le DIT tant que
+             l'état n'est pas « À jour » ; elle ne décrit pas l'état (`#etat-sync`, `Attente.deciderEtat`, ne change pas). -->
+        <div id="aide-tirage" class="aide-tirage" hidden>Tire la liste vers le bas pour mettre à jour.</div>
       </div>
     </header>
+    <!-- Lot 3 (changement 6) — le retour visible du geste « tirer vers le bas » : sa hauteur suit le doigt, puis « Mise à jour… » pendant la lecture. -->
+    <div id="tirage" class="tirage" role="status" aria-live="polite" hidden></div>
     <!-- La barre de semaine est construite en JS : elle est IDENTIQUE dans
          Séances et dans Progression, calendrier compris, et passer de l'un à
          l'autre conserve la semaine affichée. -->

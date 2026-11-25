@@ -4560,6 +4560,60 @@
 
   // L'état affiché combine lecture et écriture. Tant qu'il reste quelque chose
   // à envoyer, « à jour » serait faux.
+  // ── « Rafraîchir » (lot 3, changement 6) : tirer la liste de Séances vers le bas ───────────────────────────────────────────────
+  // Il n'y a plus de bouton dans l'en-tête, et aucun « ⋯ » sur cet écran : le geste le remplace, et appelle LA MÊME fonction
+  // (`rafraichir`, l'ancien gestionnaire du bouton, mot pour mot). Pris seulement en haut de page, avec un seul doigt, vers le bas ; le
+  // retour est visible (« Tire… », « Relâche… », puis « Mise à jour… » pendant la lecture). ⚠️ C'est le seul remède manuel à l'état
+  // « Données locales » : tant qu'il n'est pas « À jour », une ligne le dit (`#aide-tirage`) ; l'état lui-même ne change pas.
+  var lectureManuelle = false;
+  async function rafraichir() {
+    Rendu.rendreEtat($('etat-sync'), { code: 'sync', libelle: 'Synchronisation…', local: false });
+    await synchroniser();
+    await chargerProfil();
+    // La ligne de profil a pu ouvrir le questionnaire : on ne le recouvre pas.
+    if (vues.questionnaire.hidden) afficherSemaine();
+  }
+  var SEUIL_TIRAGE_PX = 70;
+  function brancherTirage() {
+    var vue = $('vue-liste'), zone = $('tirage');
+    if (!vue || !zone) return;
+    var y0 = null, dy = 0;
+    var enHaut = function () {
+      var se = doc.scrollingElement || doc.documentElement;
+      return (se ? se.scrollTop : 0) <= 0;
+    };
+    var montrerTirage = function (texte, hauteur, lecture) {
+      zone.hidden = false;
+      zone.classList.toggle('lecture', !!lecture);
+      zone.style.height = lecture ? '' : Math.max(0, Math.round(hauteur)) + 'px';
+      zone.textContent = texte;
+    };
+    var cacherTirage = function () { zone.hidden = true; zone.textContent = ''; zone.style.height = ''; zone.classList.remove('lecture'); };
+    vue.addEventListener('touchstart', function (e) {
+      y0 = null; dy = 0;
+      if (lectureManuelle || vue.hidden || !e.touches || e.touches.length !== 1 || !enHaut()) return;
+      y0 = e.touches[0].clientY;
+    }, { passive: true });
+    vue.addEventListener('touchmove', function (e) {
+      if (y0 === null || !e.touches || e.touches.length !== 1) return;
+      dy = e.touches[0].clientY - y0;
+      if (dy <= 0 || !enHaut()) { if (dy <= 0) { y0 = null; cacherTirage(); } return; }
+      if (e.cancelable) e.preventDefault();   // pris : le navigateur ne recharge pas la page à notre place
+      montrerTirage(dy >= SEUIL_TIRAGE_PX ? 'Relâche pour mettre à jour' : 'Tire pour mettre à jour', Math.min(dy * 0.5, 48), false);
+    }, { passive: false });
+    var fin = function () {
+      var assez = y0 !== null && dy >= SEUIL_TIRAGE_PX;
+      y0 = null; dy = 0;
+      if (!assez || lectureManuelle) { cacherTirage(); return; }
+      lectureManuelle = true;
+      montrerTirage('Mise à jour…', 0, true);
+      Promise.resolve().then(rafraichir).catch(function (err) { console.warn('Mise à jour :', texteErreur(err)); })
+        .then(function () { lectureManuelle = false; cacherTirage(); });
+    };
+    vue.addEventListener('touchend', fin);
+    vue.addEventListener('touchcancel', function () { y0 = null; dy = 0; cacherTirage(); });
+  }
+
   function rendreEtatSync() {
     // 219 — la barre change de hauteur quand le texte paraît ou disparaît : re-mesurée par la même fonction que les autres.
     if (Rendu.majEnvoiBandeau($('bandeau-seance'), texteEnvoiSeance())) mesurerBarres();
@@ -4571,7 +4625,11 @@
       Rendu.rendreEtat(noeud, { code: 'bloque', libelle: 'Données de l\u2019appareil indisponibles : ferme l\u2019autre onglet de l\u2019app' });
       return;
     }
-    Rendu.rendreEtat(noeud, Attente.deciderEtat(etat, attente));
+    var decide = Attente.deciderEtat(etat, attente);
+    Rendu.rendreEtat(noeud, decide);
+    // Lot 3 (changement 6) — la ligne qui dit le geste tant que l'état n'est pas « À jour » ; elle ne décide rien, elle lit la décision.
+    var aide = $('aide-tirage');
+    if (aide) aide.hidden = !decide || decide.code === 'a-jour' || decide.code === 'sync';
   }
 
   // 219 — le même état, lu par l'écran de séance en cours (rien à dire = chaîne vide).
@@ -21124,13 +21182,7 @@
     ['fenetre-muscle', 'calendrier', 'catalogue'].forEach(function (id) {
       $(id).addEventListener('click', function (e) { if (e.target === this) fermerVoile(); });
     });
-    $('btn-rafraichir').addEventListener('click', async function () {
-      Rendu.rendreEtat($('etat-sync'), { code: 'sync', libelle: 'Synchronisation…', local: false });
-      await synchroniser();
-      await chargerProfil();
-      // La ligne de profil a pu ouvrir le questionnaire : on ne le recouvre pas.
-      if (vues.questionnaire.hidden) afficherSemaine();
-    });
+    brancherTirage();
 
     // Chaque onglet est une VUE du routeur, avec son URL — pas un basculement
     // d'affichage. Séances renvoie sur la semaine courante.

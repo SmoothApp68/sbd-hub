@@ -51,7 +51,10 @@ function campagne() {
       lignes.push(ch + 'x' + cible);
       gabarits.gris.add(gabarit(gris)); gabarits.pourquoi.add(gabarit(pq));
       if (meme && niv !== null && niv !== undefined) {
-        const plus = cible - niv;
+        // 25/11/2026 (« Les chutes », §9.2 ter) : la référence de « une rep de plus » est ce qui a été FAIT, relevée à la cible d'AVANT quand celle-ci n'a pas été tenue
+        // et que la ligne ne la dépasse pas (« tu restes à 9 » après 8, 8, 8 demandés à 9). Arithmétique indépendante du moteur : lue sur le fondement.
+        const ca = c.fondement && typeof c.fondement.cibleAvant === 'number' ? c.fondement.cibleAvant : null;
+        const plus = cible - (ca !== null && ca > niv && cible > niv ? ca : niv);
         const re = /(?:^|\. )(Une|Deux|Trois|\d+) reps? de plus\b/.exec(gris);
         if (re && plus < 1) C.gris_a_tort++;
         if (/je te demande (?:une|deux|trois|\d+) reps? de plus/.test(pq) && plus < 1) C.pourquoi_a_tort++;

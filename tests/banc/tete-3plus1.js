@@ -297,7 +297,7 @@ async function jouer(code, sc, port) {
         verifier(h <= AVANT_PX[code] - GAIN_MIN[code], 'gain de hauteur ≥ ' + GAIN_MIN[code] + ' px (' + h + ' ≤ ' + (AVANT_PX[code] - GAIN_MIN[code]) + ')');
 
         if (code === 'a') {
-          verifier(e.gris.length === 1 && e.gris[0] === 'Une rep de plus : 90 kg × 9.', 'le verbe avec son chiffre, seul, en gris : « Une rep de plus : 90 kg × 9. »', JSON.stringify(e.gris));
+          verifier(e.gris.length === 1 && e.gris[0] === 'Tu restes à 90 kg × 9.', 'le verbe avec son chiffre, seul, en gris : « Tu restes à 90 kg × 9. » (25/11/2026, « Les chutes » : la 9 demandée la fois d’avant n’a pas été faite, 8, 8, 8 ; « une rep de plus » exigerait de dépasser la cible d’avant)', JSON.stringify(e.gris));
           verifier(e.grisDansRang, '« Pourquoi ? » est au bout de la ligne grise');
           verifier(e.consignes.length === 1 && /^90\s*kg\s*×\s*9/.test(e.consignes[0]), 'le chiffre du jour reste : 90 kg × 9', JSON.stringify(e.consignes));
           verifier(e.cartes.length === 1 && /Chauffe : 45 kg × 15\./.test(e.cartes[0]) && e.chauffesAjouter.length >= 1, 'la carte de chauffe reste, une rangée, avec « Ajouter » et « Non merci »', JSON.stringify(e.cartes));
@@ -345,7 +345,7 @@ async function jouer(code, sc, port) {
           verifier(e2.reactionBoutons[0] && e2.reactionBoutons[0].length >= 1, 'ses gestes sont là', JSON.stringify(e2.reactionBoutons));
           verifier(e2.gaucheReaction.length === 1 && e2.gaucheReaction[0] != null && e2.gaucheChiffre != null && e2.gaucheReaction[0] >= e2.gaucheChiffre - 0.5 && e2.gaucheReaction[0] > e2.gaucheBloc + 4, 'la phrase de la réaction au raté ne touche pas le bord gauche : sa boîte ne commence pas plus à gauche que le chiffre de l’exercice (' + LARGEUR + ' px)', JSON.stringify({ reaction: e2.gaucheReaction, chiffre: e2.gaucheChiffre, bloc: e2.gaucheBloc }));
           verifier(e2.cartes.length === 0, 'une seule carte à la fois : la carte de chauffe a laissé la place à la réaction', JSON.stringify(e2.cartes));
-          verifier(e2.gris.length === 1 && e2.gris[0] === 'Une rep de plus : 90 kg × 9.', 'le verbe avec son chiffre reste', JSON.stringify(e2.gris));
+          verifier(e2.gris.length === 1 && e2.gris[0] === 'Tu restes à 90 kg × 9.', 'le verbe avec son chiffre reste', JSON.stringify(e2.gris));
         }
         if (code === 'e') {
           verifier(e.bandeau.length === 1 && /^Décharge, semaine \d sur \d : prévue par ton programme\./.test(e.bandeau[0]), 'le bandeau de la séance dit la semaine', JSON.stringify(e.bandeau));

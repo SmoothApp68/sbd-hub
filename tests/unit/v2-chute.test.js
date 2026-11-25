@@ -121,14 +121,17 @@ describe('§9.2 bis — la séance d’Aurélien du 29/09 : 80 × 10, 10, 6 à R
   test('l’en-tête dit « 80 kg × 10 », et la phrase grise à l’octet', () => {
     const l = M.libellesConsigne(k, AVANT);
     expect(l.jaune).toEqual(['80' + NB + 'kg' + NB + '×' + NB + '10']);
+    // INVERSÉ le 25/11/2026 (« Les chutes », §9.2 ter) : « Je ne compte pas la dernière série » n'existe plus (la dernière série ne descend pas la cible, mais elle ne disparaît pas) ;
+    // la phrase dit le fait, puis la conséquence.
     expect(l.gris).toBe('Mardi' + NB + ': 80' + NB + 'kg' + NB + '×' + NB + '10, 10, 6. ' +
-      'Je ne compte pas la dernière série' + NB + ': tu restes à 80' + NB + 'kg' + NB + '×' + NB + '10.');
+      'Dernière série à 6' + NB + ': tu restes à 80' + NB + 'kg' + NB + '×' + NB + '10.');
   });
 
   test('la feuille « Pourquoi » l’explique en une phrase', () => {
     const p = M.pourquoiConsigne(k, 'normal', AVANT);
-    expect(p.etat).toBe('Ta dernière série a chuté après des séries stables' + NB + ': c\'est la fatigue, ' +
-      'pas ton niveau. Je ne la compte pas, et tu restes à 80' + NB + 'kg' + NB + '×' + NB + '10 avant de tester plus lourd.');
+    // INVERSÉ le 25/11/2026 : plus de « c'est la fatigue » (une cause devinée) ni de « je ne la compte pas » ; le fait, puis ce que fait le coach.
+    expect(p.etat).toBe('Ta dernière série est tombée à 6, après des séries stables' + NB + ': ' +
+      'tu restes à 80' + NB + 'kg' + NB + '×' + NB + '10 avant de tester plus lourd.');
   });
 
   test('sans la chute (10-10-10), le coach testait plus lourd : c’est bien la règle qui tient', () => {

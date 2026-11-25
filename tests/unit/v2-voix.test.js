@@ -702,8 +702,9 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
       .test(v.phrase.replace(/[\u00a0\u202f]/g, ' '))).length).toBe(1);
     expect(vues.filter((v) => v.famille === 'douleur' && /^Plus léger, plus de reps : 15/.test(v.phrase)).length).toBe(2);
     expect(vues.filter((v) => v.famille === 'frères' && / → /.test(v.phrase)).length).toBe(5);
-    // La phrase « Je ne compte pas la dernière série » est bien jouée.
-    expect(vues.filter((v) => v.famille === 'chute' && /Je ne compte pas la dernière série/.test(v.phrase)).length)
+    // INVERSÉ le 25/11/2026 (« Les chutes », §9.2 ter) : « Je ne compte pas la dernière série » n'existe plus ; la phrase de la dernière série tombée (« Dernière série à 10 : tu restes à … ») est bien jouée.
+    expect(vues.filter((v) => v.famille === 'chute' && /Je ne compte pas la dernière série/.test(v.phrase)).length).toBe(0);
+    expect(vues.filter((v) => v.famille === 'chute' && /Dernière série à \d+ : (?:tu restes à |ta cible, )/.test(v.phrase.replace(/[\u00a0\u202f]/g, ' '))).length)
       .toBeGreaterThanOrEqual(14);
     // 20/11/2026 : 1 — la note « le coach en calcule 4 » n'existe plus (chaque ligne a sa marche).
     expect(vues.filter((v) => v.source === 'plan 49-U10').length).toBe(1);

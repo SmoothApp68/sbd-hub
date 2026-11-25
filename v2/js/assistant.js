@@ -220,7 +220,7 @@
     retest_un_cran: ['Pourquoi ce nouveau test ?', 'Pourquoi pas plus ?', 'Et ensuite ?'],
     garde: ['Pourquoi tu gardes cette charge ?', 'Qu’est-ce qui la ferait monter ?', 'Et ensuite ?'],
     attend: ['Pourquoi tu attends ?', 'Qu’est-ce qui la ferait monter ?', 'Et ensuite ?'],
-    tenue_apres_chute: ['Pourquoi tu tiens la charge ?', 'Pourquoi ma série n’est pas comptée ?', 'Et ensuite ?'],
+    tenue_apres_chute: ['Pourquoi tu tiens la charge ?', 'Pourquoi ma dernière série ne baisse pas ma cible ?', 'Et ensuite ?'],
     reprise_courte: ['Pourquoi je reprends plus bas ?', 'Pourquoi pas une rep de plus ?', 'Et ensuite ?'],
     reprise_longue: ['Pourquoi je reprends plus bas ?', 'Pourquoi pas une rep de plus ?', 'Et ensuite ?'],
     salle_max: ['Pourquoi je ne monte plus la charge ?', 'Pourquoi plus de reps ?', 'Et quand j’aurai fait le maximum ?'],

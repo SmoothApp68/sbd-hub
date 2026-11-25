@@ -592,6 +592,45 @@
     return niveau;
   }
 
+  // ── §9.2 ter — LE PLANCHER DE LA DERNIÈRE SÉRIE (25/11/2026, CHUTES-REGLE ; décision d'Aurélien, seuil −2) ──────────────────────────────
+  //
+  // Une dernière série qui perd 2 reps ou plus sur des séries stables ne fait JAMAIS descendre la cible sous ce que les séries d'avant ont
+  // prouvé, et ne la pousse jamais au-dessus : visée = max(niveau sur TOUTES les séries + 1 borné au haut de la zone, niveau des séries
+  // d'avant). Ce n'est PAS le niveau validé (`niveauValide` ne change pas : format, zone, stagnation, test, cartes lest et marche le lisent) :
+  // la règle ne vit que dans la consigne, et seulement quand l'appelant la demande (`options.plancherDesChutes`, posée par `consigneDExercice`).
+  //   · au moins trois séries, toutes à la même charge, aucune à 0 rep (un zéro a sa règle, §9.42) ;
+  //   · les séries AVANT la dernière à une rep près de la première (la stabilité de §9.2 bis) ;
+  //   · la dernière perd au moins `PERTE_DE_FIN` reps sur la première (reps COMPTÉES, §17.4).
+  // Rend `{ vise, niveauAvant, premiere, derniere (reps saisies), perte, rang }` ou `null`. `12-12-12-9` (haut 12) → 12 ; `12-12-12-8` → 12 ;
+  // `9-8-6` → 8 ; `4-3-2` → 4 ; `12-12-12-11` → `null` (−1 : le niveau validé le tolère déjà).
+  var PERTE_DE_FIN = 2;
+  function plancherDeFin(seriesAuPalier, zoneHaut) {
+    var A = seriesAuPalier || [];
+    var n = A.length;
+    if (n < 3 || zoneHaut === null || zoneHaut === undefined) return null;
+    var c = [];
+    var charge = nombre(A[0] && A[0].charge_kg);
+    for (var i = 0; i < n; i++) {
+      if (nombre(A[i] && A[i].reps) === 0) return null;
+      if (!memeCharge(nombre(A[i] && A[i].charge_kg), charge)) return null;
+      var r = compter(A[i]);
+      if (r === null) return null;
+      c.push(r);
+    }
+    for (var k = 1; k < n - 1; k++) {
+      if (Math.abs(c[k] - c[0]) > 1) return null;
+    }
+    var perte = c[0] - c[n - 1];
+    if (perte < PERTE_DE_FIN) return null;
+    var avant = niveauValide(A.slice(0, -1));
+    var tous = niveauValide(A);
+    if (avant === null || tous === null) return null;
+    // Le niveau sur toutes les séries : `niveauValide` retire la chute (§9.2 bis), le plancher la compte (la visée ne dépasse jamais ce qu'elle dit).
+    var surToutes = chuteDe(A) !== null ? Math.min(tous, c[n - 1] + 1) : tous;
+    return { vise: cible(Math.max(Math.min(surToutes + 1, zoneHaut), avant)), niveauAvant: avant, premiere: nombre(A[0].reps),
+             derniere: nombre(A[n - 1].reps), perte: perte, rang: n };
+  }
+
   // ── §8.2 — LE FORMAT D'UNE SÉANCE-EXERCICE ───────────────────────────────
   //
   // ⚠️ IL SE LIT SUR LE NIVEAU VALIDÉ, PLUS SUR UNE MÉDIANE (corrigé le
@@ -1864,6 +1903,8 @@
   // §9.2 bis — les états qui PROPOSENT un nouveau test : après une chute, ils
   // deviennent « tenir » (`tenue_apres_chute`).
   var ETATS_DE_TEST = { test_propose: true, retest: true, retest_un_cran: true };
+  // §9.2 ter — les états dont la ligne au palier est celle du plancher de la dernière série (la consigne qui progresse, qui teste ou qui tient).
+  var ETATS_DU_PLANCHER = { progression: true, tenue_apres_chute: true, test_propose: true, retest: true, retest_un_cran: true };
 
   // Les reps SAISIES, dans l'ordre — « 4-4-4 ». Jamais les comptées : la phrase
   // rappelle ce qui a été fait, la note de la série à fond dit le reste.
@@ -2430,13 +2471,59 @@
     var sansMarge = nivFait !== null && nivPrudent !== null && nivFait > nivPrudent;
     if (aFond !== null && !sansMarge) aFond = null;
     if (aFond !== null) aFond.niveauFait = nivFait;
+    // §9.2 ter — le plancher n'existe que pour la consigne (`consigneDExercice`), hors population protégée, sur une charge (ni corps, ni aide).
+    var plancherActif = opt.plancherDesChutes === true && !protegee && P > 0 && !elastique;
+    // La séance `i` de `ant` a-t-elle REÇU la tenue du plancher ? Oui si la séance d'avant elle, à la même charge, l'a SERVI et ne l'avait pas reçue
+    // elle-même : la tenue ne vaut qu'une fois de suite, le test revient à la seconde (lu sur les séries, jamais sur la consigne d'avant).
+    function tenueDeFinRecue() {
+      var recue = false;
+      for (var j = 1; j < ant.length; j++) {
+        var servie = plancherDeFin(seriesAuPalier(ant[j - 1]), PLAFOND_CIBLE) !== null &&
+          nombre(ant[j - 1].palier) !== null && nombre(ant[j].palier) !== null && memeCharge(nombre(ant[j - 1].palier), nombre(ant[j].palier));
+        recue = servie && !recue;
+      }
+      return recue;
+    }
+    // La visée de la consigne que L a reçue, à la charge P, ou `null`. Une séance d'avant L qui a servi le plancher fixe SA visée (la même fonction),
+    // sur la zone de la consigne reçue : on ne relit pas la visée d'avant la règle.
+    function cibleDAvant() {
+      var rk = consigneRecue();
+      if (!rk || !rk.ligne || nombre(rk.ligne.vise) === null || nombre(rk.ligne.charge) === null || !memeCharge(nombre(rk.ligne.charge), P)) return null;
+      var v = nombre(rk.ligne.vise);
+      var Q = ant.length >= 2 ? ant[ant.length - 2] : null;
+      var zQ = rk.zone ? zoneParCle(rk.zone) : null;
+      if (plancherActif && Q !== null && zQ !== null && ETATS_DU_PLANCHER[rk.etat] === true && nombre(Q.palier) !== null && memeCharge(nombre(Q.palier), P)) {
+        var avantPrudent = prudent;
+        prudent = false;
+        try {
+          var pq = plancherDeFin(seriesAuPalier(Q), zQ.haut);
+          if (pq !== null) v = pq.vise;
+        } finally { prudent = avantPrudent; }
+      }
+      return v;
+    }
     function rendre(etat, ligne, haut, plus) {
       // §9.2 bis — APRÈS UNE CHUTE, AUCUN NOUVEAU TEST : un test proposé, un
       // retest ou un retest d'un cran devient « tenir » — la ligne au palier,
       // au niveau validé borné au haut de la zone, sans ligne haute. Une
       // échelle en cours (garde, étend, rejoint, attend) n'est pas touchée, ni
       // la réaction en séance (§9.14).
-      if (chute !== null && ETATS_DE_TEST[etat] === true && zone !== null) {
+      //
+      // 25/11/2026 (§9.2 ter, `options.plancherDesChutes`) — LE PLANCHER DE LA DERNIÈRE SÉRIE remplace ce cas à part, pour la consigne seulement : une
+      // dernière série à −2 reps ou plus sur des séries stables garde la visée au niveau des séries d'avant (`plancherDeFin`), jamais en dessous, jamais
+      // au-dessus ; le test saute UNE fois de suite (`tenueDeFinRecue`). Population protégée : la règle d'avant, inchangée.
+      var pf = plancherActif && zone !== null && ETATS_DU_PLANCHER[etat] === true && ligne && nombre(ligne.charge) !== null && memeCharge(nombre(ligne.charge), P)
+        ? plancherDeFin(A, zone.haut) : null;
+      if (pf !== null) {
+        if (ETATS_DE_TEST[etat] === true && !tenueDeFinRecue()) {
+          etat = 'tenue_apres_chute';
+          ligne = ligneDe(P, pf.vise);
+          haut = null;
+          plus = null;
+        } else if (etat === 'progression' || etat === 'test_propose' || etat === 'tenue_apres_chute') {
+          ligne = Object.assign({}, ligne, { vise: pf.vise });
+        }
+      } else if (chute !== null && ETATS_DE_TEST[etat] === true && zone !== null) {
         etat = 'tenue_apres_chute';
         ligne = ligneDe(P, cible(Math.min(niv, zone.haut)));
         haut = null;
@@ -2530,6 +2617,13 @@
       // 184 (B4) — le matériel, seulement pour la phrase de l'étirement (« Ta barre ne permet pas... »).
       if (etat === 'etirement') f.equipement = equipement === undefined ? null : equipement;
       if (chute !== null) f.chute = { rang: chute };
+      if (pf !== null) f.chuteDeFin = { derniere: pf.derniere, premiere: pf.premiere, niveauAvant: pf.niveauAvant };
+      // §9.2 ter — la CIBLE D'AVANT (la visée de la consigne que la dernière séance a reçue, à cette charge) : « une rep de plus » ne se dit que
+      // devant une visée qui la dépasse (`verbeDeLaConsigne`). Une clé n'y figure que si elle a un sens ; sans elle, le niveau fait foi.
+      if (plancherActif && ligne && (etat === 'progression' || etat === 'tenue_apres_chute') && nombre(ligne.charge) !== null && memeCharge(nombre(ligne.charge), P)) {
+        var cibleAvant = cibleDAvant();
+        if (cibleAvant !== null) f.cibleAvant = cibleAvant;
+      }
       // §9.13, enrichi le 20/09/2026 (48b-6a) : de quoi écrire la feuille
       // « Pourquoi » sans jamais rejouer une règle du moteur.
       f.seance = seanceDuFondement(L);
@@ -5329,7 +5423,7 @@
   // `sansMarge` : `{ derniere, protegee }` quand une série faite à la charge de la ligne était à fond ; `cause` : la phrase le DIT (le verbe garde ou
   // borne la ligne, jamais une population protégée) ; `causeTue` : la cause existe et la ligne monte — le cas compté par I162 (sens 3).
   function verbeDeLaConsigne(c) {
-    var r = { verbe: VERBES.NEUTRE, famille: 'neutre', plus: null, de: null, vers: null, sansMarge: null, cause: false, causeTue: false };
+    var r = { verbe: VERBES.NEUTRE, famille: 'neutre', plus: null, de: null, vers: null, sansMarge: null, cause: false, causeTue: false, baisse: false, tombee: null };
     if (!c || !c.etat) return r;
     var f = c.fondement || {};
     var fam = FAMILLE_DES_ETATS[c.etat] || 'neutre';
@@ -5356,12 +5450,26 @@
     }
     if (fam === 'progression' || fam === 'reprise') {
       if (f.plafondReps) return r;                                                    // le plafond sans lest : un fait, pas un verbe
-      if (c.etat === 'tenue_apres_chute' && f.chute) { r.verbe = VERBES.GARDE_CIBLE; }
-      else if (c.etat === 'progression' && f.effortVise && f.effortVise.effet === 'garde') { r.verbe = VERBES.GARDE_CHARGE; }
+      if (c.etat === 'progression' && f.effortVise && f.effortVise.effet === 'garde') { r.verbe = VERBES.GARDE_CHARGE; }
       else if (vise === null || niv === null) { return r; }
       else {
-        r.plus = vise - niv;
+        // §9.2 ter (25/11/2026) — « une rep de plus » ne se dit que devant une visée qui dépasse ce qui a été FAIT ET ce qui a été DEMANDÉ. Ce qui a été fait : le niveau validé, ou,
+        // quand une dernière série est tombée (plancher), le niveau des séries d'avant (`chuteDeFin.niveauAvant`, la dernière ne compte pas comme preuve). Ce qui a été demandé :
+        // `fondement.cibleAvant`, la visée de la consigne d'avant (absente d'une consigne d'avant la règle : le niveau fait foi). Entre les deux, la ligne garde (« tu restes »)
+        // ou fait BAISSER la cible d'avant (« ta cible passe à »), jamais « une rep de plus ».
+        var nivAvant = f.chuteDeFin ? nombre(f.chuteDeFin.niveauAvant) : null;
+        var fait = nivAvant !== null && nivAvant > niv ? nivAvant : niv;
+        var cibleAvant = nombre(f.cibleAvant);
+        var ref = cibleAvant !== null && cibleAvant > fait && vise > fait ? cibleAvant : fait;
+        r.plus = vise - ref;
         r.verbe = r.plus > 0 ? VERBES.MONTE_REPS : r.plus === 0 ? VERBES.GARDE_CIBLE : VERBES.BORNE;
+        // Décision du 25/11/2026 : dès que la visée est SOUS la cible d'avant, la phrase dit la BAISSE (« ta cible passe à »), quelle que soit la place de la visée par rapport à ce
+        // qui a été fait ; « tu restes à » ne se dit que si la visée est ÉGALE à la cible d'avant. Une cible qui baisse ne se tait jamais.
+        if (cibleAvant !== null && vise < cibleAvant) { r.verbe = VERBES.BORNE; r.plus = vise - ref; }
+        r.baisse = r.verbe === VERBES.BORNE && cibleAvant !== null && vise < cibleAvant;
+        // Une dernière série tombée (plancher de la dernière série, ou chute d'avant) : le fait que dit la phrase quand le verbe garde ou borne.
+        var tombee = f.chuteDeFin ? nombre(f.chuteDeFin.derniere) : (f.chute && Array.isArray(f.reps) ? nombre(f.reps[f.reps.length - 1]) : null);
+        if (tombee !== null && r.verbe !== VERBES.MONTE_REPS && !r.baisse) r.tombee = tombee;   // la cible qui baisse n'est pas due à la dernière série : elle ne la nomme pas
       }
     } else if (c.etat === 'bord_garde' || c.etat === 'tenue_apres_zero') {
       r.verbe = VERBES.GARDE_CHARGE;
@@ -5396,7 +5504,7 @@
     var cause = v.cause ? (v.sansMarge.derniere ? ', la dernière sans marge' : ', une série sans marge') : '';
     if (v.verbe === VERBES.MONTE_REPS) return dePlus(v.plus) + ', ' + ligneDeLaConsigne(c, nat);
     if (v.verbe === VERBES.GARDE_CIBLE) return tuRestes(c, nat) + cause;
-    if (v.verbe === VERBES.BORNE) return 'ta cible, ' + ligneDeLaConsigne(c, nat) + cause;
+    if (v.verbe === VERBES.BORNE) return (v.baisse ? 'ta cible passe à ' : 'ta cible, ') + ligneDeLaConsigne(c, nat) + cause;
     if (v.verbe === VERBES.GARDE_CHARGE) return 'je garde ' + enKg(c.ligne.charge, cite(nat, { role: 'ligne' }));
     return null;
   }
@@ -5415,8 +5523,16 @@
       }
       return debut('. ') + dePlus(v.plus, true) + ' : ' + ligneDeLaConsigne(c) + '.';
     }
-    if (v.verbe === VERBES.GARDE_CIBLE) return debut(cause + '. ') + tuRestes(c).charAt(0).toUpperCase() + tuRestes(c).slice(1) + '.';
-    if (v.verbe === VERBES.BORNE) return debut(cause + '. ') + 'Ta cible : ' + ligneDeLaConsigne(c) + '.';
+    // §9.2 ter — la dernière série tombée est le FAIT que le verbe annonce (« Dernière série à 9 : tu restes à 81,3 kg × 12. ») ; une cause « sans marge » la remplace
+    // (une seule cause par phrase), et la forme courte la garde (c'est un fait que le verbe annonce).
+    // 25/11/2026 — la cible encore SOUS le bas de la zone se dit avec le verbe qui garde ou qui borne comme avec « une rep de plus » (200b : « Tu restes à 130 kg × 5, vers tes 6-8. »).
+    var versZone = zoneBas !== null && v.vers && v.vers.reps < zoneBas && (v.verbe === VERBES.GARDE_CIBLE || v.verbe === VERBES.BORNE)
+      ? ', vers tes ' + nombreFr(zoneBas, regle('zone.bas')) + '-' + nombreFr(zoneHaut, regle('zone.haut')) : '';
+    var tombee = v.tombee !== null && v.tombee !== undefined && !v.cause ? 'Dernière série à ' + nombreFr(v.tombee, cite(FAIT, { quoi: 'palier', champ: 'reps' })) + DEUX_POINTS : '';
+    if (v.verbe === VERBES.GARDE_CIBLE && tombee) return (court === true ? '' : (typeof tete === 'function' ? tete() : tete) + '. ') + tombee + tuRestes(c) + versZone + '.';
+    if (v.verbe === VERBES.BORNE && tombee) return (court === true ? '' : (typeof tete === 'function' ? tete() : tete) + '. ') + tombee + (v.baisse ? 'ta cible passe à ' : 'ta cible, ') + ligneDeLaConsigne(c) + versZone + '.';
+    if (v.verbe === VERBES.GARDE_CIBLE) return debut(cause + '. ') + tuRestes(c).charAt(0).toUpperCase() + tuRestes(c).slice(1) + versZone + '.';
+    if (v.verbe === VERBES.BORNE) return debut(cause + '. ') + (v.baisse ? 'Ta cible passe à ' : 'Ta cible : ') + ligneDeLaConsigne(c) + versZone + '.';
     return (typeof tete === 'function' ? tete() : tete) + '.';
   }
   // Le Pourquoi (`tete` : la phrase qui précède, ses deux-points compris).
@@ -5428,7 +5544,7 @@
       return (v.cause ? (v.sansMarge.derniere ? 'ta dernière série était sans marge, il ne t\'en restait aucune' : 'une de tes séries était sans marge, il ne t\'en restait aucune') + DEUX_POINTS : '') +
         tuRestes(c) + '.';
     }
-    if (v.verbe === VERBES.BORNE) return 'ta cible : ' + ligne + '.';
+    if (v.verbe === VERBES.BORNE) return (v.baisse ? 'ta cible passe à ' : 'ta cible : ') + ligne + '.';
     return null;
   }
   // « Ta zone Lourd va jusqu'à 5 reps : 160 kg × 5. » — le chiffre de la ligne, sans verbe (« viser » est pris par la réserve).
@@ -5447,6 +5563,20 @@
     // Le fait de la zone ne se dit que devant une montée de reps ou une cible gardée sans cause : une cause (« sans marge ») s'explique seule.
     if (v.verbe === VERBES.GARDE_CIBLE && v.cause) return dit.charAt(0).toUpperCase() + dit.slice(1);
     return 'Ta charge de travail n\'est pas encore au haut de ta zone' + DEUX_POINTS + dit;
+  }
+  // §9.2 ter — le Pourquoi d'une tenue après une dernière série tombée : le fait (sa série, celles d'avant), puis ce que fait le coach (sa cible), sans cause devinée.
+  // « Avant de tester plus lourd » ne se dit que si le test a bien sauté (l'état est la tenue ; il revient la fois suivante).
+  function pourquoiDeLaTenue(c) {
+    var f = c.fondement || {};
+    var v = verbeDeLaConsigne(c);
+    var seul = pourquoiDeLaProgression(c);
+    if (v.tombee === null || v.tombee === undefined || v.cause || f.chuteDeFin === undefined && f.chute === undefined) return seul;
+    var avant = f.chuteDeFin ? nombre(f.chuteDeFin.premiere) : null;
+    var tete = 'Ta dernière série est tombée à ' + nombreFr(v.tombee, cite(FAIT, { quoi: 'palier', champ: 'reps' })) +
+      (avant !== null ? ', après des séries à ' + nombreFr(avant, cite(FAIT, { quoi: 'palier', champ: 'reps' })) : ', après des séries stables') + DEUX_POINTS;
+    var fin = v.verbe === VERBES.GARDE_CIBLE ? tuRestes(c) + ' avant de tester plus lourd.'
+      : v.verbe === VERBES.BORNE ? (v.baisse ? 'ta cible passe à ' : 'ta cible, ') + ligneDeLaConsigne(c) + '.' : null;
+    return fin === null ? seul : tete + fin;
   }
   // Au poids du corps : « tu gagnes des reps » seulement quand la ligne en demande plus.
   function pourquoiDesRepsAuPoidsDuCorps(c) {
@@ -5519,7 +5649,12 @@
           sansDeclarer(function () { return lignesJaunes(cApres).join(', '); })) {
         return laLigneVraie();
       }
-      if (nivAvant !== null && fait !== null && fait <= nivAvant) return prochaine();
+      // 25/11/2026 (« Les chutes », §9.2 ter ; point B de #746) — Rien de gagné et la cible BAISSE (5, 6, 9 pour une cible de 9 : la suivante vise 6) : la ligne vraie se dit par SON verbe
+      // (« ta cible passe à 90 kg × 6 »), jamais les lignes nues, qui laisseraient croire que la cible n'a pas bougé. Ailleurs, les lignes telles quelles (inchangé).
+      if (nivAvant !== null && fait !== null && fait <= nivAvant) {
+        var verbeSuite = cApres.haut || !cApres.ligne ? null : verbeDeLaConsigne(cApres);
+        return verbeSuite !== null && verbeSuite.baisse === true ? laLigneVraie() : prochaine();
+      }
       // ⚠️ PRUDENT NE COMPTE PAS LES REPS QUI MANQUENT. Son déclencheur demande TOUTES les séries au haut, DEUX séances de suite.
       // §17.4 — Au poids du corps il n'y a pas de cran à tester : la phrase « pour tester le cran au-dessus » ne se dit pas.
       if (reglage !== 'prudent' && z !== null && fait !== null && fait < z.haut && nombre(cApres.palier) !== 0) {
@@ -5796,13 +5931,10 @@
       case 'retest_un_cran':
         return rate() + ' On reteste d\'un seul cran.';
 
-      // §9.2 bis (49-U12) — un fait, puis sa conséquence : « Mardi : 80 kg ×
-      // 10, 10, 6. Je ne compte pas la dernière série : tu restes à 80 kg × 10. »
+      // §9.2 bis (49-U12), réécrit le 25/11/2026 (§9.2 ter) — un fait, puis sa conséquence : « Mardi : 80 kg × 10, 10, 6. Dernière série à 6 : tu restes à
+      // 80 kg × 10. » (« Je ne compte pas la dernière série » n'existe plus : la dernière série ne descend pas la cible, mais elle ne disparaît pas.)
       case 'tenue_apres_chute':
-        // 74 — sans chute sur les reps faites (l'état vient du calcul prudent,
-        // la ligne des reps faites) : la phrase de la rep de plus, qui est vraie.
-        if (!f.chute) return grisDuVerbe(c, verbeDeLaConsigne(c), function () { return jour() + DEUX_POINTS + auPalier(); }, null, null, court);
-        return jour() + DEUX_POINTS + auPalier() + '. Je ne compte pas la dernière série' + DEUX_POINTS + tuRestes(c) + '.';
+        return grisDuVerbe(c, verbeDeLaConsigne(c), function () { return jour() + DEUX_POINTS + auPalier(); }, null, null, court);
 
       case 'etirement':
         return ditPasDePlusPetitCran(f.equipement, true) + DEUX_POINTS + 'ta zone s\'étire. ' +
@@ -6289,13 +6421,9 @@
                    ' y passeront une à une, quand tu feras ') +
                nombreFr(f.seuil, regle('seuil')) + ' reps à ' + enKg(c.haut.charge, cH) + '.';
 
-      // §9.2 bis (49-U12) — une phrase : pourquoi la chute ne compte pas, et
-      // pourquoi pas de test tout de suite.
+      // §9.2 bis (49-U12), réécrit le 25/11/2026 (§9.2 ter) — pourquoi la dernière série ne change pas la cible, et pourquoi pas de test tout de suite.
       case 'tenue_apres_chute':
-        // 74 — sans chute sur les reps faites : le paragraphe de la rep de plus.
-        if (!f.chute) return pourquoiDeLaProgression(c);
-        return 'Ta dernière série a chuté après des séries stables' + DEUX_POINTS +
-               'c\'est la fatigue, pas ton niveau. Je ne la compte pas, et ' + tuRestes(c) + ' avant de tester plus lourd.';
+        return pourquoiDeLaTenue(c);
 
       case 'retest_un_cran':
         return rateDit() + ' Ta charge de travail est au haut' + DEUX_POINTS +
@@ -11462,7 +11590,8 @@
     // reste : ce qui suit lit la consigne plafonnée.
     var consigne = consigneApresAFond(seances, avant,
       { reglage: o.reglage, equipement: o.equipement, correction: o.correction || null,
-        lestReponse: o.lestReponse, lestPossible: o.lestPossible, salle: o.salle || null, rallonge: o.rallonge || null, echelle: o.echelle === true });
+        lestReponse: o.lestReponse, lestPossible: o.lestPossible, salle: o.salle || null, rallonge: o.rallonge || null, echelle: o.echelle === true,
+        plancherDesChutes: true });   // §9.2 ter : le plancher de la dernière série ne vit que dans CETTE consigne (jamais le compteur, le bord, `consigneDeLaSeance`)
     // §9.10 (53-1) — LA ZONE A CHANGÉ depuis la dernière séance : la charge se
     // reporte (la plus basse de la charge déjà tenue et de l'estimation, au bas
     // de la zone). Une seule fois, ici : tout ce qui suit lit cette consigne.

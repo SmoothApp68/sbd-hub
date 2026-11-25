@@ -1,0 +1,41 @@
+Banc de rejeu du fil (chantier « Le coach en un fil », lot 1, 25/11/2026)
+OUTIL DE CHANTIER : il n'est PAS dans la CI et ne se lance pas dans `npm test`. Il vit dans v2-atelier/ (la garde de publication
+n'admet que l'app dans v2/). Aucune dépendance : node seul. Un processus à la fois (7 Go de mémoire) ; un tour dure 2 à 3 minutes.
+
+Principe. Des histoires de séances sont rejouées contre DEUX versions de v2/js/ : A (la base : v2/js/ du dépôt, ou --base) et B (--contre).
+Chaque variante joue SA trajectoire (la personne suit la consigne de la variante, tirage fixe par histoire et par séance). À chaque séance
+on compare une signature : état, ligne, haut, zone, phrase d'en-tête, réserve affichée, clés du fondement, TEXTE des erreurs de
+verifierPlan, paris ratés. Pour les cas ajoutés, la signature porte aussi la partie du plan que le cas exerce.
+Code de retour : 0 si aucun écart, 1 sinon.
+
+Commandes (depuis la racine du dépôt) :
+  node v2-atelier/banc/rejeu-fil/banc.js --contre <dossier js>        B contre la base ; « main contre main » : --contre v2/js
+  npm run rejeu-fil -- --contre <dossier js>                           la même chose
+  node v2-atelier/banc/rejeu-fil/banc.js --muter [--filtre <regex>]    mutations.json, une à la fois, sur une copie de la base
+  options : --base <dossier js> · --n 200 · --graine 20261125 · --erreurs (séances en erreur de verifierPlan, par invariant)
+            · --couverture (les états joués) · --fixture <fichier.json>
+Préparer une version à comparer : git archive <commit> v2/js | tar -x -C <dossier vide>, puis --contre <dossier vide>/v2/js.
+
+Les histoires. 200 tirées + 120 dirigées (scripts : légère faite à P, zéro au-dessus de P, séance ratée entre deux zéros, retour,
+saut de plusieurs crans, reprise longue faite au-dessus, légère prise d'elle-même après une pause), puis les CAS AJOUTÉS (tirage à part,
+à la suite : les histoires d'origine jouent exactement ce qu'elles jouaient) :
+  corps       tractions au poids du corps (charge 0, reps seules)           aide        tractions assistées (charge négative)
+  elastique   une salle d'élastiques (crans 10 à 30)                        lest        poids du corps, reps hautes, `lestReponse` null / oui / non
+  decharge    une séance sur quatre dans une semaine allégée (`allegee`)    veille      une activité dure la veille, `veilleChoix` null / leger / garder
+  test        une séance sur trois en semaine de test (barre testée)
+Restent aveugles (non faits, lot 1 : chacun dépasse les 300 lignes) : les chauffes (`propositionDeChauffes`) et les supersets (`tours`).
+Les cas sont joués sur une barre seule : le mélange de plusieurs exercices dans une séance n'est pas rejoué.
+
+Mutations (mutations.json, 29 + 1 témoin) : { nom, fichier (relatif à v2/js/), ancien (exactement une fois), nouveau, temoin? }.
+Tuée si au moins 5 histoires diffèrent ; le témoin (un commentaire change) doit survivre. Une mutation dont le texte n'est plus trouvé
+exactement une fois est « non appliquée » (code de retour 1) : à réécrire quand le code change. c1 à c5 sont celles des cas ajoutés
+(décharge, veille × 2, lestReponse, semaine de test).
+
+Rejeu sur de vraies données (Claude.ai, hors dépôt) : --fixture <fichier.json> remplace les histoires tirées par de vraies séances.
+Aucune personne simulée : à chaque séance la consigne et le plan sont calculés sur les séances d'avant. Format :
+  { "histoires": [ { "id": "squat", "slug": "squat_barre", "equipement": "barre", "mesure": "charge_reps", "pas": 2.5,
+                     "famille": "squat_barre", "zone": null, "reglage": "franc", "age": null, "debutant": false, "protegee": false, "nseries": 3,
+                     "seances": [ { "debut": "2026-03-02T17:00:00Z",
+                                    "series": [ { "charge_kg": 100, "reps": 5, "rpe": 8, "type_serie": "travail", "validee_a": "2026-03-02T17:30:00Z" } ] } ] } ] }
+Champs facultatifs : nom, kg, salle ({ materiel: "elastique", charges: [...], aide }), rang, ressenti. Aucune donnée personnelle dans le dépôt :
+la fixture reste à côté, jamais commitée.

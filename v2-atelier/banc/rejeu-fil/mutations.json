@@ -1,0 +1,183 @@
+[
+ {
+  "nom": "mu1 — annule #748 (le retour relève le jeton)",
+  "fichier": "moteur.js",
+  "ancien": "if (jeton !== null && !estRetour && ",
+  "nouveau": "if (jeton !== null && "
+ },
+ {
+  "nom": "mu2 — un protégé reçoit un jour sans",
+  "fichier": "moteur.js",
+  "ancien": "if (protegee || jeton !== null || !Z",
+  "nouveau": "if (jeton !== null || !Z"
+ },
+ {
+  "nom": "mu3 — plancher de réserve des protégés à 0 (I160)",
+  "fichier": "moteur.js",
+  "ancien": "var RESERVE_PLANCHER = 2;",
+  "nouveau": "var RESERVE_PLANCHER = 0;"
+ },
+ {
+  "nom": "mu4 — plus aucune reprise (P7)",
+  "fichier": "moteur.js",
+  "ancien": "var FACTEUR_COUPURE = 3;",
+  "nouveau": "var FACTEUR_COUPURE = 3000;"
+ },
+ {
+  "nom": "mu5 — I152 : une séance lue suffit au jour sans",
+  "fichier": "moteur.js",
+  "ancien": "var JOUR_SANS_LUES = 2;",
+  "nouveau": "var JOUR_SANS_LUES = 1;"
+ },
+ {
+  "nom": "mu6 — plus de plafond après un zéro (I155)",
+  "fichier": "moteur.js",
+  "ancien": "  function plafonner(r, seances, avant, options) {\n    var opt = options || {};",
+  "nouveau": "  function plafonner(r, seances, avant, options) {\n    return r;\n    var opt = options || {};"
+ },
+ {
+  "nom": "mu7 — la règle B ne consomme plus le jeton (#748, règle 3)",
+  "fichier": "moteur.js",
+  "ancien": "else if (dejaOuvert) jeton = null;",
+  "nouveau": ";"
+ },
+ {
+  "nom": "mu8 — la phrase « Ta cible passe à » devient « Ta cible : »",
+  "fichier": "moteur.js",
+  "ancien": "(v.baisse ? 'Ta cible passe à ' : 'Ta cible : ')",
+  "nouveau": "('Ta cible : ')"
+ },
+ {
+  "nom": "mu9 — le seuil « facile » de la réserve (V + 2 → V + 3)",
+  "fichier": "moteur.js",
+  "ancien": "var RESERVE_ECART = 2;",
+  "nouveau": "var RESERVE_ECART = 3;"
+ },
+ {
+  "nom": "mu10 — le seuil du plancher des chutes (−2 → −3)",
+  "fichier": "moteur.js",
+  "ancien": "var PERTE_DE_FIN = 2;",
+  "nouveau": "var PERTE_DE_FIN = 3;"
+ },
+ {
+  "nom": "mu11 — les paris ratés à la suite (faits.js : la moitié comprise)",
+  "fichier": "faits.js",
+  "ancien": "if (manques.length * 2 <= liste[i].paris.length) break;",
+  "nouveau": "if (manques.length * 2 < liste[i].paris.length) break;"
+ },
+ {
+  "nom": "mu12 — la reprise longue à 840 jours",
+  "fichier": "moteur.js",
+  "ancien": "var SEUIL_REPRISE_LONGUE = 84;",
+  "nouveau": "var SEUIL_REPRISE_LONGUE = 840;"
+ },
+ {
+  "nom": "n1 légère faite à la charge de travail ou au-dessus reste neutre",
+  "fichier": "moteur.js",
+  "ancien": "if (memo[t] === true && chargeDeLaSeance(se) < ouvert.palier - 1e-9 && legerePasse",
+  "nouveau": "if (memo[t] === true && legerePasse"
+ },
+ {
+  "nom": "n2 le jeton se relève même sur une séance ratée (YO-YO règle 2)",
+  "fichier": "moteur.js",
+  "ancien": "(jeton.zoneBas === null || jeton.zoneBas === undefined || legerePasse(se, jeton.zoneBas))) jeton = null;",
+  "nouveau": "true) jeton = null;"
+ },
+ {
+  "nom": "n3 AGE_PLAFOND_BAS 65 → 75",
+  "fichier": "moteur.js",
+  "ancien": "var AGE_PLAFOND_BAS = 65, AGE_UN_CRAN = 50;",
+  "nouveau": "var AGE_PLAFOND_BAS = 75, AGE_UN_CRAN = 50;"
+ },
+ {
+  "nom": "n4 FACTEUR_COUPURE 3 → 4",
+  "fichier": "moteur.js",
+  "ancien": "var FACTEUR_COUPURE = 3;",
+  "nouveau": "var FACTEUR_COUPURE = 4;"
+ },
+ {
+  "nom": "n5 un zéro au-dessus de la charge de travail ouvre un jour sans",
+  "fichier": "moteur.js",
+  "ancien": "if (P === null || !(P > 0) || Ch > P + 1e-9) return null;",
+  "nouveau": "if (P === null || !(P > 0)) return null;"
+ },
+ {
+  "nom": "n6 SEUIL_REPRISE_LONGUE 84 → 98",
+  "fichier": "moteur.js",
+  "ancien": "var SEUIL_REPRISE_LONGUE = 84;",
+  "nouveau": "var SEUIL_REPRISE_LONGUE = 98;"
+ },
+ {
+  "nom": "n7 plancher du soulevé 2 → 1",
+  "fichier": "moteur.js",
+  "ancien": "var PLANCHER_DE_BARRE = { squat: 1, couche: 1, militaire: 1, souleve: 2 };",
+  "nouveau": "var PLANCHER_DE_BARRE = { squat: 1, couche: 1, militaire: 1, souleve: 1 };"
+ },
+ {
+  "nom": "n8 la tenue après une chute vaut à chaque fois (plus « une fois de suite »)",
+  "fichier": "moteur.js",
+  "ancien": "recue = servie && !recue;",
+  "nouveau": "recue = false;"
+ },
+ {
+  "nom": "n9 PLAFOND_SAUT_DEBUTANT 0,10 → 0,15",
+  "fichier": "moteur.js",
+  "ancien": "var PLAFOND_SAUT_DEBUTANT = 0.10;",
+  "nouveau": "var PLAFOND_SAUT_DEBUTANT = 0.15;"
+ },
+ {
+  "nom": "n10 capaciteTenue : la reprise longue n'est plus exclue",
+  "fichier": "moteur.js",
+  "ancien": "if (x.apresZero === true || x.protegee === true || x.repriseLongue === true) return false;",
+  "nouveau": "if (x.apresZero === true || x.protegee === true) return false;"
+ },
+ {
+  "nom": "n11 le retour vise le niveau, sans le borner à la ligne",
+  "fichier": "moteur.js",
+  "ancien": "var vise = memeCharge(ch, P) && vi !== null && vi >= 1 ? Math.min(niv, vi) : niv;",
+  "nouveau": "var vise = niv;"
+ },
+ {
+  "nom": "n12 (lot 6) une passe unique : la légère se lit sur les séries, sans la consigne reçue (memo)",
+  "fichier": "moteur.js",
+  "ancien": "if (memo[t] === true && chargeDeLaSeance(se) < ouvert.palier - 1e-9 && legerePasse",
+  "nouveau": "if (chargeDeLaSeance(se) < ouvert.palier - 1e-9 && legerePasse"
+ },
+ {
+  "nom": "c1 — décharge : 2 reps de moins deviennent 3 (REPS_EN_MOINS, allegee)",
+  "fichier": "moteur.js",
+  "ancien": "var REPS_EN_MOINS = 2;",
+  "nouveau": "var REPS_EN_MOINS = 3;"
+ },
+ {
+  "nom": "c2 — veille : « plus léger » à 98 % au lieu de 95 % (VEILLE_LEGERE_PCT)",
+  "fichier": "moteur.js",
+  "ancien": "var VEILLE_LEGERE_PCT = 0.95;",
+  "nouveau": "var VEILLE_LEGERE_PCT = 0.98;"
+ },
+ {
+  "nom": "c3 — veille : la baisse permise passe de 10 % à 2 % (VEILLE_LEGERE_MAX_BAISSE)",
+  "fichier": "moteur.js",
+  "ancien": "var VEILLE_LEGERE_MAX_BAISSE = 0.10;",
+  "nouveau": "var VEILLE_LEGERE_MAX_BAISSE = 0.02;"
+ },
+ {
+  "nom": "c4 — lestReponse : la réponse à la carte du lest n'est plus lue",
+  "fichier": "moteur.js",
+  "ancien": "var lestReponse = opt.lestReponse === 'oui' || opt.lestReponse === 'non' ? opt.lestReponse : null;",
+  "nouveau": "var lestReponse = null;"
+ },
+ {
+  "nom": "c5 — semaine de test : le dernier jour de la semaine n'en est plus",
+  "fichier": "plan.js",
+  "ancien": "if (!jour || jour < T.debut || jour > T.fin) return null;",
+  "nouveau": "if (!jour || jour < T.debut || jour >= T.fin) return null;"
+ },
+ {
+  "nom": "témoin — un commentaire change (doit SURVIVRE)",
+  "fichier": "moteur.js",
+  "ancien": "// 12 semaines, INCLUSES dans la courte",
+  "nouveau": "// 12 semaines (témoin)",
+  "temoin": true
+ }
+]

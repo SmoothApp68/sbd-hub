@@ -7517,8 +7517,13 @@
       delete routinesHeritees[cle];
       return n;
     }
+    // Bancs aléatoires (25/11/2026) — LA ROUTINE FIGÉE SURVIT À UN RECALCUL. Une consigne recalculée (zone ou mode corrigés, ligne de
+    // zone d'un bloc) relisait les lignes VIVANTES, déjà allégées : « 1 série au lieu de 2 » (3 → 2 → 1). Le compte déjà figé pour
+    // cet exercice, dans cette séance, fait foi (`routinesFigees`, rempli à chaque sortie de `consigneDe`).
+    if (routinesFigees[cle] > 0) return routinesFigees[cle];
     return nombreDeSeriesDeTravail(slug);
   }
+  var routinesFigees = {};
 
   function consigneDe(slug) {
     if (!seance) return null;
@@ -7597,6 +7602,9 @@
         versionConsignes++;
         sauverConsignes();
       }
+    }
+    if (consignes.parSlug[slug] && consignes.parSlug[slug].seriesRoutine > 0 && seance) {
+      routinesFigees[seance.id + '|' + slug] = consignes.parSlug[slug].seriesRoutine;
     }
     return consignes.parSlug[slug];
   }

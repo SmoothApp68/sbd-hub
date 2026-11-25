@@ -2089,8 +2089,10 @@
     triees.forEach(function (se, i) {
       var t = instant(se.debut);
       if (se.zero) {
+        var dejaOuvert = jeton !== null;
         var el = jourSansOuvrable(triees, i, legeres, jeton, opt, protegee);
         if (el !== null) { ouverts[t] = Object.assign({ date: se.debut }, el); jeton = { charge: el.palier, zoneBas: el.zoneBas }; }
+        else if (dejaOuvert) jeton = null; // le zéro suivant a donné la règle B : le jeton est consommé (YO-YO-ZERO, règle 3)
         return;
       }
       var prec = i > 0 ? triees[i - 1] : null;
@@ -2104,9 +2106,10 @@
         // ordinaire, elle vote ; entre la ligne proposée et `P` (137,5 pour une ligne à 132,5 et `P` = 140), elle reste la légère (neutre).
         if (memo[t] === true && chargeDeLaSeance(se) < ouvert.palier - 1e-9 && legerePasse(se, ouvert.zoneBas)) { legeres[t] = { z: instant(prec.debut) }; return; }
       }
-      // Le jeton ne se lève que sur une séance RÉUSSIE à cette charge (jamais un retour raté : sous le bas de la zone, il ne clôt pas le jour sans) ;
-      // sans zone connue (`zoneBas` nul), la lecture d'avant : une séance au palier.
-      if (jeton !== null && se.neutre !== true && se.decharge !== true && nombre(se.palier) !== null && nombre(se.palier) >= jeton.charge - 1e-9 &&
+      // Le jeton ne se lève que sur une séance ORDINAIRE RÉUSSIE, quelle que soit sa charge (jamais un retour imposé, ni un neutre, une légère ou une décharge ; jamais sous le bas
+      // de la zone). Le retour imposé ne le relève pas : l'étape qui échoue (140 × 4) n'a pas été réussie. Sans zone connue (`zoneBas` nul), la lecture d'avant : une séance au palier.
+      var estRetour = !!prec && legeres[instant(prec.debut)] !== undefined;
+      if (jeton !== null && !estRetour && se.neutre !== true && se.decharge !== true && nombre(se.palier) !== null &&
           (jeton.zoneBas === null || jeton.zoneBas === undefined || legerePasse(se, jeton.zoneBas))) jeton = null;
     });
     return { legeres: legeres, ouverts: ouverts };

@@ -8579,6 +8579,8 @@
   // travail (`palier`, relu ici par une comparaison indépendante), ce qui était tenu dit au palier, et ses paris sont marqués `jourSans` (ils ne se comptent pas). Un `retour_jour_sans` :
   // la ligne EST la charge de travail ET son niveau (jamais au-dessus), aucune ligne haute ni zéro rep ; tout fait `jourSans` sans état de retour est une erreur. La séance légère ne
   // vote nulle part et un 2e zéro donne B, jamais un 2e jour sans : cela se lit sur l'HISTOIRE (le moteur), pas sur un plan — `v2-jour-sans.test.js`.
+  // YO-YO-ZERO (25/11/2026) : « le retour imposé ne relève jamais le jeton, une règle B le consomme » est de même une lecture d'HISTOIRE (le jeton n'existe pas dans un plan, il se rejoue
+  // depuis les séances) : pas de vérification ici, elle est jouée dans `v2-yoyo-zero.test.js`.
   function verifierJourSans(plan, e, erreurs) {
     ((plan && plan.exercices) || []).forEach(function (x, i) {
       var k = x && x.consigne;

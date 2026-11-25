@@ -89,10 +89,11 @@ describe('R2b — l\'histoire du squat (140 × 3, reculs 125 × 6 × 2, les 8 et
     expect(k.fondement.zeroRep.jourSans).toBeUndefined();
     expect(ligne(k)).toEqual([132.5, 4]);
   });
-  test('…mais après une séance réussie à 140, le jeton est levé : un nouveau zéro ouvre un nouveau jour sans', () => {
+  test('…et le retour imposé (140 × 3 réussi, YO-YO-ZERO règle 1) ne relève pas le jeton : le nouveau zéro donne la règle B, jamais un 2e jour sans', () => {
     const k = K([...h, zero(), legere(132.5, 4), bonne(), zero()]);
     expect(k.etat).toBe('zero_rep');
-    expect(k.fondement.zeroRep.jourSans).toBeDefined();
+    expect(k.fondement.zeroRep.jourSans).toBeUndefined();
+    expect(sp(M.libellesConsigne(k).gris)).toBe('140 kg × 0 : pas encore. Je baisse à 132,5 kg.');
   });
   test('si la séance légère rate SOUS la zone sans être à 0 (132,5 × 1) : une séance ordinaire (aucun retour, elle vote)', () => {
     const k = K([...h, zero(), legere(132.5, 1)]);

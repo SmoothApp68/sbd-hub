@@ -32659,7 +32659,7 @@ const SETS_IMPORTES = [
       ok('[OK] la case des reps a le focus', (await actif()) === 'reps', nb(await actif()));
       const nbSets = sets().length;
       await page.keyboard.press('Enter');
-      await attendre(700);
+      await attendreQue(async () => (await actif()) === null, 3000, 'okFermeLeClavier').catch(() => {});
       ok('[OK] Entrée ferme le clavier (la case perd le focus)', (await actif()) === null, nb(await actif()));
       ok('[OK] …et ne valide RIEN : aucune coche, aucune série montée, aucun repos armé',
         (await compter('.ok-serie.cochee')) === 0 && sets().length === nbSets &&

@@ -2515,7 +2515,10 @@
       var pf = plancherActif && zone !== null && ETATS_DU_PLANCHER[etat] === true && ligne && nombre(ligne.charge) !== null && memeCharge(nombre(ligne.charge), P)
         ? plancherDeFin(A, zone.haut) : null;
       if (pf !== null) {
-        if (ETATS_DE_TEST[etat] === true && !tenueDeFinRecue()) {
+        // Écart B (25/11/2026) : le test ne saute qu'en FRANC (le prix accepté de la règle). En Normal et en Prudent, `rendre` ne retire AUCUN test : la ligne et la phrase changent, le test d'un
+        // dépassement (séries au-dessus de la cible, la dernière à −2 de la première) reste proposé, comme avant #751.
+        // Une CHUTE (§9.2 bis) retire toujours le test, dans tous les réglages, comme avant #751 : seule sa ligne vient du plancher.
+        if (ETATS_DE_TEST[etat] === true && (reglage === 'franc' ? !tenueDeFinRecue() : chute !== null)) {
           etat = 'tenue_apres_chute';
           ligne = ligneDe(P, pf.vise);
           haut = null;

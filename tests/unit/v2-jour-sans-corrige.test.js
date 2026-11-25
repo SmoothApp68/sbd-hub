@@ -4,7 +4,7 @@
 // `v2-jour-sans.test.js` : squat, Normal, zone Lourd 3-5 ; 8 et 12 nov. 140 × 3 + reculs 125 × 6 ; 16 nov. le zéro ; 20 nov. la séance légère 132,5 × 4 ; 24 nov. le retour.
 //   1. une séance légère d'un jour sans ne sert jamais de palier de comparaison (`sansPalierRetenues`, 193-1) ;
 //   2. les rejeux de la consigne REÇUE (capacité tenue I252, règle de bord) lisent l'histoire avec ses drapeaux de zéro (`opt.brutes`) ;
-//   3. le jeton du jour sans ne se lève que sur une séance RÉUSSIE à la charge (jamais un retour raté).
+//   3. le jeton du jour sans ne se lève que sur une séance ORDINAIRE réussie (jamais un retour raté, ni, depuis YO-YO-ZERO du 25/11/2026, le retour imposé réussi).
 
 process.env.TZ = 'Europe/Paris';
 global.self = global;
@@ -73,7 +73,7 @@ describe('Défaut 2 — la consigne reçue rejouée connaît le jour sans (capac
   });
 });
 
-describe('Défaut 3 — le jeton du jour sans ne se lève que sur une séance réussie', () => {
+describe('Défaut 3 — le jeton du jour sans ne se lève que sur une séance ordinaire réussie (jamais le retour imposé)', () => {
   const b3 = () => [g(140, 3), g(140, 3), g(140, 3)];
   const z3 = () => [g(140, 0, 'echec'), g(140, 0, 'echec'), g(140, 0, 'echec')];
   const l3 = () => [g(132.5, 4), g(132.5, 4), g(132.5, 4)];
@@ -89,9 +89,11 @@ describe('Défaut 3 — le jeton du jour sans ne se lève que sur une séance r�
     const r = [g(140, 2, 'travail', 10), g(140, 1, 'travail', 10), g(140, 1, 'travail', 10)];
     expect(jourSans(K([b3(), b3(), z3(), l3(), r, z3()]))).toBe(false);
   });
-  test('0, légère, retour RÉUSSI (140 × 3), 0 : le jeton est levé, un nouveau jour sans', () => {
+  test('0, légère, retour RÉUSSI (140 × 3), 0 : le retour imposé ne relève pas le jeton (YO-YO-ZERO règle 1), la règle B, jamais un 2e jour sans', () => {
     const k = K([b3(), b3(), z3(), l3(), r3(3), z3()]);
-    expect(jourSans(k)).toBe(true);
+    expect(k.etat).toBe('zero_rep');
+    expect(jourSans(k)).toBe(false);
+    expect(gris(k)).toBe('140 kg × 0 : pas encore. Je baisse à 132,5 kg.');
   });
   test('0, légère, 0 : toujours la règle B (inchangé)', () => {
     expect(jourSans(K([b3(), b3(), z3(), l3(), z3()]))).toBe(false);

@@ -11192,6 +11192,10 @@
 
 
   // ── L'écran ─────────────────────────────────────────────────────────────
+  // Lot 3 (changement 5) — UNE action, deux boutons : celui de la barre du haut et celui du bas de la liste (`#btn-terminer-bas`)
+  // appellent cette fonction, jamais une copie : « Enregistrer » en correction d'une séance passée, la feuille de fin sinon.
+  function terminerOuEnregistrer() { if (enEdition()) return enregistrerEdition(); confirmerFin(); }
+
   function rendreSeance() {
     montrer('seance', Routeur.SAISIE);
     reactionPerimee = false;
@@ -11220,7 +11224,7 @@
         ouvrirReorganisation();
       },
       surAnnulerSelection: function () { selectionGroupe = null; rendreSeance(); },
-      surTerminer: function () { if (enEdition()) return enregistrerEdition(); confirmerFin(); },
+      surTerminer: terminerOuEnregistrer,
       // 204 — « ⌄ » réduit la séance : les onglets reviennent (la séance reste en cours : l'onglet Saisie, son point et la carte
       // « Prochaine séance » y ramènent). Le « ⋯ » porte « Modifier » et « S'entraîner ensemble ».
       surReduire: function () {
@@ -11229,6 +11233,13 @@
       },
       surMenu: function () { ouvrirFeuilleMenuSeance(); }
     });
+    // Lot 3 (changement 5) — « Terminer » aussi en bas de la liste ; absent là où le bandeau n'a pas le sien (« Terminé » du mode
+    // Modifier, « Grouper avec… »), et « Enregistrer » en correction.
+    var bas = $('btn-terminer-bas');
+    if (bas) {
+      bas.hidden = !!modeModifier || !!selectionGroupe;
+      bas.textContent = enEdition() ? 'Enregistrer' : 'Terminer';
+    }
     // 62 — la barre vient d'être (re)dessinée : sa hauteur est définitive, et la
     // durée repart de l'heure juste.
     mesurerBarres();
@@ -21042,6 +21053,7 @@
     // Sans argument : l'exercice se pose À LA FIN. Insérer après un bloc précis
     // reste le fait du menu de bloc, qui passe un vrai indice.
     $('btn-ajouter-exo-seance').addEventListener('click', function () { ouvrirCatalogue(); });
+    $('btn-terminer-bas').addEventListener('click', terminerOuEnregistrer);   // lot 3 (changement 5) : la même action que le haut
     $('btn-fermer-feuille').addEventListener('click', fermerVoile);
     $('feuille-seance').addEventListener('click', function (e) { if (e.target === this) fermerVoile(); });
 

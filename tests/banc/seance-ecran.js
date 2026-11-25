@@ -18911,6 +18911,28 @@ const SETS_IMPORTES = [
       haltes.every((h) => h.y > 0 && Math.abs(h.haut) <= 1), JSON.stringify(haltes));
     ok('[barre] et « Terminer » est toujours à l’écran, atteignable (rien ne le recouvre)',
       haltes.every((h) => h.finVisible && /bandeau-fin/.test(h.sous || '')), JSON.stringify(haltes));
+    // Lot 3 (changement 5) — « Terminer » AUSSI en bas de la liste : tout en bas, il est à l'écran, rien ne le recouvre (ni la barre de
+    // repos, ni les onglets), et c'est la même action que celui du haut (la même feuille de fin).
+    await defiler(max0);
+    const bas = await page.evaluate(() => {
+      const b = document.getElementById('btn-terminer-bas');
+      const r = b.getBoundingClientRect();
+      const n = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      const repos = document.getElementById('repos');
+      const rr = repos && !repos.hidden ? repos.getBoundingClientRect() : null;
+      return { texte: b.textContent, visible: r.height > 0 && r.top >= 0 && r.bottom <= window.innerHeight,
+        recouvert: n !== b, sousLeRepos: !!rr && r.bottom > rr.top + 1, repos: !!rr, principal: b.classList.contains('principal') };
+    });
+    ok('[lot 3] « Terminer » en bas de la liste : visible tout en bas, jamais recouvert (ni par la barre de repos, ni par les onglets)',
+      bas.texte === 'Terminer' && bas.visible && !bas.recouvert && !bas.sousLeRepos && bas.principal, JSON.stringify(bas));
+    await page.click('#btn-terminer-bas');
+    await jusqua(async () => /^Terminer la séance/.test(await texte('#feuille-contenu .feuille-t')), 5000, 'lot 3: feuille depuis le bas');
+    const memeFeuille = await page.evaluate(() => ({ principal: document.querySelectorAll('#feuille-contenu .principal').length,
+      abandon: Array.from(document.querySelectorAll('#feuille-contenu button')).some((b) => /^Abandonner/.test(b.textContent)) }));
+    // (la séance de ce banc n'a aucune série validée : c'est la feuille « rien à enregistrer » de 137, la même que celle du haut)
+    ok('[lot 3] le « Terminer » du bas ouvre la MÊME feuille de fin que celui du haut', memeFeuille.principal === 1 && memeFeuille.abandon, JSON.stringify(memeFeuille));
+    await page.click('#btn-fermer-feuille');
+    await page.waitForFunction(() => document.getElementById('feuille-seance').hidden, null, { timeout: 5000 });
     await defiler(0);
 
     // ── D. LA DURÉE AVANCE TOUTE SEULE — avec le vrai réveil du navigateur.

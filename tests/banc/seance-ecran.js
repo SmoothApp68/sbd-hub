@@ -12213,7 +12213,8 @@ const SETS_IMPORTES = [
     const MOIS_U14 = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
     const bandeauAttendu = (jourDebut) => {
       const f = new Date(jourDebut.getFullYear(), jourDebut.getMonth(), jourDebut.getDate() + 6);
-      return 'Décharge jusqu’au ' + f.getDate() + ' ' + MOIS_U14[f.getMonth()] +
+      // « 1er » le 1er du mois, comme `Modele.quantieme` (échec du 25/11/2026 : la décharge finissait le 1er déc.).
+      return 'Décharge jusqu’au ' + (f.getDate() === 1 ? '1er' : f.getDate()) + ' ' + MOIS_U14[f.getMonth()] +
         ' : moins de séries, avec de la marge.';
     };
     const lireEscalier = () => page.evaluate(() => {

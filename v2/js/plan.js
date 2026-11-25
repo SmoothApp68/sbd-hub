@@ -3783,11 +3783,23 @@
   // HORS COMPTE, toujours visible : ce qui annonce une décision DÉJÀ PRISE (chauffes posées et leur « Annuler », silence des chauffes, plafond après un zéro, « Cible faite » / « Pas encore »,
   // « La prochaine fois », le bandeau de la Décharge, la série de plus ou de moins acceptée, le nom et la puce de zone). Une décision appliquée n'est JAMAIS une carte en attente.
   // Le plan décide ; l'écran obéit (`x.file`, `x.tete`) et ne calcule rien. I269 à I271 le relisent.
-  var ORDRE_DE_LA_FILE = ['reprise', 'forme', 'paris', 'calage', 'autre', 'veille', 'chauffes'];
+  // 25/11/2026 (« La semaine de test entre dans la file », ECRAN-SAISIE §7 quinvicies quater, delta) : la famille `test` (la carte de la semaine de mesure, quand elle porte des GESTES)
+  // prend sa place APRÈS la reprise et la veille : une barre qui revient d'une douleur ne se teste pas ; la personne qui allège aujourd'hui (veille d'une activité dure) répond à cela d'abord, la
+  // question du test vient après. `veille` quitte donc sa place d'avant (entre `autre` et `chauffes`) pour passer devant `test`, `forme`, `paris`, `calage` et `autre`.
+  var ORDRE_DE_LA_FILE = ['reprise', 'veille', 'test', 'forme', 'paris', 'calage', 'autre', 'chauffes'];
+  // La carte de la semaine de test porte-t-elle un GESTE (« Ajouter l'essai suivant », « Plutôt viser mon max », « Arrêter le test », « Pas aujourd'hui », « Annuler les lignes ») ? Les variantes
+  // `pasDEssai`, `pasDeTest`, `accessoire` et une barre finie ou arrêtée sont du texte ou un constat : jamais une décision en attente, jamais dans la file. Même lecture que `carteDeTest` (rendu.js).
+  function carteDeTestAGestes(t) {
+    if (!t || t.testee !== true || t.pasDEssai || t.pasDeTest || t.accessoire) return false;
+    var enCours = t.etat === 'a_faire' || t.etat === 'en_cours';
+    var essais = !!(t.essais && t.essais.length);
+    return !!(t.ajout || t.videsPosees || (enCours && (!essais || t.mode === 'max')));
+  }
   // Les cartes EN ATTENTE d'une réponse sur un exercice, par famille : la lecture unique (le plan la pose, I271 la recalcule à part).
   function cartesPresentesDe(plan, x) {
     return {
       reprise: !!x.carteReprise,
+      test: carteDeTestAGestes(x.semaineDeTest),
       forme: !!x.carteForme,
       paris: !!(x.parisRates && x.parisRates.carte),
       calage: !!(x.calage && x.calage.demandeHabituelle),
@@ -8313,12 +8325,12 @@
   //         (décharge) ; jamais un autre texte, jamais un chiffre que le gris ne dit pas, jamais sans gris.
   //   I270  la tête compte trois éléments au plus (la consigne, UNE ligne grise, UN troisième : le compteur, sinon le « Pendant ce temps ») ; les deux phrases qui partent à la feuille (le
   //         « ≈ » développé, la raison de la chauffe) y sont bien, mot pour mot, et restent dans la tête ou la carte quand il n'y a pas de feuille.
-  //   I271  une seule carte de décision à la fois, dans l'ordre reprise → forme du jour → « un cran dessous » → calage → autres questions → veille → chauffes ; les autres attendent ; une décision appliquée (chauffes posées,
+  //   I271  une seule carte de décision à la fois, dans l'ordre reprise → veille → test (à gestes) → forme du jour → « un cran dessous » → calage → autres questions → chauffes (25/11/2026 : le test entre, la veille passe devant) ; les autres attendent ; une décision appliquée (chauffes posées,
   //         silence, plafond) n'entre jamais dans la file.
   function verifierTete(plan, erreurs) {
     var norm = function (t) { return String(t || '').replace(/[\u00a0\u202f]/g, ' ').replace(/\s+/g, ' ').trim(); };
     var nombres = function (t) { return (norm(t).match(/\d+(?:,\d+)?/g) || []); };
-    var NOMS = ['reprise', 'forme', 'paris', 'calage', 'autre', 'veille', 'chauffes'];
+    var NOMS = ['reprise', 'veille', 'test', 'forme', 'paris', 'calage', 'autre', 'chauffes'];
     ((plan && plan.exercices) || []).forEach(function (x, i) {
       if (!x) return;
       var nom = ' — exercice ' + i + ' (' + x.slug + ') : ';
@@ -8355,6 +8367,11 @@
       if (!f || !Array.isArray(f.enAttente)) { erreurs.push('I271' + nom + 'aucune file de décision'); return; }
       var present = {};
       present.reprise = !!x.carteReprise;
+      // La carte du test : à gestes seulement (un état « en cours » ou « à faire » avec son bouton, une ligne vide posée, un ajout) ; recalculée depuis les champs du plan, pas depuis `x.file`.
+      (function () {
+        var st = x.semaineDeTest, cours = !!st && (st.etat === 'a_faire' || st.etat === 'en_cours'), ess = !!(st && st.essais && st.essais.length);
+        present.test = !!st && st.testee === true && !st.pasDEssai && !st.pasDeTest && !st.accessoire && !!(st.ajout || st.videsPosees || (cours && (!ess || st.mode === 'max')));
+      })();
       present.forme = !!x.carteForme;
       present.paris = !!(x.parisRates && x.parisRates.carte);
       present.calage = !!(x.calage && x.calage.demandeHabituelle);
@@ -10322,6 +10339,7 @@
   var api = {
     planDeSeance: planDeSeance,
     tetesDuPlan: tetesDuPlan,
+    carteDeTestAGestes: carteDeTestAGestes,
     ORDRE_DE_LA_FILE: ORDRE_DE_LA_FILE,
     lignesARetirer: lignesARetirer,
     // 236 (MOTEUR §9.39) — « Ajuster la fin à ma forme du jour » : les lignes à retirer, lues sur le plan

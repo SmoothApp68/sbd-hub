@@ -3196,7 +3196,7 @@
     var effet = null, phrase = null;
     if (R !== null && ev && ev.reserve === R && ev.visee === visee && memeChargeOuVides(ev.charge, s.charge_kg)) {
       effet = ev.effet;
-      phrase = Moteur().annonceDe('effort', { ev: ev, haut: k.haut || null, moment: 'apres', regime: suite.regime || null });
+      phrase = Moteur().annonceDe('effort', { ev: ev, consigne: k, haut: k.haut || null, moment: 'apres', regime: suite.regime || null });
     }
     // I254 (20/11/2026, MOTEUR §9.26 delta) — la capacité tenue sous la visée affichée : la ligne de fait, à la place de la garde qui n'a plus lieu (aucun `effet`).
     var cap = !ev && k && k.fondement && k.fondement.capacite ? k.fondement.capacite : null;

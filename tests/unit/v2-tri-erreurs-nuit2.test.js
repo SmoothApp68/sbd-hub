@@ -28,6 +28,43 @@ function rejouer(fichier) {
   return { k: R.consigne, x: p.exercices[0], erreurs: (T.verifierPlan(p, e).erreurs || []).map(String) };
 }
 
+describe('I252 — la consigne reçue peut viser au-dessus du haut de la zone (vérificateur relâché)', () => {
+  test('h82 (protégé, etirement 8 reçu, zone Lourd haut 5) : plus aucune erreur I252', () => {
+    const r = rejouer('tri-h82-etirement-vise-haut.json');
+    expect(r.k.fondement.effortVise.vise).toBeGreaterThan(5);
+    expect(r.erreurs.filter((s) => /^I252/.test(s))).toEqual([]);
+  });
+  test('h79 (zero_rep 7 reçu, zone Lourd haut 5) : plus aucune erreur I252, la visée n’est PAS bornée', () => {
+    const r = rejouer('tri-h79-garde-cible-baisse.json');
+    expect(r.k.fondement.effortVise.vise).toBe(7);
+    expect(r.erreurs.filter((s) => /^I252/.test(s))).toEqual([]);
+  });
+});
+
+describe('I272 — une garde sous la cible d’avant dit la baisse', () => {
+  test('h79 : verbe « borne », la phrase de garde finit par « Ta cible passe à 90 kg × 5. », aucune erreur', () => {
+    const r = rejouer('tri-h79-garde-cible-baisse.json');
+    expect(r.k.fondement.cibleAvant).toBe(7);
+    expect(r.x.verbe.verbe).toBe('borne');
+    expect(r.x.verbe.baisse).toBe(true);
+    expect(sp(r.x.entete.gris)).toBe('90 kg × 6, sans marge. Je garde 90 kg : encore une fois au haut de ta zone et je teste plus lourd. Ta cible passe à 90 kg × 5.');
+    expect(r.erreurs).toEqual([]);
+  });
+  test('h82 (protégé) : même phrase, « Ta cible passe à 100 kg × 5. »', () => {
+    const r = rejouer('tri-h82-etirement-vise-haut.json');
+    expect(r.x.verbe.verbe).toBe('borne');
+    expect(sp(r.x.entete.gris)).toMatch(/Je garde 100 kg .* Ta cible passe à 100 kg × 5\.$/);
+    expect(r.erreurs).toEqual([]);
+  });
+  test('témoin : une garde dont la ligne n’est PAS sous la cible d’avant garde « garde_charge » et ne dit pas de baisse', () => {
+    const J = require('./fixtures/tri-h79-garde-cible-baisse.json');
+    const c = JSON.parse(JSON.stringify(M.consigneDExercice(J.groupes, undefined, J.avant, { mesure: 'charge_reps', equipement: 'barre', intention: 'progresser', reglage: 'normal', edition: false, debutant: false, protegee: false, correction: 'lourd' }).consigne));
+    c.fondement.cibleAvant = 5;
+    expect(M.verbeDeLaConsigne(c).verbe).toBe('garde_charge');
+    expect(sp(M.libellesConsigne(c).gris)).not.toMatch(/Ta cible passe/);
+  });
+});
+
 describe('I255 — « jamais au-dessus du niveau » (plafond, pas égalité)', () => {
   const g = (kg, reps, t) => ({ charge_kg: kg, reps, type_serie: t || 'travail' });
   const jour = (i) => new Date(Date.UTC(2026, 10, 8 + i * 4, 18)).toISOString();
@@ -55,18 +92,5 @@ describe('I255 — « jamais au-dessus du niveau » (plafond, pas égalité)', (
     const r = jouer('volume', 13);
     r.p.exercices[0].consigne.ligne.vise = 14;
     expect(T.verifierPlan(r.p, r.e).erreurs.join('|')).toMatch(/I255.*jamais au-dessus du niveau d’avant/);
-  });
-});
-
-describe('I252 — la consigne reçue peut viser au-dessus du haut de la zone (vérificateur relâché)', () => {
-  test('h82 (protégé, etirement 8 reçu, zone Lourd haut 5) : plus aucune erreur I252', () => {
-    const r = rejouer('tri-h82-etirement-vise-haut.json');
-    expect(r.k.fondement.effortVise.vise).toBeGreaterThan(5);
-    expect(r.erreurs.filter((s) => /^I252/.test(s))).toEqual([]);
-  });
-  test('h79 (zero_rep 7 reçu, zone Lourd haut 5) : plus aucune erreur I252, la visée n’est PAS bornée', () => {
-    const r = rejouer('tri-h79-garde-cible-baisse.json');
-    expect(r.k.fondement.effortVise.vise).toBe(7);
-    expect(r.erreurs.filter((s) => /^I252/.test(s))).toEqual([]);
   });
 });

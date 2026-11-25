@@ -3826,9 +3826,13 @@
       x.file = { ordre: ORDRE_DE_LA_FILE.slice(), carte: retenue, enAttente: attente };
       var en = x.entete || {};
       // Le troisième élément : le compteur d'abord ; « Pendant ce temps » ne s'ajoute pas au compteur (il reste dans la feuille, `pourquoi.frere`).
-      var tiers = en.compteur ? 'compteur' : (en.frere ? 'frere' : null);
+      // 25/11/2026 — la ligne de puissance des 65 ans et plus (`plan.puissance`, MOTEUR §9.36) est la consigne d'exécution de la personne : quand elle est sur cet exercice elle PREND la place du
+      // troisième élément ; le compteur (ou le « Pendant ce temps ») n'est pas caché, il est dit au « Pourquoi ? » avec ses mots (`pourquoi.compteur`, `pourquoi.frere`). I270 la compte.
+      var puiss = !!(plan.puissance && plan.puissance.slug === x.slug);
+      var tiers = puiss ? null : (en.compteur ? 'compteur' : (en.frere ? 'frere' : null));
       var peutLaFeuille = !!x.pourquoi;
       x.tete = {
+        puissance: puiss,
         ligne: en.court ? 'court' : (en.gris ? 'gris' : null),
         tiers: tiers,
         // Les deux phrases qui quittent la tête pour la feuille, quand une feuille existe (sinon elles restent là où elles étaient : rien d'annoncé n'est caché).
@@ -8349,10 +8353,15 @@
       // I270
       var t = x.tete;
       if (!t || typeof t !== 'object') { erreurs.push('I270' + nom + 'aucune tête calculée par le plan'); return; }
-      var tiers = en.compteur ? 'compteur' : (en.frere ? 'frere' : null);
+      var puissance = !!(plan.puissance && plan.puissance.slug === x.slug);
+      var tiers = puissance ? null : (en.compteur ? 'compteur' : (en.frere ? 'frere' : null));
       if (t.tiers !== tiers) erreurs.push('I270' + nom + 'le troisième élément de la tête est « ' + t.tiers + ' », il devrait être « ' + tiers + ' »');
-      var compte = ((en.jaune || []).length ? 1 : 0) + ((en.court || en.gris) ? 1 : 0) + (t.tiers ? 1 : 0);
+      // 25/11/2026 — la ligne de puissance (65 ans et plus, `plan.puissance`) est dans la tête de son exercice : elle se compte, relue sur le plan et non sur `t.puissance`.
+      if (t.puissance !== puissance) erreurs.push('I270' + nom + 'la ligne de puissance est ' + (t.puissance ? 'comptée' : 'non comptée') + ' dans la tête alors qu’elle ' + (puissance ? 'y est' : 'n’y est pas'));
+      var compte = ((en.jaune || []).length ? 1 : 0) + ((en.court || en.gris) ? 1 : 0) + (t.tiers ? 1 : 0) + (puissance ? 1 : 0);
       if (compte > 3) erreurs.push('I270' + nom + 'la tête compte ' + compte + ' éléments');
+      if (puissance && en.compteur && !(x.pourquoi && x.pourquoi.compteur === en.compteur)) erreurs.push('I270' + nom + 'le compteur quitte la tête pour la ligne de puissance sans être au « Pourquoi ? » mot pour mot');
+      if (puissance && en.frere && !(x.pourquoi && x.pourquoi.frere)) erreurs.push('I270' + nom + 'le « Pendant ce temps » quitte la tête pour la ligne de puissance sans être au « Pourquoi ? »');
       if (en.compteur && en.frere && !(x.pourquoi && x.pourquoi.frere)) erreurs.push('I270' + nom + 'le « Pendant ce temps » quitte la tête sans être au « Pourquoi »');
       var phr = x.approchee && x.approchee.phrase ? x.approchee.phrase : null;
       if (phr) {
@@ -8384,6 +8393,9 @@
       if (f.enAttente.join('|') !== reste.join('|')) erreurs.push('I271' + nom + 'les cartes en attente sont « ' + f.enAttente.join(', ') + ' », elles devraient être « ' + reste.join(', ') + ' »');
       if (f.ordre.join('|') !== NOMS.join('|')) erreurs.push('I271' + nom + 'l’ordre de la file n’est pas celui de la règle');
       if ((x.chauffesPosees || x.silenceChauffes) && (f.carte === 'chauffes' || f.enAttente.indexOf('chauffes') >= 0)) erreurs.push('I271' + nom + 'une décision appliquée (chauffes posées ou silence) est entrée dans la file');
+      // 25/11/2026 — l'essai de la marche (« C'est fait … », « Annuler ») est une décision DÉJÀ PRISE (le geste « Essayer » l'a posée) : hors file, comme les chauffes posées. Une marche essayée ne laisse
+      // jamais la carte de la marche en attente (famille `autre`) ; l'exemption est dite ici, pas laissée au hasard de la liste des familles.
+      if (x.essaiMarche && x.carteMarche) erreurs.push('I271' + nom + 'une décision appliquée (marche essayée) est encore une carte de la file (la carte de la marche)');
     });
   }
   // I167 (chantier « Les mots disent vrai », PR 5a-bis, MOTEUR §9.48 bis) — LA SUITE LIT AUJOURD'HUI. Quand une charge est répétée aujourd'hui (au moins deux

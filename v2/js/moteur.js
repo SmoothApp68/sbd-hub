@@ -5456,7 +5456,9 @@
     }
     if (fam === 'progression' || fam === 'reprise') {
       if (f.plafondReps) return r;                                                    // le plafond sans lest : un fait, pas un verbe
-      if (c.etat === 'progression' && f.effortVise && f.effortVise.effet === 'garde') { r.verbe = VERBES.GARDE_CHARGE; }
+      // 26/11/2026 (I272 sens 3) : une garde dont la ligne est SOUS la cible d'avant fait BAISSER la cible : le verbe est `borne` (« ta cible passe à »), jamais `garde_charge`.
+      var cibleGardee = nombre(f.cibleAvant);
+      if (c.etat === 'progression' && f.effortVise && f.effortVise.effet === 'garde' && !(cibleGardee !== null && vise !== null && vise < cibleGardee)) { r.verbe = VERBES.GARDE_CHARGE; }
       else if (vise === null || niv === null) { return r; }
       else {
         // §9.2 ter (25/11/2026) — « une rep de plus » ne se dit que devant une visée qui dépasse ce qui a été FAIT ET ce qui a été DEMANDÉ. Ce qui a été fait : le niveau validé, ou,
@@ -5687,11 +5689,17 @@
     if (!ev && d.capacite && d.moment !== 'aujourdhui') return phraseDeLaCapacite(d.capacite);
     if (!ev) return null;
     if (d.moment === 'aujourdhui') {
-      if (ev.effet === 'garde') return phraseDeLaGarde(ev);
+      if (ev.effet === 'garde') return phraseDeLaGarde(ev, false, cibleQuiBaisse(d.consigne, CIBLE));
       if (ev.sortie === true) return phraseDeLaSortie(ev, haut, true);
       return null;
     }
-    return phraseEffortVise(ev, haut, d.regime || null);
+    return phraseEffortVise(ev, haut, d.regime || null, cibleQuiBaisse(d.consigne, SUIVANTE));
+  }
+  // 26/11/2026 (I272 sens 3) — la ligne que la garde annonce quand la cible BAISSE (le verbe `borne` de la consigne, `verbeDeLaConsigne`, la seule source), sinon `null`.
+  function cibleQuiBaisse(c, nature) {
+    if (!c || !c.ligne) return null;
+    var v = verbeDeLaConsigne(c);
+    return v && v.baisse === true ? ligneDeLaConsigne(c, nature) : null;
   }
 
   // I254 (20/11/2026, MOTEUR §9.26 delta, VOIX-DU-COACH-V1) — « 100 kg × 7, sans marge : 2 de plus que prévu. » (l'écart aux reps de la consigne REÇUE) ; sur une
@@ -5708,7 +5716,7 @@
     return d;
   }
   // 154 — « 130 kg × 5, sans marge. Je garde 130 kg la prochaine fois. » (R < V, la montée n'a pas lieu).
-  function phraseDeLaGarde(e, sansPromesse) {
+  function phraseDeLaGarde(e, sansPromesse, cibleBaisse) {
     var cF = cite(FAIT, { quoi: 'effort_vise' });
     var cR = cite(FAIT, { quoi: 'effort_vise.reserve' });
     var cC = cite(FAIT, { quoi: 'effort_vise.charge' });
@@ -5718,8 +5726,10 @@
     if (sansPromesse === true) return debut + '.';
     debut += '. Je garde ' + enKg(e.charge, cC);
     // 169 — au haut de la zone, la garde ne dure qu'une fois, et la phrase le dit ; sous le haut, la rep de plus reste la voie.
-    return e.auHaut === false ? debut + ' la prochaine fois.'
+    debut = e.auHaut === false ? debut + ' la prochaine fois.'
       : debut + ' : encore une fois au haut de ta zone et je teste plus lourd.';
+    // 26/11/2026 — une cible qui baisse ne se tait jamais (§9.2 ter) : « Ta cible passe à 90 kg × 5. »
+    return typeof cibleBaisse === 'string' && cibleBaisse !== '' ? debut + ' Ta cible passe à ' + cibleBaisse + '.' : debut;
   }
   // 169 — LA SORTIE DITE : « Deux fois 30 kg × 10 au haut de ta zone. La prochaine fois : on teste 32,5 kg × 8. » `haut` : la
   // ligne haute de la consigne (`{ charge, vise, approchee }`), ou une charge seule.
@@ -5736,10 +5746,10 @@
   // prochaine fois, on essaie 36 kg. » / « 130 kg × 5, sans marge. Je garde 130 kg : encore une fois au haut de ta zone et
   // je teste plus lourd. » `ev` : le fait `effortVise` de la consigne suivante ; `haut` : la ligne haute du test qu'elle
   // pose (ou sa charge). `null` : rien à dire.
-  function phraseEffortVise(ev, haut, regime) {
+  function phraseEffortVise(ev, haut, regime, cibleBaisse) {
     if (!ev) return null;
     var sans = !!regime;
-    if (ev.effet === 'garde') return phraseDeLaGarde(ev, sans);
+    if (ev.effet === 'garde') return phraseDeLaGarde(ev, sans, cibleBaisse);
     var charge = haut !== null && typeof haut === 'object' ? haut.charge : haut;
     if (ev.effet !== 'test' || charge === null || charge === undefined) return null;
     if (ev.sortie === true) return phraseDeLaSortie(ev, haut, false, sans);
@@ -5867,7 +5877,7 @@
         // 79 (12/10/2026) — les chiffres d'abord et pas de jargon : « 125 kg × 5, sans marge : … », la même
         // phrase pour un RPE et pour un ressenti (« reste 0 »).
         // 154 (§9.26) — la montée retenue par la réserve : « 130 kg × 5, sans marge. Je garde 130 kg la prochaine fois. »
-        if (f.effortVise && f.effortVise.effet === 'garde') return annonceDe('effort', { ev: f.effortVise, moment: 'aujourdhui' });
+        if (f.effortVise && f.effortVise.effet === 'garde') return annonceDe('effort', { ev: f.effortVise, consigne: c, moment: 'aujourdhui' });
         // PR 4a — LE VERBE VIENT DE LA LIGNE (`verbeDeLaConsigne`), plus de l'état : « sans marge » ne se dit que si le verbe le rend vrai.
         // 200b — la cible (dernière fois + 1) encore sous le bas de la zone : « vers tes 6-8 » (VOIX, I26).
         return grisDuVerbe(c, verbeDeLaConsigne(c), function () { return jour() + DEUX_POINTS + auPalier(); }, z === null ? null : z.bas, z === null ? null : z.haut, court);
@@ -6336,7 +6346,7 @@
           : null;
 
       case 'progression':
-        if (f.effortVise && f.effortVise.effet === 'garde') return annonceDe('effort', { ev: f.effortVise, moment: 'aujourdhui' });
+        if (f.effortVise && f.effortVise.effet === 'garde') return annonceDe('effort', { ev: f.effortVise, consigne: c, moment: 'aujourdhui' });
         return (t !== null ? rateDit() + ' ' : '') + pourquoiDeLaProgression(c);
 
       case 'test_propose':

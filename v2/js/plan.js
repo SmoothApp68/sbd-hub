@@ -3196,7 +3196,7 @@
     var effet = null, phrase = null;
     if (R !== null && ev && ev.reserve === R && ev.visee === visee && memeChargeOuVides(ev.charge, s.charge_kg)) {
       effet = ev.effet;
-      phrase = Moteur().annonceDe('effort', { ev: ev, haut: k.haut || null, moment: 'apres', regime: suite.regime || null });
+      phrase = Moteur().annonceDe('effort', { ev: ev, consigne: k, haut: k.haut || null, moment: 'apres', regime: suite.regime || null });
     }
     // I254 (20/11/2026, MOTEUR §9.26 delta) — la capacité tenue sous la visée affichée : la ligne de fait, à la place de la garde qui n'a plus lieu (aucun `effet`).
     var cap = !ev && k && k.fondement && k.fondement.capacite ? k.fondement.capacite : null;
@@ -7803,7 +7803,7 @@
         var z = M.zoneParCle(k.zone);
         // Une consigne figée avant la règle n'a pas `vise` : le haut de la zone en tient lieu (le repli du moteur).
         var vise = ev.vise !== undefined ? nombre(ev.vise) : (z ? z.haut : null);
-        if (z && vise !== null && vise > z.haut) erreurs.push('I252' + nom + 'des reps visées (' + vise + ') au-dessus du haut de la zone (' + z.haut + ')');
+        // 26/11/2026 : plus de borne `vise > z.haut` (I252 relâché) : `vise` est la ligne de la consigne REÇUE, qui peut dépasser le haut de la zone (etirement, zero_rep, tenue_apres_chute, retour_jour_sans).
         if (ev.protegee === true && !protege) erreurs.push('I252' + nom + 'une garde dite « protégée » hors population protégée');
         juger('garde', ev.charge, ev.reps, ev.reserve, vise, ev.visee, ev.horsCapacite);
       }
@@ -8702,7 +8702,7 @@
         var r = f.jourSans || null, Pr = nombre(k.palier), nv = nombre(k.niveau);
         if (!r || r.retour !== true) erreurs.push('I255' + nom + 'un retour sans le fait du jour sans');
         if (!k.ligne || Pr === null || nombre(k.ligne.charge) !== Pr) erreurs.push('I255' + nom + 'un retour dont la ligne (' + (k.ligne ? k.ligne.charge : 'aucune') + ' kg) n’est pas la charge de travail (' + k.palier + ' kg)');
-        else if (nv === null || nombre(k.ligne.vise) !== nv) erreurs.push('I255' + nom + 'un retour dont la ligne vise ' + k.ligne.vise + ' pour un niveau de ' + k.niveau + ' : jamais au-dessus du niveau d’avant');
+        else if (nv === null || nombre(k.ligne.vise) > nv) erreurs.push('I255' + nom + 'un retour dont la ligne vise ' + k.ligne.vise + ' pour un niveau de ' + k.niveau + ' : jamais au-dessus du niveau d’avant');
         if (k.haut) erreurs.push('I255' + nom + 'une ligne haute au retour d’un jour sans');
         if (f.zeroRep) erreurs.push('I255' + nom + 'un retour qui porte un zéro rep');
       } else if (f.jourSans) {

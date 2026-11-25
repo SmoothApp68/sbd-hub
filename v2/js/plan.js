@@ -7803,7 +7803,7 @@
         var z = M.zoneParCle(k.zone);
         // Une consigne figée avant la règle n'a pas `vise` : le haut de la zone en tient lieu (le repli du moteur).
         var vise = ev.vise !== undefined ? nombre(ev.vise) : (z ? z.haut : null);
-        if (z && vise !== null && vise > z.haut) erreurs.push('I252' + nom + 'des reps visées (' + vise + ') au-dessus du haut de la zone (' + z.haut + ')');
+        // 26/11/2026 : plus de borne `vise > z.haut` (I252 relâché) : `vise` est la ligne de la consigne REÇUE, qui peut dépasser le haut de la zone (etirement, zero_rep, tenue_apres_chute, retour_jour_sans).
         if (ev.protegee === true && !protege) erreurs.push('I252' + nom + 'une garde dite « protégée » hors population protégée');
         juger('garde', ev.charge, ev.reps, ev.reserve, vise, ev.visee, ev.horsCapacite);
       }

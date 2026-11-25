@@ -57,3 +57,16 @@ describe('I255 — « jamais au-dessus du niveau » (plafond, pas égalité)', (
     expect(T.verifierPlan(r.p, r.e).erreurs.join('|')).toMatch(/I255.*jamais au-dessus du niveau d’avant/);
   });
 });
+
+describe('I252 — la consigne reçue peut viser au-dessus du haut de la zone (vérificateur relâché)', () => {
+  test('h82 (protégé, etirement 8 reçu, zone Lourd haut 5) : plus aucune erreur I252', () => {
+    const r = rejouer('tri-h82-etirement-vise-haut.json');
+    expect(r.k.fondement.effortVise.vise).toBeGreaterThan(5);
+    expect(r.erreurs.filter((s) => /^I252/.test(s))).toEqual([]);
+  });
+  test('h79 (zero_rep 7 reçu, zone Lourd haut 5) : plus aucune erreur I252, la visée n’est PAS bornée', () => {
+    const r = rejouer('tri-h79-garde-cible-baisse.json');
+    expect(r.k.fondement.effortVise.vise).toBe(7);
+    expect(r.erreurs.filter((s) => /^I252/.test(s))).toEqual([]);
+  });
+});

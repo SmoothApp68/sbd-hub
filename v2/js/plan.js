@@ -8702,7 +8702,7 @@
         var r = f.jourSans || null, Pr = nombre(k.palier), nv = nombre(k.niveau);
         if (!r || r.retour !== true) erreurs.push('I255' + nom + 'un retour sans le fait du jour sans');
         if (!k.ligne || Pr === null || nombre(k.ligne.charge) !== Pr) erreurs.push('I255' + nom + 'un retour dont la ligne (' + (k.ligne ? k.ligne.charge : 'aucune') + ' kg) n’est pas la charge de travail (' + k.palier + ' kg)');
-        else if (nv === null || nombre(k.ligne.vise) !== nv) erreurs.push('I255' + nom + 'un retour dont la ligne vise ' + k.ligne.vise + ' pour un niveau de ' + k.niveau + ' : jamais au-dessus du niveau d’avant');
+        else if (nv === null || nombre(k.ligne.vise) > nv) erreurs.push('I255' + nom + 'un retour dont la ligne vise ' + k.ligne.vise + ' pour un niveau de ' + k.niveau + ' : jamais au-dessus du niveau d’avant');
         if (k.haut) erreurs.push('I255' + nom + 'une ligne haute au retour d’un jour sans');
         if (f.zeroRep) erreurs.push('I255' + nom + 'un retour qui porte un zéro rep');
       } else if (f.jourSans) {

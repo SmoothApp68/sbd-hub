@@ -194,6 +194,10 @@ const MESURER = () => {
       cartes: cartes.map((c) => c.className.replace(/\s+/g, ' ') + ' | ' + T(c)),
       raison: !!b.querySelector('.pc-raison'), approchee: dits.filter((d) => /approchee/.test(d.className)).map(T),
       puce: !!(leg && leg.querySelector('.si-ca-passe.sp-ouvre')), puceTexte: leg && leg.querySelector('.si-ca-passe') ? T(leg.querySelector('.si-ca-passe')) : null,
+      // Le bord gauche (px) : de la phrase de la réaction au raté, de la boîte du chiffre de l'exercice et du bloc.
+      gaucheReaction: reac.map((r) => { const q = r.querySelector('.rate-phrase'); return q ? Math.round(q.getBoundingClientRect().left * 10) / 10 : null; }),
+      gaucheChiffre: (() => { const c = (leg && (leg.querySelector('.consigne-heros') || leg.querySelector('.consigne'))) || null; return c ? Math.round(c.getBoundingClientRect().left * 10) / 10 : null; })(),
+      gaucheBloc: Math.round(rb.left * 10) / 10,
       reactions: reac.map(T), reactionBoutons: reac.map((r) => Array.from(r.querySelectorAll('button')).map(T)),
       aide: aide.map(T), bandeau: Array.from(document.querySelectorAll('.bandeau-allegee')).filter(vis).map(T),
       tete: leg ? T(leg) : '', chauffesAjouter: tous('.proposition-chauffes .pc-ajouter').map(T)
@@ -339,6 +343,7 @@ async function jouer(code, sc, port) {
           const r = e2.reactions;
           verifier(r.length === 1 && /5 au lieu de 9\./.test(r[0]), 'la réaction au raté parle, entière : « 5 au lieu de 9. … »', JSON.stringify(r));
           verifier(e2.reactionBoutons[0] && e2.reactionBoutons[0].length >= 1, 'ses gestes sont là', JSON.stringify(e2.reactionBoutons));
+          verifier(e2.gaucheReaction.length === 1 && e2.gaucheReaction[0] != null && e2.gaucheChiffre != null && e2.gaucheReaction[0] >= e2.gaucheChiffre - 0.5 && e2.gaucheReaction[0] > e2.gaucheBloc + 4, 'la phrase de la réaction au raté ne touche pas le bord gauche : sa boîte ne commence pas plus à gauche que le chiffre de l’exercice (' + LARGEUR + ' px)', JSON.stringify({ reaction: e2.gaucheReaction, chiffre: e2.gaucheChiffre, bloc: e2.gaucheBloc }));
           verifier(e2.cartes.length === 0, 'une seule carte à la fois : la carte de chauffe a laissé la place à la réaction', JSON.stringify(e2.cartes));
           verifier(e2.gris.length === 1 && e2.gris[0] === 'Une rep de plus : 90 kg × 9.', 'le verbe avec son chiffre reste', JSON.stringify(e2.gris));
         }

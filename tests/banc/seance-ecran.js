@@ -32625,6 +32625,70 @@ const SETS_IMPORTES = [
     await aller('/saisie');
   }
 
+  console.log('\n══ ok-ferme. LA CASE DES REPS : LA TOUCHE DU CLAVIER DIT « OK », ENTRÉE FERME LE CLAVIER ET NE VALIDE RIEN (ECRAN-SAISIE §7 quinvicies quinquies, 25/11/2026) ══');
+  {
+    const erreursAvant = erreurs.length;
+    const refusAvant = base.journal.filter((j) => j.op === 'refus').length;
+    const violationsAvant = gardeBanc.violations;
+    const nbCatAvant = CATALOGUE.length;
+    const sessionsAvant = base.sessions, setsAvant = base.sets, parisAvant = base.predictions;
+    const routinesAvant = ROUTINES.splice(0, ROUTINES.length);
+    const profilAvant = Object.assign({}, base.profiles[0]);
+    const rendreLesBlocs = await retirerBlocsDeLAppareil();
+    const nb = (x) => JSON.stringify(x === undefined ? null : x);
+    CATALOGUE.push({ slug: 'ok-dev', nom: 'Développé OK (Barre)', mesure: 'charge_reps', charge: 'externe', equipement: 'barre',
+      muscles_primaires: ['pectoraux'], muscles_secondaires: [], muscles_stabilisateurs: [], schema_mouvement: 'pousser_horizontal' });
+    base.profiles[0] = Object.assign({}, PROFIL_BANC, { rythme_progression: 'normal', intention: 'progresser', phase: 'maintien', phase_depuis: null,
+      cartes_semaine: null, priorites: null, jours_vises: null });
+    ROUTINES.push({ id: 'r-ok', nom: 'Entrée OK', note: null, archivee_a: null, created_at: '2026-01-05T10:00:00.000Z', updated_at: '2026-01-05T10:00:00.000Z',
+      routine_exercises: [{ id: 're-ok-0', routine_id: 'r-ok', exercise_slug: 'ok-dev', rang: 0, zone: null, repos_cible_s: 90, groupe_superset: null, note: null,
+        routine_sets: progr(3, 8) }] });
+    base.sessions = []; base.sets = []; base.predictions = [];
+    const caseDe = (champ) => '.serie[data-iexo="0"][data-iserie="0"] [data-champ="' + champ + '"] input';
+    const actif = () => page.evaluate(() => { const a = document.activeElement; return a && a.tagName === 'INPUT' ? (a.closest('[data-champ]') || {}).getAttribute('data-champ') : null; });
+    try {
+      await aller('/saisie');
+      await demarrerRoutine('Entrée OK');
+      const hint = await page.evaluate((q) => ({ reps: document.querySelector(q.r).getAttribute('enterkeyhint'), charge: document.querySelector(q.c).getAttribute('enterkeyhint') }),
+        { r: caseDe('reps'), c: caseDe('charge_kg') });
+      ok('[OK] la touche d’action de la case des reps dit « OK » (enterkeyhint="done") ; la case de charge ne change pas', hint.reps === 'done' && hint.charge === null, nb(hint));
+      await page.click(caseDe('charge_kg'));
+      await page.keyboard.type('80');
+      await page.click(caseDe('reps'));
+      await page.keyboard.type('8');
+      ok('[OK] la case des reps a le focus', (await actif()) === 'reps', nb(await actif()));
+      const nbSets = sets().length;
+      await page.keyboard.press('Enter');
+      await attendre(700);
+      ok('[OK] Entrée ferme le clavier (la case perd le focus)', (await actif()) === null, nb(await actif()));
+      ok('[OK] …et ne valide RIEN : aucune coche, aucune série montée, aucun repos armé',
+        (await compter('.ok-serie.cochee')) === 0 && sets().length === nbSets &&
+        (await page.evaluate(() => { const r = document.querySelector('#repos'); return !r || r.hidden; })), nb([await compter('.ok-serie.cochee'), sets().length, nbSets]));
+      ok('[OK] la ligne reste modifiable, la valeur est gardée', (await page.evaluate((q) => document.querySelector(q).value, caseDe('reps'))) === '8', '');
+      await page.click(caseDe('reps'));
+      await page.keyboard.type('5');
+      ok('[OK] on peut retaper (85) après Entrée', (await page.evaluate((q) => document.querySelector(q).value, caseDe('reps'))) === '85', '');
+      await page.evaluate(() => document.activeElement.blur());
+      await abandonner();
+    } catch (e) {
+      ok('[OK] [exception] la section a pu se jouer jusqu’au bout', false, String(e && e.stack || e).slice(0, 600));
+      await remettreAPropre();
+    }
+    recapDesDefauts();
+    ok('[OK] aucun refus du faux serveur, aucune violation de la garde, aucune erreur de page',
+      base.journal.filter((j) => j.op === 'refus').length === refusAvant && gardeBanc.violations === violationsAvant && erreurs.length === erreursAvant,
+      nb([base.journal.filter((j) => j.op === 'refus').slice(refusAvant), gardeBanc.liste.slice(-2), erreurs.slice(erreursAvant)]));
+    base.sessions = sessionsAvant;
+    base.sets = setsAvant;
+    base.predictions = parisAvant;
+    CATALOGUE.length = nbCatAvant;
+    ROUTINES.length = 0;
+    routinesAvant.forEach((r) => ROUTINES.push(r));
+    base.profiles[0] = profilAvant;
+    rendreLesBlocs();
+    await aller('/saisie');
+  }
+
   console.log('\n══ 7 G bis. LA GARDE DU BANC — LE COMPTE ══');
   // Le compte vit dans `garde-compte.js` : le lanceur parallèle refait les
   // mêmes contrôles sur le compte fusionné de ses groupes.

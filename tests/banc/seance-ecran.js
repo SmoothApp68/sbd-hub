@@ -2257,12 +2257,17 @@ const SETS_IMPORTES = [
   const tirerPourRafraichir = () => page.evaluate(() => {
     const vue = document.getElementById('vue-liste');
     window.scrollTo(0, 0);
+    // L'ancien bouton se cliquait même caché (la page sur un autre onglet) : le geste, lui, ne se pose que sur la liste visible.
+    // Ces sections tirent « d'où elles sont » : la liste est montrée le temps du geste, puis rendue telle qu'elle était.
+    const etaitCachee = vue.hidden;
+    vue.hidden = false;
     const pt = (y) => new Touch({ identifier: 1, target: vue, clientX: 180, clientY: y });
     const ev = (type, y, liste) => vue.dispatchEvent(new TouchEvent(type, { bubbles: true, cancelable: true, touches: liste ? [pt(y)] : [], changedTouches: [pt(y)] }));
     ev('touchstart', 120, true);
     ev('touchmove', 150, true);
     ev('touchmove', 240, true);
     ev('touchend', 240, false);
+    vue.hidden = etaitCachee;
   });
   // 71 — garder le récap ouvert (les sections qui le testent), ou le laisser se refermer (les autres).
   const garderRecap = (oui) => page.evaluate((o) => {

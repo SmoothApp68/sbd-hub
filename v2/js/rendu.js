@@ -2972,6 +2972,17 @@
       surSaisie(input.value);
     });
     input.addEventListener('blur', tairePlafond);
+    // 25/11/2026 (ECRAN-SAISIE §7 quinvicies quinquies, décision d'Aurélien) — la case des REPS : la touche d'action du clavier dit « OK »
+    // (`enterkeyhint="done"`) et Entrée ferme le clavier (`blur`), RIEN d'autre : la série n'est pas validée (ni repos, ni coach, ni
+    // vibration), la ligne reste modifiable ; la coche reste le seul geste qui valide. La `change` du blur redessine comme à toute sortie.
+    if (o.ferme === true) {
+      input.setAttribute('enterkeyhint', 'done');
+      input.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter' || e.isComposing) return;
+        e.preventDefault();
+        input.blur();
+      });
+    }
     if (typeof o.surQuitte === 'function') {
       input.addEventListener('change', function () { o.surQuitte(); });
     }
@@ -5123,6 +5134,7 @@
         c.unite,
         function (v) { vue.surChamp(iExo, iSerie, nom, aide && !vue.programme ? M().rangerAide(v) : v); },
         { indication: fourchette, max: M().maxDeSaisie(nom), plus: M().estSerieDeMesure(s) && c.cle === 'reps',
+          ferme: c.cle === 'reps' && !vue.programme,
           surQuitte: typeof vue.surChampQuitte === 'function'
             ? function () { vue.surChampQuitte(iExo, iSerie); } : null });
       caseSerie.setAttribute('data-champ', nom);

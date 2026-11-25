@@ -3916,3 +3916,11 @@ Sous l'exercice, une ligne repliée « Chauffe · N séries › » ; ouverte, el
 - **En Décharge**, chaque exercice dit « Décharge : 2 séries au lieu de 3. » ; la semaine n'est dite que par le bandeau. La forme courte est écrite par le moteur (`Moteur.grisAllegee(c, true)`, `textesFixesDeLaDecharge`) pour que I165 vérifie ce qui est affiché.
 - **La phrase « ≈ 92,5 kg : vise la barre au-dessus… »** va à la feuille ouverte en touchant la puce « Si ça passe » ; le « ≈ » reste dans la puce (I61). La cible de « Pourquoi ? » mesure 44 px de haut.
 - **Invariants** (vérifiés par `Plan.verifierTete`, jamais par une décision) : I269 la tête courte est un extrait du gris (même verbe, même chiffre, arithmétique à part) ; I270 la tête compte au plus trois éléments, la phrase du « ≈ » et la raison de la chauffe sont à la feuille mot pour mot (ou restent dans la tête, la carte, quand il n'y a pas de feuille) ; I271 une seule carte, dans l'ordre, recalculée depuis les entrées. Banc : `tests/banc/tete-3plus1.js` (cinq états, hauteur gagnée mesurée) ; tests : `tests/unit/v2-simplifier-3plus1.test.js`.
+
+## 7 quinvicies quinquies. La touche « OK » de la case des reps — décidé le 25/11/2026 (maquette `maquette-lot1.html`, point 3 seul ; le reste de la maquette est refusé)
+
+> **Delta du 25/11/2026 — décision d'Aurélien :** de toute la maquette du lot 1, il ne garde QUE ce point. Refusés : la barre « − / + », « Suivant », « Ensuite », l'écran allumé.
+
+- **Avant** : aucun gestionnaire d'Entrée sur les cases de la grille (constaté dans `rendu.js`, `app.js`, `seance.js`) : la touche d'action du clavier ne faisait rien.
+- **Maintenant** : sur la case des **reps** d'une série en séance, la touche d'action dit « OK » (`enterkeyhint="done"`) et Entrée ferme le clavier (`blur`), **rien d'autre** : la série n'est pas validée (ni repos, ni coach, ni vibration), la ligne reste modifiable. **La coche ✓ reste le seul geste qui valide.** La case de charge et l'éditeur de routine ne changent pas.
+- **Vérifié par** `tests/unit/v2-saisie-ok-ferme.test.js` et la section `ok-ferme` du banc de séance.

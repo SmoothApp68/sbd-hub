@@ -11535,7 +11535,7 @@
       surParis: function (i, cle) { return repondreParis(i, cle); },
       // 193-4 (MOTEUR §9.32) — la barre testée aujourd'hui : lue sur le plan ; ses gestes (façon, « Pas aujourd'hui », « Arrêter »).
       semaineDeTest: function (i) {
-        if (enEdition()) return null;
+        if (enEdition() || carteEnAttente(i, 'test')) return null;   // 25/11/2026 : la carte à gestes lit la file (une seule carte de décision à la fois)
         var x = planDeLExercice(i);
         return x && x.semaineDeTest && (x.semaineDeTest.testee || x.semaineDeTest.accessoire || x.semaineDeTest.pasDeTest || x.semaineDeTest.pasDEssai) ? x.semaineDeTest : null;
       },

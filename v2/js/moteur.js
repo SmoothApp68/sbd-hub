@@ -5118,9 +5118,6 @@
     var mot = 'le cran ' + (dessous ? 'en dessous' : 'au-dessus');
     return tete ? mot.charAt(0).toUpperCase() + mot.slice(1) : mot;
   }
-  function fragmentCharge(charge, tete, dessous, c) {
-    return Modele().charge(charge, motDuCran(tete, dessous), c);
-  }
   // « 125 kg × 5 » — une ligne de la consigne, la charge d'abord (§20.2). La
   // visée passe par le formateur, avec la charge : une seule citation.
   // 163 — `approchee` : la charge n'a jamais été faite, le formateur la précède de « ≈ ».
@@ -12916,13 +12913,6 @@
     if (famille === B[3]) return 'militaire';
     return 'accessoire';
   }
-  // UNE SEULE NOTION DE « PREMIÈRE FOIS » (chantier « première séance sûre », PR 1) : la consigne du coach, celle que lit déjà
-  // le calage : aucune séance non neutre avant (`silence/premiere_fois`) ou la charge de départ de la routine qui la remplace
-  // (`depart_routine`, posée la toute première fois). Pas `jamaisFait` (éditeur) ni la fenêtre de 84 jours du générateur : d'autres notions.
-  function estPremiereFois(consigne) {
-    var c = consigne || null;
-    return !!c && ((c.etat === 'silence' && c.raison === 'premiere_fois') || c.etat === 'depart_routine');
-  }
   // PR 2 (MOTEUR §9.42, I154) — APRÈS UN ZÉRO REP, RIEN D'AMBITIEUX : la consigne est `zero_rep`, le silence `zero_plancher` ou (PR 4b, R-A) la `tenue_apres_zero`.
   function estApresZero(consigne) {
     var c = consigne || null;
@@ -13048,10 +13038,6 @@
   function phraseRecul(charge, ecart) {
     return 'Recul' + DEUX_POINTS + enKg(charge, regle('recul')) + ', ' + nombreFr(pctDeRecul(ecart), regle('recul.ecart')) +
       INSECABLE + '% sous ta grosse série.';
-  }
-  // « puis 135 kg × 6 » : la suite de la consigne du jour, à côté de la grosse série.
-  function puisRecul(charge, vise) {
-    return 'puis ' + (nombre(vise) === null ? enKg(charge, regle('recul')) : chargeFois(charge, vise, regle('recul')));
   }
   function repsDeRecul(reps) {
     return reps.map(function (r) { return nombreFr(r, regle('recul.reps')); });
@@ -14668,7 +14654,6 @@
     repsDeLaTable: repsDeLaTable,
     maxDuJour: maxDuJour,
     reculSurLeMaxDuJour: reculSurLeMaxDuJour,
-    estPremiereFois: estPremiereFois,
     estApresZero: estApresZero,
     cibleFaite: cibleFaite,
     descenteApresUnZero: descenteApresUnZero,
@@ -14706,7 +14691,6 @@
     ecartDeDepartDeRecul: ecartDeDepartDeRecul,
     cranLePlusProche: cranLePlusProche,
     phraseRecul: phraseRecul,
-    puisRecul: puisRecul,
     pourquoiRecul: pourquoiRecul,
     phraseConstatReculs: phraseConstatReculs,
     phrasePremierPari: phrasePremierPari,

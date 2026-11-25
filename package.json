@@ -4,7 +4,8 @@
   "description": "",
   "main": "service-worker.js",
   "scripts": {
-    "test": "jest"
+    "test": "jest",
+    "rejeu-fil": "node v2-atelier/banc/rejeu-fil/banc.js"
   },
   "repository": {
     "type": "git",

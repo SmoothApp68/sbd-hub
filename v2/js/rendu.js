@@ -6891,6 +6891,11 @@
     }
     cible.appendChild(t);
 
+    // 25/11/2026 (lot 3, changement 1) — LE RÉCAP COURT, AVANT « TERMINER » : les quatre chiffres, les records, ce que le coach avait
+    // visé (la phrase et les paris ratés), « Détail » replié. Le même corps que le récap d'après (`recapCorps`), lu sur
+    // `faits.recapDeLaSeance` : aucun calcul ici. Absent (`vue.recap` nul) : la feuille est celle d'avant.
+    if (vue.recap) recapCorps(cible, { recap: vue.recap, jeu: vue.jeu, sobre: vue.sobre }, { accord: false });
+
     // ECRAN §7 septies.4 (prompt 131, maquette mesures-cardio écran 6) — UNE donnée facultative restée vide : sa
     // phrase, la série, la case. Rien d'obligatoire : laissée vide, « Terminer » ne demande rien de plus.
     if (vue.manque) {
@@ -6984,10 +6989,13 @@
       cible.appendChild(qm);
     });
 
+    // « Terminer » est COLLÉ AU BAS de l'écran de fin (l'écran défile, le geste reste sous le pouce).
+    var pied = el('div', 'fin-pied');
     var b = el('button', 'principal', 'Terminer');
     b.type = 'button';
     b.addEventListener('click', vue.surTerminer);
-    cible.appendChild(b);
+    pied.appendChild(b);
+    cible.appendChild(pied);
 
     // Abandonner SUPPRIME la séance — et le dit, parce que c'est irréversible.
     var a = el('button', 'discret bloc-large danger', 'Abandonner et tout effacer');

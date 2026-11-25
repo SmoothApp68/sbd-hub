@@ -845,24 +845,27 @@ const SETS_IMPORTES = [
   if (Horloge.DECALAGE) await ctx.addInitScript(Horloge.scriptNavigateur(Horloge.DECALAGE));
 
   // ⚠️ 71 — LE RÉCAP DE FIN DE SÉANCE SE REFERME DE LUI-MÊME dans les sections qui ne le testent pas.
-  // « Terminer » ouvre désormais le récap (ECRAN-SAISIE §7 septies.4 bis) au lieu de rendre la saisie : les
-  // sections écrites avant lui enchaînent sur la saisie ou un onglet. Le récap ouvert, on fait le geste de
-  // l'utilisateur — « Fermer », puis l'onglet Saisie — et elles retrouvent l'état qui suivait « Terminer ».
-  // Les sections qui TESTENT le récap le gardent ouvert : `sessionStorage['banc-garder-recap'] = '1'`.
+  // Lot 3 (25/11/2026) : « Terminer » ne l'ouvre plus. Il revient à la semaine avec le toast « Séance enregistrée · Voir le récap ».
+  // Le banc fait le geste de l'utilisateur : dans les sections qui TESTENT le récap (`sessionStorage['banc-garder-recap'] = '1'`),
+  // il touche « Voir le récap » (le récap s'ouvre, comme avant, et reste ouvert) ; dans les autres, il va à l'onglet Saisie (ce que
+  // faisaient « Fermer » puis l'onglet). Une section qui teste le TOAST lui-même le garde : `banc-garder-toast`.
   await ctx.addInitScript(() => {
     document.addEventListener('DOMContentLoaded', () => {
-      const v = document.getElementById('vue-recap');
-      if (!v) return;
+      const t = document.getElementById('toast-recap');
+      if (!t) return;
       new MutationObserver(() => {
-        if (v.hidden || sessionStorage.getItem('banc-garder-recap') === '1') return;
+        if (t.hidden || sessionStorage.getItem('banc-garder-toast') === '1') return;
         setTimeout(() => {
-          if (v.hidden || sessionStorage.getItem('banc-garder-recap') === '1') return;
-          const f = document.querySelector('#recap-corps .recap-fermer');
-          if (f) f.click();
+          if (t.hidden || sessionStorage.getItem('banc-garder-toast') === '1') return;
+          if (sessionStorage.getItem('banc-garder-recap') === '1') {
+            const b = t.querySelector('button');
+            if (b) b.click();
+            return;
+          }
           const o = document.querySelector('.onglet[data-vue="saisie"]');
           if (o) o.click();
         }, 0);
-      }).observe(v, { attributes: true, attributeFilter: ['hidden'] });
+      }).observe(t, { attributes: true, attributeFilter: ['hidden'] });
     });
   });
 
@@ -19327,9 +19330,10 @@ const SETS_IMPORTES = [
     // 71 (JEU §9.4 révisé) — le bloc « Le jeu » est passé de la feuille au récap, tel quel.
     const feuille = await page.evaluate(() => {
       const c = document.getElementById('feuille-contenu');
-      return { bloc: !!document.getElementById('jeu-fin'), boutons: Array.from(c.querySelectorAll('button')).map((b) => b.textContent) };
+      const j = document.getElementById('jeu-fin');
+      return { bloc: !!j && !(j.closest('.recap-detail') || {}).hidden, boutons: Array.from(c.querySelectorAll('button')).map((b) => b.textContent) };
     });
-    ok('[jeu] « Terminer » et « Abandonner » sont là, et plus de bloc « Le jeu » dans la feuille (71)',
+    ok('[jeu] « Terminer » et « Abandonner » sont là ; le bloc « Le jeu » n’est jamais déplié sur l’écran de fin (lot 3 : sous « Détail », replié)',
       !feuille.bloc && feuille.boutons.indexOf('Terminer') >= 0 &&
       feuille.boutons.indexOf('Abandonner et tout effacer') >= 0, JSON.stringify(feuille));
     const enCoursU64 = (sessions().filter((x) => x.statut === 'en_cours')[0] || {}).id;
@@ -22714,8 +22718,9 @@ const SETS_IMPORTES = [
     const tR = Date.now();
     const poserR = (id, jours, lignes) => {
       const debut = ilYa(jours * 86400000, tR).toISOString();
+      // Lot 3 (changement 3) — la plus récente de l'historique a déclaré une salle : l'écran de fin la propose, en clair.
       base.sessions.push({ id, user_id: 'u-banc', titre: 'Dos — ' + id, debut, fin: finDe(debut, tR).toISOString(),
-        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+        statut: 'terminee', note: null, salle: id === 'r71-3' ? 'Garage R71' : null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
       lignes.forEach(([kg, reps], i) => base.sets.push({
         id: id + '-s' + (i + 1), session_id: id, user_id: 'u-banc', exercise_slug: 'rowing-r71',
         charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail', rang: i + 1, groupe_superset: null,
@@ -22782,15 +22787,30 @@ const SETS_IMPORTES = [
       };
     });
     const espion = () => page.evaluate(() => window.__espionRecap.slice());
-    const terminerR = async () => {
+    // Lot 3 — l'écran de fin porte le récap COURT avant « Terminer » ; « Terminer » revient à la semaine avec le toast, et c'est le toast
+    // (touché ici, comme par l'utilisateur) qui ouvre le récap complet. `garderToast` : on le regarde avant de le toucher.
+    let toastR71 = null;
+    const terminerR = async (garderToast) => {
       await page.click('#bandeau-seance .bandeau-fin');
       await attendre(700);
       const feuille = await page.evaluate(() => ({
-        records: document.querySelectorAll('#feuille-contenu .records-fin').length,
-        jeu: document.querySelectorAll('#feuille-contenu #jeu-fin').length,
+        records: document.querySelectorAll('#feuille-contenu .recap-rec').length,
+        tuiles: document.querySelectorAll('#feuille-contenu .recap-tuile').length,
+        recapFinComplet: document.querySelectorAll('#feuille-contenu .recap-fermer, #feuille-contenu .recap-voir').length,
+        jeuReplie: !!document.querySelector('#feuille-contenu .recap-detail #jeu-fin') || document.querySelectorAll('#feuille-contenu #jeu-fin').length === 0,
+        resume: (document.querySelector('#feuille-contenu .resume-fin-v') || {}).textContent || '',
         entete: (document.querySelector('#feuille-contenu .feuille-t em') || {}).textContent || '' }));
+      if (garderToast) await page.evaluate(() => sessionStorage.setItem('banc-garder-toast', '1'));
       await page.click('#feuille-contenu .principal');
       await terminerQuandMeme();
+      if (garderToast) {
+        await jusqua(() => page.evaluate(() => !document.getElementById('toast-recap').hidden), 8000);
+        toastR71 = await page.evaluate(() => ({
+          texte: document.getElementById('toast-recap').textContent,
+          liste: !document.getElementById('vue-liste').hidden, recap: !document.getElementById('vue-recap').hidden }));
+        await page.evaluate(() => sessionStorage.removeItem('banc-garder-toast'));
+        await page.click('#toast-recap button');
+      }
       await jusqua(async () => (await recapVu()).visible, 8000);
       await attendre(600);
       return feuille;
@@ -22821,12 +22841,19 @@ const SETS_IMPORTES = [
     for (let i = 1; i < 4; i++) await saisirSerie(i, 80, 12);
     await attendre(1200);
     const idA = (base.sessions.filter((x) => x.statut === 'en_cours')[0] || {}).id;
-    const feuilleA = await terminerR();
+    const feuilleA = await terminerR(true);
     const a = await recapVu();
-    ok('[R71] (a) la feuille « Terminer » ne montre plus ni records ni jeu ; elle garde son compte',
-      feuilleA.records === 0 && feuilleA.jeu === 0 && /^4 séries de travail enregistrées$/.test(feuilleA.entete.replace(/[\u00a0\u202f]/g, ' ')),
-      nbR(feuilleA));
-    ok('[R71] (a) DISCRIMINANT — « Terminer » ouvre le récap, plein écran, sans barre d’onglets',
+    ok('[R71] (a) lot 3 — l’écran de fin montre les quatre chiffres et les records AVANT « Terminer », le jeu replié ; ni « Fermer » ni « Voir la séance » ; il garde son compte',
+      feuilleA.records === 2 && feuilleA.tuiles === 4 && feuilleA.recapFinComplet === 0 && feuilleA.jeuReplie &&
+      /^4 séries de travail enregistrées$/.test(feuilleA.entete.replace(/[\u00a0\u202f]/g, ' ')), nbR(feuilleA));
+    ok('[R71] (a) lot 3 — la salle d’avant (« Garage R71 ») est ÉCRITE EN CLAIR sur la ligne de l’écran de fin',
+      /Garage R71/.test(feuilleA.resume), nbR(feuilleA.resume));
+    await jusqua(async () => (base.sessions.filter((x) => x.id === idA)[0] || {}).statut === 'terminee', 8000);
+    ok('[R71] (a) lot 3 — « Terminer » a écrit cette salle sur la séance (et seulement à « Terminer »)',
+      (base.sessions.filter((x) => x.id === idA)[0] || {}).salle === 'Garage R71', nbR((base.sessions.filter((x) => x.id === idA)[0] || {}).salle));
+    ok('[R71] (a) DISCRIMINANT — « Terminer » revient à la semaine avec « Séance enregistrée · Voir le récap » ; le récap ne s’ouvre pas tout seul',
+      !!toastR71 && toastR71.liste === true && toastR71.recap === false && /^Séance enregistrée\s*Voir le récap$/.test(toastR71.texte), nbR(toastR71));
+    ok('[R71] (a) DISCRIMINANT — « Voir le récap » ouvre le récap, plein écran, sans barre d’onglets',
       a.visible && a.onglets && JSON.stringify(await visible()) === '["vue-recap"]', nbR([a.visible, a.onglets, await visible()]));
     ok('[R71] (a) l’en-tête : le titre, le jour et les heures « … · H h MM → H h MM »',
       a.titre.length > 0 && /^\S+ \d{1,2} \S+ · \d{1,2} h \d{2} → \d{1,2} h \d{2}$/.test(a.quand.replace(/[\u00a0\u202f]/g, ' ')), nbR([a.titre, a.quand]));

@@ -2638,6 +2638,9 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   color:var(--texte-2);font-size:14px;text-align:left}
 .recap-plus-d{color:var(--texte-3);font-size:12px;font-weight:400}
 .recap-detail[hidden]{display:none}
+/* Lot 3 (changement 1) — « Terminer » collé au bas de l'écran de fin, qui défile : le fond de la feuille derrière lui. */
+.fin-pied{position:sticky;bottom:0;z-index:1;margin-top:var(--e3);padding:var(--e2) 0 0;background:var(--panneau)}
+.fin-pied .principal{margin-top:0}
 
 /* ── 75 — « TON PARCOURS » (ECRAN-SAISIE §7 bis.14 ter, maquette v3). L'ambre pour la voix du coach (la phrase, le
    levier), l'or pour « ton meilleur » (la ligne de la courbe), le vert pour le sens « en hausse » seulement. Aucun

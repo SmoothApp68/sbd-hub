@@ -221,6 +221,8 @@
     // 136 (audit du 16/10, 03 #18) — quitter le profil n'écrit plus rien (`onboarding_completed`, « vu », retiré : le
     // bandeau de bienvenue n'existe plus depuis 60-2a, et plus rien ne lisait la colonne).
     ecranCourant = nom;
+    // Lot 3 — « Séance enregistrée · Voir le récap » ne vaut que sur la semaine : changer d'écran l'efface.
+    if (nom !== 'liste' && toastRecap) cacherToastRecap();
     // ⚠️ LA DURÉE DE LA BARRE N'A DE SENS QUE SOUS LES YEUX (62). Une seule porte,
     // comme pour le mode Réorganiser : quitter l'écran de séance — par un onglet,
     // par « Terminer », par « Annuler » — coupe le réveil, et `rendreSeance` le
@@ -426,9 +428,11 @@
 
   // Les paris de CONSIGNE connus (serveur et appareil, l'appareil l'emporte),
   // observés : `[{ date, exercice, predite, observee }]` pour le bilan.
-  function parisDeConsigneConnus() {
+  function parisDeConsigneConnus(enCours) {
     var debutDe = {};
     (local.seances || []).forEach(function (x) { if (x && x.id) debutDe[x.id] = x.debut; });
+    // Lot 3 — l'écran de fin lit la séance EN COURS (pas encore dans la liste) : ses paris vérifiés comptent comme au récap.
+    if (enCours && enCours.id && enCours.debut && !debutDe[enCours.id]) debutDe[enCours.id] = enCours.debut;
     var parId = {};
     (local.parisLegers || []).forEach(function (l) { if (l && l.id) parId[l.id] = { l: l, seance: l.session_id }; });
     (local.predictions || []).forEach(function (l) {
@@ -5583,11 +5587,49 @@
       rendreSemaine(Semaine.bornesSemaine(new Date()).lundi);
       return;
     }
-    // 71 — LE RÉCAP, UNE FOIS, JUSTE APRÈS « TERMINER » (ECRAN-SAISIE §7 septies.4 bis). Il vit en mémoire
-    // seulement : ni l'abandon, ni l'Édition, ni un rechargement ne le rouvrent.
-    ouvrirRecap(finie, jeuDuRecap);
-    // 250 (L9) — le coach peut PROPOSER de ranger une note ; le récap est déjà ouvert, rien ne l'attend (jamais une activité, un import, une Édition).
-    lancerNotesIA(finie);
+    // 25/11/2026 (lot 3, changement 1) — UN SEUL ÉCRAN DE FIN : « Terminer » enregistre et revient à la semaine, avec le toast
+    // « Séance enregistrée · Voir le récap ». Le récap complet (le jeu, « Partager », « Dans tes notes ») s'ouvre depuis ce toast
+    // (`voirLeRecap`) : il lit la séance écrite. Il vit en mémoire seulement : ni l'abandon, ni l'Édition, ni un rechargement ne le
+    // rouvrent. (ECRAN-SAISIE §7 septies.4 bis, delta du 25/11/2026 : la décision 71 est rouverte.)
+    allerA(Routeur.RACINE, {});
+    rendreSemaine(Semaine.bornesSemaine(new Date()).lundi);
+    montrerToastRecap(finie, jeuDuRecap);
+    // 91 — le récap du groupe (toutes les séances du groupe sont terminées), comme après l'ancien « Fermer ».
+    apresRecapDeSeance();
+  }
+
+  // ══ LE TOAST « SÉANCE ENREGISTRÉE · VOIR LE RÉCAP » (lot 3, changement 1) ═════════════════════════════════════════════════════
+  // Il appartient à la semaine : il disparaît dès qu'on change d'écran (`montrer`), après 30 s, ou au « Voir le récap ». Rien ne le
+  // rouvre ensuite : « Voir la séance » (le détail) reste dans l'historique.
+  var toastRecap = null;   // { seance, jeu, minuteur }
+  var DELAI_TOAST_RECAP_MS = 30000;
+  function rendreToastRecap() {
+    var noeud = $('toast-recap');
+    if (!noeud) return;
+    Rendu.rendreToastAnnuler(noeud, toastRecap
+      ? { texte: 'Séance enregistrée', libelle: 'Voir le récap', surAnnuler: voirLeRecap }
+      : null);
+    mesurerBarres();
+  }
+  function montrerToastRecap(finie, jeu) {
+    cacherToastRecap();
+    toastRecap = { seance: finie, jeu: jeu || null,
+      minuteur: setTimeout(function () { cacherToastRecap(); }, DELAI_TOAST_RECAP_MS) };
+    rendreToastRecap();
+  }
+  function cacherToastRecap() {
+    if (!toastRecap) return;
+    clearTimeout(toastRecap.minuteur);
+    toastRecap = null;
+    rendreToastRecap();
+  }
+  function voirLeRecap() {
+    var t = toastRecap;
+    cacherToastRecap();
+    if (!t) return;
+    ouvrirRecap(t.seance, t.jeu);
+    // 250 (L9) — le coach peut PROPOSER de ranger une note ; le récap est ouvert, rien ne l'attend (jamais une activité, un import, une Édition).
+    lancerNotesIA(t.seance);
   }
 
   // ══ 225 — « AJOUTER UNE ACTIVITÉ » (MOTEUR §9.40) ═════════════════════════════════════════════════════════════════
@@ -6414,6 +6456,8 @@
     // réserve le compte, rien d'interactif ne reste dessous (§3 bis.9).
     var toast = $('toast-seance');
     var hToast = (toast && !toast.hidden) ? Math.ceil(toast.getBoundingClientRect().height) : 0;
+    var toastR = $('toast-recap');
+    if (toastR && !toastR.hidden) hToast += Math.ceil(toastR.getBoundingClientRect().height);   // lot 3 — « Voir le récap »
     // 62 — la barre de séance, collée EN HAUT. Elle ne couvre rien tant qu'elle est
     // dans le flux, mais un champ qui prend le focus ou un bloc amené en vue peut
     // glisser SOUS elle : `scroll-padding-top` (styles.css) se règle sur cette hauteur.
@@ -10810,6 +10854,7 @@
     suppressionDifferee = null;
     if (noteRetiree) clearTimeout(noteRetiree.minuteur);
     noteRetiree = null;
+    cacherToastRecap();
     rendreToastAnnuler();
   }
 
@@ -12905,6 +12950,29 @@
     };
   }
 
+  // 25/11/2026 (lot 3, changement 1) — LE RÉCAP COURT AVANT « TERMINER » : les chiffres, les records, ce que le coach a visé. Les mêmes
+  // fonctions que le récap d'après (`faits.recapDeLaSeance`, qui lit une séance en cours comme une séance finie) : aucun calcul de plus,
+  // aucune écriture. Mémoïsé par ce qui le change (séries validées, paris, journal) : une frappe de titre ne le recalcule pas. Un calcul
+  // qui échoue ne coûte que son bloc (jamais une feuille sans « Terminer »).
+  var memoRecapFin = { cle: null, recap: null };
+  function recapDeFin() {
+    if (!seance) return null;
+    try {
+      var c = corpus();
+      var cle = seance.id + '|' + JSON.stringify(Seance.toutesLesSeries(seance).filter(function (p) { return Seance.partEnBase(p.serie); })
+        .map(function (p) { return [p.serie.id, p.serie.charge_kg, p.serie.reps, p.serie.duree_s, p.serie.distance_m]; })) +
+        '|' + (local.predictions || []).length + '|' + (local.parisLegers || []).length + '|' + (c.journal || []).length + '|' + (seance.note || '');
+      if (memoRecapFin.cle === cle) return memoRecapFin.recap;
+      var apercu = Object.assign({}, seance, { fin: new Date().toISOString() });
+      var r = faits.recapDeLaSeance(c, apercu, parisDeConsigneConnus(seance), parisDeConsigneDuCompte());
+      memoRecapFin = { cle: cle, recap: r };
+      return r;
+    } catch (e) {
+      console.warn('Le récap de l\u2019écran de fin ne se calcule pas, la feuille se passe de lui :', texteErreur(e));
+      return null;
+    }
+  }
+
   function rendreFeuilleFin(cible, index) {
     var routine = routineDeLaSeance();
     // §6.2 — on ne demande QUE si la séance a réellement dévié. Une séance
@@ -12919,8 +12987,11 @@
       remplies: remplies.length,
       surValider: function () { fermerVoile(); amenerEnVue(remplies[0]); },
       surContinuer: function () { fermerVoile(); },
-      // 71 (ECRAN-SAISIE §7 septies.4 bis) — LA FEUILLE DÉCLARE, LE RÉCAP CONSTATE : les records du jour et le
-      // bloc « Le jeu » sont passés au récap, qui s'ouvre juste après « Terminer ».
+      // 25/11/2026 (lot 3, changement 1) — décision 71 rouverte (ECRAN-SAISIE §7 septies.4 bis, delta) : les records du jour et ce que le
+      // coach avait visé reviennent AVANT « Terminer » (le récap court) ; le récap complet reste derrière le toast « Voir le récap ».
+      recap: vide ? null : recapDeFin(),
+      jeu: vide ? null : jeuDeLaFeuille(),
+      sobre: modeSobre(),
       compte: Seance.compter(seance, local.exercices),
       manque: vueManqueFin(index),
       titre: seance.titre,

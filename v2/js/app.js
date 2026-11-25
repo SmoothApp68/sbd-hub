@@ -5280,6 +5280,13 @@
     // elle. Une lecture qui échoue ne coûte qu'un recalcul : on n'invente rien.
     try { consignesSauvees = await Cache.lireBrouillon(CLE_CONSIGNES); }
     catch (e) { consignesSauvees = null; }
+    // Une consigne relue du disque garde sa routine figée : un recalcul (zone corrigée) ne la relit pas sur des lignes déjà allégées.
+    if (consignesSauvees && consignesSauvees.seanceId && consignesSauvees.parSlug) {
+      Object.keys(consignesSauvees.parSlug).forEach(function (sl) {
+        var c = consignesSauvees.parSlug[sl];
+        if (c && c.seriesRoutine > 0) routinesFigees[consignesSauvees.seanceId + '|' + sl] = c.seriesRoutine;
+      });
+    }
   }
 
   // ══ LE JOURNAL DES RECORDS (MOTEUR §9.23, 58-2) ═══════════════════════════
@@ -7515,13 +7522,16 @@
     if (Object.prototype.hasOwnProperty.call(routinesHeritees, cle)) {
       var n = routinesHeritees[cle];
       delete routinesHeritees[cle];
+      if (n > 0) routinesFigees[cle] = n;
       return n;
     }
     // Bancs aléatoires (25/11/2026) — LA ROUTINE FIGÉE SURVIT À UN RECALCUL. Une consigne recalculée (zone ou mode corrigés, ligne de
     // zone d'un bloc) relisait les lignes VIVANTES, déjà allégées : « 1 série au lieu de 2 » (3 → 2 → 1). Le compte déjà figé pour
-    // cet exercice, dans cette séance, fait foi (`routinesFigees`, rempli à chaque sortie de `consigneDe`).
+    // cet exercice, dans cette séance, fait foi (`routinesFigees`, rempli au premier calcul de `routineAFiger`).
     if (routinesFigees[cle] > 0) return routinesFigees[cle];
-    return nombreDeSeriesDeTravail(slug);
+    var vivantes = nombreDeSeriesDeTravail(slug);
+    if (vivantes > 0) routinesFigees[cle] = vivantes;
+    return vivantes;
   }
   var routinesFigees = {};
 
@@ -7602,9 +7612,6 @@
         versionConsignes++;
         sauverConsignes();
       }
-    }
-    if (consignes.parSlug[slug] && consignes.parSlug[slug].seriesRoutine > 0 && seance) {
-      routinesFigees[seance.id + '|' + slug] = consignes.parSlug[slug].seriesRoutine;
     }
     return consignes.parSlug[slug];
   }

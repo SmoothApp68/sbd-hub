@@ -7126,8 +7126,8 @@ const SETS_IMPORTES = [
   // chercherait une valeur que la base ne porte pas.
   const idC = enCoursId();
   const bandeau = () => texte('#bandeau-seance .bandeau-ch');
-  ok('[C] le BANDEAU compte les séries de travail, pas les lignes',
-    /2 séries de travail/.test(await bandeau()),
+  ok('[C] le BANDEAU compte les séries de travail faites sur celles de la séance, pas les lignes (lot 2 n° 2 : « 2 sur 2 séries »)',
+    /· 2 sur 2 séries$/.test((await bandeau()).replace(/\s+/g, ' ').trim()),
     (await bandeau()).replace(/\s+/g, ' '));
 
   await page.click('#bandeau-seance .bandeau-fin');
@@ -18874,7 +18874,7 @@ const SETS_IMPORTES = [
       Number(b0.z) > 1 && Number(b0.z) < 9, 'z-index ' + b0.z);
     // 204 — « ⌄ » (réduire), le titre, la durée, « ⋯ » (Modifier, S'entraîner ensemble) et « Terminer » (bouton principal, en capitales).
     ok('[barre] elle porte « ⌄ », le titre, la durée, les séries de travail, « ⋯ » et Terminer — rien d’autre',
-      /^⌄ Barre U62 \d+ min · 0 série de travail ⋯ Terminer$/i.test(b0.texte), b0.texte);
+      /^⌄ Barre U62 \d+ min · 0 sur [1-9]\d* séries? ⋯ Terminer$/i.test(b0.texte), b0.texte);
     ok('[barre] 204 — « Terminer » est le bouton principal (ambre), de 48 px de haut au moins ; « ⌄ » et « ⋯ » font 44 × 44 au moins',
       !!b0.fin && b0.principal && b0.fin.h >= 48 && !!b0.reduire && !!b0.menu &&
         b0.reduire.l >= 44 && b0.reduire.h >= 44 && b0.menu.l >= 44 && b0.menu.h >= 44,
@@ -19169,7 +19169,7 @@ const SETS_IMPORTES = [
     await attendre(600);
     const apresSelection = await barre();
     ok('[barre] « Annuler » rend la barre entière : durée, séries, « Terminer »',
-      /\d+ min · \d+ séries? de travail/.test(apresSelection.texte) && apresSelection.fin !== null && apresSelection.porteSuite,
+      /\d+ min · \d+ sur \d+ séries?/.test(apresSelection.texte) && apresSelection.fin !== null && apresSelection.porteSuite,
       apresSelection.texte);
 
     // ── M. QUITTER L'ÉCRAN COUPE LE RÉVEIL, Y REVENIR LE REPOSE.

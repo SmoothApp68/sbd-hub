@@ -116,7 +116,7 @@ describe('C1 — ce qu’on appelle une série', () => {
 
   test('⚠️ `compter` sépare les trois nombres — et `travail` est le bon', () => {
     // 119 (E12) — et ce qui part hors musculation (le cardio), à part : rien ici.
-    expect(Seance.compter(quatreEtDeux())).toEqual({ series: 6, validees: 6, travail: 2,
+    expect(Seance.compter(quatreEtDeux())).toEqual({ series: 6, validees: 6, travail: 2, prevues: 2,
       horsMusculation: { series: 0, duree_s: 0, distance_m: 0 } });
   });
 

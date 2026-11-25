@@ -1947,6 +1947,11 @@
       series: plat.length,
       validees: plat.filter(function (p) { return !!p.serie.validee_a; }).length,
       travail: racine.THSemaine.compteSeriesTravail(faites, exercices),
+      // Lot 2 (n° 2, 25/11/2026) — LES SÉRIES DE TRAVAIL PRÉVUES : la même règle (`compteSeriesTravail`, chauffes et sorties exclues) lue sur
+      // TOUTES les lignes de la séance, faites ou non. « 7 sur 12 séries » : `travail` sur `prevues`. Une série ajoutée ou supprimée le fait bouger.
+      prevues: racine.THSemaine.compteSeriesTravail(plat.map(function (p) {
+        return Object.assign({}, p.serie, { exercise_slug: p.exo.exercise_slug });
+      }), exercices),
       horsMusculation: autres
     };
   }

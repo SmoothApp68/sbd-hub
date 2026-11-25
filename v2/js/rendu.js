@@ -2723,8 +2723,11 @@
     if (vue.edition) {
       ch.textContent = 'Modification \u00b7 ' + suite;
     } else {
-      ch.setAttribute('data-suite', ' \u00b7 ' + suite);
-      ch.textContent = libelleDuree(S().minutesEcoulees(vue.debut, Date.now())) + ' \u00b7 ' + suite;
+      // Lot 2 (n° 2, 25/11/2026) — « 34 min · 7 sur 12 séries » : les séries de travail faites sur celles que la séance contient aujourd'hui
+      // (`Seance.compter().prevues`, le formateur `Modele.avancementDeSeance`). Une séance sans série prévue garde « N séries de travail ».
+      var avance = M().avancementDeSeance(nT, vue.compte.prevues);
+      ch.setAttribute('data-suite', ' \u00b7 ' + (avance || suite));
+      ch.textContent = libelleDuree(S().minutesEcoulees(vue.debut, Date.now())) + ' \u00b7 ' + (avance || suite);
     }
     t.appendChild(ch);
     var envoi = el('div', 'bandeau-envoi', vue.envoi || '');

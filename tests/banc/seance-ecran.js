@@ -4245,15 +4245,41 @@ const SETS_IMPORTES = [
   // rien, et la mesure lisait un affichage périmé : « 0:08 → 0:08 », comme un
   // chronomètre mort. Les lignes du bloc 0 venant en premier, son dernier indice
   // LOCAL vaut encore son indice global.
+  // Bancs aléatoires (25/11/2026) : on attend l'ÉTAT, jamais un délai (600 ms après « + Série », 3 200 ms avant la
+  // seconde lecture). Deux choses distinctes : (a) la barre est RÉARMÉE (visible, et lit un décompte neuf, pas le
+  // « 0:08 » que le DOM garde d'une barre éteinte) ; (b) elle DESCEND. Le texte d'une barre cachée n'est jamais lu.
+  const lignesAvantAjout = await lignesDuBloc(0);
   await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[0].click());
-  await attendre(600);
-  await saisirSerie((await lignesDuBloc(0)) - 1, 60, 8);
-  const reparti = await chrono();
-  await attendre(3200);
-  const reparti2 = await chrono();
-  ok('valider une série réarme un décompte neuf, qui descend',
-    (await barreVisible()) === true && enSecondes(reparti2) < enSecondes(reparti),
-    reparti + ' → ' + reparti2);
+  await jusqua(async () => (await lignesDuBloc(0)) === lignesAvantAjout + 1, 6000, 'ligne ajoutée au bloc 0');
+  const iNouvelle = (await lignesDuBloc(0)) - 1;
+  await saisirSerie(iNouvelle, 60, 8);
+  const etatBarre = () => page.evaluate((k) => {
+    const n = document.getElementById('repos');
+    const g = n && n.querySelector('.repos-g');
+    const l = document.querySelectorAll('.ligne-serie')[k];
+    const ok = l && l.querySelector('.ok-serie');
+    return {
+      visible: !!n && !n.hidden,
+      texte: g ? g.textContent.trim() : null,
+      cochee: !!(ok && ok.classList.contains('cochee')),
+      t: Date.now()
+    };
+  }, iNouvelle);
+  const secondesDe = (e) => (e.visible && e.texte ? enSecondes(e.texte) : NaN);
+  let reparti = await etatBarre();
+  const barreRearmee = await jusqua(async () => {
+    reparti = await etatBarre();
+    return reparti.cochee && reparti.visible && secondesDe(reparti) >= 60;
+  }, 6000, 'barre réarmée par la validation');
+  ok('valider une série RÉARME la barre : cochée, visible, un décompte neuf (≥ 1:00)', barreRearmee,
+    JSON.stringify(reparti));
+  let reparti2 = reparti;
+  const descend = await jusqua(async () => {
+    reparti2 = await etatBarre();
+    return reparti2.visible && secondesDe(reparti2) < secondesDe(reparti);
+  }, 8000, 'décompte qui descend');
+  ok('valider une série réarme un décompte neuf, qui descend', barreRearmee && descend,
+    JSON.stringify(reparti) + ' → ' + JSON.stringify(reparti2));
 
   // ── L'écran de fin ─────────────────────────────────────────────────────
   await page.click('#bandeau-seance .bandeau-fin');

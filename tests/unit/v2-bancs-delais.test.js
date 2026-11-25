@@ -81,7 +81,7 @@ describe('135 — les délais fixes des bancs', () => {
   // 1 020 une fois les huit `attendreQue` locaux rendus à l'unique du préambule (lot 0), 942 après les aides communes (lot 1). La section est lue sur la ligne
   // `══` qui précède. Une section absente de cette table n'a droit à AUCUN délai fixe.
   const PLAFONDS_PAR_SECTION = {
-  'retrouver': 39, 'questionnaire': 38, 'cycles': 37, '7-nonies': 26, '115': 22, '7-septies': 20,
+  'retrouver': 39, 'questionnaire': 38, 'cycles': 37, '7-nonies': 26, '115': 22, '7-septies': 18,
   '7-G-octodecies': 20, 'barre': 20, 'recap': 20, 'objectif': 18, '(préambule)': 17, '7-G-sexies': 17,
   '7-octovicies': 16, 'organiser': 16, 'jeu': 16, 'filtres': 15, 'deux-appareils': 16, '7-G-duovicies': 14,
   'remplacer': 14, '7-septvicies': 13, '7-G-novodecies': 13, '7-G-vicies': 13, 'progression': 12, 'recherche': 12,

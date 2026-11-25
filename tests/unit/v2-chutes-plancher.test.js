@@ -45,7 +45,7 @@ const TABLEAU = [
   [100, 10, [10, 10, 10, 7], 10, /Dernière série à 7 : tu restes à 100 kg × 10\.$/],
   [100, 10, [10, 10, 10, 6], 10, /Dernière série à 6 : tu restes à 100 kg × 10\.$/],
   [140, 4, [4, 3, 2], 4, /Dernière série à 2 : tu restes à 140 kg × 4\.$/],
-  [100, 9, [9, 8, 6], 8, /Dernière série à 6 : tu restes à 100 kg × 8\.$/],
+  [100, 9, [9, 8, 6], 8, /Ta cible passe à 100 kg × 8\.$/],
 ];
 const ZONES = { 12: ['volume', 'series_longues'], 10: ['hypertrophie', 'volume'], 4: ['lourd', 'mix'], 9: ['hypertrophie', 'volume'] };   // [au haut de zone, hors haut]
 
@@ -174,6 +174,15 @@ describe('« Les chutes » — #746 B : la cible baisse, la phrase le dit', () =
     expect(esp(c.suite)).toBe('La prochaine fois : ta cible passe à 90 kg × 6.');
     expect(esp(c.verdict)).toBe('Pas encore : 90 kg × 5, 6, 9 pour une cible de 9.');
   });
+  test('9, 8, 6 (cible 9) : la visée 8 est SOUS la cible d’avant, la phrase dit la baisse — jamais « tu restes », jamais « Dernière série à 6 »', () => {
+    ['franc', 'normal'].forEach((rg) => {
+      const r = consigne(histoire(100, 9, [[9, 8, 6]], 'hypertrophie'), 'hypertrophie', rg);
+      expect(r.consigne.ligne.vise).toBe(8);
+      expect(r.consigne.fondement.cibleAvant).toBe(9);
+      expect(gris(r)).toMatch(/Ta cible passe à 100 kg × 8\.$/);
+      expect(gris(r)).not.toMatch(/restes|Dernière série à/);
+    });
+  });
   test('une cible tenue ne dit pas « ta cible passe à » : 8, 8, 8 pour une cible de 9 garde 9 (« tu restes à »)', () => {
     const r = M.consigneDExercice(prev.concat([groupe('c', '18', 90, [8, 8, 8])]), undefined, AVANT, o);
     expect(r.consigne.ligne.vise).toBe(9);
@@ -217,6 +226,13 @@ describe('I272 — le plancher et la phrase sont vérifiés sur chaque plan', ()
     expect(erreurs(p)).toEqual([]);
     p.exercices[0].verbe = Object.assign({}, p.exercices[0].verbe, { verbe: 'monte_reps' });
     expect(erreurs(p).join('\n')).toMatch(/ne dépasse pas la cible d’avant \(9\)/);
+  });
+  test('⚠️ DISCRIMINANT sens 3 — « tu restes à » devant une visée sous la cible d’avant (9, 8, 6 : 8 sous 9) est attrapé', () => {
+    const g = histoire(100, 9, [[9, 8, 6]], 'hypertrophie');
+    const p = planDe(consigne(g, 'hypertrophie', 'normal'));
+    expect(erreurs(p)).toEqual([]);
+    p.exercices[0].entete.gris = 'Le 15 nov. : 100 kg × 9, 8, 6. Dernière série à 6 : tu restes à 100 kg × 8.';
+    expect(erreurs(p).join('\n')).toMatch(/dit « tu restes à » alors que la ligne \(8\) est sous la cible d’avant \(9\)/);
   });
   test('⚠️ DISCRIMINANT — l’ancienne phrase « Je ne compte pas la dernière série » ne s’affiche plus', () => {
     const p = planDe(consigne(G, 'volume', 'normal'));

@@ -77,7 +77,9 @@ function campagne(reglage) {
           const plus = suivante.ligne.vise - (cA !== null && cA > fait && suivante.ligne.vise > fait ? cA : fait);
           const dePlus = /^(une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|\d+) reps? de plus, /.exec(m[1]);
           const reste = /^tu restes à /.test(m[1]), cibleDite = /^ta cible, /.test(m[1]), baisse = /^ta cible passe à /.test(m[1]), garde = /^je garde /.test(m[1]);
-          const ok = (dePlus ? plus > 0 : reste ? plus === 0 : cibleDite ? plus < 0 && suivante.ligne.vise < fait : baisse ? plus < 0 && suivante.ligne.vise > fait : garde ? true : false) &&
+          // Décision du 25/11/2026 : une visée SOUS la cible d'avant dit la baisse (« ta cible passe à »), jamais « tu restes », quelle que soit sa place par rapport au fait.
+          const bs = cA !== null && suivante.ligne.vise < cA;
+          const ok = (dePlus ? plus > 0 && !bs : reste ? plus === 0 && !bs : cibleDite ? plus < 0 && suivante.ligne.vise < fait && !bs : baisse ? bs : garde ? true : false) &&
             lg(suivante) === lg(su.apres.consigne);
           if (!ok) { C.verbe_faux++; C.ligne_des_annonces.push('VERBE ' + ann + ' | ' + lg(suivante) + ' niveau ' + suivante.niveau); }
         }
@@ -127,8 +129,8 @@ describe('la campagne des annonces : l’annonce dit la fois suivante RÉELLE (P
         // 20/11/2026 (« Capacité tenue », I252, C1) — en Normal, trois candidates « Il te manque » sont désormais confirmées (la série simulée, à fond,
         // dépasse la consigne reçue de la marge visée : capacité tenue, le test vient) : trois annonces du verbe deviennent « Il te manque » (252 → 249).
         // 25/11/2026 (§9.2 ter, « Les chutes ») — en Franc, quinze fois de plus la consigne suivante garde sans test (une série à −2 reps ou plus sur des séries stables) : 132 → 147 verbes ;
-        // Normal ne change pas (aucun test à retirer : son déclencheur est le haut de la zone partout). Les phrases du verbe ne changent que de mots (« tu restes », « ta cible passe à »).
-        expect([C.verbe, C.prochaine]).toEqual(reglage === 'normal' ? [249, 591] : [147, 707]);
+        // Normal ne change pas (aucun test à retirer : son déclencheur est le haut de la zone partout). Les phrases du verbe ne changent que de mots (« tu restes », « ta cible passe à »). // Décision du 25/11/2026 (visée sous la cible d'avant = « ta cible passe à ») : 249 → 311 verbes en Normal, 147 → 209 en Franc (des lignes nues deviennent la baisse dite).
+        expect([C.verbe, C.prochaine]).toEqual(reglage === 'normal' ? [311, 529] : [209, 645]);
         // I167 : aucune suite n'est écrite sur la consigne d'AVANT la séance du jour.
         expect(C.suite_datee_avant).toBe(0);
       });

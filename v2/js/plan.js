@@ -8187,7 +8187,7 @@
             var nivAv = fond.chuteDeFin ? nombre(fond.chuteDeFin.niveauAvant) : null;
             var faitR = nivAv !== null && nivAv > niv ? nivAv : niv;
             var plus = vise - (cibleAv !== null && cibleAv > faitR && vise > faitR ? cibleAv : faitR);
-            var attenduR = plus > 0 ? 'monte_reps' : plus === 0 ? 'garde_cible' : 'borne';
+            var attenduR = cibleAv !== null && vise < cibleAv ? 'borne' : plus > 0 ? 'monte_reps' : plus === 0 ? 'garde_cible' : 'borne';   // visée sous la cible d’avant : la baisse se dit (25/11/2026)
             if (dit !== attenduR) erreurs.push('I162' + nom + 'la ligne ' + ch + ' kg × ' + vise + ' contre un niveau de ' + niv + ' : le verbe devrait être « ' + attenduR + ' », il est « ' + dit + ' »');
             if (dit === 'monte_reps' && v.plus !== plus) erreurs.push('I162' + nom + 'le verbe dit ' + v.plus + ' rep(s) de plus, la ligne en demande ' + plus);
           }
@@ -8280,6 +8280,15 @@
       if (v && v.verbe === 'monte_reps') {
         if (niv !== null && !(vise > niv)) erreurs.push(nom + '« une rep de plus » alors que la ligne (' + vise + ') ne dépasse pas le niveau (' + niv + ')');
         if (cibleAv !== null && !(vise > cibleAv)) erreurs.push(nom + '« une rep de plus » alors que la ligne (' + vise + ') ne dépasse pas la cible d’avant (' + cibleAv + ')');
+      }
+      // Sens 3 (décision du 25/11/2026) — la visée sous la cible d’avant : la phrase dit la BAISSE (« ta cible passe à »), jamais « tu restes à ».
+      if (cibleAv !== null && vise < cibleAv) {
+        [['le gris', x.entete && x.entete.gris], ['la tête courte', x.entete && x.entete.court], ['le « Pourquoi »', x.pourquoi && x.pourquoi.etat]].forEach(function (p) {
+          var t = norm(p[1]);
+          if (/[Tt]u restes à /.test(t)) erreurs.push(nom + p[0] + ' dit « tu restes à » alors que la ligne (' + vise + ') est sous la cible d’avant (' + cibleAv + ') : ' + t);
+        });
+        var gt = norm(x.entete && x.entete.gris);
+        if (gt && v && v.verbe !== 'borne') erreurs.push(nom + 'la ligne (' + vise + ') est sous la cible d’avant (' + cibleAv + ') et le verbe est « ' + v.verbe + ' », pas « borne »');
       }
       // Sens 1 — le plancher, recalculé depuis la séance des entrées.
       if (plan.protegee === true || (k.etat !== 'progression' && k.etat !== 'tenue_apres_chute' && k.etat !== 'test_propose')) return;
@@ -8422,6 +8431,7 @@
         var faitA = typeof sl.niveau === 'number' ? (typeof sl.niveauAvant === 'number' && sl.niveauAvant > sl.niveau ? sl.niveauAvant : sl.niveau) : null;
         var refA = faitA === null ? null : (typeof sl.cibleAvant === 'number' && sl.cibleAvant > faitA && vi !== null && vi > faitA ? sl.cibleAvant : faitA);
         var plus = vi !== null && refA !== null ? vi - refA : null;
+        var baisseA = typeof sl.cibleAvant === 'number' && vi !== null && vi < sl.cibleAvant;   // la cible d’avant baisse : « ta cible passe à », jamais « tu restes »
         var mDe = /^(une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|\d+) reps? de plus, (.*)$/.exec(corps);
         var mReste = /^tu restes à (.*?)(?:, (?:la dernière|une série) sans marge)?$/.exec(corps);
         var mCible = /^ta cible, (.*?)(?:, (?:la dernière|une série) sans marge)?$/.exec(corps);
@@ -8436,13 +8446,13 @@
           if (ligne !== null && mDe[2].trim() !== ligne) erreurs.push('I164' + nom + 'l’annonce dit « ' + mDe[2] + ' », la ligne suivante est ' + ligne + ' : ' + t);
           if (CAUSE_SANS_MARGE.test(corps)) erreurs.push('I164' + nom + 'la cause « sans marge » devant une rep de plus : ' + t);
         } else if (mReste) {
-          if (plus !== 0) erreurs.push('I164' + nom + '« tu restes à » alors que la ligne vise ' + vi + ' pour un niveau de ' + (sl.niveau === undefined ? '?' : sl.niveau) + ' : ' + t);
+          if (plus !== 0 || baisseA) erreurs.push('I164' + nom + '« tu restes à » alors que la ligne vise ' + vi + ' pour un niveau de ' + (sl.niveau === undefined ? '?' : sl.niveau) + ' : ' + t);
           if (ligne !== null && mReste[1].trim() !== ligne) erreurs.push('I164' + nom + 'l’annonce dit « ' + mReste[1] + ' », la ligne suivante est ' + ligne + ' : ' + t);
         } else if (mCible) {
-          if (plus === null || plus >= 0 || vi > faitA) erreurs.push('I164' + nom + '« ta cible » alors que la ligne ne borne pas (vise ' + vi + ') : ' + t);
+          if (plus === null || plus >= 0 || vi > faitA || baisseA) erreurs.push('I164' + nom + '« ta cible » alors que la ligne ne borne pas (vise ' + vi + ') : ' + t);
           if (ligne !== null && mCible[1].trim() !== ligne) erreurs.push('I164' + nom + 'l’annonce dit « ' + mCible[1] + ' », la ligne suivante est ' + ligne + ' : ' + t);
         } else if (mBaisse) {
-          if (plus === null || plus >= 0 || !(vi > faitA)) erreurs.push('I164' + nom + '« ta cible passe à » alors que la ligne ne baisse pas la cible d’avant (vise ' + vi + ', niveau ' + (sl.niveau === undefined ? '?' : sl.niveau) + ', cible d’avant ' + (sl.cibleAvant === undefined ? '?' : sl.cibleAvant) + ') : ' + t);
+          if (plus === null || plus >= 0 || !baisseA) erreurs.push('I164' + nom + '« ta cible passe à » alors que la ligne ne baisse pas la cible d’avant (vise ' + vi + ', niveau ' + (sl.niveau === undefined ? '?' : sl.niveau) + ', cible d’avant ' + (sl.cibleAvant === undefined ? '?' : sl.cibleAvant) + ') : ' + t);
           if (ligne !== null && mBaisse[1].trim() !== ligne) erreurs.push('I164' + nom + 'l’annonce dit « ' + mBaisse[1] + ' », la ligne suivante est ' + ligne + ' : ' + t);
         } else if (mGarde) {
           if (corps !== 'je garde ' + norm(Voix().charge(ch))) erreurs.push('I164' + nom + '« je garde ' + mGarde[1] + ' kg », la ligne suivante est à ' + ch + ' kg : ' + t);

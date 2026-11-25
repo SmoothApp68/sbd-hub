@@ -157,8 +157,15 @@ describe('les phrases disent le verbe, avec la ligne (C2 : jamais le nombre nu)'
 // ── 3. LES CAS DU CONTRADICTEUR, SUR DE VRAIES SÉANCES ──────────────────────────────────────────────────────────────────────────────────
 const SIX = ['2026-10-20', '2026-10-27'];
 describe('les cas du contradicteur à froid : le verbe lit la LIGNE finale', () => {
-  test('E2 — 70 × 10, 10, 10, la dernière sans marge : la ligne reste 70 × 10 ; « Tu restes à » au gris ET au Pourquoi (la cause n’est dite que parce qu’elle est vraie)', () => {
+  // 25/11/2026 (« Les chutes », décision du fondateur) : DEUX séances à 10, 10, 10 pour une cible d'avant de 11 : la visée 10 est sous la cible d'avant, la phrase dit la baisse.
+  test('E2 bis — la cible d’avant (11) n’a pas été faite, la visée reste 10 : « Ta cible passe à 70 kg × 10 », jamais « Tu restes à »', () => {
     const c = consigneDe([g(SIX[0], S_(70, [10, 10, 10])), g(SIX[1], S_(70, [10, 10, 10], [null, null, 'reste_0']))]);
+    expect(c.consigne.fondement.cibleAvant).toBeGreaterThan(c.consigne.ligne.vise);
+    expect(A(c)).toBe('Mardi : 70 kg × 10, 10, 10, la dernière sans marge. Ta cible passe à 70 kg × 10.');
+    expect(M.verbeDeLaConsigne(c.consigne)).toMatchObject({ verbe: 'borne', baisse: true });
+  });
+  test('E2 — 70 × 10, 10, 10, la dernière sans marge : la ligne reste 70 × 10 ; « Tu restes à » au gris ET au Pourquoi (la cause n’est dite que parce qu’elle est vraie)', () => {
+    const c = consigneDe([g(SIX[1], S_(70, [10, 10, 10], [null, null, 'reste_0']))]);
     expect(c.consigne.ligne).toEqual({ charge: 70, vise: 10 });
     expect(A(c)).toBe('Mardi : 70 kg × 10, 10, 10, la dernière sans marge. Tu restes à 70 kg × 10.');
     expect(Q(c)).toBe('Ta dernière série était sans marge, il ne t\'en restait aucune : tu restes à 70 kg × 10.');
@@ -251,17 +258,17 @@ describe('I162 — le verbe ne contredit jamais le chiffre, et les trois champs 
     expect(p.exercices[0].verbe).toMatchObject({ verbe: 'monte_reps', plus: 1 });
     expect(erreurs162(p)).toEqual([]);
     ['E2', 'G'].forEach(() => {});
-    const e2 = planDe(consigneDe([g(SIX[0], S_(70, [10, 10, 10])), g(SIX[1], S_(70, [10, 10, 10], [null, null, 'reste_0']))]));
+    const e2 = planDe(consigneDe([g(SIX[1], S_(70, [10, 10, 10], [null, null, 'reste_0']))]));
     expect(e2.exercices[0].verbe.verbe).toBe('garde_cible');
     expect(erreurs162(e2)).toEqual([]);
   });
   test('⚠️ DISCRIMINANT sens 2 — un gris « Une rep de plus » devant une ligne qui garde (l’ancien défaut) est attrapé', () => {
-    const p = planDe(consigneDe([g(SIX[0], S_(70, [10, 10, 10])), g(SIX[1], S_(70, [10, 10, 10], [null, null, 'reste_0']))]));
+    const p = planDe(consigneDe([g(SIX[1], S_(70, [10, 10, 10], [null, null, 'reste_0']))]));
     p.exercices[0].entete.gris = 'Mardi : 70 kg × 10, 10, 10. Une rep de plus.';
     expect(erreurs162(p).join('\n')).toMatch(/alors que le verbe est « garde_cible »/);
   });
   test('⚠️ DISCRIMINANT sens 2 — le Pourquoi qui dit « une rep de plus sur chaque série » devant une ligne qui garde', () => {
-    const p = planDe(consigneDe([g(SIX[0], S_(70, [10, 10, 10])), g(SIX[1], S_(70, [10, 10, 10], [null, null, 'reste_0']))]));
+    const p = planDe(consigneDe([g(SIX[1], S_(70, [10, 10, 10], [null, null, 'reste_0']))]));
     p.exercices[0].pourquoi.etat = 'Ta charge de travail n\'est pas encore au haut de ta zone : une rep de plus sur chaque série.';
     expect(erreurs162(p).length).toBeGreaterThan(0);
   });
@@ -303,7 +310,7 @@ describe('I162 — le verbe ne contredit jamais le chiffre, et les trois champs 
     expect(erreurs162(p).join('\n')).toMatch(/population protégée/);
   });
   test('⚠️ DISCRIMINANT sens 1 — un verbe qui ne suit pas la ligne (monte_reps devant une ligne qui garde, recule devant une ligne plus lourde)', () => {
-    const p = planDe(consigneDe([g(SIX[0], S_(70, [10, 10, 10])), g(SIX[1], S_(70, [10, 10, 10], [null, null, 'reste_0']))]));
+    const p = planDe(consigneDe([g(SIX[1], S_(70, [10, 10, 10], [null, null, 'reste_0']))]));
     p.exercices[0].verbe = Object.assign({}, p.exercices[0].verbe, { verbe: 'monte_reps', plus: 1 });
     expect(erreurs162(p).join('\n')).toMatch(/le verbe devrait être « garde_cible », il est « monte_reps »/);
     const q = planDe(c0());

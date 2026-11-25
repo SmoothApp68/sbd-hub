@@ -5463,11 +5463,13 @@
         var ref = cibleAvant !== null && cibleAvant > fait && vise > fait ? cibleAvant : fait;
         r.plus = vise - ref;
         r.verbe = r.plus > 0 ? VERBES.MONTE_REPS : r.plus === 0 ? VERBES.GARDE_CIBLE : VERBES.BORNE;
-        // La cible BAISSE : la visée est au-dessus de ce qui a été fait et sous la cible d'avant.
-        r.baisse = r.verbe === VERBES.BORNE && ref !== fait;
+        // Décision du 25/11/2026 : dès que la visée est SOUS la cible d'avant, la phrase dit la BAISSE (« ta cible passe à »), quelle que soit la place de la visée par rapport à ce
+        // qui a été fait ; « tu restes à » ne se dit que si la visée est ÉGALE à la cible d'avant. Une cible qui baisse ne se tait jamais.
+        if (cibleAvant !== null && vise < cibleAvant) { r.verbe = VERBES.BORNE; r.plus = vise - ref; }
+        r.baisse = r.verbe === VERBES.BORNE && cibleAvant !== null && vise < cibleAvant;
         // Une dernière série tombée (plancher de la dernière série, ou chute d'avant) : le fait que dit la phrase quand le verbe garde ou borne.
         var tombee = f.chuteDeFin ? nombre(f.chuteDeFin.derniere) : (f.chute && Array.isArray(f.reps) ? nombre(f.reps[f.reps.length - 1]) : null);
-        if (tombee !== null && r.verbe !== VERBES.MONTE_REPS) r.tombee = tombee;
+        if (tombee !== null && r.verbe !== VERBES.MONTE_REPS && !r.baisse) r.tombee = tombee;   // la cible qui baisse n'est pas due à la dernière série : elle ne la nomme pas
       }
     } else if (c.etat === 'bord_garde' || c.etat === 'tenue_apres_zero') {
       r.verbe = VERBES.GARDE_CHARGE;

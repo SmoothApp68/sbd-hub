@@ -30581,7 +30581,7 @@ const SETS_IMPORTES = [
       avant193.fantomes.every((c) => String(c).replace('.', ',') === String(phAvant[1]).replace(/\s/g, '') ), nb193([avant193.fantomes, phAvant]));
     // 200b — la cible (130 × 5) est sous le bas de la zone Mix (6-8) : la phrase datée le dit.
     const grise200 = await page.evaluate(() => { const g = document.querySelector('.consigne-grise, .consigne .gris, .gris-consigne'); return g ? g.textContent : document.body.innerText; });
-    ok('[RM193] 200b — cible sous la zone : « Une rep de plus : 130 kg × 5, vers tes 6-8. »', /Une rep de plus : 130 kg × 5, vers tes 6-8\./.test(sp193(grise200)), nb193(sp193(grise200).slice(0, 300)));
+    ok('[RM193] 200b — cible sous la zone : « Tu restes à 130 kg × 5, vers tes 6-8. » (25/11/2026 : la 5 demandée n’a pas été faite, 4 à chaque séance ; la clause de zone suit le verbe qui garde)', /Tu restes à 130 kg × 5, vers tes 6-8\./.test(sp193(grise200)), nb193(sp193(grise200).slice(0, 300)));
     // 200b — au repos, aucun pixel du fond « Supprimer » ne se voit : sous la rangée comme sous l'étiquette, l'élément au point n'est pas le fond.
     const fond200 = await page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie')).map((l) => {
       const r = l.getBoundingClientRect(), pts = [];

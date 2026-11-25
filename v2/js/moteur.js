@@ -5525,11 +5525,14 @@
     }
     // §9.2 ter — la dernière série tombée est le FAIT que le verbe annonce (« Dernière série à 9 : tu restes à 81,3 kg × 12. ») ; une cause « sans marge » la remplace
     // (une seule cause par phrase), et la forme courte la garde (c'est un fait que le verbe annonce).
+    // 25/11/2026 — la cible encore SOUS le bas de la zone se dit avec le verbe qui garde ou qui borne comme avec « une rep de plus » (200b : « Tu restes à 130 kg × 5, vers tes 6-8. »).
+    var versZone = zoneBas !== null && v.vers && v.vers.reps < zoneBas && (v.verbe === VERBES.GARDE_CIBLE || v.verbe === VERBES.BORNE)
+      ? ', vers tes ' + nombreFr(zoneBas, regle('zone.bas')) + '-' + nombreFr(zoneHaut, regle('zone.haut')) : '';
     var tombee = v.tombee !== null && v.tombee !== undefined && !v.cause ? 'Dernière série à ' + nombreFr(v.tombee, cite(FAIT, { quoi: 'palier', champ: 'reps' })) + DEUX_POINTS : '';
-    if (v.verbe === VERBES.GARDE_CIBLE && tombee) return (court === true ? '' : (typeof tete === 'function' ? tete() : tete) + '. ') + tombee + tuRestes(c) + '.';
-    if (v.verbe === VERBES.BORNE && tombee) return (court === true ? '' : (typeof tete === 'function' ? tete() : tete) + '. ') + tombee + (v.baisse ? 'ta cible passe à ' : 'ta cible, ') + ligneDeLaConsigne(c) + '.';
-    if (v.verbe === VERBES.GARDE_CIBLE) return debut(cause + '. ') + tuRestes(c).charAt(0).toUpperCase() + tuRestes(c).slice(1) + '.';
-    if (v.verbe === VERBES.BORNE) return debut(cause + '. ') + (v.baisse ? 'Ta cible passe à ' : 'Ta cible : ') + ligneDeLaConsigne(c) + '.';
+    if (v.verbe === VERBES.GARDE_CIBLE && tombee) return (court === true ? '' : (typeof tete === 'function' ? tete() : tete) + '. ') + tombee + tuRestes(c) + versZone + '.';
+    if (v.verbe === VERBES.BORNE && tombee) return (court === true ? '' : (typeof tete === 'function' ? tete() : tete) + '. ') + tombee + (v.baisse ? 'ta cible passe à ' : 'ta cible, ') + ligneDeLaConsigne(c) + versZone + '.';
+    if (v.verbe === VERBES.GARDE_CIBLE) return debut(cause + '. ') + tuRestes(c).charAt(0).toUpperCase() + tuRestes(c).slice(1) + versZone + '.';
+    if (v.verbe === VERBES.BORNE) return debut(cause + '. ') + (v.baisse ? 'Ta cible passe à ' : 'Ta cible : ') + ligneDeLaConsigne(c) + versZone + '.';
     return (typeof tete === 'function' ? tete() : tete) + '.';
   }
   // Le Pourquoi (`tete` : la phrase qui précède, ses deux-points compris).

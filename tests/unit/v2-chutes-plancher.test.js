@@ -39,13 +39,13 @@ const gris = (r) => esp(r.libelles.gris);
 // ── 1. LE TABLEAU DE LA RÈGLE ───────────────────────────────────────────────────────────────────────────────────────────────────────────────
 // [charge, cible, séries faites, zone au haut, zone hors haut, visée attendue (les deux zones), phrase attendue (fin du gris)]
 const TABLEAU = [
-  [81.3, 12, [12, 12, 12, 10], 12, /Dernière série à 10 : tu restes à 81,3 kg × 12\.$/],
-  [81.3, 12, [12, 12, 12, 9], 12, /Dernière série à 9 : tu restes à 81,3 kg × 12\.$/],
-  [81.3, 12, [12, 12, 12, 8], 12, /Dernière série à 8 : tu restes à 81,3 kg × 12\.$/],
-  [100, 10, [10, 10, 10, 7], 10, /Dernière série à 7 : tu restes à 100 kg × 10\.$/],
-  [100, 10, [10, 10, 10, 6], 10, /Dernière série à 6 : tu restes à 100 kg × 10\.$/],
-  [140, 4, [4, 3, 2], 4, /Dernière série à 2 : tu restes à 140 kg × 4\.$/],
-  [100, 9, [9, 8, 6], 8, /Ta cible passe à 100 kg × 8\.$/],
+  [81.3, 12, [12, 12, 12, 10], 12, /Dernière série à 10 : tu restes à 81,3 kg × 12(?:, vers tes \d+-\d+)?\.$/],
+  [81.3, 12, [12, 12, 12, 9], 12, /Dernière série à 9 : tu restes à 81,3 kg × 12(?:, vers tes \d+-\d+)?\.$/],
+  [81.3, 12, [12, 12, 12, 8], 12, /Dernière série à 8 : tu restes à 81,3 kg × 12(?:, vers tes \d+-\d+)?\.$/],
+  [100, 10, [10, 10, 10, 7], 10, /Dernière série à 7 : tu restes à 100 kg × 10(?:, vers tes \d+-\d+)?\.$/],
+  [100, 10, [10, 10, 10, 6], 10, /Dernière série à 6 : tu restes à 100 kg × 10(?:, vers tes \d+-\d+)?\.$/],
+  [140, 4, [4, 3, 2], 4, /Dernière série à 2 : tu restes à 140 kg × 4(?:, vers tes \d+-\d+)?\.$/],
+  [100, 9, [9, 8, 6], 8, /Ta cible passe à 100 kg × 8(?:, vers tes \d+-\d+)?\.$/],
 ];
 const ZONES = { 12: ['volume', 'series_longues'], 10: ['hypertrophie', 'volume'], 4: ['lourd', 'mix'], 9: ['hypertrophie', 'volume'] };   // [au haut de zone, hors haut]
 
@@ -163,7 +163,7 @@ describe('« Les chutes » — #746 B : la cible baisse, la phrase le dit', () =
     const r = M.consigneDExercice(prev.concat([jr]), undefined, AVANT, o);
     expect(r.consigne.ligne.vise).toBe(6);
     expect(r.consigne.fondement.cibleAvant).toBe(9);
-    expect(gris(r)).toMatch(/Ta cible passe à 90 kg × 6\.$/);
+    expect(gris(r)).toMatch(/Ta cible passe à 90 kg × 6(?:, vers tes \d+-\d+)?\.$/);
     expect(gris(r)).not.toMatch(/rep de plus/);
   });
   test('l’annonce de fin d’exercice et le constat du jour disent la même chose : la cible passe à 6, « Pas encore » avec son écart', () => {
@@ -179,9 +179,14 @@ describe('« Les chutes » — #746 B : la cible baisse, la phrase le dit', () =
       const r = consigne(histoire(100, 9, [[9, 8, 6]], 'hypertrophie'), 'hypertrophie', rg);
       expect(r.consigne.ligne.vise).toBe(8);
       expect(r.consigne.fondement.cibleAvant).toBe(9);
-      expect(gris(r)).toMatch(/Ta cible passe à 100 kg × 8\.$/);
+      expect(gris(r)).toMatch(/Ta cible passe à 100 kg × 8(?:, vers tes \d+-\d+)?\.$/);
       expect(gris(r)).not.toMatch(/restes|Dernière série à/);
     });
+  });
+  test('la cible sous la zone garde sa clause avec le verbe qui garde : 4, 4, 4 pour une cible de 5 en Mix → « Tu restes à 130 kg × 5, vers tes 6-8. » (RM193, 200b)', () => {
+    const r = consigne(histoire(130, 5, [[4, 4, 4]], 'mix'), 'mix', 'franc');
+    expect(r.consigne.ligne.vise).toBe(5);
+    expect(gris(r)).toMatch(/Tu restes à 130 kg × 5, vers tes 6-8\.$/);
   });
   test('une cible tenue ne dit pas « ta cible passe à » : 8, 8, 8 pour une cible de 9 garde 9 (« tu restes à »)', () => {
     const r = M.consigneDExercice(prev.concat([groupe('c', '18', 90, [8, 8, 8])]), undefined, AVANT, o);

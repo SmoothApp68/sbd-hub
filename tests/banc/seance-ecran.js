@@ -4279,7 +4279,7 @@ const SETS_IMPORTES = [
     (await texte('#feuille-contenu .resume-fin-m')) === 'Modifier',
     (await texte('#feuille-contenu .resume-fin')).replace(/\s+/g, ' '));
   await page.click('#feuille-contenu .resume-fin-m');
-  await attendre(400);
+  await jusqua(() => compter('#feuille-contenu .champs-fin .champ-texte').then((n) => n === 3), 5000, 'lot 3 : « Modifier » ouvre les trois champs');
   ok('l’écran de fin porte les trois champs déclarés',
     (await compter('#feuille-contenu .champs-fin .champ-texte')) === 3,
     (await compter('#feuille-contenu .champs-fin .champ-texte')) + ' champ(s)');
@@ -9363,7 +9363,7 @@ const SETS_IMPORTES = [
       const ev = (type, y, l) => vue.dispatchEvent(new TouchEvent(type, { bubbles: true, cancelable: true, touches: l ? [pt(y)] : [], changedTouches: [pt(y)] }));
       ev('touchstart', 120, true); ev('touchmove', 140, true); ev('touchend', 140, false);   // 20 px : trop court
     });
-    await attendre(500);
+    await attendre(500);   // VOULU : un tirage trop court ne lit RIEN — l'absence d'un effet se mesure par le temps laissé à l'effet
     const court = await page.evaluate(() => window.__lecturesManuelles);
     await tirerPourRafraichir();
     await jusqua(() => page.evaluate(() => window.__lecturesManuelles > 0), 5000, 'tirage: lecture');

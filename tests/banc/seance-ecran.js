@@ -8255,14 +8255,30 @@ const SETS_IMPORTES = [
 
     // Tout le reste du bloc, valeurs comprises : B n'a pas d'historique, une
     // série validée à vide n'existe pas en base (`sets_validee_si_saisie`).
-    const lignes = await compter('.ligne-serie');
-    for (let i = 0; i < lignes; i++) {
-      const deja = await page.evaluate((k) =>
-        !!document.querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie.cochee'), i);
-      if (!deja) await saisirSerie(i, 20, 10);
+    // 231 bis — ON VALIDE JUSQU'À CE QUE TOUTES LES LIGNES SOIENT COCHÉES (l'état), pas « une fois chacune ». Sous charge, un
+    // seul tour pouvait laisser une ligne décochée (la coche est une BASCULE : un tap sur une ligne déjà validée mais pas encore
+    // redessinée, ou une question de vraisemblance arrivée après le sondage, la défaisait) : le bloc n'était jamais fini, et
+    // l'attente des deux constats arrivait à son plafond sans dire pourquoi (échec isolé de la CI, vert en local).
+    const cocheeDe = (k) => page.evaluate((x) => { const l = document.querySelectorAll('.ligne-serie')[x];
+      return !!l && !!l.querySelector('.ok-serie.cochee'); }, k);
+    let lignesC6 = [];
+    for (let passe = 0; passe < 4; passe++) {
+      const n = await compter('.ligne-serie');
+      let restantes = 0;
+      for (let i = 0; i < n; i++) {
+        if (!(await cocheeDe(i))) { restantes++; await saisirSerie(i, 20, 10); }
+      }
+      lignesC6 = await page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie'))
+        .map((l) => (l.querySelector('.ok-serie.cochee') ? 1 : 0)));
+      if (!restantes) break;
     }
-    await attendreQue(async () => { const t = await parExo(); return t.length === 2 && !!t[0].constat && !!t[1].constat; },
-      15000, '143 · [C6] les deux constats sont dessinés');
+    let vuC6 = '';
+    await attendreQue(async () => {
+      const t = await parExo();
+      vuC6 = JSON.stringify({ lignes: await page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie'))
+        .map((l) => (l.querySelector('.ok-serie.cochee') ? 1 : 0))), questions: await compter('.question-saisie'), exos: t });
+      return t.length === 2 && !!t[0].constat && !!t[1].constat;
+    }, 30000, { nom: '143 · [C6] les deux constats sont dessinés', detail: () => vuC6 });
     const tout = await parExo();
     ok('[C6] le bloc fini : LES DEUX constats paraissent, chacun le sien',
       tout.length === 2 && !!tout[0].constat && !!tout[1].constat &&

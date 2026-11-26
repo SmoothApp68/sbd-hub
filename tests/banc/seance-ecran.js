@@ -3362,9 +3362,17 @@ const SETS_IMPORTES = [
     await calmeApres(depart);
   };
 
-  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[1].click());
-  await attendre(600);
-  const derniere = (await compter('.ligne-serie')) - 1;
+  // 231 bis — « + Série » du second bloc, ET LA LIGNE EST LÀ : on attend qu'il y ait UNE LIGNE DE PLUS (l'état), au lieu de 600 ms
+  // fixes. Sous charge, la ligne n'était pas encore dessinée : `compter() - 1` désignait alors l'ANCIENNE dernière ligne, et la
+  // série validée n'était plus celle du bloc sans repos (« barre visible = true · 2:39 cible 3:00 » : le repos du premier bloc armé).
+  const ajouterUneSerie = async () => {
+    const avant = await compter('.ligne-serie');
+    await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[1].click());
+    await jusqua(async () => (await compter('.ligne-serie')) > avant, 6000, 'ajouterUneSerie');
+    await poseApresGeste();
+    return (await compter('.ligne-serie')) - 1;
+  };
+  const derniere = await ajouterUneSerie();
   await saisirSerie(derniere, 80, 10);
   ok('[45] repos DÉSACTIVÉ : valider n’arme AUCUN chronomètre',
     (await barreVisible()) === false,
@@ -3392,9 +3400,7 @@ const SETS_IMPORTES = [
   ok('[45] la molette pose un repos sur l’exercice qui n’en avait pas',
     /⏱\s0:15/.test(await lireDansBloc(1, '.repos-cible')),
     await lireDansBloc(1, '.repos-cible'));
-  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[1].click());
-  await attendre(600);
-  const derniereB = (await compter('.ligne-serie')) - 1;
+  const derniereB = await ajouterUneSerie();
   await saisirSerie(derniereB, 80, 10);
   ok('[45] et LÀ, valider arme — sur la cible qu’on vient de poser',
     (await barreVisible()) === true && /cible 0:15/.test(await texte('#repos')),
@@ -3436,9 +3442,7 @@ const SETS_IMPORTES = [
   // On réarme pour la suite : valider une série repart de la cible prescrite,
   // qui vaut toujours 15 s. Sans ça, tout ce qui suit mesurerait une barre
   // absente — et l'échéance, le dépassement et la sourdine passeraient à vide.
-  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[1].click());
-  await attendre(600);
-  const rearmee = (await compter('.ligne-serie')) - 1;
+  const rearmee = await ajouterUneSerie();
   await saisirSerie(rearmee, 80, 10);
   ok('[49] valider une série réarme sur la cible prescrite, inchangée',
     (await barreVisible()) === true && /cible 0:15/.test(await texte('#repos')),
@@ -3480,9 +3484,7 @@ const SETS_IMPORTES = [
 
   // On réarme pour la suite — la barre vient de s'en aller, et tout ce qui suit
   // lui parle.
-  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[1].click());
-  await attendre(600);
-  const rearmee51 = (await compter('.ligne-serie')) - 1;
+  const rearmee51 = await ajouterUneSerie();
   await saisirSerie(rearmee51, 80, 10);
   ok('[51] …et valider une série en réarme un neuf, entier',
     (await barreVisible()) === true && /cible 0:15/.test(await texte('#repos')),
@@ -3539,9 +3541,7 @@ const SETS_IMPORTES = [
   // à 17 s — puis on réarme, la barre venant de s'éteindre.
   await toucherBloc(1, '.repos-cible');
   await molette(15);
-  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[1].click());
-  await attendre(600);
-  const rearmee51b = (await compter('.ligne-serie')) - 1;
+  const rearmee51b = await ajouterUneSerie();
   await saisirSerie(rearmee51b, 80, 10);
 
   console.log('\n══ 5 quater. LA SOURDINE SE RETIENT D’UNE SÉANCE À L’AUTRE ══');
@@ -3555,9 +3555,7 @@ const SETS_IMPORTES = [
   await aller('/saisie');
   ok('on retombe dans la séance', JSON.stringify(await visible()) === '["vue-seance"]',
     JSON.stringify(await visible()));
-  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[1].click());
-  await attendre(600);
-  const derniere2 = (await compter('.ligne-serie')) - 1;
+  const derniere2 = await ajouterUneSerie();
   await saisirSerie(derniere2, 80, 8);
   ok('la sourdine est TOUJOURS coupée après fermeture complète',
     /Son ✕/.test(await texte('#repos')), (await texte('#repos')).replace(/\s+/g, ' ').slice(0, 60));

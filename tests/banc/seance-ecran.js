@@ -6983,6 +6983,11 @@ const SETS_IMPORTES = [
   const SeanceM = require(path.join(R, 'v2/js/seance.js'));
   const PalierM = require(path.join(R, 'v2/js/palier.js'));
   const ProfilM = require(path.join(R, 'v2/js/profil.js'));
+  // L'instant de référence de la consigne : le début de la séance ouverte (celui que la page passe au moteur), sinon maintenant.
+  const referenceDuJour = () => {
+    const ouverte = base.sessions.find((x) => x.statut === 'en_cours' && x.debut);
+    return ouverte ? ouverte.debut : new Date().toISOString();
+  };
   const attenduMoteur = () => {
     const parSeance = {};
     base.sets.filter((x) => x.exercise_slug === 'dc-barre').forEach((x) => {
@@ -6992,7 +6997,9 @@ const SETS_IMPORTES = [
       .map((x) => ({ seance: x, series: parSeance[x.id] }));
     const etats = PalierM.etatsExercices(PalierM.seanceExercices(base.sets));
     const profil = base.profiles ? base.profiles[0] : null;
-    const c = Moteur.consigneDExercice(groupes, etats['dc-barre'], new Date().toISOString(), {
+    // La référence est le début de la séance ouverte, comme la page (`app.js`, `seance.debut`) : avec « maintenant »,
+    // un banc qui franchit minuit (CI en Europe/Paris, 23 h UTC) attendait « mercredi » quand la page écrit « aujourd'hui ».
+    const c = Moteur.consigneDExercice(groupes, etats['dc-barre'], referenceDuJour(), {
       mesure: 'charge_reps', equipement: null, intention: profil && profil.intention,
       reglage: ProfilM.rythmeDe(profil), edition: false
     });
@@ -7720,7 +7727,8 @@ const SETS_IMPORTES = [
       const groupes = base.sessions.filter((x) => parSeance[x.id] && x.statut === 'terminee')
         .map((x) => ({ seance: x, series: parSeance[x.id] }));
       const etats = PalierM.etatsExercices(PalierM.seanceExercices(base.sets));
-      const c = Moteur.consigneDExercice(groupes, etats['souleve-terre'], new Date().toISOString(), {
+      const ouverteT = base.sessions.find((x) => x.statut === 'en_cours' && x.debut);   // même référence que la page
+      const c = Moteur.consigneDExercice(groupes, etats['souleve-terre'], ouverteT ? ouverteT.debut : new Date().toISOString(), {
         mesure: 'charge_reps', equipement: null, intention: 'progresser',
         reglage: ProfilM.rythmeDe(base.profiles[0]), edition: false
       });

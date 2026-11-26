@@ -2485,23 +2485,12 @@
       }
       return recue;
     }
-    // La visée de la consigne que L a reçue, à la charge P, ou `null`. Une séance d'avant L qui a servi le plancher fixe SA visée (la même fonction),
-    // sur la zone de la consigne reçue : on ne relit pas la visée d'avant la règle.
+    // La visée de la consigne que L a reçue, à la charge P, ou `null` : la ligne que l'écran a MONTRÉE (D1, 26/11/2026). `consigneRecue` est calculée avec le plancher des
+    // chutes comme l'écran l'a été : la visée relue est celle qu'il a affichée, sans réapplication (la réapplication relisait une visée que l'écran n'avait jamais montrée).
     function cibleDAvant() {
       var rk = consigneRecue();
       if (!rk || !rk.ligne || nombre(rk.ligne.vise) === null || nombre(rk.ligne.charge) === null || !memeCharge(nombre(rk.ligne.charge), P)) return null;
-      var v = nombre(rk.ligne.vise);
-      var Q = ant.length >= 2 ? ant[ant.length - 2] : null;
-      var zQ = rk.zone ? zoneParCle(rk.zone) : null;
-      if (plancherActif && Q !== null && zQ !== null && ETATS_DU_PLANCHER[rk.etat] === true && nombre(Q.palier) !== null && memeCharge(nombre(Q.palier), P)) {
-        var avantPrudent = prudent;
-        prudent = false;
-        try {
-          var pq = plancherDeFin(seriesAuPalier(Q), zQ.haut);
-          if (pq !== null) v = pq.vise;
-        } finally { prudent = avantPrudent; }
-      }
-      return v;
+      return nombre(rk.ligne.vise);
     }
     function rendre(etat, ligne, haut, plus) {
       // §9.2 bis — APRÈS UNE CHUTE, AUCUN NOUVEAU TEST : un test proposé, un
@@ -2809,7 +2798,8 @@
       var p0 = prudent;
       prudent = false;
       try {
-        var oR = { reglage: reglage, equipement: equipement, correction: correction, salle: salleDeclaree, bordProf: profR + 1 };
+        // D1 (26/11/2026) — la consigne reçue est CELLE QUE L'ÉCRAN A MONTRÉE : l'écran l'a montrée avec le plancher des chutes (`consigneDExercice`), la relecture aussi.
+        var oR = { reglage: reglage, equipement: equipement, correction: correction, salle: salleDeclaree, bordProf: profR + 1, plancherDesChutes: opt.plancherDesChutes === true };
         recueMemo = consigneDeLaSeance(bruteR, iR, avant, oR);
         // Une `zero_rep` reçue reste telle quelle ici : `estApresZero` exclut la capacité (I252) ; seule la règle de bord la rejoue sur les neutres.
       } finally { prudent = p0; }
@@ -7641,7 +7631,7 @@
     // la même que celle d'aujourd'hui (sinon le report verrait une « nouvelle zone » que le gel a empêchée).
     return consignePour(liste.slice(0, i), se.debut,
       { reglage: o.reglage, equipement: o.equipement, correction: correction, salle: o.salle || null,
-        bordProf: o.bordProf });
+        bordProf: o.bordProf, plancherDesChutes: o.plancherDesChutes === true });
   }
   function zoneDeLaSeance(liste, i, avant, o) {
     var k = consigneDeLaSeance(liste, i, avant, o);

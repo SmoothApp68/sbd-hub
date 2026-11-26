@@ -33,8 +33,8 @@ const CAPTURES = process.env.CAPTURES || null;
 if (CAPTURES) fs.mkdirSync(CAPTURES, { recursive: true });
 
 // La hauteur au-dessus de la 1re série (px), relevée sur l'état d'AVANT (`origin/main` f5cefc6e), et le gain minimal que la règle doit donner (marge sur le gain mesuré).
-const AVANT_PX = { a: 283, b: 396, c: 404, d: 189, e: 283 };
-const GAIN_MIN = { a: 30, b: 80, c: 60, d: 10, e: 30 };
+const AVANT_PX = { a: 283, b: 396, c: 404, d: 189, e: 283, g: 404 };
+const GAIN_MIN = { a: 30, b: 80, c: 60, d: 10, e: 30, g: 60 };
 
 let ko = 0;
 const verifier = (c, m, d) => { console.log((c ? '   ✅ ' : '   ❌ ') + m + (c || d === undefined ? '' : '  → ' + d)); if (!c) ko++; };
@@ -119,6 +119,8 @@ const SCENARIOS = {
     if (slug === 'developpe-couche') return k >= n - 2 ? r3(90, 9, 'reste_3_plus') : r3(87.5, 8, 'reste_2');
     return progStandard(slug, k, n); }) },
   c: { nom: 'première fois (calage)', exo: 3, routine: routine(HAUT_A), h: historique(10, HAUT_A.map((d) => d.slug), progStandard) },
+  // 26/11/2026 (lot 5 n° 6) — le même calage, mais la réponse se TAPE dans la ligne 1 et se valide par sa ✓ (la carte n'a plus de case).
+  g: { nom: 'calage : réponse en ligne 1', exo: 3, routine: routine(HAUT_A), h: historique(10, HAUT_A.map((d) => d.slug), progStandard) },
   d: { nom: 'après une série ratée', exo: 0, routine: routine(HAUT_A), h: historique(10, HAUT_A.map((d) => d.slug), progStandard) },
   f: { nom: 'test + veille, même barre', exo: 0, lourd: true, semaineDeTest: true, routine: routine(SQUAT_A, { dossier: 'P' }), h: historiqueF() },
   e: { nom: 'semaine de décharge', exo: 0, routine: routine(HAUT_A, { dossier: 'P' }), h: historique(10, HAUT_A.map((d) => d.slug), progStandard), decharge: true }
@@ -304,7 +306,7 @@ async function jouer(code, sc, port) {
   const port = await Verrou.ecouter(serveur, 0);
   const gains = {};
   try {
-    for (const code of ['a', 'b', 'c', 'd', 'e', 'f']) {
+    for (const code of ['a', 'b', 'c', 'g', 'd', 'e', 'f']) {
       const sc = SCENARIOS[code];
       console.log('\n══ (' + code + ') ' + sc.nom + (AVANT ? ' — AVANT' : ''));
       const nav0 = [];
@@ -369,6 +371,35 @@ async function jouer(code, sc, port) {
           verifier(!!f && /dernière série, 90 kg × 9|90 kg × 9/.test(f.texte), 'la feuille dit aussi la dernière série (« la dernière fois, 90 kg × 9 … » y est)', f && f.texte.slice(0, 200));
           if (CAPTURES) await page.screenshot({ path: path.join(CAPTURES, 'apres-b-pourquoi.png') });
           await fermerFeuille(page);
+        }
+        // 26/11/2026 (lot 5 n° 6) — la carte du calage n'a plus de case, de « kg » ni de « Partir de là » quand la ligne 1 est une série de travail : la case de charge de la ligne 1,
+        // cernée d'ambre, sert de réponse. La question et « Je ne sais pas » ne changent pas d'un mot.
+        if (code === 'c' || code === 'g') {
+          const carte = await page.evaluate((iBloc) => {
+            const b = document.querySelectorAll('#vue-seance .bloc-seance')[iBloc], k = b.querySelector('.habituelle');
+            const l0 = b.querySelector('.ligne-serie'), cases = l0 ? Array.from(l0.querySelectorAll('.reponse-calage')) : [];
+            return { texte: k ? k.innerText.replace(/\s+/g, ' ').trim() : null, champ: !!(k && k.querySelector('input')), unite: !!(k && k.querySelector('.habituelle-unite')), ok: !!(k && k.querySelector('.habituelle-ok')),
+                     anneau: cases.length, anneauChamp: cases.length === 1 && !!cases[0].querySelector('input'), anneauAilleurs: b.querySelectorAll('.reponse-calage').length };
+          }, sc.exo);
+          verifier(carte.texte === 'Ta charge habituelle, les deux haltères ensemble ? Pour 12 reps environ Je ne sais pas : on la trouve ensemble', 'la carte : la question et « Je ne sais pas : on la trouve ensemble » ne changent pas d’un mot', carte.texte);
+          verifier(!carte.champ && !carte.unite && !carte.ok, 'la carte n’a plus ni case, ni « kg », ni « Partir de là »', JSON.stringify(carte));
+          verifier(carte.anneau === 1 && carte.anneauChamp && carte.anneauAilleurs === 1, 'la case de charge de la ligne 1 est cernée d’ambre, et elle seule', JSON.stringify(carte));
+          const anneau = await page.evaluate((iBloc) => { const c = document.querySelectorAll('#vue-seance .bloc-seance')[iBloc].querySelector('.reponse-calage'); const st = getComputedStyle(c); return { w: st.outlineWidth, s: st.outlineStyle }; }, sc.exo);
+          verifier(anneau.s === 'solid' && parseFloat(anneau.w) >= 2, 'l’anneau est un trait plein de 2 px au moins', JSON.stringify(anneau));
+        }
+        if (code === 'g') {
+          // Le geste est UNIQUE : la charge tapée dans la ligne 1, puis ✓. La carte part, le coach ne parle pas d'approches qui n'existent pas, la série suivante est proposée.
+          const l0 = page.locator('#vue-seance .bloc-seance').nth(sc.exo).locator('.ligne-serie').first();
+          await l0.locator('input').first().fill('14');
+          await l0.locator('.ok-serie').click();
+          await calme(page);
+          const m4 = await page.evaluate(MESURER);
+          await capture('-valide', m4);
+          verifier(m4[sc.exo].cartes.length === 0 || !/habituelle/.test(m4[sc.exo].cartes.join(' ')), 'après la ✓ de la ligne 1 : la carte « Ta charge habituelle ? » est partie', JSON.stringify(m4[sc.exo].cartes));
+          verifier(!/Deux séries de chauffe/.test(m4[sc.exo].tete) && /Après chaque série/.test(m4[sc.exo].tete), 'le coach ne parle pas d’approches : « Après chaque série, dis-moi ce qu’il te restait »', m4[sc.exo].tete);
+          const apres = await page.evaluate((iBloc) => { const b = document.querySelectorAll('#vue-seance .bloc-seance')[iBloc]; return { anneau: b.querySelectorAll('.reponse-calage').length, ph: Array.from(b.querySelectorAll('.ligne-serie')).map((l) => { const i = l.querySelector('input'); return i ? (i.value || i.placeholder) : null; }) }; }, sc.exo);
+          verifier(apres.anneau === 0, 'plus d’anneau une fois la charge validée', JSON.stringify(apres));
+          verifier(apres.ph[0] === '14' && apres.ph[1] === '14', 'la ligne 1 porte 14, la proposition suivante est 14 (réserve non répondue : la même charge)', JSON.stringify(apres.ph));
         }
         if (code === 'c') {
           verifier(!/Deux séries de chauffe/.test(e.tete), 'la phrase des deux chauffes n’est pas dite avant « Je ne sais pas »', e.tete);

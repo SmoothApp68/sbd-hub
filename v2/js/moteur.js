@@ -10949,8 +10949,15 @@
     var debutant = o.debutant === true;
     var prudence = prudenceEffective(debutant, o.prudence);
     o.prudence = prudence;
-    var mode = debutant ? 'debutant' : hab !== null ? 'habituelle' : 'approches';
     var chauffeProchaine = o.prochain === 'chauffe';
+    // 26/11/2026 (lot 5 n° 6, MOTEUR §9.42 delta) — LA CHARGE TAPÉE EN LIGNE 1 VAUT « PARTIR DE LÀ » : sans approche (aucune validée, aucune à faire) et sans charge
+    // déclarée, une première série de travail déjà validée EST la charge habituelle (la première, dans l'ordre). Même `mode`, même `habituelle`, mêmes mots que
+    // si la personne l'avait déclarée ; le coach ne parle d'approches que s'il en reste une à faire (ou si elles ont été faites).
+    if (!debutant && hab === null && k > 0 && !chauffeProchaine && !faites.some(function (s) { return s.chauffe; })) {
+      var premiere = faites.filter(function (s) { return !s.chauffe && nombre(s.charge) > 0; })[0];
+      if (premiere) hab = nombre(premiere.charge);
+    }
+    var mode = debutant ? 'debutant' : hab !== null ? 'habituelle' : 'approches';
     // PR 3 (B5-03, MOTEUR §9.42.4) — LA BORNE : la plus légère charge de travail restée à 0 rep (la séance d'avant, `entree.borne`, ou une série de
     // travail de cette séance). Le calage ne propose jamais cette charge ni une plus lourde : il la ramène au cran du matériel juste sous elle, ou se tait.
     var borne = nombre(o.borne);
@@ -10960,7 +10967,7 @@
       if (!s.chauffe && nombre(s.reps) === 0 && c0 !== null && c0 > 0) borne = borne === null ? c0 : Math.min(borne, c0);
     });
     var r = { mode: mode, n: n, faites: k, plancher: o.plancher, equipement: o.equipement || null, plafond: plafondDuCalage(prudence), unCran: prudence.unCran, prudence: null,
-              habituelle: hab, suivante: null, question: false, plusLourdeReussie: null };
+              habituelle: hab, suivante: null, question: false, plusLourdeReussie: null, approcheRestante: chauffeProchaine };
     var travaillees = faites.filter(function (s) { return !s.chauffe; });
     var reussies = travaillees.filter(function (s) { return nombre(s.reps) !== null && nombre(s.reps) >= n; });
     var lourde = reussies.reduce(function (m, s) { return Math.max(m, nombre(s.charge)); }, 0);
@@ -11021,7 +11028,8 @@
                question: 'Ta charge habituelle ?', pour: 'Pour ' + n + ' reps environ', passer: 'Je ne sais pas : on la trouve ensemble',
                pourquoi: null };
     }
-    var consigne = c.mode === 'approches'
+    // 26/11/2026 — « approches » ne se dit que s'il en reste une à faire (`approcheRestante`) ; sinon la phrase est celle de la charge déclarée.
+    var consigne = c.mode === 'approches' && c.approcheRestante
       ? 'Deux séries de chauffe de ' + CALAGE_REPS_APPROCHE + ', en montant ; puis, après chaque série, dis-moi ce qu’il te restait : je te propose la suivante.'
       : 'Après chaque série, dis-moi ce qu’il te restait : je te propose la suivante.';
     var s = c.suivante, pourquoi = null;

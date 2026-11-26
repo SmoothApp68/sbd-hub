@@ -1070,6 +1070,10 @@
     // (`habituelles[slug] = 0`). En attendant, rien n'est proposé : on ne devine pas.
     var declinee = habEcartee || (Object.prototype.hasOwnProperty.call(habs, slug) && habs[slug] === 0);
     r.demandeHabituelle = e.debutant !== true && r.faites === 0 && r.habituelle === null && !declinee;
+    // 26/11/2026 (lot 5 n° 6, MOTEUR §9.42 delta) — où se tape la réponse : dans la case de charge de la LIGNE 1 (la première ligne non validée), SEULEMENT si c'est une série de travail ;
+    // si c'est une chauffe (la routine en porte déjà), la ✓ validerait une approche, pas la charge de travail : la carte garde son champ et « Partir de là ».
+    r.saisieEnLigne = r.demandeHabituelle && prochain === 'travail' && porteuse !== null;
+    r.iReponse = r.saisieEnLigne ? porteuse : null;
     // 21/11/2026 (« Simplifier », décision 4) — tant que la question de la charge habituelle est posée, le mode d'emploi des deux séries de chauffe (`consigne`) et le « Commence au plus
     // petit cran » (`pourquoi`) décrivent un chemin PAS ENCORE CHOISI : ils ne se disent qu'après « Je ne sais pas » (la demande levée, ils reviennent tels quels, du moteur).
     if (r.demandeHabituelle) { r.suivante = null; r.iSerie = null; r.libelles = Object.assign({}, r.libelles, { consigne: null, pourquoi: null,
@@ -1083,6 +1087,13 @@
   // 191 — LA PRUDENCE DE MONTÉE du plan : celle que l'app a gelée avec la séance (`e.prudence`, âge et ancienneté lus UNE fois), sinon
   // celle du seul débutant. Une seule lecture, pour le calage, le dépassement et les invariants (I71, I73).
   function prudenceDuPlan(e) { return Moteur().prudenceEffective(e && e.debutant === true, e && e.prudence); }
+
+  // 26/11/2026 (lot 5 n° 6) — la ligne dont la case de charge sert de réponse à « Ta charge habituelle ? » (cernée d'ambre à l'écran) : jamais une proposition, aucun prérempli.
+  function poserLaReponseDuCalage(x) {
+    var k = x && x.calage;
+    if (!k || !k.saisieEnLigne || k.iReponse === null || k.iReponse === undefined) return;
+    (x.lignes || []).forEach(function (l) { if (l.iSerie === k.iReponse) l.reponseCalage = true; });
+  }
 
   // Le gris du calage : posé APRÈS `preremplir`, sur la ligne porteuse seulement — la proposition, jamais une série.
   function poserLeCalage(x) {
@@ -2776,6 +2787,7 @@
         x.calage = coachee && !sansCoachX && !salleEl && intentionX !== 'entretien' && !seance.edition
           ? calageDuPlan(x, exo, c, e, slug, seance) : null;
         poserLeCalage(x);
+        poserLaReponseDuCalage(x);
         // 188-2 (MOTEUR §9.27 bis, I76) — LE REPOS D'UN GROS MOUVEMENT QUI STAGNE : une seule ligne dans le « Pourquoi », jamais une
         // carte. Les reps chutent d'au moins 30 % de la série 1 à la série 3 sur 3 séances (un fait, `entrees.chutesDeReps`), le
         // repos RÉGLÉ de l'exercice est de 90 s ou moins, l'exercice est un gros mouvement et le compteur de stagnation parle.
@@ -7158,6 +7170,15 @@
       // Le nombre de séries vient de la séance vivante (routine, personne, coach) : I73 ne le compare jamais à un nombre fixe ; le
       // calage ne crée, n'ajoute ni ne retire aucune série.
       var s = k.suivante;
+      // 26/11/2026 (lot 5 n° 6, extension d'I74) — la réponse en ligne : une seule ligne, une série de travail non validée, tant que la question est posée ; jamais avec une proposition.
+      var reponses = (x.lignes || []).filter(function (l) { return l.reponseCalage === true; });
+      if (reponses.length > 1) erreurs.push('I74' + nom + 'la réponse du calage sur ' + reponses.length + ' lignes');
+      reponses.forEach(function (l) {
+        if (!k.saisieEnLigne || !k.demandeHabituelle) erreurs.push('I74' + nom + 'une ligne qui sert de réponse sans question posée');
+        if (l.validee || l.type === 'echauffement') erreurs.push('I74' + nom + 'la réponse du calage sur une ligne validée ou une chauffe');
+        if (s || l.calage === true) erreurs.push('I74' + nom + 'une réponse et une proposition en même temps');
+      });
+      if (k.saisieEnLigne && reponses.length !== 1) erreurs.push('I74' + nom + 'la question posée en ligne sans ligne qui réponde');
       // 191 — la prudence de montée du plan (âge et ancienneté, gelés avec la séance) : le plafond du calage n'est jamais plus haut
       // que le sien, et « un cran à la fois » ne laisse passer ni deux crans ni trois (sauf les approches, qui ne sont pas une montée).
       var pru = plan.prudence || null;

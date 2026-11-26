@@ -6265,6 +6265,7 @@
     if (!k || !k.demandeHabituelle || !k.libelles || carteEnAttente(iExo, 'calage')) return null;
     return {
       question: k.libelles.question, pour: k.libelles.pour, passer: k.libelles.passer,
+      enLigne: k.saisieEnLigne === true,
       surValider: async function (texte) {
         var v = Modele.lireNombre(texte);
         if (v === null || !(v > 0) || v > 600) return false;
@@ -11260,6 +11261,12 @@
       premierPari: premierPariDeLExercice,
       pourquoiNeuf: pourquoiNeuf,
       habituelle: habituelleDe,
+      // 26/11/2026 (lot 5 n° 6) — la ligne dont la case de charge sert de réponse à « Ta charge habituelle ? » : lue sur le plan.
+      reponseCalage: function (iExo, iSerie) {
+        var x = planDeLExercice(iExo);
+        var l = x && x.calage && x.calage.saisieEnLigne && !carteEnAttente(iExo, 'calage') && x.lignes ? x.lignes[iSerie] : null;
+        return !!(l && l.reponseCalage === true);
+      },
       // §3.8 — l'étiquette de zone, à côté du nom, et son menu (48b-7).
       etiquette: etiquetteDe,
       zoneChoisie: function (slug) { return !!zoneDe(slug); },

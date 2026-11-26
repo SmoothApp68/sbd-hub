@@ -4092,19 +4092,23 @@
     var b = el('div', 'habituelle');
     b.appendChild(el('div', 'habituelle-q', hab.question));
     if (hab.pour) b.appendChild(el('div', 'consigne-dit habituelle-pour', hab.pour));
-    var champ = el('input', 'habituelle-champ');
-    champ.type = 'text';
-    champ.setAttribute('inputmode', 'decimal');
-    champ.setAttribute('autocomplete', 'off');
-    champ.setAttribute('aria-label', hab.question);
-    var ligne = el('div', 'habituelle-saisie');
-    ligne.appendChild(champ);
-    ligne.appendChild(el('span', 'habituelle-unite', 'kg'));
-    var ok = el('button', 'principal habituelle-ok', 'Partir de là');
-    ok.type = 'button';
-    ok.addEventListener('click', function () { hab.surValider(champ.value); });
-    ligne.appendChild(ok);
-    b.appendChild(ligne);
+    // 26/11/2026 (lot 5 n° 6) — quand la ligne 1 est une série de travail (`hab.enLigne`, dit par le plan), la réponse se tape DANS sa case de charge (cernée d'ambre) et se valide par sa ✓ :
+    // la carte ne porte plus ni case, ni « kg », ni « Partir de là ». Sinon (la ligne 1 est une chauffe) elle garde son champ et son bouton.
+    if (!hab.enLigne) {
+      var champ = el('input', 'habituelle-champ');
+      champ.type = 'text';
+      champ.setAttribute('inputmode', 'decimal');
+      champ.setAttribute('autocomplete', 'off');
+      champ.setAttribute('aria-label', hab.question);
+      var ligne = el('div', 'habituelle-saisie');
+      ligne.appendChild(champ);
+      ligne.appendChild(el('span', 'habituelle-unite', 'kg'));
+      var ok = el('button', 'principal habituelle-ok', 'Partir de là');
+      ok.type = 'button';
+      ok.addEventListener('click', function () { hab.surValider(champ.value); });
+      ligne.appendChild(ok);
+      b.appendChild(ligne);
+    }
     var passer = el('button', 'discret habituelle-passer', hab.passer);
     passer.type = 'button';
     passer.addEventListener('click', function () { hab.surPasser(); });
@@ -5138,6 +5142,8 @@
           surQuitte: typeof vue.surChampQuitte === 'function'
             ? function () { vue.surChampQuitte(iExo, iSerie); } : null });
       caseSerie.setAttribute('data-champ', nom);
+      // 26/11/2026 (lot 5 n° 6) — la case de charge de la ligne 1 SERT DE RÉPONSE à « Ta charge habituelle ? » : cernée d'ambre. Le plan le dit (`ligne.reponseCalage`), l'écran ne décide rien.
+      if (c.cle === 'charge_kg' && !vue.programme && typeof vue.reponseCalage === 'function' && vue.reponseCalage(iExo, iSerie)) caseSerie.classList.add('reponse-calage');
       rangee.appendChild(caseSerie);
     });
 

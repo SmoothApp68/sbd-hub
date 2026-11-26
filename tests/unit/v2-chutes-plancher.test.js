@@ -207,6 +207,11 @@ describe('D2 — le plancher des chutes est borné au haut de la zone', () => {
     test(`${rg} : 6, 6, 6, 4 après 100 kg × 5 → la visée est 5 (le haut du 3-5), la phrase garde la ligne que l’écran a montrée`, () => {
       const r = lourd(rg, [[6, 6, 6, 4]]);
       expect(r.consigne.ligne.vise).toBe(5);
+      if (rg === 'normal') {   // 26/11/2026 : écart B, l'essai de dépassement est gardé en Normal ; la visée est bornée au haut
+        expect(r.consigne.etat).toBe('test_propose');
+        expect(gris(r)).toMatch(/On teste le cran au-dessus/);
+        return;
+      }
       expect(r.consigne.fondement.cibleAvant).toBe(5);
       expect(gris(r)).toMatch(/Dernière série à 4 : tu restes à 100 kg × 5\.$/);
       expect(gris(r)).not.toMatch(/× 6\./);
@@ -215,6 +220,10 @@ describe('D2 — le plancher des chutes est borné au haut de la zone', () => {
       const g = [groupe('a', '04', 100, [4, 4, 4, 4]), groupe('b', '11', 100, [5, 5, 5, 5]), groupe('c', '14', 105, [3, 3, 3]), groupe('d', '17', 100, [6, 6, 6, 4])];
       const r = consigne(g, 'lourd', rg);
       expect(r.consigne.ligne.vise).toBe(5);
+      if (rg === 'normal') {   // écart B : l'essai est gardé en Normal
+        expect(r.consigne.etat).toBe('test_propose');
+        return;
+      }
       expect(r.consigne.fondement.cibleAvant).toBeUndefined();
       expect(gris(r)).toMatch(/Dernière série à 4 : ta cible passe à 100 kg × 5\.$/);
     });
@@ -376,7 +385,10 @@ describe('I272 — le plancher et la phrase sont vérifiés sur chaque plan', ()
   test('D2 : un plan réel `6, 6, 6, 4` en Lourd 3-5 : aucune erreur I272 ; ⚠️ DISCRIMINANT — une visée au-dessus du haut de la zone (6) est attrapée, et « ta cible, » devant la ligne montrée égale', () => {
     const g = [groupe('a', '04', 100, [4, 4, 4, 4]), groupe('b', '11', 100, [5, 5, 5, 5]), groupe('c', '15', 100, [6, 6, 6, 4])];
     const entrees = { precedents: { x: { seance: g[2].seance, series: g[2].series } } };
-    const p = planDe(consigne(g, 'lourd', 'normal'));
+    const pN = planDe(consigne(g, 'lourd', 'normal'));   // Normal : essai gardé (écart B), aucune erreur
+    expect(pN.exercices[0].consigne.ligne.vise).toBe(5);
+    expect(erreurs(pN, entrees)).toEqual([]);
+    const p = planDe(consigne(g, 'lourd', 'franc'));
     expect(p.exercices[0].consigne.ligne.vise).toBe(5);
     expect(erreurs(p, entrees)).toEqual([]);
     const haut = JSON.parse(JSON.stringify(p));

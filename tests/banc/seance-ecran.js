@@ -4278,6 +4278,7 @@ const SETS_IMPORTES = [
   // ── L'écran de fin ─────────────────────────────────────────────────────
   await page.click('#bandeau-seance .bandeau-fin');
   await attendre(600);
+  if (process.env.BANC_CAPTURES_LOT3) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_LOT3, 'lot3-fin-avant-terminer.png') });
   // Lot 3 (25/11/2026, changement 3) — titre, salle et note tiennent sur UNE ligne ; « Modifier » ouvre les trois champs déclarés.
   ok('[lot 3] l’écran de fin porte UNE ligne « Titre, salle, note » et « Modifier » — aucun champ ouvert d’emblée',
     (await compter('#feuille-contenu .resume-fin')) === 1 && (await compter('#feuille-contenu .champs-fin')) === 0 &&
@@ -9369,6 +9370,7 @@ const SETS_IMPORTES = [
       const ev = (type, y, l) => vue.dispatchEvent(new TouchEvent(type, { bubbles: true, cancelable: true, touches: l ? [pt(y)] : [], changedTouches: [pt(y)] }));
       ev('touchstart', 120, true); ev('touchmove', 140, true); ev('touchend', 140, false);   // 20 px : trop court
     });
+    if (process.env.BANC_CAPTURES_LOT3) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_LOT3, 'lot3-seances-entete.png') });
     await attendre(500);   // VOULU : un tirage trop court ne lit RIEN — l'absence d'un effet se mesure par le temps laissé à l'effet
     const court = await page.evaluate(() => window.__lecturesManuelles);
     await tirerPourRafraichir();
@@ -18966,6 +18968,7 @@ const SETS_IMPORTES = [
       return { texte: b.textContent, visible: r.height > 0 && r.top >= 0 && r.bottom <= window.innerHeight,
         recouvert: n !== b, sousLeRepos: !!rr && r.bottom > rr.top + 1, repos: !!rr, principal: b.classList.contains('principal') };
     });
+    if (process.env.BANC_CAPTURES_LOT3) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_LOT3, 'lot3-terminer-bas.png') });
     ok('[lot 3] « Terminer » en bas de la liste : visible tout en bas, jamais recouvert (ni par la barre de repos, ni par les onglets)',
       bas.texte === 'Terminer' && bas.visible && !bas.recouvert && !bas.sousLeRepos && bas.principal, JSON.stringify(bas));
     await page.click('#btn-terminer-bas');
@@ -22870,6 +22873,7 @@ const SETS_IMPORTES = [
       await terminerQuandMeme();
       if (garderToast) {
         await jusqua(() => page.evaluate(() => !document.getElementById('toast-recap').hidden), 8000);
+        if (process.env.BANC_CAPTURES_LOT3) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_LOT3, 'lot3-fin-apres-terminer-toast.png') });
         toastR71 = await page.evaluate(() => ({
           texte: document.getElementById('toast-recap').textContent,
           liste: !document.getElementById('vue-liste').hidden, recap: !document.getElementById('vue-recap').hidden }));
@@ -22949,6 +22953,7 @@ const SETS_IMPORTES = [
       a.ordre.lastIndexOf('recap-bouton') === a.ordre.length - 1 && !a.ordre.some((c) => c === 'recap-mu' || c === 'recap-comp'),
       nbR([a.boutons, a.ordre]));
     // Lot 3 (changement 2) — le récap est COURT : « Détail » est replié, il dit ce qu'il contient, un toucher le rend ; moins de 800 caractères visibles.
+    if (process.env.BANC_CAPTURES_LOT3) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_LOT3, 'lot3-recap-replie.png'), fullPage: true });
     const court = await page.evaluate(() => {
       const c = document.getElementById('recap-corps');
       const d = c.querySelector('.recap-detail'), b = c.querySelector('.recap-plus');

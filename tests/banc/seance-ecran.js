@@ -3362,9 +3362,17 @@ const SETS_IMPORTES = [
     await calmeApres(depart);
   };
 
-  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[1].click());
-  await attendre(600);
-  const derniere = (await compter('.ligne-serie')) - 1;
+  // 231 bis — « + Série » du second bloc, ET LA LIGNE EST LÀ : on attend qu'il y ait UNE LIGNE DE PLUS (l'état), au lieu de 600 ms
+  // fixes. Sous charge, la ligne n'était pas encore dessinée : `compter() - 1` désignait alors l'ANCIENNE dernière ligne, et la
+  // série validée n'était plus celle du bloc sans repos (« barre visible = true · 2:39 cible 3:00 » : le repos du premier bloc armé).
+  const ajouterUneSerie = async () => {
+    const avant = await compter('.ligne-serie');
+    await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[1].click());
+    await jusqua(async () => (await compter('.ligne-serie')) > avant, 6000, 'ajouterUneSerie');
+    await poseApresGeste();
+    return (await compter('.ligne-serie')) - 1;
+  };
+  const derniere = await ajouterUneSerie();
   await saisirSerie(derniere, 80, 10);
   ok('[45] repos DÉSACTIVÉ : valider n’arme AUCUN chronomètre',
     (await barreVisible()) === false,
@@ -3392,9 +3400,7 @@ const SETS_IMPORTES = [
   ok('[45] la molette pose un repos sur l’exercice qui n’en avait pas',
     /⏱\s0:15/.test(await lireDansBloc(1, '.repos-cible')),
     await lireDansBloc(1, '.repos-cible'));
-  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[1].click());
-  await attendre(600);
-  const derniereB = (await compter('.ligne-serie')) - 1;
+  const derniereB = await ajouterUneSerie();
   await saisirSerie(derniereB, 80, 10);
   ok('[45] et LÀ, valider arme — sur la cible qu’on vient de poser',
     (await barreVisible()) === true && /cible 0:15/.test(await texte('#repos')),
@@ -3436,9 +3442,7 @@ const SETS_IMPORTES = [
   // On réarme pour la suite : valider une série repart de la cible prescrite,
   // qui vaut toujours 15 s. Sans ça, tout ce qui suit mesurerait une barre
   // absente — et l'échéance, le dépassement et la sourdine passeraient à vide.
-  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[1].click());
-  await attendre(600);
-  const rearmee = (await compter('.ligne-serie')) - 1;
+  const rearmee = await ajouterUneSerie();
   await saisirSerie(rearmee, 80, 10);
   ok('[49] valider une série réarme sur la cible prescrite, inchangée',
     (await barreVisible()) === true && /cible 0:15/.test(await texte('#repos')),
@@ -3480,9 +3484,7 @@ const SETS_IMPORTES = [
 
   // On réarme pour la suite — la barre vient de s'en aller, et tout ce qui suit
   // lui parle.
-  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[1].click());
-  await attendre(600);
-  const rearmee51 = (await compter('.ligne-serie')) - 1;
+  const rearmee51 = await ajouterUneSerie();
   await saisirSerie(rearmee51, 80, 10);
   ok('[51] …et valider une série en réarme un neuf, entier',
     (await barreVisible()) === true && /cible 0:15/.test(await texte('#repos')),
@@ -3539,9 +3541,7 @@ const SETS_IMPORTES = [
   // à 17 s — puis on réarme, la barre venant de s'éteindre.
   await toucherBloc(1, '.repos-cible');
   await molette(15);
-  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[1].click());
-  await attendre(600);
-  const rearmee51b = (await compter('.ligne-serie')) - 1;
+  const rearmee51b = await ajouterUneSerie();
   await saisirSerie(rearmee51b, 80, 10);
 
   console.log('\n══ 5 quater. LA SOURDINE SE RETIENT D’UNE SÉANCE À L’AUTRE ══');
@@ -3555,9 +3555,7 @@ const SETS_IMPORTES = [
   await aller('/saisie');
   ok('on retombe dans la séance', JSON.stringify(await visible()) === '["vue-seance"]',
     JSON.stringify(await visible()));
-  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[1].click());
-  await attendre(600);
-  const derniere2 = (await compter('.ligne-serie')) - 1;
+  const derniere2 = await ajouterUneSerie();
   await saisirSerie(derniere2, 80, 8);
   ok('la sourdine est TOUJOURS coupée après fermeture complète',
     /Son ✕/.test(await texte('#repos')), (await texte('#repos')).replace(/\s+/g, ' ').slice(0, 60));
@@ -4245,15 +4243,41 @@ const SETS_IMPORTES = [
   // rien, et la mesure lisait un affichage périmé : « 0:08 → 0:08 », comme un
   // chronomètre mort. Les lignes du bloc 0 venant en premier, son dernier indice
   // LOCAL vaut encore son indice global.
+  // Bancs aléatoires (25/11/2026) : on attend l'ÉTAT, jamais un délai (600 ms après « + Série », 3 200 ms avant la
+  // seconde lecture). Deux choses distinctes : (a) la barre est RÉARMÉE (visible, et lit un décompte neuf, pas le
+  // « 0:08 » que le DOM garde d'une barre éteinte) ; (b) elle DESCEND. Le texte d'une barre cachée n'est jamais lu.
+  const lignesAvantAjout = await lignesDuBloc(0);
   await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[0].click());
-  await attendre(600);
-  await saisirSerie((await lignesDuBloc(0)) - 1, 60, 8);
-  const reparti = await chrono();
-  await attendre(3200);
-  const reparti2 = await chrono();
-  ok('valider une série réarme un décompte neuf, qui descend',
-    (await barreVisible()) === true && enSecondes(reparti2) < enSecondes(reparti),
-    reparti + ' → ' + reparti2);
+  await jusqua(async () => (await lignesDuBloc(0)) === lignesAvantAjout + 1, 6000, 'ligne ajoutée au bloc 0');
+  const iNouvelle = (await lignesDuBloc(0)) - 1;
+  await saisirSerie(iNouvelle, 60, 8);
+  const etatBarre = () => page.evaluate((k) => {
+    const n = document.getElementById('repos');
+    const g = n && n.querySelector('.repos-g');
+    const l = document.querySelectorAll('.ligne-serie')[k];
+    const ok = l && l.querySelector('.ok-serie');
+    return {
+      visible: !!n && !n.hidden,
+      texte: g ? g.textContent.trim() : null,
+      cochee: !!(ok && ok.classList.contains('cochee')),
+      t: Date.now()
+    };
+  }, iNouvelle);
+  const secondesDe = (e) => (e.visible && e.texte ? enSecondes(e.texte) : NaN);
+  let reparti = await etatBarre();
+  const barreRearmee = await jusqua(async () => {
+    reparti = await etatBarre();
+    return reparti.cochee && reparti.visible && secondesDe(reparti) >= 60;
+  }, 6000, 'barre réarmée par la validation');
+  ok('valider une série RÉARME la barre : cochée, visible, un décompte neuf (≥ 1:00)', barreRearmee,
+    JSON.stringify(reparti));
+  let reparti2 = reparti;
+  const descend = await jusqua(async () => {
+    reparti2 = await etatBarre();
+    return reparti2.visible && secondesDe(reparti2) < secondesDe(reparti);
+  }, 8000, 'décompte qui descend');
+  ok('valider une série réarme un décompte neuf, qui descend', barreRearmee && descend,
+    JSON.stringify(reparti) + ' → ' + JSON.stringify(reparti2));
 
   // ── L'écran de fin ─────────────────────────────────────────────────────
   await page.click('#bandeau-seance .bandeau-fin');
@@ -6957,6 +6981,11 @@ const SETS_IMPORTES = [
   const SeanceM = require(path.join(R, 'v2/js/seance.js'));
   const PalierM = require(path.join(R, 'v2/js/palier.js'));
   const ProfilM = require(path.join(R, 'v2/js/profil.js'));
+  // L'instant de référence de la consigne : le début de la séance ouverte (celui que la page passe au moteur), sinon maintenant.
+  const referenceDuJour = () => {
+    const ouverte = base.sessions.find((x) => x.statut === 'en_cours' && x.debut);
+    return ouverte ? ouverte.debut : new Date().toISOString();
+  };
   const attenduMoteur = () => {
     const parSeance = {};
     base.sets.filter((x) => x.exercise_slug === 'dc-barre').forEach((x) => {
@@ -6966,7 +6995,9 @@ const SETS_IMPORTES = [
       .map((x) => ({ seance: x, series: parSeance[x.id] }));
     const etats = PalierM.etatsExercices(PalierM.seanceExercices(base.sets));
     const profil = base.profiles ? base.profiles[0] : null;
-    const c = Moteur.consigneDExercice(groupes, etats['dc-barre'], new Date().toISOString(), {
+    // La référence est le début de la séance ouverte, comme la page (`app.js`, `seance.debut`) : avec « maintenant »,
+    // un banc qui franchit minuit (CI en Europe/Paris, 23 h UTC) attendait « mercredi » quand la page écrit « aujourd'hui ».
+    const c = Moteur.consigneDExercice(groupes, etats['dc-barre'], referenceDuJour(), {
       mesure: 'charge_reps', equipement: null, intention: profil && profil.intention,
       reglage: ProfilM.rythmeDe(profil), edition: false
     });
@@ -7694,7 +7725,8 @@ const SETS_IMPORTES = [
       const groupes = base.sessions.filter((x) => parSeance[x.id] && x.statut === 'terminee')
         .map((x) => ({ seance: x, series: parSeance[x.id] }));
       const etats = PalierM.etatsExercices(PalierM.seanceExercices(base.sets));
-      const c = Moteur.consigneDExercice(groupes, etats['souleve-terre'], new Date().toISOString(), {
+      const ouverteT = base.sessions.find((x) => x.statut === 'en_cours' && x.debut);   // même référence que la page
+      const c = Moteur.consigneDExercice(groupes, etats['souleve-terre'], ouverteT ? ouverteT.debut : new Date().toISOString(), {
         mesure: 'charge_reps', equipement: null, intention: 'progresser',
         reglage: ProfilM.rythmeDe(base.profiles[0]), edition: false
       });
@@ -8257,14 +8289,30 @@ const SETS_IMPORTES = [
 
     // Tout le reste du bloc, valeurs comprises : B n'a pas d'historique, une
     // série validée à vide n'existe pas en base (`sets_validee_si_saisie`).
-    const lignes = await compter('.ligne-serie');
-    for (let i = 0; i < lignes; i++) {
-      const deja = await page.evaluate((k) =>
-        !!document.querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie.cochee'), i);
-      if (!deja) await saisirSerie(i, 20, 10);
+    // 231 bis — ON VALIDE JUSQU'À CE QUE TOUTES LES LIGNES SOIENT COCHÉES (l'état), pas « une fois chacune ». Sous charge, un
+    // seul tour pouvait laisser une ligne décochée (la coche est une BASCULE : un tap sur une ligne déjà validée mais pas encore
+    // redessinée, ou une question de vraisemblance arrivée après le sondage, la défaisait) : le bloc n'était jamais fini, et
+    // l'attente des deux constats arrivait à son plafond sans dire pourquoi (échec isolé de la CI, vert en local).
+    const cocheeDe = (k) => page.evaluate((x) => { const l = document.querySelectorAll('.ligne-serie')[x];
+      return !!l && !!l.querySelector('.ok-serie.cochee'); }, k);
+    let lignesC6 = [];
+    for (let passe = 0; passe < 4; passe++) {
+      const n = await compter('.ligne-serie');
+      let restantes = 0;
+      for (let i = 0; i < n; i++) {
+        if (!(await cocheeDe(i))) { restantes++; await saisirSerie(i, 20, 10); }
+      }
+      lignesC6 = await page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie'))
+        .map((l) => (l.querySelector('.ok-serie.cochee') ? 1 : 0)));
+      if (!restantes) break;
     }
-    await attendreQue(async () => { const t = await parExo(); return t.length === 2 && !!t[0].constat && !!t[1].constat; },
-      15000, '143 · [C6] les deux constats sont dessinés');
+    let vuC6 = '';
+    await attendreQue(async () => {
+      const t = await parExo();
+      vuC6 = JSON.stringify({ lignes: await page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie'))
+        .map((l) => (l.querySelector('.ok-serie.cochee') ? 1 : 0))), questions: await compter('.question-saisie'), exos: t });
+      return t.length === 2 && !!t[0].constat && !!t[1].constat;
+    }, 30000, { nom: '143 · [C6] les deux constats sont dessinés', detail: () => vuC6 });
     const tout = await parExo();
     ok('[C6] le bloc fini : LES DEUX constats paraissent, chacun le sien',
       tout.length === 2 && !!tout[0].constat && !!tout[1].constat &&

@@ -351,6 +351,14 @@ async function jouer(code, sc, port) {
           verifier(e.bandeau.length === 1 && /^Décharge, semaine \d sur \d : prévue par ton programme\./.test(e.bandeau[0]), 'le bandeau de la séance dit la semaine', JSON.stringify(e.bandeau));
           verifier(m.slice(0, 3).every((x) => x.gris.length === 1 && x.gris[0] === 'Décharge : 2 séries au lieu de 3.'), 'chaque exercice dit « Décharge : 2 séries au lieu de 3. », sans la semaine', JSON.stringify(m.map((x) => x.gris)));
           verifier(m.slice(0, 3).every((x) => !/semaine/.test(x.tete)), 'la semaine n’est dite qu’au bandeau (pas dans la tête des exercices)');
+          // Bancs aléatoires (25/11/2026) : une consigne RECALCULÉE (ici, la zone corrigée) relisait les lignes déjà allégées : « 1 série au lieu de 2 ».
+          // La routine figée survit au recalcul. Ce contrôle échouait avant `routinesFigees` (app.js, `routineAFiger`).
+          await page.evaluate(() => { const p = document.querySelector('#vue-seance .puce-zone'); if (p) p.click(); });
+          await page.waitForSelector('.option-zone', { timeout: 15000 }).catch(() => {});
+          await page.evaluate(() => { const o = Array.from(document.querySelectorAll('.option-zone')).filter((x) => !x.classList.contains('active'))[0]; if (o) o.click(); });
+          await calme(page);
+          const mZ = await page.evaluate(MESURER);
+          verifier(mZ.slice(0, 3).every((x) => x.gris.length === 1 && x.gris[0] === 'Décharge : 2 séries au lieu de 3.'), 'une zone corrigée recalcule la consigne SANS alléger deux fois (jamais « 1 série au lieu de 2 »)', JSON.stringify(mZ.slice(0, 3).map((x) => x.gris)));
         }
       } finally { await page.context().browser().close(); }
     }

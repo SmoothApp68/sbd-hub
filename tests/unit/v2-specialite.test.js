@@ -108,3 +108,28 @@ describe('la fiche : le générateur la lit', () => {
     } finally { Modele.specialiteDe = origine; }
   });
 });
+
+describe('la fiche : les blocs la lisent (PR 2)', () => {
+  const Mo = require('../../v2/js/moteur.js');
+  const bloc = (zone) => ({ id: 'b1', zone, semaines: 4, decharge: true, exercices: ['squat_barre'] });
+  const BUTS = [['force', 0], ['muscle', 1], ['les_deux', 2], ['forme', 3], ['calisthenie', 4], [null, 5], ['', 5], ['inconnu', 5]];
+  test.each(BUTS)('%p : menu, premier bloc, grosse cochée', (but, i) => {
+    expect(Mo.zonesDeBloc(but).indexOf('hypertrophie') >= 0).toBe(VERITE['blocs.menu'][i] === 'complet');
+    expect(Mo.zonesDeBloc(but)).toContain('lourd');
+    expect(Mo.zoneDuPremierBloc(but)).toBe(VERITE['blocs.premier'][i]);
+    expect(Mo.grosseSerieParDefaut(but)).toBe(VERITE['blocs.grosseParDefaut'][i]);
+  });
+  test.each(BUTS)('%p : le bloc suivant et la grosse série d\'un Hypertrophie proposé', (but, i) => {
+    const regle = VERITE['blocs.suivant'][i];
+    ['lourd', 'mix', 'hypertrophie'].forEach((z) => {
+      const s = Mo.blocSuivant(bloc(z), false, but);
+      const attendu = regle === 'alterner' ? (z === 'mix' ? 'hypertrophie' : 'mix') : regle === 'mix' ? 'mix' : (z === 'lourd' ? 'mix' : 'lourd');
+      expect([z, s.zone]).toEqual([z, attendu]);
+      expect(s.grosse === true).toBe(VERITE['blocs.grosseSurHypProposee'][i] && attendu === 'hypertrophie');
+    });
+  });
+  test.each(BUTS)('%p : « comme le font les programmes de force » ne s\'écrit qu\'où la fiche le dit', (but, i) => {
+    const k = Mo.carteFinDeBloc(bloc('hypertrophie'), { exercices: {}, paris: 0, tenus: 0 }, {}, null, false, but);
+    expect(/programmes de force/.test(k.suivant)).toBe(VERITE['mots.deForce'][i]);
+  });
+});

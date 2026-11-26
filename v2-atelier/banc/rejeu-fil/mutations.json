@@ -252,6 +252,24 @@
   "nouveau": "menageLourd: 'hypertrophie', pause: false, cycles: false,"
  },
  {
+  "nom": "f2a — fiche : les_deux.blocs.premier lourd → mix",
+  "fichier": "modele.js",
+  "ancien": "menu: 'complet', premier: 'lourd', suivant: 'intensifier', grosseParDefaut: true",
+  "nouveau": "menu: 'complet', premier: 'mix', suivant: 'intensifier', grosseParDefaut: true"
+ },
+ {
+  "nom": "f2b — fiche : muscle.blocs.suivant alterner → intensifier",
+  "fichier": "modele.js",
+  "ancien": "suivant: 'alterner'",
+  "nouveau": "suivant: 'intensifier'"
+ },
+ {
+  "nom": "f2c — fiche : les_deux.blocs.grosseParDefaut → non",
+  "fichier": "modele.js",
+  "ancien": "suivant: 'intensifier', grosseParDefaut: true",
+  "nouveau": "suivant: 'intensifier', grosseParDefaut: false"
+ },
+ {
   "nom": "témoin — un commentaire change (doit SURVIVRE)",
   "fichier": "moteur.js",
   "ancien": "// 12 semaines, INCLUSES dans la courte",

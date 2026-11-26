@@ -8831,9 +8831,9 @@
   // qu'on PROPOSE (l'écran « Ajuster le bloc », I37). Une seule fonction, lue par l'écran, le plan et I37.
   var ZONE_HYPERTROPHIE = 'hypertrophie';
   var ZONES_DE_BLOC = ZONES_FORCE.concat([ZONE_HYPERTROPHIE]);
-  var OBJECTIFS_HYPERTROPHIE = ['muscle', 'les_deux'];
+  // Le menu vient de la fiche de spécialité (`Modele.specialiteDe(objectif).blocs.menu`, fiche du 26/11/2026) : `complet` avec Hypertrophie, `force` sans.
   function zonesDeBloc(objectif) {
-    return OBJECTIFS_HYPERTROPHIE.indexOf(objectif) >= 0 ? ZONES_DE_BLOC.slice() : ZONES_FORCE.slice();
+    return Modele().specialiteDe(objectif).blocs.menu === 'complet' ? ZONES_DE_BLOC.slice() : ZONES_FORCE.slice();
   }
   var SANS_CUMUL_JOURS = 14;                 // §14.4 : une réduction s'applique une fois
   var SEMAINES_BLOC_MIN = 3;
@@ -8981,7 +8981,7 @@
   // SOULEVÉ DE TERRE reste en Mix (6-8) : des séries longues dégradent la technique et chargent le bas du dos (convention de kinés et de
   // coachs, dite comme telle). Les accessoires gardent leur zone. Pur : une fonction, lue par `zonesPosees`, l'écran et I114.
   var GROSSE_SERIE_GARDE = 1;
-  function grosseSerieParDefaut(objectif) { return objectif === 'les_deux'; }
+  function grosseSerieParDefaut(objectif) { return Modele().specialiteDe(objectif).blocs.grosseParDefaut; }
   // La structure qu'un bloc donne à UN exercice de famille `famille` (`null` : pas une barre). `{ zone, grosse, zoneGrosse, garde }` ;
   // `zone: null` : le bloc ne pose rien (l'exercice garde la sienne).
   function structureDeBloc(bloc, famille) {
@@ -9046,7 +9046,7 @@
   // un premier bloc ; le suivant garde sa règle fixe (`blocSuivant`). Pure, sans
   // lire le profil : l'appelant passe l'objectif.
   function zoneDuPremierBloc(objectif) {
-    return objectif === 'force' || objectif === 'les_deux' ? 'lourd' : 'mix';
+    return Modele().specialiteDe(objectif).blocs.premier;
   }
 
   // LE BLOC SUIVANT, PAR UNE RÈGLE FIXE — jamais DÉDUITE DU BLOC PASSÉ (§20.1), mais LUE dans le BUT (décision du fondateur du 26/11/2026,
@@ -9060,18 +9060,18 @@
     // posée, jamais d'alternance Mix ↔ Lourd : les zones sont celles des routines.
     if (phases) return { zone: bloc.zone, semaines: nombre(bloc.semaines) || SEMAINES_PHASE, decharge: true,
                          exercices: (bloc.exercices || []).slice(), sansZones: true };
-    var zone;
-    if (objectif === 'muscle') zone = bloc.zone === 'mix' ? ZONE_HYPERTROPHIE : 'mix';
-    else if (objectif === 'forme') zone = 'mix';
+    var zone, regle = Modele().specialiteDe(objectif).blocs.suivant;
+    if (regle === 'alterner') zone = bloc.zone === 'mix' ? ZONE_HYPERTROPHIE : 'mix';
+    else if (regle === 'mix') zone = 'mix';
     // 221 — après un bloc Hypertrophie (accumulation), Lourd d'abord (intensification), jamais Hypertrophie par défaut.
     else zone = bloc.zone === 'mix' || bloc.zone === ZONE_HYPERTROPHIE ? 'lourd' : 'mix';
     var suivant = { zone: zone, semaines: nombre(bloc.semaines), decharge: true, exercices: (bloc.exercices || []).slice() };
-    if (objectif === 'muscle' && zone === ZONE_HYPERTROPHIE) suivant.grosse = true;
+    if (Modele().specialiteDe(objectif).blocs.grosseSurHypProposee && zone === ZONE_HYPERTROPHIE) suivant.grosse = true;
     return suivant;
   }
   // « Le suivant, comme le font les programmes de force » ne s'écrit qu'à Force et Les deux (D1, 26/11/2026) : aux autres, une comparaison
   // à d'autres qui ne leur ressemblent pas ; « Le suivant : … » reste un fait.
-  function objectifDeForce(objectif) { return objectif === 'force' || objectif === 'les_deux'; }
+  function objectifDeForce(objectif) { return Modele().specialiteDe(objectif).mots.deForce; }
 
   // LES EXERCICES PAR DÉFAUT : les barres polyarticulaires (au moins 3 muscles
   // principaux et secondaires, `estPolyarticulaire`) des routines du dossier,

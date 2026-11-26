@@ -4598,7 +4598,7 @@
   // se prend ailleurs). Sans lui (le défaut), rien n'est exempté : le comportement est celui de toujours. Quand
   // il ne reste que des exemptés à couper, la cible n'est pas atteinte : `tient = false`, la durée rendue est la
   // durée RÉELLE.
-  function raccourcirRoutine(structure, cibleMin, exemptes, options) {
+  function raccourcirRoutine(structure, cibleMin, exemptes) {
     var r = copieStructure(structure);
     var max = Number(cibleMin) * SECONDES_PAR_MINUTE;
     var journal = [];

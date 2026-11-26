@@ -2176,7 +2176,7 @@
   // « en retard », jamais l'assiduité reprochée). Seulement en objectif Forme, jamais en « Juste un carnet », cachable
   // (`cartes_semaine.forme_semaine = { masquee: true }`, par la file). Rien n'est écrit au rendu.
   function vueDeLaSemaineForme() {
-    if (Profil.objectifDe(profil) !== 'forme' || Moteur.coachSeTait(profil && profil.intention)) return null;
+    if (!Modele.specialiteDe(Profil.objectifDe(profil)).semaineDeForme || Moteur.coachSeTait(profil && profil.intention)) return null;
     var r = reponsesDesCartes().forme_semaine;
     if (r && r.masquee === true) return null;
     var f = faits.semaineDeForme(corpus(), new Date());
@@ -8793,7 +8793,7 @@
       reserve: reserveDeLaSeance(),
       // MOTEUR §9.22 (53-2) — les blocs des programmes (la décharge planifiée,
       // « Changer de schéma ») et les lignes de zone (I36, I37).
-      programme: { blocs: local.blocs || [], lignes: local.zones || [], objectif: profil ? profil.objectif : undefined, familles: famillesDeBlocs() },
+      programme: { blocs: local.blocs || [], lignes: local.zones || [], familles: famillesDeBlocs() },
       // 165 (I60) — les périodes allégées : le plan vérifie qu'aucune consigne n'en cite une séance comme référence.
       periodesAllegees: periodesAllegees(),
       suites: suites,
@@ -14119,7 +14119,7 @@
     // 188-2 — jamais une priorité : exemptée du raccourci.
     var exemptes = Generateur.exemptsDesPriorites((routine.exercices || []).map(function (l) { return l.exercise_slug; }),
       Profil.prioritesDe(profil), index);
-    var resultat = Moteur.raccourcirRoutine(complet, cible, exemptes, { objectif: Profil.objectifDe(profil) });
+    var resultat = Moteur.raccourcirRoutine(complet, cible, exemptes);
     Rendu.rendreCarteRaccourci($('feuille-contenu'), {
       carte: Moteur.carteRaccourcir(complet, resultat, cible, function (slug) { return Modele.nommer(index, slug); },
         (Moteur.zonesRaidesConnues(profil && profil.zones_raides) || []).length > 0),
@@ -16630,7 +16630,7 @@
     if (etatRoutines.code !== 'ok') await chargerRoutines();
     var entree = entreeDuProgramme();
     // 195 — la calisthénie a son propre gabarit : l'historique de barre ne l'assemble pas.
-    var historique = local.exercices.length && entree.objectif !== 'calisthenie' ? aUnHistorique() : null;
+    var historique = local.exercices.length && Modele.specialiteDe(entree.objectif).programme.gabarit !== 'calisthenie' ? aUnHistorique() : null;
     var rts = [];
     construit = null;
     if (historique) {

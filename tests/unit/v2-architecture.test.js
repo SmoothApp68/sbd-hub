@@ -2345,6 +2345,24 @@ const NOTIONS = [
   { notion: 'la série lourde (5 reps ou moins)', pr: 'correctif 15/11/2026',
     module: 'modele.js', fonction: 'estSerieLourde', lecteurs: ['plan.js', 'faits.js'],
     raison: 'MOTEUR §9.51 quinquies : « série lourde » du bilan, de la fiche et de l\u2019invariant I75 lit une seule fonction ; `plan.js` (I75) la lit depuis la PR B, `faits.js` (la fiche d\u2019une barre) depuis la PR D (6 → 5).' },
+  // 26/11/2026 — LA FICHE DE SPÉCIALITÉ (PR 1 à 4 de la fiche, à comportement identique) : ce que le but d'entraînement change vit dans `Modele.SPECIALITES`, lu par
+  // `Modele.specialiteDe(objectif)`. Un fait (une table), pas une décision : ce sont les fonctions du coach qui décident. Les invariants (R4, I148, I125, I100, I40) gardent
+  // leur littéral : un invariant qui lirait la table vérifierait la table avec elle-même. `profil.js` est la liste de la base (`OBJECTIFS`, `ENTRETIEN_CLES`).
+  { notion: 'la spécialité du but d’entraînement (ce que le but change)', pr: 'correctif 26/11/2026',
+    module: 'modele.js', fonction: 'specialiteDe', lecteurs: ['generateur.js', 'moteur.js', 'plan.js', 'app.js', 'questionnaire.js'],
+    par: ['marcheSuivanteBrute'],
+    parAilleurs: { 'moteur.js': ['prudence', 'zonesDeBloc', 'grosseSerieParDefaut', 'zoneDuPremierBloc', 'blocSuivant', 'objectifDeForce', 'rateSousLaZone', 'reactionDeSerie', 'reactionDExercice'],
+      'generateur.js': ['specialite'], 'plan.js': ['materielDe'], 'app.js': ['vueDeLaSemaineForme', 'ouvrirApercuProgramme'], 'questionnaire.js': ['ecransVisibles'] },
+    interditAilleurs: {
+      motif: /\b(?:objectif|obj|objectifDe\([^()]*\))\s*[!=]==?\s*'(?:force|muscle|les_deux|forme|calisthenie)'|\[\s*'(?:force|muscle|les_deux|forme|calisthenie)'\s*,\s*'(?:force|muscle|les_deux|forme|calisthenie)'/,
+      raison: 'un but comparé à la main : lire `Modele.specialiteDe(objectif)` (la fiche de spécialité)',
+      sauf: {
+        'profil.js': 'la liste des buts de la base (`OBJECTIFS`, `ENTRETIEN_CLES`, la validité d’une donnée en base) : un métier de la base, pas du coach',
+        'generateur.js': 'les invariants du générateur (`verifierProgramme` : R4 « un repère de ratio hors Force / Les deux », I148 « une pause hors Force ») gardent leur littéral : un invariant qui lirait la table la vérifierait avec elle-même',
+        'plan.js': 'la liste des buts du plan (`OBJECTIFS_DU_PLAN`, I40 : le fondement porte la clé de la personne) et les invariants I100 et I125 gardent leur littéral'
+      } },
+    raison: 'fiche de spécialité (26/11/2026) : ce que le but change se lit à UN endroit, `Modele.SPECIALITES` ; un `=== \'force\'` écrit à la main dans le coach ou un écran redonnerait deux vérités. ' +
+      'La table de vérité de `v2-specialite.test.js` fixe chaque case une fois.' },
   // 19/11/2026 — les pluriels : « 1 série », « 2 séries » ; « ta dernière séance » / « tes 8 dernières séances ». Une copie locale (equilibres.js) est retirée.
   { notion: 'l’accord du pluriel d’un mot compté (le singulier sous 2 : « 0 série », « 1 série », « 2 séries »)', pr: 'correctif 19/11/2026',
     module: 'modele.js', fonction: 'pluriel', lecteurs: ['equilibres.js', 'poids.js'],
@@ -2899,6 +2917,24 @@ describe('architecture — le registre des notions : une source, des lecteurs', 
     expect(voit("var m = e['mouvement'];")).toBe(true);
     expect(voit("select('slug, nom, mouvement')")).toBe(false);
     expect(voit('Modele.freresDe(index, slug)')).toBe(false);
+  });
+
+  test('l’interdit de la fiche de spécialité se lit vraiment : un but comparé à la main se voit, les quatre faux positifs connus non', () => {
+    const n = NOTIONS.filter((x) => x.fonction === 'specialiteDe')[0];
+    const voit = (t) => n.interditAilleurs.motif.test(t);
+    // une ligne fautive écrite ici
+    expect(voit("if (Profil.objectifDe(profil) === 'forme') return null;")).toBe(true);
+    expect(voit("var historique = entree.objectif !== 'calisthenie' ? 1 : 2;")).toBe(true);
+    expect(voit("if (p.objectif === 'force' && !debutant) return 1;")).toBe(true);
+    expect(voit("var plusTot = obj === 'muscle' || x;")).toBe(true);
+    expect(voit("var OBJECTIFS_X = ['force', 'muscle'];")).toBe(true);
+    // les faux positifs connus (le contradicteur du 26/11) : une raison de chauffe, un mode, une raison de proposition
+    expect(voit("else if (raison === 'forme') x = 1;")).toBe(false);
+    expect(voit("if (d.raison === 'forme') return 1;")).toBe(false);
+    expect(voit("if (prop.mode === 'force') return 1;")).toBe(false);
+    expect(voit("if (q.raison === 'muscle') return 1;")).toBe(false);
+    // la fiche lue : jamais fautive
+    expect(voit('if (Modele.specialiteDe(objectif).semaineDeForme) return 1;')).toBe(false);
   });
 
   test('l’interdit du formateur se lit vraiment', () => {

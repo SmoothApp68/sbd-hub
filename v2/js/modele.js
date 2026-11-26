@@ -1703,7 +1703,7 @@
     // (déjà dit le 17/10 pour le muscle-up, qui reste inchangé).
     // 195 — EN OBJECTIF CALISTHÉNIE, une habileté d'une échelle (pistol, équilibre, archer) se propose : c'est le but de la personne.
     // `o.objectif` est l'objectif GELÉ du plan ; partout ailleurs la règle ci-dessus tient (le générateur n'en propose jamais).
-    var calisthenie = !!o && o.objectif === 'calisthenie';
+    var calisthenie = !!o && specialiteDe(o.objectif).habiletes;
     var force = estEchelleDeFigures(index, E) || calisthenie ? cible : cible.filter(estDeForce);
     if (!force.length) return { type: 'habilete', cible: cible.map(function (x) { return x.slug; }), proposable: false };
     return { type: type, cible: force.map(function (x) { return x.slug; }), proposable: type !== 'lest' };

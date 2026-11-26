@@ -8203,7 +8203,9 @@
             var nivAv = fond.chuteDeFin ? nombre(fond.chuteDeFin.niveauAvant) : null;
             var faitR = nivAv !== null && nivAv > niv ? nivAv : niv;
             var plus = vise - (cibleAv !== null && cibleAv > faitR && vise > faitR ? cibleAv : faitR);
-            var attenduR = cibleAv !== null && vise < cibleAv ? 'borne' : plus > 0 ? 'monte_reps' : plus === 0 ? 'garde_cible' : 'borne';   // visée sous la cible d’avant : la baisse se dit (25/11/2026)
+            // D2 (26/11/2026) — le haut de la zone a borné le plancher (visée sous le niveau des séries d’avant) : la ligne montrée égale à la visée, la phrase garde (« tu restes à »).
+            var bornee = nivAv !== null && vise < nivAv;
+            var attenduR = cibleAv !== null && vise < cibleAv ? 'borne' : bornee && cibleAv === vise ? 'garde_cible' : plus > 0 ? 'monte_reps' : plus === 0 ? 'garde_cible' : 'borne';   // visée sous la cible d’avant : la baisse se dit (25/11/2026)
             if (dit !== attenduR) erreurs.push('I162' + nom + 'la ligne ' + ch + ' kg × ' + vise + ' contre un niveau de ' + niv + ' : le verbe devrait être « ' + attenduR + ' », il est « ' + dit + ' »');
             if (dit === 'monte_reps' && v.plus !== plus) erreurs.push('I162' + nom + 'le verbe dit ' + v.plus + ' rep(s) de plus, la ligne en demande ' + plus);
           }
@@ -8306,6 +8308,14 @@
         var gt = norm(x.entete && x.entete.gris);
         if (gt && v && v.verbe !== 'borne') erreurs.push(nom + 'la ligne (' + vise + ') est sous la cible d’avant (' + cibleAv + ') et le verbe est « ' + v.verbe + ' », pas « borne »');
       }
+      // D2 (26/11/2026) — le haut de la zone a borné le plancher (la visée est sous le niveau des séries d’avant) : la ligne montrée égale, la phrase GARDE (« Dernière série à N : tu restes à ») ;
+      // sans ligne montrée, elle dit la baisse et nomme la dernière série (« Dernière série à N : ta cible passe à »).
+      var nivAvantC = f.chuteDeFin ? nombre(f.chuteDeFin.niveauAvant) : null;
+      if (nivAvantC !== null && vise < nivAvantC && (cibleAv === null || cibleAv === vise)) {
+        var voulu = cibleAv === null ? /ta cible passe à /i : /tu restes à /i;
+        var pt = norm(x.entete && x.entete.gris);
+        if (pt && v && (v.verbe === 'garde_cible' || v.verbe === 'borne') && !voulu.test(pt)) erreurs.push(nom + 'la visée (' + vise + ') est bornée par le haut de la zone (niveau des séries d’avant ' + nivAvantC + ', cible d’avant ' + cibleAv + ') : la phrase devrait dire « ' + (cibleAv === null ? 'ta cible passe à' : 'tu restes à') + ' » : ' + pt);
+      }
       // Sens 1 — le plancher, recalculé depuis la séance des entrées.
       if (plan.protegee === true || (k.etat !== 'progression' && k.etat !== 'tenue_apres_chute' && k.etat !== 'test_propose')) return;
       var pr = Object.prototype.hasOwnProperty.call(precedents, x.slug) ? precedents[x.slug] : null;
@@ -8320,7 +8330,12 @@
       if (!stable || c[0] - c[c.length - 1] < 2) return;
       var avant = Math.min(c[0], c[1]);
       for (var q = 2; q < c.length - 1; q++) avant = Math.min(avant, c[q] + 1);
-      if (vise < avant) erreurs.push(nom + 'la dernière série (' + nombre(ss[ss.length - 1].reps) + ') a perdu ' + (c[0] - c[c.length - 1]) + ' reps sur des séries stables, la ligne vise ' + vise + ' sous le niveau des séries d’avant (' + avant + ')');
+      // D2 (26/11/2026) — le plancher s'arrête au HAUT DE LA ZONE de la consigne : le niveau des séries d'avant ne s'exige que jusque-là, et la visée ne le dépasse jamais.
+      var zoneP = Moteur().zoneParCle(k.zone);
+      var hautP = zoneP ? nombre(zoneP.haut) : null;
+      var avantBorne = hautP !== null ? Math.min(avant, hautP) : avant;
+      if (vise < avantBorne) erreurs.push(nom + 'la dernière série (' + nombre(ss[ss.length - 1].reps) + ') a perdu ' + (c[0] - c[c.length - 1]) + ' reps sur des séries stables, la ligne vise ' + vise + ' sous le niveau des séries d’avant (' + avantBorne + (avantBorne < avant ? ', borné au haut de la zone, ' + avant + ' sinon' : '') + ')');
+      if (hautP !== null && vise > hautP && f.chuteDeFin) erreurs.push(nom + 'la dernière série (' + nombre(ss[ss.length - 1].reps) + ') a perdu ' + (c[0] - c[c.length - 1]) + ' reps : la ligne vise ' + vise + ' au-dessus du haut de la zone (' + hautP + '), le plancher s’arrête au haut de la zone');
       if (f.chuteDeFin && nombre(f.chuteDeFin.derniere) !== nombre(ss[ss.length - 1].reps)) erreurs.push(nom + 'le fait « dernière série à ' + f.chuteDeFin.derniere + ' » n’est pas celui des entrées (' + nombre(ss[ss.length - 1].reps) + ')');
     });
   }
@@ -8460,7 +8475,10 @@
         var faitA = typeof sl.niveau === 'number' ? (typeof sl.niveauAvant === 'number' && sl.niveauAvant > sl.niveau ? sl.niveauAvant : sl.niveau) : null;
         var refA = faitA === null ? null : (typeof sl.cibleAvant === 'number' && sl.cibleAvant > faitA && vi !== null && vi > faitA ? sl.cibleAvant : faitA);
         var plus = vi !== null && refA !== null ? vi - refA : null;
-        var baisseA = typeof sl.cibleAvant === 'number' && vi !== null && vi < sl.cibleAvant;   // la cible d’avant baisse : « ta cible passe à », jamais « tu restes »
+        // D2 (26/11/2026) — borne de zone : le plancher a été ramené au haut de la zone (visée sous le niveau des séries d’avant). La ligne montrée égale : « tu restes à » ; absente : la baisse se dit.
+        var borneeA = typeof sl.niveauAvant === 'number' && vi !== null && vi < sl.niveauAvant;
+        var egaleA = borneeA && typeof sl.cibleAvant === 'number' && vi === sl.cibleAvant;
+        var baisseA = vi !== null && (typeof sl.cibleAvant === 'number' ? vi < sl.cibleAvant : borneeA);   // la cible d’avant baisse : « ta cible passe à », jamais « tu restes »
         var mDe = /^(une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|\d+) reps? de plus, (.*)$/.exec(corps);
         var mReste = /^tu restes à (.*?)(?:, (?:la dernière|une série) sans marge)?$/.exec(corps);
         var mCible = /^ta cible, (.*?)(?:, (?:la dernière|une série) sans marge)?$/.exec(corps);
@@ -8475,10 +8493,10 @@
           if (ligne !== null && mDe[2].trim() !== ligne) erreurs.push('I164' + nom + 'l’annonce dit « ' + mDe[2] + ' », la ligne suivante est ' + ligne + ' : ' + t);
           if (CAUSE_SANS_MARGE.test(corps)) erreurs.push('I164' + nom + 'la cause « sans marge » devant une rep de plus : ' + t);
         } else if (mReste) {
-          if (plus !== 0 || baisseA) erreurs.push('I164' + nom + '« tu restes à » alors que la ligne vise ' + vi + ' pour un niveau de ' + (sl.niveau === undefined ? '?' : sl.niveau) + ' : ' + t);
+          if ((plus !== 0 && !egaleA) || baisseA) erreurs.push('I164' + nom + '« tu restes à » alors que la ligne vise ' + vi + ' pour un niveau de ' + (sl.niveau === undefined ? '?' : sl.niveau) + ' : ' + t);
           if (ligne !== null && mReste[1].trim() !== ligne) erreurs.push('I164' + nom + 'l’annonce dit « ' + mReste[1] + ' », la ligne suivante est ' + ligne + ' : ' + t);
         } else if (mCible) {
-          if (plus === null || plus >= 0 || vi > faitA || baisseA) erreurs.push('I164' + nom + '« ta cible » alors que la ligne ne borne pas (vise ' + vi + ') : ' + t);
+          if (plus === null || plus >= 0 || vi > faitA || baisseA || egaleA) erreurs.push('I164' + nom + '« ta cible » alors que la ligne ne borne pas (vise ' + vi + ') : ' + t);
           if (ligne !== null && mCible[1].trim() !== ligne) erreurs.push('I164' + nom + 'l’annonce dit « ' + mCible[1] + ' », la ligne suivante est ' + ligne + ' : ' + t);
         } else if (mBaisse) {
           if (plus === null || plus >= 0 || !baisseA) erreurs.push('I164' + nom + '« ta cible passe à » alors que la ligne ne baisse pas la cible d’avant (vise ' + vi + ', niveau ' + (sl.niveau === undefined ? '?' : sl.niveau) + ', cible d’avant ' + (sl.cibleAvant === undefined ? '?' : sl.cibleAvant) + ') : ' + t);

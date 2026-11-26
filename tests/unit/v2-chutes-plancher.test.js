@@ -195,6 +195,140 @@ describe('« Les chutes » — #746 B : la cible baisse, la phrase le dit', () =
   });
 });
 
+// ── 4 bis. D2 (26/11/2026, MOTEUR §9.2 ter delta) : LE PLANCHER S'ARRÊTE AU HAUT DE LA ZONE ────────────────────────────────────────────────────────
+// Lourd 3-5, une ligne 100 kg × 5 reçue, `6, 6, 6, 4` : la visée est 5 (le haut), jamais 6 ; la phrase se lit contre la ligne que l'écran a montrée.
+describe('D2 — le plancher des chutes est borné au haut de la zone', () => {
+  const lourd = (reglage, faits, recu) => {
+    const g = [groupe('a', '04', 100, [4, 4, 4, 4]), groupe('b', '11', 100, recu || [5, 5, 5, 5])];
+    faits.forEach((f, i) => g.push(groupe('s' + i, String(15 + i * 3), f.charge || 100, f.reps || f)));
+    return consigne(g, 'lourd', reglage);
+  };
+  ['normal', 'franc', 'prudent'].forEach((rg) => {
+    test(`${rg} : 6, 6, 6, 4 après 100 kg × 5 → la visée est 5 (le haut du 3-5), la phrase garde la ligne que l’écran a montrée`, () => {
+      const r = lourd(rg, [[6, 6, 6, 4]]);
+      expect(r.consigne.ligne.vise).toBe(5);
+      expect(r.consigne.fondement.cibleAvant).toBe(5);
+      expect(gris(r)).toMatch(/Dernière série à 4 : tu restes à 100 kg × 5\.$/);
+      expect(gris(r)).not.toMatch(/× 6\./);
+    });
+    test(`${rg} : 6, 6, 6, 4 sans ligne montrée à cette charge (la séance d’avant était à 105 kg) → « Dernière série à 4 : ta cible passe à 100 kg × 5. »`, () => {
+      const g = [groupe('a', '04', 100, [4, 4, 4, 4]), groupe('b', '11', 100, [5, 5, 5, 5]), groupe('c', '14', 105, [3, 3, 3]), groupe('d', '17', 100, [6, 6, 6, 4])];
+      const r = consigne(g, 'lourd', rg);
+      expect(r.consigne.ligne.vise).toBe(5);
+      expect(r.consigne.fondement.cibleAvant).toBeUndefined();
+      expect(gris(r)).toMatch(/Dernière série à 4 : ta cible passe à 100 kg × 5\.$/);
+    });
+    test(`${rg} : 6, 6, 6, 3 (−3) donne la même visée, 5`, () => {
+      expect(lourd(rg, [[6, 6, 6, 3]]).consigne.ligne.vise).toBe(5);
+    });
+  });
+  test('la cible d’avant plus haute que la visée (l’écran montrait 6, la zone s’arrête à 5) : « Dernière série à 4 : ta cible passe à 100 kg × 5 » — le verbe dit la baisse et nomme la série', () => {
+    const v = M.verbeDeLaConsigne({ etat: 'progression', palier: 100, niveau: 4, ligne: { charge: 100, vise: 5 },
+      fondement: { cibleAvant: 6, chuteDeFin: { niveauAvant: 6, derniere: 4, premiere: 6 } } });
+    expect(v).toMatchObject({ verbe: 'borne', baisse: true, tombee: 4 });
+  });
+  test('la ligne montrée égale à la visée : le verbe garde (« tu restes à ») et nomme la série ; la ligne montrée plus basse : « ta cible, » (la ligne monte)', () => {
+    const c = (cibleAvant) => M.verbeDeLaConsigne({ etat: 'progression', palier: 100, niveau: 4, ligne: { charge: 100, vise: 5 },
+      fondement: { cibleAvant, chuteDeFin: { niveauAvant: 6, derniere: 4, premiere: 6 } } });
+    expect(c(5)).toMatchObject({ verbe: 'garde_cible', baisse: false, tombee: 4 });
+    expect(c(4)).toMatchObject({ verbe: 'borne', baisse: false, tombee: 4 });
+  });
+  test('sans borne de zone (le niveau des séries d’avant est dans la zone) la règle de 25/11 est inchangée : 4, 3, 2 (cible 4) → 4 ; 9, 8, 6 → 8', () => {
+    ['franc', 'normal'].forEach((rg) => {
+      expect(consigne(histoire(140, 4, [[4, 3, 2]], 'lourd'), 'lourd', rg).consigne.ligne.vise).toBe(4);
+      expect(consigne(histoire(100, 9, [[9, 8, 6]], 'hypertrophie'), 'hypertrophie', rg).consigne.ligne.vise).toBe(8);
+    });
+  });
+  test('la même série `6, 6, 6, 4` dans une zone qui la contient (Mix 6-8) vise 6 : le plancher n’est borné que par le haut de SA zone ; la perte d’une rep (6, 6, 6, 5) n’est pas une chute', () => {
+    const mix = consigne(histoire(100, 6, [[6, 6, 6, 4]], 'mix'), 'mix', 'franc');
+    expect(mix.consigne.ligne.vise).toBe(6);
+    expect(gris(mix)).toMatch(/Dernière série à 4 : tu restes à 100 kg × 6/);
+    expect(lourd('franc', [[6, 6, 6, 5]]).consigne.fondement.chuteDeFin).toBeUndefined();
+  });
+});
+
+// ── 4 ter. D2 : LA MONOTONIE QUAND LA SÉANCE D'AVANT VARIE AUSSI (ce que la grille à une séance ne voyait pas) ────────────────────────────────────────
+// Trois séances : la cible − 1 partout, S1 variée (elle peut servir le plancher), S2 variée. Plus la dernière série de S2 est haute, plus la visée est haute ou égale ;
+// « une rep de plus » n'est jamais dit contre la ligne que S1 a montrée sans la dépasser ; « ta cible passe à » jamais devant une ligne qui ne baisse pas.
+describe('D2 — la monotonie sur la grille à deux séances variées', () => {
+  const Z = { lourd: [3, 5], mix: [6, 8], hypertrophie: [8, 10], volume: [10, 12] };
+  const faute = { monotone: [], rep: [], passe: [] };
+  let n = 0;
+  Object.keys(Z).forEach((z) => ['normal', 'franc', 'prudent'].forEach((rg) => {
+    const c = Z[z][1];
+    const base = [groupe('a', '14', 100, [c - 1, c - 1, c - 1])];
+    for (let a = c - 2; a <= c + 1; a++) for (let l = a - 4; l <= a; l++) {
+      if (a < 1 || l < 1) continue;
+      const g1 = base.concat([groupe('b', '18', 100, [a, a, l])]);
+      const k1 = consigne(g1, z, rg).consigne;
+      if (!k1 || !k1.ligne || k1.ligne.charge !== 100 || k1.haut) continue;
+      const V = k1.ligne.vise;
+      for (let x = Math.max(1, V - 1); x <= V + 1; x++) {
+        let prec = null;
+        for (let L = 1; L <= x; L++) {
+          const r = consigne(g1.concat([groupe('c', '22', 100, [x, x, L])]), z, rg);
+          const k = r.consigne;
+          n++;
+          if (!k || !k.ligne || k.ligne.charge !== 100) { prec = null; continue; }
+          const vi = k.ligne.vise;
+          if (prec !== null && vi < prec) faute.monotone.push([z, rg, [a, a, l].join(), x, L, prec + ' → ' + vi]);
+          prec = vi;
+          const gr = gris(r);
+          if (/Une rep de plus/.test(gr) && vi <= V) faute.rep.push([z, rg, [a, a, l].join(), [x, x, L].join(), V, vi]);
+          if (/passe à/.test(gr) && vi >= V) faute.passe.push([z, rg, [a, a, l].join(), [x, x, L].join(), V, vi]);
+        }
+      }
+    }
+  }));
+  test('la grille est jouée (plusieurs milliers de consignes)', () => { expect(n).toBeGreaterThan(3000); });
+  test('aucune paire non monotone : une rep de plus sur la dernière série ne baisse jamais la visée', () => { expect(faute.monotone).toEqual([]); });
+  test('« une rep de plus » ne se dit jamais devant une ligne qui ne dépasse pas celle que l’écran a montrée', () => { expect(faute.rep).toEqual([]); });
+  test('« ta cible passe à » ne se dit jamais devant une ligne qui ne baisse pas celle que l’écran a montrée', () => { expect(faute.passe).toEqual([]); });
+});
+
+// ── 4 quater. D1 (26/11/2026, MOTEUR §9.2 ter delta) : LA LIGNE QUE LE COACH RELIT EST CELLE QUE L'ÉCRAN A MONTRÉE ─────────────────────────────────────────
+describe('D1 — `fondement.cibleAvant` est la visée que l’écran a montrée', () => {
+  const o = (reglage) => ({ mesure: 'charge_reps', equipement: 'barre', intention: 'progresser', reglage, correction: 'lourd' });
+  const avecReserve = (id, d, reps) => { const g = groupe(id, d, 100, reps); g.series[reps.length - 1].rpe = 9; return g; };
+  const base = () => [groupe('a', '04', 100, [4, 4, 4, 4]), groupe('b', '11', 100, [5, 5, 5, 2])];
+  test('reçu 100 kg × 5 après 5, 5, 5, 2, puis 5, 5, 5, 5 à 1 en réserve : Normal garde (plus d’essai fondé sur un « × 4 » que l’écran n’a jamais montré)', () => {
+    const recu = M.consigneDExercice(base(), undefined, jour('14'), o('normal'));
+    expect(recu.consigne.ligne.vise).toBe(5);
+    const r = M.consigneDExercice(base().concat([avecReserve('c', '15', [5, 5, 5, 5])]), undefined, AVANT, o('normal'));
+    expect(r.consigne.fondement.cibleAvant).toBe(5);
+    expect(r.consigne.haut).toBeNull();
+    expect(gris(r)).toMatch(/Je garde 100 kg/);
+  });
+  test('le même cas en Franc : l’essai vient dans les deux cas (D1 ne change rien) ; en Prudent : « Tu restes à 100 kg × 5 »', () => {
+    const g = base().concat([avecReserve('c', '15', [5, 5, 5, 5])]);
+    expect(M.consigneDExercice(g, undefined, AVANT, o('franc')).consigne.etat).toBe('test_propose');
+    expect(gris(M.consigneDExercice(g, undefined, AVANT, o('prudent')))).toMatch(/Tu restes à 100 kg × 5\.$/);
+  });
+  test('après 4, 4, 4, 4 (reçu 5) puis 5, 5, 5, 5 à 1 en réserve : la ligne relue est 5, comme après toute autre ligne 100 kg × 5', () => {
+    const g = [groupe('a', '04', 100, [5, 5, 5, 5]), groupe('b', '11', 100, [4, 4, 4, 4]), avecReserve('c', '15', [5, 5, 5, 5])];
+    expect(M.consigneDExercice(g, undefined, AVANT, o('normal')).consigne.fondement.cibleAvant).toBe(5);
+  });
+  // La propriété, sur la grille à deux séances : la cible d'avant relue est TOUJOURS la visée de la consigne que S1 a reçue (celle de `consigneDExercice` avant S2).
+  const fautes = [];
+  let n = 0;
+  ['lourd', 'mix', 'hypertrophie', 'volume'].forEach((z) => ['normal', 'franc', 'prudent'].forEach((rg) => {
+    const c = { lourd: 5, mix: 8, hypertrophie: 10, volume: 12 }[z];
+    for (let a = c - 2; a <= c + 1; a++) for (let l = a - 4; l <= a; l++) {
+      if (a < 1 || l < 1) continue;
+      const g1 = [groupe('a', '14', 100, [c - 1, c - 1, c - 1]), groupe('b', '18', 100, [a, a, l])];
+      const k1 = consigne(g1, z, rg).consigne;
+      if (!k1 || !k1.ligne || k1.ligne.charge !== 100 || k1.haut) continue;
+      for (let x = Math.max(1, k1.ligne.vise - 1); x <= k1.ligne.vise + 1; x++) for (let L = 1; L <= x; L += 1) {
+        const k = consigne(g1.concat([groupe('c', '22', 100, [x, x, L])]), z, rg).consigne;
+        n++;
+        if (k && k.fondement && k.fondement.cibleAvant !== undefined && k.fondement.cibleAvant !== k1.ligne.vise) fautes.push([z, rg, [a, a, l].join(), [x, x, L].join(), k1.ligne.vise, k.fondement.cibleAvant]);
+      }
+    }
+  }));
+  test('la grille est jouée', () => { expect(n).toBeGreaterThan(3000); });
+  test('⚠️ aucune cible d’avant relue ne diffère de la visée que l’écran avait montrée', () => { expect(fautes).toEqual([]); });
+});
+
 // ── 5. I272 : LE PLAN VÉRIFIE LA RÈGLE, ET SES DISCRIMINANTS L'ATTRAPENT ───────────────────────────────────────────────────────────────────────
 describe('I272 — le plancher et la phrase sont vérifiés sur chaque plan', () => {
   function planDe(r, o) {
@@ -238,6 +372,19 @@ describe('I272 — le plancher et la phrase sont vérifiés sur chaque plan', ()
     expect(erreurs(p)).toEqual([]);
     p.exercices[0].entete.gris = 'Le 15 nov. : 100 kg × 9, 8, 6. Dernière série à 6 : tu restes à 100 kg × 8.';
     expect(erreurs(p).join('\n')).toMatch(/dit « tu restes à » alors que la ligne \(8\) est sous la cible d’avant \(9\)/);
+  });
+  test('D2 : un plan réel `6, 6, 6, 4` en Lourd 3-5 : aucune erreur I272 ; ⚠️ DISCRIMINANT — une visée au-dessus du haut de la zone (6) est attrapée, et « ta cible, » devant la ligne montrée égale', () => {
+    const g = [groupe('a', '04', 100, [4, 4, 4, 4]), groupe('b', '11', 100, [5, 5, 5, 5]), groupe('c', '15', 100, [6, 6, 6, 4])];
+    const entrees = { precedents: { x: { seance: g[2].seance, series: g[2].series } } };
+    const p = planDe(consigne(g, 'lourd', 'normal'));
+    expect(p.exercices[0].consigne.ligne.vise).toBe(5);
+    expect(erreurs(p, entrees)).toEqual([]);
+    const haut = JSON.parse(JSON.stringify(p));
+    haut.exercices[0].consigne.ligne.vise = 6;
+    expect(erreurs(haut, entrees).join('\n')).toMatch(/au-dessus du haut de la zone \(5\)/);
+    const mot = JSON.parse(JSON.stringify(p));
+    mot.exercices[0].entete.gris = 'Le 15 nov. : 100 kg × 6, 6, 6, 4. Dernière série à 4 : ta cible, 100 kg × 5.';
+    expect(erreurs(mot, entrees).join('\n')).toMatch(/devrait dire « tu restes à »/);
   });
   test('⚠️ DISCRIMINANT — l’ancienne phrase « Je ne compte pas la dernière série » ne s’affiche plus', () => {
     const p = planDe(consigne(G, 'volume', 'normal'));

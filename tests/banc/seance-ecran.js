@@ -16927,6 +16927,12 @@ const SETS_IMPORTES = [
       return false;
     };
     const continuerQ = async () => { await cliquerQ('.q-continuer', 500); };
+    // Lot 5, n° 1 : l'ouverture de lui-même est le parcours COURT ; le parcours complet s'ouvre par « Plus tard » puis « Le terminer » (n° 3).
+    const versLeComplet = async () => {
+      await cliquerQ('.q-plus-tard', 700);
+      await page.click('#bandeau-questionnaire .principal');
+      await attendre(600);
+    };
     const aujourdhuiLocal = () => page.evaluate(() => {
       const d = new Date(), p = (n) => String(n).padStart(2, '0');
       return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
@@ -16988,9 +16994,15 @@ const SETS_IMPORTES = [
       e.etape === 'Tes données' && e.titre === 'Tu t’entraînes depuis combien de temps ?' &&
         e.voix === 'Je te propose la charge de chaque série et je te dis pourquoi. Tu décides toujours.' &&
         e.bouton === 'Continuer' && e.plusTard === 'Plus tard' && e.retour === false && e.actif === false &&
-        JSON.stringify(e.progression) === '["1","11"]', JSON.stringify(e));
+        JSON.stringify(e.progression) === '["1","5"]', JSON.stringify(e));
+    ok('[Q60] A — lot 5, n° 1 : l’ouverture de lui-même est le parcours COURT (compte avec séances et routines : depuis quand, Ce que je sais, l’année, la zone, l’objectif — 5 écrans, 0 pour le récapitulatif)',
+      e.progression[1] === '5', JSON.stringify(e.progression));
     ok('[Q60] A — marqué « ouvert sur cet appareil » : une clé locale, par compte',
       (await clesVues()).length === 1, JSON.stringify(await clesVues()));
+    await versLeComplet();
+    e = await ecranQ();
+    ok('[Q60] A — « Plus tard » puis « Le terminer » : le parcours COMPLET, repris au premier écran sans réponse (compte vierge : le premier), barre sur 11 écrans',
+      e.ecran === 'anciennete' && e.retour === false && e.progression[1] === '11' && e.bouton === 'Continuer', JSON.stringify(e));
 
     // ── Les écrans 1 → 2 : « Continuer » est éteint tant que l'historique n'est pas répondu.
     let ecritsAvant = ecritsProfil();
@@ -17097,8 +17109,8 @@ const SETS_IMPORTES = [
     await page.click('#profil-corps .p-questionnaire .p-ligne');
     await attendre(600);
     e = await ecranQ();
-    ok('[Q60] B — la ligne rouvre le questionnaire au PREMIER écran, déjà répondu (import) ; « Plus tard » ramène sur Saisie',
-      e.ecran === 'anciennete' && JSON.stringify(e.vues) === '["vue-questionnaire"]', JSON.stringify(e));
+    ok('[Q60] B — la ligne rouvre le questionnaire au premier écran SANS RÉPONSE (lot 5, n° 3 : ancienneté et « Ce que je sais » sont répondus, on reprend à la salle) ; « Plus tard » ramène sur Saisie',
+      e.ecran === 'salle' && JSON.stringify(e.vues) === '["vue-questionnaire"]', JSON.stringify(e));
     await cliquerQ('.q-plus-tard', 700);
     ok('[Q60] B — « Plus tard » depuis la ligne du Profil : Saisie, bandeau toujours là',
       JSON.stringify(await visible()) === JSON.stringify(saisie) && (await bandeauQ()).visible, JSON.stringify([await visible(), await bandeauQ()]));
@@ -17107,20 +17119,24 @@ const SETS_IMPORTES = [
     await page.click('#bandeau-questionnaire .principal');
     await attendre(600);
     e = await ecranQ();
-    ok('[Q60] C — « Le terminer » rouvre au PREMIER écran', e.ecran === 'anciennete' && e.retour === false, JSON.stringify(e));
+    ok('[Q60] C — « Le terminer » rouvre au premier écran SANS RÉPONSE (lot 5, n° 3 : la salle), la barre garde la liste complète (3 sur 11), « Retour » existe',
+      e.ecran === 'salle' && e.retour === true && JSON.stringify(e.progression) === '["3","11"]', JSON.stringify(e));
+    await cliquerQ('.q-retour', 400);
+    await cliquerQ('.q-retour', 400);                                  // « Retour » rejoint les écrans répondus : « Ce que je sais », puis l'ancienneté
+    e = await ecranQ();
     ok('[Q60] C — écran 1 (lot 5, n° 4) : la réponse déjà donnée (1 à 3 ans, non notées) est pré-remplie', e.ecran === 'anciennete' && e.choisis.indexOf('1_a_3_ans') >= 0 && e.choisis.indexOf('non') >= 0 && e.actif === true, JSON.stringify(e));
     await continuerQ();
     // Le retour d'Android recule d'UN écran (il ne quitte pas l'app, il ne recharge rien).
     await page.goBack().catch(() => {});
     await attendre(900);
     e = await ecranQ();
-    ok('[Q60] C — le retour d’Android recule d’un écran (2 → 1), sans quitter le questionnaire',
-      e.ecran === 'anciennete' && JSON.stringify(e.vues) === '["vue-questionnaire"]', JSON.stringify(e));
+    ok('[Q60] C — le retour d’Android recule d’un écran (la salle → « Ce que je sais », n° 3 : en avançant, les écrans déjà répondus sont sautés), sans quitter le questionnaire',
+      e.ecran === 'sait' && JSON.stringify(e.vues) === '["vue-questionnaire"]', JSON.stringify(e));
     await continuerQ();
     await continuerQ();
-    await continuerQ();
-    await continuerQ();                                               // 187 : + « Où tu t’entraînes ? », « Quelque chose à ménager ? »
-    await continuerQ();                                               // 194-1 : + « Des zones raides ? »
+    await continuerQ();                                               // 187 : « Où tu t’entraînes ? », « Quelque chose à ménager ? »
+    await continuerQ();                                               // 194-1 : « Des zones raides » ; « Qui es-tu ? » (sexe répondu) est sauté en avançant…
+    await cliquerQ('.q-retour', 400);                                 // …et « Retour » le rejoint
     e = await ecranQ();
     ok('[Q60] C — écran 4 : sexe, année, taille et POIDS pré-remplis (98,4 : la dernière pesée)',
       e.ecran === 'toi' && e.choisis.indexOf('homme') >= 0 &&
@@ -17463,6 +17479,7 @@ const SETS_IMPORTES = [
     base.reseau = false;
     const ecrituresK0 = base.ecrituresPesees.length;
     const peseesK0 = JSON.stringify(base.pesees);
+    await versLeComplet();
     await cliquerQ('.q-puce[data-cle="1_a_3_ans"]'); await cliquerQ('.q-opt[data-cle="non"]');
     await continuerQ();
     await continuerQ(); await continuerQ(); await continuerQ(); await continuerQ();      // 3a, « Où tu t’entraînes ? », « Quelque chose à ménager ? », « Des zones raides ? »
@@ -17844,6 +17861,10 @@ const SETS_IMPORTES = [
     };
     // Jusqu'à l'écran « Temps » : les réponses obligatoires, rien d'autre.
     const jusquAuTemps = async (zone) => {
+      // Lot 5, n° 1 : l'ouverture de lui-même est le parcours court ; ces scénarios jouent le COMPLET (« Plus tard », puis « Le terminer »).
+      await cliquerR('.q-plus-tard', 700);
+      await page.click('#bandeau-questionnaire .principal');
+      await attendre(600);
       await cliquerR('.q-puce[data-cle="1_a_3_ans"]'); await cliquerR('.q-opt[data-cle="non"]'); await continuerR();
       for (let n = 0; n < 6 && (await ecranR()).ecran !== 'but'; n++) {
         if (zone && (await ecranR()).ecran === 'zone') await cliquerR('.q-puce[data-cle="' + zone + '"]');   // 187 : la zone a son écran

@@ -18040,7 +18040,7 @@
     if (modeModifier) return false;
     if (!vues.detail.hidden || !vues.routine.hidden || !vues.seance.hidden) return false;
     if (!Profil.doitOuvrirQuestionnaire(profil, questionnaireDejaVuIci())) return false;
-    ouvrirQuestionnaire();
+    ouvrirQuestionnaire({ court: true });   // lot 5, n° 1 : l'ouverture de lui-même est le parcours court
     return true;
   }
 
@@ -18075,6 +18075,7 @@
                                           programme: questionnaire.rep.programme,
                                           depuis: questionnaire.rep.depuis,
                                           objectif: questionnaire.rep.objectif,
+                                          court: !!questionnaire.court,
                                           aDesRoutines: aDesRoutinesConnu() });
   }
 
@@ -18089,7 +18090,8 @@
     questionnaire = {
       ecran: refaire ? Questionnaire.CONSTRUIT : Questionnaire.ANCIENNETE,
       rep: Questionnaire.reponsesInitiales(profil, { poids: pesee ? pesee.poids : null }),
-      faits: null, aDesSeances: false, textes: {}, erreurs: {}, retourRecap: false, refaire: refaire
+      faits: null, aDesSeances: false, textes: {}, erreurs: {}, retourRecap: false, refaire: refaire,
+      court: !!(options && options.court), dejaRepondus: []
     };
     actualiserFaitsDuQuestionnaire();
     if (refaire) {
@@ -18114,6 +18116,12 @@
       questionnaire.rep = reprise.rep;
       questionnaire.ecran = reprise.ecran;
       actualiserFaitsDuQuestionnaire();
+    } else if (!refaire && !questionnaire.court) {
+      // Lot 5, n° 3 — « Terminer mon questionnaire » reprend au premier écran SANS réponse (la liste complète, la barre, « Retour » inchangés) ;
+      // les écrans déjà répondus ne se remontrent pas en avançant. Zone vide, coach et « série récente » n'ont pas d'état : ils se remontrent.
+      var rp = Questionnaire.reprise(ecransDuQuestionnaire(), questionnaire.rep);
+      questionnaire.ecran = rp.ecran;
+      questionnaire.dejaRepondus = rp.repondus;
     }
     rendreQuestionnaire();
   }
@@ -18128,7 +18136,7 @@
     if (!q) return;
     montrer('questionnaire');
     var vue = Questionnaire.vueDe(q.ecran, { rep: q.rep, faits: q.faits, aDesSeances: q.aDesSeances, profil: profil,
-      textes: q.textes, erreurs: q.erreurs, visibles: ecransDuQuestionnaire(), refaire: !!q.refaire,
+      textes: q.textes, erreurs: q.erreurs, visibles: ecransDuQuestionnaire(), refaire: !!q.refaire, court: !!q.court,
       catalogue: q.ecran === Questionnaire.DEPART ? catalogueIndexe() : null });
     Rendu.rendreQuestionnaire($('questionnaire-corps'), vue, {
       surChoix: choisirDansQuestionnaire,
@@ -18146,6 +18154,10 @@
     questionnaire.rep = Questionnaire.appliquerChoix(questionnaire.rep, cle, valeur);
     // 137 — une puce de durée touchée : les minutes tapées pour « Plus » ne sont plus la réponse.
     if (cle === 'duree') { delete questionnaire.textes.duree; delete questionnaire.erreurs.duree; }
+    // Lot 5 : les jours s'ouvrent sous « Construis-le-moi » (parcours court), pré-cochés comme à l'écran 8b (116 : une valeur déclarée n'est pas réécrite).
+    if (cle === 'programme' && valeur === 'construis' && questionnaire.court) {
+      questionnaire.rep = Questionnaire.precocherJours(questionnaire.rep, questionnaire.faits);
+    }
     rendreQuestionnaire();
   }
 
@@ -18195,10 +18207,10 @@
 
   function continuerQuestionnaire() {
     var q = questionnaire;
-    if (!q || !Questionnaire.ecranPret(q.ecran, q.rep)) return;
+    if (!q || !Questionnaire.ecranPret(q.ecran, q.rep, q.court)) return;
     if (q.refaire) return validerRefaire();
     var ecrit = Questionnaire.champsDeLEcran(q.ecran, q.rep, profil, {
-      pesees: local.pesees, jour: jourDuJour(), maintenant: new Date() });
+      pesees: local.pesees, jour: jourDuJour(), maintenant: new Date(), court: !!q.court });
     // Une écriture par écran. `poserProfil` met `profil` à jour AVANT son premier
     // `await` : l'écran suivant lit déjà la réponse. Aucun n'attend le réseau.
     if (Object.keys(ecrit.champs).length) poserProfil(ecrit.champs).catch(function () {});
@@ -18219,8 +18231,12 @@
     // ses jours et l'aperçu n'aurait rien à construire.
     var vers8b = q.retourRecap && q.ecran === Questionnaire.PROGRAMME &&
       visibles.indexOf(Questionnaire.CONSTRUIT) >= 0;
+    var apres = Questionnaire.ecranSuivant(visibles, q.ecran, q.dejaRepondus);
+    // Lot 5, n° 1 : le parcours court finit sur « Commencer » au dernier écran, sans récapitulatif ; `questionnaire_fait_le` reste vide
+    // (le bandeau et la ligne du Profil proposent la suite, QUESTIONNAIRE §8.y, Q1).
+    if (q.court && !apres) return terminerQuestionnaire();
     var suivant = vers8b ? Questionnaire.CONSTRUIT : q.retourRecap ? Questionnaire.RECAP
-      : (Questionnaire.ecranSuivant(visibles, q.ecran) || Questionnaire.RECAP);
+      : (apres || Questionnaire.RECAP);
     q.retourRecap = vers8b;
     q.ecran = suivant;
     // Les jours de l'écran 8b sont pré-cochés : ceux déjà dits (bornés), sinon le rythme de l'écran 3a.
@@ -18313,7 +18329,7 @@
     Rendu.rendreBandeauReprise(noeud, {
       quoi: 'Ton questionnaire n’est pas terminé.',
       libelleReprendre: 'Le terminer',
-      surReprendre: ouvrirQuestionnaire
+      surReprendre: function () { ouvrirQuestionnaire(); }
     });
   }
 
@@ -19516,7 +19532,7 @@
 
     Rendu.rendreProfil($('profil-corps'), {
       // 60-2a — « Terminer mon questionnaire › » en tête, tant qu'il n'est pas rempli.
-      questionnaire: Profil.ligneQuestionnaire(p, ouvrirQuestionnaire),
+      questionnaire: Profil.ligneQuestionnaire(p, function () { ouvrirQuestionnaire(); }),
       kpis: [
         { valeur: nombreGroupe(stats.seances), libelle: 'séances' },
         { valeur: nombreGroupe(stats.series), libelle: 'séries' },
@@ -19897,7 +19913,7 @@
   function ouvrirImportDepuisLeQuestionnaire() {
     var q = questionnaire;
     if (!q) return;
-    importDuQuestionnaire = { rep: q.rep };
+    importDuQuestionnaire = { rep: q.rep, court: !!q.court };
     if (!importHevy || importHevy.etape !== 'en_cours') importHevy = importNeuf();
     rendreImportEcran();
   }
@@ -19909,9 +19925,9 @@
     if (!p) return;
     var avec = local.seances.length > 0 && p.rep.historique !== 'debutant';
     var visibles = Questionnaire.ecransVisibles({ aDesSeances: local.seances.length > 0, historique: p.rep.historique,
-      programme: p.rep.programme, depuis: p.rep.depuis, objectif: p.rep.objectif, aDesRoutines: aDesRoutinesConnu() });
+      programme: p.rep.programme, depuis: p.rep.depuis, objectif: p.rep.objectif, court: !!p.court, aDesRoutines: aDesRoutinesConnu() });
     var ecran = avec ? Questionnaire.SAIT : Questionnaire.ecranSuivant(visibles, Questionnaire.ANCIENNETE);
-    ouvrirQuestionnaire({ ecran: ecran || Questionnaire.RECAP, rep: p.rep });
+    ouvrirQuestionnaire({ ecran: ecran || Questionnaire.RECAP, rep: p.rep, court: !!p.court });
   }
 
   function importEnLigne() {

@@ -1086,3 +1086,132 @@ describe('137 — 03 #11 : « Plus » demande les minutes (QUESTIONNAIRE §2, é
     expect(champsDuree(v)[0].champs[0].erreur).toBe('Une durée entre 95 et 300 min.');
   });
 });
+
+
+// ═══ Lot 5 (26/11/2026) — n° 1 : le parcours court ; n° 3 : « Terminer mon questionnaire » reprend au premier écran sans réponse ═══
+describe('lot 5 n° 1 — le parcours court : une sélection d’écrans existants', () => {
+  const court = (ctx) => Q.ecransVisibles(Object.assign({ court: true }, ctx));
+  const HORS_COURT = ['raides', 'recente', 'depart', 'priorites', 'temps', 'construit', 'coach', 'recap'];
+
+  test('sans historique : depuis quand · l’année · la salle · la zone · l’objectif · le programme (6 écrans, 11 à 15 avant)', () => {
+    expect(court({ aDesSeances: false, historique: 'debutant', aDesRoutines: false }))
+      .toEqual(['anciennete', 'toi', 'salle', 'zone', 'but', 'programme']);
+  });
+  test('avec un historique : « Ce que je sais » à la place de la salle (jamais rétrogradé par le matériel)', () => {
+    expect(court({ aDesSeances: true, historique: 'import', aDesRoutines: false }))
+      .toEqual(['anciennete', 'sait', 'toi', 'zone', 'but', 'programme']);
+  });
+  test('l’écran du programme n’existe que sans routine (comme avant) ; jamais les jours à part, jamais le récapitulatif', () => {
+    expect(court({ aDesSeances: false, historique: 'debutant', aDesRoutines: true })).not.toContain('programme');
+    expect(court({ aDesSeances: false, historique: 'debutant', aDesRoutines: null })).not.toContain('programme');
+    [{ aDesRoutines: false, programme: 'construis', objectif: 'calisthenie', depuis: '3_a_5_ans' }, { aDesRoutines: false }].forEach((ctx) => {
+      HORS_COURT.forEach((id) => expect(court(ctx)).not.toContain(id));
+    });
+  });
+  test('le parcours complet est inchangé sans `court`', () => {
+    expect(Q.ecransVisibles({ aDesSeances: false, historique: 'debutant', aDesRoutines: false }))
+      .toEqual(['anciennete', 'salle', 'zone', 'raides', 'toi', 'but', 'priorites', 'temps', 'programme', 'coach', 'recap']);
+  });
+  test('⚠️ l’année de naissance reste dans le parcours court (seule réponse différable dont l’absence retire une prudence)', () => {
+    expect(court({ aDesSeances: false, historique: 'debutant', aDesRoutines: false })).toContain('toi');
+    expect(court({ aDesSeances: true, historique: 'import', aDesRoutines: true })).toContain('toi');
+    const v = Q.vueDe('toi', { rep: Q.reponsesInitiales({}, {}), court: true, aDesSeances: false });
+    const champs = v.blocs.filter((b) => b.type === 'champs')[0].champs;
+    expect(champs.map((c) => c.cle)).toEqual(['annee']);
+    expect(champs[0].aide).toBe('Elle règle la prudence de tes montées de charge, jamais ta charge de départ.');
+    expect(v.blocs.some((b) => b.type === 'puces')).toBe(false);   // ni sexe, ni taille, ni poids
+  });
+  test('l’année seule écrit la date de naissance — et rien d’autre : ni sexe, ni taille, ni pesée', () => {
+    const rep = Object.assign(Q.reponsesInitiales({}, {}), { annee: 1990, sexe: 'homme', taille: 180, poids: 80 });
+    const e = Q.champsDeLEcran('toi', rep, {}, { pesees: [], jour: '2026-11-26', maintenant: new Date('2026-11-26T08:00:00Z'), court: true });
+    expect(e.champs).toEqual({ date_naissance: '1990-01-01' });
+    expect(e.pesee).toBeNull();
+  });
+  test('l’objectif est facultatif en court : « Continuer » allumé sans réponse, sans phase ni « garder » ; il n’écrit que l’objectif', () => {
+    expect(Q.ecranPret('but', {}, true)).toBe(true);
+    expect(Q.ecranPret('but', {}, false)).toBe(false);                        // le complet l'exige toujours
+    const v = Q.vueDe('but', { rep: Q.reponsesInitiales({}, {}), court: true });
+    expect(v.blocs.map((b) => b.cle)).toEqual(['objectif']);
+    expect(v.etape).toBe('Ton but · facultatif');
+    expect(v.bouton.actif).toBe(true);
+    const rep = Object.assign(Q.reponsesInitiales({}, {}), { objectif: 'muscle', phase: 'seche', entretien: ['force'] });
+    expect(Q.champsDeLEcran('but', rep, {}, { maintenant: new Date('2026-11-26T08:00:00Z'), court: true }).champs)
+      .toEqual({ objectif: 'muscle', objectif_depuis: '2026-11-26T08:00:00.000Z' });
+    expect(Q.champsDeLEcran('but', Q.reponsesInitiales({}, {}), {}, { court: true }).champs).toEqual({});   // sans réponse : rien d'écrit
+  });
+  test('le programme : « Construis-le-moi » ouvre les jours DESSOUS ; « Continuer » attend le chemin et les jours ; les deux s’écrivent', () => {
+    let rep = Q.reponsesInitiales({}, {});
+    const vue = (r) => Q.vueDe('programme', { rep: r, court: true, aDesSeances: false });
+    const apres = (r) => vue(r).blocs[0].options.filter((o) => o.apres).map((o) => o.cle);
+    expect(apres(rep)).toEqual([]);
+    rep = Q.appliquerChoix(rep, 'programme', 'moi');
+    expect(apres(rep)).toEqual([]);
+    expect(Q.ecranPret('programme', rep, true)).toBe(true);
+    rep = Q.appliquerChoix(rep, 'programme', 'construis');
+    expect(apres(rep)).toEqual(['construis']);
+    const puces = vue(rep).blocs[0].options.filter((o) => o.apres)[0].apres;
+    expect(puces.options.map((o) => o.cle)).toEqual([2, 3, 4, 5, 6]);
+    expect(puces.titre).toBe('Combien de jours par semaine, réalistement ?');
+    expect(Q.ecranPret('programme', rep, true)).toBe(false);                  // les jours manquent
+    expect(Q.ecranPret('programme', rep, false)).toBe(true);                  // le complet a son écran 8b pour eux
+    rep = Q.appliquerChoix(rep, 'seances', 4);
+    expect(Q.ecranPret('programme', rep, true)).toBe(true);
+    expect(Q.champsDeLEcran('programme', rep, {}, { court: true }).champs).toEqual({ programme_choix: 'construis', seances_par_semaine: 4 });
+    expect(Q.champsDeLEcran('programme', rep, {}, {}).champs).toEqual({ programme_choix: 'construis' });
+  });
+  test('le dernier écran dit « Commencer » ; la barre compte les 6 écrans, sans saut', () => {
+    const v = court({ aDesSeances: false, historique: 'debutant', aDesRoutines: false });
+    expect(Q.vueDe('programme', { rep: Q.reponsesInitiales({}, {}), court: true, visibles: v }).bouton.libelle).toBe('Commencer');
+    expect(Q.vueDe('zone', { rep: Q.reponsesInitiales({}, {}), court: true, visibles: v }).bouton.libelle).toBe('Continuer');
+    expect(Q.progression(v, 'programme')).toEqual({ rang: 5, total: 6, pourcent: 100 });
+  });
+});
+
+describe('lot 5 n° 3 — « Terminer mon questionnaire » reprend au premier écran sans réponse', () => {
+  const COMPLET = ['anciennete', 'salle', 'zone', 'raides', 'toi', 'but', 'priorites', 'temps', 'programme', 'coach', 'recap'];
+  // Ce que le parcours court a écrit pour un débutant : ancienneté, année, salle, objectif, programme (la zone « Aucune » n'écrit rien).
+  const apresCourt = { historique_declare: 'debutant', anciennete: 'moins_1_an', date_naissance: '1990-01-01', materiel: 'salle_complete',
+                       objectif: 'muscle', programme_choix: 'moi', seances_par_semaine: null };
+  const rep = (p) => Q.reponsesInitiales(p, {});
+
+  test('après le parcours court (zone « Aucune ») : on reprend à la zone, qui n’a pas d’état — remontrée, déjà remplie', () => {
+    const r = Q.reprise(COMPLET, rep(apresCourt));
+    expect(r.ecran).toBe('zone');
+    expect(r.repondus).toEqual(['anciennete', 'salle', 'programme']);
+  });
+  test('zone à ménager écrite : on reprend aux zones raides ; les 7 écrans qui restent, sans programme (déjà répondu), se déroulent dans l’ordre', () => {
+    const r = Q.reprise(COMPLET, rep(Object.assign({ zones_a_menager: ['genou'] }, apresCourt)));
+    expect(r.ecran).toBe('raides');
+    let id = r.ecran; const vus = [id];
+    while (Q.ecranSuivant(COMPLET, id, r.repondus)) { id = Q.ecranSuivant(COMPLET, id, r.repondus); vus.push(id); }
+    expect(vus).toEqual(['raides', 'toi', 'but', 'priorites', 'temps', 'coach', 'recap']);
+    // « Retour » rejoint les écrans répondus : la liste complète reste la sienne.
+    expect(Q.ecranPrecedent(COMPLET, 'coach')).toBe('programme');
+  });
+  test('un compte vierge : on reprend au tout premier écran, rien n’est sauté', () => {
+    const r = Q.reprise(COMPLET, rep({}));
+    expect(r).toEqual({ ecran: 'anciennete', repondus: [] });
+  });
+  test('« Qui es-tu ? » n’est répondu que si le sexe l’est : l’année seule ne le ferme pas', () => {
+    expect(Q.ecranRepondu('toi', rep({ date_naissance: '1990-01-01' }))).toBe(false);
+    expect(Q.ecranRepondu('toi', rep({ date_naissance: '1990-01-01', sexe: 'homme' }))).toBe(true);
+  });
+  test('l’objectif sans la phase n’est pas répondu ; « Je ne sais pas » (phase vide confirmée) l’est', () => {
+    expect(Q.ecranRepondu('but', rep({ objectif: 'muscle' }))).toBe(false);
+    expect(Q.ecranRepondu('but', rep({ objectif: 'muscle', phase: 'seche' }))).toBe(true);
+    expect(Q.ecranRepondu('but', rep({ objectif: 'muscle', phase: null, phase_confirmee_le: '2026-11-01T00:00:00Z' }))).toBe(true);
+  });
+  test('zone vide, coach et « série récente » n’ont aucun état : jamais répondus (ni en base, ni sur l’appareil)', () => {
+    expect(Q.ecranRepondu('coach', rep({ intention: 'progresser', rythme_progression: 'franc' }))).toBe(false);
+    expect(Q.ecranRepondu('recente', rep({}))).toBe(false);
+    expect(Q.ecranRepondu('zone', rep({}))).toBe(false);
+    expect(Q.ecranRepondu('zone', rep({ zones_a_menager: ['dos'] }))).toBe(true);
+    expect(Q.ecranRepondu('raides', rep({ zones_raides: [] }))).toBe(true);        // `[]` = « aucune » : une réponse
+    expect(Q.ecranRepondu('raides', rep({ zones_raides: null }))).toBe(false);
+  });
+  test('le récapitulatif n’est jamais sauté, ni jamais « répondu » ; tout répondu : on reprend au récapitulatif', () => {
+    expect(Q.ecranSuivant(['coach', 'recap'], 'coach', ['recap'])).toBe('recap');
+    expect(Q.reprise(['anciennete', 'recap'], rep({ anciennete: '1_a_3_ans', historique_declare: 'non_note' })))
+      .toEqual({ ecran: 'recap', repondus: ['anciennete'] });
+  });
+});

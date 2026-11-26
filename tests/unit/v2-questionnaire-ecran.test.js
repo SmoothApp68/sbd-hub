@@ -187,7 +187,7 @@ describe('60-2a — une ÉCRITURE par écran validé, par le chemin du Profil', 
   test('le parcours entier, avec des séances : chaque « Continuer » écrit ses colonnes, rien de plus', () => {
     const b = bac({ profil: { id: 'u1', questionnaire_fait_le: null, intention: 'progresser', phase: 'seche',
                               phase_depuis: '2026-09-01T00:00:00Z' } });
-    b.appel('ouvrirQuestionnaireSiDu()');
+    b.appel('ouvrirQuestionnaire()');
     const cont = () => b.actions().surContinuer();
     const choix = (c, v) => b.actions().surChoix(c, v);
 
@@ -242,7 +242,7 @@ describe('60-2a — une ÉCRITURE par écran validé, par le chemin du Profil', 
   test('⚠️ DISCRIMINANT (60-2c) — « Je ne sais pas » à l’écran 5 écrit une phase VIDE (jamais `maintien`), avec sa confirmation', () => {
     const b = bac({ profil: { id: 'u1', questionnaire_fait_le: null, intention: 'progresser', phase: 'seche',
                               phase_depuis: '2026-09-01T00:00:00Z' } });
-    b.appel('ouvrirQuestionnaireSiDu()');
+    b.appel('ouvrirQuestionnaire()');
     const cont = () => b.actions().surContinuer();
     const choix = (c, v) => b.actions().surChoix(c, v);
     choix('depuis', '1_a_3_ans'); choix('notees', 'non'); cont(); cont(); cont(); cont(); cont(); choix('sexe', 'homme'); cont();
@@ -258,7 +258,7 @@ describe('60-2a — une ÉCRITURE par écran validé, par le chemin du Profil', 
 
   test('⚠️ DISCRIMINANT (60-2c, relecture) — « Moins » + 45 écrit, puis on revient au temps et on change de réponse : la ligne « Durée visée » dit 45, « Continuer » ne réécrit pas la durée', () => {
     const b = bac({ profil: { id: 'u1', questionnaire_fait_le: null, intention: 'progresser' }, faits: { seances: 3, dureeMin: 75, maximums: [], autres: [] } });
-    b.appel('ouvrirQuestionnaireSiDu()');
+    b.appel('ouvrirQuestionnaire()');
     b.ctx.questionnaire.ecran = 'temps';
     b.appel('rendreQuestionnaire()');
     const choix = (c, v) => b.actions().surChoix(c, v);
@@ -278,7 +278,7 @@ describe('60-2a — une ÉCRITURE par écran validé, par le chemin du Profil', 
 
   test('DISCRIMINANT — « ‹ Retour » n’écrit RIEN, et au premier écran il vaut « Plus tard »', () => {
     const b = bac();
-    b.appel('ouvrirQuestionnaireSiDu()');
+    b.appel('ouvrirQuestionnaire()');
     b.actions().surChoix('depuis', '1_a_3_ans'); b.actions().surChoix('notees', 'non');
     b.actions().surContinuer();                                      // ancienneté écrite, « Ce que je sais » ouvert (des séances en base)
     expect(b.ecran()).toBe('sait');
@@ -294,7 +294,7 @@ describe('60-2a — une ÉCRITURE par écran validé, par le chemin du Profil', 
 
   test('« Plus tard » n’écrit rien (ce qui est validé l’est déjà) et mène à Saisie', () => {
     const b = bac();
-    b.appel('ouvrirQuestionnaireSiDu()');
+    b.appel('ouvrirQuestionnaire()');
     b.actions().surContinuer();
     b.actions().surChoix('depuis', '1_a_3_ans');
     b.actions().surPlusTard();
@@ -305,7 +305,7 @@ describe('60-2a — une ÉCRITURE par écran validé, par le chemin du Profil', 
 
   test('« Je commence » avec des séances : pas de 3a (l’ancienneté répondue décide), et `moins_1_an` s’écrit', () => {
     const b = bac();
-    b.appel('ouvrirQuestionnaireSiDu()');
+    b.appel('ouvrirQuestionnaire()');
     b.actions().surContinuer();
     b.actions().surChoix('depuis', 'commence');
     b.actions().surContinuer();
@@ -315,7 +315,7 @@ describe('60-2a — une ÉCRITURE par écran validé, par le chemin du Profil', 
 
   test('sans séance en base, depuis un an ou plus : « Une série récente ? » vient après la zone', () => {
     const b = bac({ seances: [] });
-    b.appel('ouvrirQuestionnaireSiDu()');
+    b.appel('ouvrirQuestionnaire()');
     b.actions().surContinuer();
     b.actions().surChoix('depuis', '1_a_3_ans'); b.actions().surChoix('notees', 'non');
     b.actions().surContinuer();
@@ -328,7 +328,7 @@ describe('60-2a — une ÉCRITURE par écran validé, par le chemin du Profil', 
 
   test('« changer » au récapitulatif : l’écran concerné, puis on REVIENT au récapitulatif — et « Retour » aussi', () => {
     const b = bac({ profil: { id: 'u1', questionnaire_fait_le: null, objectif: 'force', phase: 'seche', intention: 'progresser' } });
-    b.appel('ouvrirQuestionnaireSiDu()');
+    b.appel('ouvrirQuestionnaire()');
     b.ctx.questionnaire.ecran = 'recap';
     b.actions().surChanger('but');
     expect(b.ecran()).toBe('but');
@@ -344,7 +344,7 @@ describe('60-2a — une ÉCRITURE par écran validé, par le chemin du Profil', 
   test('un écran pré-rempli depuis la base : on vérifie, on ne retape pas (rien d’écrit si rien ne change)', () => {
     const b = bac({ profil: { id: 'u1', questionnaire_fait_le: null, objectif: 'force', phase: 'seche',
       phase_depuis: '2026-09-01T00:00:00Z', anciennete: '1_a_3_ans', historique_declare: 'non_note', intention: 'progresser', rythme_progression: 'franc' } });
-    b.appel('ouvrirQuestionnaireSiDu()');
+    b.appel('ouvrirQuestionnaire()');
     expect(b.ctx.questionnaire.rep.objectif).toBe('force');
     expect(b.ctx.questionnaire.rep.coach).toBe('franc');
     b.actions().surContinuer();                                     // ancienneté (déjà répondue)
@@ -354,7 +354,7 @@ describe('60-2a — une ÉCRITURE par écran validé, par le chemin du Profil', 
 
 describe('60-2a — la pesée de l’écran « Toi »', () => {
   function versToi(b) {
-    b.appel('ouvrirQuestionnaireSiDu()');
+    b.appel('ouvrirQuestionnaire()');
     b.actions().surContinuer();
     b.actions().surChoix('depuis', '1_a_3_ans'); b.actions().surChoix('notees', 'non'); b.actions().surContinuer();
     b.actions().surContinuer(); b.actions().surContinuer(); b.actions().surContinuer(); b.actions().surContinuer();   // 3a, salle, zone, raides
@@ -371,7 +371,7 @@ describe('60-2a — la pesée de l’écran « Toi »', () => {
 
   test('⚠️ DISCRIMINANT — le poids pré-rempli est RELU à l’arrivée sur « Toi » : une pesée apportée entre-temps par la synchronisation n’est pas écrasée', () => {
     const b = bac({ pesees: [{ id: 'a', date: '2026-09-01', poids_kg: 84 }] });
-    b.appel('ouvrirQuestionnaireSiDu()');                               // ouvert depuis le cache : 84
+    b.appel('ouvrirQuestionnaire()');                               // ouvert depuis le cache : 84
     b.ctx.local.pesees = [{ id: 'a', date: '2026-09-01', poids_kg: 84 }, { id: 'b', date: '2026-10-06', poids_kg: 82.5 }];   // la synchro apporte 82,5
     b.actions().surContinuer();
     b.actions().surChoix('depuis', '1_a_3_ans'); b.actions().surChoix('notees', 'non'); b.actions().surContinuer();
@@ -434,7 +434,7 @@ describe('60-2a — la pesée de l’écran « Toi »', () => {
 describe('60-2a — la durée visée de l’écran « Temps et matériel »', () => {
   test('la feuille du Profil, mais la réponse reste un brouillon : rien n’est écrit avant « Continuer »', () => {
     const b = bac({ faits: { seances: 5, depuis: new Date(2026, 9, 1), rythme: 3, dureeMin: 75, maximums: [], autres: [] } });
-    b.appel('ouvrirQuestionnaireSiDu()');
+    b.appel('ouvrirQuestionnaire()');
     b.ctx.questionnaire.ecran = 'temps';
     b.actions().surLigne('duree');
     const feuille = b.journal.feuilles[0];
@@ -449,7 +449,7 @@ describe('60-2a — la durée visée de l’écran « Temps et matériel »', ()
 
   test('DISCRIMINANT — la médiane montrée n’est pas une réponse : « Continuer » sans y toucher n’écrit pas la durée', () => {
     const b = bac({ faits: { seances: 5, depuis: new Date(2026, 9, 1), rythme: 3, dureeMin: 75, maximums: [], autres: [] } });
-    b.appel('ouvrirQuestionnaireSiDu()');
+    b.appel('ouvrirQuestionnaire()');
     b.ctx.questionnaire.ecran = 'temps';
     b.actions().surChoix('temps', 'max');
     b.actions().surContinuer();
@@ -481,7 +481,7 @@ describe('60-2a — le bandeau de Saisie', () => {
 
   test('le bandeau « Le terminer » rouvre le questionnaire même quand la clé « déjà vu ici » est posée', () => {
     const b = bac();
-    b.appel('ouvrirQuestionnaireSiDu()');
+    b.appel('ouvrirQuestionnaire()');
     b.appel('plusTardQuestionnaire()');
     b.appel('rendreBandeauQuestionnaire()');
     b.journal.bandeaux.pop().surReprendre();
@@ -686,16 +686,16 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
 
   test('les routines pas encore lues : elles se chargent à l’ouverture', () => {
     const b = bac();
-    b.appel('ouvrirQuestionnaireSiDu()');
+    b.appel('ouvrirQuestionnaire()');
     expect(b.journal.chargements).toBe(1);
     const lue = bac({ routines: [] });
-    lue.appel('ouvrirQuestionnaireSiDu()');
+    lue.appel('ouvrirQuestionnaire()');
     expect(lue.journal.chargements).toBeUndefined();
   });
 
   test('aucune routine : « Temps » mène à « Ton programme » ; « Garder ce que je fais » s’écrit, puis la feuille s’ouvre APRÈS « Commencer »', async () => {
     const b = bac({ routines: [] });
-    b.appel('ouvrirQuestionnaireSiDu()');
+    b.appel('ouvrirQuestionnaire()');
     const { cont, choix } = jusquAuTemps(b);
     expect(b.vueCourante().progression.total).toBe(12);
     cont();
@@ -718,7 +718,7 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
 
   test('« Je crée mes routines moi-même » : Saisie (la bibliothèque), pas de feuille', async () => {
     const b = bac({ routines: [] });
-    b.appel('ouvrirQuestionnaireSiDu()');
+    b.appel('ouvrirQuestionnaire()');
     const { cont, choix } = jusquAuTemps(b);
     cont();
     choix('programme', 'moi'); cont();
@@ -732,7 +732,7 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
   test('⚠️ DISCRIMINANT — une routine : pas d’écran 8, la barre ne le compte pas, pas de feuille même si la base dit « deduit »', async () => {
     const b = bac({ routines: [{ id: 'r1', nom: 'Push' }],
                     profil: { id: 'u1', questionnaire_fait_le: null, programme_choix: 'deduit' } });
-    b.appel('ouvrirQuestionnaireSiDu()');
+    b.appel('ouvrirQuestionnaire()');
     const { cont, choix } = jusquAuTemps(b);
     expect(b.vueCourante().progression.total).toBe(11);
     cont();
@@ -745,7 +745,7 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
 
   test('⚠️ 60-4 DISCRIMINANT — aucune routine ET aucune séance : l’écran 8 existe (la barre le compte), avec deux choix, jamais « Garder ce que je fais »', async () => {
     const b = bac({ routines: [], seances: [] });
-    b.appel('ouvrirQuestionnaireSiDu()');
+    b.appel('ouvrirQuestionnaire()');
     const { cont, choix } = jusquAuTemps(b);
     expect(b.vueCourante().progression.total).toBe(12);
     cont();
@@ -762,7 +762,7 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
 
   test('⚠️ 60-4 — un « deduit » hérité d’avant, sans aucune séance maintenant : la feuille ne s’ouvre pas', async () => {
     const b = bac({ routines: [], seances: [] });
-    b.appel('ouvrirQuestionnaireSiDu()');
+    b.appel('ouvrirQuestionnaire()');
     const { cont, choix } = jusquAuTemps(b);
     cont();
     choix('programme', 'moi'); cont();
@@ -777,7 +777,7 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
 
   test('⚠️ 60-4 — « Construis-le-moi » ouvre l’écran 8b : jours pré-cochés par le rythme, zone, écriture, récapitulatif', async () => {
     const b = bac({ routines: [], faits: faitsAvecRythme(3.4) });
-    b.appel('ouvrirQuestionnaireSiDu()');
+    b.appel('ouvrirQuestionnaire()');
     const { cont, choix } = jusquAuTemps(b);
     cont();
     expect(b.ecran()).toBe('programme');
@@ -806,7 +806,7 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
   test('⚠️ 60-4 — « Garder ce que je fais » n’ouvre PAS l’aperçu, « Construis-le-moi » n’ouvre PAS la feuille 8a, « Je crée mes routines moi-même » aucune', async () => {
     for (const [choixProgramme, retrouver, apercu] of [['deduit', 1, undefined], ['construis', undefined, 1], ['moi', undefined, undefined]]) {
       const b = bac({ routines: [], faits: faitsAvecRythme(3), seances: [{ id: 's1' }] });
-      b.appel('ouvrirQuestionnaireSiDu()');
+      b.appel('ouvrirQuestionnaire()');
       const { cont, choix } = jusquAuTemps(b);
       cont();
       choix('programme', choixProgramme); cont();
@@ -821,7 +821,7 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
   test('les jours déjà en base priment sur le rythme ; inchangés, ils ne sont pas réécrits', () => {
     const b = bac({ routines: [], faits: faitsAvecRythme(2),
                     profil: { id: 'u1', questionnaire_fait_le: null, seances_par_semaine: 5 } });
-    b.appel('ouvrirQuestionnaireSiDu()');
+    b.appel('ouvrirQuestionnaire()');
     const { cont, choix } = jusquAuTemps(b);
     cont();
     choix('programme', 'construis'); cont();
@@ -835,7 +835,7 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
 
   test('sans jours déclarés ni rythme : rien n’est pré-coché, « Continuer » attend', () => {
     const b = bac({ routines: [], seances: [], faits: faitsAvecRythme(null) });
-    b.appel('ouvrirQuestionnaireSiDu()');
+    b.appel('ouvrirQuestionnaire()');
     const { cont, choix } = jusquAuTemps(b);
     cont();
     choix('programme', 'construis'); cont();
@@ -850,7 +850,7 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
 
   test('« Retour » depuis l’écran 8b ramène à l’écran 8 sans rien écrire', () => {
     const b = bac({ routines: [], faits: faitsAvecRythme(3) });
-    b.appel('ouvrirQuestionnaireSiDu()');
+    b.appel('ouvrirQuestionnaire()');
     const { cont, choix } = jusquAuTemps(b);
     cont();
     choix('programme', 'construis'); cont();
@@ -862,7 +862,7 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
 
   test('⚠️ 60-4 — changer « Programme » vers « Construis-le-moi » depuis le récapitulatif : l’écran 8b d’abord, PUIS le récapitulatif', () => {
     const b = bac({ routines: [], faits: faitsAvecRythme(3) });
-    b.appel('ouvrirQuestionnaireSiDu()');
+    b.appel('ouvrirQuestionnaire()');
     const { cont, choix } = jusquAuTemps(b);
     cont();
     choix('programme', 'moi'); cont();
@@ -884,9 +884,98 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
 
   test('les routines inconnues (hors ligne) : pas d’écran 8', () => {
     const b = bac();
-    b.appel('ouvrirQuestionnaireSiDu()');
+    b.appel('ouvrirQuestionnaire()');
     const { cont } = jusquAuTemps(b);
     cont();
     expect(b.ecran()).toBe('coach');
+  });
+});
+
+
+// ═══ Lot 5 (26/11/2026) — le parcours court à l'ouverture automatique ; « Terminer » reprend au premier écran sans réponse ═══
+describe('lot 5 — parcours court (n° 1) et reprise (n° 3)', () => {
+  const ecrits = (b) => b.journal.profil.map((c) => Object.keys(c).sort().join('+'));
+
+  test('l’ouverture de lui-même est le parcours court : 6 écrans, sans « Bienvenue » ; l’année, seule, est dedans', async () => {
+    const b = bac({ routines: [], seances: [] });
+    b.appel('ouvrirQuestionnaireSiDu()');
+    expect(b.ctx.questionnaire.court).toBe(true);
+    const cont = () => b.actions().surContinuer();
+    const choix = (c, v) => b.actions().surChoix(c, v);
+    expect(b.vueCourante().progression).toEqual({ rang: 0, total: 6, pourcent: 0 });
+    choix('depuis', 'commence'); cont();
+    expect(b.ecran()).toBe('toi');
+    expect(b.vueCourante().blocs.filter((x) => x.type === 'champs')[0].champs.map((c) => c.cle)).toEqual(['annee']);
+    b.actions().surSaisie('annee', '1990'); cont();
+    expect(b.journal.profil.pop()).toEqual({ date_naissance: '1990-01-01' });   // ni sexe, ni taille ; aucune pesée
+    expect(b.journal.pesees).toEqual([]);
+    expect(b.ecran()).toBe('salle'); cont();
+    expect(b.ecran()).toBe('zone'); cont();
+    expect(b.ecran()).toBe('but');
+    expect(b.vueCourante().bouton.actif).toBe(true);                             // l'objectif est facultatif
+    cont();                                                                      // sans objectif : rien d'écrit
+    expect(b.ecran()).toBe('programme');
+    expect(b.vueCourante().bouton).toEqual({ libelle: 'Commencer', actif: false });
+    choix('programme', 'construis');
+    expect(b.vueCourante().bouton.actif).toBe(false);                            // les jours manquent
+    choix('seances', 4);
+    const avant = b.journal.profil.length;
+    await cont();
+    expect(b.journal.profil.slice(avant)).toEqual([{ programme_choix: 'construis', seances_par_semaine: 4 }]);
+    expect(b.ctx.questionnaire).toBeNull();                                      // fini : pas de récapitulatif
+    expect(b.journal.saisie).toBe(1);
+    expect(b.journal.apercu).toBe(1);                                            // l'aperçu du programme construit arrive
+    expect(b.journal.profil.some((c) => 'questionnaire_fait_le' in c)).toBe(false);   // Q1 : le bandeau et la ligne du Profil restent
+    expect(b.journal.profil.some((c) => 'phase' in c || 'rythme_progression' in c || 'intention' in c)).toBe(false);
+  });
+
+  test('avec un historique : « Ce que je sais » à la place de la salle ; « Plus tard » ne perd rien', () => {
+    const b = bac({ routines: [] });
+    b.appel('ouvrirQuestionnaireSiDu()');
+    b.actions().surChoix('depuis', '1_a_3_ans'); b.actions().surChoix('notees', 'non'); b.actions().surContinuer();
+    expect(b.ecran()).toBe('sait');
+    b.actions().surContinuer();
+    expect(b.ecran()).toBe('toi');
+    b.actions().surContinuer(); b.actions().surContinuer();
+    expect(b.ecran()).toBe('but');                                               // jamais la salle
+    b.actions().surPlusTard();
+    expect(b.ctx.questionnaire).toBeNull();
+  });
+
+  test('« Le terminer » après le parcours court : liste complète, reprise au premier écran sans réponse, les répondus ne se remontrent pas', () => {
+    const b = bac({ routines: [], seances: [],
+      profil: { id: 'u1', questionnaire_fait_le: null, historique_declare: 'debutant', anciennete: 'moins_1_an', date_naissance: '1990-01-01',
+                materiel: 'salle_complete', zones_a_menager: ['genou'], objectif: 'muscle', programme_choix: 'moi' } });
+    b.appel('rendreBandeauQuestionnaire()');
+    b.journal.bandeaux.pop().surReprendre();
+    expect(b.ctx.questionnaire.court).toBe(false);
+    expect(b.ecran()).toBe('raides');                                            // pas « ancienneté »
+    expect(b.vueCourante().retour).toBe(true);
+    expect(b.vueCourante().progression.total).toBe(11);                          // la barre garde la liste complète
+    const vus = [b.ecran()];
+    for (let n = 0; b.ecran() !== 'recap' && n < 12; n++) {
+      const e = b.ecran();
+      if (e === 'but') { b.actions().surChoix('objectif', 'muscle'); b.actions().surChoix('phase', 'maintien'); }
+      if (e === 'coach') b.actions().surChoix('coach', 'normal');
+      b.actions().surContinuer();
+      if (b.ecran() !== e) vus.push(b.ecran());
+    }
+    expect(vus).toEqual(['raides', 'toi', 'but', 'priorites', 'temps', 'coach', 'recap']);   // « Programme » est déjà répondu
+    b.actions().surRetour();
+    expect(b.ecran()).toBe('coach');
+  });
+
+  test('DISCRIMINANT — « Plus tard » à l’écran 3 : « Le terminer » reprend à la salle (celle qui manque), pas au début', () => {
+    const b = bac({ routines: [], seances: [],
+      profil: { id: 'u1', questionnaire_fait_le: null, historique_declare: 'debutant', anciennete: 'moins_1_an' } });
+    b.appel('ouvrirQuestionnaire()');
+    expect(b.ecran()).toBe('salle');
+  });
+
+  test('un compte vierge qui touche « Le terminer » repart du premier écran (rien de sauté)', () => {
+    const b = bac({ routines: [], seances: [] });
+    b.appel('ouvrirQuestionnaire()');
+    expect(b.ecran()).toBe('anciennete');
+    expect(b.ctx.questionnaire.dejaRepondus).toEqual([]);
   });
 });

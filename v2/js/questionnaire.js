@@ -72,8 +72,24 @@
   var DEPUIS_UN_AN = ['1_a_3_ans', '3_a_5_ans', 'plus_5_ans'];
   function aUneAnnee(contexte) { return !!contexte && DEPUIS_UN_AN.indexOf(contexte.depuis) >= 0; }
 
+  // Lot 5, n° 1 (26/11/2026) — LE PARCOURS COURT : les écrans dont dépend le premier jour, rien d'autre. `contexte.court` le demande ;
+  // c'est ce que voit un compte neuf à l'ouverture automatique. Sans historique : depuis quand · l'année · la salle · la zone à ménager ·
+  // l'objectif · le programme (les jours s'ouvrent SOUS « Construis-le-moi », sans écran de plus). Avec un historique : « Ce que je sais »
+  // à la place de la salle (un exercice déjà fait n'est jamais rétrogradé par le matériel, §4). Tout le reste attend le questionnaire
+  // complet (« Terminer mon questionnaire »), qui reprend au premier écran sans réponse. Une SÉLECTION d'écrans existants : mêmes écrans,
+  // même écriture (`Profil.preparerChamps`), pas de second tunnel (CADRAGE : « l'onboarding, c'est le profil »).
+  var ECRANS_COURT = [ANCIENNETE, SAIT, TOI, SALLE, ZONE, BUT, PROGRAMME];
+
   function ecransVisibles(contexte) {
     var avec = aUnHistorique(contexte);
+    if (contexte && contexte.court) {
+      return ECRANS_COURT.filter(function (id) {
+        if (id === SAIT) return avec;
+        if (id === SALLE) return !avec;
+        if (id === PROGRAMME) return contexte.aDesRoutines === false;
+        return true;
+      });
+    }
     return ECRANS.filter(function (id) {
       if (id === SAIT) return avec;
       if (id === DEPART) return !!contexte && contexte.objectif === 'calisthenie';
@@ -93,9 +109,15 @@
              pourcent: total > 1 && i >= 0 ? Math.round(100 * i / (total - 1)) : 0 };
   }
 
-  function ecranSuivant(visibles, id) {
+  // `deja` (facultatif) : des écrans déjà répondus à l'ouverture (« Terminer mon questionnaire », n° 3) qu'on ne remontre pas en avançant ;
+  // « ← Retour » les rejoint toujours (`ecranPrecedent`), et le récapitulatif n'est jamais sauté.
+  function ecranSuivant(visibles, id, deja) {
     var i = visibles.indexOf(id);
-    return i >= 0 && i < visibles.length - 1 ? visibles[i + 1] : null;
+    if (i < 0) return null;
+    for (var k = i + 1; k < visibles.length; k++) {
+      if (visibles[k] === RECAP || !deja || deja.indexOf(visibles[k]) < 0) return visibles[k];
+    }
+    return null;
   }
 
   function ecranPrecedent(visibles, id) {
@@ -231,12 +253,15 @@
   // obligatoire — 2 (l'historique), 5 (l'objectif ET la phase), 8 (le chemin du
   // programme, §1.3 : « tout est facultatif sauf le chemin du programme »), 8b (les jours de
   // « Construis-le-moi ») et 9 (le coach). Tout le reste est facultatif : sans réponse, rien n'est écrit.
-  function ecranPret(id, rep) {
+  // Lot 5 : en parcours court (`court`), l'objectif est FACULTATIF (QUESTIONNAIRE §1.3 : « tout est facultatif sauf le chemin du programme » ;
+  // sans lui, le générateur prend les reps de « Muscle » et la zone Mix, son défaut documenté) et les jours s'ouvrent sous « Construis-le-moi » :
+  // « Continuer » attend alors le chemin ET, pour « Construis-le-moi », les jours.
+  function ecranPret(id, rep, court) {
     var r = rep || {};
     if (id === ANCIENNETE) return !!r.depuis && (r.depuis === COMMENCE || !!r.notees);
     if (id === SALLE) return true;
-    if (id === BUT) return !!r.objectif && !!r.phase;
-    if (id === PROGRAMME) return !!r.programme;
+    if (id === BUT) return court ? true : !!r.objectif && !!r.phase;
+    if (id === PROGRAMME) return !!r.programme && (!court || r.programme !== 'construis' || joursValides(r.seances));
     if (id === CONSTRUIT) return joursValides(r.seances);
     if (id === COACH) return !!r.coach;
     return true;
@@ -267,9 +292,14 @@
     var r = rep || {}, c = contexte || {};
     var entrees = null, pesee = null, extra = {};
     if (id === ANCIENNETE) entrees = { anciennete: r.anciennete, historique_declare: r.historique };
-    else if (id === TOI) {
+    else if (id === TOI && c.court) {
+      // Lot 5 : l'écran court ne montre que l'année — il n'écrit ni le sexe, ni la taille, ni une pesée qu'il n'a pas posés.
+      entrees = { annee_naissance: r.annee };
+    } else if (id === TOI) {
       entrees = { sexe: r.sexe, annee_naissance: r.annee, taille_cm: r.taille };
       pesee = Poids().peseeAEcrire(c.pesees, r.poids, c.jour);
+    } else if (id === BUT && c.court) {
+      entrees = { objectif: r.objectif };   // sans la phase (le coach la compte « maintien ») ni « Et tu veux aussi en garder ? »
     } else if (id === BUT) entrees = { objectif: r.objectif, phase: r.phase, objectifs_entretien: Array.isArray(r.entretien) ? r.entretien : undefined };
     else if (id === DEPART) {
       entrees = { depart_calisthenie: { tractions: r.dep_tractions, pompes: r.dep_pompes, dips: r.dep_dips, pistol: r.dep_pistol } };
@@ -282,7 +312,11 @@
       // (même colonne, même écriture) ; sans puce, la durée reste ce qu'elle était.
       entrees = { temps_reponse: r.temps,
                   duree_seance_min: r.temps === 'moins' && r.dureeMoins ? r.dureeMoins : r.duree };
-    } else if (id === PROGRAMME) entrees = { programme_choix: r.programme };
+    } else if (id === PROGRAMME) {
+      entrees = { programme_choix: r.programme };
+      // Lot 5 : en parcours court, les jours se répondent SUR cet écran (sous « Construis-le-moi ») : la même écriture que l'écran 8b.
+      if (c.court && r.programme === 'construis') entrees.seances_par_semaine = seancesAEcrire(r);
+    }
     else if (id === SALLE) {
       entrees = { materiel: r.materiel };
       var salle = salleAEcrire(r, profil);
@@ -689,8 +723,21 @@
     };
   }
 
+  var AIDE_ANNEE = 'Elle règle la prudence de tes montées de charge, jamais ta charge de départ.';
   function ecranToi(etat) {
     var rep = etat.rep, erreurs = etat.erreurs || {};
+    // Lot 5, n° 1 : en parcours court, l'année seule (sa phrase d'aide dit à quoi elle sert). Le sexe, la taille et le poids attendent le questionnaire complet.
+    if (etat.court) {
+      return {
+        id: TOI, etape: 'Toi · facultatif',
+        titre: 'Qui es-tu ?',
+        voix: null,
+        blocs: [{ type: 'champs', champs: [
+          { cle: 'annee', libelle: 'Année de naissance', unite: null, mode: 'numeric',
+            valeur: texteDe(etat, 'annee', rep.annee), erreur: erreurs.annee || null, aide: AIDE_ANNEE }
+        ] }]
+      };
+    }
     return {
       id: TOI, etape: 'Toi · facultatif',
       titre: 'Qui es-tu ?',
@@ -702,7 +749,7 @@
             valeur: texteDe(etat, 'annee', rep.annee), erreur: erreurs.annee || null,
             // 116 (audit du 16/10/2026, 03 #9), puis 191 (30/10/2026) : l'année a un lecteur — la prudence de montée
             // (`THMoteur.prudenceDeMontee`, QUESTIONNAIRE §1.3). Elle ne change JAMAIS la charge de départ : la phrase le dit.
-            aide: 'Elle règle la prudence de tes montées de charge, jamais ta charge de départ.' },
+            aide: AIDE_ANNEE },
           { cle: 'taille', libelle: 'Taille', unite: 'cm', mode: 'numeric',
             valeur: texteDe(etat, 'taille', rep.taille), erreur: erreurs.taille || null,
             aide: 'Je ne m’en sers pas encore. Avec ton poids, elle pourra aider à choisir tes charges de départ.' },
@@ -716,6 +763,15 @@
 
   function ecranBut(etat) {
     var rep = etat.rep;
+    // Lot 5, n° 1 : en parcours court, l'objectif seul, facultatif (sans la phase, sans « Et tu veux aussi en garder ? »).
+    if (etat.court) {
+      return {
+        id: BUT, etape: 'Ton but · facultatif',
+        titre: 'Ton objectif principal ?',
+        voix: null,
+        blocs: [{ type: 'puces', cle: 'objectif', valeur: rep.objectif, options: Profil().OBJECTIFS }]
+      };
+    }
     return {
       id: BUT, etape: 'Ton but',
       titre: 'Ton objectif principal ?',
@@ -814,6 +870,17 @@
     var options = avecSous(Profil().PROGRAMMES, SOUS_PROGRAMME).filter(function (o) {
       return o.cle !== 'deduit' || !!etat.aDesSeances;
     });
+    // Lot 5, n° 1 : en parcours court, « Construis-le-moi » ouvre les jours JUSTE DESSOUS (le patron de « Moins en ce moment ») :
+    // un écran de moins que l'écran 8b. Les puces sont celles de l'écran 8b, les bornes celles du générateur.
+    if (etat.court) {
+      var G = Generateur(), jours = [];
+      for (var n = G.JOURS_MIN; n <= G.JOURS_MAX; n++) jours.push({ cle: n, libelle: String(n) });
+      options.forEach(function (o) {
+        if (o.cle === 'construis' && etat.rep.programme === 'construis') {
+          o.apres = { type: 'puces', cle: 'seances', titre: 'Combien de jours par semaine, réalistement ?', valeur: etat.rep.seances, options: jours };
+        }
+      });
+    }
     return {
       id: PROGRAMME, etape: 'Ton programme',
       titre: 'Comment veux-tu t’entraîner ?',
@@ -980,14 +1047,15 @@
     if (!fabrique) return null;
     var vue = fabrique(e);
     var visibles = e.visibles || ecransVisibles({ aDesSeances: e.aDesSeances, historique: e.rep && e.rep.historique,
-                                                 programme: e.rep && e.rep.programme, depuis: e.rep && e.rep.depuis, objectif: e.rep && e.rep.objectif });
+                                                 programme: e.rep && e.rep.programme, depuis: e.rep && e.rep.depuis, objectif: e.rep && e.rep.objectif,
+                                                 court: !!e.court });
     var rang = visibles.indexOf(id);
     vue.progression = progression(visibles, id);
     vue.retour = rang > 0;
     vue.bouton = {
       libelle: rang === visibles.length - 1 ? 'Commencer'
         : id === ANCIENNETE && e.rep && e.rep.notees === NOTEES_IMPORT && e.rep.depuis !== COMMENCE ? 'Importer mon fichier' : 'Continuer',
-      actif: ecranPret(id, e.rep)
+      actif: ecranPret(id, e.rep, !!e.court)
     };
     // 60-4 — « Refaire mon programme » (Profil) rejoue l'écran 8b SEUL : pas de barre, pas de « Plus tard », un
     // retour qui ramène au Profil, et un bouton qui dit où il mène (le même que sur la maquette de l'écran).
@@ -998,6 +1066,42 @@
       vue.bouton.libelle = 'Voir mon programme';
     }
     return vue;
+  }
+
+  // ── Lot 5, n° 3 — « Terminer mon questionnaire » reprend au premier écran SANS RÉPONSE ───────────────────────────────────────
+  //
+  // « Rouvert, il repart du début, chaque écran pré-rempli » (§2) devenait, après le parcours court, 13 écrans à retraverser dont 6 déjà
+  // répondus. La réouverture se fait désormais au premier écran de la liste COMPLÈTE dont la réponse manque ; « ← Retour », « Plus tard »
+  // et la barre (la liste complète) ne changent pas. La lecture est celle de « pré-rempli » (`reponsesInitiales`) : rien de plus n'est lu.
+  //
+  // ⚠️ Trois écrans n'ont AUCUN état « pas répondu » en base : la zone à ménager quand elle est vide (`[]` veut dire « aucune »), le coach
+  // (« Normal » est le défaut) et « Une série récente ? » (qui n'écrit rien). On n'en invente pas, ni en base ni sur l'appareil (option
+  // « l'appareil retient les écrans passés » écartée, décision du 26/11/2026) : ils se REMONTRENT, déjà remplis. Et « Qui es-tu ? » n'est
+  // répondu que si le sexe l'est : l'année seule ne le ferme pas.
+  function ecranRepondu(id, rep) {
+    var r = rep || {};
+    if (id === ANCIENNETE) return ecranPret(ANCIENNETE, r);
+    if (id === SAIT) return ecranPret(ANCIENNETE, r);               // une lecture, qui suit l'ancienneté : répondue avec elle, jamais une ancre
+    if (id === SALLE) return !!r.materiel;
+    if (id === ZONE) return Array.isArray(r.menager) && r.menager.length > 0;
+    if (id === RAIDES) return Array.isArray(r.raides);
+    if (id === RECENTE || id === COACH) return false;               // aucun état : remontrés
+    if (id === TOI) return !!r.sexe;
+    if (id === BUT) return !!r.objectif && !!r.phase;
+    if (id === DEPART) return ['dep_tractions', 'dep_pompes', 'dep_dips'].some(function (k) { return typeof r[k] === 'number'; }) || typeof r.dep_pistol === 'boolean';
+    if (id === PRIORITES) return Array.isArray(r.priorites);
+    if (id === TEMPS) return !!r.temps;
+    if (id === PROGRAMME) return !!r.programme;
+    if (id === CONSTRUIT) return joursValides(r.seances);
+    return false;                                                   // le récapitulatif : toujours à faire
+  }
+
+  // `visibles` : la liste complète ; `rep` : `reponsesInitiales`. Rend `{ ecran, repondus }` : où l'on reprend, et les écrans répondus
+  // à l'ouverture (qu'on ne remontre pas en avançant ; « ← Retour » les rejoint).
+  function reprise(visibles, rep) {
+    var repondus = visibles.filter(function (id) { return id !== RECAP && ecranRepondu(id, rep); });
+    var premier = visibles.filter(function (id) { return repondus.indexOf(id) < 0; })[0];
+    return { ecran: premier || RECAP, repondus: repondus };
   }
 
   var api = {
@@ -1011,6 +1115,7 @@
     ecransVisibles: ecransVisibles,
     progression: progression,
     ecranSuivant: ecranSuivant,
+    reprise: reprise, ecranRepondu: ecranRepondu, ECRANS_COURT: ECRANS_COURT,
     ecranPrecedent: ecranPrecedent,
     reponsesInitiales: reponsesInitiales,
     coachDe: coachDe,

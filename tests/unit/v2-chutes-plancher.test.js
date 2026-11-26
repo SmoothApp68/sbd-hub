@@ -207,6 +207,11 @@ describe('D2 — le plancher des chutes est borné au haut de la zone', () => {
     test(`${rg} : 6, 6, 6, 4 après 100 kg × 5 → la visée est 5 (le haut du 3-5), la phrase garde la ligne que l’écran a montrée`, () => {
       const r = lourd(rg, [[6, 6, 6, 4]]);
       expect(r.consigne.ligne.vise).toBe(5);
+      if (rg === 'normal') {   // 26/11/2026 : écart B, l'essai de dépassement est gardé en Normal ; la visée est bornée au haut
+        expect(r.consigne.etat).toBe('test_propose');
+        expect(gris(r)).toMatch(/On teste le cran au-dessus/);
+        return;
+      }
       expect(r.consigne.fondement.cibleAvant).toBe(5);
       expect(gris(r)).toMatch(/Dernière série à 4 : tu restes à 100 kg × 5\.$/);
       expect(gris(r)).not.toMatch(/× 6\./);
@@ -215,6 +220,10 @@ describe('D2 — le plancher des chutes est borné au haut de la zone', () => {
       const g = [groupe('a', '04', 100, [4, 4, 4, 4]), groupe('b', '11', 100, [5, 5, 5, 5]), groupe('c', '14', 105, [3, 3, 3]), groupe('d', '17', 100, [6, 6, 6, 4])];
       const r = consigne(g, 'lourd', rg);
       expect(r.consigne.ligne.vise).toBe(5);
+      if (rg === 'normal') {   // écart B : l'essai est gardé en Normal
+        expect(r.consigne.etat).toBe('test_propose');
+        return;
+      }
       expect(r.consigne.fondement.cibleAvant).toBeUndefined();
       expect(gris(r)).toMatch(/Dernière série à 4 : ta cible passe à 100 kg × 5\.$/);
     });
@@ -376,7 +385,10 @@ describe('I272 — le plancher et la phrase sont vérifiés sur chaque plan', ()
   test('D2 : un plan réel `6, 6, 6, 4` en Lourd 3-5 : aucune erreur I272 ; ⚠️ DISCRIMINANT — une visée au-dessus du haut de la zone (6) est attrapée, et « ta cible, » devant la ligne montrée égale', () => {
     const g = [groupe('a', '04', 100, [4, 4, 4, 4]), groupe('b', '11', 100, [5, 5, 5, 5]), groupe('c', '15', 100, [6, 6, 6, 4])];
     const entrees = { precedents: { x: { seance: g[2].seance, series: g[2].series } } };
-    const p = planDe(consigne(g, 'lourd', 'normal'));
+    const pN = planDe(consigne(g, 'lourd', 'normal'));   // Normal : essai gardé (écart B), aucune erreur
+    expect(pN.exercices[0].consigne.ligne.vise).toBe(5);
+    expect(erreurs(pN, entrees)).toEqual([]);
+    const p = planDe(consigne(g, 'lourd', 'franc'));
     expect(p.exercices[0].consigne.ligne.vise).toBe(5);
     expect(erreurs(p, entrees)).toEqual([]);
     const haut = JSON.parse(JSON.stringify(p));
@@ -410,4 +422,112 @@ describe('« Les chutes » — le niveau validé n’est pas touché', () => {
     const ser = [12, 12, 12, 6].map((r) => ({ charge_kg: 81.3, reps: r, type_serie: 'travail' }));
     expect(M.chuteDe(ser)).not.toBeNull();
   });
+});
+
+// ── 7. ÉCART A (25/11/2026) — LA PHRASE DES PROTÉGÉS SUIT LA RÈGLE, SA VISÉE NE CHANGE PAS ──────────────────────────────────────────────────
+// `fondement.cibleAvant` se pose pour TOUT le monde (avant : seulement si le plancher est actif, donc jamais pour un protégé). Le plancher, lui, n'agit toujours pas sur eux.
+describe('Écart A — la population protégée : la phrase est vraie, la consigne est celle d’avant', () => {
+  const prot = (g, zone) => M.consigneDExercice(g, undefined, AVANT,
+    { mesure: 'charge_reps', equipement: 'barre', intention: 'progresser', reglage: 'normal', correction: zone, protegee: true });
+  test('12, 12, 12, 9 (cible 12), protégé : la cible passe à 11, jamais « Une rep de plus » ; la visée reste 11 (le plancher ne les touche pas)', () => {
+    const r = prot(histoire(80, 12, [[12, 12, 12, 9]], 'volume'), 'volume');
+    expect(r.consigne.ligne.vise).toBe(11);
+    expect(r.consigne.fondement.cibleAvant).toBe(12);
+    expect(r.consigne.fondement.chuteDeFin).toBeUndefined();
+    expect(gris(r)).toMatch(/Ta cible passe à 80 kg × 11/);
+    expect(gris(r)).not.toMatch(/rep de plus/);
+  });
+  test('10, 10, 10, 6 (11 reçue), protégé : la visée vaut 11, égale à la cible d’avant : « tu restes à », jamais « Une rep de plus »', () => {
+    const g = [groupe('a', '04', 80, [10, 10, 10, 10]), groupe('b', '11', 80, [10, 10, 10, 10]), groupe('c', '18', 80, [10, 10, 10, 6])];
+    const r = prot(g, 'volume');
+    expect(r.consigne.ligne.vise).toBe(11);
+    expect(r.consigne.fondement.cibleAvant).toBe(11);
+    expect(gris(r)).not.toMatch(/rep de plus/);
+    expect(gris(r)).toMatch(/tu restes à 80 kg × 11/);
+  });
+  test('une montée vraie reste « Une rep de plus » pour un protégé (12, 12, 12, 11 → 13 ; la cible d’avant est 12)', () => {
+    const r = prot(histoire(80, 12, [[12, 12, 12, 11]], 'series_longues'), 'series_longues');
+    expect(r.consigne.ligne.vise).toBe(13);
+    expect(gris(r)).toMatch(/Une rep de plus : 80 kg × 13/);
+  });
+  test('la consigne du protégé n’a pas bougé : même ligne, même état qu’avec `cibleAvant` ignorée (comparaison à l’arbre d’avant #751 : visées 11 et 11)', () => {
+    const a = prot(histoire(80, 12, [[12, 12, 12, 9]], 'volume'), 'volume').consigne;
+    expect([a.etat, a.ligne.charge, a.ligne.vise]).toEqual(['progression', 80, 11]);
+  });
+  test('I272 sur un plan protégé : la phrase fausse (« Une rep de plus » devant une cible qui baisse) est attrapée, la vraie passe', () => {
+    let n = 0;
+    const id = () => 's' + (++n);
+    let se = S.creer({ id: 'S1', userId: 'u', idSerie: id });
+    se = S.ajouterExercice(se, 'x', id, { series: 3 });
+    const r = prot(histoire(80, 12, [[12, 12, 12, 9]], 'volume'), 'volume');
+    const p = T.planDeSeance({ seance: { id: 'S1', debut: AVANT, edition: false, exercices: se.exercices }, consignes: { x: r }, reglage: 'normal', paris: [], suites: {} });
+    const err = (q) => T.verifierPlan(q, {}).erreurs.filter((e) => /^I272/.test(e));
+    expect(err(p)).toEqual([]);
+    p.exercices[0].entete.gris = 'Le 15 nov. : 80 kg × 12, 12, 12, 9. Une rep de plus : 80 kg × 11.';
+    p.exercices[0].verbe = Object.assign({}, p.exercices[0].verbe, { verbe: 'monte_reps' });
+    expect(err(p).join('\n')).toMatch(/ne dépasse pas la cible d’avant \(12\)/);
+  });
+});
+
+// ── 8. ÉCART B (25/11/2026) — EN NORMAL ET EN PRUDENT, LE PLANCHER NE RETIRE AUCUN TEST ───────────────────────────────────────────────────────
+// Le prix accepté (CHUTES-REGLE) : « en Franc, une dernière série à −2/−3 retire le test de la séance suivante, une fois ; en Normal et en Prudent, seules la ligne et la phrase changent ».
+// Avant ce correctif, la perte se mesurait sur la PREMIÈRE série : une meilleure première série (au-dessus de la cible) faisait d'une fin à −1 une fin à −2, et la tenue sans test retirait l'essai
+// d'un dépassement (156 paires en Normal, 44 en Prudent, 0 avant #751). Le Franc garde son prix (4, 5, 3 donne l'essai, 5, 5, 3 ne le donne plus : accepté, NE PAS le changer).
+describe('Écart B — « essai monotone » : une rep de plus ne retire jamais l’essai en Normal ni en Prudent', () => {
+  const brute = (z, rg, cib, reps) => M.consigneDExercice(
+    [groupe('a', '04', 100, reps.map(() => cib)), groupe('b', '11', 100, reps.map(() => cib)), groupe('c', '18', 100, reps)], undefined, AVANT,
+    { mesure: 'charge_reps', equipement: 'barre', intention: 'progresser', reglage: rg, correction: z }).consigne;
+  const essai = (k) => !!(k && k.haut && k.haut.charge > 100);
+
+  test('Normal, Lourd, cible 4 : 5, 5, 4 donne l’essai ; 6, 5, 4 le donne aussi (la ligne vise 5, la phrase dit le fait)', () => {
+    expect(essai(brute('lourd', 'normal', 4, [5, 5, 4]))).toBe(true);
+    const k = brute('lourd', 'normal', 4, [6, 5, 4]);
+    expect(essai(k)).toBe(true);
+    expect(k.etat).toBe('test_propose');
+  });
+  test('Prudent, Lourd, cible 5 : 6, 6, 5 donne l’essai ; 7, 6, 5 le donne aussi', () => {
+    expect(essai(brute('lourd', 'prudent', 5, [6, 6, 5]))).toBe(true);
+    expect(essai(brute('lourd', 'prudent', 5, [7, 6, 5]))).toBe(true);
+  });
+  test('une CHUTE (§9.2 bis) retire encore l’essai dans tous les réglages, comme avant #751 : 5, 5, 1 (cible 3) en Normal', () => {
+    const k = brute('lourd', 'normal', 3, [5, 5, 1]);
+    expect(essai(k)).toBe(false);
+    expect(k.etat).toBe('tenue_apres_chute');
+  });
+  test('le prix du Franc est gardé : 4, 5, 3 (cible 5) donne l’essai, 5, 5, 3 tient sans essai', () => {
+    expect(essai(brute('lourd', 'franc', 5, [4, 5, 3]))).toBe(true);
+    const k = brute('lourd', 'franc', 5, [5, 5, 3]);
+    expect(essai(k)).toBe(false);
+    expect(k.etat).toBe('tenue_apres_chute');
+  });
+  test('GRILLE : en Normal et en Prudent, une rep de plus sur une série ne retire jamais un essai (0 paire ; 156 + 44 sur main avant la correction, 0 avant #751)', () => {
+    const memo = new Map();
+    const C = (z, rg, cib, reps) => {
+      const key = [z, rg, cib, reps.join(',')].join('|');
+      if (!memo.has(key)) memo.set(key, brute(z, rg, cib, reps));
+      return memo.get(key);
+    };
+    const fautes = [];
+    let paires = 0;
+    [['lourd', 3, 5], ['mix', 6, 8], ['hypertrophie', 8, 10]].forEach(([z, a, b]) => ['normal', 'prudent'].forEach((rg) => {
+      for (let cib = a; cib <= b; cib++) [3, 4].forEach((ns) => {
+        const vals = [];
+        for (let d = -3; d <= 2; d++) if (cib + d >= 1) vals.push(cib + d);
+        let combos = [[]];
+        for (let s = 0; s < ns; s++) combos = combos.flatMap((c) => vals.map((x) => c.concat([x])));
+        combos.forEach((r) => {
+          const k0 = C(z, rg, cib, r);
+          for (let j = 0; j < ns; j++) {
+            if (r[j] + 1 > cib + 2) continue;
+            const r2 = r.slice();
+            r2[j]++;
+            paires++;
+            if (essai(k0) && !essai(C(z, rg, cib, r2))) fautes.push(`${z} ${rg} cible ${cib} : ${r.join(',')} → ${r2.join(',')}`);
+          }
+        });
+      });
+    }));
+    expect(paires).toBeGreaterThan(20000);
+    expect(fautes.slice(0, 5)).toEqual([]);
+  }, 180000);
 });

@@ -204,14 +204,16 @@ describe('les cas du contradicteur à froid : le verbe lit la LIGNE finale', () 
   });
   test('G — population protégée : « Tu restes à », jamais « sans marge » ni « il ne t’en restait aucune »', () => {
     const c = consigneDe([g(SIX[0], S_(70, [8, 8, 8])), g(SIX[1], S_(70, [8, 8, 8], [null, null, 'reste_0']))], { protegee: true, debutant: true });
-    expect(M.verbeDeLaConsigne(c.consigne)).toMatchObject({ verbe: 'garde_cible', cause: false });
-    expect(A(c)).toBe('Mardi : 70 kg × 8, 8, 8. Tu restes à 70 kg × 8.');
+    // Écart A (25/11/2026) : la consigne reçue demandait 9 ; la visée 8 est SOUS la cible d'avant, la phrase le dit (avant : « Tu restes à », faux).
+    expect(M.verbeDeLaConsigne(c.consigne)).toMatchObject({ verbe: 'borne', cause: false });
+    expect(A(c)).toBe('Mardi : 70 kg × 8, 8, 8. Ta cible passe à 70 kg × 8.');
     expect(Q(c)).not.toMatch(/sans marge|il ne t.en restait/);
   });
   test('H — une aide : « Aide 25 kg × 9 » à la même charge ; le verbe de reps reste lisible', () => {
     const c = consigneDe([g(SIX[0], S_(-25, [8, 8, 8])), g(SIX[1], S_(-25, [8, 8, 8]))]);
-    expect(M.verbeDeLaConsigne(c.consigne).verbe).toBe('monte_reps');
-    expect(A(c)).toMatch(/Une rep de plus : Aide 25 kg × 9\.$/);
+    // Écart A (25/11/2026) : la consigne reçue demandait déjà 9 ; la ligne ne la dépasse pas, « tu restes » (avant : « Une rep de plus », faux).
+    expect(M.verbeDeLaConsigne(c.consigne).verbe).toBe('garde_cible');
+    expect(A(c)).toMatch(/Tu restes à Aide 25 kg × 9\.$/);
   });
   test('I — un zéro rep : « Je baisse à 70 kg » (la charge) ; les reps montent sans verbe', () => {
     const c = consigneDe([g(SIX[0], S_(70, [8, 8, 8])), g(SIX[1], S_(80, [0, 0, 0]))]);

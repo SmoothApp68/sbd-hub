@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // tests/banc/tete-3plus1.js — « SIMPLIFIER », PILOTE 3+1 (21/11/2026) : LA TÊTE D'UN EXERCICE EN SÉANCE, dans la vraie app (`v2/`), navigateur réel,
-// faux Supabase en mémoire, colonne 380 px. Il joue les CINQ ÉTATS de la maquette validée le 21/11/2026 et MESURE le gain de hauteur.
+// faux Supabase en mémoire, colonne 380 px. Il joue les SIX ÉTATS de la maquette validée le 21/11/2026 et MESURE le gain de hauteur.
 //
 //   (a) un premier exercice, chauffes proposées       (b) un test au cran au-dessus          (c) la première fois d'un exercice (calage)
-//   (d) après une série ratée                          (e) une semaine de décharge
+//   (d) après une série ratée                          (e) une semaine de décharge      (f) 25/11/2026 : semaine de test + veille d'une activité dure, même barre
 //
 // La règle : TROIS éléments au plus dans la tête d'un exercice (la consigne, UNE ligne grise, un troisième : le compteur), plus UNE carte de décision ;
 // ce qui annonce une décision déjà prise est hors compte et reste visible ; rien d'annoncé n'est caché (le chiffre, le verbe avec son chiffre, « On essaie »,
@@ -33,8 +33,8 @@ const CAPTURES = process.env.CAPTURES || null;
 if (CAPTURES) fs.mkdirSync(CAPTURES, { recursive: true });
 
 // La hauteur au-dessus de la 1re série (px), relevée sur l'état d'AVANT (`origin/main` f5cefc6e), et le gain minimal que la règle doit donner (marge sur le gain mesuré).
-const AVANT_PX = { a: 283, b: 396, c: 404, d: 189, e: 283, f: 404 };
-const GAIN_MIN = { a: 30, b: 80, c: 60, d: 10, e: 30, f: 60 };
+const AVANT_PX = { a: 283, b: 396, c: 404, d: 189, e: 283, g: 404 };
+const GAIN_MIN = { a: 30, b: 80, c: 60, d: 10, e: 30, g: 60 };
 
 let ko = 0;
 const verifier = (c, m, d) => { console.log((c ? '   ✅ ' : '   ❌ ') + m + (c || d === undefined ? '' : '  → ' + d)); if (!c) ko++; };
@@ -49,7 +49,10 @@ const CATALOGUE = [
   fiche('developpe-couche', 'Développé couché (Barre)', 'barre', ['pectoraux'], { mouvement: 'poussee_horizontale' }),
   fiche('developpe-militaire', 'Développé militaire (Barre)', 'barre', ['deltoide_anterieur'], { mouvement: 'poussee_verticale' }),
   fiche('tractions', 'Tractions', 'barre_fixe', ['grand_dorsal'], { mesure: 'reps', charge: 'aucune', mouvement: 'tirage_vertical' }),
-  fiche('elevation-laterale', 'Élévation latérale (Haltères)', 'haltere', ['deltoide_lateral'])
+  fiche('elevation-laterale', 'Élévation latérale (Haltères)', 'haltere', ['deltoide_lateral']),
+  // (f) — une vraie barre de la semaine de mesure (`squat_barre`) et une activité notée la veille (football : cardio, hors salle, charge les jambes).
+  fiche('squat_barre', 'Squat (Barre)', 'barre', ['quadriceps'], { mouvement: 'squat' }),
+  fiche('football', 'Football', 'aucun', [], { mesure: 'duree', charge: 'aucune', nature: 'cardio', hors_salle: true })
 ];
 const T0 = '2026-09-01T10:00:00.000Z';
 const rs = (reId, k, type, reps) => ({ id: reId + '-s' + k, routine_exercise_id: reId, user_id: U, rang: k, type_serie: type, reps_visees: reps,
@@ -99,6 +102,17 @@ function progStandard(slug, k, n) {
   if (slug === 'tractions') return [[null, 9, 'reste_1'], [null, 8, 'reste_1'], [null, 7, 'reste_0']];
   return null;   // élévation latérale : jamais faite (la première fois)
 }
+const SQUAT_A = [{ slug: 'squat_barre', series: 3, reps: 5, repos: 180 }];
+// (f) : dix séances de squat, plus un match de football noté HIER (RPE 9 : « intense »), la veille d'une activité dure.
+function historiqueF() {
+  const h = historique(10, ['squat_barre'], () => r3(120, 5, 'reste_2'));
+  const t = Date.now() - 86400000, id = uuid('5e55e000', 99), debut = new Date(t).toISOString();
+  h.seances.push({ id, user_id: U, titre: 'Football', debut, fin: new Date(t + 5400000).toISOString(), statut: 'terminee', note: null, salle: null, routine_id: null, source: 'app', created_at: debut });
+  h.series.push({ id: uuid('5e7e0000', 999), session_id: id, user_id: U, exercise_slug: 'football', charge_kg: null, reps: null, duree_s: 5400, distance_m: null, type_serie: 'travail', rang: 1,
+    groupe_superset: null, validee_a: new Date(t + 5400000).toISOString(), rpe: 9, ressenti: null, repos_s: null, note: null, source: 'app', created_at: debut, modifie_a: null, tempo: null,
+    elastique: null, douleur: null, occurrence: null, hors_calcul: false });
+  return h;
+}
 const SCENARIOS = {
   a: { nom: 'chauffes proposées', exo: 0, routine: routine(HAUT_A), h: historique(10, HAUT_A.map((d) => d.slug), progStandard) },
   b: { nom: 'test au cran au-dessus', exo: 0, routine: routine(HAUT_A), h: historique(10, HAUT_A.map((d) => d.slug), (slug, k, n) => {
@@ -106,11 +120,19 @@ const SCENARIOS = {
     return progStandard(slug, k, n); }) },
   c: { nom: 'première fois (calage)', exo: 3, routine: routine(HAUT_A), h: historique(10, HAUT_A.map((d) => d.slug), progStandard) },
   // 26/11/2026 (lot 5 n° 6) — le même calage, mais la réponse se TAPE dans la ligne 1 et se valide par sa ✓ (la carte n'a plus de case).
-  f: { nom: 'calage : réponse en ligne 1', exo: 3, routine: routine(HAUT_A), h: historique(10, HAUT_A.map((d) => d.slug), progStandard) },
+  g: { nom: 'calage : réponse en ligne 1', exo: 3, routine: routine(HAUT_A), h: historique(10, HAUT_A.map((d) => d.slug), progStandard) },
   d: { nom: 'après une série ratée', exo: 0, routine: routine(HAUT_A), h: historique(10, HAUT_A.map((d) => d.slug), progStandard) },
+  f: { nom: 'test + veille, même barre', exo: 0, lourd: true, semaineDeTest: true, routine: routine(SQUAT_A, { dossier: 'P' }), h: historiqueF() },
   e: { nom: 'semaine de décharge', exo: 0, routine: routine(HAUT_A, { dossier: 'P' }), h: historique(10, HAUT_A.map((d) => d.slug), progStandard), decharge: true }
 };
+// Le jour civil (Paris) d'il y a `n` jours : la semaine de mesure de l'état (f) couvre hier à dans 5 jours.
+const jourPlus = (n) => new Date(Date.now() + n * 86400000).toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' });
 function blocsDe(sc) {
+  if (sc.lourd) {
+    const d = new Date(); d.setHours(12, 0, 0, 0); const jour = (d.getDay() + 6) % 7; d.setDate(d.getDate() - jour - 7);
+    return [{ id: uuid('0c000000', 1), user_id: U, dossier: 'P', zone: 'lourd', debut: d.toISOString().slice(0, 10), semaines: 5, decharge: false, exercices: ['squat_barre'],
+      statut: 'en_cours', precedent: null, grosse_serie: false, created_at: T0, modifie_a: T0 }];
+  }
   if (!sc.decharge) return [];
   // Un bloc de 5 semaines commencé il y a 4 semaines (lundi) : la 5e est la décharge.
   const d = new Date(); d.setHours(12, 0, 0, 0); const jour = (d.getDay() + 6) % 7; d.setDate(d.getDate() - jour - 28);
@@ -123,7 +145,7 @@ function fauxSupabase(sc) {
   // Un vieux pari tenu : « Mon premier pari » ne se déclenche pas.
   const predictions = [{ id: uuid('9a000000', 1), user_id: U, module: 'moteur.consigne', module_version: 1, emise_a: s0.debut, exercise_slug: 'developpe-couche', session_id: s0.id,
     grandeur: 'reps', horizon_jours: 0, valeur_predite: 8, borne_basse: 8, borne_haute: 8, fondement: { seance: s0.id, compteur: null }, valeur_observee: 8, observee_a: s0.fin, set_observe: null }];
-  const base = { sessions: sc.h.seances.slice(), sets: sc.h.series.slice(), blocs: blocsDe(sc), profiles: [Object.assign({}, PROFIL)], predictions };
+  const base = { sessions: sc.h.seances.slice(), sets: sc.h.series.slice(), blocs: blocsDe(sc), profiles: [Object.assign({}, PROFIL, sc.semaineDeTest ? { cartes_semaine: { test: { r: 'oui', debut: jourPlus(-1), fin: jourPlus(5), modes: {} } } } : {})], predictions };
   const decouper = (t) => { const b = []; let p = 0, c = ''; for (const ch of t) { if (ch === '(') p++; if (ch === ')') p--; if (ch === ',' && !p) { b.push(c); c = ''; continue; } c += ch; } if (c.trim()) b.push(c); return b.map((x) => x.trim()).filter(Boolean); };
   const une = (l, ch) => { if (ch.indexOf('*') >= 0) return Object.assign({}, l); const o = {}; for (const c of ch) { const m = /^([A-Za-z_]\w*)\s*\((.*)\)$/.exec(c); if (m) { const im = l[m[1]]; o[m[1]] = Array.isArray(im) ? im.map((x) => une(x, decouper(m[2]))) : im; continue; }
     const j = /^(\w+):(\w+)->(\w+)$/.exec(c); if (j) { const ob = l[j[2]]; o[j[1]] = ob && j[3] in ob ? ob[j[3]] : null; continue; } if (c in l) o[c] = l[c]; } return o; };
@@ -161,6 +183,24 @@ function fauxSupabase(sc) {
 
 const calme = (page) => page.evaluate(() => new Promise((ok) => { let n = 0, prec = performance.now();
   const tour = (t) => { n = (t - prec) < 60 ? n + 1 : 0; prec = t; if (n >= 15) ok(true); else requestAnimationFrame(tour); }; requestAnimationFrame(tour); }));
+
+// 26/11/2026 — ATTENDRE L'ÉTAT, jamais une durée. `calme` ne dit que « plus d'animation » : il peut tomber AVANT que l'app ait rangé le profil dans son cache
+// (`THCache.lireMeta('profil')`). Le 2e chargement (`/saisie`) lit ce cache au démarrage, AVANT son premier rendu : un profil pas encore rangé = une semaine de test inconnue,
+// donc la carte des chauffes au lieu de celle du test (relevé en CI, état (f), 2e exécution). `jusqua` interroge l'état toutes les 50 ms ; au plafond il le dit et compte un échec.
+const PLAFOND_MS = 30000;
+const jusqua = async (page, nom, cond, arg) => {
+  const t0 = Date.now();
+  for (;;) {
+    let v = false;
+    try { v = await page.evaluate(cond, arg); } catch (x) { v = false; }
+    if (v) return true;
+    if (Date.now() - t0 >= PLAFOND_MS) { ko++; console.log('   ❌ attente plafonnée (' + (PLAFOND_MS / 1000) + ' s) : ' + nom); return false; }
+    await new Promise((r) => setTimeout(r, 50));
+  }
+};
+// Le profil est rangé dans le cache de l'app ; avec `avecTest`, il porte la semaine de test.
+const profilRange = (page, avecTest) => jusqua(page, 'le profil est rangé dans le cache' + (avecTest ? ' avec sa semaine de test' : ''),
+  (t) => window.THCache.lireMeta('profil').then((p) => !!p && (!t || !!(p.cartes_semaine && p.cartes_semaine.test))), !!avecTest);
 
 // Ce que la page montre de chaque exercice : hauteur au-dessus de la 1re série, les éléments de la tête, les cartes, les textes.
 const MESURER = () => {
@@ -234,12 +274,16 @@ async function jouer(code, sc, port) {
     await page.goto('http://127.0.0.1:' + port + '/', { waitUntil: 'load' });
     await page.waitForSelector('#vue-liste:not([hidden])', { timeout: 60000 }).catch(() => {});
     await calme(page);
+    await profilRange(page, sc.semaineDeTest);   // l'état que le 2e chargement lira, posé AVANT d'y aller
     await page.goto('http://127.0.0.1:' + port + '/saisie', { waitUntil: 'load' });
     await page.waitForSelector('button.demarrer', { timeout: 60000 });
     await calme(page);
+    await profilRange(page, sc.semaineDeTest);
     await page.evaluate(() => document.querySelector('button.demarrer').click());
     await page.waitForFunction(() => document.querySelectorAll('#vue-seance .ligne-serie').length > 0, null, { timeout: 30000 });
     await calme(page);
+    // (f) : la carte du test est POSÉE (c'est l'état que les contrôles lisent), pas seulement « l'écran ne bouge plus ».
+    if (sc.semaineDeTest) await jusqua(page, 'la carte de la semaine de mesure est posée', () => !!document.querySelector('#vue-seance .proposition-test'));
     const capture = async (suffixe, mesures) => {
       if (!CAPTURES) return;
       const blocs = page.locator('#vue-seance .bloc-seance');
@@ -262,7 +306,7 @@ async function jouer(code, sc, port) {
   const port = await Verrou.ecouter(serveur, 0);
   const gains = {};
   try {
-    for (const code of ['a', 'b', 'c', 'f', 'd', 'e']) {
+    for (const code of ['a', 'b', 'c', 'g', 'd', 'e', 'f']) {
       const sc = SCENARIOS[code];
       console.log('\n══ (' + code + ') ' + sc.nom + (AVANT ? ' — AVANT' : ''));
       const nav0 = [];
@@ -281,8 +325,8 @@ async function jouer(code, sc, port) {
         const e2 = m2[sc.exo];
         if (code === 'd') await capture('-ratee', m2);
         const h = e2.h1;   // (d) : mesurée APRÈS la série ratée, comme l'état d'avant (la carte de chauffe a alors laissé la place)
-        gains[code] = { avant: AVANT_PX[code], apres: h };
-        console.log('   hauteur au-dessus de la 1re série : ' + h + ' px (avant : ' + AVANT_PX[code] + ' px, gain ' + (AVANT_PX[code] - h) + ' px)');
+        if (code !== 'f') gains[code] = { avant: AVANT_PX[code], apres: h };
+        console.log('   hauteur au-dessus de la 1re série : ' + h + ' px' + (code === 'f' ? ' (pas d\'état d\'avant : la file du test n\'a pas de hauteur à gagner)' : ' (avant : ' + AVANT_PX[code] + ' px, gain ' + (AVANT_PX[code] - h) + ' px)'));
         console.log('   tête : ' + e.tete.slice(0, 220));
         verifier(errs.length === 0, 'aucune erreur de page', errs.join(' | '));
         if (AVANT) continue;
@@ -294,9 +338,10 @@ async function jouer(code, sc, port) {
         verifier(m.every((x) => !x.lien || x.lien.h >= 44), '« Pourquoi ? » garde une cible de 44 px', JSON.stringify(m.map((x) => x.lien && x.lien.h)));
         // La cible se SONDE (`elementFromPoint`, grille 11 × 11 sur la boîte du lien) : une boîte de 44 px que la puce ou un voisin recouvre n'est pas une cible.
         verifier(m.every((x) => !x.cible || (x.cible.ok === 121 && x.lien.h >= 44)), '« Pourquoi ? » : les 121 points de sa cible de 44 px touchent le lien (' + LARGEUR + ' px)', JSON.stringify(m.map((x) => x.cible)));
-        verifier(m.every((x) => !/\b(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|hier)\s*:\s*[\d]/i.test(x.tete)), 'aucun fait daté (« Mardi : 90 kg × 8, 8, 8. ») dans la tête', m.map((x) => x.tete).join(' || '));
+        // (f) : la carte du test dit sa source datée (« Dimanche : 120 kg × 5, 5, 5, le haut de ta zone »), c'est la phrase du test, pas un gris : hors de ce contrôle.
+        if (code !== 'f') verifier(m.every((x) => !/\b(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|hier)\s*:\s*[\d]/i.test(x.tete)), 'aucun fait daté (« Mardi : 90 kg × 8, 8, 8. ») dans la tête', m.map((x) => x.tete).join(' || '));
         verifier(m.every((x) => !x.raison), 'plus de « Pourquoi cette chauffe ? » sous la carte');
-        verifier(h <= AVANT_PX[code] - GAIN_MIN[code], 'gain de hauteur ≥ ' + GAIN_MIN[code] + ' px (' + h + ' ≤ ' + (AVANT_PX[code] - GAIN_MIN[code]) + ')');
+        if (code !== 'f') verifier(h <= AVANT_PX[code] - GAIN_MIN[code], 'gain de hauteur ≥ ' + GAIN_MIN[code] + ' px (' + h + ' ≤ ' + (AVANT_PX[code] - GAIN_MIN[code]) + ')');
 
         if (code === 'a') {
           verifier(e.gris.length === 1 && e.gris[0] === 'Tu restes à 90 kg × 9.', 'le verbe avec son chiffre, seul, en gris : « Tu restes à 90 kg × 9. » (25/11/2026, « Les chutes » : la 9 demandée la fois d’avant n’a pas été faite, 8, 8, 8 ; « une rep de plus » exigerait de dépasser la cible d’avant)', JSON.stringify(e.gris));
@@ -329,7 +374,7 @@ async function jouer(code, sc, port) {
         }
         // 26/11/2026 (lot 5 n° 6) — la carte du calage n'a plus de case, de « kg » ni de « Partir de là » quand la ligne 1 est une série de travail : la case de charge de la ligne 1,
         // cernée d'ambre, sert de réponse. La question et « Je ne sais pas » ne changent pas d'un mot.
-        if (code === 'c' || code === 'f') {
+        if (code === 'c' || code === 'g') {
           const carte = await page.evaluate((iBloc) => {
             const b = document.querySelectorAll('#vue-seance .bloc-seance')[iBloc], k = b.querySelector('.habituelle');
             const l0 = b.querySelector('.ligne-serie'), cases = l0 ? Array.from(l0.querySelectorAll('.reponse-calage')) : [];
@@ -342,7 +387,7 @@ async function jouer(code, sc, port) {
           const anneau = await page.evaluate((iBloc) => { const c = document.querySelectorAll('#vue-seance .bloc-seance')[iBloc].querySelector('.reponse-calage'); const st = getComputedStyle(c); return { w: st.outlineWidth, s: st.outlineStyle }; }, sc.exo);
           verifier(anneau.s === 'solid' && parseFloat(anneau.w) >= 2, 'l’anneau est un trait plein de 2 px au moins', JSON.stringify(anneau));
         }
-        if (code === 'f') {
+        if (code === 'g') {
           // Le geste est UNIQUE : la charge tapée dans la ligne 1, puis ✓. La carte part, le coach ne parle pas d'approches qui n'existent pas, la série suivante est proposée.
           const l0 = page.locator('#vue-seance .bloc-seance').nth(sc.exo).locator('.ligne-serie').first();
           await l0.locator('input').first().fill('14');
@@ -377,6 +422,21 @@ async function jouer(code, sc, port) {
           verifier(e2.gaucheReaction.length === 1 && e2.gaucheReaction[0] != null && e2.gaucheChiffre != null && e2.gaucheReaction[0] >= e2.gaucheChiffre - 0.5 && e2.gaucheReaction[0] > e2.gaucheBloc + 4, 'la phrase de la réaction au raté ne touche pas le bord gauche : sa boîte ne commence pas plus à gauche que le chiffre de l’exercice (' + LARGEUR + ' px)', JSON.stringify({ reaction: e2.gaucheReaction, chiffre: e2.gaucheChiffre, bloc: e2.gaucheBloc }));
           verifier(e2.cartes.length === 0, 'une seule carte à la fois : la carte de chauffe a laissé la place à la réaction', JSON.stringify(e2.cartes));
           verifier(e2.gris.length === 1 && e2.gris[0] === 'Tu restes à 90 kg × 9.', 'le verbe avec son chiffre reste', JSON.stringify(e2.gris));
+        }
+        if (code === 'f') {
+          // 25/11/2026 — la veille d'une activité dure et la semaine de test sur la MÊME barre : aujourd'hui la veille se tait en semaine de mesure (`blocageVeille`), le test est la seule carte.
+          // La file range `veille` AVANT `test` (garde défensive, `tests/unit/v2-file-test.test.js`) : si la veille parlait, elle passerait la première, le test attendrait sa réponse.
+          const nbTest = e.cartes.filter((c) => /proposition-test/.test(c)).length;
+          const nbVeille = m.reduce((n, x) => n + x.cartes.filter((c) => /plus léger aujourd.hui|Comme prévu/.test(c)).length, 0);
+          verifier(e.cartes.length === 1 && nbTest === 1, 'une seule carte visible : la carte de la semaine de mesure', JSON.stringify(e.cartes));
+          verifier(nbVeille === 0, 'la veille d’une activité dure se tait en semaine de mesure : aucune carte « plus léger aujourd’hui »', JSON.stringify(m.map((x) => x.cartes)));
+          verifier(/Pas aujourd.hui/.test(e.cartes[0]) || /Semaine de mesure/.test(e.cartes[0]), 'la carte du test porte ses gestes', e.cartes[0]);
+          await page.locator('#vue-seance .bloc-seance').first().locator('.pt-pas').first().click();
+          await calme(page);
+          const m4 = await page.evaluate(MESURER);
+          await capture('2', m4);
+          verifier(m4[0].cartes.filter((c) => /proposition-test\b(?!-acc)/.test(c)).length === 0, 'après « Pas aujourd’hui » : la carte du test a quitté l’écran', JSON.stringify(m4[0].cartes));
+          verifier(m4.every((x) => x.cartes.every((c) => !/plus léger aujourd.hui|Comme prévu/.test(c))), 'et la veille ne revient pas (elle reste muette toute la semaine de mesure)', JSON.stringify(m4.map((x) => x.cartes)));
         }
         if (code === 'e') {
           verifier(e.bandeau.length === 1 && /^Décharge, semaine \d sur \d : prévue par ton programme\./.test(e.bandeau[0]), 'le bandeau de la séance dit la semaine', JSON.stringify(e.bandeau));

@@ -107,7 +107,7 @@ describe('I270 — la tête : trois éléments, deux phrases qui partent à la f
 
 describe('I271 — une seule carte de décision à la fois, dans l\'ordre', () => {
   test('reprise avant forme, forme avant « un cran dessous », calage, autres, veille, chauffes', () => {
-    expect(T.ORDRE_DE_LA_FILE).toEqual(['reprise', 'forme', 'paris', 'calage', 'autre', 'veille', 'chauffes']);
+    expect(T.ORDRE_DE_LA_FILE).toEqual(['reprise', 'veille', 'test', 'forme', 'paris', 'calage', 'autre', 'chauffes']);
     const { e, p } = decor({ bloc: false });
     const x = p.exercices[0];
     x.proposition = { phrase: 'Chauffe : 45 kg × 15.', pourquoi: 'raison', lignes: [] };

@@ -355,8 +355,11 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
   // séance du repli : « mardi » doit y remplacer la date. Aucun « palier ».
   const ISO = require('./fixtures/cas-49u15-blocage-isole.json');
   ISO.schema.forEach((c) => {
-    const k = M.carteSchema(c.zone, { palier: c.meilleur[0], niveau: c.meilleur[1] }, c.compteur, c.autres_avancent);
+    const k = M.carteSchema(c.zone, { palier: c.meilleur[0], niveau: c.meilleur[1] }, c.compteur, c.autres_avancent, 'force');
     noter('escalier isolé', 'cas-49u15 ' + c.id, [k.phrase, k.detail, k.oui, k.non]);
+    // 26/11/2026 — le même détail à qui n'est ni en Force ni en Les deux : sans « En force ».
+    const k2 = M.carteSchema(c.zone, { palier: c.meilleur[0], niveau: c.meilleur[1] }, c.compteur, c.autres_avancent, 'muscle');
+    noter('escalier isolé', 'cas-49u15 ' + c.id + ' muscle', [k2.phrase, k2.detail, k2.oui, k2.non]);
   });
   noter('escalier isolé', 'sèche', [M.phraseSeche({ compteur: 4, meilleur: { palier: 27, niveau: 12 }, blocages: [] })]);
   noter('escalier isolé', 'silence', [M.phraseCompteur({ compteur: 12, meilleur: { palier: 80, niveau: 10 }, blocages: [] })]);
@@ -486,6 +489,11 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
         [k.paris, k.pari, k.suivant, k.commencer, k.ajuster, k.arreter]));
     });
     noter('programme', 'sans pari', [M.carteFinDeBloc(b.bloc, { exercices: {}, paris: 0, tenus: 0 }, {}, null).paris]);
+    // 26/11/2026 (D1) — la fin de bloc selon le but : sans comparaison à d'autres hors Force et Les deux.
+    ['muscle', 'forme', 'force', 'les_deux', null].forEach((objectif) => ['mix', 'hypertrophie'].forEach((zone) => {
+      const k = M.carteFinDeBloc(Object.assign({}, b.bloc, { zone }), bilan, noms, null, false, objectif);
+      noter('programme', 'fin de bloc ' + objectif + ' ' + zone, [k.suivant, k.commencer]);
+    }));
     // 53-2 bis — la phrase grise d'un exercice pendant la décharge du programme.
     noter('programme', 'décharge', [M.grisAllegee({ allegee: { series: 2, routine: 4, decharge: true } })]);
   }
@@ -650,7 +658,7 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     // puis (49-U17) 4 cartes de série de plus × 4 textes + le gris d'après.
     // 49-U18 : R004 n'est plus un repli atteint (l'écart habituel sur les 8
     // derniers écarts fait repartir son compteur de zéro) — 2 phrases de moins.
-    expect(parFamille['escalier isolé']).toBe(33);
+    expect(parFamille['escalier isolé']).toBe(33 + 3 * 4);   // + 26/11/2026 : les 3 cartes de schéma, redites sans « En force »
     // 49-U20 : 7 phrases des 10 cas de frères (3 sans frère qui progresse).
     expect(parFamille['frères']).toBe(7);
     // 50-1 bis : une phrase, celle de la page d'un exercice au poids du corps.
@@ -679,12 +687,13 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     // ce bloc », 2 lignes, paris, suivant, 3 gestes ; et le pari de programme
     // sur 2 d'entre elles) + la phrase « aucun pari » + (53-2 bis) le gris de
     // la décharge.
-    expect(parFamille.programme).toBe(3 + 2 + 3 * 9 + 2 + 1 + 1);
+    expect(parFamille.programme).toBe(3 + 2 + 3 * 9 + 2 + 1 + 1 + 5 * 2 * 2);   // + D1 (26/11/2026) : 5 buts × 2 zones × (suivant, commencer)
     const prog = vues.filter((v) => v.famille === 'programme').map((v) => v.phrase.replace(/[\u00a0\u202f]/g, ' '));
     expect(prog).toContain('Bloc Mix · dès le lundi 12 oct.');
     expect(prog).toContain('Bloc Mix terminé');
     expect(prog.filter((t) => t === 'Le suivant, comme le font les programmes de force : Lourd (3-5) sur tes mouvements ' +
-      'à la barre, 4 semaines, décharge la dernière semaine. Les autres exercices gardent leur zone.').length).toBe(3);
+      'à la barre, 4 semaines, décharge la dernière semaine. Les autres exercices gardent leur zone.').length).toBe(4);   // D1 : Force et Les deux seulement (2 buts × 2 zones)
+    expect(prog.filter((t) => /^Le suivant : Lourd \(3-5\) sur tes mouvements/.test(t)).length).toBe(3 + 2);   // sans réponse : sans la comparaison
     expect(prog).toContain('Décharge : 2 séries au lieu de 4.');   // le rang de la semaine n'est pas connu de ce décor
     expect(vues.filter((v) => v.famille === 'programme' && /^Le coach avait fait 4 paris sur ce bloc : 2 ont tenu\.$/
       .test(v.phrase.replace(/[\u00a0\u202f]/g, ' '))).length).toBe(3);

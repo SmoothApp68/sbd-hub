@@ -93,7 +93,8 @@ describe('§14.2, §14.5 — les cas du simulateur', () => {
 
   F.schema.forEach((c) => {
     test('carte de schéma ' + c.id + ' (' + c.zone + ', autres ' + (c.autres_avancent ? 'avancent' : 'calent') + ')', () => {
-      const k = M.carteSchema(c.zone, meilleurDuCas(c.meilleur), c.compteur, c.autres_avancent);
+      // 26/11/2026 : le détail « En force, … » est celui de Force et Les deux ; les cas de la fixture le gardent (autres buts : plus bas).
+      const k = M.carteSchema(c.zone, meilleurDuCas(c.meilleur), c.compteur, c.autres_avancent, 'force');
       expect(k.nouvelle_zone).toBe(c.attendu.nouvelle_zone);
       expect(octets(k.phrase)).toBe(octets(c.attendu.phrase));
       expect(octets(k.detail)).toBe(octets(c.attendu.detail));
@@ -236,7 +237,7 @@ function decor(o) {
   const c = { consigne: k, libelles: M.libellesConsigne(k),
     compteur: { compteur: opt.compteur === undefined ? 4 : opt.compteur, meilleur: opt.meilleur || MEILLEUR, blocages: [] },
     repli: opt.repli === undefined ? REPLI : opt.repli };
-  const e = { seance: { id: opt.seance || 'S1', debut: DEBUT, edition: !!opt.edition, exercices: se.exercices },
+  const e = { objectif: opt.objectif, seance: { id: opt.seance || 'S1', debut: DEBUT, edition: !!opt.edition, exercices: se.exercices },
     consignes: { couche: c }, reglage: 'normal', paris: [], suites: {}, phase: opt.phase || 'maintien',
     catalogue: opt.catalogue || null,
     escalier: { cartes: opt.cartes || [], compteurs: opt.compteurs || [], noms: { couche: 'Développé Couché (Barre)' },
@@ -253,6 +254,25 @@ describe('§14.5 — le blocage isolé, dans le plan', () => {
     expect([x.escalier.carte.oui, x.escalier.carte.non, x.escalier.carte.nouvelle_zone]).toEqual(['Passer à 6-8 reps', 'Garder 3-5', 'mix']);
     expect(x.entete.compteur).toBeNull();
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+  });
+  test('26/11/2026 — le détail de la carte ne dit « En force » qu’à Force et Les deux ; la règle (marche, boutons) est la même pour tous', () => {
+    const EN_FORCE = 'En force, une série de plus aide peu. Changer de schéma quelques semaines peut relancer la barre, avant d\'y revenir.';
+    const SANS = 'Changer de schéma quelques semaines peut relancer la barre, avant d\'y revenir.';
+    const vus = {};
+    [['force', EN_FORCE], ['les_deux', EN_FORCE], ['muscle', SANS], ['forme', SANS], ['calisthenie', SANS], [null, SANS], [undefined, SANS]].forEach(([objectif, detail]) => {
+      const { e, p } = decor({ objectif });
+      const x = p.exercices[0];
+      expect([objectif, x.escalier.carte.detail]).toEqual([objectif, detail]);
+      expect([x.escalier.marche, x.escalier.carte.oui, x.escalier.carte.non]).toEqual(['schema', 'Passer à 6-8 reps', 'Garder 3-5']);
+      expect(T.verifierPlan(p, e).erreurs).toEqual([]);
+      vus[String(objectif)] = x.escalier.carte.phrase;
+    });
+    expect(new Set(Object.keys(vus).map((k) => vus[k])).size).toBe(1);   // la phrase du fait ne change pas
+    ['Mix'].forEach(() => {
+      const k = M.carteSchema('mix', MEILLEUR, 4, false, 'muscle');
+      expect(k.detail).toBe(SANS);
+      expect(k.detail).not.toMatch(/En force/);
+    });
   });
   test('un autre exercice à 4 ou plus dans les 7 jours : la phrase finit sur un point', () => {
     const { p } = decor({ compteurs: [{ exercice: 'squat', jour: '2026-09-28', compteur: 4, seance: 'X' }] });

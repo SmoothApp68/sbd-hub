@@ -164,6 +164,18 @@ Un sens, un mot ; un mot, un sens. Appliqué à tous les textes affichés (le co
 
 Inchangés : « je garde » (la charge, pour cette seule décision), « tu restes à » (l'objectif de reps tenu), « test » (la charge au-dessus, « Pas de test à 110 kg »), « reprise après une pause ». Restent à trancher (relevés, non faits) : « la marche d'en dessous » (I55), « Des zones raides ? » (un troisième sens de « zone »).
 
+## La fin de bloc selon le but (26/11/2026, MOTEUR §19.2 delta D1)
+
+Une comparaison à d'autres (« comme le font les programmes de force ») ne s'écrit qu'à une personne dont le but est la force : **Force** et **Les deux**.
+Aux autres, la même phrase, un fait, sans comparaison et sans deviner le but : « Le suivant : Mix (6-8) sur tes mouvements à la barre, 4 semaines, décharge la
+dernière semaine. Les autres exercices gardent leur zone. » (Muscle, Forme) ; « Le suivant : Hypertrophie (8-10) sur… » ; **sans réponse**, « Le suivant : Lourd (3-5)
+sur tes mouvements à la barre… ». Boutons : « Commencer le bloc Mix », « Commencer le bloc Hypertrophie », « Commencer le bloc Lourd ». Jamais l'assiduité.
+
+## « En force » ne s'écrit qu'à la force (26/11/2026, MOTEUR §14.5 delta)
+
+La carte « Changer de schéma » dit « En force, une série de plus aide peu. » à Force et Les deux seulement. Aux autres, le détail est le fait seul :
+« Changer de schéma quelques semaines peut relancer la barre, avant d'y revenir. » La règle ne change pas.
+
 ## Ce qui reste à faire
 
 *Réécrit au présent le 05/11/2026 (243) : la refonte du plan unique est faite.* La garde `tests/unit/v2-voix.test.js` (règles de

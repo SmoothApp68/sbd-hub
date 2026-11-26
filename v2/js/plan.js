@@ -4112,7 +4112,7 @@
           var capCarte = Voix().capturer(function () {
             if (marche === M.MARCHE_DEGRESSIVE) return M.carteDegressive(c.compteur.meilleur, k);
             return marche === M.MARCHE_SCHEMA
-              ? M.carteSchema(zone, c.compteur.meilleur, k, avancent)
+              ? M.carteSchema(zone, c.compteur.meilleur, k, avancent, objectifDuPlan(e.objectif))
               : M.carteSerieDePlus(c.compteur.meilleur, k, avancent, musclesPrimaires(e, slug),
                   musclesParPriorite(e, slug, phase), seriesDeLaRoutine(e, slug));
           });

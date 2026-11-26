@@ -1204,19 +1204,33 @@ function ok(nom, cond, detail) {
         const page = await ctx.newPage();
         const erreurs = [];
         page.on('pageerror', (e) => erreurs.push(String(e).slice(0, 160)));
-        const t0 = Date.now();
+        // 231 bis — LES INSTANTS SE RELÈVENT DANS LA PAGE, À LEUR ARRIVÉE (un observateur de mutations), pas depuis Node. Avant :
+        // « Ouverture du lien… » devait être vu dans les 3 s qui suivent `goto`, et l'écran de connexion se lisait à la première
+        // visite du sondage — deux mesures qui comptaient le chargement de la page et le pas du sondage, donc la charge de la
+        // machine (la CI, six navigateurs pour deux cœurs), pas l'app. L'app promet un ORDRE (la phrase d'attente d'abord, l'écran
+        // de connexion ensuite) et un ÉCART (son minuteur de 5 s, qui court dans la page) : c'est cela qu'on lit.
+        await page.addInitScript(() => {
+          const T = window.__lienT = { lien: null, connexion: null, connexionDejaLa: null };
+          const vue = (id) => { const v = document.getElementById(id); return !!v && !v.hidden; };
+          const lire = () => {
+            const t = performance.now();
+            if (T.lien === null && vue('vue-lien') && /Ouverture du lien…/.test(document.getElementById('vue-lien').textContent)) {
+              T.lien = t; T.connexionDejaLa = vue('vue-connexion');
+            }
+            if (T.connexion === null && vue('vue-connexion')) T.connexion = t;
+          };
+          new MutationObserver(lire).observe(document, { attributes: true, childList: true, subtree: true, characterData: true });
+        });
         await page.goto(lien('/profil', 'recovery'), { waitUntil: 'domcontentloaded' });
-        const attente = await attendreQue(page, () => lienVu(page), 3000);
-        const tAttente = Date.now() - t0;
-        ok('[E70 g] — « Ouverture du lien… » s’affiche tout de suite (< 3 s), et rien d’autre',
-          attente && !(await ecran(page)).connexion, tAttente + ' ms');
+        const attente = await attendreQue(page, () => page.evaluate(() => window.__lienT.lien !== null), 12000);
+        ok('[E70 g] — « Ouverture du lien… » s’affiche tout de suite (avant l’écran de connexion), et rien d’autre',
+          attente && (await page.evaluate(() => window.__lienT.connexionDejaLa)) === false, JSON.stringify(await page.evaluate(() => window.__lienT)));
         const dit = await attendreQue(page, async () => { const e = await ecran(page); return e.connexion && !!e.message; }, 12000);
-        // 176 — LE DÉLAI SE MESURE DANS LA PAGE, PAS DEPUIS NODE. `t0` part avant `goto` : sous charge, le chargement
-        // de la page et chaque tour de l'attente (200 ms + la lecture de l'écran) s'y ajoutaient, et « 5 s » dépassait
-        // 8 s sans que l'app ait attendu une milliseconde de plus. `performance.now()` compte depuis le début de la
-        // navigation, là où l'app lance sa minuterie : la borne basse (≥ 4,5 s : elle n'abandonne pas trop tôt) et la
-        // haute (< 8 s : elle n'attend pas les 7 s de (h)) gardent leur sens, sans dépendre de la machine.
-        const delai = await page.evaluate(() => Math.round(performance.now()));
+        // 176 — LE DÉLAI SE MESURE DANS LA PAGE, PAS DEPUIS NODE. 231 bis — et à l'ARRIVÉE de chaque écran, pas à la lecture : le
+        // minuteur de l'app part quand « Ouverture du lien… » s'affiche et court dans la page ; l'écart entre les deux instants
+        // est son délai (la borne basse ≥ 4,5 s : elle n'abandonne pas trop tôt ; la haute < 8 s : elle n'attend pas les 7 s de (h)).
+        const T = await page.evaluate(() => window.__lienT);
+        const delai = T.lien !== null && T.connexion !== null ? Math.round(T.connexion - T.lien) : -1;
         const e = await ecran(page);
         ok('DISCRIMINANT [E70 g] — à 5 s sans réponse : l’écran de connexion, avec la phrase au mot près',
           dit && delai >= 4500 && delai < 8000 && e.message === PHRASE_NON_VERIFIE && !(await lienVu(page)),

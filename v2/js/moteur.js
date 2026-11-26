@@ -595,14 +595,15 @@
   // ── §9.2 ter — LE PLANCHER DE LA DERNIÈRE SÉRIE (25/11/2026, CHUTES-REGLE ; décision d'Aurélien, seuil −2) ──────────────────────────────
   //
   // Une dernière série qui perd 2 reps ou plus sur des séries stables ne fait JAMAIS descendre la cible sous ce que les séries d'avant ont
-  // prouvé, et ne la pousse jamais au-dessus : visée = max(niveau sur TOUTES les séries + 1 borné au haut de la zone, niveau des séries
-  // d'avant). Ce n'est PAS le niveau validé (`niveauValide` ne change pas : format, zone, stagnation, test, cartes lest et marche le lisent) :
+  // prouvé, et ne la pousse jamais au-dessus : visée = max(niveau sur TOUTES les séries + 1, niveau des séries d'avant), BORNÉE AU HAUT DE LA
+  // ZONE de la consigne (D2, 26/11/2026 : `6-6-6-4` en Lourd 3-5 vise 5, jamais 6 ; le haut est le plafond, le surplus de reps devient de la
+  // charge, jamais une cible de reps). Ce n'est PAS le niveau validé (`niveauValide` ne change pas : format, zone, stagnation, test, cartes lest et marche le lisent) :
   // la règle ne vit que dans la consigne, et seulement quand l'appelant la demande (`options.plancherDesChutes`, posée par `consigneDExercice`).
   //   · au moins trois séries, toutes à la même charge, aucune à 0 rep (un zéro a sa règle, §9.42) ;
   //   · les séries AVANT la dernière à une rep près de la première (la stabilité de §9.2 bis) ;
   //   · la dernière perd au moins `PERTE_DE_FIN` reps sur la première (reps COMPTÉES, §17.4).
   // Rend `{ vise, niveauAvant, premiere, derniere (reps saisies), perte, rang }` ou `null`. `12-12-12-9` (haut 12) → 12 ; `12-12-12-8` → 12 ;
-  // `9-8-6` → 8 ; `4-3-2` → 4 ; `12-12-12-11` → `null` (−1 : le niveau validé le tolère déjà).
+  // `9-8-6` → 8 ; `4-3-2` → 4 ; `6-6-6-4` (haut 5) → 5 ; `12-12-12-11` → `null` (−1 : le niveau validé le tolère déjà).
   var PERTE_DE_FIN = 2;
   function plancherDeFin(seriesAuPalier, zoneHaut) {
     var A = seriesAuPalier || [];
@@ -627,7 +628,7 @@
     if (avant === null || tous === null) return null;
     // Le niveau sur toutes les séries : `niveauValide` retire la chute (§9.2 bis), le plancher la compte (la visée ne dépasse jamais ce qu'elle dit).
     var surToutes = chuteDe(A) !== null ? Math.min(tous, c[n - 1] + 1) : tous;
-    return { vise: cible(Math.max(Math.min(surToutes + 1, zoneHaut), avant)), niveauAvant: avant, premiere: nombre(A[0].reps),
+    return { vise: cible(Math.min(zoneHaut, Math.max(surToutes + 1, avant))), niveauAvant: avant, premiere: nombre(A[0].reps),
              derniere: nombre(A[n - 1].reps), perte: perte, rang: n };
   }
 
@@ -5466,10 +5467,15 @@
         // Décision du 25/11/2026 : dès que la visée est SOUS la cible d'avant, la phrase dit la BAISSE (« ta cible passe à »), quelle que soit la place de la visée par rapport à ce
         // qui a été fait ; « tu restes à » ne se dit que si la visée est ÉGALE à la cible d'avant. Une cible qui baisse ne se tait jamais.
         if (cibleAvant !== null && vise < cibleAvant) { r.verbe = VERBES.BORNE; r.plus = vise - ref; }
-        r.baisse = r.verbe === VERBES.BORNE && cibleAvant !== null && vise < cibleAvant;
+        // D2 (26/11/2026, MOTEUR §9.2 ter) — LE HAUT DE LA ZONE A BORNÉ LE PLANCHER : une dernière série tombée a fixé la visée sous le niveau des séries d'avant (`6-6-6-4` en 3-5 : 5, pas 6).
+        // La phrase se lit alors contre la ligne que l'écran a MONTRÉE : égale, elle dit « tu restes à » (rien ne change pour la personne) ; sous elle, ou sans ligne montrée (le fait seul),
+        // « ta cible passe à » ET le fait, « Dernière série à 4 » (la baisse vient bien de cette série) ; au-dessus de la ligne montrée, « ta cible, ».
+        var borneParLaZone = f.chuteDeFin && nivAvant !== null && vise < nivAvant;
+        if (borneParLaZone && cibleAvant !== null && vise === cibleAvant) { r.verbe = VERBES.GARDE_CIBLE; r.plus = 0; }
+        r.baisse = r.verbe === VERBES.BORNE && (cibleAvant !== null ? vise < cibleAvant : borneParLaZone === true);
         // Une dernière série tombée (plancher de la dernière série, ou chute d'avant) : le fait que dit la phrase quand le verbe garde ou borne.
         var tombee = f.chuteDeFin ? nombre(f.chuteDeFin.derniere) : (f.chute && Array.isArray(f.reps) ? nombre(f.reps[f.reps.length - 1]) : null);
-        if (tombee !== null && r.verbe !== VERBES.MONTE_REPS && !r.baisse) r.tombee = tombee;   // la cible qui baisse n'est pas due à la dernière série : elle ne la nomme pas
+        if (tombee !== null && r.verbe !== VERBES.MONTE_REPS && (!r.baisse || borneParLaZone)) r.tombee = tombee;   // la cible qui baisse parce qu'une cible d'avant était plus haute ne nomme pas la dernière série ; borne de zone : elle la nomme
       }
     } else if (c.etat === 'bord_garde' || c.etat === 'tenue_apres_zero') {
       r.verbe = VERBES.GARDE_CHARGE;

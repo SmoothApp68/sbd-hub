@@ -115,6 +115,31 @@
     var c = lireNombre(s.charge_kg);
     return c !== null && c > 0;
   }
+  // ══ QUI VOTE (chantier « Le coach en un fil », lot 3, principe P6, MOTEUR §9.13 bis) ═══════════════════════════════════════════════════════════════════════════
+  // UNE table : « cette séance (ou ce pari, qui porte les drapeaux de sa séance) compte-t-elle pour CE lecteur ? ». Elle remplace les filtres `neutre` / `decharge` / `allegee` /
+  // `jourSans` écrits à la main aux lecteurs. Un lecteur = la liste des drapeaux qui l'ÉCARTENT ; `vote` rend `true` quand aucun n'est posé (et pour une séance absente : la
+  // garde `se &&` reste à l'appelant). Aucun comportement ne change : chaque ligne est le filtre qu'écrivait le lecteur.
+  //   neutre    séance sans série dans la zone, « sans coach », « J'ai mal », ou séance légère PASSÉE d'un jour sans (`neutraliserLeZero`, `jourSansDe`)
+  //   decharge  séance d'une semaine allégée acceptée (MOTEUR §9.22)
+  //   allegee / jourSans  (sur un PARI) le pari de la décharge, le pari de la séance plus légère d'un jour sans (MOTEUR §9.46, I255)
+  // La séance « fin ajustée à la forme » n'est PAS ici : `faits.parisRatesALaSuite` la reçoit en liste d'identifiants (`app.js`), elle ne se lit pas sur la séance.
+  var QUI_VOTE = {
+    palier:          ['neutre'],              // la charge de travail, la zone, le report, la dernière séance (vues et séances du contrat)
+    compteur:        ['neutre', 'decharge'],  // le compteur de stagnation et le compte long
+    jetonDuJourSans: ['neutre', 'decharge'],  // les séances lues (I152), la légère candidate, le relèvement du jeton
+    repli:           ['neutre', 'decharge'],  // le repli de reprise
+    ouvreUnJourSans: ['decharge'],            // un zéro en décharge n'ouvre rien (la décharge l'oublie)
+    plafondDuZero:   ['decharge'],            // le plafond après un zéro ne se lit pas sur une décharge
+    equilibres:      ['decharge'],            // les séances d'une routine comptées pour ta semaine
+    paris:           ['allegee', 'jourSans']  // `Bilan.compteLe` : un pari tenu à peu de frais n'est pas une vérification
+  };
+  function vote(x, lecteur) {
+    var ecarte = QUI_VOTE[lecteur];
+    if (!ecarte) throw new Error('vote : lecteur inconnu « ' + lecteur + ' »');
+    if (!x) return true;
+    for (var i = 0; i < ecarte.length; i++) if (x[ecarte[i]] === true) return false;
+    return true;
+  }
   // LA lecture que le plan applique aux séries validées de la séance en cours : la séance entière à zéro (charge connue > 0), sinon le zéro partiel.
   function zeroDeSeance(series, opt) {
     var z = seanceAZero(series);
@@ -3531,6 +3556,8 @@
     zeroPartiel: zeroPartiel,
     zeroDeSeance: zeroDeSeance,
     estZeroDeTravail: estZeroDeTravail,
+    vote: vote,
+    QUI_VOTE: QUI_VOTE,
     motDEchec: motDEchec,
     restPauseDe: restPauseDe,
     estAccentAllonge: estAccentAllonge,

@@ -456,7 +456,7 @@
       var vue = vueDeSeance(se);
       var d = instant(se && se.debut);
       var zs = zonesDeLaSeanceDePlan(vue, (groupes || [])[i], zonesDeRoutine);
-      return { i: i, d: d, zs: zs, membre: zs.indexOf(zonePlan) >= 0, compte: se.neutre !== true && vue.retenues.length > 0 };
+      return { i: i, d: d, zs: zs, membre: zs.indexOf(zonePlan) >= 0, compte: Modele().vote(se, 'palier') && vue.retenues.length > 0 };
     }).filter(function (x) { return x.d !== null && (t === null || x.d < t); });
     infos.forEach(function (x) {
       if (x.membre) { membres.push(x.i); if (x.compte && (tDerniere === null || x.d > tDerniere)) tDerniere = x.d; }
@@ -1805,8 +1805,8 @@
       // était active ce jour-là (le niveau se lit sur elles).
       nRoutine: se && typeof se.nRoutine === 'number' ? se.nRoutine : null,
       series: series,
-      retenues: neutre ? [] : parRole(series, ROLES_RETENUS),
-      votantes: neutre ? [] : parRole(series, ROLES_VOTANTS)
+      retenues: !Modele().vote(se, 'palier') ? [] : parRole(series, ROLES_RETENUS),
+      votantes: !Modele().vote(se, 'palier') ? [] : parRole(series, ROLES_VOTANTS)
     };
     // §9.10 (53-1) — la FIN de la séance, quand on la connaît : la zone choisie
     // pendant une séance est celle de la séance (`zoneDeLaDerniere`).
@@ -2125,7 +2125,7 @@
   // Rend `{ palier, charge, niveau, zoneBas, tenue, grosse, reculs }` ou `null`.
   function jourSansOuvrable(triees, i, legeres, jeton, opt, protegee) {
     var Z = triees[i];
-    if (protegee || jeton !== null || !Z || !Z.zero || Z.decharge === true) return null;
+    if (protegee || jeton !== null || !Z || !Z.zero || !Modele().vote(Z, 'ouvreUnJourSans')) return null;
     var Ch = nombre(Z.zero.charge);
     if (Ch === null || !(Ch > 0)) return null;
     var avantZ = triees.slice(0, i).map(function (se) {
@@ -2136,7 +2136,7 @@
     var P = nombre(base.palier);
     if (P === null || !(P > 0) || Ch > P + 1e-9) return null;
     // I152 — au moins deux séances lues à la charge de travail (jamais un jour sans sur une histoire d'une séance).
-    var lues = avantZ.filter(function (se) { return se.neutre !== true && se.decharge !== true && nombre(se.palier) !== null && memeCharge(nombre(se.palier), P); });
+    var lues = avantZ.filter(function (se) { return Modele().vote(se, 'jetonDuJourSans') && nombre(se.palier) !== null && memeCharge(nombre(se.palier), P); });
     if (lues.length < JOUR_SANS_LUES) return null;
     var zone = zoneParCle(base.zone);
     return { palier: P, charge: Ch, niveau: nombre(base.niveau), zoneBas: zone === null ? null : zone.bas,
@@ -2175,7 +2175,7 @@
       }
       var prec = i > 0 ? triees[i - 1] : null;
       var ouvert = prec ? ouverts[instant(prec.debut)] : undefined;
-      if (ouvert !== undefined && se.decharge !== true && se.neutre !== true) {
+      if (ouvert !== undefined && Modele().vote(se, 'jetonDuJourSans')) {
         if (memo[t] === undefined) {
           var recue = consigneApresUnZero(triees.slice(0, i), se.debut, opt);
           memo[t] = !!recue && recue.etat === 'zero_rep' && !!(recue.fondement && recue.fondement.zeroRep && recue.fondement.zeroRep.jourSans);
@@ -2187,7 +2187,7 @@
       // Le jeton ne se lève que sur une séance ORDINAIRE RÉUSSIE, quelle que soit sa charge (jamais un retour imposé, ni un neutre, une légère ou une décharge ; jamais sous le bas
       // de la zone). Le retour imposé ne le relève pas : l'étape qui échoue (140 × 4) n'a pas été réussie. Sans zone connue (`zoneBas` nul), la lecture d'avant : une séance au palier.
       var estRetour = !!prec && legeres[instant(prec.debut)] !== undefined;
-      if (jeton !== null && !estRetour && se.neutre !== true && se.decharge !== true && nombre(se.palier) !== null &&
+      if (jeton !== null && !estRetour && Modele().vote(se, 'jetonDuJourSans') && nombre(se.palier) !== null &&
           (jeton.zoneBas === null || jeton.zoneBas === undefined || legerePasse(se, jeton.zoneBas))) jeton = null;
     });
     return { legeres: legeres, ouverts: ouverts };
@@ -2231,7 +2231,7 @@
       var ouvertZ = js.ouverts[js.legeres[instant(Z.debut)].z];
       return ouvertZ !== undefined ? retourDuJourSans(base, ouvertZ) : base;
     }
-    if (!Z || !Z.zero || Z.decharge === true || !base) return base;
+    if (!Z || !Z.zero || !Modele().vote(Z, 'ouvreUnJourSans') || !base) return base;
     var Ch = nombre(Z.zero.charge);
     if (Ch === null || !(Ch > 0)) return base;
     if (base.etat === 'silence') {
@@ -2390,7 +2390,7 @@
     // §7.6 — les séances neutres ne comptent que pour le rythme (`repriseDe`,
     // qui lit `vues`) : la dernière séance, celle d'où la consigne repart, est
     // la dernière qui n'est PAS neutre.
-    var ant = anterieures(vues, avant).filter(function (se) { return !se.neutre; });
+    var ant = anterieures(vues, avant).filter(function (se) { return Modele().vote(se, 'palier'); });
     // 1. Les silences. Une première fois n'a rien à dire, et le dire serait
     // inventer ; une séance sans palier n'a rien TENU (§7.2).
     // Le fondement d'un silence de première fois est VIDE, et pas absent : la
@@ -7383,11 +7383,11 @@
     var coupure = instant(avant);
     var liste = seances || [];
     var decharges = {};
-    liste.forEach(function (se) { if (se && se.decharge === true) { var t = instant(se.debut); if (t !== null) decharges[t] = true; } });
+    liste.forEach(function (se) { if (se && !Modele().vote(se, 'plafondDuZero')) { var t = instant(se.debut); if (t !== null) decharges[t] = true; } });
     var P = nombre(palier);
     var actifs = [];
     liste.forEach(function (se) {
-      if (!se || !se.plafondZero || se.decharge === true || neutreSansCoach(se)) return;
+      if (!se || !se.plafondZero || !Modele().vote(se, 'plafondDuZero') || neutreSansCoach(se)) return;
       var t0 = instant(se.debut);
       if (t0 === null || (coupure !== null && t0 >= coupure)) return;
       var z = se.plafondZero, Ch = nombre(z.charge);
@@ -7725,7 +7725,7 @@
       var sansZoneMaisCompte = !!k && k.etat === 'etirement_reps' && nombre(k.palier) === 0;
       // PR 4b (R-A, I2) — une séance dont la consigne reçue était la tenue après un zéro est traitée comme une décharge : ni comptée ni jugée (le coach
       // tenait la charge ; suivre sans progrès ne ferait pas monter la stagnation), une présence pour la reprise.
-      if (se.neutre === true || se.decharge === true || !k || k.etat === 'silence' || k.etat === 'tenue_apres_zero' || k.etat === 'retour_jour_sans' ||
+      if (!Modele().vote(se, 'compteur') || !k || k.etat === 'silence' || k.etat === 'tenue_apres_zero' || k.etat === 'retour_jour_sans' ||
           ((k.zone === null || k.zone === undefined) && !sansZoneMaisCompte) || P === null) {
         if (!premiere && k && repriseDe(liste.slice(0, i), se.debut) !== AUCUNE_REPRISE) repriseEnAttente = true;
         return;
@@ -9575,7 +9575,7 @@
     for (var i = liste.length - 1; i >= 0; i--) {
       var se = liste[i];
       if (t0 - instant(se.debut) > FENETRE_REPLI_JOURS * JOUR) break;
-      if (se.neutre === true || se.decharge === true) continue;
+      if (!Modele().vote(se, 'repli')) continue;
       var v = vueDeSeance(se);
       var P = nombre(v.palier);
       if (P === null || P > haut || memeCharge(P, haut) || P < plancher) continue;
@@ -11225,6 +11225,7 @@
   // NEUTRES, leur palier et leur niveau validé, comme la consigne les lit. Le
   // report (§9.10) et le bilan de fin de bloc (§9.22) les lisent ici.
   function chargesDeTravail(vues) {
+    // Seul lecteur de `palier` écrit à la main : `v2-fiche-rapide-232.test.js` greffe CETTE fonction dans l'ancien moteur (modele.js d'avant, sans `vote`) ; la vue porte `neutre` = `!vote(se, 'palier')`.
     return (vues || []).filter(function (v) { return v && !v.neutre; }).map(function (v) {
       var A = seriesAuPalier(v);
       // 255 — la réserve notée (`Palier().reserveDeSerie`, la lecture de partout), `null` si rien n'est noté : le report s'en sert
@@ -11278,7 +11279,7 @@
   function zoneDeLaDerniere(seances, avant, o) {
     var liste = anterieures(seances || [], avant);
     for (var i = liste.length - 1; i >= 0; i--) {
-      if (liste[i].neutre === true) continue;
+      if (!Modele().vote(liste[i], 'palier')) continue;
       return zoneDeLaSeance(liste, i, avant, { reglage: o.reglage, equipement: o.equipement,
         corrections: o.correctionsDeZone || null, correction: o.correction || null, salle: o.salle || null });
     }
@@ -11356,7 +11357,7 @@
   // consigne repart : la dernière antérieure qui n'est pas neutre.
   function seriesAFondDeLaDerniere(seances, avant) {
     var ant = anterieures((seances || []).map(vueDeSeance), avant)
-      .filter(function (se) { return !se.neutre; });
+      .filter(function (se) { return Modele().vote(se, 'palier'); });
     if (!ant.length) return null;
     var V = ant[ant.length - 1].votantes;
     var aFond = V.some(function (s) { return Palier().cranDeSerie(s) === 'max'; });

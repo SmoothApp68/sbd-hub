@@ -98,13 +98,13 @@ function bac(options) {
 }
 
 describe('60-2a — QUAND il s’ouvre de lui-même', () => {
-  test('la ligne est connue, jamais remplie, jamais ouverte ici : il s’ouvre, sur la bienvenue, et la clé est posée', () => {
+  test('la ligne est connue, jamais remplie, jamais ouverte ici : il s’ouvre, sur la première question (plus de « Bienvenue »), et la clé est posée', () => {
     const b = bac();
     expect(b.appel('ouvrirQuestionnaireSiDu()')).toBe(true);
-    expect(b.ecran()).toBe('bienvenue');
+    expect(b.ecran()).toBe('anciennete');
     expect(b.journal.montres).toEqual(['questionnaire']);
     expect(b.stockage['th-v2-questionnaire-vu-u1']).toBe('1');
-    expect(b.vueCourante().id).toBe('bienvenue');
+    expect(b.vueCourante().id).toBe('anciennete');
   });
 
   test('DISCRIMINANT — il ne s’ouvre QU’UNE FOIS par appareil : « Plus tard », puis plus rien', () => {
@@ -191,7 +191,6 @@ describe('60-2a — une ÉCRITURE par écran validé, par le chemin du Profil', 
     const cont = () => b.actions().surContinuer();
     const choix = (c, v) => b.actions().surChoix(c, v);
 
-    cont();                                                          // bienvenue : rien
     expect(b.ecran()).toBe('anciennete');
     expect(b.journal.profil).toEqual([]);
 
@@ -246,7 +245,7 @@ describe('60-2a — une ÉCRITURE par écran validé, par le chemin du Profil', 
     b.appel('ouvrirQuestionnaireSiDu()');
     const cont = () => b.actions().surContinuer();
     const choix = (c, v) => b.actions().surChoix(c, v);
-    cont(); choix('depuis', '1_a_3_ans'); choix('notees', 'non'); cont(); cont(); cont(); cont(); cont(); choix('sexe', 'homme'); cont();
+    choix('depuis', '1_a_3_ans'); choix('notees', 'non'); cont(); cont(); cont(); cont(); cont(); choix('sexe', 'homme'); cont();
     expect(b.ecran()).toBe('but');
     b.journal.profil.length = 0;
     choix('objectif', 'force'); choix('phase', 'inconnue'); cont();
@@ -280,15 +279,17 @@ describe('60-2a — une ÉCRITURE par écran validé, par le chemin du Profil', 
   test('DISCRIMINANT — « ‹ Retour » n’écrit RIEN, et au premier écran il vaut « Plus tard »', () => {
     const b = bac();
     b.appel('ouvrirQuestionnaireSiDu()');
-    b.actions().surContinuer();
-    b.actions().surChoix('depuis', '1_a_3_ans');
+    b.actions().surChoix('depuis', '1_a_3_ans'); b.actions().surChoix('notees', 'non');
+    b.actions().surContinuer();                                      // ancienneté écrite, « Ce que je sais » ouvert (des séances en base)
+    expect(b.ecran()).toBe('sait');
+    const ecrits = b.journal.profil.length;
     b.actions().surRetour();
-    expect(b.ecran()).toBe('bienvenue');
-    expect(b.journal.profil).toEqual([]);
+    expect(b.ecran()).toBe('anciennete');
+    expect(b.journal.profil.length).toBe(ecrits);                    // « Retour » n'écrit rien
     b.actions().surRetour();                                         // premier écran
     expect(b.ctx.questionnaire).toBeNull();
     expect(b.journal.saisie).toBe(1);
-    expect(b.journal.profil).toEqual([]);
+    expect(b.journal.profil.length).toBe(ecrits);
   });
 
   test('« Plus tard » n’écrit rien (ce qui est validé l’est déjà) et mène à Saisie', () => {
@@ -346,7 +347,7 @@ describe('60-2a — une ÉCRITURE par écran validé, par le chemin du Profil', 
     b.appel('ouvrirQuestionnaireSiDu()');
     expect(b.ctx.questionnaire.rep.objectif).toBe('force');
     expect(b.ctx.questionnaire.rep.coach).toBe('franc');
-    b.actions().surContinuer(); b.actions().surContinuer();         // bienvenue, ancienneté (déjà répondue)
+    b.actions().surContinuer();                                     // ancienneté (déjà répondue)
     expect(b.journal.profil).toEqual([]);                           // rien n'a changé : rien n'est écrit
   });
 });
@@ -465,7 +466,7 @@ describe('60-2a — le bandeau de Saisie', () => {
     expect(v.libelleReprendre).toBe('Le terminer');
     expect(v.surQuitter).toBeUndefined();
     v.surReprendre();
-    expect(b.ecran()).toBe('bienvenue');                              // « Le terminer » le rouvre, depuis le début
+    expect(b.ecran()).toBe('anciennete');                             // « Le terminer » le rouvre, depuis le début (le lot 5 n° 3 le fera reprendre plus loin)
   });
 
   test('rempli, ou profil inconnu : pas de bandeau', () => {
@@ -484,7 +485,7 @@ describe('60-2a — le bandeau de Saisie', () => {
     b.appel('plusTardQuestionnaire()');
     b.appel('rendreBandeauQuestionnaire()');
     b.journal.bandeaux.pop().surReprendre();
-    expect(b.ecran()).toBe('bienvenue');
+    expect(b.ecran()).toBe('anciennete');
   });
 });
 
@@ -676,7 +677,6 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
   const jusquAuTemps = (b) => {
     const cont = () => b.actions().surContinuer();
     const choix = (c, v) => b.actions().surChoix(c, v);
-    cont();
     choix('depuis', '1_a_3_ans'); choix('notees', 'non'); cont();
     for (let n = 0; b.ecran() !== 'but' && n < 12; n++) cont();
     choix('objectif', 'force'); choix('phase', 'maintien'); cont();
@@ -697,7 +697,7 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
     const b = bac({ routines: [] });
     b.appel('ouvrirQuestionnaireSiDu()');
     const { cont, choix } = jusquAuTemps(b);
-    expect(b.vueCourante().progression.total).toBe(13);
+    expect(b.vueCourante().progression.total).toBe(12);
     cont();
     expect(b.ecran()).toBe('programme');
     expect(b.vueCourante().blocs[0].options.map((o) => o.cle)).toEqual(['deduit', 'moi', 'construis']);
@@ -734,7 +734,7 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
                     profil: { id: 'u1', questionnaire_fait_le: null, programme_choix: 'deduit' } });
     b.appel('ouvrirQuestionnaireSiDu()');
     const { cont, choix } = jusquAuTemps(b);
-    expect(b.vueCourante().progression.total).toBe(12);
+    expect(b.vueCourante().progression.total).toBe(11);
     cont();
     expect(b.ecran()).toBe('coach');
     choix('coach', 'normal'); cont();
@@ -747,7 +747,7 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
     const b = bac({ routines: [], seances: [] });
     b.appel('ouvrirQuestionnaireSiDu()');
     const { cont, choix } = jusquAuTemps(b);
-    expect(b.vueCourante().progression.total).toBe(13);
+    expect(b.vueCourante().progression.total).toBe(12);
     cont();
     expect(b.ecran()).toBe('programme');
     expect(b.vueCourante().blocs[0].options.map((o) => o.cle)).toEqual(['moi', 'construis']);
@@ -781,9 +781,9 @@ describe('60-3 — l’écran 8, seulement sans routine, et la feuille après «
     const { cont, choix } = jusquAuTemps(b);
     cont();
     expect(b.ecran()).toBe('programme');
-    expect(b.vueCourante().progression.total).toBe(13);
+    expect(b.vueCourante().progression.total).toBe(12);
     choix('programme', 'construis');
-    expect(b.vueCourante().progression.total).toBe(14);                    // la barre compte 8b dès le choix
+    expect(b.vueCourante().progression.total).toBe(13);                    // la barre compte 8b dès le choix
     cont();
     expect(b.journal.profil.pop()).toEqual({ programme_choix: 'construis' });
     expect(b.ecran()).toBe('construit');

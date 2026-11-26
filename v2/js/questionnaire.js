@@ -40,14 +40,14 @@
   var INSECABLE = ' ';
 
   // ── Les écrans, dans l'ordre ─────────────────────────────────────────────
-  var BIENVENUE = 'bienvenue', ANCIENNETE = 'anciennete', SAIT = 'sait';
+  var ANCIENNETE = 'anciennete', SAIT = 'sait';   // 26/11/2026 (lot 5, n° 4) : plus d'écran « Bienvenue », la première question parle
   var SALLE = 'salle', ZONE = 'zone', RAIDES = 'raides', RECENTE = 'recente';   // 194-1 : RAIDES, les zones raides (facultatif)
   //   // 187 : où tu t'entraînes, une zone à ménager, une série récente
   var TOI = 'toi', BUT = 'but', PRIORITES = 'priorites', TEMPS = 'temps', PROGRAMME = 'programme';
   var CONSTRUIT = 'construit';   // l'écran 8b (60-4) : « Construis-le-moi »
   var COACH = 'coach', RECAP = 'recap';
   var DEPART = 'depart';   // 195 : « Où tu en es » — quatre chiffres, seulement en objectif Calisthénie
-  var ECRANS = [BIENVENUE, ANCIENNETE, SAIT, SALLE, ZONE, RAIDES, RECENTE, TOI, BUT, DEPART, PRIORITES, TEMPS, PROGRAMME, CONSTRUIT,
+  var ECRANS = [ANCIENNETE, SAIT, SALLE, ZONE, RAIDES, RECENTE, TOI, BUT, DEPART, PRIORITES, TEMPS, PROGRAMME, CONSTRUIT,
                 COACH, RECAP];
 
   // L'écran 3a (« Ce que je sais ») ET l'écran 3b (« Sans historique ») : l'un
@@ -547,24 +547,6 @@
     return decimal ? Modele().nombreSigne(nombre) : String(nombre);
   }
 
-  function ecranBienvenue() {
-    return {
-      id: BIENVENUE, etape: 'Bienvenue',
-      titre: 'Je suis ton coach. Deux minutes pour te connaître.',
-      voix: 'Je te propose la charge de chaque série et je te dis pourquoi. Tu décides toujours.',
-      blocs: [
-        { type: 'faits', lignes: [
-          { libelle: 'Tes données', valeur: 'depuis quand, et ce que je sais déjà' },
-          { libelle: 'Ta salle', valeur: 'où, et ce que tu ménages' },
-          { libelle: 'Toi', valeur: '4 réponses, facultatives' },
-          { libelle: 'Ton but', valeur: 'objectif, phase, priorités' },
-          { libelle: 'Ton coach', valeur: 'comment je te parle' }
-        ] },
-        { type: 'note', texte: 'Tout se change ensuite dans Profil.' }
-      ]
-    };
-  }
-
   function ecranAnciennete(etat) {
     var rep = etat.rep;
     var blocs = [{ type: 'puces', cle: 'depuis', valeur: rep.depuis, options: DEPUIS }];
@@ -575,10 +557,12 @@
           { cle: NOTEES_NON, libelle: 'Non' }
         ] });
     }
+    // Lot 5, n° 4 (26/11/2026) : la voix de l'ancien écran « Bienvenue » est celle de la première question, avec sa note.
+    blocs.push({ type: 'note', texte: 'Tout se change ensuite dans Profil.' });
     return {
       id: ANCIENNETE, etape: 'Tes données',
       titre: 'Tu t’entraînes depuis combien de temps ?',
-      voix: null,
+      voix: 'Je te propose la charge de chaque série et je te dis pourquoi. Tu décides toujours.',
       blocs: blocs
     };
   }
@@ -964,8 +948,7 @@
   function libelleDePriorite(cle) { return Profil().libelleDePriorite(cle); }
 
   var FABRIQUES = {};
-  FABRIQUES[BIENVENUE] = ecranBienvenue;
-  FABRIQUES[ANCIENNETE] = ecranAnciennete;
+    FABRIQUES[ANCIENNETE] = ecranAnciennete;
   FABRIQUES[SAIT] = ecranSait;
   FABRIQUES[SALLE] = ecranSalle;
   FABRIQUES[ZONE] = ecranZone;
@@ -996,7 +979,7 @@
     vue.progression = progression(visibles, id);
     vue.retour = rang > 0;
     vue.bouton = {
-      libelle: rang === 0 ? 'C’est parti' : rang === visibles.length - 1 ? 'Commencer'
+      libelle: rang === visibles.length - 1 ? 'Commencer'
         : id === ANCIENNETE && e.rep && e.rep.notees === NOTEES_IMPORT && e.rep.depuis !== COMMENCE ? 'Importer mon fichier' : 'Continuer',
       actif: ecranPret(id, e.rep)
     };
@@ -1012,7 +995,7 @@
   }
 
   var api = {
-    ECRANS: ECRANS, BIENVENUE: BIENVENUE, ANCIENNETE: ANCIENNETE, SAIT: SAIT, COMMENCE: COMMENCE, DEPUIS: DEPUIS, SALLE: SALLE, ZONE: ZONE, RAIDES: RAIDES, RECENTE: RECENTE, RECENTES: RECENTES,
+    ECRANS: ECRANS, ANCIENNETE: ANCIENNETE, SAIT: SAIT, COMMENCE: COMMENCE, DEPUIS: DEPUIS, SALLE: SALLE, ZONE: ZONE, RAIDES: RAIDES, RECENTE: RECENTE, RECENTES: RECENTES,
     seriesRecentes: seriesRecentes, phraseDeLaSalle: phraseDeLaSalle,
     TOI: TOI, BUT: BUT, DEPART: DEPART, PRIORITES: PRIORITES, TEMPS: TEMPS, PROGRAMME: PROGRAMME, CONSTRUIT: CONSTRUIT,
     COACH: COACH, RECAP: RECAP,

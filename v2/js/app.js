@@ -18085,7 +18085,7 @@
     var pesee = Poids.resume(local.pesees);
     if (!(options && options.ecran)) chargesDeDepartDuQuestionnaire = [];
     questionnaire = {
-      ecran: refaire ? Questionnaire.CONSTRUIT : Questionnaire.BIENVENUE,
+      ecran: refaire ? Questionnaire.CONSTRUIT : Questionnaire.ANCIENNETE,
       rep: Questionnaire.reponsesInitiales(profil, { poids: pesee ? pesee.poids : null }),
       faits: null, aDesSeances: false, textes: {}, erreurs: {}, retourRecap: false, refaire: refaire
     };

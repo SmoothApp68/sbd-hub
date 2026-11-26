@@ -16983,21 +16983,20 @@ const SETS_IMPORTES = [
     await attendreOuverture(40);
     let e = await ecranQ();
     ok('[Q60] A — DISCRIMINANT : `questionnaire_fait_le` vide (onboarding_completed vrai) → le questionnaire s’ouvre de lui-même, seul à l’écran, barre d’onglets cachée',
-      JSON.stringify(e.vues) === '["vue-questionnaire"]' && e.onglets === false && e.ecran === 'bienvenue', JSON.stringify(e));
-    ok('[Q60] A — l’écran 1, mot pour mot : étape, titre, voix, « C’est parti », « Plus tard », pas de retour, progression 1 sur 12 (187 : + ancienneté, salle, zone ; 194-1 : + zones raides)',
-      e.etape === 'Bienvenue' && e.titre === 'Je suis ton coach. Deux minutes pour te connaître.' &&
+      JSON.stringify(e.vues) === '["vue-questionnaire"]' && e.onglets === false && e.ecran === 'anciennete', JSON.stringify(e));
+    ok('[Q60] A — l’écran 1, mot pour mot (lot 5, n° 4 : plus de « Bienvenue », la première question porte la voix) : étape, titre, voix, « Continuer » éteint, « Plus tard », pas de retour, progression 1 sur 11',
+      e.etape === 'Tes données' && e.titre === 'Tu t’entraînes depuis combien de temps ?' &&
         e.voix === 'Je te propose la charge de chaque série et je te dis pourquoi. Tu décides toujours.' &&
-        e.bouton === 'C’est parti' && e.plusTard === 'Plus tard' && e.retour === false && e.actif === true &&
-        JSON.stringify(e.progression) === '["1","12"]', JSON.stringify(e));
+        e.bouton === 'Continuer' && e.plusTard === 'Plus tard' && e.retour === false && e.actif === false &&
+        JSON.stringify(e.progression) === '["1","11"]', JSON.stringify(e));
     ok('[Q60] A — marqué « ouvert sur cet appareil » : une clé locale, par compte',
       (await clesVues()).length === 1, JSON.stringify(await clesVues()));
 
     // ── Les écrans 1 → 2 : « Continuer » est éteint tant que l'historique n'est pas répondu.
     let ecritsAvant = ecritsProfil();
-    await continuerQ();
     e = await ecranQ();
     ok('[Q60] écran 2 (187) — « Tu t’entraînes depuis combien de temps ? » : « Continuer » éteint tant que rien n’est choisi ; rien n’a été écrit',
-      e.ecran === 'anciennete' && e.titre === 'Tu t’entraînes depuis combien de temps ?' && e.actif === false && e.retour === true &&
+      e.ecran === 'anciennete' && e.titre === 'Tu t’entraînes depuis combien de temps ?' && e.actif === false && e.retour === false &&
         ecritsProfil() === ecritsAvant, JSON.stringify([e, ecritsProfil() - ecritsAvant]));
     await cliquerQ('.q-puce[data-cle="1_a_3_ans"]');
     e = await ecranQ();
@@ -17099,7 +17098,7 @@ const SETS_IMPORTES = [
     await attendre(600);
     e = await ecranQ();
     ok('[Q60] B — la ligne rouvre le questionnaire au PREMIER écran, déjà répondu (import) ; « Plus tard » ramène sur Saisie',
-      e.ecran === 'bienvenue' && JSON.stringify(e.vues) === '["vue-questionnaire"]', JSON.stringify(e));
+      e.ecran === 'anciennete' && JSON.stringify(e.vues) === '["vue-questionnaire"]', JSON.stringify(e));
     await cliquerQ('.q-plus-tard', 700);
     ok('[Q60] B — « Plus tard » depuis la ligne du Profil : Saisie, bandeau toujours là',
       JSON.stringify(await visible()) === JSON.stringify(saisie) && (await bandeauQ()).visible, JSON.stringify([await visible(), await bandeauQ()]));
@@ -17108,21 +17107,19 @@ const SETS_IMPORTES = [
     await page.click('#bandeau-questionnaire .principal');
     await attendre(600);
     e = await ecranQ();
-    ok('[Q60] C — « Le terminer » rouvre au PREMIER écran', e.ecran === 'bienvenue' && e.retour === false, JSON.stringify(e));
+    ok('[Q60] C — « Le terminer » rouvre au PREMIER écran', e.ecran === 'anciennete' && e.retour === false, JSON.stringify(e));
+    ok('[Q60] C — écran 1 (lot 5, n° 4) : la réponse déjà donnée (1 à 3 ans, non notées) est pré-remplie', e.ecran === 'anciennete' && e.choisis.indexOf('1_a_3_ans') >= 0 && e.choisis.indexOf('non') >= 0 && e.actif === true, JSON.stringify(e));
     await continuerQ();
-    e = await ecranQ();
-    ok('[Q60] C — écran 2 : la réponse déjà donnée (1 à 3 ans, non notées) est pré-remplie', e.ecran === 'anciennete' && e.choisis.indexOf('1_a_3_ans') >= 0 && e.choisis.indexOf('non') >= 0 && e.actif === true, JSON.stringify(e));
     // Le retour d'Android recule d'UN écran (il ne quitte pas l'app, il ne recharge rien).
     await page.goBack().catch(() => {});
     await attendre(900);
     e = await ecranQ();
     ok('[Q60] C — le retour d’Android recule d’un écran (2 → 1), sans quitter le questionnaire',
-      e.ecran === 'bienvenue' && JSON.stringify(e.vues) === '["vue-questionnaire"]', JSON.stringify(e));
+      e.ecran === 'anciennete' && JSON.stringify(e.vues) === '["vue-questionnaire"]', JSON.stringify(e));
     await continuerQ();
     await continuerQ();
     await continuerQ();
     await continuerQ();                                               // 187 : + « Où tu t’entraînes ? », « Quelque chose à ménager ? »
-    await continuerQ();
     await continuerQ();                                               // 194-1 : + « Des zones raides ? »
     e = await ecranQ();
     ok('[Q60] C — écran 4 : sexe, année, taille et POIDS pré-remplis (98,4 : la dernière pesée)',
@@ -17423,7 +17420,7 @@ const SETS_IMPORTES = [
       JSON.stringify(avantLigne) === JSON.stringify(saisie), JSON.stringify(avantLigne));
     await attendreOuverture();
     e = await ecranQ();
-    ok('[Q60] H — la ligne arrive (questionnaire vide) : il s’ouvre alors, une fois', e.ecran === 'bienvenue' && JSON.stringify(e.vues) === '["vue-questionnaire"]', JSON.stringify(e));
+    ok('[Q60] H — la ligne arrive (questionnaire vide) : il s’ouvre alors, une fois', e.ecran === 'anciennete' && JSON.stringify(e.vues) === '["vue-questionnaire"]', JSON.stringify(e));
     base.lenteurProfil = 0;
 
     // ── H'. UN COMPTE NEUF, SANS RIEN SUR L'APPAREIL : il s'ouvre au PREMIER
@@ -17458,7 +17455,7 @@ const SETS_IMPORTES = [
     await attendreOuverture();
     e = await ecranQ();
     ok('[Q60] H — DISCRIMINANT : la ligne arrive (questionnaire vide, `onboarding_completed` faux) : il s’ouvre au premier démarrage, au premier écran',
-      JSON.stringify(e.vues) === '["vue-questionnaire"]' && e.ecran === 'bienvenue', JSON.stringify(e));
+      JSON.stringify(e.vues) === '["vue-questionnaire"]' && e.ecran === 'anciennete', JSON.stringify(e));
     base.lenteurProfil = 0;
 
     // ── K. HORS LIGNE : les écritures ATTENDENT (le profil dans sa copie locale, la
@@ -17466,7 +17463,6 @@ const SETS_IMPORTES = [
     base.reseau = false;
     const ecrituresK0 = base.ecrituresPesees.length;
     const peseesK0 = JSON.stringify(base.pesees);
-    await continuerQ();
     await cliquerQ('.q-puce[data-cle="1_a_3_ans"]'); await cliquerQ('.q-opt[data-cle="non"]');
     await continuerQ();
     await continuerQ(); await continuerQ(); await continuerQ(); await continuerQ();      // 3a, « Où tu t’entraînes ? », « Quelque chose à ménager ? », « Des zones raides ? »
@@ -17539,7 +17535,7 @@ const SETS_IMPORTES = [
     await attendreOuverture(40);
     e = await ecranQ();
     ok('[Q60] G — la séance abandonnée, l’app rouvre sur un compte sans séance ouverte : le questionnaire s’ouvre',
-      e.ecran === 'bienvenue', JSON.stringify(e));
+      e.ecran === 'anciennete', JSON.stringify(e));
 
     // ── LA REMISE EN ÉTAT, pour les sections suivantes.
     await effacerVu();
@@ -17848,7 +17844,6 @@ const SETS_IMPORTES = [
     };
     // Jusqu'à l'écran « Temps » : les réponses obligatoires, rien d'autre.
     const jusquAuTemps = async (zone) => {
-      await continuerR();
       await cliquerR('.q-puce[data-cle="1_a_3_ans"]'); await cliquerR('.q-opt[data-cle="non"]'); await continuerR();
       for (let n = 0; n < 6 && (await ecranR()).ecran !== 'but'; n++) {
         if (zone && (await ecranR()).ecran === 'zone') await cliquerR('.q-puce[data-cle="' + zone + '"]');   // 187 : la zone a son écran
@@ -17887,7 +17882,7 @@ const SETS_IMPORTES = [
     let e = await jusquAuTemps();
     ok('[R60] prémisse : aucune routine en base, le questionnaire s’ouvre et arrive à « Temps et matériel »',
       ouvert && ROUTINES.length === 0 && e.ecran === 'temps', JSON.stringify([ouvert, ROUTINES.length, e.ecran]));
-    ok('[R60] A — sans routine, la barre compte l’écran 8 : 13 écrans', e.total === '13', JSON.stringify(e.total));
+    ok('[R60] A — sans routine, la barre compte l’écran 8 : 12 écrans', e.total === '12', JSON.stringify(e.total));
     await continuerR();
     e = await ecranR();
     ok('[R60] A — « Temps » mène à « Ton programme » : « Comment veux-tu t’entraîner ? », trois chemins et leurs sous-lignes, « Continuer » éteint',
@@ -17974,7 +17969,7 @@ const SETS_IMPORTES = [
       JSON.stringify(ROUTINES.length));
     await ouvrirLeQuestionnaire();
     e = await jusquAuTemps();
-    ok('[R60] D — ⚠️ DISCRIMINANT : avec des routines, la barre ne compte PAS l’écran 8 (12 écrans)', e.total === '12', JSON.stringify(e.total));
+    ok('[R60] D — ⚠️ DISCRIMINANT : avec des routines, la barre ne compte PAS l’écran 8 (11 écrans)', e.total === '11', JSON.stringify(e.total));
     await continuerR();
     e = await ecranR();
     ok('[R60] D — ⚠️ DISCRIMINANT : avec des routines, « Temps » mène directement à « Ton coach »', e.ecran === 'coach', JSON.stringify(e.ecran));
@@ -17990,8 +17985,8 @@ const SETS_IMPORTES = [
     await aller('/saisie');
     await ouvrirLeQuestionnaire();
     e = await jusquAuTemps('dos');
-    ok('[R60] E — ⚠️ DISCRIMINANT (60-4) : aucune routine et AUCUNE séance : la barre compte l’écran 8 (13 écrans)',
-      e.ecran === 'temps' && e.total === '13', JSON.stringify(e));
+    ok('[R60] E — ⚠️ DISCRIMINANT (60-4) : aucune routine et AUCUNE séance : la barre compte l’écran 8 (12 écrans)',
+      e.ecran === 'temps' && e.total === '12', JSON.stringify(e));
     await continuerR();
     e = await ecranR();
     ok('[R60] E — ⚠️ DISCRIMINANT (60-4) : « Temps » mène à « Ton programme » avec DEUX choix, jamais « Garder ce que je fais »',
@@ -18000,7 +17995,7 @@ const SETS_IMPORTES = [
     // ── F. 60-4 : « CONSTRUIS-LE-MOI » → l'écran 8b : les jours, une zone à ménager.
     await cliquerR('.q-opt[data-cle="construis"]');
     e = await ecranR();
-    ok('[R60] F — choisir « Construis-le-moi » : la barre compte l’écran 8b (14 écrans)', e.total === '14', JSON.stringify(e.total));
+    ok('[R60] F — choisir « Construis-le-moi » : la barre compte l’écran 8b (13 écrans)', e.total === '13', JSON.stringify(e.total));
     await continuerR();
     await attendre(400);
     const huitB = () => page.evaluate(() => ({

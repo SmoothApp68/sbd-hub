@@ -671,3 +671,9 @@ l'écran (les valeurs restent en base, aucune n'est lue). Les quatre phrases qui
 
 
 **Ma salle — 05/11/2026 (245).** « Ajuster Ma salle » n'écrit plus les haltères (`ma_salle.halteres`, lu par personne depuis 163 ; rien n'est effacé en base). La note devient : « Aux haltères, tu notes le poids des deux ensemble. »
+
+### 8.y Delta du 26/11/2026 — « Le premier contact » (lot 5 de l'ergonomie)
+
+Décision d'Aurélien, 26/11/2026 : n° 1, 3, 4 et 5 retenus ; n° 2 (le pseudo à l'inscription) ENLEVÉ, le pseudo reste ; n° 6 (le calage) mis de côté. Q1, Q3, Q4 et Q6 suivent les recommandations de la maquette (`maquette-lot5`). « L'onboarding, c'est le profil » : mêmes écrans, même écriture (`Profil.preparerChamps`), pas de second tunnel.
+
+**n° 4 — Plus d'écran « Bienvenue ».** L'écran 1 (« Je suis ton coach. Deux minutes pour te connaître. », « C'est parti », le tableau des cinq rubriques) est retiré : il n'avait aucune question, au moment où l'attention est la plus haute. Le questionnaire s'ouvre sur « Tu t'entraînes depuis combien de temps ? », qui reprend sa voix (« Je te propose la charge de chaque série et je te dis pourquoi. Tu décides toujours. ») et sa note (« Tout se change ensuite dans Profil. »). Aucun mot nouveau. Le bouton du premier écran dit « Continuer » (éteint tant que rien n'est répondu). Le tableau n'est pas conservé : « Deux minutes » n'a jamais été mesuré. La liste des écrans passe de 16 à 15 identifiants, de 13 à 12 écrans pour un compte neuf sans routine (de 11 à 15 → de 10 à 14).

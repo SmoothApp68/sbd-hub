@@ -831,6 +831,13 @@
   function uniteReps(n) { return Number(n) >= 2 ? 'reps' : 'rep'; }
   // L'ACCORD DU PLURIEL, UNE FOIS (19/11/2026) : « 0 série », « 1 série », « 2 séries ». Le français met le singulier sous 2 ;
   // `pluriel` s'écrit en entier quand il n'est pas « singulier + s » (« journal »/« journaux »). Partout ailleurs, on appelle.
+  // Lot 2 (n° 2, 25/11/2026) — « 7 sur 12 séries » : les séries de travail FAITES sur celles que la séance contient. Le pluriel suit le total
+  // prévu. Sans série prévue (rien à comparer), `null` : l'appelant garde « N séries de travail ».
+  function avancementDeSeance(faites, prevues) {
+    var f = Number(faites) || 0, p = Number(prevues) || 0;
+    if (p <= 0) return null;
+    return f + ' sur ' + p + ' ' + pluriel(p, 'série');
+  }
   function pluriel(n, singulier, plurielDuMot) { return Number(n) >= 2 ? (plurielDuMot || singulier + 's') : singulier; }
   // « tes 8 dernières séances » / « ta dernière séance » : un seul fait ne s'écrit pas au pluriel. `chiffre` : le nombre déjà écrit
   // (le moteur le cite), sinon `n` lui-même.
@@ -3599,6 +3606,7 @@
     seMesureEnReps: seMesureEnReps,
     uniteReps: uniteReps,
     pluriel: pluriel,
+    avancementDeSeance: avancementDeSeance,
     tesDernieresSeances: tesDernieresSeances,
     repsTexte: repsTexte,
     estExerciceSortie: estExerciceSortie,

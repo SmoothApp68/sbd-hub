@@ -93,7 +93,7 @@ ZONE_DE = {m: z for z, _, ms in ZONES for m in ms}
 LIBELLE_ZONE = {z: l for z, l, _ in ZONES}
 
 # Reps visées par objectif et rôle (P, S, I) ; sans objectif, celles de « Muscle ».
-REPS = {'force': (5, 7, 12), 'les_deux': (5, 9, 12), 'muscle': (7, 9, 12), 'forme': (9, 12, 15), None: (7, 9, 12)}
+REPS = {'force': (5, 7, 12), 'les_deux': (5, 9, 12), 'muscle': (8, 9, 12), 'forme': (9, 12, 15), None: (8, 9, 12)}
 CHARNIERE_MAX = 8      # une charnière ne dépasse jamais 8 reps : la fatigue défait la technique
 
 

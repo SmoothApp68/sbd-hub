@@ -5051,7 +5051,8 @@ const SETS_IMPORTES = [
   const patchsAvant = base.patchs.length;
   await page.click('#bandeau-seance .bandeau-fin');
   await attendre(700);
-  const question = await texte('#feuille-contenu');
+  // Lot 3 : l'écran de fin est UN écran (le compte, les records…) ; la question de routine est son bloc `.question-routine`.
+  const question = await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .question-routine')).map((n) => n.textContent).join(' '));
   ok('la question de fin dit ce qui a dévié, en toutes lettres',
     /s’écarte de/.test(question) && /Tractions — ajouté/.test(question) &&
     /Curl Biceps Haltères — retiré/.test(question) && /Squat \(Barre\) — retiré/.test(question),

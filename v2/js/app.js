@@ -556,7 +556,7 @@
     var bilan = bilanDe(b);
     var pari = pariDuBloc(b);
     var fin = Moteur.carteFinDeBloc(b, bilan, nomsDuCatalogue(),
-      pari ? { predite: pari.valeur_predite, observee: Moteur.progresDuBilan(bilan) } : null, phases);
+      pari ? { predite: pari.valeur_predite, observee: Moteur.progresDuBilan(bilan) } : null, phases, profil && profil.objectif);
     // 193-4 — la proposition de la semaine de mesure, à la fin de la 2ᵉ phase (la chaîne `precedent` des phases du dossier).
     if (fin && phases) {
       var prop = proposerSemaineDeTestDuProgramme(b);
@@ -687,7 +687,7 @@
   // exercices prioritaires du questionnaire qui s'y trouvent (60-2b) ; décochables.
   function ouvrirProgramme(dossier, depuis, enCours) {
     // 223 — la même notion que `commencerBlocSuivant` : une phase se lit avec ses routines.
-    var suivant = depuis ? Moteur.blocSuivant(depuis, Moteur.blocAPhases(depuis, routines)) : null;
+    var suivant = depuis ? Moteur.blocSuivant(depuis, Moteur.blocAPhases(depuis, routines), profil && profil.objectif) : null;
     var precedent = suivant ? suivant.exercices : (enCours && enCours.exercices) || [];
     var choix = Moteur.exercicesCandidatsDuBloc(exercicesDuDossier(dossier), catalogueIndexe(), Profil.prioritesDe(profil), precedent);
     var slugs = choix.candidats.slice();
@@ -700,7 +700,7 @@
       zone: suivant ? suivant.zone : Moteur.zoneDuPremierBloc(profil && profil.objectif),
       semaines: suivant ? suivant.semaines : Moteur.SEMAINES_BLOC_DEFAUT, decharge: suivant ? suivant.decharge : true,
       debut: depuis ? 'aujourdhui' : 'lundi', slugs: slugs, coches: c, erreur: '',
-      grosse: Moteur.grosseSerieParDefaut(profil && profil.objectif) };
+      grosse: suivant && suivant.grosse === true ? true : Moteur.grosseSerieParDefaut(profil && profil.objectif) };
     rendreFeuilleProgramme();
     ouvrirVoile($('feuille-seance'));
   }
@@ -838,9 +838,9 @@
   // Les trois gestes de la fin du bloc, et l'arrêt en plein bloc.
   async function commencerBlocSuivant(dossier) {
     var b = Moteur.blocEnCours(local.blocs, dossier);
-    var s = b ? Moteur.blocSuivant(b, Moteur.blocAPhases(b, routines)) : null;
+    var s = b ? Moteur.blocSuivant(b, Moteur.blocAPhases(b, routines), profil && profil.objectif) : null;
     if (!s) return;
-    await creerBloc({ dossier: dossier, zone: s.zone, semaines: s.semaines, decharge: s.decharge, debut: jourDuJour(),
+    await creerBloc({ dossier: dossier, zone: s.zone, grosse: s.grosse === true, semaines: s.semaines, decharge: s.decharge, debut: jourDuJour(),
                       exercices: s.exercices, precedent: b, telQuel: true, sansZones: s.sansZones === true });
     rendreSaisie();
   }
@@ -10329,7 +10329,7 @@
     await poserLesParisDeTest(test);
     if (b) {
       // la phase suivante recule d'une semaine : allégée → test → phase suivante
-      var s = Moteur.blocSuivant(b, Moteur.blocAPhases(b, routines));
+      var s = Moteur.blocSuivant(b, Moteur.blocAPhases(b, routines), profil && profil.objectif);
       if (s) {
         await creerBloc({ dossier: dossier, zone: s.zone, semaines: s.semaines, decharge: s.decharge, debut: jourPlus(jour, 7),
                           exercices: s.exercices, precedent: b, telQuel: true, sansZones: s.sansZones === true });

@@ -43,7 +43,7 @@ describe('§9.22 — la zone PROPOSÉE du premier bloc suit l’objectif', () =>
     });
   });
 
-  test('le bloc SUIVANT garde sa règle fixe : Mix → Lourd → Mix, quel que soit l’objectif', () => {
+  test('le bloc SUIVANT, sans objectif passé (« sans réponse »), garde Mix → Lourd → Mix (D1, 26/11/2026 : voir v2-blocs-par-but)', () => {
     const bloc = (zone) => ({ zone, semaines: 4, exercices: ['a'] });
     expect(M.blocSuivant(bloc('mix')).zone).toBe('lourd');
     expect(M.blocSuivant(bloc('lourd')).zone).toBe('mix');

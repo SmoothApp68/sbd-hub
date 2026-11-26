@@ -9014,18 +9014,29 @@
     return objectif === 'force' || objectif === 'les_deux' ? 'lourd' : 'mix';
   }
 
-  // LE BLOC SUIVANT, PAR UNE RÈGLE FIXE (Mix → Lourd → Mix…, mêmes durée et
-  // exercices, une décharge à chaque fin) — JAMAIS DÉDUITE DU BLOC PASSÉ (§20.1).
-  function blocSuivant(bloc, phases) {
+  // LE BLOC SUIVANT, PAR UNE RÈGLE FIXE — jamais DÉDUITE DU BLOC PASSÉ (§20.1), mais LUE dans le BUT (décision du fondateur du 26/11/2026,
+  // MOTEUR §19.2, delta D1 des blocs) : Force, Les deux et « sans réponse » (ou calisthénie) → Mix/Hypertrophie → Lourd → Mix (221, inchangé) ;
+  // MUSCLE → Mix ⇄ Hypertrophie (6-8 puis 8-10, jamais Lourd par défaut) ; FORME → Mix. Lourd reste au menu (`zonesDeBloc`) ; un bloc Lourd
+  // en cours va à son terme et passe à Mix. Un bloc Hypertrophie proposé en Muscle porte la GROSSE SÉRIE cochée (`grosse: true`, décochable) : la
+  // série lourde que gardait §19.2. `objectif` : `profil.objectif` brut (comme `zoneDuPremierBloc`), absent = « sans réponse ».
+  function blocSuivant(bloc, phases, objectif) {
     if (!bloc || ZONES_DE_BLOC.indexOf(bloc.zone) < 0) return null;
     // 193-2 — une PHASE (voir `blocAPhases`) recommence la même : mêmes semaines, mêmes barres, la dernière allégée — et aucune zone
     // posée, jamais d'alternance Mix ↔ Lourd : les zones sont celles des routines.
     if (phases) return { zone: bloc.zone, semaines: nombre(bloc.semaines) || SEMAINES_PHASE, decharge: true,
                          exercices: (bloc.exercices || []).slice(), sansZones: true };
+    var zone;
+    if (objectif === 'muscle') zone = bloc.zone === 'mix' ? ZONE_HYPERTROPHIE : 'mix';
+    else if (objectif === 'forme') zone = 'mix';
     // 221 — après un bloc Hypertrophie (accumulation), Lourd d'abord (intensification), jamais Hypertrophie par défaut.
-    return { zone: bloc.zone === 'mix' || bloc.zone === ZONE_HYPERTROPHIE ? 'lourd' : 'mix', semaines: nombre(bloc.semaines),
-             decharge: true, exercices: (bloc.exercices || []).slice() };
+    else zone = bloc.zone === 'mix' || bloc.zone === ZONE_HYPERTROPHIE ? 'lourd' : 'mix';
+    var suivant = { zone: zone, semaines: nombre(bloc.semaines), decharge: true, exercices: (bloc.exercices || []).slice() };
+    if (objectif === 'muscle' && zone === ZONE_HYPERTROPHIE) suivant.grosse = true;
+    return suivant;
   }
+  // « Le suivant, comme le font les programmes de force » ne s'écrit qu'à Force et Les deux (D1, 26/11/2026) : aux autres, une comparaison
+  // à d'autres qui ne leur ressemblent pas ; « Le suivant : … » reste un fait.
+  function objectifDeForce(objectif) { return objectif === 'force' || objectif === 'les_deux'; }
 
   // LES EXERCICES PAR DÉFAUT : les barres polyarticulaires (au moins 3 muscles
   // principaux et secondaires, `estPolyarticulaire`) des routines du dossier,
@@ -9277,7 +9288,7 @@
   // La carte de fin de bloc, en faits : le titre, une ligne par exercice
   // (`{ nom, valeur }` : deux colonnes, maquette cycles v1), les paris, le pari de programme s'il y en avait un, et le bloc suivant.
   // `noms` : `{ [slug]: nom }` ; `pari` : `{ predite, observee }` ou `null`.
-  function carteFinDeBloc(bloc, bilan, noms, pari, phases) {
+  function carteFinDeBloc(bloc, bilan, noms, pari, phases, objectif) {
     if (!bloc || !bilan) return null;
     var nom = function (s) { return noms && noms[s] ? noms[s] : s; };
     var cP = cite(FAIT, { quoi: 'bilan' });
@@ -9297,7 +9308,7 @@
       phrasePari = 'Le coach avait parié que tes ' + nombreFr(pp, regle('programme.predite')) + ' exercices progresseraient' +
         DEUX_POINTS + nombreFr(po, regle('programme.observee')) + (po > 1 ? ' ont progressé.' : ' a progressé.');
     }
-    var suivant = blocSuivant(bloc, phases);
+    var suivant = blocSuivant(bloc, phases, objectif);
     if (phases) {
       var nS = suivant ? nombreFr(suivant.semaines, regle('bloc.semaines')) : null;
       return {
@@ -9314,14 +9325,15 @@
     // §9.22 (53-2 bis, D3) — la règle, sans jargon : « Le suivant, comme le
     // font les programmes de force : Lourd (3-5) sur tes mouvements à la barre,
     // 4 semaines, décharge la dernière semaine. Les autres exercices gardent
-    // leur zone. » `suivantZone` : le morceau que l'écran met en gras.
+    // leur zone. » (Force et Les deux) ; aux autres, « Le suivant : Mix (6-8) sur… » (26/11/2026).
+    // `suivantZone` : le morceau que l'écran met en gras.
     var zS = suivant ? zoneParCle(suivant.zone) : null;
     var suivantZone = zS ? libelleZoneDeBloc(suivant.zone, true) : null;
     return {
       titre: 'Ton bloc ' + libelleZoneDeBloc(bloc.zone) + ' est terminé.',
       entete: 'Pendant ce bloc',
       lignes: lignes, paris: phraseParis, pari: phrasePari,
-      suivant: zS ? 'Le suivant, comme le font les programmes de force' + DEUX_POINTS + suivantZone +
+      suivant: zS ? (objectifDeForce(objectif) ? 'Le suivant, comme le font les programmes de force' : 'Le suivant') + DEUX_POINTS + suivantZone +
         ' sur tes mouvements à la barre, ' + nombreFr(suivant.semaines, regle('bloc.semaines')) + ' semaines' +
         (suivant.decharge ? ', décharge la dernière semaine' : '') + '. Les autres exercices gardent leur zone.' : null,
       suivantZone: suivantZone,
@@ -9378,6 +9390,9 @@
   };
   var DETAIL_SCHEMA = 'En force, une série de plus aide peu. Changer de schéma quelques semaines ' +
     'peut relancer la barre, avant d\'y revenir.';
+  // 26/11/2026 : « En force, … » ne s'écrit plus qu'à Force et Les deux ; aux autres (Muscle, Forme, Calisthénie, sans réponse), le même
+  // conseil sans cette première phrase. Le texte seul change : la règle de l'escalier (`marcheIsolee`) est la même pour tous.
+  var DETAIL_SCHEMA_SANS_FORCE = 'Changer de schéma quelques semaines peut relancer la barre, avant d\'y revenir.';
   var FIN_SECHE = ' En sèche, je ne te propose rien de plus.';
 
   // Le n-ième déclenchement isolé depuis le dernier progrès : n = (compteur −
@@ -9491,13 +9506,13 @@
 
   // CHANGER DE SCHÉMA (zones force, n = 1) : la carte sous l'exercice. Rend
   // `null` hors des zones force.
-  function carteSchema(zone, meilleur, compteur, avancent) {
+  function carteSchema(zone, meilleur, compteur, avancent, objectif) {
     var s = SCHEMAS[zone];
     if (!s || !meilleur || meilleur.niveau === null || meilleur.niveau === undefined) return null;
     return {
       zone: zone, nouvelle_zone: s.vers,
       phrase: meilleurDepuis(meilleur, compteur) + (avancent ? ', et tes autres exercices avancent.' : '.'),
-      detail: DETAIL_SCHEMA, oui: s.oui, non: s.non
+      detail: objectifDeForce(objectif) ? DETAIL_SCHEMA : DETAIL_SCHEMA_SANS_FORCE, oui: s.oui, non: s.non
     };
   }
 

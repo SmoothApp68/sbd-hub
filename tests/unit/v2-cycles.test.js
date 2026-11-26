@@ -206,7 +206,8 @@ describe('53-2 — ce que le programme dit', () => {
     expect(norm(k.paris)).toBe('Le coach avait fait 4 paris sur ce bloc : 2 ont tenu.');
     expect(k.pari).toBe(null);
     // §9.22 (53-2 bis, D3) — la règle, sans jargon.
-    expect(norm(k.suivant)).toBe('Le suivant, comme le font les programmes de force : Lourd (3-5) sur tes mouvements ' +
+    // D1 (26/11/2026) : sans objectif (« sans réponse »), le même bloc Lourd, sans la comparaison à d'autres (Force et Les deux : v2-blocs-par-but).
+    expect(norm(k.suivant)).toBe('Le suivant : Lourd (3-5) sur tes mouvements ' +
       'à la barre, 4 semaines, décharge la dernière semaine. Les autres exercices gardent leur zone.');
     expect(k.suivantZone).toBe('Lourd (3-5)');
     expect(/accumulation|transmutation|réalisation/i.test(k.suivant)).toBe(false);
@@ -391,6 +392,7 @@ describe('53-2 bis — les gestes : le pari, l’arrêt', () => {
     const releve = { paris: [], blocs: [], lignes: [], observes: [] };
     const ctx = {
       Moteur: M, Date, Object, JSON,
+      profil: o.profil || null,   // D1 (26/11/2026) : le bloc suivant lit `profil.objectif`
       routines: (o.routines || []).slice(),
       local: { blocs: (o.blocs || []).slice(), zones: (o.zones || []).slice() },
       programmeEnCours: o.programme || null,
@@ -423,6 +425,16 @@ describe('53-2 bis — les gestes : le pari, l’arrêt', () => {
     expect(b.releve.paris).toEqual([{ bloc: 'id1', precedent: 'b1' }]);
     expect(b.ctx.local.blocs.find((x) => x.id === 'id1').zone).toBe('lourd');
     expect(b.ctx.local.blocs.find((x) => x.id === 'b1').statut).toBe('termine');
+  });
+  // D1 (26/11/2026) — « Commencer le bloc » lit `profil.objectif` : Muscle, Hypertrophie avec la grosse série cochée ; Forme, Mix.
+  test('D1 — « Commencer le bloc » : Muscle → Hypertrophie, grosse série cochée ; Forme → Mix ; Force → Lourd', async () => {
+    const attendu = { muscle: ['hypertrophie', true], forme: ['mix', false], force: ['lourd', false], les_deux: ['lourd', false] };
+    for (const objectif of Object.keys(attendu)) {
+      const b = bac({ blocs: [MIX], zones: lignesMix, instant: '2026-11-10T18:00:00.000Z', profil: { objectif } });
+      await b.run('commencerBlocSuivant("Force")');
+      const neuf = b.ctx.local.blocs.find((x) => x.id === 'id1');
+      expect([objectif, neuf.zone, neuf.grosse_serie]).toEqual([objectif, attendu[objectif][0], attendu[objectif][1]]);
+    }
   });
   // 193-2 — une PHASE (programme de force : zones portées par les routines) : la même phase, sans aucune ligne de zone.
   const PHASE = { id: 'p1', user_id: 'u', dossier: 'Force', zone: 'lourd', debut: '2026-10-12', semaines: 5, decharge: true,

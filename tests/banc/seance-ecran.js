@@ -18056,13 +18056,15 @@ const SETS_IMPORTES = [
       JSON.stringify([vuesG, ap.ouverte, ap.titre]));
     // 193-2 — Force avec une barre : les phrases de la famille (combien de fois chaque barre, la zone de chaque jour, la semaine allégée, la
     // fréquence) s'ajoutent entre la première phrase et celle de la zone à ménager. Un soulevé à ménager (dos) n'est plus « lourd » : il n'est pas dit.
-    ok('[R60] G — la voix du coach : « Je te propose tes charges… », puis la famille de force (squat 2 fois, couché 3 fois…), puis la phrase du dos',
-      ap.voix[0] === 'Je te propose tes charges à chaque séance. Touche un exercice pour le changer.' &&
-        ap.voix[1] === 'Dans la semaine : squat 2 fois, couché 3 fois.' &&
-        ap.voix[2] === 'Chaque jour a sa zone : la même barre passe de Lourd à Mix ou à Hypertrophie.' &&
-        ap.voix[3] === 'Une décharge toutes les 5 semaines : moins de séries.' &&
-        /^Fréquence : environ 3 % de force de plus par séance hebdomadaire ajoutée sur un mouvement \(Pelland 2026\)\.$/.test(ap.voix[4] || '') &&
-        /^Tu ménages ton dos : .+, sans série lourde\. Toutes leurs séries restent ; 8 répétitions au plus au soulevé\.$/.test(ap.voix[5] || ''),
+    ok('[R60] G — la voix du coach (lot 5, n° 5 : sans historique, la phrase du récapitulatif, pas « Je te propose tes charges »), puis la famille de force (squat 2 fois, couché 3 fois…), puis la phrase du dos',
+      ap.voix[0] === 'À ta première séance, on trouve ta charge ensemble. Tu peux toujours taper autre chose.' &&
+        ap.voix[1] === 'Touche un exercice pour le changer.' &&
+        ap.voix[2] === 'Dans la semaine : squat 2 fois, couché 3 fois.' &&
+        ap.voix[3] === 'Chaque jour a sa zone : la même barre passe de Lourd à Mix ou à Hypertrophie.' &&
+        ap.voix[4] === 'Une décharge toutes les 5 semaines : moins de séries.' &&
+        /^Fréquence : environ 3 % de force de plus par séance hebdomadaire ajoutée sur un mouvement \(Pelland 2026\)\.$/.test(ap.voix[5] || '') &&
+        /^Tu ménages ton dos : .+, sans série lourde\. Toutes leurs séries restent ; 8 répétitions au plus au soulevé\.$/.test(ap.voix[6] || '') &&
+        ap.voix.join(' ').indexOf('Je te propose tes charges') < 0,
       JSON.stringify(ap.voix));
     ok('[R60] G — quatre séances, chacune avec son nom, « ≈ N min », sa ligne « pourquoi » (séries par zone) et ses exercices en séries × reps',
       ap.cartes.map((k) => k.nom).join('|') === 'Jour A|Jour B|Jour C|Jour D' &&

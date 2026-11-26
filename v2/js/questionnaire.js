@@ -850,6 +850,14 @@
     };
   }
 
+  // Lot 5, n° 5 (26/11/2026) — LA phrase qui dit ce que sera la première charge : celle du récapitulatif ET celle de l'aperçu du
+  // programme (un libellé ne contredit jamais son chiffre : l'aperçu ne dit pas « je te propose tes charges » sans historique).
+  function phraseDeLaPremiereSeance(avecHistorique) {
+    return avecHistorique
+      ? 'À ta première séance, je te propose tes charges. Tu peux toujours taper autre chose.'
+      : 'À ta première séance, on trouve ta charge ensemble. Tu peux toujours taper autre chose.';
+  }
+
   // Le récapitulatif : chaque ligne se change d'un tap (`ecran` : l'écran où
   // elle se répond), et on y REVIENT.
   function ecranRecap(etat) {
@@ -891,12 +899,10 @@
       titre: 'Voici ce que j’ai compris.',
       voix: rep.coach === 'carnet'
         ? 'Je me tais. Un geste dans Profil si tu veux mes propositions.'
-        : (etat.aDesSeances
-          // 184 (C1) : « je te propose tes charges » n'est vrai que s'il existe un historique (séances,
-          // import, carnet) d'où le coach peut les tirer. Sans lui, la première séance n'a aucune charge à
-          // proposer : le coach le dit tel quel.
-          ? 'À ta première séance, je te propose tes charges. Tu peux toujours taper autre chose.'
-          : 'À ta première séance, on trouve ta charge ensemble. Tu peux toujours taper autre chose.'),
+        // 184 (C1) : « je te propose tes charges » n'est vrai que s'il existe un historique (séances,
+        // import, carnet) d'où le coach peut les tirer. Sans lui, la première séance n'a aucune charge à
+        // proposer : le coach le dit tel quel. Lot 5, n° 5 : UNE source, que l'aperçu du programme lit aussi.
+        : phraseDeLaPremiereSeance(!!etat.aDesSeances),
       blocs: [{ type: 'resume', lignes: [
         { libelle: 'But d’entraînement', valeur: (rep.objectif && P.libelleDe(P.OBJECTIFS, rep.objectif)) || tiret, ecran: BUT },
         { libelle: 'Phase', valeur: phase || tiret, ecran: BUT }
@@ -996,7 +1002,7 @@
 
   var api = {
     ECRANS: ECRANS, ANCIENNETE: ANCIENNETE, SAIT: SAIT, COMMENCE: COMMENCE, DEPUIS: DEPUIS, SALLE: SALLE, ZONE: ZONE, RAIDES: RAIDES, RECENTE: RECENTE, RECENTES: RECENTES,
-    seriesRecentes: seriesRecentes, phraseDeLaSalle: phraseDeLaSalle,
+    seriesRecentes: seriesRecentes, phraseDeLaSalle: phraseDeLaSalle, phraseDeLaPremiereSeance: phraseDeLaPremiereSeance,
     TOI: TOI, BUT: BUT, DEPART: DEPART, PRIORITES: PRIORITES, TEMPS: TEMPS, PROGRAMME: PROGRAMME, CONSTRUIT: CONSTRUIT,
     COACH: COACH, RECAP: RECAP,
     BARRES: BARRES, PUCES_SEANCES: PUCES_SEANCES, get PUCES_DUREES() { return pucesDeDuree(); }, DUREE_PLUS_MIN: DUREE_PLUS_MIN, plusChoisie: plusChoisie,

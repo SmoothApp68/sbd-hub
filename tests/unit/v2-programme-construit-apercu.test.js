@@ -418,7 +418,9 @@ function bac(options) {
              programmeDeduit: () => o.deduit || [], derniereSeance: () => o.derniere || null,
              datesDeLaFenetre: () => o.fenetre || null },
     Semaine: globalThis.THSemaine,
-    Questionnaire: { joursValides: (n) => typeof n === 'number' && n >= 2 && n <= 6 && Math.floor(n) === n },
+    Questionnaire: { joursValides: (n) => typeof n === 'number' && n >= 2 && n <= 6 && Math.floor(n) === n,
+      // lot 5, n° 5 : la phrase est celle de `THQuestionnaire` (la source unique) ; ce test la compare à la vraie plus bas
+      phraseDeLaPremiereSeance: (avec) => require('../../v2/js/questionnaire.js').phraseDeLaPremiereSeance(avec) },
     volumeDuCoach: () => o.volume || {},
     corpus: () => ({}),
     catalogueIndexe: () => INDEX,
@@ -490,7 +492,9 @@ describe('les gestes : ouvrir l’aperçu', () => {
     expect(v.routines[0].exercices[0].series).toBe('4' + NBSP + '×' + NBSP + '5');
     expect(v.routines.every((r) => /^≈ \d+ min$/.test(r.duree))).toBe(true);
     expect(v.libelleCreer).toBe('Créer ces 4 routines');
-    expect(v.voix[0]).toBe('Je te propose tes charges à chaque séance. Touche un exercice pour le changer.');
+    // Lot 5, n° 5 : sans historique, l'aperçu dit la même chose que le récapitulatif (on ne « propose » pas une charge qu'on n'a pas).
+    expect(v.voix.slice(0, 2)).toEqual(['À ta première séance, on trouve ta charge ensemble. Tu peux toujours taper autre chose.', 'Touche un exercice pour le changer.']);
+    expect(v.voix.join(' ')).not.toMatch(/Je te propose tes charges/);
     expect(b.journal.voile).toBe(1);
     expect(b.journal.routines).toEqual([]);
     expect(b.journal.profil).toEqual([]);
@@ -508,8 +512,8 @@ describe('les gestes : ouvrir l’aperçu', () => {
     const b = bac({ profil: { zones_a_menager: ['genou'], objectif: 'force' } });
     await b.appel('ouvrirApercuProgramme()');
     const v = b.vue();
-    expect(v.voix.length).toBe(2);
-    expect(v.voix[1]).toMatch(/^Tu ménages ton genou : .+, sans série lourde\. Toutes leurs séries restent\.$/);
+    expect(v.voix.length).toBe(3);
+    expect(v.voix[2]).toMatch(/^Tu ménages ton genou : .+, sans série lourde\. Toutes leurs séries restent\.$/);
     const mentions = [].concat.apply([], v.routines.map((r) => r.exercices.map((x) => x.mentions.join('|'))));
     expect(mentions).toContain('sans série lourde · ton genou');
   });
@@ -1139,7 +1143,7 @@ describe('revue adverse — la phrase de zone ne ment pas, le motif suit l’exe
 
     test('la phrase du haut dit « Toutes leurs séries restent » — avec raison — et aucune ligne ménagée n’est marquée coupée', async () => {
       const b = await ouvrir(PROFIL);
-      expect(b.vue().voix[1]).toMatch(/^Tu ménages ton genou : .+, sans série lourde\. Toutes leurs séries restent\.$/);
+      expect(b.vue().voix[2]).toMatch(/^Tu ménages ton genou : .+, sans série lourde\. Toutes leurs séries restent\.$/);
       expect(lignes(b.ctx.construit.routines).filter((x) => x.menage && x.raccourcie)).toEqual([]);
     });
 
@@ -1180,8 +1184,8 @@ describe('revue adverse — la phrase de zone ne ment pas, le motif suit l’exe
       expect(nouvelle.menage).toBe(true);                                             // le motif suit l'exercice : il charge le genou
       expect(nouvelle.series).toBe(coupees);                                          // elle garde les séries de la place, coupées
       expect(nouvelle.raccourcie).toBe(true);
-      expect(b.vue().voix[1]).not.toMatch(/Toutes/);
-      expect(b.vue().voix[1]).toMatch(/^Tu ménages ton genou : .+, sans série lourde\.$/);
+      expect(b.vue().voix[2]).not.toMatch(/Toutes/);
+      expect(b.vue().voix[2]).toMatch(/^Tu ménages ton genou : .+, sans série lourde\.$/);
     });
   });
 

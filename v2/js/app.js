@@ -16413,7 +16413,9 @@
     var h = c.historique;
     var fenetreH = h ? faits.datesDeLaFenetre(corpus()) : null;
     var voix = (h ? ['Ce sont tes séances' + (fenetreH ? ' ' + Modele.libelleDePeriode({ genre: 'fenetre', debut: fenetreH.debut, fin: fenetreH.fin }, new Date()) : ' des 12 dernières semaines').replace(/\.?$/, '.')] : [])
-      .concat(['Je te propose tes charges à chaque séance. Touche un exercice pour le changer.']).concat(phrases.famille || [])
+      // Lot 5, n° 5 : sans historique, la phrase du récapitulatif (une seule source) ; avec, la sienne. « Touche un exercice… » reste, en dessous.
+      .concat(h ? ['Je te propose tes charges à chaque séance. Touche un exercice pour le changer.']
+                : [Questionnaire.phraseDeLaPremiereSeance(false), 'Touche un exercice pour le changer.']).concat(phrases.famille || [])
       .concat(phrases.zones);
     if (phrases.barreFixe) voix.push(phrases.barreFixe);
     // 195 — sans barre de traction, le coach le dit (calisthénie) : « Pour progresser en tirage, il te faut une barre ou des anneaux. »

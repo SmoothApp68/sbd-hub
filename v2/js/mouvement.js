@@ -495,7 +495,13 @@
     flexion_laterale_poulie: 'flexion_laterale_poulie.json',
     kickback_triceps_haltere: 'kickback_triceps_haltere.json',
     flexion_laterale_banc_lombaires: 'flexion_laterale_banc_lombaires.json',
-    flexion_laterale_cou_disque: 'flexion_laterale_cou_disque.json'
+    flexion_laterale_cou_disque: 'flexion_laterale_cou_disque.json',
+    crunch_croise: 'crunch_croise.json',
+    crunch_oblique: 'crunch_oblique.json',
+    crunch_bicyclette: 'crunch_bicyclette.json',
+    sit_up: 'sit_up.json',
+    sit_up_decline: 'sit_up_decline.json',
+    sit_up_decline_leste_disque: 'sit_up_decline_leste_disque.json'
   };
   var DOSSIER = '/mouvements/', CORPS = '/mouvements/corps-glb.json', VENDOR = '/vendor/';
   function existe(slug) { return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(CATALOGUE, slug); }

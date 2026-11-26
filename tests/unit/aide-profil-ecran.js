@@ -79,6 +79,8 @@ function profilEcran(profil, options) {
     Moteur, ouvrirMotsDuCoach: () => {},
     // 273 — « Jalons » et « Faits seulement » (le mode sobre de l'appareil : éteint ici).
     ouvrirJalons: () => {}, basculerModeSobre: () => {},
+    // 26/11/2026 — « Garder l’écran allumé en séance » : la préférence de l’appareil (allumée ici) et sa bascule.
+    lireEcranAllume: () => true, basculerEcranAllume: () => {},
     // 212 — « À propos » : les trois pages de textes.
     Mentions: require('../../v2/js/mentions.js'), ouvrirMentions: () => {},
     // 163 — « Ma salle » n'apparaît que si un exercice à l'élastique est dans une routine, l'historique ou la séance

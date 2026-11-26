@@ -3518,3 +3518,6 @@ input,select,textarea,.ch-serie,.rp-serie,.eff-serie{
 .habituelle-q{font-size:15px;font-weight:600;line-height:1.35;color:var(--texte)}
 .habituelle .habituelle-pour{margin-top:2px;font-size:13px}
 .habituelle .habituelle-saisie{margin:8px 0 6px}
+
+/* 26/11/2026 (lot 5 n° 6) — la case de charge de la ligne 1 sert de réponse à « Ta charge habituelle ? » : cernée d'ambre (la voix du coach), 2 px, l'anneau de focus (`--anneau-focus`, l'ambre : le plafond d'usages de `--accent` reste tenu) ; la carte n'a plus de case. */
+.reponse-calage{outline:2px solid var(--anneau-focus);outline-offset:1px;border-radius:8px}

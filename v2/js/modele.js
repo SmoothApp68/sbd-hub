@@ -140,6 +140,57 @@
     for (var i = 0; i < ecarte.length; i++) if (x[ecarte[i]] === true) return false;
     return true;
   }
+  // ── LA SPÉCIALITÉ DU BUT (fiche de spécialité, 26/11/2026) ─────────────────────────────────────────────────────────────────
+  // Ce que le but d'entraînement change, à UN SEUL endroit. Elle CHOISIT (un gabarit, des reps de programme, des zones de bloc, un traitement
+  // de la série ratée), elle ne recalcule rien : ce sont les fonctions du coach qui décident. Une valeur inconnue, vide ou absente : la fiche
+  // `sans_reponse` (rien n'est deviné). La CLÉ rendue reste celle de la personne : le fondement du pari (I40) écrit `null`, jamais `les_deux`.
+  // Les invariants (R4, I148, I125, I100, I40) gardent leur littéral ; `Profil.OBJECTIFS` (la liste de la base) aussi. La table de vérité du test
+  // (`v2-specialite.test.js`) fixe chaque case une fois.
+  //   programme   gabarit (`corps_entier` · `familles` · `standard` · `calisthenie`), reps [principal, secondaire, isolation], séries d'un principal,
+  //               la zone d'une place ménagée en Lourd, la pause, la carte des cycles, les ratios, la grosse série d'entretien « force »
+  //   blocs       le menu des zones (`force` : Lourd et Mix ; `complet` : avec Hypertrophie ; les listes sont celles du moteur), zone du premier bloc, règle du suivant (`intensifier` · `alterner` · `mix`), grosse série cochée, grosse série d'un Hyp proposé
+  //   mots        « comme le font les programmes de force » ; « En force, une série de plus aide peu. »
+  //   seance      `proteger` { barre, autre } : `charge` (la 1re série ne baisse pas pour un écart de moins d'une rep) · `volume` (on baisse dès le bas
+  //               de la zone) · `rien` ; `prudente` (garde 2, rappel « J'ai mal ») ; `protegee` (population protégée)
+  //   chauffes    `douces` ; habiletes ; semaineDeForme
+  var RIEN_PROTEGE = Object.freeze({ barre: 'rien', autre: 'rien' });
+  function fiche(f) {
+    return Object.freeze({ programme: Object.freeze(Object.assign({}, f.programme, { reps: Object.freeze(f.programme.reps.slice()) })), blocs: Object.freeze(f.blocs),
+      mots: Object.freeze(f.mots), seance: Object.freeze(f.seance), chauffes: Object.freeze(f.chauffes), habiletes: f.habiletes, semaineDeForme: f.semaineDeForme });
+  }
+  var NEUTRE = { mots: { deForce: false }, chauffes: { douces: false }, habiletes: false, semaineDeForme: false };
+  var SPECIALITES = Object.freeze({
+    force: fiche(Object.assign({}, NEUTRE, {
+      programme: { gabarit: 'familles', reps: [5, 7, 12], seriesPrincipal: 4, menageLourd: 'mix', pause: true, cycles: true, ratios: true, entretienForce: false },
+      blocs: { menu: 'force', premier: 'lourd', suivant: 'intensifier', grosseParDefaut: false, grosseSurHypProposee: false },
+      mots: { deForce: true }, seance: { proteger: Object.freeze({ barre: 'charge', autre: 'charge' }), prudente: false, protegee: false } })),
+    muscle: fiche(Object.assign({}, NEUTRE, {
+      programme: { gabarit: 'standard', reps: [8, 9, 12], seriesPrincipal: 3, menageLourd: 'mix', pause: false, cycles: false, ratios: false, entretienForce: true },
+      blocs: { menu: 'complet', premier: 'mix', suivant: 'alterner', grosseParDefaut: false, grosseSurHypProposee: true },
+      seance: { proteger: Object.freeze({ barre: 'volume', autre: 'volume' }), prudente: false, protegee: false } })),
+    les_deux: fiche(Object.assign({}, NEUTRE, {
+      programme: { gabarit: 'familles', reps: [5, 9, 12], seriesPrincipal: 4, menageLourd: 'hypertrophie', pause: false, cycles: true, ratios: true, entretienForce: false },
+      blocs: { menu: 'complet', premier: 'lourd', suivant: 'intensifier', grosseParDefaut: true, grosseSurHypProposee: false },
+      mots: { deForce: true }, seance: { proteger: Object.freeze({ barre: 'charge', autre: 'volume' }), prudente: false, protegee: false } })),
+    forme: fiche(Object.assign({}, NEUTRE, {
+      programme: { gabarit: 'corps_entier', reps: [9, 12, 15], seriesPrincipal: 3, menageLourd: 'mix', pause: false, cycles: false, ratios: false, entretienForce: false },
+      blocs: { menu: 'force', premier: 'mix', suivant: 'mix', grosseParDefaut: false, grosseSurHypProposee: false },
+      seance: { proteger: RIEN_PROTEGE, prudente: true, protegee: true }, chauffes: { douces: true }, semaineDeForme: true })),
+    calisthenie: fiche(Object.assign({}, NEUTRE, {
+      // `reps` : un reste, lu nulle part (son gabarit ne les lit pas ; le test le prouve)
+      programme: { gabarit: 'calisthenie', reps: [8, 9, 12], seriesPrincipal: 3, menageLourd: 'mix', pause: false, cycles: false, ratios: false, entretienForce: true },
+      blocs: { menu: 'force', premier: 'mix', suivant: 'intensifier', grosseParDefaut: false, grosseSurHypProposee: false },
+      seance: { proteger: RIEN_PROTEGE, prudente: false, protegee: false }, habiletes: true })),
+    sans_reponse: fiche(Object.assign({}, NEUTRE, {
+      programme: { gabarit: 'standard', reps: [8, 9, 12], seriesPrincipal: 3, menageLourd: 'mix', pause: false, cycles: false, ratios: false, entretienForce: true },
+      blocs: { menu: 'force', premier: 'mix', suivant: 'intensifier', grosseParDefaut: false, grosseSurHypProposee: false },
+      seance: { proteger: RIEN_PROTEGE, prudente: false, protegee: false } }))
+  });
+  // La clé de fiche : l'une des cinq, sinon `sans_reponse`. `hasOwnProperty` : « toString » ou « constructor » ne sont pas des buts.
+  function cleDeSpecialite(objectif) {
+    return typeof objectif === 'string' && objectif !== 'sans_reponse' && Object.prototype.hasOwnProperty.call(SPECIALITES, objectif) ? objectif : 'sans_reponse';
+  }
+  function specialiteDe(objectif) { return SPECIALITES[cleDeSpecialite(objectif)]; }
   // LA lecture que le plan applique aux séries validées de la séance en cours : la séance entière à zéro (charge connue > 0), sinon le zéro partiel.
   function zeroDeSeance(series, opt) {
     var z = seanceAZero(series);
@@ -3558,6 +3609,9 @@
     estZeroDeTravail: estZeroDeTravail,
     vote: vote,
     QUI_VOTE: QUI_VOTE,
+    SPECIALITES: SPECIALITES,
+    specialiteDe: specialiteDe,
+    cleDeSpecialite: cleDeSpecialite,
     motDEchec: motDEchec,
     restPauseDe: restPauseDe,
     estAccentAllonge: estAccentAllonge,

@@ -234,6 +234,24 @@
   "nouveau": "var REPS_DEFAUT = [7, 9, 12];"
  },
  {
+  "nom": "f1a — fiche : muscle.programme.reps[0] 8 → 7",
+  "fichier": "modele.js",
+  "ancien": "reps: [8, 9, 12], seriesPrincipal: 3, menageLourd: 'mix', pause: false, cycles: false, ratios: false, entretienForce: true },\n      blocs: { menu: 'complet'",
+  "nouveau": "reps: [7, 9, 12], seriesPrincipal: 3, menageLourd: 'mix', pause: false, cycles: false, ratios: false, entretienForce: true },\n      blocs: { menu: 'complet'"
+ },
+ {
+  "nom": "f1b — fiche : force.programme.pause → non",
+  "fichier": "modele.js",
+  "ancien": "menageLourd: 'mix', pause: true,",
+  "nouveau": "menageLourd: 'mix', pause: false,"
+ },
+ {
+  "nom": "f1c — fiche : les_deux.programme.cycles → non",
+  "fichier": "modele.js",
+  "ancien": "menageLourd: 'hypertrophie', pause: false, cycles: true,",
+  "nouveau": "menageLourd: 'hypertrophie', pause: false, cycles: false,"
+ },
+ {
   "nom": "témoin — un commentaire change (doit SURVIVRE)",
   "fichier": "moteur.js",
   "ancien": "// 12 semaines, INCLUSES dans la courte",

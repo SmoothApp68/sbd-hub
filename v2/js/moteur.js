@@ -1642,7 +1642,7 @@
     var age = a !== null && a >= 0 && a < 130 ? a : null;
     var senior = age !== null && age >= AGE_PLAFOND_BAS;
     var unCran = debutant && age !== null && age >= AGE_UN_CRAN;
-    var protegee = x.plus65 === true || debutant || x.objectif === 'forme';
+    var protegee = x.plus65 === true || debutant || Modele().specialiteDe(x.objectif).seance.protegee;
     return { protegee: protegee,
              plafond: debutant || senior ? PLAFOND_SAUT_DEBUTANT : PLAFOND_SAUT, unCran: unCran,
              raison: unCran ? RAISON_PRUDENCE.debutantAge : senior ? RAISON_PRUDENCE.age : debutant ? RAISON_PRUDENCE.debutant : null,
@@ -14053,7 +14053,7 @@
   function rateSousLaZone(c) {
     var x = c || {};
     var faites = nombre(x.reps), bas = nombre(x.bas), obj = x.objectif || null;
-    var plusTot = obj === 'muscle' || (obj === 'les_deux' && x.barre !== true);
+    var plusTot = Modele().specialiteDe(obj).seance.proteger[x.barre !== true ? 'autre' : 'barre'] === 'volume';   // la fiche : « le volume est protégé »
     var sousZone = faites !== null && bas !== null && faites < bas;
     var sous = sousZone || (faites !== null && bas !== null && plusTot && faites <= bas);
     var charge = nombre(x.charge);
@@ -14130,13 +14130,14 @@
       return silence(ecart < 0 ? 'O' : null, ecart < 0 ? 'depasse_peu' : 'tenue');
     }
     var charge = nombre(c.charge);
-    var protege = obj === 'force' || (obj === 'les_deux' && c.barre === true);
+    var fiche = Modele().specialiteDe(obj).seance;
+    var protege = fiche.proteger[c.barre === true ? 'barre' : 'autre'] === 'charge';   // la fiche : « la charge est protégée »
     var zoneLue = rateSousLaZone({ reps: faites, bas: bas, objectif: obj, barre: c.barre, reserve: reserve, charge: charge, corps: c.corps, gardeAffichee: c.gardeAffichee });   // 251 : la notion partagée
     var corps = zoneLue.corps;
     var echec = zoneLue.echec;                                   // L : l'échec franc, avant la cible
     var sous = zoneLue.sous;
     var sousAvant = nombre(c.sousZoneAvant) || 0;
-    var garde = rateGardeDeLaReaction(reg === 'prudent' || obj === 'forme' ? 2 : 1, c);
+    var garde = rateGardeDeLaReaction(reg === 'prudent' || fiche.prudente ? 2 : 1, c);
     // G — la grosse série d'un bloc : ses reculs se recalent sur le max du jour (193-5), la charge ne change pas.
     if (role === 'grosse') {
       var mg = nombre(c.maxDuJour);
@@ -14155,11 +14156,11 @@
       if (reg === 'franc' && sousAvant + 1 < RATE_SOUS_ZONE_FRANC) baisse = false;
       else baisse = true;
       // Force protège la charge : la grosse série (le haut du bloc) ne baisse presque jamais, hors Prudent.
-      if (protege && reg !== 'prudent' && obj !== 'forme' && sousAvant < 1 && c.rang === 0) baisse = false;
+      if (protege && reg !== 'prudent' && !fiche.prudente && sousAvant < 1 && c.rang === 0) baisse = false;
     } else {
       lettre = ecart === 1 ? (c.reposCourt === true || reposCourtDe(c) ? 'A' : 'B') : 'C';
     }
-    var prudent = reg === 'prudent' || obj === 'forme';
+    var prudent = reg === 'prudent' || fiche.prudente;
     var pas = nombre(c.pas);
     if (pas === null || pas <= 0) pas = RATE_PAS_PAR_DEFAUT[c.materiel] || 2.5;
     var kgBaisse = null, fourchette;
@@ -14203,7 +14204,7 @@
       charge: baisse ? { action: 'baisse', kg: kgBaisse } : { action: 'garde', kg: charge },
       garde: zeroCorps ? null : garde, fourchette: fourchette, leviers: leviers, recale: premiere && !zeroCorps, zero: zeroCorps ? true : undefined,
       approche: approche, plusUneMinute: leviers.indexOf('repos') >= 0,
-      seche: c.seche === true, rappelMal: menage || obj === 'forme',
+      seche: c.seche === true, rappelMal: menage || fiche.prudente,
       autreSalle: c.autreSalle === true
     });
   }
@@ -14231,7 +14232,7 @@
     var dernier = nombre(b.reps);
     var reg = rateReglage(c.reglage);
     return { niveau: 'exercice', cas: 'X', silence: false, avant: nombre(a.reps), faites: dernier, vise: dernier,
-             charge: { action: 'garde', kg: nombre(c.charge) }, garde: rateGardeDeLaReaction(reg === 'prudent' || c.objectif === 'forme' ? 2 : 1, c),
+             charge: { action: 'garde', kg: nombre(c.charge) }, garde: rateGardeDeLaReaction(reg === 'prudent' || Modele().specialiteDe(c.objectif).seance.prudente ? 2 : 1, c),
              fourchette: rateFourchette(dernier - 1, dernier + 1), leviers: [], recale: true };
   }
 

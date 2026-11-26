@@ -133,3 +133,31 @@ describe('la fiche : les blocs la lisent (PR 2)', () => {
     expect(/programmes de force/.test(k.suivant)).toBe(VERITE['mots.deForce'][i]);
   });
 });
+
+describe('la fiche : la séance la lit (PR 3)', () => {
+  const Mo = require('../../v2/js/moteur.js');
+  const BUTS = [['force', 0], ['muscle', 1], ['les_deux', 2], ['forme', 3], ['calisthenie', 4], [null, 5], ['', 5], ['inconnu', 5]];
+  const cas = [];
+  BUTS.forEach(([but, i]) => [true, false].forEach((barre) => cas.push([but, barre, i])));
+  const base = (o) => Object.assign({ niveau: 'serie', role: 'travail', charge: 80, reps: 6, vise: 10, bas: 8, haut: 12, rang: 0, derniere: false,
+    reglage: 'normal', materiel: barre0(o), pas: 2.5, chauffeValidee: true, reposReel: 120, reposCible: 120 }, o);
+  const barre0 = (o) => (o.barre ? 'barre' : 'haltere');
+  test.each(cas)('%p, barre %p : le volume protégé (rateSousLaZone, « sous » dès le bas de la zone)', (but, barre, i) => {
+    const volume = VERITE['seance.proteger'][i][barre ? 'barre' : 'autre'] === 'volume';
+    expect(Mo.rateSousLaZone({ reps: 8, bas: 8, objectif: but, barre }).sous).toBe(volume);
+    expect(Mo.rateSousLaZone({ reps: 7, bas: 8, objectif: but, barre }).sous).toBe(true);     // sous le bas : toujours
+  });
+  test.each(cas)('%p, barre %p : la charge protégée, la garde, le rappel « J’ai mal » (reactionAuRate)', (but, barre, i) => {
+    const f = { charge: VERITE['seance.proteger'][i][barre ? 'barre' : 'autre'] === 'charge', prudente: VERITE['seance.prudente'][i] };
+    const d = Mo.reactionAuRate(base({ objectif: but, barre }));
+    expect(d.cas).toBe('D');
+    expect(d.charge.action).toBe(f.charge && !f.prudente ? 'garde' : 'baisse');          // la 1re série ne baisse pas pour un écart de moins d'une rep
+    expect(d.garde).toBe(f.prudente ? 2 : 1);
+    expect(d.rappelMal).toBe(f.prudente);
+  });
+  test.each(BUTS)('%p : la population protégée (l’âge et le débutant ne changent pas)', (but, i) => {
+    expect(Mo.populationProtegee({ objectif: but })).toBe(VERITE['seance.protegee'][i]);
+    expect(Mo.populationProtegee({ objectif: but, plus65: true })).toBe(true);
+    expect(Mo.populationProtegee({ objectif: but, debutant: true })).toBe(true);
+  });
+});

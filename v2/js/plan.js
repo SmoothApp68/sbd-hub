@@ -2187,7 +2187,7 @@
       duCoach: !!(c.duCoach && Object.prototype.hasOwnProperty.call(c.duCoach, slug) && c.duCoach[slug] === true),
       protegee: c.protegee === true,
       menagee: !!(zm && !zm.choisie),
-      forme: c.objectif === 'forme',
+      forme: Voix().specialiteDe(c.objectif).chauffes.douces,   // la fiche de spécialité (`Voix()` = `THModele`)
       peuDeTemps: c.peuDeTemps === true,
       e1rm: c.e1rms && Object.prototype.hasOwnProperty.call(c.e1rms, slug) ? nombre(c.e1rms[slug]) : null,
       ajoutees: c.ajoutees && Object.prototype.hasOwnProperty.call(c.ajoutees, slug) ? nombre(c.ajoutees[slug]) : 0,

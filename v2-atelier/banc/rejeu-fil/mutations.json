@@ -186,22 +186,22 @@
   "nouveau": "debutant || x.objectif === 'forme'"
  },
  {
-  "nom": "l3a — jourSansDe : la séance neutre peut être la légère (filtre `neutre`)",
-  "fichier": "moteur.js",
-  "ancien": "if (ouvert !== undefined && se.decharge !== true && se.neutre !== true) {",
-  "nouveau": "if (ouvert !== undefined && se.decharge !== true) {"
+  "nom": "l3a — QUI_VOTE.jetonDuJourSans : le filtre `neutre` tombe",
+  "fichier": "modele.js",
+  "ancien": "jetonDuJourSans: ['neutre', 'decharge'],",
+  "nouveau": "jetonDuJourSans: ['decharge'],"
  },
  {
-  "nom": "l3c — compteLe : un pari de jour sans compte",
-  "fichier": "bilan.js",
-  "ancien": "function compteLe(q) { return !!q && q.allegee !== true && q.jourSans !== true; }",
-  "nouveau": "function compteLe(q) { return !!q && q.allegee !== true; }"
+  "nom": "l3c — QUI_VOTE.paris : un pari de jour sans compte",
+  "fichier": "modele.js",
+  "ancien": "paris:           ['allegee', 'jourSans']",
+  "nouveau": "paris:           ['allegee']"
  },
  {
-  "nom": "l3d — compteLe : un pari de décharge compte",
-  "fichier": "bilan.js",
-  "ancien": "function compteLe(q) { return !!q && q.allegee !== true && q.jourSans !== true; }",
-  "nouveau": "function compteLe(q) { return !!q && q.jourSans !== true; }"
+  "nom": "l3d — QUI_VOTE.paris : un pari de décharge compte",
+  "fichier": "modele.js",
+  "ancien": "paris:           ['allegee', 'jourSans']",
+  "nouveau": "paris:           ['jourSans']"
  },
  {
   "nom": "l4c — un cran à la fois dès 60 ans au lieu de 50 (prudence.ageUnCran)",
@@ -210,10 +210,10 @@
   "nouveau": "ageUnCran: 60, "
  },
  {
-  "nom": "l3g — le plafond après un zéro lit une décharge",
-  "fichier": "moteur.js",
-  "ancien": "if (!se || !se.plafondZero || se.decharge === true || neutreSansCoach(se)) return;",
-  "nouveau": "if (!se || !se.plafondZero || neutreSansCoach(se)) return;"
+  "nom": "l3g — QUI_VOTE.plafondDuZero : le plafond après un zéro lit une décharge",
+  "fichier": "modele.js",
+  "ancien": "plafondDuZero:   ['decharge'],",
+  "nouveau": "plafondDuZero:   [],"
  },
  {
   "nom": "témoin — un commentaire change (doit SURVIVRE)",

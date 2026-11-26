@@ -157,7 +157,7 @@ séries, ni les reps, ni les charges (le coach les décide séance par séance).
 pas posés : aucune source ne les établit.*
 
 **Séries et reps.** Reps par objectif (principal · secondaire · isolation) : Force 5 · 7 · 12 ; Les deux 5 · 9 · 12 ;
-Muscle et sans réponse 7 · 9 · 12 ; Forme 9 · 12 · 15 ; +3 en isolation pour les petits muscles (élévations, arrière
+Muscle et sans réponse 8 · 9 · 12 *(7 jusqu'au 26/11/2026, voir le delta ci-dessous)* ; Forme 9 · 12 · 15 ; +3 en isolation pour les petits muscles (élévations, arrière
 d'épaule, mollets, abdos). **Lourd seulement à la barre** : un principal hors barre prend les reps d'un secondaire.
 Séries : principal 4 en Force et Les deux, 3 sinon ; secondaire et isolation 3 ; tronc 2. **+1 série** pour un
 exercice prioritaire (même en sèche), et pour un muscle prioritaire sur un secondaire, une isolation ou le tronc, **hors
@@ -165,6 +165,24 @@ sèche** ; **et sur un principal quand sa zone n'a aucune autre place dans le pr
 60-6 : « Tronc » prioritaire ne changeait rien ; à deux jours, le militaire est le seul exercice d'épaules en direct :
 il prend la série).
 L'exercice prioritaire passe en tête de sa séance.
+
+**Delta 26/11/2026 — le principal de Muscle fait 8 reps, plus 7** (tour de table et contradicteur à froid du 26/11, décision d'Aurélien).
+`REPS.muscle` et `REPS_DEFAUT` passent de 7 · 9 · 12 à **8 · 9 · 12**. *Pourquoi* : le rangement du moteur (MOTEUR §9.1.2) range une
+habitude de 7 en Mix, zone de force, donc un principal à la barre d'un profil Muscle recevait le traitement de la force (la carte « Passer à
+3-5 reps », la réserve 2 hors population protégée) ; 8 est rangé en Hypertrophie. **Aucune source ne dit que 8 fait plus de muscle que 7**
+(Schoenfeld et al. 2021 ; Stronger By Science) : la seule raison est la cohérence du logiciel, entre la table du générateur et le rangement.
+(L'ACSM 2009 « 8-12 RM aux novices » n'est PAS un argument : un RM est une charge, pas des reps faites.) **Le soulevé de terre** passe aussi
+à 8, **borné par `CHARNIERE_MAX`** (« jamais plus de 8 »), sans nouvelle constante ; l'app le mettait déjà à 8 quand le dos est à ménager.
+Rien d'autre ne change : Force, Les deux et Forme gardent leurs lignes ; ni le repos, ni la chauffe, ni la durée ne lisent ce chiffre.
+*Qui est concerné.* (1) Un NOUVEAU programme généré sans historique (la table). (2) **Les gestes de l'aperçu, « Je n'en veux pas » et
+« Remplacer », lisent la table même pour une personne qui A un historique** (`ligneNeuve` → `ligne()`) : le remplaçant d'un principal à la barre
+fait 8 ; cela reste dans l'aperçu, rien ne s'écrit avant la confirmation. (3) **Pas concernés** : un programme déjà créé (les
+`routine_exercises` gardent leurs 7 : le générateur est pur, il n'écrit rien, aucune migration) ; un programme DÉDUIT de l'historique
+(`habiller` prend les reps de la personne et ne lit la table que pour la place ménagée, `r[1]` = 9, inchangé) ; « Refaire mon programme »
+crée un NOUVEAU dossier et laisse l'ancien. Deux cohortes en résultent (7 pour les programmes déjà créés, 8 pour les nouveaux) : voulu.
+*À dire aussi.* Le débutant n'a pas une réserve différente (plancher 2) : le gain est la zone nommée et la carte de l'escalier, pas une
+charge. Hypertrophie ne dure, elle aussi, que quelques séances pour qui progresse : l'habitude monte et la zone suit (voir MOTEUR §9.1.2,
+delta 26/11/2026, la correction de 186). Dette notée : la consigne d'un soulevé dépasse 8 reps (`CHARNIERE_MAX` borne la table, pas la consigne).
 
 **Zone à ménager** (décidé le 08/10/2026). Une place dont le motif charge la zone (genou : squat, presse, extension ;
 dos : charnière, jambes tendues, squat, rowing ; épaule : militaire, couché, élévations ; coude : triceps, curl ;

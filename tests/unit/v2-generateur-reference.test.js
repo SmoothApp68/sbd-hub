@@ -16,7 +16,7 @@ describe('60-4 — les fichiers embarqués, octet pour octet', () => {
   test('la référence gen60.py est celle reçue de Claude.ai', () => {
     const brut = lire('tests/unit/fixtures/gen60.py');
     expect(brut.length).toBe(14297);
-    expect(sha(brut)).toBe('6dcf9185640f3b49d84a82083d829875cc02bed26a914f1e454a2572752f0f91');
+    expect(sha(brut)).toBe('5c2de5027d62403d59dd3cb93cd5ceff87fad324eaf48e832484baefb44a920f');
   });
 
   test('la maquette maquette-generateur-v1.html est celle reçue de Claude.ai', () => {
@@ -33,13 +33,13 @@ describe('60-6 — les fichiers embarqués, octet pour octet', () => {
   test('la référence gen60b.py est celle reçue de Claude.ai, revue en 190 (la barre de traction)', () => {
     const brut = lire('tests/unit/fixtures/gen60b.py');
     expect(brut.length).toBe(17308);
-    expect(sha(brut)).toBe('4e5db26072155af71da8c17b407a04fdba841b53ba990204a3194103a21a110e');
+    expect(sha(brut)).toBe('5ca42e99f3e2807d94205d8f55997195c164e97bf924ba353ad5204c2f5bb77a');
   });
 
   test('le fichier de cas cas-60-6-generateur.json est celui reçu de Claude.ai', () => {
     const brut = lire('tests/unit/fixtures/cas-60-6-generateur.json');
     expect(brut.length).toBe(122887);
-    expect(sha(brut)).toBe('258a1948754ad1ac6753f8a6c166741def0f6587ab88ed4739208b8588760fa6');
+    expect(sha(brut)).toBe('916a629f5141af3271580760f66a4b0ec885eb2326003054bf9c881a306e04e5');
     expect(brut[brut.length - 1]).not.toBe(10);                             // une seule ligne, sans saut de ligne final
   });
 

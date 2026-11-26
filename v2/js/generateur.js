@@ -228,9 +228,10 @@
 
   // ── Les reps visées, par objectif et rôle (principal, secondaire, isolation) ──
   // Sans objectif (ou un objectif que cette table ne connaît pas), celles de « Muscle ».
-  var REPS = { force: [5, 7, 12], les_deux: [5, 9, 12], muscle: [7, 9, 12], forme: [9, 12, 15] };
-  var REPS_DEFAUT = [7, 9, 12];
+  var REPS = { force: [5, 7, 12], les_deux: [5, 9, 12], muscle: [8, 9, 12], forme: [9, 12, 15] };
+  var REPS_DEFAUT = [8, 9, 12];
 
+  // 26/11/2026 — le principal de Muscle (et « sans réponse ») : 8, plus 7 (QUESTIONNAIRE-COACH-V2 §5 bis, delta 26/11).
   // Une charnière ne dépasse JAMAIS 8 reps : la fatigue défait la technique.
   var CHARNIERE_MAX = 8;
 

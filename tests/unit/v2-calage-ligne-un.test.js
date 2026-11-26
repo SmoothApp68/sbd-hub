@@ -112,10 +112,20 @@ describe('lot 5 n° 6 — où se tape la réponse (écart 3) : la ligne 1 seulem
       expect(verif(se)).toEqual([]);
     });
   });
-  test('un plan truqué est refusé : réponse sur une chauffe, ou réponse avec une proposition', () => {
-    const se = seanceDe(false), e = entree(se);
-    const p = T.planDeSeance(e);
-    p.exercices[0].lignes[1].reponseCalage = true;
-    expect(T.verifierPlan(p, e).erreurs.filter((m) => /^I74/.test(m)).length).toBeGreaterThan(0);
+  test('une première séance d’avant restée à 0 rep (la borne) : la carte garde son champ, « Partir de là » refuse 100 ≥ 80 comme avant', () => {
+    const zero = { etat: 'silence', raison: 'premiere_fois', fondement: { zeroRep: { charge: 80 } } };
+    const se = seanceDe(false);
+    const e = entree(se, { consignes: { rowing: { consigne: zero, pas: 5 } } });
+    const x = T.planDeSeance(e).exercices[0];
+    expect(x.calage.demandeHabituelle).toBe(true);
+    expect(x.calage.saisieEnLigne).toBe(false);
+    expect(x.lignes.some((l) => l.reponseCalage)).toBe(false);
+    expect(T.verifierPlan(T.planDeSeance(e), e).erreurs.filter((m) => /^I7[2-5]/.test(m))).toEqual([]);
+  });
+  const faux = (se, f) => { const e = entree(se, { habituelles: se.habituelles }); const p = T.planDeSeance(e); f(p.exercices[0]); return T.verifierPlan(p, e).erreurs.filter((m) => /^I74/.test(m)).join(' | '); };
+  test('un plan truqué est refusé : réponse sur une chauffe, réponse avec une proposition, réponse sur deux lignes', () => {
+    expect(faux(seanceDe(true), (x) => { x.lignes[0].reponseCalage = true; x.calage.saisieEnLigne = true; })).toMatch(/une chauffe/);
+    expect(faux(S.poserHabituelle(seanceDe(false), 'rowing', 80), (x) => { x.lignes[0].reponseCalage = true; })).toMatch(/une proposition en même temps|sans question posée/);
+    expect(faux(seanceDe(false), (x) => { x.lignes[1].reponseCalage = true; })).toMatch(/sur 2 lignes/);
   });
 });

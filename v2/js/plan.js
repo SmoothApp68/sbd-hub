@@ -1071,8 +1071,8 @@
     var declinee = habEcartee || (Object.prototype.hasOwnProperty.call(habs, slug) && habs[slug] === 0);
     r.demandeHabituelle = e.debutant !== true && r.faites === 0 && r.habituelle === null && !declinee;
     // 26/11/2026 (lot 5 n° 6, MOTEUR §9.42 delta) — où se tape la réponse : dans la case de charge de la LIGNE 1 (la première ligne non validée), SEULEMENT si c'est une série de travail ;
-    // si c'est une chauffe (la routine en porte déjà), la ✓ validerait une approche, pas la charge de travail : la carte garde son champ et « Partir de là ».
-    r.saisieEnLigne = r.demandeHabituelle && prochain === 'travail' && porteuse !== null;
+    // si c'est une chauffe (la routine en porte déjà), la ✓ validerait une approche, pas la charge de travail : la carte garde son champ et « Partir de là ». Idem quand la première séance d'avant est restée à 0 rep (`zeroPremiere`, la borne) : « Partir de là » refuse une charge égale ou au-dessus (`habEcartee`), la ✓ de la ligne 1 l'accepterait.
+    r.saisieEnLigne = r.demandeHabituelle && prochain === 'travail' && porteuse !== null && zeroPremiere === null;
     r.iReponse = r.saisieEnLigne ? porteuse : null;
     // 21/11/2026 (« Simplifier », décision 4) — tant que la question de la charge habituelle est posée, le mode d'emploi des deux séries de chauffe (`consigne`) et le « Commence au plus
     // petit cran » (`pourquoi`) décrivent un chemin PAS ENCORE CHOISI : ils ne se disent qu'après « Je ne sais pas » (la demande levée, ils reviennent tels quels, du moteur).

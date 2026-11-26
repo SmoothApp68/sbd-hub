@@ -16929,7 +16929,7 @@ const SETS_IMPORTES = [
     const continuerQ = async () => { await cliquerQ('.q-continuer', 500); };
     // Lot 5, n° 1 : l'ouverture de lui-même est le parcours COURT ; le parcours complet s'ouvre par « Plus tard » puis « Le terminer » (n° 3).
     const versLeComplet = async () => {
-      await cliquerQ('.q-plus-tard');
+      await page.click(SEL + '.q-plus-tard');                                      // « Plus tard » ferme : le corps du questionnaire ne change pas, pas de `cliquerQ`
       await page.click('#bandeau-questionnaire .principal');                       // le bandeau n'est cliquable qu'une fois Saisie posée
       await page.waitForSelector('#vue-questionnaire:not([hidden]) .q-page');
     };
@@ -17862,7 +17862,7 @@ const SETS_IMPORTES = [
     // Jusqu'à l'écran « Temps » : les réponses obligatoires, rien d'autre.
     const jusquAuTemps = async (zone) => {
       // Lot 5, n° 1 : l'ouverture de lui-même est le parcours court ; ces scénarios jouent le COMPLET (« Plus tard », puis « Le terminer »).
-      await cliquerR('.q-plus-tard');
+      await page.click(SEL + '.q-plus-tard');
       await page.click('#bandeau-questionnaire .principal');
       await page.waitForSelector('#vue-questionnaire:not([hidden]) .q-page');
       await cliquerR('.q-puce[data-cle="1_a_3_ans"]'); await cliquerR('.q-opt[data-cle="non"]'); await continuerR();

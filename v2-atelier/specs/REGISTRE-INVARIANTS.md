@@ -109,7 +109,7 @@ Légende : **gras** = retiré ; « TROU » = numéro jamais défini ; « voir MO
 | I267 | L'arrêt d'un bloc pendant sa décharge | `Moteur.arretDuBloc`, `v2-arret-pendant-la-decharge.test.js` | §9.22 | 21/11/2026 |
 | I268 | Le rest-pause n'est plus dit ni nommé. FAIT FAUX dans l'original : « I268 libre » (puce I267) ; le numéro est pris | `Plan.verifierSansRestPause`, `v2-sans-rest-pause.test.js` | §9.33 | 21/11/2026 |
 | I269-I271 | La tête d'un exercice : 3 + 1 | `Plan.verifierTete`, `v2-simplifier-3plus1.test.js` | §9.53 | 21/11/2026 |
-| I272 | Le plancher de la dernière série (« Les chutes ») : visée jamais sous le niveau des séries d'avant, « une rep de plus » jamais sans dépasser la cible d'avant | `Plan.verifierChutes`, `v2-chutes-plancher.test.js` | §9.2 ter | 25/11/2026 |
+| I272 | Le plancher de la dernière série (« Les chutes ») : visée jamais sous le niveau des séries d'avant (borné au haut de la zone, jamais au-dessus : D2), « une rep de plus » jamais sans dépasser la cible d'avant, la phrase se lit contre la ligne montrée (D1 : la ligne relue est celle de l'écran) | `Plan.verifierChutes`, `v2-chutes-plancher.test.js` | §9.2 ter | 25/11/2026, étendu le 26/11/2026 |
 
 ### Numéros réservés, retirés, trous
 

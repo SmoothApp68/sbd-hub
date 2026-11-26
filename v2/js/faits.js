@@ -838,6 +838,20 @@
         return s && s.id && s.id !== seance.id && s.debut && s.statut !== 'en_cours' && Date.parse(s.debut) <= t;
       });
     }
+    // 25/11/2026 (lot 3, changement 3) — LA SALLE D'AVANT : celle de la dernière séance TERMINÉE qui en a déclaré une
+    // (jamais devinée : une salle tapée un jour, reprise, écrite en clair, jamais écrite avant « Terminer »). `saufId` : la
+    // séance en cours, jamais comptée. `null` si aucune séance n'en a déclaré.
+    function derniereSalleDeclaree(c, saufId) {
+      var meilleure = null;
+      (c.seances || []).forEach(function (s) {
+        if (!s || s.id === saufId || s.statut !== Seance.TERMINEE) return;
+        var salle = typeof s.salle === 'string' ? s.salle.trim() : '';
+        var t = Date.parse(s.debut);
+        if (!salle || isNaN(t)) return;
+        if (!meilleure || t > meilleure.t) meilleure = { t: t, salle: salle };
+      });
+      return meilleure ? meilleure.salle : null;
+    }
     function premierPariDuCompte(c, paris) {
       var debutDe = {};
       (c.seances || []).forEach(function (s) { if (s && s.id) debutDe[s.id] = Date.parse(s.debut); });
@@ -2584,6 +2598,7 @@
       recordsDuJour: recordsDuJour,
       recapDeLaSeance: recapDeLaSeance,
       estLaPremiereSeance: estLaPremiereSeance,
+      derniereSalleDeclaree: derniereSalleDeclaree,
       premierPariDuCompte: premierPariDuCompte,
       parisRatesALaSuite: parisRatesALaSuite,
       faitDeLExercice: faitDeLExercice,

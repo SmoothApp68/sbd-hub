@@ -221,6 +221,8 @@
     // 136 (audit du 16/10, 03 #18) — quitter le profil n'écrit plus rien (`onboarding_completed`, « vu », retiré : le
     // bandeau de bienvenue n'existe plus depuis 60-2a, et plus rien ne lisait la colonne).
     ecranCourant = nom;
+    // Lot 3 — « Séance enregistrée · Voir le récap » ne vaut que sur la semaine : changer d'écran l'efface.
+    if (nom !== 'liste' && toastRecap) cacherToastRecap();
     // ⚠️ LA DURÉE DE LA BARRE N'A DE SENS QUE SOUS LES YEUX (62). Une seule porte,
     // comme pour le mode Réorganiser : quitter l'écran de séance — par un onglet,
     // par « Terminer », par « Annuler » — coupe le réveil, et `rendreSeance` le
@@ -426,9 +428,11 @@
 
   // Les paris de CONSIGNE connus (serveur et appareil, l'appareil l'emporte),
   // observés : `[{ date, exercice, predite, observee }]` pour le bilan.
-  function parisDeConsigneConnus() {
+  function parisDeConsigneConnus(enCours) {
     var debutDe = {};
     (local.seances || []).forEach(function (x) { if (x && x.id) debutDe[x.id] = x.debut; });
+    // Lot 3 — l'écran de fin lit la séance EN COURS (pas encore dans la liste) : ses paris vérifiés comptent comme au récap.
+    if (enCours && enCours.id && enCours.debut && !debutDe[enCours.id]) debutDe[enCours.id] = enCours.debut;
     var parId = {};
     (local.parisLegers || []).forEach(function (l) { if (l && l.id) parId[l.id] = { l: l, seance: l.session_id }; });
     (local.predictions || []).forEach(function (l) {
@@ -4556,6 +4560,60 @@
 
   // L'état affiché combine lecture et écriture. Tant qu'il reste quelque chose
   // à envoyer, « à jour » serait faux.
+  // ── « Rafraîchir » (lot 3, changement 6) : tirer la liste de Séances vers le bas ───────────────────────────────────────────────
+  // Il n'y a plus de bouton dans l'en-tête, et aucun « ⋯ » sur cet écran : le geste le remplace, et appelle LA MÊME fonction
+  // (`rafraichir`, l'ancien gestionnaire du bouton, mot pour mot). Pris seulement en haut de page, avec un seul doigt, vers le bas ; le
+  // retour est visible (« Tire… », « Relâche… », puis « Mise à jour… » pendant la lecture). ⚠️ C'est le seul remède manuel à l'état
+  // « Données locales » : tant qu'il n'est pas « À jour », une ligne le dit (`#aide-tirage`) ; l'état lui-même ne change pas.
+  var lectureManuelle = false;
+  async function rafraichir() {
+    Rendu.rendreEtat($('etat-sync'), { code: 'sync', libelle: 'Synchronisation…', local: false });
+    await synchroniser();
+    await chargerProfil();
+    // La ligne de profil a pu ouvrir le questionnaire : on ne le recouvre pas.
+    if (vues.questionnaire.hidden) afficherSemaine();
+  }
+  var SEUIL_TIRAGE_PX = 70;
+  function brancherTirage() {
+    var vue = $('vue-liste'), zone = $('tirage');
+    if (!vue || !zone) return;
+    var y0 = null, dy = 0;
+    var enHaut = function () {
+      var se = doc.scrollingElement || doc.documentElement;
+      return (se ? se.scrollTop : 0) <= 0;
+    };
+    var montrerTirage = function (texte, hauteur, lecture) {
+      zone.hidden = false;
+      zone.classList.toggle('lecture', !!lecture);
+      zone.style.height = lecture ? '' : Math.max(0, Math.round(hauteur)) + 'px';
+      zone.textContent = texte;
+    };
+    var cacherTirage = function () { zone.hidden = true; zone.textContent = ''; zone.style.height = ''; zone.classList.remove('lecture'); };
+    vue.addEventListener('touchstart', function (e) {
+      y0 = null; dy = 0;
+      if (lectureManuelle || vue.hidden || !e.touches || e.touches.length !== 1 || !enHaut()) return;
+      y0 = e.touches[0].clientY;
+    }, { passive: true });
+    vue.addEventListener('touchmove', function (e) {
+      if (y0 === null || !e.touches || e.touches.length !== 1) return;
+      dy = e.touches[0].clientY - y0;
+      if (dy <= 0 || !enHaut()) { if (dy <= 0) { y0 = null; cacherTirage(); } return; }
+      if (e.cancelable) e.preventDefault();   // pris : le navigateur ne recharge pas la page à notre place
+      montrerTirage(dy >= SEUIL_TIRAGE_PX ? 'Relâche pour mettre à jour' : 'Tire pour mettre à jour', Math.min(dy * 0.5, 48), false);
+    }, { passive: false });
+    var fin = function () {
+      var assez = y0 !== null && dy >= SEUIL_TIRAGE_PX;
+      y0 = null; dy = 0;
+      if (!assez || lectureManuelle) { cacherTirage(); return; }
+      lectureManuelle = true;
+      montrerTirage('Mise à jour…', 0, true);
+      Promise.resolve().then(rafraichir).catch(function (err) { console.warn('Mise à jour :', texteErreur(err)); })
+        .then(function () { lectureManuelle = false; cacherTirage(); });
+    };
+    vue.addEventListener('touchend', fin);
+    vue.addEventListener('touchcancel', function () { y0 = null; dy = 0; cacherTirage(); });
+  }
+
   function rendreEtatSync() {
     // 219 — la barre change de hauteur quand le texte paraît ou disparaît : re-mesurée par la même fonction que les autres.
     if (Rendu.majEnvoiBandeau($('bandeau-seance'), texteEnvoiSeance())) mesurerBarres();
@@ -4567,7 +4625,11 @@
       Rendu.rendreEtat(noeud, { code: 'bloque', libelle: 'Données de l\u2019appareil indisponibles : ferme l\u2019autre onglet de l\u2019app' });
       return;
     }
-    Rendu.rendreEtat(noeud, Attente.deciderEtat(etat, attente));
+    var decide = Attente.deciderEtat(etat, attente);
+    Rendu.rendreEtat(noeud, decide);
+    // Lot 3 (changement 6) — la ligne qui dit le geste tant que l'état n'est pas « À jour » ; elle ne décide rien, elle lit la décision.
+    var aide = $('aide-tirage');
+    if (aide) aide.hidden = !decide || decide.code === 'a-jour' || decide.code === 'sync';
   }
 
   // 219 — le même état, lu par l'écran de séance en cours (rien à dire = chaîne vide).
@@ -5544,6 +5606,9 @@
     finsMarche.forEach(function (f) {
       if (finsDeMarcheVoulues[cleDeFinDeMarche(f)] === true) seance = Seance.noterGeste(seance, { geste: 'marche_routine', slug: f.depart, vers: f.vers });
     });
+    // 25/11/2026 (lot 3, changement 3) — la salle proposée s'écrit ICI, à « Terminer », et nulle part avant.
+    seance = Seance.avecSalleDeFin(seance, salleFin.proposee, salleFin.effacee);
+    salleFin = { proposee: null, effacee: false };
     seance = Seance.terminer(seance, fin || new Date());
     await sauverSeance();
     await poserSeries();
@@ -5587,11 +5652,49 @@
       rendreSemaine(Semaine.bornesSemaine(new Date()).lundi);
       return;
     }
-    // 71 — LE RÉCAP, UNE FOIS, JUSTE APRÈS « TERMINER » (ECRAN-SAISIE §7 septies.4 bis). Il vit en mémoire
-    // seulement : ni l'abandon, ni l'Édition, ni un rechargement ne le rouvrent.
-    ouvrirRecap(finie, jeuDuRecap);
-    // 250 (L9) — le coach peut PROPOSER de ranger une note ; le récap est déjà ouvert, rien ne l'attend (jamais une activité, un import, une Édition).
-    lancerNotesIA(finie);
+    // 25/11/2026 (lot 3, changement 1) — UN SEUL ÉCRAN DE FIN : « Terminer » enregistre et revient à la semaine, avec le toast
+    // « Séance enregistrée · Voir le récap ». Le récap complet (le jeu, « Partager », « Dans tes notes ») s'ouvre depuis ce toast
+    // (`voirLeRecap`) : il lit la séance écrite. Il vit en mémoire seulement : ni l'abandon, ni l'Édition, ni un rechargement ne le
+    // rouvrent. (ECRAN-SAISIE §7 septies.4 bis, delta du 25/11/2026 : la décision 71 est rouverte.)
+    allerA(Routeur.RACINE, {});
+    rendreSemaine(Semaine.bornesSemaine(new Date()).lundi);
+    montrerToastRecap(finie, jeuDuRecap);
+    // 91 — le récap du groupe (toutes les séances du groupe sont terminées), comme après l'ancien « Fermer ».
+    apresRecapDeSeance();
+  }
+
+  // ══ LE TOAST « SÉANCE ENREGISTRÉE · VOIR LE RÉCAP » (lot 3, changement 1) ═════════════════════════════════════════════════════
+  // Il appartient à la semaine : il disparaît dès qu'on change d'écran (`montrer`), après 30 s, ou au « Voir le récap ». Rien ne le
+  // rouvre ensuite : « Voir la séance » (le détail) reste dans l'historique.
+  var toastRecap = null;   // { seance, jeu, minuteur }
+  var DELAI_TOAST_RECAP_MS = 30000;
+  function rendreToastRecap() {
+    var noeud = $('toast-recap');
+    if (!noeud) return;
+    Rendu.rendreToastAnnuler(noeud, toastRecap
+      ? { texte: 'Séance enregistrée', libelle: 'Voir le récap', surAnnuler: voirLeRecap }
+      : null);
+    mesurerBarres();
+  }
+  function montrerToastRecap(finie, jeu) {
+    cacherToastRecap();
+    toastRecap = { seance: finie, jeu: jeu || null,
+      minuteur: setTimeout(function () { cacherToastRecap(); }, DELAI_TOAST_RECAP_MS) };
+    rendreToastRecap();
+  }
+  function cacherToastRecap() {
+    if (!toastRecap) return;
+    clearTimeout(toastRecap.minuteur);
+    toastRecap = null;
+    rendreToastRecap();
+  }
+  function voirLeRecap() {
+    var t = toastRecap;
+    cacherToastRecap();
+    if (!t) return;
+    ouvrirRecap(t.seance, t.jeu);
+    // 250 (L9) — le coach peut PROPOSER de ranger une note ; le récap est ouvert, rien ne l'attend (jamais une activité, un import, une Édition).
+    lancerNotesIA(t.seance);
   }
 
   // ══ 225 — « AJOUTER UNE ACTIVITÉ » (MOTEUR §9.40) ═════════════════════════════════════════════════════════════════
@@ -6419,6 +6522,8 @@
     // réserve le compte, rien d'interactif ne reste dessous (§3 bis.9).
     var toast = $('toast-seance');
     var hToast = (toast && !toast.hidden) ? Math.ceil(toast.getBoundingClientRect().height) : 0;
+    var toastR = $('toast-recap');
+    if (toastR && !toastR.hidden) hToast += Math.ceil(toastR.getBoundingClientRect().height);   // lot 3 — « Voir le récap »
     // 62 — la barre de séance, collée EN HAUT. Elle ne couvre rien tant qu'elle est
     // dans le flux, mais un champ qui prend le focus ou un bloc amené en vue peut
     // glisser SOUS elle : `scroll-padding-top` (styles.css) se règle sur cette hauteur.
@@ -10823,6 +10928,7 @@
     suppressionDifferee = null;
     if (noteRetiree) clearTimeout(noteRetiree.minuteur);
     noteRetiree = null;
+    cacherToastRecap();
     rendreToastAnnuler();
   }
 
@@ -11160,6 +11266,10 @@
 
 
   // ── L'écran ─────────────────────────────────────────────────────────────
+  // Lot 3 (changement 5) — UNE action, deux boutons : celui de la barre du haut et celui du bas de la liste (`#btn-terminer-bas`)
+  // appellent cette fonction, jamais une copie : « Enregistrer » en correction d'une séance passée, la feuille de fin sinon.
+  function terminerOuEnregistrer() { if (enEdition()) return enregistrerEdition(); confirmerFin(); }
+
   function rendreSeance() {
     montrer('seance', Routeur.SAISIE);
     reactionPerimee = false;
@@ -11188,7 +11298,7 @@
         ouvrirReorganisation();
       },
       surAnnulerSelection: function () { selectionGroupe = null; rendreSeance(); },
-      surTerminer: function () { if (enEdition()) return enregistrerEdition(); confirmerFin(); },
+      surTerminer: terminerOuEnregistrer,
       // 204 — « ⌄ » réduit la séance : les onglets reviennent (la séance reste en cours : l'onglet Saisie, son point et la carte
       // « Prochaine séance » y ramènent). Le « ⋯ » porte « Modifier » et « S'entraîner ensemble ».
       surReduire: function () {
@@ -11197,6 +11307,13 @@
       },
       surMenu: function () { ouvrirFeuilleMenuSeance(); }
     });
+    // Lot 3 (changement 5) — « Terminer » aussi en bas de la liste ; absent là où le bandeau n'a pas le sien (« Terminé » du mode
+    // Modifier, « Grouper avec… »), et « Enregistrer » en correction.
+    var bas = $('btn-terminer-bas');
+    if (bas) {
+      bas.hidden = !!modeModifier || !!selectionGroupe;
+      bas.textContent = enEdition() ? 'Enregistrer' : 'Terminer';
+    }
     // 62 — la barre vient d'être (re)dessinée : sa hauteur est définitive, et la
     // durée repart de l'heure juste.
     mesurerBarres();
@@ -12890,9 +13007,16 @@
   // « Ce qui manque à tes séances » la reprendra. Jamais en Édition (« Enregistrer » ne passe pas par cette feuille).
   var manqueFin = null;
 
+  // 25/11/2026 (lot 3, changement 3) — LA SALLE D'AVANT, PROPOSÉE à l'ouverture de l'écran de fin : celle de la dernière séance
+  // terminée qui en a déclaré une (`faits.derniereSalleDeclaree`). Elle est ÉCRITE EN CLAIR sur la ligne et ne part que si la personne
+  // termine : `terminerSeance` l'écrit (`Seance.avecSalleDeFin`), jamais avant. `effacee` : la personne a vidé le champ, la
+  // proposition ne revient pas. La salle se déclare toujours (§7 septies.4) : rien n'est deviné du réseau ni d'une position.
+  var salleFin = { proposee: null, effacee: false };
+
   function confirmerFin() {
     majRoutineVoulue = false;
     manqueFin = seance ? Seance.donneeFacultativeVide(seance, local.exercices) : null;
+    salleFin = { proposee: seance ? faits.derniereSalleDeclaree(corpus(), seance.id) : null, effacee: false };
     ouvrirFeuille('fin', null, null);
   }
 
@@ -12917,6 +13041,29 @@
     };
   }
 
+  // 25/11/2026 (lot 3, changement 1) — LE RÉCAP COURT AVANT « TERMINER » : les chiffres, les records, ce que le coach a visé. Les mêmes
+  // fonctions que le récap d'après (`faits.recapDeLaSeance`, qui lit une séance en cours comme une séance finie) : aucun calcul de plus,
+  // aucune écriture. Mémoïsé par ce qui le change (séries validées, paris, journal) : une frappe de titre ne le recalcule pas. Un calcul
+  // qui échoue ne coûte que son bloc (jamais une feuille sans « Terminer »).
+  var memoRecapFin = { cle: null, recap: null };
+  function recapDeFin() {
+    if (!seance) return null;
+    try {
+      var c = corpus();
+      var cle = seance.id + '|' + JSON.stringify(Seance.toutesLesSeries(seance).filter(function (p) { return Seance.partEnBase(p.serie); })
+        .map(function (p) { return [p.serie.id, p.serie.charge_kg, p.serie.reps, p.serie.duree_s, p.serie.distance_m]; })) +
+        '|' + (local.predictions || []).length + '|' + (local.parisLegers || []).length + '|' + (c.journal || []).length + '|' + (seance.note || '');
+      if (memoRecapFin.cle === cle) return memoRecapFin.recap;
+      var apercu = Object.assign({}, seance, { fin: new Date().toISOString() });
+      var r = faits.recapDeLaSeance(c, apercu, parisDeConsigneConnus(seance), parisDeConsigneDuCompte());
+      memoRecapFin = { cle: cle, recap: r };
+      return r;
+    } catch (e) {
+      console.warn('Le récap de l\u2019écran de fin ne se calcule pas, la feuille se passe de lui :', texteErreur(e));
+      return null;
+    }
+  }
+
   function rendreFeuilleFin(cible, index) {
     var routine = routineDeLaSeance();
     // §6.2 — on ne demande QUE si la séance a réellement dévié. Une séance
@@ -12931,13 +13078,19 @@
       remplies: remplies.length,
       surValider: function () { fermerVoile(); amenerEnVue(remplies[0]); },
       surContinuer: function () { fermerVoile(); },
-      // 71 (ECRAN-SAISIE §7 septies.4 bis) — LA FEUILLE DÉCLARE, LE RÉCAP CONSTATE : les records du jour et le
-      // bloc « Le jeu » sont passés au récap, qui s'ouvre juste après « Terminer ».
+      // 25/11/2026 (lot 3, changement 1) — décision 71 rouverte (ECRAN-SAISIE §7 septies.4 bis, delta) : les records du jour et ce que le
+      // coach avait visé reviennent AVANT « Terminer » (le récap court) ; le récap complet reste derrière le toast « Voir le récap ».
+      recap: vide ? null : recapDeFin(),
+      jeu: vide ? null : jeuDeLaFeuille(),
+      sobre: modeSobre(),
       compte: Seance.compter(seance, local.exercices),
       manque: vueManqueFin(index),
       titre: seance.titre,
       note: seance.note,
-      salle: seance.salle,
+      // 25/11/2026 (lot 3, changement 3) — la salle que l'écran dit, et que « Terminer » écrira : la sienne, sinon celle d'avant.
+      salle: Seance.salleDeFin(seance, salleFin.proposee, salleFin.effacee),
+      modifier: !!(feuille && feuille.modifier),
+      surModifier: function () { if (feuille) feuille.modifier = true; rendreFeuille(); },
       salleMax: Seance.SALLE_MAX,
       routine: routine ? routine.nom : '',
       ecarts: verdict.ecarts.map(function (e) {
@@ -12958,7 +13111,11 @@
       // séance part entière au moment de terminer. Poser la file à chaque
       // frappe d'un titre n'apporterait rien — la séance est déjà montée.
       surTitre: function (v) { seance = Seance.decrire(seance, { titre: v }); sauverSeance(); },
-      surSalle: function (v) { seance = Seance.decrire(seance, { salle: v }); sauverSeance(); },
+      surSalle: function (v) {
+        seance = Seance.decrire(seance, { salle: v });
+        salleFin.effacee = !seance.salle;   // vidée à la main : la proposition ne revient pas
+        sauverSeance();
+      },
       surNoteSeance: function (v) { seance = Seance.decrire(seance, { note: v }); sauverSeance(); },
       // 115 (audit du 16/10, E4 ; décision D10) — des séries remplies mais pas validées ne partent pas en
       // silence : une phrase d'abord, « Les valider » ou « Terminer quand même ».
@@ -20994,6 +21151,7 @@
     // Sans argument : l'exercice se pose À LA FIN. Insérer après un bloc précis
     // reste le fait du menu de bloc, qui passe un vrai indice.
     $('btn-ajouter-exo-seance').addEventListener('click', function () { ouvrirCatalogue(); });
+    $('btn-terminer-bas').addEventListener('click', terminerOuEnregistrer);   // lot 3 (changement 5) : la même action que le haut
     $('btn-fermer-feuille').addEventListener('click', fermerVoile);
     $('feuille-seance').addEventListener('click', function (e) { if (e.target === this) fermerVoile(); });
 
@@ -21064,13 +21222,7 @@
     ['fenetre-muscle', 'calendrier', 'catalogue'].forEach(function (id) {
       $(id).addEventListener('click', function (e) { if (e.target === this) fermerVoile(); });
     });
-    $('btn-rafraichir').addEventListener('click', async function () {
-      Rendu.rendreEtat($('etat-sync'), { code: 'sync', libelle: 'Synchronisation…', local: false });
-      await synchroniser();
-      await chargerProfil();
-      // La ligne de profil a pu ouvrir le questionnaire : on ne le recouvre pas.
-      if (vues.questionnaire.hidden) afficherSemaine();
-    });
+    brancherTirage();
 
     // Chaque onglet est une VUE du routeur, avec son URL — pas un basculement
     // d'affichage. Séances renvoie sur la semaine courante.

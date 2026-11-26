@@ -790,6 +790,20 @@
   // (la première séance, sans passé, ne se plafonne pas) : 17-16-15 en Volume (10-12) comptent 12-12-12. Seules les séances qui ont
   // REÇU une consigne (`sousConsigne`) sont plafonnées : une habitude installée sans consigne se compte entière. La zone ne bascule
   // plus seule sur un dépassement ; elle change par un choix de la personne (la carte « Passer en… », `poserZone`).
+  // 26/11/2026 (MOTEUR §9.1.2, delta « le plafond de 186 est celui du rangement ») — LE PLAFOND D'UNE ZONE EST LE PLUS HAUT NOMBRE DE
+  // REPS QUE `RANGEMENT` RANGE ENCORE DANS ELLE, pas son haut prescrit : `RANGEMENT` range le haut de Mix (8) en Hypertrophie et celui
+  // d'Hypertrophie (10) en Volume. Plafonné au haut, une habitude de 7 devenait 8 en atteignant son haut : la zone déduite changeait
+  // parce que la personne avait fait ce qu'on lui demandait, et la cible continuait de monter à charge plate (40 × 8, puis 10, puis 13).
+  // Mix 7 · Hypertrophie 9 · Lourd 5, Volume 12 et Séries longues 20 (leur haut est déjà celui de leur rangement). La zone CHOISIE n'est
+  // pas lue ici : ses règles (cible, haut, réserve) ne passent pas par ce plafond.
+  function plafondDeLaZone(zone) {
+    var haut = nombre(zone.haut);
+    for (var r = haut; r >= 0; r--) {
+      var rangee = zoneDe(r);
+      if (rangee !== null && rangee.cle === zone.cle) return r;
+    }
+    return haut;
+  }
   function reposPlafonne(x, plafond) {
     var recue = !!x.seance && x.seance.sousConsigne === true;
     return repsDe(x.auPalier || []).map(function (r) { return recue && plafond !== null && plafond !== undefined && r > plafond ? plafond : r; });
@@ -822,7 +836,7 @@
       }
       chaine = false;
       var z = habitude === null ? null : zoneDe(habitude);
-      x.plafond = z === null || parSeance.length < FENETRE_COUPLE ? null : nombre(z.haut);
+      x.plafond = z === null || parSeance.length < FENETRE_COUPLE ? null : plafondDeLaZone(z);
       var reps = reposPlafonne(x, x.plafond);
       parSeance.push(reps);
       var tout = [];

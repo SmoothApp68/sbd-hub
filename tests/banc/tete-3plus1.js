@@ -182,6 +182,24 @@ function fauxSupabase(sc) {
 const calme = (page) => page.evaluate(() => new Promise((ok) => { let n = 0, prec = performance.now();
   const tour = (t) => { n = (t - prec) < 60 ? n + 1 : 0; prec = t; if (n >= 15) ok(true); else requestAnimationFrame(tour); }; requestAnimationFrame(tour); }));
 
+// 26/11/2026 — ATTENDRE L'ÉTAT, jamais une durée. `calme` ne dit que « plus d'animation » : il peut tomber AVANT que l'app ait rangé le profil dans son cache
+// (`THCache.lireMeta('profil')`). Le 2e chargement (`/saisie`) lit ce cache au démarrage, AVANT son premier rendu : un profil pas encore rangé = une semaine de test inconnue,
+// donc la carte des chauffes au lieu de celle du test (relevé en CI, état (f), 2e exécution). `jusqua` interroge l'état toutes les 50 ms ; au plafond il le dit et compte un échec.
+const PLAFOND_MS = 30000;
+const jusqua = async (page, nom, cond, arg) => {
+  const t0 = Date.now();
+  for (;;) {
+    let v = false;
+    try { v = await page.evaluate(cond, arg); } catch (x) { v = false; }
+    if (v) return true;
+    if (Date.now() - t0 >= PLAFOND_MS) { ko++; console.log('   ❌ attente plafonnée (' + (PLAFOND_MS / 1000) + ' s) : ' + nom); return false; }
+    await new Promise((r) => setTimeout(r, 50));
+  }
+};
+// Le profil est rangé dans le cache de l'app ; avec `avecTest`, il porte la semaine de test.
+const profilRange = (page, avecTest) => jusqua(page, 'le profil est rangé dans le cache' + (avecTest ? ' avec sa semaine de test' : ''),
+  (t) => window.THCache.lireMeta('profil').then((p) => !!p && (!t || !!(p.cartes_semaine && p.cartes_semaine.test))), !!avecTest);
+
 // Ce que la page montre de chaque exercice : hauteur au-dessus de la 1re série, les éléments de la tête, les cartes, les textes.
 const MESURER = () => {
   const vis = (e) => { const r = e.getBoundingClientRect(); return r.height > 0 && !e.hidden && getComputedStyle(e).display !== 'none' && getComputedStyle(e).visibility !== 'hidden'; };
@@ -254,12 +272,16 @@ async function jouer(code, sc, port) {
     await page.goto('http://127.0.0.1:' + port + '/', { waitUntil: 'load' });
     await page.waitForSelector('#vue-liste:not([hidden])', { timeout: 60000 }).catch(() => {});
     await calme(page);
+    await profilRange(page, sc.semaineDeTest);   // l'état que le 2e chargement lira, posé AVANT d'y aller
     await page.goto('http://127.0.0.1:' + port + '/saisie', { waitUntil: 'load' });
     await page.waitForSelector('button.demarrer', { timeout: 60000 });
     await calme(page);
+    await profilRange(page, sc.semaineDeTest);
     await page.evaluate(() => document.querySelector('button.demarrer').click());
     await page.waitForFunction(() => document.querySelectorAll('#vue-seance .ligne-serie').length > 0, null, { timeout: 30000 });
     await calme(page);
+    // (f) : la carte du test est POSÉE (c'est l'état que les contrôles lisent), pas seulement « l'écran ne bouge plus ».
+    if (sc.semaineDeTest) await jusqua(page, 'la carte de la semaine de mesure est posée', () => !!document.querySelector('#vue-seance .proposition-test'));
     const capture = async (suffixe, mesures) => {
       if (!CAPTURES) return;
       const blocs = page.locator('#vue-seance .bloc-seance');

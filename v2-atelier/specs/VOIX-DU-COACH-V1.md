@@ -171,6 +171,11 @@ Aux autres, la même phrase, un fait, sans comparaison et sans deviner le but : 
 dernière semaine. Les autres exercices gardent leur zone. » (Muscle, Forme) ; « Le suivant : Hypertrophie (8-10) sur… » ; **sans réponse**, « Le suivant : Lourd (3-5)
 sur tes mouvements à la barre… ». Boutons : « Commencer le bloc Mix », « Commencer le bloc Hypertrophie », « Commencer le bloc Lourd ». Jamais l'assiduité.
 
+## « En force » ne s'écrit qu'à la force (26/11/2026, MOTEUR §14.5 delta)
+
+La carte « Changer de schéma » dit « En force, une série de plus aide peu. » à Force et Les deux seulement. Aux autres, le détail est le fait seul :
+« Changer de schéma quelques semaines peut relancer la barre, avant d'y revenir. » La règle ne change pas.
+
 ## Ce qui reste à faire
 
 *Réécrit au présent le 05/11/2026 (243) : la refonte du plan unique est faite.* La garde `tests/unit/v2-voix.test.js` (règles de

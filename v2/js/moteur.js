@@ -9376,6 +9376,9 @@
   };
   var DETAIL_SCHEMA = 'En force, une série de plus aide peu. Changer de schéma quelques semaines ' +
     'peut relancer la barre, avant d\'y revenir.';
+  // 26/11/2026 : « En force, … » ne s'écrit plus qu'à Force et Les deux ; aux autres (Muscle, Forme, Calisthénie, sans réponse), le même
+  // conseil sans cette première phrase. Le texte seul change : la règle de l'escalier (`marcheIsolee`) est la même pour tous.
+  var DETAIL_SCHEMA_SANS_FORCE = 'Changer de schéma quelques semaines peut relancer la barre, avant d\'y revenir.';
   var FIN_SECHE = ' En sèche, je ne te propose rien de plus.';
 
   // Le n-ième déclenchement isolé depuis le dernier progrès : n = (compteur −
@@ -9489,13 +9492,13 @@
 
   // CHANGER DE SCHÉMA (zones force, n = 1) : la carte sous l'exercice. Rend
   // `null` hors des zones force.
-  function carteSchema(zone, meilleur, compteur, avancent) {
+  function carteSchema(zone, meilleur, compteur, avancent, objectif) {
     var s = SCHEMAS[zone];
     if (!s || !meilleur || meilleur.niveau === null || meilleur.niveau === undefined) return null;
     return {
       zone: zone, nouvelle_zone: s.vers,
       phrase: meilleurDepuis(meilleur, compteur) + (avancent ? ', et tes autres exercices avancent.' : '.'),
-      detail: DETAIL_SCHEMA, oui: s.oui, non: s.non
+      detail: objectifDeForce(objectif) ? DETAIL_SCHEMA : DETAIL_SCHEMA_SANS_FORCE, oui: s.oui, non: s.non
     };
   }
 

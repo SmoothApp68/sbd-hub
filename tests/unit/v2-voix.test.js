@@ -355,8 +355,11 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
   // séance du repli : « mardi » doit y remplacer la date. Aucun « palier ».
   const ISO = require('./fixtures/cas-49u15-blocage-isole.json');
   ISO.schema.forEach((c) => {
-    const k = M.carteSchema(c.zone, { palier: c.meilleur[0], niveau: c.meilleur[1] }, c.compteur, c.autres_avancent);
+    const k = M.carteSchema(c.zone, { palier: c.meilleur[0], niveau: c.meilleur[1] }, c.compteur, c.autres_avancent, 'force');
     noter('escalier isolé', 'cas-49u15 ' + c.id, [k.phrase, k.detail, k.oui, k.non]);
+    // 26/11/2026 — le même détail à qui n'est ni en Force ni en Les deux : sans « En force ».
+    const k2 = M.carteSchema(c.zone, { palier: c.meilleur[0], niveau: c.meilleur[1] }, c.compteur, c.autres_avancent, 'muscle');
+    noter('escalier isolé', 'cas-49u15 ' + c.id + ' muscle', [k2.phrase, k2.detail, k2.oui, k2.non]);
   });
   noter('escalier isolé', 'sèche', [M.phraseSeche({ compteur: 4, meilleur: { palier: 27, niveau: 12 }, blocages: [] })]);
   noter('escalier isolé', 'silence', [M.phraseCompteur({ compteur: 12, meilleur: { palier: 80, niveau: 10 }, blocages: [] })]);
@@ -655,7 +658,7 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     // puis (49-U17) 4 cartes de série de plus × 4 textes + le gris d'après.
     // 49-U18 : R004 n'est plus un repli atteint (l'écart habituel sur les 8
     // derniers écarts fait repartir son compteur de zéro) — 2 phrases de moins.
-    expect(parFamille['escalier isolé']).toBe(33);
+    expect(parFamille['escalier isolé']).toBe(33 + 3 * 4);   // + 26/11/2026 : les 3 cartes de schéma, redites sans « En force »
     // 49-U20 : 7 phrases des 10 cas de frères (3 sans frère qui progresse).
     expect(parFamille['frères']).toBe(7);
     // 50-1 bis : une phrase, celle de la page d'un exercice au poids du corps.

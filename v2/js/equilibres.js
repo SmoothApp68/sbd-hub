@@ -1634,7 +1634,7 @@
       }) : portee.slice(0, 1);
       var ss = liste(e.seances).filter(function (s) {
         var jour = s && s.debut ? cleDeJour(dateDe(s.debut)) : null;
-        return s && membres.indexOf(s.routine_id) >= 0 && s.statut !== 'en_cours' && s.decharge !== true && !dansUnePeriode(e.periodesAllegees, jour) &&
+        return s && membres.indexOf(s.routine_id) >= 0 && s.statut !== 'en_cours' && Modele().vote(s, 'equilibres') && !dansUnePeriode(e.periodesAllegees, jour) &&
           Semaine().estSeanceDeMusculation(seriesDe[s.id] || [], cat);
       }).sort(function (a, b) { return String(a.debut) < String(b.debut) ? 1 : -1; }).slice(0, GESTES_FENETRE);
       var touche = ss.filter(function (s) {

@@ -14,8 +14,8 @@
  {
   "nom": "mu3 — plancher de réserve des protégés à 0 (I160)",
   "fichier": "moteur.js",
-  "ancien": "var RESERVE_PLANCHER = 2;",
-  "nouveau": "var RESERVE_PLANCHER = 0;"
+  "ancien": "reservePlancher: 2,  ",
+  "nouveau": "reservePlancher: 0,  "
  },
  {
   "nom": "mu4 — plus aucune reprise (P7)",
@@ -86,8 +86,8 @@
  {
   "nom": "n3 AGE_PLAFOND_BAS 65 → 75",
   "fichier": "moteur.js",
-  "ancien": "var AGE_PLAFOND_BAS = 65, AGE_UN_CRAN = 50;",
-  "nouveau": "var AGE_PLAFOND_BAS = 75, AGE_UN_CRAN = 50;"
+  "ancien": "agePlafondBas: 65, ",
+  "nouveau": "agePlafondBas: 75, "
  },
  {
   "nom": "n4 FACTEUR_COUPURE 3 → 4",
@@ -110,8 +110,8 @@
  {
   "nom": "n7 plancher du soulevé 2 → 1",
   "fichier": "moteur.js",
-  "ancien": "var PLANCHER_DE_BARRE = { squat: 1, couche: 1, militaire: 1, souleve: 2 };",
-  "nouveau": "var PLANCHER_DE_BARRE = { squat: 1, couche: 1, militaire: 1, souleve: 1 };"
+  "ancien": "souleve: 2 }  // la réserve affichée à la barre",
+  "nouveau": "souleve: 1 }  // la réserve affichée à la barre"
  },
  {
   "nom": "n8 la tenue après une chute vaut à chaque fois (plus « une fois de suite »)",
@@ -122,8 +122,8 @@
  {
   "nom": "n9 PLAFOND_SAUT_DEBUTANT 0,10 → 0,15",
   "fichier": "moteur.js",
-  "ancien": "var PLAFOND_SAUT_DEBUTANT = 0.10;",
-  "nouveau": "var PLAFOND_SAUT_DEBUTANT = 0.15;"
+  "ancien": "plafondDeSautPrudent: 0.10,",
+  "nouveau": "plafondDeSautPrudent: 0.15,"
  },
  {
   "nom": "n10 capaciteTenue : la reprise longue n'est plus exclue",
@@ -172,6 +172,48 @@
   "fichier": "plan.js",
   "ancien": "if (!jour || jour < T.debut || jour > T.fin) return null;",
   "nouveau": "if (!jour || jour < T.debut || jour >= T.fin) return null;"
+ },
+ {
+  "nom": "l4a — la population protégée ignore l'objectif Forme (prudence.protegee)",
+  "fichier": "moteur.js",
+  "ancien": "x.plus65 === true || debutant || x.objectif === 'forme'",
+  "nouveau": "x.plus65 === true || debutant"
+ },
+ {
+  "nom": "l4b — la population protégée ignore les 65 ans et plus (prudence.protegee)",
+  "fichier": "moteur.js",
+  "ancien": "x.plus65 === true || debutant || x.objectif === 'forme'",
+  "nouveau": "debutant || x.objectif === 'forme'"
+ },
+ {
+  "nom": "l3a — QUI_VOTE.jetonDuJourSans : le filtre `neutre` tombe",
+  "fichier": "modele.js",
+  "ancien": "jetonDuJourSans: ['neutre', 'decharge'],",
+  "nouveau": "jetonDuJourSans: ['decharge'],"
+ },
+ {
+  "nom": "l3c — QUI_VOTE.paris : un pari de jour sans compte",
+  "fichier": "modele.js",
+  "ancien": "paris:           ['allegee', 'jourSans']",
+  "nouveau": "paris:           ['allegee']"
+ },
+ {
+  "nom": "l3d — QUI_VOTE.paris : un pari de décharge compte",
+  "fichier": "modele.js",
+  "ancien": "paris:           ['allegee', 'jourSans']",
+  "nouveau": "paris:           ['jourSans']"
+ },
+ {
+  "nom": "l4c — un cran à la fois dès 60 ans au lieu de 50 (prudence.ageUnCran)",
+  "fichier": "moteur.js",
+  "ancien": "ageUnCran: 50, ",
+  "nouveau": "ageUnCran: 60, "
+ },
+ {
+  "nom": "l3g — QUI_VOTE.plafondDuZero : le plafond après un zéro lit une décharge",
+  "fichier": "modele.js",
+  "ancien": "plafondDuZero:   ['decharge'],",
+  "nouveau": "plafondDuZero:   [],"
  },
  {
   "nom": "témoin — un commentaire change (doit SURVIVRE)",

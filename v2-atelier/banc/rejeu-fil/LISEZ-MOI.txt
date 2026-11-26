@@ -23,6 +23,9 @@ saut de plusieurs crans, reprise longue faite au-dessus, légère prise d'elle-m
   elastique   une salle d'élastiques (crans 10 à 30)                        lest        poids du corps, reps hautes, `lestReponse` null / oui / non
   decharge    une séance sur quatre dans une semaine allégée (`allegee`)    veille      une activité dure la veille, `veilleChoix` null / leger / garder
   test        une séance sur trois en semaine de test (barre testée)
+Lots 3 et 4 (26/11/2026) : scripts neutre_* (« Sans coach », « J'ai mal » dans un jour sans), decharge_* (décharge dans un jour sans), le compte du bilan (Bilan.compterParis, en dernier de la signature), débutants de
+50 à 59 ans au squat (saut50). Les filtres `decharge` seuls (légère, séances lues, jeton, compteur) sont des mutants ÉQUIVALENTS : une décharge est toujours aussi `neutre` (moteur.js, marquerSousConsigne) ; de même le filtre `neutre`
+des séances lues et du jeton, redondant avec `palier` nul. Ils ne sont pas dans mutations.json.
 Restent aveugles (non faits, lot 1 : chacun dépasse les 300 lignes) : les chauffes (`propositionDeChauffes`) et les supersets (`tours`).
 Les cas sont joués sur une barre seule : le mélange de plusieurs exercices dans une séance n'est pas rejoué.
 

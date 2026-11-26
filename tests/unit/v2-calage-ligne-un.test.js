@@ -81,3 +81,41 @@ describe('lot 5 n° 6 — la ✓ de la ligne 1 et « Partir de là » donnent le
     expect(T.verifierPlan(T.planDeSeance(e), e).erreurs.filter((m) => /^I7[2-5]/.test(m))).toEqual([]);
   });
 });
+
+describe('lot 5 n° 6 — où se tape la réponse (écart 3) : la ligne 1 seulement si c’est une série de travail', () => {
+  const verif = (se) => { const e = entree(se, { habituelles: se.habituelles }); return T.verifierPlan(T.planDeSeance(e), e).erreurs.filter((m) => /^I7[2-5]/.test(m)); };
+  test('ligne 1 = série de travail : la carte demande, la ligne 1 sert de réponse, aucune proposition', () => {
+    const se = seanceDe(false);
+    const x = planDe(se);
+    expect(x.calage.demandeHabituelle).toBe(true);
+    expect(x.calage.saisieEnLigne).toBe(true);
+    expect(x.lignes.map((l) => !!l.reponseCalage)).toEqual([true, false, false]);
+    expect(x.lignes.some((l) => l.calage)).toBe(false);
+    expect(x.calage.libelles.question).toBe('Ta charge habituelle ?');
+    expect(x.calage.libelles.passer).toBe('Je ne sais pas : on la trouve ensemble');
+    expect(verif(se)).toEqual([]);
+  });
+  test('ligne 1 = chauffe : la carte garde son champ (pas de réponse en ligne), rien n’est marqué', () => {
+    const se = seanceDe(true);
+    const x = planDe(se);
+    expect(x.lignes[0].type).toBe('echauffement');
+    expect(x.calage.demandeHabituelle).toBe(true);
+    expect(x.calage.saisieEnLigne).toBe(false);
+    expect(x.lignes.some((l) => l.reponseCalage)).toBe(false);
+    expect(verif(se)).toEqual([]);
+  });
+  test('la question répondue (Partir de là), passée (Je ne sais pas) ou la 1re série validée : plus de réponse en ligne', () => {
+    [S.poserHabituelle(seanceDe(false), 'rowing', 80), S.poserHabituelle(seanceDe(false), 'rowing', 0), valider(seanceDe(false), 0, 80, 8)].forEach((se) => {
+      const x = planDe(se);
+      expect(x.calage.saisieEnLigne).toBe(false);
+      expect(x.lignes.some((l) => l.reponseCalage)).toBe(false);
+      expect(verif(se)).toEqual([]);
+    });
+  });
+  test('un plan truqué est refusé : réponse sur une chauffe, ou réponse avec une proposition', () => {
+    const se = seanceDe(false), e = entree(se);
+    const p = T.planDeSeance(e);
+    p.exercices[0].lignes[1].reponseCalage = true;
+    expect(T.verifierPlan(p, e).erreurs.filter((m) => /^I74/.test(m)).length).toBeGreaterThan(0);
+  });
+});

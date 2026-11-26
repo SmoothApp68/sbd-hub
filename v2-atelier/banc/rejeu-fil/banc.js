@@ -21,7 +21,7 @@ function contexte(dir) {
   const ctx = { console, Date, Math, JSON, Object, Array, String, Number, Boolean, RegExp, Error, Map, Set, Intl, isNaN, parseFloat, parseInt, setTimeout };
   ctx.self = ctx; ctx.globalThis = ctx; vm.createContext(ctx);
   FICHIERS.forEach(f => vm.runInContext(fs.readFileSync(path.join(dir, f + '.js'), 'utf8'), ctx, { filename: f }));
-  return { M: ctx.THMoteur, S: ctx.THSeance, T: ctx.THPlan, F: ctx.THFaits.creer() };
+  return { M: ctx.THMoteur, S: ctx.THSeance, T: ctx.THPlan, F: ctx.THFaits.creer(), B: ctx.THBilan };
 }
 function alea(graine) { let s = graine % 2147483648; return () => { s = (s * 1103515245 + 12345) % 2147483648; return s / 2147483648; }; }
 const EXOS = { squat_barre: { nom: 'Squat', equipement: 'barre', mesure: 'charge_reps', pas: 2.5, kg: 100, famille: 'squat_barre' },
@@ -52,13 +52,25 @@ function histoires(n) {
     retour: ['suit', 'suit', 'depasse3', 'zero', 'suit', 'suit', 'suit', 'suit'],
     saut: ['suit', 'depasse3', 'depasse3', 'depasse3', 'depasse3', 'depasse3', 'depasse3'],
     legere_apres_pause: ['suit', 'suit', 'suit', 'zero', 'pause21moins', 'suit', 'suit', 'suit'],
-    reprise_haute: ['suit', 'suit', 'suit', 'suit', 'pause100', 'suit', 'suit', 'suit']
+    reprise_haute: ['suit', 'suit', 'suit', 'suit', 'pause100', 'suit', 'suit', 'suit'],
+    // LOT 3 (qui vote) : des séances neutres (« Sans coach » : SC, « J'ai mal » : DL) et une décharge (`decharges` : les rangs en semaine allégée) qui tombent dans un jour sans.
+    neutre_sc: ['suit', 'suit', 'suit', 'zero', 'legereSC', 'suit', 'suit', 'suit'],
+    neutre_dl: ['suit', 'suit', 'suit', 'zero', 'legereDL', 'suit', 'suit', 'suit'],
+    neutre_lues: ['suit', 'suitSC', 'suitDL', 'zero', 'legere', 'suit', 'suit', 'suit'],
+    neutre_jeton: ['suit', 'suit', 'suit', 'zero', 'legere', 'suitSC', 'zero', 'suit', 'suit'],
+    decharge_legere: ['suit', 'suit', 'suit', 'zero', 'legere', 'suit', 'suit', 'suit'],
+    decharge_zero: ['suit', 'suit', 'suit', 'zero', 'legere', 'suit', 'suit', 'suit'],
+    decharge_lues: ['suit', 'suit', 'suit', 'zero', 'legere', 'suit', 'suit', 'suit'],
+    decharge_jeton: ['suit', 'suit', 'suit', 'zero', 'legere', 'suit', 'zero', 'suit', 'suit'],
+    decharge_compteur: ['suit', 'suit', 'suit', 'suit', 'suit', 'suit', 'suit', 'suit', 'suit', 'suit']
   };
-  Object.keys(SCRIPTS).forEach(nom => { for (let k = 0; k < (nom === 'saut' ? 30 : 15); k++) {
+  const EXTRA = { neutre_sc: { age: null }, decharge_legere: { cas: 'decharge', decharges: [4] }, decharge_zero: { cas: 'decharge', decharges: [3] }, decharge_lues: { cas: 'decharge', decharges: [1, 2] },
+    decharge_jeton: { cas: 'decharge', decharges: [5] }, decharge_compteur: { cas: 'decharge', decharges: [2, 3, 4, 5, 6] } };
+  Object.keys(SCRIPTS).forEach(nom => { for (let k = 0; k < (nom === 'decharge_zero' ? 90 : nom === 'saut' || /^(neutre|decharge)_/.test(nom) ? 30 : 15); k++) {
     const saut = nom === 'saut', rh = nom === 'reprise_haute';
-    H.push({ script: SCRIPTS[nom], dirigee: nom, age: saut ? pick([67, 70, 72, null]) : null, slug: saut ? 'developpe_militaire_barre' : pick(['squat_barre', 'souleve_de_terre_barre', 'developpe_militaire_barre', 'curl_halteres']),
+    H.push(Object.assign({ script: SCRIPTS[nom], dirigee: nom, age: saut ? pick([67, 70, 72, null]) : null, slug: saut ? 'developpe_militaire_barre' : pick(['squat_barre', 'souleve_de_terre_barre', 'developpe_militaire_barre', 'curl_halteres']),
       zone: rh ? pick(['lourd', 'mix']) : saut ? pick(['lourd', 'hypertrophie']) : pick(['lourd', 'mix', 'hypertrophie', 'volume']), reglage: saut ? 'franc' : rh ? 'normal' : pick(['normal', 'franc', 'prudent']), protegee: false,
-      debutant: saut ? r() < 0.5 : false, nseries: pick([3, 4]), noteR: nom === 'reprise_haute', nseances: SCRIPTS[nom].length, graine: Math.floor(r() * 1e9) });
+      debutant: saut ? r() < 0.5 : false, nseries: pick([3, 4]), noteR: nom === 'reprise_haute', nseances: SCRIPTS[nom].length, graine: Math.floor(r() * 1e9) }, EXTRA[nom] || {}));
   } });
   // LES CAS AJOUTÉS (lot 1) : tirage à part, ajoutés à la suite. Chaque cas vise ce que la consigne seule ne joue pas.
   const q = alea(GRAINE + 4242), qp = a => a[Math.floor(q() * a.length)];
@@ -71,6 +83,8 @@ function histoires(n) {
   for (let k = 0; k < 18; k++) H.push(fiche('decharge', qp(['squat_barre', 'curl_halteres', 'developpe_militaire_barre']), { nseances: 14 }));   // la décharge (allegee)
   for (let k = 0; k < 18; k++) H.push(fiche('veille', qp(['squat_barre', 'souleve_de_terre_barre']), { zone: 'lourd', reglage: qp(['normal', 'franc']), nseances: 12 }));  // la veille d'une activité dure
   for (let k = 0; k < 12; k++) H.push(fiche('test', qp(['squat_barre', 'souleve_de_terre_barre']), { nseances: 12 }));          // la semaine de test
+  // LOT 4 : le débutant de 50 à 59 ans (un cran à la fois, `AGE_UN_CRAN`) : le saut de plusieurs crans au squat (100 kg : 10 % = 4 crans), que le tirage libre ne joue jamais.
+  for (let k = 0; k < 24; k++) H.push(Object.assign(fiche('debutant50', 'squat_barre', { zone: qp(['lourd', 'hypertrophie']), reglage: 'franc', debutant: true, nseances: SCRIPTS.saut.length }), { cas: null, dirigee: 'saut50', script: SCRIPTS.saut, age: [50, 54, 59][k % 3], noteR: false }));
   return H;
 }
 const esp = t => String(t == null ? '' : t).replace(/[  \s]+/g, ' ').trim();
@@ -112,17 +126,19 @@ function signer(X, H, groupes, i, avant, etat) {
     sig.push(c && [c.etat, c.ligne, c.haut, c.n, c.couvre, c.allegee || null, c.carteLest || null], vl, va && [va.slug, va.phrase, va.boutons], p && p.veilleReprise ? esp(p.veilleReprise.phrase) : null,
       st && [st.testee && (st.testee.slug || st.testee), st.barres], x && x.semaineDeTest ? JSON.stringify(x.semaineDeTest).slice(0, 400) : null, x && x.pourquoi ? esp(JSON.stringify(x.pourquoi)).slice(0, 300) : null);
   }
+  sig.push(etat.compte ? [etat.compte.verifies, etat.compte.tenus] : null);   // le compte du bilan (`Bilan.compteLe`), en dernier : les rangs d'avant ne bougent pas
   return { sig: JSON.stringify(sig), x, k };
 }
 
 function jouer(X, H) {
   const sigs = [], groupes = [], paris = []; let t = Date.UTC(2026, 0, 5, 17);
   const etat = { parisRates: {}, periodes: [],
-    decharge: i => H.cas === 'decharge' && i % 4 === 3, veille: i => H.cas === 'veille' ? [null, 'leger', 'garder'][i % 3] : null, test: i => H.cas === 'test' && i % 3 === 1 };
+    decharge: i => H.cas === 'decharge' && (H.decharges ? H.decharges.indexOf(i) >= 0 : i % 4 === 3), veille: i => H.cas === 'veille' ? [null, 'leger', 'garder'][i % 3] : null, test: i => H.cas === 'test' && i % 3 === 1 };
   const E = EXOS[H.slug];
   for (let i = 0; i < H.nseances; i++) {
     const r = alea(H.graine + 7919 * i);
-    const act = H.script ? H.script[i] : null;
+    const brut = H.script ? H.script[i] : null, marque = brut && /SC$/.test(brut) ? 'sans_coach' : brut && /DL$/.test(brut) ? 'douleur' : null;
+    const act = brut ? brut.replace(/(SC|DL)$/, '') : null;
     const u = act === 'pause100' ? -1 : act === 'pause21moins' ? -2 : act ? 1 : r(); t += (u === -2 ? 21 : u < 0 ? 100 : u < 0.04 ? 100 + Math.floor(r() * 30) : u < 0.08 ? 38 + Math.floor(r() * 62) : u < 0.13 ? 18 + Math.floor(r() * 20) : u < 0.18 ? 8 + Math.floor(r() * 10) : 3 + Math.floor(r() * 2)) * 864e5;
     const avant = new Date(t).toISOString();
     if (H.cas === 'decharge' && etat.decharge(i)) etat.periodes = etat.periodes.concat([{ debut: jourDe(avant), fin: jourDe(avant) }]);
@@ -137,7 +153,7 @@ function jouer(X, H) {
     const desob = act || H.cas ? 1 : groupes.length ? r() : 1;   // 10 % : la personne ne suit pas la charge de la consigne
     if (desob < 0.10) { const pas = E.pas, prec = groupes[groupes.length - 1].series[0].charge_kg;
       charge = desob < 0.033 ? prec : desob < 0.066 ? charge + pas : Math.max(pas, charge - pas); }
-    if (act === 'pause21moins') { const prec = groupes.slice().reverse().find(g => g.series.some(s => s.reps > 0)); const P = prec ? prec.series[0].charge_kg : charge, pas = E.pas;
+    if (act === 'pause21moins' || act === 'legere') { const prec = groupes.slice().reverse().find(g => g.series.some(s => s.reps > 0)); const P = prec ? prec.series[0].charge_kg : charge, pas = E.pas;
       charge = Math.round(P * 0.95 / pas) * pas; if (charge >= P) charge = P - pas; }
     if (act === 'avant' || act === 'zeroDessus') { const prec = groupes.slice().reverse().find(g => g.series.some(s => s.reps > 0));
       charge = prec ? prec.series[0].charge_kg : charge; if (act === 'zeroDessus') charge += E.pas; }
@@ -160,6 +176,7 @@ function jouer(X, H) {
       const R = H.noteR && j === H.nseries - 1 && reps > 0 ? (act === 'pause100' ? 1 : act ? null : Math.floor(r() * 4)) : null;
       series.push({ id: 'h' + i + '_' + j, session_id: 'S' + i, exercise_slug: H.slug, charge_kg: kg, reps, type_serie: reps === 0 && j === 0 ? 'echec' : 'travail',
         rang: j + 1, rpe: R === null ? null : 10 - R, ressenti: null, validee_a: avant, source: 'app' });
+      if (marque) series[series.length - 1][marque] = true;
     }
     groupes.push({ seance: { id: 'S' + i, debut: avant }, series });
     observer(X, H, paris, 'S' + i, series, etat);
@@ -170,7 +187,9 @@ function jouer(X, H) {
 function observer(X, H, paris, id, series, etat) {
   paris.filter(p => p.seance === id).forEach(p => { p.observee = series[p.j] ? series[p.j].reps : null; });
   const obs = paris.filter(p => p.observee != null).map(p => ({ seance: p.seance, date: p.date, exercice: H.slug, predite: p.q.valeur_predite, observee: p.observee,
-    charge: p.q.fondement ? p.q.fondement.charge : null }));
+    charge: p.q.fondement ? p.q.fondement.charge : null,
+    allegee: !!(p.q.fondement && p.q.fondement.allegee), jourSans: !!(p.q.fondement && p.q.fondement.jourSans) }));
+  try { etat.compte = X.B.compterParis(obs, () => true); } catch (e) { etat.compte = null; }
   try { etat.parisRates = X.F.parisRatesALaSuite(obs, null, []); } catch (e) { etat.parisRates = {}; }
 }
 

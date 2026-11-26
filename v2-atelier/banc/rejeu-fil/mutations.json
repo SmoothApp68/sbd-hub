@@ -216,6 +216,24 @@
   "nouveau": "plafondDuZero:   [],"
  },
  {
+  "nom": "s1 — plusTot sans Muscle (le volume n’est plus protégé en Muscle)",
+  "fichier": "moteur.js",
+  "ancien": "var plusTot = obj === 'muscle' || (obj === 'les_deux' && x.barre !== true);",
+  "nouveau": "var plusTot = (obj === 'les_deux' && x.barre !== true);"
+ },
+ {
+  "nom": "s2 — protege sans Les deux sur barre (la charge n’est plus protégée)",
+  "fichier": "moteur.js",
+  "ancien": "var protege = obj === 'force' || (obj === 'les_deux' && c.barre === true);",
+  "nouveau": "var protege = obj === 'force';"
+ },
+ {
+  "nom": "s3 — REPS_DEFAUT à 7·9·12 (tuée par la table programmes)",
+  "fichier": "generateur.js",
+  "ancien": "var REPS_DEFAUT = [8, 9, 12];",
+  "nouveau": "var REPS_DEFAUT = [7, 9, 12];"
+ },
+ {
   "nom": "témoin — un commentaire change (doit SURVIVRE)",
   "fichier": "moteur.js",
   "ancien": "// 12 semaines, INCLUSES dans la courte",

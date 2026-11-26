@@ -1601,8 +1601,21 @@
   // 186 — les crans d'un dépassement : Normal, deux crans dès 6 reps ou 50 % au-dessus du haut ; le plafond d'un saut de plusieurs crans.
   var DEPASSEMENT_NORMAL_REPS = 6;
   var DEPASSEMENT_NORMAL_PART = 0.5;
-  var PLAFOND_SAUT = 0.15;
-  var PLAFOND_SAUT_DEBUTANT = 0.10;
+  // ══ LA PRUDENCE : UNE TABLE, UNE FONCTION (chantier « Le coach en un fil », lot 4, principe P9, MOTEUR §9.13 bis) ═══════════════════════════════════════════
+  // Les planchers et plafonds de prudence vivaient en cinq constantes éparses ; ils sont ICI, dans la table `PRUDENCE`, et UNE fonction, `prudence(o)`, les lit. Les noms
+  // historiques (`PLAFOND_SAUT`, `PLAFOND_SAUT_DEBUTANT`, `AGE_PLAFOND_BAS`, `AGE_UN_CRAN`, `RESERVE_PLANCHER`, `PLANCHER_DE_BARRE`) restent des alias de la table : leurs lecteurs
+  // (le plan, ses invariants I154, I160, I205, I206, I241, la phrase de 65 ans) ne changent pas. ⚠️ `populationProtegee` décide AUSSI du jour sans (`jourSansOuvrable`), des
+  // chutes, des lignes test et haute et de I160 : elle reste exportée sous son nom, c'est une projection de `prudence` (`.protegee`), jamais une copie.
+  var PRUDENCE = {
+    plafondDeSaut: 0.15,          // le plafond d'un saut de plusieurs crans
+    plafondDeSautPrudent: 0.10,   // idem pour le débutant et les 65 ans et plus
+    agePlafondBas: 65,            // « 65 ans et plus » (âge connu)
+    ageUnCran: 50,                // le débutant de 50 ans et plus monte d'un cran à la fois
+    reservePlancher: 2,           // la réserve affichée de la population protégée et de la reprise longue ne descend jamais sous 2
+    plancherDeBarre: { squat: 1, couche: 1, militaire: 1, souleve: 2 }  // la réserve affichée à la barre (I241)
+  };
+  var PLAFOND_SAUT = PRUDENCE.plafondDeSaut;
+  var PLAFOND_SAUT_DEBUTANT = PRUDENCE.plafondDeSautPrudent;
 
   // ══ 191 (MOTEUR §9.1.2 bis, décision d'Aurélien du 30/10/2026) — LA PRUDENCE DE MONTÉE, SELON L'ÂGE ET L'EXPÉRIENCE ═══════════
   //
@@ -1617,17 +1630,29 @@
   //     sur la charge de départ : ce n'est pas une estimation de force par population.
   // Raison : les tendons s'adaptent plus lentement que les muscles, et plus encore avec l'âge (Magnusson et Kjaer, 2019, J Physiol) ; l'ACSM
   // recommande une progression prudente chez les plus âgés (position stand 2009).
-  var AGE_PLAFOND_BAS = 65, AGE_UN_CRAN = 50;
+  var AGE_PLAFOND_BAS = PRUDENCE.agePlafondBas, AGE_UN_CRAN = PRUDENCE.ageUnCran;
   var RAISON_PRUDENCE = { debutant: 'debutant', age: 'age', debutantAge: 'debutant_age' };
-  // `o` : `{ debutant: booléen, age: années révolues ou null }`. Rend `{ plafond, unCran, raison }` ; `raison` est `null` sans prudence.
-  function prudenceDeMontee(o) {
-    var debutant = !!o && o.debutant === true;
-    var a = o ? nombre(o.age) : null;
+  // `o` : `{ plus65, debutant, objectif, age }`. Rend `{ protegee, plafond, unCran, raison, reservePlancher, plancherDeBarre }` : la ligne de la table PRUDENCE qui s'applique.
+  //   protegee : 65 ans et plus CONNUS (`plus65`), débutant, ou objectif Forme (jamais deviné) · plafond / unCran / raison : la prudence de montée (`age` : années révolues ou `null`,
+  //   absent : aucune règle d'âge) ; `raison` est `null` sans prudence · reservePlancher : 2 si protégée, sinon 0 · plancherDeBarre : celui de la barre `famille`, ou `null`.
+  function prudence(o) {
+    var x = o || {};
+    var debutant = x.debutant === true;
+    var a = nombre(x.age);
     var age = a !== null && a >= 0 && a < 130 ? a : null;
     var senior = age !== null && age >= AGE_PLAFOND_BAS;
     var unCran = debutant && age !== null && age >= AGE_UN_CRAN;
-    return { plafond: debutant || senior ? PLAFOND_SAUT_DEBUTANT : PLAFOND_SAUT, unCran: unCran,
-             raison: unCran ? RAISON_PRUDENCE.debutantAge : senior ? RAISON_PRUDENCE.age : debutant ? RAISON_PRUDENCE.debutant : null };
+    var protegee = x.plus65 === true || debutant || x.objectif === 'forme';
+    return { protegee: protegee,
+             plafond: debutant || senior ? PLAFOND_SAUT_DEBUTANT : PLAFOND_SAUT, unCran: unCran,
+             raison: unCran ? RAISON_PRUDENCE.debutantAge : senior ? RAISON_PRUDENCE.age : debutant ? RAISON_PRUDENCE.debutant : null,
+             reservePlancher: protegee ? RESERVE_PLANCHER : 0,
+             plancherDeBarre: plancherDeBarre(x.famille === undefined ? null : x.famille) };
+  }
+  // Une projection de `prudence` : la prudence de montée seule (`profil.js`, `prudenceEffective`).
+  function prudenceDeMontee(o) {
+    var p = prudence({ debutant: !!o && o.debutant === true, age: o ? o.age : null });
+    return { plafond: p.plafond, unCran: p.unCran, raison: p.raison };
   }
   // La prudence EN VIGUEUR : celle qu'on donne (une prudence valide), sinon celle du seul débutant (sans âge : rien de deviné).
   function prudenceEffective(debutant, prudence) {
@@ -1707,18 +1732,15 @@
   // l'objectif Forme, la réserve visée AFFICHÉE ne descend jamais sous 2. « 2 » est un choix de prudence, non prouvé pour ces populations
   // (une seule constante). DEUX fonctions : `reserveVisee` reste la table (le déclencheur du test, les marges d'estimation, le report de zone) ;
   // `reserveAffichee` est ce que la consigne affiche, parie et garde. Un seul prédicat : `populationProtegee`, calculé une fois par le plan.
-  var RESERVE_PLANCHER = 2;
+  var RESERVE_PLANCHER = PRUDENCE.reservePlancher;
   // `plus65` : `true` SEULEMENT si l'âge est connu (jamais deviné) ; `debutant` : `anciennete = moins_1_an` ; `objectif` : la clé du profil.
-  function populationProtegee(o) {
-    var x = o || {};
-    return x.plus65 === true || x.debutant === true || x.objectif === 'forme';
-  }
+  function populationProtegee(o) { return prudence(o).protegee; }
   // Lot F, A1 (20/11/2026, MOTEUR §9.26 ter, décision d'Aurélien, I241) — LE PLANCHER DE RÉSERVE PAR BARRE. Sur un exercice à la barre (`famille` :
   // `Generateur.familleDeBarre`, la barre ou un de ses frères à la barre ; `null` : pas une barre, aucun plancher — un nom inconnu n'est jamais deviné), la
   // réserve AFFICHÉE ne descend jamais sous le plancher de sa barre, quel que soit le réglage : squat, développé couché et militaire 1, soulevé de terre 2.
   // Le mécanisme est celui des populations protégées (deux valeurs) : le test par la réserve reste sur la TABLE (`reserveVisee`). Exemptée et nommée : la
   // semaine de mesure (`testEssai`, `testSerieAuMax`, §9.32), le test planifié sur les sécurités, garde ses propres réserves.
-  var PLANCHER_DE_BARRE = { squat: 1, couche: 1, militaire: 1, souleve: 2 };
+  var PLANCHER_DE_BARRE = PRUDENCE.plancherDeBarre;
   // `famille` : la barre (`Modele.BARRES`), ou `null`. Rend le plancher de la barre, ou `null` (pas une barre).
   function plancherDeBarre(famille) {
     if (famille === null || famille === undefined || famille === '') return null;
@@ -14469,6 +14491,8 @@
     structureDeRoutine: structureDeRoutine,
     estPolyarticulaire: estPolyarticulaire,
     prudenceDeMontee: prudenceDeMontee,
+    prudence: prudence,
+    PRUDENCE: PRUDENCE,
     prudenceEffective: prudenceEffective,
     phrasePrudence: phrasePrudence,
     estGrandMouvement: estGrandMouvement,

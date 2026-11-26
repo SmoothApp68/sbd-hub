@@ -15469,7 +15469,7 @@ const SETS_IMPORTES = [
         sp(h0.fin.paris[0]) === 'Le coach avait fait 6 paris sur ce bloc : 6 ont tenu.',
       JSON.stringify(h0));
     ok('[C53] le bloc suivant par la règle fixe, sans jargon (sa zone en gras), et ses trois gestes',
-      h0 && h0.fin && sp(h0.fin.suivant) === 'Le suivant, comme le font les programmes de force : Lourd (3-5) sur tes ' +
+      h0 && h0.fin && sp(h0.fin.suivant) === 'Le suivant : Lourd (3-5) sur tes ' +
         'mouvements à la barre, 4 semaines, décharge la dernière semaine. Les autres exercices gardent leur zone.' &&
         h0.fin.gras === 'Lourd (3-5)' &&
         JSON.stringify(h0.fin.gestes) === JSON.stringify(['Commencer le bloc Lourd', 'Ajuster le bloc', 'Arrêter le programme']),

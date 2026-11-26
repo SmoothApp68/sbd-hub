@@ -486,6 +486,11 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
         [k.paris, k.pari, k.suivant, k.commencer, k.ajuster, k.arreter]));
     });
     noter('programme', 'sans pari', [M.carteFinDeBloc(b.bloc, { exercices: {}, paris: 0, tenus: 0 }, {}, null).paris]);
+    // 26/11/2026 (D1) — la fin de bloc selon le but : sans comparaison à d'autres hors Force et Les deux.
+    ['muscle', 'forme', 'force', 'les_deux', null].forEach((objectif) => ['mix', 'hypertrophie'].forEach((zone) => {
+      const k = M.carteFinDeBloc(Object.assign({}, b.bloc, { zone }), bilan, noms, null, false, objectif);
+      noter('programme', 'fin de bloc ' + objectif + ' ' + zone, [k.suivant, k.commencer]);
+    }));
     // 53-2 bis — la phrase grise d'un exercice pendant la décharge du programme.
     noter('programme', 'décharge', [M.grisAllegee({ allegee: { series: 2, routine: 4, decharge: true } })]);
   }
@@ -679,12 +684,13 @@ describe('§20.2 — la garde de la voix : toutes les phrases produites', () => 
     // ce bloc », 2 lignes, paris, suivant, 3 gestes ; et le pari de programme
     // sur 2 d'entre elles) + la phrase « aucun pari » + (53-2 bis) le gris de
     // la décharge.
-    expect(parFamille.programme).toBe(3 + 2 + 3 * 9 + 2 + 1 + 1);
+    expect(parFamille.programme).toBe(3 + 2 + 3 * 9 + 2 + 1 + 1 + 5 * 2 * 2);   // + D1 (26/11/2026) : 5 buts × 2 zones × (suivant, commencer)
     const prog = vues.filter((v) => v.famille === 'programme').map((v) => v.phrase.replace(/[\u00a0\u202f]/g, ' '));
     expect(prog).toContain('Bloc Mix · dès le lundi 12 oct.');
     expect(prog).toContain('Bloc Mix terminé');
     expect(prog.filter((t) => t === 'Le suivant, comme le font les programmes de force : Lourd (3-5) sur tes mouvements ' +
-      'à la barre, 4 semaines, décharge la dernière semaine. Les autres exercices gardent leur zone.').length).toBe(3);
+      'à la barre, 4 semaines, décharge la dernière semaine. Les autres exercices gardent leur zone.').length).toBe(4);   // D1 : Force et Les deux seulement (2 buts × 2 zones)
+    expect(prog.filter((t) => /^Le suivant : Lourd \(3-5\) sur tes mouvements/.test(t)).length).toBe(3 + 2);   // sans réponse : sans la comparaison
     expect(prog).toContain('Décharge : 2 séries au lieu de 4.');   // le rang de la semaine n'est pas connu de ce décor
     expect(vues.filter((v) => v.famille === 'programme' && /^Le coach avait fait 4 paris sur ce bloc : 2 ont tenu\.$/
       .test(v.phrase.replace(/[\u00a0\u202f]/g, ' '))).length).toBe(3);

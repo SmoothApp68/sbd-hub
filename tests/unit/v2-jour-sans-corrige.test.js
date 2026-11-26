@@ -4,7 +4,7 @@
 // `v2-jour-sans.test.js` : squat, Normal, zone Lourd 3-5 ; 8 et 12 nov. 140 × 3 + reculs 125 × 6 ; 16 nov. le zéro ; 20 nov. la séance légère 132,5 × 4 ; 24 nov. le retour.
 //   1. une séance légère d'un jour sans ne sert jamais de palier de comparaison (`sansPalierRetenues`, 193-1) ;
 //   2. les rejeux de la consigne REÇUE (capacité tenue I252, règle de bord) lisent l'histoire avec ses drapeaux de zéro (`opt.brutes`) ;
-//   3. le jeton du jour sans ne se lève que sur une séance RÉUSSIE à la charge (jamais un retour raté).
+//   3. le jeton du jour sans ne se lève que sur une séance ORDINAIRE réussie (jamais un retour raté, ni, depuis YO-YO-ZERO du 25/11/2026, le retour imposé réussi).
 
 process.env.TZ = 'Europe/Paris';
 global.self = global;
@@ -35,22 +35,22 @@ const rate = (c) => [g(c || 140, 2, 'travail', 10), g(125, 6, 'recul'), g(125, 6
 const h = [bonne(), bonne()];
 
 describe('Défaut 1 — la séance légère d\'un jour sans n\'est jamais le palier de comparaison (193-1)', () => {
-  test('le retour raté à 140 × 2 sans marge, reculs tenus : « Tu restes à 140 kg × 2 » (avant : 140 × 4, « Une rep de plus »)', () => {
+  test('le retour raté à 140 × 2 sans marge, reculs tenus : « Ta cible passe à 140 kg × 2 » (25/11/2026 : la visée 2 est sous la cible d’avant) (avant : 140 × 4, « Une rep de plus »)', () => {
     const k = K([...h, zero(), legere(), rate()]);
     expect(k.etat).toBe('progression');
     expect([k.ligne.charge, k.ligne.vise]).toEqual([140, 2]);
-    expect(gris(k)).toBe('Le 24 nov. : 140 kg × 2, la dernière sans marge. Tu restes à 140 kg × 2.');
+    expect(gris(k)).toBe('Le 24 nov. : 140 kg × 2, la dernière sans marge. Ta cible passe à 140 kg × 2, vers tes 3-5.');
   });
   test('la même séance sans jour sans (témoin) dit la même chose : la règle ne dépend pas de la séance légère', () => {
     const k = K([...h, rate()]);
     expect([k.ligne.charge, k.ligne.vise]).toEqual([140, 2]);
-    expect(gris(k)).toMatch(/Tu restes à 140 kg × 2\.$/);
+    expect(gris(k)).toMatch(/Ta cible passe à 140 kg × 2, vers tes 3-5\.$/);
   });
-  test('193-1 intacte APRÈS un zéro (règle B, `zone: null`) : essai 145 × 0 puis 147,5 × 2 sans marge, une seule grosse série : la séance est neutre, « Une rep de plus : 140 kg × 4 »', () => {
+  test('193-1 intacte APRÈS un zéro (règle B, `zone: null`) : essai 145 × 0 puis 147,5 × 2 sans marge, une seule grosse série : la séance est neutre, « Tu restes à 140 kg × 4 » (la cible d’avant était déjà 4 : « une rep de plus » ne se dit plus, §9.2 ter)', () => {
     const k = K([...h, zero(145), rate(147.5)]);
     expect(k.palier).toBe(140);
     expect([k.ligne.charge, k.ligne.vise]).toEqual([140, 4]);
-    expect(gris(k)).toBe('Le 12 nov. : 140 kg × 3. Une rep de plus : 140 kg × 4.');
+    expect(gris(k)).toBe('Le 12 nov. : 140 kg × 3. Tu restes à 140 kg × 4.');   // INVERSÉ le 25/11/2026 (« Les chutes ») : avant, « Une rep de plus : 140 kg × 4 » (faux : 4 était déjà demandé)
     expect(gris(K([...h, rate(147.5)]))).toBe(gris(k));   // le témoin sans zéro
   });
   test('193-1 intacte sans zéro : 152,5 × 2 après 150 × 4 reste neutre', () => {
@@ -73,7 +73,7 @@ describe('Défaut 2 — la consigne reçue rejouée connaît le jour sans (capac
   });
 });
 
-describe('Défaut 3 — le jeton du jour sans ne se lève que sur une séance réussie', () => {
+describe('Défaut 3 — le jeton du jour sans ne se lève que sur une séance ordinaire réussie (jamais le retour imposé)', () => {
   const b3 = () => [g(140, 3), g(140, 3), g(140, 3)];
   const z3 = () => [g(140, 0, 'echec'), g(140, 0, 'echec'), g(140, 0, 'echec')];
   const l3 = () => [g(132.5, 4), g(132.5, 4), g(132.5, 4)];
@@ -89,9 +89,11 @@ describe('Défaut 3 — le jeton du jour sans ne se lève que sur une séance r�
     const r = [g(140, 2, 'travail', 10), g(140, 1, 'travail', 10), g(140, 1, 'travail', 10)];
     expect(jourSans(K([b3(), b3(), z3(), l3(), r, z3()]))).toBe(false);
   });
-  test('0, légère, retour RÉUSSI (140 × 3), 0 : le jeton est levé, un nouveau jour sans', () => {
+  test('0, légère, retour RÉUSSI (140 × 3), 0 : le retour imposé ne relève pas le jeton (YO-YO-ZERO règle 1), la règle B, jamais un 2e jour sans', () => {
     const k = K([b3(), b3(), z3(), l3(), r3(3), z3()]);
-    expect(jourSans(k)).toBe(true);
+    expect(k.etat).toBe('zero_rep');
+    expect(jourSans(k)).toBe(false);
+    expect(gris(k)).toBe('140 kg × 0 : pas encore. Je baisse à 132,5 kg.');
   });
   test('0, légère, 0 : toujours la règle B (inchangé)', () => {
     expect(jourSans(K([b3(), b3(), z3(), l3(), z3()]))).toBe(false);
@@ -117,9 +119,9 @@ describe('Défaut 2 bis — le zéro ne remet pas à zéro le compte long de la 
 
 describe('Défaut 3 bis — une séance n\'est LA séance légère que si sa charge est strictement sous la charge de travail', () => {
   const plus = () => [g(145, 4, 'travail', 8), g(130, 6, 'recul'), g(130, 6, 'recul')];
-  test('0 à 140, puis 145 × 4 (au-dessus de la charge de travail), puis 145 × 2 sans marge : une séance ordinaire, « Tu restes à 145 kg × 2 » (avant : 140 × 4)', () => {
+  test('0 à 140, puis 145 × 4 (au-dessus de la charge de travail), puis 145 × 2 sans marge : une séance ordinaire, « Ta cible passe à 145 kg × 2 » (avant : 140 × 4)', () => {
     const k = K([...h, zero(), plus(), rate(145)]);
-    expect(gris(k)).toBe('Le 24 nov. : 145 kg × 2, la dernière sans marge. Tu restes à 145 kg × 2.');
+    expect(gris(k)).toBe('Le 24 nov. : 145 kg × 2, la dernière sans marge. Ta cible passe à 145 kg × 2, vers tes 3-5.');
     expect(K([...h, zero(), plus()]).etat).not.toBe('retour_jour_sans');
   });
   test('0, 140 × 3 réussi, 140 × 2, 0 : 140 × 3 est une séance ordinaire qui lève le jeton ; le nouveau zéro ouvre un nouveau jour sans (pas la règle B)', () => {

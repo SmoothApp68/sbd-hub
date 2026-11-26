@@ -62,8 +62,18 @@ let ANCIEN = null, NOUVEAU = null, ERREUR_ANCIEN = null, ERREUR_NOUVEAU = null;
 try {
   ANCIEN = charger(lireAncien);
 } catch (e) { ERREUR_ANCIEN = e; }
+// 25/11/2026 (« Les chutes », MOTEUR §9.2 ter) — le plancher de la dernière série est une règle VOULUE, hors du périmètre de 232 (comme le report de la 255) : le code actuel est chargé avec
+// la règle COUPÉE (`plancherDesChutes: false`, remplacement exact qui échoue bruyamment si le texte change), pour que ce test ne compare QUE la vitesse du chantier 232.
+// La règle a son propre test (`v2-chutes-plancher.test.js`).
+function lireNouveau(nom) {
+  const src = fs.readFileSync(path.join(RACINE, 'v2/js', nom + '.js'), 'utf8');
+  if (nom !== 'moteur') return src;
+  const a = 'plancherDesChutes: true });';
+  if (src.split(a).length !== 2) throw new Error('« Les chutes » : « ' + a + ' » doit apparaître exactement une fois dans moteur.js');
+  return src.replace(a, () => 'plancherDesChutes: false });');
+}
 try {
-  NOUVEAU = charger((nom) => fs.readFileSync(path.join(RACINE, 'v2/js', nom + '.js'), 'utf8'));
+  NOUVEAU = charger(lireNouveau);
 } catch (e) { ERREUR_NOUVEAU = e; }   // 243 : plus de saut silencieux — voir le beforeAll ci-dessous
 
 let x = 232; const alea = () => { x = (x * 1664525 + 1013904223) >>> 0; return x / 4294967296; };

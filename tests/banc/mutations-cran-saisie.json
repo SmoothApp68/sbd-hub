@@ -1,0 +1,35 @@
+[
+ {
+  "nom": "cran-1-le-plus-valide-la-serie",
+  "fichier": "v2/js/rendu.js",
+  "ancien": "input.dispatchEvent(new win.Event('input', { bubbles: true }));",
+  "nouveau": "input.dispatchEvent(new win.Event('input', { bubbles: true }));\n      var ligneDeLaCase = enveloppe.closest('.ligne-serie'), coche = ligneDeLaCase && ligneDeLaCase.querySelector('.ok-serie');\n      if (coche) coche.click();",
+  "banc": "seance",
+  "sections": [
+   "cran-saisie"
+  ]
+ },
+ {
+  "nom": "cran-2-la-barre-sur-les-reps",
+  "fichier": "v2/js/rendu.js",
+  "ancien": "cran: c.cle === 'charge_kg' && !vue.programme && typeof vue.cranDeCharge === 'function'",
+  "nouveau": "cran: !vue.programme && typeof vue.cranDeCharge === 'function'",
+  "banc": "seance",
+  "sections": [
+   "cran-saisie"
+  ]
+ },
+ {
+  "nom": "cran-3-le-mauvais-cran-aux-halteres",
+  "fichier": "v2/js/moteur.js",
+  "ancien": "var v = chargeVoisine((seances || []).map(vueDeSeance), avant, c, equipement, sens);",
+  "nouveau": "var v = chargeVoisine((seances || []).map(vueDeSeance), avant, c, equipement === 'haltere' ? 'barre' : equipement, sens);",
+  "unitaires": [
+   "tests/unit/v2-cran-de-saisie.test.js"
+  ],
+  "banc": "seance",
+  "sections": [
+   "cran-saisie"
+  ]
+ }
+]

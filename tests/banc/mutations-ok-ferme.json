@@ -1,0 +1,11 @@
+[
+ {
+  "nom": "ok-1-entree-valide-la-serie",
+  "fichier": "v2/js/rendu.js",
+  "ancien": "        e.preventDefault();\n        input.blur();",
+  "nouveau": "        e.preventDefault();\n        input.blur();\n        var l = enveloppe.closest('.ligne-serie'), c0 = l && l.querySelector('.ok-serie');\n        if (c0) c0.click();",
+  "unitaires": ["tests/unit/v2-saisie-ok-ferme.test.js"],
+  "banc": "seance",
+  "sections": ["ok-ferme"]
+ }
+]

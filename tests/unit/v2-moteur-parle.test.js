@@ -1423,7 +1423,12 @@ describe('le constat de fin de bloc (ECRAN-SAISIE §3.9)', () => {
     K11: { constat: { verdict: 'Aujourd\'hui' + NB + ': 110' + NB + 'kg' + NB + '×' + NB + '3.',
                       // 49-U18 (principe ii) : la cible du jour n'était pas 110 kg × 4.
                       suite: 'La prochaine fois' + NB + ': 110' + NB + 'kg' + NB + '×' + NB + '4.' },
-           cranSuivant: 112.5 }
+           cranSuivant: 112.5 },
+    // 25/11/2026 (« Les chutes », MOTEUR §9.2 ter) — par la chaîne de l'app (`consigneDExercice`, qui connaît la cible d'avant), 125 × 4, 4, 4 pour une cible de 5 ne dit plus
+    // « une rep de plus » : la cible du coach était déjà 5, il la GARDE. Le fichier de cas (consigne seule, sans cible d'avant) garde sa phrase.
+    K7: { constat: { verdict: 'Pas encore' + NB + ': 125' + NB + 'kg' + NB + '×' + NB + '4, 4, 4 pour une cible de 5.',
+                     suite: 'La prochaine fois' + NB + ': tu restes à 125' + NB + 'kg' + NB + '×' + NB + '5.' },
+          cranSuivant: 127.5 }
   };
 
   // Les cas dont « Il te manque N reps » est CONFIRMÉE par la simulation du moteur (les autres du fichier : silence).

@@ -106,11 +106,19 @@ describe('74 — la concordance sur les 79 séance-exercices réels', () => {
     'u1|developpe_couche_barre#9': { etat: 'test_propose', zone: 'lourd', palier: 120, niveau: 5, ligne: { charge: 120, vise: 5 }, haut: { charge: 125, vise: 3, k: 1 } },
     'u1|developpe_militaire_barre#9': { etat: 'nouvelle_zone', zone: 'volume', palier: 52.5, niveau: 9, ligne: { charge: 50, vise: 10 }, haut: null }
   };
+  // 25/11/2026 (« Les chutes », MOTEUR §9.2 ter, décision d'Aurélien, seuil −2) — LE PLANCHER DE LA DERNIÈRE SÉRIE : une dernière série à −2 reps ou plus sur des séries stables ne descend jamais
+  // la visée sous le niveau des séries d'avant, et la fois suivante garde SANS test (une fois, Franc : les trois cas sont u1). Le fichier de référence ne se retouche pas.
+  //   incline #9 : 64 × 12, 11, 10 (−2) → tenue 64 × 12 (le test à 72 kg saute) ; curl poignets #13 : 20 × 20, 20, 15 (−5) → 20 × 20 (au lieu de 17) ; adduction #12 : 73 × 20, 20, 15 → 73 × 20 (au lieu de 17).
+  const CHUTES_2511 = {
+    'u1|developpe_couche_incline_haltere#9': { etat: 'tenue_apres_chute', zone: 'volume', palier: 64, niveau: 11, ligne: { charge: 64, vise: 12 }, haut: null },
+    'u1|curl_poignets_paumes_vers_le_haut_assis#13': { etat: 'progression', zone: 'series_longues', palier: 20, niveau: 16, ligne: { charge: 20, vise: 20 }, haut: null },
+    'u1|adduction_hanche#12': { etat: 'tenue_apres_chute', zone: 'series_longues', palier: 73, niveau: 16, ligne: { charge: 73, vise: 20 }, haut: null }
+  };
   const FRONTIERE_180 = {
     'u2|squat_barre#9': { etat: 'progression', zone: 'volume', palier: 80, niveau: 5, ligne: { charge: 80, vise: 6 }, haut: null }
   };
   test('0 écart avec `aujourdhui_74` (état, zone, palier, niveau, ligne, haut)', () => {
-    const attendu = (c) => HORS_PALIER_186[c.cle + '#' + c.jusqua] || FRONTIERE_180[c.cle + '#' + c.jusqua] || GROS_175[c.cle + '#' + c.jusqua] || EFFORT_154[c.cle + '#' + c.jusqua] || ECHEC_152[c.cle + '#' + c.jusqua] || FRANC_149[c.cle + '#' + c.jusqua] || c.aujourdhui_74;
+    const attendu = (c) => CHUTES_2511[c.cle + '#' + c.jusqua] || HORS_PALIER_186[c.cle + '#' + c.jusqua] || FRONTIERE_180[c.cle + '#' + c.jusqua] || GROS_175[c.cle + '#' + c.jusqua] || EFFORT_154[c.cle + '#' + c.jusqua] || ECHEC_152[c.cle + '#' + c.jusqua] || FRANC_149[c.cle + '#' + c.jusqua] || c.aujourdhui_74;
     const ecarts = D.cas
       .map((c) => ({ c, r: consigneDuCas(c) }))
       .filter(({ c, r }) => JSON.stringify(r) !== JSON.stringify(attendu(c)))
@@ -223,15 +231,15 @@ describe('74 — les phrases : plus aucun « compté », « sans marge » pour u
     expect(avec).toEqual([]);
   });
 
-  // L'adduction du 15/09 (cas 12) : 73 × 20, 20, 15 à RPE 10. Le calcul prudent
-  // y voit une chute (19, 19, 14), pas les reps faites (−5, 25 %) : la ligne
-  // 73 × 17 compte la dernière série, et la phrase le dit.
+  // L'adduction du 15/09 (cas 12) : 73 × 20, 20, 15 à RPE 10. Le calcul prudent y voit une chute (19, 19, 14), pas les reps faites (−5, 25 %) : la phrase ne dit jamais
+  // « je ne compte pas » d'une ligne qui compte la dernière série. 25/11/2026 (§9.2 ter) : la dernière série à −5 sur des séries stables ne descend pas la visée sous
+  // celle des séries d'avant : 73 × 20 (avant : 73 × 17), « la dernière sans marge » et « tu restes ».
   test('l’adduction (cas 12) : plus « Je ne compte pas la dernière série » pour une ligne qui la compte', () => {
     const c = cas('u1|adduction_hanche', 12);
-    expect(consigneDuCas(c)).toMatchObject({ etat: 'tenue_apres_chute', niveau: 16, ligne: { charge: 73, vise: 17 } });
+    expect(consigneDuCas(c)).toMatchObject({ etat: 'tenue_apres_chute', niveau: 16, ligne: { charge: 73, vise: 20 } });
     const p = phrasesDuCas(c);
-    expect(p.gris).toMatch(/: 73 kg × 20, 20, 15\. Une rep de plus : 73 kg × 17\.$/);
-    expect(p.etat).toBe('Ta charge de travail n\'est pas encore au haut de ta zone : je te demande une rep de plus, 73 kg × 17.');
+    expect(p.gris).toMatch(/: 73 kg × 20, 20, 15, la dernière sans marge\. Tu restes à 73 kg × 20\.$/);
+    expect(p.etat).toBe('Ta dernière série était sans marge, il ne t\'en restait aucune : tu restes à 73 kg × 20.');
     expect(p.tout).not.toMatch(/Je ne (la )?compte pas/);
   });
 });

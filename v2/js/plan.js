@@ -421,6 +421,9 @@
       // consigne suivante, ou la meilleure série en Franc —, le haut de sa
       // zone, et la cible d'un étirement.
       niveau: typeof k.niveau === 'number' ? k.niveau : null,
+      // §9.2 ter — la cible d'avant de la consigne suivante (ce qu'elle avait demandé à la séance du jour) : « une rep de plus » ne se dit que devant une visée qui la dépasse.
+      cibleAvant: k.fondement && typeof k.fondement.cibleAvant === 'number' ? k.fondement.cibleAvant : null,
+      niveauAvant: k.fondement && k.fondement.chuteDeFin && typeof k.fondement.chuteDeFin.niveauAvant === 'number' ? k.fondement.chuteDeFin.niveauAvant : null,
       repsMax: (k.fondement && Array.isArray(k.fondement.reps) ? k.fondement.reps : [])
         .reduce(function (m, r) { return typeof r === 'number' && r > m ? r : m; }, 0),
       zoneHaut: Moteur().zoneParCle(k.zone) ? Moteur().zoneParCle(k.zone).haut : null,
@@ -7058,6 +7061,7 @@
     verifierDecharge(plan, erreurs);
     verifierTete(plan, erreurs);
     verifierVerbe(plan, erreurs);
+    verifierChutes(plan, entrees, erreurs);
     verifierAnnonce(plan, erreurs);
     verifierRegimes(plan, entrees, erreurs);
     verifierSuiteAujourdhui(plan, erreurs);
@@ -8165,7 +8169,7 @@
         var refCharge = k.etat === 'zero_rep' && fond.zeroRep && nombre(fond.zeroRep.charge) !== null ? nombre(fond.zeroRep.charge) : P;
         var meme = memeC(ch, refCharge);
         var simple = (k.etat === 'progression' && !(fond.effortVise && fond.effortVise.effet === 'garde')) ||
-                     (k.etat === 'tenue_apres_chute' && !fond.chute) || (k.etat === 'etirement_reps' && !fond.plafondReps) ||
+                     k.etat === 'tenue_apres_chute' || (k.etat === 'etirement_reps' && !fond.plafondReps) ||
                      k.etat === 'reprise_courte' || k.etat === 'reprise_longue';
         var dit = v.verbe;
         if (!meme) {
@@ -8178,8 +8182,14 @@
           }
         } else if (simple) {
           if (niv !== null && vise !== null) {
-            var plus = vise - niv;
-            var attenduR = plus > 0 ? 'monte_reps' : plus === 0 ? 'garde_cible' : 'borne';
+            // §9.2 ter (25/11/2026) — la référence est la plus haute du niveau fait et de la cible d’avant (`fondement.cibleAvant`, absente : le niveau).
+            var cibleAv = nombre(fond.cibleAvant);
+            var nivAv = fond.chuteDeFin ? nombre(fond.chuteDeFin.niveauAvant) : null;
+            var faitR = nivAv !== null && nivAv > niv ? nivAv : niv;
+            var plus = vise - (cibleAv !== null && cibleAv > faitR && vise > faitR ? cibleAv : faitR);
+            // D2 (26/11/2026) — le haut de la zone a borné le plancher (visée sous le niveau des séries d’avant) : la ligne montrée égale à la visée, la phrase garde (« tu restes à »).
+            var bornee = nivAv !== null && vise < nivAv;
+            var attenduR = cibleAv !== null && vise < cibleAv ? 'borne' : bornee && cibleAv === vise ? 'garde_cible' : plus > 0 ? 'monte_reps' : plus === 0 ? 'garde_cible' : 'borne';   // visée sous la cible d’avant : la baisse se dit (25/11/2026)
             if (dit !== attenduR) erreurs.push('I162' + nom + 'la ligne ' + ch + ' kg × ' + vise + ' contre un niveau de ' + niv + ' : le verbe devrait être « ' + attenduR + ' », il est « ' + dit + ' »');
             if (dit === 'monte_reps' && v.plus !== plus) erreurs.push('I162' + nom + 'le verbe dit ' + v.plus + ' rep(s) de plus, la ligne en demande ' + plus);
           }
@@ -8243,6 +8253,74 @@
         }
         if (/jusqu[’']à l[’']échec|à l[’']échec/.test(t) && lieu !== 'le constat' && v.cause) erreurs.push('I162' + nom + lieu + ' dit « échec » : le verbe ne le dit jamais (aucune marque d’échec posée) : ' + t);
       });
+    });
+  }
+  // I272 (« Les chutes », 25/11/2026, MOTEUR §9.2 ter) — LE PLANCHER DE LA DERNIÈRE SÉRIE.
+  //   Sens 1 (RECALCULÉ depuis les ENTRÉES : `entrees.precedents[slug]`, la séance d'où la consigne repart, recoupée par la date du fondement) : quand sa dernière série à la charge du
+  //     palier a perdu 2 reps ou plus sur des séries stables (à une rep de la première, au moins trois séries, aucune à 0 rep), la visée d'une ligne à cette charge n'est JAMAIS sous
+  //     le niveau des séries d'avant (arithmétique à part, jamais `Moteur.plancherDeFin`), hors population protégée et hors variante du jour (décharge, repli, « plus léger aujourd'hui »).
+  //   Sens 2 (cohérence avec le fondement) : « une rep de plus » (`monte_reps`) ne se dit jamais sans que la ligne dépasse la cible d'avant (`fondement.cibleAvant`) ni le niveau ;
+  //     « Dernière série à N » dit la dernière série des entrées ; « Je ne compte pas la dernière série » n'existe plus.
+  function verifierChutes(plan, entrees, erreurs) {
+    var precedents = entrees && entrees.precedents ? entrees.precedents : {};
+    var T = racine.THModele, Pa = racine.THPalier;
+    var norm = function (t) { return String(t || '').replace(/[\u00a0\u202f]/g, ' '); };
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var k = x && x.consigne;
+      if (!k || !k.ligne) return;
+      var nom = 'I272 — exercice ' + i + ' (' + x.slug + ') : ';
+      var f = k.fondement || {};
+      var v = x.verbe || null;
+      var vise = nombre(k.ligne.vise), ch = nombre(k.ligne.charge), P = nombre(k.palier), niv = nombre(k.niveau);
+      var variante = !!(k.allegee || k.repli || k.alleger || k.veilleLegere || k.plusLegere);
+      [['le gris', x.entete && x.entete.gris], ['la tête courte', x.entete && x.entete.court], ['le « Pourquoi »', x.pourquoi && x.pourquoi.etat]].forEach(function (p) {
+        if (/Je ne compte pas la dernière série/i.test(norm(p[1]))) erreurs.push(nom + p[0] + ' dit encore « Je ne compte pas la dernière série » : ' + norm(p[1]));
+      });
+      if (variante || vise === null || ch === null || P === null || P <= 0 || Math.abs(ch - P) > 1e-9) return;
+      // Sens 2 — « une rep de plus » dépasse ce qui a été fait ET ce qui a été demandé.
+      var cibleAv = nombre(f.cibleAvant);
+      if (v && v.verbe === 'monte_reps') {
+        if (niv !== null && !(vise > niv)) erreurs.push(nom + '« une rep de plus » alors que la ligne (' + vise + ') ne dépasse pas le niveau (' + niv + ')');
+        if (cibleAv !== null && !(vise > cibleAv)) erreurs.push(nom + '« une rep de plus » alors que la ligne (' + vise + ') ne dépasse pas la cible d’avant (' + cibleAv + ')');
+      }
+      // Sens 3 (décision du 25/11/2026) — la visée sous la cible d’avant : la phrase dit la BAISSE (« ta cible passe à »), jamais « tu restes à ».
+      if (cibleAv !== null && vise < cibleAv) {
+        [['le gris', x.entete && x.entete.gris], ['la tête courte', x.entete && x.entete.court], ['le « Pourquoi »', x.pourquoi && x.pourquoi.etat]].forEach(function (p) {
+          var t = norm(p[1]);
+          if (/[Tt]u restes à /.test(t)) erreurs.push(nom + p[0] + ' dit « tu restes à » alors que la ligne (' + vise + ') est sous la cible d’avant (' + cibleAv + ') : ' + t);
+        });
+        var gt = norm(x.entete && x.entete.gris);
+        if (gt && v && v.verbe !== 'borne') erreurs.push(nom + 'la ligne (' + vise + ') est sous la cible d’avant (' + cibleAv + ') et le verbe est « ' + v.verbe + ' », pas « borne »');
+      }
+      // D2 (26/11/2026) — le haut de la zone a borné le plancher (la visée est sous le niveau des séries d’avant) : la ligne montrée égale, la phrase GARDE (« Dernière série à N : tu restes à ») ;
+      // sans ligne montrée, elle dit la baisse et nomme la dernière série (« Dernière série à N : ta cible passe à »).
+      var nivAvantC = f.chuteDeFin ? nombre(f.chuteDeFin.niveauAvant) : null;
+      if (nivAvantC !== null && vise < nivAvantC && (cibleAv === null || cibleAv === vise)) {
+        var voulu = cibleAv === null ? /ta cible passe à /i : /tu restes à /i;
+        var pt = norm(x.entete && x.entete.gris);
+        if (pt && v && (v.verbe === 'garde_cible' || v.verbe === 'borne') && !voulu.test(pt)) erreurs.push(nom + 'la visée (' + vise + ') est bornée par le haut de la zone (niveau des séries d’avant ' + nivAvantC + ', cible d’avant ' + cibleAv + ') : la phrase devrait dire « ' + (cibleAv === null ? 'ta cible passe à' : 'tu restes à') + ' » : ' + pt);
+      }
+      // Sens 1 — le plancher, recalculé depuis la séance des entrées.
+      if (plan.protegee === true || (k.etat !== 'progression' && k.etat !== 'tenue_apres_chute' && k.etat !== 'test_propose')) return;
+      var pr = Object.prototype.hasOwnProperty.call(precedents, x.slug) ? precedents[x.slug] : null;
+      if (!pr || !pr.seance || !f.date || Date.parse(pr.seance.debut) !== Date.parse(f.date)) return;
+      var ss = (pr.series || []).filter(function (s) {
+        return s && T.estTravail(s) && !T.estRecul(s) && s.hors_calcul !== true && nombre(s.charge_kg) !== null && Math.abs(nombre(s.charge_kg) - P) < 1e-6;
+      });
+      var c = ss.map(function (s) { return Pa.repsComptees(s); });
+      if (ss.length < 3 || c.some(function (r) { return r === null || r === undefined; }) || ss.some(function (s) { return nombre(s.reps) === 0; })) return;
+      var stable = true;
+      for (var j = 1; j < c.length - 1; j++) { if (Math.abs(c[j] - c[0]) > 1) stable = false; }
+      if (!stable || c[0] - c[c.length - 1] < 2) return;
+      var avant = Math.min(c[0], c[1]);
+      for (var q = 2; q < c.length - 1; q++) avant = Math.min(avant, c[q] + 1);
+      // D2 (26/11/2026) — le plancher s'arrête au HAUT DE LA ZONE de la consigne : le niveau des séries d'avant ne s'exige que jusque-là, et la visée ne le dépasse jamais.
+      var zoneP = Moteur().zoneParCle(k.zone);
+      var hautP = zoneP ? nombre(zoneP.haut) : null;
+      var avantBorne = hautP !== null ? Math.min(avant, hautP) : avant;
+      if (vise < avantBorne) erreurs.push(nom + 'la dernière série (' + nombre(ss[ss.length - 1].reps) + ') a perdu ' + (c[0] - c[c.length - 1]) + ' reps sur des séries stables, la ligne vise ' + vise + ' sous le niveau des séries d’avant (' + avantBorne + (avantBorne < avant ? ', borné au haut de la zone, ' + avant + ' sinon' : '') + ')');
+      if (hautP !== null && vise > hautP && f.chuteDeFin) erreurs.push(nom + 'la dernière série (' + nombre(ss[ss.length - 1].reps) + ') a perdu ' + (c[0] - c[c.length - 1]) + ' reps : la ligne vise ' + vise + ' au-dessus du haut de la zone (' + hautP + '), le plancher s’arrête au haut de la zone');
+      if (f.chuteDeFin && nombre(f.chuteDeFin.derniere) !== nombre(ss[ss.length - 1].reps)) erreurs.push(nom + 'le fait « dernière série à ' + f.chuteDeFin.derniere + ' » n’est pas celui des entrées (' + nombre(ss[ss.length - 1].reps) + ')');
     });
   }
   // I269 à I271 (« Simplifier », pilote 3+1, ECRAN-SAISIE delta du 21/11/2026) — LA TÊTE D'UN EXERCICE EN SÉANCE : trois éléments au plus et une carte de décision, rien d'annoncé de caché.
@@ -8364,10 +8442,18 @@
         var ch = l ? nombre(l.charge) : null, vi = l ? nombre(l.vise) : null;
         if (!sl || !l || sl.haut || ch === null) { erreurs.push('I164' + nom + 'une annonce de verbe sans ligne chiffrée seule : ' + t); return; }
         var ligne = vi === null ? null : norm(Voix().chargeFois(ch, vi));
-        var plus = vi !== null && typeof sl.niveau === 'number' ? vi - sl.niveau : null;
+        // §9.2 ter — la référence : le niveau fait, ou la cible d'avant quand la visée est au-dessus du niveau et que la personne est restée sous la cible.
+        var faitA = typeof sl.niveau === 'number' ? (typeof sl.niveauAvant === 'number' && sl.niveauAvant > sl.niveau ? sl.niveauAvant : sl.niveau) : null;
+        var refA = faitA === null ? null : (typeof sl.cibleAvant === 'number' && sl.cibleAvant > faitA && vi !== null && vi > faitA ? sl.cibleAvant : faitA);
+        var plus = vi !== null && refA !== null ? vi - refA : null;
+        // D2 (26/11/2026) — borne de zone : le plancher a été ramené au haut de la zone (visée sous le niveau des séries d’avant). La ligne montrée égale : « tu restes à » ; absente : la baisse se dit.
+        var borneeA = typeof sl.niveauAvant === 'number' && vi !== null && vi < sl.niveauAvant;
+        var egaleA = borneeA && typeof sl.cibleAvant === 'number' && vi === sl.cibleAvant;
+        var baisseA = vi !== null && (typeof sl.cibleAvant === 'number' ? vi < sl.cibleAvant : borneeA);   // la cible d’avant baisse : « ta cible passe à », jamais « tu restes »
         var mDe = /^(une|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|\d+) reps? de plus, (.*)$/.exec(corps);
         var mReste = /^tu restes à (.*?)(?:, (?:la dernière|une série) sans marge)?$/.exec(corps);
         var mCible = /^ta cible, (.*?)(?:, (?:la dernière|une série) sans marge)?$/.exec(corps);
+        var mBaisse = /^ta cible passe à (.*?)(?:, (?:la dernière|une série) sans marge)?$/.exec(corps);
         var mGarde = /^je garde (\d+(?:,\d+)?) kg$/.exec(corps);
         if (mDe) {
           var mots = ['', 'une', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix'];
@@ -8378,11 +8464,14 @@
           if (ligne !== null && mDe[2].trim() !== ligne) erreurs.push('I164' + nom + 'l’annonce dit « ' + mDe[2] + ' », la ligne suivante est ' + ligne + ' : ' + t);
           if (CAUSE_SANS_MARGE.test(corps)) erreurs.push('I164' + nom + 'la cause « sans marge » devant une rep de plus : ' + t);
         } else if (mReste) {
-          if (plus !== 0) erreurs.push('I164' + nom + '« tu restes à » alors que la ligne vise ' + vi + ' pour un niveau de ' + (sl.niveau === undefined ? '?' : sl.niveau) + ' : ' + t);
+          if ((plus !== 0 && !egaleA) || baisseA) erreurs.push('I164' + nom + '« tu restes à » alors que la ligne vise ' + vi + ' pour un niveau de ' + (sl.niveau === undefined ? '?' : sl.niveau) + ' : ' + t);
           if (ligne !== null && mReste[1].trim() !== ligne) erreurs.push('I164' + nom + 'l’annonce dit « ' + mReste[1] + ' », la ligne suivante est ' + ligne + ' : ' + t);
         } else if (mCible) {
-          if (plus === null || plus >= 0) erreurs.push('I164' + nom + '« ta cible » alors que la ligne ne borne pas (vise ' + vi + ') : ' + t);
+          if (plus === null || plus >= 0 || vi > faitA || baisseA || egaleA) erreurs.push('I164' + nom + '« ta cible » alors que la ligne ne borne pas (vise ' + vi + ') : ' + t);
           if (ligne !== null && mCible[1].trim() !== ligne) erreurs.push('I164' + nom + 'l’annonce dit « ' + mCible[1] + ' », la ligne suivante est ' + ligne + ' : ' + t);
+        } else if (mBaisse) {
+          if (plus === null || plus >= 0 || !baisseA) erreurs.push('I164' + nom + '« ta cible passe à » alors que la ligne ne baisse pas la cible d’avant (vise ' + vi + ', niveau ' + (sl.niveau === undefined ? '?' : sl.niveau) + ', cible d’avant ' + (sl.cibleAvant === undefined ? '?' : sl.cibleAvant) + ') : ' + t);
+          if (ligne !== null && mBaisse[1].trim() !== ligne) erreurs.push('I164' + nom + 'l’annonce dit « ' + mBaisse[1] + ' », la ligne suivante est ' + ligne + ' : ' + t);
         } else if (mGarde) {
           if (corps !== 'je garde ' + norm(Voix().charge(ch))) erreurs.push('I164' + nom + '« je garde ' + mGarde[1] + ' kg », la ligne suivante est à ' + ch + ' kg : ' + t);
         } else {
@@ -8579,6 +8668,8 @@
   // travail (`palier`, relu ici par une comparaison indépendante), ce qui était tenu dit au palier, et ses paris sont marqués `jourSans` (ils ne se comptent pas). Un `retour_jour_sans` :
   // la ligne EST la charge de travail ET son niveau (jamais au-dessus), aucune ligne haute ni zéro rep ; tout fait `jourSans` sans état de retour est une erreur. La séance légère ne
   // vote nulle part et un 2e zéro donne B, jamais un 2e jour sans : cela se lit sur l'HISTOIRE (le moteur), pas sur un plan — `v2-jour-sans.test.js`.
+  // YO-YO-ZERO (25/11/2026) : « le retour imposé ne relève jamais le jeton, une règle B le consomme » est de même une lecture d'HISTOIRE (le jeton n'existe pas dans un plan, il se rejoue
+  // depuis les séances) : pas de vérification ici, elle est jouée dans `v2-yoyo-zero.test.js`.
   function verifierJourSans(plan, e, erreurs) {
     ((plan && plan.exercices) || []).forEach(function (x, i) {
       var k = x && x.consigne;

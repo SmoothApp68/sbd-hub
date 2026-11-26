@@ -3,6 +3,8 @@
   "D : N kg × N, N, N, la dernière sans marge. Tu restes à N kg × N.",
   "D : N kg × N, N, N, le haut de ta zone. On teste le cran au-dessus.",
   "D : N kg × N, N, N. Une rep de plus : N kg × N.",
+  "D : N kg × N, N, N. Tu restes à N kg × N.",
+  "D : N kg × N, N, N, la dernière sans marge. Ta cible passe à N kg × N.",
   "De N à N kg, c'est +N % : environ N reps d'écart. À N kg, N reps suffisent pour t'y installer.",
   "Deux fois N kg × N au haut de ta zone : aujourd’hui, on teste ≈ N kg × N.",
   "N kg × N, avec N en réserve. Je garde N kg : encore une fois au haut de ta zone et je teste plus lourd.",
@@ -19,6 +21,8 @@
   "Nouvelle zone : Volume. Ta charge déjà tenue en Volume, le N sept. : N kg × N."
  ],
  "pourquoi": [
+  "Ta charge de travail n'est pas encore au haut de ta zone : ta cible passe à N kg × N.",
+  "Ta charge de travail n'est pas encore au haut de ta zone : tu restes à N kg × N.",
   "Deux séances de suite, N kg × N au haut de ta zone, sans la marge visée : on teste le cran au-dessus sur la dernière série.",
   "Deux séances de suite, N kg × N au haut de ta zone, sans la marge visée : on teste le cran au-dessus sur la dernière série. De N à N kg, c'est +N % : environ N reps d'écart. À N kg, N reps suffisent pour t'y installer.",
   "N kg × N, avec N en réserve. Je garde N kg : encore une fois au haut de ta zone et je teste plus lourd.",

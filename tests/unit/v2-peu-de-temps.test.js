@@ -486,7 +486,7 @@ describe('51-1 ter — la séance raccourcie : la semaine allégée et la série
   test('⚠️ DISCRIMINANT (i) — au démarrage, la consigne figera les séries de la routine COMPLÈTE, pas celles de la séance', async () => {
     let n = 0;
     const ctx = {
-      Seance: S, Moteur: M, routinesHeritees: {}, seance: null, chrono: null,
+      Seance: S, Moteur: M, routinesHeritees: {}, routinesFigees: {}, seance: null, chrono: null,
       uuid: () => 'id-' + (++n), sessionActive: null,
       sauverSeance: async () => {}, poserSeance: async () => {}, allerA: () => {}, rendreSeance: () => {},
       appliquerAllegee: async () => {}, appliquerSerieDeMoins: async () => {}, ecrireReplis: async () => {}, appliquerSerieDePlus: async () => {},

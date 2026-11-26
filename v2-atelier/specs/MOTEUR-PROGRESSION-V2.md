@@ -1145,6 +1145,9 @@ Validé sur tout l'historique des cinq profils (`banc_consigne48.py`) : 6 109 co
 
 *(Constat du 26/09/2026, séance simulée : la consigne prévoyait un test à 130 sur la série 2 ; la réaction, calculée à part, y a proposé 127,5 ; l'en-tête, rédigé à part, décrivait quatre séries ; la grille en montrait trois. Diagnostic : treize calculs, dont quatre qui refaisaient le travail des autres sans lire leur résultat.)*
 
+
+**La prudence : une table, une fonction** (chantier « Le coach en un fil », lot 4, principe P9, 26/11/2026, sans changement de comportement). Les planchers et plafonds de prudence vivent dans la table `PRUDENCE` de `moteur.js` (`plafondDeSaut` 0,15, `plafondDeSautPrudent` 0,10, `agePlafondBas` 65, `ageUnCran` 50, `reservePlancher` 2, `plancherDeBarre` squat, couché et militaire 1, soulevé 2) et UNE fonction, `Moteur.prudence({ plus65, debutant, objectif, age, famille })`, rend la ligne qui s'applique : `{ protegee, plafond, unCran, raison, reservePlancher, plancherDeBarre }`. Les noms historiques (`PLAFOND_SAUT_DEBUTANT`, `AGE_PLAFOND_BAS`, `RESERVE_PLANCHER`, `PLANCHER_DE_BARRE`…) sont des alias de la table. `populationProtegee` et `prudenceDeMontee` restent exportées sous leur nom : ce sont des PROJECTIONS de `prudence` (`.protegee` ; `plafond`, `unCran`, `raison`), jamais des copies. ⚠️ `populationProtegee` décide aussi du jour sans (`jourSansOuvrable`), des chutes, des lignes test et haute et de I160 : ne pas la renommer ni la scinder. Les invariants I154, I160, I205, I206, I241 et leurs vérificateurs restent tels quels (aucun numéro retiré). Gardée par les mutations mu3, n3, n7, n9, l4a et l4b du banc `v2-atelier/banc/rejeu-fil/`.
+
 ### 9.14 La réaction série par série — décidé le 25/09/2026 (chantier 49)
 
 > **Le coach lit chaque série que tu valides. Quand une série faite à la charge proposée dépasse sa visée de 3 reps comptées ou plus, il propose de monter dès la série suivante. Sinon, il se tait.**

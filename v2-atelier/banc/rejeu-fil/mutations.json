@@ -174,13 +174,6 @@
   "nouveau": "if (!jour || jour < T.debut || jour >= T.fin) return null;"
  },
  {
-  "nom": "témoin — un commentaire change (doit SURVIVRE)",
-  "fichier": "moteur.js",
-  "ancien": "// 12 semaines, INCLUSES dans la courte",
-  "nouveau": "// 12 semaines (témoin)",
-  "temoin": true
- },
- {
   "nom": "l4a — la population protégée ignore l'objectif Forme (prudence.protegee)",
   "fichier": "moteur.js",
   "ancien": "x.plus65 === true || debutant || x.objectif === 'forme'",
@@ -191,5 +184,42 @@
   "fichier": "moteur.js",
   "ancien": "x.plus65 === true || debutant || x.objectif === 'forme'",
   "nouveau": "debutant || x.objectif === 'forme'"
+ },
+ {
+  "nom": "l3a — jourSansDe : la séance neutre peut être la légère (filtre `neutre`)",
+  "fichier": "moteur.js",
+  "ancien": "if (ouvert !== undefined && se.decharge !== true && se.neutre !== true) {",
+  "nouveau": "if (ouvert !== undefined && se.decharge !== true) {"
+ },
+ {
+  "nom": "l3c — compteLe : un pari de jour sans compte",
+  "fichier": "bilan.js",
+  "ancien": "function compteLe(q) { return !!q && q.allegee !== true && q.jourSans !== true; }",
+  "nouveau": "function compteLe(q) { return !!q && q.allegee !== true; }"
+ },
+ {
+  "nom": "l3d — compteLe : un pari de décharge compte",
+  "fichier": "bilan.js",
+  "ancien": "function compteLe(q) { return !!q && q.allegee !== true && q.jourSans !== true; }",
+  "nouveau": "function compteLe(q) { return !!q && q.jourSans !== true; }"
+ },
+ {
+  "nom": "l4c — un cran à la fois dès 60 ans au lieu de 50 (prudence.ageUnCran)",
+  "fichier": "moteur.js",
+  "ancien": "ageUnCran: 50, ",
+  "nouveau": "ageUnCran: 60, "
+ },
+ {
+  "nom": "l3g — le plafond après un zéro lit une décharge",
+  "fichier": "moteur.js",
+  "ancien": "if (!se || !se.plafondZero || se.decharge === true || neutreSansCoach(se)) return;",
+  "nouveau": "if (!se || !se.plafondZero || neutreSansCoach(se)) return;"
+ },
+ {
+  "nom": "témoin — un commentaire change (doit SURVIVRE)",
+  "fichier": "moteur.js",
+  "ancien": "// 12 semaines, INCLUSES dans la courte",
+  "nouveau": "// 12 semaines (témoin)",
+  "temoin": true
  }
 ]

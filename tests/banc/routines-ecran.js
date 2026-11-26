@@ -2424,8 +2424,8 @@ const ALIAS_COMMUNS = [
   await calme('après l’ouverture du questionnaire');
   ok('[60-2a] un compte neuf voit le questionnaire dès le PREMIER démarrage, quand la ligne de profil arrive',
     JSON.stringify(await vue3()) === '["vue-questionnaire"]', JSON.stringify(await vue3()));
-  ok('[60-2a] …sur la bienvenue, sans barre d’onglets, avec ses deux sorties (« Plus tard », la barre)',
-    /Je suis ton coach/.test(await txt3('#questionnaire-corps')) &&
+  ok('[60-2a] …sur la première question (lot 5, n° 4 : plus de « Bienvenue »), sans barre d’onglets, avec ses deux sorties (« Plus tard », la barre)',
+    /Tu t’entraînes depuis combien de temps/.test(await txt3('#questionnaire-corps')) &&
     await page3.evaluate(() => document.getElementById('onglets').hidden &&
       !!document.querySelector('#questionnaire-corps .q-plus-tard') &&
       !!document.querySelector('#questionnaire-corps .q-prog')),

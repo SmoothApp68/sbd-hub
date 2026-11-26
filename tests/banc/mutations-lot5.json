@@ -1,0 +1,43 @@
+[
+ {
+  "nom": "lot5-l-annee-retiree-du-parcours-court",
+  "fichier": "v2/js/questionnaire.js",
+  "ancien": "var ECRANS_COURT = [ANCIENNETE, SAIT, TOI, SALLE, ZONE, BUT, PROGRAMME];",
+  "nouveau": "var ECRANS_COURT = [ANCIENNETE, SAIT, SALLE, ZONE, BUT, PROGRAMME];",
+  "unitaires": [
+   "tests/unit/v2-questionnaire.test.js"
+  ],
+  "banc": "seance",
+  "sections": [
+   "questionnaire"
+  ]
+ },
+ {
+  "nom": "lot5-la-reprise-au-mauvais-ecran",
+  "fichier": "v2/js/questionnaire.js",
+  "ancien": "var premier = visibles.filter(function (id) { return repondus.indexOf(id) < 0; })[0];",
+  "nouveau": "var premier = visibles[0];",
+  "unitaires": [
+   "tests/unit/v2-questionnaire.test.js",
+   "tests/unit/v2-questionnaire-ecran.test.js"
+  ],
+  "banc": "seance",
+  "sections": [
+   "questionnaire"
+  ]
+ },
+ {
+  "nom": "lot5-temoin-commentaire",
+  "fichier": "v2/js/questionnaire.js",
+  "ancien": "// Lot 5, n° 4 (26/11/2026) : la voix de l'ancien écran « Bienvenue » est celle de la première question, avec sa note.",
+  "nouveau": "// Lot 5, n° 4 (26/11/2026) : la voix de l'ancien écran « Bienvenue » est celle de la première question, avec sa note (témoin).",
+  "attendu": "survit",
+  "unitaires": [
+   "tests/unit/v2-questionnaire.test.js"
+  ],
+  "banc": "seance",
+  "sections": [
+   "questionnaire"
+  ]
+ }
+]

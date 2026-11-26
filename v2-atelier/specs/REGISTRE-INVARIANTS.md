@@ -22,7 +22,7 @@ Légende : **gras** = retiré ; « TROU » = numéro jamais défini ; « voir MO
 | I68-I69 | Depuis 175 | `verifierPlan` | §9.13 bis | 175 |
 | I70 | Une série hors calcul (185) | `verifierPlan` | §9.13 bis | 185 |
 | I71 | Le dépassement | `verifierPlan` | §9.13 bis | 186 |
-| I72-I74 | Le calage de la première séance ; I73 adapté par la PR 3 « première séance sûre » (proposition `bornee` plus légère, jamais au-dessus de sa `borne`) | `verifierPlan`, `Moteur.calagePremiereFois` | §9.42 | 187 |
+| I72-I74 | Le calage de la première séance ; I74 étendu le 26/11/2026 (la ligne qui sert de réponse en ligne 1, MOTEUR §9.42 delta) ; I73 adapté par la PR 3 « première séance sûre » (proposition `bornee` plus légère, jamais au-dessus de sa `borne`) | `verifierPlan`, `Moteur.calagePremiereFois` | §9.42 | 187 |
 | I75 | La zone à ménager lue en séance | `verifierPlan` | §9.13 bis | 187 |
 | I76 | La ligne du repos long au Pourquoi | `verifierPlan` | §9.13 bis | 188-2 |
 | I77 | La fatigue sur plusieurs semaines | `verifierPlan` | §14.11 | 189 |

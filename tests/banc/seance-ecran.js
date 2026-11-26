@@ -845,24 +845,27 @@ const SETS_IMPORTES = [
   if (Horloge.DECALAGE) await ctx.addInitScript(Horloge.scriptNavigateur(Horloge.DECALAGE));
 
   // ⚠️ 71 — LE RÉCAP DE FIN DE SÉANCE SE REFERME DE LUI-MÊME dans les sections qui ne le testent pas.
-  // « Terminer » ouvre désormais le récap (ECRAN-SAISIE §7 septies.4 bis) au lieu de rendre la saisie : les
-  // sections écrites avant lui enchaînent sur la saisie ou un onglet. Le récap ouvert, on fait le geste de
-  // l'utilisateur — « Fermer », puis l'onglet Saisie — et elles retrouvent l'état qui suivait « Terminer ».
-  // Les sections qui TESTENT le récap le gardent ouvert : `sessionStorage['banc-garder-recap'] = '1'`.
+  // Lot 3 (25/11/2026) : « Terminer » ne l'ouvre plus. Il revient à la semaine avec le toast « Séance enregistrée · Voir le récap ».
+  // Le banc fait le geste de l'utilisateur : dans les sections qui TESTENT le récap (`sessionStorage['banc-garder-recap'] = '1'`),
+  // il touche « Voir le récap » (le récap s'ouvre, comme avant, et reste ouvert) ; dans les autres, il va à l'onglet Saisie (ce que
+  // faisaient « Fermer » puis l'onglet). Une section qui teste le TOAST lui-même le garde : `banc-garder-toast`.
   await ctx.addInitScript(() => {
     document.addEventListener('DOMContentLoaded', () => {
-      const v = document.getElementById('vue-recap');
-      if (!v) return;
+      const t = document.getElementById('toast-recap');
+      if (!t) return;
       new MutationObserver(() => {
-        if (v.hidden || sessionStorage.getItem('banc-garder-recap') === '1') return;
+        if (t.hidden || sessionStorage.getItem('banc-garder-toast') === '1') return;
         setTimeout(() => {
-          if (v.hidden || sessionStorage.getItem('banc-garder-recap') === '1') return;
-          const f = document.querySelector('#recap-corps .recap-fermer');
-          if (f) f.click();
+          if (t.hidden || sessionStorage.getItem('banc-garder-toast') === '1') return;
+          if (sessionStorage.getItem('banc-garder-recap') === '1') {
+            const b = t.querySelector('button');
+            if (b) b.click();
+            return;
+          }
           const o = document.querySelector('.onglet[data-vue="saisie"]');
           if (o) o.click();
         }, 0);
-      }).observe(v, { attributes: true, attributeFilter: ['hidden'] });
+      }).observe(t, { attributes: true, attributeFilter: ['hidden'] });
     });
   });
 
@@ -2249,6 +2252,23 @@ const SETS_IMPORTES = [
     } finally { enCours = false; }
   };
 
+  // Lot 3 (changement 6) — « Rafraîchir » n'est plus un bouton : le banc TIRE la liste vers le bas, comme le pouce (touchstart, touchmove, touchend
+  // sur Séances, en haut de page). C'est le même appel `rafraichir` que l'ancien bouton ; le geste est ainsi couvert par tout ce qui rafraîchit.
+  const tirerPourRafraichir = () => page.evaluate(() => {
+    const vue = document.getElementById('vue-liste');
+    window.scrollTo(0, 0);
+    // L'ancien bouton se cliquait même caché (la page sur un autre onglet) : le geste, lui, ne se pose que sur la liste visible.
+    // Ces sections tirent « d'où elles sont » : la liste est montrée le temps du geste, puis rendue telle qu'elle était.
+    const etaitCachee = vue.hidden;
+    vue.hidden = false;
+    const pt = (y) => new Touch({ identifier: 1, target: vue, clientX: 180, clientY: y });
+    const ev = (type, y, liste) => vue.dispatchEvent(new TouchEvent(type, { bubbles: true, cancelable: true, touches: liste ? [pt(y)] : [], changedTouches: [pt(y)] }));
+    ev('touchstart', 120, true);
+    ev('touchmove', 150, true);
+    ev('touchmove', 240, true);
+    ev('touchend', 240, false);
+    vue.hidden = etaitCachee;
+  });
   // 71 — garder le récap ouvert (les sections qui le testent), ou le laisser se refermer (les autres).
   const garderRecap = (oui) => page.evaluate((o) => {
     if (o) sessionStorage.setItem('banc-garder-recap', '1'); else sessionStorage.removeItem('banc-garder-recap');
@@ -3362,9 +3382,17 @@ const SETS_IMPORTES = [
     await calmeApres(depart);
   };
 
-  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[1].click());
-  await attendre(600);
-  const derniere = (await compter('.ligne-serie')) - 1;
+  // 231 bis — « + Série » du second bloc, ET LA LIGNE EST LÀ : on attend qu'il y ait UNE LIGNE DE PLUS (l'état), au lieu de 600 ms
+  // fixes. Sous charge, la ligne n'était pas encore dessinée : `compter() - 1` désignait alors l'ANCIENNE dernière ligne, et la
+  // série validée n'était plus celle du bloc sans repos (« barre visible = true · 2:39 cible 3:00 » : le repos du premier bloc armé).
+  const ajouterUneSerie = async () => {
+    const avant = await compter('.ligne-serie');
+    await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[1].click());
+    await jusqua(async () => (await compter('.ligne-serie')) > avant, 6000, 'ajouterUneSerie');
+    await poseApresGeste();
+    return (await compter('.ligne-serie')) - 1;
+  };
+  const derniere = await ajouterUneSerie();
   await saisirSerie(derniere, 80, 10);
   ok('[45] repos DÉSACTIVÉ : valider n’arme AUCUN chronomètre',
     (await barreVisible()) === false,
@@ -3392,9 +3420,7 @@ const SETS_IMPORTES = [
   ok('[45] la molette pose un repos sur l’exercice qui n’en avait pas',
     /⏱\s0:15/.test(await lireDansBloc(1, '.repos-cible')),
     await lireDansBloc(1, '.repos-cible'));
-  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[1].click());
-  await attendre(600);
-  const derniereB = (await compter('.ligne-serie')) - 1;
+  const derniereB = await ajouterUneSerie();
   await saisirSerie(derniereB, 80, 10);
   ok('[45] et LÀ, valider arme — sur la cible qu’on vient de poser',
     (await barreVisible()) === true && /cible 0:15/.test(await texte('#repos')),
@@ -3436,9 +3462,7 @@ const SETS_IMPORTES = [
   // On réarme pour la suite : valider une série repart de la cible prescrite,
   // qui vaut toujours 15 s. Sans ça, tout ce qui suit mesurerait une barre
   // absente — et l'échéance, le dépassement et la sourdine passeraient à vide.
-  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[1].click());
-  await attendre(600);
-  const rearmee = (await compter('.ligne-serie')) - 1;
+  const rearmee = await ajouterUneSerie();
   await saisirSerie(rearmee, 80, 10);
   ok('[49] valider une série réarme sur la cible prescrite, inchangée',
     (await barreVisible()) === true && /cible 0:15/.test(await texte('#repos')),
@@ -3480,9 +3504,7 @@ const SETS_IMPORTES = [
 
   // On réarme pour la suite — la barre vient de s'en aller, et tout ce qui suit
   // lui parle.
-  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[1].click());
-  await attendre(600);
-  const rearmee51 = (await compter('.ligne-serie')) - 1;
+  const rearmee51 = await ajouterUneSerie();
   await saisirSerie(rearmee51, 80, 10);
   ok('[51] …et valider une série en réarme un neuf, entier',
     (await barreVisible()) === true && /cible 0:15/.test(await texte('#repos')),
@@ -3539,9 +3561,7 @@ const SETS_IMPORTES = [
   // à 17 s — puis on réarme, la barre venant de s'éteindre.
   await toucherBloc(1, '.repos-cible');
   await molette(15);
-  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[1].click());
-  await attendre(600);
-  const rearmee51b = (await compter('.ligne-serie')) - 1;
+  const rearmee51b = await ajouterUneSerie();
   await saisirSerie(rearmee51b, 80, 10);
 
   console.log('\n══ 5 quater. LA SOURDINE SE RETIENT D’UNE SÉANCE À L’AUTRE ══');
@@ -3555,9 +3575,7 @@ const SETS_IMPORTES = [
   await aller('/saisie');
   ok('on retombe dans la séance', JSON.stringify(await visible()) === '["vue-seance"]',
     JSON.stringify(await visible()));
-  await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[1].click());
-  await attendre(600);
-  const derniere2 = (await compter('.ligne-serie')) - 1;
+  const derniere2 = await ajouterUneSerie();
   await saisirSerie(derniere2, 80, 8);
   ok('la sourdine est TOUJOURS coupée après fermeture complète',
     /Son ✕/.test(await texte('#repos')), (await texte('#repos')).replace(/\s+/g, ' ').slice(0, 60));
@@ -4245,19 +4263,53 @@ const SETS_IMPORTES = [
   // rien, et la mesure lisait un affichage périmé : « 0:08 → 0:08 », comme un
   // chronomètre mort. Les lignes du bloc 0 venant en premier, son dernier indice
   // LOCAL vaut encore son indice global.
+  // Bancs aléatoires (25/11/2026) : on attend l'ÉTAT, jamais un délai (600 ms après « + Série », 3 200 ms avant la
+  // seconde lecture). Deux choses distinctes : (a) la barre est RÉARMÉE (visible, et lit un décompte neuf, pas le
+  // « 0:08 » que le DOM garde d'une barre éteinte) ; (b) elle DESCEND. Le texte d'une barre cachée n'est jamais lu.
+  const lignesAvantAjout = await lignesDuBloc(0);
   await page.evaluate(() => document.querySelectorAll('.ajout-serie button')[0].click());
-  await attendre(600);
-  await saisirSerie((await lignesDuBloc(0)) - 1, 60, 8);
-  const reparti = await chrono();
-  await attendre(3200);
-  const reparti2 = await chrono();
-  ok('valider une série réarme un décompte neuf, qui descend',
-    (await barreVisible()) === true && enSecondes(reparti2) < enSecondes(reparti),
-    reparti + ' → ' + reparti2);
+  await jusqua(async () => (await lignesDuBloc(0)) === lignesAvantAjout + 1, 6000, 'ligne ajoutée au bloc 0');
+  const iNouvelle = (await lignesDuBloc(0)) - 1;
+  await saisirSerie(iNouvelle, 60, 8);
+  const etatBarre = () => page.evaluate((k) => {
+    const n = document.getElementById('repos');
+    const g = n && n.querySelector('.repos-g');
+    const l = document.querySelectorAll('.ligne-serie')[k];
+    const ok = l && l.querySelector('.ok-serie');
+    return {
+      visible: !!n && !n.hidden,
+      texte: g ? g.textContent.trim() : null,
+      cochee: !!(ok && ok.classList.contains('cochee')),
+      t: Date.now()
+    };
+  }, iNouvelle);
+  const secondesDe = (e) => (e.visible && e.texte ? enSecondes(e.texte) : NaN);
+  let reparti = await etatBarre();
+  const barreRearmee = await jusqua(async () => {
+    reparti = await etatBarre();
+    return reparti.cochee && reparti.visible && secondesDe(reparti) >= 60;
+  }, 6000, 'barre réarmée par la validation');
+  ok('valider une série RÉARME la barre : cochée, visible, un décompte neuf (≥ 1:00)', barreRearmee,
+    JSON.stringify(reparti));
+  let reparti2 = reparti;
+  const descend = await jusqua(async () => {
+    reparti2 = await etatBarre();
+    return reparti2.visible && secondesDe(reparti2) < secondesDe(reparti);
+  }, 8000, 'décompte qui descend');
+  ok('valider une série réarme un décompte neuf, qui descend', barreRearmee && descend,
+    JSON.stringify(reparti) + ' → ' + JSON.stringify(reparti2));
 
   // ── L'écran de fin ─────────────────────────────────────────────────────
   await page.click('#bandeau-seance .bandeau-fin');
   await attendre(600);
+  if (process.env.BANC_CAPTURES_LOT3) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_LOT3, 'lot3-fin-avant-terminer.png') });
+  // Lot 3 (25/11/2026, changement 3) — titre, salle et note tiennent sur UNE ligne ; « Modifier » ouvre les trois champs déclarés.
+  ok('[lot 3] l’écran de fin porte UNE ligne « Titre, salle, note » et « Modifier » — aucun champ ouvert d’emblée',
+    (await compter('#feuille-contenu .resume-fin')) === 1 && (await compter('#feuille-contenu .champs-fin')) === 0 &&
+    (await texte('#feuille-contenu .resume-fin-m')) === 'Modifier',
+    (await texte('#feuille-contenu .resume-fin')).replace(/\s+/g, ' '));
+  await page.click('#feuille-contenu .resume-fin-m');
+  await jusqua(() => compter('#feuille-contenu .champs-fin .champ-texte').then((n) => n === 3), 5000, 'lot 3 : « Modifier » ouvre les trois champs');
   ok('l’écran de fin porte les trois champs déclarés',
     (await compter('#feuille-contenu .champs-fin .champ-texte')) === 3,
     (await compter('#feuille-contenu .champs-fin .champ-texte')) + ' champ(s)');
@@ -5024,7 +5076,8 @@ const SETS_IMPORTES = [
   const patchsAvant = base.patchs.length;
   await page.click('#bandeau-seance .bandeau-fin');
   await attendre(700);
-  const question = await texte('#feuille-contenu');
+  // Lot 3 : l'écran de fin est UN écran (le compte, les records…) ; la question de routine est son bloc `.question-routine`.
+  const question = await page.evaluate(() => Array.from(document.querySelectorAll('#feuille-contenu .question-routine')).map((n) => n.textContent).join(' '));
   ok('la question de fin dit ce qui a dévié, en toutes lettres',
     /s’écarte de/.test(question) && /Tractions — ajouté/.test(question) &&
     /Curl Biceps Haltères — retiré/.test(question) && /Squat \(Barre\) — retiré/.test(question),
@@ -6957,6 +7010,11 @@ const SETS_IMPORTES = [
   const SeanceM = require(path.join(R, 'v2/js/seance.js'));
   const PalierM = require(path.join(R, 'v2/js/palier.js'));
   const ProfilM = require(path.join(R, 'v2/js/profil.js'));
+  // L'instant de référence de la consigne : le début de la séance ouverte (celui que la page passe au moteur), sinon maintenant.
+  const referenceDuJour = () => {
+    const ouverte = base.sessions.find((x) => x.statut === 'en_cours' && x.debut);
+    return ouverte ? ouverte.debut : new Date().toISOString();
+  };
   const attenduMoteur = () => {
     const parSeance = {};
     base.sets.filter((x) => x.exercise_slug === 'dc-barre').forEach((x) => {
@@ -6966,7 +7024,9 @@ const SETS_IMPORTES = [
       .map((x) => ({ seance: x, series: parSeance[x.id] }));
     const etats = PalierM.etatsExercices(PalierM.seanceExercices(base.sets));
     const profil = base.profiles ? base.profiles[0] : null;
-    const c = Moteur.consigneDExercice(groupes, etats['dc-barre'], new Date().toISOString(), {
+    // La référence est le début de la séance ouverte, comme la page (`app.js`, `seance.debut`) : avec « maintenant »,
+    // un banc qui franchit minuit (CI en Europe/Paris, 23 h UTC) attendait « mercredi » quand la page écrit « aujourd'hui ».
+    const c = Moteur.consigneDExercice(groupes, etats['dc-barre'], referenceDuJour(), {
       mesure: 'charge_reps', equipement: null, intention: profil && profil.intention,
       reglage: ProfilM.rythmeDe(profil), edition: false
     });
@@ -7104,8 +7164,8 @@ const SETS_IMPORTES = [
   // chercherait une valeur que la base ne porte pas.
   const idC = enCoursId();
   const bandeau = () => texte('#bandeau-seance .bandeau-ch');
-  ok('[C] le BANDEAU compte les séries de travail, pas les lignes',
-    /2 séries de travail/.test(await bandeau()),
+  ok('[C] le BANDEAU compte les séries de travail faites sur celles de la séance, pas les lignes (lot 2 n° 2 : « 2 sur 2 séries »)',
+    /· 2 sur 2 séries$/.test((await bandeau()).replace(/\s+/g, ' ').trim()),
     (await bandeau()).replace(/\s+/g, ' '));
 
   await page.click('#bandeau-seance .bandeau-fin');
@@ -7694,7 +7754,8 @@ const SETS_IMPORTES = [
       const groupes = base.sessions.filter((x) => parSeance[x.id] && x.statut === 'terminee')
         .map((x) => ({ seance: x, series: parSeance[x.id] }));
       const etats = PalierM.etatsExercices(PalierM.seanceExercices(base.sets));
-      const c = Moteur.consigneDExercice(groupes, etats['souleve-terre'], new Date().toISOString(), {
+      const ouverteT = base.sessions.find((x) => x.statut === 'en_cours' && x.debut);   // même référence que la page
+      const c = Moteur.consigneDExercice(groupes, etats['souleve-terre'], ouverteT ? ouverteT.debut : new Date().toISOString(), {
         mesure: 'charge_reps', equipement: null, intention: 'progresser',
         reglage: ProfilM.rythmeDe(base.profiles[0]), edition: false
       });
@@ -8257,14 +8318,30 @@ const SETS_IMPORTES = [
 
     // Tout le reste du bloc, valeurs comprises : B n'a pas d'historique, une
     // série validée à vide n'existe pas en base (`sets_validee_si_saisie`).
-    const lignes = await compter('.ligne-serie');
-    for (let i = 0; i < lignes; i++) {
-      const deja = await page.evaluate((k) =>
-        !!document.querySelectorAll('.ligne-serie')[k].querySelector('.ok-serie.cochee'), i);
-      if (!deja) await saisirSerie(i, 20, 10);
+    // 231 bis — ON VALIDE JUSQU'À CE QUE TOUTES LES LIGNES SOIENT COCHÉES (l'état), pas « une fois chacune ». Sous charge, un
+    // seul tour pouvait laisser une ligne décochée (la coche est une BASCULE : un tap sur une ligne déjà validée mais pas encore
+    // redessinée, ou une question de vraisemblance arrivée après le sondage, la défaisait) : le bloc n'était jamais fini, et
+    // l'attente des deux constats arrivait à son plafond sans dire pourquoi (échec isolé de la CI, vert en local).
+    const cocheeDe = (k) => page.evaluate((x) => { const l = document.querySelectorAll('.ligne-serie')[x];
+      return !!l && !!l.querySelector('.ok-serie.cochee'); }, k);
+    let lignesC6 = [];
+    for (let passe = 0; passe < 4; passe++) {
+      const n = await compter('.ligne-serie');
+      let restantes = 0;
+      for (let i = 0; i < n; i++) {
+        if (!(await cocheeDe(i))) { restantes++; await saisirSerie(i, 20, 10); }
+      }
+      lignesC6 = await page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie'))
+        .map((l) => (l.querySelector('.ok-serie.cochee') ? 1 : 0)));
+      if (!restantes) break;
     }
-    await attendreQue(async () => { const t = await parExo(); return t.length === 2 && !!t[0].constat && !!t[1].constat; },
-      15000, '143 · [C6] les deux constats sont dessinés');
+    let vuC6 = '';
+    await attendreQue(async () => {
+      const t = await parExo();
+      vuC6 = JSON.stringify({ lignes: await page.evaluate(() => Array.from(document.querySelectorAll('.ligne-serie'))
+        .map((l) => (l.querySelector('.ok-serie.cochee') ? 1 : 0))), questions: await compter('.question-saisie'), exos: t });
+      return t.length === 2 && !!t[0].constat && !!t[1].constat;
+    }, 30000, { nom: '143 · [C6] les deux constats sont dessinés', detail: () => vuC6 });
     const tout = await parExo();
     ok('[C6] le bloc fini : LES DEUX constats paraissent, chacun le sien',
       tout.length === 2 && !!tout[0].constat && !!tout[1].constat &&
@@ -9326,8 +9403,34 @@ const SETS_IMPORTES = [
     // La consigne de la séance ne change pas : elle servira à la suivante.
     poserHip('hip-d', 0.1, [[130, 5], [130, 5], [130, 5], [135, 3]]);
     await onglet('racine');
-    await page.evaluate(() => document.getElementById('btn-rafraichir').click());
+    // Lot 3 (changement 6) — « Rafraîchir » a quitté l'en-tête : plus de bouton, le geste « tirer vers le bas » le remplace. Un petit
+    // tirage ne fait rien ; un vrai tirage appelle la lecture (« Synchronisation… » sur l'état), avec son retour visible.
+    await page.evaluate(() => {
+      window.__lecturesManuelles = 0;
+      const e = document.getElementById('etat-sync');
+      new MutationObserver(() => { if (/Synchronisation/.test(e.textContent)) window.__lecturesManuelles++; }).observe(e, { childList: true, subtree: true, characterData: true });
+    });
+    const entete = await page.evaluate(() => ({ bouton: !!document.getElementById('btn-rafraichir'),
+      texte: document.querySelector('#vue-liste .entete').textContent, aide: document.getElementById('aide-tirage').textContent }));
+    await page.evaluate(() => {
+      const vue = document.getElementById('vue-liste');
+      const pt = (y) => new Touch({ identifier: 1, target: vue, clientX: 180, clientY: y });
+      const ev = (type, y, l) => vue.dispatchEvent(new TouchEvent(type, { bubbles: true, cancelable: true, touches: l ? [pt(y)] : [], changedTouches: [pt(y)] }));
+      ev('touchstart', 120, true); ev('touchmove', 140, true); ev('touchend', 140, false);   // 20 px : trop court
+    });
+    if (process.env.BANC_CAPTURES_LOT3) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_LOT3, 'lot3-seances-entete.png') });
+    await attendre(500);   // VOULU : un tirage trop court ne lit RIEN — l'absence d'un effet se mesure par le temps laissé à l'effet
+    const court = await page.evaluate(() => window.__lecturesManuelles);
+    await tirerPourRafraichir();
+    await jusqua(() => page.evaluate(() => window.__lecturesManuelles > 0), 5000, 'tirage: lecture');
+    ok('[lot 3] « Rafraîchir » n’est plus dans l’en-tête de Séances ; un tirage de 20 px ne lit rien, un vrai tirage lit (« Synchronisation… »)',
+      entete.bouton === false && !/Rafraîchir/.test(entete.texte) && court === 0 && (await page.evaluate(() => window.__lecturesManuelles)) > 0,
+      nb([entete, court]));
     await reseauCalme();   // 143 — l'état (la synchronisation est revenue), plus 2 600 ms fixes
+    const apres = await page.evaluate(() => ({ tirage: document.getElementById('tirage').hidden, etat: document.getElementById('etat-sync').textContent.trim(),
+      aide: document.getElementById('aide-tirage').hidden }));
+    ok('[lot 3] la lecture finie : le retour « Mise à jour… » est parti ; la ligne qui dit le geste ne se montre que si l’état n’est pas « À jour » (et l’état dit toujours vrai)',
+      apres.tirage === true && (apres.etat === 'À jour' ? apres.aide === true : apres.aide === false), nb(apres));
     await onglet('saisie');
     await attendre(900);
     ok('[U] D7 — une synchronisation en pleine séance ne change pas la consigne : même en-tête',
@@ -9801,7 +9904,7 @@ const SETS_IMPORTES = [
     // (b) de 49-U3, survivante avant ce correctif).
     await page.click('.onglet[data-vue="racine"]');
     await attendre(900);
-    await page.click('#btn-rafraichir');
+    await tirerPourRafraichir();
     await attendre(2500);
     await page.click('.onglet[data-vue="saisie"]');
     await attendre(900);
@@ -12944,7 +13047,7 @@ const SETS_IMPORTES = [
     // l'en-tête, à la même seconde.
     [2, 3, 4, 5, 6].forEach((j) => poserE('ecr-sync-' + j, ilYa(j * 86400000, tE).toISOString(), [[60, 20], [60, 20], [60, 20]]));
     await aller('/');
-    await page.evaluate(() => document.getElementById('btn-rafraichir').click());
+    await tirerPourRafraichir();
     await attendre(2500);
     await aller('/exercice/ecrans-u5');
     const puceApresSync = await puceE();
@@ -12979,7 +13082,7 @@ const SETS_IMPORTES = [
         rang: k + 1, groupe_superset: null, validee_a: null, rpe: null, ressenti: null, repos_s: null, note: null,
         source: 'hevy', created_at: debutCpt, modifie_a: null }));
     await aller('/');
-    await page.evaluate(() => document.getElementById('btn-rafraichir').click());
+    await tirerPourRafraichir();
     await attendre(2500);
     const carteCpt = await page.evaluate(() => Array.from(document.querySelectorAll('button.seance'))
       .filter((c) => /Écrans — comptes/.test(c.textContent)).map((c) => (c.querySelector('.seance-meta') || {}).textContent).filter(Boolean)[0] || null);
@@ -18827,7 +18930,7 @@ const SETS_IMPORTES = [
       Number(b0.z) > 1 && Number(b0.z) < 9, 'z-index ' + b0.z);
     // 204 — « ⌄ » (réduire), le titre, la durée, « ⋯ » (Modifier, S'entraîner ensemble) et « Terminer » (bouton principal, en capitales).
     ok('[barre] elle porte « ⌄ », le titre, la durée, les séries de travail, « ⋯ » et Terminer — rien d’autre',
-      /^⌄ Barre U62 \d+ min · 0 série de travail ⋯ Terminer$/i.test(b0.texte), b0.texte);
+      /^⌄ Barre U62 \d+ min · 0 sur [1-9]\d* séries? ⋯ Terminer$/i.test(b0.texte), b0.texte);
     ok('[barre] 204 — « Terminer » est le bouton principal (ambre), de 48 px de haut au moins ; « ⌄ » et « ⋯ » font 44 × 44 au moins',
       !!b0.fin && b0.principal && b0.fin.h >= 48 && !!b0.reduire && !!b0.menu &&
         b0.reduire.l >= 44 && b0.reduire.h >= 44 && b0.menu.l >= 44 && b0.menu.h >= 44,
@@ -18901,6 +19004,29 @@ const SETS_IMPORTES = [
       haltes.every((h) => h.y > 0 && Math.abs(h.haut) <= 1), JSON.stringify(haltes));
     ok('[barre] et « Terminer » est toujours à l’écran, atteignable (rien ne le recouvre)',
       haltes.every((h) => h.finVisible && /bandeau-fin/.test(h.sous || '')), JSON.stringify(haltes));
+    // Lot 3 (changement 5) — « Terminer » AUSSI en bas de la liste : tout en bas, il est à l'écran, rien ne le recouvre (ni la barre de
+    // repos, ni les onglets), et c'est la même action que celui du haut (la même feuille de fin).
+    await defiler(max0);
+    const bas = await page.evaluate(() => {
+      const b = document.getElementById('btn-terminer-bas');
+      const r = b.getBoundingClientRect();
+      const n = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      const repos = document.getElementById('repos');
+      const rr = repos && !repos.hidden ? repos.getBoundingClientRect() : null;
+      return { texte: b.textContent, visible: r.height > 0 && r.top >= 0 && r.bottom <= window.innerHeight,
+        recouvert: n !== b, sousLeRepos: !!rr && r.bottom > rr.top + 1, repos: !!rr, principal: b.classList.contains('principal') };
+    });
+    if (process.env.BANC_CAPTURES_LOT3) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_LOT3, 'lot3-terminer-bas.png') });
+    ok('[lot 3] « Terminer » en bas de la liste : visible tout en bas, jamais recouvert (ni par la barre de repos, ni par les onglets)',
+      bas.texte === 'Terminer' && bas.visible && !bas.recouvert && !bas.sousLeRepos && bas.principal, JSON.stringify(bas));
+    await page.click('#btn-terminer-bas');
+    await jusqua(async () => /^Terminer la séance/.test(await texte('#feuille-contenu .feuille-t')), 5000, 'lot 3: feuille depuis le bas');
+    const memeFeuille = await page.evaluate(() => ({ principal: document.querySelectorAll('#feuille-contenu .principal').length,
+      abandon: Array.from(document.querySelectorAll('#feuille-contenu button')).some((b) => /^Abandonner/.test(b.textContent)) }));
+    // (la séance de ce banc n'a aucune série validée : c'est la feuille « rien à enregistrer » de 137, la même que celle du haut)
+    ok('[lot 3] le « Terminer » du bas ouvre la MÊME feuille de fin que celui du haut', memeFeuille.principal === 1 && memeFeuille.abandon, JSON.stringify(memeFeuille));
+    await page.click('#btn-fermer-feuille');
+    await page.waitForFunction(() => document.getElementById('feuille-seance').hidden, null, { timeout: 5000 });
     await defiler(0);
 
     // ── D. LA DURÉE AVANCE TOUTE SEULE — avec le vrai réveil du navigateur.
@@ -19100,7 +19226,7 @@ const SETS_IMPORTES = [
     await attendre(600);
     const apresSelection = await barre();
     ok('[barre] « Annuler » rend la barre entière : durée, séries, « Terminer »',
-      /\d+ min · \d+ séries? de travail/.test(apresSelection.texte) && apresSelection.fin !== null && apresSelection.porteSuite,
+      /\d+ min · \d+ sur \d+ séries?/.test(apresSelection.texte) && apresSelection.fin !== null && apresSelection.porteSuite,
       apresSelection.texte);
 
     // ── M. QUITTER L'ÉCRAN COUPE LE RÉVEIL, Y REVENIR LE REPOSE.
@@ -19320,9 +19446,10 @@ const SETS_IMPORTES = [
     // 71 (JEU §9.4 révisé) — le bloc « Le jeu » est passé de la feuille au récap, tel quel.
     const feuille = await page.evaluate(() => {
       const c = document.getElementById('feuille-contenu');
-      return { bloc: !!document.getElementById('jeu-fin'), boutons: Array.from(c.querySelectorAll('button')).map((b) => b.textContent) };
+      const j = document.getElementById('jeu-fin');
+      return { bloc: !!j && !(j.closest('.recap-detail') || {}).hidden, boutons: Array.from(c.querySelectorAll('button')).map((b) => b.textContent) };
     });
-    ok('[jeu] « Terminer » et « Abandonner » sont là, et plus de bloc « Le jeu » dans la feuille (71)',
+    ok('[jeu] « Terminer » et « Abandonner » sont là ; le bloc « Le jeu » n’est jamais déplié sur l’écran de fin (lot 3 : sous « Détail », replié)',
       !feuille.bloc && feuille.boutons.indexOf('Terminer') >= 0 &&
       feuille.boutons.indexOf('Abandonner et tout effacer') >= 0, JSON.stringify(feuille));
     const enCoursU64 = (sessions().filter((x) => x.statut === 'en_cours')[0] || {}).id;
@@ -19336,11 +19463,15 @@ const SETS_IMPORTES = [
       const enfants = Array.from(c.children);
       const iRec = enfants.findIndex((x) => x.classList.contains('recap-rec'));
       return { bloc: !!bloc && c.contains(bloc), lignes: bloc ? Array.from(bloc.querySelectorAll('.j-ligne')).map((l) => l.textContent) : [],
-        apresRecords: !!bloc && iRec >= 0 && enfants.indexOf(bloc) > iRec };
+        // Lot 3 (changement 2) — le bloc est sous « Détail » (replié) : il suit les records dans le DOM, il n'est plus un enfant direct.
+        apresRecords: !!bloc && iRec >= 0 && (enfants[iRec].compareDocumentPosition(bloc) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
+        replie: !!bloc && !!bloc.closest('.recap-detail') && bloc.closest('.recap-detail').hidden === true };
     });
     const xp = (/^XP\+ ([\d ]+)$/.exec(recapJ.lignes[0] || '') || [])[1];
     ok('[jeu] DISCRIMINANT — le récap après un record : le bloc « Le jeu », APRÈS les records, une ligne XP > 0',
       recapJ.bloc && recapJ.apresRecords && !!xp && Number(xp.replace(/ /g, '')) > 0, JSON.stringify(recapJ));
+    ok('[jeu] lot 3 — le bloc « Le jeu » est sous « Détail », replié : un toucher le rend',
+      recapJ.replie === true, JSON.stringify(recapJ));
     await mesurerLargeur('fin');
     await fermerRecapBanc();
     await garderRecap(false);
@@ -22703,8 +22834,9 @@ const SETS_IMPORTES = [
     const tR = Date.now();
     const poserR = (id, jours, lignes) => {
       const debut = ilYa(jours * 86400000, tR).toISOString();
+      // Lot 3 (changement 3) — la plus récente de l'historique a déclaré une salle : l'écran de fin la propose, en clair.
       base.sessions.push({ id, user_id: 'u-banc', titre: 'Dos — ' + id, debut, fin: finDe(debut, tR).toISOString(),
-        statut: 'terminee', note: null, salle: null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
+        statut: 'terminee', note: null, salle: id === 'r71-3' ? 'Garage R71' : null, salle_norme: null, routine_id: null, source: 'app', created_at: debut });
       lignes.forEach(([kg, reps], i) => base.sets.push({
         id: id + '-s' + (i + 1), session_id: id, user_id: 'u-banc', exercise_slug: 'rowing-r71',
         charge_kg: kg, reps, duree_s: null, distance_m: null, type_serie: 'travail', rang: i + 1, groupe_superset: null,
@@ -22771,15 +22903,31 @@ const SETS_IMPORTES = [
       };
     });
     const espion = () => page.evaluate(() => window.__espionRecap.slice());
-    const terminerR = async () => {
+    // Lot 3 — l'écran de fin porte le récap COURT avant « Terminer » ; « Terminer » revient à la semaine avec le toast, et c'est le toast
+    // (touché ici, comme par l'utilisateur) qui ouvre le récap complet. `garderToast` : on le regarde avant de le toucher.
+    let toastR71 = null;
+    const terminerR = async (garderToast) => {
       await page.click('#bandeau-seance .bandeau-fin');
       await attendre(700);
       const feuille = await page.evaluate(() => ({
-        records: document.querySelectorAll('#feuille-contenu .records-fin').length,
-        jeu: document.querySelectorAll('#feuille-contenu #jeu-fin').length,
+        records: document.querySelectorAll('#feuille-contenu .recap-rec').length,
+        tuiles: document.querySelectorAll('#feuille-contenu .recap-tuile').length,
+        recapFinComplet: document.querySelectorAll('#feuille-contenu .recap-fermer, #feuille-contenu .recap-voir').length,
+        jeuReplie: !!document.querySelector('#feuille-contenu .recap-detail #jeu-fin') || document.querySelectorAll('#feuille-contenu #jeu-fin').length === 0,
+        resume: (document.querySelector('#feuille-contenu .resume-fin-v') || {}).textContent || '',
         entete: (document.querySelector('#feuille-contenu .feuille-t em') || {}).textContent || '' }));
+      if (garderToast) await page.evaluate(() => sessionStorage.setItem('banc-garder-toast', '1'));
       await page.click('#feuille-contenu .principal');
       await terminerQuandMeme();
+      if (garderToast) {
+        await jusqua(() => page.evaluate(() => !document.getElementById('toast-recap').hidden), 8000);
+        if (process.env.BANC_CAPTURES_LOT3) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_LOT3, 'lot3-fin-apres-terminer-toast.png') });
+        toastR71 = await page.evaluate(() => ({
+          texte: document.getElementById('toast-recap').textContent,
+          liste: !document.getElementById('vue-liste').hidden, recap: !document.getElementById('vue-recap').hidden }));
+        await page.evaluate(() => sessionStorage.removeItem('banc-garder-toast'));
+        await page.click('#toast-recap button');
+      }
       await jusqua(async () => (await recapVu()).visible, 8000);
       await attendre(600);
       return feuille;
@@ -22810,12 +22958,19 @@ const SETS_IMPORTES = [
     for (let i = 1; i < 4; i++) await saisirSerie(i, 80, 12);
     await attendre(1200);
     const idA = (base.sessions.filter((x) => x.statut === 'en_cours')[0] || {}).id;
-    const feuilleA = await terminerR();
+    const feuilleA = await terminerR(true);
     const a = await recapVu();
-    ok('[R71] (a) la feuille « Terminer » ne montre plus ni records ni jeu ; elle garde son compte',
-      feuilleA.records === 0 && feuilleA.jeu === 0 && /^4 séries de travail enregistrées$/.test(feuilleA.entete.replace(/[\u00a0\u202f]/g, ' ')),
-      nbR(feuilleA));
-    ok('[R71] (a) DISCRIMINANT — « Terminer » ouvre le récap, plein écran, sans barre d’onglets',
+    ok('[R71] (a) lot 3 — l’écran de fin montre les quatre chiffres et les records AVANT « Terminer », le jeu replié ; ni « Fermer » ni « Voir la séance » ; il garde son compte',
+      feuilleA.records === 2 && feuilleA.tuiles === 4 && feuilleA.recapFinComplet === 0 && feuilleA.jeuReplie &&
+      /^4 séries de travail enregistrées$/.test(feuilleA.entete.replace(/[\u00a0\u202f]/g, ' ')), nbR(feuilleA));
+    ok('[R71] (a) lot 3 — la salle d’avant (« Garage R71 ») est ÉCRITE EN CLAIR sur la ligne de l’écran de fin',
+      /Garage R71/.test(feuilleA.resume), nbR(feuilleA.resume));
+    await jusqua(async () => (base.sessions.filter((x) => x.id === idA)[0] || {}).statut === 'terminee', 8000);
+    ok('[R71] (a) lot 3 — « Terminer » a écrit cette salle sur la séance (et seulement à « Terminer »)',
+      (base.sessions.filter((x) => x.id === idA)[0] || {}).salle === 'Garage R71', nbR((base.sessions.filter((x) => x.id === idA)[0] || {}).salle));
+    ok('[R71] (a) DISCRIMINANT — « Terminer » revient à la semaine avec « Séance enregistrée · Voir le récap » ; le récap ne s’ouvre pas tout seul',
+      !!toastR71 && toastR71.liste === true && toastR71.recap === false && /^Séance enregistrée\s*Voir le récap$/.test(toastR71.texte), nbR(toastR71));
+    ok('[R71] (a) DISCRIMINANT — « Voir le récap » ouvre le récap, plein écran, sans barre d’onglets',
       a.visible && a.onglets && JSON.stringify(await visible()) === '["vue-recap"]', nbR([a.visible, a.onglets, await visible()]));
     ok('[R71] (a) l’en-tête : le titre, le jour et les heures « … · H h MM → H h MM »',
       a.titre.length > 0 && /^\S+ \d{1,2} \S+ · \d{1,2} h \d{2} → \d{1,2} h \d{2}$/.test(a.quand.replace(/[\u00a0\u202f]/g, ' ')), nbR([a.titre, a.quand]));
@@ -22823,12 +22978,12 @@ const SETS_IMPORTES = [
       nbR(a.tuiles.map((t) => t[1])) === nbR(['durée', 'séries', 'volume', 'exercices']) &&
       /^\d+ min$/.test(a.tuiles[0][0]) && a.tuiles[1][0] === '4' && nbR(a.tuiles[2][0]) === nbR('3,8 t') && a.tuiles[3][0] === '1',
       nbR(a.tuiles));
-    ok('[R71] (a) la comparaison : « 3,8 t soulevées : à peu près … »',
+    ok('[R71] (a) la comparaison : « 3,8 t soulevées : à peu près … » (sous « Détail » depuis le lot 3)',
       /^3,8 t soulevées : à peu près .+\.$/.test((a.comp || '').replace(/[\u00a0\u202f]/g, ' ')), nbR(a.comp));
     // Deux records : la série 1 (80 kg à 12, contre 79) et la série 4 (le volume de la séance passe 3 792 kg).
     // 140 : le volume de la séance reste un record (revient sur 137, D9).
-    ok('[R71] (a) les séries par muscle (la fonction du bloc Volume), les records (or), ce que le coach avait visé (ambre)',
-      a.groupes.map((g) => g.trim()).slice(0, 3).join(' | ') === 'Séries par muscle | 2 records | Ce que le coach avait visé' &&
+    ok('[R71] (a) les records (or), ce que le coach avait visé (ambre), puis sous « Détail » les séries par muscle (la fonction du bloc Volume) et les paris tenus',
+      a.groupes.map((g) => g.trim()).slice(0, 4).join(' | ') === '2 records | Ce que le coach avait visé | Séries par muscle | Paris tenus' &&
       nbR(a.muscles) === nbR(['Grand dorsal', 'Biceps']) && nbR(a.records) === nbR(['Rowing r71 : 80 kg × 12', 'Rowing r71 : 80 kg × 12']),
       nbR([a.groupes, a.muscles, a.records]));
     // 211 — ce compte n'avait aucun pari avant cette séance : le bloc des paris s'ouvre sur « Mon premier pari », un fait ; et
@@ -22838,11 +22993,29 @@ const SETS_IMPORTES = [
     ok('[R71] (a) la phrase des paris aux chiffres tels quels, et la ligne de l’exercice : « 80 kg × 12, 12, 12, 12 »',
       /^Sur \d+ paris? vérifiés?, le coach en a tenu \d+\.$/.test(a.voix || '') &&
       nbR(a.paris) === nbR([['Rowing r71', '80 kg × 12, 12, 12, 12']]), nbR([a.voix, a.paris]));
-    ok('[R71] (a) l’ordre de L1 : en-tête, chiffres, comparaison, muscles, records, coach… puis « Fermer », « Voir la séance » et les partages',
+    ok('[R71] (a) l’ordre (lot 3) : en-tête, chiffres, records, coach, « Détail » (comparaison, muscles, paris tenus) … puis « Fermer », « Voir la séance » et les partages',
       nbR(a.boutons) === nbR(['Fermer', 'Voir la séance', 'Partager']) &&
-      a.ordre.indexOf('recap-tuiles') < a.ordre.indexOf('recap-comp') && a.ordre.indexOf('recap-comp') < a.ordre.indexOf('recap-mu') &&
-      a.ordre.indexOf('recap-mu') < a.ordre.indexOf('recap-rec') && a.ordre.indexOf('recap-rec') < a.ordre.indexOf('recap-voix') &&
-      a.ordre.lastIndexOf('recap-bouton') === a.ordre.length - 1, nbR([a.boutons, a.ordre]));
+      a.ordre.indexOf('recap-tuiles') < a.ordre.indexOf('recap-rec') && a.ordre.indexOf('recap-rec') < a.ordre.indexOf('recap-voix') &&
+      a.ordre.indexOf('recap-voix') < a.ordre.indexOf('recap-plus') && a.ordre.indexOf('recap-plus') < a.ordre.indexOf('recap-detail') &&
+      a.ordre.indexOf('recap-detail') < a.ordre.indexOf('recap-bouton') &&
+      a.ordre.lastIndexOf('recap-bouton') === a.ordre.length - 1 && !a.ordre.some((c) => c === 'recap-mu' || c === 'recap-comp'),
+      nbR([a.boutons, a.ordre]));
+    // Lot 3 (changement 2) — le récap est COURT : « Détail » est replié, il dit ce qu'il contient, un toucher le rend ; moins de 800 caractères visibles.
+    if (process.env.BANC_CAPTURES_LOT3) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_LOT3, 'lot3-recap-replie.png'), fullPage: true });
+    const court = await page.evaluate(() => {
+      const c = document.getElementById('recap-corps');
+      const d = c.querySelector('.recap-detail'), b = c.querySelector('.recap-plus');
+      const copie = c.cloneNode(true);
+      copie.querySelectorAll('[hidden], .recap-bouton, .recap-partage-liste').forEach((n) => n.remove());
+      const avant = { replie: d.hidden, expanded: b.getAttribute('aria-expanded'), dit: b.querySelector('.recap-plus-d').textContent,
+        visibles: copie.textContent.replace(/\s+/g, ' ').trim().length, muscleVu: !!c.querySelector('.recap-mu').offsetParent };
+      b.click();
+      return Object.assign(avant, { apres: { replie: d.hidden, expanded: b.getAttribute('aria-expanded'), muscleVu: !!c.querySelector('.recap-mu').offsetParent } });
+    });
+    ok('[lot 3] le récap court : « Détail » replié (muscles, paris tenus invisibles), moins de 800 caractères visibles ; un toucher rend le détail',
+      court.replie === true && court.expanded === 'false' && court.muscleVu === false && court.visibles < 800 &&
+      /muscles/.test(court.dit) && /paris tenus/.test(court.dit) &&
+      court.apres.replie === false && court.apres.expanded === 'true' && court.apres.muscleVu === true, nbR(court));
     // 214 — « Partager » : secondaire (pas l'ambre), la feuille de partage reçoit le texte court ; sans elle, le presse-papiers.
     if (process.env.BANC_CAPTURES_214) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_214, 'recap.png'), fullPage: true });
     await page.evaluate(() => {
@@ -25144,7 +25317,7 @@ const SETS_IMPORTES = [
         // d'une page qui n'est plus celle de l'exercice (relevé : pages ralenties ×4).
         await jusqua(dernierSync, 60000);
         base.objectifsRetenue = false; base.lenteurObjectifs = RETENUE;
-        await page.evaluate(() => document.getElementById('btn-rafraichir').click());
+        await tirerPourRafraichir();
         return jusqua(async () => base.objectifsRetenue === true, 60000);
       };
       // La lecture est rendue (l'heure de sa libération passée) et la synchronisation est finie.
@@ -25185,7 +25358,7 @@ const SETS_IMPORTES = [
       // a mis 160 × 1 en base ; une synchronisation sans aucun geste la ramène.
       base.objectifs[0] = Object.assign({}, base.objectifs[0], { charge_kg: 160 });
       base.lenteurObjectifs = 0;
-      await page.evaluate(() => document.getElementById('btn-rafraichir').click());
+      await tirerPourRafraichir();
       await jusqua(async () => { const b = await brouillonO(); return !!b && (b.lignes || []).some((l) => l.charge_kg === 160); }, 30000);
       await jusqua(dernierSync, 60000);
       await aller('/exercice/squat-o109');
@@ -25221,7 +25394,7 @@ const SETS_IMPORTES = [
       base.objectifsRetenue = false; base.lenteurObjectifs = RETENUE; base.ecritureApresLecture = true;
       await feuilleO(155, 1);
       const dansLaFileD = !(await fileObjectifsVide());
-      await page.evaluate(() => document.getElementById('btn-rafraichir').click());
+      await tirerPourRafraichir();
       const enVolD = await jusqua(async () => base.objectifsRetenue === true, 60000);
       await jusqua(async () => (base.objectifs[0] || {}).charge_kg === 155 && await fileObjectifsVide(), 8000);
       base.ecritureApresLecture = false;
@@ -26947,7 +27120,7 @@ const SETS_IMPORTES = [
     base.peseesRetenir = false; base.peseesRetenue = false; base.peseesLibere = true;
     const synchroLibre = () => page.evaluate(() => { const e = document.getElementById('etat-sync');
       return !!e && (e.textContent || '').trim() !== '' && !e.classList.contains('sync'); }).catch(() => false);
-    const rafraichir = () => page.evaluate(() => document.getElementById('btn-rafraichir').click());
+    const rafraichir = () => tirerPourRafraichir();
     const cachePesees = () => page.evaluate(() => window.THCache.lireTout('pesees')
       .then((l) => (l || []).map((x) => x.date + '=' + x.poids_kg).sort())).catch(() => null);
     const filePesees = () => page.evaluate(() => window.THCache.lireAttente()
@@ -27047,7 +27220,7 @@ const SETS_IMPORTES = [
     const nb154 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
     const synchroLibre154 = () => page.evaluate(() => { const e = document.getElementById('etat-sync');
       return !!e && (e.textContent || '').trim() !== '' && !e.classList.contains('sync'); }).catch(() => false);
-    const rafraichir154 = () => page.evaluate(() => document.getElementById('btn-rafraichir').click());
+    const rafraichir154 = () => tirerPourRafraichir();
     const cacheSeries154 = () => page.evaluate(() => window.THCache.lireTout('series')
       .then((l) => (l || []).map((x) => x.id).sort())).catch(() => null);
     const slug154 = CATALOGUE[0].slug;
@@ -27112,7 +27285,7 @@ const SETS_IMPORTES = [
     const nb155 = (t) => String(t || '').replace(/[  ]/g, ' ').replace(/\s+/g, ' ').trim();
     const synchroLibre155 = () => page.evaluate(() => { const e = document.getElementById('etat-sync');
       return !!e && (e.textContent || '').trim() !== '' && !e.classList.contains('sync'); }).catch(() => false);
-    const rafraichir155 = () => page.evaluate(() => document.getElementById('btn-rafraichir').click());
+    const rafraichir155 = () => tirerPourRafraichir();
     const cacheSeries155 = () => page.evaluate(() => window.THCache.lireTout('series')
       .then((l) => (l || []).map((x) => x.id).sort())).catch(() => null);
     const slug155 = CATALOGUE[0].slug;
@@ -31506,7 +31679,7 @@ const SETS_IMPORTES = [
     const nb246 = (x) => JSON.stringify(x === undefined ? null : x);
     const synchroLibre246 = () => page.evaluate(() => { const e = document.getElementById('etat-sync');
       return !!e && (e.textContent || '').trim() !== '' && !e.classList.contains('sync'); }).catch(() => false);
-    const rafraichir246 = async () => { await jusqua(synchroLibre246, 60000); await page.evaluate(() => document.getElementById('btn-rafraichir').click());
+    const rafraichir246 = async () => { await jusqua(synchroLibre246, 60000); await tirerPourRafraichir();
       await jusqua(synchroLibre246, 60000); };
     // Six semaines civiles COMPLÈTES derrière la semaine en cours (lundi → dimanche, comme `tendanceDuPoids`), deux pesées chacune :
     // le lundi et le mercredi. `mercrediEcoule(k)` (decor-dates.js) porte l'ancre : aucun jour de la semaine lu dans le banc (banc-dates).

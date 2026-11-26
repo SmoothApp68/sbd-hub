@@ -527,3 +527,50 @@ describe('197 — Forme : le tirage alterne, vertical puis horizontal', () => {
     expect([].concat(...forme('moins_1_an', { tractions: true }))).toContain('tractions');
   });
 });
+
+// 26/11/2026 — LE 8 DU PRINCIPAL EN OBJECTIF MUSCLE (QUESTIONNAIRE-COACH-V2 §5 bis, tour de table et contradicteur à froid du 26/11).
+// Un principal à la barre à 7 reps se rangeait en Mix, zone de force (carte « Passer à 3-5 reps », réserve 2) : à 8, il est
+// rangé en Hypertrophie par la table du moteur. Aucune constante nouvelle : le soulevé reste borné par `CHARNIERE_MAX`.
+describe('26/11 — Muscle et « sans réponse » : le principal à la barre fait 8 reps', () => {
+  const cat = catalogue();
+  const lignes = (rs) => [].concat.apply([], rs.map((rt) => rt.exercices));
+  const principauxBarre = (rs) => lignes(rs).filter((x) => x.role === 'P' && cat[x.exercise_slug].equipement === 'barre');
+
+  test('la table : Muscle et sans réponse 8 · 9 · 12 (les autres objectifs ne bougent pas)', () => {
+    expect(G.REPS.muscle).toEqual([8, 9, 12]);
+    expect(G.REPS.force).toEqual([5, 7, 12]);
+    expect(G.REPS.les_deux).toEqual([5, 9, 12]);
+    expect(G.REPS.forme).toEqual([9, 12, 15]);
+  });
+
+  ['muscle', undefined].forEach((objectif) => {
+    test('objectif ' + objectif + ' : les principaux à la barre sont à 8, jamais à 7 ; le soulevé reste sous CHARNIERE_MAX', () => {
+      const e = Object.assign(clone(CAS.generer.filter((x) => x.id === 'alexis_5j_muscle')[0].entree), { famille: false, objectif });
+      const pb = principauxBarre(G.generer(cat, e));
+      expect(pb.length).toBeGreaterThan(0);
+      pb.forEach((x) => expect(x.reps).toBe(Math.min(8, x.motif === 'charniere' ? G.CHARNIERE_MAX : 8)));
+      expect(pb.some((x) => x.motif === 'charniere' && x.reps === 8)).toBe(true);
+      lignes(G.generer(cat, e)).forEach((x) => expect(x.reps).not.toBe(7));
+    });
+  });
+
+  test('« Je n’en veux pas » lit la table même avec un historique : le remplaçant d’un principal à la barre fait 8', () => {
+    const c = CAS.generer.filter((x) => x.id === 'alexis_5j_muscle')[0];
+    const entree = entreeDe(c);                                              // le cas porte un historique (`faits`)
+    expect(Object.keys(entree.faits).length).toBeGreaterThan(0);
+    const rs = G.generer(cat, entree);
+    let trouve = false;
+    rs.forEach((rt, r) => rt.exercices.forEach((x, k) => {
+      if (x.role !== 'P' || cat[x.exercise_slug].equipement !== 'barre') return;
+      const neuf = G.neVeuxPas(cat, rs, entree, r, k).routines[r].exercices[k];
+      if (cat[neuf.exercise_slug].equipement === 'barre') { trouve = true; expect(neuf.reps).toBe(8); }
+    }));
+    expect(trouve).toBe(true);
+  });
+
+  test('un programme DÉDUIT de l’historique ne lit pas la table : les reps de la ligne restent celles de la personne', () => {
+    const l = { exercise_slug: 'squat_barre', series: 3, reps: 7 };
+    expect(G.habiller(cat, l, { objectif: 'muscle' }).reps).toBe(7);
+    expect(G.habiller(cat, Object.assign({}, l, { reps: 6 }), { objectif: 'muscle' }).reps).toBe(6);
+  });
+});

@@ -8313,10 +8313,21 @@
     go.type = 'button';
     go.addEventListener('click', function () { if (vue.enCours) { if (vue.surReprendre) vue.surReprendre(); } else if (vue.surDemarrer) vue.surDemarrer(r.id); });
     pied.appendChild(go);
+    // §9.18 (27/11/2026) — « J'ai peu de temps », une porte de plus pour le même geste (jamais une copie) : sous les MÊMES conditions que
+    // sur la rangée de Saisie (`temps.peuDeTemps` : absent pendant une décharge, ou quand la routine tient déjà dans la plus courte des
+    // durées). Les deux liens discrets partagent une colonne : « Démarrer » garde sa largeur à 360 px.
+    var liens = el('div', 'prochaine-liens');
+    if (temps && temps.peuDeTemps && vue.surPeuDeTemps) {
+      var pt = el('button', 'discret prochaine-peu-de-temps', 'J\u2019ai peu de temps');
+      pt.type = 'button';
+      pt.addEventListener('click', function () { vue.surPeuDeTemps(r.id); });
+      liens.appendChild(pt);
+    }
     var autre = el('button', 'discret prochaine-autre', 'Autre routine \u203a');
     autre.type = 'button';
     autre.addEventListener('click', function () { if (vue.surAutre) vue.surAutre(); });
-    pied.appendChild(autre);
+    liens.appendChild(autre);
+    pied.appendChild(liens);
     carte.appendChild(pied);
     cible.appendChild(carte);
     return cible;

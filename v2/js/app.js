@@ -13720,12 +13720,25 @@
     demarrerSeance(r);
   }
 
-  // 173 (refonte « Vivant ») — « Prochaine séance », en tête de l'accueil : la routine qui suit la dernière faite (`Routines.routineSuivante`).
+  // 27/11/2026 (MOTEUR §9.24, §9.18) — UNE SEULE NOTION, « LA SÉANCE D'AUJOURD'HUI » : la routine que le planning décalé place aujourd'hui
+  // (« Jambes aujourd'hui · la suite se décale », `Deraille.routineDuJour`), sinon la routine qui suit la dernière faite
+  // (`Routines.routineSuivante`). Rend `{ routine, derniere }` ou null. Lue par « Prochaine séance » ; « Démarrer » et « J'ai peu de temps »
+  // reçoivent son identifiant. Le coach se tait en « Juste un carnet » : aucun planning n'est lu.
+  function laSeanceDAujourdhui() {
+    if (!Moteur.coachSeTait(profil && profil.intention)) {
+      var id = Deraille.routineDuJour(lireLaSemaine(), Routines.visibles(routines), local.seances, Moteur.jourCivil(new Date()));
+      var r = id ? routines.filter(function (x) { return x.id === id; })[0] : null;
+      if (r) return { routine: r, derniere: null };
+    }
+    return Routines.routineSuivante(routines, local.seances);
+  }
+
+  // 173 (refonte « Vivant ») — « Prochaine séance », en tête de l'accueil : la séance d'aujourd'hui (`laSeanceDAujourdhui`).
   function rendreProchaineSeance() {
     var cible = $('prochaine-seance');
     if (!cible) return;
     // Séance en cours : la carte décrit CETTE séance (21/11/2026), jamais la routine qui suit.
-    var suivante = !seance && (etatRoutines.code === 'ok' || routines.length) ? Routines.routineSuivante(routines, local.seances) : null;
+    var suivante = !seance && (etatRoutines.code === 'ok' || routines.length) ? laSeanceDAujourdhui() : null;
     var enCours = null;
     if (seance) {
       var ap = Routines.apercu(seance.exercices, local.exercices);
@@ -13738,6 +13751,8 @@
       temps: tempsDeLaRoutine,
       enCours: !!seance,
       surDemarrer: demarrerRoutineParId,
+      // §9.18 — la même feuille que sur la rangée de Saisie, pour la routine montrée.
+      surPeuDeTemps: function () { if (suivante) ouvrirPeuDeTemps(suivante.routine); },
       surReprendre: function () { allerA(Routeur.SAISIE, {}); rendreSeance(); },
       surAutre: function () { allerA(Routeur.SAISIE, {}); rendreSaisie(); }
     });

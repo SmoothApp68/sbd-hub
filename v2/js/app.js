@@ -20998,7 +20998,19 @@
     if (!vues.saisie.hidden) rendreSaisie();
   }
 
+  // Le démarrage ne laisse JAMAIS une page vide : s'il lève (un script de la coquille manque — `THConfig`, le client…),
+  // l'écran de secours « L'app n'a pas pu démarrer » prend la place, avec « Réessayer » (secours.js).
   async function demarrer() {
+    try {
+      if (!racine.THConfig || !racine.THConfig.URL) throw new Error('THConfig absent : config.js n’est pas arrivé');
+      await demarrerApp();
+    } catch (e) {
+      if (racine.THSecours) racine.THSecours.montrer(e);
+      else if (racine.console) racine.console.error('Démarrage raté :', e);
+    }
+  }
+
+  async function demarrerApp() {
     vues = {
       connexion: $('vue-connexion'), lien: $('vue-lien'), liste: $('vue-liste'), detail: $('vue-detail'),
       saisie: $('vue-saisie'), routine: $('vue-routine'), seance: $('vue-seance'),

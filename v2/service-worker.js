@@ -58,6 +58,8 @@ const SHELL = [
   './fonts/barlow-condensed-700.woff2',
   './fonts/barlow-condensed-800.woff2',
   './fonts/archivo-variable.woff2',
+  // L'écran de secours « L'app n'a pas pu démarrer » : chargé en premier, sans dépendance.
+  './js/secours.js',
   './vendor/supabase.js',
   './js/config.js',
   './js/client.js',
@@ -110,8 +112,10 @@ const SHELL = [
 ];
 
 // Les deux fichiers sans lesquels « hors ligne » ne veut rien dire : la page et
-// le script qui la fait vivre. Leur absence fait échouer l'installation, pour
-// qu'elle soit retentée, plutôt que de laisser croire à une coquille complète.
+// le script qui la fait vivre. Depuis « Démarrage sans page blanche », TOUTE la
+// coquille est exigée à l'installation (voir `installer`) : un script manquant
+// (config.js, client.js…) casse le démarrage aussi sûrement que app.js. Cette
+// liste reste le noyau, et le test qui le relie à SHELL.
 const INDISPENSABLES = ['./index.html', './js/app.js'];
 
 // ── LA GARDE ────────────────────────────────────────────────────────────────
@@ -128,9 +132,26 @@ const INDISPENSABLES = ['./index.html', './js/app.js'];
 //     /           → { status: 200, ok: true, type: 'basic', redirected: false }
 //
 // C'est un piège qui se réintroduit tout seul à la première relecture pressée.
-function utilisable(r) {
+function utilisable(r, url) {
   return !!r && r.ok && r.status === 200 &&
-         !r.redirected && r.type !== 'error' && r.type !== 'opaqueredirect';
+         !r.redirected && r.type !== 'error' && r.type !== 'opaqueredirect' &&
+         typeCoherent(url, r);
+}
+
+// ── LE TYPE DOIT CORRESPONDRE AU FICHIER ────────────────────────────────────
+//
+// Un portail captif, un proxy ou le repli d'un hébergeur répondent 200 avec une
+// PAGE HTML à n'importe quel chemin, `/js/config.js` compris. `ok`, le statut et
+// `redirected` n'y voient rien. Le navigateur refuserait ce « script »
+// (`nosniff`), mais le service worker l'aurait mis en cache, et l'app resterait
+// cassée jusqu'au prochain déploiement. Un fichier qui n'est PAS une page ne
+// s'accepte donc pas en `text/html`. Sans `url` (ou sans en-tête), on ne juge
+// pas : la garde ne doit jamais rejeter ce qu'elle ne sait pas lire.
+function estUnePage(url) { return /(^|\/)$|\.html?($|[?#])/.test(String(url)); }
+function typeCoherent(url, r) {
+  if (!url || estUnePage(url)) return true;
+  const types = r && r.headers && typeof r.headers.get === 'function' ? r.headers.get('content-type') : null;
+  return !(types && /^\s*text\/html/i.test(types));
 }
 
 // ── LE DÉSEMPOISONNEMENT ────────────────────────────────────────────────────
@@ -332,17 +353,26 @@ async function seDesinstaller() {
 async function mettreEnCache(cache, url) {
   const reponse = await fetch(url, { cache: 'reload' });
   if (!reponse || !reponse.ok) throw new Error('réponse ' + (reponse && reponse.status));
+  if (!typeCoherent(url, reponse)) throw new Error('type inattendu pour ' + url);
   await cache.put(url, await desempoisonner(reponse));
 }
 
 async function installer() {
   const cache = await caches.open(CACHE_V2);
   await Promise.all(SHELL.map((url) => mettreEnCache(cache, url).catch(() => null)));
-  const presents = await Promise.all(INDISPENSABLES.map((u) => cache.match(u)));
-  // On vérifie que les indispensables sont là ET utilisables : un cache qui
-  // contiendrait une coquille invalide vaut un cache vide, en pire — il se
-  // croirait complet.
-  if (presents.some((r) => !utilisable(r))) throw new Error('coquille incomplète ou invalide');
+  // ÉCHEC FERMÉ : une coquille complète, ou rien. Chaque entrée de SHELL doit
+  // être là ET utilisable (200, non redirigée, du bon type) : un cache qui en
+  // manque une vaut un cache vide, en pire — il se croirait complet, et l'app
+  // hors ligne plantait au premier script absent (page blanche). Une
+  // installation qui lève est RETENTÉE, et l'ancien service worker, s'il y en a
+  // un, reste en place avec son cache (scénario 9 du banc) : le seul coût d'un
+  // réseau capricieux est de réessayer au prochain lancement.
+  const presents = await Promise.all(SHELL.map((u) => cache.match(u)));
+  const manquantes = SHELL.filter((u, i) => !utilisable(presents[i], u));
+  if (manquantes.length) {
+    throw new Error('coquille incomplète ou invalide : ' + manquantes.slice(0, 3).join(', ') +
+      (manquantes.length > 3 ? ' (+' + (manquantes.length - 3) + ')' : ''));
+  }
 }
 
 async function activer() {
@@ -430,7 +460,7 @@ function estDeLaCoquille(url) {
 async function servirRessource(req) {
   const cache = await caches.open(CACHE_V2);
   const enCache = await cache.match(req);
-  if (utilisable(enCache)) {
+  if (utilisable(enCache, req.url)) {
     // Volontairement PAS attendu : une mise à jour en arrière-plan ne doit
     // jamais retarder une réponse qu'on a déjà. Et elle désempoisonne, pour que
     // le cache ne se repollue pas par la bande. Jamais pour la coquille (117).
@@ -475,7 +505,7 @@ if (typeof self !== 'undefined' && typeof caches !== 'undefined' &&
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     CACHE_V2: CACHE_V2, CHEMIN_SORTIE: CHEMIN_SORTIE, SHELL: SHELL,
-    INDISPENSABLES: INDISPENSABLES,
+    INDISPENSABLES: INDISPENSABLES, typeCoherent: typeCoherent,
     utilisable: utilisable, desempoisonner: desempoisonner, PAGE_SORTIE: PAGE_SORTIE, estDeLaCoquille: estDeLaCoquille,
     installer: installer, servirCoquille: servirCoquille, servirRessource: servirRessource,
     // La trappe est testable en CI : elle ne lit que `caches`, `indexedDB` et

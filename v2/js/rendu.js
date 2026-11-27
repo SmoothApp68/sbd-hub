@@ -5633,6 +5633,8 @@
         cible.appendChild(n);
       });
     }
+    // MOTEUR §9.54 — ce que le coach n'a pas lu : « Ta séance du 26 janv. (sans coach) n'est pas lue. » (du plan, aucun texte composé ici)
+    if (p.nonLues) cible.appendChild(el('p', 'pq-p pq-non-lues', p.nonLues));
     // 193-3 — la zone vient de la routine : la première ligne, avant le détail de la zone.
     if (p.plan) cible.appendChild(el('p', 'pq-p', p.plan));
     // 253 (X2) — la veille d'une activité dure : « Plan : 152,5 kg × 5. Aujourd'hui : 145 kg × 5, 2 en réserve : tu as noté football hier. »

@@ -2128,7 +2128,7 @@
   // `n`, le nombre de séries de travail de la dernière séance de l'exercice tel
   // que la consigne le lit ; sans consigne (Entretenir, mesure sans charge), les
   // séries de travail de la dernière séance ; sans historique, l'intention — 3
-  // en Progresser, 2 en Entretenir (Spiering et al. 2021, chez les jeunes adultes). Ce n'est qu'un
+  // en Progresser, 2 en Entretenir (convention de l'app ; l'ACSM 2009 donne la fourchette des séries par exercice). Ce n'est qu'un
   // pré-remplissage : on ajoute et on retire librement. Une routine garde ses
   // propres séries (`exerciceDepuisRoutine`). Plus aucune lecture de
   // `consigne.n` hors du plan.
@@ -6845,7 +6845,7 @@
       'recul.marge': x.reculs && x.reculs.mode === 'max_du_jour' ? { valeurs: [x.reculs.marge, Moteur().RECUL_MARGE_VISEE] }
         : (x.reculs && x.reculs.depart === true && x.reculs.deduit === true ? { valeurs: [x.reculs.margeGrosse, Moteur().RECUL_MARGE_VISEE] } : null),
       // 266 — le plancher du départ de l'écart (5 %), cité quand le départ est tiré de la table.
-      'recul.depart': x.reculs && x.reculs.depart === true && x.reculs.deduit === true ? { valeur: Math.round(Moteur().RECUL_ECART_MIN * 1000) / 10 } : null,
+      'recul.plancher': x.reculs && x.reculs.depart === true && x.reculs.deduit === true ? { valeur: Math.round(Moteur().RECUL_ECART_MIN * 1000) / 10 } : null,
       'recul.correction': x.reculs && x.reculs.mode === 'max_du_jour' ? { valeur: Math.round(Math.abs(x.reculs.correction) * 1000) / 10 } : null,
       'recul.derniere': x.reculs && x.reculs.derniere ? { charge: x.reculs.derniere.charge } : null,
       // 236 — le coach après un raté : les reps, la garde et les charges dits par la réaction, la carte de la forme du jour, la carte des paris.
@@ -10041,14 +10041,14 @@
           erreurs.push(nom + 'la charge hors palier ' + hp + ' kg sert de cran à la consigne');
         }
         if (f.crans > 1 && cL !== null && cH !== null && cL > 0) {
-          var plafond = nombre(f.plafond) !== null ? nombre(f.plafond) : 0.15;
+          var plafond = nombre(f.plafond) !== null ? nombre(f.plafond) : Moteur().PRUDENCE.plafondDeSaut;
           // 191 — jamais au-dessus du plafond de la prudence de montée, jamais plusieurs crans quand elle dit « un cran à la fois ».
           if (plan && plan.prudence && plafond > plan.prudence.plafond + 1e-9) {
             erreurs.push(nom + 'un plafond de saut de ' + plafond + ', la prudence de montée dit ' + plan.prudence.plafond);
           }
           if (plan && plan.prudence && plan.prudence.unCran) erreurs.push(nom + 'un saut de ' + f.crans + ' crans, un cran à la fois');
           if (f.crans > 3) erreurs.push(nom + 'un saut de ' + f.crans + ' crans, trois au plus');
-          if (plafond > 0.15 + 1e-9) erreurs.push(nom + 'un plafond de saut de ' + plafond + ', quinze pour cent au plus');
+          if (plafond > Moteur().PRUDENCE.plafondDeSaut + 1e-9) erreurs.push(nom + 'un plafond de saut de ' + plafond + ', quinze pour cent au plus');
           if ((cH - cL) / cL > plafond + 1e-6) {
             erreurs.push(nom + 'un saut de ' + f.crans + ' crans de ' + cL + ' à ' + cH + ' kg dépasse ' + Math.round(plafond * 100) + ' %');
           }

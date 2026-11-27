@@ -743,14 +743,11 @@
     // le dit ailleurs : les séries de travail (`Seance.compter`, celle du
     // bandeau et de la feuille), le volume (`Bilan.volumeKg`, celle du bilan du
     // mois), les séries par muscle (`Semaine.volumeParMuscle`, celle du bloc
-    // Volume), les records (`recordsDuJour`, celle de la médaille), les paris
-    // (`Bilan.compterParis` et `Bilan.phraseParis`, celles du bilan du mois),
-    // la comparaison (`Bilan.phraseComparaison`). Il n'écrit rien.
-    //   `seance` : la séance terminée (le modèle de l'app) ;
-    //   `paris`  : `[{ seance, exercice, predite, observee }]` — les paris de
-    //              consigne connus (`app.js` `parisDeConsigneConnus`).
+    // Volume), les records (`recordsDuJour`, celle de la médaille), la comparaison (`Bilan.phraseComparaison`). Il n'écrit rien.
+    //   `seance` : la séance terminée (le modèle de l'app).
+    //   Les paris n'y sont plus (« Les paris en coulisse », 29/11/2026) : `parisDuCoach`, Profil › À propos de ton coach.
     var MUSCLES_DU_RECAP = 5;
-    function recapDeLaSeance(c, seance, paris, premierPari) {
+    function recapDeLaSeance(c, seance) {
       if (!seance) return null;
       var exercices = c.exercices || [];
       var faites = Seance.toutesLesSeries(seance).filter(function (p) { return Seance.partEnBase(p.serie); })
@@ -771,25 +768,6 @@
         var n = Modele.nomCourt(index[slug] ? index[slug].nom : slug);
         return n.charAt(0).toUpperCase() + n.slice(1);
       };
-      // Les paris de CETTE séance, et la phrase aux chiffres tels quels.
-      var siens = (paris || []).filter(function (q) { return q && q.seance === seance.id && Bilan.compteLe(q); });
-      var comptes = Bilan.compterParis(siens);
-      var lignesParis = [];
-      if (comptes.verifies) {
-        ordre.forEach(function (slug) {
-          var verifies = siens.filter(function (q) {
-            return q.exercice === slug && q.observee !== null && q.observee !== undefined &&
-              isFinite(Number(q.observee)) && isFinite(Number(q.predite));
-          });
-          if (!verifies.length) return;
-          var vises = [];
-          verifies.forEach(function (q) {
-            if (!Bilan.estTenu(q) && vises.indexOf(Number(q.predite)) < 0) vises.push(Number(q.predite));
-          });
-          lignesParis.push({ slug: slug, nom: nomDe(slug), fait: faitDeLExercice(parSlug[slug]),
-                             vise: vises.length ? vises.map(String).join(', ') : null });
-        });
-      }
       return {
         id: seance.id,
         titre: seance.titre || null,
@@ -814,15 +792,6 @@
         records: recordsDuJour(c, seance, { avecPhrase: true }),
         // 211 — la toute première séance : « Point de départ » (et pas de bloc des paris, qui n'a pas de matière).
         pointDeDepart: estLaPremiereSeance(c, seance) ? Bilan.PHRASE_POINT_DE_DEPART : null,
-        paris: comptes.verifies ? {
-          verifies: comptes.verifies, tenus: comptes.tenus,
-          // 211 — la séance du premier pari du compte : sa phrase ouvre le bloc (le plus ancien pari vérifié de la séance).
-          premier: premierPariDuCompte(c, premierPari || []) === seance.id ? Bilan.phrasePremierPari(Bilan.estTenu(siens.filter(function (q) {
-            return q.observee !== null && q.observee !== undefined && isFinite(Number(q.observee)) && isFinite(Number(q.predite));
-          }).sort(function (a, b) { var ea = String(a.emise || '~'), eb = String(b.emise || '~'); return ea < eb ? -1 : ea > eb ? 1 : 0; })[0])) : null,
-          phrase: Bilan.phraseParis(comptes.verifies, comptes.tenus, { telsQuels: true }),
-          lignes: lignesParis
-        } : null,
         note: seance.note || null
       };
     }
@@ -863,6 +832,63 @@
         if (meilleur === null || d < meilleur.d) meilleur = { d: d, seance: q.seance };
       });
       return meilleur ? meilleur.seance : null;
+    }
+
+    // 29/11/2026 (« Les paris en coulisse ») — LE COMPTE DU COACH, depuis le début, en UN seul endroit : Profil › À propos › À propos de ton coach.
+    // Aucun écran ne calcule : le compte passe par `Bilan.compterParis` (donc `Bilan.compteLe` : un pari de Décharge ou de jour sans n'est pas une
+    // vérification), la phrase et la valeur par `Bilan.phraseParis` / `Bilan.valeurParis`. Les lignes sont celles du compte (une ligne par séance et
+    // par exercice, la plus récente d'abord) : jamais plus de lignes que de paris comptés. Rien n'est écrit, `predictions` reste immuable.
+    //   `paris` : `[{ date, seance, exercice, emise, predite, observee, charge, allegee, jourSans }]` (`app.js` `parisDeConsigneConnus`).
+    // Rend `null` sans pari vérifié, sinon `{ verifies, tenus, phrase, valeur, lignes: [{ nom, tenu, quand, prevu, fait, explication }] }`.
+    // Un exercice « pas tenu » dit son écart au « j'avais prévu », jamais un « tu n'as pas réussi » ; « tenu » et « pas tenu » sans jugement.
+    var LIGNES_DES_PARIS = 100;
+    function parisDuCoach(c, paris, aujourdhui) {
+      var siens = (paris || []).filter(function (q) {
+        return q && q.exercice && q.observee !== null && q.observee !== undefined &&
+          isFinite(Number(q.observee)) && isFinite(Number(q.predite)) && Bilan.compteLe(q);
+      });
+      var comptes = Bilan.compterParis(siens);
+      if (!comptes.verifies) return null;
+      var index = c && c.catalogue ? c.catalogue() : {};
+      var nomDe = function (slug) {
+        var n = Modele.nomCourt(index[slug] ? index[slug].nom : slug);
+        return n.charAt(0).toUpperCase() + n.slice(1);
+      };
+      var mesure = function (charge, reps) {
+        return Modele.formatMesure(charge === null || !isFinite(charge) ? { reps: reps } : { charge_kg: charge, reps: reps });
+      };
+      var parLigne = {}, ordre = [];
+      siens.forEach(function (q) {
+        var k = (q.seance || q.date) + '|' + q.exercice;
+        if (!parLigne[k]) { parLigne[k] = { date: Date.parse(q.date), slug: q.exercice, paris: [] }; ordre.push(k); }
+        parLigne[k].paris.push(q);
+      });
+      var an = (aujourdhui instanceof Date ? aujourdhui : new Date()).getFullYear();
+      var lignes = ordre.map(function (k) { return parLigne[k]; })
+        .sort(function (a, b) {
+          var da = isNaN(a.date) ? 0 : a.date, db = isNaN(b.date) ? 0 : b.date;
+          return db - da;
+        })
+        .slice(0, LIGNES_DES_PARIS)
+        .map(function (l) {
+          var rates = l.paris.filter(function (q) { return !Bilan.estTenu(q); });
+          var q = rates.length ? rates[0] : l.paris[0];
+          var charge = q.charge === null || q.charge === undefined ? null : Number(q.charge);
+          var pe = Number(q.predite), ob = Number(q.observee);
+          var prevu = mesure(charge, pe), fait = mesure(charge, ob);
+          return {
+            nom: nomDe(l.slug),
+            tenu: !rates.length,
+            quand: isNaN(l.date) ? '' : Modele.jourDit(Moteur.jourCivil(new Date(l.date)), { nom: true, annee: an }),
+            prevu: prevu, fait: fait,
+            explication: rates.length ? 'J\u2019avais pr\u00e9vu ' + Modele.repsTexte(pe) + (charge > 0 ? ' \u00e0 ' + Modele.kgTexte(charge) : '') +
+              ' : tu en as fait ' + Modele.nombreTexte(ob, 0) + '.' : null
+          };
+        });
+      return { verifies: comptes.verifies, tenus: comptes.tenus,
+               phrase: Bilan.phraseParis(comptes.verifies, comptes.tenus),
+               valeur: Bilan.valeurParis(comptes.verifies, comptes.tenus),
+               lignes: lignes };
     }
 
     // 236 (MOTEUR §9.39) — LES PARIS RATÉS À LA SUITE. Par exercice : de combien de séances d'affilée (les plus récentes) le pari n'a pas tenu,
@@ -1938,9 +1964,6 @@
         exercices: Object.keys(index).map(function (slug) { return index[slug]; }),
         pesees: (Poids ? Poids.normaliser(o.pesees || []) : []).map(function (p) {
           return { jour: Moteur.jourCivil(p.date), poids: p.poids };
-        }),
-        paris: (o.paris || []).filter(function (q) { return q && q.date; }).map(function (q) {
-          return { jour: Moteur.jourCivil(q.date), predite: q.predite, observee: q.observee, allegee: q.allegee === true };
         })
       };
     }
@@ -1973,7 +1996,7 @@
     function bilanDePeriode(c, periode, aujourdhui, autres) {
       var o = autres || {}, catalogue = c.catalogue();
       var cle = (c.seances || []).length + '|' + (c.series || []).length + '|' +
-        Moteur.jourCivil(aujourdhui) + '|' + (o.pesees || []).length + '|' + (o.paris || []).length;
+        Moteur.jourCivil(aujourdhui) + '|' + (o.pesees || []).length;
       var ici = periode.type + ':' + periode.cle, m = memoBilans[ici];
       if (!m || m.cle !== cle || m.catalogue !== catalogue) {
         m = memoBilans[ici] = { cle: cle, catalogue: catalogue,
@@ -2601,6 +2624,7 @@
       derniereSalleDeclaree: derniereSalleDeclaree,
       premierPariDuCompte: premierPariDuCompte,
       parisRatesALaSuite: parisRatesALaSuite,
+      parisDuCoach: parisDuCoach,
       faitDeLExercice: faitDeLExercice,
       ceQuiManque: ceQuiManque,
       journalDuJour: journalDuJour,

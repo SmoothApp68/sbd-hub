@@ -139,21 +139,41 @@
   // quels (« Sur 16 paris vérifiés, le coach en a tenu 14. ») — une séance en
   // compte rarement plus de 30, et « sur 10 » contredirait le compte. Une
   // phrase, deux réglages ; le bilan du mois garde la sienne.
-  function phraseParis(verifies, tenus, options) {
+  // 29/11/2026 (« Les paris en coulisse ») — le compte ramené à 10 dès 10 paris vérifiés : UNE fonction, pour la phrase ET pour la valeur
+  // de la ligne du Profil (« 9 sur 10 »). Un compte nul ne se dit pas (rien sans pari vérifié).
+  function compteRamene(verifies, tenus, options) {
     var v = Number(verifies) || 0, t = Number(tenus) || 0;
     if (v <= 0) return null;
     if (v >= 10 && !(options && options.telsQuels)) { t = Math.round(t * 10 / v); v = 10; }
-    return 'Sur ' + v + ' pari' + (v > 1 ? 's' : '') + ' vérifié' + (v > 1 ? 's' : '') +
-      ', le coach en a tenu ' + t + '.';
+    return { verifies: v, tenus: t };
+  }
+  function phraseParis(verifies, tenus, options) {
+    var c = compteRamene(verifies, tenus, options);
+    if (!c) return null;
+    return 'Sur ' + c.verifies + ' pari' + (c.verifies > 1 ? 's' : '') + ' vérifié' + (c.verifies > 1 ? 's' : '') +
+      ', le coach en a tenu ' + c.tenus + '.';
+  }
+  // LES MOTS DE LA PAGE « À propos de ton coach » (Profil › À propos), écrits ici et nulle part ailleurs : le coach explique son pari, dit ce qu'il ne
+  // compte pas (le compte et la liste s'accordent), et se tait d'un compte vide — jamais « 0 sur 0 », jamais un « bravo ».
+  var PARIS_DU_COACH = {
+    titre: 'À propos de ton coach',
+    intro: 'Chaque charge que je te propose est un pari. Je le vérifie quand tu valides la série, et je le garde ici.',
+    ceQueJeCompte: 'Un pari est tenu quand tu fais au moins ce que j\u2019avais prévu pour la série. Les paris d\u2019une semaine de décharge, ' +
+      'ou d\u2019une séance volontairement plus légère après un zéro, ne sont pas des vérifications : je ne les compte pas.',
+    aucun: 'Je n\u2019ai encore vérifié aucun pari. Le premier arrive quand tu fais une série que j\u2019avais prévue.'
+  };
+  // « 9 sur 10 » : la valeur de la ligne du Profil › À propos, le même compte que la phrase.
+  function valeurParis(verifies, tenus) {
+    var c = compteRamene(verifies, tenus);
+    return c ? c.tenus + ' sur ' + c.verifies : null;
   }
 
   // 211 — LES PREMIÈRES MINUTES : le coach DIT son mécanisme, sans rien prévoir. Deux phrases du récap, ici (une seule voix).
   // « Point de départ » : la toute première séance de la personne, à la place du bloc des paris (qui n'a pas de matière).
-  // « Mon premier pari » : en tête du bloc des paris de la séance où le premier pari du compte est vérifié — un fait, jamais un « bravo ».
+  // (« Mon premier pari » en tête du récap est retiré : les paris vivent à Profil › À propos › À propos de ton coach.)
   // PR 5a (A9) — « pour chaque exercice » était faux : le coach ne suit ni un tapis ni un gainage chronométré (`consigneDExerciceMenagee` rend `null` hors charge_reps / reps).
   var PHRASE_POINT_DE_DEPART = 'Cette séance me sert de point de départ. À la prochaine, je te propose une charge ou des reps ' +
     'pour les exercices que je sais suivre, et après chaque série je te dis si j\u2019avais vu juste.';
-  function phrasePremierPari(tenu) { return tenu ? 'Mon premier pari tenu.' : 'Mon premier pari\u00a0: pas encore.'; }
 
   // ══ LA COMPARAISON DU RÉCAP (71, ECRAN-SAISIE §7 septies.4 bis) ══════════
   //
@@ -254,7 +274,9 @@
     estTenu: estTenu,
     phraseParis: phraseParis,
     PHRASE_POINT_DE_DEPART: PHRASE_POINT_DE_DEPART,
-    phrasePremierPari: phrasePremierPari,
+    PARIS_DU_COACH: PARIS_DU_COACH,
+    compteRamene: compteRamene,
+    valeurParis: valeurParis,
     OBJETS: OBJETS,
     fnv1a: fnv1a,
     comparaison: comparaison,

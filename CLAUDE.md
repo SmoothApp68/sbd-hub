@@ -199,6 +199,7 @@ trappe `/__sw-off` pendrait avec lui.
   `v2/js/faits.js`, avec ses mémos ; les écrans — et le jeu — le **lisent**, aucun autre fichier ne
   déclare un de ces faits (garde « un fait ne se déclare que dans `faits.js` », registre `NOTIONS`).
 - **Les paris de Décharge ne se comptent pas** (« Les mots disent vrai » PR 3 bis, MOTEUR §9.46) : le compte « le coach en a tenu N sur M » passe par `Bilan.compteLe` (un pari `allegee` n'est pas une vérification), à la lecture seulement ; `faits.parisRatesALaSuite` les lit toujours. Un lecteur du compte qui filtre à sa façon est un doublon.
+- **Les paris en coulisse** (29/11/2026, MOTEUR §9.55) : « le coach en a tenu N sur M » ne vit QU'À UN endroit, Profil › À propos › « À propos de ton coach » (`faits.parisDuCoach` → `Bilan.compterParis` → `Bilan.compteLe`, un seul compte depuis le début, jamais par période) ; le récap de fin de séance, la story du mois, de la saison et de l'année et le bloc de Progression n'en portent plus. L'écran lit, ne calcule rien ; `predictions` reste immuable, rien n'est écrit.
 - **Le journal des records** (58-2, MOTEUR §9.23, table `records`) : il ne calcule rien — ses lignes
   sortent de `faits.js` (`journalDuJour`, `journalDeLaSeance`) et il se **lit** par `recordsDuJournal`.
   Il ne s'**écrit** que par la file (`poserJournal` → `executer` → `THDonnees.ajouterRecords`, un ajout

@@ -17169,8 +17169,11 @@ const SETS_IMPORTES = [
     ok('[Q60] B — « Plus tard » : on arrive sur Saisie, le questionnaire est fermé, rien n’est écrit de plus',
       JSON.stringify(await visible()) === JSON.stringify(saisie) && ecritsProfil() === ecritsAvant,
       JSON.stringify([await visible(), ecritsProfil() - ecritsAvant]));
-    ok('[Q60] B — le bandeau de Saisie : « Ton questionnaire n’est pas terminé. » et un seul bouton, « Le terminer »',
-      bq.visible && bq.texte.indexOf('Ton questionnaire n’est pas terminé.') >= 0 && JSON.stringify(bq.boutons) === '["Le terminer"]', JSON.stringify(bq));
+    // Décision n° 59 (27/11/2026) : le bandeau ne parle que d'une réponse NÉCESSAIRE au chemin de la personne
+    // (`Questionnaire.questionnaireAAchever`). Ici « depuis quand » et « où sont tes séances notées » sont répondus
+    // (écran 2) et le compte a ses routines : rien de nécessaire ne manque, le reste est facultatif (défaut prudent).
+    ok('[Q60] B — n° 59 : après « Plus tard » (depuis quand répondu, compte avec routines), il ne manque aucune réponse nécessaire : PAS de bandeau, bien que `questionnaire_fait_le` soit vide',
+      !bq.visible && bq.boutons.length === 0 && profilBase().questionnaire_fait_le === null, JSON.stringify([bq, profilBase().questionnaire_fait_le]));
     ok('[Q60] B — ce qui était validé est écrit (historique, sexe, taille) ; `questionnaire_fait_le` reste vide',
       profilBase().historique_declare === 'non_note' && profilBase().sexe === 'homme' && profilBase().questionnaire_fait_le === null,
       JSON.stringify(profilBase()));
@@ -17178,33 +17181,59 @@ const SETS_IMPORTES = [
     // ── B'. UN RECHARGEMENT NE LE ROUVRE PAS : il s'est déjà ouvert ici. Le bandeau reste.
     await aller('/saisie');
     const bq2 = await bandeauQ();
-    ok('[Q60] B — DISCRIMINANT : au rechargement il ne se rouvre pas de lui-même (déjà ouvert sur cet appareil) ; le bandeau reste',
-      JSON.stringify(await visible()) === JSON.stringify(saisie) && bq2.visible, JSON.stringify([await visible(), bq2]));
+    ok('[Q60] B — DISCRIMINANT : au rechargement il ne se rouvre pas de lui-même (déjà ouvert sur cet appareil) ; et toujours pas de bandeau (rien de nécessaire ne manque)',
+      JSON.stringify(await visible()) === JSON.stringify(saisie) && !bq2.visible, JSON.stringify([await visible(), bq2]));
 
     // ── B''. LA LIGNE EN TÊTE DE PROFIL : « Terminer mon questionnaire › ».
     await onglet('profil');
     const teteP = await enTeteP();
-    ok('[Q60] B — la ligne « Terminer mon questionnaire › » est en TÊTE de Profil, tant qu’il n’est pas rempli',
-      !!teteP && teteP.indexOf('Terminer mon questionnaire') === 0, JSON.stringify([teteP, await titresP()]));
+    ok('[Q60] B — n° 59 : la ligne « Terminer mon questionnaire › » n’est PAS en tête de Profil quand rien de nécessaire ne manque',
+      !teteP, JSON.stringify([teteP, await titresP()]));
+
+    // ── B'''. DISCRIMINANT : une réponse NÉCESSAIRE manque (« depuis quand », « où sont tes séances notées ») : le bandeau et la ligne reviennent.
+    // (La base du banc est modifiée à la main ; l'appareil la relit au rechargement. Les deux réponses sont redonnées au début de C.)
+    profilBase().anciennete = null;
+    profilBase().historique_declare = null;
+    await aller('/saisie');
+    const bq3 = await bandeauQ();
+    ok('[Q60] B — n° 59 DISCRIMINANT : « depuis quand » manque → le bandeau « Ton questionnaire n’est pas terminé. » revient, avec un seul bouton, « Le terminer »',
+      JSON.stringify(await visible()) === JSON.stringify(saisie) && bq3.visible && bq3.texte.indexOf('Ton questionnaire n’est pas terminé.') >= 0 &&
+        JSON.stringify(bq3.boutons) === '["Le terminer"]', JSON.stringify([await visible(), bq3]));
+    await onglet('profil');
+    const teteP3 = await enTeteP();
+    ok('[Q60] B — n° 59 DISCRIMINANT : la ligne « Terminer mon questionnaire › » est en TÊTE de Profil, tant qu’une réponse nécessaire manque',
+      !!teteP3 && teteP3.indexOf('Terminer mon questionnaire') === 0, JSON.stringify([teteP3, await titresP()]));
     await page.click('#profil-corps .p-questionnaire .p-ligne');
     await attendre(600);
     e = await ecranQ();
-    ok('[Q60] B — la ligne rouvre le questionnaire au premier écran SANS RÉPONSE (lot 5, n° 3 : ancienneté et « Ce que je sais » sont répondus, on reprend à la salle) ; « Plus tard » ramène sur Saisie',
-      e.ecran === 'salle' && JSON.stringify(e.vues) === '["vue-questionnaire"]', JSON.stringify(e));
+    ok('[Q60] B — la ligne rouvre le questionnaire au premier écran SANS RÉPONSE (ici « depuis quand ») ; « Plus tard » ramène sur Saisie',
+      e.ecran === 'anciennete' && JSON.stringify(e.vues) === '["vue-questionnaire"]', JSON.stringify(e));
     await cliquerQ('.q-plus-tard', 700);
-    ok('[Q60] B — « Plus tard » depuis la ligne du Profil : Saisie, bandeau toujours là',
+    ok('[Q60] B — « Plus tard » depuis la ligne du Profil : Saisie, bandeau toujours là (la réponse nécessaire manque encore)',
       JSON.stringify(await visible()) === JSON.stringify(saisie) && (await bandeauQ()).visible, JSON.stringify([await visible(), await bandeauQ()]));
 
     // ── C. LA REPRISE : « Le terminer » repart du début, tout pré-rempli depuis la base.
     await page.click('#bandeau-questionnaire .principal');
     await attendre(600);
     e = await ecranQ();
-    ok('[Q60] C — « Le terminer » rouvre au premier écran SANS RÉPONSE (lot 5, n° 3 : la salle), la barre garde la liste complète (3 sur 11), « Retour » existe',
+    ok('[Q60] C — « Le terminer » rouvre au premier écran SANS RÉPONSE (ici « depuis quand », redemandé), « Retour » n’existe pas',
+      e.ecran === 'anciennete' && e.retour === false, JSON.stringify(e));
+    // On redonne les deux réponses (mêmes valeurs qu'à l'écran 2) : « Ce que je sais » suit, puis la salle.
+    await cliquerQ('.q-puce[data-cle="1_a_3_ans"]');
+    await cliquerQ('.q-opt[data-cle="non"]');
+    await continuerQ();
+    await attendreQue(() => profilBase().anciennete === '1_a_3_ans' && profilBase().historique_declare === 'non_note', 8000, '[Q60] C · les deux réponses redonnées sont écrites');
+    ok('[Q60] C — les deux réponses redonnées s’écrivent comme à l’écran 2 : `anciennete` = 1_a_3_ans, `historique_declare` = non_note',
+      profilBase().anciennete === '1_a_3_ans' && profilBase().historique_declare === 'non_note', JSON.stringify([profilBase().anciennete, profilBase().historique_declare]));
+    await continuerQ();                                               // « Voici ce que tes séances me disent. » (pas répondu à l'ouverture : il se remontre)
+    e = await ecranQ();
+    ok('[Q60] C — puis la salle, la barre garde la liste complète (3 sur 11), « Retour » existe',
       e.ecran === 'salle' && e.retour === true && JSON.stringify(e.progression) === '["3","11"]', JSON.stringify(e));
     await cliquerQ('.q-retour');
     await cliquerQ('.q-retour');                                  // « Retour » rejoint les écrans répondus : « Ce que je sais », puis l'ancienneté
     e = await ecranQ();
     ok('[Q60] C — écran 1 (lot 5, n° 4) : la réponse déjà donnée (1 à 3 ans, non notées) est pré-remplie', e.ecran === 'anciennete' && e.choisis.indexOf('1_a_3_ans') >= 0 && e.choisis.indexOf('non') >= 0 && e.actif === true, JSON.stringify(e));
+    await continuerQ();                                               // « Ce que je sais » n'était pas répondu à l'ouverture : il se remontre
     await continuerQ();
     // Le retour d'Android recule d'UN écran (il ne quitte pas l'app, il ne recharge rien).
     await page.goBack().catch(() => {});

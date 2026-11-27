@@ -18490,7 +18490,7 @@
   function rendreBandeauQuestionnaire() {
     var noeud = $('bandeau-questionnaire');
     if (!noeud) return;
-    if (!Profil.questionnaireAFaire(profil)) { Rendu.rendreBandeauReprise(noeud, null); return; }
+    if (!Questionnaire.questionnaireAAchever(profil, aDesRoutinesConnu())) { Rendu.rendreBandeauReprise(noeud, null); return; }
     Rendu.rendreBandeauReprise(noeud, {
       quoi: 'Ton questionnaire n’est pas terminé.',
       libelleReprendre: 'Le terminer',
@@ -19697,7 +19697,7 @@
 
     Rendu.rendreProfil($('profil-corps'), {
       // 60-2a — « Terminer mon questionnaire › » en tête, tant qu'il n'est pas rempli.
-      questionnaire: Profil.ligneQuestionnaire(p, function () { ouvrirQuestionnaire(); }),
+      questionnaire: Questionnaire.questionnaireAAchever(p, aDesRoutinesConnu()) ? Profil.ligneQuestionnaire(p, function () { ouvrirQuestionnaire(); }) : null,
       kpis: [
         { valeur: nombreGroupe(stats.seances), libelle: 'séances' },
         { valeur: nombreGroupe(stats.series), libelle: 'séries' },

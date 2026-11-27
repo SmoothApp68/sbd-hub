@@ -1828,6 +1828,7 @@ qui règlent la séance suivante. **Aucun ne montre si ses prévisions étaient 
    compte rarement plus de 30, et « sur 10 » contredirait le compte) ; puis une ligne par exercice qui a au moins un
    pari vérifié : ce qui a été fait (« 90 kg × 10, 10, 10 ») et, si un pari n'est pas tenu, ce qui était visé
    (« 9, 9, 8, 7 · visé 9 »). Tenu = observé ≥ prédit (§9.22). Sans pari vérifié, pas de bloc.
+   *Retiré le 29/11/2026 (« Les paris en coulisse », MOTEUR §9.54)* : le récap ne dit plus aucun pari (ni cette phrase, ni les lignes, ni « Mon premier pari ») ; le compte et la liste vivent à Profil › À propos › À propos de ton coach.
 7. **Le jeu** : le bloc de JEU-V1 §9.4, tel quel.
 8. **La note de séance**, si elle est écrite.
 9. **« Fermer »** (retour à la liste des séances) et **« Voir la séance »** (son détail).

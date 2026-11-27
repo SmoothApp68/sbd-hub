@@ -2620,11 +2620,8 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .recap-rec .l1{font-weight:600}
 .recap-rec .l2{color:var(--texte-3);font-size:13px}
 .recap-voix{color:var(--accent);font-weight:600;margin:4px 0 8px}
-.recap-pari{display:flex;justify-content:space-between;gap:8px;border-top:1px solid var(--trait);padding:8px 2px;font-size:14px}
 .recap-cardio{display:flex;justify-content:space-between;gap:8px;border-top:1px solid var(--trait);padding:8px 2px;font-size:14px}
 .recap-cardio .v{color:var(--texte-2);text-align:right}
-.recap-pari .v{color:var(--texte-2);text-align:right}
-.recap-pari .v.pe{color:var(--texte)}
 .recap-note{background:var(--panneau);border-radius:12px;padding:10px 12px;color:var(--texte-2);font-style:italic;font-size:14px;margin:0}
 .recap-bouton{display:block;width:100%;margin-top:14px}
 .recap-partage-liste{display:flex;flex-direction:column;gap:var(--e2);margin-top:var(--e2)}
@@ -3314,7 +3311,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 /* 211 — les premières minutes : le point du « Pourquoi » (jusqu'à la première ouverture) et le premier pari. */
 .lien-pourquoi.pourquoi-neuf::before{content:"";display:inline-block;width:6px;height:6px;margin-right:6px;border-radius:50%;background:var(--accent);vertical-align:middle}
 .consigne-dit.premier-pari{color:var(--texte)}
-.recap-depart,.recap-premier{line-height:1.45}
+.recap-depart{line-height:1.45}
 
 /* 212 — mentions, confidentialité, santé ; case « 15 ans ou plus » et ligne des conditions à l'inscription */
 .entree-age15{display:flex;align-items:center;gap:10px;min-height:44px;font-size:14px;color:var(--texte-2)}
@@ -3548,3 +3545,20 @@ input,select,textarea,.ch-serie,.rp-serie,.eff-serie{
 .tirage{display:flex;align-items:center;justify-content:center;overflow:hidden;height:0;font-size:13px;color:var(--texte-2)}
 .tirage[hidden]{display:none}
 .tirage.lecture{height:40px}
+
+/* 29/11/2026 « Les paris en coulisse » — Profil › À propos › À propos de ton coach : un compte, une liste ; « Pas tenu » en ambre, jamais en rouge. */
+.paris-intro{margin:0 0 12px;font-size:15px;line-height:1.5;color:var(--texte)}
+.paris-compte{display:flex;align-items:baseline;gap:8px}
+.paris-valeur{font-size:32px;font-variant-numeric:tabular-nums;color:var(--texte)}
+.paris-phrase,.paris-note,.paris-vide{margin:4px 0 12px;font-size:14px;line-height:1.5;color:var(--texte-2)}
+.paris-titre{margin:12px 0 4px;font-size:13px;color:var(--texte-2)}
+.paris-liste{display:grid;gap:0}
+.paris-ligne{display:grid;gap:2px;text-align:left;width:100%;padding:10px 0;border:0;border-top:1px solid var(--trait);background:none;color:inherit;font:inherit}
+.paris-haut{display:flex;justify-content:space-between;gap:8px;font-size:15px}
+.paris-etat{font-size:13px;color:var(--texte-2)}
+.paris-ligne.pas-tenu .paris-etat{color:var(--accent)}
+.paris-sous{font-size:13px;color:var(--texte-2);font-variant-numeric:tabular-nums}
+.paris-explication{font-size:14px;line-height:1.45;color:var(--texte)}
+.paris-explication[hidden]{display:none}
+.paris-plus{margin-top:12px}
+.paris-plus[hidden]{display:none}

@@ -722,7 +722,7 @@ const NOTIONS = [
       '66A : la jauge d’une barre de la relecture (§5 ter.3) est cet arrondi, à 2 décimales.' },
   // « UN SEUL FORMATEUR » (MOTEUR §9.51 quater, 15/11/2026, I201) — un nombre, un volume, un jour, une durée s'écrivent par UNE fonction.
   { notion: 'une charge, un poids, un écart en kilos : « 127,25 kg » (la virgule, au plus 2 décimales, l’espace insécable, le vrai signe moins)', pr: 'correctif 15/11/2026',
-    module: 'modele.js', fonction: 'kgTexte', lecteurs: ['annee.js', 'app.js', 'partage-image.js', 'poids.js', 'profil.js', 'questionnaire.js', 'rendu.js'],
+    module: 'modele.js', fonction: 'kgTexte', lecteurs: ['annee.js', 'app.js', 'faits.js', 'partage-image.js', 'poids.js', 'profil.js', 'questionnaire.js', 'rendu.js'],
     motif: /\.\s*kgTexte\s*\(/g,
     par: ['chargeTexte', 'chargeDuJournal', 'chargeDeLaMedaille', 'libelleDeForce', 'kg'],
     interditAilleurs: {
@@ -745,7 +745,7 @@ const NOTIONS = [
     raison: 'MOTEUR §9.51 quater (I198, F-01) : trois formateurs de tonnes (`rendu.tonnes` : « 12 t » ; `Bilan.tonnesDuRecap` : « 12,3 t » ; `annee.tonnes` : « 123 t ») ' +
       'et deux règles d’arrondi : le bloc du mois de Progression et sa story disaient deux chiffres pour le même mois.' },
   { notion: 'un jour : « 1er nov. », « 2 nov. », avec ou sans année, nom du jour, mois long (« 1er » seulement le premier du mois)', pr: 'correctif 15/11/2026',
-    module: 'modele.js', fonction: 'jourDit', lecteurs: ['annee.js', 'equilibres.js', 'importhevy.js', 'objectif.js', 'partage-image.js', 'rendu.js'],
+    module: 'modele.js', fonction: 'jourDit', lecteurs: ['annee.js', 'equilibres.js', 'faits.js', 'importhevy.js', 'objectif.js', 'partage-image.js', 'rendu.js'],
     par: ['jourMois', 'jourCourt', 'jourNomme', 'plageDeSeance', 'quandTexte', 'jourEtMois', 'dateDeLaMedaille', 'dateCourte'],
     interditAilleurs: {
       // Le quantième d'un jour collé à un mois (`getDate() + ' '`), le « 1er » écrit à la main, un mois indexé pour écrire une date.
@@ -1355,17 +1355,22 @@ const NOTIONS = [
     module: 'faits.js', fonction: 'recapDeLaSeance', lecteurs: ['app.js'],
     parAilleurs: { 'app.js': ['rendreRecap'] },
     raison: 'ECRAN-SAISIE §7 septies.4 bis : les faits du récap en un seul endroit, qui câble ce qui existe ' +
-      '(séries, volume, muscles, records, paris, comparaison) sans en recopier rien ; l’écran les lit.' },
+      '(séries, volume, muscles, records, comparaison ; les paris n’y sont plus depuis le 29/11/2026) sans en recopier rien ; l’écran les lit.' },
   { notion: 'le compte des paris vérifiés et tenus (tenu : observé ≥ prédit)', pr: '71-U1',
-    module: 'bilan.js', fonction: 'compterParis', lecteurs: ['faits.js', 'bilans.js'],
-    parAilleurs: { 'faits.js': ['recapDeLaSeance'], 'bilans.js': ['bilanDeLaPeriode'] },
-    raison: 'MOTEUR §9.22 : le bilan d’une période (le mois, la saison, l’année) et le récap de fin de séance comptent ' +
-      'les paris par la même boucle (extraite de `bilanDuMois`, 71). 124 (audit du 16/10/2026, 04 #14) : le bilan du mois ' +
-      'n’en compte plus — les paris du mois ont un fil, celui de la période (`bilan.coach`).' },
+    module: 'bilan.js', fonction: 'compterParis', lecteurs: ['faits.js'],
+    parAilleurs: { 'faits.js': ['parisDuCoach'] },
+    raison: 'MOTEUR §9.22 : une seule boucle compte les paris (extraite de `bilanDuMois`, 71). 29/11/2026 (« Les paris en coulisse ») : ' +
+      'il n’y a plus qu’UN compte, depuis le début (`faits.parisDuCoach`, Profil › À propos de ton coach) ; ni le récap, ni les bilans de période, ' +
+      'ni la story du mois, de la saison ou de l’année n’en portent plus.' },
+  { notion: 'le compte du coach, depuis le début, en un seul endroit (la ligne du Profil et sa page)', pr: 'correctif 29/11/2026',
+    module: 'faits.js', fonction: 'parisDuCoach', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['ligneParisDuCoach', 'ouvrirParisDuCoach'] },
+    raison: '29/11/2026 : « le coach en a tenu N sur M » quitte le récap, le mois, la saison et l’année ; l’écran lit `faits.parisDuCoach` ' +
+      '(qui passe par `Bilan.compterParis`, donc `Bilan.compteLe`) et ne calcule rien.' },
   { notion: 'un pari de Décharge ne se compte pas (« le coach en a tenu N sur M »)', pr: 'correctif 13/11/2026',
-    module: 'bilan.js', fonction: 'compteLe', lecteurs: ['faits.js', 'bilans.js', 'moteur.js'],
+    module: 'bilan.js', fonction: 'compteLe', lecteurs: ['faits.js', 'moteur.js'],
     par: ['compterParis'],
-    parAilleurs: { 'faits.js': ['recapDeLaSeance', 'premierPariDuCompte'], 'bilans.js': ['bilanDeLaPeriode'], 'moteur.js': ['bilanDuBloc'] },
+    parAilleurs: { 'faits.js': ['parisDuCoach', 'premierPariDuCompte'], 'moteur.js': ['bilanDuBloc'] },
     raison: 'MOTEUR §9.46 : un pari de Décharge (`fondement.allegee`) est tenu par construction ; il est lu (`parisRatesALaSuite`) ' +
       'mais jamais compté. Un seul prédicat, à la lecture seulement : rien n’est supprimé ni écrit.' },
   { notion: 'un pari tenu (observé ≥ prédit)', pr: '124-U4',
@@ -3035,7 +3040,7 @@ describe('architecture — le module des faits : un fait ne se déclare que dans
     require('../../v2/js/periode.js');
     require('../../v2/js/parcours.js');
     const instance = require('../../v2/js/faits.js').creer();
-    expect(FAITS.length).toBe(59);   // un seul max (§9.51) : + maxEstimesAvantLeTest ; mots PR 6 : + datesDeLaFenetre ; 272 : + faitsDuNiveau ; 266 : + semainesDeSuite, derniereHausseDuRecord ; 250 : + estUneNote ; 242 : + noteDeLaDerniereFois, noteDeLExercice ; 245-6 : + premierEssaiRate
+    expect(FAITS.length).toBe(60);   // 29/11/2026 « Les paris en coulisse » : + parisDuCoach ; un seul max (§9.51) : + maxEstimesAvantLeTest ; mots PR 6 : + datesDeLaFenetre ; 272 : + faitsDuNiveau ; 266 : + semainesDeSuite, derniereHausseDuRecord ; 250 : + estUneNote ; 242 : + noteDeLaDerniereFois, noteDeLExercice ; 245-6 : + premierEssaiRate
     expect(FAITS.filter((fn) => typeof instance[fn] !== 'function')).toEqual([]);
   });
 

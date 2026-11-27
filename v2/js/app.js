@@ -1676,11 +1676,6 @@
         // 119 (F8) — les séries de travail du mois (la règle du volume) : un mois au poids du corps en a sans tonnes.
         series: bm.reps.series,
         records: faits.recordsDuMois(corpus(), mois).length,
-        // 124 (audit du 16/10/2026, 04 #14) — les paris du mois, un seul fil : ceux de la story (`bilan.coach`).
-        paris: (function () {
-          var co = bm.coach;
-          return co ? { verifies: co.faits, tenus: co.tenus } : { verifies: 0, tenus: 0 };
-        })(),
         surChoix: function () { afficherMois(mois); }
       },
       // 98 — la saison écoulée, toute la saison suivante ; hors production, la saison en cours si l'écoulée est vide.
@@ -2284,7 +2279,7 @@
   var PREMIERE_ANNEE = 2026;
   function bilanDeLAnnee(an) {
     return faits.bilanDePeriode(corpus(), Bilans.periodeDeLAnnee(an), new Date(),
-                         { pesees: local.pesees || [], paris: parisDeConsigneConnus() });
+                         { pesees: local.pesees || [] });
   }
   function anneeDuSommaire() {
     var an = new Date().getFullYear() - 1;
@@ -2298,12 +2293,11 @@
   //
   // LE MÊME MOTEUR ET LE MÊME LECTEUR que « Ton année » : seule la fenêtre change. La story du mois REMPLACE l'ancien
   // bilan du mois de Progression (`/progression/mois/AAAA-MM` l'ouvre) et en reprend les records
-  // (`faits.recordsDuMois`, tous au toucher : la liste des records du mois) et les paris (`Bilan.phraseParis`, le
-  // détail au toucher). Le nom de la saison suit la phase du profil au début de la saison (`Profil.phaseAuJour`).
+  // (`faits.recordsDuMois`, tous au toucher : la liste des records du mois). Le nom de la saison suit la phase du profil au début de la saison (`Profil.phaseAuJour`).
   // Ce que l'app ajoute ne décide rien : QUAND le bloc et l'annonce paraissent. Rien n'est écrit en base, sauf la période annoncée (104).
   function bilanPeriode(periode) {
     return faits.bilanDePeriode(corpus(), periode, new Date(),
-                                { pesees: local.pesees || [], paris: parisDeConsigneConnus() });
+                                { pesees: local.pesees || [] });
   }
   function titreDeSaison(cle) {
     var p = Bilans.periodeDeLaSaison(cle);
@@ -2330,10 +2324,6 @@
     if (periode.type === 'mois') {
       var mois = periode.cle;
       vue.records = faits.recordsDuMois(corpus(), mois);
-      // 124 (audit du 16/10/2026, 04 #7, #14) — la phrase dit les chiffres de l'écran (`bilan.coach`, la période),
-      // tels quels : « 41 vérifiés · 38 tenus » ne se lit plus suivi de « Sur 10 paris vérifiés… ».
-      var co = vue.bilan && vue.bilan.coach;
-      vue.paris = co ? { phrase: Bilan.phraseParis(co.faits, co.tenus, { telsQuels: true }) } : null;
       vue.surRecords = function () { afficherRecordsDuMois(mois); };
     }
     Annee.ouvrir($('annee'), vue);
@@ -4428,7 +4418,7 @@
     var choisis = faits.exercicesDeProgression(c, maintenant, {
       semaines: 8, combien: 4, priorites: Profil.prioritesDe(profil),
       fenetre: function (points) { return Courbe.dansLaPeriode(points, '6m', maintenant); },
-      avance: faits.ceQuiAProgresse(c, maintenant, 6, { pesees: local.pesees || [], paris: parisDeConsigneConnus() })
+      avance: faits.ceQuiAProgresse(c, maintenant, 6, { pesees: local.pesees || [] })
     });
     choisis.forEach(function (slug) {
       var p = faits.pointsDeLExercice(c, slug, maintenant);
@@ -5788,7 +5778,7 @@
   // 214 — PARTAGER le récap : le texte court de `Modele.texteDePartage`, par la feuille de partage du téléphone ;
   // à défaut (ordinateur, refus d'accès), copié dans le presse-papiers. Une annulation de la feuille n'est pas une erreur.
   function partagerLeRecap() {
-    var r = recap && faits.recapDeLaSeance(corpus(), recap.seance, parisDeConsigneConnus(), parisDeConsigneDuCompte());
+    var r = recap && faits.recapDeLaSeance(corpus(), recap.seance);
     var texte = Modele.texteDePartage(r);
     if (!texte) return Promise.resolve(null);
     var nav = racine.navigator;
@@ -5856,7 +5846,7 @@
 
   function rendreRecap() {
     if (!recap) return;
-    var r = faits.recapDeLaSeance(corpus(), recap.seance, parisDeConsigneConnus(), parisDeConsigneDuCompte());
+    var r = faits.recapDeLaSeance(corpus(), recap.seance);
     montrer('recap');
     Rendu.rendreRecap($('recap-corps'), {
       recap: r,
@@ -13055,7 +13045,7 @@
         '|' + (local.predictions || []).length + '|' + (local.parisLegers || []).length + '|' + (c.journal || []).length + '|' + (seance.note || '');
       if (memoRecapFin.cle === cle) return memoRecapFin.recap;
       var apercu = Object.assign({}, seance, { fin: new Date().toISOString() });
-      var r = faits.recapDeLaSeance(c, apercu, parisDeConsigneConnus(seance), parisDeConsigneDuCompte());
+      var r = faits.recapDeLaSeance(c, apercu);
       memoRecapFin = { cle: cle, recap: r };
       return r;
     } catch (e) {
@@ -19808,6 +19798,7 @@
         dansLeGroupe('À propos', [
           // 201 — « Les mots du coach » : la liste fixe du moteur, une phrase chacun, la source repliée sous son mot.
           { titre: 'LES MOTS DU COACH', lignes: [
+            ligneParisDuCoach(),
             { libelle: 'Les mots du coach', sansValeur: true, sous: Moteur.lexique().length + ' mots, une phrase chacun',
               surChoix: ouvrirMotsDuCoach }
           ] },
@@ -19848,12 +19839,30 @@
     }
   }
 
+  // 29/11/2026 (« Les paris en coulisse ») — la ligne de Profil › À propos : le compte « le coach en a tenu N sur M » ne vit qu'ici (et dans la page
+  // qu'elle ouvre) ; sa valeur est LUE (`faits.parisDuCoach`), jamais calculée. Sans pari vérifié : le nom seul, aucun « 0 sur 0 ».
+  function ligneParisDuCoach() {
+    var pc = faits.parisDuCoach(corpus(), parisDeConsigneConnus(), new Date());
+    return pc ? { libelle: Bilan.PARIS_DU_COACH.titre, valeur: pc.valeur, surChoix: ouvrirParisDuCoach }
+              : { libelle: Bilan.PARIS_DU_COACH.titre, sansValeur: true, surChoix: ouvrirParisDuCoach };
+  }
+
   // 212 — Mentions légales, Confidentialité, Santé : depuis Profil › À propos et le pied de l'inscription.
   function ouvrirMentions(cle) {
     var p = Mentions.page(cle);
     if (!p) return;
     feuilleProfil = function (cible) {
       Rendu.rendreFeuilleMentions(cible, { titre: p.titre, blocs: p.blocs, surFermer: fermerVoile });
+    };
+    ouvrirFeuilleProfil();
+  }
+
+  // 29/11/2026 — Profil › À propos de ton coach : le compte et la liste de ses derniers paris, lus (`faits.parisDuCoach`). Rien n'est écrit.
+  function ouvrirParisDuCoach() {
+    feuilleProfil = function (cible) {
+      var P = Bilan.PARIS_DU_COACH;
+      Rendu.rendreFeuilleParisDuCoach(cible, { titre: P.titre, intro: P.intro, ceQueJeCompte: P.ceQueJeCompte, aucun: P.aucun,
+        paris: faits.parisDuCoach(corpus(), parisDeConsigneConnus(), new Date()) });
     };
     ouvrirFeuilleProfil();
   }

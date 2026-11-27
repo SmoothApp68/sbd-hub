@@ -52,11 +52,13 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ms-playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
       - run: npx playwright install --with-deps chromium || npx playwright install chromium   # repli : miroir Ubuntu injoignable (11/11/2026)
-      - name: Banc complet (npm test + routines + service worker + création du profil + séance en parallèle)
+      - name: Banc complet (vitesse + routines + service worker + création du profil + mouvement + tête 3+1 + séance en parallèle)
         shell: bash
         run: |
           export CHROME_BIN="$(node -e "console.log(require('playwright').chromium.executablePath())")"
-          node tests/banc/tout.js 2>&1 | tee banc-complet.txt
+          # `npm test` n'est PAS rejoué ici : le job `unit` (test.yml) le joue, sur le même commit, avec les mêmes tests,
+          # et il est une coche de la PR. Le jouer deux fois ralentissait ce job (il dispute les 4 cœurs aux navigateurs).
+          node tests/banc/tout.js --sans-npm-test 2>&1 | tee banc-complet.txt
       - name: Résumé
         if: always()
         shell: bash

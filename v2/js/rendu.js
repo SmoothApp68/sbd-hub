@@ -2177,6 +2177,30 @@
       return cible;
     }
     var a = v.accueil;
+    // 27/11/2026 — la semaine qui déraille prend la place (MOTEUR §9.24, I215 amendé) : la même carte que dans Saisie (titre, phrase,
+    // choix), la réponse passe par `v.surChoixDeSemaine`, le chemin d'écriture de Saisie. Le rendu ne décide ni n'écrit.
+    if (a && a.voix === 'deraille' && a.deraille) {
+      cible.hidden = false;
+      var d = a.deraille;
+      var kd = el('div', 'coach-accueil coach-deraille');
+      kd.setAttribute('data-equilibre', 'semaine-deraille');
+      var td = el('div', 'coach-tete');
+      td.appendChild(el('b', 'avis-nom', a.tete));
+      kd.appendChild(td);
+      kd.appendChild(el('div', 'coach-fait', a.fait));
+      var ad = el('div', 'eq-actions');
+      (d.choix || []).forEach(function (x) {
+        var bd = el('button', x.avant ? 'oui' : 'discret', x.libelle);
+        bd.type = 'button';
+        bd.setAttribute('data-choix', x.cle);
+        bd.addEventListener('click', function () { v.surChoixDeSemaine(d, x.cle); });
+        ad.appendChild(bd);
+      });
+      kd.appendChild(ad);
+      if (d.pourquoi) kd.appendChild(el('p', 'semaine-pourquoi', d.pourquoi));
+      cible.appendChild(kd);
+      return cible;
+    }
     if (!a || !a.carte) { cible.hidden = true; return cible; }
     cible.hidden = false;
     var c = a.carte;

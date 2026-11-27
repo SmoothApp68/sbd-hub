@@ -2204,8 +2204,11 @@
     return slugs;
   }
   function contexteDeLAccueil() {
+    var d = derailleDeLAccueil();
     return { enSeance: !!seance, routinesPretes: etatRoutines.code === 'ok', niveauParle: !!annonceDeNiveauPosee(),
-             variations: etatRoutines.code === 'ok' && !seance ? exercicesDesVariationsOuvertes() : [] };
+             variations: etatRoutines.code === 'ok' && !seance ? exercicesDesVariationsOuvertes() : [],
+             // 27/11/2026 — l'ordre des voix (`Equilibres.ORDRE_DES_VOIX`) : la semaine qui déraille d'abord.
+             deraille: d.carte, derailleLeJour: d.leJour };
   }
   function rendreCoachDeLAccueil() {
     var noeud = $('coach-accueil');
@@ -2213,7 +2216,7 @@
     if (seance) return Rendu.rendreCoachDeLAccueil(noeud, null);
     if (faitEquilibre && faitEquilibre.texte) return Rendu.rendreCoachDeLAccueil(noeud, { fait: faitEquilibre });
     var a = equilibres(), jour = Moteur.jourCivil(new Date()), ctx = contexteDeLAccueil();
-    var choix = a ? Equilibres.carteDeLAccueil(a, reponsesDesCartes(), jour, ctx) : null;
+    var choix = a || ctx.deraille ? Equilibres.carteDeLAccueil(a, reponsesDesCartes(), jour, ctx) : null;
     if (garde.active) {
       var fautes = Equilibres.verifierCarteDeLAccueil(a, reponsesDesCartes(), jour, ctx, choix);
       if (fautes.length) console.warn('Carte de l’accueil :', fautes.join(' · '));
@@ -2221,6 +2224,11 @@
     Rendu.rendreCoachDeLAccueil(noeud, {
       accueil: choix,
       surAutres: afficherParcours,
+      surChoixDeSemaine: function (carte, cle) {
+        repondreALaSemaine(carte, cle, Moteur.jourCivil(new Date()));
+        rendreProchaineSeance();      // « Prochaine séance » suit le planning décalé (#781)
+        rendreCoachDeLAccueil();
+      },
       surProposition: function (carte, p) {
         accepterUneProposition(carte, p).catch(function (e) { console.warn('Proposition non appliquée :', texteErreur(e)); });
       },
@@ -18884,6 +18892,25 @@
     };
   }
 
+  // UN seul chemin d'écriture pour la réponse à la semaine qui déraille : Saisie et l'accueil l'appellent, aucune copie
+  // (27/11/2026, MOTEUR §9.24). L'appelant re-rend son écran.
+  function repondreALaSemaine(carte, cle, jour) {
+    poserChoixDeSemaine(Deraille.lignesDuChoix(carte, cle, jour, idUtilisateur(), new Date().toISOString()))
+      .catch(function (e) { console.warn('Choix de la semaine non posé :', texteErreur(e)); });
+    semaineDecalee = cle === 'decaler' ? { jour: jour, routine: carte.manquee.routine } : null;
+  }
+
+  // La carte ouverte de la semaine qui déraille, pour l'accueil : la MÊME lecture que Saisie (`Deraille.semaineQuiDeraille` sur
+  // `entreeDeLaSemaine`), et rien quand Saisie se tait (séance, routines pas prêtes, « Juste un carnet »).
+  function derailleDeLAccueil() {
+    if (seance || etatRoutines.code !== 'ok' || Moteur.coachSeTait(profil && profil.intention)) return { carte: null, leJour: false };
+    var jour = Moteur.jourCivil(new Date());
+    var carte = Deraille.semaineQuiDeraille(entreeDeLaSemaine(jour));
+    // Le jour d'un choix écrit : la carte « Jours » attend aussi après la réponse (une seule voix sur les jours).
+    var ecrit = (local.semaineChoix || []).some(function (l) { return l && l.cree_le && Moteur.jourCivil(new Date(l.cree_le)) === jour; });
+    return { carte: carte, leJour: !!carte || ecrit };
+  }
+
   function rendreCarteSemaine() {
     var noeud = $('carte-semaine');
     if (!noeud) return;
@@ -18930,12 +18957,7 @@
       vue.phrase = carte.phrase || null;
       vue.pourquoi = carte.pourquoi || null;
       vue.choix = carte.choix;
-      vue.surChoix = function (cle) {
-        poserChoixDeSemaine(Deraille.lignesDuChoix(carte, cle, jour, idUtilisateur(), new Date().toISOString()))
-          .catch(function (e) { console.warn('Choix de la semaine non posé :', texteErreur(e)); });
-        semaineDecalee = cle === 'decaler' ? { jour: jour, routine: carte.manquee.routine } : null;
-        rendreSaisie();
-      };
+      vue.surChoix = function (cle) { repondreALaSemaine(carte, cle, jour); rendreSaisie(); };
     }
     Rendu.rendreCarteSemaine(noeud, vue);
   }

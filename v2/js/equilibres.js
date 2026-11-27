@@ -1740,9 +1740,11 @@
       return !!v && typeof v === 'object' && !Array.isArray(v) && typeof v.r === 'string' && String(v.le || '').slice(0, 10) === String(jour).slice(0, 10);
     });
   }
-  function enLaissePourLAccueil(analyse, cartes, jour, contexte) {
+  // `sansAnalyse` : la voix de la semaine qui déraille (a) ne lit pas l'analyse des équilibres ; elle se tait en « Juste un carnet »
+  // (l'app ne lui donne alors aucune carte) mais pas faute d'analyse.
+  function enLaissePourLAccueil(analyse, cartes, jour, contexte, sansAnalyse) {
     var x = contexte || {};
-    if (!analyse || analyse.etat === 'carnet') return 'carnet';
+    if (analyse ? analyse.etat === 'carnet' : !sansAnalyse) return 'carnet';
     if (x.enSeance) return 'seance';
     if (x.routinesPretes !== true) return 'routines';
     if (x.niveauParle) return 'niveau';
@@ -1761,26 +1763,54 @@
     }
     return { fait: c.court || c.fait, detail: c.detailAccueil || detail };
   }
+  // 27/11/2026 (décision 77, améliorations 3 et 8 ; MOTEUR §9.24 et §9.27) — L'ORDRE DES VOIX de l'accueil, écrit UNE fois ici :
+  //   (a) `deraille` : la question de la semaine qui déraille — elle décide d'AUJOURD'HUI, elle passe d'abord ;
+  //   (b) `point` : le point de semaine du dimanche — sa place est RÉSERVÉE, le code ne l'a pas encore (PR E) ;
+  //   (c) `jours` : la carte « Jours » — elle ATTEND le jour où (a) parle (ou a reçu sa réponse), jamais deux voix sur les jours ;
+  //   (d) `autres` : les autres familles de `analyse.cartes`, dans leur ordre.
+  // L'app donne le contexte : `deraille` (la carte ouverte de `Deraille.semaineQuiDeraille`, sinon null) et `derailleLeJour`
+  // (vrai tant que la question est ouverte ET le jour où un choix de la semaine a été écrit).
+  var ORDRE_DES_VOIX = ['deraille', 'point', 'jours', 'autres'];
+  function voixDeLaSemaineQuiDeraille(contexte) {
+    var d = contexte && contexte.deraille;
+    return d && typeof d === 'object' && d.titre && liste(d.choix).length ? d : null;
+  }
   function carteDeLAccueil(analyse, cartes, jour, contexte) {
-    if (enLaissePourLAccueil(analyse, cartes, jour, contexte)) return null;
-    var exclus = liste(contexte && contexte.variations);
+    var x = contexte || {};
+    // (a) La semaine qui déraille : la même question que dans Saisie (l'app la lit dans `Deraille`, jamais ici) ; les mêmes
+    // silences que toute carte de l'accueil (I214) : séance, carnet, routines, niveau, une réponse datée du jour.
+    var d = voixDeLaSemaineQuiDeraille(x);
+    if (d && !enLaissePourLAccueil(analyse, cartes, jour, x, true)) {
+      var tousD = analyse && typeof analyse.nParlent === 'number' ? analyse.nParlent : liste(analyse && analyse.cartes).length;
+      return { voix: 'deraille', deraille: d, carte: null, tete: TETE_DE_L_ACCUEIL, fait: d.phrase ? d.titre + ' ' + d.phrase : d.titre, detail: d.pourquoi ? [d.pourquoi] : [], autres: tousD };
+    }
+    // (b) Le point de semaine : place réservée (PR E).
+    if (enLaissePourLAccueil(analyse, cartes, jour, x)) return null;
+    var exclus = liste(x.variations);
+    // (c) « Jours » attend le jour de la semaine qui déraille.
     var dispo = liste(analyse.cartes).filter(function (c) {
-      return c && !(c.kind === 'geste' && c.geste && contient(exclus, c.geste.slug));
+      return c && !(c.kind === 'geste' && c.geste && contient(exclus, c.geste.slug)) && !(x.derailleLeJour && c.famille === 'jours');
     });
     var c = dispo[0];
     if (!c) return null;
     var t = texteDeLAccueil(c);
     var tous = typeof analyse.nParlent === 'number' ? analyse.nParlent : liste(analyse.cartes).length;
-    var horsAccueil = liste(analyse.cartes).length - dispo.length;
-    return { carte: c, tete: TETE_DE_L_ACCUEIL, fait: t.fait, detail: t.detail, autres: Math.max(0, tous - horsAccueil - 1) };
+    var horsAccueil = liste(analyse.cartes).filter(function (k) { return !(k && k.kind === 'geste' && k.geste && contient(exclus, k.geste.slug)); }).length;
+    horsAccueil = liste(analyse.cartes).length - horsAccueil;
+    return { voix: 'equilibres', carte: c, tete: TETE_DE_L_ACCUEIL, fait: t.fait, detail: t.detail, autres: Math.max(0, tous - horsAccueil - 1) };
   }
   // I214 et I215, relus à part : rend la liste des fautes.
+  // I215 AMENDÉ (27/11/2026) : la carte de l'accueil est celle de « Ton parcours », SAUF la semaine qui déraille (`voix: 'deraille'`),
+  // qui vit dans Saisie, pas dans « Ton parcours » : alors `resultat.deraille` est LA carte que l'app a donnée (`contexte.deraille`,
+  // le même objet), il n'y a pas de `carte`, et rien d'autre ne fait exception.
   function verifierCarteDeLAccueil(analyse, cartes, jour, contexte, resultat) {
     var fautes = [];
+    var x = contexte || {};
+    var dActif = voixDeLaSemaineQuiDeraille(x);
+    var surDeraille = !!resultat && !Array.isArray(resultat) && resultat.voix === 'deraille';
     if (resultat === null || resultat === undefined) return fautes;
     if (Array.isArray(resultat)) fautes.push('I214 : plusieurs cartes sur l’accueil');
-    var x = contexte || {};
-    if (!analyse || analyse.etat === 'carnet') fautes.push('I214 : une carte en « Juste un carnet »');
+    if (analyse && analyse.etat === 'carnet' || (!analyse && !surDeraille)) fautes.push('I214 : une carte en « Juste un carnet »');
     if (x.enSeance) fautes.push('I214 : une carte en séance');
     if (x.routinesPretes !== true) fautes.push('I214 : une carte avant les routines');
     if (x.niveauParle) fautes.push('I214 : une carte le jour du niveau');
@@ -1789,7 +1819,15 @@
       var v = c[k];
       if (v && typeof v === 'object' && v.r && String(v.le || '').slice(0, 10) === String(jour || '').slice(0, 10)) fautes.push('I214 : ' + k + ' a reçu sa réponse aujourd’hui');
     });
+    if (surDeraille) {
+      if (!dActif || resultat.deraille !== dActif) fautes.push('I215 : la voix de la semaine qui déraille n’est pas la carte que l’app a donnée');
+      if (resultat.carte) fautes.push('I215 : la voix de la semaine qui déraille porte aussi une carte des équilibres');
+      return fautes;
+    }
+    if (resultat && resultat.voix !== undefined && resultat.voix !== 'equilibres') fautes.push('I215 : une voix inconnue sur l’accueil (' + resultat.voix + ')');
     if (resultat && liste(analyse && analyse.cartes).indexOf(resultat.carte) < 0) fautes.push('I215 : la carte de l’accueil n’est pas celle de « Ton parcours »');
+    if (dActif && !enLaissePourLAccueil(analyse, cartes, jour, x, true)) fautes.push('I214 : la semaine qui déraille passe d’abord (ordre des voix)');
+    if (x.derailleLeJour && resultat && resultat.carte && resultat.carte.famille === 'jours') fautes.push('I214 : la carte « Jours » parle le jour de la semaine qui déraille');
     if (resultat && resultat.carte && resultat.carte.kind === 'geste' && resultat.carte.geste && contient(x.variations, resultat.carte.geste.slug)) {
       fautes.push('I214 : ' + resultat.carte.cle + ' parle avec une carte de variation du bloc');
     }
@@ -1949,6 +1987,7 @@
     reponseAuGeste: reponseAuGeste,
     reponseAuGesteDatee: reponseAuGesteDatee,
     carteDeLAccueil: carteDeLAccueil,
+    ORDRE_DES_VOIX: ORDRE_DES_VOIX,
     verifierCarteDeLAccueil: verifierCarteDeLAccueil,
     repondueLe: repondueLe,
     finDuSilence: finDuSilence,

@@ -11766,6 +11766,11 @@
     // MOTEUR §9.54 — les séances plus récentes que celle que la consigne lit, et pourquoi elles ne sont pas lues. Clé absente quand la consigne lit la dernière séance.
     var nonLues = seancesNonLues(groupesTous, contratTous, horsZone, consigne, avant, o.zonesDeRoutine || null);
     if (nonLues !== null) resultat.nonLues = nonLues;
+    // MOTEUR §9.54 — la séance la plus récente que le calcul A VUE (lue ou non), figée avec la consigne : une séance plus récente arrivée ensuite (synchronisation en pleine séance)
+    // n'est pas « non lue », la consigne figée ne l'a jamais eue (la séance en cours fait foi) ; I280 s'en sert pour ne pas la réclamer.
+    var coupureVue = instant(avant), vue = null;
+    (contratTous || []).forEach(function (se) { var t = instant(se && se.debut); if (t !== null && coupureVue !== null && t < coupureVue && (vue === null || t > vue)) vue = t; });
+    if (vue !== null) resultat.vueJusqua = new Date(vue).toISOString();
     // PR 4b (R-A) — « Tenter » : les libellés de la consigne d'avant plafond, posés avec elle (la phrase de la tenue ne leur survit pas). Clé absente sans tenue.
     if (consigne && consigne.etat === 'tenue_apres_zero' && boutonsDeLaTenue(consigne)) {
       resultat.libellesTentee = Modele().avecNoms(nomsDesCrans, function () { return libellesConsigne(tenterApresUnZero(consigne), avant); });

@@ -8494,6 +8494,9 @@
       var moi = entrees && entrees.seance ? entrees.seance : null;
       if (P !== null && moi && ((moi.id !== undefined && moi.id !== null && pr.seance.id === moi.id) ||
           (moi.debut && Date.parse(pr.seance.debut) >= Date.parse(moi.debut)))) P = null;
+      // Une séance ARRIVÉE APRÈS le calcul figé (plus récente que la dernière que la consigne a vue, `vueJusqua`) n'est pas non lue : la séance en cours fait foi.
+      var figee = entrees && entrees.consignes ? entrees.consignes[x.slug] : null;
+      if (P !== null && figee && figee.vueJusqua && Date.parse(pr.seance.debut) > Date.parse(figee.vueJusqua)) P = null;
       if (P !== null && P > D && !cause[P]) {
         erreurs.push(nom + 'le gris cite la séance du ' + D + ' alors que la dernière séance est celle du ' + P + ', et le « Pourquoi ? » ne dit pas qu\u2019elle n\u2019est pas lue');
       }

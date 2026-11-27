@@ -227,4 +227,17 @@ describe('I280 — le plan dit la séance sautée, et la vérifie', () => {
     x.nonLues[0].debut = d.slice(0, 10) + 'T08:00:00.000Z';
     expect(i280(p).join('\n')).toMatch(/n’est pas plus récente/);
   });
+  test('une séance arrivée APRÈS le calcul figé n’est pas non lue (vueJusqua) ; sans cette marque, elle est réclamée', () => {
+    const g = histoire(TROIS);
+    const r = calcul(g);
+    expect(r.vueJusqua).toBe(g[2].seance.debut);
+    const arrivee = { seance: { id: 'S8', debut: jour(25) }, series: [] };
+    expect(i280(planDe(r), { precedents: { x: arrivee }, consignes: { x: r } })).toEqual([]);
+    const sans = JSON.parse(JSON.stringify(r)); delete sans.vueJusqua;
+    expect(i280(planDe(sans), { precedents: { x: arrivee }, consignes: { x: sans } }).length).toBe(1);
+    // une séance déjà vue au calcul et sautée sans phrase reste réclamée
+    const G4 = histoire(TROIS.concat([{ kg: 95, extra: { sans_coach: true } }]));
+    const p = planDe(calcul(G4)); delete p.exercices[0].pourquoi.nonLues; delete p.exercices[0].nonLues;
+    expect(i280(p, { precedents: prec(G4) }).length).toBe(1);
+  });
 });

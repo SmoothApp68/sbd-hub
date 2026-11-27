@@ -9,7 +9,16 @@ name: Bancs
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+  # Les « trois verts de suite » d'une PR de banc (CLAUDE.md §4 quater) : le bouton « Run workflow » sur la branche,
+  # avec le nombre de passages. Les passages jouent en même temps, sur des machines séparées ; chacun rend sa coche.
   workflow_dispatch:
+    inputs:
+      passages:
+        description: 'Nombre de passages indépendants (3 pour la règle des trois verts)'
+        required: true
+        default: '3'
+        type: choice
+        options: ['1', '2', '3', '4', '5']
 
 concurrency:
   group: bancs-${{ github.head_ref || github.ref }}
@@ -26,7 +35,32 @@ env:
   TZ: Europe/Paris
 
 jobs:
+  # La liste des passages : [1] pour une PR, [1, 2, 3] pour le bouton avec « 3 ». Les noms des jobs restent
+  # « banc-complet » et « banc-sequentiel » quand il n'y a qu'un passage (la coche de la PR ne change pas de nom).
+  passages:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    outputs:
+      liste: ${{ steps.liste.outputs.liste }}
+      n: ${{ steps.liste.outputs.n }}
+    steps:
+      - id: liste
+        shell: bash
+        env:
+          DEMANDE: ${{ github.event.inputs.passages }}
+        run: |
+          n="${DEMANDE:-1}"
+          case "$n" in 1|2|3|4|5) ;; *) n=1 ;; esac
+          echo "n=$n" >> "$GITHUB_OUTPUT"
+          echo "liste=$(node -e "console.log(JSON.stringify(Array.from({length:$n},(_, i)=>i+1)))")" >> "$GITHUB_OUTPUT"
+
   banc-complet:
+    needs: passages
+    name: banc-complet${{ needs.passages.outputs.n != '1' && format(' (passage {0})', matrix.essai) || '' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        essai: ${{ fromJSON(needs.passages.outputs.liste) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -70,7 +104,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: banc-complet
+          name: banc-complet-${{ matrix.essai }}
           path: |
             banc-complet.txt
             /tmp/tout-*
@@ -78,6 +112,12 @@ jobs:
           retention-days: 7
 
   banc-sequentiel:
+    needs: passages
+    name: banc-sequentiel${{ needs.passages.outputs.n != '1' && format(' (passage {0})', matrix.essai) || '' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        essai: ${{ fromJSON(needs.passages.outputs.liste) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 130
     steps:
@@ -123,7 +163,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: banc-sequentiel
+          name: banc-sequentiel-${{ matrix.essai }}
           path: |
             banc-sequentiel.txt
             seq.json

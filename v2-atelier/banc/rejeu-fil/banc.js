@@ -109,7 +109,9 @@ function signer(X, H, groupes, i, avant, etat) {
   const cat = { [H.slug]: Object.assign({ muscles_primaires: ['quadriceps'], muscles_secondaires: [], muscles_stabilisateurs: [] }, E) };
   delete cat[H.slug].famille; delete cat[H.slug].kg; delete cat[H.slug].salle;
   const o = { mesure: E.mesure, equipement: E.equipement, intention: 'progresser', reglage: H.reglage, edition: false,
-    debutant: H.debutant, protegee: H.protegee || H.debutant || (H.age !== null && H.age >= 65), correction: H.zone, famille: E.famille,
+    debutant: H.debutant, protegee: H.protegee || H.debutant || (H.age !== null && H.age >= 65), correction: H.zone,
+    // 27/11/2026 : comme l'app (`Plan.cleDePlancherDe`), la clé du plancher — la barre, ou le mouvement `jambes_tendues` à la barre ; une version sans la fonction garde `famille`.
+    famille: X.T.cleDePlancherDe && E.mouvement ? X.T.cleDePlancherDe(cat, H.slug) : E.famille,
     prudence: X.M.prudenceDeMontee({ debutant: H.debutant, age: H.age }) };
   if (E.salle) o.salle = E.salle;
   if (cas === 'lest') { o.lestReponse = H.lest; o.lestPossible = true; }
@@ -225,7 +227,7 @@ function histoiresDeFixture(chemin) {
   return liste.map((h, n) => {
     if (!h.slug || !Array.isArray(h.seances)) throw new Error('fixture : l’histoire ' + n + ' n’a ni slug ni seances');
     const slug = h.slug;
-    if (!EXOS[slug]) EXOS[slug] = { nom: h.nom || slug, equipement: h.equipement || 'barre', mesure: h.mesure || 'charge_reps', pas: h.pas || 2.5, kg: h.kg || 0, famille: h.famille || null,
+    if (!EXOS[slug]) EXOS[slug] = { nom: h.nom || slug, equipement: h.equipement || 'barre', mesure: h.mesure || 'charge_reps', pas: h.pas || 2.5, kg: h.kg || 0, famille: h.famille || null, mouvement: h.mouvement || undefined,
       salle: h.salle || undefined };
     verifierEquipements({ [slug]: EXOS[slug] }, 'fixture');
     const seances = h.seances.slice().sort((a, b) => String(a.debut).localeCompare(String(b.debut)));

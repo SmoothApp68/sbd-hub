@@ -1799,9 +1799,28 @@
       programmeRefaitLe: p.programme_construit_le ? Moteur.jourCivil(new Date(p.programme_construit_le)) : null,
       priorites: Profil.prioritesDe(p),
       volume: function () { return volumeDuCoach(maintenant.toISOString()); },
+      // 27/11/2026 (MOTEUR §9.27) — ce que « Je corrige » produirait : les routines refaites, à la demande, rien d'écrit.
+      refait: programmeRefaitDeLaCarte,
       ecartes: Profil.ecartesDe(p),
       cartes: reponsesDesCartes()
     };
+  }
+
+  // Les routines que « Je corrige » (le questionnaire, `refaire`) construirait : le MÊME chemin que l'aperçu (`completer` avec un
+  // historique, le gabarit sinon), sur un état jetable — ni `construit`, ni aucun écran, ni aucune écriture. `null` : le catalogue
+  // n'est pas arrivé (la carte ne propose alors pas de corriger : elle ne sait pas si la correction corrige).
+  function programmeRefaitDeLaCarte() {
+    if (etatRoutines.code !== 'ok' || !local.exercices.length) return null;
+    var entree = entreeDuProgramme();
+    var historique = Modele.specialiteDe(entree.objectif).programme.gabarit !== 'calisthenie' ? aUnHistorique() : null;
+    if (!historique) {
+      return fondreLesVoisins(raccourcirLeProgramme(fondreLesVoisins(Generateur.generer(catalogueIndexe(), entree))))
+        .filter(function (rt) { return rt.exercices.length; });
+    }
+    var jetable = { entree: entree, routines: [], faites: [], changements: [], ajouts: {}, reprises: {},
+                    historique: Object.assign(historique, { refus: { muscles: [], reprises: [], tirage: false }, refusPaires: [], retouches: [] }) };
+    assemblerLeProgramme(jetable);
+    return jetable.routines;
   }
 
   // L'analyse, gardée tant que rien de ce qu'elle lit n'a changé (les séances, les séries, les routines, le réglage, les
@@ -1811,7 +1830,7 @@
     var cle = [(local.seances || []).length, (local.series || []).length, Moteur.jourCivil(new Date()), p.rythme_progression || '',
                p.intention || '', JSON.stringify(Profil.prioritesDe(p)), JSON.stringify(reponsesDesCartes()),
                p.programme_construit_dossier || '', p.programme_construit_le || '', etatRoutines.code, signatureDesRoutines(routines),
-               p.seances_par_semaine || '', p.duree_seance_min || ''].join('|');
+               p.seances_par_semaine || '', p.duree_seance_min || '', (local.exercices || []).length].join('|');
     if (memoEquilibres && memoEquilibres.cle === cle) return memoEquilibres.analyse;
     var analyse = Equilibres.analyser(entreeDesEquilibres());
     memoEquilibres = { cle: cle, analyse: analyse };
@@ -16377,8 +16396,8 @@
   // retirées) → `ranger` → chaque ligne habillée en place → les retouches de la personne réappliquées (retrouvées par
   // séance et exercice ; une retouche qui ne trouve plus sa ligne ne s'applique pas) → `associer` → le raccourci → les
   // voisins fondus. Les journaux du complément et des supersets donnent « Ce que j'ai changé ». Rien n'est écrit.
-  function assemblerLeProgramme() {
-    var c = construit, h = c && c.historique;
+  function assemblerLeProgramme(sur) {
+    var c = sur || construit, h = c && c.historique;
     if (!h) return;
     var index = catalogueIndexe();
     var habitudes = Object.assign({}, h.habitudes);

@@ -213,23 +213,46 @@ describe('71 — les faits du récap, sur une séance d’exemple', () => {
     expect(Object.keys(faits.recordsDuJour(corpus(), SEANCE)[0])).toEqual(['nom', 'mesure']);
   });
 
-  test('⚠️ les paris de LA séance : la phrase aux chiffres tels quels, une ligne par exercice vérifié', () => {
-    const p = r().paris;
-    expect([p.verifies, p.tenus]).toEqual([6, 4]);
-    expect(p.phrase).toBe('Sur 6 paris vérifiés, le coach en a tenu 4.');
-    expect(p.lignes.map((l) => [l.nom, l.fait, l.vise])).toEqual([
-      ['Tractions', '9, 9, 8, 7', '9'],
-      ['Shrug', '90\u00a0kg × 10, 10, 10', null]
-    ]);
+  // 29/11/2026 (« Les paris en coulisse ») — le récap n'a plus de bloc des paris : le compte vit à Profil › À propos de ton coach.
+  test('⚠️ le récap ne porte plus de paris, même quand la séance en a (ni bloc, ni phrase, ni « premier pari »)', () => {
+    const x = faits.recapDeLaSeance(corpus(), SEANCE, PARIS, [{ seance: ID_SEANCE }]);
+    expect(x).not.toHaveProperty('paris');
+    expect(JSON.stringify(x)).not.toMatch(/pari/i);
   });
 
-  test('⚠️ seize paris : le récap dit « Sur 16 paris vérifiés, le coach en a tenu 14. » — pas ramené à 10', () => {
-    const seize = Array.from({ length: 16 }, (_, k) => ({ seance: ID_SEANCE, exercice: k < 8 ? 'shrug' : 'tractions',
+  test('⚠️ le compte du coach (faits.parisDuCoach) : un seul compte, une ligne par séance et par exercice, lu par la fonction unique', () => {
+    const date = '2026-11-14T09:00:00Z';
+    const q = (o) => Object.assign({ date, seance: ID_SEANCE }, o);
+    const p = faits.parisDuCoach(corpus(), PARIS.filter((x) => x.seance === ID_SEANCE).map((x) => q(x)).concat([
+      q({ seance: 'autre', exercice: 'shrug', predite: 10, observee: 2, date: '2026-11-01T09:00:00Z', charge: 80 })]), new Date('2026-11-27T10:00:00Z'));
+    // 6 vérifiés dans la séance (le pari sans observation ne l'est pas) + 1 d'une autre séance : UN compte, depuis le début.
+    expect([p.verifies, p.tenus]).toEqual([7, 4]);
+    expect(p.phrase).toBe(Bilan.phraseParis(7, 4));
+    expect(p.valeur).toBe(Bilan.valeurParis(7, 4));
+    expect(p.valeur).toBe('4 sur 7');
+    expect(p.lignes.map((l) => [l.nom, l.tenu])).toEqual([['Tractions', false], ['Shrug', true], ['Shrug', false]]);
+    const rate = p.lignes[0];
+    expect(rate.prevu).toBe('9 reps');
+    expect(rate.fait).toBe('8 reps');
+    expect(rate.explication).toBe('J\u2019avais prévu 9 reps : tu en as fait 8.');
+    expect(p.lignes[1].explication).toBeNull();
+    expect(JSON.stringify(p)).not.toMatch(/bravo|raté|échec|n.as pas réussi/i);
+  });
+
+  test('⚠️ dix paris et plus : la valeur est ramenée à 10, comme la phrase (une seule fonction, Bilan.compteRamene)', () => {
+    const seize = Array.from({ length: 16 }, (_, k) => ({ date: '2026-11-14T09:00:00Z', seance: ID_SEANCE, exercice: k < 8 ? 'shrug' : 'tractions',
       predite: 9, observee: k < 14 ? 9 : 8 }));
-    const p = faits.recapDeLaSeance(corpus(), SEANCE, seize).paris;
-    expect(p.phrase).toBe('Sur 16 paris vérifiés, le coach en a tenu 14.');
-    // Le bilan du mois, lui, ramène à 10 (inchangé).
-    expect(Bilan.phraseParis(16, 14)).toBe('Sur 10 paris vérifiés, le coach en a tenu 9.');
+    const p = faits.parisDuCoach(corpus(), seize, new Date('2026-11-27T10:00:00Z'));
+    expect(p.phrase).toBe('Sur 10 paris vérifiés, le coach en a tenu 9.');
+    expect(p.valeur).toBe('9 sur 10');
+    expect([p.verifies, p.tenus]).toEqual([16, 14]);
+    expect(Bilan.compteRamene(16, 14)).toEqual({ verifies: 10, tenus: 9 });
+  });
+
+  test('⚠️ aucun pari vérifié : null (la page dit « Je n’ai encore vérifié aucun pari », jamais « 0 sur 0 »)', () => {
+    expect(faits.parisDuCoach(corpus(), [], new Date())).toBeNull();
+    expect(faits.parisDuCoach(corpus(), [{ date: '2026-11-14T09:00:00Z', seance: ID_SEANCE, exercice: 'shrug', predite: 10, observee: null }], new Date())).toBeNull();
+    expect(Bilan.valeurParis(0, 0)).toBeNull();
   });
 
   // 211 — les premières minutes : le coach dit son mécanisme au bon moment, sans rien prévoir.
@@ -238,7 +261,6 @@ describe('71 — les faits du récap, sur une séance d’exemple', () => {
     const x = faits.recapDeLaSeance(seule(), SEANCE, []);
     expect(x.pointDeDepart).toBe(Bilan.PHRASE_POINT_DE_DEPART);
     expect(x.pointDeDepart).toMatch(/^Cette séance me sert de point de départ\./);
-    expect(x.paris).toBeNull();
     // Une séance terminée avant (AVANT) : ce n'est plus la première. Une séance en cours ne compte pas.
     expect(faits.estLaPremiereSeance(corpus(), SEANCE)).toBe(false);
     expect(r().pointDeDepart).toBeNull();
@@ -251,18 +273,6 @@ describe('71 — les faits du récap, sur une séance d’exemple', () => {
     expect(faits.premierPariDuCompte(corpus(), [{ seance: ID_SEANCE }, { seance: AVANT.id }])).toBe(AVANT.id);
   });
 
-  test('211 — le récap de la séance du premier pari ouvre sur « Mon premier pari tenu. » ou « : pas encore. » ; jamais ailleurs', () => {
-    const premier = [{ seance: ID_SEANCE }];
-    expect(faits.recapDeLaSeance(corpus(), SEANCE, PARIS, premier).paris.premier).toBe('Mon premier pari tenu.');
-    const rate = PARIS.map((q) => Object.assign({}, q, q.exercice === 'tractions' && q.observee === 9 ? { observee: 3, emise: '2026-01-01T10:00:00Z' } : {}));
-    const ouvre = faits.recapDeLaSeance(corpus(), SEANCE, rate, premier).paris.premier;
-    expect(ouvre).toBe('Mon premier pari\u00a0: pas encore.');
-    expect(ouvre).not.toMatch(/bravo/i);
-    // Le compte avait déjà un pari avant : pas de « premier ».
-    expect(faits.recapDeLaSeance(corpus(), SEANCE, PARIS, [{ seance: AVANT.id }, { seance: ID_SEANCE }]).paris.premier).toBeNull();
-    expect(r().paris.premier).toBeNull();
-  });
-
   test('ce qui a été fait : une charge qui change, des reps seules, une mesure', () => {
     expect(faits.faitDeLExercice([serie('a', 32, 12), serie('b', 36, 10)])).toBe('32\u00a0kg × 12 · 36\u00a0kg × 10');
     expect(faits.faitDeLExercice([serie('a', 90, 10), serie('b', 90, 10), serie('c', 90, 10)])).toBe('90\u00a0kg × 10, 10, 10');
@@ -271,10 +281,9 @@ describe('71 — les faits du récap, sur une séance d’exemple', () => {
     expect(faits.faitDeLExercice([serie('a', 60, 10, { type_serie: 'echauffement' }), serie('b', 80, 5)])).toBe('80\u00a0kg × 5');
   });
 
-  test('⚠️ un bloc sans matière n’a pas de données : sans pari vérifié, pas de paris ; sous 1 t, pas de comparaison', () => {
+  test('⚠️ un bloc sans matière n’a pas de données : sous 1 t, pas de comparaison', () => {
     const petite = Object.assign({}, SEANCE, { id: 's-petite', exercices: [{ exercise_slug: 'tractions', series: [serie('q1', null, 8)] }] });
-    const x = faits.recapDeLaSeance(corpus(), petite, PARIS);
-    expect(x.paris).toBeNull();
+    const x = faits.recapDeLaSeance(corpus(), petite);
     expect(x.phraseVolume).toBeNull();
     expect(x.volume_kg).toBe(0);
   });

@@ -2,7 +2,7 @@
  * « Les mots disent vrai », PR 3 bis (MOTEUR §9.46) — les paris de Décharge (`fondement.allegee`) ne sont pas
  * comptés dans « le coach en a tenu N sur M », À LA LECTURE SEULEMENT, par UN seul prédicat (`Bilan.compteLe`).
  *   · le compte (`Bilan.compterParis`) les ignore ; un pari sans drapeau (écrit avant lui) compte ;
- *   · le récap de fin de séance, le premier pari et le bilan de période (`bilan.coach`) s'y rangent ;
+ *   · le compte du coach (`faits.parisDuCoach`, Profil › À propos de ton coach, « Les paris en coulisse » 29/11/2026) et le premier pari s'y rangent ;
  *   · `faits.parisRatesALaSuite` les lit toujours : un raté de Décharge reste un signal de forme ;
  *   · le dénominateur à 0 : le bloc des paris disparaît (pas de « 0 sur 0 »).
  */
@@ -41,7 +41,7 @@ describe('Bilan.compterParis / compteLe', () => {
   });
 });
 
-describe('le récap de fin de séance et le premier pari', () => {
+describe('le compte du coach (`faits.parisDuCoach`) et le premier pari', () => {
   const CAT = [{ slug: 'squat_barre', nom: 'Squat (Barre)', equipement: 'barre', mesure: 'charge_reps', muscles_primaires: ['quadriceps'], muscles_secondaires: [] }];
   const SEANCE = { id: 's1', user_id: 'u', debut: '2026-11-02T10:00:00Z', fin: '2026-11-02T11:00:00Z', titre: 'Bas', statut: 'terminee', source: 'app',
     exercices: [{ exercise_slug: 'squat_barre', series: [
@@ -49,22 +49,24 @@ describe('le récap de fin de séance et le premier pari', () => {
   const corpus = () => ({ seances: [SEANCE], series: [], exercices: CAT, seriesDe: () => [],
     catalogue: () => { const i = {}; CAT.forEach((e) => { i[e.slug] = e; }); return i; }, journal: [] });
   const faits = Faits.creer();
-  const recap = (paris, premier) => faits.recapDeLaSeance(corpus(), SEANCE, paris, premier);
+  const P = (o) => Object.assign({ date: '2026-11-02T10:00:00Z', seance: 's1', exercice: 'squat_barre', charge: 100 }, o);
+  const coach = (paris) => faits.parisDuCoach(corpus(), paris, new Date('2026-11-27T10:00:00Z'));
 
-  test('une séance de Décharge seule : aucun bloc « paris » (la phrase reste vraie)', () => {
-    const r = recap([D({ seance: 's1', exercice: 'squat_barre', predite: 6, observee: 8 })], [{ seance: 's1', allegee: true }]);
-    expect(r.paris).toBeNull();
+  test('une séance de Décharge seule : aucun compte (la page dit qu\u2019elle est vide)', () => {
+    expect(coach([D(P({ predite: 6, observee: 8 }))])).toBeNull();
+  });
+  test('le jour sans non plus : un pari tenu à peu de frais n\u2019est pas une vérification', () => {
+    expect(coach([P({ predite: 6, observee: 8, jourSans: true })])).toBeNull();
   });
   test('mélange : seuls les paris comptés sont dans N sur M, les lignes et la phrase', () => {
-    const r = recap([{ seance: 's1', exercice: 'squat_barre', predite: 8, observee: 7 },
-                     D({ seance: 's1', exercice: 'squat_barre', predite: 6, observee: 8 })], []);
-    expect(r.paris.verifies).toBe(1);
-    expect(r.paris.tenus).toBe(0);
-    expect(r.paris.lignes).toHaveLength(1);
-    expect(r.paris.lignes[0].vise).toBe('8');
+    const r = coach([P({ predite: 8, observee: 7 }), D(P({ predite: 6, observee: 8 }))]);
+    expect(r.verifies).toBe(1);
+    expect(r.tenus).toBe(0);
+    expect(r.lignes).toHaveLength(1);
+    expect(r.lignes[0].tenu).toBe(false);
   });
   test('un pari sans drapeau compte', () => {
-    expect(recap([{ seance: 's1', exercice: 'squat_barre', predite: 8, observee: 8 }], []).paris.verifies).toBe(1);
+    expect(coach([P({ predite: 8, observee: 8 })]).verifies).toBe(1);
   });
   test('le premier pari du compte ne retient pas un pari de Décharge', () => {
     expect(faits.premierPariDuCompte(corpus(), [{ seance: 's1', allegee: true }])).toBeNull();
@@ -72,19 +74,15 @@ describe('le récap de fin de séance et le premier pari', () => {
   });
 });
 
-describe('le bilan de période (`bilan.coach`)', () => {
+describe('le bilan de période ne porte plus de compte du coach (un seul compte, depuis le début)', () => {
   const bilan = (paris) => Bilans.bilanDeLaPeriode({ periode: Bilans.periodeDuMois('2026-10'), aujourdhui: '2026-10-31',
     seances: [], exercices: [], pesees: [], paris });
-  test('N sur M sans la Décharge ; « depuis » ne part pas d’un pari de Décharge', () => {
-    const b = bilan([D({ jour: '2026-10-01', predite: 6, observee: 8 }), { jour: '2026-10-10', predite: 8, observee: 8 }, { jour: '2026-10-12', predite: 8, observee: 6 }]);
-    expect(b.coach).toEqual({ tenus: 1, faits: 2, depuis: '2026-10-10' });
+  test('`coach` n\u2019existe plus, même avec des paris dans l\u2019entrée', () => {
+    const b = bilan([{ jour: '2026-10-10', predite: 8, observee: 8 }]);
+    expect(b.coach).toBeUndefined();
   });
-  test('que de la Décharge : pas de bloc coach', () => {
-    expect(bilan([D({ jour: '2026-10-01', predite: 6, observee: 8 })]).coach).toBeNull();
-  });
-  test('l’entrée du bilan garde le drapeau (faits.entreeDuBilan → paris)', () => {
-    const src = lire('faits.js');
-    expect(src).toMatch(/observee: q\.observee, allegee: q\.allegee === true/);
+  test('l\u2019entrée du bilan ne porte plus les paris (faits.entreeDuBilan)', () => {
+    expect(lire('faits.js')).not.toMatch(/observee: q\.observee, allegee: q\.allegee === true/);
   });
 });
 

@@ -1317,7 +1317,7 @@ function ok(nom, cond, detail) {
         ok('DISCRIMINANT [CODE a] — « Mot de passe oublié ? » envoie, puis ouvre l’écran du code (le formulaire de connexion se cache)',
           bd.recuperations.length === 1 && c1.ouvert && !c1.formConnexion, JSON.stringify([bd.recuperations, c1]));
         ok('[CODE a] — le titre, le sous-titre et la phrase (la même que l’adresse existe ou non), au mot près',
-          c1.titre === 'Entre le code reçu par e-mail' && c1.sous === 'Envoyé à a@banc.test. Il est valable 1 heure.' &&
+          c1.titre === 'Entre le code reçu par e-mail' && c1.sous === 'Envoyé à a@banc.test. Regarde aussi dans tes spams.' &&
           c1.info === 'Si un compte existe pour cette adresse, un code vient de partir.', JSON.stringify(c1));
         ok('[CODE a] — UN champ numérique, avec l’auto-remplissage du code', c1.champ.mode === 'numeric' &&
           c1.champ.auto === 'one-time-code' && c1.champ.motif === '[0-9]*', JSON.stringify(c1.champ));

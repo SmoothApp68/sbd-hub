@@ -68,8 +68,17 @@ describe('201 — Profil › Les mots du coach', () => {
     const sec = r.section('LES MOTS DU COACH');
     expect(sec).toBeTruthy();
     expect(sec.groupe).toBe('À propos');   // 213 : « Les mots du coach » rejoint « À propos »
-    expect(sec.lignes).toHaveLength(1);
-    expect(sec.lignes[0].libelle).toBe('Les mots du coach');
-    expect(sec.lignes[0].sous).toBe(M.lexique().length + ' mots, une phrase chacun');
+    // 29/11/2026 (« Les paris en coulisse ») : « À propos de ton coach » ouvre la section, « Les mots du coach » suit.
+    expect(sec.lignes.map((l) => l.libelle)).toEqual(['À propos de ton coach', 'Les mots du coach']);
+    expect(sec.lignes[1].sous).toBe(M.lexique().length + ' mots, une phrase chacun');
+  });
+  test('la ligne « À propos de ton coach » : la valeur est LUE (faits.parisDuCoach), sans pari le nom seul', () => {
+    const sans = profilEcran({ username: 'a' }).section('LES MOTS DU COACH').lignes[0];
+    expect(sans.sansValeur).toBe(true);
+    expect(sans.valeur).toBeUndefined();
+    const avec = profilEcran({ username: 'a' }, { parisDuCoach: { valeur: '9 sur 10' } }).section('LES MOTS DU COACH').lignes[0];
+    expect(avec.valeur).toBe('9 sur 10');
+    expect(avec.sansValeur).toBeUndefined();
+    expect(typeof avec.surChoix).toBe('function');
   });
 });

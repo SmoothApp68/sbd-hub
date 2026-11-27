@@ -11,7 +11,7 @@
 //
 // ⚠️ IL APPELLE CE QUI EXISTE, IL NE LE REFAIT PAS : la série de travail (`Modele.estTravail`), le volume soulevé
 // (`Bilan.volumeKg`), le compte des séries de travail (`Semaine.compteSeriesTravail`), les séries par muscle
-// (`Semaine.volumeParMuscle`), le compte des paris (`Bilan.compterParis`), l'objet de comparaison du récap
+// (`Semaine.volumeParMuscle`), l'objet de comparaison du récap
 // (`Bilan.comparaison`), la règle « moins pratiqué » et la comparaison à reps égales de « Ton parcours »
 // (`Parcours.pratique`, `Parcours.aRepsEgales`). L'entrée est assemblée par le module des faits
 // (`faits.js`, `entreeDuBilan`) ; aucun écran n'appelle ce module.
@@ -22,7 +22,7 @@
 // l'entrée (`salle`) : JAMAIS comparés à une autre période (aucun écart, aucune flèche).
 //
 // L'entrée : `{ periode, aujourdhui: 'AAAA-MM-JJ', seances: [{ id, jour, titre, series }], exercices: [fiche…],
-//               pesees: [{ jour, poids }], paris: [{ jour, predite, observee }], salle: { jours, minutes } }` — toutes les séances terminées
+//               pesees: [{ jour, poids }], salle: { jours, minutes } }` — toutes les séances terminées
 // jusqu'à la fin de la période (l'avant compte : « la plus lourde de ta vie », la comparaison).
 // Pur : aucun accès au DOM, au réseau, au stockage, à l'horloge.
 
@@ -508,17 +508,6 @@
     sortie.versus.comme = cmp.comme || null;
     sortie.versus.par = cmp.par || null;   // « par rapport à août » : l'écart de tonnes se dit contre QUOI (PR 6 des mots)
 
-    // Le coach : les paris tenus sur les paris vérifiés de la période ; « depuis » si le premier est venu en cours.
-    var comptes = Bi().compterParis((e.paris || []).map(function (q) {
-      return { date: q.jour, predite: q.predite, observee: q.observee, allegee: q.allegee };
-    }), function (q) { return q.date >= periode.debut && q.date <= fin; });
-    var premierPari = null;
-    (e.paris || []).forEach(function (q) {
-      if (q && Bi().compteLe(q) && q.jour >= periode.debut && q.jour <= fin && q.observee !== null && q.observee !== undefined &&
-          (!premierPari || q.jour < premierPari)) premierPari = q.jour;
-    });
-    sortie.coach = comptes.verifies ? { tenus: comptes.tenus, faits: comptes.verifies,
-                                        depuis: premierPari && premierPari > periode.debut ? premierPari : null } : null;
     return sortie;
   }
 

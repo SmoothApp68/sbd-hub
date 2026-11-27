@@ -51,6 +51,7 @@
   // ── LES SEUILS (Gemini S1-S8 du 29/10/2026) ───────────────────────────────────────────────────────────────────
   var SEUIL_TIRAGE = 0.60;          // tirage / poussée, à l'horizontale et à la verticale
   var SEUIL_CHAINE = 0.40;          // chaîne postérieure / quadriceps
+  var MARGE_DU_COACH = 1;           // 27/11/2026 : un programme que le coach refait doit passer le seuil AVEC une série de marge (une série sautée par semaine ne rallume pas la carte)
   var SEMAINES_FENETRE = 12;        // les 12 dernières semaines non nulles
   var SEMAINES_MIN = 4;             // au moins 4 semaines…
   var SEANCES_MIN = 12;             // … et 12 séances, sinon rien
@@ -75,7 +76,7 @@
   var PART_DES_SEANCES = 0.5;       // la carte du temps : au moins la moitié des séances des 8 dernières semaines
   var ARRONDI_MINUTES = 5;          // la durée proposée : la médiane réelle des séances écourtées, arrondie aux 5 minutes
   var DUREE_MIN = 10, DUREE_MAX = 300;   // les bornes de `profiles_rythme_borne`
-  var SEUIL_FREQUENCE = 1.5;        // une priorité faite moins de 1,5 fois par semaine en moyenne (Pelland 2026, pour la force)
+  var SEUIL_FREQUENCE = 1.5;        // une priorité faite moins de 1,5 fois par semaine en moyenne (convention de l'app ; Pelland 2026 donne le sens, la force croît avec la fréquence à rendements décroissants, mais aucun seuil)
   var TIERS = 2 / 3;                // le dernier tiers d'une séance (Simão 2012)
 
   // Les muscles principaux (l'épaule arrière et le côté compris) : un à 0 série sur 4 semaines fait une carte.
@@ -644,6 +645,33 @@
     return a ? propositionAjouter(a) : null;
   }
 
+  // ── « Je corrige » : seulement si la correction corrige (27/11/2026, MOTEUR §9.27) ─────────────────────────────────
+  // UNE fonction. `refait` : les routines que « Je corrige » produirait (`e.refait`, à la demande, jamais écrites) ; une ligne porte
+  // `series` (un nombre, ou la liste des séries d'une routine) et `reculs`. Le rapport se lit comme la carte (`classesDe`, le seuil du
+  // rapport), avec `MARGE_DU_COACH` : `(a − marge) / b < seuil` est « sous ». Rien de refait, ou un rapport inconnu : on ne promet pas.
+  function seriesDeLaLigne(x) {
+    if (Array.isArray(x && x.series)) return seriesDeTravailDe(x);
+    return (Number(x && x.series) || 0) + (Number(x && x.reculs) || 0);
+  }
+  function correctionCorrige(prep, r) {
+    if (!r) return false;
+    if (prep.refait === undefined) {
+      var e = prep.e, brut = null;
+      try { brut = typeof e.refait === 'function' ? e.refait() : e.refait; } catch (err) { brut = null; }
+      prep.refait = Array.isArray(brut) && brut.length ? brut : null;
+    }
+    if (!prep.refait) return false;
+    var a = 0, b = 0;
+    prep.refait.forEach(function (rt) {
+      liste(rt && rt.exercices).forEach(function (x) {
+        var c = classesDe(x.exercise_slug, prep.cat);
+        if (c[r.a]) a += seriesDeLaLigne(x);
+        if (c[r.b]) b += seriesDeLaLigne(x);
+      });
+    });
+    return !(b > 0 && (a - MARGE_DU_COACH) / b < r.seuil);
+  }
+
   // ── Les constats et les cartes ─────────────────────────────────────────────────────────────────────────────────
   function phraseDuRapport(r, a, b) {
     if (a > 0) return '1 série de ' + r.nomA + ' pour ' + nb(b / a) + ' de ' + r.nomB + '.';
@@ -797,7 +825,8 @@
     }
     causes = causesDe(prep, cote, c, ctx);
     // Le programme du coach, sous le seuil de lui-même : « Je l'ai mal construit ».
-    if (e.programmeDuCoach && c.coach && c.coach.malConstruit) {
+    if (e.programmeDuCoach && c.coach && c.coach.malConstruit &&
+        correctionCorrige(prep, RAPPORTS.filter(function (x) { return x.cle === c.cle; })[0])) {
       props.push({ type: 'corriger', cle: 'corriger', libelle: 'Je l’ai mal construit : je corrige ton programme ?', question: true, refait: true });
     }
     causes.forEach(function (x) {
@@ -1019,7 +1048,7 @@
 
   // ── La FRÉQUENCE : combien de fois par semaine chaque priorité ─────────────────────────────────────────────────
   // Une priorité d'exercice (une des quatre barres, ou les tractions) : le nombre de séances de la semaine qui la portent.
-  // Les muscles prioritaires ne sont pas des mouvements : la règle porte sur des mouvements (Pelland 2026, la force sur un
+  // Les muscles prioritaires ne sont pas des mouvements : la règle porte sur des mouvements (Pelland 2026 : le sens, la force sur un
   // mouvement ; Schoenfeld 2019 : à volume égal la fréquence compte peu pour l'hypertrophie).
   function famillesDeMouvement(prep, cle) {
     var cat = prep.cat, M = Modele();
@@ -1961,6 +1990,8 @@
     ORDRE_DES_FAMILLES: ORDRE_DES_FAMILLES,
     SEUIL_TIRAGE: SEUIL_TIRAGE,
     SEUIL_CHAINE: SEUIL_CHAINE,
+    MARGE_DU_COACH: MARGE_DU_COACH,
+    correctionCorrige: correctionCorrige,
     SEMAINES_FENETRE: SEMAINES_FENETRE,
     SEMAINES_MIN: SEMAINES_MIN,
     SEANCES_MIN: SEANCES_MIN,

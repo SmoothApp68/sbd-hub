@@ -1683,9 +1683,9 @@
     return env;
   }
 
-  // MOTEUR §9.23 (55-1) — LE MOIS ÉCOULÉ, en tête : « Septembre — 22 séances
-  // · 33 records · 27 paris tenus sur 30 ». Un compte, sans jugement : rien
-  // n'est dit d'un nombre nul, aucune couleur.
+  // MOTEUR §9.23 (55-1) — LE MOIS ÉCOULÉ, en tête : « Septembre — 13 t soulevées
+  // · 33 records ». Un compte, sans jugement : rien n'est dit d'un nombre nul, aucune couleur.
+  // (Les paris du coach n'y sont plus depuis le 29/11/2026 : Profil › À propos › À propos de ton coach.)
   // (`pluriel` est déclarée plus bas, une fois pour le module.)
   function blocMois(v) {
     var bloc = coquilleBloc(v.titre, '', false);
@@ -1698,8 +1698,6 @@
     bouts.push(v.kg ? M().tonnesTexte(v.kg) + ' soulevées'
       : (v.series ? grand(v.series) + ' série' + (v.series > 1 ? 's' : '') + ' de travail' : 'Aucune série de travail'));
     if (v.records) bouts.push(pluriel(v.records, 'record'));
-    if (v.paris && v.paris.verifies) bouts.push(grand(v.paris.tenus) + ' pari' + (v.paris.tenus > 1 ? 's' : '') +
-      ' tenu' + (v.paris.tenus > 1 ? 's' : '') + ' sur ' + grand(v.paris.verifies));
     // 173 (« Vivant ») — le chiffre en héros : « 13 t » (puis « soulevées »), « 14 » (puis « records ») ; le texte, lui, ne change pas.
     var ligneM = el('div', 'bloc-ligne bloc-heros');
     bouts.forEach(function (b, i) {
@@ -3476,6 +3474,15 @@
   function colonnesDe(g) { return g.colonnes || g.champs; }
   // La classe de la grille : celle de la mesure, et `g-plus` quand un champ en plus prend une
   // colonne (Escaliers : durée · étages, la grille à deux cases de la distance). 132 : `g-elastique`.
+  // Lot 4 (n° 1) — LA BANDE « Mardi : 90 kg × 8, 8, 8 » d'un exercice SEUL en charge × reps : la phrase vient de
+  // `Seance.bandeDePrecedent` (l'écran ne calcule rien) ; quand elle existe, la colonne PRÉC. n'est dessinée ni dans
+  // l'en-tête ni dans les lignes. Pas dans l'éditeur, ni dans un superset par tours (la colonne y reste, ligne à ligne).
+  function bandeDuBloc(bloc, vue, g) {
+    if (vue.programme || bloc.superset || !bloc.exercices || bloc.exercices.length !== 1) return null;
+    if (g.mesure !== 'charge_reps' || g.elastique || typeof vue.precedent !== 'function') return null;
+    return S().bandeDePrecedent(vue.precedent(bloc.exercices[0].slug));
+  }
+
   function classeDeGrille(g) {
     if (g.elastique) return ' grille g-elastique';
     return ' grille g-' + g.mesure + (colonnesDe(g).length > g.champs.length ? ' g-plus' : '');
@@ -3563,9 +3570,18 @@
       var xSeul = !vue.programme && !bloc.superset && typeof vue.surRepos === 'function' ? bloc.exercices[0] : null;
       // 21/11/2026 (« Simplifier », pilote 3+1) — l'unité (« kg, les deux haltères ») répète la question de la charge habituelle tant qu'elle est posée : elle revient ensuite.
       var aideRedite = !vue.programme && !bloc.superset && typeof vue.habituelle === 'function' && !!vue.habituelle(bloc.exercices[0]._iExo);
+      var bande = bandeDuBloc(bloc, vue, gabarits[0]);
       var enTetes = enTetesColonnes(gabarits[0], vue.programme, charges && charges.length ? charges[0] : null,
         bloc.series.some(function (q) { return q.faite; }),
-        xSeul ? { secondes: xSeul.repos_cible_s, nom: xSeul.nom, sur: function () { vue.surRepos(xSeul._iExo); } } : null, aideRedite);
+        xSeul ? { secondes: xSeul.repos_cible_s, nom: xSeul.nom, sur: function () { vue.surRepos(xSeul._iExo); } } : null, aideRedite, !!bande);
+      // Lot 4 (n° 1) — la bande, UNE ligne au-dessus des en-têtes.
+      if (bande) {
+        var nb = el('div', 'bande');
+        nb.setAttribute('data-bande', '');
+        nb.appendChild(doc.createTextNode(bande.jour + '\u00a0: '));
+        nb.appendChild(el('b', null, bande.phrase));
+        noeud.appendChild(nb);
+      }
       // 261 — dans les tours, une colonne de plus (le nom court de la ligne) : l'en-tête la tient, vide, pour que PRÉC., KG et
       // REPS restent au-dessus de leurs cases.
       if (tours) {
@@ -3886,7 +3902,8 @@
       // la mesure est inconnue — on ne nomme pas ce qu'on ne sait pas.
       // 204 — sauf « CHARGE × REPS » en séance : le grand chiffre « 100 kg × 7 » et l'en-tête KG · REPS se lisent seuls. Quand
       // l'en-tête se tait (mesures mélangées dans un superset), le libellé reste : il est alors la seule orientation.
-      if (g.libelle && (vue.programme || g.mesure !== 'charge_reps' || !gabaritsHomogenes(gabarits))) {
+      // Lot 4 (n° 5) — et « REPS SEULES » : la tête dit déjà « Poids du corps × 9 » et l'en-tête « REPS ».
+      if (g.libelle && (vue.programme || (g.mesure !== 'charge_reps' && g.mesure !== 'reps') || !gabaritsHomogenes(gabarits))) {
         entree.appendChild(el('div', 'type-mesure', g.libelle));
       }
 
@@ -4026,7 +4043,7 @@
         if (lib.tempo) entree.appendChild(tapable(el('div', 'consigne-dit tempo-en-cours', lib.tempo)));
       }
       poserEncadre();
-      // 99 (MOTEUR §9.24) — un exercice ajouté pour cette semaine seulement : « ajouté : séance manquée de mardi ».
+      // 99 (MOTEUR §9.24) — un exercice ajouté pour cette semaine seulement : « ajouté : vient de Jambes ».
       if (x.ajout) entree.appendChild(el('div', 'consigne-dit ajout-semaine', 'ajouté : ' + x.ajout));
       // 204 — EN SÉANCE, un exercice seul n'a plus de rangée de réglages : le repos est en tête de la colonne ✓ (`enTetesColonnes`),
       // la note dans le « ⋯ ». Dans un superset, le repos reste PAR BRANCHE (une seule en-tête ne peut pas porter deux repos).
@@ -4225,15 +4242,15 @@
   // la seconde ce qui vient d'être fait — deux observations, et une routine
   // n'observe rien. `EFFORT` tombe avec elles pour la même raison, et parce
   // que `routine_sets` n'a pas de colonne où le mettre.
-  function enTetesColonnes(g, programme, chargeProgramme, effortVu, repos, sansAide) {
+  function enTetesColonnes(g, programme, chargeProgramme, effortVu, repos, sansAide, sansPrec) {
     var noms = colonnesDe(g);
     var champs = noms.map(function (n) { return M().champDeMesure(n); });
     var cp = programme ? chargeProgramme : null;
     var sansCharge = !!cp && !cp.depart;
     var entetes = el('div', 'cols-seance' + classeDeGrille(g) +
-      (programme ? ' programme' : '') + (sansCharge ? ' sans-charge' : ''));
+      (programme ? ' programme' : '') + (sansCharge ? ' sans-charge' : '') + (sansPrec ? ' sans-prec' : ''));
     entetes.appendChild(el('span', '', ''));
-    if (!programme) entetes.appendChild(el('span', 'droite', 'PRÉC.'));
+    if (!programme && !sansPrec) entetes.appendChild(el('span', 'droite', 'PRÉC.'));
     champs.forEach(function (c, i) {
       if (sansCharge && noms[i] === 'charge_kg') return;
       // §9.17 — la nature de la charge nomme la colonne (« LEST (KG) », « AIDE (KG) »).
@@ -4981,8 +4998,9 @@
     // le dit. Rien n'est ignoré sans être dit.
     var cp = vue.programme && vue.chargeProgramme ? vue.chargeProgramme(s.exercise_slug) : null;
     var sansCharge = !!cp && !cp.depart;
+    var enBande = !!bandeDuBloc(bloc, vue, g);
     var classeGrille = classeDeGrille(g) + (vue.programme ? ' programme' : '') +
-      (sansCharge ? ' sans-charge' : '');
+      (sansCharge ? ' sans-charge' : '') + (enBande ? ' sans-prec' : '');
 
     // §2.6 — l'éclairage porte sur le TOUR, jamais sur la ligne isolée.
     //
@@ -5069,7 +5087,7 @@
     // d'historique à écrire, ni à faire diverger.
     var ligneP = S().correspondant(seriesDeSonExercice(bloc, s), iSerie,
       vue.precedent(s.exercise_slug));
-    if (!vue.programme) {
+    if (!vue.programme && !enBande) {
       rangee.appendChild(el('div', 'prec num', M().formatPrecedent(ligneP, g.mesure, g.nature)));
     }
 
@@ -5153,8 +5171,8 @@
     if (g.effort && !vue.programme) {
       var eff = el('button', 'eff-serie num' + (texteEffort(s) ? ' plein' : '') + (s.faite ? '' : ' eff-attente'), texteEffort(s));
       eff.type = 'button';
-      // 173 — le mot « fait » d'une série validée sans effort : dessiné par CSS depuis cet attribut (le contenu du bouton reste vide).
-      if (s.faite && !texteEffort(s)) eff.setAttribute('data-fait', 'fait');
+      // Lot 4 (n° 4a) — le MOT « fait » est retiré (la ligne verte, le numéro plein et la coche le disent déjà) ; la case d'effort d'une série validée sans effort s'éteint seulement.
+      if (s.faite && !texteEffort(s)) eff.classList.add('eff-vide');
       eff.addEventListener('click', function () { vue.surEffort(iExo, iSerie); });
       rangee.appendChild(eff);
     }
@@ -5635,6 +5653,8 @@
         cible.appendChild(n);
       });
     }
+    // MOTEUR §9.54 — ce que le coach n'a pas lu : « Ta séance du 26 janv. (sans coach) n'est pas lue. » (du plan, aucun texte composé ici)
+    if (p.nonLues) cible.appendChild(el('p', 'pq-p pq-non-lues', p.nonLues));
     // 193-3 — la zone vient de la routine : la première ligne, avant le détail de la zone.
     if (p.plan) cible.appendChild(el('p', 'pq-p', p.plan));
     // 253 (X2) — la veille d'une activité dure : « Plan : 152,5 kg × 5. Aujourd'hui : 145 kg × 5, 2 en réserve : tu as noté football hier. »
@@ -5982,6 +6002,63 @@
       liste.appendChild(n);
     });
     cible.appendChild(liste);
+    // 215 : le « Fermer » est celui de la feuille commune (#btn-fermer-feuille), jamais un second.
+    return cible;
+  }
+
+  // 29/11/2026 (« Les paris en coulisse ») — « À PROPOS DE TON COACH » (Profil › À propos) : le compte du coach, UN seul endroit, et la liste de ses derniers
+  // paris. `vue = { titre, intro, ceQueJeCompte, aucun, paris }` ; `paris` : `faits.parisDuCoach` (ou `null`). Aucun calcul : un compte lu, des lignes lues.
+  // « Pas tenu » en ambre, jamais en rouge ; une ligne « pas tenu » se déplie sur l'écart (« j'avais prévu… »). 10 lignes, « Voir plus anciens » ensuite.
+  var PARIS_PAR_PAGE = 10;
+  function rendreFeuilleParisDuCoach(cible, vue) {
+    vider(cible);
+    cible.appendChild(el('div', 'feuille-t', vue.titre));
+    var p = vue.paris;
+    if (!p) {
+      cible.appendChild(el('p', 'paris-vide', vue.aucun));
+      return cible;
+    }
+    cible.appendChild(el('p', 'paris-intro', vue.intro));
+    var tete = el('div', 'paris-compte');
+    tete.appendChild(el('b', 'paris-valeur', p.valeur));
+    tete.appendChild(el('span', '', 'tenus'));
+    cible.appendChild(tete);
+    cible.appendChild(el('p', 'paris-phrase', p.phrase));
+    cible.appendChild(el('div', 'paris-titre', 'Ce que je compte'));
+    cible.appendChild(el('p', 'paris-note', vue.ceQueJeCompte));
+    cible.appendChild(el('div', 'paris-titre', 'Les derniers paris'));
+    var liste = el('div', 'paris-liste');
+    cible.appendChild(liste);
+    var montres = 0;
+    var plus = el('button', 'btn sec paris-plus', 'Voir plus anciens');
+    plus.type = 'button';
+    var montrer = function () {
+      p.lignes.slice(montres, montres + PARIS_PAR_PAGE).forEach(function (l) {
+        var n = el(l.explication ? 'button' : 'div', 'paris-ligne' + (l.tenu ? '' : ' pas-tenu'));
+        var haut = el('span', 'paris-haut');
+        haut.appendChild(el('span', 'paris-nom', l.nom));
+        haut.appendChild(el('span', 'paris-etat', l.tenu ? 'Tenu' : 'Pas tenu'));
+        n.appendChild(haut);
+        n.appendChild(el('span', 'paris-sous', (l.quand ? l.quand + ' \u00b7 ' : '') + 'prévu ' + l.prevu + ' \u00b7 fait ' + l.fait));
+        if (l.explication) {
+          n.type = 'button';
+          n.setAttribute('aria-expanded', 'false');
+          var ex = el('span', 'paris-explication', l.explication);
+          ex.hidden = true;
+          n.appendChild(ex);
+          n.addEventListener('click', function () {
+            ex.hidden = !ex.hidden;
+            n.setAttribute('aria-expanded', ex.hidden ? 'false' : 'true');
+          });
+        }
+        liste.appendChild(n);
+      });
+      montres = Math.min(p.lignes.length, montres + PARIS_PAR_PAGE);
+      plus.hidden = montres >= p.lignes.length;
+    };
+    plus.addEventListener('click', montrer);
+    montrer();
+    cible.appendChild(plus);
     // 215 : le « Fermer » est celui de la feuille commune (#btn-fermer-feuille), jamais un second.
     return cible;
   }
@@ -7119,13 +7196,6 @@
       (dans || cible).appendChild(g);
       return g;
     };
-    var ligneDePari = function (l) {
-      var ligne = el('div', 'recap-pari');
-      ligne.appendChild(el('span', 'n', l.nom));
-      ligne.appendChild(el('span', 'v' + (l.vise ? ' pe' : ''), l.fait + (l.vise ? ' · visé ' + l.vise : '')));
-      return ligne;
-    };
-
     // 119 (audit du 16/10/2026, E12) — LE CARDIO ET LES SORTIES : ni séries de travail ni volume, mais faits. Le récap dit
     // ce qui a été fait, exercice par exercice, dans sa mesure (« Tapis de course · 20 min · 3,2 km »).
     if (r.cardio && r.cardio.length) {
@@ -7156,20 +7226,7 @@
       groupe('Point de départ', 'coach');
       cible.appendChild(el('p', 'recap-voix recap-depart', r.pointDeDepart));
     }
-    // Ce que le coach avait visé (ambre) : la phrase aux chiffres tels quels, puis les paris RATÉS (une ligne par exercice, « · visé N »).
-    // Les paris tenus passent sous « Détail » : du bruit tant qu'ils sont tenus.
-    var tenus = [];
-    if (r.paris && r.paris.verifies) {
-      groupe('Ce que le coach avait visé', 'coach');
-      if (r.paris.premier) cible.appendChild(el('p', 'recap-voix recap-premier', r.paris.premier));
-      cible.appendChild(el('p', 'recap-voix', r.paris.phrase));
-      r.paris.lignes.forEach(function (l) {
-        if (l.vise) cible.appendChild(ligneDePari(l));
-        else tenus.push(l);
-      });
-    }
-
-    // « Détail » : la comparaison, les séries par muscle, les paris tenus, le jeu, la note. Tels qu'avant, mot pour mot.
+    // « Détail » : la comparaison, les séries par muscle, le jeu, la note. Tels qu'avant, mot pour mot.
     var detail = el('div', 'recap-detail');
     detail.id = 'recap-detail-' + (o && o.accord ? 'recap' : 'fin');
     detail.hidden = true;
@@ -7195,11 +7252,6 @@
         ligne.appendChild(el('b', null, nombreFr(l.series)));
         detail.appendChild(ligne);
       });
-    }
-    if (tenus.length) {
-      dit.push('paris tenus');
-      groupe('Paris tenus', 'coach', detail);
-      tenus.forEach(function (l) { detail.appendChild(ligneDePari(l)); });
     }
     // 64B (JEU-V1 §9.4) — le bloc « Le jeu », tel quel. Un rendu qui échouerait ne coûte que son bloc.
     if (vue.jeu) {
@@ -8281,10 +8333,21 @@
     go.type = 'button';
     go.addEventListener('click', function () { if (vue.enCours) { if (vue.surReprendre) vue.surReprendre(); } else if (vue.surDemarrer) vue.surDemarrer(r.id); });
     pied.appendChild(go);
+    // §9.18 (27/11/2026) — « J'ai peu de temps », une porte de plus pour le même geste (jamais une copie) : sous les MÊMES conditions que
+    // sur la rangée de Saisie (`temps.peuDeTemps` : absent pendant une décharge, ou quand la routine tient déjà dans la plus courte des
+    // durées). Les deux liens discrets partagent une colonne : « Démarrer » garde sa largeur à 360 px.
+    var liens = el('div', 'prochaine-liens');
+    if (temps && temps.peuDeTemps && vue.surPeuDeTemps) {
+      var pt = el('button', 'discret prochaine-peu-de-temps', 'J\u2019ai peu de temps');
+      pt.type = 'button';
+      pt.addEventListener('click', function () { vue.surPeuDeTemps(r.id); });
+      liens.appendChild(pt);
+    }
     var autre = el('button', 'discret prochaine-autre', 'Autre routine \u203a');
     autre.type = 'button';
     autre.addEventListener('click', function () { if (vue.surAutre) vue.surAutre(); });
-    pied.appendChild(autre);
+    liens.appendChild(autre);
+    pied.appendChild(liens);
     carte.appendChild(pied);
     cible.appendChild(carte);
     return cible;
@@ -11449,7 +11512,7 @@
     carteDeVeille: carteDeVeille,
     ligneDeVeilleReprise: ligneDeVeilleReprise,
     rendreFeuilleMot: rendreFeuilleMot,
-    rendreFeuilleMots: rendreFeuilleMots, rendreFeuilleMentions: rendreFeuilleMentions, rendreFeuilleJalons: rendreFeuilleJalons,
+    rendreFeuilleMots: rendreFeuilleMots, rendreFeuilleParisDuCoach: rendreFeuilleParisDuCoach, rendreFeuilleMentions: rendreFeuilleMentions, rendreFeuilleJalons: rendreFeuilleJalons,
     rendreFeuilleSaisie: rendreFeuilleSaisie,
     rendreFeuillePesee: rendreFeuillePesee,
     rendreFeuilleObjectif: rendreFeuilleObjectif,

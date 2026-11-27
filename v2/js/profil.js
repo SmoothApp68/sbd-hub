@@ -691,7 +691,7 @@
   // ── Le résumé d'une ligne de chaque groupe du Profil (213) ───────────────
   //
   // Un fait d'affichage, rien d'une décision du coach : les libellés des réglages tels que le Profil les montre.
-  // `ctx` : `poids` (« 96,8 kg » ou null), `routines` (le nombre), `email`, `pages` (les titres des pages d'« À propos »).
+  // `ctx` : `poids` (« 96,8 kg » ou null), `routines` (le nombre ; `null` tant que la bibliothèque n'est pas lue : rien ne s'affiche, F6), `email`, `pages` (les titres des pages d'« À propos »).
   function resumesDesGroupes(profil, ctx) {
     var p = profil || {};
     var c = ctx || {};
@@ -699,11 +699,12 @@
     var coach = p.intention === 'entretien'
       ? libelleDe(INTENTIONS, 'entretien')
       : lie([libelleDe(OBJECTIFS, objectifDe(p)), libelleDe(RYTHMES, rythmeDe(p)), libelleDe(PHASES, phaseDe(p))]);
-    var n = c.routines || 0;
+    // F6 — « pas encore lu » n'est pas « zéro » : un fait n'est pas affiché avant d'être connu.
+    var n = c.routines === null || c.routines === undefined ? null : c.routines;
     var age_ = age(p.date_naissance, new Date());
     return {
       'Mon coach': coach || 'À régler',
-      'Mon programme': n ? n + (n > 1 ? ' routines' : ' routine') : 'Aucune routine',
+      'Mon programme': n === null ? '' : n ? n + (n > 1 ? ' routines' : ' routine') : 'Aucune routine',
       'Moi': lie([p.username, c.poids, p.taille_cm ? p.taille_cm + ' cm' : null, age_ !== null ? age_ + ' ans' : null]) || 'À renseigner',
       'Mon compte': c.email || 'Export, suppression',
       'À propos': (c.pages || []).join(' \u00B7 ')

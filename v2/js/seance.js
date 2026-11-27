@@ -1583,8 +1583,27 @@
     // question de fin ne propose jamais de l'écrire dans la routine.
     // 16/11/2026 (« Essayer la marche ») — un essai de marche n'est pas un écart (`exercicesPourLaRoutine`) : seule la carte
     // de fin en parle.
-    var voulues = exercicesPourLaRoutine(seance).map(function (exo, iVoulue) {
-      var ligne = (exo.routine_exercise_id && parId[exo.routine_exercise_id]) || null;
+    var exosDeSeance = exercicesPourLaRoutine(seance);
+    // F3 (27/11/2026) — UN EXERCICE SE RECONNAÎT PAR SON EXERCICE, pas par l'id de sa ligne : sorti puis rentré, ou remplacé
+    // par lui-même, il perd son `routine_exercise_id` et n'est ni « retiré » ni « ajouté ». Un exercice sans ligne valable
+    // adopte la première ligne libre de la routine du même `exercise_slug` (dans l'ordre du rang) ; une ligne enlevée par
+    // le raccourci reste hors d'atteinte. Reporter ne supprime donc jamais la ligne d'origine.
+    var prises = {};
+    exosDeSeance.forEach(function (exo) {
+      if (exo.routine_exercise_id && parId[exo.routine_exercise_id]) prises[exo.routine_exercise_id] = true;
+    });
+    var retiresRaccourci = (seance.raccourcie && seance.raccourcie.retires) || [];
+    var apparies = exosDeSeance.map(function (exo) {
+      if (exo.routine_exercise_id && parId[exo.routine_exercise_id]) return null;
+      for (var k = 0; k < lignes.length; k++) {
+        var l = lignes[k];
+        if (!l || !l.id || prises[l.id] || retiresRaccourci.indexOf(l.id) >= 0) continue;
+        if (l.exercise_slug && l.exercise_slug === exo.exercise_slug) { prises[l.id] = true; return l; }
+      }
+      return null;
+    });
+    var voulues = exosDeSeance.map(function (exo, iVoulue) {
+      var ligne = (exo.routine_exercise_id && parId[exo.routine_exercise_id]) || apparies[iVoulue] || null;
       if (o.series) {
         var deSeance = (exo.series || []).map(structureDeLigne);
         var garder = ligne && formeDesSeries(ligne.series) === formeDesSeries(deSeance);
@@ -2779,6 +2798,31 @@
     return null;
   }
 
+  // Lot 4 (n° 1, décision 70) — LA BANDE « Mardi : 90 kg × 8, 8, 8 » : la séance d'avant, dite UNE fois, quand ses séries de
+  // TRAVAIL (jamais les chauffes, toujours à des charges différentes) avaient toutes la même charge. La condition porte sur la
+  // CHARGE seule : des reps différentes (9, 8, 7) restent sur la bande. Sinon `null` et la colonne PRÉC. reste, ligne à ligne
+  // (`correspondant`). Le jour se lit sur `debut` (le champ réel d'une séance ; il n'existe pas de `date`). C'est toujours « la dernière fois » (décision 49), lue sur `prec` seul, jamais sur la saisie en cours.
+  // Rend le texte et ses deux morceaux (le jour, la phrase en gras) ; l'écran n'écrit rien d'autre.
+  function bandeDePrecedent(prec, maintenant) {
+    if (!prec || !prec.series || !prec.seance) return null;
+    var M = racine.THModele;
+    var travail = prec.series.filter(function (x) { return estTravail(x); });
+    if (!travail.length) return null;
+    var charge = travail[0].charge_kg;
+    var reps = [];
+    for (var i = 0; i < travail.length; i++) {
+      var x = travail[i];
+      if (x.elastique !== null && x.elastique !== undefined) return null;
+      if (typeof x.charge_kg !== 'number' || !isFinite(x.charge_kg) || x.charge_kg <= 0 || x.charge_kg !== charge) return null;
+      if (typeof x.reps !== 'number' || !isFinite(x.reps) || x.reps < 0) return null;
+      reps.push(x.reps);
+    }
+    var jour = M.jourDeLaBande(prec.seance.debut, maintenant);
+    if (!jour) return null;
+    var phrase = M.phraseDeLaBande(charge, reps);
+    return { jour: jour, phrase: phrase, texte: jour + ' : ' + phrase };
+  }
+
   // ── §7 septendecies.3 — LE PLAN : ce que le moteur propose, série par série ──
   //
   // Un tableau aligné sur `exo.series` : `null` là où le moteur ne dit rien,
@@ -3635,6 +3679,7 @@
     GESTES_NOTES: GESTES_NOTES,
     precedent: precedent,
     correspondant: correspondant,
+    bandeDePrecedent: bandeDePrecedent,
     derniereSaisie: derniereSaisie,
     fantome: fantome,
     casesManquantes: casesManquantes,

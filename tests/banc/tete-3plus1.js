@@ -25,6 +25,10 @@ const { chromium } = require(path.join(R, 'node_modules/playwright-core'));
 const Garde = require(path.join(R, 'tests/banc/garde-reseau.js'));
 const { creer } = require(path.join(R, 'v2-atelier/banc/serveur-pages.js'));
 const Verrou = require(path.join(R, 'tests/banc/verrou.js'));
+// CI sans gaspillage (27/11/2026) — l'heure du banc, comme celle du banc de séance : décalée (jamais un dimanche, un lundi, ni les 7 premiers jours
+// du mois, ni entre minuit local et minuit UTC) ou posée par `BANC_HORLOGE`. Ce banc date ses séances par `Date.now()` et ses semaines par `new Date()` :
+// sans cela, « Décharge : 2 séries au lieu de 3 » et « gain de hauteur » rougissaient selon le jour (25 et 26/11). Node ET la page partent du même décalage.
+const Horloge = require(path.join(R, 'tests/banc/horloge.js'));
 const CHROME = process.env.CHROME_BIN || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome';
 const arg = (n, d) => { const i = process.argv.indexOf('--' + n); return i >= 0 ? process.argv[i + 1] : d; };
 const RACINE = arg('racine', path.join(R, 'v2'));
@@ -224,7 +228,9 @@ const MESURER = () => {
     const aide = tous('.aide-unite');
     return {
       i, nom: T(b.querySelector('.nom-exo') || b).slice(0, 40),
-      h1: l1 ? Math.round(l1.getBoundingClientRect().top - rb.top) : null,
+      // Lot 4 (n° 1) : la bande « Mardi : 90 kg × 8, 8, 8 » est posée entre la tête et la 1re série ; elle ne fait pas partie de la tête
+      // (elle remplace la colonne PRÉC. de chaque ligne). On mesure la tête : sa hauteur est retirée, comme les « avant » l'ignoraient.
+      h1: l1 ? Math.round(l1.getBoundingClientRect().top - rb.top - (b.querySelector('.bande') ? b.querySelector('.bande').getBoundingClientRect().height : 0)) : null,
       consignes: consignes.map(T),
       gris: gris.map(T),
       grisDansRang: !!(lien && lien.closest('.ligne-gris')),
@@ -262,6 +268,7 @@ async function jouer(code, sc, port) {
   const errs = [];
   try {
     const ctx = await nav.newContext({ viewport: { width: LARGEUR, height: 800 }, deviceScaleFactor: 2, serviceWorkers: 'block', locale: 'fr-FR', timezoneId: 'Europe/Paris' });
+    if (Horloge.DECALAGE) await ctx.addInitScript(Horloge.scriptNavigateur(Horloge.DECALAGE));
     await ctx.addInitScript((u) => {
       const J = JSON.stringify({ access_token: 'faux', refresh_token: 'faux', expires_at: 4102444800, token_type: 'bearer', user: { id: u, email: 'tete@test' } });
       localStorage.setItem('th-v2-auth', J);

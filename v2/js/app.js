@@ -258,7 +258,7 @@
     if (captcha) return captcha;
     if (/fetch|network|Failed to fetch|NetworkError/i.test(m)) return 'Pas de réseau.';
     if (/Invalid login credentials/i.test(m)) return 'E-mail ou mot de passe incorrect.';
-    return m;
+    return Auth.phraseDErreur(e) || m;   // 27/11/2026 : jamais le texte brut anglais d'un refus de l'authentification
   }
 
   // ── Index des séries par séance, construit une fois par chargement ───────
@@ -1676,11 +1676,6 @@
         // 119 (F8) — les séries de travail du mois (la règle du volume) : un mois au poids du corps en a sans tonnes.
         series: bm.reps.series,
         records: faits.recordsDuMois(corpus(), mois).length,
-        // 124 (audit du 16/10/2026, 04 #14) — les paris du mois, un seul fil : ceux de la story (`bilan.coach`).
-        paris: (function () {
-          var co = bm.coach;
-          return co ? { verifies: co.faits, tenus: co.tenus } : { verifies: 0, tenus: 0 };
-        })(),
         surChoix: function () { afficherMois(mois); }
       },
       // 98 — la saison écoulée, toute la saison suivante ; hors production, la saison en cours si l'écoulée est vide.
@@ -1804,9 +1799,28 @@
       programmeRefaitLe: p.programme_construit_le ? Moteur.jourCivil(new Date(p.programme_construit_le)) : null,
       priorites: Profil.prioritesDe(p),
       volume: function () { return volumeDuCoach(maintenant.toISOString()); },
+      // 27/11/2026 (MOTEUR §9.27) — ce que « Je corrige » produirait : les routines refaites, à la demande, rien d'écrit.
+      refait: programmeRefaitDeLaCarte,
       ecartes: Profil.ecartesDe(p),
       cartes: reponsesDesCartes()
     };
+  }
+
+  // Les routines que « Je corrige » (le questionnaire, `refaire`) construirait : le MÊME chemin que l'aperçu (`completer` avec un
+  // historique, le gabarit sinon), sur un état jetable — ni `construit`, ni aucun écran, ni aucune écriture. `null` : le catalogue
+  // n'est pas arrivé (la carte ne propose alors pas de corriger : elle ne sait pas si la correction corrige).
+  function programmeRefaitDeLaCarte() {
+    if (etatRoutines.code !== 'ok' || !local.exercices.length) return null;
+    var entree = entreeDuProgramme();
+    var historique = Modele.specialiteDe(entree.objectif).programme.gabarit !== 'calisthenie' ? aUnHistorique() : null;
+    if (!historique) {
+      return fondreLesVoisins(raccourcirLeProgramme(fondreLesVoisins(Generateur.generer(catalogueIndexe(), entree))))
+        .filter(function (rt) { return rt.exercices.length; });
+    }
+    var jetable = { entree: entree, routines: [], faites: [], changements: [], ajouts: {}, reprises: {},
+                    historique: Object.assign(historique, { refus: { muscles: [], reprises: [], tirage: false }, refusPaires: [], retouches: [] }) };
+    assemblerLeProgramme(jetable);
+    return jetable.routines;
   }
 
   // L'analyse, gardée tant que rien de ce qu'elle lit n'a changé (les séances, les séries, les routines, le réglage, les
@@ -1816,7 +1830,7 @@
     var cle = [(local.seances || []).length, (local.series || []).length, Moteur.jourCivil(new Date()), p.rythme_progression || '',
                p.intention || '', JSON.stringify(Profil.prioritesDe(p)), JSON.stringify(reponsesDesCartes()),
                p.programme_construit_dossier || '', p.programme_construit_le || '', etatRoutines.code, signatureDesRoutines(routines),
-               p.seances_par_semaine || '', p.duree_seance_min || ''].join('|');
+               p.seances_par_semaine || '', p.duree_seance_min || '', (local.exercices || []).length].join('|');
     if (memoEquilibres && memoEquilibres.cle === cle) return memoEquilibres.analyse;
     var analyse = Equilibres.analyser(entreeDesEquilibres());
     memoEquilibres = { cle: cle, analyse: analyse };
@@ -2284,7 +2298,7 @@
   var PREMIERE_ANNEE = 2026;
   function bilanDeLAnnee(an) {
     return faits.bilanDePeriode(corpus(), Bilans.periodeDeLAnnee(an), new Date(),
-                         { pesees: local.pesees || [], paris: parisDeConsigneConnus() });
+                         { pesees: local.pesees || [] });
   }
   function anneeDuSommaire() {
     var an = new Date().getFullYear() - 1;
@@ -2298,12 +2312,11 @@
   //
   // LE MÊME MOTEUR ET LE MÊME LECTEUR que « Ton année » : seule la fenêtre change. La story du mois REMPLACE l'ancien
   // bilan du mois de Progression (`/progression/mois/AAAA-MM` l'ouvre) et en reprend les records
-  // (`faits.recordsDuMois`, tous au toucher : la liste des records du mois) et les paris (`Bilan.phraseParis`, le
-  // détail au toucher). Le nom de la saison suit la phase du profil au début de la saison (`Profil.phaseAuJour`).
+  // (`faits.recordsDuMois`, tous au toucher : la liste des records du mois). Le nom de la saison suit la phase du profil au début de la saison (`Profil.phaseAuJour`).
   // Ce que l'app ajoute ne décide rien : QUAND le bloc et l'annonce paraissent. Rien n'est écrit en base, sauf la période annoncée (104).
   function bilanPeriode(periode) {
     return faits.bilanDePeriode(corpus(), periode, new Date(),
-                                { pesees: local.pesees || [], paris: parisDeConsigneConnus() });
+                                { pesees: local.pesees || [] });
   }
   function titreDeSaison(cle) {
     var p = Bilans.periodeDeLaSaison(cle);
@@ -2330,10 +2343,6 @@
     if (periode.type === 'mois') {
       var mois = periode.cle;
       vue.records = faits.recordsDuMois(corpus(), mois);
-      // 124 (audit du 16/10/2026, 04 #7, #14) — la phrase dit les chiffres de l'écran (`bilan.coach`, la période),
-      // tels quels : « 41 vérifiés · 38 tenus » ne se lit plus suivi de « Sur 10 paris vérifiés… ».
-      var co = vue.bilan && vue.bilan.coach;
-      vue.paris = co ? { phrase: Bilan.phraseParis(co.faits, co.tenus, { telsQuels: true }) } : null;
       vue.surRecords = function () { afficherRecordsDuMois(mois); };
     }
     Annee.ouvrir($('annee'), vue);
@@ -4428,7 +4437,7 @@
     var choisis = faits.exercicesDeProgression(c, maintenant, {
       semaines: 8, combien: 4, priorites: Profil.prioritesDe(profil),
       fenetre: function (points) { return Courbe.dansLaPeriode(points, '6m', maintenant); },
-      avance: faits.ceQuiAProgresse(c, maintenant, 6, { pesees: local.pesees || [], paris: parisDeConsigneConnus() })
+      avance: faits.ceQuiAProgresse(c, maintenant, 6, { pesees: local.pesees || [] })
     });
     choisis.forEach(function (slug) {
       var p = faits.pointsDeLExercice(c, slug, maintenant);
@@ -4941,10 +4950,15 @@
   }
   async function creerSeance(routine, raccourci) {
     var id = uuid();
-    var depart = routine;
+    // 99 (MOTEUR §9.24) — les exercices ajoutés par la semaine qui déraille, à la fin, avec leur mention. Ils entrent AVANT
+    // le raccourci : la carte « J'ai peu de temps » a compté la séance servie (routine + ajouts), et `resultat` est indexé
+    // sur cette structure ; la durée promise est celle de la séance qui démarre.
+    var ajoutes = avecLesAjoutsDeLaSemaine(routine);
+    var servie = ajoutes.routine;
+    var depart = servie;
     var applique = null;
     if (routine && raccourci && raccourci.resultat) {
-      applique = Moteur.appliquerRaccourci(routine, raccourci.resultat);
+      applique = Moteur.appliquerRaccourci(servie, raccourci.resultat);
       depart = applique.routine;
       // §9.18 (51-1 ter) — UNE RÉDUCTION S'APPLIQUE UNE SEULE FOIS, SUR LA
       // ROUTINE : la semaine allégée et la série de plus lisent le nombre de
@@ -4956,9 +4970,6 @@
         if (e && e.tr > 0 && !Object.prototype.hasOwnProperty.call(routinesHeritees, cle)) routinesHeritees[cle] = e.tr;
       });
     }
-    // 99 (MOTEUR §9.24) — les exercices ajoutés par la semaine qui déraille, à la fin, avec leur mention.
-    var ajoutes = avecLesAjoutsDeLaSemaine(depart);
-    depart = ajoutes.routine;
     // 272 — la carte « Nouveau niveau » reste jusqu'à « Compris » ou le début de la prochaine séance.
     fermerLAnnonceDeNiveau();
     seance = Seance.creer({
@@ -4969,9 +4980,15 @@
       idSerie: uuid
     });
     if (ajoutes.mentions.length) {
-      var n0 = seance.exercices.length - ajoutes.mentions.length;
+      // Un ajout que le raccourci a retiré n'a plus de ligne : sa mention tombe avec lui.
+      var nAjouts = ajoutes.mentions.length, debutAjouts = (servie.exercices || []).length - nAjouts;
+      var mentionsGardees = ajoutes.mentions.filter(function (m, k) {
+        var x = applique && raccourci.resultat.exercices[debutAjouts + k];
+        return !x || x.ch + x.tr + x.deg + (x.rec || 0) > 0;
+      });
+      var n0 = seance.exercices.length - mentionsGardees.length;
       seance = Object.assign({}, seance, { exercices: seance.exercices.map(function (x, i) {
-        return i >= n0 ? Object.assign({}, x, { ajout: ajoutes.mentions[i - n0] }) : x;
+        return i >= n0 ? Object.assign({}, x, { ajout: mentionsGardees[i - n0] }) : x;
       }) });
     }
     // Le souvenir du raccourci, dans le brouillon de la séance seulement (la
@@ -4983,7 +5000,7 @@
         raccourcie: raccourci.resultat.exercices, retires: applique.retires } });
       // 188-1 — le geste s'écrit AVEC la séance (`sessions.gestes`) : les exercices retirés, par leur slug.
       var retiresSlugs = [];
-      (routine.exercices || []).forEach(function (e, i) {
+      (servie.exercices || []).forEach(function (e, i) {
         var x = raccourci.resultat.exercices[i];
         if (x && x.ch + x.tr + x.deg + (x.rec || 0) === 0 && e && e.exercise_slug) retiresSlugs.push(e.exercise_slug);
       });
@@ -5788,7 +5805,7 @@
   // 214 — PARTAGER le récap : le texte court de `Modele.texteDePartage`, par la feuille de partage du téléphone ;
   // à défaut (ordinateur, refus d'accès), copié dans le presse-papiers. Une annulation de la feuille n'est pas une erreur.
   function partagerLeRecap() {
-    var r = recap && faits.recapDeLaSeance(corpus(), recap.seance, parisDeConsigneConnus(), parisDeConsigneDuCompte());
+    var r = recap && faits.recapDeLaSeance(corpus(), recap.seance);
     var texte = Modele.texteDePartage(r);
     if (!texte) return Promise.resolve(null);
     var nav = racine.navigator;
@@ -5856,7 +5873,7 @@
 
   function rendreRecap() {
     if (!recap) return;
-    var r = faits.recapDeLaSeance(corpus(), recap.seance, parisDeConsigneConnus(), parisDeConsigneDuCompte());
+    var r = faits.recapDeLaSeance(corpus(), recap.seance);
     montrer('recap');
     Rendu.rendreRecap($('recap-corps'), {
       recap: r,
@@ -7929,7 +7946,7 @@
                                             objectif: Profil.objectifDe(profil) }),
       // Lot F, A1 (MOTEUR §9.26 ter, I241) — la barre de l'exercice (la barre ou un frère à la barre), ou `null` : la réserve affichée ne descend
       // pas sous le plancher de sa barre (`Moteur.plancherDeBarre`). Le plan la recalcule depuis le catalogue (`familleDeLExercice`).
-      famille: Generateur.familleDeBarre(slug, index),
+      famille: Plan.cleDePlancherDe(index, slug),   // 27/11/2026 : la barre, ou le mouvement à plancher (le roumain) — `Moteur.cleDePlancher`
       // 191 — la prudence de montée (le plafond d'un saut ; « un cran à la fois »), au jour du calcul.
       prudence: Profil.prudenceDuProfil(profil, new Date(instant)),
       // 187 (A4) — l'exercice charge une zone à ménager (profil + la table du générateur) : aucune série lourde.
@@ -10465,7 +10482,8 @@
         return { slug: slug, nom: nomsDuCatalogue()[slug] || slug, sansEssai: Moteur.phraseSansEssai(nomsDuCatalogue()[slug] || slug, src, jourDuJour()),
                  mode: null, raison: null, mesure: null };
       }
-      var f = { debutant: Profil.estDebutant(profil), plus65: Profil.plus65DuProfil(profil, new Date()) === true, repsDuMax: sr ? sr.reps : null };
+      var f = { debutant: Profil.estDebutant(profil), plus65: Profil.plus65DuProfil(profil, new Date()) === true,
+                objectif: Profil.objectifDe(profil), repsDuMax: sr ? sr.reps : null };
       var mode = choisie || Moteur.testModeParDefaut(f);
       var raison = choisie ? null : Moteur.testPhraseDuDefaut(Object.assign({ max: maxs[slug], chargeDuMax: sr ? sr.charge : null }, f));
       return { slug: slug, nom: nomsDuCatalogue()[slug] || slug, mode: mode, raison: raison,
@@ -13055,7 +13073,7 @@
         '|' + (local.predictions || []).length + '|' + (local.parisLegers || []).length + '|' + (c.journal || []).length + '|' + (seance.note || '');
       if (memoRecapFin.cle === cle) return memoRecapFin.recap;
       var apercu = Object.assign({}, seance, { fin: new Date().toISOString() });
-      var r = faits.recapDeLaSeance(c, apercu, parisDeConsigneConnus(seance), parisDeConsigneDuCompte());
+      var r = faits.recapDeLaSeance(c, apercu);
       memoRecapFin = { cle: cle, recap: r };
       return r;
     } catch (e) {
@@ -13721,12 +13739,25 @@
     demarrerSeance(r);
   }
 
-  // 173 (refonte « Vivant ») — « Prochaine séance », en tête de l'accueil : la routine qui suit la dernière faite (`Routines.routineSuivante`).
+  // 27/11/2026 (MOTEUR §9.24, §9.18) — UNE SEULE NOTION, « LA SÉANCE D'AUJOURD'HUI » : la routine que le planning décalé place aujourd'hui
+  // (« Jambes aujourd'hui · la suite se décale », `Deraille.routineDuJour`), sinon la routine qui suit la dernière faite
+  // (`Routines.routineSuivante`). Rend `{ routine, derniere }` ou null. Lue par « Prochaine séance » ; « Démarrer » et « J'ai peu de temps »
+  // reçoivent son identifiant. Le coach se tait en « Juste un carnet » : aucun planning n'est lu.
+  function laSeanceDAujourdhui() {
+    if (!Moteur.coachSeTait(profil && profil.intention)) {
+      var id = Deraille.routineDuJour(lireLaSemaine(), Routines.visibles(routines), local.seances, Moteur.jourCivil(new Date()));
+      var r = id ? routines.filter(function (x) { return x.id === id; })[0] : null;
+      if (r) return { routine: r, derniere: null };
+    }
+    return Routines.routineSuivante(routines, local.seances);
+  }
+
+  // 173 (refonte « Vivant ») — « Prochaine séance », en tête de l'accueil : la séance d'aujourd'hui (`laSeanceDAujourdhui`).
   function rendreProchaineSeance() {
     var cible = $('prochaine-seance');
     if (!cible) return;
     // Séance en cours : la carte décrit CETTE séance (21/11/2026), jamais la routine qui suit.
-    var suivante = !seance && (etatRoutines.code === 'ok' || routines.length) ? Routines.routineSuivante(routines, local.seances) : null;
+    var suivante = !seance && (etatRoutines.code === 'ok' || routines.length) ? laSeanceDAujourdhui() : null;
     var enCours = null;
     if (seance) {
       var ap = Routines.apercu(seance.exercices, local.exercices);
@@ -13739,6 +13770,8 @@
       temps: tempsDeLaRoutine,
       enCours: !!seance,
       surDemarrer: demarrerRoutineParId,
+      // §9.18 — la même feuille que sur la rangée de Saisie, pour la routine montrée.
+      surPeuDeTemps: function () { if (suivante) ouvrirPeuDeTemps(suivante.routine); },
       surReprendre: function () { allerA(Routeur.SAISIE, {}); rendreSeance(); },
       surAutre: function () { allerA(Routeur.SAISIE, {}); rendreSaisie(); }
     });
@@ -14032,7 +14065,8 @@
 
   function tempsDeLaRoutine(routine) {
     if (!routine || !(routine.exercices || []).length) return null;
-    var structure = Moteur.structureDeRoutine(routine.exercices, catalogueIndexe());
+    // La durée dite est celle de la séance servie : la routine et les exercices que la semaine y ajoute aujourd'hui.
+    var structure = Moteur.structureDeRoutine(avecLesAjoutsDeLaSemaine(routine).routine.exercices, catalogueIndexe());
     if (semaineAllegeeEnCours()) {
       return { texte: Moteur.texteDureeAllegee(Moteur.dureeEstimee(Moteur.structureAllegee(structure))),
                peuDeTemps: false };
@@ -14099,7 +14133,7 @@
   function ouvrirPeuDeTemps(routine) {
     var t = tempsDeLaRoutine(routine);
     if (!t || !t.peuDeTemps) return;
-    var d = Moteur.dureeEstimee(Moteur.structureDeRoutine(routine.exercices, catalogueIndexe()));
+    var d = Moteur.dureeEstimee(Moteur.structureDeRoutine(avecLesAjoutsDeLaSemaine(routine).routine.exercices, catalogueIndexe()));
     Rendu.rendreFeuilleTemps($('feuille-contenu'), {
       sujet: routine.nom || 'Sans nom',
       aide: t.texte,
@@ -14115,9 +14149,10 @@
   // démarre la séance raccourcie, « Garder la séance » la séance normale.
   function montrerCarteRaccourci(routine, cible) {
     var index = catalogueIndexe();
-    var complet = Moteur.structureDeRoutine(routine.exercices, index);
+    var servie = avecLesAjoutsDeLaSemaine(routine).routine;   // la séance servie : routine + ajouts de la semaine
+    var complet = Moteur.structureDeRoutine(servie.exercices, index);
     // 188-2 — jamais une priorité : exemptée du raccourci.
-    var exemptes = Generateur.exemptsDesPriorites((routine.exercices || []).map(function (l) { return l.exercise_slug; }),
+    var exemptes = Generateur.exemptsDesPriorites((servie.exercices || []).map(function (l) { return l.exercise_slug; }),
       Profil.prioritesDe(profil), index);
     var resultat = Moteur.raccourcirRoutine(complet, cible, exemptes);
     Rendu.rendreCarteRaccourci($('feuille-contenu'), {
@@ -16361,8 +16396,8 @@
   // retirées) → `ranger` → chaque ligne habillée en place → les retouches de la personne réappliquées (retrouvées par
   // séance et exercice ; une retouche qui ne trouve plus sa ligne ne s'applique pas) → `associer` → le raccourci → les
   // voisins fondus. Les journaux du complément et des supersets donnent « Ce que j'ai changé ». Rien n'est écrit.
-  function assemblerLeProgramme() {
-    var c = construit, h = c && c.historique;
+  function assemblerLeProgramme(sur) {
+    var c = sur || construit, h = c && c.historique;
     if (!h) return;
     var index = catalogueIndexe();
     var habitudes = Object.assign({}, h.habitudes);
@@ -18489,7 +18524,7 @@
   function rendreBandeauQuestionnaire() {
     var noeud = $('bandeau-questionnaire');
     if (!noeud) return;
-    if (!Profil.questionnaireAFaire(profil)) { Rendu.rendreBandeauReprise(noeud, null); return; }
+    if (!Questionnaire.questionnaireAAchever(profil, aDesRoutinesConnu())) { Rendu.rendreBandeauReprise(noeud, null); return; }
     Rendu.rendreBandeauReprise(noeud, {
       quoi: 'Ton questionnaire n’est pas terminé.',
       libelleReprendre: 'Le terminer',
@@ -18552,7 +18587,7 @@
   // `Deraille.semaineQuiDeraille`, lue telle quelle. Ce que la personne décide vaut pour CETTE SEMAINE SEULEMENT et
   // suit la personne d'un appareil à l'autre : une ligne `semaine_choix` (v2_085) par séance manquée, écrite par la
   // FILE (jamais en direct), relue au démarrage, gardée aussi sur l'appareil pour le hors-ligne (`CLE_SEMAINE`).
-  // Rien ne touche une routine ; un exercice réparti se lit dans la séance (« ajouté : séance manquée de mardi »).
+  // Rien ne touche une routine ; un exercice réparti se lit dans la séance (« ajouté : vient de Jambes »).
   // En « Juste un carnet », le coach se tait.
   var CLE_SEMAINE = 'semaine-choix';
   var semaineDecalee = null;   // { jour, routine } : après « la suite se décale », la bande et « Démarrer »
@@ -18861,6 +18896,8 @@
       // Le niveau du questionnaire : « Moins d'un an » = débutant (la règle du générateur, 60-6).
       debutant: Profil.estDebutant(p),
       dureeMax_s: Number(p.duree_seance_min) > 0 ? Number(p.duree_seance_min) * 60 : null,
+      // 27/11 — « Moins en ce moment » : la carte n'ajoute rien (MOTEUR §9.24).
+      tempsReponse: p.temps_reponse,
       routines: Routines.visibles(routines), catalogue: catalogueIndexe(),
       seances: fait.seances, volume: fait.volume, etat: lireLaSemaine()
     };
@@ -19696,7 +19733,7 @@
 
     Rendu.rendreProfil($('profil-corps'), {
       // 60-2a — « Terminer mon questionnaire › » en tête, tant qu'il n'est pas rempli.
-      questionnaire: Profil.ligneQuestionnaire(p, function () { ouvrirQuestionnaire(); }),
+      questionnaire: Questionnaire.questionnaireAAchever(p, aDesRoutinesConnu()) ? Profil.ligneQuestionnaire(p, function () { ouvrirQuestionnaire(); }) : null,
       kpis: [
         { valeur: nombreGroupe(stats.seances), libelle: 'séances' },
         { valeur: nombreGroupe(stats.series), libelle: 'séries' },
@@ -19808,6 +19845,7 @@
         dansLeGroupe('À propos', [
           // 201 — « Les mots du coach » : la liste fixe du moteur, une phrase chacun, la source repliée sous son mot.
           { titre: 'LES MOTS DU COACH', lignes: [
+            ligneParisDuCoach(),
             { libelle: 'Les mots du coach', sansValeur: true, sous: Moteur.lexique().length + ' mots, une phrase chacun',
               surChoix: ouvrirMotsDuCoach }
           ] },
@@ -19823,7 +19861,8 @@
       groupeCompte: 'Mon compte',
       resumes: Profil.resumesDesGroupes(p, {
         poids: resumePoids ? Modele.kgTexte(resumePoids.poids) : null,
-        routines: Routines.visibles(routines).filter(function (r) { return r && !r.archivee_a; }).length,
+        // F6 — `null` tant que la bibliothèque n'est pas lue (`etatRoutines`) : le Profil n'écrit alors aucune phrase.
+        routines: etatRoutines.code === 'ok' ? Routines.visibles(routines).filter(function (r) { return r && !r.archivee_a; }).length : null,
         email: (sessionActive && sessionActive.user && sessionActive.user.email) || null,
         pages: Mentions.pages().map(function (pg) { return pg.titre; })
       }),
@@ -19848,12 +19887,30 @@
     }
   }
 
+  // 29/11/2026 (« Les paris en coulisse ») — la ligne de Profil › À propos : le compte « le coach en a tenu N sur M » ne vit qu'ici (et dans la page
+  // qu'elle ouvre) ; sa valeur est LUE (`faits.parisDuCoach`), jamais calculée. Sans pari vérifié : le nom seul, aucun « 0 sur 0 ».
+  function ligneParisDuCoach() {
+    var pc = faits.parisDuCoach(corpus(), parisDeConsigneConnus(), new Date());
+    return pc ? { libelle: Bilan.PARIS_DU_COACH.titre, valeur: pc.valeur, surChoix: ouvrirParisDuCoach }
+              : { libelle: Bilan.PARIS_DU_COACH.titre, sansValeur: true, surChoix: ouvrirParisDuCoach };
+  }
+
   // 212 — Mentions légales, Confidentialité, Santé : depuis Profil › À propos et le pied de l'inscription.
   function ouvrirMentions(cle) {
     var p = Mentions.page(cle);
     if (!p) return;
     feuilleProfil = function (cible) {
       Rendu.rendreFeuilleMentions(cible, { titre: p.titre, blocs: p.blocs, surFermer: fermerVoile });
+    };
+    ouvrirFeuilleProfil();
+  }
+
+  // 29/11/2026 — Profil › À propos de ton coach : le compte et la liste de ses derniers paris, lus (`faits.parisDuCoach`). Rien n'est écrit.
+  function ouvrirParisDuCoach() {
+    feuilleProfil = function (cible) {
+      var P = Bilan.PARIS_DU_COACH;
+      Rendu.rendreFeuilleParisDuCoach(cible, { titre: P.titre, intro: P.intro, ceQueJeCompte: P.ceQueJeCompte, aucun: P.aucun,
+        paris: faits.parisDuCoach(corpus(), parisDeConsigneConnus(), new Date()) });
     };
     ouvrirFeuilleProfil();
   }
@@ -20624,9 +20681,14 @@
   // ⚠️ REMISE À ZÉRO À CHAQUE OUVERTURE. Sans elle, l'ancienne erreur et
   // l'ancien mot de passe restaient dans le formulaire après un « Quitter » —
   // défaut relevé à l'état des lieux du 18/09.
-  function rendreEntree(mode) {
+  // 27/11/2026 — `opts.reprendre` (le démarrage seul) rouvre l'écran du code gardé ; `opts.garderCode` laisse ouvert celui qui l'est
+  // déjà (l'annonce « pas de session » du SDK, qui arrive après la reprise). Toute autre ouverture ferme le code, comme avant.
+  function rendreEntree(mode, opts) {
     modeEntree = mode || 'connexion';
-    fermerCode();   // 16/11/2026 : l'écran du code ne survit pas à une réouverture de l'entrée
+    var reprise = opts && opts.reprendre ? lireCodeEnAttente() : null;
+    var garder = !!(opts && opts.garderCode && codeEtat);
+    if (!garder) fermerCode();
+    $('non-confirme').hidden = true;
     montrer('connexion', modeEntree === 'inscription'
       ? Routeur.INSCRIPTION : Routeur.CONNEXION);
     $('erreur-connexion').textContent = '';
@@ -20641,6 +20703,9 @@
     rendreEncartInstaller();   // 138 : iPhone, hors de l'app
     majBoutonEntree();
     montrerCaptcha();   // 247
+    // 27/11/2026 — l'écran du code SURVIT au rechargement : l'adresse en attente se rouvre, avec « Renvoyer le code » et
+    // « Changer d'e-mail ». « Changer d'e-mail », une session ouverte et « Quitter » l'ont effacée avant.
+    if (reprise) ouvrirCode(reprise.genre, reprise.email, 'Un code a été envoyé à cette adresse. Entre-le ici, ou demande-en un autre.', reprise.envoyeA);
   }
 
   function etatEntree() {
@@ -20693,6 +20758,7 @@
     var inscription = modeEntree === 'inscription';
     erreur.textContent = '';
     erreur.className = 'erreur';
+    $('non-confirme').hidden = true;
     bouton.disabled = true;
     bouton.textContent = inscription ? 'Création…' : 'Connexion…';
     var entre = false;
@@ -20723,7 +20789,11 @@
       }
     } catch (err) {
       pseudoAInscrire = null;
-      if (!direCaptcha(err)) erreur.textContent = texteErreur(err);
+      if (!direCaptcha(err)) {
+        erreur.textContent = texteErreur(err);
+        // 27/11/2026 — adresse pas encore confirmée : la phrase a son issue (entrer le code, ou en demander un autre).
+        $('non-confirme').hidden = inscription || !Auth.estNonConfirme(err);
+      }
     } finally {
       // 247 — un jeton ne sert qu'une fois : après CHAQUE tentative, réussie ou non. Entré, le widget part.
       if (Auth.captcha.actif()) { Auth.captcha.reinitialiser(); if (entre) Auth.captcha.demonter(); }
@@ -20740,6 +20810,17 @@
   // `Auth.surChangement`, plus bas) — aucune copie de ce chemin ici.
   var codeEtat = null;          // { email, genre: 'recuperation' | 'inscription', envoyeA } — null : l'écran est fermé
   var minuteurCode = null;
+
+  // 27/11/2026 — LA MÉMOIRE DE L'ÉCRAN DU CODE : l'adresse seule, en local, quelques minutes (`Auth.lireAttenteDeCode`).
+  function lireCodeEnAttente() {
+    try { return Auth.lireAttenteDeCode(racine.localStorage.getItem(Auth.CLE_CODE_ATTENTE), Date.now()); } catch (e) { return null; }
+  }
+  function garderCodeEnAttente() {
+    try { if (codeEtat) racine.localStorage.setItem(Auth.CLE_CODE_ATTENTE, Auth.coderAttenteDeCode(codeEtat, Date.now())); } catch (e) { /* stockage fermé : l'écran ne survivra pas, rien d'autre */ }
+  }
+  function oublierCodeEnAttente() {
+    try { racine.localStorage.removeItem(Auth.CLE_CODE_ATTENTE); } catch (e) { /* rien à retirer */ }
+  }
 
   function fermerCode() {
     if (minuteurCode) { racine.clearTimeout(minuteurCode); minuteurCode = null; }
@@ -20763,11 +20844,12 @@
     if (reste > 0) minuteurCode = racine.setTimeout(tictacRenvoi, 1000);   // un réveil à la fois (pas de second intervalle : v2-barre-seance)
   }
 
-  function ouvrirCode(genre, email, phrase) {
-    codeEtat = { email: email, genre: genre, envoyeA: Date.now() };
+  function ouvrirCode(genre, email, phrase, envoyeA) {
+    codeEtat = { email: email, genre: genre, envoyeA: envoyeA == null ? Date.now() : envoyeA };
+    garderCodeEnAttente();
     $('form-connexion').hidden = true;
     $('form-code').hidden = false;
-    $('code-sous').textContent = 'Envoyé à ' + email + '. Il est valable 1 heure.';
+    $('code-sous').textContent = 'Envoyé à ' + email + '. Regarde aussi dans tes spams.';
     $('code-info').textContent = phrase || '';
     $('erreur-code').textContent = '';
     $('champ-code').value = '';
@@ -20809,6 +20891,7 @@
       return;
     } finally { if (Auth.captcha.actif()) Auth.captcha.reinitialiser(); }
     codeEtat.envoyeA = Date.now();
+    garderCodeEnAttente();
     $('code-info').textContent = codeEtat.genre === 'recuperation' ? Auth.PHRASE_CODE_ENVOYE : 'Un nouveau code vient de partir.';
     tictacRenvoi();
   }
@@ -21062,7 +21145,18 @@
     });
     $('btn-code-renvoyer').addEventListener('click', renvoyerLeCode);
     $('btn-code-oubli').addEventListener('click', function () { demanderReinitialisation(true); });
-    $('btn-code-changer').addEventListener('click', function () { rendreEntree(modeEntree); });
+    $('btn-code-changer').addEventListener('click', function () { oublierCodeEnAttente(); rendreEntree(modeEntree); });
+    // 27/11/2026 — « Ton adresse n'est pas encore confirmée » : entrer le code déjà reçu, ou en demander un autre.
+    $('btn-nc-entrer').addEventListener('click', function () {
+      var email = $('champ-email').value.trim();
+      if (email) ouvrirCode('inscription', email, 'Entre le dernier code reçu, ou demande-en un autre.', 0);
+    });
+    $('btn-nc-renvoyer').addEventListener('click', function () {
+      var email = $('champ-email').value.trim();
+      if (!email) return;
+      ouvrirCode('inscription', email, '', 0);   // 0 : le renvoi est permis tout de suite
+      renvoyerLeCode();
+    });
     // 247 — « Réessayer » : le script du captcha n'avait pas pu se charger.
     $('btn-captcha-reessayer').addEventListener('click', function () {
       if (this.dataset.recharger) { racine.location.reload(); return; }   // 16/11/2026 : refus du serveur
@@ -21275,11 +21369,12 @@
       // s'ouvre d'elle-même, dès que l'entrée a posé son premier écran.
       if (session && evenement === 'PASSWORD_RECOVERY') {
         recuperation = 'due';
+        oublierCodeEnAttente();
         entrer(session);
         ouvrirRecuperationSiDue();
         return;
       }
-      if (session) { entrer(session); return; }
+      if (session) { oublierCodeEnAttente(); entrer(session); return; }   // 27/11/2026 : une session ouverte, l'adresse en attente n'attend plus personne
       if (Auth.sessionPersistee()) return;
       sessionActive = null;
       entreeFaitePour = null;
@@ -21287,7 +21382,7 @@
       fermerQuestionnaire(); envoiProfil = null; versionProfil = 0; ligneACreer = false;
       profil = null; faits.oublierDates();
       allerA(Routeur.CONNEXION, {}, true);
-      rendreEntree('connexion');
+      rendreEntree('connexion', { garderCode: true });
     });
 
     // ── DÉMARRAGE SANS RÉSEAU ────────────────────────────────────────────
@@ -21370,7 +21465,7 @@
       var entree = Routeur.analyser(racine.location.pathname);
       var mode = entree.vue === Routeur.INSCRIPTION ? 'inscription' : 'connexion';
       allerA(mode === 'inscription' ? Routeur.INSCRIPTION : Routeur.CONNEXION, {}, true);
-      rendreEntree(mode);
+      rendreEntree(mode, { reprendre: true });
     }
     enregistrerSW();
 

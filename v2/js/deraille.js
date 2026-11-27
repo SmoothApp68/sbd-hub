@@ -1,9 +1,11 @@
 // v2/js/deraille.js — la semaine qui déraille (chantier 99, MOTEUR §9.24).
 //
 // Un programme à jours prévus (`routines.jours`, v2_084) ; une routine prévue un jour passé de la semaine n'a pas eu
-// lieu. À l'ouverture de l'app, une carte, sans reproche, qui parle du plan (« Jambes n'a pas eu lieu mardi. ») et
+// lieu. À l'ouverture de l'app, une carte, sans reproche, qui parle de ce qui reste à placer (« Il reste Jambes à placer cette semaine. ») et
 // propose : décaler la suite, répartir ses séries dans la semaine, ou garder la séance du jour. En fin de semaine :
-// ajouter un exercice à la séance du jour, ou non.
+// ajouter un exercice à la séance du jour, ou non. Avec « Moins en ce moment » (`tempsReponse`), jamais d'ajout : décaler
+// ou garder, et sans décalage possible, pas de carte.
+// `tempsReponse` : `profil.temps_reponse`, lu par `Moteur.disaitMoinsDeTemps`.
 //
 // ⚠️ LA RÉFÉRENCE EST TOUJOURS LE PROGRAMME (décision du 15/10/2026, « un fil ») : les séries que prévoient ses
 // routines, jamais l'historique. Le coach ne dit jamais « moins que d'habitude » et ne propose jamais plus que ce que
@@ -177,7 +179,7 @@
     var evenement = function (p, n) { return { n: n, prim: primaires(st[p.routine]) }; };
     var base = {
       cles: ouvertes.map(cle), manquee: { routine: rM.id, nom: nomCourt(rM.nom), jour: M.jour, jourNom: noms()[M.jour - 1] },
-      titre: nomCourt(rM.nom) + ' n\'a pas eu lieu ' + noms()[M.jour - 1] + '.'
+      titre: 'Il reste ' + nomCourt(rM.nom) + ' à placer cette semaine.'
     };
 
     // Décision 4 : un exercice de la routine manquée pour une séance — il ne recharge pas ce que la séance fatigue
@@ -244,7 +246,7 @@
         var ligne = (rM.exercices || [])[c.i];
         sortie.push({ routine: p.routine, nomRoutine: nomCourt(parId[p.routine].nom), jour: p.jour, jourNom: noms()[p.jour - 1],
                       slug: c.ex.slug, i: c.i, series: c.k, prim: c.ex.prim,
-                      nom: (cat[c.ex.slug] || {}).nom || c.ex.slug, depuis: noms()[M.jour - 1],
+                      nom: (cat[c.ex.slug] || {}).nom || c.ex.slug, depuis: noms()[M.jour - 1], de: nomCourt(rM.nom),
                       exercice: travailSeulement(ligne, c.k) });
       }
       return sortie;
@@ -253,7 +255,11 @@
     // Décision 5 : fin de semaine, plus la place de décaler — la séance du jour seulement. UNE carte, que la vraie
     // fin de semaine et le repli (ni décalage ni répartition) lisent toutes deux : la phrase dit les deux chiffres
     // (§9.24 ; audit du 16/10/2026, 01 #10 : le repli les omettait).
+    // 27/11 (décision 77, amélioration 5) — « Moins en ce moment » : la carte n'ajoute rien (ni « Répartir », ni « Ajouter »),
+    // elle ne propose que de décaler ; sans décalage possible, il n'y a pas de carte. La même déclaration que MOTEUR §9.18 lit.
+    var moins = Moteur().disaitMoinsDeTemps(x.tempsReponse);
     var carteFin = function () {
+      if (moins) return null;
       if (!duJour) return null;
       var a1 = choisirPour(duJour, {}, [])[0];   // décision 5 : un exercice
       if (!a1) return null;
@@ -300,7 +306,7 @@
     placements.filter(function (p) { return p.jour >= jAuj; }).forEach(function (p) {
       ajouts = ajouts.concat(choisirPour(p, pris, ajouts));
     });
-    if (ajouts.length) {
+    if (ajouts.length && !moins) {
       choix.push({ cle: 'repartir', libelle: 'Répartir ses séries dans la semaine', ajouts: ajouts,
         garde: ajouts.reduce(function (t, a) { return t + a.series; }, 0) });
     }
@@ -347,7 +353,7 @@
     return n;
   }
   function ajoutGarde(a) {
-    return { routine: a.routine, jour: a.jour, slug: a.slug, series: a.series, depuis: a.depuis, exercice: a.exercice };
+    return { routine: a.routine, jour: a.jour, slug: a.slug, series: a.series, depuis: a.depuis, de: a.de, exercice: a.exercice };
   }
 
   // ── Le choix en base (`semaine_choix`, v2_085) ────────────────────────────
@@ -447,7 +453,7 @@
         portees = g.lignes.map(function (l) { return l.routine_id; }).concat((Array.isArray(d.planning) ? d.planning : []).map(function (x) { return x.routine; }));
         phrase = manquee + ' passée à ' + (pl ? noms()[pl.jour - 1] : '') + ' ; la suite se décale.';
       } else if (g.choix === 'garder') {
-        phrase = manquee + ' n\u2019a pas eu lieu\u00a0: semaine gardée comme prévue.';
+        phrase = manquee + '\u00a0: semaine gardée comme prévue.';
       } else {
         phrase = manquee + '\u00a0: rien d\u2019ajouté.';
       }
@@ -468,7 +474,7 @@
     if (!etat || etat.lundi !== lundiDe(jour)) return [];
     var j = jourDeSemaine(numero(jour));
     return (etat.ajouts || []).filter(function (a) { return a.routine === routineId && a.jour === j && a.exercice; })
-      .map(function (a) { return { exercice: a.exercice, mention: 'séance manquée de ' + a.depuis }; });
+      .map(function (a) { return { exercice: a.exercice, mention: a.de ? 'vient de ' + a.de : 'vient d\u2019une autre séance' }; });
   }
 
   // La semaine telle qu'elle se montre (la bande de la carte) : un jour, sa routine.
@@ -485,6 +491,24 @@
     });
   }
 
+  // 27/11/2026 (§9.24, « la séance d'aujourd'hui ») — la routine que le PLANNING DÉCALÉ place aujourd'hui, ou null. `etat` : l'état de la
+  // semaine (`etatDepuisLignes`, annulations comprises) ; `routines` : les routines vivantes ; `seances` : `[{ debut }]`. Une séance déjà
+  // commencée aujourd'hui rend la main (null) : l'accueil retombe sur la routine qui suit la dernière faite. Pure.
+  function routineDuJour(etat, routines, seances, jour) {
+    var n = numero(jour);
+    if (n === null || !etat || etat.lundi !== lundiDe(jour) || !Array.isArray(etat.planning)) return null;
+    var j = jourDeSemaine(n);
+    var place = etat.planning.filter(function (x) { return x && x.jour === j; })[0];
+    if (!place) return null;
+    var r = (routines || []).filter(function (x) { return x && x.id === place.routine && !x.archivee_a; })[0];
+    if (!r) return null;
+    var faiteAujourdhui = (seances || []).some(function (s) {
+      var t = s && s.debut ? new Date(s.debut) : null;
+      return !!t && !isNaN(t.getTime()) && Moteur().jourCivil(t) === jour;
+    });
+    return faiteAujourdhui ? null : r.id;
+  }
+
   // 178 — À la fusion avec le serveur, les lignes que l'appareil a (dans la fenêtre lue, pour ce compte) et que ni le
   // serveur ni la file ne portent : elles repartent dans la file (upsert idempotent sur user_id, semaine, routine_id).
   function choixAReposer(locales, serveur, protegees, depuis, uid) {
@@ -499,6 +523,7 @@
 
   var api = {
     choixAReposer: choixAReposer,
+    routineDuJour: routineDuJour,
     ECART: ECART, ECART_DEBUTANT: ECART_DEBUTANT,
     jourDuNom: jourDuNom, nomCourt: nomCourt, lundiDe: lundiDe,
     semaineQuiDeraille: semaineQuiDeraille, decider: decider, ajoutsDuJour: ajoutsDuJour,

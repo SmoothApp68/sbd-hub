@@ -153,12 +153,14 @@
   //   seance      `proteger` { barre, autre } : `charge` (la 1re série ne baisse pas pour un écart de moins d'une rep) · `volume` (on baisse dès le bas
   //               de la zone) · `rien` ; `prudente` (garde 2, rappel « J'ai mal ») ; `protegee` (population protégée)
   //   chauffes    `douces` ; habiletes ; semaineDeForme
+  //   testParDefaut  la façon proposée d'abord en semaine de mesure : `max` (« Viser mon max ») · `serie` (« Série de mesure ») ; le choix de la personne prime (27/11/2026, Forme seule)
   var RIEN_PROTEGE = Object.freeze({ barre: 'rien', autre: 'rien' });
   function fiche(f) {
     return Object.freeze({ programme: Object.freeze(Object.assign({}, f.programme, { reps: Object.freeze(f.programme.reps.slice()) })), blocs: Object.freeze(f.blocs),
-      mots: Object.freeze(f.mots), seance: Object.freeze(f.seance), chauffes: Object.freeze(f.chauffes), habiletes: f.habiletes, semaineDeForme: f.semaineDeForme });
+      mots: Object.freeze(f.mots), seance: Object.freeze(f.seance), chauffes: Object.freeze(f.chauffes), habiletes: f.habiletes, semaineDeForme: f.semaineDeForme,
+      testParDefaut: f.testParDefaut });
   }
-  var NEUTRE = { mots: { deForce: false }, chauffes: { douces: false }, habiletes: false, semaineDeForme: false };
+  var NEUTRE = { mots: { deForce: false }, chauffes: { douces: false }, habiletes: false, semaineDeForme: false, testParDefaut: 'max' };
   var SPECIALITES = Object.freeze({
     force: fiche(Object.assign({}, NEUTRE, {
       programme: { gabarit: 'familles', reps: [5, 7, 12], seriesPrincipal: 4, menageLourd: 'mix', pause: true, cycles: true, ratios: true, entretienForce: false },
@@ -175,7 +177,7 @@
     forme: fiche(Object.assign({}, NEUTRE, {
       programme: { gabarit: 'corps_entier', reps: [9, 12, 15], seriesPrincipal: 3, menageLourd: 'mix', pause: false, cycles: false, ratios: false, entretienForce: false },
       blocs: { menu: 'force', premier: 'mix', suivant: 'mix', grosseParDefaut: false, grosseSurHypProposee: false },
-      seance: { proteger: RIEN_PROTEGE, prudente: true, protegee: true }, chauffes: { douces: true }, semaineDeForme: true })),
+      seance: { proteger: RIEN_PROTEGE, prudente: true, protegee: true }, chauffes: { douces: true }, semaineDeForme: true, testParDefaut: 'serie' })),
     calisthenie: fiche(Object.assign({}, NEUTRE, {
       // `reps` : un reste, lu nulle part (son gabarit ne les lit pas ; le test le prouve)
       programme: { gabarit: 'calisthenie', reps: [8, 9, 12], seriesPrincipal: 3, menageLourd: 'mix', pause: false, cycles: false, ratios: false, entretienForce: true },
@@ -408,6 +410,20 @@
     if (o.annee === true || (typeof o.annee === 'number' && o.annee !== a)) t += NBSP_FORMAT + a;
     return o.nom ? JOURS[dow] + ' ' + t : t;
   }
+  // Lot 4 (n° 1) — LE JOUR DE LA BANDE « Mardi : 90 kg × 8, 8, 8 » : le nom du jour seul tant que la séance d'avant tient dans
+  // la semaine (six jours), sinon le jour et la date (« Mardi 12 nov. ») ; jamais une durée. Le formateur unique (`jourDit`).
+  function jourDeLaBande(date, maintenant) {
+    var d = date instanceof Date ? date : new Date(date);
+    if (isNaN(d.getTime())) return '';
+    var n = maintenant instanceof Date ? maintenant : new Date();
+    var a = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    var b = new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
+    var jours = Math.round((b - a) / 86400000);
+    var t = jours >= 0 && jours <= 6 ? JOURS[d.getDay()] : jourDit(d, { nom: true });
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  }
+  // La phrase de la bande : « 90 kg × 8, 8, 8 » (le formateur unique du poids, `kgTexte`).
+  function phraseDeLaBande(charge, reps) { return kgTexte(charge) + ' \u00d7 ' + (reps || []).join(', '); }
   // « 9 h 05 » : une heure du jour (et le format des minutes derrière une heure de durée).
   function heureDite(h, mi) { return h + ' h ' + (mi < 10 ? '0' : '') + mi; }
 
@@ -1491,6 +1507,12 @@
   // de calcul §13.3), qui n'en fait PAS des frères. C'est la seule lecture de
   // `mouvement` de l'app (registre NOTIONS). Triés par slug : la même liste à
   // chaque calcul.
+  // 27/11/2026 (plancher roumain) — le `mouvement` d'UN exercice, ou `null` : la même lecture de la colonne, pour le plancher de réserve par mouvement
+  // (`Moteur.cleDePlancher`) ; jamais une liste de frères, jamais un schéma.
+  function mouvementDe(index, slug) {
+    var e = index && index[slug];
+    return e && typeof e.mouvement === 'string' && e.mouvement ? e.mouvement : null;
+  }
   function freresDe(index, slug) {
     var e = index && index[slug];
     var m = e && typeof e.mouvement === 'string' && e.mouvement ? e.mouvement : null;
@@ -3594,6 +3616,8 @@
     chiffresDeDuree: chiffresDeDuree,
     formatChrono: formatChrono,
     formatPrecedent: formatPrecedent,
+    jourDeLaBande: jourDeLaBande,
+    phraseDeLaBande: phraseDeLaBande,
     estTravail: estTravail,
     estTravailOuEssai: estTravailOuEssai,
     estEssaiRate: estEssaiRate,
@@ -3697,6 +3721,7 @@
     indexerExercices: indexerExercices,
     nommer: nommer,
     freresDe: freresDe,
+    mouvementDe: mouvementDe,
     cousinsDe: cousinsDe,
     sensDuMouvement: sensDuMouvement,
     lesteDe: lesteDe,

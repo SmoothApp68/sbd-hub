@@ -295,18 +295,18 @@
   // `session` : les exercices DÉJÀ DANS cette séance (60-6, S2/S6). Le repli « un exercice déjà pris » les exclut : le
   // même exercice deux fois dans une séance n'a pas de sens, la place saute plutôt. `debutant` (S3) : on cherche
   // d'abord SANS les trois exercices de poids du corps lourd qui ne sont pas dans l'historique, puis, si rien, avec.
-  function choisir(motif, ok, ecartes, pris, menager, faits, materiel, debutant, session, allonge) {
+  function choisir(motif, ok, ecartes, pris, menager, faits, materiel, debutant, session, allonge, equipementDe) {
     if (debutant) {
       var sans = function (s) { return !(contient(PDC_LOURD, s) && !(possede(faits, s) ? Number(faits[s]) || 0 : 0)); };
-      var r = choisirBrut(motif, function (s) { return ok(s) && sans(s); }, ecartes, pris, menager, faits, materiel, session, allonge);
+      var r = choisirBrut(motif, function (s) { return ok(s) && sans(s); }, ecartes, pris, menager, faits, materiel, session, allonge, equipementDe);
       if (r) return r;
     }
-    return choisirBrut(motif, ok, ecartes, pris, menager, faits, materiel, session, allonge);
+    return choisirBrut(motif, ok, ecartes, pris, menager, faits, materiel, session, allonge, equipementDe);
   }
 
   function candidatsDe(motif) { return liste(possede(MOTIFS, motif) ? MOTIFS[motif] : VARIANTES[motif]); }
 
-  function choisirBrut(motif, ok, ecartes, pris, menager, faits, materiel, session, allonge) {
+  function choisirBrut(motif, ok, ecartes, pris, menager, faits, materiel, session, allonge, equipementDe) {
     function candidats(src, sansPris) {
       return src.filter(function (s) {
         return !contient(ecartes, s) && ok(s) && !(sansPris && possede(pris, s)) && !(!sansPris && possede(session, s));
@@ -336,18 +336,28 @@
       return false;
     });
     var corps = materiel === 'poids_du_corps';
-    var tries = trier(cand, function (x, y) {
-      function cle(s) {
-        // 196 — à égalité de pratique, l'exercice qui charge le muscle ÉTIRÉ (`accent_allonge`) passe devant : une préférence, la liste
-        // des candidats ne change pas (`allonge` absent : rien ne change).
-        return [s !== doux ? 1 : 0, -(possede(faits, s) ? Number(faits[s]) || 0 : 0), typeof allonge === 'function' && allonge(s) ? 0 : 1,
-                corps && contient(ELASTIQUES, s) ? 0 : 1, src.indexOf(s)];
-      }
+    // 196 — le muscle ÉTIRÉ (`accent_allonge`) ne DÉPARTAGE que des candidats ÉQUIVALENTS : il ne passe jamais devant une BARRE en tête
+    // de liste (le mouvement principal, de compétition ou de la famille : `squat_barre`), et jamais devant une meilleure préférence (zone
+    // douce, pratique). Le split squat bulgare, à l'haltère, passait devant `squat_barre` sur le vrai catalogue (sans compte, rien d'autre
+    // ne départageait). `allonge` absent : rien ne change.
+    function cle(s) {
+      return [s !== doux ? 1 : 0, -(possede(faits, s) ? Number(faits[s]) || 0 : 0), corps && contient(ELASTIQUES, s) ? 0 : 1, src.indexOf(s)];
+    }
+    function comparer(x, y) {
       var kx = cle(x), ky = cle(y);
       for (var i = 0; i < kx.length; i++) if (kx[i] !== ky[i]) return kx[i] < ky[i] ? -1 : 1;
       return 0;
-    });
-    return tries[0];
+    }
+    var tries = trier(cand, comparer);
+    var tete = tries[0];
+    if (typeof allonge === 'function' && !allonge(tete) && typeof equipementDe === 'function' && equipementDe(tete) !== 'barre') {
+      var kt = cle(tete);
+      for (var j = 1; j < tries.length; j++) {
+        var kj = cle(tries[j]);
+        if (kj[0] === kt[0] && kj[1] === kt[1] && kj[2] === kt[2] && allonge(tries[j])) return tries[j];
+      }
+    }
+    return tete;
   }
 
   // ── Une ligne : séries et reps de la place ──────────────────────────────────
@@ -598,7 +608,7 @@
         if (deja) session[deja] = true;
       });
       var s = choisir(pl.motif, ok, ecartes, pris, p.menager, faits, p.materiel, debutant, session,
-                      function (x) { return racine.THModele.estAccentAllonge(catalogue[x]); });
+                      function (x) { return racine.THModele.estAccentAllonge(catalogue[x]); }, function (x) { return catalogue[x] ? catalogue[x].equipement : null; });
       if (s) { choix[pl.r + '-' + pl.j] = s; pris[s] = true; }
     });
     // Les zones dont toutes les places du programme sont des principaux : la priorité de zone n'y aurait aucun effet.
@@ -742,7 +752,7 @@
     liees.forEach(function (c) { nouveau[c[0]].exercices.forEach(function (x) { pris[x.exercise_slug] = true; }); });
     // `pris` = les exercices de CETTE séance : le repli ne les reprend jamais (60-6, S6) ; le débutant reste débutant.
     var s = choisir(vieux.motif, faisable(catalogue, p.materiel, faits, p.barre_traction), ecartes, pris, p.menager, faits, p.materiel,
-                    racine.THProfil.estDebutant(p), pris, function (x) { return racine.THModele.estAccentAllonge(catalogue[x]); });
+                    racine.THProfil.estDebutant(p), pris, function (x) { return racine.THModele.estAccentAllonge(catalogue[x]); }, function (x) { return catalogue[x] ? catalogue[x].equipement : null; });
     if (s === null) {
       // rien au catalogue : la place disparaît (ses places liées avec elle, de la dernière à la première pour garder les rangs)
       liees.slice().sort(function (a, b) { return b[1] - a[1]; }).forEach(function (c) { nouveau[c[0]].exercices.splice(c[1], 1); });

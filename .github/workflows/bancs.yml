@@ -2,12 +2,23 @@ name: Bancs
 
 # 158 — les bancs tournent sur GitHub (machines en parallèle, dépôt public) :
 # la coche du job « banc-sequentiel » tient lieu du séquentiel de fin de chantier.
-# Pas sur `push` (tout tournerait deux fois). Aucun secret, aucune variable SUPABASE_* :
+# Pas sur `push` (tout tournerait deux fois). Pas non plus au passage à « prête » (CI sans gaspillage, 27/11/2026) :
+# le code ne change pas à ce moment-là, le banc du dernier push fait foi, et la relance annulait un banc en cours.
+# Aucun secret, aucune variable SUPABASE_* :
 # la garde réseau des bancs (tests/banc/garde-reseau.js) reste la seule porte vers le réseau.
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened]
+  # Les « trois verts de suite » d'une PR de banc (CLAUDE.md §4 quater) : le bouton « Run workflow » sur la branche,
+  # avec le nombre de passages. Les passages jouent en même temps, sur des machines séparées ; chacun rend sa coche.
   workflow_dispatch:
+    inputs:
+      passages:
+        description: 'Nombre de passages indépendants (3 pour la règle des trois verts)'
+        required: true
+        default: '3'
+        type: choice
+        options: ['1', '2', '3', '4', '5']
 
 concurrency:
   group: bancs-${{ github.head_ref || github.ref }}
@@ -22,9 +33,39 @@ env:
   # fenêtres de date se calculent dans le fuseau du navigateur. GitHub tourne en UTC ; sans cette ligne, des
   # contrôles de date lisent un autre jour que sur la machine de Claude (Europe/Paris).
   TZ: Europe/Paris
+  # CI sans gaspillage (27/11/2026) — les bancs de PR jouent sur une HORLOGE FIXE : un mercredi, 10 h, au milieu du mois
+  # (tests/banc/horloge.js : un décalage, le temps avance ensuite normalement). Plus de la moitié des faux rouges des
+  # bancs étaient des dates (minuit, le 1er du mois, dimanche → lundi, heure d'hiver). Ces frontières ne disparaissent
+  # PAS de la vérification : `.github/workflows/bancs-nuit.yml` les joue toutes les nuits, sur main, avec l'heure réelle.
+  BANC_HORLOGE: '2026-11-18T10:00:00'
 
 jobs:
+  # La liste des passages : [1] pour une PR, [1, 2, 3] pour le bouton avec « 3 ». Les noms des jobs restent
+  # « banc-complet » et « banc-sequentiel » quand il n'y a qu'un passage (la coche de la PR ne change pas de nom).
+  passages:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    outputs:
+      liste: ${{ steps.liste.outputs.liste }}
+      n: ${{ steps.liste.outputs.n }}
+    steps:
+      - id: liste
+        shell: bash
+        env:
+          DEMANDE: ${{ github.event.inputs.passages }}
+        run: |
+          n="${DEMANDE:-1}"
+          case "$n" in 1|2|3|4|5) ;; *) n=1 ;; esac
+          echo "n=$n" >> "$GITHUB_OUTPUT"
+          echo "liste=$(node -e "console.log(JSON.stringify(Array.from({length:$n},(_, i)=>i+1)))")" >> "$GITHUB_OUTPUT"
+
   banc-complet:
+    needs: passages
+    name: banc-complet${{ needs.passages.outputs.n != '1' && format(' (passage {0})', matrix.essai) || '' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        essai: ${{ fromJSON(needs.passages.outputs.liste) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -50,11 +91,13 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ms-playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
       - run: npx playwright install --with-deps chromium || npx playwright install chromium   # repli : miroir Ubuntu injoignable (11/11/2026)
-      - name: Banc complet (npm test + routines + service worker + création du profil + séance en parallèle)
+      - name: Banc complet (vitesse + routines + service worker + création du profil + mouvement + tête 3+1 + séance en parallèle)
         shell: bash
         run: |
           export CHROME_BIN="$(node -e "console.log(require('playwright').chromium.executablePath())")"
-          node tests/banc/tout.js 2>&1 | tee banc-complet.txt
+          # `npm test` n'est PAS rejoué ici : le job `unit` (test.yml) le joue, sur le même commit, avec les mêmes tests,
+          # et il est une coche de la PR. Le jouer deux fois ralentissait ce job (il dispute les 4 cœurs aux navigateurs).
+          node tests/banc/tout.js --sans-npm-test 2>&1 | tee banc-complet.txt
       - name: Résumé
         if: always()
         shell: bash
@@ -66,7 +109,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: banc-complet
+          name: banc-complet-${{ matrix.essai }}
           path: |
             banc-complet.txt
             /tmp/tout-*
@@ -74,6 +117,12 @@ jobs:
           retention-days: 7
 
   banc-sequentiel:
+    needs: passages
+    name: banc-sequentiel${{ needs.passages.outputs.n != '1' && format(' (passage {0})', matrix.essai) || '' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        essai: ${{ fromJSON(needs.passages.outputs.liste) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 130
     steps:
@@ -119,7 +168,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: banc-sequentiel
+          name: banc-sequentiel-${{ matrix.essai }}
           path: |
             banc-sequentiel.txt
             seq.json

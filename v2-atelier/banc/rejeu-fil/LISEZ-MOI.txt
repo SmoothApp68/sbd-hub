@@ -38,7 +38,7 @@ par séance. Les tables ne se jouent pas en --fixture.
 Restent aveugles (non faits, lot 1 : chacun dépasse les 300 lignes) : les chauffes (`propositionDeChauffes`) et les supersets (`tours`).
 Les cas sont joués sur une barre seule : le mélange de plusieurs exercices dans une séance n'est pas rejoué.
 
-Mutations (mutations.json, 29 + 1 témoin) : { nom, fichier (relatif à v2/js/), ancien (exactement une fois), nouveau, temoin? }.
+Mutations (mutations.json, 32 + 1 témoin) : { nom, fichier (relatif à v2/js/), ancien (exactement une fois), nouveau, temoin? }.
 Tuée si au moins 5 histoires diffèrent ; le témoin (un commentaire change) doit survivre. Une mutation dont le texte n'est plus trouvé
 exactement une fois est « non appliquée » (code de retour 1) : à réécrire quand le code change. c1 à c5 sont celles des cas ajoutés
 (décharge, veille × 2, lestReponse, semaine de test).
@@ -55,3 +55,9 @@ la fixture reste à côté, jamais commitée.
 Équipements (26/11/2026) : `EXOS` déclarait `equipement: 'halteres'` (pluriel) ; le catalogue réel dit `haltere` ou `haltere_seul`. Sans repli de matériel,
 483 séances sur 7 341 sortaient en `test_propose` sans charge : un artefact du banc, corrigé (`haltere`). Le banc REFUSE désormais (erreur à la construction de EXOS et
 à la lecture d'une fixture) tout équipement absent de la liste fermée EQUIPEMENTS. La comparaison base contre contre n'en change pas (les deux côtés lisent le même banc).
+
+Le compteur de stagnation (27/11/2026, correctif du banc) : AVANT, le banc ne le voyait pas. Il valait 0 sur toutes les séances (9 077) : `seancesSousConsigne` n'était
+pas passé (le `sousConsigne: true` de la fixture n'arrivait pas jusqu'au compteur) et la signature ne portait ni le compteur, ni sa phrase d'en-tête, ni la marche de l'escalier.
+Les anciens « 0 écart » ne couvraient donc PAS le compteur ; toute mutation du compteur survivait. Désormais : toutes les séances d'avant comptent comme sous consigne,
+et la signature porte R.compteur.compteur, la phrase du compteur (x.entete.compteur) et la marche (x.escalier.marche). En fin de comparaison une ligne « B3 compteur : {…} »
+résume les écarts (compteur, remise à zéro, phrase, marche). Trois mutations le prouvent : mu-cpt1 (seuil 4 → 3), mu-cpt2 (le progrès ne remet plus à zéro), mu-cpt3 (un cran vaut 2).

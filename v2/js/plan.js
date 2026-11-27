@@ -4040,7 +4040,7 @@
       // 174 (3/3) — SOUS 3 REPS, SIX SÉANCES SANS MONTER : la zone 3-5 est proposée, par la carte du schéma. L'exercice n'a
       // pas de zone, donc ni compteur d'escalier ni repli : cette marche est la seule qu'il entende.
       if (c.bord) {
-        var mBord = sansLourdDe(e, slug, c.consigne) ? null : marcheDuBord(seance, slug, c, jour, marches, enBloc);
+        var mBord = marcheDuBord(seance, slug, c, jour, marches, enBloc);
         if (mBord) sortie[slug] = mBord;
         return;
       }
@@ -8336,14 +8336,14 @@
   }
   // I282 (27/11/2026, MOTEUR §14.5 bis) — JAMAIS « PASSER À 3-5 REPS » À UN EXERCICE À MÉNAGER NI À UNE PERSONNE PROTÉGÉE, RECALCULÉ depuis les ENTRÉES
   //   (`zonesMenagees`, `fondement.menagee`, `populationProtegee` : 65 ans et plus connus, débutant, Forme) par la même fonction que le plan (`versLourdInterdit`) :
-  //   aucune carte du schéma vers Lourd (Mix → Lourd) ni de la règle de bord (sous 3 reps → 3-5) ne leur est posée ; le silence ou la marche suivante de l'escalier.
+  //   aucune carte du schéma vers Lourd (Mix → Lourd) ne leur est posée ; la règle de bord (des simples ou doubles vers 3-5 : MOINS lourd) reste ouverte ; rien ou la marche suivante de l'escalier.
   function verifierSansLourd(plan, entrees, erreurs) {
     var M = Moteur();
     ((plan && plan.exercices) || []).forEach(function (x, i) {
       var m = x && x.escalier;
       if (!m || m.marche !== M.MARCHE_SCHEMA || m.depassement) return;
       var k = x.consigne || {};
-      var versLourd = !!m.bord || k.zone === 'mix' || !!(m.carte && m.carte.nouvelle_zone === 'lourd');
+      var versLourd = !m.bord && (k.zone === 'mix' || !!(m.carte && m.carte.nouvelle_zone === 'lourd'));   // la carte de bord MONTE vers 3-5 depuis des simples ou doubles : moins lourd, hors règle
       if (!versLourd) return;
       if (sansLourdDe(entrees, x.slug, k)) {
         erreurs.push('I282 — exercice ' + i + ' (' + x.slug + ') : « Passer à 3-5 reps » proposé à ' +

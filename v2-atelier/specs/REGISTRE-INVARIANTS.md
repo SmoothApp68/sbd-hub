@@ -111,7 +111,7 @@ Légende : **gras** = retiré ; « TROU » = numéro jamais défini ; « voir MO
 | I269-I271 | La tête d'un exercice : 3 + 1 | `Plan.verifierTete`, `v2-simplifier-3plus1.test.js` | §9.53 | 21/11/2026 |
 | I272 | Le plancher de la dernière série (« Les chutes ») : visée jamais sous le niveau des séries d'avant (borné au haut de la zone, jamais au-dessus : D2), « une rep de plus » jamais sans dépasser la cible d'avant, la phrase se lit contre la ligne montrée (D1 : la ligne relue est celle de l'écran) | `Plan.verifierChutes`, `v2-chutes-plancher.test.js` | §9.2 ter | 25/11/2026, étendu le 26/11/2026 |
 | I281 | La place relue à chaque séance (G7) : une série de plus acceptée ne vit que si le muscle a encore de la place, sans douleur récente ni zone à ménager ; sinon elle s'arrête, dite une fois en gris avec sa raison | `Moteur.serieDePlusRelue`, `Plan.verifierPlaceRelue`, `v2-place-relue.test.js` | §14.7 ter | 27/11/2026 |
-| I282 | Jamais « Passer à 3-5 reps » (schéma Mix → Lourd, règle de bord) à un exercice à ménager ni à une personne protégée (65 ans et plus connus, débutant, Forme) : le silence ou la marche suivante de l'escalier | `Moteur.versLourdInterdit`, `Plan.verifierSansLourd`, `v2-sans-lourd-282.test.js` | §14.5 bis | 27/11/2026 |
+| I282 | Jamais « Passer à 3-5 reps » (schéma Mix → Lourd ; la règle de bord, qui va vers moins lourd, reste ouverte) à un exercice à ménager ni à une personne protégée (65 ans et plus connus, débutant, Forme) : le silence ou la marche suivante de l'escalier | `Moteur.versLourdInterdit`, `Plan.verifierSansLourd`, `v2-sans-lourd-282.test.js` | §14.5 bis | 27/11/2026 |
 
 ### Numéros réservés, retirés, trous
 

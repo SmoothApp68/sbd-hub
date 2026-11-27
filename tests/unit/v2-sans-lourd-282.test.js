@@ -1,8 +1,7 @@
 /** @jest-environment node */
 //
 // 27/11/2026 (SÉCURITÉ, I282, MOTEUR §14.5 bis, décision du fondateur) — « PASSER À 3-5 REPS » NE SE DIT JAMAIS à un exercice à ménager ni à une
-// personne protégée (65 ans et plus connus, débutant, objectif Forme). Deux cartes y mènent : le schéma Mix → Lourd (au blocage d'une barre en Mix)
-// et la règle de bord (sous 3 reps, six séances sans monter). Ces cas-là reçoivent le silence ou la marche suivante de l'escalier, jamais le lourd.
+// personne protégée (65 ans et plus connus, débutant, objectif Forme). Le schéma Mix → Lourd (au blocage d'une barre en Mix) est fermé ; la règle de bord (sous 3 reps, six séances sans monter) propose 3-5 reps depuis des simples ou doubles : MOINS lourd, elle reste ouverte.
 // Aucun autre profil ne change (les témoins en bas).
 
 process.env.TZ = 'Europe/Paris';
@@ -120,29 +119,23 @@ function decorBord(entrees) {
   return { e, p: T.planDeSeance(e), c };
 }
 
-describe('I282 — la règle de bord (sous 3 reps, six séances sans monter)', () => {
-  test('TÉMOIN — une personne ordinaire : la carte « Passer à 3-5 reps » est posée comme avant', () => {
+describe('la règle de bord (sous 3 reps) MONTE vers 3-5 : moins lourd, elle reste ouverte à tous', () => {
+  test('TÉMOIN — une personne ordinaire : la carte est posée', () => {
     const { e, p } = decorBord({ objectif: 'muscle' });
     expect(p.exercices[0].escalier.carte.nouvelle_zone).toBe('lourd');
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
   });
   Object.keys(PROFILS).forEach((nom) => {
-    test('DISCRIMINANT — ' + nom + ' : aucune carte, aucune erreur', () => {
+    test('DISCRIMINANT — ' + nom + ' : la carte de bord est posée comme avant, I282 ne la refuse pas', () => {
       const entrees = Object.assign({ objectif: 'muscle' }, nom === 'menagee' ? { zonesMenagees: { dc: { zones: ['epaule'], choisie: null } } } : PROFILS[nom]);
       const { e, p } = decorBord(entrees);
-      expect(p.exercices[0].escalier).toBeNull();
-      // (la consigne de ce décor est calculée sans la zone à ménager : I75 voit une série lourde, qui n'est pas l'objet ici)
-      expect(T.verifierPlan(p, e).erreurs.filter((y) => !(nom === 'menagee' && /^I75/.test(y)))).toEqual([]);
+      expect(p.exercices[0].escalier.marche).toBe('schema');
+      expect(p.exercices[0].escalier.carte.nouvelle_zone).toBe('lourd');
+      expect(T.verifierPlan(p, e).erreurs.filter((y) => /^I282/.test(y))).toEqual([]);
     });
   });
-  test('I282 DISCRIMINANT — un plan qui poserait la carte de bord à un 65 ans et plus est refusé', () => {
-    const { e, p } = decorBord({ objectif: 'muscle' });
-    expect(erreurs282(p, e)).toEqual([]);
-    expect(erreurs282(p, Object.assign({}, e, { plus65: true })).length).toBe(1);
-  });
-  test('la carte de bord de la fonction : rien pour qui ne reçoit pas le lourd', () => {
+  test('la carte de bord de la fonction ne dépend d\'aucun profil', () => {
     const b = M.consigneDExercice(groupes(histoire(6)), undefined, avantDe(histoire(6)), OPTIONS).bord;
-    expect(M.carteBordSchema(b, true)).toBeNull();
     expect(M.carteBordSchema(b).nouvelle_zone).toBe('lourd');
   });
 });

@@ -9542,8 +9542,7 @@
       ' reste ta meilleure charge de travail depuis ' + nombreFr(compteur, regle('compteur')) + ' séances';
   }
 
-  // 27/11/2026 (SÉCURITÉ, I282, décision du fondateur) — QUI NE REÇOIT JAMAIS LA CARTE VERS LOURD (« Passer à 3-5 reps », en Mix au schéma, ou sous 3 reps
-  // à la règle de bord). UNE fonction, lue par le plan (`marchesIsolees`) et par l'invariant (`verifierSansLourd`, qui la recalcule depuis les entrées) :
+  // 27/11/2026 (SÉCURITÉ, I282, décision du fondateur) — QUI NE REÇOIT JAMAIS LA CARTE VERS LOURD (« Passer à 3-5 reps » en Mix, au schéma ; la règle de bord, des simples ou doubles vers 3-5, va vers MOINS lourd et reste ouverte). UNE fonction, lue par le plan (`marchesIsolees`) et par l'invariant (`verifierSansLourd`, qui la recalcule depuis les entrées) :
   //   · `menagee` : l'exercice charge une zone à ménager (le profil, `zonesMenagees`), choisie ou non par la personne : proposer le lourd à une zone
   //     que la personne ménage contredit 187 (A4) et I75 ;
   //   · `protegee` : la population protégée (`populationProtegee` : 65 ans et plus connus, débutant, objectif Forme).
@@ -10052,9 +10051,8 @@
     return { total: b.total, charge: b.record, reps: b.repsRecord, aRecule: b.aRecule === true, depuis: b.depuisRecord || null };
   }
   // « 140 kg × 2 depuis 6 séances, malgré le recul. » — le détail se lit à part (hors capture : il écrit « 3-5 »).
-  function carteBordSchema(bord, sansLourd) {
+  function carteBordSchema(bord) {
     if (!bord || nombre(bord.charge) === null || nombre(bord.reps) === null) return null;
-    if (sansLourd === true) return null;       // 27/11/2026 (I282) : « Passer à 3-5 reps » ne se dit jamais à qui ne reçoit pas le lourd
     var cB = cite(FAIT, { quoi: 'bord.record' });
     var r = nombre(bord.reps);
     return {

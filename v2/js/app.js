@@ -13737,6 +13737,8 @@
       temps: tempsDeLaRoutine,
       enCours: !!seance,
       surDemarrer: demarrerRoutineParId,
+      // §9.18 — la même feuille que sur la rangée de Saisie, pour la routine montrée.
+      surPeuDeTemps: function () { if (suivante) ouvrirPeuDeTemps(suivante.routine); },
       surReprendre: function () { allerA(Routeur.SAISIE, {}); rendreSeance(); },
       surAutre: function () { allerA(Routeur.SAISIE, {}); rendreSaisie(); }
     });

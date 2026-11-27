@@ -3165,7 +3165,9 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .prochaine-meta{font-family:var(--pile-c);font-size:15px;font-weight:600;color:var(--texte-2);margin-top:var(--e1);font-variant-numeric:tabular-nums}
 .prochaine-pied{display:flex;align-items:center;gap:var(--e3);margin-top:var(--e3)}
 .prochaine-go{flex:1;min-height:44px}
-.prochaine-autre{flex:none;min-height:44px;border:none;background:none;color:var(--texte-2);font-size:13px}
+.prochaine-liens{flex:none;display:flex;flex-direction:column;align-items:flex-end}
+.prochaine-autre,.prochaine-peu-de-temps{flex:none;min-height:44px;border:none;background:none;color:var(--texte-2);font-size:13px}
+.prochaine-liens .prochaine-peu-de-temps,.prochaine-liens .prochaine-peu-de-temps+.prochaine-autre{min-height:36px}
 
 /* 272 — le niveau d'entraînement monte seul : la carte de l'accueil (liseré accent), le tableau Avant / Maintenant, la carte « Ton niveau » de l'import. */
 .niveau-carte{background:var(--panneau);border-radius:var(--r-grand);border-left:3px solid var(--accent);padding:var(--e4);margin-bottom:var(--e3);box-shadow:inset 0 1px 0 var(--reflet)}

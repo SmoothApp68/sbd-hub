@@ -9758,6 +9758,26 @@
     return a.slice().sort(function (x, y) { return avantAlpha(String(y.jour), String(x.jour)); })[0];
   }
 
+  // G7 (27/11/2026, MOTEUR §14.7 ter, I281) — LA PLACE RELUE À CHAQUE SÉANCE : tant qu'une série de plus vit (acceptée, pas de
+  // progrès depuis), le muscle doit encore avoir de la place, SANS douleur récente ni zone à ménager sur l'exercice. Une seule
+  // fonction, lue par le plan ; elle rend la RAISON de l'arrêt (`'douleur'`, `'menagee'`, `'volume'`) ou `null` (la série continue).
+  // `place` : `placeDeLExercice` du plan (`true` = de la place sur chaque muscle primaire ; `null` ou `false` = non, comme à la proposition).
+  // Aucun seuil nouveau : la place est celle de la règle de volume (§14.6), relue telle quelle.
+  function serieDePlusRelue(o) {
+    var f = o || {};
+    if (f.douleur === true) return 'douleur';
+    if (f.menagee === true) return 'menagee';
+    return f.place === true ? null : 'volume';
+  }
+
+  // La fin d'une série de plus acceptée, dite une fois, en gris, avec sa raison (VOIX-DU-COACH : un fait, « tu »).
+  function phraseSerieDePlusArretee(raison) {
+    if (raison === 'douleur') return 'Tu as eu mal ici récemment : la série de plus s\'arrête.';
+    if (raison === 'menagee') return 'Cette zone est à ménager : la série de plus s\'arrête.';
+    if (raison === 'volume') return 'Ton muscle n\'a plus de place cette semaine : la série de plus s\'arrête.';
+    return null;
+  }
+
   // Les PÉRIODES où une série de plus était active, pour le niveau sur la
   // routine : du début de la séance qui l'a acceptée jusqu'à la séance qui
   // ouvre APRÈS le progrès (exclue) — le premier compteur plus bas que celui
@@ -14636,6 +14656,8 @@
     plafondALaSalle: plafondALaSalle,
     serieDePlusProposee: serieDePlusProposee,
     serieDePlusActive: serieDePlusActive,
+    serieDePlusRelue: serieDePlusRelue,
+    phraseSerieDePlusArretee: phraseSerieDePlusArretee,
     periodesSerieDePlus: periodesSerieDePlus,
     carteSerieDePlus: carteSerieDePlus,
     degressivePossible: degressivePossible,

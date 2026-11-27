@@ -3603,6 +3603,17 @@ Exception : ~~un exercice à la plus lourde de sa salle n'a pas de marche (§10 
 **Référence** : `coach49.py` ; cas `cas_plus49.json`.
 
 
+### 14.7 ter La place relue à chaque séance — décidé le 27/11/2026 (G7, option 3 de REGLES-V3 ; PR avant D2) (I281)
+
+> **Tant qu'une série de plus vit, le muscle doit encore avoir de la place à CHAQUE séance ; sinon la série de plus s'arrête, une fois, en gris, avec sa raison.**
+
+- **Avant** : la place (§14.6) n'était lue qu'au moment de PROPOSER la carte. Acceptée, la série de plus durait jusqu'au prochain progrès, des semaines parfois, sans que la place soit revérifiée (le volume du muscle, qui monte avec la ligne en plus, la douleur et la zone à ménager n'étaient jamais relus).
+- **Maintenant** : `seriesDePlusActives` (`plan.js`) relit la place par la MÊME fonction qu'à la proposition (`placeDeLExercice` → `Moteur.placePourExercice`, aucun seuil nouveau, priorité comprise) et le fait via UNE fonction du moteur, `Moteur.serieDePlusRelue` (sous `GARDEES`), qui rend la raison de l'arrêt : `douleur` (douleur récente, 42 jours), `menagee` (zone à ménager non choisie), `volume` (pas de place, ou pas de base de volume : comme à la proposition). Sinon `null` : la série continue.
+- **La fin se dit une fois** (`Moteur.phraseSerieDePlusArretee`, en gris à la place de la ligne « une série de plus, jusqu'à ton prochain progrès », `entete.plus`) : seulement si la dernière séance de l'exercice portait encore la ligne en plus (plus de séries de travail que la routine). Rien n'est mémorisé ; les séances suivantes se taisent. « Ton muscle n'a plus de place cette semaine : la série de plus s'arrête. » · « Tu as eu mal ici récemment : … » · « Cette zone est à ménager : … ».
+- **Ce qui ne change pas** : la décision d'accepter reste celle de la personne ; le pari acceptée reste écrit ; au prochain déclenchement l'escalier suit comme avant (le repli). Aucune série n'est retirée d'une séance déjà commencée par la personne : le plan ne rend simplement plus la ligne en plus.
+- **I281** (`Plan.verifierPlaceRelue`, recalculé depuis les ENTRÉES) : une série de plus en cours n'existe jamais sans place relue ; une série arrêtée dit la raison recalculée, en gris, sans ligne en plus. Test : `tests/unit/v2-place-relue.test.js`.
+- **Préalable de D2** : D2 étend la série de plus à la zone Mix ; sans cette relecture, elle durerait sans que la place soit revérifiée.
+
 ### 14.8 La dégressive proposée — décidé le 16/10/2026 (prompt 111)
 
 > **Décision de Claude.ai, 16/10/2026 (Aurélien a délégué : « pas besoin de maquette, sors tes casquettes »), mot pour mot :**

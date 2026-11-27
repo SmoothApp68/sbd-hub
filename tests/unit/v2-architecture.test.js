@@ -202,6 +202,9 @@ const GARDEES = [
   { fn: 'marcheProposee', module: 'moteur.js' },
   { fn: 'serieDePlusProposee', module: 'moteur.js' },
   { fn: 'serieDePlusActive', module: 'moteur.js' },
+  // G7 (27/11/2026, MOTEUR §14.7 ter, I281) — la place relue à chaque séance : l'arrêt d'une série de plus et sa phrase
+  { fn: 'serieDePlusRelue', module: 'moteur.js' },
+  { fn: 'phraseSerieDePlusArretee', module: 'moteur.js' },
   { fn: 'periodesSerieDePlus', module: 'moteur.js' },
   { fn: 'carteSerieDePlus', module: 'moteur.js' },
   { fn: 'consigneSerieDePlus', module: 'moteur.js' },

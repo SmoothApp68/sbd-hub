@@ -3474,6 +3474,15 @@
   function colonnesDe(g) { return g.colonnes || g.champs; }
   // La classe de la grille : celle de la mesure, et `g-plus` quand un champ en plus prend une
   // colonne (Escaliers : durée · étages, la grille à deux cases de la distance). 132 : `g-elastique`.
+  // Lot 4 (n° 1) — LA BANDE « Mardi : 90 kg × 8, 8, 8 » d'un exercice SEUL en charge × reps : la phrase vient de
+  // `Seance.bandeDePrecedent` (l'écran ne calcule rien) ; quand elle existe, la colonne PRÉC. n'est dessinée ni dans
+  // l'en-tête ni dans les lignes. Pas dans l'éditeur, ni dans un superset par tours (la colonne y reste, ligne à ligne).
+  function bandeDuBloc(bloc, vue, g) {
+    if (vue.programme || bloc.superset || !bloc.exercices || bloc.exercices.length !== 1) return null;
+    if (g.mesure !== 'charge_reps' || g.elastique || typeof vue.precedent !== 'function') return null;
+    return S().bandeDePrecedent(vue.precedent(bloc.exercices[0].slug));
+  }
+
   function classeDeGrille(g) {
     if (g.elastique) return ' grille g-elastique';
     return ' grille g-' + g.mesure + (colonnesDe(g).length > g.champs.length ? ' g-plus' : '');
@@ -3561,9 +3570,18 @@
       var xSeul = !vue.programme && !bloc.superset && typeof vue.surRepos === 'function' ? bloc.exercices[0] : null;
       // 21/11/2026 (« Simplifier », pilote 3+1) — l'unité (« kg, les deux haltères ») répète la question de la charge habituelle tant qu'elle est posée : elle revient ensuite.
       var aideRedite = !vue.programme && !bloc.superset && typeof vue.habituelle === 'function' && !!vue.habituelle(bloc.exercices[0]._iExo);
+      var bande = bandeDuBloc(bloc, vue, gabarits[0]);
       var enTetes = enTetesColonnes(gabarits[0], vue.programme, charges && charges.length ? charges[0] : null,
         bloc.series.some(function (q) { return q.faite; }),
-        xSeul ? { secondes: xSeul.repos_cible_s, nom: xSeul.nom, sur: function () { vue.surRepos(xSeul._iExo); } } : null, aideRedite);
+        xSeul ? { secondes: xSeul.repos_cible_s, nom: xSeul.nom, sur: function () { vue.surRepos(xSeul._iExo); } } : null, aideRedite, !!bande);
+      // Lot 4 (n° 1) — la bande, UNE ligne au-dessus des en-têtes.
+      if (bande) {
+        var nb = el('div', 'bande');
+        nb.setAttribute('data-bande', '');
+        nb.appendChild(doc.createTextNode(bande.jour + '\u00a0: '));
+        nb.appendChild(el('b', null, bande.phrase));
+        noeud.appendChild(nb);
+      }
       // 261 — dans les tours, une colonne de plus (le nom court de la ligne) : l'en-tête la tient, vide, pour que PRÉC., KG et
       // REPS restent au-dessus de leurs cases.
       if (tours) {
@@ -3884,7 +3902,8 @@
       // la mesure est inconnue — on ne nomme pas ce qu'on ne sait pas.
       // 204 — sauf « CHARGE × REPS » en séance : le grand chiffre « 100 kg × 7 » et l'en-tête KG · REPS se lisent seuls. Quand
       // l'en-tête se tait (mesures mélangées dans un superset), le libellé reste : il est alors la seule orientation.
-      if (g.libelle && (vue.programme || g.mesure !== 'charge_reps' || !gabaritsHomogenes(gabarits))) {
+      // Lot 4 (n° 5) — et « REPS SEULES » : la tête dit déjà « Poids du corps × 9 » et l'en-tête « REPS ».
+      if (g.libelle && (vue.programme || (g.mesure !== 'charge_reps' && g.mesure !== 'reps') || !gabaritsHomogenes(gabarits))) {
         entree.appendChild(el('div', 'type-mesure', g.libelle));
       }
 
@@ -4223,15 +4242,15 @@
   // la seconde ce qui vient d'être fait — deux observations, et une routine
   // n'observe rien. `EFFORT` tombe avec elles pour la même raison, et parce
   // que `routine_sets` n'a pas de colonne où le mettre.
-  function enTetesColonnes(g, programme, chargeProgramme, effortVu, repos, sansAide) {
+  function enTetesColonnes(g, programme, chargeProgramme, effortVu, repos, sansAide, sansPrec) {
     var noms = colonnesDe(g);
     var champs = noms.map(function (n) { return M().champDeMesure(n); });
     var cp = programme ? chargeProgramme : null;
     var sansCharge = !!cp && !cp.depart;
     var entetes = el('div', 'cols-seance' + classeDeGrille(g) +
-      (programme ? ' programme' : '') + (sansCharge ? ' sans-charge' : ''));
+      (programme ? ' programme' : '') + (sansCharge ? ' sans-charge' : '') + (sansPrec ? ' sans-prec' : ''));
     entetes.appendChild(el('span', '', ''));
-    if (!programme) entetes.appendChild(el('span', 'droite', 'PRÉC.'));
+    if (!programme && !sansPrec) entetes.appendChild(el('span', 'droite', 'PRÉC.'));
     champs.forEach(function (c, i) {
       if (sansCharge && noms[i] === 'charge_kg') return;
       // §9.17 — la nature de la charge nomme la colonne (« LEST (KG) », « AIDE (KG) »).
@@ -4979,8 +4998,9 @@
     // le dit. Rien n'est ignoré sans être dit.
     var cp = vue.programme && vue.chargeProgramme ? vue.chargeProgramme(s.exercise_slug) : null;
     var sansCharge = !!cp && !cp.depart;
+    var enBande = !!bandeDuBloc(bloc, vue, g);
     var classeGrille = classeDeGrille(g) + (vue.programme ? ' programme' : '') +
-      (sansCharge ? ' sans-charge' : '');
+      (sansCharge ? ' sans-charge' : '') + (enBande ? ' sans-prec' : '');
 
     // §2.6 — l'éclairage porte sur le TOUR, jamais sur la ligne isolée.
     //
@@ -5067,7 +5087,7 @@
     // d'historique à écrire, ni à faire diverger.
     var ligneP = S().correspondant(seriesDeSonExercice(bloc, s), iSerie,
       vue.precedent(s.exercise_slug));
-    if (!vue.programme) {
+    if (!vue.programme && !enBande) {
       rangee.appendChild(el('div', 'prec num', M().formatPrecedent(ligneP, g.mesure, g.nature)));
     }
 
@@ -5151,8 +5171,8 @@
     if (g.effort && !vue.programme) {
       var eff = el('button', 'eff-serie num' + (texteEffort(s) ? ' plein' : '') + (s.faite ? '' : ' eff-attente'), texteEffort(s));
       eff.type = 'button';
-      // 173 — le mot « fait » d'une série validée sans effort : dessiné par CSS depuis cet attribut (le contenu du bouton reste vide).
-      if (s.faite && !texteEffort(s)) eff.setAttribute('data-fait', 'fait');
+      // Lot 4 (n° 4a) — le MOT « fait » est retiré (la ligne verte, le numéro plein et la coche le disent déjà) ; la case d'effort d'une série validée sans effort s'éteint seulement.
+      if (s.faite && !texteEffort(s)) eff.classList.add('eff-vide');
       eff.addEventListener('click', function () { vue.surEffort(iExo, iSerie); });
       rangee.appendChild(eff);
     }

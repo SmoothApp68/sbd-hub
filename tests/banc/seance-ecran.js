@@ -3730,7 +3730,8 @@ const SETS_IMPORTES = [
     JSON.stringify(g4.map((x) => x.colonnes)));
   ok('les en-têtes suivent la mesure',
     JSON.stringify(g4.map((x) => x.entetes)) ===
-      JSON.stringify([['PRÉC.', 'KG', 'REPS'], ['PRÉC.', 'REPS'],
+      // Lot 4 (n° 1) : la fois d'avant du premier exercice a une charge égale sur son travail : la bande remplace la colonne PRÉC.
+      JSON.stringify([['KG', 'REPS'], ['PRÉC.', 'REPS'],
                       ['PRÉC.', 'DURÉE'], ['PRÉC.', 'DURÉE', 'DISTANCE']]),
     JSON.stringify(g4.map((x) => x.entetes)));
   // Depuis le chantier 25, la DURÉE ne porte plus d'unité écrite : c'est la
@@ -3738,10 +3739,11 @@ const SETS_IMPORTES = [
   ok('chaque champ porte son unité', JSON.stringify(g4.map((x) => x.champs)) ===
     JSON.stringify([['kg', ''], [''], [''], ['', 'km']]),
     JSON.stringify(g4.map((x) => x.champs)));
-  // 204 — « CHARGE × REPS » est retiré en séance (le grand chiffre et l'en-tête KG · REPS se lisent seuls) ; les autres mesures le gardent.
-  ok('le type de mesure est rappelé sous le nom (sauf « CHARGE × REPS », retiré en séance)',
+  // 204 — « CHARGE × REPS » est retiré en séance (le grand chiffre et l'en-tête KG · REPS se lisent seuls) ; lot 4 (n° 5) : « REPS SEULES »
+  // aussi (la tête dit « Poids du corps × 9 », l'en-tête « REPS ») ; la durée et la distance gardent le leur.
+  ok('le type de mesure est rappelé sous le nom (sauf « CHARGE × REPS » et « REPS SEULES », retirés en séance)',
     JSON.stringify(g4.map((x) => x.type)) ===
-      '[null,"REPS SEULES","DURÉE","DURÉE · DISTANCE"]',
+      '[null,null,"DURÉE","DURÉE · DISTANCE"]',
     JSON.stringify(g4.map((x) => x.type)));
 
   // §3 — la colonne d'effort n'existe que là où il y a des répétitions.
@@ -3756,7 +3758,10 @@ const SETS_IMPORTES = [
     Array.from(document.querySelectorAll('.bloc-seance')).map((b) =>
       Math.round(b.querySelector('.serie .ch-serie').getBoundingClientRect().width)));
   ok('le champ principal gagne en largeur à chaque colonne retirée',
-    largeurs[0] < largeurs[1] && largeurs[1] < largeurs[2] && largeurs[0] >= 70,
+    // Lot 4 (n° 1) : le 1er exercice a la bande, donc UNE colonne de moins (PRÉC.) que « reps seules » : il est plus large que lui,
+    // et la chaîne continue (reps < durée) ; sans bande, l'ordre d'avant (kg < reps < durée) reste exigé.
+    ((await page.evaluate(() => !!document.querySelector('.bloc-seance .bande')))
+      ? largeurs[0] > largeurs[1] : largeurs[0] < largeurs[1]) && largeurs[1] < largeurs[2] && largeurs[0] >= 70,
     'kg=' + largeurs[0] + ' reps=' + largeurs[1] + ' durée=' + largeurs[2] +
     ' durée(sortie)=' + largeurs[3] + ' px');
 
@@ -6823,8 +6828,10 @@ const SETS_IMPORTES = [
   // discriminante : la séance d'avant a deux chauffes, celle-ci aucune. Par
   // indice la colonne montrerait 40 ; par type elle montre 120 — comme le
   // fantôme, qu'elle contredisait sur device après la PR #282.
+  // Lot 4 (n° 1) : quand les séries de TRAVAIL d'avant ont toutes la même charge (ici 120, 120, 120), la colonne devient la bande
+  // « Jour : 120 kg × … » ; la même lecture (le travail, jamais la chauffe), seule la forme change.
   const colonneAffichee = () => page.evaluate(() =>
-    (document.querySelector('.ligne-serie .prec') || {}).textContent || '');
+    (document.querySelector('.ligne-serie .prec') || document.querySelector('.bloc-seance .bande') || {}).textContent || '');
   ok('[F] LA COLONNE « PRÉCÉDENT » AUSSI — elle ne contredit plus le fantôme',
     /120/.test(await colonneAffichee()) && !/\b40\b/.test(await colonneAffichee()),
     'colonne = « ' + (await colonneAffichee()) + ' » · fantôme « ' +
@@ -7160,7 +7167,8 @@ const SETS_IMPORTES = [
     const l = Array.from(document.querySelectorAll('.ligne-serie'))
       .filter((x) => x.querySelector('.no-serie').textContent !== 'W');
     const d = l[0];
-    return d ? { colonne: d.querySelector('.prec').textContent.trim(),
+    const lue = d && (d.querySelector('.prec') || d.closest('.bloc-seance').querySelector('.bande'));
+    return d ? { colonne: lue.textContent.trim(),
                  fantome: d.querySelector('.ch-serie input').placeholder } : null;
   });
   const cf = await colonneEtFantome();
@@ -7171,15 +7179,19 @@ const SETS_IMPORTES = [
     !!cf && cf.colonne.indexOf(cf.fantome) >= 0,
     'colonne « ' + (cf && cf.colonne) + ' » · fantôme « ' + (cf && cf.fantome) + ' »');
 
-  // La colonne d'une CHAUFFE montre une chauffe.
+  // Lot 4 (n° 1) — avec la bande, la chauffe n'a plus de colonne : la bande ne lit que le TRAVAIL (120), jamais la chauffe (40).
+  // Même discriminant qu'avant (une chauffe ne montre pas la charge de travail), dans la forme d'aujourd'hui.
   const colonneChauffe = () => page.evaluate(() => {
     const d = Array.from(document.querySelectorAll('.ligne-serie'))
       .filter((x) => x.querySelector('.no-serie').textContent === 'W')[0];
-    return d ? d.querySelector('.prec').textContent.trim() : '';
+    const b = document.querySelector('.bloc-seance .bande');
+    return d ? { prec: d.querySelector('.prec') ? d.querySelector('.prec').textContent.trim() : null,
+                 bande: b ? b.textContent.trim() : null } : null;
   });
-  ok('[C] sur une chauffe, elle montre une chauffe',
-    /40/.test(await colonneChauffe()),
-    'colonne = « ' + (await colonneChauffe()) + ' »');
+  const cc = await colonneChauffe();
+  ok('[C] sur une chauffe, la colonne a cédé la place à la bande : aucune cellule PRÉC., et la bande lit le travail (120), pas la chauffe (40)',
+    !!cc && cc.prec === null && !!cc.bande && /120/.test(cc.bande) && !/\b40\b/.test(cc.bande),
+    JSON.stringify(cc));
 
   // ── LE MÊME COMPTE SUR TOUS LES ÉCRANS ────────────────────────────────
   await validerToutes();

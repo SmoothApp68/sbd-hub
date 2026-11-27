@@ -8481,7 +8481,7 @@
       if (!liste.length && phrase) erreurs.push(nom + 'une phrase « n\u2019est pas lue » sans séance sautée');
       var cause = {};
       liste.forEach(function (q, j) {
-        if (!q || !q.jour || !(q.jour > D)) erreurs.push(nom + 'la séance sautée ' + (q && q.jour) + ' n\u2019est pas plus récente que celle du gris (' + D + ')');
+        if (!q || !q.jour || !(q.debut && k.fondement.date ? Date.parse(q.debut) > Date.parse(k.fondement.date) : q.jour > D)) erreurs.push(nom + 'la séance sautée ' + (q && q.jour) + ' n\u2019est pas plus récente que celle du gris (' + D + ')');
         cause[q && q.jour] = true;
       });
       if (phrase && liste.length) {

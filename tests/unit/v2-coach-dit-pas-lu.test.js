@@ -215,4 +215,16 @@ describe('I280 — le plan dit la séance sautée, et la vérifie', () => {
     // sans `entrees.seance`, l'ancien comportement : la dernière séance doit être dite
     expect(i280(p, { precedents: moi }).length).toBe(1);
   });
+  test('une séance sautée du MÊME jour civil que celle du gris, mais plus tard, est plus récente', () => {
+    const p = planDe(calcul(G));
+    const d = p.exercices[0].consigne.fondement.date;
+    const tard = new Date(Date.parse(d) + 3600e3).toISOString();
+    const x = p.exercices[0];
+    x.nonLues = [{ debut: tard, jour: x.nonLues[0].jour, cause: 'sans_coach' }];
+    x.consigne.fondement = Object.assign({}, x.consigne.fondement, { date: d.slice(0, 10) + 'T10:00:00.000Z' });
+    x.nonLues[0].jour = d.slice(0, 10); x.nonLues[0].debut = d.slice(0, 10) + 'T12:00:00.000Z';
+    expect(i280(p).join('\n')).not.toMatch(/n’est pas plus récente/);
+    x.nonLues[0].debut = d.slice(0, 10) + 'T08:00:00.000Z';
+    expect(i280(p).join('\n')).toMatch(/n’est pas plus récente/);
+  });
 });

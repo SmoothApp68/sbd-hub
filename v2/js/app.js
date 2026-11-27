@@ -18553,7 +18553,7 @@
   // `Deraille.semaineQuiDeraille`, lue telle quelle. Ce que la personne décide vaut pour CETTE SEMAINE SEULEMENT et
   // suit la personne d'un appareil à l'autre : une ligne `semaine_choix` (v2_085) par séance manquée, écrite par la
   // FILE (jamais en direct), relue au démarrage, gardée aussi sur l'appareil pour le hors-ligne (`CLE_SEMAINE`).
-  // Rien ne touche une routine ; un exercice réparti se lit dans la séance (« ajouté : séance manquée de mardi »).
+  // Rien ne touche une routine ; un exercice réparti se lit dans la séance (« ajouté : vient de Jambes »).
   // En « Juste un carnet », le coach se tait.
   var CLE_SEMAINE = 'semaine-choix';
   var semaineDecalee = null;   // { jour, routine } : après « la suite se décale », la bande et « Démarrer »
@@ -18862,6 +18862,8 @@
       // Le niveau du questionnaire : « Moins d'un an » = débutant (la règle du générateur, 60-6).
       debutant: Profil.estDebutant(p),
       dureeMax_s: Number(p.duree_seance_min) > 0 ? Number(p.duree_seance_min) * 60 : null,
+      // 27/11 — « Moins en ce moment » : la carte n'ajoute rien (MOTEUR §9.24).
+      tempsReponse: p.temps_reponse,
       routines: Routines.visibles(routines), catalogue: catalogueIndexe(),
       seances: fait.seances, volume: fait.volume, etat: lireLaSemaine()
     };

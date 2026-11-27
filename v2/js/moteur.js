@@ -4920,6 +4920,9 @@
   //     en couleur du coach, pour que le dépassement se voie — `ambre` ;
   //   · `max`, `marge`, vide : rien en séance (le générateur de programme les lira).
   // Rend `{ ouvrir: minutes | null, ambre: booléen }`.
+  // 27/11 (décision 77) — « J'ai moins de temps en ce moment » : la lecture UNIQUE de cette déclaration. La carte de
+  // « J'ai peu de temps » (`reponseDeTemps`) et la semaine qui déraille (§9.24, qui n'ajoute alors rien) la lisent ici.
+  function disaitMoinsDeTemps(tempsReponse) { return tempsReponse === 'moins'; }
   function reponseDeTemps(tempsReponse, dureeS, declareeMin, intentionProfil) {
     var rien = { ouvrir: null, ambre: false };
     if (coachSeTait(intentionProfil)) return rien;
@@ -4928,7 +4931,7 @@
     // L'ESTIMATION AFFICHÉE (arrondie à la minute) doit dépasser la durée visée : 3 610 s
     // s'écrit « 60 min » — ni carte « tenir en 60 min » ni ambre pour une durée qui ne dépasse pas.
     if (minutesDe(dureeS) <= cibles[0].min) return rien;
-    if (tempsReponse === 'moins') return { ouvrir: cibles[0].min, ambre: false };
+    if (disaitMoinsDeTemps(tempsReponse)) return { ouvrir: cibles[0].min, ambre: false };
     if (tempsReponse === 'varie') return { ouvrir: null, ambre: true };
     return rien;
   }
@@ -14640,7 +14643,7 @@
     structureAllegee: structureAllegee,
     appliquerRaccourci: appliquerRaccourci,
     texteDureeEstimee: texteDureeEstimee, texteDureeCourte: texteDureeCourte,
-    ciblesDeTemps: ciblesDeTemps, reponseDeTemps: reponseDeTemps, cibleDuProgramme: cibleDuProgramme,
+    ciblesDeTemps: ciblesDeTemps, reponseDeTemps: reponseDeTemps, disaitMoinsDeTemps: disaitMoinsDeTemps, cibleDuProgramme: cibleDuProgramme,
     libelleCibleTemps: libelleCibleTemps,
     CIBLES_TEMPS_PAR_DEFAUT: CIBLES_TEMPS_PAR_DEFAUT,
     texteDureeAllegee: texteDureeAllegee,

@@ -1596,6 +1596,10 @@ const NOTIONS = [
     raison: 'MOTEUR §9.22 (60-4) : 21 jours CALENDAIRES (le changement d’heure ne les change pas), la même arithmétique que ' +
       'le rappel de phase (`jourCalendaire`) — pas une soustraction de millisecondes à l’écran. 66A : « pas encore ' +
       'dépassé » (§5 ter.3, un record d’au moins 12 mois) se compte de même.' },
+  { notion: 'la déclaration « J’ai moins de temps en ce moment » (`temps_reponse = moins`)', pr: 'correctif 27/11/2026',
+    module: 'moteur.js', fonction: 'disaitMoinsDeTemps', lecteurs: ['deraille.js'],
+    raison: 'MOTEUR §9.18 et §9.24 (27/11/2026, décision 77) : une seule lecture de la réponse. `reponseDeTemps` ouvre la carte de ' +
+      '« J’ai peu de temps » ; la semaine qui déraille n’ajoute rien (ni « Répartir » ni « Ajouter »). Aucun littéral « moins » ailleurs.' },
   { notion: 'la durée que le programme construit doit tenir (la durée déclarée, avec « C’est mon maximum », « Moins en ce moment » ou « Ça varie »)', pr: '60-U13',
     module: 'moteur.js', fonction: 'cibleDuProgramme', lecteurs: ['app.js'],
     // 66D : lue une fois (`cibleDuProgrammeConstruit`) par le raccourci et par les supersets (`assemblerLeProgramme`).

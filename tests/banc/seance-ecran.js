@@ -24808,8 +24808,8 @@ const SETS_IMPORTES = [
     // ── 1. LA CARTE, PUIS « RÉPARTIR ».
     const A = await ouvrir99('D99-répartir');
     const c1 = await carte99();
-    ok('[D99] la carte parle du plan : « Jambes D99 n’a pas eu lieu mardi. », trois choix, le décalage mis en avant et sa raison en une ligne',
-      !!c1 && c1.titre === 'Jambes D99 n\'a pas eu lieu mardi.' &&
+    ok('[D99] la carte parle du plan : « Il reste Jambes D99 à placer cette semaine. », trois choix, le décalage mis en avant et sa raison en une ligne',
+      !!c1 && c1.titre === 'Il reste Jambes D99 à placer cette semaine.' &&
         nb99(c1.choix) === nb99(['* Jambes D99 aujourd\'hui · la suite se décale', 'Répartir ses séries dans la semaine', 'Garder Pull D99, comme prévu']) &&
         c1.pourquoi === 'Mis en avant : il garde les 10 séries de Jambes D99.' &&
         nb99(c1.bande) === nb99(['Push D99', 'Jambes D99', 'Pull D99', '—', 'Push D99', 'Jambes D99', '—']) &&
@@ -24822,8 +24822,8 @@ const SETS_IMPORTES = [
       const m = b.querySelector('.ajout-semaine');
       return b.textContent.slice(0, 60) + (m ? ' | ' + m.textContent : '');
     }));
-    ok('[D99] « Répartir » : la carte se ferme ; Pull d’aujourd’hui a son leg curl en plus, « ajouté : séance manquée de mardi » (pas de squat ni de roumain après le rowing : lombaires)',
-      apres1 !== null && apres1.titre === null && apres1.choix.length === 0 && blocs1.length === 3 && /Leg Curl D99/.test(blocs1[2]) && /ajouté : séance manquée de mardi/.test(blocs1[2]) &&
+    ok('[D99] « Répartir » : la carte se ferme ; Pull d’aujourd’hui a son leg curl en plus, « ajouté : vient de Jambes D99 » (pas de squat ni de roumain après le rowing : lombaires)',
+      apres1 !== null && apres1.titre === null && apres1.choix.length === 0 && blocs1.length === 3 && /Leg Curl D99/.test(blocs1[2]) && /ajouté : vient de Jambes D99/.test(blocs1[2]) &&
         !blocs1.some((b) => /Squat D99|Roumain D99/.test(b)), nb99([apres1, blocs1]));
     await abandonner();
     await aller('/saisie');
@@ -24856,7 +24856,7 @@ const SETS_IMPORTES = [
     ok('[D266] « Annuler » : une ligne `annule` part par la file (journal semaine_choix, même semaine et même routine, avant = répartir), la question revient',
       l266.choix === 'annule' && l266.semaine === '2026-10-12' && l266.detail.avant === 'repartir' && l266.detail.jour === 2 &&
         base.journal.some((j) => j.op === 'semaine_choix' && j.lignes.some((x) => x.choix === 'annule')) &&
-        !!q266 && q266.titre === 'Jambes D99 n\'a pas eu lieu mardi.' && q266.faits.length === 0, nb99([l266, q266]));
+        !!q266 && q266.titre === 'Il reste Jambes D99 à placer cette semaine.' && q266.faits.length === 0, nb99([l266, q266]));
     await choisir99('repartir');
     // Une séance de Pull (la routine portée par la répartition), commencée après le choix, vue à la synchronisation.
     const apresLeChoix = new Date(2026, 9, 14, 10, 40, 0).toISOString();

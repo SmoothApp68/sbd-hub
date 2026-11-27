@@ -4024,7 +4024,7 @@
         if (lib.tempo) entree.appendChild(tapable(el('div', 'consigne-dit tempo-en-cours', lib.tempo)));
       }
       poserEncadre();
-      // 99 (MOTEUR §9.24) — un exercice ajouté pour cette semaine seulement : « ajouté : séance manquée de mardi ».
+      // 99 (MOTEUR §9.24) — un exercice ajouté pour cette semaine seulement : « ajouté : vient de Jambes ».
       if (x.ajout) entree.appendChild(el('div', 'consigne-dit ajout-semaine', 'ajouté : ' + x.ajout));
       // 204 — EN SÉANCE, un exercice seul n'a plus de rangée de réglages : le repos est en tête de la colonne ✓ (`enTetesColonnes`),
       // la note dans le « ⋯ ». Dans un superset, le repos reste PAR BRANCHE (une seule en-tête ne peut pas porter deux repos).

@@ -1596,6 +1596,10 @@ const NOTIONS = [
     raison: 'MOTEUR §9.22 (60-4) : 21 jours CALENDAIRES (le changement d’heure ne les change pas), la même arithmétique que ' +
       'le rappel de phase (`jourCalendaire`) — pas une soustraction de millisecondes à l’écran. 66A : « pas encore ' +
       'dépassé » (§5 ter.3, un record d’au moins 12 mois) se compte de même.' },
+  { notion: 'la déclaration « J’ai moins de temps en ce moment » (`temps_reponse = moins`)', pr: 'correctif 27/11/2026',
+    module: 'moteur.js', fonction: 'disaitMoinsDeTemps', lecteurs: ['deraille.js'],
+    raison: 'MOTEUR §9.18 et §9.24 (27/11/2026, décision 77) : une seule lecture de la réponse. `reponseDeTemps` ouvre la carte de ' +
+      '« J’ai peu de temps » ; la semaine qui déraille n’ajoute rien (ni « Répartir » ni « Ajouter »). Aucun littéral « moins » ailleurs.' },
   { notion: 'la durée que le programme construit doit tenir (la durée déclarée, avec « C’est mon maximum », « Moins en ce moment » ou « Ça varie »)', pr: '60-U13',
     module: 'moteur.js', fonction: 'cibleDuProgramme', lecteurs: ['app.js'],
     // 66D : lue une fois (`cibleDuProgrammeConstruit`) par le raccourci et par les supersets (`assemblerLeProgramme`).
@@ -1827,7 +1831,7 @@ const NOTIONS = [
     raison: 'les trois listes du catalogue comptées une fois (`nombreDeMuscles`) : le raccourci, Ma salle, le générateur ' +
       'et « En faire une routine » disent la même chose d’un exercice sans muscles.' },
   { notion: 'le jour civil d’un instant ou d’une date (AAAA-MM-JJ, heure locale)', pr: '124-U1',
-    module: 'moteur.js', fonction: 'jourCivil', lecteurs: ['app.js', 'faits.js', 'generateur.js', 'plan.js', 'reserve.js', 'objectif.js', 'social.js', 'assistant.js', 'partage-image.js'],
+    module: 'moteur.js', fonction: 'jourCivil', lecteurs: ['app.js', 'faits.js', 'generateur.js', 'plan.js', 'reserve.js', 'objectif.js', 'social.js', 'assistant.js', 'partage-image.js', 'deraille.js'],
     raison: 'un seul passage d’un instant au jour du calendrier de la personne : les faits, le plan, la réserve, le ' +
       'générateur, l’objectif (124 : sa copie retirée, 01 #14) et l’app comptent les mêmes jours ; 208 : le social ' +
       '(bornes et calendrier) et le quota de l’assistant lisent la même clé, leurs copies retirées.' },
@@ -2359,7 +2363,7 @@ const NOTIONS = [
   { notion: 'la spécialité du but d’entraînement (ce que le but change)', pr: 'correctif 26/11/2026',
     module: 'modele.js', fonction: 'specialiteDe', lecteurs: ['generateur.js', 'moteur.js', 'plan.js', 'app.js', 'questionnaire.js'],
     par: ['marcheSuivanteBrute'],
-    parAilleurs: { 'moteur.js': ['prudence', 'zonesDeBloc', 'grosseSerieParDefaut', 'zoneDuPremierBloc', 'blocSuivant', 'objectifDeForce', 'rateSousLaZone', 'reactionDeSerie', 'reactionDExercice'],
+    parAilleurs: { 'moteur.js': ['prudence', 'zonesDeBloc', 'grosseSerieParDefaut', 'zoneDuPremierBloc', 'blocSuivant', 'objectifDeForce', 'rateSousLaZone', 'reactionDeSerie', 'reactionDExercice', 'testRaisonDuDefaut'],
       'generateur.js': ['specialite'], 'plan.js': ['materielDe'], 'app.js': ['vueDeLaSemaineForme', 'ouvrirApercuProgramme'], 'questionnaire.js': ['ecransVisibles'] },
     interditAilleurs: {
       motif: /\b(?:objectif|obj|objectifDe\([^()]*\))\s*[!=]==?\s*'(?:force|muscle|les_deux|forme|calisthenie)'|\[\s*'(?:force|muscle|les_deux|forme|calisthenie)'\s*,\s*'(?:force|muscle|les_deux|forme|calisthenie)'/,

@@ -77,6 +77,8 @@ function profilEcran(profil, options) {
     ligneRetenusDuCoach: () => [],
     // 201 — « Les mots du coach » : la feuille qu'ouvre la ligne (lexique du moteur).
     Moteur, ouvrirMotsDuCoach: () => {},
+    // 27/11/2026 (n° 59) — « Terminer mon questionnaire » ne s'affiche que s'il manque une réponse utile (`Questionnaire.questionnaireAAchever`).
+    Questionnaire: require('../../v2/js/questionnaire.js'), aDesRoutinesConnu: () => (opt.aDesRoutines === undefined ? null : opt.aDesRoutines),
     // 29/11/2026 — « À propos de ton coach » : la ligne (la vraie, extraite) lit `faits.parisDuCoach` (`options.parisDuCoach`, absent : aucun pari).
     Bilan: require('../../v2/js/bilan.js'), parisDeConsigneConnus: () => [], ouvrirParisDuCoach: () => {},
     // 273 — « Jalons » et « Faits seulement » (le mode sobre de l'appareil : éteint ici).

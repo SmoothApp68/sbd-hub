@@ -4920,6 +4920,9 @@
   //     en couleur du coach, pour que le dépassement se voie — `ambre` ;
   //   · `max`, `marge`, vide : rien en séance (le générateur de programme les lira).
   // Rend `{ ouvrir: minutes | null, ambre: booléen }`.
+  // 27/11 (décision 77) — « J'ai moins de temps en ce moment » : la lecture UNIQUE de cette déclaration. La carte de
+  // « J'ai peu de temps » (`reponseDeTemps`) et la semaine qui déraille (§9.24, qui n'ajoute alors rien) la lisent ici.
+  function disaitMoinsDeTemps(tempsReponse) { return tempsReponse === 'moins'; }
   function reponseDeTemps(tempsReponse, dureeS, declareeMin, intentionProfil) {
     var rien = { ouvrir: null, ambre: false };
     if (coachSeTait(intentionProfil)) return rien;
@@ -4928,7 +4931,7 @@
     // L'ESTIMATION AFFICHÉE (arrondie à la minute) doit dépasser la durée visée : 3 610 s
     // s'écrit « 60 min » — ni carte « tenir en 60 min » ni ambre pour une durée qui ne dépasse pas.
     if (minutesDe(dureeS) <= cibles[0].min) return rien;
-    if (tempsReponse === 'moins') return { ouvrir: cibles[0].min, ambre: false };
+    if (disaitMoinsDeTemps(tempsReponse)) return { ouvrir: cibles[0].min, ambre: false };
     if (tempsReponse === 'varie') return { ouvrir: null, ambre: true };
     return rien;
   }
@@ -9484,8 +9487,8 @@
   // le reste : la ligne qu'elle a ajoutée ne la retire pas en pleine séance.
   // Pas de dégressive au poids du corps ni sur une aide (§9.17, I30) : le
   // silence, comme le repli.
-  function marcheIsolee(n, zone, phase, place, proposee, palier, degressive) {
-    var m = marcheIsoleeBrute(n, zone, phase, place, proposee, degressive);
+  function marcheIsolee(n, zone, phase, place, proposee, palier, degressive, sansLourd) {
+    var m = marcheIsoleeBrute(n, zone, phase, place, proposee, degressive, sansLourd);
     var p = nombre(palier);
     if (p !== null && p <= 0 && m === MARCHE_DEGRESSIVE) return MARCHE_SILENCE;
     if (p === 0 && (m === MARCHE_SCHEMA || m === MARCHE_REPLI)) return MARCHE_SILENCE;
@@ -9493,7 +9496,7 @@
     return m;
   }
 
-  function marcheIsoleeBrute(n, zone, phase, place, proposee, degressive) {
+  function marcheIsoleeBrute(n, zone, phase, place, proposee, degressive, sansLourd) {
     var d = degressive || {};
     var k = nombre(n);
     if (k === null || k < 1) return null;
@@ -9506,7 +9509,10 @@
       if (proposee === true && (d.possible === true || d.ici === true)) return MARCHE_DEGRESSIVE;
       return !muscle || proposee === true ? MARCHE_REPLI : MARCHE_SILENCE;
     }
-    if (estZoneForce(zone)) return MARCHE_SCHEMA;
+    // 27/11/2026 (SÉCURITÉ, I282) — la carte « Passer à 3-5 reps » (Mix → Lourd) ne se fait JAMAIS à un exercice à ménager ni à une personne
+    // protégée (`versLourdInterdit`) : l'escalier saute cette marche, sans carte ni pari (`null`, comme entre deux déclenchements : la phrase du compteur
+    // reste un fait en tête) ; la suivante (le repli, au 2e déclenchement) reste la sienne.
+    if (estZoneForce(zone)) return sansLourd === true && SCHEMAS[zone] && SCHEMAS[zone].vers === 'lourd' ? null : MARCHE_SCHEMA;
     if (phase === 'seche') return MARCHE_SECHE;
     // Audit du 16/10/2026, 01 #6 — LA SÉRIE DE PLUS DEMANDE UNE ZONE MUSCLE : une consigne sans zone (règle de
     // bord) recevait la carte, et son acceptation n'ajoutait rien (`seriesDePlusActives` exige une zone). Sans
@@ -9539,11 +9545,24 @@
       ' reste ta meilleure charge de travail depuis ' + nombreFr(compteur, regle('compteur')) + ' séances';
   }
 
+  // 27/11/2026 (SÉCURITÉ, I282, décision du fondateur) — QUI NE REÇOIT JAMAIS LA CARTE VERS LOURD (« Passer à 3-5 reps » en Mix, au schéma ; la règle de bord, des simples ou doubles vers 3-5, va vers MOINS lourd et reste ouverte). UNE fonction, lue par le plan (`marchesIsolees`) et par l'invariant (`verifierSansLourd`, qui la recalcule depuis les entrées) :
+  //   · `menagee` : l'exercice charge une zone à ménager (le profil, `zonesMenagees`), choisie ou non par la personne : proposer le lourd à une zone
+  //     que la personne ménage contredit 187 (A4) et I75 ;
+  //   · `protegee` : la population protégée (`populationProtegee` : 65 ans et plus connus, débutant, objectif Forme).
+  // Rend la raison (`'menagee'` d'abord, `'protegee'`), ou `null`. Un seul sens : elle n'ouvre rien, elle ne ferme que la carte vers Lourd.
+  function versLourdInterdit(o) {
+    var x = o || {};
+    if (x.menagee === true) return 'menagee';
+    if (x.protegee === true) return 'protegee';
+    return null;
+  }
+
   // CHANGER DE SCHÉMA (zones force, n = 1) : la carte sous l'exercice. Rend
-  // `null` hors des zones force.
-  function carteSchema(zone, meilleur, compteur, avancent, objectif) {
+  // `null` hors des zones force, et `null` vers Lourd pour qui ne le reçoit jamais (`sansLourd`, `versLourdInterdit`).
+  function carteSchema(zone, meilleur, compteur, avancent, objectif, sansLourd) {
     var s = SCHEMAS[zone];
     if (!s || !meilleur || meilleur.niveau === null || meilleur.niveau === undefined) return null;
+    if (sansLourd === true && s.vers === 'lourd') return null;
     return {
       zone: zone, nouvelle_zone: s.vers,
       phrase: meilleurDepuis(meilleur, compteur) + (avancent ? ', et tes autres exercices avancent.' : '.'),
@@ -13480,6 +13499,8 @@
   var TEST_ESSAI_1 = 92, TEST_ESSAI_2 = 97, TEST_ESSAI_3_FACILE = 101;              // % du max estimé
   var TEST_ESSAIS_MAX = 3;
   var TEST_SERIE_PCT = 85, TEST_SERIE_PCT_DEBUTANT = 80;
+  // 27/11/2026 — l'issue de la série de mesure sans sécurités ni pareur : « sinon, vise 1 en réserve » (`testConsigneSerie`, source `test.reserve_sans`).
+  var TEST_SERIE_RESERVE_SANS_SECURITES = 1;
   var TEST_SERIE_VISEE = 5, TEST_SERIE_VISEE_DEBUTANT = Object.freeze([6, 8]);
   var TEST_SERIE_PLAFOND = 10, TEST_SERIE_PLAFOND_SOULEVE = 6;
   var TEST_REPOS_ESSAI_S = Object.freeze([240, 300, 300]);                          // 4 à 5 min
@@ -13517,11 +13538,14 @@
   // un débutant (moins d'un an), 65 ans ou plus (`plus65`, le fait existant, pas un seuil de plus), ou un max estimé tiré d'une série de
   // plus de 5 reps (au-delà, le calcul est moins fiable : Reynolds 2006). Sinon « Viser mon max ». `f` : `{ debutant, plus65, repsDuMax }` ;
   // un fait inconnu (`null`, un max sans reps connues) ne compte pas. La façon choisie prime toujours (`testModeValide`).
+  // 27/11/2026 — le BUT lit la fiche : `f.objectif` dont `Modele.specialiteDe(objectif).testParDefaut` vaut `serie` (Forme, population protégée : aucune source
+  // ne soutient un max tenté par défaut) donne la série de mesure ; un but inconnu ou absent, la fiche neutre (« Viser mon max »). Seul le défaut change.
   var TEST_REPS_FIABLES_MAX = 5;
   function testRaisonDuDefaut(f) {
     var o = f && typeof f === 'object' ? f : {};
     if (o.debutant === true) return 'debutant';
     if (o.plus65 === true) return 'plus65';
+    if (Modele().specialiteDe(o.objectif).testParDefaut === TEST_MODE_SERIE) return 'but';
     var r = nombre(o.repsDuMax);
     if (r !== null && r > TEST_REPS_FIABLES_MAX) return 'reps';
     return null;
@@ -13538,6 +13562,9 @@
     if (raison === 'debutant') {
       cle = null;
       texte = 'Moins d’un an de pratique : le coach propose une série de mesure plutôt qu’une tentative. Tu peux viser ton max si tu le connais.';
+    } else if (raison === 'but') {
+      cle = null;
+      texte = 'En objectif Forme, le coach propose une série de mesure plutôt qu’une tentative. Tu peux viser ton max si tu le connais.';
     } else if (raison === 'plus65') {
       cle = 'test.defaut.age';
       texte = 'À partir de ' + nombreFr(AGE_PLAFOND_BAS, c) + ' ans, le coach propose une série de mesure. Tu peux viser ton max si tu le connais.';
@@ -13731,7 +13758,11 @@
       : nombreFr(s.visee[0], regle('test.visee_bas')) + ' à ' + nombreFr(s.visee[1], regle('test.visee_haut'));
     var t = 'Série de mesure' + DEUX_POINTS + enKg(s.charge, regle('test')) + ', visée ' + visee + ' reps, ' +
       (s.reserve > 0 ? testReserve(s.reserve) + ', ' : 'autant que tu peux, ') + nombreFr(s.plafond, regle('test.plafond')) + ' reps au plus.';
-    return t + ' Tu t’arrêtes quand la technique lâche.';
+    t += ' Tu t’arrêtes quand la technique lâche.';
+    // 27/11/2026 (SÉCURITÉ, décision du fondateur) — la série la plus proche de l'échec de l'app, au squat et au développé couché à la barre
+    // (`surLesSecurites`), le dit comme l'essai (`testConsigneEssai`) : à la FIN de la consigne, dans la même consigne (3 éléments + 1 carte : aucun élément
+    // de plus, I269), avec une issue pour qui n'a pas de sécurités (jamais « sur les sécurités » sans issue). Un nombre, donc cité (I26).
+    return t + (s.surLesSecurites ? ' Sur les sécurités ou avec un pareur ; sinon, vise ' + nombreFr(TEST_SERIE_RESERVE_SANS_SECURITES, regle('test.reserve_sans')) + ' en réserve.' : '');
   }
   // Le « Pourquoi ». `f` : { mode, max, pariCharge, serie }. Aucun chiffre écrit à la main (I26) : les rangs se disent en mots.
   function pourquoiTest(f) {
@@ -14561,7 +14592,7 @@
     TEST_MODE_MAX: TEST_MODE_MAX, TEST_MODE_SERIE: TEST_MODE_SERIE, TEST_MONTEE: TEST_MONTEE, TEST_ESSAIS_MAX: TEST_ESSAIS_MAX,
     TEST_ACCESSOIRES_MAX: TEST_ACCESSOIRES_MAX, TEST_SEMAINES_MIN: TEST_SEMAINES_MIN, TEST_VALIDITE_JOURS: TEST_VALIDITE_JOURS,
     TEST_PHASES_AVANT: TEST_PHASES_AVANT, TEST_SERIE_PLAFOND: TEST_SERIE_PLAFOND, TEST_SERIE_PLAFOND_SOULEVE: TEST_SERIE_PLAFOND_SOULEVE,
-    TEST_ESSAI_1: TEST_ESSAI_1, TEST_ESSAI_2: TEST_ESSAI_2, TEST_SERIE_PCT: TEST_SERIE_PCT, TEST_SERIE_PCT_DEBUTANT: TEST_SERIE_PCT_DEBUTANT,
+    TEST_ESSAI_1: TEST_ESSAI_1, TEST_ESSAI_2: TEST_ESSAI_2, TEST_SERIE_PCT: TEST_SERIE_PCT, TEST_SERIE_PCT_DEBUTANT: TEST_SERIE_PCT_DEBUTANT, TEST_SERIE_RESERVE_SANS_SECURITES: TEST_SERIE_RESERVE_SANS_SECURITES,
     testModeParDefaut: testModeParDefaut, testRaisonDuDefaut: testRaisonDuDefaut, testPhraseDuDefaut: testPhraseDuDefaut, TEST_REPS_FIABLES_MAX: TEST_REPS_FIABLES_MAX, testModeValide: testModeValide, testMontee: testMontee, testEssai: testEssai,
     testSerieAuMax: testSerieAuMax, testMesure: testMesure, testBarreDuJour: testBarreDuJour, testBarresEnConflit: testBarresEnConflit, testBarreTestable: testBarreTestable, phraseSansEssai: phraseSansEssai,
     testProposable: testProposable, testConsigneEssai: testConsigneEssai, testConsigneSerie: testConsigneSerie, pourquoiTest: pourquoiTest,
@@ -14612,7 +14643,7 @@
     structureAllegee: structureAllegee,
     appliquerRaccourci: appliquerRaccourci,
     texteDureeEstimee: texteDureeEstimee, texteDureeCourte: texteDureeCourte,
-    ciblesDeTemps: ciblesDeTemps, reponseDeTemps: reponseDeTemps, cibleDuProgramme: cibleDuProgramme,
+    ciblesDeTemps: ciblesDeTemps, reponseDeTemps: reponseDeTemps, disaitMoinsDeTemps: disaitMoinsDeTemps, cibleDuProgramme: cibleDuProgramme,
     libelleCibleTemps: libelleCibleTemps,
     CIBLES_TEMPS_PAR_DEFAUT: CIBLES_TEMPS_PAR_DEFAUT,
     texteDureeAllegee: texteDureeAllegee,
@@ -14707,6 +14738,7 @@
     marcheIsolee: marcheIsolee,
     autresAvancent: autresAvancent,
     carteSchema: carteSchema,
+    versLourdInterdit: versLourdInterdit,
     phraseSeche: phraseSeche,
     repliEscalier: repliEscalier,
     seanceDouloureuse: seanceDouloureuse,

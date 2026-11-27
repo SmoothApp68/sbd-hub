@@ -112,6 +112,8 @@ describe('PR 2 — la suite du constat suit la zone en vigueur', () => {
       Profil: { rythmeDe: () => 'normal', salleDeLExercice: () => null, estDebutant: () => false, plus65DuProfil: () => null, objectifDe: () => null, prudenceDuProfil: () => ({ plafond: 0.15, unCran: false, raison: null }) },   // 108 — la salle (aucune ici)
       Seance: { partEnBase: () => true },
       Generateur: require('../../v2/js/generateur.js'),   // 187 : `optionsDeConsigne` lit la zone à ménager (A4)
+      // 27/11/2026 : la clé du plancher (`Plan.cleDePlancherDe`) — ici la barre seule (ces catalogues n'ont pas de roumain).
+      Plan: { cleDePlancherDe: (c, s) => require('../../v2/js/generateur.js').familleDeBarre(s, c) },
       Moteur: { populationProtegee: () => false, estIsolation: () => false, structureDeBlocDuJour: () => null, suiteDExercice: (g, j, e, a, o) => { appels.push(o.correction); return { apres: { consigne: { zone: o.correction } }, cranSuivant: null }; },
                 equipementEffectif: (e) => (e ? e.equipement || null : null) },
       // 50-1 : les deux lectures du profil et des modes que `optionsDeConsigne` appelle.

@@ -91,6 +91,9 @@ function histoires(n) {
   for (let k = 0; k < 12; k++) H.push(fiche('test', qp(['squat_barre', 'souleve_de_terre_barre']), { nseances: 12 }));          // la semaine de test
   // LOT 4 : le débutant de 50 à 59 ans (un cran à la fois, `AGE_UN_CRAN`) : le saut de plusieurs crans au squat (100 kg : 10 % = 4 crans), que le tirage libre ne joue jamais.
   for (let k = 0; k < 24; k++) H.push(Object.assign(fiche('debutant50', 'squat_barre', { zone: qp(['lourd', 'hypertrophie']), reglage: 'franc', debutant: true, nseances: SCRIPTS.saut.length }), { cas: null, dirigee: 'saut50', script: SCRIPTS.saut, age: [50, 54, 59][k % 3], noteR: false }));
+  // G7 (27/11/2026, MOTEUR §14.7 ter, I281) — LA SÉRIE DE PLUS ACCEPTÉE ET LA PLACE RELUE : une série de plus acceptée à la séance 2 ; le volume du muscle a de la place jusqu'à la séance `placeJusque` (4, 7 ou jamais),
+  // puis plus. La base (sans G7) la garde jusqu'au progrès ; la version G7 l'arrête, une fois, en gris (la séance d'avant portait la ligne en plus).
+  for (let k = 0; k < 18; k++) H.push(fiche('plus', qp(['curl_halteres', 'rowing_halteres']), { zone: qp(['hypertrophie', 'volume']), reglage: 'normal', nseances: 14, placeJusque: [4, 7, 99][k % 3] }));
   return H;
 }
 const esp = t => String(t == null ? '' : t).replace(/[  \s]+/g, ' ').trim();
@@ -108,6 +111,7 @@ function signer(X, H, groupes, i, avant, etat) {
   if (E.salle) o.salle = E.salle;
   if (cas === 'lest') { o.lestReponse = H.lest; o.lestPossible = true; }
   if (cas === 'decharge') o.periodesAllegees = etat.periodes;
+  o.seancesSousConsigne = groupes.map(g => g.seance.id);   // B3 : toutes les séances d'avant comptent comme sous consigne (le banc d'origine n'en passe aucune)
   let R; try { R = X.M.consigneDExercice(groupes, undefined, avant, o); } catch (e) { R = { consigne: null, erreur: String(e).slice(0, 80) }; }
   const k = R.consigne;
   let x = null, p = null, err = [];
@@ -119,6 +123,14 @@ function signer(X, H, groupes, i, avant, etat) {
       reglage: H.reglage, objectif: Object.prototype.hasOwnProperty.call(H, 'objectif') ? H.objectif : H.protegee ? 'forme' : 'muscle', debutant: H.debutant, plus65: H.age !== null && H.age >= 65, prudence: o.prudence, parisRates: etat.parisRates, catalogue: cat };
     const jour = jourDe(avant);
     if (cas === 'decharge' && etat.decharge(i)) e.escalier = { cartes: [{ reponse: 'acceptee', debut: jour, fin: jour, declencheur: 'banc', jour }], seriesRoutine: { [H.slug]: H.nseries } };
+    if (cas === 'plus' && i >= 2) {
+      const tousLesJours = '2026-01-06';
+      e.escalier = { cartes: [], compteurs: [], noms: {}, seriesRoutine: { [H.slug]: H.nseries },
+        marches: [{ seance: 'S2', jour: tousLesJours, exercice: H.slug, marche: 'serie_de_plus', reponse: 'acceptee', compteur: 0, debut: tousLesJours + 'T10:00:00+00:00', n: H.nseries }] };
+      e.volume = { quadriceps: { place: i < H.placeJusque, moyenne: 8, max: 12, seuil: 10, fenetres: 12 } };
+      const der = groupes[groupes.length - 1];
+      if (der && der.series) e.precedents = { [H.slug]: { seance: { id: 'P', debut: avant }, series: der.series.concat([Object.assign({}, der.series[der.series.length - 1], { type_serie: 'travail' })]).map(q => Object.assign({ type_serie: 'travail' }, q)) } };
+    }
     if (cas === 'veille') { e.activiteVeille = { seanceId: 'a', slug: 'football', nom: 'Football', jour }; e.veilleChoix = etat.veille(i); }
     if (cas === 'test' && etat.test(i)) e.semaineDeTest = { debut: jour, fin: jour, modes: {}, mesures: {}, refus: {}, maxEstimes: { [H.slug]: Math.round(E.kg * 1.3) } };
     p = X.T.planDeSeance(e); x = p.exercices[0]; err = X.T.verifierPlan(p, e).erreurs || [];
@@ -131,7 +143,9 @@ function signer(X, H, groupes, i, avant, etat) {
     const c = x && x.consigne || null, vl = c && c.veilleLegere || null, va = p && p.veilleActivite || null, st = p && p.semaineDeTest || null;
     sig.push(c && [c.etat, c.ligne, c.haut, c.n, c.couvre, c.allegee || null, c.carteLest || null], vl, va && [va.slug, va.phrase, va.boutons], p && p.veilleReprise ? esp(p.veilleReprise.phrase) : null,
       st && [st.testee && (st.testee.slug || st.testee), st.barres], x && x.semaineDeTest ? JSON.stringify(x.semaineDeTest).slice(0, 400) : null, x && x.pourquoi ? esp(JSON.stringify(x.pourquoi)).slice(0, 300) : null);
+    if (cas === 'plus') sig.push(c && c.serieDePlus || null, x && x.entete && x.entete.plus || null, x && x.serieDePlusArretee || null);
   }
+  sig.push(R.compteur ? R.compteur.compteur : null, x && x.entete ? esp(x.entete.compteur) : null, x && x.escalier ? x.escalier.marche : null);   // B3 : le compteur, sa phrase, la marche
   sig.push(etat.compte ? [etat.compte.verifies, etat.compte.tenus] : null);   // le compte du bilan (`Bilan.compteLe`), en dernier : les rangs d'avant ne bougent pas
   return { sig: JSON.stringify(sig), x, k };
 }
@@ -236,11 +250,18 @@ function jouerFixture(X, H) {
 
 function comparer(A, B, HS, rejouer) {
   let pas = 0, ecarts = 0, hE = 0; const ex = [], couverture = {};
+  const ST = { autres: 0, dph: 0, derr: 0, exAutres: [], n: 0, a4: 0, b4: 0, am: 0, bm: 0, aph: 0, bph: 0, dc: 0, dm: 0, d: {} }; process.on('exit', () => console.log('B3 compteur : ' + JSON.stringify(ST)));
   HS.forEach((H, h) => {
     const a = rejouer(A, H), b = rejouer(B, H); let premier = -1;
     if (H.but) { a.forEach((s, i) => { pas++; couverture['cas:but'] = (couverture['cas:but'] || 0) + 1; if (s !== b[i]) { ecarts++; if (premier < 0) premier = i; } });
       if (premier >= 0) { hE++; if (ex.length < 5) ex.push('h' + h + ' (but ' + H.objectif + ' ' + H.slug + ' ' + H.script + ' ' + H.zone + ' ' + H.reglage + ') série ' + premier + '\n     A ' + a[premier] + '\n     B ' + b[premier]); }
       return; }
+    const lire = (x) => { if (x === 'première') return null; const e = JSON.parse(x); return { c: e[e.length - 4], ph: e[e.length - 3], m: e[e.length - 2] }; };
+    a.forEach((s, i) => { const A1 = lire(s), B1 = lire(b[i]); if (!A1 || !B1) return; ST.n++;
+      if (A1.c >= 4) ST.a4++; if (B1.c >= 4) ST.b4++; if (A1.m) ST.am++; if (B1.m) ST.bm++; if (A1.ph) ST.aph++; if (B1.ph) ST.bph++;
+      { const ea = JSON.parse(s), eb = JSON.parse(b[i]); const autres = ea.filter((v, k) => k < ea.length - 4 || k === ea.length - 1).map(JSON.stringify).join('|') !== eb.filter((v, k) => k < eb.length - 4 || k === eb.length - 1).map(JSON.stringify).join('|');
+        if (autres) { ST.autres++; if (ST.exAutres.length < 3) ST.exAutres.push([ea, eb]); } if (A1.ph !== B1.ph) ST.dph++; if (JSON.stringify(ea[13]) !== JSON.stringify(eb[13])) ST.derr++; }
+      if (A1.c !== B1.c) { ST.dc++; const d = B1.c - A1.c; ST.d[d] = (ST.d[d] || 0) + 1; } if (A1.m !== B1.m) ST.dm++; });
     a.forEach((s, i) => { pas++; const e = JSON.parse(s === 'première' ? '[]' : s); const et = e[0], z = e[10];
       if (et) couverture[et] = (couverture[et] || 0) + 1; if (z) couverture['zero:' + z] = (couverture['zero:' + z] || 0) + 1;
       if (e[11]) couverture.plafond_mord = (couverture.plafond_mord || 0) + 1; if (e[3] === null && et && et !== 'silence') couverture.sans_zone = (couverture.sans_zone || 0) + 1;

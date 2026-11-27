@@ -93,8 +93,8 @@
 
   // §9.1.2 — 8 séances avant de conclure. Mesuré (banc M12) : sur tout
   // l'historique, 7 des 23 exercices actifs d'Aurélien étaient mal rangés par
-  // une fenêtre plus longue. La science pondère le récent (Williams 2017) et
-  // les coachs changent de reps par cycles de 3 à 6 semaines.
+  // une fenêtre plus longue. Fenêtre mesurée (banc M12), une convention de l'app :
+  // aucune étude ne la fonde (MOTEUR §23, audit C-F1) ; les coachs changent de reps par cycles de 3 à 6 semaines.
   var FENETRE_HABITUDE = 8;
 
   // §9.1.2 — LE COUPLE SE DÉSIGNE SUR 3 SÉANCES, À LA MAJORITÉ DE 2.
@@ -1594,7 +1594,7 @@
 
   // §9.1.2 — jamais au-delà de 30 reps, quelle que soit la route qui y mène.
   var PLAFOND_CIBLE = 30;
-  // §9.8 — le double saut de Franc ne dépasse pas 10 % de la charge.
+  // §9.8 — le double saut de Franc ne dépasse pas 10 % de la charge (marge de la seconde charge et du repli d'une phrase ; le plafond d'un saut de plusieurs crans est `PRUDENCE.plafondDeSaut`).
   var MARGE_DOUBLE_SAUT = 0.10;
   // §9.8 — « le haut dépassé de 3 reps » : l'une des deux preuves.
   var PREUVE_DEPASSEMENT = 3;
@@ -1607,7 +1607,7 @@
   // (le plan, ses invariants I154, I160, I205, I206, I241, la phrase de 65 ans) ne changent pas. ⚠️ `populationProtegee` décide AUSSI du jour sans (`jourSansOuvrable`), des
   // chutes, des lignes test et haute et de I160 : elle reste exportée sous son nom, c'est une projection de `prudence` (`.protegee`), jamais une copie.
   var PRUDENCE = {
-    plafondDeSaut: 0.15,          // le plafond d'un saut de plusieurs crans
+    plafondDeSaut: 0.15,          // le plafond d'un saut de plusieurs crans : 15 % est un choix de l'app (décision 186) ; l'ACSM 2009 dit +2 à 10 % (moins pour les petits muscles), d'où plafondDeSautPrudent
     plafondDeSautPrudent: 0.10,   // idem pour le débutant et les 65 ans et plus
     agePlafondBas: 65,            // « 65 ans et plus » (âge connu)
     ageUnCran: 50,                // le débutant de 50 ans et plus monte d'un cran à la fois
@@ -9758,6 +9758,26 @@
     return a.slice().sort(function (x, y) { return avantAlpha(String(y.jour), String(x.jour)); })[0];
   }
 
+  // G7 (27/11/2026, MOTEUR §14.7 ter, I281) — LA PLACE RELUE À CHAQUE SÉANCE : tant qu'une série de plus vit (acceptée, pas de
+  // progrès depuis), le muscle doit encore avoir de la place, SANS douleur récente ni zone à ménager sur l'exercice. Une seule
+  // fonction, lue par le plan ; elle rend la RAISON de l'arrêt (`'douleur'`, `'menagee'`, `'volume'`) ou `null` (la série continue).
+  // `place` : `placeDeLExercice` du plan (`true` = de la place sur chaque muscle primaire ; `null` ou `false` = non, comme à la proposition).
+  // Aucun seuil nouveau : la place est celle de la règle de volume (§14.6), relue telle quelle.
+  function serieDePlusRelue(o) {
+    var f = o || {};
+    if (f.douleur === true) return 'douleur';
+    if (f.menagee === true) return 'menagee';
+    return f.place === true ? null : 'volume';
+  }
+
+  // La fin d'une série de plus acceptée, dite une fois, en gris, avec sa raison (VOIX-DU-COACH : un fait, « tu »).
+  function phraseSerieDePlusArretee(raison) {
+    if (raison === 'douleur') return 'Tu as eu mal ici récemment : la série de plus s\'arrête.';
+    if (raison === 'menagee') return 'Cette zone est à ménager : la série de plus s\'arrête.';
+    if (raison === 'volume') return 'Ton muscle n\'a plus de place cette semaine : la série de plus s\'arrête.';
+    return null;
+  }
+
   // Les PÉRIODES où une série de plus était active, pour le niveau sur la
   // routine : du début de la séance qui l'a acceptée jusqu'à la séance qui
   // ouvre APRÈS le progrès (exclue) — le premier compteur plus bas que celui
@@ -13200,7 +13220,7 @@
   // doit avoir travaillés pour que la zone passe en premier, exercices du jour qu'elle sert, zone à ménager qui lui répond.
   // Les clés sont celles du CHECK de `profiles.zones_raides` (v2_124). Aucun étirement tenu AVANT la charge (invariant I94).
   var ZONES_RAIDES = Object.freeze(['chevilles', 'hanches', 'ischios', 'quadriceps', 'epaules', 'haut_du_dos']);
-  var MOBILITE_CIBLE_MIN = 10;          // les minutes de la semaine où le gain plafonne (Ingram 2024)
+  var MOBILITE_CIBLE_MIN = 10;          // les minutes de la semaine où le gain plafonne (Ingram et coll. 2025, par groupe musculaire : au-delà de 10 min par semaine, rien de plus)
   var MOBILITE_ZONE_MIN = 3;            // un bloc donne ~3-4 minutes à une zone
   var MOBILITE_ZONES_MAX = 2;           // deux zones au plus par séance
   var MOBILITE_TENUE_S = 45;            // tenues de 30 à 60 s
@@ -13705,7 +13725,7 @@
   // ── 197 (MOTEUR §9.36) — FORME ET SANTÉ : la semaine (renforcement, cardio) et la puissance des 65 ans et plus ──────────────────────
   // Repères généraux de l'OMS (2020) et de l'ANSES pour l'adulte, dits comme des repères, jamais une prescription ni une promesse médicale.
   var FORME_RENFORCEMENT_CIBLE = 2, FORME_CARDIO_CIBLE_MIN = 150, FORME_INTENSE_FACTEUR = 2;
-  // Une série de cardio est INTENSE à partir de ce RPE (convention de l'app : aucune donnée publiée ne la fixe) — lue par la semaine (197) et par le cardio régulier (199).
+  // Une série de cardio est INTENSE à partir de ce RPE (convention de l'app, choix de 8 ; l'OMS 2020 place l'intense à 7 ou 8 sur 10, et le modéré à 5 ou 6) — lue par la semaine (197) et par le cardio régulier (199).
   var CARDIO_RPE_INTENSE = 8;
   // ── 225 (MOTEUR §9.40) — LES ACTIVITÉS NOTÉES ET LA VEILLE DES JAMBES LOURDES ────────────────────────────────────────────────
   // Une activité notée (un sport : `Semaine.estActivite`) est une séance courte : un exercice hors salle, une durée, une distance
@@ -13819,7 +13839,7 @@
     return a >= AGE_PLAFOND_BAS;
   }
   var FORME_PUISSANCE_PHRASE = 'Monte vite, descends en contrôlant.';
-  var FORME_PUISSANCE_POURQUOI = 'À partir de 65 ans, la puissance protège des chutes (ACSM 2026) : une charge légère, montée vite, descendue en contrôlant.';
+  var FORME_PUISSANCE_POURQUOI = 'À partir de 65 ans, la puissance aide la fonction physique (ACSM 2026) : une charge légère, montée vite, descendue en contrôlant.';
   var FORME_DOULEUR_PHRASE = 'Si une douleur dure, demande l’avis d’un médecin ou d’un kiné.';
   var FORME_REPERES_PHRASE = 'Les repères de l’OMS et de l’ANSES pour l’adulte : du renforcement au moins 2 fois par semaine, 150 min de cardio modéré (ou 75 min intense). Ce sont des repères généraux, pas une prescription.';
   // UN exercice de puissance par séance : le premier, dans l'ordre de la séance, qui est polyarticulaire, léger (jamais une barre), mesuré en
@@ -13888,8 +13908,8 @@
     'zone.bas': { type: 'convention',
       texte: 'Les fourchettes de reps des zones (Lourd 3-5, Mix 6-8…) : un choix de l’app.' },
     // Le repos long d'un gros mouvement.
-    repos_long: { type: 'etude', auteur: 'Schoenfeld', annee: 2016, effectif: '21 pratiquants',
-      texte: 'Schoenfeld 2016 (21 pratiquants) : 2 à 3 min de repos sur les mouvements composés.' },
+    repos_long: { type: 'etude', auteur: 'Schoenfeld', annee: 2016, effectif: '21 hommes entraînés',
+      texte: 'Schoenfeld 2016 (21 hommes entraînés, 8 semaines) : 3 min de repos entre les séries font gagner plus de force et de muscle que 1 min.' },
     // 221 — le bloc Hypertrophie : le muscle gagne à rester proche de l'échec ; la grosse série garde le contact avec le lourd.
     'bloc.hypertrophie': [
       { type: 'etude', auteur: 'Robinson', annee: 2024, effectif: '55 études',
@@ -14636,6 +14656,8 @@
     plafondALaSalle: plafondALaSalle,
     serieDePlusProposee: serieDePlusProposee,
     serieDePlusActive: serieDePlusActive,
+    serieDePlusRelue: serieDePlusRelue,
+    phraseSerieDePlusArretee: phraseSerieDePlusArretee,
     periodesSerieDePlus: periodesSerieDePlus,
     carteSerieDePlus: carteSerieDePlus,
     degressivePossible: degressivePossible,

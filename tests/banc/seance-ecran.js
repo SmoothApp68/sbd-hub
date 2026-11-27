@@ -3730,7 +3730,8 @@ const SETS_IMPORTES = [
     JSON.stringify(g4.map((x) => x.colonnes)));
   ok('les en-têtes suivent la mesure',
     JSON.stringify(g4.map((x) => x.entetes)) ===
-      JSON.stringify([['PRÉC.', 'KG', 'REPS'], ['PRÉC.', 'REPS'],
+      // Lot 4 (n° 1) : la fois d'avant du premier exercice a une charge égale sur son travail : la bande remplace la colonne PRÉC.
+      JSON.stringify([['KG', 'REPS'], ['PRÉC.', 'REPS'],
                       ['PRÉC.', 'DURÉE'], ['PRÉC.', 'DURÉE', 'DISTANCE']]),
     JSON.stringify(g4.map((x) => x.entetes)));
   // Depuis le chantier 25, la DURÉE ne porte plus d'unité écrite : c'est la
@@ -3757,7 +3758,10 @@ const SETS_IMPORTES = [
     Array.from(document.querySelectorAll('.bloc-seance')).map((b) =>
       Math.round(b.querySelector('.serie .ch-serie').getBoundingClientRect().width)));
   ok('le champ principal gagne en largeur à chaque colonne retirée',
-    largeurs[0] < largeurs[1] && largeurs[1] < largeurs[2] && largeurs[0] >= 70,
+    // Lot 4 (n° 1) : le 1er exercice a la bande, donc UNE colonne de moins (PRÉC.) que « reps seules » : il est plus large que lui,
+    // et la chaîne continue (reps < durée) ; sans bande, l'ordre d'avant (kg < reps < durée) reste exigé.
+    ((await page.evaluate(() => !!document.querySelector('.bloc-seance .bande')))
+      ? largeurs[0] > largeurs[1] : largeurs[0] < largeurs[1]) && largeurs[1] < largeurs[2] && largeurs[0] >= 70,
     'kg=' + largeurs[0] + ' reps=' + largeurs[1] + ' durée=' + largeurs[2] +
     ' durée(sortie)=' + largeurs[3] + ' px');
 

@@ -228,7 +228,9 @@ const MESURER = () => {
     const aide = tous('.aide-unite');
     return {
       i, nom: T(b.querySelector('.nom-exo') || b).slice(0, 40),
-      h1: l1 ? Math.round(l1.getBoundingClientRect().top - rb.top) : null,
+      // Lot 4 (n° 1) : la bande « Mardi : 90 kg × 8, 8, 8 » est posée entre la tête et la 1re série ; elle ne fait pas partie de la tête
+      // (elle remplace la colonne PRÉC. de chaque ligne). On mesure la tête : sa hauteur est retirée, comme les « avant » l'ignoraient.
+      h1: l1 ? Math.round(l1.getBoundingClientRect().top - rb.top - (b.querySelector('.bande') ? b.querySelector('.bande').getBoundingClientRect().height : 0)) : null,
       consignes: consignes.map(T),
       gris: gris.map(T),
       grisDansRang: !!(lien && lien.closest('.ligne-gris')),

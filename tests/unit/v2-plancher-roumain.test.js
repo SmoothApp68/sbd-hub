@@ -129,8 +129,8 @@ describe('le plan et I241', () => {
     expect(h.x.gardeDeLigne).toBe(0);
     expect(h.erreurs).toEqual([]);
   });
-  test('le soulevé jambes tendues à la barre, Normal : en-tête 1 et garde 1 ; le good morning en Franc : 0 (hors périmètre)', () => {
-    const r = jouer(JT, progression, 'normal');
+  test('le soulevé jambes tendues à la barre, Franc : en-tête 1 et garde 1 ; le good morning en Franc : 0 (hors périmètre)', () => {
+    const r = jouer(JT, progression, 'franc');
     expect(r.x.reserveAffichee).toBe(1);
     expect(r.x.gardeDeLigne).toBe(1);
     expect(jouer(GM, progression, 'franc').x.reserveAffichee).toBe(0);

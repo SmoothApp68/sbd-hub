@@ -2364,7 +2364,7 @@ const NOTIONS = [
     module: 'modele.js', fonction: 'specialiteDe', lecteurs: ['generateur.js', 'moteur.js', 'plan.js', 'app.js', 'questionnaire.js'],
     par: ['marcheSuivanteBrute'],
     parAilleurs: { 'moteur.js': ['prudence', 'zonesDeBloc', 'grosseSerieParDefaut', 'zoneDuPremierBloc', 'blocSuivant', 'objectifDeForce', 'rateSousLaZone', 'reactionDeSerie', 'reactionDExercice', 'testRaisonDuDefaut'],
-      'generateur.js': ['specialite'], 'plan.js': ['materielDe'], 'app.js': ['vueDeLaSemaineForme', 'ouvrirApercuProgramme'], 'questionnaire.js': ['ecransVisibles'] },
+      'generateur.js': ['specialite'], 'plan.js': ['materielDe'], 'app.js': ['vueDeLaSemaineForme', 'ouvrirApercuProgramme', 'programmeRefaitDeLaCarte'], 'questionnaire.js': ['ecransVisibles'] },
     interditAilleurs: {
       motif: /\b(?:objectif|obj|objectifDe\([^()]*\))\s*[!=]==?\s*'(?:force|muscle|les_deux|forme|calisthenie)'|\[\s*'(?:force|muscle|les_deux|forme|calisthenie)'\s*,\s*'(?:force|muscle|les_deux|forme|calisthenie)'/,
       raison: 'un but comparé à la main : lire `Modele.specialiteDe(objectif)` (la fiche de spécialité)',

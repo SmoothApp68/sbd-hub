@@ -293,7 +293,9 @@ describe('le programme du coach : le prévu et le fait', () => {
   });
   test('le programme prévu est lui-même sous le seuil : « Je l’ai mal construit : je corrige ton programme ? »', () => {
     const Rm = routine('r-a', 'Haut A', { developpe_couche_barre: 4, rowing_barre: 2 });
-    const a = Eq.analyser(entree(construire(sem(2)), { routines: [Rm], programmeDuCoach: true }));
+    // Le refait passe avec une série de marge (4 de tirage pour 4 de poussée : (4 − 1) / 4 ≥ 0,60) : « corriger » est proposé.
+    const refait = [{ nom: 'Haut A', exercices: [{ exercise_slug: 'developpe_couche_barre', series: 4, reculs: 0 }, { exercise_slug: 'rowing_barre', series: 4, reculs: 0 }] }];
+    const a = Eq.analyser(entree(construire(sem(2)), { routines: [Rm], programmeDuCoach: true, refait: () => refait }));
     const c = carte(a, 'tp-horizontal');
     expect(c.coach.malConstruit).toBe(true);
     expect(c.fait).toBe('Ton programme prévoit 1 série de tirage pour 2 de poussée.');

@@ -18871,6 +18871,8 @@
       // Le niveau du questionnaire : « Moins d'un an » = débutant (la règle du générateur, 60-6).
       debutant: Profil.estDebutant(p),
       dureeMax_s: Number(p.duree_seance_min) > 0 ? Number(p.duree_seance_min) * 60 : null,
+      // 27/11 — « Moins en ce moment » : la carte n'ajoute rien (MOTEUR §9.24).
+      tempsReponse: p.temps_reponse,
       routines: Routines.visibles(routines), catalogue: catalogueIndexe(),
       seances: fait.seances, volume: fait.volume, etat: lireLaSemaine()
     };

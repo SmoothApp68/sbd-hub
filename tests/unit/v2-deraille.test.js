@@ -105,6 +105,32 @@ describe('un jour manqué en début de semaine (Jambes mardi, ouverture mercredi
   });
 });
 
+describe('27/11 (décision 77, amélioration 5) — « Moins en ce moment » : pas de « Répartir », pas d’ajout', () => {
+  const debut = entree({ jour: '2026-10-14', seances: [fait('2026-10-12', 'r-push', ['couche', 'militaire'])] });
+  const fin = entree({ jour: '2026-10-17', volume: { pectoraux: 4, quadriceps: 4 }, seances: [fait('2026-10-12', 'r-push', ['couche', 'militaire']),
+    fait('2026-10-13', 'r-jambes', ['squat']), fait('2026-10-14', 'r-pull', ['tractions'])] });
+  test('avec « moins » : il reste « décaler » et « garder », jamais « Répartir »', () => {
+    const c = D.semaineQuiDeraille(Object.assign({}, debut, { tempsReponse: 'moins' }));
+    expect(c.choix.map((x) => x.cle)).toEqual(['decaler', 'garder']);
+    expect(c.choix[0].avant).toBe(true);
+    expect(JSON.stringify(c)).not.toMatch(/Répartir|repartir/);
+  });
+  test('sans « moins » (max, varie, marge, vide) : la carte d’avant, avec « Répartir »', () => {
+    ['max', 'varie', 'marge', null, undefined].forEach((t) => {
+      expect(D.semaineQuiDeraille(Object.assign({}, debut, { tempsReponse: t })).choix.map((x) => x.cle)).toEqual(['decaler', 'repartir', 'garder']);
+    });
+  });
+  test('avec « moins » et aucun décalage possible (fin de semaine) : pas de carte, au lieu d’« Ajouter »', () => {
+    expect(D.semaineQuiDeraille(fin).sorte).toBe('fin');
+    expect(D.semaineQuiDeraille(Object.assign({}, fin, { tempsReponse: 'moins' }))).toBeNull();
+  });
+  test('la lecture est celle du moteur (une seule fonction, aucun littéral recopié)', () => {
+    const src = require('fs').readFileSync(require('path').join(__dirname, '../../v2/js/deraille.js'), 'utf8');
+    expect(src).not.toMatch(/'moins'/);
+    expect(require('../../v2/js/moteur.js').disaitMoinsDeTemps('moins')).toBe(true);
+  });
+});
+
 describe('un jour manqué en milieu de semaine (Pull mercredi, ouverture jeudi, jour sans séance)', () => {
   const e = entree({ jour: '2026-10-15', seances: [fait('2026-10-12', 'r-push', ['couche']), fait('2026-10-13', 'r-jambes', ['squat', 'roumain'])] });
   const c = D.semaineQuiDeraille(e);

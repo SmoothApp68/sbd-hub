@@ -3,7 +3,9 @@
 // Un programme à jours prévus (`routines.jours`, v2_084) ; une routine prévue un jour passé de la semaine n'a pas eu
 // lieu. À l'ouverture de l'app, une carte, sans reproche, qui parle de ce qui reste à placer (« Il reste Jambes à placer cette semaine. ») et
 // propose : décaler la suite, répartir ses séries dans la semaine, ou garder la séance du jour. En fin de semaine :
-// ajouter un exercice à la séance du jour, ou non.
+// ajouter un exercice à la séance du jour, ou non. Avec « Moins en ce moment » (`tempsReponse`), jamais d'ajout : décaler
+// ou garder, et sans décalage possible, pas de carte.
+// `tempsReponse` : `profil.temps_reponse`, lu par `Moteur.disaitMoinsDeTemps`.
 //
 // ⚠️ LA RÉFÉRENCE EST TOUJOURS LE PROGRAMME (décision du 15/10/2026, « un fil ») : les séries que prévoient ses
 // routines, jamais l'historique. Le coach ne dit jamais « moins que d'habitude » et ne propose jamais plus que ce que
@@ -253,7 +255,11 @@
     // Décision 5 : fin de semaine, plus la place de décaler — la séance du jour seulement. UNE carte, que la vraie
     // fin de semaine et le repli (ni décalage ni répartition) lisent toutes deux : la phrase dit les deux chiffres
     // (§9.24 ; audit du 16/10/2026, 01 #10 : le repli les omettait).
+    // 27/11 (décision 77, amélioration 5) — « Moins en ce moment » : la carte n'ajoute rien (ni « Répartir », ni « Ajouter »),
+    // elle ne propose que de décaler ; sans décalage possible, il n'y a pas de carte. La même déclaration que MOTEUR §9.18 lit.
+    var moins = Moteur().disaitMoinsDeTemps(x.tempsReponse);
     var carteFin = function () {
+      if (moins) return null;
       if (!duJour) return null;
       var a1 = choisirPour(duJour, {}, [])[0];   // décision 5 : un exercice
       if (!a1) return null;
@@ -300,7 +306,7 @@
     placements.filter(function (p) { return p.jour >= jAuj; }).forEach(function (p) {
       ajouts = ajouts.concat(choisirPour(p, pris, ajouts));
     });
-    if (ajouts.length) {
+    if (ajouts.length && !moins) {
       choix.push({ cle: 'repartir', libelle: 'Répartir ses séries dans la semaine', ajouts: ajouts,
         garde: ajouts.reduce(function (t, a) { return t + a.series; }, 0) });
     }

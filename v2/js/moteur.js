@@ -1642,7 +1642,7 @@
     var age = a !== null && a >= 0 && a < 130 ? a : null;
     var senior = age !== null && age >= AGE_PLAFOND_BAS;
     var unCran = debutant && age !== null && age >= AGE_UN_CRAN;
-    var protegee = x.plus65 === true || debutant || x.objectif === 'forme';
+    var protegee = x.plus65 === true || debutant || Modele().specialiteDe(x.objectif).seance.protegee;
     return { protegee: protegee,
              plafond: debutant || senior ? PLAFOND_SAUT_DEBUTANT : PLAFOND_SAUT, unCran: unCran,
              raison: unCran ? RAISON_PRUDENCE.debutantAge : senior ? RAISON_PRUDENCE.age : debutant ? RAISON_PRUDENCE.debutant : null,
@@ -4598,7 +4598,7 @@
   // se prend ailleurs). Sans lui (le défaut), rien n'est exempté : le comportement est celui de toujours. Quand
   // il ne reste que des exemptés à couper, la cible n'est pas atteinte : `tient = false`, la durée rendue est la
   // durée RÉELLE.
-  function raccourcirRoutine(structure, cibleMin, exemptes, options) {
+  function raccourcirRoutine(structure, cibleMin, exemptes) {
     var r = copieStructure(structure);
     var max = Number(cibleMin) * SECONDES_PAR_MINUTE;
     var journal = [];
@@ -8831,9 +8831,9 @@
   // qu'on PROPOSE (l'écran « Ajuster le bloc », I37). Une seule fonction, lue par l'écran, le plan et I37.
   var ZONE_HYPERTROPHIE = 'hypertrophie';
   var ZONES_DE_BLOC = ZONES_FORCE.concat([ZONE_HYPERTROPHIE]);
-  var OBJECTIFS_HYPERTROPHIE = ['muscle', 'les_deux'];
+  // Le menu vient de la fiche de spécialité (`Modele.specialiteDe(objectif).blocs.menu`, fiche du 26/11/2026) : `complet` avec Hypertrophie, `force` sans.
   function zonesDeBloc(objectif) {
-    return OBJECTIFS_HYPERTROPHIE.indexOf(objectif) >= 0 ? ZONES_DE_BLOC.slice() : ZONES_FORCE.slice();
+    return Modele().specialiteDe(objectif).blocs.menu === 'complet' ? ZONES_DE_BLOC.slice() : ZONES_FORCE.slice();
   }
   var SANS_CUMUL_JOURS = 14;                 // §14.4 : une réduction s'applique une fois
   var SEMAINES_BLOC_MIN = 3;
@@ -8981,7 +8981,7 @@
   // SOULEVÉ DE TERRE reste en Mix (6-8) : des séries longues dégradent la technique et chargent le bas du dos (convention de kinés et de
   // coachs, dite comme telle). Les accessoires gardent leur zone. Pur : une fonction, lue par `zonesPosees`, l'écran et I114.
   var GROSSE_SERIE_GARDE = 1;
-  function grosseSerieParDefaut(objectif) { return objectif === 'les_deux'; }
+  function grosseSerieParDefaut(objectif) { return Modele().specialiteDe(objectif).blocs.grosseParDefaut; }
   // La structure qu'un bloc donne à UN exercice de famille `famille` (`null` : pas une barre). `{ zone, grosse, zoneGrosse, garde }` ;
   // `zone: null` : le bloc ne pose rien (l'exercice garde la sienne).
   function structureDeBloc(bloc, famille) {
@@ -9046,7 +9046,7 @@
   // un premier bloc ; le suivant garde sa règle fixe (`blocSuivant`). Pure, sans
   // lire le profil : l'appelant passe l'objectif.
   function zoneDuPremierBloc(objectif) {
-    return objectif === 'force' || objectif === 'les_deux' ? 'lourd' : 'mix';
+    return Modele().specialiteDe(objectif).blocs.premier;
   }
 
   // LE BLOC SUIVANT, PAR UNE RÈGLE FIXE — jamais DÉDUITE DU BLOC PASSÉ (§20.1), mais LUE dans le BUT (décision du fondateur du 26/11/2026,
@@ -9060,18 +9060,18 @@
     // posée, jamais d'alternance Mix ↔ Lourd : les zones sont celles des routines.
     if (phases) return { zone: bloc.zone, semaines: nombre(bloc.semaines) || SEMAINES_PHASE, decharge: true,
                          exercices: (bloc.exercices || []).slice(), sansZones: true };
-    var zone;
-    if (objectif === 'muscle') zone = bloc.zone === 'mix' ? ZONE_HYPERTROPHIE : 'mix';
-    else if (objectif === 'forme') zone = 'mix';
+    var zone, regle = Modele().specialiteDe(objectif).blocs.suivant;
+    if (regle === 'alterner') zone = bloc.zone === 'mix' ? ZONE_HYPERTROPHIE : 'mix';
+    else if (regle === 'mix') zone = 'mix';
     // 221 — après un bloc Hypertrophie (accumulation), Lourd d'abord (intensification), jamais Hypertrophie par défaut.
     else zone = bloc.zone === 'mix' || bloc.zone === ZONE_HYPERTROPHIE ? 'lourd' : 'mix';
     var suivant = { zone: zone, semaines: nombre(bloc.semaines), decharge: true, exercices: (bloc.exercices || []).slice() };
-    if (objectif === 'muscle' && zone === ZONE_HYPERTROPHIE) suivant.grosse = true;
+    if (Modele().specialiteDe(objectif).blocs.grosseSurHypProposee && zone === ZONE_HYPERTROPHIE) suivant.grosse = true;
     return suivant;
   }
   // « Le suivant, comme le font les programmes de force » ne s'écrit qu'à Force et Les deux (D1, 26/11/2026) : aux autres, une comparaison
   // à d'autres qui ne leur ressemblent pas ; « Le suivant : … » reste un fait.
-  function objectifDeForce(objectif) { return objectif === 'force' || objectif === 'les_deux'; }
+  function objectifDeForce(objectif) { return Modele().specialiteDe(objectif).mots.deForce; }
 
   // LES EXERCICES PAR DÉFAUT : les barres polyarticulaires (au moins 3 muscles
   // principaux et secondaires, `estPolyarticulaire`) des routines du dossier,
@@ -14053,7 +14053,7 @@
   function rateSousLaZone(c) {
     var x = c || {};
     var faites = nombre(x.reps), bas = nombre(x.bas), obj = x.objectif || null;
-    var plusTot = obj === 'muscle' || (obj === 'les_deux' && x.barre !== true);
+    var plusTot = Modele().specialiteDe(obj).seance.proteger[x.barre !== true ? 'autre' : 'barre'] === 'volume';   // la fiche : « le volume est protégé »
     var sousZone = faites !== null && bas !== null && faites < bas;
     var sous = sousZone || (faites !== null && bas !== null && plusTot && faites <= bas);
     var charge = nombre(x.charge);
@@ -14130,13 +14130,14 @@
       return silence(ecart < 0 ? 'O' : null, ecart < 0 ? 'depasse_peu' : 'tenue');
     }
     var charge = nombre(c.charge);
-    var protege = obj === 'force' || (obj === 'les_deux' && c.barre === true);
+    var fiche = Modele().specialiteDe(obj).seance;
+    var protege = fiche.proteger[c.barre === true ? 'barre' : 'autre'] === 'charge';   // la fiche : « la charge est protégée »
     var zoneLue = rateSousLaZone({ reps: faites, bas: bas, objectif: obj, barre: c.barre, reserve: reserve, charge: charge, corps: c.corps, gardeAffichee: c.gardeAffichee });   // 251 : la notion partagée
     var corps = zoneLue.corps;
     var echec = zoneLue.echec;                                   // L : l'échec franc, avant la cible
     var sous = zoneLue.sous;
     var sousAvant = nombre(c.sousZoneAvant) || 0;
-    var garde = rateGardeDeLaReaction(reg === 'prudent' || obj === 'forme' ? 2 : 1, c);
+    var garde = rateGardeDeLaReaction(reg === 'prudent' || fiche.prudente ? 2 : 1, c);
     // G — la grosse série d'un bloc : ses reculs se recalent sur le max du jour (193-5), la charge ne change pas.
     if (role === 'grosse') {
       var mg = nombre(c.maxDuJour);
@@ -14155,11 +14156,11 @@
       if (reg === 'franc' && sousAvant + 1 < RATE_SOUS_ZONE_FRANC) baisse = false;
       else baisse = true;
       // Force protège la charge : la grosse série (le haut du bloc) ne baisse presque jamais, hors Prudent.
-      if (protege && reg !== 'prudent' && obj !== 'forme' && sousAvant < 1 && c.rang === 0) baisse = false;
+      if (protege && reg !== 'prudent' && !fiche.prudente && sousAvant < 1 && c.rang === 0) baisse = false;
     } else {
       lettre = ecart === 1 ? (c.reposCourt === true || reposCourtDe(c) ? 'A' : 'B') : 'C';
     }
-    var prudent = reg === 'prudent' || obj === 'forme';
+    var prudent = reg === 'prudent' || fiche.prudente;
     var pas = nombre(c.pas);
     if (pas === null || pas <= 0) pas = RATE_PAS_PAR_DEFAUT[c.materiel] || 2.5;
     var kgBaisse = null, fourchette;
@@ -14203,7 +14204,7 @@
       charge: baisse ? { action: 'baisse', kg: kgBaisse } : { action: 'garde', kg: charge },
       garde: zeroCorps ? null : garde, fourchette: fourchette, leviers: leviers, recale: premiere && !zeroCorps, zero: zeroCorps ? true : undefined,
       approche: approche, plusUneMinute: leviers.indexOf('repos') >= 0,
-      seche: c.seche === true, rappelMal: menage || obj === 'forme',
+      seche: c.seche === true, rappelMal: menage || fiche.prudente,
       autreSalle: c.autreSalle === true
     });
   }
@@ -14231,7 +14232,7 @@
     var dernier = nombre(b.reps);
     var reg = rateReglage(c.reglage);
     return { niveau: 'exercice', cas: 'X', silence: false, avant: nombre(a.reps), faites: dernier, vise: dernier,
-             charge: { action: 'garde', kg: nombre(c.charge) }, garde: rateGardeDeLaReaction(reg === 'prudent' || c.objectif === 'forme' ? 2 : 1, c),
+             charge: { action: 'garde', kg: nombre(c.charge) }, garde: rateGardeDeLaReaction(reg === 'prudent' || Modele().specialiteDe(c.objectif).seance.prudente ? 2 : 1, c),
              fourchette: rateFourchette(dernier - 1, dernier + 1), leviers: [], recale: true };
   }
 

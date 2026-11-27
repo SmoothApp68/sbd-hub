@@ -92,7 +92,7 @@
     }
     return ECRANS.filter(function (id) {
       if (id === SAIT) return avec;
-      if (id === DEPART) return !!contexte && contexte.objectif === 'calisthenie';
+      if (id === DEPART) return !!contexte && Modele().specialiteDe(contexte.objectif).programme.gabarit === 'calisthenie';
       if (id === RECENTE) return aUneAnnee(contexte) && !(contexte && contexte.aDesSeances);
       if (id === PROGRAMME) return !!contexte && contexte.aDesRoutines === false;
       if (id === CONSTRUIT) return !!contexte && contexte.aDesRoutines === false && contexte.programme === 'construis';

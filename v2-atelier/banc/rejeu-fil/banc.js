@@ -15,25 +15,31 @@ const JS_DU_DEPOT = path.join(RACINE, 'v2', 'js');
 const ARGS = process.argv.slice(2);
 const opt = (nom, defaut) => { const i = ARGS.indexOf('--' + nom); return i < 0 ? defaut : (ARGS[i + 1] === undefined || ARGS[i + 1].startsWith('--') ? true : ARGS[i + 1]); };
 const NH = Number(opt('n', 200)), GRAINE = Number(opt('graine', 20261125));
+const BUT = require('./but.js');
 const FICHIERS = ['modele', 'palier', 'semaine', 'profil', 'periode', 'generateur', 'bilan', 'moteur', 'seance', 'reserve', 'plan', 'faits'];
 
 function contexte(dir) {
   const ctx = { console, Date, Math, JSON, Object, Array, String, Number, Boolean, RegExp, Error, Map, Set, Intl, isNaN, parseFloat, parseInt, setTimeout };
   ctx.self = ctx; ctx.globalThis = ctx; vm.createContext(ctx);
   FICHIERS.forEach(f => vm.runInContext(fs.readFileSync(path.join(dir, f + '.js'), 'utf8'), ctx, { filename: f }));
-  return { M: ctx.THMoteur, S: ctx.THSeance, T: ctx.THPlan, F: ctx.THFaits.creer(), B: ctx.THBilan };
+  return { M: ctx.THMoteur, S: ctx.THSeance, T: ctx.THPlan, F: ctx.THFaits.creer(), B: ctx.THBilan, G: ctx.THGenerateur };
 }
 function alea(graine) { let s = graine % 2147483648; return () => { s = (s * 1103515245 + 12345) % 2147483648; return s / 2147483648; }; }
 const EXOS = { squat_barre: { nom: 'Squat', equipement: 'barre', mesure: 'charge_reps', pas: 2.5, kg: 100, famille: 'squat_barre' },
   souleve_de_terre_barre: { nom: 'Soulevé de terre', equipement: 'barre', mesure: 'charge_reps', pas: 2.5, kg: 140, famille: 'souleve_de_terre_barre' },
-  curl_halteres: { nom: 'Curl', equipement: 'halteres', mesure: 'charge_reps', pas: 2, kg: 14, famille: null },
-  rowing_halteres: { nom: 'Rowing', equipement: 'halteres', mesure: 'charge_reps', pas: 2, kg: 30, famille: null },
+  curl_halteres: { nom: 'Curl', equipement: 'haltere', mesure: 'charge_reps', pas: 2, kg: 14, famille: null },
+  rowing_halteres: { nom: 'Rowing', equipement: 'haltere', mesure: 'charge_reps', pas: 2, kg: 30, famille: null },
   developpe_militaire_barre: { nom: 'Développé militaire', equipement: 'barre', mesure: 'charge_reps', pas: 2.5, kg: 40, famille: 'developpe_militaire_barre' },
   // Les cas ajoutés : le poids du corps (une charge qui vaut 0), l'aide (une charge négative), l'élastique (une salle de crans virtuels).
   tractions: { nom: 'Tractions', equipement: 'poids_du_corps', mesure: 'reps', pas: 0, kg: 0, famille: null },
   tractions_assistees: { nom: 'Tractions assistées', equipement: 'machine', mesure: 'charge_reps', pas: 5, kg: -40, famille: null },
   curl_elastique: { nom: 'Curl à l’élastique', equipement: 'elastique', mesure: 'charge_reps', pas: 5, kg: 10, famille: null,
     salle: { materiel: 'elastique', charges: [10, 15, 20, 25, 30], aide: false } } };
+// Les équipements que le moteur connaît (REPLI_MATERIEL, plan.js MATERIELS_DE_CHAUFFE) : un banc qui en déclare un autre (`halteres` au pluriel a produit
+// 483 `test_propose` sans charge, un artefact) échoue au lieu de produire un faux écart.
+const EQUIPEMENTS = ['barre', 'haltere', 'haltere_seul', 'machine', 'poulie', 'kettlebell', 'machine_smith', 'poids_du_corps', 'elastique', 'disque', 'aucun', 'lest'];
+function verifierEquipements(table, d) { Object.keys(table).forEach(k => { if (EQUIPEMENTS.indexOf(table[k].equipement) < 0) throw new Error('banc : équipement « ' + table[k].equipement + ' » de ' + k + ' absent de la liste réelle (' + (d || 'EXOS') + ')'); }); }
+verifierEquipements(EXOS);
 const BAS = { lourd: 3, mix: 6, hypertrophie: 8, volume: 10 };
 const CAS_AJOUTES = ['corps', 'aide', 'elastique', 'lest', 'decharge', 'veille', 'test'];
 
@@ -110,7 +116,7 @@ function signer(X, H, groupes, i, avant, etat) {
     let se = X.S.creer({ id: 'S' + i, userId: 'u', idSerie: id });
     se = X.S.ajouterExercice(se, H.slug, id, { series: H.nseries });
     const e = { seance: { id: 'S' + i, debut: avant, edition: false, exercices: se.exercices }, consignes: { [H.slug]: R }, paris: [], suites: {},
-      reglage: H.reglage, objectif: H.protegee ? 'forme' : 'muscle', debutant: H.debutant, plus65: H.age !== null && H.age >= 65, prudence: o.prudence, parisRates: etat.parisRates, catalogue: cat };
+      reglage: H.reglage, objectif: Object.prototype.hasOwnProperty.call(H, 'objectif') ? H.objectif : H.protegee ? 'forme' : 'muscle', debutant: H.debutant, plus65: H.age !== null && H.age >= 65, prudence: o.prudence, parisRates: etat.parisRates, catalogue: cat };
     const jour = jourDe(avant);
     if (cas === 'decharge' && etat.decharge(i)) e.escalier = { cartes: [{ reponse: 'acceptee', debut: jour, fin: jour, declencheur: 'banc', jour }], seriesRoutine: { [H.slug]: H.nseries } };
     if (cas === 'veille') { e.activiteVeille = { seanceId: 'a', slug: 'football', nom: 'Football', jour }; e.veilleChoix = etat.veille(i); }
@@ -204,9 +210,13 @@ function histoiresDeFixture(chemin) {
     const slug = h.slug;
     if (!EXOS[slug]) EXOS[slug] = { nom: h.nom || slug, equipement: h.equipement || 'barre', mesure: h.mesure || 'charge_reps', pas: h.pas || 2.5, kg: h.kg || 0, famille: h.famille || null,
       salle: h.salle || undefined };
+    verifierEquipements({ [slug]: EXOS[slug] }, 'fixture');
     const seances = h.seances.slice().sort((a, b) => String(a.debut).localeCompare(String(b.debut)));
     return { fixture: true, id: h.id || slug + '#' + n, slug, age: h.age == null ? null : h.age, zone: h.zone || null, reglage: h.reglage || 'normal', protegee: !!h.protegee, debutant: !!h.debutant,
       nseries: h.nseries || 3, noteR: false, nseances: seances.length, graine: 1, reelles: seances };
+  }).map((H, n) => {
+    const h = liste[n]; if (Object.prototype.hasOwnProperty.call(h, 'objectif')) H.objectif = h.objectif == null || h.objectif === '' ? null : h.objectif;   // absent : la règle d'avant (protegee ? forme : muscle)
+    return H;
   });
 }
 function jouerFixture(X, H) {
@@ -218,7 +228,7 @@ function jouerFixture(X, H) {
     sigs.push(sig);
     const series = (s.series || []).map((y, j) => ({ id: 'f' + i + '_' + j, session_id: 'S' + i, exercise_slug: H.slug, charge_kg: y.charge_kg, reps: y.reps, type_serie: y.type_serie || (y.reps === 0 && j === 0 ? 'echec' : 'travail'),
       rang: y.rang || j + 1, rpe: y.rpe == null ? null : y.rpe, ressenti: y.ressenti || null, validee_a: y.validee_a || avant, source: 'app' }));
-    groupes.push({ seance: { id: 'S' + i, debut: avant }, series });
+    groupes.push({ seance: s.sousConsigne === true ? { id: 'S' + i, debut: avant, sousConsigne: true } : { id: 'S' + i, debut: avant }, series });
     observer(X, H, paris, 'S' + i, series, etat);
   });
   return sigs;
@@ -228,6 +238,9 @@ function comparer(A, B, HS, rejouer) {
   let pas = 0, ecarts = 0, hE = 0; const ex = [], couverture = {};
   HS.forEach((H, h) => {
     const a = rejouer(A, H), b = rejouer(B, H); let premier = -1;
+    if (H.but) { a.forEach((s, i) => { pas++; couverture['cas:but'] = (couverture['cas:but'] || 0) + 1; if (s !== b[i]) { ecarts++; if (premier < 0) premier = i; } });
+      if (premier >= 0) { hE++; if (ex.length < 5) ex.push('h' + h + ' (but ' + H.objectif + ' ' + H.slug + ' ' + H.script + ' ' + H.zone + ' ' + H.reglage + ') série ' + premier + '\n     A ' + a[premier] + '\n     B ' + b[premier]); }
+      return; }
     a.forEach((s, i) => { pas++; const e = JSON.parse(s === 'première' ? '[]' : s); const et = e[0], z = e[10];
       if (et) couverture[et] = (couverture[et] || 0) + 1; if (z) couverture['zero:' + z] = (couverture['zero:' + z] || 0) + 1;
       if (e[11]) couverture.plafond_mord = (couverture.plafond_mord || 0) + 1; if (e[3] === null && et && et !== 'silence') couverture.sans_zone = (couverture.sans_zone || 0) + 1;
@@ -238,22 +251,27 @@ function comparer(A, B, HS, rejouer) {
   });
   return { pas, ecarts, hE, ex, couverture };
 }
+const rejouerDe = (fix) => fix ? jouerFixture : (X, H) => H.but ? BUT.jouerBut(X, H) : jouer(X, H);
 const erreursDe = sigs => sigs.reduce((n, x) => { if (x === 'première') return n; const e = JSON.parse(x)[13]; return n + (Array.isArray(e) && e.length ? 1 : 0); }, 0);
 
 function banc() {
   const dirA = path.resolve(opt('base', JS_DU_DEPOT)), dirB = path.resolve(opt('contre', ''));
   if (!opt('contre') || opt('contre') === true) { console.error('usage : banc.js --contre <dossier js> | --muter   (voir LISEZ-MOI.txt)'); process.exit(2); }
   const fix = opt('fixture', null);
-  const A = contexte(dirA), B = contexte(dirB), HS = fix ? histoiresDeFixture(fix) : histoires(NH);
-  const res = comparer(A, B, HS, fix ? jouerFixture : jouer);
+  const A = contexte(dirA), B = contexte(dirB), HS = fix ? histoiresDeFixture(fix) : histoires(NH).concat(BUT.histoiresBut());
+  const res = comparer(A, B, HS, rejouerDe(fix));
   if (opt('erreurs', false)) { let ea = 0, eb = 0; const ids = {};
-    HS.forEach(H => { const a = (fix ? jouerFixture : jouer)(A, H), b = (fix ? jouerFixture : jouer)(B, H); ea += erreursDe(a); eb += erreursDe(b);
+    HS.filter(H => !H.but).forEach(H => { const a = rejouerDe(fix)(A, H), b = rejouerDe(fix)(B, H); ea += erreursDe(a); eb += erreursDe(b);
       b.forEach(x => { if (x !== 'première') (JSON.parse(x)[13] || []).forEach(t => { const c = String(t).split(' ')[0]; ids[c] = (ids[c] || 0) + 1; }); }); });
     console.log('séances en erreur de verifierPlan : A ' + ea + ' · B ' + eb + ' · invariants (B) ' + JSON.stringify(ids)); }
   console.log(`banc · ${fix ? 'fixture ' + path.basename(fix) : 'graine ' + GRAINE} · ${HS.length} histoires · ${res.pas} séances · ${res.ecarts} signatures différentes dans ${res.hE} histoires`);
   if (opt('couverture', false)) console.log('couverture (A) :', JSON.stringify(res.couverture));
   res.ex.forEach(e => console.log('  ' + e));
-  process.exitCode = res.ecarts === 0 ? 0 : 1;
+  let tables = 0;
+  if (!fix) [['programmes', BUT.tableProgrammes()], ['blocs', BUT.tableBlocs()]].forEach(([nom, lignes]) => {
+    const t = BUT.comparerTable(A, B, lignes); tables += t.diff;
+    console.log(`table ${nom} · ${t.n} lignes · ${t.diff} lignes différentes`); t.ex.forEach(e => console.log(e)); });
+  process.exitCode = res.ecarts === 0 && tables === 0 ? 0 : 1;
 }
 
 // LES MUTATIONS, une à la fois (7 Go de mémoire) : chacune est appliquée à une COPIE de v2/js/ (dossier temporaire du système), puis le banc
@@ -274,9 +292,10 @@ function muter() {
       const l = r.stdout.toString().split('\n')[0], mm = l.match(/(\d+) signatures différentes dans (\d+) histoires/);
       if (!mm) { out.push('| ' + m.nom + ' | sortie illisible : ' + (r.stderr.toString().slice(0, 100) || l) + ' | ERREUR |'); mal++; return; }
       const se = +mm[1], hi = +mm[2];
-      const v = m.temoin ? (se === 0 ? 'survit (attendu)' : 'TUÉE À TORT') : hi >= SEUIL ? 'TUÉE' : se > 0 ? 'SOUS LE SEUIL' : 'SURVIT';
+      const lt = r.stdout.toString().split('\n').filter(x => /^table /.test(x)).map(x => x.match(/^table (\w+) · (\d+) lignes · (\d+) lignes différentes/)).filter(Boolean), td = lt.reduce((n, x) => n + +x[3], 0);
+      const v = m.temoin ? (se === 0 && td === 0 ? 'survit (attendu)' : 'TUÉE À TORT') : hi >= SEUIL || td >= 1 ? 'TUÉE' : se > 0 ? 'SOUS LE SEUIL' : 'SURVIT';
       if (!/^(TUÉE|survit \(attendu\))$/.test(v)) mal++;
-      out.push('| ' + m.nom + ' | ' + se + ' séances dans ' + hi + ' histoires | ' + v + ' |');
+      out.push('| ' + m.nom + ' | ' + se + ' séances dans ' + hi + ' histoires' + (lt.length ? ' · ' + lt.map(x => x[1] + ' ' + x[3] + '/' + x[2]).join(' · ') : '') + ' | ' + v + ' |');
       console.error(m.nom + ' → ' + v);
     });
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }

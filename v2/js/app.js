@@ -4941,10 +4941,15 @@
   }
   async function creerSeance(routine, raccourci) {
     var id = uuid();
-    var depart = routine;
+    // 99 (MOTEUR §9.24) — les exercices ajoutés par la semaine qui déraille, à la fin, avec leur mention. Ils entrent AVANT
+    // le raccourci : la carte « J'ai peu de temps » a compté la séance servie (routine + ajouts), et `resultat` est indexé
+    // sur cette structure ; la durée promise est celle de la séance qui démarre.
+    var ajoutes = avecLesAjoutsDeLaSemaine(routine);
+    var servie = ajoutes.routine;
+    var depart = servie;
     var applique = null;
     if (routine && raccourci && raccourci.resultat) {
-      applique = Moteur.appliquerRaccourci(routine, raccourci.resultat);
+      applique = Moteur.appliquerRaccourci(servie, raccourci.resultat);
       depart = applique.routine;
       // §9.18 (51-1 ter) — UNE RÉDUCTION S'APPLIQUE UNE SEULE FOIS, SUR LA
       // ROUTINE : la semaine allégée et la série de plus lisent le nombre de
@@ -4956,9 +4961,6 @@
         if (e && e.tr > 0 && !Object.prototype.hasOwnProperty.call(routinesHeritees, cle)) routinesHeritees[cle] = e.tr;
       });
     }
-    // 99 (MOTEUR §9.24) — les exercices ajoutés par la semaine qui déraille, à la fin, avec leur mention.
-    var ajoutes = avecLesAjoutsDeLaSemaine(depart);
-    depart = ajoutes.routine;
     // 272 — la carte « Nouveau niveau » reste jusqu'à « Compris » ou le début de la prochaine séance.
     fermerLAnnonceDeNiveau();
     seance = Seance.creer({
@@ -4969,9 +4971,15 @@
       idSerie: uuid
     });
     if (ajoutes.mentions.length) {
-      var n0 = seance.exercices.length - ajoutes.mentions.length;
+      // Un ajout que le raccourci a retiré n'a plus de ligne : sa mention tombe avec lui.
+      var nAjouts = ajoutes.mentions.length, debutAjouts = (servie.exercices || []).length - nAjouts;
+      var mentionsGardees = ajoutes.mentions.filter(function (m, k) {
+        var x = applique && raccourci.resultat.exercices[debutAjouts + k];
+        return !x || x.ch + x.tr + x.deg + (x.rec || 0) > 0;
+      });
+      var n0 = seance.exercices.length - mentionsGardees.length;
       seance = Object.assign({}, seance, { exercices: seance.exercices.map(function (x, i) {
-        return i >= n0 ? Object.assign({}, x, { ajout: ajoutes.mentions[i - n0] }) : x;
+        return i >= n0 ? Object.assign({}, x, { ajout: mentionsGardees[i - n0] }) : x;
       }) });
     }
     // Le souvenir du raccourci, dans le brouillon de la séance seulement (la
@@ -4983,7 +4991,7 @@
         raccourcie: raccourci.resultat.exercices, retires: applique.retires } });
       // 188-1 — le geste s'écrit AVEC la séance (`sessions.gestes`) : les exercices retirés, par leur slug.
       var retiresSlugs = [];
-      (routine.exercices || []).forEach(function (e, i) {
+      (servie.exercices || []).forEach(function (e, i) {
         var x = raccourci.resultat.exercices[i];
         if (x && x.ch + x.tr + x.deg + (x.rec || 0) === 0 && e && e.exercise_slug) retiresSlugs.push(e.exercise_slug);
       });
@@ -14032,7 +14040,8 @@
 
   function tempsDeLaRoutine(routine) {
     if (!routine || !(routine.exercices || []).length) return null;
-    var structure = Moteur.structureDeRoutine(routine.exercices, catalogueIndexe());
+    // La durée dite est celle de la séance servie : la routine et les exercices que la semaine y ajoute aujourd'hui.
+    var structure = Moteur.structureDeRoutine(avecLesAjoutsDeLaSemaine(routine).routine.exercices, catalogueIndexe());
     if (semaineAllegeeEnCours()) {
       return { texte: Moteur.texteDureeAllegee(Moteur.dureeEstimee(Moteur.structureAllegee(structure))),
                peuDeTemps: false };
@@ -14099,7 +14108,7 @@
   function ouvrirPeuDeTemps(routine) {
     var t = tempsDeLaRoutine(routine);
     if (!t || !t.peuDeTemps) return;
-    var d = Moteur.dureeEstimee(Moteur.structureDeRoutine(routine.exercices, catalogueIndexe()));
+    var d = Moteur.dureeEstimee(Moteur.structureDeRoutine(avecLesAjoutsDeLaSemaine(routine).routine.exercices, catalogueIndexe()));
     Rendu.rendreFeuilleTemps($('feuille-contenu'), {
       sujet: routine.nom || 'Sans nom',
       aide: t.texte,
@@ -14115,9 +14124,10 @@
   // démarre la séance raccourcie, « Garder la séance » la séance normale.
   function montrerCarteRaccourci(routine, cible) {
     var index = catalogueIndexe();
-    var complet = Moteur.structureDeRoutine(routine.exercices, index);
+    var servie = avecLesAjoutsDeLaSemaine(routine).routine;   // la séance servie : routine + ajouts de la semaine
+    var complet = Moteur.structureDeRoutine(servie.exercices, index);
     // 188-2 — jamais une priorité : exemptée du raccourci.
-    var exemptes = Generateur.exemptsDesPriorites((routine.exercices || []).map(function (l) { return l.exercise_slug; }),
+    var exemptes = Generateur.exemptsDesPriorites((servie.exercices || []).map(function (l) { return l.exercise_slug; }),
       Profil.prioritesDe(profil), index);
     var resultat = Moteur.raccourcirRoutine(complet, cible, exemptes);
     Rendu.rendreCarteRaccourci($('feuille-contenu'), {

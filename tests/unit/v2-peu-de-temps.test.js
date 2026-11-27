@@ -438,7 +438,8 @@ describe('51-1 ter — « J’ai peu de temps » se tait pendant une semaine all
       profil: profil || null,
       parisEscalierConnus: () => [], catalogueIndexe: () => CATALOGUE,
       // 53-2 (§9.22) — la décharge planifiée est une semaine allégée : sans bloc, aucune.
-      local: { blocs: [] }, finsAllegeesConnues: () => []
+      local: { blocs: [] }, finsAllegeesConnues: () => [],
+      avecLesAjoutsDeLaSemaine: (r) => ({ routine: r, mentions: [] })
     };
     vm.createContext(ctx);
     ['semaineAllegeeEnCours', 'ciblesPlusCourtes', 'tempsDeLaRoutine'].forEach((n) => vm.runInContext(extraire(APP, n), ctx));
@@ -514,5 +515,85 @@ describe('51-1 ter — la séance raccourcie : la semaine allégée et la série
     expect(vm.runInContext('nombreDeSeriesDeTravail("couche")', ctx)).toBe(2);
     expect(vm.runInContext('routineAFiger("couche")', ctx)).toBe(4);
     expect(ctx.seance.raccourcie).toMatchObject({ cible: 20, retires: ['re-incline', 're-tapis2'] });
+  });
+});
+
+describe('« J’ai peu de temps » promet la durée de la séance SERVIE (routine + exercices ajoutés par la semaine qui déraille)', () => {
+  const AJOUT = { id: 're-ajout', exercise_slug: 'oiseau', rang: 6, series: lignes(['travail', 'travail', 'travail', 'travail']), repos_cible_s: 90, groupe_superset: null, note: null };
+  const servie = () => ({ routine: Object.assign({}, ROUTINE, { exercices: ROUTINE.exercices.concat([AJOUT]) }), mentions: ['séance de mardi'] });
+
+  function contexte() {
+    let n = 0;
+    const ctx = {
+      Seance: S, Moteur: M, Generateur: { exemptsDesPriorites: () => [] }, Profil: { prioritesDe: () => [] }, Modele, Rendu: { rendreCarteRaccourci: (_n, v) => { ctx.vue = v; } },
+      profil: null, $: () => ({}), fermerVoile: () => {}, catalogueIndexe: () => CATALOGUE,
+      routinesHeritees: {}, routinesFigees: {}, seance: null, chrono: null, uuid: () => 'id-' + (++n), sessionActive: null,
+      sauverSeance: async () => {}, poserSeance: async () => {}, allerA: () => {}, rendreSeance: () => {},
+      appliquerAllegee: async () => {}, appliquerSerieDeMoins: async () => {}, ecrireReplis: async () => {}, appliquerSerieDePlus: async () => {},
+      appliquerDegressive: async () => {}, appliquerChauffesAuto: async () => {}, reprendreLaVeilleDuJour: async () => {},
+      apresCreationPourLeGroupe: async () => {}, fermerLAnnonceDeNiveau: () => {}, Routeur: { SAISIE: 'saisie' },
+      avantDeCommencer: (commencer) => commencer(),
+      avecLesAjoutsDeLaSemaine: (r) => (r && r.id === 'r-1' ? servie() : { routine: r, mentions: [] }),
+      demarre: null
+    };
+    ctx.demarrerSeance = (r, rac) => { ctx.demarre = { r, rac }; };
+    vm.createContext(ctx);
+    ['montrerCarteRaccourci'].forEach((nom) => vm.runInContext(extraire(APP, nom), ctx));
+    return ctx;
+  }
+
+  test('⚠️ DISCRIMINANT — la carte compte les exercices ajoutés, et la séance qui démarre tient la durée promise', async () => {
+    const c = contexte();
+    c.routine = ROUTINE;
+    vm.runInContext('montrerCarteRaccourci(routine, 45)', c);
+    c.vue.surRaccourcir();
+    const { rac } = c.demarre;
+    // La structure comptée est celle de la séance servie : sept lignes, la dernière est l'ajout.
+    expect(rac.complet).toHaveLength(7);
+    expect(rac.complet[6].slug).toBe('oiseau');
+    // Puis la séance, créée comme le fait « Raccourcir ».
+    const d = contexte();
+    ['demarrerSeance', 'creerSeance', 'nombreDeSeriesDeTravail', 'routineAFiger'].forEach((nom) => vm.runInContext(extraire(APP, nom), d));
+    vm.runInContext('var Modele = THModele;', Object.assign(d, { THModele: Modele }));
+    d.demarrerSeance = undefined;
+    vm.runInContext(extraire(APP, 'demarrerSeance'), d);
+    d.routine = ROUTINE; d.raccourci = rac;
+    await vm.runInContext('demarrerSeance(routine, raccourci)', d);
+    // Chaque exercice de la séance a EXACTEMENT les séries que la carte a comptées : l'ajout aussi.
+    const comptees = rac.resultat.exercices.filter((x) => x.ch + x.tr + x.deg + (x.rec || 0) > 0);
+    expect(d.seance.exercices).toHaveLength(comptees.length);
+    d.seance.exercices.forEach((x, i) => expect(x.series.length).toBe(comptees[i].ch + comptees[i].tr + comptees[i].deg + (comptees[i].rec || 0)));
+    // La durée de la séance servie est celle de la carte (et tient la cible quand la carte dit qu'elle tient).
+    const duree = M.dureeEstimee(M.structureDeRoutine(d.seance.exercices.map((x) => ({
+      exercise_slug: x.exercise_slug, series: x.series.map((l) => ({ type_serie: l.type_serie || l.type, reps: l.reps, duree_s: l.duree_s })), repos_cible_s: x.repos_cible_s, groupe_superset: x.groupe_superset })), CATALOGUE));
+    expect(rac.resultat.tient ? duree <= 45 * 60 : true).toBe(true);
+    expect(rac.resultat.duree_s).toBe(M.dureeEstimee(comptees));
+  });
+
+  test('un exercice prioritaire n’est jamais raccourci, même quand il vient de la semaine (188-2)', () => {
+    const c = contexte();
+    c.Generateur = { exemptsDesPriorites: (slugs) => slugs.filter((x) => x === 'oiseau') };
+    c.routine = ROUTINE;
+    vm.runInContext('montrerCarteRaccourci(routine, 45)', c);
+    c.vue.surRaccourcir();
+    const { rac } = c.demarre;
+    const ajout = rac.resultat.exercices[6];
+    expect(ajout.tr).toBe(4);
+    expect(rac.resultat.exercices[4].tr).toBe(3);   // l'oiseau de la routine, aussi, entier
+  });
+
+  test('la durée dite sur la routine et sur la feuille « peu de temps » est celle de la séance servie', () => {
+    const ctx = {
+      Moteur: Object.assign({}, M, { periodeAllegee: () => null }), profil: null, parisEscalierConnus: () => [], catalogueIndexe: () => CATALOGUE,
+      local: { blocs: [] }, finsAllegeesConnues: () => [],
+      avecLesAjoutsDeLaSemaine: (r) => (r && r.id === 'r-1' ? servie() : { routine: r, mentions: [] })
+    };
+    vm.createContext(ctx);
+    ['semaineAllegeeEnCours', 'ciblesPlusCourtes', 'tempsDeLaRoutine'].forEach((n) => vm.runInContext(extraire(APP, n), ctx));
+    ctx.r = ROUTINE;
+    const t = vm.runInContext('tempsDeLaRoutine(r)', ctx);
+    const attendu = M.texteDureeEstimee(M.dureeEstimee(M.structureDeRoutine(servie().routine.exercices, CATALOGUE)));
+    expect(t.texte).toBe(attendu);
+    expect(t.texte).not.toBe(M.texteDureeEstimee(M.dureeEstimee(M.structureDeRoutine(ROUTINE.exercices, CATALOGUE))));
   });
 });

@@ -1507,6 +1507,12 @@
   // de calcul §13.3), qui n'en fait PAS des frères. C'est la seule lecture de
   // `mouvement` de l'app (registre NOTIONS). Triés par slug : la même liste à
   // chaque calcul.
+  // 27/11/2026 (plancher roumain) — le `mouvement` d'UN exercice, ou `null` : la même lecture de la colonne, pour le plancher de réserve par mouvement
+  // (`Moteur.cleDePlancher`) ; jamais une liste de frères, jamais un schéma.
+  function mouvementDe(index, slug) {
+    var e = index && index[slug];
+    return e && typeof e.mouvement === 'string' && e.mouvement ? e.mouvement : null;
+  }
   function freresDe(index, slug) {
     var e = index && index[slug];
     var m = e && typeof e.mouvement === 'string' && e.mouvement ? e.mouvement : null;
@@ -3715,6 +3721,7 @@
     indexerExercices: indexerExercices,
     nommer: nommer,
     freresDe: freresDe,
+    mouvementDe: mouvementDe,
     cousinsDe: cousinsDe,
     sensDuMouvement: sensDuMouvement,
     lesteDe: lesteDe,

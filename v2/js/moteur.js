@@ -1612,7 +1612,9 @@
     agePlafondBas: 65,            // « 65 ans et plus » (âge connu)
     ageUnCran: 50,                // le débutant de 50 ans et plus monte d'un cran à la fois
     reservePlancher: 2,           // la réserve affichée de la population protégée et de la reprise longue ne descend jamais sous 2
-    plancherDeBarre: { squat: 1, couche: 1, militaire: 1, souleve: 2 }  // la réserve affichée à la barre (I241)
+    // la réserve affichée à la barre (I241). Les quatre premières clés sont des CLASSES de barre (`classeDeBarre`) ; les autres, des MOUVEMENTS du catalogue
+    // à la barre (27/11/2026, décision d'Aurélien : le soulevé roumain et le soulevé jambes tendues, `jambes_tendues`, 1 ; le good morning attend son `mouvement`).
+    plancherDeBarre: { squat: 1, couche: 1, militaire: 1, souleve: 2, jambes_tendues: 1 }
   };
   var PLAFOND_SAUT = PRUDENCE.plafondDeSaut;
   var PLAFOND_SAUT_DEBUTANT = PRUDENCE.plafondDeSautPrudent;
@@ -1742,10 +1744,22 @@
   // semaine de mesure (`testEssai`, `testSerieAuMax`, §9.32), le test planifié sur les sécurités, garde ses propres réserves.
   var PLANCHER_DE_BARRE = PRUDENCE.plancherDeBarre;
   // `famille` : la barre (`Modele.BARRES`), ou `null`. Rend le plancher de la barre, ou `null` (pas une barre).
+  // 27/11/2026 — `famille` peut aussi être un MOUVEMENT à plancher (`cleDePlancher`) : la table et la fonction restent UNES, `classeDeBarre` et
+  // `Generateur.familleDeBarre` ne changent pas (un mouvement y est un « accessoire » : ni bloc, ni semaine de mesure, ni générateur n'en sont touchés).
+  var CLASSES_DE_BARRE = ['squat', 'couche', 'militaire', 'souleve'];
   function plancherDeBarre(famille) {
     if (famille === null || famille === undefined || famille === '') return null;
     var classe = classeDeBarre(famille);
-    return Object.prototype.hasOwnProperty.call(PLANCHER_DE_BARRE, classe) ? PLANCHER_DE_BARRE[classe] : null;
+    if (Object.prototype.hasOwnProperty.call(PLANCHER_DE_BARRE, classe)) return PLANCHER_DE_BARRE[classe];
+    return typeof famille === 'string' && CLASSES_DE_BARRE.indexOf(famille) < 0 && Object.prototype.hasOwnProperty.call(PLANCHER_DE_BARRE, famille)
+      ? PLANCHER_DE_BARRE[famille] : null;
+  }
+  // LA CLÉ DU PLANCHER d'un exercice : sa barre (`famille`, `Generateur.familleDeBarre`) ; à défaut, son `mouvement` s'il est à plancher ET à la barre
+  // (`equipement === 'barre'` : le roumain aux haltères n'en a pas) ; sinon `null`. Lue par le plan et l'app ; jamais passée à `classeDeBarre`.
+  function cleDePlancher(famille, mouvement, equipement) {
+    if (typeof famille === 'string' && famille) return famille;
+    if (equipement !== 'barre' || typeof mouvement !== 'string' || !mouvement || CLASSES_DE_BARRE.indexOf(mouvement) >= 0) return null;
+    return Object.prototype.hasOwnProperty.call(PLANCHER_DE_BARRE, mouvement) ? mouvement : null;
   }
   // Le plancher seul : une table `v` (ou `null`), rendue telle quelle hors population protégée et hors barre, sinon relevée au plus haut des planchers
   // (2 pour la population protégée, celui de la barre, `famille`), dans [plancher, 3].
@@ -14927,6 +14941,7 @@
     RESERVE_PLANCHER: RESERVE_PLANCHER,
     PLANCHER_DE_BARRE: PLANCHER_DE_BARRE,
     plancherDeBarre: plancherDeBarre,
+    cleDePlancher: cleDePlancher,
     phraseDeLaBarre: phraseDeLaBarre,
     annonceDe: annonceDe,
     regimeAVenir: regimeAVenir,

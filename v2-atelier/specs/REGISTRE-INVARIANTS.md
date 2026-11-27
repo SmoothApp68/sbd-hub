@@ -97,7 +97,7 @@ Légende : **gras** = retiré ; « TROU » = numéro jamais défini ; « voir MO
 | I238 | Le bouton « Dégressive » d'une réaction au raté satisfait `degressivePossible` | `verifierRate` | §9.39, §14.8 | 20/11/2026 |
 | **I239** | **RETIRÉ le 20/11/2026** (le débutant et « Au max », lot E A3) | sans objet | §9.30 | retiré 20/11/2026 |
 | I240 | « Me ménager » : sous 3 reps, aucune montée de bord sans une séance lue d'avant | `verifierBordUneSeance` | §9.1.2, §9.8 | 20/11/2026 |
-| I241 | Le plancher de réserve par barre | `Moteur.plancherDeBarre`, `verifierPlancherDeBarre` | §9.26 ter | 20/11/2026 |
+| I241 | Le plancher de réserve par barre (étendu le 27/11/2026 au `mouvement` `jambes_tendues` à la barre : le roumain, 1 ; clé `Moteur.cleDePlancher`) | `Moteur.plancherDeBarre`, `verifierPlancherDeBarre` | §9.26 ter | 20/11/2026 ; 27/11/2026 |
 | I242 | Le seuil d'un signal de réserve, une fonction | `Moteur.reserveAtteintLeSeuil` | §9.26 quater | 20/11/2026 |
 | I243 | « À fond à garde 0 » : monotonie après une série à fond | `verifierMonotonieAFond` | §9.14 ter | 20/11/2026 |
 | I244-I250 | Une seule montée de chauffe (I16, I125-I127 adaptés) ; « pris par #725 » | `verifierLaMontee`, `Moteur.monteeDeChauffe` | §9.15, §9.41 | 20/11/2026 |

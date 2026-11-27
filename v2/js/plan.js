@@ -161,11 +161,15 @@
   }
   // Lot F, A1 (MOTEUR §9.26 ter, I241) — LA BARRE D'UN EXERCICE du plan : `Generateur.familleDeBarre` sur le catalogue des entrées (la barre, ou un frère à
   // la barre), `null` sinon (et sans générateur chargé). UNE fonction, lue par le plan et ses vérificateurs (jamais un champ du plan relu).
-  function familleDeLExercice(e, slug) {
-    var G = racine.THGenerateur;
+  // 27/11/2026 — la clé du PLANCHER (`Moteur.cleDePlancher`) : la barre, ou le `mouvement` à plancher d'un exercice à la barre (le soulevé roumain,
+  // `jambes_tendues`). `Generateur.familleDeBarre` n'est pas touchée : seule la réserve affichée lit ce complément.
+  function cleDePlancherDe(catalogue, slug) {
+    var G = racine.THGenerateur, Mo = racine.THModele, cat = catalogue || {};
     if (!slug || !G || !G.familleDeBarre) return null;
-    return G.familleDeBarre(slug, (e && e.catalogue) || {}) || null;
+    var fiche = cat[slug];
+    return Moteur().cleDePlancher(G.familleDeBarre(slug, cat), Mo && Mo.mouvementDe ? Mo.mouvementDe(cat, slug) : null, fiche ? fiche.equipement : null) || null;
   }
+  function familleDeLExercice(e, slug) { return cleDePlancherDe((e && e.catalogue) || {}, slug); }
 
   function planDesLignes(series, consigneDonnee, contexte, figees, options) {
     var o = options || {};
@@ -7786,6 +7790,7 @@
   //   I57  un test posé « par la réserve » cite dans son fondement la série et sa réserve : une charge, des reps, une
   //        réserve d'au moins la visée + 2 (169 : sauf la SORTIE de la garde, qui pose le test avec R < V, I62) ;
   //   I58  une réserve sous la visée n'ouvre jamais une montée : ni test, ni ligne haute, ni double cran.
+  // 27/11/2026 : « la barre » est la CLÉ DU PLANCHER (`cleDePlancherDe` : la barre, ou le `mouvement` `jambes_tendues` à la barre — le roumain, plancher 1).
   // I241 (Lot F, A1, 20/11/2026, MOTEUR §9.26 ter) — LE PLANCHER DE RÉSERVE PAR BARRE. Sur un exercice dont la barre (`familleDeLExercice`, recalculée depuis
   // le catalogue des entrées, jamais lue sur le plan) n'est pas nulle : la réserve affichée de la visée (`x.reserveAffichee`) et la garde des lignes (celle du
   // plan et celle recalculée depuis les entrées) ne sont jamais sous `Moteur.plancherDeBarre` (`null` admis : ligne de test d'une protégée, après un zéro rep,
@@ -10529,6 +10534,7 @@
   }
 
   var api = {
+    cleDePlancherDe: cleDePlancherDe,
     planDeSeance: planDeSeance,
     tetesDuPlan: tetesDuPlan,
     carteDeTestAGestes: carteDeTestAGestes,

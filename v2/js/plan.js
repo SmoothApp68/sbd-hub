@@ -4005,6 +4005,15 @@
     return !!(c && c.consigne && c.salle && Moteur().auPlafondDeLaSalle(c.consigne, c.salle));
   }
 
+  // 27/11/2026 (SÉCURITÉ, I282) — LA CARTE VERS LOURD (« Passer à 3-5 reps ») NE SE DIT JAMAIS à un exercice à ménager ni à une personne protégée. UNE
+  // fonction du moteur (`versLourdInterdit`) décide, sur ce que les ENTRÉES disent : la zone à ménager du profil (`zonesMenagees`, choisie ou non par la
+  // personne : elle ménage cette zone) ou l'exercice que le moteur a déjà tenu hors de Lourd (`fondement.menagee`), et la population protégée.
+  function sansLourdDe(e, slug, consigne) {
+    var zm = e && e.zonesMenagees && Object.prototype.hasOwnProperty.call(e.zonesMenagees, slug) ? e.zonesMenagees[slug] : null;
+    var f = consigne && consigne.fondement;
+    return Moteur().versLourdInterdit({ menagee: !!zm || !!(f && f.menagee === true), protegee: protegeeDeEntrees(e) }) !== null;
+  }
+
   function marchesIsolees(e, seance, consignes, esc, phase, intentionProfil) {
     var sortie = {};
     var E = e.escalier;
@@ -4031,7 +4040,7 @@
       // 174 (3/3) — SOUS 3 REPS, SIX SÉANCES SANS MONTER : la zone 3-5 est proposée, par la carte du schéma. L'exercice n'a
       // pas de zone, donc ni compteur d'escalier ni repli : cette marche est la seule qu'il entende.
       if (c.bord) {
-        var mBord = marcheDuBord(seance, slug, c, jour, marches, enBloc);
+        var mBord = sansLourdDe(e, slug, c.consigne) ? null : marcheDuBord(seance, slug, c, jour, marches, enBloc);
         if (mBord) sortie[slug] = mBord;
         return;
       }
@@ -4065,7 +4074,7 @@
           return x && x.seance === seance.id && x.exercice === slug && x.marche === M.MARCHE_DEGRESSIVE;
         })
       };
-      var marche = M.marcheIsolee(n, zone, phase, place, proposee, c.consigne.palier, deg);
+      var marche = M.marcheIsolee(n, zone, phase, place, proposee, c.consigne.palier, deg, sansLourdDe(e, slug, c.consigne));
       if (!marche) return;
       // §9.22 (53-2, I39) — « CHANGER DE SCHÉMA » SE TAIT pour un exercice d'un
       // bloc en cours : le bloc fixe déjà son schéma. Le repli et la série de
@@ -4130,7 +4139,7 @@
           var capCarte = Voix().capturer(function () {
             if (marche === M.MARCHE_DEGRESSIVE) return M.carteDegressive(c.compteur.meilleur, k);
             return marche === M.MARCHE_SCHEMA
-              ? M.carteSchema(zone, c.compteur.meilleur, k, avancent, objectifDuPlan(e.objectif))
+              ? M.carteSchema(zone, c.compteur.meilleur, k, avancent, objectifDuPlan(e.objectif), sansLourdDe(e, slug, c.consigne))
               : M.carteSerieDePlus(c.compteur.meilleur, k, avancent, musclesPrimaires(e, slug),
                   musclesParPriorite(e, slug, phase), seriesDeLaRoutine(e, slug));
           });
@@ -7121,6 +7130,7 @@
     verifierVerbe(plan, erreurs);
     verifierChutes(plan, entrees, erreurs);
     verifierPlaceRelue(plan, entrees, erreurs);
+    verifierSansLourd(plan, entrees, erreurs);
     verifierAnnonce(plan, erreurs);
     verifierRegimes(plan, entrees, erreurs);
     verifierSuiteAujourdhui(plan, erreurs);
@@ -8321,6 +8331,23 @@
         }
         if (/jusqu[’']à l[’']échec|à l[’']échec/.test(t) && lieu !== 'le constat' && v.cause) erreurs.push('I162' + nom + lieu + ' dit « échec » : le verbe ne le dit jamais (aucune marque d’échec posée) : ' + t);
       });
+    });
+  }
+  // I282 (27/11/2026, MOTEUR §14.5 bis) — JAMAIS « PASSER À 3-5 REPS » À UN EXERCICE À MÉNAGER NI À UNE PERSONNE PROTÉGÉE, RECALCULÉ depuis les ENTRÉES
+  //   (`zonesMenagees`, `fondement.menagee`, `populationProtegee` : 65 ans et plus connus, débutant, Forme) par la même fonction que le plan (`versLourdInterdit`) :
+  //   aucune carte du schéma vers Lourd (Mix → Lourd) ni de la règle de bord (sous 3 reps → 3-5) ne leur est posée ; le silence ou la marche suivante de l'escalier.
+  function verifierSansLourd(plan, entrees, erreurs) {
+    var M = Moteur();
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var m = x && x.escalier;
+      if (!m || m.marche !== M.MARCHE_SCHEMA || m.depassement) return;
+      var k = x.consigne || {};
+      var versLourd = !!m.bord || k.zone === 'mix' || !!(m.carte && m.carte.nouvelle_zone === 'lourd');
+      if (!versLourd) return;
+      if (sansLourdDe(entrees, x.slug, k)) {
+        erreurs.push('I282 — exercice ' + i + ' (' + x.slug + ') : « Passer à 3-5 reps » proposé à ' +
+          (protegeeDeEntrees(entrees) ? 'une personne protégée' : 'un exercice à ménager'));
+      }
     });
   }
   // I281 (G7, 27/11/2026, MOTEUR §14.7 ter) — LA PLACE RELUE À CHAQUE SÉANCE, RECALCULÉE depuis les ENTRÉES (le volume, les douleurs, les zones à ménager) :

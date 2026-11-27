@@ -3569,6 +3569,14 @@ Exception : ~~un exercice à la plus lourde de sa salle n'a pas de marche (§10 
 
 **Référence** : `coach49.py` ; cas `cas_isole49.json`.
 
+### 14.5 bis Jamais « Passer à 3-5 reps » à un exercice à ménager ni à une personne protégée — décidé le 27/11/2026 (sécurité, décision du fondateur) (I282)
+
+- **La règle.** La carte qui propose la zone Lourd (« Passer à 3-5 reps ») ne se pose JAMAIS (a) à un exercice qui charge une zone à ménager du profil (`zonesMenagees`, choisie ou non par la personne : elle la ménage), ni à un exercice que le moteur a déjà tenu hors de Lourd (`fondement.menagee`, §9.29, 187 A4) ; (b) à une personne de la population protégée (`populationProtegee` : 65 ans et plus CONNUS, débutant, objectif Forme ; jamais deviné). Ces cas reçoivent la marche suivante de l'escalier, ou le silence, jamais le lourd. **Aucun autre profil ne change.**
+- **Les deux chemins qui y menaient, tous deux fermés** : (1) le schéma, Mix → Lourd (`SCHEMAS.mix`), au 1er déclenchement d'une barre en Mix : `marcheIsolee` ne rend aucune marche (`null`, comme entre deux déclenchements : ni carte ni pari, la phrase du compteur reste un fait en tête) au lieu du schéma, le repli du 2e déclenchement reste le sien, `carteSchema` rend `null` vers Lourd ; (2) la règle de bord (sous 3 reps, six séances sans monter, §9.1.2) : `marcheDuBord` ne pose rien, `carteBordSchema` rend `null`. Le schéma Lourd → Mix (« Passer à 6-8 reps »), la zone suivante après trois séances au-dessus du haut (186 : Volume → Séries longues) et le choix d'une zone Lourd par la personne elle-même (feuille de zone, bloc de programme) ne sont pas des propositions du coach vers Lourd : inchangés.
+- **UNE fonction** : `Moteur.versLourdInterdit({ menagee, protegee })` (la raison `'menagee'` ou `'protegee'`, sinon `null`), lue par `Plan.marchesIsolees` (`sansLourdDe`) et par l'invariant.
+- **I282** (`Plan.verifierSansLourd`, `tests/unit/v2-sans-lourd-282.test.js`) : RECALCULÉ depuis les entrées par la même fonction, aucun exercice dont la marche est le schéma vers Lourd (Mix → Lourd, ou règle de bord) n'est à ménager ni à une personne protégée.
+- **Voix** : aucune phrase nouvelle (la carte disparaît, rien ne la remplace).
+
 
 ### 14.6 La place pour une série de plus — la règle de volume, câblée le 01/10/2026 (chantier 49, PR 2b)
 

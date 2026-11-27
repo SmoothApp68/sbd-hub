@@ -1,8 +1,8 @@
-# REGISTRE DES INVARIANTS (I1 à I272, I281)
+# REGISTRE DES INVARIANTS (I1 à I272, I281, I282)
 
 > Sorti de CLAUDE.md §4 ter le 21/11/2026 (chantier « Simplifier », PR 0) : le registre tenait sur une seule ligne de plus de 25 Ko, relue par chaque agent à chaque lancement. Le texte d'origine est conservé mot pour mot plus bas ; la table n'en est qu'un index.
 > **Le code et MOTEUR-PROGRESSION-V2.md font foi** (§9.13 bis et la section de chaque règle). En cas d'écart, le code a raison.
-> **Prochain numéro libre : I282 (I273 à I279 sont RÉSERVÉS : règles du mauvais jour et D2 ; I280 : PR #764 ; I281 : la place relue, G7), à vérifier sur `main` ET sur les PR ouvertes** (`gh pr list` puis grep « I27 » dans leurs diffs) avant d'en prendre un.
+> **Prochain numéro libre : I283 (I282 : jamais « Passer à 3-5 reps » à un exercice à ménager ni à une personne protégée ; I273 à I279 sont RÉSERVÉS : règles du mauvais jour et D2 ; I280 : PR #764 ; I281 : la place relue, G7), à vérifier sur `main` ET sur les PR ouvertes** (`gh pr list` puis grep « I27 » dans leurs diffs) avant d'en prendre un.
 
 ## Table
 
@@ -111,6 +111,7 @@ Légende : **gras** = retiré ; « TROU » = numéro jamais défini ; « voir MO
 | I269-I271 | La tête d'un exercice : 3 + 1 | `Plan.verifierTete`, `v2-simplifier-3plus1.test.js` | §9.53 | 21/11/2026 |
 | I272 | Le plancher de la dernière série (« Les chutes ») : visée jamais sous le niveau des séries d'avant (borné au haut de la zone, jamais au-dessus : D2), « une rep de plus » jamais sans dépasser la cible d'avant, la phrase se lit contre la ligne montrée (D1 : la ligne relue est celle de l'écran) | `Plan.verifierChutes`, `v2-chutes-plancher.test.js` | §9.2 ter | 25/11/2026, étendu le 26/11/2026 |
 | I281 | La place relue à chaque séance (G7) : une série de plus acceptée ne vit que si le muscle a encore de la place, sans douleur récente ni zone à ménager ; sinon elle s'arrête, dite une fois en gris avec sa raison | `Moteur.serieDePlusRelue`, `Plan.verifierPlaceRelue`, `v2-place-relue.test.js` | §14.7 ter | 27/11/2026 |
+| I282 | Jamais « Passer à 3-5 reps » (schéma Mix → Lourd, règle de bord) à un exercice à ménager ni à une personne protégée (65 ans et plus connus, débutant, Forme) : le silence ou la marche suivante de l'escalier | `Moteur.versLourdInterdit`, `Plan.verifierSansLourd`, `v2-sans-lourd-282.test.js` | §14.5 bis | 27/11/2026 |
 
 ### Numéros réservés, retirés, trous
 

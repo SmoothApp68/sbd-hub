@@ -9484,8 +9484,8 @@
   // le reste : la ligne qu'elle a ajoutée ne la retire pas en pleine séance.
   // Pas de dégressive au poids du corps ni sur une aide (§9.17, I30) : le
   // silence, comme le repli.
-  function marcheIsolee(n, zone, phase, place, proposee, palier, degressive) {
-    var m = marcheIsoleeBrute(n, zone, phase, place, proposee, degressive);
+  function marcheIsolee(n, zone, phase, place, proposee, palier, degressive, sansLourd) {
+    var m = marcheIsoleeBrute(n, zone, phase, place, proposee, degressive, sansLourd);
     var p = nombre(palier);
     if (p !== null && p <= 0 && m === MARCHE_DEGRESSIVE) return MARCHE_SILENCE;
     if (p === 0 && (m === MARCHE_SCHEMA || m === MARCHE_REPLI)) return MARCHE_SILENCE;
@@ -9493,7 +9493,7 @@
     return m;
   }
 
-  function marcheIsoleeBrute(n, zone, phase, place, proposee, degressive) {
+  function marcheIsoleeBrute(n, zone, phase, place, proposee, degressive, sansLourd) {
     var d = degressive || {};
     var k = nombre(n);
     if (k === null || k < 1) return null;
@@ -9506,7 +9506,10 @@
       if (proposee === true && (d.possible === true || d.ici === true)) return MARCHE_DEGRESSIVE;
       return !muscle || proposee === true ? MARCHE_REPLI : MARCHE_SILENCE;
     }
-    if (estZoneForce(zone)) return MARCHE_SCHEMA;
+    // 27/11/2026 (SÉCURITÉ, I282) — la carte « Passer à 3-5 reps » (Mix → Lourd) ne se fait JAMAIS à un exercice à ménager ni à une personne
+    // protégée (`versLourdInterdit`) : l'escalier saute cette marche, sans carte ni pari (`null`, comme entre deux déclenchements : la phrase du compteur
+    // reste un fait en tête) ; la suivante (le repli, au 2e déclenchement) reste la sienne.
+    if (estZoneForce(zone)) return sansLourd === true && SCHEMAS[zone] && SCHEMAS[zone].vers === 'lourd' ? null : MARCHE_SCHEMA;
     if (phase === 'seche') return MARCHE_SECHE;
     // Audit du 16/10/2026, 01 #6 — LA SÉRIE DE PLUS DEMANDE UNE ZONE MUSCLE : une consigne sans zone (règle de
     // bord) recevait la carte, et son acceptation n'ajoutait rien (`seriesDePlusActives` exige une zone). Sans
@@ -9539,11 +9542,25 @@
       ' reste ta meilleure charge de travail depuis ' + nombreFr(compteur, regle('compteur')) + ' séances';
   }
 
+  // 27/11/2026 (SÉCURITÉ, I282, décision du fondateur) — QUI NE REÇOIT JAMAIS LA CARTE VERS LOURD (« Passer à 3-5 reps », en Mix au schéma, ou sous 3 reps
+  // à la règle de bord). UNE fonction, lue par le plan (`marchesIsolees`) et par l'invariant (`verifierSansLourd`, qui la recalcule depuis les entrées) :
+  //   · `menagee` : l'exercice charge une zone à ménager (le profil, `zonesMenagees`), choisie ou non par la personne : proposer le lourd à une zone
+  //     que la personne ménage contredit 187 (A4) et I75 ;
+  //   · `protegee` : la population protégée (`populationProtegee` : 65 ans et plus connus, débutant, objectif Forme).
+  // Rend la raison (`'menagee'` d'abord, `'protegee'`), ou `null`. Un seul sens : elle n'ouvre rien, elle ne ferme que la carte vers Lourd.
+  function versLourdInterdit(o) {
+    var x = o || {};
+    if (x.menagee === true) return 'menagee';
+    if (x.protegee === true) return 'protegee';
+    return null;
+  }
+
   // CHANGER DE SCHÉMA (zones force, n = 1) : la carte sous l'exercice. Rend
-  // `null` hors des zones force.
-  function carteSchema(zone, meilleur, compteur, avancent, objectif) {
+  // `null` hors des zones force, et `null` vers Lourd pour qui ne le reçoit jamais (`sansLourd`, `versLourdInterdit`).
+  function carteSchema(zone, meilleur, compteur, avancent, objectif, sansLourd) {
     var s = SCHEMAS[zone];
     if (!s || !meilleur || meilleur.niveau === null || meilleur.niveau === undefined) return null;
+    if (sansLourd === true && s.vers === 'lourd') return null;
     return {
       zone: zone, nouvelle_zone: s.vers,
       phrase: meilleurDepuis(meilleur, compteur) + (avancent ? ', et tes autres exercices avancent.' : '.'),
@@ -10035,8 +10052,9 @@
     return { total: b.total, charge: b.record, reps: b.repsRecord, aRecule: b.aRecule === true, depuis: b.depuisRecord || null };
   }
   // « 140 kg × 2 depuis 6 séances, malgré le recul. » — le détail se lit à part (hors capture : il écrit « 3-5 »).
-  function carteBordSchema(bord) {
+  function carteBordSchema(bord, sansLourd) {
     if (!bord || nombre(bord.charge) === null || nombre(bord.reps) === null) return null;
+    if (sansLourd === true) return null;       // 27/11/2026 (I282) : « Passer à 3-5 reps » ne se dit jamais à qui ne reçoit pas le lourd
     var cB = cite(FAIT, { quoi: 'bord.record' });
     var r = nombre(bord.reps);
     return {
@@ -14629,6 +14647,7 @@
     marcheIsolee: marcheIsolee,
     autresAvancent: autresAvancent,
     carteSchema: carteSchema,
+    versLourdInterdit: versLourdInterdit,
     phraseSeche: phraseSeche,
     repliEscalier: repliEscalier,
     seanceDouloureuse: seanceDouloureuse,

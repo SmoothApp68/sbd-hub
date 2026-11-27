@@ -184,14 +184,13 @@ describe('95 — le poids du jour', () => {
   });
 });
 
-describe('95 — le coach : les paris tenus sur les paris vérifiés', () => {
-  test('« depuis » le premier pari quand il est venu en cours d’année', () => {
-    const b = bilan(PLEINE, { paris: [{ jour: '2026-09-26', predite: 5, observee: 5 }, { jour: '2026-10-01', predite: 5, observee: 4 },
-      { jour: '2026-10-02', predite: 5, observee: null }, { jour: '2025-10-02', predite: 5, observee: 6 }] });
-    expect(b.coach).toEqual({ tenus: 1, faits: 2, depuis: '2026-09-26' });
-  });
-  test('sans pari vérifié : pas d’écran du coach', () => {
-    expect(bilan(PLEINE).coach).toBeNull();
+// 29/11/2026 (« Les paris en coulisse ») — le compte du coach n'est plus un écran de période : un seul compte, depuis le début
+// (`faits.parisDuCoach`, Profil › À propos de ton coach). Le bilan de période n'en porte plus.
+describe('95 — le coach n\u2019est plus un écran de période', () => {
+  test('le bilan ne porte plus de `coach`, même avec des paris dans l\u2019entrée', () => {
+    const b = bilan(PLEINE, { paris: [{ jour: '2026-09-26', predite: 5, observee: 5 }, { jour: '2026-10-01', predite: 5, observee: 4 }] });
+    expect(b.coach).toBeUndefined();
+    expect(bilan(PLEINE).coach).toBeUndefined();
   });
 });
 

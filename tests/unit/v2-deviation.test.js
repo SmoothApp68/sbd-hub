@@ -565,6 +565,73 @@ describe('les écarts de structure (§6.2)', () => {
     expect(Seance.ecartsRoutine(s, routine).ecarts).toEqual([{ type: 'groupement' }]);
   });
 
+  // F3 (27/11/2026) — un exercice se reconnaît par son slug, pas par l'id de sa ligne de routine.
+  test('F3 : un exercice sorti puis remis (même slug, id perdu) n’est ni retiré ni ajouté', () => {
+    let { seance: s, routine } = seanceDe([['squat', 2, null], ['dc', 2, null]]);
+    s = Seance.retirerExercices(s, [1]);
+    s = Seance.insererExercice(s, 1, 'dc', uuid);
+    expect(s.exercices[1].routine_exercise_id).toBeNull();
+    const v = Seance.ecartsRoutine(s, routine);
+    expect(v.ecarts).toEqual([]);
+    // Reporter n'efface pas la ligne d'origine : la voulue reprend son id.
+    expect(v.voulues.map((x) => x.id)).toEqual(['re0', 're1']);
+    expect(v.voulues[1].zone).toBe(routine.exercices[1].zone === undefined ? null : routine.exercices[1].zone);
+  });
+
+  test('F3 : remplacer un exercice par lui-même ne se rapporte pas', () => {
+    let { seance: s, routine } = seanceDe([['squat', 2, null], ['dc', 2, null]]);
+    s = Seance.remplacerExercice(s, 1, 'dc', uuid);
+    const v = Seance.ecartsRoutine(s, routine);
+    expect(v.ecarts).toEqual([]);
+    expect(v.voulues.map((x) => x.id)).toEqual(['re0', 're1']);
+  });
+
+  test('F3 : remis à une autre place, c’est un changement d’ordre, pas retiré + ajouté', () => {
+    let { seance: s, routine } = seanceDe([['squat', 1, null], ['dc', 1, null], ['curl', 1, null]]);
+    s = Seance.retirerExercices(s, [0]);
+    s = Seance.insererExercice(s, 2, 'squat', uuid);
+    const v = Seance.ecartsRoutine(s, routine);
+    expect(v.ecarts).toEqual([{ type: 'ordre' }]);
+    expect(v.voulues.map((x) => x.id)).toEqual(['re1', 're2', 're0']);
+  });
+
+  test('F3 : un vrai retrait et un vrai ajout restent un retrait et un ajout, de noms différents', () => {
+    let { seance: s, routine } = seanceDe([['squat', 2, null], ['dc', 2, null]]);
+    s = Seance.retirerExercices(s, [1]);
+    s = Seance.insererExercice(s, 1, 'curl', uuid);
+    expect(Seance.ecartsRoutine(s, routine).ecarts).toEqual([
+      { type: 'retire', exercise_slug: 'dc' },
+      { type: 'ajoute', exercise_slug: 'curl' }
+    ]);
+  });
+
+  test('F3 : deux lignes du même slug — chaque exercice sans id prend une ligne libre, jamais deux fois la même', () => {
+    let { seance: s, routine } = seanceDe([['dc', 1, null], ['squat', 1, null], ['dc', 1, null]]);
+    s = Seance.retirerExercices(s, [0, 2]);
+    s = Seance.insererExercice(s, 1, 'dc', uuid);
+    const v = Seance.ecartsRoutine(s, routine);
+    expect(v.voulues.map((x) => x.id)).toEqual(['re1', 're0']);
+    expect(v.ecarts).toEqual([{ type: 'retire', exercise_slug: 'dc' }]);
+
+    // Deux exercices sans id du même slug : deux lignes distinctes, jamais la même deux fois.
+    ({ seance: s, routine } = seanceDe([['dc', 1, null], ['squat', 1, null], ['dc', 1, null]]));
+    s = Seance.retirerExercices(s, [0, 2]);
+    s = Seance.insererExercice(s, 1, 'dc', uuid);
+    s = Seance.insererExercice(s, 2, 'dc', uuid);
+    const w = Seance.ecartsRoutine(s, routine);
+    expect(w.voulues.map((x) => x.id)).toEqual(['re1', 're0', 're2']);
+    expect(w.ecarts).toEqual([{ type: 'ordre' }]);
+  });
+
+  test('F3 : une ligne enlevée par « peu de temps » n’est pas reprise par un exercice du même slug ajouté ensuite', () => {
+    let { seance: s, routine } = seanceDe([['squat', 1, null], ['dc', 1, null]]);
+    s = Seance.retirerExercices(s, [1]);
+    s = Seance.insererExercice(s, 1, 'dc', uuid);
+    s.raccourcie = { geste: 'raccourci', retires: ['re1'] };
+    const v = Seance.ecartsRoutine(s, routine);
+    expect(v.ecarts).toEqual([{ type: 'ajoute', exercise_slug: 'dc' }]);
+  });
+
   test('un dégroupement aussi', () => {
     let { seance: s, routine } = seanceDe([['squat', 1, 1], ['dc', 1, 1], ['curl', 1, 1]]);
     s = Seance.degrouperExercice(s, 1, [0, 1, 2]);

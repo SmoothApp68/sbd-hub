@@ -77,6 +77,44 @@ describe('la carte « Prochaine séance » (173)', () => {
   });
 });
 
+describe('« J\u2019ai peu de temps » sur « Prochaine séance » (27/11/2026, MOTEUR §9.18)', () => {
+  function rendre(extra) {
+    const cible = document.createElement('div');
+    const appels = { peu: [], demarrer: [], autre: 0 };
+    window.THRendu.rendreProchaineSeance(cible, Object.assign({
+      routine: R('b', 'Bas', 2, 'Prise'), catalogue: [], temps: () => ({ texte: '≈ 70 min (estimation)', peuDeTemps: true }),
+      enCours: false,
+      surDemarrer: (id) => appels.demarrer.push(id), surPeuDeTemps: (id) => appels.peu.push(id), surAutre: () => { appels.autre++; }
+    }, extra || {}));
+    return { cible, appels };
+  }
+
+  test('le lien appelle le même geste, pour la routine montrée, à côté de « Autre routine »', () => {
+    const { cible, appels } = rendre();
+    const lien = cible.querySelector('.prochaine-peu-de-temps');
+    expect(lien.textContent).toBe('J\u2019ai peu de temps');
+    expect(lien.parentNode).toBe(cible.querySelector('.prochaine-autre').parentNode);
+    lien.click();
+    expect(appels).toEqual({ peu: ['b'], demarrer: [], autre: 0 });
+  });
+
+  test('absent pendant une décharge, ou quand la routine est déjà courte (mêmes conditions que Saisie)', () => {
+    expect(rendre({ temps: () => ({ texte: '≈ 40 min', peuDeTemps: false }) }).cible.querySelector('.prochaine-peu-de-temps')).toBeNull();
+    expect(rendre({ temps: () => null }).cible.querySelector('.prochaine-peu-de-temps')).toBeNull();
+  });
+
+  test('3 + 1 : le nom, le résumé et « Démarrer » ; deux liens discrets, aucune carte de plus', () => {
+    const { cible } = rendre();
+    expect(cible.querySelectorAll('.prochaine-pied button.principal').length).toBe(1);
+    expect(cible.querySelectorAll('.prochaine-pied button.discret').length).toBe(2);
+  });
+
+  test('pendant une séance en cours, ni ce lien ni « Autre routine »', () => {
+    const { cible } = rendre({ enCours: true, seance: { titre: 'Haut B', nbExercices: 5, nbSeries: 16, faites: 3 } });
+    expect(cible.querySelector('.prochaine-peu-de-temps')).toBeNull();
+  });
+});
+
 describe('la carte pendant une séance en cours (21/11/2026)', () => {
   function rendre(extra) {
     const cible = document.createElement('div');

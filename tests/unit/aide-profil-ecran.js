@@ -54,7 +54,7 @@ function profilEcran(profil, options) {
     succesDecrit: (id) => ({ id }),
     montrer: () => {}, $: element,
     // 58-1 : le compte des exercices faits vient du module des faits.
-    faits: { compterExercices: () => ({ total: 0, faits: 0 }) }, corpus: () => ({}),
+    faits: { compterExercices: () => ({ total: 0, faits: 0 }), parisDuCoach: () => opt.parisDuCoach || null }, corpus: () => ({}),
     ecrireProfil: (champs) => { ecrits.push(champs); },
     nombreGroupe: (n) => String(n),
     ligneChoix: (cle, libelle) => ({ cle, libelle }),
@@ -77,6 +77,10 @@ function profilEcran(profil, options) {
     ligneRetenusDuCoach: () => [],
     // 201 — « Les mots du coach » : la feuille qu'ouvre la ligne (lexique du moteur).
     Moteur, ouvrirMotsDuCoach: () => {},
+    // 27/11/2026 (n° 59) — « Terminer mon questionnaire » ne s'affiche que s'il manque une réponse utile (`Questionnaire.questionnaireAAchever`).
+    Questionnaire: require('../../v2/js/questionnaire.js'), aDesRoutinesConnu: () => (opt.aDesRoutines === undefined ? null : opt.aDesRoutines),
+    // 29/11/2026 — « À propos de ton coach » : la ligne (la vraie, extraite) lit `faits.parisDuCoach` (`options.parisDuCoach`, absent : aucun pari).
+    Bilan: require('../../v2/js/bilan.js'), parisDeConsigneConnus: () => [], ouvrirParisDuCoach: () => {},
     // 273 — « Jalons » et « Faits seulement » (le mode sobre de l'appareil : éteint ici).
     ouvrirJalons: () => {}, basculerModeSobre: () => {},
     // 26/11/2026 — « Garder l’écran allumé en séance » : la préférence de l’appareil (allumée ici) et sa bascule.
@@ -97,7 +101,7 @@ function profilEcran(profil, options) {
     // 116 (03 #6) — une colonne refusée pour de bon : la phrase en tête du Profil.
     refusProfil: opt.refusProfil || null,
     // 213 — les groupes repliés : le groupe ouvert, les routines (pour le résumé de « Mon programme »).
-    groupeProfilOuvert: null, routines: [], Routines: { visibles: (l) => l },
+    groupeProfilOuvert: null, routines: [], etatRoutines: { code: opt.etatRoutines || 'ok', message: '' }, Routines: { visibles: (l) => l },
     // 250 — « Lire mes notes » : absente tant que l'interrupteur est fermé.
     sectionNotesIA: () => null
   };
@@ -106,6 +110,7 @@ function profilEcran(profil, options) {
   vm.runInContext(extraire('modeSobre'), ctx);
   vm.runInContext(extraire('jeuVisible'), ctx);
   vm.runInContext(extraire('facultative'), ctx);
+  vm.runInContext(extraire('ligneParisDuCoach'), ctx);
   vm.runInContext(extraire('rendreProfilEcran'), ctx);
   vm.runInContext('rendreProfilEcran()', ctx);
   return { vue, bandeau, ecrits, enTete, ctx, ouverts, questionnairesOuverts, programmesOuverts, sallesOuvertes, section: (titre) => (vue.sections || []).filter((s) => s && s.titre === titre)[0] || null };

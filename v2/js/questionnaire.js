@@ -92,7 +92,7 @@
     }
     return ECRANS.filter(function (id) {
       if (id === SAIT) return avec;
-      if (id === DEPART) return !!contexte && contexte.objectif === 'calisthenie';
+      if (id === DEPART) return !!contexte && Modele().specialiteDe(contexte.objectif).programme.gabarit === 'calisthenie';
       if (id === RECENTE) return aUneAnnee(contexte) && !(contexte && contexte.aDesSeances);
       if (id === PROGRAMME) return !!contexte && contexte.aDesRoutines === false;
       if (id === CONSTRUIT) return !!contexte && contexte.aDesRoutines === false && contexte.programme === 'construis';
@@ -265,6 +265,26 @@
     if (id === CONSTRUIT) return joursValides(r.seances);
     if (id === COACH) return !!r.coach;
     return true;
+  }
+
+  // ── LE BANDEAU NE PARLE QUE D'UNE RÉPONSE UTILE (décision du 27/11/2026, n° 59) ──
+  //
+  // « Ton questionnaire n'est pas terminé » (bandeau de Saisie) et « Terminer mon questionnaire » (ligne du Profil) lisent CETTE seule
+  // fonction : le questionnaire reste à achever tant que `questionnaire_fait_le` est vide ET qu'il manque une réponse NÉCESSAIRE au
+  // chemin de la personne — celles que le parcours court exige (`ecranPret(…, court)`) : depuis quand ; le programme, seulement si l'on
+  // SAIT qu'elle n'a aucune routine (`aDesRoutines === false`, comme `ecransVisibles`) ; les jours, seulement sous « Construis-le-moi ».
+  // Tout le reste est facultatif et a son défaut prudent (§1.3, §8.y) : une réponse qui manque parce qu'elle n'était pas nécessaire
+  // ne ramène pas le bandeau. Le profil inconnu (colonne absente) ne dit rien, comme `Profil.questionnaireAFaire`. Aucune écriture.
+  function reponseNecessaireManque(profil, aDesRoutines) {
+    var r = reponsesInitiales(profil, null);
+    if (!ecranPret(ANCIENNETE, r)) return true;
+    if (aDesRoutines === false) {
+      if (!ecranPret(PROGRAMME, r, true)) return true;
+    }
+    return false;
+  }
+  function questionnaireAAchever(profil, aDesRoutines) {
+    return Profil().questionnaireAFaire(profil) && reponseNecessaireManque(profil, aDesRoutines);
   }
 
   // ── Ce que chaque écran ÉCRIT ────────────────────────────────────────────
@@ -1115,7 +1135,7 @@
     ecransVisibles: ecransVisibles,
     progression: progression,
     ecranSuivant: ecranSuivant,
-    reprise: reprise, ecranRepondu: ecranRepondu, ECRANS_COURT: ECRANS_COURT,
+    questionnaireAAchever: questionnaireAAchever, reprise: reprise, ecranRepondu: ecranRepondu, ECRANS_COURT: ECRANS_COURT,
     ecranPrecedent: ecranPrecedent,
     reponsesInitiales: reponsesInitiales,
     coachDe: coachDe,

@@ -118,7 +118,7 @@
                   acc('forme_charniere', 'S', 2, 10), tenue('forme_porte', 'T', 2, 30), tenue('forme_gainage', 'T', 2, 30)]];
   }
   function gabaritDeForme(p) {
-    if (p.objectif !== 'forme' || p.famille === false) return null;     // `famille: false` : le gabarit d'avant (les cas de 60-6 le rejouent)
+    if (specialite(p.objectif).programme.gabarit !== 'corps_entier' || p.famille === false) return null;     // `famille: false` : le gabarit d'avant (les cas de 60-6 le rejouent)
     var n = Math.min(bornerJours(p.jours), FORME_JOURS_MAX);
     var noms = ['Corps entier A', 'Corps entier B', 'Corps entier C'].slice(0, n);
     return noms.map(function (nom, i) {
@@ -135,7 +135,7 @@
   // grosse série puis des reculs, 193-1 : Les deux seulement ; à PLUS de reps que la grosse série (193-5, MOTEUR §9.28), leur charge
   // se cale sur le max du jour — « 1 × 4 puis 2 × 8 »),
   // `lourd` (une barre lourde : jamais coupée par le raccourci, elle porte la phase). Pur table : aucun calcul.
-  var FAMILLE_OBJECTIFS = ['force', 'les_deux'];
+  // Les buts qui reçoivent les familles : `Modele.specialiteDe(objectif).programme.gabarit === 'familles'` (fiche de spécialité, 26/11/2026).
   function pl(motif, role, o) { return [motif, role, o || {}]; }
   function lourde(motif, id, n, reps, lourd) { return pl(motif, 'P', { id: id, zone: 'lourd', n: n, reps: reps, lourd: lourd !== false }); }
   function grosse(motif, id, reps, reculs, repsRecul, lourd) {
@@ -228,8 +228,10 @@
 
   // ── Les reps visées, par objectif et rôle (principal, secondaire, isolation) ──
   // Sans objectif (ou un objectif que cette table ne connaît pas), celles de « Muscle ».
-  var REPS = { force: [5, 7, 12], les_deux: [5, 9, 12], muscle: [8, 9, 12], forme: [9, 12, 15] };
-  var REPS_DEFAUT = [8, 9, 12];
+  // Elles vivent dans la fiche de spécialité (`Modele.SPECIALITES`, `programme.reps`) ; `REPS` n'en est que la VUE exportée.
+  function specialite(objectif) { return racine.THModele.specialiteDe(objectif); }
+  var REPS = { force: racine.THModele.SPECIALITES.force.programme.reps, les_deux: racine.THModele.SPECIALITES.les_deux.programme.reps,
+    muscle: racine.THModele.SPECIALITES.muscle.programme.reps, forme: racine.THModele.SPECIALITES.forme.programme.reps };
 
   // 26/11/2026 — le principal de Muscle (et « sans réponse ») : 8, plus 7 (QUESTIONNAIRE-COACH-V2 §5 bis, delta 26/11).
   // Une charnière ne dépasse JAMAIS 8 reps : la fatigue défait la technique.
@@ -261,7 +263,7 @@
   }
 
   function seriesDe(role, objectif) {
-    if (role === 'P') return (objectif === 'force' || objectif === 'les_deux') ? 4 : 3;
+    if (role === 'P') return specialite(objectif).programme.seriesPrincipal;
     return role === 'T' ? 2 : 3;
   }
 
@@ -293,18 +295,18 @@
   // `session` : les exercices DÉJÀ DANS cette séance (60-6, S2/S6). Le repli « un exercice déjà pris » les exclut : le
   // même exercice deux fois dans une séance n'a pas de sens, la place saute plutôt. `debutant` (S3) : on cherche
   // d'abord SANS les trois exercices de poids du corps lourd qui ne sont pas dans l'historique, puis, si rien, avec.
-  function choisir(motif, ok, ecartes, pris, menager, faits, materiel, debutant, session, allonge) {
+  function choisir(motif, ok, ecartes, pris, menager, faits, materiel, debutant, session, allonge, equipementDe) {
     if (debutant) {
       var sans = function (s) { return !(contient(PDC_LOURD, s) && !(possede(faits, s) ? Number(faits[s]) || 0 : 0)); };
-      var r = choisirBrut(motif, function (s) { return ok(s) && sans(s); }, ecartes, pris, menager, faits, materiel, session, allonge);
+      var r = choisirBrut(motif, function (s) { return ok(s) && sans(s); }, ecartes, pris, menager, faits, materiel, session, allonge, equipementDe);
       if (r) return r;
     }
-    return choisirBrut(motif, ok, ecartes, pris, menager, faits, materiel, session, allonge);
+    return choisirBrut(motif, ok, ecartes, pris, menager, faits, materiel, session, allonge, equipementDe);
   }
 
   function candidatsDe(motif) { return liste(possede(MOTIFS, motif) ? MOTIFS[motif] : VARIANTES[motif]); }
 
-  function choisirBrut(motif, ok, ecartes, pris, menager, faits, materiel, session, allonge) {
+  function choisirBrut(motif, ok, ecartes, pris, menager, faits, materiel, session, allonge, equipementDe) {
     function candidats(src, sansPris) {
       return src.filter(function (s) {
         return !contient(ecartes, s) && ok(s) && !(sansPris && possede(pris, s)) && !(!sansPris && possede(session, s));
@@ -334,18 +336,28 @@
       return false;
     });
     var corps = materiel === 'poids_du_corps';
-    var tries = trier(cand, function (x, y) {
-      function cle(s) {
-        // 196 — à égalité de pratique, l'exercice qui charge le muscle ÉTIRÉ (`accent_allonge`) passe devant : une préférence, la liste
-        // des candidats ne change pas (`allonge` absent : rien ne change).
-        return [s !== doux ? 1 : 0, -(possede(faits, s) ? Number(faits[s]) || 0 : 0), typeof allonge === 'function' && allonge(s) ? 0 : 1,
-                corps && contient(ELASTIQUES, s) ? 0 : 1, src.indexOf(s)];
-      }
+    // 196 — le muscle ÉTIRÉ (`accent_allonge`) ne DÉPARTAGE que des candidats ÉQUIVALENTS : il ne passe jamais devant une BARRE en tête
+    // de liste (le mouvement principal, de compétition ou de la famille : `squat_barre`), et jamais devant une meilleure préférence (zone
+    // douce, pratique). Le split squat bulgare, à l'haltère, passait devant `squat_barre` sur le vrai catalogue (sans compte, rien d'autre
+    // ne départageait). `allonge` absent : rien ne change.
+    function cle(s) {
+      return [s !== doux ? 1 : 0, -(possede(faits, s) ? Number(faits[s]) || 0 : 0), corps && contient(ELASTIQUES, s) ? 0 : 1, src.indexOf(s)];
+    }
+    function comparer(x, y) {
       var kx = cle(x), ky = cle(y);
       for (var i = 0; i < kx.length; i++) if (kx[i] !== ky[i]) return kx[i] < ky[i] ? -1 : 1;
       return 0;
-    });
-    return tries[0];
+    }
+    var tries = trier(cand, comparer);
+    var tete = tries[0];
+    if (typeof allonge === 'function' && !allonge(tete) && typeof equipementDe === 'function' && equipementDe(tete) !== 'barre') {
+      var kt = cle(tete);
+      for (var j = 1; j < tries.length; j++) {
+        var kj = cle(tries[j]);
+        if (kj[0] === kt[0] && kj[1] === kt[1] && kj[2] === kt[2] && allonge(tries[j])) return tries[j];
+      }
+    }
+    return tete;
   }
 
   // ── Une ligne : séries et reps de la place ──────────────────────────────────
@@ -361,7 +373,7 @@
   // `habiller` (le programme déduit, 66D) : la place charge une zone à ménager (son motif, `CHARGE_ZONE`) ; sans série
   // lourde, ses reps au moins celles d'un secondaire (toutes ses séries gardées) ; la charnière bornée. Des reps
   // inconnues (une ligne déduite sans habitude) restent inconnues.
-  function repsDeObjectif(objectif) { return possede(REPS, objectif) ? REPS[objectif] : REPS_DEFAUT; }
+  function repsDeObjectif(objectif) { return specialite(objectif).programme.reps; }
   function estMenagee(motif, menager) { return zonesDeLigne({ motif: motif }, menager).length > 0; }
   function repsDeLaPlace(reps, motif, menage, objectif) {
     if (typeof reps !== 'number') return reps;
@@ -411,7 +423,7 @@
     if (barreDeLaFamille) { if (prioEx) { if (reculs) reculs += 1; else n += 1; } }
     else n += bonus;
     if (menage) {
-      if (zone === 'lourd') zone = objectif === 'les_deux' ? 'hypertrophie' : 'mix';
+      if (zone === 'lourd') zone = specialite(objectif).programme.menageLourd;
       if (reculs) { n += reculs; reculs = 0; repsRecul = null; }
       reps = repsDeLaPlace(reps, motif, true, objectif);
     } else if (motif === 'charniere') reps = Math.min(reps, CHARNIERE_MAX);
@@ -435,7 +447,7 @@
   // inchangé (Muscle, Forme, sans objectif, maison sans barre). Moins d'un an : la même semaine, mais 3 × 5 sans zone, sans reculs
   // et sans prise serrée (l'apprentissage du geste ; Moesgaard 2022 : la périodisation aide surtout les entraînés).
   function gabaritDeForce(catalogue, p, ok, debutant) {
-    if (p.famille === false || !contient(FAMILLE_OBJECTIFS, p.objectif)) return null;     // `famille: false` : le gabarit d'avant (les cas de 60-6 le rejouent)
+    if (p.famille === false || specialite(p.objectif).programme.gabarit !== 'familles') return null;     // `famille: false` : le gabarit d'avant (les cas de 60-6 le rejouent)
     if (!ok('squat_barre') || !ok('developpe_couche_barre')) return null;
     var base = FAMILLES[p.objectif][bornerJours(p.jours)];
     return debutant ? pourDebutant(base) : base;
@@ -552,7 +564,7 @@
   // { nom, exercices: [{ exercise_slug, motif, role, series, reps, prioritaire, menage, barre_fixe }] }.
   function generer(catalogue, entree) {
     var p = entree || {};
-    if (p.objectif === 'calisthenie') return genererCalisthenie(catalogue, p);   // 195-3 : son propre gabarit, sans barre chargée
+    if (specialite(p.objectif).programme.gabarit === 'calisthenie') return genererCalisthenie(catalogue, p);   // 195-3 : son propre gabarit, sans barre chargée
     var faits = p.faits || {};
     var ecartes = liste(p.ecartes);
     var ok = faisable(catalogue, p.materiel, faits, p.barre_traction);
@@ -582,7 +594,7 @@
           // 266 — la deuxième exposition d'une barre en Force prend sa version à pause (jamais pour un débutant, jamais si une zone à ménager
           // charge le motif de la principale, jamais si elle est écartée ou hors de la salle) ; sinon la barre.
           var kp0 = cle.split('-');
-          if (p.objectif === 'force' && !debutant && possede(PAUSE, choix[cle]) && ok(PAUSE[choix[cle]]) && !contient(ecartes, PAUSE[choix[cle]]) &&
+          if (specialite(p.objectif).programme.pause && !debutant && possede(PAUSE, choix[cle]) && ok(PAUSE[choix[cle]]) && !contient(ecartes, PAUSE[choix[cle]]) &&
               !estMenagee(gabarit[Number(kp0[0])][1][Number(kp0[1])][0], p.menager)) {
             choix[pl.r + '-' + pl.j] = PAUSE[choix[cle]];
           }
@@ -596,7 +608,7 @@
         if (deja) session[deja] = true;
       });
       var s = choisir(pl.motif, ok, ecartes, pris, p.menager, faits, p.materiel, debutant, session,
-                      function (x) { return racine.THModele.estAccentAllonge(catalogue[x]); });
+                      function (x) { return racine.THModele.estAccentAllonge(catalogue[x]); }, function (x) { return catalogue[x] ? catalogue[x].equipement : null; });
       if (s) { choix[pl.r + '-' + pl.j] = s; pris[s] = true; }
     });
     // Les zones dont toutes les places du programme sont des principaux : la priorité de zone n'y aurait aucun effet.
@@ -645,7 +657,7 @@
   var ENTRETIEN_CARDIO = ['rameur', 'velo_machine', 'velo'];
   var ENTRETIEN_CARDIO_S = 15 * 60;
   function specEntretienForce(catalogue, slug, motif, role, p, gardees, debutant) {
-    if (contient(FAMILLE_OBJECTIFS, p.objectif) || p.objectif === 'forme' || debutant) return null;
+    if (!specialite(p.objectif).programme.entretienForce || debutant) return null;
     if (!contient(racine.THProfil.objectifsDe(p), 'force') || !contient(ENTRETIEN_BARRES, motif) || possede(gardees, motif)) return null;
     var fiche = catalogue[slug];
     if (!fiche || fiche.equipement !== 'barre' || familleDeBarre(slug, catalogue) === null) return null;
@@ -659,7 +671,7 @@
     var objs = racine.THProfil.objectifsDe(p);
     if (!objs.length || p.famille === false) return rt;
     var ex = liste(rt.exercices).slice();
-    if (contient(objs, 'calisthenie') && k === 0 && p.objectif !== 'calisthenie' &&
+    if (contient(objs, 'calisthenie') && k === 0 && specialite(p.objectif).programme.gabarit !== 'calisthenie' &&
         !liste(p.menager).some(function (z) { return contient(CAL_ZONES_BRAS_TENDUS, z); })) {
       var figure = figureDeLaPersonne(catalogue, p.faits || {}, ecartes, ok);
       if (figure && !ex.some(function (l) { return l.exercise_slug === figure.slug; })) {
@@ -669,7 +681,7 @@
         ex.unshift(lf);
       }
     }
-    if (contient(objs, 'forme') && k === total - 1 && p.objectif !== 'forme') {
+    if (contient(objs, 'forme') && k === total - 1 && specialite(p.objectif).programme.gabarit !== 'corps_entier') {
       var cardio = ENTRETIEN_CARDIO.filter(function (s) { return possede(catalogue, s) && ok(s) && !contient(ecartes, s); })[0];
       if (cardio && !ex.some(function (l) { return l.exercise_slug === cardio; })) {
         var lc = ligneCalisthenie(catalogue, cardio, 'entretien_cardio', 'T', 1, null);
@@ -740,7 +752,7 @@
     liees.forEach(function (c) { nouveau[c[0]].exercices.forEach(function (x) { pris[x.exercise_slug] = true; }); });
     // `pris` = les exercices de CETTE séance : le repli ne les reprend jamais (60-6, S6) ; le débutant reste débutant.
     var s = choisir(vieux.motif, faisable(catalogue, p.materiel, faits, p.barre_traction), ecartes, pris, p.menager, faits, p.materiel,
-                    racine.THProfil.estDebutant(p), pris, function (x) { return racine.THModele.estAccentAllonge(catalogue[x]); });
+                    racine.THProfil.estDebutant(p), pris, function (x) { return racine.THModele.estAccentAllonge(catalogue[x]); }, function (x) { return catalogue[x] ? catalogue[x].equipement : null; });
     if (s === null) {
       // rien au catalogue : la place disparaît (ses places liées avec elle, de la dernière à la première pour garder les rangs)
       liees.slice().sort(function (a, b) { return b[1] - a[1]; }).forEach(function (c) { nouveau[c[0]].exercices.splice(c[1], 1); });
@@ -972,7 +984,7 @@
 
   function carteCycles(e) {
     var x = e || {};
-    return (x.objectif === 'force' || x.objectif === 'les_deux') &&
+    return specialite(x.objectif).programme.cycles &&
       Number(x.joursDepuisCreation) >= CARTE_JOURS && Number(x.seancesDuDossier) >= CARTE_SEANCES &&
       !x.estProgramme && !x.carnet && !x.dejaVue;
   }
@@ -1007,7 +1019,7 @@
   var SQUAT = BARRES[0][0], COUCHE = BARRES[1][0], MILITAIRE = BARRES[3][0];
   // Squat ÷ couché : le repère et sa lecture sont ceux de « Ton parcours » (`THParcours.repereSquatCouche`,
   // carnets de pratiquants ; 76, 12/10/2026 — plus les moyennes de compétition). Aucune table ici.
-  var DISCIPLINES_RATIO = ['force', 'les_deux'];
+  // Les buts à repère de ratio : `Modele.specialiteDe(objectif).programme.ratios`.
   var MOIS_PLAT = 12;               // « pas encore dépassé » : un record d'au moins 12 mois (calendaires, `THPeriode.moisAvant`), sur une barre travaillée
   var SECHE_DEPASSEMENT = 1.3;      // en sèche, un muscle à plus de 1,3 × son plus haut volume (N3)
   var PAR_SEANCE = 11;              // ~11 séries d'un muscle par séance (Remmert, Pelland et al. 2025)
@@ -1113,7 +1125,7 @@
       // Le rapport squat ÷ couché sous le repère de son sexe (Force, Les deux). 179 (D1) : un FAIT et une proposition, jamais
       // l'étiquette « en retard » (un avancé fort au développé n'est pas en retard sur sa barre la plus lourde).
       var sq = barres[SQUAT] || {}, co = barres[COUCHE] || {}, sexe = prof.sexe;
-      if (contient(DISCIPLINES_RATIO, prof.objectif) && sq.record && co.record && sq.semaines && co.semaines) {
+      if (specialite(prof.objectif).programme.ratios && sq.record && co.record && sq.semaines && co.semaines) {
         var ratio = sq.record.charge / co.record.charge;
         var rp = racine.THParcours.repereSquatCouche(ratio, sexe);
         if (rp.lecture === 'en dessous') {
@@ -1133,7 +1145,7 @@
         }
       }
       // Muscle, Forme ou sans réponse : le retard se lit par muscle, pas par barre.
-      if (!contient(DISCIPLINES_RATIO, prof.objectif)) {
+      if (!specialite(prof.objectif).programme.ratios) {
         var vol = e.volume || {};
         var peu = MUSCLES_SUIVIS.filter(function (m) { return vol[m] && vol[m].max < PEU_TRAVAILLE; });
         if (peu.length) {
@@ -1309,7 +1321,7 @@
     // R3 couvre aussi la priorité de « Ton historique » (66A bis).
     var q = r ? r.proposition : null;
     if (q && (!q.oui || !q.non)) fautes.push('R3 une proposition sans « oui » ni « non »');
-    if (r && !contient(DISCIPLINES_RATIO, profil.objectif)) fautes.push('R4 un repère de ratio hors Force / Les deux');
+    if (r && profil.objectif !== 'force' && profil.objectif !== 'les_deux') fautes.push('R4 un repère de ratio hors Force / Les deux');
     return fautes;
   }
 
@@ -2150,7 +2162,7 @@
   // la maquette). `[]` ailleurs. Lue par l'aperçu, jamais recalculée.
   function avertissementsCalisthenie(entree) {
     var p = entree || {};
-    return p.objectif === 'calisthenie' && p.barre_traction === false ? [PHRASE_SANS_BARRE] : [];
+    return specialite(p.objectif).programme.gabarit === 'calisthenie' && p.barre_traction === false ? [PHRASE_SANS_BARRE] : [];
   }
   // I101 à I103 (195-3) — le programme de calisthénie : au plus 3 séances avec une figure (bras tendus) ; aucune figure avec une zone
   // à ménager coude ou épaule ; aucun exercice qui demande une barre de traction quand la personne dit qu'elle n'en a pas.

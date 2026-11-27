@@ -68,7 +68,7 @@
   --trait:#2B3442;       /* séparations */
   /* 260-b — LE CONTOUR D'UN CONTRÔLE (WCAG 1.4.11, 3:1 au moins contre ce qui l'entoure). `--trait` (1,15:1 sur une case, 1,36:1 sur une
      carte) reste le jeton des FILETS et des séparations ; un bouton, un champ, une case, une coche portent celui-ci : 3,3:1 sur la
-     surface 2, 3,9:1 sur la surface, 3,15:1 sur une série faite (#1D312F), 4,5:1 sur le fond. */
+     surface 2, 3,9:1 sur la surface, 3,14:1 sur une série faite (#1B3135), 4,5:1 sur le fond. */
   --trait-controle:#6F7A8B;
   --anneau-focus:var(--accent); /* 260-b : l'anneau de focus (2 px) — l'ambre, la voix de ce qu'on va toucher */
 
@@ -85,7 +85,7 @@
   --accent:#FFB938;      /* l'ambre : la voix du coach, l'action principale */
   --accent-sombre:#C2790F;
   --sur-accent:#1A1200;  /* le texte posé sur l'ambre */
-  --reussi:#4ADE80;      /* sens uniquement, jamais décoratif */
+  --reussi:#3DDBB4;      /* sens uniquement, jamais décoratif. Jade (était #4ADE80, 07/11 → 27/11/2026) : séparé de l'ambre et du rouge pour les trois daltonismes (ΔE2000 ≥ 15,9 au pire), 9,75:1 sur une carte, 7,80:1 sur une série faite */
   /* 56-1 (#372) : même teinte, remontée à 5,1:1 sur la surface et 4,5:1 sur la
      surface 2. Le sens seulement (une action destructive), jamais un jugement. */
   --manque:#FF7B72;
@@ -139,10 +139,10 @@
   /* 261 — LE SUPERSET PAR TOURS : une couleur ET une forme par exercice (A rond bleu, B carré rose — pas le violet des records —,
      C triangle gris clair). La couleur seule ne porte jamais un sens : la forme et la lettre du badge la doublent. */
   --ex-a:#58B4F5; --ex-b:#F28CC0; --ex-c:#CBD5E1;
-  --degressive:#E0B25A; /* « ↓ Dégressive » dans un tour : 8,7:1 sur la carte */
+  --degressive:#A9B3C1; /* « ↓ Dégressive » dans un tour : gris (la valeur de --texte-2), 8,06:1 sur la carte ; l'ancien doré #E0B25A ressemblait à l'ambre du coach (ΔE 7,0) */
   --rail-fond:#12161D; /* le rail d'un tour : une région plus sombre que la carte */
   --trait-case-saisie:#606C80; /* le contour pointillé d'une case à remplir : 3:1 sur la carte (WCAG 1.4.11) */
-  --fond-serie-faite:#1D312F; /* 260-d : LE vert d'une série faite, --reussi à 11 % sur la surface, valeur calculée posée en dur (opaque ; un rendu color(srgb …) se lit mal) */
+  --fond-serie-faite:#1B3135; /* 260-d : LE vert d'une série faite, --reussi (jade) à 11 % sur la surface, valeur calculée posée en dur (opaque ; un rendu color(srgb …) se lit mal) */
   /* Le sens : manque et ambre, fonds et traits */
   --manque-trait:#4A3330; /* contour d'un état destructif ou en erreur */
   --manque-fond:#33201e; /* fond révélé sous la ligne qu'on glisse pour supprimer */
@@ -545,8 +545,9 @@ button{font-family:inherit;cursor:pointer}
 .onglet svg{width:22px;height:22px;stroke:currentColor;fill:none;
   stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .onglet-nom{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-/* L'un des deux seuls usages de l'accent. L'autre est la suggestion du moteur. */
-.onglet.actif{color:var(--accent)}
+/* L'un des deux seuls usages de l'accent. L'autre est la suggestion du moteur. Le trait de 3 px au-dessus dit l'état par une FORME
+   (WCAG 1.4.1, niveaux de gris) ; en fond dégradé, pour ne pas disputer ::before / ::after aux pastilles (en cours, demandes). */
+.onglet.actif{color:var(--accent);background:linear-gradient(var(--accent),var(--accent)) no-repeat center top/28px 3px}
 
 /* ⚠️ LA RÉSERVE DU BAS EST MESURÉE, PAS DEVINÉE (chantier 25).
    Deux barres se posent par-dessus le contenu : les onglets, et la barre de
@@ -1123,9 +1124,14 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
    sélecteur, et la saisie gagnait parce qu'elle est écrite plus bas. */
 .cols-seance,
 .serie.grille{display:grid;gap:5px}
-.g-charge_reps{grid-template-columns:30px 58px 1fr 44px 44px 44px}  /* 260-a : 44 px de toucher partout ; 67 px pour les kg à 360 px, 72 avec l'écart de la règle suivante (260-f) */
+.g-charge_reps{grid-template-columns:30px 54px 1fr 44px 44px 48px}  /* 260-a : 44 px de toucher partout ; 67 px pour les kg à 360 px, 72 avec l'écart de la règle suivante (260-f) */
 .serie.grille.g-charge_reps,.cols-seance.g-charge_reps{column-gap:4px}  /* 260-f : 4 px entre les cibles de 44 px (5 avant) : les kg gardent ≥ 70 px à 360 px */
-.g-reps{grid-template-columns:30px 62px 1fr 44px 44px}              /* 260-a : 112 px */
+/* lot 4 (n° 1) — la bande « Mardi : 90 kg × 8, 8, 8 » tient la place de la colonne PRÉC. : une colonne de moins */
+.g-charge_reps.sans-prec{grid-template-columns:30px 1fr 44px 44px 48px}
+.bande{padding:8px var(--e3) 0;font-size:13px;color:var(--texte-2);line-height:18px}
+.bande b{font-weight:600;color:var(--texte)}
+.bande + .cols-seance{padding-top:3px}
+.g-reps{grid-template-columns:30px 58px 1fr 44px 48px}              /* 260-a : 112 px */
 .g-temps{grid-template-columns:30px 62px 1fr 44px}                  /* 260-a : 169 px, pas d'effort */
 .g-distance_temps,.g-charge_distance,.g-charge_temps{grid-template-columns:30px 66px 1fr 1fr 44px}     /* 260-a : 80 px chacune */
 /* ECRAN §3 ter.5 (prompt 131) — un champ en plus prend une colonne (Escaliers : durée ·
@@ -1184,7 +1190,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   align-items:center;justify-content:flex-end;padding-right:var(--e3);
   color:var(--manque);font-size:12px;font-weight:700;z-index:0}
 .serie.grille{position:relative;z-index:1;align-items:center;
-  padding:5px var(--e3);border-top:1px solid var(--trait);background:var(--panneau)}
+  padding:2px var(--e3);border-top:1px solid var(--trait);background:var(--panneau)}  /* lot 4 (n° 2) : 49 px (55 avant), les cibles de 44 px gardées */
 /* §7 undecies.2 — les tours se séparent par un ESPACE, pas par un libellé.
    `A1`, `B1`, `C1` disent déjà « tour 1 » : un titre au-dessus redirait, et
    coûtait cinq rangs sur un bloc à deux tours de chauffe et trois de travail.
@@ -1369,9 +1375,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .serie.faite{background:var(--fond-serie-faite)} /* le vert de sens à ~11 % sur la surface (opaque : le contraste se mesure sur un fond plein) */
 /* 173 (« Vivant ») — une série validée s'allume : le numéro plein, la case pleine, le mot « fait » dans la colonne effort si elle est vide. */
 .serie.fait .no-serie{background:var(--reussi);border-color:var(--reussi);color:var(--sur-accent)}
-.eff-serie[data-fait]:empty::before{content:attr(data-fait);font-family:var(--pile);font-size:12px;font-weight:700;
-  letter-spacing:.08em;font-variant:small-caps;text-transform:lowercase;color:var(--reussi)}
-.eff-serie[data-fait]{border-style:solid;border-color:transparent}
+.eff-serie.eff-vide{border-style:solid;border-color:transparent}  /* lot 4 (4a) : plus de mot « fait » dedans */
 /* 184 (D2) — une série validée S'ÉDITE SUR PLACE (banc 7-quinvicies) : sa case doit se lire comme un champ. Le fond et
    le cadre restent éteints (le vert dit « fait »), mais un filet --texte-3 souligne la valeur et le curseur dit « texte ». */
 .serie.faite .ch-serie,.serie.faite .rp-serie{background:transparent;border-color:transparent;
@@ -1383,6 +1387,8 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
    fond neutre — sa coche, elle, doit se voir. Accrocher le style de la coche à
    `.serie.faite` l'aurait éteinte exactement là où elle sert le plus. */
 .ok-serie.cochee{background:var(--reussi);border-color:var(--reussi);color:var(--sur-accent)}
+/* 8 px avant la coche (4 d'écart + 4 de colonne), seule cible dont l'erreur écrit quelque chose ; l'écart vient de PRÉC. */
+.serie.grille:not(.en-tours).g-charge_reps .ok-serie,.serie.grille:not(.en-tours).g-reps .ok-serie{width:44px;justify-self:end}
 @media (prefers-reduced-motion: no-preference){
   .ok-serie.cochee svg path{stroke-dasharray:24;stroke-dashoffset:24;animation:tracer-coche .2s ease-out forwards}
   @keyframes tracer-coche{to{stroke-dashoffset:0}}}
@@ -2620,11 +2626,8 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .recap-rec .l1{font-weight:600}
 .recap-rec .l2{color:var(--texte-3);font-size:13px}
 .recap-voix{color:var(--accent);font-weight:600;margin:4px 0 8px}
-.recap-pari{display:flex;justify-content:space-between;gap:8px;border-top:1px solid var(--trait);padding:8px 2px;font-size:14px}
 .recap-cardio{display:flex;justify-content:space-between;gap:8px;border-top:1px solid var(--trait);padding:8px 2px;font-size:14px}
 .recap-cardio .v{color:var(--texte-2);text-align:right}
-.recap-pari .v{color:var(--texte-2);text-align:right}
-.recap-pari .v.pe{color:var(--texte)}
 .recap-note{background:var(--panneau);border-radius:12px;padding:10px 12px;color:var(--texte-2);font-style:italic;font-size:14px;margin:0}
 .recap-bouton{display:block;width:100%;margin-top:14px}
 .recap-partage-liste{display:flex;flex-direction:column;gap:var(--e2);margin-top:var(--e2)}
@@ -2655,7 +2658,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .pc-lift-tete{display:flex;justify-content:space-between;align-items:baseline;gap:var(--e2)}
 .pc-lift-nom{font:600 18px var(--pile-c)}
 .pc-courbe{display:block;width:100%;height:90px;margin:4px 0}
-.pc-meilleur{fill:none;stroke:var(--record);stroke-width:2;vector-effect:non-scaling-stroke}
+.pc-meilleur{fill:none;stroke:var(--record);stroke-width:2;stroke-dasharray:5 3;vector-effect:non-scaling-stroke}
 .pc-point{fill:var(--donnees);opacity:.9}
 .pc-maintenant{fill:var(--texte)}
 .pc-lift-pied{display:flex;justify-content:space-between;gap:6px;font-size:12px;color:var(--texte-2);
@@ -3165,7 +3168,9 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .prochaine-meta{font-family:var(--pile-c);font-size:15px;font-weight:600;color:var(--texte-2);margin-top:var(--e1);font-variant-numeric:tabular-nums}
 .prochaine-pied{display:flex;align-items:center;gap:var(--e3);margin-top:var(--e3)}
 .prochaine-go{flex:1;min-height:44px}
-.prochaine-autre{flex:none;min-height:44px;border:none;background:none;color:var(--texte-2);font-size:13px}
+.prochaine-liens{flex:none;display:flex;flex-direction:column;align-items:flex-end}
+.prochaine-autre,.prochaine-peu-de-temps{flex:none;min-height:44px;border:none;background:none;color:var(--texte-2);font-size:13px}
+.prochaine-liens .prochaine-peu-de-temps,.prochaine-liens .prochaine-peu-de-temps+.prochaine-autre{min-height:36px}
 
 /* 272 — le niveau d'entraînement monte seul : la carte de l'accueil (liseré accent), le tableau Avant / Maintenant, la carte « Ton niveau » de l'import. */
 .niveau-carte{background:var(--panneau);border-radius:var(--r-grand);border-left:3px solid var(--accent);padding:var(--e4);margin-bottom:var(--e3);box-shadow:inset 0 1px 0 var(--reflet)}
@@ -3314,7 +3319,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 /* 211 — les premières minutes : le point du « Pourquoi » (jusqu'à la première ouverture) et le premier pari. */
 .lien-pourquoi.pourquoi-neuf::before{content:"";display:inline-block;width:6px;height:6px;margin-right:6px;border-radius:50%;background:var(--accent);vertical-align:middle}
 .consigne-dit.premier-pari{color:var(--texte)}
-.recap-depart,.recap-premier{line-height:1.45}
+.recap-depart{line-height:1.45}
 
 /* 212 — mentions, confidentialité, santé ; case « 15 ans ou plus » et ligne des conditions à l'inscription */
 .entree-age15{display:flex;align-items:center;gap:10px;min-height:44px;font-size:14px;color:var(--texte-2)}
@@ -3474,6 +3479,9 @@ input,select,textarea,.ch-serie,.rp-serie,.eff-serie{
   --trait:#2B3442;--trait-case:#2B3442}
 .bloc-seance .ch-serie.fantome,.bloc-seance .rp-serie.fantome,.en-tours .ch-serie.fantome,.en-tours .rp-serie.fantome{border-style:solid;border-color:#2B3442;background:var(--panneau-2)}
 .bloc-seance .no-serie:not(.c):not(.d){background:var(--panneau-2);border-color:transparent}
+/* Le numéro d'une série faite redevient plein et lisible (27/11/2026) : la règle précédente (265) écrasait le fond jade et gardait
+   le texte --sur-accent, soit 1,29:1. Un carré plein contre un carré vide : une forme, lisible en niveaux de gris (10,61:1). */
+.bloc-seance .serie.fait .no-serie:not(.c):not(.d){background:var(--reussi);border-color:var(--reussi);color:var(--sur-accent)}
 .bloc-seance .ajout-serie button{border-style:dashed;font-size:14px;font-weight:400;color:var(--texte-3)}
 .ajouts{display:flex;flex-wrap:wrap;gap:6px;padding:var(--e2) var(--e3) var(--e3)}
 .ajouts .ajout-serie{flex:1 1 auto;padding:0}
@@ -3548,3 +3556,20 @@ input,select,textarea,.ch-serie,.rp-serie,.eff-serie{
 .tirage{display:flex;align-items:center;justify-content:center;overflow:hidden;height:0;font-size:13px;color:var(--texte-2)}
 .tirage[hidden]{display:none}
 .tirage.lecture{height:40px}
+
+/* 29/11/2026 « Les paris en coulisse » — Profil › À propos › À propos de ton coach : un compte, une liste ; « Pas tenu » en ambre, jamais en rouge. */
+.paris-intro{margin:0 0 12px;font-size:15px;line-height:1.5;color:var(--texte)}
+.paris-compte{display:flex;align-items:baseline;gap:8px}
+.paris-valeur{font-size:32px;font-variant-numeric:tabular-nums;color:var(--texte)}
+.paris-phrase,.paris-note,.paris-vide{margin:4px 0 12px;font-size:14px;line-height:1.5;color:var(--texte-2)}
+.paris-titre{margin:12px 0 4px;font-size:13px;color:var(--texte-2)}
+.paris-liste{display:grid;gap:0}
+.paris-ligne{display:grid;gap:2px;text-align:left;width:100%;padding:10px 0;border:0;border-top:1px solid var(--trait);background:none;color:inherit;font:inherit}
+.paris-haut{display:flex;justify-content:space-between;gap:8px;font-size:15px}
+.paris-etat{font-size:13px;color:var(--texte-2)}
+.paris-ligne.pas-tenu .paris-etat{color:var(--accent)}
+.paris-sous{font-size:13px;color:var(--texte-2);font-variant-numeric:tabular-nums}
+.paris-explication{font-size:14px;line-height:1.45;color:var(--texte)}
+.paris-explication[hidden]{display:none}
+.paris-plus{margin-top:12px}
+.paris-plus[hidden]{display:none}

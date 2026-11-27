@@ -85,9 +85,9 @@
   // ── 98 — LA SAISON ET LE MOIS (maquette `maquette-saison-mois-v1.html`, décisions du 14-15/10/2026) ──────
   // Le même lecteur, les mêmes règles, la même plaque ; d'autres écrans : tonnes (et la seule comparaison, à la
   // période d'avant), à la salle (jamais comparé), semaine par semaine, l'exercice de la saison — le muscle puis
-  // l'exercice du mois —, les records, ce qui a le plus avancé, le coach (le détail des paris au toucher), la plaque
-  // sans le coach. Le mois reprend tout l'ancien bilan du mois de Progression : ses records (`vue.records`, ceux de
-  // `faits.recordsDuMois`, tous au toucher) et ses paris (`vue.paris.phrase`).
+  // l'exercice du mois —, les records, ce qui a le plus avancé, la plaque
+  // (les paris du coach n'y sont plus : Profil › À propos › À propos de ton coach). Le mois reprend tout l'ancien bilan du mois de Progression : ses records (`vue.records`, ceux de
+  // `faits.recordsDuMois`, tous au toucher).
   function ecransDePeriode(vue) {
     var b = vue.bilan, p = b.periode, out = [], saison = p.type === 'saison';
     var titre = titreDe(vue);
@@ -165,15 +165,6 @@
     }
     var ava = ecranAvance(b);
     if (ava) out.push(ava);
-    // Le coach : les paris tenus sur les paris vérifiés ; le détail au toucher.
-    if (b.coach) {
-      var det = [{ n: 'Paris vérifiés', v: String(b.coach.faits) }, { n: 'Tenus', v: String(b.coach.tenus) }];
-      out.push({ cle: 'coach', d: 8400, lab: 'Le coach', chiffre: { v: b.coach.tenus, unite: '/ ' + b.coach.faits },
-                 jauge: Math.round(b.coach.tenus * 100 / b.coach.faits),
-                 txt: ['paris tenus ' + nommee(vue) + '.'],
-                 detail: { lignes: det, phrase: vue.paris && vue.paris.phrase ? vue.paris.phrase : null },
-                 bouton: { action: 'paris', texte: 'Le détail des paris' } });
-    }
     // La plaque, sans le coach.
     // 226 — le mois : les séries de travail sous les tonnes, et ses 3 premiers records en « charge × reps » sous la grille.
     var cases = [{ k: 'Soulevé', g: texteTonnes(b.tonnes.kg), p: !saison && b.reps && b.reps.series ? seriesTxt(b.reps.series) + ' de travail' : null,
@@ -301,13 +292,6 @@
     // Ce qui a le plus avancé.
     var ava = ecranAvance(b);
     if (ava) out.push(ava);
-    // Le coach.
-    if (b.coach) {
-      out.push({ cle: 'coach', d: 8400, lab: 'Et le coach ?', chiffre: { v: b.coach.tenus, unite: '/ ' + b.coach.faits },
-                 jauge: Math.round(b.coach.tenus * 100 / b.coach.faits),
-                 txt: ['paris tenus' + (b.coach.depuis ? ' depuis le ' + jourTexte(b.coach.depuis) : '') +
-                       '. Après chaque séance, il te dit s’il avait raison.'] });
-    }
     // Le jeu (l'état calculé par le jeu, au début et à la fin de la période).
     if (vue.jeu && vue.jeu.fin) {
       var nf = vue.jeu.fin.niveau.niveau, nd = vue.jeu.debut ? vue.jeu.debut.niveau.niveau : 0;
@@ -524,23 +508,11 @@
       s.appendChild(pdc);
     }
     if (e.note) s.appendChild(el('p', 'a note', e.note));
-    // 98 — l'exercice phare ouvre sa page ; le détail des paris et tous les records du mois, au toucher.
+    // 98 — l'exercice phare ouvre sa page ; tous les records du mois, au toucher.
     if (e.slug) {
       var bx = el('button', 'a btn sec', 'Voir l’exercice');
       bx.type = 'button'; bx.dataset.action = 'exercice'; bx.dataset.slug = e.slug;
       s.appendChild(bx);
-    }
-    if (e.detail) {
-      var de = el('div', 'a detail');
-      de.hidden = true;
-      e.detail.lignes.forEach(function (l) {
-        var ld = el('div', 'ligne');
-        ld.appendChild(el('div', 'n', l.n));
-        ld.appendChild(el('div', 'v', l.v));
-        de.appendChild(ld);
-      });
-      if (e.detail.phrase) de.appendChild(el('p', 'txt', e.detail.phrase));
-      s.appendChild(de);
     }
     if (e.bouton) {
       var bb = el('button', 'a btn sec', e.bouton.texte);
@@ -950,11 +922,6 @@
         else if (b.dataset.action === 'detail') { fermerTout(); if (vue.surDetail) vue.surDetail(); }
         else if (b.dataset.action === 'records') { fermerTout(true); if (vue.surRecords) vue.surRecords(); }
         else if (b.dataset.action === 'exercice') { var sl = b.dataset.slug; fermerTout(true); if (vue.surExercice) vue.surExercice(sl); }
-        else if (b.dataset.action === 'paris') {
-          // Le détail des paris s'ouvre (et l'écran ne défile plus tant qu'il est ouvert).
-          var det = S[i].querySelector('.detail');
-          if (det) { det.hidden = !det.hidden; lecture = !det.hidden; hote.dataset.detail = det.hidden ? '0' : '1'; }
-        }
         return;
       }
       if (e.timeStamp - appui > 350) return;   // appui long = lecture, pas de saut

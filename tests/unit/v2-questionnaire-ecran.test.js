@@ -947,7 +947,8 @@ describe('lot 5 — parcours court (n° 1) et reprise (n° 3)', () => {
       profil: { id: 'u1', questionnaire_fait_le: null, historique_declare: 'debutant', anciennete: 'moins_1_an', date_naissance: '1990-01-01',
                 materiel: 'salle_complete', zones_a_menager: ['genou'], objectif: 'muscle', programme_choix: 'moi' } });
     b.appel('rendreBandeauQuestionnaire()');
-    b.journal.bandeaux.pop().surReprendre();
+    expect(b.journal.bandeaux.pop()).toBeNull();                                 // n° 59 : parcours court complet, plus de bandeau
+    b.appel('ouvrirQuestionnaire()');                                            // « Terminer » reste possible (Profil › questionnaire)
     expect(b.ctx.questionnaire.court).toBe(false);
     expect(b.ecran()).toBe('raides');                                            // pas « ancienneté »
     expect(b.vueCourante().retour).toBe(true);

@@ -216,6 +216,96 @@
   "nouveau": "plafondDuZero:   [],"
  },
  {
+  "nom": "s1 — plusTot sans Muscle (le volume n’est plus protégé en Muscle)",
+  "fichier": "moteur.js",
+  "ancien": "var plusTot = obj === 'muscle' || (obj === 'les_deux' && x.barre !== true);",
+  "nouveau": "var plusTot = (obj === 'les_deux' && x.barre !== true);"
+ },
+ {
+  "nom": "s2 — protege sans Les deux sur barre (la charge n’est plus protégée)",
+  "fichier": "moteur.js",
+  "ancien": "var protege = obj === 'force' || (obj === 'les_deux' && c.barre === true);",
+  "nouveau": "var protege = obj === 'force';"
+ },
+ {
+  "nom": "s3 — REPS_DEFAUT à 7·9·12 (tuée par la table programmes)",
+  "fichier": "generateur.js",
+  "ancien": "var REPS_DEFAUT = [8, 9, 12];",
+  "nouveau": "var REPS_DEFAUT = [7, 9, 12];"
+ },
+ {
+  "nom": "f1a — fiche : muscle.programme.reps[0] 8 → 7",
+  "fichier": "modele.js",
+  "ancien": "reps: [8, 9, 12], seriesPrincipal: 3, menageLourd: 'mix', pause: false, cycles: false, ratios: false, entretienForce: true },\n      blocs: { menu: 'complet'",
+  "nouveau": "reps: [7, 9, 12], seriesPrincipal: 3, menageLourd: 'mix', pause: false, cycles: false, ratios: false, entretienForce: true },\n      blocs: { menu: 'complet'"
+ },
+ {
+  "nom": "f1b — fiche : force.programme.pause → non",
+  "fichier": "modele.js",
+  "ancien": "menageLourd: 'mix', pause: true,",
+  "nouveau": "menageLourd: 'mix', pause: false,"
+ },
+ {
+  "nom": "f1c — fiche : les_deux.programme.cycles → non",
+  "fichier": "modele.js",
+  "ancien": "menageLourd: 'hypertrophie', pause: false, cycles: true,",
+  "nouveau": "menageLourd: 'hypertrophie', pause: false, cycles: false,"
+ },
+ {
+  "nom": "f2a — fiche : les_deux.blocs.premier lourd → mix",
+  "fichier": "modele.js",
+  "ancien": "menu: 'complet', premier: 'lourd', suivant: 'intensifier', grosseParDefaut: true",
+  "nouveau": "menu: 'complet', premier: 'mix', suivant: 'intensifier', grosseParDefaut: true"
+ },
+ {
+  "nom": "f2b — fiche : muscle.blocs.suivant alterner → intensifier",
+  "fichier": "modele.js",
+  "ancien": "suivant: 'alterner'",
+  "nouveau": "suivant: 'intensifier'"
+ },
+ {
+  "nom": "f2c — fiche : les_deux.blocs.grosseParDefaut → non",
+  "fichier": "modele.js",
+  "ancien": "suivant: 'intensifier', grosseParDefaut: true",
+  "nouveau": "suivant: 'intensifier', grosseParDefaut: false"
+ },
+ {
+  "nom": "f3a — fiche : les_deux.seance.proteger.barre charge → volume",
+  "fichier": "modele.js",
+  "ancien": "barre: 'charge', autre: 'volume'",
+  "nouveau": "barre: 'volume', autre: 'volume'"
+ },
+ {
+  "nom": "f3b — fiche : forme.seance.protegee → non",
+  "fichier": "modele.js",
+  "ancien": "seance: { proteger: RIEN_PROTEGE, prudente: true, protegee: true }",
+  "nouveau": "seance: { proteger: RIEN_PROTEGE, prudente: true, protegee: false }"
+ },
+ {
+  "nom": "f3c — fiche : forme.seance.prudente → non",
+  "fichier": "modele.js",
+  "ancien": "seance: { proteger: RIEN_PROTEGE, prudente: true, protegee: true }",
+  "nouveau": "seance: { proteger: RIEN_PROTEGE, prudente: false, protegee: true }"
+ },
+ {
+  "nom": "mu-cpt1 — compteur : le seuil passe de 4 à 3",
+  "fichier": "moteur.js",
+  "ancien": "var SEUIL_COMPTEUR = 4;",
+  "nouveau": "var SEUIL_COMPTEUR = 3;"
+ },
+ {
+  "nom": "mu-cpt2 — compteur : un progrès ne le remet plus à zéro",
+  "fichier": "moteur.js",
+  "ancien": "if (compteur > 0) blocages.push(compteur);\n          compteur = 0;",
+  "nouveau": "if (compteur > 0) blocages.push(compteur);"
+ },
+ {
+  "nom": "mu-cpt3 — compteur : un cran vaut 2 au lieu de 1",
+  "fichier": "moteur.js",
+  "ancien": "} else if (suivie) {\n          compteur++;",
+  "nouveau": "} else if (suivie) {\n          compteur += 2;"
+ },
+ {
   "nom": "témoin — un commentaire change (doit SURVIVRE)",
   "fichier": "moteur.js",
   "ancien": "// 12 semaines, INCLUSES dans la courte",

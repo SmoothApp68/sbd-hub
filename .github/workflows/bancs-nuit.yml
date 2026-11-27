@@ -1,0 +1,98 @@
+name: Bancs de nuit
+
+# CI sans gaspillage (27/11/2026) — la contrepartie de l'horloge fixe des bancs de PR (bancs.yml, BANC_HORLOGE).
+# Les PR jouent un mercredi à 10 h ; ICI, chaque nuit, sur main, les bancs jouent
+#   · à l'HEURE RÉELLE (le décalage de décor de tests/banc/horloge.js n'est pas appliqué : BANC_HORLOGE = maintenant) ;
+#   · sur chaque FRONTIÈRE DE DATE, en partant dix minutes avant elle : minuit à Paris, minuit UTC, le 1er du mois,
+#     dimanche → lundi, les deux changements d'heure (mars : 02 h → 03 h ; octobre : 03 h → 02 h).
+# Rien n'est perdu : la vérification change de moment (la nuit, sur main) et gagne en couverture (chaque nuit au lieu du hasard d'une PR).
+# Un rouge ici est une vraie information : un défaut de l'app ou du banc lié à une date, vu AVANT qu'il ne tombe sur quelqu'un.
+# Aucun secret, aucune variable SUPABASE_* (même garde que bancs.yml).
+on:
+  schedule:
+    - cron: '23 1 * * *'   # 02 h 23 en hiver, 03 h 23 en été, à Paris : la nuit, hors de l'heure de pointe de GitHub
+  workflow_dispatch:
+
+concurrency:
+  group: bancs-nuit
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+  TZ: Europe/Paris
+
+jobs:
+  nuit:
+    name: ${{ matrix.nom }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 130
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # L'heure réelle : le banc séquentiel (la référence) ET le banc complet, sans aucun décalage.
+          - { nom: 'heure réelle · séquentiel', commande: 'node tests/banc/seance-rapide.js --sequentiel --rapport seq.json', horloge: 'reelle' }
+          - { nom: 'heure réelle · complet', commande: 'node tests/banc/tout.js --sans-npm-test', horloge: 'reelle' }
+          # Les frontières : le banc complet, parti dix minutes avant (il dure ~15 min : la frontière tombe au milieu).
+          - { nom: 'frontière · minuit à Paris', commande: 'node tests/banc/tout.js --sans-npm-test', horloge: '2026-11-18T23:50:00' }
+          - { nom: 'frontière · minuit UTC (1 h à Paris)', commande: 'node tests/banc/tout.js --sans-npm-test', horloge: '2026-11-18T00:50:00' }
+          - { nom: 'frontière · 1er du mois', commande: 'node tests/banc/tout.js --sans-npm-test', horloge: '2026-11-30T23:50:00' }
+          - { nom: 'frontière · dimanche → lundi', commande: 'node tests/banc/tout.js --sans-npm-test', horloge: '2026-11-22T23:50:00' }
+          - { nom: 'frontière · changement d’heure de mars', commande: 'node tests/banc/tout.js --sans-npm-test', horloge: '2027-03-28T01:50:00' }
+          - { nom: 'frontière · changement d’heure d’octobre', commande: 'node tests/banc/tout.js --sans-npm-test', horloge: '2026-10-25T02:50:00' }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # planifié : la branche par défaut (main) ; lancé à la main : la branche choisie
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Aucun secret, aucune adresse de la base dans l'environnement
+        shell: bash
+        run: |
+          if env | grep -Ei 'supabase\.co|SUPABASE|eyJ[A-Za-z0-9_-]{20,}'; then
+            echo "::error::une variable d'environnement touche à Supabase ou ressemble à une clé"; exit 1
+          fi
+      - name: Version de Playwright
+        id: pw
+        run: echo "version=$(node -p "require('playwright/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - run: npx playwright install --with-deps chromium || npx playwright install chromium
+      - name: Le banc
+        shell: bash
+        env:
+          HORLOGE: ${{ matrix.horloge }}
+          COMMANDE: ${{ matrix.commande }}
+        run: |
+          export CHROME_BIN="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          if [ "$HORLOGE" = "reelle" ]; then
+            # L'heure réelle, sans le décalage de décor : on pose l'heure de Paris, maintenant.
+            export BANC_HORLOGE="$(date +'%Y-%m-%dT%H:%M:%S')"
+          else
+            export BANC_HORLOGE="$HORLOGE"
+          fi
+          echo "BANC_HORLOGE=$BANC_HORLOGE (TZ=$TZ)"
+          $COMMANDE 2>&1 | tee banc-nuit.txt
+          exit "${PIPESTATUS[0]}"
+      - name: Résumé
+        if: always()
+        shell: bash
+        run: |
+          { echo "### ${{ matrix.nom }}"; echo '```'; grep -E '══ TOUT|contrôles ·|en échec|\[exception\]|✅|❌' banc-nuit.txt | tail -30; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nuit-${{ strategy.job-index }}
+          path: |
+            banc-nuit.txt
+            seq.json
+          if-no-files-found: ignore
+          retention-days: 7

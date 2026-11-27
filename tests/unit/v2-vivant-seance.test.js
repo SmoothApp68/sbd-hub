@@ -105,16 +105,18 @@ describe('la consigne du jour en héros (173)', () => {
 });
 
 describe('une série validée s\'allume (173)', () => {
-  test('la ligne validée porte « fait », et son bouton d\'effort le mot « fait » tant qu\'il est vide', () => {
+  test('la ligne validée porte « fait » ; son bouton d\'effort vide s\'éteint, sans le mot « fait » (lot 4)', () => {
     let s = seance(2);
     s = Seance.modifierSerie(s, 0, 0, { charge_kg: 100, reps: 5 });
     s = Seance.valider(s, 0, 0, '2026-10-25T10:00:00+00:00');
     const c = rendre(s, () => null);
     const rangs = [...c.querySelectorAll('.serie')];
     expect(rangs[0].classList.contains('fait')).toBe(true);
-    expect(rangs[0].querySelector('.eff-serie').getAttribute('data-fait')).toBe('fait');
+    // Lot 4 (n° 4a) : le MOT « fait » est retiré (trois signes le disent déjà) ; le bouton d'effort vide s'éteint seulement.
+    expect(rangs[0].querySelector('.eff-serie').hasAttribute('data-fait')).toBe(false);
+    expect(rangs[0].querySelector('.eff-serie').classList.contains('eff-vide')).toBe(true);
     expect(rangs[0].querySelector('.eff-serie').textContent).toBe('');
     expect(rangs[1].classList.contains('fait')).toBe(false);
-    expect(rangs[1].querySelector('.eff-serie').hasAttribute('data-fait')).toBe(false);
+    expect(rangs[1].querySelector('.eff-serie').classList.contains('eff-vide')).toBe(false);
   });
 });

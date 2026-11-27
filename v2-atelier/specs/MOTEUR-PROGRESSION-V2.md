@@ -1624,6 +1624,8 @@ dernier max) ; I55 (ni pari, ni consigne, ni chauffe, ni dégressive, ni message
 **Référence** : `simu_raccourcir.py` (`duree`, `raccourcir`) ; cas `cas_raccourcir51.json`.
 
 
+> **Delta du 27/11/2026 — « J'ai peu de temps » sur l'accueil.** La carte « Prochaine séance » porte, à côté de « Autre routine › », un lien discret « J'ai peu de temps » : la MÊME feuille (`ouvrirPeuDeTemps`), sous les MÊMES conditions que sur la rangée de Saisie (`tempsDeLaRoutine(r).peuDeTemps` : absent pendant une décharge, ou quand la routine tient déjà dans la plus courte des durées proposées), pour la routine montrée (celle de « la séance d'aujourd'hui », §9.24). Une porte de plus pour le même geste, aucune logique copiée ; la tête garde son 3 + 1 (deux liens discrets partagent une colonne : « Démarrer » garde sa largeur à 360 px). Absent pendant une séance en cours (la carte décrit alors la séance). Ouverture d'office au « Démarrer » inchangée.
+
 ### 9.19 « Machine prise » — décidé le 04-05/10/2026 (chantier 51)
 
 > **D'abord « Plus tard » : l'exercice prévu, un peu plus loin. Sinon un frère, avec sa propre consigne.**
@@ -1841,6 +1843,8 @@ Une décision de la personne (décaler, répartir) ne s'efface jamais en silence
 
 **266 (07/11/2026, décision d'Aurélien) — annuler un choix.** Chaque choix de la semaine reste lisible sous la bande (« Haut B réparti : vendredi et samedi. », « Bas B : hip thrust ajouté samedi. ») avec « Annuler » tant qu'aucune séance qu'il porte n'est commencée (une séance de la semaine, commencée après le choix, sur une routine qu'il touche ; pour « Garder » et « Non merci », n'importe quelle séance) ; une séance déjà faite garde ce qu'elle a fait. Annuler écrit, par la file, une ligne `choix = 'annule'` par clé du choix (même `semaine`, même `routine_id`, `detail.avant` = le choix d'avant) : la plus récente gagne partout (`fondreChoix`), la question revient. Pas de DELETE : `choixAReposer` (178) renverrait la ligne effacée depuis un autre appareil. Base : le CHECK `semaine_choix_choix_check` accepte `annule` (migration Claude.ai, `V2-137-SEMAINE-CHOIX-ANNULE.sql`). Lecture : `Deraille.choixDeLaSemaine` ; écriture : `Deraille.lignesDAnnulation` (`poserChoixDeSemaine`).
 
+
+> **Delta du 27/11/2026 (« La semaine qui déborde », amélioration 6) — une seule notion, « la séance d'aujourd'hui ».** Après « {Routine} aujourd'hui · la suite se décale », l'accueil montre CETTE routine : « Prochaine séance » lit d'abord le planning décalé (`Deraille.routineDuJour`, pure : la routine que `etat.planning` place au jour courant, dans la semaine courante, routine vivante, aucune séance commencée aujourd'hui), puis seulement, à défaut, `Routines.routineSuivante` (la routine qui suit la dernière faite). UNE fonction câblée, `laSeanceDAujourdhui` (`app.js`), lue par la carte ; « Démarrer » et « J'ai peu de temps » en reçoivent l'identifiant, et la séance qui démarre porte les ajouts de la semaine de cette routine (`avecLesAjoutsDeLaSemaine`, inchangé). Une annulation (266) rend le planning, donc la main à `routineSuivante`. En « Juste un carnet », aucun planning n'est lu. La vue « après » de Saisie (`semaineDecalee`, un état de l'écran après le geste) nomme la même routine par construction (testé) ; elle n'est pas un second lecteur de « la séance du jour ». Aucun invariant nouveau : `tests/unit/v2-seance-du-jour.test.js`. 
 
 ### 9.25 L'objectif — à l'essai, décidé le 16/10/2026
 

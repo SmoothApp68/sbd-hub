@@ -485,6 +485,24 @@
     });
   }
 
+  // 27/11/2026 (§9.24, « la séance d'aujourd'hui ») — la routine que le PLANNING DÉCALÉ place aujourd'hui, ou null. `etat` : l'état de la
+  // semaine (`etatDepuisLignes`, annulations comprises) ; `routines` : les routines vivantes ; `seances` : `[{ debut }]`. Une séance déjà
+  // commencée aujourd'hui rend la main (null) : l'accueil retombe sur la routine qui suit la dernière faite. Pure.
+  function routineDuJour(etat, routines, seances, jour) {
+    var n = numero(jour);
+    if (n === null || !etat || etat.lundi !== lundiDe(jour) || !Array.isArray(etat.planning)) return null;
+    var j = jourDeSemaine(n);
+    var place = etat.planning.filter(function (x) { return x && x.jour === j; })[0];
+    if (!place) return null;
+    var r = (routines || []).filter(function (x) { return x && x.id === place.routine && !x.archivee_a; })[0];
+    if (!r) return null;
+    var faiteAujourdhui = (seances || []).some(function (s) {
+      var t = s && s.debut ? new Date(s.debut) : null;
+      return !!t && !isNaN(t.getTime()) && Moteur().jourCivil(t) === jour;
+    });
+    return faiteAujourdhui ? null : r.id;
+  }
+
   // 178 — À la fusion avec le serveur, les lignes que l'appareil a (dans la fenêtre lue, pour ce compte) et que ni le
   // serveur ni la file ne portent : elles repartent dans la file (upsert idempotent sur user_id, semaine, routine_id).
   function choixAReposer(locales, serveur, protegees, depuis, uid) {
@@ -499,6 +517,7 @@
 
   var api = {
     choixAReposer: choixAReposer,
+    routineDuJour: routineDuJour,
     ECART: ECART, ECART_DEBUTANT: ECART_DEBUTANT,
     jourDuNom: jourDuNom, nomCourt: nomCourt, lundiDe: lundiDe,
     semaineQuiDeraille: semaineQuiDeraille, decider: decider, ajoutsDuJour: ajoutsDuJour,

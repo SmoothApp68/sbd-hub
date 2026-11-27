@@ -111,6 +111,7 @@ function signer(X, H, groupes, i, avant, etat) {
   if (E.salle) o.salle = E.salle;
   if (cas === 'lest') { o.lestReponse = H.lest; o.lestPossible = true; }
   if (cas === 'decharge') o.periodesAllegees = etat.periodes;
+  o.seancesSousConsigne = groupes.map(g => g.seance.id);   // B3 : toutes les séances d'avant comptent comme sous consigne (le banc d'origine n'en passe aucune)
   let R; try { R = X.M.consigneDExercice(groupes, undefined, avant, o); } catch (e) { R = { consigne: null, erreur: String(e).slice(0, 80) }; }
   const k = R.consigne;
   let x = null, p = null, err = [];
@@ -144,6 +145,7 @@ function signer(X, H, groupes, i, avant, etat) {
       st && [st.testee && (st.testee.slug || st.testee), st.barres], x && x.semaineDeTest ? JSON.stringify(x.semaineDeTest).slice(0, 400) : null, x && x.pourquoi ? esp(JSON.stringify(x.pourquoi)).slice(0, 300) : null);
     if (cas === 'plus') sig.push(c && c.serieDePlus || null, x && x.entete && x.entete.plus || null, x && x.serieDePlusArretee || null);
   }
+  sig.push(R.compteur ? R.compteur.compteur : null, x && x.entete ? esp(x.entete.compteur) : null, x && x.escalier ? x.escalier.marche : null);   // B3 : le compteur, sa phrase, la marche
   sig.push(etat.compte ? [etat.compte.verifies, etat.compte.tenus] : null);   // le compte du bilan (`Bilan.compteLe`), en dernier : les rangs d'avant ne bougent pas
   return { sig: JSON.stringify(sig), x, k };
 }
@@ -248,11 +250,18 @@ function jouerFixture(X, H) {
 
 function comparer(A, B, HS, rejouer) {
   let pas = 0, ecarts = 0, hE = 0; const ex = [], couverture = {};
+  const ST = { autres: 0, dph: 0, derr: 0, exAutres: [], n: 0, a4: 0, b4: 0, am: 0, bm: 0, aph: 0, bph: 0, dc: 0, dm: 0, d: {} }; process.on('exit', () => console.log('B3 compteur : ' + JSON.stringify(ST)));
   HS.forEach((H, h) => {
     const a = rejouer(A, H), b = rejouer(B, H); let premier = -1;
     if (H.but) { a.forEach((s, i) => { pas++; couverture['cas:but'] = (couverture['cas:but'] || 0) + 1; if (s !== b[i]) { ecarts++; if (premier < 0) premier = i; } });
       if (premier >= 0) { hE++; if (ex.length < 5) ex.push('h' + h + ' (but ' + H.objectif + ' ' + H.slug + ' ' + H.script + ' ' + H.zone + ' ' + H.reglage + ') série ' + premier + '\n     A ' + a[premier] + '\n     B ' + b[premier]); }
       return; }
+    const lire = (x) => { if (x === 'première') return null; const e = JSON.parse(x); return { c: e[e.length - 4], ph: e[e.length - 3], m: e[e.length - 2] }; };
+    a.forEach((s, i) => { const A1 = lire(s), B1 = lire(b[i]); if (!A1 || !B1) return; ST.n++;
+      if (A1.c >= 4) ST.a4++; if (B1.c >= 4) ST.b4++; if (A1.m) ST.am++; if (B1.m) ST.bm++; if (A1.ph) ST.aph++; if (B1.ph) ST.bph++;
+      { const ea = JSON.parse(s), eb = JSON.parse(b[i]); const autres = ea.filter((v, k) => k < ea.length - 4 || k === ea.length - 1).map(JSON.stringify).join('|') !== eb.filter((v, k) => k < eb.length - 4 || k === eb.length - 1).map(JSON.stringify).join('|');
+        if (autres) { ST.autres++; if (ST.exAutres.length < 3) ST.exAutres.push([ea, eb]); } if (A1.ph !== B1.ph) ST.dph++; if (JSON.stringify(ea[13]) !== JSON.stringify(eb[13])) ST.derr++; }
+      if (A1.c !== B1.c) { ST.dc++; const d = B1.c - A1.c; ST.d[d] = (ST.d[d] || 0) + 1; } if (A1.m !== B1.m) ST.dm++; });
     a.forEach((s, i) => { pas++; const e = JSON.parse(s === 'première' ? '[]' : s); const et = e[0], z = e[10];
       if (et) couverture[et] = (couverture[et] || 0) + 1; if (z) couverture['zero:' + z] = (couverture['zero:' + z] || 0) + 1;
       if (e[11]) couverture.plafond_mord = (couverture.plafond_mord || 0) + 1; if (e[3] === null && et && et !== 'silence') couverture.sans_zone = (couverture.sans_zone || 0) + 1;

@@ -37,7 +37,9 @@ function dup(semaines) {
 
 describe('zéro zone de plan = main, octet pour octet', () => {
   const produit = corpus.produire(M);
-  test.each(Object.keys(OR))('%s', (cle) => { expect(produit[cle]).toEqual(OR[cle]); });
+  // 27/11/2026 (MOTEUR §9.54) : `vueJusqua` (la dernière séance que le calcul a vue, pour I280) est un fait de plus, aucune décision : écarté des deux côtés.
+  const sans = (v) => JSON.parse(JSON.stringify(v, (k, x) => (k === 'vueJusqua' ? undefined : x)));
+  test.each(Object.keys(OR))('%s', (cle) => { expect(sans(produit[cle])).toEqual(sans(OR[cle])); });
   test('zonePlan null, undefined ou invalide : la même sortie qu\'absent', () => {
     const h = corpus.histoires().filter((x) => /^(dup|trou|alea3)$/.test(x.nom));
     h.forEach((x) => {

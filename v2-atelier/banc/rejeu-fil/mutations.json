@@ -288,6 +288,24 @@
   "nouveau": "seance: { proteger: RIEN_PROTEGE, prudente: false, protegee: true }"
  },
  {
+  "nom": "mu-cpt1 — compteur : le seuil passe de 4 à 3",
+  "fichier": "moteur.js",
+  "ancien": "var SEUIL_COMPTEUR = 4;",
+  "nouveau": "var SEUIL_COMPTEUR = 3;"
+ },
+ {
+  "nom": "mu-cpt2 — compteur : un progrès ne le remet plus à zéro",
+  "fichier": "moteur.js",
+  "ancien": "if (compteur > 0) blocages.push(compteur);\n          compteur = 0;",
+  "nouveau": "if (compteur > 0) blocages.push(compteur);"
+ },
+ {
+  "nom": "mu-cpt3 — compteur : un cran vaut 2 au lieu de 1",
+  "fichier": "moteur.js",
+  "ancien": "} else if (suivie) {\n          compteur++;",
+  "nouveau": "} else if (suivie) {\n          compteur += 2;"
+ },
+ {
   "nom": "témoin — un commentaire change (doit SURVIVRE)",
   "fichier": "moteur.js",
   "ancien": "// 12 semaines, INCLUSES dans la courte",

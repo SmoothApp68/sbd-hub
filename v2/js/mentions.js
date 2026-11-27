@@ -69,7 +69,7 @@
   function blocsIA() {
     return [
       { titre: 'L’IA : ce qui part',
-        texte: 'Demander au coach : ta question et la consigne dont tu parles. Lire mes notes : le texte des notes qui contiennent un mot d’entraînement, coupé à 500 signes, sans lien, sans @pseudo ni date, avec le nom de l’exercice et les chiffres de ses séries. Une douleur ne part jamais : elle reste sur ton téléphone.' },
+        texte: 'Demander au coach : ta question et la consigne dont tu parles. Lire mes notes : le texte des notes qui contiennent un mot d’entraînement, coupé à 500 signes, sans lien, sans @pseudo ni date, avec le nom de l’exercice et les chiffres de ses séries. Une douleur n’est jamais envoyée à l’IA : elle est enregistrée avec ta séance.' },
       { titre: 'L’IA : à qui', texte: 'À Anthropic (Claude), aux États-Unis, qui agit comme sous-traitant, avec les clauses contractuelles types de la Commission européenne.' },
       { titre: 'L’IA : combien de temps',
         texte: 'Demander au coach : tes questions sont gardées 30 jours chez TrainHub, sans ton nom. Lire mes notes : rien n’est gardé chez TrainHub. Anthropic efface les textes sous 30 jours, et jusqu’à 2 ans si un contrôle de sécurité les signale.' },

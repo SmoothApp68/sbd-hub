@@ -2585,7 +2585,8 @@
         if (isoles[sl] && isoles[sl].marche === Moteur().MARCHE_SERIE_DE_PLUS) delete isoles[sl];
       });
     }
-    var plus = moinsActive ? {} : seriesDePlusActives(e, seance, consignes, esc, phase);
+    var plusArretees = {};
+    var plus = moinsActive ? {} : seriesDePlusActives(e, seance, consignes, esc, phase, plusArretees);
     var degPlus = degressivesActives(e, seance, consignes, esc, phase, intentionProfil);
     // 174 — la 4e marche en cours ; la dégressive est retirée tant qu'elle dure.
     var alleges = allegementsActifs(e, seance, consignes, esc, phase);
@@ -2774,6 +2775,23 @@
             x.tempo = { descente: Mt.TEMPO_DESCENTE_S, phrase: capT.texte };
             x.entete.tempo = capT.texte;
             x.phrases.push({ ou: 'entete.tempo', texte: capT.texte, citations: capT.citations });
+          }
+        }
+        // G7 (MOTEUR §14.7 ter, I281) — UNE SÉRIE DE PLUS QUI S'ARRÊTE FAUTE DE PLACE se dit UNE FOIS, en gris, avec sa raison : la séance d'avant
+        // portait encore la ligne en plus (plus de séries de travail que la routine). Les suivantes se taisent (rien n'est mémorisé : la dernière séance le dit).
+        x.serieDePlusArretee = null;
+        if (coachee && c && slug && Object.prototype.hasOwnProperty.call(plusArretees, slug) && !x.entete.plus) {
+          var nRt = Object.prototype.hasOwnProperty.call(seriesRoutine, slug) ? Number(seriesRoutine[slug]) : NaN;
+          var prP = Object.prototype.hasOwnProperty.call(precedents, slug) ? precedents[slug] : null;
+          var TP = racine.THModele;
+          var faites = prP && Array.isArray(prP.series) ? prP.series.filter(function (s) { return s && TP.estTravail(s) && !TP.estRecul(s); }).length : 0;
+          if (isFinite(nRt) && faites > nRt) {
+            var capPl = Voix().capturer(function () { return Moteur().phraseSerieDePlusArretee(plusArretees[slug]); });
+            if (capPl.texte) {
+              x.serieDePlusArretee = { raison: plusArretees[slug], phrase: capPl.texte };
+              x.entete.plus = capPl.texte;
+              x.phrases.push({ ou: 'entete.plus', texte: capPl.texte, citations: capPl.citations });
+            }
           }
         }
         // 175 — LES LEVIERS GARDÉS pour la page de l'exercice (« Pour continuer à monter ») : à la plus lourde de la salle, une fois
@@ -4508,7 +4526,11 @@
   // pendant une semaine allégée, jamais en sèche, jamais en zone force (I23) ;
   // la routine compte `seriesRoutine[slug]` séries (figées avec la consigne).
   // Rend `{ [slug]: n }`.
-  function seriesDePlusActives(e, seance, consignes, esc, phase) {
+  //
+  // G7 (27/11/2026, MOTEUR §14.7 ter, I281) — LA PLACE RELUE À CHAQUE SÉANCE : une série de plus acceptée ne vit que tant que le muscle
+  // a de la place (la règle de volume, §14.6, la même qu'à la proposition), sans douleur récente ni zone à ménager (`Moteur.serieDePlusRelue`).
+  // Sinon elle s'arrête : elle n'est pas rendue, et `arretees` (facultatif) reçoit `{ [slug]: raison }` pour que le plan le dise.
+  function seriesDePlusActives(e, seance, consignes, esc, phase, arretees) {
     var sortie = {};
     var E = e.escalier;
     if (!E || seance.edition || esc.allegee || phase === 'seche') return sortie;
@@ -4524,7 +4546,15 @@
       // revient comme ailleurs, jusqu'au prochain progrès.
       if (!M.serieDePlusActive(slug, jour, c.compteur.compteur, E.marches || [], E.compteurs || [])) return;
       var n = Object.prototype.hasOwnProperty.call(routine, slug) ? Number(routine[slug]) : NaN;
-      if (isFinite(n) && n >= 1) sortie[slug] = n;
+      if (!(isFinite(n) && n >= 1)) return;
+      var zm = e.zonesMenagees && Object.prototype.hasOwnProperty.call(e.zonesMenagees, slug) ? e.zonesMenagees[slug] : null;
+      var raison = M.serieDePlusRelue({
+        place: placeDeLExercice(e, slug, phase) === true,
+        douleur: !!(e.douleurs && e.douleurs[slug] && M.douleurRecente(e.douleurs[slug], jour)),
+        menagee: !!(zm && !zm.choisie)
+      });
+      if (raison) { if (arretees) arretees[slug] = raison; return; }
+      sortie[slug] = n;
     });
     return sortie;
   }
@@ -7103,6 +7133,7 @@
     verifierTete(plan, erreurs);
     verifierVerbe(plan, erreurs);
     verifierChutes(plan, entrees, erreurs);
+    verifierPlaceRelue(plan, entrees, erreurs);
     verifierAnnonce(plan, erreurs);
     verifierRegimes(plan, entrees, erreurs);
     verifierSuiteAujourdhui(plan, erreurs);
@@ -8304,6 +8335,33 @@
         }
         if (/jusqu[’']à l[’']échec|à l[’']échec/.test(t) && lieu !== 'le constat' && v.cause) erreurs.push('I162' + nom + lieu + ' dit « échec » : le verbe ne le dit jamais (aucune marque d’échec posée) : ' + t);
       });
+    });
+  }
+  // I281 (G7, 27/11/2026, MOTEUR §14.7 ter) — LA PLACE RELUE À CHAQUE SÉANCE, RECALCULÉE depuis les ENTRÉES (le volume, les douleurs, les zones à ménager) :
+  //   · une série de plus EN COURS (`consigne.serieDePlus`) n'existe que si le muscle a de la place, sans douleur récente ni zone à ménager sur l'exercice ;
+  //   · une série de plus ARRÊTÉE (`x.serieDePlusArretee`) dit la raison recalculée, la dit une fois (en gris, `entete.plus`) et ne laisse aucune ligne en plus.
+  function verifierPlaceRelue(plan, entrees, erreurs) {
+    var e = entrees || {};
+    var M = Moteur();
+    var jour = M.jourCivil(e.seance && e.seance.debut);
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      if (!x) return;
+      var nom = 'I281 — exercice ' + i + ' (' + x.slug + ') : ';
+      var enCours = !!(x.consigne && x.consigne.serieDePlus);
+      var arretee = x.serieDePlusArretee || null;
+      if (!enCours && !arretee) return;
+      var zm = e.zonesMenagees && Object.prototype.hasOwnProperty.call(e.zonesMenagees, x.slug) ? e.zonesMenagees[x.slug] : null;
+      var raison = M.serieDePlusRelue({
+        place: placeDeLExercice(e, x.slug, plan.phase) === true,
+        douleur: !!(jour && e.douleurs && e.douleurs[x.slug] && M.douleurRecente(e.douleurs[x.slug], jour)),
+        menagee: !!(zm && !zm.choisie)
+      });
+      if (enCours && raison) erreurs.push(nom + 'une série de plus en cours alors que la place relue manque (' + raison + ')');
+      if (arretee) {
+        if (enCours) erreurs.push(nom + 'une série de plus arrêtée et en cours à la fois');
+        if (arretee.raison !== raison) erreurs.push(nom + 'la série de plus s\u2019arrête pour « ' + arretee.raison + ' », la place relue dit « ' + raison + ' »');
+        if (!x.entete || x.entete.plus !== arretee.phrase) erreurs.push(nom + 'la fin de la série de plus n\u2019est pas dite en gris (entete.plus)');
+      }
     });
   }
   // I272 (« Les chutes », 25/11/2026, MOTEUR §9.2 ter) — LE PLANCHER DE LA DERNIÈRE SÉRIE.

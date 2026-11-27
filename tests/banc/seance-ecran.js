@@ -29234,8 +29234,8 @@ const SETS_IMPORTES = [
     // B. L'ÉCRAN A : une fois, « Non merci » ne revient jamais ; rien ne part.
     await seance250();
     const accord250 = sp250(await page.evaluate(() => (document.querySelector('#recap-corps .nia-accord') || {}).textContent || ''));
-    ok('[NI250] DISCRIMINANT — sans accord : l’écran A « Je peux lire tes notes ? » (Anthropic, États-Unis, « ça reste sur ton téléphone »), deux boutons, zéro appel',
-      /Je peux lire tes notes \?/.test(accord250) && /Anthropic, aux États-Unis/.test(accord250) && /ça reste sur ton téléphone/.test(accord250) &&
+    ok('[NI250] DISCRIMINANT — sans accord : l’écran A « Je peux lire tes notes ? » (Anthropic, États-Unis, « elle n’est jamais envoyée à l’IA »), deux boutons, zéro appel',
+      /Je peux lire tes notes \?/.test(accord250) && /Anthropic, aux États-Unis/.test(accord250) && /elle n’est jamais envoyée à l’IA/.test(accord250) &&
         await page.evaluate(() => document.querySelectorAll('#recap-corps .nia-btn').length === 2) && N250.appels.length === 0, accord250.slice(0, 200));
     await page.evaluate(() => document.querySelectorAll('#recap-corps .nia-btn')[1].click());
     await jusqua(() => !!base.profiles[0].notes_ia_question_a, 8000);

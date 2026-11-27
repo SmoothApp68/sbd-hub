@@ -11643,11 +11643,19 @@
     // l'historique complet, que le report §9.10 existant lit une seule fois). Sans zone de plan : aucune ligne ne s'exécute.
     var plan = null;
     var zp = zoneParCle(o.zonePlan) ? o.zonePlan : null;
+    // LA NOTION « CE QUE LE COACH N'A PAS LU » (MOTEUR §9.54) : l'histoire COMPLÈTE de l'exercice (avant tout filtre de zone), et les rangs
+    // que la zone du plan écarte. Rien ne change dans le calcul : ces deux listes ne servent qu'à dire, au « Pourquoi ? », la séance sautée.
+    var groupesTous = groupes, contratTous = null, horsZone = null;
     if (zp !== null && o.mesure === 'charge_reps') {
       var base = sansLesAllegees(contratDe(groupes, etat, o.mesure,
         { reglage: o.reglage, equipement: o.equipement, charge: o.charge || null, correction: o.correction || null, salle: o.salle || null }),
         o.periodesAllegees);
       var sh = sousHistoireDeZone(groupes, base, avant, zp, o.zonesDeRoutine || null);
+      contratTous = base;
+      if (sh.mode === 'zone') {
+        horsZone = {};
+        base.forEach(function (se, i) { if (sh.seances.indexOf(se) < 0) horsZone[i] = true; });
+      }
       groupes = sh.groupes;
       // Sous-histoire : chaque séance se rejoue DANS la zone du plan (aucune correction datée ne la déplace). Première fois :
       // le passé garde sa vraie zone (`correctionsDeZone` vide), sinon le report ne verrait aucun changement de zone.
@@ -11659,6 +11667,7 @@
     var seances = sansLesAllegees(contratDe(groupes, etat, o.mesure,
       { reglage: o.reglage, equipement: o.equipement, charge: o.charge || null, correction: o.correction || null, salle: o.salle || null }),
       o.periodesAllegees);
+    if (contratTous === null) contratTous = seances;
     // 186 — les séances qui ont REÇU une consigne (un pari) portent la marque : le plafond des reps de l'habitude (`repsPlafonnees`)
     // ne vaut que pour elles. Sans liste (les historiques qui n'en ont jamais reçu), rien n'est plafonné.
     if (o.seancesSousConsigne && o.seancesSousConsigne.length) {
@@ -11774,6 +11783,14 @@
                ? frereDuBlocage(rejeu.complet.verdicts, o.freres, avant, o.mesure) : null };
     // 193-3 — la clé n'existe que pour une zone de plan : sans elle, la sortie est celle d'avant, octet pour octet.
     if (plan !== null) resultat.plan = plan;
+    // MOTEUR §9.54 — les séances plus récentes que celle que la consigne lit, et pourquoi elles ne sont pas lues. Clé absente quand la consigne lit la dernière séance.
+    var nonLues = seancesNonLues(groupesTous, contratTous, horsZone, consigne, avant, o.zonesDeRoutine || null);
+    if (nonLues !== null) resultat.nonLues = nonLues;
+    // MOTEUR §9.54 — la séance la plus récente que le calcul A VUE (lue ou non), figée avec la consigne : une séance plus récente arrivée ensuite (synchronisation en pleine séance)
+    // n'est pas « non lue », la consigne figée ne l'a jamais eue (la séance en cours fait foi) ; I280 s'en sert pour ne pas la réclamer.
+    var coupureVue = instant(avant), vue = null;
+    (contratTous || []).forEach(function (se) { var t = instant(se && se.debut); if (t !== null && coupureVue !== null && t < coupureVue && (vue === null || t > vue)) vue = t; });
+    if (vue !== null) resultat.vueJusqua = new Date(vue).toISOString();
     // PR 4b (R-A) — « Tenter » : les libellés de la consigne d'avant plafond, posés avec elle (la phrase de la tenue ne leur survit pas). Clé absente sans tenue.
     if (consigne && consigne.etat === 'tenue_apres_zero' && boutonsDeLaTenue(consigne)) {
       resultat.libellesTentee = Modele().avecNoms(nomsDesCrans, function () { return libellesConsigne(tenterApresUnZero(consigne), avant); });
@@ -13199,6 +13216,67 @@
     }
     return tete + ' Pas encore de séance en ' + z.libelle + ' : je pars de ta dernière séance, avec le report de zone que tu connais, une seule fois. ' +
       'Ensuite, ton historique ' + z.libelle + '.';
+  }
+  // ── MOTEUR §9.54 — CE QUE LE COACH N'A PAS LU (27/11/2026, décision n° 49 du fondateur) ───────────────────────────────────
+  // « Quand le coach ne lit pas la dernière séance d'un exercice, il le dit dans « Pourquoi ? ». » UNE SEULE FONCTION (`seancesNonLues`)
+  // rend les séances plus récentes que celle que la consigne lit (`fondement.date`) et avant `avant`, avec LA raison de chacune ; UNE SEULE
+  // phrase (`pourquoiNonLues`) les dit. Aucune consigne, aucune charge, aucun verdict ne change : seule l'explication s'ajoute, et la
+  // colonne PRÉC. reste « la dernière fois ». Les raisons, dans l'ordre où elles sont lues :
+  //   douleur (« J'ai mal »), sans_coach, decharge, autre_routine / autre_zone (la zone du plan écarte la séance : `sousHistoireDeZone`),
+  //   jour_sans (la séance légère d'un jour sans), hors_calcul (toutes ses séries « ne comptent pas »), sans_serie (aucune série comptée).
+  // `groupes` : les séances de l'exercice, TOUTES ; `contrat` : leur contrat (`contratDe` puis `sansLesAllegees`), dans le même ordre ;
+  // `horsZone` : `{ rang: true }` des séances que la zone du plan écarte (ou `null`) ; `consigne` : celle qui sort du calcul ;
+  // `zonesDeRoutine` : `{ routine_id: zone }`. Rend `[{ debut, jour, cause }]` (la plus récente d'abord), ou `null` si rien n'est sauté.
+  var CAUSES_NON_LUES = { douleur: 'J\u2019ai mal', sans_coach: 'sans coach', decharge: 'décharge', jour_sans: 'jour sans', autre_routine: 'autre routine',
+    autre_zone: 'autre zone', hors_calcul: 'hors calcul', sans_serie: 'aucune série comptée' };
+  function seancesNonLues(groupes, contrat, horsZone, consigne, avant, zonesDeRoutine) {
+    var f = consigne && consigne.fondement ? consigne.fondement : null;
+    var lue = f && f.date ? instant(f.date) : null, coupure = instant(avant);
+    if (lue === null || coupure === null) return null;
+    var jourSans = !!consigne && (consigne.etat === 'retour_jour_sans' || !!(f.jourSans || (f.zeroRep && f.zeroRep.jourSans)));
+    var T = Modele(), sorties = [];
+    (contrat || []).forEach(function (se, i) {
+      var t = instant(se && se.debut);
+      if (t === null || t <= lue || t >= coupure) return;
+      var g = (groupes || [])[i];
+      var cause;
+      if (se.douleur === true) cause = 'douleur';
+      else if (se.sansCoach === true) cause = 'sans_coach';
+      else if (se.decharge === true) cause = 'decharge';
+      else if (horsZone && horsZone[i] === true) {
+        var rid = g && g.seance ? g.seance.routine_id : null;
+        cause = rid !== null && rid !== undefined && zonesDeRoutine && zoneParCle(zonesDeRoutine[rid]) ? 'autre_routine' : 'autre_zone';
+      } else if (jourSans) cause = 'jour_sans';   // le zéro et la séance légère d'un jour sans : neutres dans CETTE lecture seulement (`jourSansDe`), pas dans le contrat
+      else if (T.vote(se, 'palier')) return;      // une séance qui vote ne se saute pas : si elle existait, I280 le dirait
+      else if (((g && g.series) || []).some(T.estHorsCalcul) && !((g && g.series) || []).some(function (x) { return !T.estHorsCalcul(x) && T.estTravail(x); })) cause = 'hors_calcul';
+      else cause = 'sans_serie';
+      sorties.push({ debut: se.debut, jour: jourCivil(se.debut), cause: cause, t: t });
+    });
+    if (!sorties.length) return null;
+    sorties.sort(function (a, b) { return b.t - a.t; });
+    return sorties.map(function (x) { return { debut: x.debut, jour: x.jour, cause: x.cause }; });
+  }
+  // La phrase : un fait par raison, la séance la plus récente d'abord. « Ta séance du 26 janv. (sans coach) n'est pas lue. » ;
+  // plusieurs séances d'une même raison : « Tes séances du 26 janv. et du 24 janv. (autre zone) ne sont pas lues. » (au plus trois dates, puis « et d’autres »).
+  // Les dates passent par `Modele.jourCourt`, DÉCLARÉES (`non_lue.<rang>`, I26) : jamais écrites à la main.
+  var NON_LUES_DATES_MAX = 3;
+  function pourquoiNonLues(nonLues) {
+    if (!Array.isArray(nonLues) || !nonLues.length) return null;
+    var ordre = [], parCause = {};
+    nonLues.forEach(function (x, i) {
+      if (!CAUSES_NON_LUES[x.cause] || !x.jour) return;
+      if (!parCause[x.cause]) { parCause[x.cause] = []; ordre.push(x.cause); }
+      parCause[x.cause].push({ jour: x.jour, rang: i });
+    });
+    var phrases = ordre.map(function (cause) {
+      var l = parCause[cause];
+      var dites = l.slice(0, NON_LUES_DATES_MAX).map(function (x) { return 'du ' + Modele().jourCourt(x.jour, cite(FAIT, { quoi: 'non_lue.' + x.rang })); });
+      var reste = l.length - dites.length;
+      var liste = Modele().enumerer(reste > 0 ? dites.concat(['d\u2019autres']) : dites);
+      var seul = l.length === 1;
+      return (seul ? 'Ta séance ' : 'Tes séances ') + liste + ' (' + CAUSES_NON_LUES[cause] + ') ' + (seul ? 'n\u2019est pas lue.' : 'ne sont pas lues.');
+    });
+    return phrases.length ? phrases.join(' ') : null;
   }
   // Le constat : un fait. `cible` peut manquer (pas de routine, pas de dernière fois).
   function phraseConstatReculs(reps, cible) {
@@ -14803,6 +14881,7 @@
     zoneRetenue: zoneRetenue,
     sousHistoireDeZone: sousHistoireDeZone,
     pourquoiPlan: pourquoiPlan,
+    pourquoiNonLues: pourquoiNonLues,
     zonesDeLaSeanceDePlan: zonesDeLaSeanceDePlan,
     ZONE_PERIMEE_JOURS: ZONE_PERIMEE_JOURS,
     niveauValide: niveauValide,

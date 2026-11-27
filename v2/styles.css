@@ -1124,7 +1124,12 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .cols-seance,
 .serie.grille{display:grid;gap:5px}
 .g-charge_reps{grid-template-columns:30px 58px 1fr 44px 44px 44px}  /* 260-a : 44 px de toucher partout ; 67 px pour les kg à 360 px, 72 avec l'écart de la règle suivante (260-f) */
-.serie.grille.g-charge_reps,.cols-seance.g-charge_reps{column-gap:4px}  /* 260-f : 4 px entre les cibles de 44 px (5 avant) : les kg gardent ≥ 70 px à 360 px */
+.serie.grille.g-charge_reps,.cols-seance.g-charge_reps{column-gap:4px}
+/* lot 4 (n° 1) — la bande « Mardi : 90 kg × 8, 8, 8 » tient la place de la colonne PRÉC. : une colonne de moins */
+.g-charge_reps.sans-prec{grid-template-columns:30px 1fr 44px 44px 44px}
+.bande{padding:8px var(--e3) 0;font-size:13px;color:var(--texte-2);line-height:18px}
+.bande b{font-weight:600;color:var(--texte)}
+.bande + .cols-seance{padding-top:3px}  /* 260-f : 4 px entre les cibles de 44 px (5 avant) : les kg gardent ≥ 70 px à 360 px */
 .g-reps{grid-template-columns:30px 62px 1fr 44px 44px}              /* 260-a : 112 px */
 .g-temps{grid-template-columns:30px 62px 1fr 44px}                  /* 260-a : 169 px, pas d'effort */
 .g-distance_temps,.g-charge_distance,.g-charge_temps{grid-template-columns:30px 66px 1fr 1fr 44px}     /* 260-a : 80 px chacune */
@@ -1184,7 +1189,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
   align-items:center;justify-content:flex-end;padding-right:var(--e3);
   color:var(--manque);font-size:12px;font-weight:700;z-index:0}
 .serie.grille{position:relative;z-index:1;align-items:center;
-  padding:5px var(--e3);border-top:1px solid var(--trait);background:var(--panneau)}
+  padding:2px var(--e3);border-top:1px solid var(--trait);background:var(--panneau)}  /* lot 4 (n° 2) : 49 px (55 avant), les cibles de 44 px gardées */
 /* §7 undecies.2 — les tours se séparent par un ESPACE, pas par un libellé.
    `A1`, `B1`, `C1` disent déjà « tour 1 » : un titre au-dessus redirait, et
    coûtait cinq rangs sur un bloc à deux tours de chauffe et trois de travail.
@@ -1369,9 +1374,7 @@ html:has(#onglets[hidden]):has(#vue-seance:not([hidden])) .tel{padding-bottom:ca
 .serie.faite{background:var(--fond-serie-faite)} /* le vert de sens à ~11 % sur la surface (opaque : le contraste se mesure sur un fond plein) */
 /* 173 (« Vivant ») — une série validée s'allume : le numéro plein, la case pleine, le mot « fait » dans la colonne effort si elle est vide. */
 .serie.fait .no-serie{background:var(--reussi);border-color:var(--reussi);color:var(--sur-accent)}
-.eff-serie[data-fait]:empty::before{content:attr(data-fait);font-family:var(--pile);font-size:12px;font-weight:700;
-  letter-spacing:.08em;font-variant:small-caps;text-transform:lowercase;color:var(--reussi)}
-.eff-serie[data-fait]{border-style:solid;border-color:transparent}
+.eff-serie.eff-vide{border-style:solid;border-color:transparent}  /* lot 4 (4a) : plus de mot « fait » dedans */
 /* 184 (D2) — une série validée S'ÉDITE SUR PLACE (banc 7-quinvicies) : sa case doit se lire comme un champ. Le fond et
    le cadre restent éteints (le vert dit « fait »), mais un filet --texte-3 souligne la valeur et le curseur dit « texte ». */
 .serie.faite .ch-serie,.serie.faite .rp-serie{background:transparent;border-color:transparent;

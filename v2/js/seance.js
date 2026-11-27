@@ -2779,6 +2779,31 @@
     return null;
   }
 
+  // Lot 4 (n° 1, décision 70) — LA BANDE « Mardi : 90 kg × 8, 8, 8 » : la séance d'avant, dite UNE fois, quand ses séries de
+  // TRAVAIL (jamais les chauffes, toujours à des charges différentes) avaient toutes la même charge. La condition porte sur la
+  // CHARGE seule : des reps différentes (9, 8, 7) restent sur la bande. Sinon `null` et la colonne PRÉC. reste, ligne à ligne
+  // (`correspondant`). C'est toujours « la dernière fois » (décision 49), lue sur `prec` seul, jamais sur la saisie en cours.
+  // Rend le texte et ses deux morceaux (le jour, la phrase en gras) ; l'écran n'écrit rien d'autre.
+  function bandeDePrecedent(prec, maintenant) {
+    if (!prec || !prec.series || !prec.seance) return null;
+    var M = racine.THModele;
+    var travail = prec.series.filter(function (x) { return estTravail(x); });
+    if (!travail.length) return null;
+    var charge = travail[0].charge_kg;
+    var reps = [];
+    for (var i = 0; i < travail.length; i++) {
+      var x = travail[i];
+      if (x.elastique !== null && x.elastique !== undefined) return null;
+      if (typeof x.charge_kg !== 'number' || !isFinite(x.charge_kg) || x.charge_kg <= 0 || x.charge_kg !== charge) return null;
+      if (typeof x.reps !== 'number' || !isFinite(x.reps) || x.reps < 0) return null;
+      reps.push(x.reps);
+    }
+    var jour = M.jourDeLaBande(prec.seance.date, maintenant);
+    if (!jour) return null;
+    var phrase = M.phraseDeLaBande(charge, reps);
+    return { jour: jour, phrase: phrase, texte: jour + ' : ' + phrase };
+  }
+
   // ── §7 septendecies.3 — LE PLAN : ce que le moteur propose, série par série ──
   //
   // Un tableau aligné sur `exo.series` : `null` là où le moteur ne dit rien,
@@ -3635,6 +3660,7 @@
     GESTES_NOTES: GESTES_NOTES,
     precedent: precedent,
     correspondant: correspondant,
+    bandeDePrecedent: bandeDePrecedent,
     derniereSaisie: derniereSaisie,
     fantome: fantome,
     casesManquantes: casesManquantes,

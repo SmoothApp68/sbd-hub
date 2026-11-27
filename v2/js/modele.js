@@ -408,6 +408,20 @@
     if (o.annee === true || (typeof o.annee === 'number' && o.annee !== a)) t += NBSP_FORMAT + a;
     return o.nom ? JOURS[dow] + ' ' + t : t;
   }
+  // Lot 4 (n° 1) — LE JOUR DE LA BANDE « Mardi : 90 kg × 8, 8, 8 » : le nom du jour seul tant que la séance d'avant tient dans
+  // la semaine (six jours), sinon le jour et la date (« Mardi 12 nov. ») ; jamais une durée. Le formateur unique (`jourDit`).
+  function jourDeLaBande(date, maintenant) {
+    var d = date instanceof Date ? date : new Date(date);
+    if (isNaN(d.getTime())) return '';
+    var n = maintenant instanceof Date ? maintenant : new Date();
+    var a = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    var b = new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
+    var jours = Math.round((b - a) / 86400000);
+    var t = jours >= 0 && jours <= 6 ? JOURS[d.getDay()] : jourDit(d, { nom: true });
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  }
+  // La phrase de la bande : « 90 kg × 8, 8, 8 » (le formateur unique du poids, `kgTexte`).
+  function phraseDeLaBande(charge, reps) { return kgTexte(charge) + ' \u00d7 ' + (reps || []).join(', '); }
   // « 9 h 05 » : une heure du jour (et le format des minutes derrière une heure de durée).
   function heureDite(h, mi) { return h + ' h ' + (mi < 10 ? '0' : '') + mi; }
 
@@ -3594,6 +3608,8 @@
     chiffresDeDuree: chiffresDeDuree,
     formatChrono: formatChrono,
     formatPrecedent: formatPrecedent,
+    jourDeLaBande: jourDeLaBande,
+    phraseDeLaBande: phraseDeLaBande,
     estTravail: estTravail,
     estTravailOuEssai: estTravailOuEssai,
     estEssaiRate: estEssaiRate,

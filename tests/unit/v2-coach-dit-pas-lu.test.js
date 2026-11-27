@@ -204,4 +204,15 @@ describe('I280 — le plan dit la séance sautée, et la vérifie', () => {
     x.pourquoi.nonLues = 'Ta séance du ' + Modele.jourCourt('2026-01-27') + ' (sans coach) n’est pas lue.';
     expect(i280(p, { precedents: prec(G) }).join('\n')).toMatch(/la dernière séance est celle du 2026-01-26/);
   });
+  test('la séance du plan lui-même (en cours ou rechargée) n’est pas une séance non lue ; une vraie séance sautée l’est toujours', () => {
+    const g = histoire(TROIS);
+    const p = planDe(calcul(g));
+    const soi = { seance: { id: 'S9', debut: AVANT, series: [] } };
+    const moi = { x: { seance: { id: 'S9', debut: AVANT }, series: [] } };
+    expect(i280(p, Object.assign({ precedents: moi }, soi))).toEqual([]);
+    const autre = { x: { seance: { id: 'S8', debut: AVANT }, series: [] } };   // même instant que le plan, autre id : pas « avant » non plus
+    expect(i280(p, Object.assign({ precedents: autre }, soi))).toEqual([]);
+    // sans `entrees.seance`, l'ancien comportement : la dernière séance doit être dite
+    expect(i280(p, { precedents: moi }).length).toBe(1);
+  });
 });

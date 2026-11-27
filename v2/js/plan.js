@@ -8490,6 +8490,10 @@
       }
       var pr = Object.prototype.hasOwnProperty.call(precedents, x.slug) ? precedents[x.slug] : null;
       var P = pr && pr.seance && pr.seance.debut ? M.jourCivil(pr.seance.debut) : null;
+      // La séance qu'on fait (en cours, ou terminée et rechargée) n'est pas « avant » : la consigne ne la lit jamais, elle n'est pas une séance non lue.
+      var moi = entrees && entrees.seance ? entrees.seance : null;
+      if (P !== null && moi && ((moi.id !== undefined && moi.id !== null && pr.seance.id === moi.id) ||
+          (moi.debut && Date.parse(pr.seance.debut) >= Date.parse(moi.debut)))) P = null;
       if (P !== null && P > D && !cause[P]) {
         erreurs.push(nom + 'le gris cite la séance du ' + D + ' alors que la dernière séance est celle du ' + P + ', et le « Pourquoi ? » ne dit pas qu\u2019elle n\u2019est pas lue');
       }

@@ -2,11 +2,13 @@ name: Bancs
 
 # 158 — les bancs tournent sur GitHub (machines en parallèle, dépôt public) :
 # la coche du job « banc-sequentiel » tient lieu du séquentiel de fin de chantier.
-# Pas sur `push` (tout tournerait deux fois). Aucun secret, aucune variable SUPABASE_* :
+# Pas sur `push` (tout tournerait deux fois). Pas non plus au passage à « prête » (CI sans gaspillage, 27/11/2026) :
+# le code ne change pas à ce moment-là, le banc du dernier push fait foi, et la relance annulait un banc en cours.
+# Aucun secret, aucune variable SUPABASE_* :
 # la garde réseau des bancs (tests/banc/garde-reseau.js) reste la seule porte vers le réseau.
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
 
 concurrency:

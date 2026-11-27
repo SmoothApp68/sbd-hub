@@ -75,7 +75,7 @@
   var PART_DES_SEANCES = 0.5;       // la carte du temps : au moins la moitié des séances des 8 dernières semaines
   var ARRONDI_MINUTES = 5;          // la durée proposée : la médiane réelle des séances écourtées, arrondie aux 5 minutes
   var DUREE_MIN = 10, DUREE_MAX = 300;   // les bornes de `profiles_rythme_borne`
-  var SEUIL_FREQUENCE = 1.5;        // une priorité faite moins de 1,5 fois par semaine en moyenne (Pelland 2026, pour la force)
+  var SEUIL_FREQUENCE = 1.5;        // une priorité faite moins de 1,5 fois par semaine en moyenne (convention de l'app ; Pelland 2026 donne le sens, la force croît avec la fréquence à rendements décroissants, mais aucun seuil)
   var TIERS = 2 / 3;                // le dernier tiers d'une séance (Simão 2012)
 
   // Les muscles principaux (l'épaule arrière et le côté compris) : un à 0 série sur 4 semaines fait une carte.
@@ -1019,7 +1019,7 @@
 
   // ── La FRÉQUENCE : combien de fois par semaine chaque priorité ─────────────────────────────────────────────────
   // Une priorité d'exercice (une des quatre barres, ou les tractions) : le nombre de séances de la semaine qui la portent.
-  // Les muscles prioritaires ne sont pas des mouvements : la règle porte sur des mouvements (Pelland 2026, la force sur un
+  // Les muscles prioritaires ne sont pas des mouvements : la règle porte sur des mouvements (Pelland 2026 : le sens, la force sur un
   // mouvement ; Schoenfeld 2019 : à volume égal la fréquence compte peu pour l'hypertrophie).
   function famillesDeMouvement(prep, cle) {
     var cat = prep.cat, M = Modele();

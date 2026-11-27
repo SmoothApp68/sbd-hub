@@ -39,7 +39,7 @@ const sp = (s) => String(s).replace(/[  ]/g, ' ');
 
 describe('la table et la fonction', () => {
   test('squat, couché, militaire 1 ; soulevé 2 ; pas une barre : rien', () => {
-    expect(M.PLANCHER_DE_BARRE).toEqual({ squat: 1, couche: 1, militaire: 1, souleve: 2 });
+    expect(M.PLANCHER_DE_BARRE).toEqual({ squat: 1, couche: 1, militaire: 1, souleve: 2, jambes_tendues: 1 });   // 27/11/2026 : + le mouvement du roumain (v2-plancher-roumain.test.js)
     expect(M.plancherDeBarre(SQUAT)).toBe(1);
     expect(M.plancherDeBarre('developpe_couche_barre')).toBe(1);
     expect(M.plancherDeBarre(MILITAIRE)).toBe(1);

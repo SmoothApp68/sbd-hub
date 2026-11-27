@@ -7927,7 +7927,7 @@
                                             objectif: Profil.objectifDe(profil) }),
       // Lot F, A1 (MOTEUR §9.26 ter, I241) — la barre de l'exercice (la barre ou un frère à la barre), ou `null` : la réserve affichée ne descend
       // pas sous le plancher de sa barre (`Moteur.plancherDeBarre`). Le plan la recalcule depuis le catalogue (`familleDeLExercice`).
-      famille: Generateur.familleDeBarre(slug, index),
+      famille: Plan.cleDePlancherDe(index, slug),   // 27/11/2026 : la barre, ou le mouvement à plancher (le roumain) — `Moteur.cleDePlancher`
       // 191 — la prudence de montée (le plafond d'un saut ; « un cran à la fois »), au jour du calcul.
       prudence: Profil.prudenceDuProfil(profil, new Date(instant)),
       // 187 (A4) — l'exercice charge une zone à ménager (profil + la table du générateur) : aucune série lourde.

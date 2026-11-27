@@ -117,6 +117,8 @@ affichée. Celui qui va au bout le note : **« sans marge » = « tu n'aurais pa
 TT-AUMAX-DEDUIT §6). En séance, le silence ; en fin d'exercice, la phrase de la capacité tenue (I254, ci-dessus : « 100 kg × 7, sans marge : 2 de plus que
 prévu. ») puis l'annonce, rien d'autre. La « Série au max » de la semaine de test devient « Série de mesure » le 21/11/2026 (MOTEUR §9.32, I253) ; l'autre façon garde « viser ton max ». Les phrases sont balayées par `tests/unit/v2-notes-ia.test.js` avec les motifs de `fixtures/voix-regles-181.json`.
 
+**La série de mesure, sur les sécurités (27/11/2026, MOTEUR §9.32 delta).** Au squat et au développé couché à la barre, la consigne de la série de mesure finit par la clause de l'essai, avec son issue : « Série de mesure : 122,5 kg, visée 6 à 8 reps, autant que tu peux, 8 reps au plus. Tu t'arrêtes quand la technique lâche. Sur les sécurités ou avec un pareur ; sinon, vise 1 en réserve. » (« réserve » : le mot de la notion ; jamais « sur les sécurités » sans issue ; ni militaire ni soulevé.)
+
 ## Les chauffes depuis ta charge (15/11/2026, MOTEUR §9.41 bis)
 
 Lexique fermé (tutoiement, un fait, aucun « bravo », aucun jugement) ; chaque nombre passe par le formateur (I26) :

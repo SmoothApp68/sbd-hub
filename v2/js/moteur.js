@@ -13420,6 +13420,8 @@
   var TEST_ESSAI_1 = 92, TEST_ESSAI_2 = 97, TEST_ESSAI_3_FACILE = 101;              // % du max estimé
   var TEST_ESSAIS_MAX = 3;
   var TEST_SERIE_PCT = 85, TEST_SERIE_PCT_DEBUTANT = 80;
+  // 27/11/2026 — l'issue de la série de mesure sans sécurités ni pareur : « sinon, vise 1 en réserve » (`testConsigneSerie`, source `test.reserve_sans`).
+  var TEST_SERIE_RESERVE_SANS_SECURITES = 1;
   var TEST_SERIE_VISEE = 5, TEST_SERIE_VISEE_DEBUTANT = Object.freeze([6, 8]);
   var TEST_SERIE_PLAFOND = 10, TEST_SERIE_PLAFOND_SOULEVE = 6;
   var TEST_REPOS_ESSAI_S = Object.freeze([240, 300, 300]);                          // 4 à 5 min
@@ -13671,7 +13673,11 @@
       : nombreFr(s.visee[0], regle('test.visee_bas')) + ' à ' + nombreFr(s.visee[1], regle('test.visee_haut'));
     var t = 'Série de mesure' + DEUX_POINTS + enKg(s.charge, regle('test')) + ', visée ' + visee + ' reps, ' +
       (s.reserve > 0 ? testReserve(s.reserve) + ', ' : 'autant que tu peux, ') + nombreFr(s.plafond, regle('test.plafond')) + ' reps au plus.';
-    return t + ' Tu t’arrêtes quand la technique lâche.';
+    t += ' Tu t’arrêtes quand la technique lâche.';
+    // 27/11/2026 (SÉCURITÉ, décision du fondateur) — la série la plus proche de l'échec de l'app, au squat et au développé couché à la barre
+    // (`surLesSecurites`), le dit comme l'essai (`testConsigneEssai`) : à la FIN de la consigne, dans la même consigne (3 éléments + 1 carte : aucun élément
+    // de plus, I269), avec une issue pour qui n'a pas de sécurités (jamais « sur les sécurités » sans issue). Un nombre, donc cité (I26).
+    return t + (s.surLesSecurites ? ' Sur les sécurités ou avec un pareur ; sinon, vise ' + nombreFr(TEST_SERIE_RESERVE_SANS_SECURITES, regle('test.reserve_sans')) + ' en réserve.' : '');
   }
   // Le « Pourquoi ». `f` : { mode, max, pariCharge, serie }. Aucun chiffre écrit à la main (I26) : les rangs se disent en mots.
   function pourquoiTest(f) {
@@ -14501,7 +14507,7 @@
     TEST_MODE_MAX: TEST_MODE_MAX, TEST_MODE_SERIE: TEST_MODE_SERIE, TEST_MONTEE: TEST_MONTEE, TEST_ESSAIS_MAX: TEST_ESSAIS_MAX,
     TEST_ACCESSOIRES_MAX: TEST_ACCESSOIRES_MAX, TEST_SEMAINES_MIN: TEST_SEMAINES_MIN, TEST_VALIDITE_JOURS: TEST_VALIDITE_JOURS,
     TEST_PHASES_AVANT: TEST_PHASES_AVANT, TEST_SERIE_PLAFOND: TEST_SERIE_PLAFOND, TEST_SERIE_PLAFOND_SOULEVE: TEST_SERIE_PLAFOND_SOULEVE,
-    TEST_ESSAI_1: TEST_ESSAI_1, TEST_ESSAI_2: TEST_ESSAI_2, TEST_SERIE_PCT: TEST_SERIE_PCT, TEST_SERIE_PCT_DEBUTANT: TEST_SERIE_PCT_DEBUTANT,
+    TEST_ESSAI_1: TEST_ESSAI_1, TEST_ESSAI_2: TEST_ESSAI_2, TEST_SERIE_PCT: TEST_SERIE_PCT, TEST_SERIE_PCT_DEBUTANT: TEST_SERIE_PCT_DEBUTANT, TEST_SERIE_RESERVE_SANS_SECURITES: TEST_SERIE_RESERVE_SANS_SECURITES,
     testModeParDefaut: testModeParDefaut, testRaisonDuDefaut: testRaisonDuDefaut, testPhraseDuDefaut: testPhraseDuDefaut, TEST_REPS_FIABLES_MAX: TEST_REPS_FIABLES_MAX, testModeValide: testModeValide, testMontee: testMontee, testEssai: testEssai,
     testSerieAuMax: testSerieAuMax, testMesure: testMesure, testBarreDuJour: testBarreDuJour, testBarresEnConflit: testBarresEnConflit, testBarreTestable: testBarreTestable, phraseSansEssai: phraseSansEssai,
     testProposable: testProposable, testConsigneEssai: testConsigneEssai, testConsigneSerie: testConsigneSerie, pourquoiTest: pourquoiTest,

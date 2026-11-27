@@ -6864,6 +6864,7 @@
       'test.pct1': x.semaineDeTest && x.semaineDeTest.testee ? { valeur: Moteur().TEST_ESSAI_1 } : null,
       'test.pct2': x.semaineDeTest && x.semaineDeTest.testee ? { valeur: Moteur().TEST_ESSAI_2 } : null,
       'test.pct_serie': x.semaineDeTest && x.semaineDeTest.serie ? { valeur: x.semaineDeTest.serie.pct } : null,
+      'test.reserve_sans': x.semaineDeTest && x.semaineDeTest.serie && x.semaineDeTest.serie.surLesSecurites ? { valeur: Moteur().TEST_SERIE_RESERVE_SANS_SECURITES } : null,
       'test.max': x.semaineDeTest && x.semaineDeTest.max !== null && x.semaineDeTest.max !== undefined ? { charge: x.semaineDeTest.max } : null,
       'test.reserve': x.semaineDeTest && x.semaineDeTest.prochain ? { valeur: x.semaineDeTest.prochain.reserve }
         : x.semaineDeTest && x.semaineDeTest.serie ? { valeur: x.semaineDeTest.serie.reserve } : null,

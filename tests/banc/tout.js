@@ -6,6 +6,9 @@
 //                                           + banc de vitesse (231)
 //                                           + banc d'écran de séance (complet, parallèle)
 //   node tests/banc/tout.js --sequentiel    le banc d'écran en séquentiel (la référence)
+//   node tests/banc/tout.js --sans-npm-test ne joue pas `npm test` : seul `bancs.yml` le pose, parce que le job `unit`
+//                                           (test.yml) le joue déjà, sur le même commit, avec les mêmes tests. En local,
+//                                           sans l'option, `npm test` reste joué ici.
 //
 // Chacun sur son port, chacun dans son journal ; on attend les six, on dit
 // lequel a échoué et où lire pourquoi. À lancer sur l'état COMMITÉ.
@@ -39,11 +42,11 @@ function lancer(nom, args, env) {
 if (require.main === module) (async () => {
   await prendre();   // 168 : un seul banc à la fois ; les cinq lancés ici jouent sous ce verrou
   const seq = process.argv.indexOf('--sequentiel') >= 0;
+  const sansJest = process.argv.indexOf('--sans-npm-test') >= 0;   // CI sans gaspillage : `unit` (test.yml) le joue déjà
   const debut = Date.now();
   // 231 : le banc de vitesse MESURE du temps — il joue SEUL d'abord (cinq navigateurs à côté fausseraient la médiane), puis les autres en parallèle.
   // PR 4b (R-A, O12) : un 2e profil — un zéro rep toutes les 10 séances — joue seul lui aussi, juste après le premier.
-  lancer('banc de vitesse', [path.join(__dirname, 'vitesse.js')]).then((v1) => lancer('banc de vitesse (zéros)', [path.join(__dirname, 'vitesse.js'), '--zeros']).then((v2) => [v1, v2])).then((v) => Promise.all([
-    lancer('npm test', [path.join(RACINE, 'node_modules/jest/bin/jest.js')]),
+  lancer('banc de vitesse', [path.join(__dirname, 'vitesse.js')]).then((v1) => lancer('banc de vitesse (zéros)', [path.join(__dirname, 'vitesse.js'), '--zeros']).then((v2) => [v1, v2])).then((v) => Promise.all((sansJest ? [] : [lancer('npm test', [path.join(RACINE, 'node_modules/jest/bin/jest.js')])]).concat([
     lancer('banc des routines', [path.join(__dirname, 'routines-ecran.js')]),
     lancer('banc du service worker', [path.join(__dirname, 'sw-navigation.js')]),
     lancer('banc de la création du profil', [path.join(__dirname, 'profil-creation.js')]),
@@ -53,7 +56,7 @@ if (require.main === module) (async () => {
     lancer('banc de la tête 3+1', [path.join(__dirname, 'tete-3plus1.js')]),
     lancer('banc de la tête 3+1 (360 px)', [path.join(__dirname, 'tete-3plus1.js')], { LARGEUR: '360' }),
     lancer('banc d’écran de séance', [path.join(__dirname, 'seance-rapide.js')].concat(seq ? ['--sequentiel'] : []))
-  ]).then((r) => v.concat(r))).then((r) => {
+  ])).then((r) => v.concat(r))).then((r) => {
     console.log('\n══ TOUT (sur l’état commité) ══');
     r.forEach((x) => {
       console.log('   ' + (x.code === 0 ? '✅' : '❌') + ' ' + x.nom + ' · ' + Math.round(x.duree / 1000) + ' s · ' +

@@ -10463,7 +10463,8 @@
         return { slug: slug, nom: nomsDuCatalogue()[slug] || slug, sansEssai: Moteur.phraseSansEssai(nomsDuCatalogue()[slug] || slug, src, jourDuJour()),
                  mode: null, raison: null, mesure: null };
       }
-      var f = { debutant: Profil.estDebutant(profil), plus65: Profil.plus65DuProfil(profil, new Date()) === true, repsDuMax: sr ? sr.reps : null };
+      var f = { debutant: Profil.estDebutant(profil), plus65: Profil.plus65DuProfil(profil, new Date()) === true,
+                objectif: Profil.objectifDe(profil), repsDuMax: sr ? sr.reps : null };
       var mode = choisie || Moteur.testModeParDefaut(f);
       var raison = choisie ? null : Moteur.testPhraseDuDefaut(Object.assign({ max: maxs[slug], chargeDuMax: sr ? sr.charge : null }, f));
       return { slug: slug, nom: nomsDuCatalogue()[slug] || slug, mode: mode, raison: raison,

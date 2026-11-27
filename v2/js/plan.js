@@ -1454,7 +1454,7 @@
   // vient le max estimé (rien si elles ne sont pas connues). La feuille du Profil (app.js) lit la MÊME fonction de moteur avec les mêmes faits.
   function defautDeTest(e, slug) {
     var T = e.semaineDeTest || {}, s = T.seriesDuMax && T.seriesDuMax[slug];
-    return { debutant: e.debutant === true, plus65: e.plus65 === true, repsDuMax: s ? s.reps : null };
+    return { debutant: e.debutant === true, plus65: e.plus65 === true, objectif: objectifDuPlan(e.objectif), repsDuMax: s ? s.reps : null };
   }
 
   function semaineDeTestDExercice(jt, e, seance, exos, i, x, materiel, intentionX, coachee, douloureuse) {

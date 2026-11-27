@@ -13535,11 +13535,14 @@
   // un débutant (moins d'un an), 65 ans ou plus (`plus65`, le fait existant, pas un seuil de plus), ou un max estimé tiré d'une série de
   // plus de 5 reps (au-delà, le calcul est moins fiable : Reynolds 2006). Sinon « Viser mon max ». `f` : `{ debutant, plus65, repsDuMax }` ;
   // un fait inconnu (`null`, un max sans reps connues) ne compte pas. La façon choisie prime toujours (`testModeValide`).
+  // 27/11/2026 — le BUT lit la fiche : `f.objectif` dont `Modele.specialiteDe(objectif).testParDefaut` vaut `serie` (Forme, population protégée : aucune source
+  // ne soutient un max tenté par défaut) donne la série de mesure ; un but inconnu ou absent, la fiche neutre (« Viser mon max »). Seul le défaut change.
   var TEST_REPS_FIABLES_MAX = 5;
   function testRaisonDuDefaut(f) {
     var o = f && typeof f === 'object' ? f : {};
     if (o.debutant === true) return 'debutant';
     if (o.plus65 === true) return 'plus65';
+    if (Modele().specialiteDe(o.objectif).testParDefaut === TEST_MODE_SERIE) return 'but';
     var r = nombre(o.repsDuMax);
     if (r !== null && r > TEST_REPS_FIABLES_MAX) return 'reps';
     return null;
@@ -13556,6 +13559,9 @@
     if (raison === 'debutant') {
       cle = null;
       texte = 'Moins d’un an de pratique : le coach propose une série de mesure plutôt qu’une tentative. Tu peux viser ton max si tu le connais.';
+    } else if (raison === 'but') {
+      cle = null;
+      texte = 'En objectif Forme, le coach propose une série de mesure plutôt qu’une tentative. Tu peux viser ton max si tu le connais.';
     } else if (raison === 'plus65') {
       cle = 'test.defaut.age';
       texte = 'À partir de ' + nombreFr(AGE_PLAFOND_BAS, c) + ' ans, le coach propose une série de mesure. Tu peux viser ton max si tu le connais.';

@@ -153,12 +153,14 @@
   //   seance      `proteger` { barre, autre } : `charge` (la 1re série ne baisse pas pour un écart de moins d'une rep) · `volume` (on baisse dès le bas
   //               de la zone) · `rien` ; `prudente` (garde 2, rappel « J'ai mal ») ; `protegee` (population protégée)
   //   chauffes    `douces` ; habiletes ; semaineDeForme
+  //   testParDefaut  la façon proposée d'abord en semaine de mesure : `max` (« Viser mon max ») · `serie` (« Série de mesure ») ; le choix de la personne prime (27/11/2026, Forme seule)
   var RIEN_PROTEGE = Object.freeze({ barre: 'rien', autre: 'rien' });
   function fiche(f) {
     return Object.freeze({ programme: Object.freeze(Object.assign({}, f.programme, { reps: Object.freeze(f.programme.reps.slice()) })), blocs: Object.freeze(f.blocs),
-      mots: Object.freeze(f.mots), seance: Object.freeze(f.seance), chauffes: Object.freeze(f.chauffes), habiletes: f.habiletes, semaineDeForme: f.semaineDeForme });
+      mots: Object.freeze(f.mots), seance: Object.freeze(f.seance), chauffes: Object.freeze(f.chauffes), habiletes: f.habiletes, semaineDeForme: f.semaineDeForme,
+      testParDefaut: f.testParDefaut });
   }
-  var NEUTRE = { mots: { deForce: false }, chauffes: { douces: false }, habiletes: false, semaineDeForme: false };
+  var NEUTRE = { mots: { deForce: false }, chauffes: { douces: false }, habiletes: false, semaineDeForme: false, testParDefaut: 'max' };
   var SPECIALITES = Object.freeze({
     force: fiche(Object.assign({}, NEUTRE, {
       programme: { gabarit: 'familles', reps: [5, 7, 12], seriesPrincipal: 4, menageLourd: 'mix', pause: true, cycles: true, ratios: true, entretienForce: false },
@@ -175,7 +177,7 @@
     forme: fiche(Object.assign({}, NEUTRE, {
       programme: { gabarit: 'corps_entier', reps: [9, 12, 15], seriesPrincipal: 3, menageLourd: 'mix', pause: false, cycles: false, ratios: false, entretienForce: false },
       blocs: { menu: 'force', premier: 'mix', suivant: 'mix', grosseParDefaut: false, grosseSurHypProposee: false },
-      seance: { proteger: RIEN_PROTEGE, prudente: true, protegee: true }, chauffes: { douces: true }, semaineDeForme: true })),
+      seance: { proteger: RIEN_PROTEGE, prudente: true, protegee: true }, chauffes: { douces: true }, semaineDeForme: true, testParDefaut: 'serie' })),
     calisthenie: fiche(Object.assign({}, NEUTRE, {
       // `reps` : un reste, lu nulle part (son gabarit ne les lit pas ; le test le prouve)
       programme: { gabarit: 'calisthenie', reps: [8, 9, 12], seriesPrincipal: 3, menageLourd: 'mix', pause: false, cycles: false, ratios: false, entretienForce: true },

@@ -90,6 +90,17 @@ describe('193-4 — le plan : la barre testée', () => {
     expect(T.planDeSeance(entrees(seance([DC]), {}, { plus65: false })).exercices[0].semaineDeTest.mode).toBe('max');
   });
 
+  test('27/11/2026 — objectif Forme : la série de mesure par défaut, I90 vérifie ; « Viser mon max » choisi est gardé ; les autres buts : « Viser mon max »', () => {
+    const e = entrees(seance([DC]), {}, { objectif: 'forme' });
+    const p = T.planDeSeance(e);
+    expect(p.exercices[0].semaineDeTest.mode).toBe('serie');
+    propre(p, e);
+    const c = entrees(seance([DC]), { modes: { [DC]: 'max' } }, { objectif: 'forme' });
+    expect(T.planDeSeance(c).exercices[0].semaineDeTest.mode).toBe('max');
+    propre(T.planDeSeance(c), c);
+    ['force', 'muscle', 'les_deux', 'calisthenie'].forEach((o) => expect(T.planDeSeance(entrees(seance([DC]), {}, { objectif: o })).exercices[0].semaineDeTest.mode).toBe('max'));
+  });
+
   test('202 — un max tiré de plus de 5 reps : « Série au max » ; de 5 reps ou sans reps connues : « Viser mon max »', () => {
     const avec = (reps) => entrees(seance([DC]), { seriesDuMax: { [DC]: reps === null ? null : { charge: 130, reps } } });
     const mode = (e) => T.planDeSeance(e).exercices[0].semaineDeTest.mode;

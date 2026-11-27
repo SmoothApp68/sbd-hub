@@ -140,4 +140,22 @@ describe('193-4 — la proposition', () => {
     expect(M.testPhraseDuDefaut({ repsDuMax: 5 })).toBe(null);
     expect(M.testPhraseDuDefaut({})).toBe(null);
   });
+  test('27/11/2026 — en objectif Forme, le défaut est la série de mesure ; les autres buts gardent « Viser mon max » ; le choix prime', () => {
+    const d = (f) => M.testModeParDefaut(f);
+    expect(d({ objectif: 'forme' })).toBe('serie');
+    expect(d({ objectif: 'forme', repsDuMax: 3 })).toBe('serie');
+    ['force', 'muscle', 'les_deux', 'calisthenie', 'sans_reponse', null, undefined, 'toString'].forEach((o) => expect(d({ objectif: o })).toBe('max'));
+    // la fiche, pas un littéral : la valeur vient de `Modele.SPECIALITES`
+    expect(Modele.SPECIALITES.forme.testParDefaut).toBe('serie');
+    expect(M.testModeValide('max')).toBe('max');                       // « Viser mon max » choisi : jamais changé (le plan lit `testModeValide` d'abord)
+    expect(M.testRaisonDuDefaut({ objectif: 'forme' })).toBe('but');
+    expect(M.testRaisonDuDefaut({ objectif: 'forme', debutant: true })).toBe('debutant');
+    expect(M.testRaisonDuDefaut({ objectif: 'forme', plus65: true })).toBe('plus65');
+    expect(M.testRaisonDuDefaut({ objectif: 'forme', repsDuMax: 8 })).toBe('but');
+    const p = M.testPhraseDuDefaut({ objectif: 'forme' });
+    expect(p.raison).toBe('but');
+    expect(p.texte).toBe('En objectif Forme, le coach propose une série de mesure plutôt qu’une tentative. Tu peux viser ton max si tu le connais.');
+    expect(p.sources).toEqual([]);
+    expect(M.testPhraseDuDefaut({ objectif: 'muscle' })).toBe(null);
+  });
 });

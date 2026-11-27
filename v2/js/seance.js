@@ -1583,8 +1583,27 @@
     // question de fin ne propose jamais de l'écrire dans la routine.
     // 16/11/2026 (« Essayer la marche ») — un essai de marche n'est pas un écart (`exercicesPourLaRoutine`) : seule la carte
     // de fin en parle.
-    var voulues = exercicesPourLaRoutine(seance).map(function (exo, iVoulue) {
-      var ligne = (exo.routine_exercise_id && parId[exo.routine_exercise_id]) || null;
+    var exosDeSeance = exercicesPourLaRoutine(seance);
+    // F3 (27/11/2026) — UN EXERCICE SE RECONNAÎT PAR SON EXERCICE, pas par l'id de sa ligne : sorti puis rentré, ou remplacé
+    // par lui-même, il perd son `routine_exercise_id` et n'est ni « retiré » ni « ajouté ». Un exercice sans ligne valable
+    // adopte la première ligne libre de la routine du même `exercise_slug` (dans l'ordre du rang) ; une ligne enlevée par
+    // le raccourci reste hors d'atteinte. Reporter ne supprime donc jamais la ligne d'origine.
+    var prises = {};
+    exosDeSeance.forEach(function (exo) {
+      if (exo.routine_exercise_id && parId[exo.routine_exercise_id]) prises[exo.routine_exercise_id] = true;
+    });
+    var retiresRaccourci = (seance.raccourcie && seance.raccourcie.retires) || [];
+    var apparies = exosDeSeance.map(function (exo) {
+      if (exo.routine_exercise_id && parId[exo.routine_exercise_id]) return null;
+      for (var k = 0; k < lignes.length; k++) {
+        var l = lignes[k];
+        if (!l || !l.id || prises[l.id] || retiresRaccourci.indexOf(l.id) >= 0) continue;
+        if (l.exercise_slug && l.exercise_slug === exo.exercise_slug) { prises[l.id] = true; return l; }
+      }
+      return null;
+    });
+    var voulues = exosDeSeance.map(function (exo, iVoulue) {
+      var ligne = (exo.routine_exercise_id && parId[exo.routine_exercise_id]) || apparies[iVoulue] || null;
       if (o.series) {
         var deSeance = (exo.series || []).map(structureDeLigne);
         var garder = ligne && formeDesSeries(ligne.series) === formeDesSeries(deSeance);

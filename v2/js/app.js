@@ -19842,7 +19842,8 @@
       groupeCompte: 'Mon compte',
       resumes: Profil.resumesDesGroupes(p, {
         poids: resumePoids ? Modele.kgTexte(resumePoids.poids) : null,
-        routines: Routines.visibles(routines).filter(function (r) { return r && !r.archivee_a; }).length,
+        // F6 — `null` tant que la bibliothèque n'est pas lue (`etatRoutines`) : le Profil n'écrit alors aucune phrase.
+        routines: etatRoutines.code === 'ok' ? Routines.visibles(routines).filter(function (r) { return r && !r.archivee_a; }).length : null,
         email: (sessionActive && sessionActive.user && sessionActive.user.email) || null,
         pages: Mentions.pages().map(function (pg) { return pg.titre; })
       }),

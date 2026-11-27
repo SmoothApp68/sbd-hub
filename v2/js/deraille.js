@@ -1,7 +1,7 @@
 // v2/js/deraille.js — la semaine qui déraille (chantier 99, MOTEUR §9.24).
 //
 // Un programme à jours prévus (`routines.jours`, v2_084) ; une routine prévue un jour passé de la semaine n'a pas eu
-// lieu. À l'ouverture de l'app, une carte, sans reproche, qui parle du plan (« Jambes n'a pas eu lieu mardi. ») et
+// lieu. À l'ouverture de l'app, une carte, sans reproche, qui parle de ce qui reste à placer (« Il reste Jambes à placer cette semaine. ») et
 // propose : décaler la suite, répartir ses séries dans la semaine, ou garder la séance du jour. En fin de semaine :
 // ajouter un exercice à la séance du jour, ou non.
 //
@@ -177,7 +177,7 @@
     var evenement = function (p, n) { return { n: n, prim: primaires(st[p.routine]) }; };
     var base = {
       cles: ouvertes.map(cle), manquee: { routine: rM.id, nom: nomCourt(rM.nom), jour: M.jour, jourNom: noms()[M.jour - 1] },
-      titre: nomCourt(rM.nom) + ' n\'a pas eu lieu ' + noms()[M.jour - 1] + '.'
+      titre: 'Il reste ' + nomCourt(rM.nom) + ' à placer cette semaine.'
     };
 
     // Décision 4 : un exercice de la routine manquée pour une séance — il ne recharge pas ce que la séance fatigue
@@ -244,7 +244,7 @@
         var ligne = (rM.exercices || [])[c.i];
         sortie.push({ routine: p.routine, nomRoutine: nomCourt(parId[p.routine].nom), jour: p.jour, jourNom: noms()[p.jour - 1],
                       slug: c.ex.slug, i: c.i, series: c.k, prim: c.ex.prim,
-                      nom: (cat[c.ex.slug] || {}).nom || c.ex.slug, depuis: noms()[M.jour - 1],
+                      nom: (cat[c.ex.slug] || {}).nom || c.ex.slug, depuis: noms()[M.jour - 1], de: nomCourt(rM.nom),
                       exercice: travailSeulement(ligne, c.k) });
       }
       return sortie;
@@ -347,7 +347,7 @@
     return n;
   }
   function ajoutGarde(a) {
-    return { routine: a.routine, jour: a.jour, slug: a.slug, series: a.series, depuis: a.depuis, exercice: a.exercice };
+    return { routine: a.routine, jour: a.jour, slug: a.slug, series: a.series, depuis: a.depuis, de: a.de, exercice: a.exercice };
   }
 
   // ── Le choix en base (`semaine_choix`, v2_085) ────────────────────────────
@@ -447,7 +447,7 @@
         portees = g.lignes.map(function (l) { return l.routine_id; }).concat((Array.isArray(d.planning) ? d.planning : []).map(function (x) { return x.routine; }));
         phrase = manquee + ' passée à ' + (pl ? noms()[pl.jour - 1] : '') + ' ; la suite se décale.';
       } else if (g.choix === 'garder') {
-        phrase = manquee + ' n\u2019a pas eu lieu\u00a0: semaine gardée comme prévue.';
+        phrase = manquee + '\u00a0: semaine gardée comme prévue.';
       } else {
         phrase = manquee + '\u00a0: rien d\u2019ajouté.';
       }
@@ -468,7 +468,7 @@
     if (!etat || etat.lundi !== lundiDe(jour)) return [];
     var j = jourDeSemaine(numero(jour));
     return (etat.ajouts || []).filter(function (a) { return a.routine === routineId && a.jour === j && a.exercice; })
-      .map(function (a) { return { exercice: a.exercice, mention: 'séance manquée de ' + a.depuis }; });
+      .map(function (a) { return { exercice: a.exercice, mention: a.de ? 'vient de ' + a.de : 'vient d\u2019une autre séance' }; });
   }
 
   // La semaine telle qu'elle se montre (la bande de la carte) : un jour, sa routine.

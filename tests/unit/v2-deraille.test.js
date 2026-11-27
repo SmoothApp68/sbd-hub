@@ -49,8 +49,8 @@ describe('les jours d’une routine', () => {
 describe('un jour manqué en début de semaine (Jambes mardi, ouverture mercredi)', () => {
   const e = entree({ jour: '2026-10-14', seances: [fait('2026-10-12', 'r-push', ['couche', 'militaire'])] });
   const c = D.semaineQuiDeraille(e);
-  test('la carte parle du plan : « Jambes n’a pas eu lieu mardi. », trois choix, le décalage mis en avant', () => {
-    expect(c.titre).toBe('Jambes n\'a pas eu lieu mardi.');
+  test('la carte parle du plan : « Il reste Jambes à placer cette semaine. », trois choix, le décalage mis en avant', () => {
+    expect(c.titre).toBe('Il reste Jambes à placer cette semaine.');
     expect(c.sorte).toBe('choix');
     expect(c.choix.map((x) => x.libelle)).toEqual(['Jambes aujourd\'hui · la suite se décale',
       'Répartir ses séries dans la semaine', 'Garder Pull, comme prévu']);
@@ -77,7 +77,7 @@ describe('un jour manqué en début de semaine (Jambes mardi, ouverture mercredi
     const jeudi = Object.assign({}, e, { jour: '2026-10-15', etat, seances: e.seances.concat([fait('2026-10-14', 'r-jambes', ['squat'])]) });
     expect(D.semaineQuiDeraille(jeudi)).toBeNull();
     const vendredi = Object.assign({}, jeudi, { jour: '2026-10-16' });
-    expect(D.semaineQuiDeraille(vendredi).titre).toBe('Pull n\'a pas eu lieu jeudi.');
+    expect(D.semaineQuiDeraille(vendredi).titre).toBe('Il reste Pull à placer cette semaine.');
   });
   test('décider « Garder Pull » est respecté : plus de question pour mardi', () => {
     const etat = D.decider(null, c, 'garder', '2026-10-14');
@@ -88,9 +88,20 @@ describe('un jour manqué en début de semaine (Jambes mardi, ouverture mercredi
   test('décider « Répartir » : le leg curl s’ajoute à Pull, aujourd’hui seulement, avec sa mention', () => {
     const etat = D.decider(null, c, 'repartir', '2026-10-14');
     const a = D.ajoutsDuJour(etat, 'r-pull', '2026-10-14');
-    expect(a.map((x) => [x.exercice.exercise_slug, x.mention])).toEqual([['legcurl', 'séance manquée de mardi']]);
+    expect(a.map((x) => [x.exercice.exercise_slug, x.mention])).toEqual([['legcurl', 'vient de Jambes']]);
     expect(D.ajoutsDuJour(etat, 'r-pull', '2026-10-21')).toEqual([]);   // la semaine suivante : rien
     expect(D.ajoutsDuJour(etat, 'r-push', '2026-10-14')).toEqual([]);
+  });
+  test('27/11 — aucune phrase de la carte, de la trace ni de la mention ne nomme un jour passé ni « manqué »', () => {
+    const etat = D.decider(null, c, 'repartir', '2026-10-14');
+    const dites = [c.titre, c.pourquoi, c.choix.map((x) => x.libelle).join(' '),
+      D.ajoutsDuJour(etat, 'r-pull', '2026-10-14').map((a) => a.mention).join(' ')].join(' ');
+    expect(dites).not.toMatch(/manqu|pas eu lieu|mardi/i);
+  });
+  test('une ligne d’avant le 27/11 (sans le nom de la routine d’origine) garde une mention sans jour passé', () => {
+    const vieux = { lundi: '2026-10-12', questions: {}, planning: null,
+      ajouts: [{ routine: 'r-pull', jour: 3, slug: 'legcurl', series: 3, depuis: 'mardi', exercice: { exercise_slug: 'legcurl', series: [] } }] };
+    expect(D.ajoutsDuJour(vieux, 'r-pull', '2026-10-14').map((a) => a.mention)).toEqual(['vient d’une autre séance']);
   });
 });
 
@@ -98,7 +109,7 @@ describe('un jour manqué en milieu de semaine (Pull mercredi, ouverture jeudi, 
   const e = entree({ jour: '2026-10-15', seances: [fait('2026-10-12', 'r-push', ['couche']), fait('2026-10-13', 'r-jambes', ['squat', 'roumain'])] });
   const c = D.semaineQuiDeraille(e);
   test('Pull aujourd’hui ; vendredi et samedi ne bougent pas ; « Garder la semaine »', () => {
-    expect(c.titre).toBe('Pull n\'a pas eu lieu mercredi.');
+    expect(c.titre).toBe('Il reste Pull à placer cette semaine.');
     expect(c.choix[0].planning.filter((p) => p.jour >= 4)).toEqual([{ routine: 'r-pull', jour: 4 },
       { routine: 'r-push', jour: 5 }, { routine: 'r-jambes', jour: 6 }]);
     expect(c.choix[c.choix.length - 1].libelle).toBe('Garder la semaine, comme prévue');
@@ -124,7 +135,7 @@ describe('un jour manqué en fin de semaine (Push vendredi, ouverture samedi)', 
     const src = require('fs').readFileSync(require('path').join(__dirname, '../../v2/js/deraille.js'), 'utf8');
     expect([src.split(' à la fin de ').length - 1, src.split('ton programme en prévoit').length - 1]).toEqual([1, 1]);
     const etat = D.decider(null, c, 'ajouter', '2026-10-17');
-    expect(D.ajoutsDuJour(etat, 'r-jambes', '2026-10-17').map((a) => a.mention)).toEqual(['séance manquée de vendredi']);
+    expect(D.ajoutsDuJour(etat, 'r-jambes', '2026-10-17').map((a) => a.mention)).toEqual(['vient de Push']);
   });
 });
 
@@ -132,7 +143,7 @@ describe('deux jours manqués (Jambes mardi, Pull mercredi ; ouverture jeudi)', 
   const e = entree({ jour: '2026-10-15', seances: [fait('2026-10-12', 'r-push', ['couche'])] });
   const c = D.semaineQuiDeraille(e);
   test('une seule question, sur le muscle le plus en retard sur le programme (Jambes : fessiers 14 prévues, 0 faites)', () => {
-    expect(c.titre).toBe('Jambes n\'a pas eu lieu mardi.');
+    expect(c.titre).toBe('Il reste Jambes à placer cette semaine.');
     expect(c.cles.sort()).toEqual(['r-jambes@2', 'r-pull@3']);
     expect(D.semaineQuiDeraille(Object.assign({}, e, { etat: D.decider(null, c, 'garder', '2026-10-15') }))).toBeNull();
   });
@@ -142,7 +153,7 @@ describe('la récupération : jamais les mêmes muscles principaux le lendemain 
   test('un squat libre hier (hors routine) : Jambes aujourd’hui n’est pas proposé', () => {
     const e = entree({ jour: '2026-10-14', seances: [fait('2026-10-12', 'r-push', ['couche']), fait('2026-10-13', null, ['squat'])] });
     const c = D.semaineQuiDeraille(e);
-    expect(c.titre).toBe('Jambes n\'a pas eu lieu mardi.');
+    expect(c.titre).toBe('Il reste Jambes à placer cette semaine.');
     expect(c.choix.map((x) => x.cle)).not.toContain('decaler');
   });
   test('Jambes mercredi puis Jambes vendredi (J+2) : proposé ; pour un débutant (J+3) : non', () => {
@@ -244,7 +255,7 @@ describe('un exercice ajouté pour la semaine n’est jamais proposé à la rout
     const routine = { id: 'r-pull', exercices: [{ id: 'e1', exercise_slug: 'tractions', rang: 0, series: [{ type_serie: 'travail', reps: 8 }] }] };
     const seance = { routine_id: 'r-pull', exercices: [
       { exercise_slug: 'tractions', routine_exercise_id: 'e1', series: [{ type_serie: 'travail', reps: 8 }] },
-      { exercise_slug: 'legcurl', routine_exercise_id: null, ajout: 'séance manquée de mardi', series: [{ type_serie: 'travail' }] }] };
+      { exercise_slug: 'legcurl', routine_exercise_id: null, ajout: 'vient de Jambes', series: [{ type_serie: 'travail' }] }] };
     expect(S.ecartsRoutine(seance, routine).ecarts.filter((x) => x.type === 'ajoute')).toEqual([]);
     const sans = { routine_id: 'r-pull', exercices: [seance.exercices[0], Object.assign({}, seance.exercices[1], { ajout: null })] };
     expect(S.ecartsRoutine(sans, routine).ecarts.filter((x) => x.type === 'ajoute').length).toBe(1);
@@ -405,11 +416,11 @@ describe('266 — annuler un choix de la semaine', () => {
     const rep = lire([L('haut-b', 'repartir', T1, { jour: 2, ajouts: AJOUTS })])[0];
     expect(rep.phrase).toBe('Haut B réparti : vendredi et samedi.');
     expect(rep.ajouts).toEqual([{ jourNom: 'vendredi', nom: 'Rowing Poulie Assis', series: 2 }, { jourNom: 'samedi', nom: 'Rowing Poulie Assis', series: 2 }]);
-    expect(lire([L('haut-b', 'ajouter', T1, { jour: 2, ajouts: [{ routine: 'bas-b', jour: 6, slug: 'hip', series: 3, depuis: 'mardi', exercice: {} }] })])[0].phrase)
+    expect(lire([L('haut-b', 'ajouter', T1, { jour: 2, ajouts: [{ routine: 'bas-b', jour: 6, slug: 'hip', series: 3, depuis: 'mardi', de: 'Haut B', exercice: {} }] })])[0].phrase)
       .toBe('Haut B : hip thrust ajouté samedi.');
     expect(lire([L('haut-b', 'decaler', T1, { jour: 2, planning: [{ routine: 'haut-b', jour: 3 }, { routine: 'pull', jour: 4 }] }), L('pull', 'decaler', T1, { jour: 3 })])[0].phrase)
       .toBe('Haut B passée à mercredi ; la suite se décale.');
-    expect(lire([L('haut-b', 'garder', T1)])[0].phrase).toBe('Haut B n’a pas eu lieu : semaine gardée comme prévue.');
+    expect(lire([L('haut-b', 'garder', T1)])[0].phrase).toBe('Haut B : semaine gardée comme prévue.');
     expect(lire([L('haut-b', 'non', T1)])[0].phrase).toBe('Haut B : rien d’ajouté.');
   });
 

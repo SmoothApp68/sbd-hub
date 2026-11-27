@@ -2354,7 +2354,7 @@ const NOTIONS = [
   { notion: 'la spécialité du but d’entraînement (ce que le but change)', pr: 'correctif 26/11/2026',
     module: 'modele.js', fonction: 'specialiteDe', lecteurs: ['generateur.js', 'moteur.js', 'plan.js', 'app.js', 'questionnaire.js'],
     par: ['marcheSuivanteBrute'],
-    parAilleurs: { 'moteur.js': ['prudence', 'zonesDeBloc', 'grosseSerieParDefaut', 'zoneDuPremierBloc', 'blocSuivant', 'objectifDeForce', 'rateSousLaZone', 'reactionDeSerie', 'reactionDExercice'],
+    parAilleurs: { 'moteur.js': ['prudence', 'zonesDeBloc', 'grosseSerieParDefaut', 'zoneDuPremierBloc', 'blocSuivant', 'objectifDeForce', 'rateSousLaZone', 'reactionDeSerie', 'reactionDExercice', 'testRaisonDuDefaut'],
       'generateur.js': ['specialite'], 'plan.js': ['materielDe'], 'app.js': ['vueDeLaSemaineForme', 'ouvrirApercuProgramme'], 'questionnaire.js': ['ecransVisibles'] },
     interditAilleurs: {
       motif: /\b(?:objectif|obj|objectifDe\([^()]*\))\s*[!=]==?\s*'(?:force|muscle|les_deux|forme|calisthenie)'|\[\s*'(?:force|muscle|les_deux|forme|calisthenie)'\s*,\s*'(?:force|muscle|les_deux|forme|calisthenie)'/,

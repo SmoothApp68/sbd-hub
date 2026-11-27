@@ -94,6 +94,9 @@ function histoires(n) {
   // G7 (27/11/2026, MOTEUR §14.7 ter, I281) — LA SÉRIE DE PLUS ACCEPTÉE ET LA PLACE RELUE : une série de plus acceptée à la séance 2 ; le volume du muscle a de la place jusqu'à la séance `placeJusque` (4, 7 ou jamais),
   // puis plus. La base (sans G7) la garde jusqu'au progrès ; la version G7 l'arrête, une fois, en gris (la séance d'avant portait la ligne en plus).
   for (let k = 0; k < 18; k++) H.push(fiche('plus', qp(['curl_halteres', 'rowing_halteres']), { zone: qp(['hypertrophie', 'volume']), reglage: 'normal', nseances: 14, placeJusque: [4, 7, 99][k % 3] }));
+  // 27/11/2026 — LA SEMAINE DE MESURE LIT LE BUT : la même semaine de test, au but Forme, Muscle, Force et Les deux (la protection suit le but, comme dans l'app).
+  // La base (sans le défaut par but) joue « Viser mon max » au but Forme ; la version qui lit la fiche joue la série de mesure : seul Forme diffère.
+  ['forme', 'muscle', 'force', 'les_deux'].forEach(obj => { for (let k = 0; k < 6; k++) H.push(Object.assign(fiche('test', qp(['squat_barre', 'souleve_de_terre_barre']), { nseances: 12 }), { objectif: obj, protegee: obj === 'forme', debutant: false, age: null })); });
   return H;
 }
 const esp = t => String(t == null ? '' : t).replace(/[  \s]+/g, ' ').trim();

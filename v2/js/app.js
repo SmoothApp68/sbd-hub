@@ -258,7 +258,7 @@
     if (captcha) return captcha;
     if (/fetch|network|Failed to fetch|NetworkError/i.test(m)) return 'Pas de réseau.';
     if (/Invalid login credentials/i.test(m)) return 'E-mail ou mot de passe incorrect.';
-    return m;
+    return Auth.phraseDErreur(e) || m;   // 27/11/2026 : jamais le texte brut anglais d'un refus de l'authentification
   }
 
   // ── Index des séries par séance, construit une fois par chargement ───────
@@ -20643,9 +20643,14 @@
   // ⚠️ REMISE À ZÉRO À CHAQUE OUVERTURE. Sans elle, l'ancienne erreur et
   // l'ancien mot de passe restaient dans le formulaire après un « Quitter » —
   // défaut relevé à l'état des lieux du 18/09.
-  function rendreEntree(mode) {
+  // 27/11/2026 — `opts.reprendre` (le démarrage seul) rouvre l'écran du code gardé ; `opts.garderCode` laisse ouvert celui qui l'est
+  // déjà (l'annonce « pas de session » du SDK, qui arrive après la reprise). Toute autre ouverture ferme le code, comme avant.
+  function rendreEntree(mode, opts) {
     modeEntree = mode || 'connexion';
-    fermerCode();   // 16/11/2026 : l'écran du code ne survit pas à une réouverture de l'entrée
+    var reprise = opts && opts.reprendre ? lireCodeEnAttente() : null;
+    var garder = !!(opts && opts.garderCode && codeEtat);
+    if (!garder) fermerCode();
+    $('non-confirme').hidden = true;
     montrer('connexion', modeEntree === 'inscription'
       ? Routeur.INSCRIPTION : Routeur.CONNEXION);
     $('erreur-connexion').textContent = '';
@@ -20660,6 +20665,9 @@
     rendreEncartInstaller();   // 138 : iPhone, hors de l'app
     majBoutonEntree();
     montrerCaptcha();   // 247
+    // 27/11/2026 — l'écran du code SURVIT au rechargement : l'adresse en attente se rouvre, avec « Renvoyer le code » et
+    // « Changer d'e-mail ». « Changer d'e-mail », une session ouverte et « Quitter » l'ont effacée avant.
+    if (reprise) ouvrirCode(reprise.genre, reprise.email, 'Un code a été envoyé à cette adresse. Entre-le ici, ou demande-en un autre.', reprise.envoyeA);
   }
 
   function etatEntree() {
@@ -20712,6 +20720,7 @@
     var inscription = modeEntree === 'inscription';
     erreur.textContent = '';
     erreur.className = 'erreur';
+    $('non-confirme').hidden = true;
     bouton.disabled = true;
     bouton.textContent = inscription ? 'Création…' : 'Connexion…';
     var entre = false;
@@ -20742,7 +20751,11 @@
       }
     } catch (err) {
       pseudoAInscrire = null;
-      if (!direCaptcha(err)) erreur.textContent = texteErreur(err);
+      if (!direCaptcha(err)) {
+        erreur.textContent = texteErreur(err);
+        // 27/11/2026 — adresse pas encore confirmée : la phrase a son issue (entrer le code, ou en demander un autre).
+        $('non-confirme').hidden = inscription || !Auth.estNonConfirme(err);
+      }
     } finally {
       // 247 — un jeton ne sert qu'une fois : après CHAQUE tentative, réussie ou non. Entré, le widget part.
       if (Auth.captcha.actif()) { Auth.captcha.reinitialiser(); if (entre) Auth.captcha.demonter(); }
@@ -20759,6 +20772,17 @@
   // `Auth.surChangement`, plus bas) — aucune copie de ce chemin ici.
   var codeEtat = null;          // { email, genre: 'recuperation' | 'inscription', envoyeA } — null : l'écran est fermé
   var minuteurCode = null;
+
+  // 27/11/2026 — LA MÉMOIRE DE L'ÉCRAN DU CODE : l'adresse seule, en local, quelques minutes (`Auth.lireAttenteDeCode`).
+  function lireCodeEnAttente() {
+    try { return Auth.lireAttenteDeCode(racine.localStorage.getItem(Auth.CLE_CODE_ATTENTE), Date.now()); } catch (e) { return null; }
+  }
+  function garderCodeEnAttente() {
+    try { if (codeEtat) racine.localStorage.setItem(Auth.CLE_CODE_ATTENTE, Auth.coderAttenteDeCode(codeEtat, Date.now())); } catch (e) { /* stockage fermé : l'écran ne survivra pas, rien d'autre */ }
+  }
+  function oublierCodeEnAttente() {
+    try { racine.localStorage.removeItem(Auth.CLE_CODE_ATTENTE); } catch (e) { /* rien à retirer */ }
+  }
 
   function fermerCode() {
     if (minuteurCode) { racine.clearTimeout(minuteurCode); minuteurCode = null; }
@@ -20782,11 +20806,12 @@
     if (reste > 0) minuteurCode = racine.setTimeout(tictacRenvoi, 1000);   // un réveil à la fois (pas de second intervalle : v2-barre-seance)
   }
 
-  function ouvrirCode(genre, email, phrase) {
-    codeEtat = { email: email, genre: genre, envoyeA: Date.now() };
+  function ouvrirCode(genre, email, phrase, envoyeA) {
+    codeEtat = { email: email, genre: genre, envoyeA: envoyeA == null ? Date.now() : envoyeA };
+    garderCodeEnAttente();
     $('form-connexion').hidden = true;
     $('form-code').hidden = false;
-    $('code-sous').textContent = 'Envoyé à ' + email + '. Il est valable 1 heure.';
+    $('code-sous').textContent = 'Envoyé à ' + email + '. Regarde aussi dans tes spams.';
     $('code-info').textContent = phrase || '';
     $('erreur-code').textContent = '';
     $('champ-code').value = '';
@@ -20828,6 +20853,7 @@
       return;
     } finally { if (Auth.captcha.actif()) Auth.captcha.reinitialiser(); }
     codeEtat.envoyeA = Date.now();
+    garderCodeEnAttente();
     $('code-info').textContent = codeEtat.genre === 'recuperation' ? Auth.PHRASE_CODE_ENVOYE : 'Un nouveau code vient de partir.';
     tictacRenvoi();
   }
@@ -21069,7 +21095,18 @@
     });
     $('btn-code-renvoyer').addEventListener('click', renvoyerLeCode);
     $('btn-code-oubli').addEventListener('click', function () { demanderReinitialisation(true); });
-    $('btn-code-changer').addEventListener('click', function () { rendreEntree(modeEntree); });
+    $('btn-code-changer').addEventListener('click', function () { oublierCodeEnAttente(); rendreEntree(modeEntree); });
+    // 27/11/2026 — « Ton adresse n'est pas encore confirmée » : entrer le code déjà reçu, ou en demander un autre.
+    $('btn-nc-entrer').addEventListener('click', function () {
+      var email = $('champ-email').value.trim();
+      if (email) ouvrirCode('inscription', email, 'Entre le dernier code reçu, ou demande-en un autre.', 0);
+    });
+    $('btn-nc-renvoyer').addEventListener('click', function () {
+      var email = $('champ-email').value.trim();
+      if (!email) return;
+      ouvrirCode('inscription', email, '', 0);   // 0 : le renvoi est permis tout de suite
+      renvoyerLeCode();
+    });
     // 247 — « Réessayer » : le script du captcha n'avait pas pu se charger.
     $('btn-captcha-reessayer').addEventListener('click', function () {
       if (this.dataset.recharger) { racine.location.reload(); return; }   // 16/11/2026 : refus du serveur
@@ -21282,11 +21319,12 @@
       // s'ouvre d'elle-même, dès que l'entrée a posé son premier écran.
       if (session && evenement === 'PASSWORD_RECOVERY') {
         recuperation = 'due';
+        oublierCodeEnAttente();
         entrer(session);
         ouvrirRecuperationSiDue();
         return;
       }
-      if (session) { entrer(session); return; }
+      if (session) { oublierCodeEnAttente(); entrer(session); return; }   // 27/11/2026 : une session ouverte, l'adresse en attente n'attend plus personne
       if (Auth.sessionPersistee()) return;
       sessionActive = null;
       entreeFaitePour = null;
@@ -21294,7 +21332,7 @@
       fermerQuestionnaire(); envoiProfil = null; versionProfil = 0; ligneACreer = false;
       profil = null; faits.oublierDates();
       allerA(Routeur.CONNEXION, {}, true);
-      rendreEntree('connexion');
+      rendreEntree('connexion', { garderCode: true });
     });
 
     // ── DÉMARRAGE SANS RÉSEAU ────────────────────────────────────────────
@@ -21377,7 +21415,7 @@
       var entree = Routeur.analyser(racine.location.pathname);
       var mode = entree.vue === Routeur.INSCRIPTION ? 'inscription' : 'connexion';
       allerA(mode === 'inscription' ? Routeur.INSCRIPTION : Routeur.CONNEXION, {}, true);
-      rendreEntree(mode);
+      rendreEntree(mode, { reprendre: true });
     }
     enregistrerSW();
 

@@ -69,6 +69,11 @@
         <!-- 19/11/2026 — Confidentialité et Mentions légales visibles à la connexion comme à l'inscription ; les boutons sont posés par l'app. -->
         <p id="entree-legal" class="entree-legal"></p>
         <p id="erreur-connexion" class="erreur" role="alert" aria-live="polite"></p>
+        <!-- 27/11/2026 — l'issue de « adresse pas encore confirmée » : posée par l'app, cachée sinon. -->
+        <div id="non-confirme" class="entree-non-confirme" hidden>
+          <button id="btn-nc-entrer" type="button" class="entree-oubli entree-code-lien">Entrer le code</button>
+          <button id="btn-nc-renvoyer" type="button" class="entree-oubli entree-code-lien">Renvoyer le code</button>
+        </div>
       </form>
       <!-- 16/11/2026 (ECRAN-PROFIL §5.6) — le CODE reçu par e-mail (réinitialisation, confirmation d'inscription) : un seul champ,
            dans la même vue que la connexion ; `form-connexion` se cache pendant qu'il est ouvert. -->

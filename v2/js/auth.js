@@ -294,6 +294,50 @@
   }
 
 
+  // ── 27/11/2026 — LE PREMIER CONTACT RÉPARÉ : l'écran du code survit au rechargement, les refus parlent français ──
+  //
+  // L'adresse en attente de confirmation (et rien d'autre : ni mot de passe, ni code, ni jeton) se garde dans la mémoire
+  // LOCALE de l'appareil, quelques minutes. Pur : l'écran lit et écrit le stockage, ces deux fonctions codent et décodent.
+  var CLE_CODE_ATTENTE = 'th-v2-code-attente';          // `th-v2…` : « Quitter » l'efface avec le reste
+  var DUREE_ATTENTE_CODE_MS = 30 * 60 * 1000;           // la vie de la MÉMOIRE, pas celle du code (réglage Supabase, inconnu d'ici)
+
+  function coderAttenteDeCode(etat, maintenant) {
+    return JSON.stringify({ e: String(etat.email), g: etat.genre === 'recuperation' ? 'recuperation' : 'inscription',
+      a: Number(etat.envoyeA) || 0, le: maintenant });
+  }
+  function lireAttenteDeCode(texte, maintenant) {
+    var o;
+    try { o = JSON.parse(texte); } catch (e) { return null; }
+    if (!o || typeof o.e !== 'string' || !o.e || typeof o.le !== 'number') return null;
+    if (maintenant - o.le > DUREE_ATTENTE_CODE_MS || maintenant < o.le) return null;
+    return { email: o.e, genre: o.g === 'recuperation' ? 'recuperation' : 'inscription', envoyeA: Number(o.a) || 0 };
+  }
+
+  var PHRASE_NON_CONFIRME = 'Ton adresse n’est pas encore confirmée.';
+  var PHRASE_TROP_DE_DEMANDES = 'Trop de demandes. Réessaie dans une minute.';
+
+  function estNonConfirme(e) {
+    if (!e) return false;
+    return e.code === 'email_not_confirmed' || /email not confirmed/i.test(String(e.message || ''));
+  }
+
+  // La phrase française d'un refus de l'authentification, ou null (l'appelant garde alors son texte : réseau, captcha, inconnu).
+  function phraseDErreur(e) {
+    if (!e) return null;
+    var m = String(e.message || e), code = e.code || '', st = e.status, tout = m + ' ' + code;
+    if (estNonConfirme(e)) return PHRASE_NON_CONFIRME;
+    if (/captcha/i.test(tout)) return null;
+    if (st === 429 || /rate.?limit|too many|only request this after|after \d+ seconds/i.test(tout)) return PHRASE_TROP_DE_DEMANDES;
+    if (/same_password|different from the old/i.test(tout)) return 'Choisis un mot de passe différent de l’ancien.';
+    if (/weak_password|password should be|password is too|least \d+ characters/i.test(tout)) return 'Ce mot de passe est trop court ou trop simple. Choisis-en un autre.';
+    if (/email_address_invalid|unable to validate email|invalid format/i.test(tout)) return 'Cette adresse e-mail ne semble pas valide.';
+    if (/signup_disabled|signups? not allowed|signups? (are )?disabled/i.test(tout)) return 'Les inscriptions sont fermées pour le moment.';
+    if (/error sending|sending (confirmation|recovery|magic)|unexpected_failure/i.test(tout)) return 'L’e-mail n’a pas pu partir. Réessaie dans quelques minutes.';
+    if (/session_not_found|session missing|jwt expired|refresh_token_not_found|invalid refresh token/i.test(tout)) return 'Ta session a expiré. Connecte-toi de nouveau.';
+    return null;
+  }
+
+
   // ── 247 — LE CAPTCHA (Cloudflare Turnstile) : une notion de l'authentification ───────────────────────
   //
   // Dans `auth.js` et pas dans un fichier à lui : un nouveau `js/*.js` entrerait dans `SHELL` du service worker
@@ -490,6 +534,14 @@
     secondesAvantRenvoi: secondesAvantRenvoi,
     libelleRenvoi: libelleRenvoi,
     phraseDeCode: phraseDeCode,
+    phraseDErreur: phraseDErreur,
+    estNonConfirme: estNonConfirme,
+    coderAttenteDeCode: coderAttenteDeCode,
+    lireAttenteDeCode: lireAttenteDeCode,
+    CLE_CODE_ATTENTE: CLE_CODE_ATTENTE,
+    DUREE_ATTENTE_CODE_MS: DUREE_ATTENTE_CODE_MS,
+    PHRASE_NON_CONFIRME: PHRASE_NON_CONFIRME,
+    PHRASE_TROP_DE_DEMANDES: PHRASE_TROP_DE_DEMANDES,
     DELAI_RENVOI_S: DELAI_RENVOI_S,
     PHRASE_CODE_ENVOYE: PHRASE_CODE_ENVOYE,
     PHRASE_CODE_FAUX: PHRASE_CODE_FAUX,

@@ -13819,7 +13819,7 @@
     return a >= AGE_PLAFOND_BAS;
   }
   var FORME_PUISSANCE_PHRASE = 'Monte vite, descends en contrôlant.';
-  var FORME_PUISSANCE_POURQUOI = 'À partir de 65 ans, la puissance protège des chutes (ACSM 2026) : une charge légère, montée vite, descendue en contrôlant.';
+  var FORME_PUISSANCE_POURQUOI = 'À partir de 65 ans, la puissance aide la fonction physique (ACSM 2026) : une charge légère, montée vite, descendue en contrôlant.';
   var FORME_DOULEUR_PHRASE = 'Si une douleur dure, demande l’avis d’un médecin ou d’un kiné.';
   var FORME_REPERES_PHRASE = 'Les repères de l’OMS et de l’ANSES pour l’adulte : du renforcement au moins 2 fois par semaine, 150 min de cardio modéré (ou 75 min intense). Ce sont des repères généraux, pas une prescription.';
   // UN exercice de puissance par séance : le premier, dans l'ordre de la séance, qui est polyarticulaire, léger (jamais une barre), mesuré en

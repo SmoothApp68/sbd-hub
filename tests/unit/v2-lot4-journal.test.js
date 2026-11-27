@@ -76,7 +76,7 @@ const aujourdhui = () => new Date().toISOString();
 
 describe('l\'écran lit la bande', () => {
   test('même charge : une ligne « Jour : … » au-dessus des en-têtes, plus de colonne PRÉC. ni de .prec', () => {
-    const p = { seance: { id: 'P', date: aujourdhui() }, series: [W(90, 8), W(90, 8), W(90, 8)] };
+    const p = { seance: { id: 'P', debut: aujourdhui() }, series: [W(90, 8), W(90, 8), W(90, 8)] };
     const c = rendre(seance('dc', 3), () => p);
     const bande = c.querySelector('.bande');
     expect(bande).not.toBeNull();
@@ -88,7 +88,7 @@ describe('l\'écran lit la bande', () => {
     expect(c.querySelector('.serie').classList.contains('sans-prec')).toBe(true);
   });
   test('charges différentes : la colonne PRÉC. reste, ligne à ligne, sans bande', () => {
-    const p = { seance: { id: 'P', date: aujourdhui() }, series: [W(100, 5), W(90, 8), W(90, 8)] };
+    const p = { seance: { id: 'P', debut: aujourdhui() }, series: [W(100, 5), W(90, 8), W(90, 8)] };
     const c = rendre(seance('dc', 3), () => p);
     expect(c.querySelector('.bande')).toBeNull();
     expect(c.querySelectorAll('.prec').length).toBe(3);
@@ -100,7 +100,7 @@ describe('l\'écran lit la bande', () => {
     expect(c.querySelectorAll('.prec').length).toBe(2);
   });
   test('l\'éditeur (programme) ne reçoit pas la bande', () => {
-    const p = { seance: { id: 'P', date: aujourdhui() }, series: [W(90, 8), W(90, 8)] };
+    const p = { seance: { id: 'P', debut: aujourdhui() }, series: [W(90, 8), W(90, 8)] };
     const c = rendre(seance('dc', 2), () => p, true);
     expect(c.querySelector('.bande')).toBeNull();
   });

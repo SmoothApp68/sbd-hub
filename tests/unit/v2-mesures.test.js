@@ -89,7 +89,8 @@ function lire(cible) {
       unite: c.querySelector('u') ? c.querySelector('u').textContent : null
     })),
     effort: bloc.querySelectorAll('.serie .eff-serie').length,
-    precedent: bloc.querySelector('.prec').textContent
+    // Lot 4 (n° 1) : une charge égale à la dernière fois se dit en bande (« Jour : 122,5 kg × 5 »), sinon la colonne PRÉC. reste.
+    precedent: bloc.querySelector('.prec') ? bloc.querySelector('.prec').textContent : bloc.querySelector('.bande').textContent
   }));
 }
 
@@ -416,7 +417,7 @@ describe('8 bis — `precedent` recopie ce que la mesure demande', () => {
 
   test('et la colonne les affiche, formatées, chacune dans sa mesure', () => {
     const blocs = lire(rendre(seanceQuatre(), { precedent: prec }));
-    expect(blocs.map((b) => b.precedent)).toEqual(['122,5×5', '11', '00:45', '06:35:00']);
+    expect(blocs.map((b) => b.precedent.replace(/^[^:]*: /, ''))).toEqual(['122,5\u00a0kg × 5', '11', '00:45', '06:35:00']);
   });
 
   // Un exercice jamais fait n'a pas de précédent : un tiret, pas un zéro.

@@ -33,6 +33,11 @@ env:
   # fenêtres de date se calculent dans le fuseau du navigateur. GitHub tourne en UTC ; sans cette ligne, des
   # contrôles de date lisent un autre jour que sur la machine de Claude (Europe/Paris).
   TZ: Europe/Paris
+  # CI sans gaspillage (27/11/2026) — les bancs de PR jouent sur une HORLOGE FIXE : un mercredi, 10 h, au milieu du mois
+  # (tests/banc/horloge.js : un décalage, le temps avance ensuite normalement). Plus de la moitié des faux rouges des
+  # bancs étaient des dates (minuit, le 1er du mois, dimanche → lundi, heure d'hiver). Ces frontières ne disparaissent
+  # PAS de la vérification : `.github/workflows/bancs-nuit.yml` les joue toutes les nuits, sur main, avec l'heure réelle.
+  BANC_HORLOGE: '2026-11-18T10:00:00'
 
 jobs:
   # La liste des passages : [1] pour une PR, [1, 2, 3] pour le bouton avec « 3 ». Les noms des jobs restent

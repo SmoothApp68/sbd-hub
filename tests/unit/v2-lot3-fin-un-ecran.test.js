@@ -25,8 +25,6 @@ const RECAP = {
   muscles: { premiers: [{ libelle: 'Pectoraux', series: 8 }], autres: null }, cardio: [],
   records: [{ nom: 'Développé couché', mesure: '100 kg × 5', phrase: ['Record à 5 reps : 100 kg.', 'Avant : 97,5 kg, le 3 nov.'] }],
   pointDeDepart: null,
-  paris: { verifies: 4, tenus: 3, premier: null, phrase: 'Sur 4 paris vérifiés, le coach en a tenu 3.', lignes: [
-    { nom: 'Développé couché', fait: '100 kg × 5, 5, 4', vise: '5' }, { nom: 'Tractions', fait: '8, 8, 7', vise: null }] },
   note: null
 };
 const rendre = (vue) => {
@@ -40,14 +38,14 @@ const rendre = (vue) => {
 const classes = (c) => Array.from(c.children).map((n) => n.className.split(' ')[0]);
 
 describe('lot 3 — l\'écran de fin porte le récap court avant « Terminer »', () => {
-  test('l\'ordre : titre, chiffres, records, coach (phrase + raté), « Détail », ligne, « Terminer », « Abandonner »', () => {
+  test('l\'ordre : titre, chiffres, records, « Détail », ligne, « Terminer », « Abandonner »', () => {
     const { cible } = rendre({});
     const c = classes(cible);
-    const ordre = ['feuille-t', 'recap-tuiles', 'recap-groupe', 'recap-rec', 'recap-groupe', 'recap-voix', 'recap-pari', 'recap-plus', 'recap-detail',
+    const ordre = ['feuille-t', 'recap-tuiles', 'recap-groupe', 'recap-rec', 'recap-plus', 'recap-detail',
       'resume-fin', 'fin-pied', 'discret'];
     expect(c).toEqual(ordre);
     expect(cible.querySelectorAll('.recap-tuile')).toHaveLength(4);
-    expect(cible.querySelector('.recap-pari').textContent.replace(/ /g, ' ')).toBe('Développé couché100 kg × 5, 5, 4 · visé 5');
+    expect(cible.querySelector('.recap-pari')).toBeNull();
   });
   test('« Terminer » est dans le pied collé ; c\'est le seul bouton principal ; « Abandonner et tout effacer » reste à part', () => {
     const { cible, appels } = rendre({});
@@ -63,7 +61,7 @@ describe('lot 3 — l\'écran de fin porte le récap court avant « Terminer »'
     const { cible } = rendre({});
     expect(cible.querySelectorAll('.recap-fermer, .recap-voir, .recap-partager')).toHaveLength(0);
     expect(Array.from(cible.querySelectorAll('button')).map((b) => b.textContent))
-      .toEqual(['Détail muscles · paris tenus ›'.replace('Détail ', 'Détail'), 'Modifier', 'Terminer', 'Abandonner et tout effacer'].map((x, i) => i === 0 ? cible.querySelector('.recap-plus').textContent : x));
+      .toEqual(['Détail muscles ›'.replace('Détail ', 'Détail'), 'Modifier', 'Terminer', 'Abandonner et tout effacer'].map((x, i) => i === 0 ? cible.querySelector('.recap-plus').textContent : x));
   });
   test('la question de routine : seulement avec un écart, entre la ligne et « Terminer »', () => {
     expect(rendre({}).cible.querySelector('.question-routine')).toBeNull();

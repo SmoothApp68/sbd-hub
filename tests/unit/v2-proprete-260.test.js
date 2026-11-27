@@ -16,7 +16,7 @@ describe('260-b — le contour d\'un contrôle tient 3:1 (WCAG 1.4.11)', () => {
   test('--trait-controle contre la surface 2, la carte, le fond et une série faite', () => {
     const c = jeton('trait-controle');
     ['panneau-2', 'panneau', 'fond'].forEach((s) => expect(contraste(c, jeton(s))).toBeGreaterThanOrEqual(3));
-    expect(contraste(c, '#1D312F')).toBeGreaterThanOrEqual(3);
+    expect(contraste(c, '#1B3135')).toBeGreaterThanOrEqual(3);
   });
   test('les contours des numéros de chauffe et de calage aussi (carte)', () => {
     ['trait-chauffe', 'trait-calage'].forEach((t) => expect(contraste(jeton(t), jeton('panneau'))).toBeGreaterThanOrEqual(3));
@@ -35,7 +35,8 @@ describe('260-a — cibles de toucher à 44 px', () => {
     ['.no-serie', '.ch-serie,.rp-serie', '.eff-serie', '.ok-serie'].forEach((sel) => expect(regle(sel)).toMatch(/height:44px/));
     expect(regle('.ajout-serie button')).toMatch(/height:44px/);
     expect(regle('.principal')).toMatch(/height:44px/);
-    expect(css).toMatch(/\.g-charge_reps\{grid-template-columns:30px 58px 1fr 44px 44px 44px\}/);
+    // 27/11/2026 : PRÉC. 58 -> 54 px, dernière colonne 48 (la coche, 44, alignée à droite) : 8 px avant la coche, la cible de 44 px reste entière.
+    expect(css).toMatch(/\.g-charge_reps\{grid-template-columns:30px 54px 1fr 44px 44px 48px\}/);
   });
   test('les points de la courbe : un disque de toucher d\'au moins 44 px une fois la courbe à 360 px', () => {
     const r = Number((rendu.match(/'courbe-cible', \{ cx: p\.x, cy: p\.y, r: (\d+)/) || [])[1]);
@@ -54,7 +55,7 @@ describe('260-d — un jeton par rôle', () => {
       .forEach((t) => expect(css).not.toMatch(new RegExp('--' + t + '\\b(?!-)')));
   });
   test('le vert d\'une série faite : une seule valeur, posée en dur (--reussi à 11 % sur --panneau)', () => {
-    expect(css).toMatch(/--fond-serie-faite:#1D312F;/);
+    expect(css).toMatch(/--fond-serie-faite:#1B3135;/);
     expect(css).not.toMatch(/--fond-serie-faite:color-mix/);
   });
 });

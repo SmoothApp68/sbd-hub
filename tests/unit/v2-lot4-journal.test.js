@@ -19,7 +19,7 @@ const EXOS = [
   { slug: 'tr', nom: 'Tractions', mesure: 'reps', equipement: 'poids_du_corps', muscles_primaires: ['dos'] }
 ];
 const MAINTENANT = new Date(2026, 10, 27, 10, 0, 0);   // vendredi 27/11/2026
-const prec = (series, jour) => ({ seance: { id: 'P', date: new Date(2026, 10, jour || 24, 18, 0, 0).toISOString() }, series });
+const prec = (series, jour) => ({ seance: { id: 'P', debut: new Date(2026, 10, jour || 24, 18, 0, 0).toISOString() }, series });
 const W = (charge, reps) => ({ charge_kg: charge, reps: reps, type_serie: 'travail', elastique: null });
 const C = (charge, reps) => ({ charge_kg: charge, reps: reps, type_serie: 'echauffement', elastique: null });
 

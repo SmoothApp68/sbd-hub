@@ -2782,7 +2782,7 @@
   // Lot 4 (n° 1, décision 70) — LA BANDE « Mardi : 90 kg × 8, 8, 8 » : la séance d'avant, dite UNE fois, quand ses séries de
   // TRAVAIL (jamais les chauffes, toujours à des charges différentes) avaient toutes la même charge. La condition porte sur la
   // CHARGE seule : des reps différentes (9, 8, 7) restent sur la bande. Sinon `null` et la colonne PRÉC. reste, ligne à ligne
-  // (`correspondant`). C'est toujours « la dernière fois » (décision 49), lue sur `prec` seul, jamais sur la saisie en cours.
+  // (`correspondant`). Le jour se lit sur `debut` (le champ réel d'une séance ; il n'existe pas de `date`). C'est toujours « la dernière fois » (décision 49), lue sur `prec` seul, jamais sur la saisie en cours.
   // Rend le texte et ses deux morceaux (le jour, la phrase en gras) ; l'écran n'écrit rien d'autre.
   function bandeDePrecedent(prec, maintenant) {
     if (!prec || !prec.series || !prec.seance) return null;
@@ -2798,7 +2798,7 @@
       if (typeof x.reps !== 'number' || !isFinite(x.reps) || x.reps < 0) return null;
       reps.push(x.reps);
     }
-    var jour = M.jourDeLaBande(prec.seance.date, maintenant);
+    var jour = M.jourDeLaBande(prec.seance.debut, maintenant);
     if (!jour) return null;
     var phrase = M.phraseDeLaBande(charge, reps);
     return { jour: jour, phrase: phrase, texte: jour + ' : ' + phrase };

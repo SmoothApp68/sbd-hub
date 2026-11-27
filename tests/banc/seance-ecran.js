@@ -3034,8 +3034,33 @@ const SETS_IMPORTES = [
   ok('le fond de la ligne validée DIFFÈRE de celui d’une ligne non validée',
     fonds.faite !== fonds.brute, fonds.faite + ' vs ' + fonds.brute);
   const [r, v, b] = rvb(fonds.faite);
-  ok('et il est VERT — vert de sens, pas l’accent jaune', v > r && v > b,
-    'rvb(' + r + ',' + v + ',' + b + ')');
+  // Le fond est un jade SOMBRE (260-d, --fond-serie-faite = --reussi dilué) : le
+  // vert n'y domine plus le bleu en valeur brute. On compare donc la TEINTE à
+  // celles des variables CSS lues dans la page : proche de --reussi (jade), et
+  // plus proche de lui que de --accent (ambre).
+  const teintesCss = await page.evaluate(() => {
+    const lire = (nom) => {
+      const e = document.createElement('i');
+      e.style.color = 'var(' + nom + ')';
+      document.body.appendChild(e);
+      const c = getComputedStyle(e).color;
+      e.remove();
+      return c;
+    };
+    return { reussi: lire('--reussi'), accent: lire('--accent') };
+  });
+  const teinteDe = ([R, G, B]) => {
+    const mx = Math.max(R, G, B), mn = Math.min(R, G, B), d = mx - mn;
+    if (!d) return NaN;
+    const h = mx === R ? ((G - B) / d) % 6 : mx === G ? (B - R) / d + 2 : (R - G) / d + 4;
+    return ((h * 60) + 360) % 360;
+  };
+  const ecartDeTeinte = (a, c) => { const e = Math.abs(a - c) % 360; return e > 180 ? 360 - e : e; };
+  const hFond = teinteDe([r, v, b]), hJade = teinteDe(rvb(teintesCss.reussi)), hAmbre = teinteDe(rvb(teintesCss.accent));
+  ok('et il est VERT — de la famille du jade (--reussi), pas de l’ambre (--accent)',
+    ecartDeTeinte(hFond, hJade) <= 35 && ecartDeTeinte(hFond, hJade) < ecartDeTeinte(hFond, hAmbre),
+    'rvb(' + r + ',' + v + ',' + b + ') · teinte ' + Math.round(hFond) + '° · jade ' + Math.round(hJade) +
+    '° · ambre ' + Math.round(hAmbre) + '°');
   // L'accent (#F2B705) est jaune : rouge et vert hauts, bleu bas. Un fond qui
   // partirait de là se reconnaîtrait à son bleu écrasé.
   ok('ce n’est pas l’accent : le bleu n’est pas écrasé', b > 20 && v - b < 40,
@@ -23008,21 +23033,18 @@ const SETS_IMPORTES = [
       /^3,8 t soulevées : à peu près .+\.$/.test((a.comp || '').replace(/[\u00a0\u202f]/g, ' ')), nbR(a.comp));
     // Deux records : la série 1 (80 kg à 12, contre 79) et la série 4 (le volume de la séance passe 3 792 kg).
     // 140 : le volume de la séance reste un record (revient sur 137, D9).
-    ok('[R71] (a) les records (or), ce que le coach avait visé (ambre), puis sous « Détail » les séries par muscle (la fonction du bloc Volume) et les paris tenus',
-      a.groupes.map((g) => g.trim()).slice(0, 4).join(' | ') === '2 records | Ce que le coach avait visé | Séries par muscle | Paris tenus' &&
+    // 29/11/2026 (« Les paris en coulisse ») — plus aucun bloc des paris au récap : ni « Ce que le coach avait visé », ni « Paris tenus ».
+    ok('[R71] (a) les records (or), puis sous « Détail » les séries par muscle (la fonction du bloc Volume) ; plus de bloc des paris',
+      a.groupes.map((g) => g.trim()).slice(0, 4).join(' | ') === '2 records | Séries par muscle' &&
       nbR(a.muscles) === nbR(['Grand dorsal', 'Biceps']) && nbR(a.records) === nbR(['Rowing r71 : 80 kg × 12', 'Rowing r71 : 80 kg × 12']),
       nbR([a.groupes, a.muscles, a.records]));
-    // 211 — ce compte n'avait aucun pari avant cette séance : le bloc des paris s'ouvre sur « Mon premier pari », un fait ; et
-    // cette séance n'est pas la première (quatre avant elle) : pas de « Point de départ ».
-    ok('[R71] (a) 211 — le bloc des paris ouvre sur « Mon premier pari tenu. » (le premier du compte) ; aucun « Point de départ » après quatre séances',
-      /^Mon premier pari(?: tenu\.|[\u00a0 ]: pas encore\.)$/.test(a.premier || '') && a.depart === null && !/bravo/i.test(a.premier || ''), nbR([a.premier, a.depart]));
-    ok('[R71] (a) la phrase des paris aux chiffres tels quels, et la ligne de l’exercice : « 80 kg × 12, 12, 12, 12 »',
-      /^Sur \d+ paris? vérifiés?, le coach en a tenu \d+\.$/.test(a.voix || '') &&
-      nbR(a.paris) === nbR([['Rowing r71', '80 kg × 12, 12, 12, 12']]), nbR([a.voix, a.paris]));
-    ok('[R71] (a) l’ordre (lot 3) : en-tête, chiffres, records, coach, « Détail » (comparaison, muscles, paris tenus) … puis « Fermer », « Voir la séance » et les partages',
+    // 211 — cette séance n'est pas la première (quatre avant elle) : pas de « Point de départ ». 29/11/2026 : ni phrase des paris, ni « Mon premier pari »,
+    // ni ligne de pari au récap (le compte vit à Profil › À propos de ton coach).
+    ok('[R71] (a) 29/11 — le récap ne dit aucun pari (ni phrase, ni « Mon premier pari », ni ligne) ; aucun « Point de départ » après quatre séances',
+      a.premier === null && a.voix === null && a.paris.length === 0 && a.depart === null, nbR([a.premier, a.voix, a.paris, a.depart]));
+    ok('[R71] (a) l’ordre (lot 3) : en-tête, chiffres, records, « Détail » (comparaison, muscles) … puis « Fermer », « Voir la séance » et les partages',
       nbR(a.boutons) === nbR(['Fermer', 'Voir la séance', 'Partager']) &&
-      a.ordre.indexOf('recap-tuiles') < a.ordre.indexOf('recap-rec') && a.ordre.indexOf('recap-rec') < a.ordre.indexOf('recap-voix') &&
-      a.ordre.indexOf('recap-voix') < a.ordre.indexOf('recap-plus') && a.ordre.indexOf('recap-plus') < a.ordre.indexOf('recap-detail') &&
+      a.ordre.indexOf('recap-tuiles') < a.ordre.indexOf('recap-rec') && a.ordre.indexOf('recap-rec') < a.ordre.indexOf('recap-plus') && a.ordre.indexOf('recap-plus') < a.ordre.indexOf('recap-detail') &&
       a.ordre.indexOf('recap-detail') < a.ordre.indexOf('recap-bouton') &&
       a.ordre.lastIndexOf('recap-bouton') === a.ordre.length - 1 && !a.ordre.some((c) => c === 'recap-mu' || c === 'recap-comp'),
       nbR([a.boutons, a.ordre]));
@@ -23038,9 +23060,9 @@ const SETS_IMPORTES = [
       b.click();
       return Object.assign(avant, { apres: { replie: d.hidden, expanded: b.getAttribute('aria-expanded'), muscleVu: !!c.querySelector('.recap-mu').offsetParent } });
     });
-    ok('[lot 3] le récap court : « Détail » replié (muscles, paris tenus invisibles), moins de 800 caractères visibles ; un toucher rend le détail',
+    ok('[lot 3] le récap court : « Détail » replié (muscles invisibles), moins de 800 caractères visibles ; un toucher rend le détail',
       court.replie === true && court.expanded === 'false' && court.muscleVu === false && court.visibles < 800 &&
-      /muscles/.test(court.dit) && /paris tenus/.test(court.dit) &&
+      /muscles/.test(court.dit) && !/pari/.test(court.dit) &&
       court.apres.replie === false && court.apres.expanded === 'true' && court.apres.muscleVu === true, nbR(court));
     // 214 — « Partager » : secondaire (pas l'ambre), la feuille de partage reçoit le texte court ; sans elle, le presse-papiers.
     if (process.env.BANC_CAPTURES_214) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_214, 'recap.png'), fullPage: true });
@@ -25256,16 +25278,11 @@ const SETS_IMPORTES = [
       !!c5 && c5.ligne === ligne155 && nbO(c5.aujourdhui) === nbO('Aujourd’hui : 150 kg × 1 · 55 % du chemin'), nbO([c5, ligne155]));
     ok('[O150] un record de plus depuis la pose : le pari ne bouge pas, la ligne « Au rythme d’aujourd’hui » est recalculée à la date d’aujourd’hui (une date, jamais un écart chiffré)',
       !!c5 && /^Au rythme d’aujourd’hui : (toujours )?fin [a-zéû]+( \d{4})?\.$|^Au rythme d’aujourd’hui : (plus d’un an|pas encore de date)\.$/.test((c5 && c5.rythme || '').replace(/[\u00a0\u202f]/g, ' ')), nbO(c5));
-    // Le mois de mars est la STORY du mois (98, BILANS-V1) : son écran « Le coach » compte les paris de CONSIGNE
-    // vérifiés en mars (`parisDeConsigneConnus`), jamais le pari d'objectif tenu. Attendu : autant de paris que de
-    // paris de consigne observés sur une séance de mars dans la base du banc — aucun, ici : pas d'écran « Le coach ».
+    // Le mois de mars est la STORY du mois (98, BILANS-V1). 29/11/2026 (« Les paris en coulisse ») : plus aucun écran « Le coach » dans la story
+    // (le compte vit à Profil › À propos de ton coach) — a fortiori le pari d'objectif tenu n'y paraît pas.
     await aller('/progression/mois/2027-03');
     await page.waitForFunction(() => { const h = document.getElementById('annee'); return h && !h.hidden && h.dataset.ecran; },
       null, { timeout: 15000 }).catch(() => {});
-    const debutsO = {};
-    base.sessions.forEach((x) => { if (x && x.id) debutsO[x.id] = x.debut; });
-    const attendusO = base.predictions.filter((x) => x.module === 'moteur.consigne' && x.valeur_observee !== null &&
-      x.valeur_observee !== undefined && /^2027-03/.test(String(debutsO[x.session_id || (x.fondement || {}).seance] || ''))).length;
     const moisO = await page.evaluate(() => {
       const h = document.getElementById('annee');
       const c = h ? h.querySelector('.s[data-cle="coach"]') : null;
@@ -25273,10 +25290,10 @@ const SETS_IMPORTES = [
         cles: h ? Array.from(h.querySelectorAll('.s')).map((x) => x.dataset.cle) : [],
         coach: c ? ((c.querySelector('.chiffre small') || {}).textContent || '').replace(/\s+/g, ' ').trim() : null };
     });
-    ok('[O109] la story de mars ne compte pas le pari d’objectif tenu : l’écran « Le coach » n’a que les paris de consigne (aucun ici : pas d’écran)',
+    ok('[O109] la story de mars ne porte plus d’écran « Le coach » (le pari d’objectif tenu n’y paraît pas non plus)',
       moisO.ouvert && moisO.periode === '2027-03' && moisO.cles.indexOf('tonnes') >= 0 &&
-        (attendusO === 0 ? moisO.coach === null && moisO.cles.indexOf('coach') < 0 : moisO.coach === '/ ' + attendusO),
-      nbO([attendusO, moisO]));
+        moisO.coach === null && moisO.cles.indexOf('coach') < 0,
+      nbO(moisO));
     await page.click('#annee .fermer').catch(() => {});
     await attendre(500);
 

@@ -19,6 +19,7 @@ const LIGNES_D_AVANT = [
   'Poids', 'Taille', 'Date de naissance', 'Sexe', 'Séances par semaine', 'Durée d’une séance', 'Ton temps',
   'Jalons', 'Faits seulement',   // 273
   'Pseudo', 'Bio', 'E-mail de connexion', 'Mot de passe', 'Activer le jeu',
+  'À propos de ton coach',   // 29/11/2026 (« Les paris en coulisse »)
   'Les mots du coach',   // 201
   'Mentions légales', 'Confidentialité', 'Santé',   // 212
   'Crédits'   // 218 : le crédit et la licence des silhouettes

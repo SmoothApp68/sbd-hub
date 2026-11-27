@@ -92,6 +92,7 @@ describe('60-1 — le branchement dans app.js', () => {
     const ctx = {
       Moteur: M, profil: profil, local: { blocs: [] }, parisEscalierConnus: () => [], finsAllegeesConnues: () => [],
       catalogueIndexe: () => CAT,
+      avecLesAjoutsDeLaSemaine: (r) => ({ routine: r, mentions: [] }),
       $: () => ({}), ouvrirVoile: () => {}, fermerVoile: () => {},
       Rendu: { rendreFeuilleTemps: (cible, vue) => { feuilles.push(vue); } },
       montrerCarteRaccourci: (routine, min) => { cartes.push(min); },

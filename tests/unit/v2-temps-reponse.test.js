@@ -127,6 +127,7 @@ describe('§9.18 — app.js, rejoué', () => {
         : { duree_seance_min: 60, temps_reponse: 'moins', intention: 'progresser' },
       local: { blocs: [] }, parisEscalierConnus: () => [], finsAllegeesConnues: () => [],
       catalogueIndexe: () => CAT,
+      avecLesAjoutsDeLaSemaine: (r) => ({ routine: r, mentions: [] }),
       racine: { localStorage: opt.stockage || stockage() },
       userId: () => (Object.prototype.hasOwnProperty.call(opt, 'compte') ? opt.compte : 'u1'),
       jourDuJour: () => ctx.jour,

@@ -11,7 +11,7 @@ require('../../v2/js/rendu.js');
 function sommaire(extra) {
   const cible = document.createElement('div');
   const vue = Object.assign({
-    mois: { titre: 'Septembre', kg: 13000, series: 40, records: 14, paris: { verifies: 30, tenus: 27 }, surChoix: () => {} },
+    mois: { titre: 'Septembre', kg: 13000, series: 40, records: 14, surChoix: () => {} },
     records: { dernier: { texte: 'Couché 130 kg × 4', nom: 'Couché', mesure: '130 kg × 4', date: '22 sept.' }, surChoix: () => {} },
     volume: { quand: '19-25 oct.', zones: [{ libelle: 'Pectoraux', series: 12 }, { libelle: 'Dos', series: 6 }, { libelle: 'Jambes', series: 0 }], surChoix: () => {} },
     poids: { resume: { poids: 96.8, date: new Date(2026, 9, 20), variation: { valeur: -0.4, depuis: new Date(2026, 9, 13) }, nb: 5 }, surChoix: () => {} },
@@ -33,7 +33,7 @@ describe('la Progression « Vivant » (173)', () => {
   test('le mois garde sa phrase, le chiffre en héros', () => {
     const c = sommaire();
     const l = c.querySelector('.bloc-heros');
-    expect(l.textContent).toBe('13 t soulevées · 14 records · 27 paris tenus sur 30');
+    expect(l.textContent).toBe('13 t soulevées · 14 records');
     expect(l.querySelector('.bh-premier .bh-n').textContent).toBe('13 t');
   });
 

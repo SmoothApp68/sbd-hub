@@ -144,7 +144,9 @@ describe('51-1 — la durée estimée : la routine, la feuille et la carte disen
     { id: 'y', exercise_slug: 'b', series: lignes(5), repos_cible_s: 180, groupe_superset: null }] };
   const ctx = { Moteur: M, profil: null, parisEscalierConnus: () => [], catalogueIndexe: () => CAT,
     // 53-2 (§9.22) — sans bloc, aucune décharge planifiée.
-    local: { blocs: [] }, finsAllegeesConnues: () => [] };
+    local: { blocs: [] }, finsAllegeesConnues: () => [],
+    // 99 — la semaine qui déraille n'ajoute rien ici.
+    avecLesAjoutsDeLaSemaine: (r) => ({ routine: r, mentions: [] }) };
   vm.createContext(ctx);
   ['semaineAllegeeEnCours', 'ciblesPlusCourtes', 'tempsDeLaRoutine'].forEach((n) => vm.runInContext(extraire(n), ctx));
 

@@ -3034,8 +3034,33 @@ const SETS_IMPORTES = [
   ok('le fond de la ligne validée DIFFÈRE de celui d’une ligne non validée',
     fonds.faite !== fonds.brute, fonds.faite + ' vs ' + fonds.brute);
   const [r, v, b] = rvb(fonds.faite);
-  ok('et il est VERT — vert de sens, pas l’accent jaune', v > r && v > b,
-    'rvb(' + r + ',' + v + ',' + b + ')');
+  // Le fond est un jade SOMBRE (260-d, --fond-serie-faite = --reussi dilué) : le
+  // vert n'y domine plus le bleu en valeur brute. On compare donc la TEINTE à
+  // celles des variables CSS lues dans la page : proche de --reussi (jade), et
+  // plus proche de lui que de --accent (ambre).
+  const teintesCss = await page.evaluate(() => {
+    const lire = (nom) => {
+      const e = document.createElement('i');
+      e.style.color = 'var(' + nom + ')';
+      document.body.appendChild(e);
+      const c = getComputedStyle(e).color;
+      e.remove();
+      return c;
+    };
+    return { reussi: lire('--reussi'), accent: lire('--accent') };
+  });
+  const teinteDe = ([R, G, B]) => {
+    const mx = Math.max(R, G, B), mn = Math.min(R, G, B), d = mx - mn;
+    if (!d) return NaN;
+    const h = mx === R ? ((G - B) / d) % 6 : mx === G ? (B - R) / d + 2 : (R - G) / d + 4;
+    return ((h * 60) + 360) % 360;
+  };
+  const ecartDeTeinte = (a, c) => { const e = Math.abs(a - c) % 360; return e > 180 ? 360 - e : e; };
+  const hFond = teinteDe([r, v, b]), hJade = teinteDe(rvb(teintesCss.reussi)), hAmbre = teinteDe(rvb(teintesCss.accent));
+  ok('et il est VERT — de la famille du jade (--reussi), pas de l’ambre (--accent)',
+    ecartDeTeinte(hFond, hJade) <= 35 && ecartDeTeinte(hFond, hJade) < ecartDeTeinte(hFond, hAmbre),
+    'rvb(' + r + ',' + v + ',' + b + ') · teinte ' + Math.round(hFond) + '° · jade ' + Math.round(hJade) +
+    '° · ambre ' + Math.round(hAmbre) + '°');
   // L'accent (#F2B705) est jaune : rouge et vert hauts, bleu bas. Un fond qui
   // partirait de là se reconnaîtrait à son bleu écrasé.
   ok('ce n’est pas l’accent : le bleu n’est pas écrasé', b > 20 && v - b < 40,
@@ -17144,8 +17169,11 @@ const SETS_IMPORTES = [
     ok('[Q60] B — « Plus tard » : on arrive sur Saisie, le questionnaire est fermé, rien n’est écrit de plus',
       JSON.stringify(await visible()) === JSON.stringify(saisie) && ecritsProfil() === ecritsAvant,
       JSON.stringify([await visible(), ecritsProfil() - ecritsAvant]));
-    ok('[Q60] B — le bandeau de Saisie : « Ton questionnaire n’est pas terminé. » et un seul bouton, « Le terminer »',
-      bq.visible && bq.texte.indexOf('Ton questionnaire n’est pas terminé.') >= 0 && JSON.stringify(bq.boutons) === '["Le terminer"]', JSON.stringify(bq));
+    // Décision n° 59 (27/11/2026) : le bandeau ne parle que d'une réponse NÉCESSAIRE au chemin de la personne
+    // (`Questionnaire.questionnaireAAchever`). Ici « depuis quand » et « où sont tes séances notées » sont répondus
+    // (écran 2) et le compte a ses routines : rien de nécessaire ne manque, le reste est facultatif (défaut prudent).
+    ok('[Q60] B — n° 59 : après « Plus tard » (depuis quand répondu, compte avec routines), il ne manque aucune réponse nécessaire : PAS de bandeau, bien que `questionnaire_fait_le` soit vide',
+      !bq.visible && bq.boutons.length === 0 && profilBase().questionnaire_fait_le === null, JSON.stringify([bq, profilBase().questionnaire_fait_le]));
     ok('[Q60] B — ce qui était validé est écrit (historique, sexe, taille) ; `questionnaire_fait_le` reste vide',
       profilBase().historique_declare === 'non_note' && profilBase().sexe === 'homme' && profilBase().questionnaire_fait_le === null,
       JSON.stringify(profilBase()));
@@ -17153,33 +17181,59 @@ const SETS_IMPORTES = [
     // ── B'. UN RECHARGEMENT NE LE ROUVRE PAS : il s'est déjà ouvert ici. Le bandeau reste.
     await aller('/saisie');
     const bq2 = await bandeauQ();
-    ok('[Q60] B — DISCRIMINANT : au rechargement il ne se rouvre pas de lui-même (déjà ouvert sur cet appareil) ; le bandeau reste',
-      JSON.stringify(await visible()) === JSON.stringify(saisie) && bq2.visible, JSON.stringify([await visible(), bq2]));
+    ok('[Q60] B — DISCRIMINANT : au rechargement il ne se rouvre pas de lui-même (déjà ouvert sur cet appareil) ; et toujours pas de bandeau (rien de nécessaire ne manque)',
+      JSON.stringify(await visible()) === JSON.stringify(saisie) && !bq2.visible, JSON.stringify([await visible(), bq2]));
 
     // ── B''. LA LIGNE EN TÊTE DE PROFIL : « Terminer mon questionnaire › ».
     await onglet('profil');
     const teteP = await enTeteP();
-    ok('[Q60] B — la ligne « Terminer mon questionnaire › » est en TÊTE de Profil, tant qu’il n’est pas rempli',
-      !!teteP && teteP.indexOf('Terminer mon questionnaire') === 0, JSON.stringify([teteP, await titresP()]));
+    ok('[Q60] B — n° 59 : la ligne « Terminer mon questionnaire › » n’est PAS en tête de Profil quand rien de nécessaire ne manque',
+      !teteP, JSON.stringify([teteP, await titresP()]));
+
+    // ── B'''. DISCRIMINANT : une réponse NÉCESSAIRE manque (« depuis quand », « où sont tes séances notées ») : le bandeau et la ligne reviennent.
+    // (La base du banc est modifiée à la main ; l'appareil la relit au rechargement. Les deux réponses sont redonnées au début de C.)
+    profilBase().anciennete = null;
+    profilBase().historique_declare = null;
+    await aller('/saisie');
+    const bq3 = await bandeauQ();
+    ok('[Q60] B — n° 59 DISCRIMINANT : « depuis quand » manque → le bandeau « Ton questionnaire n’est pas terminé. » revient, avec un seul bouton, « Le terminer »',
+      JSON.stringify(await visible()) === JSON.stringify(saisie) && bq3.visible && bq3.texte.indexOf('Ton questionnaire n’est pas terminé.') >= 0 &&
+        JSON.stringify(bq3.boutons) === '["Le terminer"]', JSON.stringify([await visible(), bq3]));
+    await onglet('profil');
+    const teteP3 = await enTeteP();
+    ok('[Q60] B — n° 59 DISCRIMINANT : la ligne « Terminer mon questionnaire › » est en TÊTE de Profil, tant qu’une réponse nécessaire manque',
+      !!teteP3 && teteP3.indexOf('Terminer mon questionnaire') === 0, JSON.stringify([teteP3, await titresP()]));
     await page.click('#profil-corps .p-questionnaire .p-ligne');
     await attendre(600);
     e = await ecranQ();
-    ok('[Q60] B — la ligne rouvre le questionnaire au premier écran SANS RÉPONSE (lot 5, n° 3 : ancienneté et « Ce que je sais » sont répondus, on reprend à la salle) ; « Plus tard » ramène sur Saisie',
-      e.ecran === 'salle' && JSON.stringify(e.vues) === '["vue-questionnaire"]', JSON.stringify(e));
+    ok('[Q60] B — la ligne rouvre le questionnaire au premier écran SANS RÉPONSE (ici « depuis quand ») ; « Plus tard » ramène sur Saisie',
+      e.ecran === 'anciennete' && JSON.stringify(e.vues) === '["vue-questionnaire"]', JSON.stringify(e));
     await cliquerQ('.q-plus-tard', 700);
-    ok('[Q60] B — « Plus tard » depuis la ligne du Profil : Saisie, bandeau toujours là',
+    ok('[Q60] B — « Plus tard » depuis la ligne du Profil : Saisie, bandeau toujours là (la réponse nécessaire manque encore)',
       JSON.stringify(await visible()) === JSON.stringify(saisie) && (await bandeauQ()).visible, JSON.stringify([await visible(), await bandeauQ()]));
 
     // ── C. LA REPRISE : « Le terminer » repart du début, tout pré-rempli depuis la base.
     await page.click('#bandeau-questionnaire .principal');
     await attendre(600);
     e = await ecranQ();
-    ok('[Q60] C — « Le terminer » rouvre au premier écran SANS RÉPONSE (lot 5, n° 3 : la salle), la barre garde la liste complète (3 sur 11), « Retour » existe',
+    ok('[Q60] C — « Le terminer » rouvre au premier écran SANS RÉPONSE (ici « depuis quand », redemandé), « Retour » n’existe pas',
+      e.ecran === 'anciennete' && e.retour === false, JSON.stringify(e));
+    // On redonne les deux réponses (mêmes valeurs qu'à l'écran 2) : « Ce que je sais » suit, puis la salle.
+    await cliquerQ('.q-puce[data-cle="1_a_3_ans"]');
+    await cliquerQ('.q-opt[data-cle="non"]');
+    await continuerQ();
+    await attendreQue(() => profilBase().anciennete === '1_a_3_ans' && profilBase().historique_declare === 'non_note', 8000, '[Q60] C · les deux réponses redonnées sont écrites');
+    ok('[Q60] C — les deux réponses redonnées s’écrivent comme à l’écran 2 : `anciennete` = 1_a_3_ans, `historique_declare` = non_note',
+      profilBase().anciennete === '1_a_3_ans' && profilBase().historique_declare === 'non_note', JSON.stringify([profilBase().anciennete, profilBase().historique_declare]));
+    await continuerQ();                                               // « Voici ce que tes séances me disent. » (pas répondu à l'ouverture : il se remontre)
+    e = await ecranQ();
+    ok('[Q60] C — puis la salle, la barre garde la liste complète (3 sur 11), « Retour » existe',
       e.ecran === 'salle' && e.retour === true && JSON.stringify(e.progression) === '["3","11"]', JSON.stringify(e));
     await cliquerQ('.q-retour');
     await cliquerQ('.q-retour');                                  // « Retour » rejoint les écrans répondus : « Ce que je sais », puis l'ancienneté
     e = await ecranQ();
     ok('[Q60] C — écran 1 (lot 5, n° 4) : la réponse déjà donnée (1 à 3 ans, non notées) est pré-remplie', e.ecran === 'anciennete' && e.choisis.indexOf('1_a_3_ans') >= 0 && e.choisis.indexOf('non') >= 0 && e.actif === true, JSON.stringify(e));
+    await continuerQ();                                               // « Ce que je sais » n'était pas répondu à l'ouverture : il se remontre
     await continuerQ();
     // Le retour d'Android recule d'UN écran (il ne quitte pas l'app, il ne recharge rien).
     await page.goBack().catch(() => {});
@@ -23000,21 +23054,18 @@ const SETS_IMPORTES = [
       /^3,8 t soulevées : à peu près .+\.$/.test((a.comp || '').replace(/[\u00a0\u202f]/g, ' ')), nbR(a.comp));
     // Deux records : la série 1 (80 kg à 12, contre 79) et la série 4 (le volume de la séance passe 3 792 kg).
     // 140 : le volume de la séance reste un record (revient sur 137, D9).
-    ok('[R71] (a) les records (or), ce que le coach avait visé (ambre), puis sous « Détail » les séries par muscle (la fonction du bloc Volume) et les paris tenus',
-      a.groupes.map((g) => g.trim()).slice(0, 4).join(' | ') === '2 records | Ce que le coach avait visé | Séries par muscle | Paris tenus' &&
+    // 29/11/2026 (« Les paris en coulisse ») — plus aucun bloc des paris au récap : ni « Ce que le coach avait visé », ni « Paris tenus ».
+    ok('[R71] (a) les records (or), puis sous « Détail » les séries par muscle (la fonction du bloc Volume) ; plus de bloc des paris',
+      a.groupes.map((g) => g.trim()).slice(0, 4).join(' | ') === '2 records | Séries par muscle' &&
       nbR(a.muscles) === nbR(['Grand dorsal', 'Biceps']) && nbR(a.records) === nbR(['Rowing r71 : 80 kg × 12', 'Rowing r71 : 80 kg × 12']),
       nbR([a.groupes, a.muscles, a.records]));
-    // 211 — ce compte n'avait aucun pari avant cette séance : le bloc des paris s'ouvre sur « Mon premier pari », un fait ; et
-    // cette séance n'est pas la première (quatre avant elle) : pas de « Point de départ ».
-    ok('[R71] (a) 211 — le bloc des paris ouvre sur « Mon premier pari tenu. » (le premier du compte) ; aucun « Point de départ » après quatre séances',
-      /^Mon premier pari(?: tenu\.|[\u00a0 ]: pas encore\.)$/.test(a.premier || '') && a.depart === null && !/bravo/i.test(a.premier || ''), nbR([a.premier, a.depart]));
-    ok('[R71] (a) la phrase des paris aux chiffres tels quels, et la ligne de l’exercice : « 80 kg × 12, 12, 12, 12 »',
-      /^Sur \d+ paris? vérifiés?, le coach en a tenu \d+\.$/.test(a.voix || '') &&
-      nbR(a.paris) === nbR([['Rowing r71', '80 kg × 12, 12, 12, 12']]), nbR([a.voix, a.paris]));
-    ok('[R71] (a) l’ordre (lot 3) : en-tête, chiffres, records, coach, « Détail » (comparaison, muscles, paris tenus) … puis « Fermer », « Voir la séance » et les partages',
+    // 211 — cette séance n'est pas la première (quatre avant elle) : pas de « Point de départ ». 29/11/2026 : ni phrase des paris, ni « Mon premier pari »,
+    // ni ligne de pari au récap (le compte vit à Profil › À propos de ton coach).
+    ok('[R71] (a) 29/11 — le récap ne dit aucun pari (ni phrase, ni « Mon premier pari », ni ligne) ; aucun « Point de départ » après quatre séances',
+      a.premier === null && a.voix === null && a.paris.length === 0 && a.depart === null, nbR([a.premier, a.voix, a.paris, a.depart]));
+    ok('[R71] (a) l’ordre (lot 3) : en-tête, chiffres, records, « Détail » (comparaison, muscles) … puis « Fermer », « Voir la séance » et les partages',
       nbR(a.boutons) === nbR(['Fermer', 'Voir la séance', 'Partager']) &&
-      a.ordre.indexOf('recap-tuiles') < a.ordre.indexOf('recap-rec') && a.ordre.indexOf('recap-rec') < a.ordre.indexOf('recap-voix') &&
-      a.ordre.indexOf('recap-voix') < a.ordre.indexOf('recap-plus') && a.ordre.indexOf('recap-plus') < a.ordre.indexOf('recap-detail') &&
+      a.ordre.indexOf('recap-tuiles') < a.ordre.indexOf('recap-rec') && a.ordre.indexOf('recap-rec') < a.ordre.indexOf('recap-plus') && a.ordre.indexOf('recap-plus') < a.ordre.indexOf('recap-detail') &&
       a.ordre.indexOf('recap-detail') < a.ordre.indexOf('recap-bouton') &&
       a.ordre.lastIndexOf('recap-bouton') === a.ordre.length - 1 && !a.ordre.some((c) => c === 'recap-mu' || c === 'recap-comp'),
       nbR([a.boutons, a.ordre]));
@@ -23030,9 +23081,9 @@ const SETS_IMPORTES = [
       b.click();
       return Object.assign(avant, { apres: { replie: d.hidden, expanded: b.getAttribute('aria-expanded'), muscleVu: !!c.querySelector('.recap-mu').offsetParent } });
     });
-    ok('[lot 3] le récap court : « Détail » replié (muscles, paris tenus invisibles), moins de 800 caractères visibles ; un toucher rend le détail',
+    ok('[lot 3] le récap court : « Détail » replié (muscles invisibles), moins de 800 caractères visibles ; un toucher rend le détail',
       court.replie === true && court.expanded === 'false' && court.muscleVu === false && court.visibles < 800 &&
-      /muscles/.test(court.dit) && /paris tenus/.test(court.dit) &&
+      /muscles/.test(court.dit) && !/pari/.test(court.dit) &&
       court.apres.replie === false && court.apres.expanded === 'true' && court.apres.muscleVu === true, nbR(court));
     // 214 — « Partager » : secondaire (pas l'ambre), la feuille de partage reçoit le texte court ; sans elle, le presse-papiers.
     if (process.env.BANC_CAPTURES_214) await page.screenshot({ path: require('path').join(process.env.BANC_CAPTURES_214, 'recap.png'), fullPage: true });
@@ -24757,8 +24808,8 @@ const SETS_IMPORTES = [
     // ── 1. LA CARTE, PUIS « RÉPARTIR ».
     const A = await ouvrir99('D99-répartir');
     const c1 = await carte99();
-    ok('[D99] la carte parle du plan : « Jambes D99 n’a pas eu lieu mardi. », trois choix, le décalage mis en avant et sa raison en une ligne',
-      !!c1 && c1.titre === 'Jambes D99 n\'a pas eu lieu mardi.' &&
+    ok('[D99] la carte parle du plan : « Il reste Jambes D99 à placer cette semaine. », trois choix, le décalage mis en avant et sa raison en une ligne',
+      !!c1 && c1.titre === 'Il reste Jambes D99 à placer cette semaine.' &&
         nb99(c1.choix) === nb99(['* Jambes D99 aujourd\'hui · la suite se décale', 'Répartir ses séries dans la semaine', 'Garder Pull D99, comme prévu']) &&
         c1.pourquoi === 'Mis en avant : il garde les 10 séries de Jambes D99.' &&
         nb99(c1.bande) === nb99(['Push D99', 'Jambes D99', 'Pull D99', '—', 'Push D99', 'Jambes D99', '—']) &&
@@ -24771,8 +24822,8 @@ const SETS_IMPORTES = [
       const m = b.querySelector('.ajout-semaine');
       return b.textContent.slice(0, 60) + (m ? ' | ' + m.textContent : '');
     }));
-    ok('[D99] « Répartir » : la carte se ferme ; Pull d’aujourd’hui a son leg curl en plus, « ajouté : séance manquée de mardi » (pas de squat ni de roumain après le rowing : lombaires)',
-      apres1 !== null && apres1.titre === null && apres1.choix.length === 0 && blocs1.length === 3 && /Leg Curl D99/.test(blocs1[2]) && /ajouté : séance manquée de mardi/.test(blocs1[2]) &&
+    ok('[D99] « Répartir » : la carte se ferme ; Pull d’aujourd’hui a son leg curl en plus, « ajouté : vient de Jambes D99 » (pas de squat ni de roumain après le rowing : lombaires)',
+      apres1 !== null && apres1.titre === null && apres1.choix.length === 0 && blocs1.length === 3 && /Leg Curl D99/.test(blocs1[2]) && /ajouté : vient de Jambes D99/.test(blocs1[2]) &&
         !blocs1.some((b) => /Squat D99|Roumain D99/.test(b)), nb99([apres1, blocs1]));
     await abandonner();
     await aller('/saisie');
@@ -24805,7 +24856,7 @@ const SETS_IMPORTES = [
     ok('[D266] « Annuler » : une ligne `annule` part par la file (journal semaine_choix, même semaine et même routine, avant = répartir), la question revient',
       l266.choix === 'annule' && l266.semaine === '2026-10-12' && l266.detail.avant === 'repartir' && l266.detail.jour === 2 &&
         base.journal.some((j) => j.op === 'semaine_choix' && j.lignes.some((x) => x.choix === 'annule')) &&
-        !!q266 && q266.titre === 'Jambes D99 n\'a pas eu lieu mardi.' && q266.faits.length === 0, nb99([l266, q266]));
+        !!q266 && q266.titre === 'Il reste Jambes D99 à placer cette semaine.' && q266.faits.length === 0, nb99([l266, q266]));
     await choisir99('repartir');
     // Une séance de Pull (la routine portée par la répartition), commencée après le choix, vue à la synchronisation.
     const apresLeChoix = new Date(2026, 9, 14, 10, 40, 0).toISOString();
@@ -25248,16 +25299,11 @@ const SETS_IMPORTES = [
       !!c5 && c5.ligne === ligne155 && nbO(c5.aujourdhui) === nbO('Aujourd’hui : 150 kg × 1 · 55 % du chemin'), nbO([c5, ligne155]));
     ok('[O150] un record de plus depuis la pose : le pari ne bouge pas, la ligne « Au rythme d’aujourd’hui » est recalculée à la date d’aujourd’hui (une date, jamais un écart chiffré)',
       !!c5 && /^Au rythme d’aujourd’hui : (toujours )?fin [a-zéû]+( \d{4})?\.$|^Au rythme d’aujourd’hui : (plus d’un an|pas encore de date)\.$/.test((c5 && c5.rythme || '').replace(/[\u00a0\u202f]/g, ' ')), nbO(c5));
-    // Le mois de mars est la STORY du mois (98, BILANS-V1) : son écran « Le coach » compte les paris de CONSIGNE
-    // vérifiés en mars (`parisDeConsigneConnus`), jamais le pari d'objectif tenu. Attendu : autant de paris que de
-    // paris de consigne observés sur une séance de mars dans la base du banc — aucun, ici : pas d'écran « Le coach ».
+    // Le mois de mars est la STORY du mois (98, BILANS-V1). 29/11/2026 (« Les paris en coulisse ») : plus aucun écran « Le coach » dans la story
+    // (le compte vit à Profil › À propos de ton coach) — a fortiori le pari d'objectif tenu n'y paraît pas.
     await aller('/progression/mois/2027-03');
     await page.waitForFunction(() => { const h = document.getElementById('annee'); return h && !h.hidden && h.dataset.ecran; },
       null, { timeout: 15000 }).catch(() => {});
-    const debutsO = {};
-    base.sessions.forEach((x) => { if (x && x.id) debutsO[x.id] = x.debut; });
-    const attendusO = base.predictions.filter((x) => x.module === 'moteur.consigne' && x.valeur_observee !== null &&
-      x.valeur_observee !== undefined && /^2027-03/.test(String(debutsO[x.session_id || (x.fondement || {}).seance] || ''))).length;
     const moisO = await page.evaluate(() => {
       const h = document.getElementById('annee');
       const c = h ? h.querySelector('.s[data-cle="coach"]') : null;
@@ -25265,10 +25311,10 @@ const SETS_IMPORTES = [
         cles: h ? Array.from(h.querySelectorAll('.s')).map((x) => x.dataset.cle) : [],
         coach: c ? ((c.querySelector('.chiffre small') || {}).textContent || '').replace(/\s+/g, ' ').trim() : null };
     });
-    ok('[O109] la story de mars ne compte pas le pari d’objectif tenu : l’écran « Le coach » n’a que les paris de consigne (aucun ici : pas d’écran)',
+    ok('[O109] la story de mars ne porte plus d’écran « Le coach » (le pari d’objectif tenu n’y paraît pas non plus)',
       moisO.ouvert && moisO.periode === '2027-03' && moisO.cles.indexOf('tonnes') >= 0 &&
-        (attendusO === 0 ? moisO.coach === null && moisO.cles.indexOf('coach') < 0 : moisO.coach === '/ ' + attendusO),
-      nbO([attendusO, moisO]));
+        moisO.coach === null && moisO.cles.indexOf('coach') < 0,
+      nbO(moisO));
     await page.click('#annee .fermer').catch(() => {});
     await attendre(500);
 
@@ -29234,8 +29280,8 @@ const SETS_IMPORTES = [
     // B. L'ÉCRAN A : une fois, « Non merci » ne revient jamais ; rien ne part.
     await seance250();
     const accord250 = sp250(await page.evaluate(() => (document.querySelector('#recap-corps .nia-accord') || {}).textContent || ''));
-    ok('[NI250] DISCRIMINANT — sans accord : l’écran A « Je peux lire tes notes ? » (Anthropic, États-Unis, « ça reste sur ton téléphone »), deux boutons, zéro appel',
-      /Je peux lire tes notes \?/.test(accord250) && /Anthropic, aux États-Unis/.test(accord250) && /ça reste sur ton téléphone/.test(accord250) &&
+    ok('[NI250] DISCRIMINANT — sans accord : l’écran A « Je peux lire tes notes ? » (Anthropic, États-Unis, « elle n’est jamais envoyée à l’IA »), deux boutons, zéro appel',
+      /Je peux lire tes notes \?/.test(accord250) && /Anthropic, aux États-Unis/.test(accord250) && /elle n’est jamais envoyée à l’IA/.test(accord250) &&
         await page.evaluate(() => document.querySelectorAll('#recap-corps .nia-btn').length === 2) && N250.appels.length === 0, accord250.slice(0, 200));
     await page.evaluate(() => document.querySelectorAll('#recap-corps .nia-btn')[1].click());
     await jusqua(() => !!base.profiles[0].notes_ia_question_a, 8000);

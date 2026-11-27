@@ -4920,6 +4920,9 @@
   //     en couleur du coach, pour que le dépassement se voie — `ambre` ;
   //   · `max`, `marge`, vide : rien en séance (le générateur de programme les lira).
   // Rend `{ ouvrir: minutes | null, ambre: booléen }`.
+  // 27/11 (décision 77) — « J'ai moins de temps en ce moment » : la lecture UNIQUE de cette déclaration. La carte de
+  // « J'ai peu de temps » (`reponseDeTemps`) et la semaine qui déraille (§9.24, qui n'ajoute alors rien) la lisent ici.
+  function disaitMoinsDeTemps(tempsReponse) { return tempsReponse === 'moins'; }
   function reponseDeTemps(tempsReponse, dureeS, declareeMin, intentionProfil) {
     var rien = { ouvrir: null, ambre: false };
     if (coachSeTait(intentionProfil)) return rien;
@@ -4928,7 +4931,7 @@
     // L'ESTIMATION AFFICHÉE (arrondie à la minute) doit dépasser la durée visée : 3 610 s
     // s'écrit « 60 min » — ni carte « tenir en 60 min » ni ambre pour une durée qui ne dépasse pas.
     if (minutesDe(dureeS) <= cibles[0].min) return rien;
-    if (tempsReponse === 'moins') return { ouvrir: cibles[0].min, ambre: false };
+    if (disaitMoinsDeTemps(tempsReponse)) return { ouvrir: cibles[0].min, ambre: false };
     if (tempsReponse === 'varie') return { ouvrir: null, ambre: true };
     return rien;
   }
@@ -9484,8 +9487,8 @@
   // le reste : la ligne qu'elle a ajoutée ne la retire pas en pleine séance.
   // Pas de dégressive au poids du corps ni sur une aide (§9.17, I30) : le
   // silence, comme le repli.
-  function marcheIsolee(n, zone, phase, place, proposee, palier, degressive) {
-    var m = marcheIsoleeBrute(n, zone, phase, place, proposee, degressive);
+  function marcheIsolee(n, zone, phase, place, proposee, palier, degressive, sansLourd) {
+    var m = marcheIsoleeBrute(n, zone, phase, place, proposee, degressive, sansLourd);
     var p = nombre(palier);
     if (p !== null && p <= 0 && m === MARCHE_DEGRESSIVE) return MARCHE_SILENCE;
     if (p === 0 && (m === MARCHE_SCHEMA || m === MARCHE_REPLI)) return MARCHE_SILENCE;
@@ -9493,7 +9496,7 @@
     return m;
   }
 
-  function marcheIsoleeBrute(n, zone, phase, place, proposee, degressive) {
+  function marcheIsoleeBrute(n, zone, phase, place, proposee, degressive, sansLourd) {
     var d = degressive || {};
     var k = nombre(n);
     if (k === null || k < 1) return null;
@@ -9506,7 +9509,10 @@
       if (proposee === true && (d.possible === true || d.ici === true)) return MARCHE_DEGRESSIVE;
       return !muscle || proposee === true ? MARCHE_REPLI : MARCHE_SILENCE;
     }
-    if (estZoneForce(zone)) return MARCHE_SCHEMA;
+    // 27/11/2026 (SÉCURITÉ, I282) — la carte « Passer à 3-5 reps » (Mix → Lourd) ne se fait JAMAIS à un exercice à ménager ni à une personne
+    // protégée (`versLourdInterdit`) : l'escalier saute cette marche, sans carte ni pari (`null`, comme entre deux déclenchements : la phrase du compteur
+    // reste un fait en tête) ; la suivante (le repli, au 2e déclenchement) reste la sienne.
+    if (estZoneForce(zone)) return sansLourd === true && SCHEMAS[zone] && SCHEMAS[zone].vers === 'lourd' ? null : MARCHE_SCHEMA;
     if (phase === 'seche') return MARCHE_SECHE;
     // Audit du 16/10/2026, 01 #6 — LA SÉRIE DE PLUS DEMANDE UNE ZONE MUSCLE : une consigne sans zone (règle de
     // bord) recevait la carte, et son acceptation n'ajoutait rien (`seriesDePlusActives` exige une zone). Sans
@@ -9539,11 +9545,24 @@
       ' reste ta meilleure charge de travail depuis ' + nombreFr(compteur, regle('compteur')) + ' séances';
   }
 
+  // 27/11/2026 (SÉCURITÉ, I282, décision du fondateur) — QUI NE REÇOIT JAMAIS LA CARTE VERS LOURD (« Passer à 3-5 reps » en Mix, au schéma ; la règle de bord, des simples ou doubles vers 3-5, va vers MOINS lourd et reste ouverte). UNE fonction, lue par le plan (`marchesIsolees`) et par l'invariant (`verifierSansLourd`, qui la recalcule depuis les entrées) :
+  //   · `menagee` : l'exercice charge une zone à ménager (le profil, `zonesMenagees`), choisie ou non par la personne : proposer le lourd à une zone
+  //     que la personne ménage contredit 187 (A4) et I75 ;
+  //   · `protegee` : la population protégée (`populationProtegee` : 65 ans et plus connus, débutant, objectif Forme).
+  // Rend la raison (`'menagee'` d'abord, `'protegee'`), ou `null`. Un seul sens : elle n'ouvre rien, elle ne ferme que la carte vers Lourd.
+  function versLourdInterdit(o) {
+    var x = o || {};
+    if (x.menagee === true) return 'menagee';
+    if (x.protegee === true) return 'protegee';
+    return null;
+  }
+
   // CHANGER DE SCHÉMA (zones force, n = 1) : la carte sous l'exercice. Rend
-  // `null` hors des zones force.
-  function carteSchema(zone, meilleur, compteur, avancent, objectif) {
+  // `null` hors des zones force, et `null` vers Lourd pour qui ne le reçoit jamais (`sansLourd`, `versLourdInterdit`).
+  function carteSchema(zone, meilleur, compteur, avancent, objectif, sansLourd) {
     var s = SCHEMAS[zone];
     if (!s || !meilleur || meilleur.niveau === null || meilleur.niveau === undefined) return null;
+    if (sansLourd === true && s.vers === 'lourd') return null;
     return {
       zone: zone, nouvelle_zone: s.vers,
       phrase: meilleurDepuis(meilleur, compteur) + (avancent ? ', et tes autres exercices avancent.' : '.'),
@@ -9756,6 +9775,26 @@
     var a = marchesDepuisProgres(exercice, jour, compteur, marches, compteurs, MARCHE_SERIE_DE_PLUS, ['acceptee']);
     if (!a.length) return null;
     return a.slice().sort(function (x, y) { return avantAlpha(String(y.jour), String(x.jour)); })[0];
+  }
+
+  // G7 (27/11/2026, MOTEUR §14.7 ter, I281) — LA PLACE RELUE À CHAQUE SÉANCE : tant qu'une série de plus vit (acceptée, pas de
+  // progrès depuis), le muscle doit encore avoir de la place, SANS douleur récente ni zone à ménager sur l'exercice. Une seule
+  // fonction, lue par le plan ; elle rend la RAISON de l'arrêt (`'douleur'`, `'menagee'`, `'volume'`) ou `null` (la série continue).
+  // `place` : `placeDeLExercice` du plan (`true` = de la place sur chaque muscle primaire ; `null` ou `false` = non, comme à la proposition).
+  // Aucun seuil nouveau : la place est celle de la règle de volume (§14.6), relue telle quelle.
+  function serieDePlusRelue(o) {
+    var f = o || {};
+    if (f.douleur === true) return 'douleur';
+    if (f.menagee === true) return 'menagee';
+    return f.place === true ? null : 'volume';
+  }
+
+  // La fin d'une série de plus acceptée, dite une fois, en gris, avec sa raison (VOIX-DU-COACH : un fait, « tu »).
+  function phraseSerieDePlusArretee(raison) {
+    if (raison === 'douleur') return 'Tu as eu mal ici récemment : la série de plus s\'arrête.';
+    if (raison === 'menagee') return 'Cette zone est à ménager : la série de plus s\'arrête.';
+    if (raison === 'volume') return 'Ton muscle n\'a plus de place cette semaine : la série de plus s\'arrête.';
+    return null;
   }
 
   // Les PÉRIODES où une série de plus était active, pour le niveau sur la
@@ -11623,11 +11662,19 @@
     // l'historique complet, que le report §9.10 existant lit une seule fois). Sans zone de plan : aucune ligne ne s'exécute.
     var plan = null;
     var zp = zoneParCle(o.zonePlan) ? o.zonePlan : null;
+    // LA NOTION « CE QUE LE COACH N'A PAS LU » (MOTEUR §9.54) : l'histoire COMPLÈTE de l'exercice (avant tout filtre de zone), et les rangs
+    // que la zone du plan écarte. Rien ne change dans le calcul : ces deux listes ne servent qu'à dire, au « Pourquoi ? », la séance sautée.
+    var groupesTous = groupes, contratTous = null, horsZone = null;
     if (zp !== null && o.mesure === 'charge_reps') {
       var base = sansLesAllegees(contratDe(groupes, etat, o.mesure,
         { reglage: o.reglage, equipement: o.equipement, charge: o.charge || null, correction: o.correction || null, salle: o.salle || null }),
         o.periodesAllegees);
       var sh = sousHistoireDeZone(groupes, base, avant, zp, o.zonesDeRoutine || null);
+      contratTous = base;
+      if (sh.mode === 'zone') {
+        horsZone = {};
+        base.forEach(function (se, i) { if (sh.seances.indexOf(se) < 0) horsZone[i] = true; });
+      }
       groupes = sh.groupes;
       // Sous-histoire : chaque séance se rejoue DANS la zone du plan (aucune correction datée ne la déplace). Première fois :
       // le passé garde sa vraie zone (`correctionsDeZone` vide), sinon le report ne verrait aucun changement de zone.
@@ -11639,6 +11686,7 @@
     var seances = sansLesAllegees(contratDe(groupes, etat, o.mesure,
       { reglage: o.reglage, equipement: o.equipement, charge: o.charge || null, correction: o.correction || null, salle: o.salle || null }),
       o.periodesAllegees);
+    if (contratTous === null) contratTous = seances;
     // 186 — les séances qui ont REÇU une consigne (un pari) portent la marque : le plafond des reps de l'habitude (`repsPlafonnees`)
     // ne vaut que pour elles. Sans liste (les historiques qui n'en ont jamais reçu), rien n'est plafonné.
     if (o.seancesSousConsigne && o.seancesSousConsigne.length) {
@@ -11754,6 +11802,14 @@
                ? frereDuBlocage(rejeu.complet.verdicts, o.freres, avant, o.mesure) : null };
     // 193-3 — la clé n'existe que pour une zone de plan : sans elle, la sortie est celle d'avant, octet pour octet.
     if (plan !== null) resultat.plan = plan;
+    // MOTEUR §9.54 — les séances plus récentes que celle que la consigne lit, et pourquoi elles ne sont pas lues. Clé absente quand la consigne lit la dernière séance.
+    var nonLues = seancesNonLues(groupesTous, contratTous, horsZone, consigne, avant, o.zonesDeRoutine || null);
+    if (nonLues !== null) resultat.nonLues = nonLues;
+    // MOTEUR §9.54 — la séance la plus récente que le calcul A VUE (lue ou non), figée avec la consigne : une séance plus récente arrivée ensuite (synchronisation en pleine séance)
+    // n'est pas « non lue », la consigne figée ne l'a jamais eue (la séance en cours fait foi) ; I280 s'en sert pour ne pas la réclamer.
+    var coupureVue = instant(avant), vue = null;
+    (contratTous || []).forEach(function (se) { var t = instant(se && se.debut); if (t !== null && coupureVue !== null && t < coupureVue && (vue === null || t > vue)) vue = t; });
+    if (vue !== null) resultat.vueJusqua = new Date(vue).toISOString();
     // PR 4b (R-A) — « Tenter » : les libellés de la consigne d'avant plafond, posés avec elle (la phrase de la tenue ne leur survit pas). Clé absente sans tenue.
     if (consigne && consigne.etat === 'tenue_apres_zero' && boutonsDeLaTenue(consigne)) {
       resultat.libellesTentee = Modele().avecNoms(nomsDesCrans, function () { return libellesConsigne(tenterApresUnZero(consigne), avant); });
@@ -13180,6 +13236,67 @@
     return tete + ' Pas encore de séance en ' + z.libelle + ' : je pars de ta dernière séance, avec le report de zone que tu connais, une seule fois. ' +
       'Ensuite, ton historique ' + z.libelle + '.';
   }
+  // ── MOTEUR §9.54 — CE QUE LE COACH N'A PAS LU (27/11/2026, décision n° 49 du fondateur) ───────────────────────────────────
+  // « Quand le coach ne lit pas la dernière séance d'un exercice, il le dit dans « Pourquoi ? ». » UNE SEULE FONCTION (`seancesNonLues`)
+  // rend les séances plus récentes que celle que la consigne lit (`fondement.date`) et avant `avant`, avec LA raison de chacune ; UNE SEULE
+  // phrase (`pourquoiNonLues`) les dit. Aucune consigne, aucune charge, aucun verdict ne change : seule l'explication s'ajoute, et la
+  // colonne PRÉC. reste « la dernière fois ». Les raisons, dans l'ordre où elles sont lues :
+  //   douleur (« J'ai mal »), sans_coach, decharge, autre_routine / autre_zone (la zone du plan écarte la séance : `sousHistoireDeZone`),
+  //   jour_sans (la séance légère d'un jour sans), hors_calcul (toutes ses séries « ne comptent pas »), sans_serie (aucune série comptée).
+  // `groupes` : les séances de l'exercice, TOUTES ; `contrat` : leur contrat (`contratDe` puis `sansLesAllegees`), dans le même ordre ;
+  // `horsZone` : `{ rang: true }` des séances que la zone du plan écarte (ou `null`) ; `consigne` : celle qui sort du calcul ;
+  // `zonesDeRoutine` : `{ routine_id: zone }`. Rend `[{ debut, jour, cause }]` (la plus récente d'abord), ou `null` si rien n'est sauté.
+  var CAUSES_NON_LUES = { douleur: 'J\u2019ai mal', sans_coach: 'sans coach', decharge: 'décharge', jour_sans: 'jour sans', autre_routine: 'autre routine',
+    autre_zone: 'autre zone', hors_calcul: 'hors calcul', sans_serie: 'aucune série comptée' };
+  function seancesNonLues(groupes, contrat, horsZone, consigne, avant, zonesDeRoutine) {
+    var f = consigne && consigne.fondement ? consigne.fondement : null;
+    var lue = f && f.date ? instant(f.date) : null, coupure = instant(avant);
+    if (lue === null || coupure === null) return null;
+    var jourSans = !!consigne && (consigne.etat === 'retour_jour_sans' || !!(f.jourSans || (f.zeroRep && f.zeroRep.jourSans)));
+    var T = Modele(), sorties = [];
+    (contrat || []).forEach(function (se, i) {
+      var t = instant(se && se.debut);
+      if (t === null || t <= lue || t >= coupure) return;
+      var g = (groupes || [])[i];
+      var cause;
+      if (se.douleur === true) cause = 'douleur';
+      else if (se.sansCoach === true) cause = 'sans_coach';
+      else if (se.decharge === true) cause = 'decharge';
+      else if (horsZone && horsZone[i] === true) {
+        var rid = g && g.seance ? g.seance.routine_id : null;
+        cause = rid !== null && rid !== undefined && zonesDeRoutine && zoneParCle(zonesDeRoutine[rid]) ? 'autre_routine' : 'autre_zone';
+      } else if (jourSans) cause = 'jour_sans';   // le zéro et la séance légère d'un jour sans : neutres dans CETTE lecture seulement (`jourSansDe`), pas dans le contrat
+      else if (T.vote(se, 'palier')) return;      // une séance qui vote ne se saute pas : si elle existait, I280 le dirait
+      else if (((g && g.series) || []).some(T.estHorsCalcul) && !((g && g.series) || []).some(function (x) { return !T.estHorsCalcul(x) && T.estTravail(x); })) cause = 'hors_calcul';
+      else cause = 'sans_serie';
+      sorties.push({ debut: se.debut, jour: jourCivil(se.debut), cause: cause, t: t });
+    });
+    if (!sorties.length) return null;
+    sorties.sort(function (a, b) { return b.t - a.t; });
+    return sorties.map(function (x) { return { debut: x.debut, jour: x.jour, cause: x.cause }; });
+  }
+  // La phrase : un fait par raison, la séance la plus récente d'abord. « Ta séance du 26 janv. (sans coach) n'est pas lue. » ;
+  // plusieurs séances d'une même raison : « Tes séances du 26 janv. et du 24 janv. (autre zone) ne sont pas lues. » (au plus trois dates, puis « et d’autres »).
+  // Les dates passent par `Modele.jourCourt`, DÉCLARÉES (`non_lue.<rang>`, I26) : jamais écrites à la main.
+  var NON_LUES_DATES_MAX = 3;
+  function pourquoiNonLues(nonLues) {
+    if (!Array.isArray(nonLues) || !nonLues.length) return null;
+    var ordre = [], parCause = {};
+    nonLues.forEach(function (x, i) {
+      if (!CAUSES_NON_LUES[x.cause] || !x.jour) return;
+      if (!parCause[x.cause]) { parCause[x.cause] = []; ordre.push(x.cause); }
+      parCause[x.cause].push({ jour: x.jour, rang: i });
+    });
+    var phrases = ordre.map(function (cause) {
+      var l = parCause[cause];
+      var dites = l.slice(0, NON_LUES_DATES_MAX).map(function (x) { return 'du ' + Modele().jourCourt(x.jour, cite(FAIT, { quoi: 'non_lue.' + x.rang })); });
+      var reste = l.length - dites.length;
+      var liste = Modele().enumerer(reste > 0 ? dites.concat(['d\u2019autres']) : dites);
+      var seul = l.length === 1;
+      return (seul ? 'Ta séance ' : 'Tes séances ') + liste + ' (' + CAUSES_NON_LUES[cause] + ') ' + (seul ? 'n\u2019est pas lue.' : 'ne sont pas lues.');
+    });
+    return phrases.length ? phrases.join(' ') : null;
+  }
   // Le constat : un fait. `cible` peut manquer (pas de routine, pas de dernière fois).
   function phraseConstatReculs(reps, cible) {
     var c = nombre(cible);
@@ -13382,6 +13499,8 @@
   var TEST_ESSAI_1 = 92, TEST_ESSAI_2 = 97, TEST_ESSAI_3_FACILE = 101;              // % du max estimé
   var TEST_ESSAIS_MAX = 3;
   var TEST_SERIE_PCT = 85, TEST_SERIE_PCT_DEBUTANT = 80;
+  // 27/11/2026 — l'issue de la série de mesure sans sécurités ni pareur : « sinon, vise 1 en réserve » (`testConsigneSerie`, source `test.reserve_sans`).
+  var TEST_SERIE_RESERVE_SANS_SECURITES = 1;
   var TEST_SERIE_VISEE = 5, TEST_SERIE_VISEE_DEBUTANT = Object.freeze([6, 8]);
   var TEST_SERIE_PLAFOND = 10, TEST_SERIE_PLAFOND_SOULEVE = 6;
   var TEST_REPOS_ESSAI_S = Object.freeze([240, 300, 300]);                          // 4 à 5 min
@@ -13419,11 +13538,14 @@
   // un débutant (moins d'un an), 65 ans ou plus (`plus65`, le fait existant, pas un seuil de plus), ou un max estimé tiré d'une série de
   // plus de 5 reps (au-delà, le calcul est moins fiable : Reynolds 2006). Sinon « Viser mon max ». `f` : `{ debutant, plus65, repsDuMax }` ;
   // un fait inconnu (`null`, un max sans reps connues) ne compte pas. La façon choisie prime toujours (`testModeValide`).
+  // 27/11/2026 — le BUT lit la fiche : `f.objectif` dont `Modele.specialiteDe(objectif).testParDefaut` vaut `serie` (Forme, population protégée : aucune source
+  // ne soutient un max tenté par défaut) donne la série de mesure ; un but inconnu ou absent, la fiche neutre (« Viser mon max »). Seul le défaut change.
   var TEST_REPS_FIABLES_MAX = 5;
   function testRaisonDuDefaut(f) {
     var o = f && typeof f === 'object' ? f : {};
     if (o.debutant === true) return 'debutant';
     if (o.plus65 === true) return 'plus65';
+    if (Modele().specialiteDe(o.objectif).testParDefaut === TEST_MODE_SERIE) return 'but';
     var r = nombre(o.repsDuMax);
     if (r !== null && r > TEST_REPS_FIABLES_MAX) return 'reps';
     return null;
@@ -13440,6 +13562,9 @@
     if (raison === 'debutant') {
       cle = null;
       texte = 'Moins d’un an de pratique : le coach propose une série de mesure plutôt qu’une tentative. Tu peux viser ton max si tu le connais.';
+    } else if (raison === 'but') {
+      cle = null;
+      texte = 'En objectif Forme, le coach propose une série de mesure plutôt qu’une tentative. Tu peux viser ton max si tu le connais.';
     } else if (raison === 'plus65') {
       cle = 'test.defaut.age';
       texte = 'À partir de ' + nombreFr(AGE_PLAFOND_BAS, c) + ' ans, le coach propose une série de mesure. Tu peux viser ton max si tu le connais.';
@@ -13633,7 +13758,11 @@
       : nombreFr(s.visee[0], regle('test.visee_bas')) + ' à ' + nombreFr(s.visee[1], regle('test.visee_haut'));
     var t = 'Série de mesure' + DEUX_POINTS + enKg(s.charge, regle('test')) + ', visée ' + visee + ' reps, ' +
       (s.reserve > 0 ? testReserve(s.reserve) + ', ' : 'autant que tu peux, ') + nombreFr(s.plafond, regle('test.plafond')) + ' reps au plus.';
-    return t + ' Tu t’arrêtes quand la technique lâche.';
+    t += ' Tu t’arrêtes quand la technique lâche.';
+    // 27/11/2026 (SÉCURITÉ, décision du fondateur) — la série la plus proche de l'échec de l'app, au squat et au développé couché à la barre
+    // (`surLesSecurites`), le dit comme l'essai (`testConsigneEssai`) : à la FIN de la consigne, dans la même consigne (3 éléments + 1 carte : aucun élément
+    // de plus, I269), avec une issue pour qui n'a pas de sécurités (jamais « sur les sécurités » sans issue). Un nombre, donc cité (I26).
+    return t + (s.surLesSecurites ? ' Sur les sécurités ou avec un pareur ; sinon, vise ' + nombreFr(TEST_SERIE_RESERVE_SANS_SECURITES, regle('test.reserve_sans')) + ' en réserve.' : '');
   }
   // Le « Pourquoi ». `f` : { mode, max, pariCharge, serie }. Aucun chiffre écrit à la main (I26) : les rangs se disent en mots.
   function pourquoiTest(f) {
@@ -13819,7 +13948,7 @@
     return a >= AGE_PLAFOND_BAS;
   }
   var FORME_PUISSANCE_PHRASE = 'Monte vite, descends en contrôlant.';
-  var FORME_PUISSANCE_POURQUOI = 'À partir de 65 ans, la puissance protège des chutes (ACSM 2026) : une charge légère, montée vite, descendue en contrôlant.';
+  var FORME_PUISSANCE_POURQUOI = 'À partir de 65 ans, la puissance aide la fonction physique (ACSM 2026) : une charge légère, montée vite, descendue en contrôlant.';
   var FORME_DOULEUR_PHRASE = 'Si une douleur dure, demande l’avis d’un médecin ou d’un kiné.';
   var FORME_REPERES_PHRASE = 'Les repères de l’OMS et de l’ANSES pour l’adulte : du renforcement au moins 2 fois par semaine, 150 min de cardio modéré (ou 75 min intense). Ce sont des repères généraux, pas une prescription.';
   // UN exercice de puissance par séance : le premier, dans l'ordre de la séance, qui est polyarticulaire, léger (jamais une barre), mesuré en
@@ -14463,7 +14592,7 @@
     TEST_MODE_MAX: TEST_MODE_MAX, TEST_MODE_SERIE: TEST_MODE_SERIE, TEST_MONTEE: TEST_MONTEE, TEST_ESSAIS_MAX: TEST_ESSAIS_MAX,
     TEST_ACCESSOIRES_MAX: TEST_ACCESSOIRES_MAX, TEST_SEMAINES_MIN: TEST_SEMAINES_MIN, TEST_VALIDITE_JOURS: TEST_VALIDITE_JOURS,
     TEST_PHASES_AVANT: TEST_PHASES_AVANT, TEST_SERIE_PLAFOND: TEST_SERIE_PLAFOND, TEST_SERIE_PLAFOND_SOULEVE: TEST_SERIE_PLAFOND_SOULEVE,
-    TEST_ESSAI_1: TEST_ESSAI_1, TEST_ESSAI_2: TEST_ESSAI_2, TEST_SERIE_PCT: TEST_SERIE_PCT, TEST_SERIE_PCT_DEBUTANT: TEST_SERIE_PCT_DEBUTANT,
+    TEST_ESSAI_1: TEST_ESSAI_1, TEST_ESSAI_2: TEST_ESSAI_2, TEST_SERIE_PCT: TEST_SERIE_PCT, TEST_SERIE_PCT_DEBUTANT: TEST_SERIE_PCT_DEBUTANT, TEST_SERIE_RESERVE_SANS_SECURITES: TEST_SERIE_RESERVE_SANS_SECURITES,
     testModeParDefaut: testModeParDefaut, testRaisonDuDefaut: testRaisonDuDefaut, testPhraseDuDefaut: testPhraseDuDefaut, TEST_REPS_FIABLES_MAX: TEST_REPS_FIABLES_MAX, testModeValide: testModeValide, testMontee: testMontee, testEssai: testEssai,
     testSerieAuMax: testSerieAuMax, testMesure: testMesure, testBarreDuJour: testBarreDuJour, testBarresEnConflit: testBarresEnConflit, testBarreTestable: testBarreTestable, phraseSansEssai: phraseSansEssai,
     testProposable: testProposable, testConsigneEssai: testConsigneEssai, testConsigneSerie: testConsigneSerie, pourquoiTest: pourquoiTest,
@@ -14514,7 +14643,7 @@
     structureAllegee: structureAllegee,
     appliquerRaccourci: appliquerRaccourci,
     texteDureeEstimee: texteDureeEstimee, texteDureeCourte: texteDureeCourte,
-    ciblesDeTemps: ciblesDeTemps, reponseDeTemps: reponseDeTemps, cibleDuProgramme: cibleDuProgramme,
+    ciblesDeTemps: ciblesDeTemps, reponseDeTemps: reponseDeTemps, disaitMoinsDeTemps: disaitMoinsDeTemps, cibleDuProgramme: cibleDuProgramme,
     libelleCibleTemps: libelleCibleTemps,
     CIBLES_TEMPS_PAR_DEFAUT: CIBLES_TEMPS_PAR_DEFAUT,
     texteDureeAllegee: texteDureeAllegee,
@@ -14609,6 +14738,7 @@
     marcheIsolee: marcheIsolee,
     autresAvancent: autresAvancent,
     carteSchema: carteSchema,
+    versLourdInterdit: versLourdInterdit,
     phraseSeche: phraseSeche,
     repliEscalier: repliEscalier,
     seanceDouloureuse: seanceDouloureuse,
@@ -14636,6 +14766,8 @@
     plafondALaSalle: plafondALaSalle,
     serieDePlusProposee: serieDePlusProposee,
     serieDePlusActive: serieDePlusActive,
+    serieDePlusRelue: serieDePlusRelue,
+    phraseSerieDePlusArretee: phraseSerieDePlusArretee,
     periodesSerieDePlus: periodesSerieDePlus,
     carteSerieDePlus: carteSerieDePlus,
     degressivePossible: degressivePossible,
@@ -14781,6 +14913,7 @@
     zoneRetenue: zoneRetenue,
     sousHistoireDeZone: sousHistoireDeZone,
     pourquoiPlan: pourquoiPlan,
+    pourquoiNonLues: pourquoiNonLues,
     zonesDeLaSeanceDePlan: zonesDeLaSeanceDePlan,
     ZONE_PERIMEE_JOURS: ZONE_PERIMEE_JOURS,
     niveauValide: niveauValide,

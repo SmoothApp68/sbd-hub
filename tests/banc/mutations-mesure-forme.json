@@ -1,0 +1,14 @@
+[
+  {"nom": "mf-le-but-ignore", "fichier": "v2/js/moteur.js",
+   "ancien": "if (Modele().specialiteDe(o.objectif).testParDefaut === TEST_MODE_SERIE) return 'but';",
+   "nouveau": "if (false) return 'but';",
+   "banc": "aucun", "unitaires": ["tests/unit/v2-semaine-de-test-moteur.test.js", "tests/unit/v2-semaine-de-test-plan.test.js"]},
+  {"nom": "mf-la-fiche-forme-en-max", "fichier": "v2/js/modele.js",
+   "ancien": "semaineDeForme: true, testParDefaut: 'serie' })),",
+   "nouveau": "semaineDeForme: true, testParDefaut: 'max' })),",
+   "banc": "aucun", "unitaires": ["tests/unit/v2-semaine-de-test-moteur.test.js", "tests/unit/v2-specialite.test.js"]},
+  {"nom": "mf-le-plan-ne-passe-pas-le-but", "fichier": "v2/js/plan.js",
+   "ancien": "plus65: e.plus65 === true, objectif: objectifDuPlan(e.objectif), repsDuMax",
+   "nouveau": "plus65: e.plus65 === true, repsDuMax",
+   "banc": "aucun", "unitaires": ["tests/unit/v2-semaine-de-test-plan.test.js"]}
+]

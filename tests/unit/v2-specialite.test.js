@@ -35,7 +35,9 @@ const VERITE = {
   'seance.protegee': [false, false, false, true, false, false],
   'chauffes.douces': [false, false, false, true, false, false],
   'habiletes': [false, false, false, false, true, false],
-  'semaineDeForme': [false, false, false, true, false, false]
+  'semaineDeForme': [false, false, false, true, false, false],
+  // 27/11/2026 : la façon proposée d'abord en semaine de mesure (Forme : la série de mesure ; les autres buts : « Viser mon max »)
+  'testParDefaut': ['max', 'max', 'max', 'serie', 'max', 'max']
 };
 const lire = (f, chemin) => chemin.split('.').reduce((o, k) => o[k], f);
 

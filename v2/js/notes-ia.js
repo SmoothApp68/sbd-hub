@@ -547,7 +547,7 @@
     accord: [
       ['Quand tu écris « RPE 9 » ou « siège cran 4 », je te propose de le noter au bon endroit, à la fin de la séance. Le coach en tiendra compte la prochaine fois.'],
       ['Pour les comprendre, j’envoie ces notes à l’IA Claude (Anthropic, aux États-Unis), ', 'sans ton nom ni tes pseudos', '. Elle ne s’en sert pas pour apprendre.'],
-      ['Si tu parles d’une douleur, ', 'ça reste sur ton téléphone', '.'],
+      ['Si tu parles d’une douleur, ', 'elle n’est jamais envoyée à l’IA', ' : elle est enregistrée avec ta séance.'],
       ['Un toucher pour dire oui, ou rien du tout. Tu peux arrêter quand tu veux.']
     ],
     plus: 'En savoir plus ›',

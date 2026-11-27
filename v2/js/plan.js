@@ -1454,7 +1454,7 @@
   // vient le max estimé (rien si elles ne sont pas connues). La feuille du Profil (app.js) lit la MÊME fonction de moteur avec les mêmes faits.
   function defautDeTest(e, slug) {
     var T = e.semaineDeTest || {}, s = T.seriesDuMax && T.seriesDuMax[slug];
-    return { debutant: e.debutant === true, plus65: e.plus65 === true, repsDuMax: s ? s.reps : null };
+    return { debutant: e.debutant === true, plus65: e.plus65 === true, objectif: objectifDuPlan(e.objectif), repsDuMax: s ? s.reps : null };
   }
 
   function semaineDeTestDExercice(jt, e, seance, exos, i, x, materiel, intentionX, coachee, douloureuse) {
@@ -1839,6 +1839,14 @@
     // 193-3 — la zone vient de la routine : une ligne du « Pourquoi », sans chiffre (la zone et ses bornes sont l'étiquette).
     var phraseDuPlan = c.plan ? M.pourquoiPlan(c.plan) : null;
     if (pourquoi && phraseDuPlan) pourquoi.plan = phraseDuPlan;
+    // MOTEUR §9.54 (27/11/2026) — CE QUE LE COACH N'A PAS LU : les séances plus récentes que celle d'où la consigne repart, avec leur raison.
+    // Le moteur les calcule (`consigneDExercice`, `nonLues`), UNE phrase les dit (`pourquoiNonLues`), I280 la relit. Seulement quand la consigne
+    // appliquée repart de la même séance que celle du calcul (jamais une phrase sur une consigne qui n'est plus celle-là).
+    var nonLuesX = c.nonLues && consigne.etat !== 'silence' && consigne.fondement && c.consigne && c.consigne.fondement &&
+      consigne.fondement.date && consigne.fondement.date === c.consigne.fondement.date ? c.nonLues : null;
+    var capNL = V.capturer(function () { return nonLuesX ? M.pourquoiNonLues(nonLuesX) : null; });
+    var phraseNonLues = capNL.texte || null;
+    if (pourquoi && phraseNonLues) pourquoi.nonLues = phraseNonLues;
     // §12.9 (49-U13) — le compteur de stagnation, calculé avec la consigne
     // figée (`consigneDExercice`) ; sa phrase, à 4 séances ou plus, s'écrit en
     // gris dans l'en-tête et en une ligne de la feuille « Pourquoi ».
@@ -1919,6 +1927,7 @@
       if (capF && capF.texte) dire('pourquoi.paragraphes', texteDesParagraphes(capF.texte), capF.citations);
     }
     if (pourquoi && phraseDuPlan) dire('pourquoi.plan', phraseDuPlan, []);
+    if (pourquoi && phraseNonLues) dire('pourquoi.nonLues', phraseNonLues, capNL.citations);
     if (constat) {
       dire('constat', [constat.verdict, constat.suite].filter(Boolean).join(' '), capC.citations);
       dire('constat.escalier', constat.escalier, citesEscalier);
@@ -1984,6 +1993,8 @@
       gardeDeLigne: gardeX,
       // 193-3 — la zone que la routine fixe pour ce jour (`{ zone, mode, n, perimee }`), ou `null` : I79 à I81 la relisent.
       zonePlan: c.plan || null,
+      // MOTEUR §9.54 — les séances plus récentes que celle que la consigne lit, `[{ debut, jour, cause }]`, ou `null` : I280 les relit.
+      nonLues: nonLuesX,
       // I8 (122) — les rangs quittés par des séries faites : aucune ligne non figée ne les porte.
       rangsQuittes: exo && Array.isArray(exo.rangsQuittes) ? exo.rangsQuittes.slice() : [],
       indices: r.indices, rangs: r.rangs, roles: r.roles, figees: figees,
@@ -2574,7 +2585,8 @@
         if (isoles[sl] && isoles[sl].marche === Moteur().MARCHE_SERIE_DE_PLUS) delete isoles[sl];
       });
     }
-    var plus = moinsActive ? {} : seriesDePlusActives(e, seance, consignes, esc, phase);
+    var plusArretees = {};
+    var plus = moinsActive ? {} : seriesDePlusActives(e, seance, consignes, esc, phase, plusArretees);
     var degPlus = degressivesActives(e, seance, consignes, esc, phase, intentionProfil);
     // 174 — la 4e marche en cours ; la dégressive est retirée tant qu'elle dure.
     var alleges = allegementsActifs(e, seance, consignes, esc, phase);
@@ -2763,6 +2775,23 @@
             x.tempo = { descente: Mt.TEMPO_DESCENTE_S, phrase: capT.texte };
             x.entete.tempo = capT.texte;
             x.phrases.push({ ou: 'entete.tempo', texte: capT.texte, citations: capT.citations });
+          }
+        }
+        // G7 (MOTEUR §14.7 ter, I281) — UNE SÉRIE DE PLUS QUI S'ARRÊTE FAUTE DE PLACE se dit UNE FOIS, en gris, avec sa raison : la séance d'avant
+        // portait encore la ligne en plus (plus de séries de travail que la routine). Les suivantes se taisent (rien n'est mémorisé : la dernière séance le dit).
+        x.serieDePlusArretee = null;
+        if (coachee && c && slug && Object.prototype.hasOwnProperty.call(plusArretees, slug) && !x.entete.plus) {
+          var nRt = Object.prototype.hasOwnProperty.call(seriesRoutine, slug) ? Number(seriesRoutine[slug]) : NaN;
+          var prP = Object.prototype.hasOwnProperty.call(precedents, slug) ? precedents[slug] : null;
+          var TP = racine.THModele;
+          var faites = prP && Array.isArray(prP.series) ? prP.series.filter(function (s) { return s && TP.estTravail(s) && !TP.estRecul(s); }).length : 0;
+          if (isFinite(nRt) && faites > nRt) {
+            var capPl = Voix().capturer(function () { return Moteur().phraseSerieDePlusArretee(plusArretees[slug]); });
+            if (capPl.texte) {
+              x.serieDePlusArretee = { raison: plusArretees[slug], phrase: capPl.texte };
+              x.entete.plus = capPl.texte;
+              x.phrases.push({ ou: 'entete.plus', texte: capPl.texte, citations: capPl.citations });
+            }
           }
         }
         // 175 — LES LEVIERS GARDÉS pour la page de l'exercice (« Pour continuer à monter ») : à la plus lourde de la salle, une fois
@@ -3987,6 +4016,15 @@
     return !!(c && c.consigne && c.salle && Moteur().auPlafondDeLaSalle(c.consigne, c.salle));
   }
 
+  // 27/11/2026 (SÉCURITÉ, I282) — LA CARTE VERS LOURD (« Passer à 3-5 reps ») NE SE DIT JAMAIS à un exercice à ménager ni à une personne protégée. UNE
+  // fonction du moteur (`versLourdInterdit`) décide, sur ce que les ENTRÉES disent : la zone à ménager du profil (`zonesMenagees`, choisie ou non par la
+  // personne : elle ménage cette zone) ou l'exercice que le moteur a déjà tenu hors de Lourd (`fondement.menagee`), et la population protégée.
+  function sansLourdDe(e, slug, consigne) {
+    var zm = e && e.zonesMenagees && Object.prototype.hasOwnProperty.call(e.zonesMenagees, slug) ? e.zonesMenagees[slug] : null;
+    var f = consigne && consigne.fondement;
+    return Moteur().versLourdInterdit({ menagee: !!zm || !!(f && f.menagee === true), protegee: protegeeDeEntrees(e) }) !== null;
+  }
+
   function marchesIsolees(e, seance, consignes, esc, phase, intentionProfil) {
     var sortie = {};
     var E = e.escalier;
@@ -4047,7 +4085,7 @@
           return x && x.seance === seance.id && x.exercice === slug && x.marche === M.MARCHE_DEGRESSIVE;
         })
       };
-      var marche = M.marcheIsolee(n, zone, phase, place, proposee, c.consigne.palier, deg);
+      var marche = M.marcheIsolee(n, zone, phase, place, proposee, c.consigne.palier, deg, sansLourdDe(e, slug, c.consigne));
       if (!marche) return;
       // §9.22 (53-2, I39) — « CHANGER DE SCHÉMA » SE TAIT pour un exercice d'un
       // bloc en cours : le bloc fixe déjà son schéma. Le repli et la série de
@@ -4112,7 +4150,7 @@
           var capCarte = Voix().capturer(function () {
             if (marche === M.MARCHE_DEGRESSIVE) return M.carteDegressive(c.compteur.meilleur, k);
             return marche === M.MARCHE_SCHEMA
-              ? M.carteSchema(zone, c.compteur.meilleur, k, avancent, objectifDuPlan(e.objectif))
+              ? M.carteSchema(zone, c.compteur.meilleur, k, avancent, objectifDuPlan(e.objectif), sansLourdDe(e, slug, c.consigne))
               : M.carteSerieDePlus(c.compteur.meilleur, k, avancent, musclesPrimaires(e, slug),
                   musclesParPriorite(e, slug, phase), seriesDeLaRoutine(e, slug));
           });
@@ -4497,7 +4535,11 @@
   // pendant une semaine allégée, jamais en sèche, jamais en zone force (I23) ;
   // la routine compte `seriesRoutine[slug]` séries (figées avec la consigne).
   // Rend `{ [slug]: n }`.
-  function seriesDePlusActives(e, seance, consignes, esc, phase) {
+  //
+  // G7 (27/11/2026, MOTEUR §14.7 ter, I281) — LA PLACE RELUE À CHAQUE SÉANCE : une série de plus acceptée ne vit que tant que le muscle
+  // a de la place (la règle de volume, §14.6, la même qu'à la proposition), sans douleur récente ni zone à ménager (`Moteur.serieDePlusRelue`).
+  // Sinon elle s'arrête : elle n'est pas rendue, et `arretees` (facultatif) reçoit `{ [slug]: raison }` pour que le plan le dise.
+  function seriesDePlusActives(e, seance, consignes, esc, phase, arretees) {
     var sortie = {};
     var E = e.escalier;
     if (!E || seance.edition || esc.allegee || phase === 'seche') return sortie;
@@ -4513,7 +4555,15 @@
       // revient comme ailleurs, jusqu'au prochain progrès.
       if (!M.serieDePlusActive(slug, jour, c.compteur.compteur, E.marches || [], E.compteurs || [])) return;
       var n = Object.prototype.hasOwnProperty.call(routine, slug) ? Number(routine[slug]) : NaN;
-      if (isFinite(n) && n >= 1) sortie[slug] = n;
+      if (!(isFinite(n) && n >= 1)) return;
+      var zm = e.zonesMenagees && Object.prototype.hasOwnProperty.call(e.zonesMenagees, slug) ? e.zonesMenagees[slug] : null;
+      var raison = M.serieDePlusRelue({
+        place: placeDeLExercice(e, slug, phase) === true,
+        douleur: !!(e.douleurs && e.douleurs[slug] && M.douleurRecente(e.douleurs[slug], jour)),
+        menagee: !!(zm && !zm.choisie)
+      });
+      if (raison) { if (arretees) arretees[slug] = raison; return; }
+      sortie[slug] = n;
     });
     return sortie;
   }
@@ -6589,6 +6639,8 @@
     }
     if (f.test) fait.test = { charge: f.test.charge, reps: [f.test.reps], date: f.test.date || null, niveau: f.test.niveau };
     if (f.zoneFigee) fait.zone_figee = { date: f.zoneFigee.date || null };
+    // MOTEUR §9.54 — les séances que le coach n'a pas lues : un fait daté chacune (`non_lue.<rang>`), jamais une date écrite autrement que citée (I26).
+    (x.nonLues || []).forEach(function (q, i) { fait['non_lue.' + i] = { date: q.jour }; });
     // §9.10 (53-1) — la séance d'où la charge se reporte (tenue, ou estimée).
     if (f.report && f.report.depuis) {
       fait.report = { charge: f.report.depuis.palier, reps: [f.report.depuis.niveau], date: f.report.depuis.date || null };
@@ -6825,6 +6877,7 @@
       'test.pct1': x.semaineDeTest && x.semaineDeTest.testee ? { valeur: Moteur().TEST_ESSAI_1 } : null,
       'test.pct2': x.semaineDeTest && x.semaineDeTest.testee ? { valeur: Moteur().TEST_ESSAI_2 } : null,
       'test.pct_serie': x.semaineDeTest && x.semaineDeTest.serie ? { valeur: x.semaineDeTest.serie.pct } : null,
+      'test.reserve_sans': x.semaineDeTest && x.semaineDeTest.serie && x.semaineDeTest.serie.surLesSecurites ? { valeur: Moteur().TEST_SERIE_RESERVE_SANS_SECURITES } : null,
       'test.max': x.semaineDeTest && x.semaineDeTest.max !== null && x.semaineDeTest.max !== undefined ? { charge: x.semaineDeTest.max } : null,
       'test.reserve': x.semaineDeTest && x.semaineDeTest.prochain ? { valeur: x.semaineDeTest.prochain.reserve }
         : x.semaineDeTest && x.semaineDeTest.serie ? { valeur: x.semaineDeTest.serie.reserve } : null,
@@ -7090,9 +7143,12 @@
     verifierTete(plan, erreurs);
     verifierVerbe(plan, erreurs);
     verifierChutes(plan, entrees, erreurs);
+    verifierPlaceRelue(plan, entrees, erreurs);
+    verifierSansLourd(plan, entrees, erreurs);
     verifierAnnonce(plan, erreurs);
     verifierRegimes(plan, entrees, erreurs);
     verifierSuiteAujourdhui(plan, erreurs);
+    verifierNonLues(plan, entrees, erreurs);
     verifierRoutinesPretes(plan, entrees, erreurs);
     verifierVoixDuZero(plan, entrees, erreurs);
     verifierLeviers(plan, erreurs);
@@ -8292,6 +8348,50 @@
       });
     });
   }
+  // I282 (27/11/2026, MOTEUR §14.5 bis) — JAMAIS « PASSER À 3-5 REPS » À UN EXERCICE À MÉNAGER NI À UNE PERSONNE PROTÉGÉE, RECALCULÉ depuis les ENTRÉES
+  //   (`zonesMenagees`, `fondement.menagee`, `populationProtegee` : 65 ans et plus connus, débutant, Forme) par la même fonction que le plan (`versLourdInterdit`) :
+  //   aucune carte du schéma vers Lourd (Mix → Lourd) ne leur est posée ; la règle de bord (des simples ou doubles vers 3-5 : MOINS lourd) reste ouverte ; rien ou la marche suivante de l'escalier.
+  function verifierSansLourd(plan, entrees, erreurs) {
+    var M = Moteur();
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var m = x && x.escalier;
+      if (!m || m.marche !== M.MARCHE_SCHEMA || m.depassement) return;
+      var k = x.consigne || {};
+      var versLourd = !m.bord && (k.zone === 'mix' || !!(m.carte && m.carte.nouvelle_zone === 'lourd'));   // la carte de bord MONTE vers 3-5 depuis des simples ou doubles : moins lourd, hors règle
+      if (!versLourd) return;
+      if (sansLourdDe(entrees, x.slug, k)) {
+        erreurs.push('I282 — exercice ' + i + ' (' + x.slug + ') : « Passer à 3-5 reps » proposé à ' +
+          (protegeeDeEntrees(entrees) ? 'une personne protégée' : 'un exercice à ménager'));
+      }
+    });
+  }
+  // I281 (G7, 27/11/2026, MOTEUR §14.7 ter) — LA PLACE RELUE À CHAQUE SÉANCE, RECALCULÉE depuis les ENTRÉES (le volume, les douleurs, les zones à ménager) :
+  //   · une série de plus EN COURS (`consigne.serieDePlus`) n'existe que si le muscle a de la place, sans douleur récente ni zone à ménager sur l'exercice ;
+  //   · une série de plus ARRÊTÉE (`x.serieDePlusArretee`) dit la raison recalculée, la dit une fois (en gris, `entete.plus`) et ne laisse aucune ligne en plus.
+  function verifierPlaceRelue(plan, entrees, erreurs) {
+    var e = entrees || {};
+    var M = Moteur();
+    var jour = M.jourCivil(e.seance && e.seance.debut);
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      if (!x) return;
+      var nom = 'I281 — exercice ' + i + ' (' + x.slug + ') : ';
+      var enCours = !!(x.consigne && x.consigne.serieDePlus);
+      var arretee = x.serieDePlusArretee || null;
+      if (!enCours && !arretee) return;
+      var zm = e.zonesMenagees && Object.prototype.hasOwnProperty.call(e.zonesMenagees, x.slug) ? e.zonesMenagees[x.slug] : null;
+      var raison = M.serieDePlusRelue({
+        place: placeDeLExercice(e, x.slug, plan.phase) === true,
+        douleur: !!(jour && e.douleurs && e.douleurs[x.slug] && M.douleurRecente(e.douleurs[x.slug], jour)),
+        menagee: !!(zm && !zm.choisie)
+      });
+      if (enCours && raison) erreurs.push(nom + 'une série de plus en cours alors que la place relue manque (' + raison + ')');
+      if (arretee) {
+        if (enCours) erreurs.push(nom + 'une série de plus arrêtée et en cours à la fois');
+        if (arretee.raison !== raison) erreurs.push(nom + 'la série de plus s\u2019arrête pour « ' + arretee.raison + ' », la place relue dit « ' + raison + ' »');
+        if (!x.entete || x.entete.plus !== arretee.phrase) erreurs.push(nom + 'la fin de la série de plus n\u2019est pas dite en gris (entete.plus)');
+      }
+    });
+  }
   // I272 (« Les chutes », 25/11/2026, MOTEUR §9.2 ter) — LE PLANCHER DE LA DERNIÈRE SÉRIE.
   //   Sens 1 (RECALCULÉ depuis les ENTRÉES : `entrees.precedents[slug]`, la séance d'où la consigne repart, recoupée par la date du fondement) : quand sa dernière série à la charge du
   //     palier a perdu 2 reps ou plus sur des séries stables (à une rep de la première, au moins trois séries, aucune à 0 rep), la visée d'une ligne à cette charge n'est JAMAIS sous
@@ -8445,6 +8545,47 @@
       if (!c || typeof c.suite !== 'string' || c.suite === '' || c.chargeRepetee !== true) return;
       if (typeof c.suiteDate !== 'string' || typeof c.jourDuConstat !== 'string') return;
       if (c.suiteDate < c.jourDuConstat) erreurs.push('I167 — exercice ' + i + ' (' + x.slug + ') : l\'annonce « ' + c.suite + ' » est écrite sur la consigne du ' + c.suiteDate + ', pas sur la séance du ' + c.jourDuConstat);
+    });
+  }
+  // I280 (27/11/2026, MOTEUR §9.54) — LE COACH DIT CE QU'IL N'A PAS LU. La phrase grise cite la séance d'où la consigne repart (`fondement.date`) ; cette séance est
+  // soit la dernière séance de l'exercice (`entrees.precedents[slug]`, la même que la colonne PRÉC.), soit la dernière séance est ANNONCÉE comme sautée au « Pourquoi ? »
+  // (`x.pourquoi.nonLues`, avec sa date, par `Modele.jourCourt`, et sa raison). Et ce que le plan annonce est vrai : chaque séance annoncée est PLUS RÉCENTE que celle que le gris
+  // cite (jamais une plus ancienne), la phrase existe quand la liste existe, et la liste dit la date de chaque séance qu'elle nomme (la plus récente d'abord, trois au plus par raison).
+  // Sans `precedents` dans les entrées, seule la cohérence interne se vérifie. Aucune consigne ni charge n'entre ici : le plan ne décide rien, il dit.
+  function verifierNonLues(plan, entrees, erreurs) {
+    var M = Moteur(), T = racine.THModele;
+    var precedents = entrees && entrees.precedents ? entrees.precedents : {};
+    var norm = function (t) { return String(t || '').replace(/[\u00a0\u202f]/g, ' '); };
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var k = x && x.consigne;
+      if (!k || k.etat === 'silence' || !k.fondement || !k.fondement.date) return;
+      var nom = 'I280 — exercice ' + i + ' (' + x.slug + ') : ';
+      var D = M.jourCivil(k.fondement.date);
+      var liste = Array.isArray(x.nonLues) ? x.nonLues : [];
+      var phrase = x.pourquoi && x.pourquoi.nonLues ? norm(x.pourquoi.nonLues) : null;
+      if (liste.length && !phrase && x.pourquoi) erreurs.push(nom + 'des séances sautées (' + liste.length + ') sans phrase au « Pourquoi ? »');
+      if (!liste.length && phrase) erreurs.push(nom + 'une phrase « n\u2019est pas lue » sans séance sautée');
+      var cause = {};
+      liste.forEach(function (q, j) {
+        if (!q || !q.jour || !(q.debut && k.fondement.date ? Date.parse(q.debut) > Date.parse(k.fondement.date) : q.jour > D)) erreurs.push(nom + 'la séance sautée ' + (q && q.jour) + ' n\u2019est pas plus récente que celle du gris (' + D + ')');
+        cause[q && q.jour] = true;
+      });
+      if (phrase && liste.length) {
+        var premier = liste[0];
+        if (phrase.indexOf(norm(T.jourCourt(premier.jour))) < 0) erreurs.push(nom + 'la séance sautée la plus récente (' + premier.jour + ') n\u2019est pas datée dans la phrase');
+      }
+      var pr = Object.prototype.hasOwnProperty.call(precedents, x.slug) ? precedents[x.slug] : null;
+      var P = pr && pr.seance && pr.seance.debut ? M.jourCivil(pr.seance.debut) : null;
+      // La séance qu'on fait (en cours, ou terminée et rechargée) n'est pas « avant » : la consigne ne la lit jamais, elle n'est pas une séance non lue.
+      var moi = entrees && entrees.seance ? entrees.seance : null;
+      if (P !== null && moi && ((moi.id !== undefined && moi.id !== null && pr.seance.id === moi.id) ||
+          (moi.debut && Date.parse(pr.seance.debut) >= Date.parse(moi.debut)))) P = null;
+      // Une séance ARRIVÉE APRÈS le calcul figé (plus récente que la dernière que la consigne a vue, `vueJusqua`) n'est pas non lue : la séance en cours fait foi.
+      var figee = entrees && entrees.consignes ? entrees.consignes[x.slug] : null;
+      if (P !== null && figee && figee.vueJusqua && Date.parse(pr.seance.debut) > Date.parse(figee.vueJusqua)) P = null;
+      if (P !== null && P > D && !cause[P]) {
+        erreurs.push(nom + 'le gris cite la séance du ' + D + ' alors que la dernière séance est celle du ' + P + ', et le « Pourquoi ? » ne dit pas qu\u2019elle n\u2019est pas lue');
+      }
     });
   }
   // I168 (F2, MOTEUR §9.49) — LES ROUTINES PAS PRÊTES, LE COACH SE TAIT SUR CE QU'ELLES DÉCIDENT. `entrees.routinesPretes === false` (lecture pas faite ou en échec
@@ -10402,6 +10543,7 @@
     rejouer: rejouer,
     verifierPlan: verifierPlan,
     verifierCapacite: verifierCapacite,
+    verifierNonLues: verifierNonLues,
     verifierCalisthenie: verifierCalisthenie,
     verifierOndulation: verifierOndulation,
     verifierRestPause: verifierRestPause,

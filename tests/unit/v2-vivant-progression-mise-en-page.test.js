@@ -40,7 +40,7 @@ async function monter(page, largeur, vue) {
 }
 
 const VUE = {
-  mois: { titre: 'Septembre', kg: 1265000, series: 400, records: 153, paris: { verifies: 31, tenus: 28 } },
+  mois: { titre: 'Septembre', kg: 1265000, series: 400, records: 153 },
   records: { dernier: { texte: 'Couché 130 kg × 4', nom: 'Couché', mesure: '130 kg × 4', date: '22 sept.' } },
   volume: { quand: '19-25 oct.', zones: [{ libelle: 'Pectoraux', series: 12 }] },
   poids: { resume: { poids: 96.8, date: '2026-10-20T10:00:00', variation: { valeur: -12.4, depuis: '2026-08-30T10:00:00' }, nb: 1115 } },
@@ -61,9 +61,9 @@ decrire([360, 390, 412])('Progression à %i px, données longues', (largeur) => 
         seps: Array.from(l.querySelectorAll('.bh-sep')).map((s) => getComputedStyle(s).display),
         debordeX: document.documentElement.scrollWidth > window.innerWidth };
     });
-    expect(r.texte).toMatch(/^1\s?265\s?t soulevées · 153 records · 28 paris tenus sur 31$/);
-    expect(r.bouts.length).toBe(3);
-    expect(r.seps).toEqual(['none', 'none']);
+    expect(r.texte).toMatch(/^1\s?265\s?t soulevées · 153 records$/);
+    expect(r.bouts.length).toBe(2);
+    expect(r.seps).toEqual(['none']);
     expect(r.debordeX).toBe(false);
   });
 

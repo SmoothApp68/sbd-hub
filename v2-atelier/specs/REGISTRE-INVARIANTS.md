@@ -1,8 +1,8 @@
-# REGISTRE DES INVARIANTS (I1 à I272, I280, I281)
+# REGISTRE DES INVARIANTS (I1 à I272, I280, I281, I282)
 
 > Sorti de CLAUDE.md §4 ter le 21/11/2026 (chantier « Simplifier », PR 0) : le registre tenait sur une seule ligne de plus de 25 Ko, relue par chaque agent à chaque lancement. Le texte d'origine est conservé mot pour mot plus bas ; la table n'en est qu'un index.
 > **Le code et MOTEUR-PROGRESSION-V2.md font foi** (§9.13 bis et la section de chaque règle). En cas d'écart, le code a raison.
-> **Prochain numéro libre : I282 (I273 à I279 sont RÉSERVÉS : règles du mauvais jour et D2 ; I280 : « Le coach dit ce qu'il n'a pas lu » (PR #764) ; I281 : la place relue, G7), à vérifier sur `main` ET sur les PR ouvertes** (`gh pr list` puis grep « I27 » dans leurs diffs) avant d'en prendre un.
+> **Prochain numéro libre : I283 (I282 : jamais « Passer à 3-5 reps » à un exercice à ménager ni à une personne protégée ; I273 à I279 sont RÉSERVÉS : règles du mauvais jour et D2 ; I280 : « Le coach dit ce qu'il n'a pas lu » (PR #764) ; I281 : la place relue, G7), à vérifier sur `main` ET sur les PR ouvertes** (`gh pr list` puis grep « I27 » dans leurs diffs) avant d'en prendre un.
 
 ## Table
 
@@ -113,6 +113,7 @@ Légende : **gras** = retiré ; « TROU » = numéro jamais défini ; « voir MO
 | I273-I279 | RÉSERVÉS (27/11/2026) : règles du mauvais jour et D2, en cours ailleurs ; ne pas les prendre | — | — | 27/11/2026 |
 | I280 | Le coach dit ce qu'il n'a pas lu : le gris cite la dernière séance de l'exercice, ou la dernière séance est annoncée comme sautée au « Pourquoi ? » avec sa date et sa raison (sans coach, J'ai mal, décharge, jour sans, autre zone, autre routine, hors calcul) ; aucune consigne ne change | `Plan.verifierNonLues`, `v2-coach-dit-pas-lu.test.js` | §9.54 | 27/11/2026 |
 | I281 | La place relue à chaque séance (G7) : une série de plus acceptée ne vit que si le muscle a encore de la place, sans douleur récente ni zone à ménager ; sinon elle s'arrête, dite une fois en gris avec sa raison | `Moteur.serieDePlusRelue`, `Plan.verifierPlaceRelue`, `v2-place-relue.test.js` | §14.7 ter | 27/11/2026 |
+| I282 | Jamais « Passer à 3-5 reps » (schéma Mix → Lourd ; la règle de bord, qui va vers moins lourd, reste ouverte) à un exercice à ménager ni à une personne protégée (65 ans et plus connus, débutant, Forme) : le silence ou la marche suivante de l'escalier | `Moteur.versLourdInterdit`, `Plan.verifierSansLourd`, `v2-sans-lourd-282.test.js` | §14.5 bis | 27/11/2026 |
 
 ### Numéros réservés, retirés, trous
 

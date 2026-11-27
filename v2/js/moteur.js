@@ -2117,7 +2117,7 @@
   // Le jour sans se lit sur l'HISTOIRE (le début de chaque zéro et de la séance qui le suit), jamais sur un état : la consigne reçue par la séance suivante est REJOUÉE
   // (`consigneApresUnZero` sur l'histoire d'avant elle) — la séance légère n'est « jour sans » que si elle a reçu cette consigne.
   var JOUR_SANS_LUES = 2;
-  var ETATS_DU_RETOUR = { progression: true, tenue_apres_chute: true, test_propose: true, retest: true, retest_un_cran: true };
+  var ETATS_DU_RETOUR = { bord: true, progression: true, tenue_apres_chute: true, test_propose: true, retest: true, retest_un_cran: true };
   function neutraliserLeZero(se) {
     return { debut: se.debut, palier: null, neutre: true, series: se.series || [], plafondZero: se.plafondZero, decharge: se.decharge };
   }
@@ -2144,9 +2144,11 @@
              reculs: (Z.series || []).some(function (x) { return x && x.origine === 'recul'; }) };
   }
   // « Elle passe » : au moins une série couverte (palier ou travail), et aucune sous le bas de la zone de `base` (`rateSousLaZone`, la notion partagée).
-  function legerePasse(se, zoneBas) {
+  function legerePasse(se, zoneBas, niveau) {
     var couvertes = parRole(se && se.series, ROLES_RETENUS);
-    if (!couvertes.length || zoneBas === null || zoneBas === undefined) return false;
+    // Sous 3 reps il n'y a pas de zone (règle de bord) : « passe » = aucune série sous les reps du niveau, comme `ratee` du bord.
+    if (zoneBas === null || zoneBas === undefined) { if (!couvertes.length || nombre(niveau) === null) return false; return couvertes.every(function (s) { var r = nombre(s.reps); return r !== null && r >= nombre(niveau); }); }
+    if (!couvertes.length) return false;
     return couvertes.every(function (s) {
       var r = nombre(s.reps);
       return r !== null && !rateSousLaZone({ reps: r, bas: zoneBas, charge: nombre(s.charge_kg) }).sousZone;
@@ -2182,7 +2184,7 @@
         }
         // Elle n'est LA séance légère que si sa charge est STRICTEMENT sous la charge de travail `P` (`ouvert.palier`) : faite à `P` ou au-dessus (140, 145), c'est une séance
         // ordinaire, elle vote ; entre la ligne proposée et `P` (137,5 pour une ligne à 132,5 et `P` = 140), elle reste la légère (neutre).
-        if (memo[t] === true && chargeDeLaSeance(se) < ouvert.palier - 1e-9 && legerePasse(se, ouvert.zoneBas)) { legeres[t] = { z: instant(prec.debut) }; return; }
+        if (memo[t] === true && chargeDeLaSeance(se) < ouvert.palier - 1e-9 && legerePasse(se, ouvert.zoneBas, ouvert.niveau)) { legeres[t] = { z: instant(prec.debut) }; return; }
       }
       // Le jeton ne se lève que sur une séance ORDINAIRE RÉUSSIE, quelle que soit sa charge (jamais un retour imposé, ni un neutre, une légère ou une décharge ; jamais sous le bas
       // de la zone). Le retour imposé ne le relève pas : l'étape qui échoue (140 × 4) n'a pas été réussie. Sans zone connue (`zoneBas` nul), la lecture d'avant : une séance au palier.
@@ -2193,7 +2195,7 @@
     return { legeres: legeres, ouverts: ouverts };
   }
   // La consigne de la fois qui suit un jour sans PASSÉ : la charge de travail ET le niveau de `base`, jamais au-dessus, sans ligne haute. Un état de `base` qui n'est pas
-  // une progression ordinaire (bord, reprise, silence, échelle…) reste tel quel : la séance légère est neutre, rien de plus.
+  // une progression ordinaire (reprise, silence, échelle…) reste tel quel ; la règle de bord (sous 3 reps, sans zone) rend aussi la charge de travail ET le niveau (27/11/2026, MOTEUR §9.39).
   function retourDuJourSans(base, ouvert) {
     if (!base || ETATS_DU_RETOUR[base.etat] !== true || !base.ligne) return base;
     var P = nombre(base.palier), niv = nombre(base.niveau), ch = nombre(base.ligne.charge), vi = nombre(base.ligne.vise);

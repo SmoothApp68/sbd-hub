@@ -17197,7 +17197,7 @@ const SETS_IMPORTES = [
     await cliquerQ('.q-puce[data-cle="1_a_3_ans"]');
     await cliquerQ('.q-opt[data-cle="non"]');
     await continuerQ();
-    await attendre(600);
+    await attendreQue(() => profilBase().anciennete === '1_a_3_ans' && profilBase().historique_declare === 'non_note', 8000, '[Q60] C · les deux réponses redonnées sont écrites');
     ok('[Q60] C — les deux réponses redonnées s’écrivent comme à l’écran 2 : `anciennete` = 1_a_3_ans, `historique_declare` = non_note',
       profilBase().anciennete === '1_a_3_ans' && profilBase().historique_declare === 'non_note', JSON.stringify([profilBase().anciennete, profilBase().historique_declare]));
     await continuerQ();                                               // « Voici ce que tes séances me disent. » (pas répondu à l'ouverture : il se remontre)

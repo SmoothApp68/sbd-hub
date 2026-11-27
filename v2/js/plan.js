@@ -1839,6 +1839,14 @@
     // 193-3 — la zone vient de la routine : une ligne du « Pourquoi », sans chiffre (la zone et ses bornes sont l'étiquette).
     var phraseDuPlan = c.plan ? M.pourquoiPlan(c.plan) : null;
     if (pourquoi && phraseDuPlan) pourquoi.plan = phraseDuPlan;
+    // MOTEUR §9.54 (27/11/2026) — CE QUE LE COACH N'A PAS LU : les séances plus récentes que celle d'où la consigne repart, avec leur raison.
+    // Le moteur les calcule (`consigneDExercice`, `nonLues`), UNE phrase les dit (`pourquoiNonLues`), I280 la relit. Seulement quand la consigne
+    // appliquée repart de la même séance que celle du calcul (jamais une phrase sur une consigne qui n'est plus celle-là).
+    var nonLuesX = c.nonLues && consigne.etat !== 'silence' && consigne.fondement && c.consigne && c.consigne.fondement &&
+      consigne.fondement.date && consigne.fondement.date === c.consigne.fondement.date ? c.nonLues : null;
+    var capNL = V.capturer(function () { return nonLuesX ? M.pourquoiNonLues(nonLuesX) : null; });
+    var phraseNonLues = capNL.texte || null;
+    if (pourquoi && phraseNonLues) pourquoi.nonLues = phraseNonLues;
     // §12.9 (49-U13) — le compteur de stagnation, calculé avec la consigne
     // figée (`consigneDExercice`) ; sa phrase, à 4 séances ou plus, s'écrit en
     // gris dans l'en-tête et en une ligne de la feuille « Pourquoi ».
@@ -1919,6 +1927,7 @@
       if (capF && capF.texte) dire('pourquoi.paragraphes', texteDesParagraphes(capF.texte), capF.citations);
     }
     if (pourquoi && phraseDuPlan) dire('pourquoi.plan', phraseDuPlan, []);
+    if (pourquoi && phraseNonLues) dire('pourquoi.nonLues', phraseNonLues, capNL.citations);
     if (constat) {
       dire('constat', [constat.verdict, constat.suite].filter(Boolean).join(' '), capC.citations);
       dire('constat.escalier', constat.escalier, citesEscalier);
@@ -1984,6 +1993,8 @@
       gardeDeLigne: gardeX,
       // 193-3 — la zone que la routine fixe pour ce jour (`{ zone, mode, n, perimee }`), ou `null` : I79 à I81 la relisent.
       zonePlan: c.plan || null,
+      // MOTEUR §9.54 — les séances plus récentes que celle que la consigne lit, `[{ debut, jour, cause }]`, ou `null` : I280 les relit.
+      nonLues: nonLuesX,
       // I8 (122) — les rangs quittés par des séries faites : aucune ligne non figée ne les porte.
       rangsQuittes: exo && Array.isArray(exo.rangsQuittes) ? exo.rangsQuittes.slice() : [],
       indices: r.indices, rangs: r.rangs, roles: r.roles, figees: figees,
@@ -6589,6 +6600,8 @@
     }
     if (f.test) fait.test = { charge: f.test.charge, reps: [f.test.reps], date: f.test.date || null, niveau: f.test.niveau };
     if (f.zoneFigee) fait.zone_figee = { date: f.zoneFigee.date || null };
+    // MOTEUR §9.54 — les séances que le coach n'a pas lues : un fait daté chacune (`non_lue.<rang>`), jamais une date écrite autrement que citée (I26).
+    (x.nonLues || []).forEach(function (q, i) { fait['non_lue.' + i] = { date: q.jour }; });
     // §9.10 (53-1) — la séance d'où la charge se reporte (tenue, ou estimée).
     if (f.report && f.report.depuis) {
       fait.report = { charge: f.report.depuis.palier, reps: [f.report.depuis.niveau], date: f.report.depuis.date || null };
@@ -7093,6 +7106,7 @@
     verifierAnnonce(plan, erreurs);
     verifierRegimes(plan, entrees, erreurs);
     verifierSuiteAujourdhui(plan, erreurs);
+    verifierNonLues(plan, entrees, erreurs);
     verifierRoutinesPretes(plan, entrees, erreurs);
     verifierVoixDuZero(plan, entrees, erreurs);
     verifierLeviers(plan, erreurs);
@@ -8445,6 +8459,40 @@
       if (!c || typeof c.suite !== 'string' || c.suite === '' || c.chargeRepetee !== true) return;
       if (typeof c.suiteDate !== 'string' || typeof c.jourDuConstat !== 'string') return;
       if (c.suiteDate < c.jourDuConstat) erreurs.push('I167 — exercice ' + i + ' (' + x.slug + ') : l\'annonce « ' + c.suite + ' » est écrite sur la consigne du ' + c.suiteDate + ', pas sur la séance du ' + c.jourDuConstat);
+    });
+  }
+  // I280 (27/11/2026, MOTEUR §9.54) — LE COACH DIT CE QU'IL N'A PAS LU. La phrase grise cite la séance d'où la consigne repart (`fondement.date`) ; cette séance est
+  // soit la dernière séance de l'exercice (`entrees.precedents[slug]`, la même que la colonne PRÉC.), soit la dernière séance est ANNONCÉE comme sautée au « Pourquoi ? »
+  // (`x.pourquoi.nonLues`, avec sa date, par `Modele.jourCourt`, et sa raison). Et ce que le plan annonce est vrai : chaque séance annoncée est PLUS RÉCENTE que celle que le gris
+  // cite (jamais une plus ancienne), la phrase existe quand la liste existe, et la liste dit la date de chaque séance qu'elle nomme (la plus récente d'abord, trois au plus par raison).
+  // Sans `precedents` dans les entrées, seule la cohérence interne se vérifie. Aucune consigne ni charge n'entre ici : le plan ne décide rien, il dit.
+  function verifierNonLues(plan, entrees, erreurs) {
+    var M = Moteur(), T = racine.THModele;
+    var precedents = entrees && entrees.precedents ? entrees.precedents : {};
+    var norm = function (t) { return String(t || '').replace(/[\u00a0\u202f]/g, ' '); };
+    ((plan && plan.exercices) || []).forEach(function (x, i) {
+      var k = x && x.consigne;
+      if (!k || k.etat === 'silence' || !k.fondement || !k.fondement.date) return;
+      var nom = 'I280 — exercice ' + i + ' (' + x.slug + ') : ';
+      var D = M.jourCivil(k.fondement.date);
+      var liste = Array.isArray(x.nonLues) ? x.nonLues : [];
+      var phrase = x.pourquoi && x.pourquoi.nonLues ? norm(x.pourquoi.nonLues) : null;
+      if (liste.length && !phrase && x.pourquoi) erreurs.push(nom + 'des séances sautées (' + liste.length + ') sans phrase au « Pourquoi ? »');
+      if (!liste.length && phrase) erreurs.push(nom + 'une phrase « n\u2019est pas lue » sans séance sautée');
+      var cause = {};
+      liste.forEach(function (q, j) {
+        if (!q || !q.jour || !(q.jour > D)) erreurs.push(nom + 'la séance sautée ' + (q && q.jour) + ' n\u2019est pas plus récente que celle du gris (' + D + ')');
+        cause[q && q.jour] = true;
+      });
+      if (phrase && liste.length) {
+        var premier = liste[0];
+        if (phrase.indexOf(norm(T.jourCourt(premier.jour))) < 0) erreurs.push(nom + 'la séance sautée la plus récente (' + premier.jour + ') n\u2019est pas datée dans la phrase');
+      }
+      var pr = Object.prototype.hasOwnProperty.call(precedents, x.slug) ? precedents[x.slug] : null;
+      var P = pr && pr.seance && pr.seance.debut ? M.jourCivil(pr.seance.debut) : null;
+      if (P !== null && P > D && !cause[P]) {
+        erreurs.push(nom + 'le gris cite la séance du ' + D + ' alors que la dernière séance est celle du ' + P + ', et le « Pourquoi ? » ne dit pas qu\u2019elle n\u2019est pas lue');
+      }
     });
   }
   // I168 (F2, MOTEUR §9.49) — LES ROUTINES PAS PRÊTES, LE COACH SE TAIT SUR CE QU'ELLES DÉCIDENT. `entrees.routinesPretes === false` (lecture pas faite ou en échec
@@ -10402,6 +10450,7 @@
     rejouer: rejouer,
     verifierPlan: verifierPlan,
     verifierCapacite: verifierCapacite,
+    verifierNonLues: verifierNonLues,
     verifierCalisthenie: verifierCalisthenie,
     verifierOndulation: verifierOndulation,
     verifierRestPause: verifierRestPause,

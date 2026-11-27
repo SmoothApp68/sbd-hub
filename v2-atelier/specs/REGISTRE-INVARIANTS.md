@@ -1,8 +1,8 @@
-# REGISTRE DES INVARIANTS (I1 à I272)
+# REGISTRE DES INVARIANTS (I1 à I272, I280)
 
 > Sorti de CLAUDE.md §4 ter le 21/11/2026 (chantier « Simplifier », PR 0) : le registre tenait sur une seule ligne de plus de 25 Ko, relue par chaque agent à chaque lancement. Le texte d'origine est conservé mot pour mot plus bas ; la table n'en est qu'un index.
 > **Le code et MOTEUR-PROGRESSION-V2.md font foi** (§9.13 bis et la section de chaque règle). En cas d'écart, le code a raison.
-> **Prochain numéro libre : I273, à vérifier sur `main` ET sur les PR ouvertes** (`gh pr list` puis grep « I27 » dans leurs diffs) avant d'en prendre un.
+> **Prochain numéro libre : I281 (I273 à I279 sont RÉSERVÉS : règles du mauvais jour et D2 ; I280 : « Le coach dit ce qu'il n'a pas lu »), à vérifier sur `main` ET sur les PR ouvertes** (`gh pr list` puis grep « I27 » dans leurs diffs) avant d'en prendre un.
 
 ## Table
 
@@ -110,6 +110,8 @@ Légende : **gras** = retiré ; « TROU » = numéro jamais défini ; « voir MO
 | I268 | Le rest-pause n'est plus dit ni nommé. FAIT FAUX dans l'original : « I268 libre » (puce I267) ; le numéro est pris | `Plan.verifierSansRestPause`, `v2-sans-rest-pause.test.js` | §9.33 | 21/11/2026 |
 | I269-I271 | La tête d'un exercice : 3 + 1 | `Plan.verifierTete`, `v2-simplifier-3plus1.test.js` | §9.53 | 21/11/2026 |
 | I272 | Le plancher de la dernière série (« Les chutes ») : visée jamais sous le niveau des séries d'avant (borné au haut de la zone, jamais au-dessus : D2), « une rep de plus » jamais sans dépasser la cible d'avant, la phrase se lit contre la ligne montrée (D1 : la ligne relue est celle de l'écran) | `Plan.verifierChutes`, `v2-chutes-plancher.test.js` | §9.2 ter | 25/11/2026, étendu le 26/11/2026 |
+| I273-I279 | RÉSERVÉS (27/11/2026) : règles du mauvais jour et D2, en cours ailleurs ; ne pas les prendre | — | — | 27/11/2026 |
+| I280 | Le coach dit ce qu'il n'a pas lu : le gris cite la dernière séance de l'exercice, ou la dernière séance est annoncée comme sautée au « Pourquoi ? » avec sa date et sa raison (sans coach, J'ai mal, décharge, jour sans, autre zone, autre routine, hors calcul) ; aucune consigne ne change | `Plan.verifierNonLues`, `v2-coach-dit-pas-lu.test.js` | §9.54 | 27/11/2026 |
 
 ### Numéros réservés, retirés, trous
 

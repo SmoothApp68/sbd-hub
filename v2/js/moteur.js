@@ -1003,7 +1003,8 @@
     if (c === null || b === null || c < b - 1e-9) return { ok: false };
     var reste = Math.round((c - b) / 2 * 100);
     if (Math.abs((c - b) / 2 * 100 - reste) > 1e-6 * Math.max(1, reste)) return { ok: false };
-    var ds = (presents || []).map(function (k) { return Math.round(k * 100); }).sort(function (x, y) { return y - x; });
+    // b2 (7) — un disque à 0 (ou négatif, ou illisible) n'existe pas : `Math.floor(r / 0)` est infini et la boucle ne finissait jamais.
+    var ds = (presents || []).map(function (k) { return Math.round(k * 100); }).filter(function (k) { return k > 0; }).sort(function (x, y) { return y - x; });
     var echecs = {};
     function chercher(r, i) {
       if (r === 0) return [];
@@ -2135,6 +2136,16 @@
   function neutraliserLeZero(se) {
     return { debut: se.debut, palier: null, neutre: true, series: se.series || [], plafondZero: se.plafondZero, decharge: se.decharge };
   }
+  // b2 (1) — « ta grosse série » et « tes reculs » du jour sans : deux lectures DISTINCTES (elles étaient la même expression). Les reculs : des séries de recul restées à 0 rep.
+  // La grosse série : une série non-recul restée à 0 (travail ou manquée), dans une séance qui a des reculs (« ta grosse série » seulement en bloc à reculs, MOTEUR §9.42 bis).
+  function reculsDuZero(series) {
+    return (series || []).some(function (x) { return !!x && x.origine === 'recul' && nombre(x.reps) === 0; });
+  }
+  function grosseDuZero(series) {
+    var liste = series || [];
+    var grosse = liste.some(function (x) { return !!x && x.origine !== 'recul' && nombre(x.reps) === 0 && (x.role === 'palier' || x.role === 'travail' || x.origine === 'echec'); });
+    return grosse && liste.some(function (x) { return !!x && x.origine === 'recul'; });
+  }
   // La séance de zéro `triees[i]` ouvre-t-elle un jour sans ? `legeres` : les séances légères passées d'avant (neutres), `jeton` : un jour sans ouvert, pas encore clos.
   // Rend `{ palier, charge, niveau, zoneBas, tenue, grosse, reculs }` ou `null`.
   function jourSansOuvrable(triees, i, legeres, jeton, opt, protegee) {
@@ -2154,8 +2165,7 @@
     if (lues.length < JOUR_SANS_LUES) return null;
     var zone = zoneParCle(base.zone);
     return { palier: P, charge: Ch, niveau: nombre(base.niveau), zoneBas: zone === null ? null : zone.bas,
-             tenue: lues[lues.length - 1].debut, grosse: (Z.series || []).some(function (x) { return x && x.origine === 'recul'; }),
-             reculs: (Z.series || []).some(function (x) { return x && x.origine === 'recul'; }) };
+             tenue: lues[lues.length - 1].debut, grosse: grosseDuZero(Z.series), reculs: reculsDuZero(Z.series) };
   }
   // « Elle passe » : au moins une série couverte (palier ou travail), et aucune sous le bas de la zone de `base` (`rateSousLaZone`, la notion partagée).
   function legerePasse(se, zoneBas, niveau) {
@@ -9359,8 +9369,12 @@
     var phrasePari = null;
     if (pari && nombre(pari.predite) !== null && nombre(pari.observee) !== null) {
       var pp = nombre(pari.predite), po = nombre(pari.observee);
-      phrasePari = 'Le coach avait parié que tes ' + nombreFr(pp, regle('programme.predite')) + ' exercices progresseraient' +
-        DEUX_POINTS + nombreFr(po, regle('programme.observee')) + (po > 1 ? ' ont progressé.' : ' a progressé.');
+      // b2 (6) — les pluriels : « ton exercice progresserait » (un seul exercice parié, jamais « tes 1 exercices »), « aucun n’a progressé » (jamais « 0 a progressé »).
+      var unSeul = pp === 1;
+      phrasePari = 'Le coach avait parié que ' + (unSeul ? 'ton exercice progresserait' : 'tes ' + nombreFr(pp, regle('programme.predite')) + ' exercices progresseraient') + DEUX_POINTS +
+        (po < 1 ? (unSeul ? 'il n’a pas progressé.' : 'aucun n’a progressé.')
+          : unSeul ? 'il a progressé.'
+          : nombreFr(po, regle('programme.observee')) + (po > 1 ? ' ont progressé.' : ' a progressé.'));
     }
     var suivant = blocSuivant(bloc, phases, objectif);
     if (phases) {
@@ -10998,7 +11012,7 @@
   function plancherDuCalage(equipement, salle) {
     var l = chargesDeLaSalle(salle);
     if (l.length) return l[0];
-    if (equipement === 'barre') return BARRE_VIDE;
+    if (equipement === 'barre') return barreDesChauffes();   // b2 (4) — la barre DÉCLARÉE (20 kg sans branchement), comme les chauffes
     var pas = repliDe(equipement, 0, 1);
     return pas === null || pas === undefined ? null : pas;
   }
@@ -12725,8 +12739,12 @@
   // `x` : { n, seance, quand (ms) } ; `maintenant` : ms. Pure.
   function chauffesEnSilence(x, maintenant) {
     if (!x || !(Number(x.n) >= CHAUFFE_REFUS_SILENCE)) return false;
+    // b2 (5) — PAS DE SILENCE SANS DATE : un refus sans date (une entrée d'avant les dates) ne peut pas échoir, donc ne met jamais en silence (il restait silencieux pour toujours, au
+    // lieu des quatre semaines que la phrase promet). Une horloge absente (`maintenant`) laisse, elle, le silence en place : le refus de la personne est respecté.
+    if (x.quand === null || x.quand === undefined || x.quand === '') return false;
     var q = Number(x.quand), t = Number(maintenant);
-    if (!isFinite(q) || !isFinite(t)) return true;
+    if (!isFinite(q)) return false;
+    if (!isFinite(t)) return true;
     return t - q < CHAUFFE_SILENCE_JOURS * 24 * 3600 * 1000;
   }
 
@@ -12743,7 +12761,6 @@
   function degressiveVide(phrase) {
     return { charge: null, vise: null, repos: null, phrase: phrase, gestes: GESTES_DEGRESSIVE_VIDE.slice() };
   }
-  var DISQUES = [25, 20, 15, 10, 5, 2.5, 1.25];
   var BAISSE_MIN_BARRE = 0.15, BAISSE_MAX_BARRE = 0.30;
   // Ce qu'on enlève de CHAQUE côté (kg), ou `null` si rien ne tombe dans la fenêtre.
   function disquesAEnlever(der, baisse) {
@@ -12751,8 +12768,12 @@
     var cible = der * (baisse || BAISSE_DEGRESSIVE) / 2;
     var dans = function (v) { return v >= bas && v <= haut; };
     // 190 — jamais un disque plus petit que le plus petit de la salle.
+    // b2 (3) — la liste standard (`DISQUES_STANDARD`, jusqu'à 0,25 kg) filtrée par la salle : une salle qui a des disques de 1 kg ou moins les voit. Salle inconnue : les disques
+    // de 1 kg et moins sont supposés absents (`DISQUES_ABSENTS_DEFAUT`), comme pour le cran de la barre.
     var plusPetit = plusPetitDisqueConnu();
-    var disques = DISQUES.filter(function (d) { return plusPetit === null || d >= plusPetit - 1e-9; });
+    var disques = DISQUES_STANDARD.filter(function (d) {
+      return plusPetit === null ? DISQUES_ABSENTS_DEFAUT.indexOf(d) < 0 : d >= plusPetit - 1e-9;
+    });
     var seul = disques.filter(dans).sort(function (a, b) {
       var da = Math.abs(a - cible), db = Math.abs(b - cible);
       return da !== db ? da - db : a - b;
@@ -13442,7 +13463,7 @@
     var kine = [], retenues = [];
     zones.forEach(function (z) {
       var t = MOBILITE_ZONES[z];
-      if (t.menagee && menager.indexOf(t.menagee) >= 0) { kine.push(t.accord + (/^Tes /.test(t.accord) ? ' sont' : ' est') + ' à ménager : pour l’étirer, demande l’avis d’un kiné.'); return; }
+      if (t.menagee && menager.indexOf(t.menagee) >= 0) { var pluriel = /^Tes /.test(t.accord); kine.push(t.accord + (pluriel ? ' sont' : ' est') + ' à ménager : pour ' + (pluriel ? 'les ' : 'l’') + 'étirer, demande l’avis d’un kiné.'); return; }   // b2 (6) : « Tes épaules … pour les étirer »
       var fait = Number(faites[z]) > 0 ? Number(faites[z]) : 0;
       if (fait >= MOBILITE_CIBLE_MIN) return;
       var servie = t.muscles.some(function (m) { return muscles.indexOf(m) >= 0; });
@@ -14165,7 +14186,11 @@
   var RATE_FORME_FLANCHENT = 2;         // la forme du jour : 2 exercices qui flanchent…
   var RATE_FORME_SUR = 3;               // … sur les 3 derniers
   var RATE_PARIS_A_LA_SUITE = 2;        // deux séances de suite où le pari n'a pas tenu
-  var RATE_PAS_PAR_DEFAUT = { barre: 2.5, machine: 2.5, machine_smith: 2.5, poulie: 2.5, haltere: 2, haltere_seul: 1 };   // 16/11/2026 : un bras, l'haltère tenu, +1 kg ; 245 (D-H5) — haltères : la PAIRE, +1 kg par main, aligné sur REPLI_MATERIEL.haltere.pas
+  // b2 (2) — UNE SEULE TABLE DE CRANS DE REPLI : `REPLI_MATERIEL` (§10.2). La table propre à la réaction la recopiait et divergeait (machine 2,5 contre 5 kg, kettlebell 2,5
+  // contre 4) : un « Prends X kg » se calculait sur un cran que la salle ne fait pas. Matériel inconnu : 2,5 kg, comme avant.
+  function pasDeRepliDe(materiel) {
+    return Object.prototype.hasOwnProperty.call(REPLI_MATERIEL, materiel) ? REPLI_MATERIEL[materiel].pas : REPLI_MATERIEL.barre.pas;
+  }
 
   function rateReglage(r) { return r === 'prudent' || r === 'franc' ? r : 'normal'; }
   // 16/11/2026 (MOTEUR §9.39 delta, I216) — LE PLANCHER DE LA RÉACTION : le « garde N » d'une réaction au raté n'est jamais sous la réserve AFFICHÉE de la
@@ -14307,7 +14332,7 @@
     }
     var prudent = reg === 'prudent' || fiche.prudente;
     var pas = nombre(c.pas);
-    if (pas === null || pas <= 0) pas = RATE_PAS_PAR_DEFAUT[c.materiel] || 2.5;
+    if (pas === null || pas <= 0) pas = pasDeRepliDe(c.materiel);
     var kgBaisse = null, fourchette;
     if (baisse && !corps) {
       var marge = reserve === null ? 0 : reserve;
@@ -14417,7 +14442,7 @@
     if (n === null || n < RATE_PARIS_A_LA_SUITE) return silence('tenu');
     var ch = nombre(c.charge), reps = nombre(c.reps);
     if (ch === null || reps === null) return silence('sans_chiffres');
-    var dessous = rateSousLeCran(ch, nombre(c.pas) || RATE_PAS_PAR_DEFAUT[c.materiel] || 2.5);
+    var dessous = rateSousLeCran(ch, nombre(c.pas) || pasDeRepliDe(c.materiel));
     if (dessous === null) return silence('rien_dessous');
     return { niveau: 'paris', cas: 'P', silence: false, n: n, palier: { charge: ch, reps: reps },
              cran: { charge: dessous, reps: reps }, boutons: ['cran', 'retente'] };
@@ -14873,6 +14898,7 @@
     SEANCES_DU_PLAFOND: SEANCES_DU_PLAFOND,
     // 236 (§9.39) — le coach en temps réel après un raté : UNE fonction de décision, ses mots, ses constantes
     reactionAuRate: reactionAuRate,
+    pasDeRepliDe: pasDeRepliDe,
     phraseDeRate: phraseDeRate,
     boutonDeRate: boutonDeRate,
     // 251 — la porte du cran (une décision, ses mots) et la notion « sous la zone » partagée.

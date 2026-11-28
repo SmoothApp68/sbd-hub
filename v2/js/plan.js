@@ -9102,7 +9102,7 @@
   //   · I95 — le bloc de fin : deux zones au plus, des zones déclarées raides, aucune qui a déjà ses 10 minutes de la semaine ; des
   //     tenues de 30 à 60 s, 3 séries au plus par exercice ; le bloc ne dépasse pas ce qui manque à la zone (10 minutes) ;
   //   · I96 — une zone raide qui est aussi à ménager (profil, ou « J'ai mal » récent sur un exercice qui la charge) ne reçoit aucun
-  //     exercice : le plan dit à la place « … à ménager : pour l'étirer, demande l'avis d'un kiné. » ; aucun exercice choisi ne charge une
+  //     exercice : le plan dit à la place « … à ménager : pour l'étirer (« les étirer » au pluriel), demande l'avis d'un kiné. » ; aucun exercice choisi ne charge une
   //     articulation à ménager ;
   //   · I97 — « J'ai peu de temps » retire le bloc d'abord : aucun bloc, avant ni fin, dans une séance raccourcie ;
   //   · I98 — la consigne du bloc est « Sans douleur : une tension nette, pas plus. » ; jamais « récupération », « courbatures » ni

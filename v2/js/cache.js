@@ -31,14 +31,17 @@
   //   126 — la recherche d'exercice les cherche hors ligne). Sans perte : un
   //   cache d'avant s'ouvre, le magasin naît vide et se remplit à la
   //   synchronisation suivante.
-  var VERSION = 8;
+  // VERSION 9 : ajout de `routines` (la copie des routines AVEC leurs exercices et séries, telles que `Donnees.mesRoutines` les rend :
+  //   à froid sans réseau, on démarre depuis elle). Sans perte : un cache d'avant s'ouvre, le magasin naît vide et se remplit à la
+  //   première lecture réussie. Rafraîchi en entier (`remplacerTout`) ; l'ÉCRITURE d'une routine reste en ligne.
+  var VERSION = 9;
   // ⚠️ C'EST CETTE LISTE QUE « QUITTER » VIDE (`viderTout`) : un magasin qui
   // n'y est pas survit à la déconnexion et se relit sous le compte suivant.
   // `records` (58-2) y est ; `predictions` y manquait (relevé de sécurité 59-0)
   // et y est depuis 59-2. Tout magasin créé plus bas doit y figurer — le test
   // `v2-cache-integrite` le vérifie, magasin par magasin.
   var MAGASINS = ['seances', 'series', 'exercices', 'pesees', 'meta', 'zones', 'modes',
-                  'brouillon', 'attente', 'records', 'predictions', 'alias'];
+                  'brouillon', 'attente', 'records', 'predictions', 'alias', 'routines'];
   var LOT = 500;
   var _db = null;
   // ⚠️ 117 (audit du 16/10, 06 #7) — UNE AUTRE PAGE QUI GARDE L'ANCIENNE VERSION OUVERTE.
@@ -139,6 +142,9 @@
         // 126 — LES NOMS ALTERNATIFS COMMUNS (`exercise_alias`), la clé de la base (`alias`, le nom tel quel). Partagés
         // comme le catalogue, rafraîchis en entier comme lui (`remplacerTout`).
         if (!db.objectStoreNames.contains('alias')) db.createObjectStore('alias', { keyPath: 'alias' });
+        // 28/11/2026 — LA COPIE DES ROUTINES (compte-dépendante : elle est dans `MAGASINS`, donc vidée par « Quitter » et par le changement
+        // de compte). Clé : l'identifiant de la routine ; exercices et séries restent imbriqués dans l'enregistrement.
+        if (!db.objectStoreNames.contains('routines')) db.createObjectStore('routines', { keyPath: 'id' });
       };
       req.onsuccess = function () {
         if (minuteur) clearTimeout(minuteur);

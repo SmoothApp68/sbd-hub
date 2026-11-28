@@ -1146,10 +1146,10 @@
     if (changement && changement.rendue && changement.rendue.length) {
       console.warn('File d\u2019envoi rendue à ce compte : ' + changement.rendue.length + ' envoi(s) gardé(s) depuis sa dernière visite.');
     }
-    // Les routines ne sont pas dans le cache, mais elles appartiennent au
+    // Les routines (leur copie locale, magasin `routines`, vient d'être vidée avec les autres par `changerDeCompte`) appartiennent au
     // compte précédent : les laisser en mémoire montrerait la bibliothèque de
     // quelqu'un d'autre le temps d'une requête.
-    routines = []; generationRoutines++; brouillon = null; etatRoutines = { code: 'jamais', message: '' }; derniereLectureRoutines = 0;
+    routines = []; generationRoutines++; brouillon = null; etatRoutines = { code: 'jamais', message: '' }; derniereLectureRoutines = 0; routinesDuTelephone = false;
     // La séance en cours et la file appartiennent au compte précédent. Le
     // changement de compte ci-dessus a vidé leurs magasins (la file, gardée à
     // part pour lui) ; on remet la mémoire d'accord avec le disque.
@@ -13470,13 +13470,17 @@
 
   // ══ 155 — L'APP RELIT LES ROUTINES AU RETOUR (décision d'Aurélien du 24/10/2026) ══
   //
-  // Les routines n'ont pas de cache et `synchroniser` ne les lisait jamais : une routine changée ailleurs
+  // (Depuis le 28/11/2026 elles ont une copie locale, `cache.js` magasin `routines` : voir `chargerRoutines`.)
+  // Les routines n'avaient pas de cache et `synchroniser` ne les lisait jamais : une routine changée ailleurs
   // n'apparaissait qu'au rechargement de la page. À la ré-entrée (retour au premier plan), on relit — au plus
   // une fois par minute, JAMAIS pendant une séance ni quand l'éditeur d'une routine (ou une feuille de
   // renommage / duplication) est ouvert : on n'écrase pas ce qu'on modifie. Un échec garde l'affichage. On ne
   // remplace `routines` que si la signature a changé.
   var RELECTURE_ROUTINES_MS = 60000;
   var derniereLectureRoutines = 0;
+  // 28/11/2026 — vrai quand `routines` vient de la COPIE DU TÉLÉPHONE (le réseau a manqué) : le retour du réseau la relit sans attendre
+  // la minute de `relireRoutinesAuRetour`, et la remplace (la copie aussi). Une copie n'est jamais présentée comme fraîche en base.
+  var routinesDuTelephone = false;
   // 164 — GÉNÉRATION DES ROUTINES : +1 à chaque fois que `routines` est remplacée par `chargerRoutines` (après une écriture
   // locale, un import, une création) ou vidée (changement de compte). La relecture lit le compteur AVANT sa requête et jette
   // sa réponse s'il a bougé : une réponse lente, partie avant l'écriture, n'écrase pas la liste qui l'a suivie.
@@ -13512,6 +13516,8 @@
       // 164 — …ou une écriture locale a pu être relue (`chargerRoutines`) : cette réponse est plus vieille qu'elle.
       if (generation !== generationRoutines) return false;
       var neuves = brutes.map(normaliserRoutine);
+      memoriserLesRoutines(brutes);
+      routinesDuTelephone = false;
       if (signatureDesRoutines(neuves) === signatureDesRoutines(routines)) return false;
       routines = neuves;
       return true;
@@ -13553,6 +13559,17 @@
     chargerRoutines().catch(function () { /* hors ligne : la séance reste muette sur ce qui dépend des routines */ });
   }
 
+  // 28/11/2026 — LA COPIE DES ROUTINES (`cache.js`, magasin `routines`). Écrite après chaque lecture réussie, relue quand le réseau manque.
+  // Un échec d'écriture ne coûte rien : la copie reste l'ancienne. Les routines sont rendues telles que la base les a (avant `normaliserRoutine`).
+  function memoriserLesRoutines(brutes) {
+    return Cache.remplacerTout('routines', brutes || []).catch(function (e) {
+      console.warn('Copie des routines non écrite :', texteErreur(e));
+    });
+  }
+  function routinesDeLAppareil() {
+    return Cache.lireTout('routines').catch(function () { return []; });
+  }
+
   async function chargerRoutines() {
     var etaientPretes = routinesPretes();
     etatRoutines = { code: 'charge', message: '' };
@@ -13564,11 +13581,28 @@
       var brutes = await Donnees.mesRoutines();
       routines = brutes.map(normaliserRoutine);
       generationRoutines++;
+      routinesDuTelephone = false;
       etatRoutines = { code: 'ok', message: '' };
       derniereLectureRoutines = Date.now();
+      memoriserLesRoutines(brutes);
       if (!etaientPretes) relireLaSeanceAvecLesRoutines();
       return true;
     } catch (e) {
+      // Le réseau manque : la copie du téléphone sert (dernière lecture réussie de CE compte, vidée au changement de compte), tant que
+      // rien n'est déjà affiché. Elle n'est pas une preuve que la base n'a pas bougé : le retour du réseau la relit (`routinesDuTelephone`).
+      if (!routines.length) {
+        var gardees = await routinesDeLAppareil();
+        if (gardees.length) {
+          routines = gardees.map(normaliserRoutine);
+          generationRoutines++;
+          routinesDuTelephone = true;
+          etatRoutines = { code: 'ok', message: '' };
+          derniereLectureRoutines = 0;
+          console.warn('Routines lues sur le téléphone (réseau absent) :', texteErreur(e));
+          if (!etaientPretes) relireLaSeanceAvecLesRoutines();
+          return true;
+        }
+      }
       // On ne vide pas `routines` : ce qu'on avait affiché reste affiché. Un
       // écran qui se vide sur une panne de réseau fait croire à une perte.
       etatRoutines = { code: 'echec', message: texteErreur(e) };
@@ -21262,7 +21296,11 @@
     // a répondu entre-temps (`questionnaire_fait_le`, objectif, priorités).
     racine.addEventListener('online', renvoyerCeQuiAttend);
     // F2 — les routines qui n'ont pas pu se lire hors ligne : le réseau revient, la séance en cours les relit (et se redessine, sans écrire).
-    racine.addEventListener('online', function () { retenterLesRoutines(true); });
+    racine.addEventListener('online', function () {
+      retenterLesRoutines(true);
+      // Les routines lues sur le téléphone : relues et remplacées dès le retour du réseau (sans attendre la minute).
+      if (routinesDuTelephone) { derniereLectureRoutines = 0; relireRoutinesAuRetour().then(function (change) { if (change && ecranCourant === 'saisie') rendreSaisie(); }).catch(function () {}); }
+    });
     // 134 (I-13, audit iPhone) — LE RETOUR AU PREMIER PLAN, PAR LE MÊME CHEMIN. iOS n'a pas de Background Sync, et ne
     // délivre pas toujours `online` à la reprise : une séance finie hors ligne, l'app rouverte plus tard avec du
     // réseau, n'attendait plus que le prochain geste. Hors ligne, rien : `online` s'en chargera.

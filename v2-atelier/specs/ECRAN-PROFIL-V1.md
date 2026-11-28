@@ -44,7 +44,7 @@ sur ses mérites. Les cinq utilisateurs ressaisissent — deux minutes.
 > **14/10/2026 (prompt 92).** Le poids se saisit aussi depuis le Profil (ligne Poids), par le même chemin que le questionnaire.
 
 **Le pas de progression n'est pas demandé** (sauf « Ma salle », §2.4 quinquies, 15/10/2026 : les barres fixes et les
-haltères que la salle a, pour qui veut les déclarer). Mesuré le 16/09 sur l'historique d'aurel_br :
+haltères que la salle a, pour qui veut les déclarer). Mesuré le 16/09 sur l'historique du compte A :
 machines 7 kg, barres 5, haltères 4, poulies 2,2. **Il dépend du matériel, pas de la
 personne**, et il se lit dans les charges. On ne demande pas ce qu'on peut observer. Quand
 l'historique ne donne pas le pas, le moteur applique le repli du MOTEUR §10.2 : barre et Smith
@@ -135,7 +135,7 @@ Maquette validée par Aurélien le 15/10/2026 : `v2-atelier/maquettes/maquette-s
 - Le coach ne propose jamais une charge que la salle n'a pas, pour les exercices à barre fixe (barre EZ, barre droite légère : utilise la donnée du catalogue qui dit le matériel, et dis laquelle ; une barre olympique chargée de disques n'est pas concernée) et aux haltères : ses propositions sont arrondies aux charges déclarées (même logique que le repli sur les machines du §10.2).
 - Quand le programme demande plus que la salle n'a : le coach fait progresser en reps à la charge maximale, puis en séries, et le dit : « 30 kg, la plus lourde de ta salle : on monte en reps. » Jamais une charge introuvable.
 - La dégressive à barre fixe : « Prends la barre de 20 kg. » au lieu de « Enlève … de chaque côté ».
-- Cas réel d'Aurélien (Basic-Fit) : curl EZ, barres de 10 à 30 kg de 5 en 5 ; au-dessus de 30 impossible.
+- Cas réel d'une salle de grande enseigne : curl EZ, barres de 10 à 30 kg de 5 en 5 ; au-dessus de 30 impossible.
 
 **L'écran (108).** Une ligne **« Ma salle »** dans « CE QUE JE FAIS », sous « Matériel », avec la phrase « Non
 renseigné : le coach suppose qu'on peut ajouter des disques, comme aujourd'hui. » ; sa valeur dit ce qui est déclaré
@@ -284,7 +284,7 @@ partent pas, et ce choix-là n'est pas retenu. « Importer » attend que chaque 
 | Verdict | Quand | Dans l'aperçu |
 |---|---|---|
 | **déjà là** | même `source_ref`, **ou** même minute de début, quelle que soit l'origine | grisée, « Déjà dans l'app — laissée telle quelle », jamais écrite |
-| **sans doute la même** | elle **chevauche** une séance de la personne — chacune commence avant que l'autre finisse ; fin inconnue, d'un côté ou de l'autre : 3 h au plus, MOTEUR §12.2 bis — **et** partage au moins un exercice avec elle (corrigé le 12/10/2026, chantier 81 : « commence pendant » laissait passer la séance démarrée dans Hevy avant l'app — 4 doublons sur l'export d'aurel_br, jusqu'à 50 min d'avance) | **décochée**, « Une séance de l'app commence à 17 h 40 ce jour-là : sans doute la même. » ; cochable |
+| **sans doute la même** | elle **chevauche** une séance de la personne — chacune commence avant que l'autre finisse ; fin inconnue, d'un côté ou de l'autre : 3 h au plus, MOTEUR §12.2 bis — **et** partage au moins un exercice avec elle (corrigé le 12/10/2026, chantier 81 : « commence pendant » laissait passer la séance démarrée dans Hevy avant l'app — 4 doublons sur l'export du compte A, jusqu'à 50 min d'avance) | **décochée**, « Une séance de l'app commence à 17 h 40 ce jour-là : sans doute la même. » ; cochable |
 | **nouvelle** | sinon | cochée |
 
 Deux activités qui se suivent (un run de 8 h à 10 h, un autre à 12 h ; deux séances enchaînées) ne se chevauchent

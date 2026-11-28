@@ -239,11 +239,11 @@ Sur les exercices sans tonnage (gainages, planches), le progrès se lit sur **de
 
 **+5,9 %.** Ce sont tes 482 séries de tractions et de dips qui pesaient zéro kilo jusqu'ici.
 
-> **Historique des chiffres de cette session, laissé visible.** +12 % (quatre régimes, poids fixe à 98 kg — faux, voir §4 bis) → +10,7 % (quatre régimes, poids daté) → +10,8 % (ajout de dips banc et rowing inversé) → **+5,9 % (règle du suspendu, décision finale)**. Trois révisions en une soirée, chacune motivée par une objection d'Aurélien.
+> **Historique des chiffres de cette session, laissé visible.** +12 % (quatre régimes, poids fixe — faux, voir §4 bis) → +10,7 % (quatre régimes, poids daté) → +10,8 % (ajout de dips banc et rowing inversé) → **+5,9 % (règle du suspendu, décision finale)**. Trois révisions en une soirée, chacune motivée par une objection d'Aurélien.
 
-> **Écart résolu (23/08, vérification en base).** Les ~75 000 kg affichés par l'app v1 ne sont **pas un bug**. La colonne `volume` de `workout_sessions` totalise **7 262 t sur 557 séances** pour aurel_br, contre **7 386 t** pour le calcul à la règle du suspendu — moins de **2 %** d'écart, imputable aux ~25 séances absentes de la base. Le calcul de la v1 est juste.
+> **Écart résolu (23/08, vérification en base).** Les ~75 000 kg affichés par l'app v1 ne sont **pas un bug**. La colonne `volume` de `workout_sessions` totalise **environ 7 300 t sur plus de 550 séances** pour le compte A, contre **un chiffre voisin** pour le calcul à la règle du suspendu — moins de **2 %** d'écart, imputable aux ~25 séances absentes de la base. Le calcul de la v1 est juste.
 >
-> L'explication est ailleurs : les **bonnes** semaines sont réellement à **74,5 · 76,5 · 76,2 · 73,8 · 78,8 t** (5 à 7 séances). La moyenne tombe à **56,7 t** parce qu'elle avale les semaines à 2-4 séances (22,8 · 27,6 · 36,5 · 35,2 · 38,9 t). Moyenne réelle : **4,4 séances/semaine**, pic à 144,9 t sur 128 semaines.
+> L'explication est ailleurs : les **bonnes** semaines sont réellement autour de **75 t** (5 à 7 séances). La moyenne tombe autour de **57 t** parce qu'elle avale les semaines à 2-4 séances (de l'ordre de 25 à 40 t). Moyenne réelle : **de l'ordre de 4 séances/semaine**.
 >
 > ⚠️ **Leçon de design, à appliquer au schéma et aux écrans.** Une **moyenne** hebdomadaire calculée sur un historique irrégulier produit un chiffre que l'utilisateur ne reconnaît pas — il se souvient de ses bonnes semaines, pas de sa moyenne. Préférer la **médiane**, ou une moyenne restreinte aux **semaines pleines**. C'est le même mécanisme que le « mur de rouge » : un chiffre exact mais non reconnaissable détruit la confiance aussi sûrement qu'un chiffre faux.
 
@@ -392,7 +392,7 @@ Tes séries lourdes te décrivent bien. Tes séries légères te sous-estiment �
 
 > **Le max estimé donne le plafond. La table individuelle donne combien de répétitions à chaque pourcentage de ce plafond.** Les deux vont ensemble, ils ne s'opposent pas.
 
-Sans table individuelle, l'app te prescrit 14 répétitions à 98 kg au couché. Tu en fais 10, tu « échoues », et l'algorithme croit que tu régresses. **C'est exactement le 122,5 × 7 qui t'a mis au tapis.**
+Sans table individuelle, l'app te prescrit 14 répétitions à ~100 kg au couché. Tu en fais 10, tu « échoues », et l'algorithme croit que tu régresses. **C'est exactement le cas d'une série lourde à 7 reps qui met en échec.**
 
 ### La grille v1 est conservée — c'est ce qui change autour d'elle qui compte
 
@@ -434,7 +434,7 @@ Quatre points avaient été décidés faute d'avoir posé la question. Tous ont 
 
 | Point | Ma décision initiale | Issue |
 |---|---|---|
-| **Dips banc, rowing inversé** | hors tonnage, car « 9 séries en 3 ans » | ❌ **Réfuté.** Compter *les séries d'Aurélien* est exactement le biais que ce document dénonce : ce sont des exercices de progression, davantage utilisés par les femmes, et Léa est une utilisatrice réelle. → Passés dans le tonnage, puis ramenés à zéro par la règle du suspendu (§4), pour une raison différente et meilleure |
+| **Dips banc, rowing inversé** | hors tonnage, car « 9 séries en 3 ans » | ❌ **Réfuté.** Compter *les séries d'un seul compte* est exactement le biais que ce document dénonce : ce sont des exercices de progression, davantage utilisés par les femmes, et une utilisatrice réelle en fait. → Passés dans le tonnage, puis ramenés à zéro par la règle du suspendu (§4), pour une raison différente et meilleure |
 | **Épaules en une seule case** | suivi de Hevy | ❌ **Réfuté.** Découpé en trois faisceaux — voir §3 bis. Le déséquilibre avant/arrière était de 3 pour 1 et complètement masqué |
 | **Pompes prise serrée** = pompes diamant | un seul exercice, deux primaires | ❌ **Réfuté.** Deux exercices distincts chez Hevy, attribution musculaire différente. Voir §4 ter |
 | **Épaulé-jeté** | 3 primaires : fessiers, quadriceps, trapèzes | ✅ **Non contesté.** La mesure EMG met les fessiers au niveau des quadriceps. Hevy affiche « corps entier », case supprimée du comptage |

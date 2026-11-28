@@ -81,7 +81,7 @@ de bord) ; les six colonnes `profiles.visibility_*` du v1 ; **on ne renomme jama
 
 | Migration | Ce qu'elle fait |
 |---|---|
-| `v2_098` (catalogue complet) | Préalable `V2-098-AVANT-SUPPRESSIONS` (DELETE de 6 records d'aurel_br sur `oiseau_penche_haltere` et de 7 alias faux ou illisibles). 480 → **859 exercices** (379 ajoutés, chacun avec sa description `claude`), 174 renommages selon « Mouvement Variante (Matériel) » (les slugs ne changent pas ; l'ancien nom devient un alias source `app`), **961 alias** (9 déplacés, 640 ajoutés ; aucun nom ni alias porté par deux exercices, ponctuation ignorée) ; colonne **`exercises.hors_salle`** (boolean NOT NULL, défaut false ; 27 exercices : natation, course, rando, vélo, ski, sports collectifs, escalade, boxe…) ; `schema_mouvement` posé sur 10 gainages (abdos ; Gainage Copenhague : adducteurs) ; fusions : les séries de `gainage` → `planche` (nom « Gainage ») et de `oiseau_penche_haltere` → `oiseau_haltere` ; 7 exercices `actif = false` (les deux fusionnés et 5 jamais utilisés) ; Pilates en `mobilite` |
+| `v2_098` (catalogue complet) | Préalable `V2-098-AVANT-SUPPRESSIONS` (DELETE de 6 records du compte A sur `oiseau_penche_haltere` et de 7 alias faux ou illisibles). 480 → **859 exercices** (379 ajoutés, chacun avec sa description `claude`), 174 renommages selon « Mouvement Variante (Matériel) » (les slugs ne changent pas ; l'ancien nom devient un alias source `app`), **961 alias** (9 déplacés, 640 ajoutés ; aucun nom ni alias porté par deux exercices, ponctuation ignorée) ; colonne **`exercises.hors_salle`** (boolean NOT NULL, défaut false ; 27 exercices : natation, course, rando, vélo, ski, sports collectifs, escalade, boxe…) ; `schema_mouvement` posé sur 10 gainages (abdos ; Gainage Copenhague : adducteurs) ; fusions : les séries de `gainage` → `planche` (nom « Gainage ») et de `oiseau_penche_haltere` → `oiseau_haltere` ; 7 exercices `actif = false` (les deux fusionnés et 5 jamais utilisés) ; Pilates en `mobilite` |
 | `v2_099` (échelle) | **`exercises.echelle`** (text, `^[a-z_]{1,40}$`) et **`echelle_rang`** (smallint 1-20 ; contrainte `exercises_echelle_ok` : les deux vides ensemble ; index partiel `exercises_echelle_idx`) — 36 exercices, 6 échelles (tractions, tractions_supination, dips_torse, dips_triceps, pompes, muscle_up) ; **`exercises.barre_charge_fixe`** (boolean NOT NULL, défaut false ; `exercises_barre_charge_fixe_ok` : seulement si `equipement = 'barre'` ; 21 exercices) — à ne pas confondre avec `barre_fixe` du générateur (la barre de traction) ; `profiles_ma_salle_ok` accepte deux clés de plus, **`elastiques`** (liste de 10 au plus, du plus fort au plus léger, `{nom, kg?}`, contrainte séparée `profiles_ma_salle_elastiques_ok`) et **`elastiques_par_nom`** (boolean) ; **`profiles.marche_reponses`** (jsonb, par exercice de départ `{r: oui|non, le, aide?}`, `profiles_marche_reponses_ok`) |
 | `v2_100` (sécurité) | `EXECUTE` retiré à PUBLIC, anon et authenticated sur les fonctions de déclencheur `abonnements_avant_ajout`, `abonnements_avant_modif`, `blocages_apres_ajout` (un déclencheur se déclenche sans ce droit) ; les 7 règles de `abonnements`, `blocages`, `reactions_seance` passent de `public` à **`authenticated`** ; `reactions_ajout` et `reactions_guilde` fusionnées en une règle d'ajout : `user_id = auth.uid() AND (social_peut_reagir(session_id) OR guilde_peut_reagir(session_id))` |
 
@@ -132,7 +132,7 @@ d'index sur `sets.exercise_slug`. Une migration de sécurité est décidée (17/
 | `v2_087_groupe_fin` | `groupes.fini_le` ; `groupe_fin_de_seance`, `groupe_fini_le`, `groupe_recap_json`, `groupe_figer`, `groupe_entretien`, `groupe_liberer`, `groupe_envoyer(p_texte, p_groupe, p_id)` |
 | `v2_088_ma_salle` | `profiles.ma_salle` (jsonb, NULL = non déclarée ; contrainte `profiles_ma_salle_ok`) |
 | `v2_089_objectifs` | Table `objectifs` (user_id, exercise_slug, charge_kg, reps, pose_le, depart_kg, projection, echeance, pari_id ; clé user_id+exercise_slug ; règle propriétaire `objectifs_miens`) |
-| `v2_090_fin_seances_hevy` | **Données** : heure de fin de 7 séances Hevy d'aurel_br (19/09 → 02/10), perdues par les rattrapages manuels d'avant l'import de l'app |
+| `v2_090_fin_seances_hevy` | **Données** : heure de fin de 7 séances Hevy du compte A (19/09 → 02/10), perdues par les rattrapages manuels d'avant l'import de l'app |
 
 **Règles d'accès.** Les tables de la guilde et du groupe n'ont **aucune règle** : elles ne se lisent et ne s'écrivent
 que par des fonctions SECURITY DEFINER (`search_path` figé, fermées à anon). `abonnements`, `blocages`,
@@ -399,7 +399,7 @@ routine orpheline. Ce qui a été fait :
 **Import du 15/09** : 13 séances et 301 séries du 31/08 au 15/09, depuis l'export Hevy. Elles
 portent `source = 'hevy'` — **ce sont les dernières couvertes par le filet de l'export.**
 
-**5 routines créées** pour `aurel_br`, construites sur les séances d'août-septembre : lundi
+**5 routines créées** pour le compte A, construites sur les séances d'août-septembre : lundi
 quads, mardi pecs-dos, jeudi épaules-bras, vendredi ischios, samedi haut du corps. Plus
 « Test superset » conservée pour les essais.
 

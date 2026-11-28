@@ -50,7 +50,7 @@ trois poids, **une seule table** (`THSemaine.POIDS_DES_MUSCLES`, lue par `THSema
 - **Ce que la mesure a fait monter** : au squat barre (et ses variantes avec pause, élastique et pin), les fessiers et les
   adducteurs deviennent **principaux** (Kubo 2019, squat complet : +6,7 % et +6,2 %, du même ordre que les quadriceps).
 - **Effet mesuré sur l'historique réel** (5 profils) : de 0,7 à 2,7 % des décisions du coach changent (63 sur 3 055
-  pour Aurélien). Le jeu : un niveau de moins au plus sur un muscle, sauf le Tronc (jusqu'à deux de moins), qui avait
+  pour le compte A). Le jeu : un niveau de moins au plus sur un muscle, sauf le Tronc (jusqu'à deux de moins), qui avait
   reçu les abdominaux à ½ avec v2_067 et les garde à ¼.
 - **Un polyarticulaire** compte ses muscles **dans les trois listes** (au moins 3) : aucun exercice ne change de classe.
 - La série de plus (MOTEUR §14.6) regarde toujours les seuls muscles **principaux** ; les chauffes (« premier sur ses
@@ -60,7 +60,7 @@ trois poids, **une seule table** (`THSemaine.POIDS_DES_MUSCLES`, lue par `THSema
 
 ## 2. Pourquoi pas un seuil universel
 
-Le référentiel §5.2 autorise un signalement de volume insuffisant seulement « très en dessous de ~10 séries par semaine et par muscle ». Testé sur le profil réel d'Aurélien, trois derniers mois :
+Le référentiel §5.2 autorise un signalement de volume insuffisant seulement « très en dessous de ~10 séries par semaine et par muscle ». Testé sur le profil de référence assidu, trois derniers mois :
 
 | Muscle | Séries dures mesurées / sem. |
 |---|---|
@@ -93,7 +93,7 @@ Variabilité naturelle du volume hebdomadaire par muscle, mesurée sur 2 ans :
 
 Le coude est à 3 semaines. Au-delà, lisser davantage ne gagne presque rien tout en retardant la détection.
 
-**Point capital :** même à 6 semaines il reste 42 % de variation. **Ce n'est pas du bruit de mesure, c'est la vraie variabilité d'entraînement d'Aurélien.** Elle ne disparaîtra jamais. Tout seuil qui ignore cette amplitude produira des faux signaux en permanence.
+**Point capital :** même à 6 semaines il reste 42 % de variation. **Ce n'est pas du bruit de mesure, c'est la vraie variabilité d'entraînement du profil de référence.** Elle ne disparaîtra jamais. Tout seuil qui ignore cette amplitude produira des faux signaux en permanence.
 
 Exemple concret — pectoraux : médiane 17 séries/semaine, mais une semaine sur dix tombe à 8 et une autre monte à 26. **Passer de 17 à 10 est parfaitement normal.**
 
@@ -169,7 +169,7 @@ v1 ne disait rien du tonnage. Ce silence a laissé prospérer une distorsion maj
 
 ### 9.1 Ce qui a été mesuré
 
-Tonnage moyen produit par **une seule série**, sur l'historique complet d'Aurélien :
+Tonnage moyen produit par **une seule série**, sur l'historique complet du profil de référence :
 
 | Exercice | Séries | Kg par série |
 |---|---|---|
@@ -231,9 +231,9 @@ La distinction n'est pas l'amplitude, qui est une affaire de degré, mais **le d
 
 Et par le §9.2, une amplitude partielle n'est **jamais** comparée en tonnage à son exercice parent. Un rack pull se compare à un rack pull. Jamais à un soulevé de terre complet.
 
-### Cas d'école — Jordan, 30 janvier 2026
+### Cas d'école — un compte, janvier 2026
 
-Quatre séries à 220–260 kg, saisies sous « squat sumo », annotées « Rack pull », et qui étaient en réalité des pin squats à taquets très hauts. Ni le nom ni la note n'étaient exacts ; il a fallu demander à Jordan.
+Quatre séries à 220–260 kg, saisies sous « squat sumo », annotées « Rack pull », et qui étaient en réalité des pin squats à taquets très hauts. Ni le nom ni la note n'étaient exacts ; il a fallu demander à la personne.
 
 Ces quatre séries pèsent 2 340 kg, soit près d'un cinquième d'une de ses séances typiques (12 243 kg), pour une course d'une quinzaine de centimètres.
 
@@ -249,11 +249,11 @@ Les trois points laissés ouverts par la v2 sont tranchés. Toutes les mesures p
 
 | Profil | Muscles suivis | Volume moyen / semaine active | Variation d'une semaine à l'autre |
 |---|---|---|---|
-| aurel_br | 18 | 14,2 séries | **0,64** |
-| jordan | 16 | 13,7 | 0,60 |
-| alexis | 17 | 8,7 | 0,59 |
-| lea | 17 | 6,8 | **0,64** |
-| melodie | 17 | 5,9 | 0,57 |
+| compte A | 18 | 14,2 séries | **0,64** |
+| compte B | 16 | 13,7 | 0,60 |
+| compte D | 17 | 8,7 | 0,59 |
+| compte C | 17 | 6,8 | **0,64** |
+| compte E | 17 | 5,9 | 0,57 |
 
 Le volume varie d'un facteur 2,4 entre le premier et le dernier. **La variation relative, elle, est la même pour tous — 0,57 à 0,64.** Chacun oscille d'environ 60 % autour de sa propre moyenne, quels que soient son niveau, sa fréquence et son objectif.
 
@@ -267,11 +267,11 @@ Objection examinée : la sélection d'exercices change tout le temps (on retire 
 
 | Profil | Variation par muscle | Variation par exercice | Semaines actives où l'exercice est absent |
 |---|---|---|---|
-| aurel_br | 0,64 | **1,93** | 68 % |
-| lea | 0,64 | 1,66 | 66 % |
-| alexis | 0,59 | 1,45 | 61 % |
-| jordan | 0,60 | 1,34 | 47 % |
-| melodie | 0,57 | 1,32 | 58 % |
+| compte A | 0,64 | **1,93** | 68 % |
+| compte C | 0,64 | 1,66 | 66 % |
+| compte D | 0,59 | 1,45 | 61 % |
+| compte B | 0,60 | 1,34 | 47 % |
+| compte E | 0,57 | 1,32 | 58 % |
 
 **L'exercice est trois fois plus instable que le muscle.** Même en ne retenant que les exercices pratiqués au moins 12 semaines, un exercice donné est absent de **deux semaines actives sur trois**. La rotation n'est pas un artefact, c'est le régime normal — et l'agrégation par muscle est précisément ce qui l'absorbe.
 
@@ -285,26 +285,26 @@ Distribution des semaines, du début à la fin de l'historique :
 
 | Profil | Semaines à zéro séance | Médiane des semaines actives |
 |---|---|---|
-| aurel_br | 20 % | 5 séances |
-| jordan | 16 % | 3 |
-| lea | **43 %** | 3 |
-| alexis | 34 % | 3 |
-| melodie | **45 %** | 2 |
+| compte A | ~20 % | ~5 séances |
+| compte B | ~15 % | ~3 |
+| compte C | **~45 %** | ~3 |
+| compte D | ~35 % | ~3 |
+| compte E | **~45 %** | ~2 |
 
-Léa et Mélodie ne s'entraînent pas moins que les autres : elles s'entraînent **par périodes**. Quand elles sont actives, elles font 3 et 2 séances par semaine. Une moyenne calendaire (1,8 et 1,2 séance/semaine) mélange l'entraînement et l'absence d'entraînement et ne décrit personne.
+Certains comptes ne s'entraînent pas moins que les autres : ils s'entraînent **par périodes**. Quand ils sont actifs, ils font 2 à 3 séances par semaine. Une moyenne calendaire (environ 1 à 2 séances/semaine) mélange l'entraînement et l'absence d'entraînement et ne décrit personne.
 
 > **La fenêtre glissante se remplit de semaines actives, sans exiger qu'elles soient consécutives.** Une semaine vide n'entre pas dans la fenêtre et ne la casse pas.
 
 ### 11.4 Reset de la référence — 4 semaines vides
 
-Les interruptions se répartissent en deux populations nettement séparées : **61 % des trous font 1 ou 2 semaines** (vacances, semaine chargée), et le reste sont de vrais arrêts — jusqu'à 18 semaines chez aurel_br, **33 chez lea**. Quasiment rien entre 3 et 4 semaines.
+Les interruptions se répartissent en deux populations nettement séparées : **61 % des trous font 1 ou 2 semaines** (vacances, semaine chargée), et le reste sont de vrais arrêts — jusqu'à 18 semaines sur un compte, **plus de 30 sur un autre**. Quasiment rien entre 3 et 4 semaines.
 
 Deux contraintes opposées se sont présentées :
 
-- Un seuil court remettait le compteur à zéro en permanence chez **alexis**, qui a enchaîné cinq coupures de 3 à 6 semaines entre novembre 2025 et mars 2026 — non par choix de programmation, mais parce qu'il peinait à s'installer dans l'habitude. Un seuil à 3 semaines l'aurait rendu invisible au moteur pendant toute sa phase de démarrage, c'est-à-dire quand il en avait le plus besoin.
+- Un seuil court remettait le compteur à zéro en permanence chez **un compte**, qui a enchaîné plusieurs coupures de 3 à 6 semaines — sans que le moteur puisse ni doive en connaître la raison. Un seuil à 3 semaines l'aurait rendu invisible au moteur pendant toute sa phase de démarrage, c'est-à-dire quand il en avait le plus besoin.
 - Un seuil long contredit la physiologie. La littérature sur le désentraînement converge : **la force se maintient jusqu'à 3-4 semaines sans entraînement puis se perd progressivement**, la masse musculaire commence à diminuer après 3 semaines, et des réductions de force maximale apparaissent en 3 à 5 semaines d'arrêt. Après huit semaines, comparer au volume d'avant n'a plus de sens physiologique.
 
-> **Résolution : les deux contraintes ne portent pas sur le même objet.** Le seuil de 4 semaines réinitialise la **référence** — on ne compare plus à un état perdu. Il n'interrompt pas le **suivi** : la fenêtre continue de se remplir en semaines actives. Alexis reste suivi, personne n'est comparé à ce qu'il n'a plus.
+> **Résolution : les deux contraintes ne portent pas sur le même objet.** Le seuil de 4 semaines réinitialise la **référence** — on ne compare plus à un état perdu. Il n'interrompt pas le **suivi** : la fenêtre continue de se remplir en semaines actives. Cette personne reste suivie, personne n'est comparé à ce qu'il n'a plus.
 
 ### 11.5 Persistance ramenée à 2 fenêtres
 
@@ -312,13 +312,13 @@ Deux contraintes opposées se sont présentées :
 
 | Profil | Épisodes | Durée moyenne | Part atteignant 3 fenêtres |
 |---|---|---|---|
-| aurel_br | 113 | 3,2 | **53 %** |
-| lea | 36 | 2,7 | 47 % |
-| jordan | 35 | 2,4 | 46 % |
-| alexis | 38 | 1,7 | **21 %** |
-| melodie | 20 | 1,8 | **20 %** |
+| compte A | 113 | 3,2 | **53 %** |
+| compte C | 36 | 2,7 | 47 % |
+| compte B | 35 | 2,4 | 46 % |
+| compte D | 38 | 1,7 | **21 %** |
+| compte E | 20 | 1,8 | **20 %** |
 
-La persistance de 3 fenêtres avait été taillée sur aurel_br. Chez alexis et melodie, **une baisse sur cinq seulement l'atteint** : le moteur leur parlerait quatre à sept fois par an contre une trentaine pour aurel_br. Trois fenêtres de 3 semaines actives font 9 semaines actives, soit près de cinq mois de calendrier chez melodie — une baisse réelle a le temps de se corriger avant d'être vue.
+La persistance de 3 fenêtres avait été taillée sur le compte A. Chez les comptes D et E, **une baisse sur cinq seulement l'atteint** : le moteur leur parlerait quatre à sept fois par an contre une trentaine pour le compte A. Trois fenêtres de 3 semaines actives font 9 semaines actives, soit près de cinq mois de calendrier chez le compte E — une baisse réelle a le temps de se corriger avant d'être vue.
 
 > **Persistance : 2 fenêtres consécutives.** Le taux de déclenchement s'aligne autour de la moitié des épisodes chez les cinq, sans paramètre par personne. Deux fenêtres font 6 semaines actives de baisse continue, au-delà du seuil où les pertes commencent.
 
@@ -344,7 +344,7 @@ Décision du 10/09/2026, prise avant d'ouvrir le chantier plutôt qu'après l'av
 
 > **Delta du 20/11/2026 (revue des règles, mise en cohérence de trois specs) — fréquence : levier d'hypertrophie non retenu (inchangé) ; levier de FORCE, modeste et à rendements décroissants, pour les seuls mouvements-priorités.** Pelland et al. 2026 (*Sports Med* 56(2):481-505) n'est pas un élément nouveau : il était déjà cité au CADRAGE §3.1 (lu sur la masse seule) et au QUESTIONNAIRE (« 3 % de force de plus par séance hebdomadaire ajoutée sur un mouvement », relu le 31/10). Le texte ci-dessus (« un petit effet résiduel … ne concerne pas la cible de l'app ») est corrigé : la cible, le pratiquant assidu qui a déclaré une barre ou les tractions en priorité, est concernée **pour la force**. La carte « Fréquence » de « Ta semaine » (MOTEUR §9.27 bis) ne vise que les barres et les tractions, jamais un muscle (hypertrophie : la fréquence ne compte pas à volume égal) ; elle **ajoute** un 2e passage (des séries en plus : le bouton dit « Ajouter un 2e passage à mes priorités », plus « Répartir », qui promettait un volume égal) ; c'est une proposition annulable sur une priorité déclarée par la personne. ⚠️ **« Indépendamment du volume » n'est PAS établi** : le résumé publié dit seulement que les modèles sont ajustés sur la durée de l'intervention et le niveau d'entraînement ; la part due au volume en plus et celle due à la pratique ne se séparent pas, et c'est ce que dit le repère de la carte. « Rien à afficher » ne vaut plus que pour l'hypertrophie.
 
-**L'état de démarrage — traité et clos le 10/09/2026, voir §3.1 bis du cadrage.** Le cas d'alexis l'avait révélé : chez quelqu'un qui peine à installer l'habitude, le sujet n'est pas le volume par muscle, c'est de venir. Conclusion retenue : ce n'est pas un module mais **une condition de silence**. Le seuil d'historique de cette règle (12 semaines par muscle) en fait déjà partie. Et le moteur ne commente jamais l'assiduité, ni au démarrage ni ensuite.
+**L'état de démarrage — traité et clos le 10/09/2026, voir §3.1 bis du cadrage.** Le cas d'un compte l'avait révélé : chez quelqu'un qui peine à installer l'habitude, le sujet n'est pas le volume par muscle, c'est de venir. Conclusion retenue : ce n'est pas un module mais **une condition de silence**. Le seuil d'historique de cette règle (12 semaines par muscle) en fait déjà partie. Et le moteur ne commente jamais l'assiduité, ni au démarrage ni ensuite.
 
 ---
 

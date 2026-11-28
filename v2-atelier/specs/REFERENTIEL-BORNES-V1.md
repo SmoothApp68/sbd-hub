@@ -32,7 +32,7 @@ Donc les bornes sont écrites **avant** les tests, sourcées, et figées. Quand 
 
 > **La majorité de la littérature est bâtie sur des sujets peu ou pas entraînés.** Dans la méta-régression Nuzzo (le plus gros corpus disponible sur reps/%1RM), 40 % des sujets étaient non-entraînés. Toute borne, tout seuil, toute alerte calibrée sur ce socle **ne s'applique pas telle quelle à un powerbuilder à 20 séances / 28 jours**.
 >
-> Toute alerte doit être passée sur le profil « Aurélien réel » (98 kg, S145/B140/D170, ~75 k kg/sem, 20-21 séances/28j) **avant** d'être considérée comme calibrée. Si elle s'allume sur ce profil, elle est présumée fausse jusqu'à preuve du contraire.
+> Toute alerte doit être passée sur le profil « praticien assidu de référence » (homme ~100 kg, avancé aux trois barres, ordre de 75 t/sem, ~20 séances/28 j) **avant** d'être considérée comme calibrée. Si elle s'allume sur ce profil, elle est présumée fausse jusqu'à preuve du contraire.
 
 Cette règle n'est pas théorique : c'est le diagnostic post-mortem de tout le chantier Coach v329→v343. Insolvency/Banqueroute, MRV, surcharges articulaires, ratios « Critique », 4035 kcal — **une seule racine**, cinq symptômes. Les chiffres étaient souvent justes ; l'alarme était calibrée pour quelqu'un d'autre.
 
@@ -78,18 +78,18 @@ Point soulevé par Barbell Medicine et qui a des conséquences directes sur le c
 
 **Donc : un algorithme qui progresse en pourcentage fixe est mathématiquement incohérent avec la physiologie.** Il sous-charge le débutant et sur-charge l'avancé. Le référentiel impose que l'incrément soit exprimé en **absolu, modulé par le niveau**, pas en pourcentage constant.
 
-### 1.4 Test de réalité sur ton propre cas
+### 1.4 Test de réalité sur un cas type
 
-Squat 145 → objectif 200 = **+38 %**. Depuis un statut « avancé » (2-6 %/an), c'est un horizon de **7 à 15 ans**, pas de deux blocs.
-Deadlift : e1RM 186 → 220 = +18 %, soit ~4 à 8 ans au même rythme.
+Un squat à ~150 kg avec un objectif à 200 = **+33 %**. Depuis un statut « avancé » (2-6 %/an), c'est un horizon de **l'ordre de 7 à 15 ans**, pas de deux blocs.
+Un soulevé de terre dont l'e1RM passerait de ~190 à 220 = +16 %, soit ~4 à 8 ans au même rythme.
 
-Ce n'est pas décourageant, c'est le contraire : ça définit ce que l'app a le droit de te promettre. **Toute projection de l'app qui te met le squat à 200 en moins de 3 ans est un mensonge, et le référentiel doit la faire échouer au banc d'essai.** C'est exactement le genre de sortie qu'aucun test unitaire vert n'attrape.
+Ce n'est pas décourageant, c'est le contraire : ça définit ce que l'app a le droit de te promettre. **Toute projection de l'app qui fait passer un squat de 150 à 200 en moins de 3 ans est un mensonge, et le référentiel doit la faire échouer au banc d'essai.** C'est exactement le genre de sortie qu'aucun test unitaire vert n'attrape.
 
 ### 1.5 La fenêtre muette — *ajouté le 3 septembre 2026*
 
 **Le problème.** Les bornes du §1.2 supposent qu'on dispose d'une mesure de force. Sur du journal d'entraînement, cette supposition est fausse la plupart du temps.
 
-Vérifié sur le profil réel d'Aurélien : **treize alarmes `HORS-LITTÉRATURE` s'allument**, toutes protégées par la méta-règle du praticien assidu. Aucune ne signale un vrai problème.
+Vérifié sur le profil de référence assidu : **treize alarmes `HORS-LITTÉRATURE` s'allument**, toutes protégées par la méta-règle du praticien assidu. Aucune ne signale un vrai problème.
 
 **La cause.** Le maximum observé sur une fenêtre n'est pas une mesure de force : il dépend de ce que la personne a **choisi de faire**. Un trimestre passé en séries de dix ne dit rien de la force maximale, et sa comparaison au trimestre précédent ne mesure que le changement de programmation.
 
@@ -102,7 +102,7 @@ Mesure à l'appui, sur sept trimestres : un trimestre **sans aucune tentative so
 
 **L'amendement — la condition de portée.**
 
-Telle qu'énoncée ci-dessus, la règle déclenchait **123 fois chez Jordan et 219 fois chez Léa**. Sur quoi ? Des curls et des élévations latérales.
+Telle qu'énoncée ci-dessus, la règle déclenchait **plus d'une centaine de fois sur chacun de deux comptes (123 et 219)**. Sur quoi ? Des curls et des élévations latérales.
 
 > **La règle ne s'applique qu'aux exercices où la personne réalise au moins une série de 3 répétitions ou moins dans _tout_ son historique.**
 
@@ -112,8 +112,8 @@ Effet mesuré de la restriction :
 
 | | Sans condition de portée | Avec |
 |---|---|---|
-| Jordan | 123 | **14** |
-| Léa | 219 | **29** |
+| Compte B | 123 | **14** |
+| Compte C | 219 | **29** |
 
 **Généralisation, à retenir pour toute borne future.**
 
@@ -163,7 +163,7 @@ L'e1RM n'est pas une donnée, c'est une **mesure bruitée**. Le référentiel d�
 
 ✅ **Validé :** la philosophie PR B déjà livrée (e1RM = indicateur / tendance, jamais un « record ») est **exactement** ce que la littérature impose. Les 5 déclencheurs de PR fantômes corrigés étaient des sur-interprétations de bruit. Décision confirmée par les données, pas par le feeling.
 
-⚠️ **À rouvrir :** `calcE1RM` utilise Brzycki. Brzycki est le moins bon des candidats au-delà de 5 reps et n'est pas spécifique à l'exercice. **Action banc d'essai :** comparer Brzycki / Epley / Wathen / Mayhew sur les 557 séances réelles d'aurel_br + les 334 des autres users, mouvement par mouvement, et retenir celle qui minimise l'erreur sur les cas où une vraie barre a été soulevée peu après. On a la donnée pour trancher empiriquement au lieu de choisir par tradition.
+⚠️ **À rouvrir :** `calcE1RM` utilise Brzycki. Brzycki est le moins bon des candidats au-delà de 5 reps et n'est pas spécifique à l'exercice. **Action banc d'essai :** comparer Brzycki / Epley / Wathen / Mayhew sur les 557 séances réelles du compte A + les 334 des autres users, mouvement par mouvement, et retenir celle qui minimise l'erreur sur les cas où une vraie barre a été soulevée peu après. On a la donnée pour trancher empiriquement au lieu de choisir par tradition.
 
 ---
 
@@ -354,7 +354,7 @@ Point de méthode : la pente %1RM→reps de Nuzzo sert à **extrapoler** la tabl
 | Cause de la variation individuelle reps@%1RM | **Inconnue** — question ouverte majeure de la discipline |
 | Timing optimal du deload | Inconnu |
 | Questionnaires de readiness → performance | Lien faible, à documenter en v2 du référentiel |
-| Cycle menstruel → programmation | **Non traité dans cette passe.** Preuves réputées faibles/inconsistantes — à sourcer avant toute implémentation touchant le profil de Léa |
+| Cycle menstruel → programmation | **Non traité dans cette passe.** Preuves réputées faibles/inconsistantes — à sourcer avant toute implémentation touchant le profil d'une utilisatrice |
 | Morphologie → ratios de force attendus | **Non traité.** Voir §8 |
 
 ---
@@ -394,8 +394,8 @@ Chaque borne ci-dessus devient une assertion Python. Le banc d'essai n'est pas d
 | Débutant H | 0 an, 75 kg, 3 séances/sem | Progression rapide sans divergence |
 | Débutante F | 0 an, 60 kg, 3 séances/sem | Pas d'hypothèse masculine cachée |
 | Intermédiaire H | 3 ans, 85 kg, 4 séances/sem | Le cas médian |
-| **« Aurélien réel »** | 98 kg, S145/B140/D170, 5 séances/sem, ~75 k kg/sem | **Règle du praticien assidu — aucune alerte ne doit s'allumer sans cause réelle** |
-| Avancée F | 6 ans, 63 kg, 5 séances/sem | Plafonnement correct + profil de Léa |
+| **« Praticien assidu de référence »** | homme ~100 kg, avancé aux trois barres, 5 séances/sem, ordre de 75 t/sem | **Règle du praticien assidu — aucune alerte ne doit s'allumer sans cause réelle** |
+| Avancée F | 6 ans, 63 kg, 5 séances/sem | Plafonnement correct + profil d'une utilisatrice avancée |
 | Irrégulier | 2 séances/sem, absences de 2-3 sem. | Retour au jeu, pas de punition |
 | Blessé/douleur | pain déclaré sur un pattern | L'algo contourne sans s'effondrer |
 
@@ -407,7 +407,7 @@ Horizons : **12, 24 et 52 semaines**. Un algo qui tient 12 semaines et diverge �
 2. Progression qui sort des fourchettes du §1
 3. Décisions prises sur des variations d'e1RM sous le seuil de bruit (§2)
 4. Prescriptions qui supposent une table %1RM universelle (§4)
-5. Alertes qui s'allument sur le profil « Aurélien réel » (méta-règle)
+5. Alertes qui s'allument sur le profil « praticien assidu de référence » (méta-règle)
 6. Deload jamais déclenché, ou déclenché en permanence
 7. Vocabulaire de risque sur des métriques non prédictives (§6)
 
@@ -432,7 +432,7 @@ Horizons : **12, 24 et 52 semaines**. Un algo qui tient 12 semaines et diverge �
 
 Avant que j'écrive une seule ligne d'algorithme, il me faut ton feu vert sur trois points :
 
-1. **Les bornes du §1 sont-elles acceptées telles quelles ?** C'est la contrainte la plus dure : elle interdit à l'app de te promettre 200 au squat avant plusieurs années.
+1. **Les bornes du §1 sont-elles acceptées telles quelles ?** C'est la contrainte la plus dure : elle interdit à l'app de promettre, avant plusieurs années, un gain de force hors de portée.
 2. **L'interdit ACWR du §6 est-il accepté ?** Il implique de rétrograder une fonctionnalité existante du registre alerte au registre observation.
 3. **Le chantier OpenPowerlifting du §8** — on le lance avant les algos (il alimente les bornes de ratios) ou après ?
 

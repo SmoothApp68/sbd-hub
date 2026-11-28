@@ -2,7 +2,7 @@
 
 **Statut** : décisions d'Aurélien du 12 et du 14/10/2026, écrites ici mot pour mot (prompt 95). Maquette figée le
 12/10/2026 : [`maquette-ton-annee-v11.html`](../maquettes/maquette-ton-annee-v11.html) — le contrat visuel. Les données
-qu'elle montre sont celles d'aurel_br en 2026 : elles servent d'exemple, pas de fixture.
+qu'elle montre sont celles du compte de référence en 2026 : elles servent d'exemple, pas de fixture.
 
 ## 1. Les décisions (12 et 14/10/2026)
 
@@ -20,13 +20,13 @@ qu'elle montre sont celles d'aurel_br en 2026 : elles servent d'exemple, pas de 
 
 « Les bilans montrent le nombre d'heures et de jours à la salle de la période, comme un fait, jamais comparés à une autre période (aucun écart, aucune flèche) : une période moins assidue ne se lit jamais comme un échec. Un écran à eux, juste après les tonnes, avec une équivalence (« ≈ 11 jours entiers sous la barre »). Les jours = jours distincts avec une séance terminée (heure de Paris) ; les heures = somme des durées des séances terminées qui ont une fin, une séance de plus de 5 h n'étant pas comptée dans les heures. Le nombre de séances lui-même n'est toujours pas affiché. »
 
-Repère réel : aurel_br en 2026 au 15/10, environ 180 jours et 260 heures.
+Repère réel : le compte de référence en 2026 au 15/10, de l'ordre de 180 jours et 260 heures.
 
 *Complétée le 16/10/2026 (audit du 16/10, prompt 119)* : **seules les séances de musculation comptent**, en heures
 comme en jours. Une séance de musculation porte au moins une série de travail d'un exercice qui porte du volume
 (au moins un muscle principal au catalogue, la règle de `compteSeriesTravail` ; un exercice inconnu du catalogue
 compte) — `THSemaine.estSeanceDeMusculation`. Une randonnée, un vélo, une natation ou un tapis seul ne comptent ni en
-heures ni en jours ; une séance de gainage en est une ; une séance mixte (« Rando avec Léa + Pull », CADRAGE §2 ter)
+heures ni en jours ; une séance de gainage en est une ; une séance mixte (« Rando avec un ami + Pull », CADRAGE §2 ter)
 compte en entier ; une séance sans aucune série en cache ne compte pas (on ne dit pas ce qu'on ne sait pas). Le repère
 ci-dessus contient des sorties : il baisse.
 

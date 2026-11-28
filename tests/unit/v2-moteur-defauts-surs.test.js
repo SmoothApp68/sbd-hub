@@ -118,3 +118,27 @@ describe('b2 (5) — chauffes : jamais de silence sans date', () => {
     expect(M.chauffesEnSilence({ n: 1, quand: T - JOUR }, T)).toBe(false);
   });
 });
+
+describe('b2 (6) — les pluriels : « pour les étirer » et le pari de programme à 1 ou 0 exercice', () => {
+  const kine = (zones, muscles, menager) => M.blocDeMobilite({ zones: zones, faites: {}, muscles: muscles, slugs: [], menager: menager, douleurs: [] }).fin.kine[0];
+  test('un nom pluriel (Tes épaules, Tes quadriceps, Tes ischios) : « pour les étirer »', () => {
+    expect(kine(['epaules'], [], ['epaule'])).toBe('Tes épaules sont à ménager : pour les étirer, demande l’avis d’un kiné.');
+    expect(kine(['quadriceps'], ['quadriceps'], ['genou'])).toBe('Tes quadriceps sont à ménager : pour les étirer, demande l’avis d’un kiné.');
+  });
+  test('un nom singulier (Ta hanche, Ton haut du dos) : « pour l’étirer »', () => {
+    expect(kine(['hanches'], [], ['hanche'])).toBe('Ta hanche est à ménager : pour l’étirer, demande l’avis d’un kiné.');
+    expect(kine(['haut_du_dos'], [], ['dos'])).toBe('Ton haut du dos est à ménager : pour l’étirer, demande l’avis d’un kiné.');
+  });
+  const pari = (predite, observee) => M.carteFinDeBloc({ zone: 'mix', exercices: [], semaines: 4 }, { exercices: {}, paris: 0, tenus: 0 }, {}, { predite: predite, observee: observee }).pari.replace(/[\u00a0\u202f]/g, ' ');
+  test('un seul exercice parié : « ton exercice », jamais « tes 1 exercices »', () => {
+    expect(pari(1, 1)).toBe('Le coach avait parié que ton exercice progresserait : il a progressé.');
+    expect(pari(1, 0)).toBe('Le coach avait parié que ton exercice progresserait : il n’a pas progressé.');
+  });
+  test('aucun n\'a progressé : jamais « 0 a progressé »', () => {
+    expect(pari(2, 0)).toBe('Le coach avait parié que tes 2 exercices progresseraient : aucun n’a progressé.');
+  });
+  test('inchangé : 2 paris, 1 a progressé ; 3 paris, 3 ont progressé', () => {
+    expect(pari(2, 1)).toBe('Le coach avait parié que tes 2 exercices progresseraient : 1 a progressé.');
+    expect(pari(3, 3)).toBe('Le coach avait parié que tes 3 exercices progresseraient : 3 ont progressé.');
+  });
+});

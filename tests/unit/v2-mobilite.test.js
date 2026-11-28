@@ -136,7 +136,7 @@ describe('194-1 — une zone à ménager ne reçoit aucun étirement (I96)', () 
   test('un « J’ai mal » récent sur la zone vaut une zone à ménager', () => {
     const b = M.blocDeMobilite({ zones: ['epaules'], faites: {}, muscles: [], slugs: [DM], menager: [], douleurs: ['epaule'] });
     expect(b.fin.zones).toEqual([]);
-    expect(b.fin.kine[0]).toMatch(/^Tes épaules sont à ménager : pour l’étirer, demande l’avis d’un kiné\.$/);
+    expect(b.fin.kine[0]).toMatch(/^Tes épaules sont à ménager : pour les étirer, demande l’avis d’un kiné\.$/);
   });
   test('genou à ménager : 90/90 au lieu du pigeon', () => {
     const sans = M.blocDeMobilite({ zones: ['hanches'], faites: {}, muscles: [], slugs: [], menager: [], douleurs: [] });
@@ -148,7 +148,7 @@ describe('194-1 — une zone à ménager ne reçoit aucun étirement (I96)', () 
   test('genou à ménager : les quadriceps ne reçoivent aucun étirement (flexion complète), phrase du kiné', () => {
     const b = M.blocDeMobilite({ zones: ['quadriceps'], faites: {}, muscles: ['quadriceps'], slugs: [SQ], menager: ['genou'], douleurs: [] });
     expect(b.fin.zones).toEqual([]);
-    expect(b.fin.kine).toEqual(['Tes quadriceps sont à ménager : pour l’étirer, demande l’avis d’un kiné.']);
+    expect(b.fin.kine).toEqual(['Tes quadriceps sont à ménager : pour les étirer, demande l’avis d’un kiné.']);
     const e = entrees(seanceDe([SQ]), { zonesRaides: ['quadriceps'], menagerProfil: ['genou'] });
     const p = T.planDeSeance(e);
     expect(erreurs(p, e)).toEqual([]);

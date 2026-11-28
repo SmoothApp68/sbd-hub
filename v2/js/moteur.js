@@ -9366,8 +9366,12 @@
     var phrasePari = null;
     if (pari && nombre(pari.predite) !== null && nombre(pari.observee) !== null) {
       var pp = nombre(pari.predite), po = nombre(pari.observee);
-      phrasePari = 'Le coach avait parié que tes ' + nombreFr(pp, regle('programme.predite')) + ' exercices progresseraient' +
-        DEUX_POINTS + nombreFr(po, regle('programme.observee')) + (po > 1 ? ' ont progressé.' : ' a progressé.');
+      // b2 (6) — les pluriels : « ton exercice progresserait » (un seul exercice parié, jamais « tes 1 exercices »), « aucun n’a progressé » (jamais « 0 a progressé »).
+      var unSeul = pp === 1;
+      phrasePari = 'Le coach avait parié que ' + (unSeul ? 'ton exercice progresserait' : 'tes ' + nombreFr(pp, regle('programme.predite')) + ' exercices progresseraient') + DEUX_POINTS +
+        (po < 1 ? (unSeul ? 'il n’a pas progressé.' : 'aucun n’a progressé.')
+          : unSeul ? 'il a progressé.'
+          : nombreFr(po, regle('programme.observee')) + (po > 1 ? ' ont progressé.' : ' a progressé.'));
     }
     var suivant = blocSuivant(bloc, phases, objectif);
     if (phases) {
@@ -13456,7 +13460,7 @@
     var kine = [], retenues = [];
     zones.forEach(function (z) {
       var t = MOBILITE_ZONES[z];
-      if (t.menagee && menager.indexOf(t.menagee) >= 0) { kine.push(t.accord + (/^Tes /.test(t.accord) ? ' sont' : ' est') + ' à ménager : pour l’étirer, demande l’avis d’un kiné.'); return; }
+      if (t.menagee && menager.indexOf(t.menagee) >= 0) { var pluriel = /^Tes /.test(t.accord); kine.push(t.accord + (pluriel ? ' sont' : ' est') + ' à ménager : pour ' + (pluriel ? 'les ' : 'l’') + 'étirer, demande l’avis d’un kiné.'); return; }   // b2 (6) : « Tes épaules … pour les étirer »
       var fait = Number(faites[z]) > 0 ? Number(faites[z]) : 0;
       if (fait >= MOBILITE_CIBLE_MIN) return;
       var servie = t.muscles.some(function (m) { return muscles.indexOf(m) >= 0; });

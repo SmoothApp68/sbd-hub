@@ -609,8 +609,14 @@
         var deja = choix[pl.r + '-' + jj];
         if (deja) session[deja] = true;
       });
-      var s = choisir(pl.motif, ok, ecartes, pris, p.menager, faits, p.materiel, debutant, session,
-                      function (x) { return racine.THModele.estAccentAllonge(catalogue[x]); }, function (x) { return catalogue[x] ? catalogue[x].equipement : null; });
+      var allonge = function (x) { return racine.THModele.estAccentAllonge(catalogue[x]); };
+      var equipementDe = function (x) { return catalogue[x] ? catalogue[x].equipement : null; };
+      // 28/11/2026 — une place LOURDE (la marque d'une barre) prend d'abord une barre, même devant l'historique ; une machine seulement
+      // s'il n'en reste aucune (sinon le Hack squat de l'historique prenait la grosse place du jour A).
+      var specLourde = gabarit[pl.r][1][pl.j][2];
+      var s = specLourde && specLourde.lourd && !estMenagee(pl.motif, p.menager)
+        ? choisir(pl.motif, function (x) { return ok(x) && familleDeBarre(x, catalogue) !== null; }, ecartes, pris, p.menager, faits, p.materiel, debutant, session, allonge, equipementDe) : null;
+      if (!s) s = choisir(pl.motif, ok, ecartes, pris, p.menager, faits, p.materiel, debutant, session, allonge, equipementDe);
       if (s) { choix[pl.r + '-' + pl.j] = s; pris[s] = true; }
     });
     // Les zones dont toutes les places du programme sont des principaux : la priorité de zone n'y aurait aucun effet.

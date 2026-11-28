@@ -4473,3 +4473,18 @@ Le compte « le coach en a tenu N sur M » quitte le récap de fin de séance, l
 - **La liste** : une ligne par séance et par exercice, la plus récente d'abord, jamais plus de lignes que de paris comptés ; 10 lignes puis « Voir plus anciens ». « Tenu » / « Pas tenu » (ambre, jamais rouge) ; une ligne pas tenue se déplie sur « J'avais prévu 5 reps à 100 kg : tu en as fait 3. » : le coach dit son écart, jamais celui de la personne.
 - **Les mots** (`Bilan.PARIS_DU_COACH`) : l'explication du pari, ce que la page ne compte pas (décharge, jour sans), et pour un compte vide « Je n'ai encore vérifié aucun pari. » (jamais « 0 sur 0 »).
 - **Inchangé** : `faits.parisRatesALaSuite` les lit toujours (le coach garde la mémoire de ses paris) ; `predictions` immuable, rien n'est écrit ; le bilan de bloc (§9.22) et « Mon premier pari » sous la consigne (211) restent.
+
+### 9.56 Les défauts sûrs du moteur — corrigés le 28/11/2026 (lot b2 de la déconstruction, SYNTHESE-VAGUE-1 §6 ; aucune décision de coaching ne change)
+
+Huit défauts relevés à la lecture du moteur, chacun rejoué avec les vraies fonctions, chacun avec un test qui échoue sans son correctif (`tests/unit/v2-moteur-defauts-surs.test.js`), un commit par défaut.
+
+- **Le jour sans (§9.42 bis)** : « ta grosse série » et « tes reculs » ne sont plus la même expression. Les reculs = des séries de recul restées à 0 rep (`reculsDuZero`) ; la grosse série = une série non-recul à 0 dans une séance qui a des reculs (`grosseDuZero`). Une séance de reculs seuls ne dit plus « ta grosse série ».
+- **Une seule table de crans de repli (§10.2)** : la réaction au raté (`reactionAuRate`, niveaux série et paris) lit `REPLI_MATERIEL` par `pasDeRepliDe` ; sa table propre disparaît (machine 2,5 → 5 kg, kettlebell 2,5 → 4 kg ; barre, Smith, poulie, haltères inchangés). Matériel inconnu : 2,5 kg.
+- **La dégressive à la barre (§9.15.3, §10 bis)** : les disques candidats sont `DISQUES_STANDARD` (jusqu'à 0,25 kg) filtrés par le plus petit disque de la salle ; salle inconnue : 1, 0,5 et 0,25 kg supposés absents (`DISQUES_ABSENTS_DEFAUT`), donc inchangé.
+- **Le calage (§9.42.4)** : à la barre, le plancher est la barre déclarée (`barreDesChauffes`, 20 kg sans déclaration), plus un 20 kg en dur.
+- **Les chauffes refusées (§9.41, 237)** : « 2 refus = silence 4 semaines » ne vaut que pour un refus DATÉ ; un refus sans date ne met jamais en silence (il restait silencieux pour toujours). Une horloge absente laisse le silence en place.
+- **Les pluriels** : « Tes épaules … pour les étirer » (§9.31, la phrase du kiné suit l'accord) ; le pari de programme (§9.22) dit « ton exercice progresserait : il a progressé / il n'a pas progressé » pour un seul exercice et « aucun n'a progressé » pour zéro, jamais « tes 1 exercices » ni « 0 a progressé ».
+- **`decomposerCharge`** écarte les disques à 0, négatifs ou illisibles (`Math.floor(r / 0)` ne finissait jamais).
+- **Le mémo des plafonds et de la charge la plus lourde** (`memoPlafonds`, `memoLourde`) : le test tranche, une séance passée corrigée en place rend la consigne d'une copie neuve. Aucun défaut, aucun correctif.
+
+Rejeu (`v2-atelier/banc/rejeu-fil/banc.js`, 9 617 séances) : 0 consigne changée, car le banc ne branche ni barre ni disques de salle et passe un cran explicite aux réactions. L'écart est donc mesuré par grille, dans le corps de la PR.

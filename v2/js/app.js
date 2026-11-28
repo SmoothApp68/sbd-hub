@@ -4623,6 +4623,7 @@
     vue.addEventListener('touchcancel', function () { y0 = null; dy = 0; cacherTirage(); });
   }
 
+  var PHRASE_AUTRE_FENETRE = 'TrainHub est ouvert dans une autre fenêtre : ferme-la, puis recharge celle-ci.';
   function rendreEtatSync() {
     // 219 — la barre change de hauteur quand le texte paraît ou disparaît : re-mesurée par la même fonction que les autres.
     if (Rendu.majEnvoiBandeau($('bandeau-seance'), texteEnvoiSeance())) mesurerBarres();
@@ -4632,6 +4633,11 @@
     // (une ancienne version) : l'app a démarré sans elle, sur le réseau ; elle le dit, au lieu d'attendre sans fin.
     if (Cache.estBloquee && Cache.estBloquee()) {
       Rendu.rendreEtat(noeud, { code: 'bloque', libelle: 'Données de l\u2019appareil indisponibles : ferme l\u2019autre onglet de l\u2019app' });
+      return;
+    }
+    // D1 — une autre fenêtre de l'app écrit sur l'appareil : celle-ci lit seulement, et le dit.
+    if (Cache.estLecteur && Cache.estLecteur()) {
+      Rendu.rendreEtat(noeud, { code: 'bloque', libelle: PHRASE_AUTRE_FENETRE });
       return;
     }
     var decide = Attente.deciderEtat(etat, attente);
@@ -17424,6 +17430,9 @@
   async function entrerVraiment(session) {
     sessionActive = session || null;
     var userId = session && session.user && session.user.id;
+    // D1 — UN SEUL ONGLET ÉCRIT : le verrou se prend ICI, avant toute lecture et toute écriture du cache, hors rendu.
+    // Une page qui ne l'obtient pas lit, n'écrit rien, et le dit (`rendreEtatSync`).
+    try { await Cache.devenirEcrivain(); } catch (e) { /* refus : la page reste lecteur */ }
     try {
       await garantirProprietaire(userId);
       await chargerCache();

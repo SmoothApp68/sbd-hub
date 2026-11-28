@@ -404,7 +404,7 @@ describe('le pseudo saisi à l’inscription traverse l’entrée du compte jusq
       // 121 (05 #13) — le social aussi (liens, badge, guilde, ce qu'il a publié).
       oublierSocial: () => { journal.socialOublie++; },
       // 115 (E2) — une suppression de série en attente d'« Annuler » appartient aussi au compte précédent.
-      oublierSuppressionDifferee: () => {},
+      oublierSuppressionDifferee: () => {}, suivreLEcran: () => {},
       // 118 — ce qui attend hors de la file (réponse de profil, messages du groupe) se garde avec la file.
       gardesDuCompte: () => [], preparerGardesDuCompte: (v) => v,
       Donnees: {

@@ -18,6 +18,7 @@ const LIGNES_D_AVANT = [
   'But d’entraînement', 'Objectifs en entretien', 'Priorités', 'Entraînement régulier', 'Tous mes exercices', 'Importer depuis Hevy ou Strong',
   'Poids', 'Taille', 'Date de naissance', 'Sexe', 'Séances par semaine', 'Durée d’une séance', 'Ton temps',
   'Jalons', 'Faits seulement',   // 273
+  'Garder l’écran allumé en séance',   // 26/11/2026
   'Pseudo', 'Bio', 'E-mail de connexion', 'Mot de passe', 'Activer le jeu',
   'À propos de ton coach',   // 29/11/2026 (« Les paris en coulisse »)
   'Les mots du coach',   // 201

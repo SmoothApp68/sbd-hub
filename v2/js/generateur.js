@@ -60,7 +60,16 @@
     // Le porté : AUCUN exercice du catalogue (relevé du 31/10/2026) — la place saute tant qu'il n'y en a pas (rapport du 197).
     forme_porte: [],
     forme_gainage: ['planche', 'gainage_rkc', 'gainage_dorsal'],
-    forme_equilibre: ['equilibre_une_jambe']
+    forme_equilibre: ['equilibre_une_jambe'],
+    // 28/11/2026 — LES MOTIFS DE LA CALISTHÉNIE : les marches de chaque échelle (MOTEUR §9.35). Ils ne servent pas à CHOISIR (le programme de
+    // calisthénie prend la marche de la personne, `marcheDeLaPersonne`) mais à LIRE : `zonesQueChargeLExercice` (séance, I282, plan) voit
+    // ainsi un pistol ou des dips dans une routine existante, par la même table `CHARGE_ZONE` que le gabarit.
+    cal_jambes: ['squat_poids_du_corps', 'split_squat_bulgare_poids_du_corps', 'pistol_squat', 'pistol_squat_leste'],
+    cal_charniere: ['pont_fessier', 'pont_fessier_une_jambe', 'souleve_de_terre_une_jambe', 'leg_curl_nordique_assiste_elastique', 'leg_curl_nordique'],
+    cal_tirage: ['traction_negative', 'tractions', 'tractions_leste'],
+    cal_rowing: ['rowing_inverse', 'rowing_inverse_pieds_sureleves'],
+    cal_poussee: ['dips_negatif', 'dips_torse', 'dips_torse_lestes', 'pompes_pike', 'pompes_pike_surelevees', 'pompes_equilibre_mur', 'pompes_equilibre_libre'],
+    cal_pompes: ['pompes_inclinees', 'pompes_genoux', 'pompes', 'pompes_declinees']
   };
 
   // Rien de faisable dans un motif : son voisin (même muscle, autre angle).

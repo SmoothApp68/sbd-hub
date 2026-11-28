@@ -200,3 +200,18 @@ describe('28/11/2026 — la calisthénie respecte les zones à ménager (comme l
     expect(G.phrasesDeLApercu(r, e, (x) => x, r.length).zones.length).toBe(1);
   });
 });
+
+describe('28/11/2026 — la zone se lit aussi sur un exercice déjà dans la routine (zonesQueChargeLExercice)', () => {
+  test('un pistol squat avec un genou ménagé est vu ; sans la zone, non', () => {
+    expect(G.zonesQueChargeLExercice('pistol_squat', ['genou'])).toEqual(['genou']);
+    expect(G.zonesQueChargeLExercice('pistol_squat', ['coude'])).toEqual([]);
+    expect(G.zonesQueChargeLExercice('pistol_squat', [])).toEqual([]);
+  });
+  test('toutes les marches des échelles lisent la même table que le générateur', () => {
+    expect(G.zonesQueChargeLExercice('split_squat_bulgare_poids_du_corps', ['genou', 'hanche'])).toEqual(['genou', 'hanche']);
+    expect(G.zonesQueChargeLExercice('dips_torse', ['epaule', 'genou'])).toEqual(['epaule']);
+    expect(G.zonesQueChargeLExercice('pompes_pike', ['epaule'])).toEqual(['epaule']);
+    expect(G.zonesQueChargeLExercice('leg_curl_nordique', ['hanche', 'dos'])).toEqual(['hanche', 'dos']);
+    expect(G.zonesQueChargeLExercice('rowing_inverse', ['dos'])).toEqual(['dos']);
+  });
+});

@@ -36,3 +36,28 @@ describe('b2 (1) — jour sans : la grosse série et les reculs ne sont pas la m
     expect(js([g(140, 0, 'echec')])).toMatchObject({ grosse: false, reculs: false });
   });
 });
+
+describe('b2 (2) — une seule table de crans de repli (REPLI_MATERIEL) : la réaction au raté la lit', () => {
+  const serie = (materiel, charge, reps) => M.reactionAuRate({ niveau: 'serie', role: 'travail', materiel: materiel, reps: reps, vise: 10, bas: 8, charge: charge, rang: 1, reserve: 0 });
+  const paris = (materiel, charge) => M.reactionAuRate({ niveau: 'paris', materiel: materiel, n: 2, charge: charge, reps: 8 });
+  test('une machine sans cran connu baisse d\'un cran de machine (5 kg), pas de 2,5 kg', () => {
+    const r = serie('machine', 100, 6);                  // 82,5 kg avec l'ancien pas de 2,5
+    expect(r.charge && r.charge.action).toBe('baisse');
+    expect(r.charge.kg).toBe(80);
+    expect(serie('machine', 120, 5).charge.kg).toBe(95);   // 97,5 avant
+  });
+  test('un kettlebell baisse de 4 kg (la série 8 · 12 · 16 · 20 · 24)', () => {
+    expect(serie('kettlebell', 24, 5).charge.kg).toBe(16);   // 17,5 avant
+  });
+  test('le « un cran dessous » des paris lit la même table : machine 100 kg → 95 kg', () => {
+    expect(paris('machine', 100).cran.charge).toBe(95);
+  });
+  test('la table propre à la réaction a disparu : chaque matériel connu a le pas de REPLI_MATERIEL', () => {
+    expect(M.pasDeRepliDe('machine')).toBe(5);
+    expect(M.pasDeRepliDe('kettlebell')).toBe(4);
+    expect(M.pasDeRepliDe('poulie')).toBe(2.5);
+    expect(M.pasDeRepliDe('haltere')).toBe(2);
+    expect(M.pasDeRepliDe('haltere_seul')).toBe(1);
+    expect(M.pasDeRepliDe('inconnu')).toBe(2.5);
+  });
+});

@@ -14172,7 +14172,11 @@
   var RATE_FORME_FLANCHENT = 2;         // la forme du jour : 2 exercices qui flanchent…
   var RATE_FORME_SUR = 3;               // … sur les 3 derniers
   var RATE_PARIS_A_LA_SUITE = 2;        // deux séances de suite où le pari n'a pas tenu
-  var RATE_PAS_PAR_DEFAUT = { barre: 2.5, machine: 2.5, machine_smith: 2.5, poulie: 2.5, haltere: 2, haltere_seul: 1 };   // 16/11/2026 : un bras, l'haltère tenu, +1 kg ; 245 (D-H5) — haltères : la PAIRE, +1 kg par main, aligné sur REPLI_MATERIEL.haltere.pas
+  // b2 (2) — UNE SEULE TABLE DE CRANS DE REPLI : `REPLI_MATERIEL` (§10.2). La table propre à la réaction la recopiait et divergeait (machine 2,5 contre 5 kg, kettlebell 2,5
+  // contre 4) : un « Prends X kg » se calculait sur un cran que la salle ne fait pas. Matériel inconnu : 2,5 kg, comme avant.
+  function pasDeRepliDe(materiel) {
+    return Object.prototype.hasOwnProperty.call(REPLI_MATERIEL, materiel) ? REPLI_MATERIEL[materiel].pas : REPLI_MATERIEL.barre.pas;
+  }
 
   function rateReglage(r) { return r === 'prudent' || r === 'franc' ? r : 'normal'; }
   // 16/11/2026 (MOTEUR §9.39 delta, I216) — LE PLANCHER DE LA RÉACTION : le « garde N » d'une réaction au raté n'est jamais sous la réserve AFFICHÉE de la
@@ -14314,7 +14318,7 @@
     }
     var prudent = reg === 'prudent' || fiche.prudente;
     var pas = nombre(c.pas);
-    if (pas === null || pas <= 0) pas = RATE_PAS_PAR_DEFAUT[c.materiel] || 2.5;
+    if (pas === null || pas <= 0) pas = pasDeRepliDe(c.materiel);
     var kgBaisse = null, fourchette;
     if (baisse && !corps) {
       var marge = reserve === null ? 0 : reserve;
@@ -14424,7 +14428,7 @@
     if (n === null || n < RATE_PARIS_A_LA_SUITE) return silence('tenu');
     var ch = nombre(c.charge), reps = nombre(c.reps);
     if (ch === null || reps === null) return silence('sans_chiffres');
-    var dessous = rateSousLeCran(ch, nombre(c.pas) || RATE_PAS_PAR_DEFAUT[c.materiel] || 2.5);
+    var dessous = rateSousLeCran(ch, nombre(c.pas) || pasDeRepliDe(c.materiel));
     if (dessous === null) return silence('rien_dessous');
     return { niveau: 'paris', cas: 'P', silence: false, n: n, palier: { charge: ch, reps: reps },
              cran: { charge: dessous, reps: reps }, boutons: ['cran', 'retente'] };
@@ -14880,6 +14884,7 @@
     SEANCES_DU_PLAFOND: SEANCES_DU_PLAFOND,
     // 236 (§9.39) — le coach en temps réel après un raté : UNE fonction de décision, ses mots, ses constantes
     reactionAuRate: reactionAuRate,
+    pasDeRepliDe: pasDeRepliDe,
     phraseDeRate: phraseDeRate,
     boutonDeRate: boutonDeRate,
     // 251 — la porte du cran (une décision, ses mots) et la notion « sous la zone » partagée.

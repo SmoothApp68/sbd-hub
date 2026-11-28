@@ -5290,8 +5290,28 @@
     // à chaque passage du minuteur ; un bouton recréé sous le doigt avalerait le tap. Elle ne se refait que si elle
     // change (une autre série, un autre bouton choisi).
     var q = questionDuRepos(cible, vue.question || null);
-    Array.prototype.slice.call(cible.childNodes).forEach(function (n) { if (n !== q) cible.removeChild(n); });
     var pas = vue.pas || 15;
+
+    // LES BOUTONS NE SE RECRÉENT PAS CHAQUE SECONDE : un toucher qui chevauche un tic, appuyé sur l'ancien bouton et
+    // relâché sur le nouveau, était perdu. Le minuteur se construit UNE fois ; chaque tic ne met à jour que le temps,
+    // la cible, la barre et le Son. Les gestionnaires lisent `cible._vueRepos` (la vue du dernier tic), jamais la vue
+    // de leur construction : une autre série ou un autre exercice passe donc par les mêmes boutons, sans reconstruction.
+    // On ne reconstruit que si la structure change (le pas des boutons).
+    cible._vueRepos = vue;
+    var vivante = cible._structureRepos;
+    if (vivante && vivante.pas === pas && vivante.h.parentNode === cible && vivante.piste.parentNode === cible) {
+      majRepos(vivante, vue);
+      // La question de réserve fait partie de la barre : elle se met à jour à chaque changement (autre série, autre
+      // choix, plus de question). `questionDuRepos` rend le nœud gardé s'il n'a pas changé, sinon un nœud neuf :
+      // l'ancien s'en va, et le courant reste le dernier de la carte.
+      Array.prototype.slice.call(cible.childNodes).forEach(function (n) {
+        if (n !== q && n !== vivante.h && n !== vivante.piste) cible.removeChild(n);
+      });
+      if (q && q.parentNode !== cible) cible.appendChild(q);
+      return;
+    }
+    Array.prototype.slice.call(cible.childNodes).forEach(function (n) { if (n !== q) cible.removeChild(n); });
+    var courante = function () { return cible._vueRepos || vue; };
 
     var h = el('div', 'repos-h');
     // Figé à l'échéance (§7 septies.3) : il ne compte pas au-delà. L'état se
@@ -5300,38 +5320,53 @@
     // sa cible — un état qui n'existe plus : un décompte arrivé à zéro éteint la
     // barre au lieu de la figer (§7 quinvicies). Une barre affichée est une
     // barre qui compte, et il n'y a plus qu'un état à dessiner.
-    h.appendChild(el('span', 'repos-g num', mmss(vue.restant)));
+    var g = el('span', 'repos-g num', '');
+    h.appendChild(g);
 
     h.appendChild(boutonRepos('−' + pas, 'Réduire la cible de ' + pas + ' secondes',
-      function () { if (vue.surAjuster) vue.surAjuster(-pas); }));
+      function () { var v = courante(); if (v.surAjuster) v.surAjuster(-pas); }));
     // Une cible absente se dit, elle ne se devine pas : le tiret cadratin
     // signale qu'il n'y en a pas, et +15 en pose une.
-    h.appendChild(el('span', 'repos-c num',
-      'cible ' + (vue.cible ? mmss(vue.cible) : '—')));
+    var c = el('span', 'repos-c num', '');
+    h.appendChild(c);
     h.appendChild(boutonRepos('+' + pas, 'Allonger la cible de ' + pas + ' secondes',
-      function () { if (vue.surAjuster) vue.surAjuster(pas); }));
+      function () { var v = courante(); if (v.surAjuster) v.surAjuster(pas); }));
 
-    var son = boutonRepos(vue.sourdine ? 'Son ✕' : 'Son',
-      vue.sourdine ? 'Rétablir le son du repos' : 'Couper le son du repos',
-      function () { if (vue.surSourdine) vue.surSourdine(); });
-    if (vue.sourdine) son.classList.add('coupe');
+    var son = boutonRepos('Son', '', function () { var v = courante(); if (v.surSourdine) v.surSourdine(); });
     son.style.marginLeft = 'auto';
     h.appendChild(son);
 
     var p = el('button', 'discret', 'Passer');
     p.type = 'button';
-    p.addEventListener('click', vue.surPasser);
+    p.addEventListener('click', function () { var v = courante(); if (v.surPasser) v.surPasser(); });
     h.appendChild(p);
     if (q && q.parentNode !== cible) cible.appendChild(q);
     cible.insertBefore(h, q);
 
     var piste = el('div', 'piste');
     var barre = el('i', '');
-    // Ce qui RESTE, pas ce qui est passé : la piste part pleine et se vide.
-    barre.style.width = vue.cible
-      ? Math.max(0, Math.min(100, Math.round((vue.restant / vue.cible) * 100))) + '%' : '0%';
     piste.appendChild(barre);
     cible.insertBefore(piste, q);
+
+    var st = { pas: pas, h: h, g: g, c: c, son: son, piste: piste, barre: barre };
+    cible._structureRepos = st;
+    majRepos(st, vue);
+  }
+
+  // Ce que change un tic : le temps, la cible, la barre, l'état du Son. Rien d'autre, aucun nœud créé.
+  function majRepos(st, vue) {
+    var t = mmss(vue.restant);
+    if (st.g.textContent !== t) st.g.textContent = t;
+    var ct = 'cible ' + (vue.cible ? mmss(vue.cible) : '—');
+    if (st.c.textContent !== ct) st.c.textContent = ct;
+    var titre = vue.sourdine ? 'Rétablir le son du repos' : 'Couper le son du repos';
+    var texte = vue.sourdine ? 'Son ✕' : 'Son';
+    if (st.son.textContent !== texte) st.son.textContent = texte;
+    if (st.son.getAttribute('aria-label') !== titre) { st.son.setAttribute('aria-label', titre); st.son.title = titre; }
+    st.son.classList.toggle('coupe', !!vue.sourdine);
+    // Ce qui RESTE, pas ce qui est passé : la piste part pleine et se vide.
+    st.barre.style.width = vue.cible
+      ? Math.max(0, Math.min(100, Math.round((vue.restant / vue.cible) * 100))) + '%' : '0%';
   }
 
   // « Dernière série : 130 kg × 5. Il t'en restait combien ? » et 0 · 1 · 2 · 3 ou + — les valeurs de

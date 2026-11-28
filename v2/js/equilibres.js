@@ -48,7 +48,7 @@
   var REGLAGE_PAR_DEFAUT = 'normal';
   var SEMAINES_HABITUDE = 8;
 
-  // ── LES SEUILS (Gemini S1-S8 du 29/10/2026) ───────────────────────────────────────────────────────────────────
+  // ── LES SEUILS (conventions de l'app, 29/10/2026) ───────────────────────────────────────────────────────────────────
   var SEUIL_TIRAGE = 0.60;          // tirage / poussée, à l'horizontale et à la verticale
   var SEUIL_CHAINE = 0.40;          // chaîne postérieure / quadriceps
   var MARGE_DU_COACH = 1;           // 27/11/2026 : un programme que le coach refait doit passer le seuil AVEC une série de marge (une série sautée par semaine ne rallume pas la carte)
@@ -1223,6 +1223,7 @@
     var noms = items.map(function (x) { return nomDe(e, x.slug); });
     c.fait = (noms.length === 1 ? noms[0] + ' arrive' : Modele().enumerer(noms) + ' arrivent') + ' en moyenne dans le dernier tiers de tes séances.';
     c.repere = 'En musculation, beaucoup de coachs placent d’abord ce qu’ils veulent faire progresser, quand on est frais (Simão, 2012). ' +
+      'Une méta-analyse de 11 études (Nunes, 2021) le confirme pour la force : un exercice progresse le plus quand il vient tôt dans la séance ; pour le muscle, l’ordre ne change rien. ' +
       'Une isolation d’un muscle qui travaille aussi dans les gros mouvements du jour passe juste après eux, jamais avant : elle les pré-fatiguerait.';
     var props = [], causes = [];
     items.forEach(function (x) {

@@ -61,3 +61,25 @@ describe('b2 (2) — une seule table de crans de repli (REPLI_MATERIEL) : la ré
     expect(M.pasDeRepliDe('inconnu')).toBe(2.5);
   });
 });
+
+describe('b2 (3) — la dégressive à la barre lit les disques de la salle (jusqu\'à 0,25 kg), pas une liste coupée à 1,25', () => {
+  const deg = (der) => M.degressiveDe({ equipement: 'barre', derniere_serie: der, reps_travail: 10 });
+  afterEach(() => M.brancherPlusPetitDisque(null));
+  test('une salle qui a des disques de 0,5 kg : 6 kg → on enlève 0,5 de chaque côté (5 kg)', () => {
+    M.brancherPlusPetitDisque(() => 0.5);
+    const r = deg(6);
+    expect(r.charge).toBe(5);
+    expect(r.enleve).toBe(0.5);
+  });
+  test('une salle qui a des disques de 1 kg : 8 kg → on enlève 1 de chaque côté (6 kg)', () => {
+    M.brancherPlusPetitDisque(() => 1);
+    expect(deg(8).enleve).toBe(1);
+  });
+  test('sans salle connue (disques de 1 kg et moins supposés absents) : inchangé, « Trop léger »', () => {
+    expect(deg(6).charge).toBeNull();
+  });
+  test('un disque plus petit que celui de la salle n\'est jamais proposé (1,25 → pas de 1)', () => {
+    M.brancherPlusPetitDisque(() => 1.25);
+    expect(deg(8).charge).toBeNull();
+  });
+});

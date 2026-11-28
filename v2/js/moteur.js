@@ -12750,7 +12750,6 @@
   function degressiveVide(phrase) {
     return { charge: null, vise: null, repos: null, phrase: phrase, gestes: GESTES_DEGRESSIVE_VIDE.slice() };
   }
-  var DISQUES = [25, 20, 15, 10, 5, 2.5, 1.25];
   var BAISSE_MIN_BARRE = 0.15, BAISSE_MAX_BARRE = 0.30;
   // Ce qu'on enlève de CHAQUE côté (kg), ou `null` si rien ne tombe dans la fenêtre.
   function disquesAEnlever(der, baisse) {
@@ -12758,8 +12757,12 @@
     var cible = der * (baisse || BAISSE_DEGRESSIVE) / 2;
     var dans = function (v) { return v >= bas && v <= haut; };
     // 190 — jamais un disque plus petit que le plus petit de la salle.
+    // b2 (3) — la liste standard (`DISQUES_STANDARD`, jusqu'à 0,25 kg) filtrée par la salle : une salle qui a des disques de 1 kg ou moins les voit. Salle inconnue : les disques
+    // de 1 kg et moins sont supposés absents (`DISQUES_ABSENTS_DEFAUT`), comme pour le cran de la barre.
     var plusPetit = plusPetitDisqueConnu();
-    var disques = DISQUES.filter(function (d) { return plusPetit === null || d >= plusPetit - 1e-9; });
+    var disques = DISQUES_STANDARD.filter(function (d) {
+      return plusPetit === null ? DISQUES_ABSENTS_DEFAUT.indexOf(d) < 0 : d >= plusPetit - 1e-9;
+    });
     var seul = disques.filter(dans).sort(function (a, b) {
       var da = Math.abs(a - cible), db = Math.abs(b - cible);
       return da !== db ? da - db : a - b;

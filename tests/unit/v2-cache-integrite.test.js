@@ -312,7 +312,7 @@ describe('le magasin `records` (58-2)', () => {
     const journal = [];
     // 126 — le magasin `alias` (version 8) existe déjà ici : seul `records` manque.
     global.indexedDB = fausseBase(journal, ['seances', 'series', 'exercices', 'pesees', 'meta', 'zones',
-      'modes', 'brouillon', 'attente', 'predictions', 'alias']);
+      'modes', 'brouillon', 'attente', 'predictions', 'alias', 'routines']);
     require('../../v2/js/cache.js');
     await global.THCache.lireTout('records').catch(() => {});
     const crees = journal.filter((j) => j.op === 'creer');
@@ -327,7 +327,7 @@ describe('le magasin `records` (58-2)', () => {
     jest.resetModules();
     const journal = [];
     const v7 = ['seances', 'series', 'exercices', 'pesees', 'meta', 'zones', 'modes', 'brouillon', 'attente',
-      'predictions', 'records'];
+      'predictions', 'records', 'routines'];
     global.indexedDB = fausseBase(journal, v7);
     require('../../v2/js/cache.js');
     await global.THCache.lireTout('alias').catch(() => {});
@@ -338,8 +338,25 @@ describe('le magasin `records` (58-2)', () => {
     expect(journal.filter((j) => j.op === 'clear').map((j) => j.magasin)).toContain('alias');
   });
 
-  test('126 — la version de la base locale est 8', () => {
+  // 28/11/2026 — la copie des routines (version 9) : un cache d'avant (version 8, ses 11 magasins) s'ouvre sans perte, `routines` naît
+  // (clé `id`) sans toucher aux autres, et « Quitter » / le changement de compte le vident avec le reste (`MAGASINS`).
+  test('28/11 — la montée vers la version 9 crée `routines` (clé `id`) et rien d’autre ; « Quitter » le vide', async () => {
+    jest.resetModules();
+    const journal = [];
+    const v8 = ['seances', 'series', 'exercices', 'pesees', 'meta', 'zones', 'modes', 'brouillon', 'attente',
+      'predictions', 'records', 'alias'];
+    global.indexedDB = fausseBase(journal, v8);
+    require('../../v2/js/cache.js');
+    await global.THCache.lireTout('routines').catch(() => {});
+    const crees = journal.filter((j) => j.op === 'creer');
+    expect(crees.map((c) => c.magasin)).toEqual(['routines']);
+    expect(crees[0].opts).toEqual({ keyPath: 'id' });
+    await global.THCache.viderTout();
+    expect(journal.filter((j) => j.op === 'clear').map((j) => j.magasin)).toContain('routines');
+  });
+
+  test('28/11 — la version de la base locale est 9', () => {
     const src = require('fs').readFileSync(require('path').join(__dirname, '../../v2/js/cache.js'), 'utf8');
-    expect(Number(/var VERSION = (\d+);/.exec(src)[1])).toBe(8);
+    expect(Number(/var VERSION = (\d+);/.exec(src)[1])).toBe(9);
   });
 });

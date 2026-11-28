@@ -53,10 +53,18 @@
   var faits = racine.THFaits.creer();
 
   var vues = {};
-  var local = { semaineChoix: [], seances: [], series: [], exercices: [], alias: [], pesees: [], zones: [], modes: [],
-                predictions: [], sousConsigne: {}, parisLegers: [], escalier: [], parSeance: null,
-                blocs: [], programme: [], records: [], connues: {},
-                objectifs: [], objectifsDispo: null, parisObjectif: [] };
+  // P0 (28/11/2026) — LA MÉMOIRE D'UN COMPTE VIDE : une seule fabrique, au démarrage comme quand un compte part
+  // (`oublierLaMemoireDuCompte`). « Quitter » en recopiait une à la main, sans `alias`, `blocs` ni `programme`.
+  function localVide() {
+    return { semaineChoix: [], seances: [], series: [], exercices: [], alias: [], pesees: [], zones: [], modes: [],
+             predictions: [], sousConsigne: {}, parisLegers: [], escalier: [], parSeance: null,
+             blocs: [], programme: [], records: [], connues: {},
+             objectifs: [], objectifsDispo: null, parisObjectif: [] };
+  }
+  var local = localVide();
+  // P0 — le compte dont la mémoire porte les données (`null` : aucune). Un autre compte qui entre la trouve vidée
+  // AVANT toute attente du disque (`garantirProprietaire`).
+  var compteEnMemoire = null;
   var etat = { code: 'vide', libelle: '', local: false };
   var syncEnCours = false;
   // 117 (audit du 16/10, 06 #1) — le nombre d'envois de séries confirmés depuis l'ouverture. Le rapprochement des
@@ -74,15 +82,116 @@
   function generationValide(g) { return g === generation; }
   // Le cache va être vidé : ce qui était en vol n'écrira plus, et les verrous
   // des tâches en vol sont libérés pour le compte qui suit.
+  // (Ce que le compte qui part laisse EN MÉMOIRE — les gestes sociaux, les questions au coach — se vide avec le reste,
+  // `oublierLaMemoireDuCompte`.)
   function nouvelleGeneration() {
     generation++;
     syncEnCours = false;
     vidangeEnCours = false;
     vidangeARelancer = false;
-    // 107 — les gestes sociaux confirmés et le refus à dire appartiennent au compte qui part.
-    social.confirmes = []; social.refus = null; social.aRafraichir = null;
-    // 160 — le nombre de questions qui restent aujourd'hui appartient au compte qui part.
+  }
+
+  // ⚠️ P0 (28/11/2026, synthèse de la vague 3 §1.1) — L'ÉTAT DU COMPTE NE SE VIDE QU'ICI.
+  //
+  // Il se vidait à la main à quatre endroits (« Quitter », un autre compte qui entre, la session qui se termine
+  // seule, la génération), quatre listes différentes : la session de A finie sans « Quitter », B entrait sur le même
+  // téléphone avec les chauffes coupées, le « plus léger » du jour et le son de A — et, si le stockage ne répondait
+  // pas à cet instant, avec l'historique, les routines et la séance de A, restés en mémoire.
+  //
+  // `pour` :
+  //   · 'memoire'    — la mémoire seule (un autre compte se présente : avant même de lire le disque) ;
+  //   · 'session'    — la session est finie : la mémoire et la session ; le disque RESTE (il attend le retour du compte) ;
+  //   · 'changement' — un autre compte entre (`ancien` → `nouveau`) : la mémoire, les réglages d'appareil du compte
+  //                    qui part (`Quitter.effacerReglagesDuCompte`), puis les magasins, échangés
+  //                    (`Cache.changerDeCompte` : sa file et ce qui attend lui sont gardés). Un échec du disque REMONTE ;
+  //   · 'quitter'    — « Quitter » : la mémoire et la session, tout le disque, le jeton, puis toutes les clés `th-v2…`.
+  // Tout ce qui ne touche que la mémoire est fait AVANT la première attente : la fonction est `async`, son début est
+  // synchrone.
+  async function viderEtatDuCompte(pour, ancien, nouveau) {
+    var surLeDisque = pour === 'changement' || pour === 'quitter';
+    // 59-5 — avant de vider le disque : ce qui était en vol pour le compte qui part n'écrira plus.
+    if (surLeDisque) nouvelleGeneration();
+    // Les réglages d'appareil du compte qui part, AVANT la mémoire : elle relit ce qui reste (un appareil neuf).
+    if (pour === 'changement') Quitter.effacerReglagesDuCompte([stockageSur('localStorage'), stockageSur('sessionStorage')]);
+    oublierLaMemoireDuCompte();
+    if (pour === 'session' || pour === 'quitter') {
+      // Plus de session : plus aucune vue authentifiée rendue ; la prochaine entrée, même du même compte, est complète.
+      sessionActive = null; entreeFaitePour = null;
+      recuperation = null; renduPour = null;
+    }
+    // 60-2c — le pseudo à inscrire est celui du compte QUI ENTRE (posé avant `signUp`) : seul « Quitter » le jette.
+    if (pour === 'quitter') pseudoAInscrire = null;
+    if (pour === 'changement') {
+      // 117 / 118 — tout est vidé SAUF la file du compte qui part et ce qui attend hors d'elle, gardés sous son
+      // identifiant ; ceux du compte qui entre lui sont rendus (relus juste après : `chargerCache`, `chargerSeanceLocale`,
+      // `chargerProfilLocal`). Seul « Quitter » explicite vide une file, après sa fenêtre.
+      var changement = await Cache.changerDeCompte(ancien, nouveau, gardesDuCompte(), preparerGardesDuCompte);
+      if (changement && changement.rendue && changement.rendue.length) {
+        console.warn('File d\u2019envoi rendue à ce compte : ' + changement.rendue.length + ' envoi(s) gardé(s) depuis sa dernière visite.');
+      }
+    }
+    if (pour === 'quitter') {
+      try { await Cache.viderTout(); } catch (e) { /* rien à garder de toute façon */ }
+      // 59-2 — le jeton part même hors ligne (`Auth.deconnecter` l'efface localement quand le serveur ne répond pas).
+      try { await Auth.deconnecter(); } catch (e) { /* le jeton part quand même */ }
+      // 59-2 — PUIS toutes les clés `th-v2…` de l'appareil (et le sexe du dessin des muscles). Après le jeton, jamais
+      // avant : effacé d'abord, `signOut` ne trouverait plus de session à révoquer côté serveur.
+      Quitter.effacerStockages([stockageSur('localStorage'), stockageSur('sessionStorage')]);
+      oublierLaMemoireDuCompte();   // relit des stockages vides : un appareil neuf
+    }
+  }
+
+  // La mémoire du compte, à zéro : ses données, ses écrans en cours, ses réveils, ses mémos, ses réglages relus du
+  // stockage de l'appareil. UNE liste. Une variable d'état ajoutée demain s'ajoute ICI, et nulle part ailleurs.
+  function oublierLaMemoireDuCompte() {
+    compteEnMemoire = null;
+    local = localVide();
+    faits = racine.THFaits.creer();   // ses mémos portent le corpus du compte qui part
+    etatsExercices = {}; constats = null; consignes = null; planMemo = null; catalogueMemo = null;
+    memoEquilibres = null; memoJeu = { cle: null, catalogue: null, etat: null }; memoFeuilleJeu = { cle: null, jeu: null };
+    parisRatesMemo = { cle: '', val: {} }; salleHabitudeMemo = { cle: '', val: null }; memoFatigue = null;
+    maxTestMemo = { cle: '', val: {} }; barresTestablesMemo = { cle: '', val: {} }; memoRecapFin = { cle: null, recap: null };
+    journalDecide = false; remplissage = null; notesEnCours = {}; reponsesDeSaisie = {};
+    // Les routines vivent en mémoire, pas dans le cache — mais elles appartiennent au compte.
+    routines = []; generationRoutines++; brouillon = null; etatRoutines = { code: 'jamais', message: '' }; derniereLectureRoutines = 0;
+    // La séance en cours, la file, et leurs réveils (le repos, la durée, la tenue).
+    seance = null; attente = []; chrono = null; arreterMinuteur(); arreterDuree(); tenue = null; arreterMinuteurTenue();
+    oublierSuppressionDifferee();
+    // Un « Annuler » prêt à réécrire les routines du compte qui part.
+    faitVariation = null; faitEquilibre = null;
+    // 106 / 121 — le groupe, ses messages gardés hors ligne, et le social (liens, badge, guilde, gestes confirmés).
+    oublierGroupe();
+    oublierSocial();
+    // 160 — le nombre de questions qui restent aujourd'hui.
     if (Assistant) Assistant.oublier();
+    // Le profil, et son envoi en attente avec lui : le rejouer sur le compte suivant écrirait sa ligne `profiles`.
+    profil = null; profilAEnvoyer = false; refusProfil = null;
+    fermerQuestionnaire(); envoiProfil = null; versionProfil = 0; ligneACreer = false;
+    // 272 — le niveau d'entraînement.
+    niveauSeancesCompletes = false; niveauProfilLu = false; niveauEvalue = false; niveauImportPropose = null; niveauAnnonceEnMemoire = null;
+    // Les réglages retenus sur l'appareil, relus de ce qui y reste (`lireModeRPE`, `lireSourdine` à l'entrée).
+    sourdine = false; modeRPE = false; refusChauffes = null;
+    dossiersReplies = lireDossiersReplies(); avisVus = lireAvisVus();
+  }
+
+  // P0 — le stockage du téléphone ne répond pas au moment de vérifier à qui est le cache : on ne sait pas à qui
+  // appartient ce qu'il contient. L'entrée s'ARRÊTE, et le dit : continuer, c'était risquer d'afficher les données
+  // d'un autre compte (le `catch` avalait l'erreur).
+  var PHRASE_STOCKAGE_MUET = 'Le stockage du téléphone ne répond pas. Recharge l\u2019app.';
+  function arreterLEntree(e) {
+    console.warn('Entrée arrêtée, le propriétaire du cache ne se vérifie pas :', texteErreur(e));
+    viderEtatDuCompte('session');
+    allerA(Routeur.CONNEXION, {}, true);
+    rendreEntree('connexion');
+    $('erreur-connexion').textContent = PHRASE_STOCKAGE_MUET;
+  }
+
+  // La session se termine toute seule (jeton révoqué, mot de passe changé ailleurs) : la mémoire part, le disque reste
+  // pour le retour du compte ; ses réglages d'appareil partiront si c'est un AUTRE compte qui entre.
+  function sessionTerminee() {
+    viderEtatDuCompte('session');
+    allerA(Routeur.CONNEXION, {}, true);
+    rendreEntree('connexion', { garderCode: true });
   }
   var lundiAffiche = null;   // le lundi de la semaine à l'écran
   var gardes = [];           // vues qui peuvent refuser la sortie (§ écran de saisie)
@@ -1132,63 +1241,14 @@
   // Le cache appartient à un compte et à un seul. Un cache qui survivrait à un
   // changement de compte montrerait les séances de quelqu'un d'autre.
   async function garantirProprietaire(userId) {
+    // P0 — la mémoire d'un autre compte part AVANT toute attente du disque.
+    if (compteEnMemoire !== (userId || null)) viderEtatDuCompte('memoire');
     var meta = await Cache.lireMeta('proprietaire');
     if (Sync.cacheAppartientA(meta, userId)) return;
-    // 59-5 — un autre compte entre : ce qui était en vol pour le précédent
-    // n'écrira plus (même règle que « Quitter »).
-    nouvelleGeneration();
-    // 117 (audit du 16/10, 06 #6) — tout est vidé SAUF la file du compte qui part, gardée sous son identifiant ; et
-    // la file gardée pour le compte qui entre lui est rendue (relue juste après, `chargerSeanceLocale`). Seul
-    // « Quitter » explicite vide une file, après sa fenêtre.
-    // 118 — et ce qui attend HORS de la file (la réponse de profil, les messages du groupe) : gardé de même, rendu de
-    // même (relu juste après, `chargerCache` et `chargerProfilLocal`).
-    var changement = await Cache.changerDeCompte(meta && meta.userId, userId, gardesDuCompte(), preparerGardesDuCompte);
-    if (changement && changement.rendue && changement.rendue.length) {
-      console.warn('File d\u2019envoi rendue à ce compte : ' + changement.rendue.length + ' envoi(s) gardé(s) depuis sa dernière visite.');
-    }
-    // Les routines ne sont pas dans le cache, mais elles appartiennent au
-    // compte précédent : les laisser en mémoire montrerait la bibliothèque de
-    // quelqu'un d'autre le temps d'une requête.
-    routines = []; generationRoutines++; brouillon = null; etatRoutines = { code: 'jamais', message: '' }; derniereLectureRoutines = 0;
-    // La séance en cours et la file appartiennent au compte précédent. Le
-    // changement de compte ci-dessus a vidé leurs magasins (la file, gardée à
-    // part pour lui) ; on remet la mémoire d'accord avec le disque.
-    seance = null; attente = []; chrono = null;
-    oublierSuppressionDifferee();
-    // §12.9 (49-U13) — les séances sous consigne aussi (le brouillon qui les
-    // porte vient d'être effacé avec le reste).
-    local.sousConsigne = {};
-    local.parisLegers = [];
-    local.escalier = [];
-    local.blocs = [];
-    local.programme = [];
-    local.connues = {};
-    // 106 — le groupe et ses messages gardés appartiennent au compte précédent (leur brouillon vient d'être vidé).
-    oublierGroupe();
-    // 121 (05 #13) — le social aussi : ses liens, son badge, sa guilde, ce qu'il a publié.
-    oublierSocial();
-
-    // 109 — les objectifs et leurs paris appartiennent au compte précédent.
-    local.objectifs = []; local.objectifsDispo = null; local.parisObjectif = [];
-    // 58-2 — le journal des records aussi (son magasin vient d'être vidé), et
-    // son remplissage : il se décidera pour le compte qui arrive.
-    local.records = [];
-    // 59-2 — les paris du compte précédent : leur magasin est désormais vidé
-    // avec les autres (`MAGASINS`), la mémoire le suit.
-    local.predictions = [];
-    journalDecide = false;
-    remplissage = null;
-    // Le profil aussi appartient au compte précédent — et son envoi en attente
-    // avec lui. Le rejouer sur le compte suivant écrirait la taille de
-    // quelqu'un d'autre dans sa ligne `profiles`.
-    // ⚠️ MAIS PAS LE PSEUDO À INSCRIRE (60-2c). Il n'est pas l'état du compte précédent : c'est celui du
-    // compte QUI ENTRE, posé par `soumettreEntree` juste avant `signUp` — et un compte neuf n'est jamais
-    // propriétaire du cache, donc cette branche s'exécute à CHAQUE inscription. Le remettre à zéro ici
-    // faisait naître la ligne de profil sans pseudo. Il tombe ailleurs : « Quitter » (`deconnecter`),
-    // l'échec d'une inscription, une connexion (`soumettreEntree`) et la création de la ligne (`chargerProfil`).
-    profil = null; profilAEnvoyer = false; refusProfil = null;
-    fermerQuestionnaire(); envoiProfil = null; versionProfil = 0; ligneACreer = false;
-    faits.oublierDates();
+    // Un autre compte entre (P0 : UNE fonction, `viderEtatDuCompte`) : ce qui était en vol pour le précédent n'écrira
+    // plus, ses réglages d'appareil partent, sa mémoire aussi, et les magasins changent de compte — sa file et ce qui
+    // attend hors d'elle lui sont gardés. Le pseudo à inscrire (60-2c) est celui du compte QUI ENTRE : il reste.
+    await viderEtatDuCompte('changement', meta && meta.userId, userId);
     await Cache.ecrireMeta('proprietaire', { userId: userId });
   }
 
@@ -17424,8 +17484,19 @@
   async function entrerVraiment(session) {
     sessionActive = session || null;
     var userId = session && session.user && session.user.id;
+    // ⚠️ P0 (28/11/2026) — À QUI EST LE CACHE ? Si le stockage ne le dit pas, l'entrée s'arrête (`arreterLEntree`) :
+    // l'erreur était avalée et l'entrée continuait, sur la mémoire ou le disque d'un autre compte. Seule exception, la
+    // base tenue par une autre page de l'app restée ouverte (117, `Cache.estBloquee`) : elle est hors service pour
+    // TOUTE cette page — rien du disque ne se lira —, la mémoire d'un autre compte est déjà vidée, et l'app démarre
+    // sur le réseau en le disant (ECRAN-SAISIE).
     try {
       await garantirProprietaire(userId);
+    } catch (e) {
+      if (!(Cache.estBloquee && Cache.estBloquee())) return arreterLEntree(e);
+      console.warn('Cache local indisponible :', texteErreur(e));
+    }
+    compteEnMemoire = userId || null;
+    try {
       await chargerCache();
     } catch (e) {
       console.warn('Cache local indisponible :', texteErreur(e));
@@ -17555,54 +17626,9 @@
   // l'écran de connexion et les données restent là pour la prochaine ouverture.
   async function deconnecter() {
     departs++;
-    // 272 — le niveau d'entraînement : rien ne passe d'un compte au suivant.
-    niveauSeancesCompletes = false; niveauProfilLu = false; niveauEvalue = false; niveauImportPropose = null; niveauAnnonceEnMemoire = null;
-    departs++;
-    // 59-5 — AVANT DE VIDER QUOI QUE CE SOIT : une nouvelle génération. Tout
-    // écrivain asynchrone encore en vol (synchro, journal, remplissage,
-    // vidange, profil) abandonnera sans écrire ; les verrous des tâches en
-    // vol sont libérés pour le compte suivant.
-    nouvelleGeneration();
-    // Avant toute chose : plus de session, donc plus aucune vue authentifiée
-    // rendue — y compris par un retour qui atterrirait sur une ancienne entrée.
-    sessionActive = null;
-    // La prochaine entrée, même du même compte, repart du disque (vidé).
-    entreeFaitePour = null;
-    try { await Cache.viderTout(); } catch (e) { /* rien à garder de toute façon */ }
-    local = { semaineChoix: [], seances: [], series: [], exercices: [], pesees: [], zones: [], modes: [],
-              predictions: [], sousConsigne: {}, parisLegers: [], escalier: [], parSeance: null,
-              records: [], connues: {}, objectifs: [], objectifsDispo: null, parisObjectif: [] };
-    journalDecide = false;
-    notesEnCours = {};
-    // Les routines vivent en mémoire, pas dans le cache — mais elles
-    // appartiennent quand même au compte qui part.
-    routines = []; generationRoutines++; brouillon = null; etatRoutines = { code: 'jamais', message: '' }; derniereLectureRoutines = 0;
-    seance = null; attente = []; chrono = null; arreterMinuteur();
-    oublierSuppressionDifferee();
-    // 106 — le groupe aussi, et ses messages gardés hors ligne (leur brouillon vient d'être vidé) : les envoyer au nom du
-    // compte suivant serait parler à sa place.
-    oublierGroupe();
-    // 121 (05 #13) — et le social du compte qui part (liens, badge des demandes, guilde, ce qu'il a publié).
-    oublierSocial();
-    // Le profil appartient au compte qui part, et son envoi en attente avec lui :
-    // rejouer une modification de profil sur le compte suivant serait pire que
-    // de la perdre.
-    profil = null; profilAEnvoyer = false; refusProfil = null; pseudoAInscrire = null;
-    fermerQuestionnaire(); envoiProfil = null; versionProfil = 0; ligneACreer = false;
-    recuperation = null; renduPour = null;
-    faits.oublierDates();
-    remplissage = null;
-    // 59-2 — le jeton part même hors ligne (`Auth.deconnecter` l'efface
-    // localement quand le serveur ne répond pas).
-    try { await Auth.deconnecter(); } catch (e) { /* le jeton part quand même */ }
-    // 59-2 — PUIS toutes les clés `th-v2…` de l'appareil : le jeton s'il en
-    // restait, et les réglages retenus pour ce compte (le son du repos, la
-    // bascule effort, les « non merci » des chauffes, les dossiers repliés, la
-    // garde de développement). Après le jeton, jamais avant : effacé d'abord,
-    // `signOut` ne trouverait plus de session à révoquer côté serveur. La
-    // mémoire revient aux valeurs d'un appareil neuf.
-    Quitter.effacerStockages([stockageSur('localStorage'), stockageSur('sessionStorage')]);
-    sourdine = false; modeRPE = false; refusChauffes = null; dossiersReplies = {};
+    // P0 — UNE fonction (`viderEtatDuCompte`) : la mémoire et la session d'abord (59-5 : une nouvelle génération avant
+    // de vider quoi que ce soit), puis tout le disque, le jeton, et toutes les clés `th-v2…` de l'appareil.
+    await viderEtatDuCompte('quitter');
     allerA(Routeur.CONNEXION, {}, true);
     rendreEntree('connexion');
   }
@@ -21364,13 +21390,7 @@
       }
       if (session) { oublierCodeEnAttente(); entrer(session); return; }   // 27/11/2026 : une session ouverte, l'adresse en attente n'attend plus personne
       if (Auth.sessionPersistee()) return;
-      sessionActive = null;
-      entreeFaitePour = null;
-      recuperation = null; renduPour = null;
-      fermerQuestionnaire(); envoiProfil = null; versionProfil = 0; ligneACreer = false;
-      profil = null; faits.oublierDates();
-      allerA(Routeur.CONNEXION, {}, true);
-      rendreEntree('connexion', { garderCode: true });
+      sessionTerminee();
     });
 
     // ── DÉMARRAGE SANS RÉSEAU ────────────────────────────────────────────

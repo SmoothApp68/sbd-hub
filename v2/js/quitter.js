@@ -100,7 +100,53 @@
 
   // Retire toutes les clés `th-v2…` de chaque stockage donné. Rend la liste
   // des clés retirées. Un stockage illisible (mode privé, bloqué) est sauté.
+  // P0 (28/11/2026) — et le sexe du dessin des muscles (`CLES_DU_COMPTE_HORS_PREFIXE`), qui est au compte.
   function effacerStockages(stockages) {
+    return retirer(stockages, function (k) {
+      return !!k && (k.indexOf(PREFIXE) === 0 || CLES_DU_COMPTE_HORS_PREFIXE.indexOf(k) >= 0);
+    });
+  }
+
+  // ⚠️ P0 (28/11/2026, comptes étanches) — CE QUI, SUR L'APPAREIL, APPARTIENT AU COMPTE.
+  //
+  // Un autre compte qui entre sur le même téléphone (la session du premier s'est terminée sans « Quitter ») ne doit
+  // hériter d'aucun réglage du premier : ses « Non merci » des chauffes (4 semaines sans chauffe), son « plus léger »
+  // du jour, le son, la bascule effort, le jeu coupé, ses dossiers repliés, le texte des cartes vues… Le défaut est
+  // donc l'EFFACEMENT : toute clé `th-v2…` part, sauf
+  //   · celles de l'APPAREIL (`CLES_DE_L_APPAREIL`, par préfixe) : la session qui vient d'entrer (`th-v2-auth…`),
+  //     le code de connexion en attente, la garde anti-boucle des mises à jour, « Plus tard » de l'installation sur
+  //     iPhone, la garde de développement et le mode de démonstration de l'escalier ;
+  //   · celles qui portent l'identifiant du compte dans leur nom (`PREFIXES_PAR_COMPTE`) : elles ne se lisent que
+  //     pour leur compte, n'en pilotent jamais un autre, et les effacer ferait repartir de zéro celui qui revient
+  //     (son décalage secret de poids retiré au sort, le questionnaire déjà vu).
+  // Une clé ajoutée demain sans y penser est donc effacée au changement de compte : la fuite ne peut pas revenir par
+  // oubli, seulement par une inscription consciente ici.
+  // Et hors du préfixe : le sexe du dessin des muscles (`th-silhouette`) dit le corps de la personne, il est au compte ;
+  // la version choisie d'une animation de mouvement (`th-mouvement-version-…`) est un affichage, elle reste.
+  var CLES_DE_L_APPAREIL = ['th-v2-auth', 'th-v2-code-attente', 'th-v2-maj-auto', 'th-v2-installer-plus-tard',
+                            'th-v2-garde', 'th-v2-escalier-demo'];
+  var PREFIXES_PAR_COMPTE = ['th-v2-decalage-poids-', 'th-v2-niveau-annonce-', 'th-v2-questionnaire-vu-',
+                             'th-v2-peu-de-temps-vu-', 'th-v2-pseudo-pris-', 'th-v2-origine-routine-',
+                             'th-v2-annonce-bilan:', 'th-v2-annonce-annee:'];
+  var CLES_DU_COMPTE_HORS_PREFIXE = ['th-silhouette'];
+
+  function commencePar(k, prefixes) {
+    return prefixes.some(function (p) { return k.indexOf(p) === 0; });
+  }
+  // La clé appartient-elle au compte (à effacer quand un autre entre) ?
+  function cleDuCompte(k) {
+    if (!k) return false;
+    if (CLES_DU_COMPTE_HORS_PREFIXE.indexOf(k) >= 0) return true;
+    if (k.indexOf(PREFIXE) !== 0) return false;
+    return !commencePar(k, CLES_DE_L_APPAREIL) && !commencePar(k, PREFIXES_PAR_COMPTE);
+  }
+
+  // Retire, de chaque stockage donné, les clés du compte (`cleDuCompte`). Rend la liste des clés retirées.
+  function effacerReglagesDuCompte(stockages) {
+    return retirer(stockages, cleDuCompte);
+  }
+
+  function retirer(stockages, aRetirer) {
     var retirees = [];
     (stockages || []).forEach(function (st) {
       if (!st) return;
@@ -108,7 +154,7 @@
         var cles = [];
         for (var i = 0; i < st.length; i++) {
           var k = st.key(i);
-          if (k && k.indexOf(PREFIXE) === 0) cles.push(k);
+          if (aRetirer(k)) cles.push(k);
         }
         cles.forEach(function (k) { st.removeItem(k); retirees.push(k); });
       } catch (e) { /* stockage fermé : rien à retirer */ }
@@ -118,6 +164,11 @@
 
   var api = {
     PREFIXE: PREFIXE,
+    CLES_DE_L_APPAREIL: CLES_DE_L_APPAREIL,
+    PREFIXES_PAR_COMPTE: PREFIXES_PAR_COMPTE,
+    CLES_DU_COMPTE_HORS_PREFIXE: CLES_DU_COMPTE_HORS_PREFIXE,
+    cleDuCompte: cleDuCompte,
+    effacerReglagesDuCompte: effacerReglagesDuCompte,
     enAttente: enAttente,
     fenetreDeSortie: fenetreDeSortie,
     quitter: quitter,

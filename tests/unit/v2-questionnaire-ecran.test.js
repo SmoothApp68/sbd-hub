@@ -656,7 +656,10 @@ describe('60-2a — le routage d’entrée et la vue', () => {
 
   test('la session perdue ferme le questionnaire et oublie l’envoi en vol ; « Rafraîchir » ne recouvre pas un questionnaire qu’il vient d’ouvrir', () => {
     // 70 — la récupération en attente part avec la session (entre les deux, sans rien changer d'autre).
-    expect(APP).toMatch(/entreeFaitePour = null;\s*recuperation = null; renduPour = null;\s*fermerQuestionnaire\(\); envoiProfil = null; versionProfil = 0; ligneACreer = false;\s*profil = null; faits\.oublierDates\(\);\s*allerA\(Routeur\.CONNEXION/);
+    // P0 (28/11/2026) — la session perdue passe par `sessionTerminee` → `viderEtatDuCompte('session')`.
+    expect(extraire('sessionTerminee')).toMatch(/viderEtatDuCompte\('session'\);\s*allerA\(Routeur\.CONNEXION/);
+    expect(extraire('viderEtatDuCompte')).toMatch(/if \(pour === 'session' \|\| pour === 'quitter'\) \{[\s\S]*?recuperation = null; renduPour = null;/);
+    expect(extraire('oublierLaMemoireDuCompte')).toMatch(/profil = null; profilAEnvoyer = false; refusProfil = null;\s*fermerQuestionnaire\(\); envoiProfil = null; versionProfil = 0; ligneACreer = false;/);
     expect(APP).toMatch(/await chargerProfil\(\);[^}]*if \(vues\.questionnaire\.hidden\) afficherSemaine\(\);/);
   });
 
@@ -667,7 +670,8 @@ describe('60-2a — le routage d’entrée et la vue', () => {
   });
 
   test('la déconnexion ferme le questionnaire et oublie l’envoi en vol', () => {
-    expect(extraire('deconnecter')).toMatch(/fermerQuestionnaire\(\);\s*envoiProfil = null/);
+    expect(extraire('deconnecter')).toMatch(/viderEtatDuCompte\('quitter'\)/);
+    expect(extraire('oublierLaMemoireDuCompte')).toMatch(/fermerQuestionnaire\(\);\s*envoiProfil = null/);
   });
 });
 

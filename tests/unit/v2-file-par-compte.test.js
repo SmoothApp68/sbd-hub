@@ -182,10 +182,13 @@ describe('le branchement dans app.js', () => {
     return app.slice(i, j);
   };
 
+  // P0 (28/11/2026) — par `viderEtatDuCompte('changement', …)`, la seule fonction qui vide l'état du compte.
   test('⚠️ `garantirProprietaire` change de compte par `Cache.changerDeCompte`, jamais par `viderTout`', () => {
     const g = corps('garantirProprietaire');
-    expect(g).toMatch(/Cache\.changerDeCompte\(\s*meta && meta\.userId,\s*userId,\s*gardesDuCompte\(\),\s*preparerGardesDuCompte\s*\)/);
+    expect(g).toMatch(/viderEtatDuCompte\('changement',\s*meta && meta\.userId,\s*userId\)/);
     expect(g).not.toMatch(/Cache\.viderTout\(/);
+    const v = corps('viderEtatDuCompte');
+    expect(v).toMatch(/if \(pour === 'changement'\) \{[\s\S]*?Cache\.changerDeCompte\(ancien, nouveau, gardesDuCompte\(\), preparerGardesDuCompte\)/);
   });
 
   test('118 — ce qui attend hors de la file : la réponse de profil (avec sa ligne), les messages du groupe', () => {

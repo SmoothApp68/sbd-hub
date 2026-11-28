@@ -11005,7 +11005,7 @@
   function plancherDuCalage(equipement, salle) {
     var l = chargesDeLaSalle(salle);
     if (l.length) return l[0];
-    if (equipement === 'barre') return BARRE_VIDE;
+    if (equipement === 'barre') return barreDesChauffes();   // b2 (4) — la barre DÉCLARÉE (20 kg sans branchement), comme les chauffes
     var pas = repliDe(equipement, 0, 1);
     return pas === null || pas === undefined ? null : pas;
   }

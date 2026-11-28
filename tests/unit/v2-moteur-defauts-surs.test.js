@@ -83,3 +83,19 @@ describe('b2 (3) — la dégressive à la barre lit les disques de la salle (jus
     expect(deg(8).charge).toBeNull();
   });
 });
+
+describe('b2 (4) — le calage part de la barre DÉCLARÉE, pas de 20 kg', () => {
+  const cal = () => M.calagePremiereFois({ equipement: 'barre', mesure: 'charge_reps', reps: 8, series: [], prochain: 'travail' });
+  afterEach(() => M.brancherBarreDeLaSalle(null));
+  test('barre de 15 kg déclarée : le plancher et la première charge sont 15 kg', () => {
+    M.brancherBarreDeLaSalle(() => 15);
+    const r = cal();
+    expect(r.plancher).toBe(15);
+    expect(r.suivante.charge).toBe(15);
+  });
+  test('sans barre déclarée : 20 kg, comme avant', () => {
+    const r = cal();
+    expect(r.plancher).toBe(20);
+    expect(r.suivante.charge).toBe(20);
+  });
+});

@@ -13820,7 +13820,7 @@
       return Rendu.message(cible, 'Chargement…');
     }
     if (etatRoutines.code === 'echec' && !routines.length) {
-      Rendu.message(cible, etatRoutines.message + ' Les routines vivent en ligne.', 'erreur');
+      Rendu.message(cible, etatRoutines.message + ' Tu peux démarrer une séance vide.', 'erreur');
       var reessayer = Rendu.el('button', 'discret', 'Réessayer');
       reessayer.type = 'button';
       reessayer.addEventListener('click', async function () {
@@ -13829,6 +13829,12 @@
         rendreSaisie();
       });
       cible.appendChild(reessayer);
+      // Sans copie des routines sur l'appareil (jamais lues, ou compte changé), une séance vide reste possible : elle ne dépend d'aucune
+      // routine et part par la file au retour du réseau, comme toute séance.
+      var videHorsReseau = Rendu.el('button', 'discret bloc-large', 'Séance vide');
+      videHorsReseau.type = 'button';
+      videHorsReseau.addEventListener('click', function () { demarrerSeance(null); });
+      cible.appendChild(videHorsReseau);
       return;
     }
     rendreBandeauBrouillon();

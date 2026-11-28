@@ -2314,15 +2314,37 @@ const ALIAS_COMMUNS = [
   // qui dort trop longtemps n'est plus relancé par personne.
   // 135 — plafond 60 s (25 avant) : sous charge, le SDK met plus longtemps à renoncer ; un plafond ne coûte rien
   // quand l'état vient, et il rend la main sans conclure quand il ne vient pas.
-  const horsLigne = await attendreTexte('#liste-routines', /réseau|Réessayer/i, 60000);
+  // 28/11/2026 (PR 790) — CE CONTEXTE A DÉJÀ LU SES ROUTINES : leur copie est sur l'appareil (`cache.js`, magasin `routines`). Hors réseau,
+  // l'app les rend depuis cette copie au lieu de dire « je ne peux pas charger » ; c'est le comportement voulu (démarrer sans réseau à froid).
+  const horsLigne = await attendreTexte('#liste-routines', /Bas A|Haut A|Aucune routine|réseau|Réessayer/i, 60000);
   // À AUCUN MOMENT, pas seulement à la fin : l'état vide affiché une seconde
   // annonce une bibliothèque vide à quelqu'un qui a des routines.
   const vuVide = horsLigne.vus.filter((t) => /Aucune routine/.test(t));
   ok('elle ne dit JAMAIS qu’il n’y a aucune routine — « je ne sais pas » n’est pas « il n’y en a pas »',
     vuVide.length === 0, vuVide.length ? vuVide.length + ' rendu(s) fautif(s)' : 'jamais');
-  ok('elle dit qu’elle ne peut pas charger, et propose de réessayer',
-    /réseau/i.test(horsLigne.fin) && /Réessayer/.test(horsLigne.fin),
+  ok('avec la copie des routines sur l’appareil, la bibliothèque s’affiche hors réseau, sans message d’échec',
+    /Bas A|Haut A/.test(horsLigne.fin) && !/Réessayer/.test(horsLigne.fin),
     JSON.stringify(await visible()) + ' ' + horsLigne.fin.replace(/\n+/g, ' | ').slice(0, 90));
+
+  // TÉMOIN : RIEN EN CACHE. Un profil NEUF, réseau coupé dès l'ouverture : aucune copie de routines. L'écran dit alors qu'il ne peut
+  // pas charger, propose de réessayer — et laisse une séance vide (elle ne dépend d'aucune routine).
+  const ctxSans = await nav.newContext({ viewport: { width: 360, height: 760 } });
+  await ctxSans.addInitScript(SCRIPT_JETON);
+  await ctxSans.route(/supabase\.co/, (route) => route.abort('failed'));
+  const pageSans = await ctxSans.newPage();
+  await pageSans.goto(BASE + '/saisie', { waitUntil: 'domcontentloaded' }).catch(() => {});
+  let sansCopie = { fin: '', vus: [] }, tSans = Date.now() + 60000;
+  while (Date.now() < tSans) {
+    const vu = await pageSans.evaluate(() => (document.getElementById('liste-routines') || {}).textContent || '');
+    sansCopie.vus.push(vu); sansCopie.fin = vu;
+    if (/réseau|Réessayer/i.test(vu)) break;
+    await attendre(300);
+  }
+  ok('[790 témoin] sans copie des routines, elle dit qu’elle ne peut pas charger, et propose de réessayer',
+    /réseau/i.test(sansCopie.fin) && /Réessayer/.test(sansCopie.fin), sansCopie.fin.replace(/\n+/g, ' | ').slice(0, 90));
+  ok('[790 témoin] sans copie, « Séance vide » reste proposée, et elle ne dit jamais « Aucune routine »',
+    /Séance vide/.test(sansCopie.fin) && !sansCopie.vus.some((t) => /Aucune routine/.test(t)), sansCopie.fin.replace(/\n+/g, ' | ').slice(0, 90));
+  await ctxSans.close();
 
   console.log('\n══ 10. LE CATALOGUE PAS ENCORE CHARGÉ ══');
   // Un profil NEUF, réseau coupé dès l'ouverture : le cache local est vide, donc

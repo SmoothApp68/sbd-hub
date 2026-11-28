@@ -12732,8 +12732,12 @@
   // `x` : { n, seance, quand (ms) } ; `maintenant` : ms. Pure.
   function chauffesEnSilence(x, maintenant) {
     if (!x || !(Number(x.n) >= CHAUFFE_REFUS_SILENCE)) return false;
+    // b2 (5) — PAS DE SILENCE SANS DATE : un refus sans date (une entrée d'avant les dates) ne peut pas échoir, donc ne met jamais en silence (il restait silencieux pour toujours, au
+    // lieu des quatre semaines que la phrase promet). Une horloge absente (`maintenant`) laisse, elle, le silence en place : le refus de la personne est respecté.
+    if (x.quand === null || x.quand === undefined || x.quand === '') return false;
     var q = Number(x.quand), t = Number(maintenant);
-    if (!isFinite(q) || !isFinite(t)) return true;
+    if (!isFinite(q)) return false;
+    if (!isFinite(t)) return true;
     return t - q < CHAUFFE_SILENCE_JOURS * 24 * 3600 * 1000;
   }
 

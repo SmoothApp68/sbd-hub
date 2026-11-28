@@ -99,3 +99,22 @@ describe('b2 (4) — le calage part de la barre DÉCLARÉE, pas de 20 kg', () =>
     expect(r.suivante.charge).toBe(20);
   });
 });
+
+describe('b2 (5) — chauffes : jamais de silence sans date', () => {
+  const T = Date.UTC(2026, 10, 28, 10);
+  const JOUR = 864e5;
+  test('deux refus datés d\'il y a 10 jours : en silence', () => {
+    expect(M.chauffesEnSilence({ n: 2, quand: T - 10 * JOUR }, T)).toBe(true);
+  });
+  test('deux refus datés d\'il y a 29 jours : le silence est échu', () => {
+    expect(M.chauffesEnSilence({ n: 2, quand: T - 29 * JOUR }, T)).toBe(false);
+  });
+  test('deux refus SANS date (entrée d\'avant les dates) : pas de silence éternel', () => {
+    expect(M.chauffesEnSilence({ n: 2 }, T)).toBe(false);
+    expect(M.chauffesEnSilence({ n: 2, quand: null }, T)).toBe(false);
+    expect(M.chauffesEnSilence({ n: 2, quand: 'hier' }, T)).toBe(false);
+  });
+  test('un seul refus : jamais de silence', () => {
+    expect(M.chauffesEnSilence({ n: 1, quand: T - JOUR }, T)).toBe(false);
+  });
+});

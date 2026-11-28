@@ -212,11 +212,13 @@
   // ── La zone à ménager (décidé le 08/10/2026, question 1) ─────────────────────
   // Une place dont le motif charge la zone GARDE son exercice et toutes ses séries, SANS série lourde.
   var CHARGE_ZONE = {
-    genou: ['squat', 'presse', 'quad_iso', 'forme_jambes'],
-    dos: ['charniere', 'jambes_tendues', 'squat', 'rowing', 'forme_charniere', 'forme_jambes', 'forme_tirage', 'forme_tirage_vertical'],
-    epaule: ['militaire', 'couche', 'couche_serre', 'elev_lat', 'forme_poussee'],
-    coude: ['triceps', 'curl'],
-    hanche: ['hip_thrust', 'squat', 'charniere', 'forme_jambes', 'forme_charniere']
+    // 28/11/2026 — les places de la calisthénie (`cal_*`) sont dans la MÊME table : la calisthénie lit les zones comme les autres buts.
+    genou: ['squat', 'presse', 'quad_iso', 'forme_jambes', 'cal_jambes'],
+    dos: ['charniere', 'jambes_tendues', 'squat', 'rowing', 'forme_charniere', 'forme_jambes', 'forme_tirage', 'forme_tirage_vertical',
+      'cal_jambes', 'cal_charniere', 'cal_tirage', 'cal_rowing'],
+    epaule: ['militaire', 'couche', 'couche_serre', 'elev_lat', 'forme_poussee', 'cal_poussee', 'cal_pompes'],
+    coude: ['triceps', 'curl', 'cal_poussee', 'cal_pompes'],
+    hanche: ['hip_thrust', 'squat', 'charniere', 'forme_jambes', 'forme_charniere', 'cal_jambes', 'cal_charniere']
   };
 
   // La variante plus tolérée, seulement les cas évidents : le dos prend le belt squat (la charge est à la ceinture),
@@ -2102,8 +2104,19 @@
     if (faite) return faite;
     return Mo.marchesTriees(catalogue, CAL_FIGURE_PAR_DEFAUT).filter(function (f) { return f.mesure === 'temps' && ok(f.slug) && !contient(ecartes, f.slug); })[0] || null;
   }
-  function ligneCalisthenie(catalogue, slug, motif, role, series, reps) {
-    return { exercise_slug: slug, motif: motif, role: role, series: series, reps: reps, prioritaire: false, menage: false,
+  // 28/11/2026 — UNE place de calisthénie qui charge une zone à ménager (`estMenagee`, la table `CHARGE_ZONE` des autres buts) : sa marche
+  // descend d'un cran (jamais le pistol ni le bulgare avec un genou ou une hanche ménagés), ses séries restent, ses reps au moins celles
+  // d'un secondaire (`repsDeLaPlace` : la même fonction que `ligne()`), et l'aperçu la dit (`phrasesDeLApercu`).
+  var CAL_JAMBES_UNILATERALES = ['pistol_squat', 'split_squat_bulgare_poids_du_corps'];
+  var CAL_ZONES_JAMBES = ['genou', 'hanche'];
+  function marcheMenagee(catalogue, echelle, mc, libre) {
+    var rungs = marchesDeLEchelle(catalogue, echelle).filter(function (f) { return libre(f.slug); });
+    for (var i = 0; i < rungs.length; i++) if (rungs[i].slug === mc.slug) return i > 0 ? { slug: rungs[i - 1].slug, depart: mc.depart } : mc;
+    return mc;
+  }
+  function ligneCalisthenie(catalogue, slug, motif, role, series, reps, menage, objectif) {
+    if (menage) reps = repsDeLaPlace(reps, motif, true, objectif);
+    return { exercise_slug: slug, motif: motif, role: role, series: series, reps: reps, prioritaire: false, menage: !!menage,
              barre_fixe: demandeUneBarreFixe(slug, catalogue[slug]), groupe_superset: null };
   }
   function genererCalisthenie(catalogue, entree) {
@@ -2114,18 +2127,23 @@
     var bras = liste(p.menager).some(function (z) { return contient(CAL_ZONES_BRAS_TENDUS, z); });
     var n = Math.max(2, Math.min(CAL_SEANCES_MAX, bornerJours(p.jours)));
     var figure = bras ? null : figureDeLaPersonne(catalogue, faits, ecartes, ok);
-    var marches = {}, complements = [];
+    var marches = {}, menages = {}, complements = [];
     CAL_PAIRES.forEach(function (paire) {
       paire.forEach(function (m) {
         var echelle = m[1];
         var dep = echelle === 'tractions' ? departs.tractions : echelle === 'pompes' ? departs.pompes : echelle === 'dips_torse' ? departs.dips
           : echelle === 'squat_poids_du_corps' ? departs.jambes : [];
-        var mc = marcheDeLaPersonne(catalogue, echelle, faits, dep, ecartes, ok, p.marches_tenues);
+        var menage = estMenagee(m[0], p.menager);
+        var okPlace = menage && m[0] === 'cal_jambes' && liste(p.menager).some(function (z) { return contient(CAL_ZONES_JAMBES, z); })
+          ? function (s) { return ok(s) && !contient(CAL_JAMBES_UNILATERALES, s); } : ok;
+        menages[m[0]] = { menage: menage, ok: okPlace };
+        var mc = marcheDeLaPersonne(catalogue, echelle, faits, dep, ecartes, okPlace, p.marches_tenues);
+        if (mc && menage) mc = marcheMenagee(catalogue, echelle, mc, function (s) { return !contient(ecartes, s) && okPlace(s); });
         if (mc) marches[m[0]] = mc;
         // « tractions 3 × 3-5 plus des négatives » : la marche de départ qui en porte deux, la seconde en complément
         if (mc && mc.depart && dep.length > 1 && dep[0] === mc.slug) {
           var b = dep[1];
-          if (possede(catalogue, b) && ok(b) && !contient(ecartes, b) && b !== (marches.cal_rowing || {}).slug) complements.push({ motif: m[0], slug: b });
+          if (possede(catalogue, b) && menages[m[0]].ok(b) && !contient(ecartes, b) && b !== (marches.cal_rowing || {}).slug) complements.push({ motif: m[0], slug: b });
         }
       });
     });
@@ -2144,14 +2162,14 @@
         var paire = CAL_PAIRES[(i + k) % CAL_PAIRES.length];
         var lignes = paire.map(function (m) {
           var mc = marches[m[0]];
-          return mc ? ligneCalisthenie(catalogue, mc.slug, m[0], 'S', CAL_SERIES, mc.depart ? CAL_REPS_DEPART : CAL_REPS) : null;
+          return mc ? ligneCalisthenie(catalogue, mc.slug, m[0], 'S', CAL_SERIES, mc.depart ? CAL_REPS_DEPART : CAL_REPS, menages[m[0]].menage, p.objectif) : null;
         }).filter(Boolean);
         if (lignes.length === 2) { groupe += 1; lignes[0].groupe_superset = lignes[1].groupe_superset = groupe; }
         lignes.forEach(function (l) { ex.push(l); });
       }
       complements.forEach(function (c) {
         if (ex.some(function (l) { return l.exercise_slug === c.slug; })) return;
-        ex.push(ligneCalisthenie(catalogue, c.slug, c.motif, 'T', 2, 3));
+        ex.push(ligneCalisthenie(catalogue, c.slug, c.motif, 'T', 2, 3, menages[c.motif].menage, p.objectif));
       });
       var rt = { nom: 'Corps entier ' + 'ABCD'.charAt(k), exercices: liste(ex) };
       routines.push(rt);

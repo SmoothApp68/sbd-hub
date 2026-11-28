@@ -154,3 +154,49 @@ describe('195-3 — I100 sur le plan (I104 est retiré avec « Au max », I251)'
     expect(r.erreurs.some((m) => /^I251/.test(m))).toBe(true);
   });
 });
+
+describe('28/11/2026 — la calisthénie respecte les zones à ménager (comme les autres buts)', () => {
+  const depart = { tractions: 3, pompes: 18, dips: 0, pistol: true };
+  const lignesDe = (rts, motif) => rts.reduce((a, rt) => a.concat(rt.exercices.filter((l) => l.motif === motif)), []);
+  test('genou ménagé, « pistol : oui » : ni pistol ni bulgare, la place est marquée ménagée, sans série lourde', () => {
+    const r = G.generer(CAT, entree({ menager: ['genou'], depart_calisthenie: depart }));
+    const jambes = lignesDe(r, 'cal_jambes');
+    expect(jambes.length).toBeGreaterThan(0);
+    jambes.forEach((l) => {
+      expect(['pistol_squat', 'split_squat_bulgare_poids_du_corps']).not.toContain(l.exercise_slug);
+      expect(l.menage).toBe(true);
+      expect(l.reps).toBeGreaterThanOrEqual(9);
+    });
+    // même avec un pistol déjà fait
+    const fait = G.generer(CAT, entree({ menager: ['genou'], faits: { pistol_squat: 4 } }));
+    lignesDe(fait, 'cal_jambes').forEach((l) => expect(l.exercise_slug).toBe('squat_poids_du_corps'));
+  });
+  test('sans zone ménagée, le pistol reste (rien ne change)', () => {
+    const r = G.generer(CAT, entree({ depart_calisthenie: depart }));
+    expect(lignesDe(r, 'cal_jambes').map((l) => l.exercise_slug)).toContain('pistol_squat');
+    r.forEach((rt) => rt.exercices.forEach((l) => expect(l.menage).toBe(false)));
+  });
+  test('genou : seules les jambes sont ménagées ; dos : charnière, tirage, rowing', () => {
+    const g = G.generer(CAT, entree({ menager: ['genou'], depart_calisthenie: depart }));
+    ['cal_tirage', 'cal_poussee', 'cal_rowing', 'cal_pompes', 'cal_charniere'].forEach((m) => lignesDe(g, m).forEach((l) => expect(l.menage).toBe(false)));
+    const d = G.generer(CAT, entree({ menager: ['dos'], depart_calisthenie: depart }));
+    ['cal_charniere', 'cal_tirage', 'cal_rowing'].forEach((m) => lignesDe(d, m).forEach((l) => expect(l.menage).toBe(true)));
+    lignesDe(d, 'cal_poussee').forEach((l) => expect(l.menage).toBe(false));
+  });
+  test('hanche : pas de pistol ni de bulgare non plus', () => {
+    const r = G.generer(CAT, entree({ menager: ['hanche'], depart_calisthenie: depart }));
+    lignesDe(r, 'cal_jambes').forEach((l) => expect(['pistol_squat', 'split_squat_bulgare_poids_du_corps']).not.toContain(l.exercise_slug));
+  });
+  test('l\'aperçu le dit, avec la phrase des autres buts', () => {
+    const e = entree({ menager: ['genou'], depart_calisthenie: depart });
+    const r = G.generer(CAT, e);
+    const z = G.phrasesDeLApercu(r, e, (x) => x, r.length).zones;
+    expect(z).toHaveLength(1);
+    expect(z[0]).toMatch(/^Tu ménages ton genou : squat_poids_du_corps, sans série lourde\. Toutes ses séries restent\.$/);
+  });
+  test('la liste des zones du profil est toujours celle du générateur', () => {
+    const e = entree({ menager: ['epaule'], depart_calisthenie: depart });
+    const r = G.generer(CAT, e);
+    expect(G.phrasesDeLApercu(r, e, (x) => x, r.length).zones.length).toBe(1);
+  });
+});

@@ -32,13 +32,20 @@ function bac() {
     lireTout: (m) => { lectures.push('tout:' + m); return Promise.resolve([]); },
     lireBrouillon: (c) => { lectures.push('brouillon:' + c); return Promise.resolve(null); },
     lireAttente: lire('attente', []),
-    lireMeta: (c) => { lectures.push('meta:' + c); return Promise.resolve(null); }
+    lireMeta: (c) => { lectures.push('meta:' + c); return Promise.resolve(null); },
+    // D1 — `chargerSeanceLocale` lit par `lireLeLocal` : les mêmes deux lectures (brouillon, file) ; et le verrou de l'écrivain.
+    lireLeLocal: () => {
+      lectures.push('brouillon:seance'); lectures.push('attente');
+      return Promise.resolve({ seance: null, attente: [], seanceLue: true, fileLue: true });
+    },
+    devenirEcrivain: () => Promise.resolve(true)
   };
   const vue = { hidden: true };
   const ctx = {
     console: { warn: () => {} },
     racine: { location: { pathname: '/' } },
     Cache: cache,
+    seanceLue: true, fileLue: true,
     local: {}, seance: null, attente: [], consignesSauvees: null, brouillonLocal: null,
     sessionActive: null, profil: null, etat: null, verificationSeance: null,
     entreeEnCours: null, entreeFaitePour: null,

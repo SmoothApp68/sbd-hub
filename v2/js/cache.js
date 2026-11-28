@@ -167,6 +167,58 @@
 
   function estBloquee() { return !!_horsService; }
 
+  // ⚠️ D1 (lot « aucune perte de séance ») — UN SEUL ONGLET ÉCRIT.
+  //
+  // La file d'envoi, le brouillon de séance, le profil à envoyer, la file du groupe, la routine en cours d'édition :
+  // chacun est UN enregistrement réécrit EN ENTIER depuis la mémoire de la page. Deux onglets ouverts s'écrasent donc
+  // l'un l'autre — le dernier qui écrit gagne, et la séance de l'autre disparaît. Un verrou Web Locks, pris pour toute
+  // la vie de la page (il tombe seul quand elle meurt, même tuée), désigne l'unique écrivain. Les autres pages
+  // LISENT ; toute écriture y est refusée (`code: 'LECTEUR'`), rien n'est écrit par-dessus.
+  //   · `_ecrivain === null` : pas encore décidé — les écritures passent (tests, outils). L'app décide à l'entrée.
+  //   · Sans `navigator.locks`, on ne peut pas savoir si une autre page écrit : la page ne devient PAS écrivain
+  //     (le plus sûr — pas de repli qui ressemblerait à une garantie). Web Locks existe sur Chrome (69), Safari
+  //     (15.4) : les deux cibles.
+  //   · Un rechargement libère le verrou de l'ancienne page au moment où elle meurt : la nouvelle l'attend un peu
+  //     (`ATTENTE_VERROU_MS`, une seule fois, au démarrage — pas dans la file) avant de se déclarer lecteur.
+  var NOM_VERROU = 'trainhub-v2-ecrivain';
+  var ATTENTE_VERROU_MS = 2000;
+  var _ecrivain = null;
+  var _demandeVerrou = null;
+
+  function devenirEcrivain(attenteMs) {
+    if (_ecrivain === true) return Promise.resolve(true);
+    if (_demandeVerrou) return _demandeVerrou;
+    var verrous = racine.navigator && racine.navigator.locks;
+    if (!verrous || typeof verrous.request !== 'function') {
+      _ecrivain = false;
+      return Promise.resolve(false);
+    }
+    var delai = typeof attenteMs === 'number' ? attenteMs : ATTENTE_VERROU_MS;
+    _demandeVerrou = new Promise(function (resoudre) {
+      var ctl = typeof racine.AbortController === 'function' ? new racine.AbortController() : null;
+      var options = ctl ? { signal: ctl.signal } : { ifAvailable: true };
+      var minuteur = ctl ? setTimeout(function () { ctl.abort(); }, delai) : null;
+      var fini = function (oui) {
+        if (minuteur) clearTimeout(minuteur);
+        _ecrivain = oui;
+        _demandeVerrou = null;
+        resoudre(oui);
+      };
+      var p;
+      try {
+        p = verrous.request(NOM_VERROU, options, function (verrou) {
+          if (!verrou) { fini(false); return undefined; }
+          fini(true);
+          return new Promise(function () { /* tenu jusqu'à la mort de la page */ });
+        });
+      } catch (e) { fini(false); return; }
+      if (p && typeof p.catch === 'function') p.catch(function () { if (_ecrivain !== true) fini(false); });
+    });
+    return _demandeVerrou;
+  }
+  function estEcrivain() { return _ecrivain !== false; }
+  function estLecteur() { return _ecrivain === false; }
+
   // 134 (I-02, audit iPhone) — UNE CONNEXION PERDUE SE ROUVRE, UNE FOIS.
   //
   // La connexion peut mourir sans que `close` soit encore arrivé : la transaction échoue alors à l'ouverture
@@ -178,7 +230,14 @@
     if (!err) return false;
     return err.name === 'InvalidStateError' || /Connection to Indexed Database server lost/i.test(String(err.message || ''));
   }
-  function operation(magasins, mode, travail) {
+  function operation(magasins, mode, travail, sansVerrou) {
+    // D1 — une page qui n'est pas l'écrivain n'écrit rien (voir `devenirEcrivain`). Seul « Quitter » (`viderTout`),
+    // un geste explicite de l'utilisateur, passe outre.
+    if (mode === 'readwrite' && _ecrivain === false && !sansVerrou) {
+      var refus = new Error('Cette page n\u2019est pas celle qui écrit sur l\u2019appareil');
+      refus.code = 'LECTEUR';
+      return Promise.reject(refus);
+    }
     var essai = function () {
       var connexion = null;
       return ouvrir().then(function (db) {
@@ -306,7 +365,7 @@
     return operation(MAGASINS, 'readwrite', function (tx) {
       MAGASINS.forEach(function (m) { tx.objectStore(m).clear(); });
       return finDe(tx);
-    });
+    }, true);
   }
 
   // ⚠️ 117 (audit du 16/10, 06 #6) — UN AUTRE COMPTE ENTRE : tout est vidé, SAUF la file du compte qui part, gardée
@@ -401,7 +460,28 @@
   function lireAttente() { return lireTout('attente'); }
   function ecrireAttente(file) { return remplacerTout('attente', file || []); }
 
+  // ⚠️ D1 — UNE LECTURE RATÉE N'EST JAMAIS UNE FILE VIDE. Le brouillon, sa passerelle et la file se lisent chacun
+  // pour soi : l'échec de l'un ne vide pas l'autre. `seanceLue` / `fileLue` disent ce qui a VRAIMENT été lu ; tant
+  // que `fileLue` est faux, l'appelant n'écrit pas la file (il garde ce qui est sur le disque et relit plus tard).
+  // `passerelle` (`marquerLeBrouillonDAvant`) est du JS qui peut lever : alors le brouillon brut est gardé tel quel.
+  async function lireLeLocal(passerelle) {
+    var r = { seance: null, attente: [], seanceLue: false, fileLue: false, erreur: null, passerelleEnEchec: null };
+    try { r.seance = await lireBrouillon('seance'); r.seanceLue = true; }
+    catch (e) { r.erreur = e; }
+    if (r.seance && typeof passerelle === 'function') {
+      try { r.seance = passerelle(r.seance); }
+      catch (e) { r.passerelleEnEchec = e; }
+    }
+    try { r.attente = await lireAttente(); r.fileLue = true; }
+    catch (e) { r.erreur = r.erreur || e; }
+    return r;
+  }
+
   racine.THCache = {
+    devenirEcrivain: devenirEcrivain,
+    estEcrivain: estEcrivain,
+    estLecteur: estLecteur,
+    lireLeLocal: lireLeLocal,
     ouvrir: ouvrir,
     lireBrouillon: lireBrouillon,
     ecrireBrouillon: ecrireBrouillon,

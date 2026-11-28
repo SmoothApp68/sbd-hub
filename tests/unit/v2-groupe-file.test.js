@@ -30,6 +30,7 @@ function bac(o) {
   const panne = () => { const e = new Error('Failed to fetch'); throw e; };
   const ctx = {
     Social, console: { warn: () => {} }, texteErreur: (e) => String(e && e.message),
+    grpFileLue: true,   // D1 — la file du groupe lue au démarrage
     generation: 1, generationValide: () => true,
     grp: { moi: { id: 'g-1' }, etat: [{ moi: true, session_id: 's1' }], direct: [], messages: [], file: [], envoi: null,
            message: null, publie: 'x', recapAuto: false },

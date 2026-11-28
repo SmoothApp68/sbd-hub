@@ -29,6 +29,7 @@
   var Export = racine.THExport;
   var Mentions = racine.THMentions;   // 212
   var Silhouettes = racine.THSilhouettes;   // 218
+  var Ecran = racine.THEcran;   // l'écran reste allumé en séance (26/11/2026)
   var Mouvement = racine.THMouvement;   // 271 — l'animation 3D du mouvement (onglet « Comment faire »)
   var Generateur = racine.THGenerateur;
   var Rejeu = racine.THRejeu, Bilan = racine.THBilan;
@@ -1154,6 +1155,7 @@
     // changement de compte ci-dessus a vidé leurs magasins (la file, gardée à
     // part pour lui) ; on remet la mémoire d'accord avec le disque.
     seance = null; attente = []; chrono = null;
+    suivreLEcran();
     oublierSuppressionDifferee();
     // §12.9 (49-U13) — les séances sous consigne aussi (le brouillon qui les
     // porte vient d'être effacé avec le reste).
@@ -2171,6 +2173,20 @@
   }
   function poserSilhouette(sexe) {
     try { racine.localStorage.setItem(CLE_SILHOUETTE, Silhouettes.sexeValide(sexe)); } catch (e) { /* tant pis : le choix ne dure que le temps de l'écran */ }
+  }
+
+  // 26/11/2026 — « Garder l'écran allumé en séance » : une préférence PAR APPAREIL (`localStorage`, jamais en base), allumée par défaut.
+  // `ecranAllume` (`ecran.js`) ne tient le verrou d'écran que pendant une séance ; rien n'est écrit.
+  var CLE_ECRAN_ALLUME = 'th-v2-ecran-allume';
+  function lireEcranAllume() {
+    try { return racine.localStorage.getItem(CLE_ECRAN_ALLUME) !== '0'; } catch (e) { return true; }
+  }
+  var ecranAllume = Ecran.creer({ navigateur: racine.navigator, document: doc, actif: lireEcranAllume });
+  function suivreLEcran() { if (ecranAllume) ecranAllume.synchroniser(!!seance); }
+  function basculerEcranAllume() {
+    try { racine.localStorage.setItem(CLE_ECRAN_ALLUME, lireEcranAllume() ? '0' : '1'); } catch (e) { /* tant pis : le choix ne dure pas */ }
+    suivreLEcran();
+    rendreProfilEcran();
   }
 
   // La vue de « Ta semaine et tes équilibres » pour « Ton parcours » : l'analyse, la dernière proposition acceptée, les gestes.
@@ -5657,6 +5673,7 @@
     // 91 — mon XP de la séance part au groupe (nulle jeu éteint) ; le récap du groupe viendra après le mien.
     publierFinPourLeGroupe(finie, jeuDuRecap);
     seance = null; chrono = null; arreterMinuteur();
+    suivreLEcran();
     // La barre s'efface AVEC la séance : la laisser affichée lui ferait
     // traverser la fin, et la réserve du bas la suivrait.
     rendreChrono();
@@ -6273,6 +6290,7 @@
     // resté seul était refusé à vie par la base (sa séance n'existe pas) : « 1 envoi refusé » pour toujours.
     attente = Attente.retirerSeance(attente, id, idsSeriesDe(seance));
     seance = null; chrono = null; arreterMinuteur();
+    suivreLEcran();
     rendreChrono();
     await Cache.ecrireBrouillon('seance', null);
     await oublierConnues(id);
@@ -11290,6 +11308,7 @@
 
   function rendreSeance() {
     montrer('seance', Routeur.SAISIE);
+    suivreLEcran();
     reactionPerimee = false;
     routinesATardivesEnAttente = false;   // F2 — ce rendu lit les routines d'à présent
     ecouterSortieDesChamps();
@@ -19834,7 +19853,10 @@
           { titre: 'AFFICHAGE', lignes: [
             { libelle: 'Faits seulement', sansValeur: true,
               sous: 'Masque le niveau, l’XP, les succès, les titres et les cadres. Garde les records, les courbes, les paris et les jalons.',
-              interrupteur: { actif: modeSobre(), surBascule: basculerModeSobre } }
+              interrupteur: { actif: modeSobre(), surBascule: basculerModeSobre } },
+            { libelle: 'Garder l’écran allumé en séance', sansValeur: true,
+              sous: 'Empêche la mise en veille automatique pendant une séance. Le bouton de verrouillage verrouille toujours. Sur cet appareil.',
+              interrupteur: { actif: lireEcranAllume(), surBascule: basculerEcranAllume } }
           ] },
           // 69 (ECRAN-PROFIL §2.4 quater) — « MES DONNÉES ». Le jeu, quitter et supprimer suivent, dans le rendu (213 : au bas de ce groupe).
           { titre: 'MES DONNÉES', lignes: [

@@ -52,7 +52,7 @@ describe('201 — le registre SOURCES', () => {
 
   test('`sourcesDeRegles` : sans doublon, dans l\'ordre ; une clé sans entrée n\'ajoute rien (jamais devinée)', () => {
     const a = M.sourcesDeRegles(['reserve', 'inconnue', 'reserve', 'degressive']);
-    expect(a.map((s) => s.auteur)).toEqual(['Refalo', 'Robinson', 'Sodal']);
+    expect(a.map((s) => s.auteur)).toEqual(['Refalo', 'Robinson', 'Sødal']);
     expect(M.sourcesDeRegles(['inconnue'])).toEqual([]);
     expect(M.sourcesDeRegles(null)).toEqual([]);
   });

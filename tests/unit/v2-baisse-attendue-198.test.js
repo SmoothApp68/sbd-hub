@@ -83,13 +83,13 @@ describe('198 — la baisse attendue en sèche', () => {
     expect((p.baisseAttendue.phrase.match(/sèche/g) || []).length).toBe(1);
     expect(T.verifierPlan(p, e).erreurs).toEqual([]);
   });
-  test('202 — la baisse attendue dit d’où ça vient : une convention du coach (Garthe 2011 ne mesure pas la baisse), et rien sur le poids', () => {
+  test('202 — la baisse attendue dit d’où ça vient : un choix de l’app (Garthe 2011 mesure la force, pas cette baisse), et rien sur le poids', () => {
     const { p } = seche(3);
     const src = p.baisseAttendue.sources;
     expect(src).toHaveLength(1);
     expect(src[0]).toMatchObject({ type: 'convention' });
-    expect(src[0].texte).toMatch(/convention du coach/);
-    expect(src[0].texte).toMatch(/Garthe 2011.*ne mesure pas/);
+    expect(src[0].texte).toMatch(/choix de l’app/);
+    expect(src[0].texte).toMatch(/Garthe 2011.*que les études ne montrent pas|que les études ne montrent pas.*Garthe 2011/);
     expect(src[0].texte).not.toMatch(/0,7 %|1,4 %/);
     expect(p.baisseAttendue.phrase).not.toMatch(/poids/);
   });

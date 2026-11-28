@@ -98,6 +98,7 @@ const SHELL = [
   './js/export.js',
   './js/mentions.js',
   './js/silhouettes.js',
+  './js/ecran.js',
   // 271 — le module du mouvement (petit). Les bibliothèques, le corps et les exercices restent HORS coquille : à la demande.
   './js/mouvement.js',
   './js/routeur.js',

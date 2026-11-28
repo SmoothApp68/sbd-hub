@@ -1525,9 +1525,9 @@
   // pas. Sinon une semaine de retard sur un exercice hebdomadaire deviendrait
   // une reprise, et le moteur se tairait sans raison.
   //
-  // 84 jours INCLUS restent une reprise courte : douze semaines pile, c'est la
-  // borne mesurée au banc M14 — jusque-là, la personne tient son palier dès la
-  // première séance 73 à 74 fois sur 100.
+  // 84 jours INCLUS restent une reprise courte : douze semaines pile, une convention
+  // de l'app (aucune étude ne fixe cette borne) ; le banc M14 mesure seulement que, jusque-là, la personne tient son palier
+  // dès la première séance 73 à 74 fois sur 100.
   //
   // ⚠️ RIEN ICI NE DIT LA DURÉE DE L'ABSENCE, et rien ne doit la dire :
   // `CADRAGE §3.1 bis` interdit tout commentaire sur l'assiduité. Cette fonction
@@ -1607,7 +1607,7 @@
   // (le plan, ses invariants I154, I160, I205, I206, I241, la phrase de 65 ans) ne changent pas. ⚠️ `populationProtegee` décide AUSSI du jour sans (`jourSansOuvrable`), des
   // chutes, des lignes test et haute et de I160 : elle reste exportée sous son nom, c'est une projection de `prudence` (`.protegee`), jamais une copie.
   var PRUDENCE = {
-    plafondDeSaut: 0.15,          // le plafond d'un saut de plusieurs crans : 15 % est un choix de l'app (décision 186) ; l'ACSM 2009 dit +2 à 10 % (moins pour les petits muscles), d'où plafondDeSautPrudent
+    plafondDeSaut: 0.15,          // le plafond d'un saut de plusieurs crans : convention de l'app (décision 186), aucune source ne le fixe ; l'ACSM 2009 donne +2 à 10 % pour une hausse ordinaire (moins pour les petits muscles)
     plafondDeSautPrudent: 0.10,   // idem pour le débutant et les 65 ans et plus
     agePlafondBas: 65,            // « 65 ans et plus » (âge connu)
     ageUnCran: 50,                // le débutant de 50 ans et plus monte d'un cran à la fois
@@ -2131,7 +2131,7 @@
   // Le jour sans se lit sur l'HISTOIRE (le début de chaque zéro et de la séance qui le suit), jamais sur un état : la consigne reçue par la séance suivante est REJOUÉE
   // (`consigneApresUnZero` sur l'histoire d'avant elle) — la séance légère n'est « jour sans » que si elle a reçu cette consigne.
   var JOUR_SANS_LUES = 2;
-  var ETATS_DU_RETOUR = { progression: true, tenue_apres_chute: true, test_propose: true, retest: true, retest_un_cran: true };
+  var ETATS_DU_RETOUR = { bord: true, progression: true, tenue_apres_chute: true, test_propose: true, retest: true, retest_un_cran: true };
   function neutraliserLeZero(se) {
     return { debut: se.debut, palier: null, neutre: true, series: se.series || [], plafondZero: se.plafondZero, decharge: se.decharge };
   }
@@ -2158,9 +2158,11 @@
              reculs: (Z.series || []).some(function (x) { return x && x.origine === 'recul'; }) };
   }
   // « Elle passe » : au moins une série couverte (palier ou travail), et aucune sous le bas de la zone de `base` (`rateSousLaZone`, la notion partagée).
-  function legerePasse(se, zoneBas) {
+  function legerePasse(se, zoneBas, niveau) {
     var couvertes = parRole(se && se.series, ROLES_RETENUS);
-    if (!couvertes.length || zoneBas === null || zoneBas === undefined) return false;
+    // Sous 3 reps il n'y a pas de zone (règle de bord) : « passe » = aucune série sous les reps du niveau, comme `ratee` du bord.
+    if (zoneBas === null || zoneBas === undefined) { if (!couvertes.length || nombre(niveau) === null) return false; return couvertes.every(function (s) { var r = nombre(s.reps); return r !== null && r >= nombre(niveau); }); }
+    if (!couvertes.length) return false;
     return couvertes.every(function (s) {
       var r = nombre(s.reps);
       return r !== null && !rateSousLaZone({ reps: r, bas: zoneBas, charge: nombre(s.charge_kg) }).sousZone;
@@ -2196,7 +2198,7 @@
         }
         // Elle n'est LA séance légère que si sa charge est STRICTEMENT sous la charge de travail `P` (`ouvert.palier`) : faite à `P` ou au-dessus (140, 145), c'est une séance
         // ordinaire, elle vote ; entre la ligne proposée et `P` (137,5 pour une ligne à 132,5 et `P` = 140), elle reste la légère (neutre).
-        if (memo[t] === true && chargeDeLaSeance(se) < ouvert.palier - 1e-9 && legerePasse(se, ouvert.zoneBas)) { legeres[t] = { z: instant(prec.debut) }; return; }
+        if (memo[t] === true && chargeDeLaSeance(se) < ouvert.palier - 1e-9 && legerePasse(se, ouvert.zoneBas, ouvert.niveau)) { legeres[t] = { z: instant(prec.debut) }; return; }
       }
       // Le jeton ne se lève que sur une séance ORDINAIRE RÉUSSIE, quelle que soit sa charge (jamais un retour imposé, ni un neutre, une légère ou une décharge ; jamais sous le bas
       // de la zone). Le retour imposé ne le relève pas : l'étape qui échoue (140 × 4) n'a pas été réussie. Sans zone connue (`zoneBas` nul), la lecture d'avant : une séance au palier.
@@ -2207,7 +2209,7 @@
     return { legeres: legeres, ouverts: ouverts };
   }
   // La consigne de la fois qui suit un jour sans PASSÉ : la charge de travail ET le niveau de `base`, jamais au-dessus, sans ligne haute. Un état de `base` qui n'est pas
-  // une progression ordinaire (bord, reprise, silence, échelle…) reste tel quel : la séance légère est neutre, rien de plus.
+  // une progression ordinaire (reprise, silence, échelle…) reste tel quel ; la règle de bord (sous 3 reps, sans zone) rend aussi la charge de travail ET le niveau (27/11/2026, MOTEUR §9.39).
   function retourDuJourSans(base, ouvert) {
     if (!base || ETATS_DU_RETOUR[base.etat] !== true || !base.ligne) return base;
     var P = nombre(base.palier), niv = nombre(base.niveau), ch = nombre(base.ligne.charge), vi = nombre(base.ligne.vise);
@@ -5465,6 +5467,8 @@
     nouvelle_zone: 'depart', depart_leste: 'depart', depart_routine: 'depart', carte_lest: 'depart', salle_max: 'salle',
     silence: 'silence' });
   var MOTS_DE_PLUS = ['', 'une', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf', 'dix'];
+  // « Trois séances » : le nombre de séances du bord se lit sur `BORD_SEANCES_SANS_MONTER`, jamais recopié dans la phrase (27/11/2026, revue des chiffres).
+  function motsDeSeances(n) { var m = MOTS_DE_PLUS[n]; return m ? m.charAt(0).toUpperCase() + m.slice(1) + ' séances' : n + ' séances'; }
 
   // `{ verbe, famille, plus, de: { charge, reps }, vers: { charge, reps }, sansMarge, cause }`. `plus` : les reps de plus de la ligne (même charge) ;
   // `sansMarge` : `{ derniere, protegee }` quand une série faite à la charge de la ligne était à fond ; `cause` : la phrase le DIT (le verbe garde ou
@@ -6600,7 +6604,7 @@
       case 'tenue_apres_zero':
         return f.plafondZero ? pourquoiDeLaTenueApresZero(f.plafondZero, c) : '';
       case 'bord_vague':
-        return !f.bord ? '' : phraseDeBord(c.etat, f.bord) + ' Trois séances sans passer au-dessus de ton meilleur : je baisse d\'environ ' +
+        return !f.bord ? '' : phraseDeBord(c.etat, f.bord) + ' ' + motsDeSeances(BORD_SEANCES_SANS_MONTER) + ' sans passer au-dessus de ton meilleur : je baisse d\'environ ' +
           nombreFr(Math.round((1 - BORD_VAGUE) * 100), regle('constante')) + INSECABLE + '%.';
     }
     return '';
@@ -8475,7 +8479,7 @@
   //
   // « Tes séries baissent depuis 3 semaines. » Un second déclencheur de la MÊME carte que le blocage généralisé (§14.4) :
   // jamais deux cartes. Tout est pur : l'entrée est un fait assemblé par `faits.js` (`entreeFatigue`), la date de la séance
-  // qui s'ouvre vient de l'appelant. Décidé par Aurélien le 30/10/2026 (maquette `maquette-fatigue-v2`), lecture de Gemini S6.
+  // qui s'ouvre vient de l'appelant. Décidé par Aurélien le 30/10/2026 (maquette `maquette-fatigue-v2`), seuils : convention de l'app.
   //
   //   · fenêtre récente = les 3 dernières semaines ACTIVES (au moins une séance), fenêtre d'avant = les 3 précédentes ;
   //   · par exercice suivi : la meilleure série de chaque séance, estimée (Epley, `unRMEpley`), séries de travail de 1 à 12
@@ -12887,8 +12891,8 @@
   // de la charge (le palier, le test, le cran : rien ne change pour elle) ; les reculs la SUIVENT, sans règle de charge à eux.
   //   charge d'un recul = la charge de la grosse série DU JOUR − un écart, arrondie au cran le PLUS PROCHE du matériel, vers le BAS
   //   en cas d'égalité (150 × 0,925 = 138,75 → 137,5, pas 140), jamais au niveau de la grosse (le cran de départ est celui d'en dessous).
-  //   écart : au départ, la table des reps (266 : `ecartDeDepartDeRecul`) ; 10 % sans reps connues (convention des coachs : RTS, powerbuilding, 10 à 15 % ; en powerlifting, les séries qui suivent un single
-  //   se font vers 80 % de ce single — Androulakis-Korakakis 2021). Il se LIT sur la dernière séance de l'exercice qui avait des
+  //   écart : au départ, la table des reps (266 : `ecartDeDepartDeRecul`) ; 10 % sans reps connues : un choix de l'app, entre RTS (jusqu'à 7 %) et les reculs après un single
+  //   (environ 20 %, Androulakis-Korakakis 2021). Il se LIT sur la dernière séance de l'exercice qui avait des
   //   reculs : l'écart réel (1 − charge des reculs ÷ charge de la grosse), borné 5 % à 20 %, puis ± 2,5 points selon les reps —
   //   TOUS les reculs à la cible + 2 ou plus : il baisse ; UN recul sous la cible : il monte. Les chiffres 2,5 et 5-20 % sont une
   //   convention, dite comme telle. Une fonction pure, sous la garde, appelée par `planDeSeance`.
@@ -13010,6 +13014,7 @@
   // le recul en est le pourcentage de ses propres reps, marge 2, corrigé de ce que la personne a montré. Reculs aux mêmes reps (ou
   // moins) : la 193-1, inchangée. La table est celle de Tuchscherer (RPE 10 = marge 0), une CONVENTION dite comme telle ; elle
   // COEXISTE avec Epley (`unRMEpley`, records et bilans) : deux usages, deux lectures, aucune ne remplace l'autre.
+  // Les 11e et 12e valeurs (70,7 et 68,0) ne sont pas des reps de plus : ce sont les cases 10 reps à RPE 9 et à RPE 8 de la même table.
   var PCT_MAX_PAR_REPS = [100, 95.5, 92.2, 89.2, 86.3, 83.7, 81.1, 78.6, 76.2, 73.9, 70.7, 68.0];
   var RECUL_MARGE_VISEE = 2;            // la marge d'un recul : on en garde 2
 
@@ -13181,8 +13186,8 @@
       t += f.deduit === true
         ? ' Premier écart, tiré de la table des reps' + DEUX_POINTS + 'ta grosse série à ' + nombreFr(f.grosseReps, regle('recul.reps')) + ' reps ' + margeDite(f.marge) +
           ', tes reculs à ' + nombreFr(f.vise, regle('recul.reps')) + ' avec ' + nombreFr(RECUL_MARGE_VISEE, regle('recul.marge')) + ' en réserve ; jamais moins de ' +
-          nombreFr(5, regle('recul.depart')) + INSECABLE + '%.'
-        : ' Premier écart' + DEUX_POINTS + nombreFr(pctDeRecul(f.ecart), regle('recul.ecart')) + INSECABLE + '%, la convention des coachs.';
+          nombreFr(5, regle('recul.plancher')) + INSECABLE + '%.'
+        : ' Premier écart' + DEUX_POINTS + nombreFr(pctDeRecul(f.ecart), regle('recul.ecart')) + INSECABLE + '%, un choix de l’app.';
     }
     if (f.sens && f.reps && f.reps.length) {
       t += ' La dernière fois, tes séries de recul ont fait ' + listeDeRecul(f.reps) + ' pour une cible de ' + nombreFr(f.cible, regle('recul.reps')) + '. ' +
@@ -13993,7 +13998,7 @@
     // L'effort visé : « garde N ».
     reserve: [
       { type: 'etude', auteur: 'Refalo', annee: 2024, effectif: '18 pratiquants entraînés',
-        texte: 'Refalo 2024 (18 pratiquants entraînés, quadriceps) : à 1-2 reps de l’échec, le muscle progresse presque autant qu’à l’échec.' },
+        texte: 'Refalo 2024 (18 pratiquants entraînés, quadriceps) : à 1-2 reps de l’échec, le muscle progresse autant qu’à l’échec.' },
       { type: 'etude', auteur: 'Robinson', annee: 2024, effectif: '55 études',
         texte: 'Robinson 2024 (55 études réunies, analyse exploratoire) : la force progresse de la même façon loin ou près de l’échec ; le muscle croît davantage à mesure qu’on s’en approche.' }
     ],
@@ -14004,13 +14009,13 @@
       { type: 'etude', auteur: 'Reynolds', annee: 2006, effectif: '70 personnes',
         texte: 'Reynolds 2006 (70 personnes, couché et presse) : le max se calcule le mieux depuis une série de 5 reps (environ 3 kg d’écart au couché) ; au-delà de 10 reps, on ne le calcule plus.' }
     ],
-    'recul.depart': { type: 'convention',
-      texte: 'Le plancher de 5 % sous la grosse série : la fatigue d’une grosse série que la table ne voit pas ; un choix de l’app, dans la fourchette des coachs (RTS : 5 à 10 %).' },
+    'recul.plancher': { type: 'convention',
+      texte: 'Le plancher de 5 % : un choix de l’app ; RTS compte 2, 5 ou 7 % de fatigue selon l’effort.' },
     'recul.correction': { type: 'convention',
       texte: 'Le pas de 2,5 % (corrigé par tes séries) : un choix de l’app.' },
     // La dégressive.
-    degressive: { type: 'etude', auteur: 'Sodal', annee: 2023, effectif: '6 études',
-      texte: 'Sodal 2023 (6 études) : les séries dégressives donnent le même résultat en 54 à 70 % de temps en moins.' },
+    degressive: { type: 'etude', auteur: 'Sødal', annee: 2023, effectif: '6 études',
+      texte: 'Sødal 2023 (6 études, 5 dans le calcul) : les séries dégressives font gagner autant de muscle que les séries classiques ; certaines façons de les faire prennent la moitié au tiers du temps.' },
     // La semaine de mesure.
     test: { type: 'coachs', auteur: 'Juggernaut, 5/3/1, SBS, Candito',
       texte: 'Juggernaut, 5/3/1, SBS et Candito recalent sur une série lourde ou une série de mesure plutôt que sur un vrai max.' },
@@ -14021,7 +14026,7 @@
       texte: 'Le défaut « série de mesure » à partir de 65 ans : un choix de l’app, aucune étude ne fixe d’âge.' },
     // La baisse de force attendue en sèche (198).
     'seche.baisse': { type: 'convention',
-      texte: 'Une baisse de 2 à 5 % sur les charges en sèche : un choix de l’app, une convention du coach. Garthe 2011 (24 athlètes) suit la masse maigre, pas la force : il ne mesure pas cette baisse.' },
+      texte: 'Une baisse de 2 à 5 % sur les charges en sèche : un choix de l’app, que les études ne montrent pas. Garthe 2011 a mesuré la force de 24 athlètes en perte de poids et ne montre pas cette baisse. Une méta-analyse (Murphy et Koehler 2022) trouve des gains de force comparables avec ou sans déficit.' },
     // La semaine allégée, la phase.
     allegee: { type: 'coachs', auteur: 'Calgary Barbell, Candito',
       texte: 'La décharge planifiée : la pratique de Calgary Barbell et de Candito.' },

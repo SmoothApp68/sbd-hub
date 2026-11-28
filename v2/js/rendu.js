@@ -5301,6 +5301,12 @@
     var vivante = cible._structureRepos;
     if (vivante && vivante.pas === pas && vivante.h.parentNode === cible && vivante.piste.parentNode === cible) {
       majRepos(vivante, vue);
+      // La question de réserve fait partie de la barre : elle se met à jour à chaque changement (autre série, autre
+      // choix, plus de question). `questionDuRepos` rend le nœud gardé s'il n'a pas changé, sinon un nœud neuf :
+      // l'ancien s'en va, et le courant reste le dernier de la carte.
+      Array.prototype.slice.call(cible.childNodes).forEach(function (n) {
+        if (n !== q && n !== vivante.h && n !== vivante.piste) cible.removeChild(n);
+      });
       if (q && q.parentNode !== cible) cible.appendChild(q);
       return;
     }

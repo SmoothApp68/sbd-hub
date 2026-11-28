@@ -73,6 +73,9 @@ function creer(options) {
   // bancs existants servent les octets tels quels. La compression est faite UNE fois par fichier (mémo sur
   // l'horodatage), pour que le temps du serveur ne bruite pas une mesure de chargement.
   const gzip = opts.gzip === true;
+  // `statuts: { '/js/config.js': 503 }` — un chemin qui répond TOUJOURS ce code, sans corps (un hébergeur en panne,
+  // une coupure transitoire). Sert le scénario 11 de `sw-navigation.js` ; absent, rien ne change.
+  const statuts = opts.statuts || {};
   const memoGzip = {};
   const journal = [];
   let octets = 0;
@@ -83,6 +86,12 @@ function creer(options) {
     if (chemin === '/__journal') {
       res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
       return res.end(journal.join('\n'));
+    }
+
+    if (Object.prototype.hasOwnProperty.call(statuts, chemin)) {
+      journal.push(statuts[chemin] + ' ' + chemin);
+      res.writeHead(statuts[chemin], { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end();
     }
 
     // 1. CANONICALISATION. C'est LA ligne qui distingue ce serveur d'un serveur

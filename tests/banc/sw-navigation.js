@@ -102,7 +102,7 @@ const etatCache = (page) => evaluer(page, async () => {
 
 async function session(fn, options) {
   const opts = options || {};
-  const serveur = creer({ racine: opts.racine || RACINE, canonicalise: opts.canonicalise !== false });
+  const serveur = creer({ racine: opts.racine || RACINE, canonicalise: opts.canonicalise !== false, statuts: opts.statuts });
   PORT = await require('./verrou.js').ecouter(serveur, PORT); BASE = 'http://127.0.0.1:' + PORT;
   const nav = await Garde.lancer(chromium, { executablePath: CHROME, args: ['--no-sandbox'] });
   const ctx = await nav.newContext({ viewport: { width: 360, height: 760 } });
@@ -512,7 +512,80 @@ const SCENARIOS = [
       const vue = await evaluer(page, () => ({ h1: (document.querySelector('h1') || {}).textContent || '', sections: document.querySelectorAll('section').length, lang: document.documentElement.lang })).catch(() => ({ h1: '', sections: -1 }));
       verifier(c + ' : la page publique, pas l’app', !erreur && vue.h1 !== '' && vue.sections === 0 && vue.lang === 'fr', erreur || JSON.stringify(vue));
     }
-  })}
+  })},
+
+{ n: 11, titre: 'un script de la coquille ABSENT (config.js en 503, en HTML, ou perdu du cache serveur coupé) : l’écran de secours, jamais une page vide',
+  run: async () => {
+    // Le défaut : `config.js` n'arrive pas, `THConfig` n'existe pas, `demarrer` levait sans que rien ne s'affiche.
+    // Le banc passe par le serveur du banc (PAS par `garde-reseau.js`, qui redemande config.js après un ECONNRESET
+    // et masquerait le défaut). Ce qui doit être vrai à chaque fois : une section visible, et c'est « Réessayer ».
+    const secours = (page) => evaluer(page, () => {
+      const visibles = Array.from(document.querySelectorAll('section')).filter((s) => !s.hidden && getComputedStyle(s).display !== 'none');
+      const s = document.getElementById('vue-secours');
+      const b = document.getElementById('btn-secours-reessayer');
+      return {
+        visibles: visibles.map((x) => x.id),
+        titre: s ? (s.querySelector('h1') || {}).textContent : null,
+        bouton: b ? b.textContent : null,
+        onglets: !!document.querySelector('nav.onglets') && getComputedStyle(document.querySelector('nav.onglets')).display !== 'none'
+      };
+    }).catch((e) => ({ erreur: String(e).slice(0, 80), visibles: [] }));
+    const attendreSecours = (page) => page.waitForSelector('#vue-secours', { timeout: 8000 }).catch(() => {});
+    const juge = (nom, v) => verifier(nom,
+      v.visibles && v.visibles.length === 1 && v.visibles[0] === 'vue-secours' && /pas pu démarrer/.test(v.titre || '') &&
+      v.bouton === 'Réessayer' && v.onglets === false, JSON.stringify(v));
+
+    // (a) l'hébergeur répond 503 à config.js, première visite.
+    await session(async (page) => {
+      await page.goto(BASE + '/', { waitUntil: 'load', timeout: 15000 }).catch(() => {});
+      await attendreSecours(page);
+      juge('[config-503] config.js en 503 : l’écran « L’app n’a pas pu démarrer » + « Réessayer »', await secours(page));
+      const dansCache = await evaluer(page, async () => {
+        for (const n of await caches.keys()) { const c = await caches.open(n); if (await c.match('/js/config.js')) return true; }
+        return false;
+      }).catch(() => null);
+      verifier('et le service worker n’a PAS mis une réponse 503 en cache sous config.js', dansCache === false, String(dansCache));
+    }, { statuts: { '/js/config.js': 503 } });
+
+    // (b) le repli de l'hébergeur : config.js absent du dossier servi → 200 text/html (le cas du portail captif).
+    const dossier = racineAvecSW(lire(path.join(RACINE, 'service-worker.js')));
+    fs.unlinkSync(path.join(dossier, 'js'));
+    fs.mkdirSync(path.join(dossier, 'js'));
+    for (const f of fs.readdirSync(path.join(RACINE, 'js'))) {
+      if (f !== 'config.js') fs.symlinkSync(path.join(RACINE, 'js', f), path.join(dossier, 'js', f));
+    }
+    await session(async (page) => {
+      await page.goto(BASE + '/', { waitUntil: 'load', timeout: 15000 }).catch(() => {});
+      await attendreSecours(page);
+      juge('[config-html] config.js servi en HTML : le même écran de secours', await secours(page));
+      await page.waitForTimeout(1500);   // le temps laissé à l'installation du service worker, qui doit REFUSER cette coquille
+      const dansCache = await evaluer(page, async () => {
+        for (const n of await caches.keys()) { const c = await caches.open(n); if (await c.match('/js/config.js')) return true; }
+        return false;
+      }).catch(() => null);
+      verifier('et la page HTML n’est jamais mise en cache comme config.js (installation refusée)', dansCache === false, String(dansCache));
+    }, { racine: dossier });
+
+    // (c) hors ligne : un service worker installé dont le cache a perdu config.js (état d'avant la correction, ou
+    // éviction), serveur COUPÉ, rechargement.
+    await session(async (page, ctx, serveur) => {
+      await installerSW(page);
+      const sain = await ouvrir(page, '/');
+      verifier('[reference] l’app saine démarre, sans écran de secours',
+        !sain.erreur && sain.sections > 0 && !(await secours(page)).titre, sain.erreur || sain.sections + ' sections');
+      const perdu = await evaluer(page, async () => {
+        let n = 0;
+        for (const nom of await caches.keys()) { const c = await caches.open(nom); if (await c.delete('/js/config.js')) n++; }
+        return n;
+      }).catch(() => 0);
+      verifier('config.js est retiré du cache', perdu > 0, String(perdu));
+      await new Promise((r) => serveur.close(r));   // le serveur meurt pour de bon
+      await page.goto(BASE + '/', { waitUntil: 'load', timeout: 15000 }).catch(() => {});
+      await attendreSecours(page);
+      juge('[config-perdu-hors-ligne] serveur coupé, config.js perdu : l’écran de secours, pas une page vide', await secours(page));
+      await require('./verrou.js').ecouter(serveur, PORT);  // pour le `finally`
+    });
+  }}
 ];
 
 // Les quatre vérifications d'avant-fusion (CLAUDE.md §4 bis), rattachées aux

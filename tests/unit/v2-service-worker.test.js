@@ -355,15 +355,57 @@ describe('installer — ce qui entre dans le cache', () => {
     expect(cache.magasin.has('./index.html')).toBe(true); // présente, et pourtant refusée
   });
 
-  test('un fichier ACCESSOIRE manquant n’empêche PAS l’installation', async () => {
-    // Entrée par entrée, pas `addAll` : un seul fichier manqué sur un réseau
-    // capricieux laissait l'app sans aucun cache.
-    const cache = cacheDePapier();
-    installerBanc(cache, reseauDePapier({ manquants: ['./icons/icon-512.png'] }));
+  test('⚠️ TOUT fichier de la coquille manquant fait échouer l’installation — config.js, client.js… (échec fermé)', async () => {
+    // Avant « Démarrage sans page blanche », seuls index.html et app.js étaient exigés : un cache sans config.js
+    // était déclaré installé, et l'app hors ligne plantait en page blanche.
+    for (const url of ['./js/config.js', './js/client.js', './icons/icon-512.png', './js/secours.js']) {
+      const cache = cacheDePapier();
+      installerBanc(cache, reseauDePapier({ manquants: [url] }));
+      await expect(SW.installer()).rejects.toThrow(/coquille incomplète.*/);
+    }
+  });
 
-    await expect(SW.installer()).resolves.toBeUndefined();
-    expect(cache.magasin.has('./icons/icon-512.png')).toBe(false);
-    expect(cache.magasin.has('./index.html')).toBe(true);
+  test('un script servi en text/html (portail captif, repli de l’hébergeur) refuse l’installation', async () => {
+    const cache = cacheDePapier();
+    const reseau = async (cible) => {
+      const url = clef(cible);
+      if (url === './js/config.js') {
+        return new Response('<html>portail</html>', { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+      }
+      return redirigee('contenu de ' + url, { status: 200, statusText: 'OK' });
+    };
+    installerBanc(cache, reseau);
+    await expect(SW.installer()).rejects.toThrow(/config\.js/);
+    expect(cache.magasin.has('./js/config.js')).toBe(false);   // jamais mis en cache
+  });
+
+  test('config.js, client.js et l’écran de secours sont dans la coquille', () => {
+    for (const u of ['./js/config.js', './js/client.js', './js/secours.js']) expect(SW.SHELL).toContain(u);
+  });
+});
+
+describe('typeCoherent / utilisable — le type doit correspondre au fichier', () => {
+  const html = () => new Response('<html></html>', { status: 200, headers: { 'Content-Type': 'text/html' } });
+  const js = () => new Response('var a=1', { status: 200, headers: { 'Content-Type': 'text/javascript' } });
+  test('un .js en text/html n’est pas utilisable, un .js en javascript l’est', () => {
+    expect(SW.utilisable(html(), 'https://x.test/js/config.js')).toBe(false);
+    expect(SW.utilisable(js(), 'https://x.test/js/config.js')).toBe(true);
+  });
+  test('une page HTML reste utilisable comme page ; sans url on ne juge pas le type', () => {
+    expect(SW.utilisable(html(), './index.html')).toBe(true);
+    expect(SW.utilisable(html(), './')).toBe(true);
+    expect(SW.utilisable(html())).toBe(true);
+  });
+  test('servirRessource ne sert pas un .js empoisonné en cache : le réseau reprend la main', async () => {
+    const cache = cacheDePapier();
+    cache.magasin.set('https://x.test/js/config.js', html());
+    global.caches = { open: async () => cache };
+    const vraiFetch = global.fetch;
+    global.fetch = async () => js();
+    try {
+      const r = await SW.servirRessource({ url: 'https://x.test/js/config.js', clone: () => null });
+      expect(await r.text()).toBe('var a=1');
+    } finally { global.fetch = vraiFetch; delete global.caches; }
   });
 });
 

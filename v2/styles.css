@@ -3557,6 +3557,13 @@ input,select,textarea,.ch-serie,.rp-serie,.eff-serie{
 .tirage[hidden]{display:none}
 .tirage.lecture{height:40px}
 
+/* Démarrage sans page blanche — l'écran de secours (secours.js) : posé seul, l'app cachée dessous. */
+html.en-secours main.tel > section:not(#vue-secours), html.en-secours nav.onglets{display:none !important}
+.secours{padding:48px 20px;max-width:420px;margin:0 auto}
+.secours h1{font-size:22px;margin:0 0 12px;color:var(--texte)}
+.secours p{font-size:16px;line-height:1.5;color:var(--texte-2);margin:0 0 24px}
+.secours button{min-height:48px;padding:0 24px;font-size:16px;font-weight:600;background:var(--panneau-2);color:var(--texte);border:1px solid var(--trait);border-radius:var(--r-bouton)}
+
 /* 29/11/2026 « Les paris en coulisse » — Profil › À propos › À propos de ton coach : un compte, une liste ; « Pas tenu » en ambre, jamais en rouge. */
 .paris-intro{margin:0 0 12px;font-size:15px;line-height:1.5;color:var(--texte)}
 .paris-compte{display:flex;align-items:baseline;gap:8px}

@@ -89,7 +89,9 @@ async function garderContexte(ctx) {
     // été coupée alors que la page restait ouverte (exécution 44863863986, [O109]) ; la route refusée, l'app démarrait sans
     // configuration (« Cannot read properties of undefined (reading 'URL') »). On REDEMANDE donc le fichier, deux fois au plus, avant
     // de refuser la route ; une page qui se ferme vraiment échoue alors par « has been closed », traité comme avant.
-    const COUPURE = /ECONNRESET|socket hang up|EPIPE|ECONNABORTED/i;
+    // Démarrage sans page blanche : `ECONNREFUSED` aussi — le serveur du banc COUPÉ (scénario 11 de sw-navigation) refuse la
+    // connexion ; avant, `route.fetch` levait tel quel et tuait le processus du banc au lieu de laisser la page échouer.
+    const COUPURE = /ECONNRESET|ECONNREFUSED|socket hang up|EPIPE|ECONNABORTED/i;
     const FERMEE = /has been closed|has been disposed|Target closed|Target page, context or browser/i;
     for (let essai = 0; ; essai++) {
       try {

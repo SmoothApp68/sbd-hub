@@ -446,7 +446,7 @@ Le §4.1 situe la chauffe probable **avant la première série au palier**. Mais
 
 Le palier provisoire ne sort jamais de ce calcul — il n'est ni affiché, ni stocké, ni comparé à une autre séance. C'est un choix d'implémentation, pas une propriété du modèle : une autre résolution est concevable, mais elle doit être explicite, sans quoi deux développeurs produiront deux paliers différents sur la même séance.
 
-Vérifié au banc le 19/09/2026, après correction de la rampe (§5.2) : un palier est reconnu sur **90 à 92 %** des séance-exercices selon le profil (Aurélien 90,9 %, Léa 92,4 %, Mélodie 90,5 %, Alexis 90,0 %), et sur **73,5 %** chez Jordan. L'ancien chiffre (93 à 98 %) comptait des faux paliers. Les paliers perdus sont presque tous des pyramides, tenues sur une seule série à chaque charge : le moteur s'y tait plutôt que d'annoncer un palier jamais tenu. Jordan pyramide beaucoup : à regarder avant de lui ouvrir le moteur.
+Vérifié au banc le 19/09/2026, après correction de la rampe (§5.2) : un palier est reconnu sur **90 à 92 %** des séance-exercices selon le profil (compte A 90,9 %, compte C 92,4 %, compte E 90,5 %, compte D 90,0 %), et sur **73,5 %** sur le compte B. L'ancien chiffre (93 à 98 %) comptait des faux paliers. Les paliers perdus sont presque tous des pyramides, tenues sur une seule série à chaque charge : le moteur s'y tait plutôt que d'annoncer un palier jamais tenu. Le compte B pyramide beaucoup : à regarder avant de lui ouvrir le moteur.
 
 ### 7.4 Ce qui entre dans `n`
 
@@ -679,7 +679,7 @@ En format force, **un progrès sur trois seulement passe par la charge** — moi
 
 **La zone est une intention, et la double progression se fait à l'intérieur.** C'est la correction d'un défaut de la cloche : elle plaçait l'habitude au bas de la fourchette et faisait monter les reps au-dessus. Au squat, elle demandait `125 × 6`, donc des séries de 6 à 7 reps sur un mouvement lourd, alors que ce paragraphe cite lui-même Schoenfeld 2021 pour la force à 1-5 reps.
 
-**Déduite, jamais demandée (§1.1).** L'**habitude** est la médiane des reps de **toutes les séries au palier** sur les **8 dernières séances** du couple exercice-format — le couple est désigné par le format de **2 des 3 dernières séances** (à égalité entre trois formats, celui de la plus récente ; §8.2) —, **arrondie à l'entier supérieur**, et calculée sur les seules séances antérieures à celle qu'on prescrit (§9.12). Pourquoi 8 séances : sur tout l'historique, 7 des 23 exercices actifs d'Aurélien étaient mal rangés (banc M12) ; la fenêtre de 8 est **décidée sur cette mesure**, pas démontrée par la littérature, et les coachs changent de reps au rythme de cycles de 3 à 6 semaines. *(28/10/2026, audit « un fil, un coach », C-F1 : Williams et al. 2017 a été cité ici pour « pondérer le récent » ; l'article identifié traite des moyennes mobiles pondérées du ratio aigu:chronique de charge, famille d'outil que REFERENTIEL §6 classe INTERDITE comme prédicteur de blessure, et ne dit rien sur la longueur d'une fenêtre d'habitude de reps. Citation retirée ; aucune valeur changée.)*
+**Déduite, jamais demandée (§1.1).** L'**habitude** est la médiane des reps de **toutes les séries au palier** sur les **8 dernières séances** du couple exercice-format — le couple est désigné par le format de **2 des 3 dernières séances** (à égalité entre trois formats, celui de la plus récente ; §8.2) —, **arrondie à l'entier supérieur**, et calculée sur les seules séances antérieures à celle qu'on prescrit (§9.12). Pourquoi 8 séances : sur tout l'historique, 7 des 23 exercices actifs du compte A étaient mal rangés (banc M12) ; la fenêtre de 8 est **décidée sur cette mesure**, pas démontrée par la littérature, et les coachs changent de reps au rythme de cycles de 3 à 6 semaines. *(28/10/2026, audit « un fil, un coach », C-F1 : Williams et al. 2017 a été cité ici pour « pondérer le récent » ; l'article identifié traite des moyennes mobiles pondérées du ratio aigu:chronique de charge, famille d'outil que REFERENTIEL §6 classe INTERDITE comme prédicteur de blessure, et ne dit rien sur la longueur d'une fenêtre d'habitude de reps. Citation retirée ; aucune valeur changée.)*
 
 **Pourquoi 2 séances sur 3 — décidé le 19/09/2026 après simulation** (`banc_consigne48.py`). Avec la dernière séance seule, une séance isolée — une décharge à 10 reps — faisait basculer la zone. Avec la majorité des 8 dernières, un nouveau bloc — le squat passé de 7 reps à 5 le 31/08 — restait ignoré cinq séances. Deux sur trois : une séance isolée ne fait jamais basculer, un nouveau bloc est suivi dès sa 2ᵉ séance.
 
@@ -739,13 +739,13 @@ Ce sont les deux seuls résultats de calibration qui ont survécu à la mesure, 
 
 > **Garde-fou 1 — ne jamais proposer de monter si la charge courante n'est pas au record de l'exercice.**
 
-Mesuré : **une montée de charge sur deux chez le profil le plus assidu (51 %) est un retour à une charge déjà utilisée**, pas un record — oscillation, pas progression (Jordan 44 %, Léa 39 %, Alexis 30 %, Mélodie 24 %). Proposer une montée en pleine oscillation revient à pousser dans le vide.
+Mesuré : **une montée de charge sur deux chez le profil le plus assidu (51 %) est un retour à une charge déjà utilisée**, pas un record — oscillation, pas progression (compte B 44 %, compte C 39 %, compte D 30 %, compte E 24 %). Proposer une montée en pleine oscillation revient à pousser dans le vide.
 
 Ce garde-fou a un effet mesuré sur le résultat, pas seulement sur la logique. Conjugué au signal de dépassement, il porte le taux de montées qui **tiennent** (charge réutilisée dans les trois séances suivantes) à 80-92 % selon le profil, contre 70-77 % pour les montées spontanées des mêmes personnes. Et sur 210 séances où il aurait parlé sans être suivi, la personne est montée quand même **deux séances plus tard dans 72 cas** — un tiers des occasions étaient simplement en retard.
 
 > **Garde-fou 2 — quand rien ne dépasse, l'ancienneté du palier prend le relais.**
 
-Un dépassement spontané (une série au-delà de la médiane) est une information involontaire, donc riche. Mais certains profils ne dépassent jamais : Léa tombe pile sur son plan 85 % du temps, et le signal n'existe pas chez elle — la règle de dépassement ne parlait que sur 1 % de ses séances. Le repli est **le plan tenu à la même charge depuis trois séances**, qui la fait passer à 25 % de séances couvertes avec 30 occasions rattrapées.
+Un dépassement spontané (une série au-delà de la médiane) est une information involontaire, donc riche. Mais certains profils ne dépassent jamais : le compte C tombe pile sur son plan 85 % du temps, et le signal n'existe pas chez lui — la règle de dépassement ne parlait que sur 1 % de ses séances. Le repli est **le plan tenu à la même charge depuis trois séances**, qui la fait passer à 25 % de séances couvertes avec 30 occasions rattrapées.
 
 **Hiérarchie, pas fusion.** Fusionner les deux dégrade le résultat (86 % → 80 % sur le profil assidu). Le repli ne s'active que lorsque le signal de dépassement s'est taise depuis un nombre de séances à calibrer.
 
@@ -753,7 +753,7 @@ Un dépassement spontané (une série au-delà de la médiane) est une informati
 
 ### 9.1.4 Ce qui change quand l'app prescrit — tranché le 10/09/2026
 
-Les garde-fous du §9.1.3 ont été calibrés sur des données produites **sans aucune consigne**. Le dépassement spontané y existe parce que personne ne recevait de nombre à atteindre. Dès que l'app affiche une cible, l'utilisateur tombera dessus — comme lea, à 85 % — et ce signal disparaîtra.
+Les garde-fous du §9.1.3 ont été calibrés sur des données produites **sans aucune consigne**. Le dépassement spontané y existe parce que personne ne recevait de nombre à atteindre. Dès que l'app affiche une cible, l'utilisateur tombera dessus — comme le compte C, à 85 % — et ce signal disparaîtra.
 
 **Le dilemme était mal posé.** Le dépassement n'est pas un signal à préserver : c'est un **substitut**. Faute de savoir si la personne avait atteint une cible, on regardait si elle dépassait son habitude. Une fois la cible affichée, le détour n'a plus lieu d'être — le moteur sait si les 6 reps demandées ont été faites.
 
@@ -865,7 +865,7 @@ Avec **une seule série au palier**, le niveau est son nombre de reps compté ; 
 
 ### 9.3 Réserve honnête
 
-Sur l'historique, cette règle aurait envoyé Aurélien à 122,5 kg dès le 14/07 (profil `5-5-5-4`), et 122,5 s'est écroulé à `4-4-3-3` le 04/08. **Une seule observation** — insuffisant pour conclure que la règle est trop permissive. À revérifier avec Jordan, Léa et Alexis.
+Sur l'historique, cette règle aurait envoyé le compte A à une charge supérieure dès une séance `5-5-5-4`, et cette charge s'est écroulée à `4-4-3-3` trois semaines plus tard. **Une seule observation** — insuffisant pour conclure que la règle est trop permissive. À revérifier sur les autres comptes.
 
 **Revérifié le 19/09/2026 sur les cinq profils**, avec le critère « la montée tient-elle » (BANC §12.4 : la charge atteinte est réutilisée dans les trois séances suivantes). Réglage Normal : **79 montées sur 100 tiennent** (386 montées suivies), contre **80 sur 100** pour les montées spontanées des mêmes personnes (1 153). La règle n'est pas plus permissive que leur propre pratique.
 
@@ -900,9 +900,9 @@ Critère de la colonne de droite : **gain de précision** par rapport au hasard,
 
 ### 9.6 Pourquoi la cible ne se corrige pas par la charge
 
-Tentative documentée et **rejetée par la mesure**. Puisque la cible tombe moins souvent juste quand le palier a changé (56,6 % contre 72,6 % chez Aurélien, clivage confirmé sur les cinq profils), l'idée était de la conditionner à la charge via le modèle du §15.
+Tentative documentée et **rejetée par la mesure**. Puisque la cible tombe moins souvent juste quand le palier a changé (56,6 % contre 72,6 % sur le compte A, clivage confirmé sur les cinq profils), l'idée était de la conditionner à la charge via le modèle du §15.
 
-Résultat : la justesse s'effondre de 57 % à 8 % chez Aurélien, et dans les mêmes proportions partout ailleurs, quelle que soit la pente retenue.
+Résultat : la justesse s'effondre de 57 % à 8 % sur le compte A, et dans les mêmes proportions partout ailleurs, quelle que soit la pente retenue.
 
 La raison, sur 1 544 changements de charge : **la variation médiane du nombre de reps est zéro dans toutes les tranches**, y compris au-delà de +10 % de charge. Ce qui change n'est pas la médiane mais la dispersion — écart-type des variations de reps de 1,50 à charge inchangée contre 3,00 à charge changée.
 
@@ -949,7 +949,7 @@ Le palier bascule de lui-même quand la charge testée tient la majorité des s�
 | Couché haltères | 88×10 ×3, **92×6** (sous Volume) | 88 kg, vise 11 |
 | Curl barre EZ | 30×12 ×3 (haut de Volume) | 30 kg, vise 12 — puis 32,5 kg en dernière série, vise 10 (repli de la barre, §10.2) |
 
-**Parentés dans le métier** : la double progression dynamique (chaque série progresse pour son compte), les Joker sets de Wendler (une série plus lourde les bons jours), l'APRE de Mann (charge ajustée sur les reps d'une série test). **Ce que fait Aurélien après un test réussi** (515 tests, banc M5), sur 100 : gardé sur une série 35, abandonné 30, passé sur toutes 22, étendu d'une série 12.
+**Parentés dans le métier** : la double progression dynamique (chaque série progresse pour son compte), les Joker sets de Wendler (une série plus lourde les bons jours), l'APRE de Mann (charge ajustée sur les reps d'une série test). **Ce que fait le compte A après un test réussi** (515 tests, banc M5), sur 100 : gardé sur une série 35, abandonné 30, passé sur toutes 22, étendu d'une série 12.
 
 #### 9.7 bis — Le gros cran (delta 175, décision d'Aurélien du 26/10/2026)
 
@@ -1175,7 +1175,7 @@ Le **saut habituel** est la médiane, sur les séances antérieures de cet exerc
 - **Elle ne tient pas** : retour à la charge et à la visée du palier pour les séries suivantes, dit en gris, avec « pas encore » (§20).
 - **Une seule montée par bloc.** Après une montée, tenue ou non, le coach ne propose plus rien dans ce bloc.
 
-**Quand il se tait.** *(Le 25/09, #318 : aussi quand la séance comptait moins de séries que la consigne. Retiré le 26/09/2026 : la consigne couvre désormais les séries de la séance en cours, §9.13 — il n'y a plus de séries à aligner sur des rangs.)* Sous la visée ou à 1-2 reps de marge ; **après un refus** — la série proposée validée **à une charge inférieure à la charge proposée** (la borne basse ; le palier ou moins, quand le cran n'a pas de chiffre) ; égale ou supérieure, c'est une acceptation —, jusqu'à la fin du bloc : reproposer serait insister après un non ; en **Entretenir** (ECRAN-PROFIL §2.3), qui coupe le coach, propositions et encouragements compris ; quand le moteur se tait déjà (silence, mesure sans charge, règle de bord sans zone) ; ~~les jours de reprise~~ — **retiré le 27/09/2026 : la réaction reste active pendant une reprise** (`reprise_courte`, `reprise_longue`, §9.9). La consigne de reprise reste sans rep de plus ; mais une série faite à sa charge avec 3 reps comptées de marge ou plus montre que la prudence n'était pas nécessaire, et le coach le dit (mesure R1 : retour à 98 % en médiane). **En reprise longue sous le dernier palier, la proposition ramène d'abord au dernier palier** (« on retrouve ton palier ») ; à partir du palier, la proposition habituelle (le cran du dessus). Sur les cinq historiques, la vraie première série d'une reprise aurait déclenché une proposition 29 fois (15 chez aurel_br, dont les exercices tournent : 383 reprises courtes). Le réglage Prudent, Normal ou Franc ne change rien en version 1.
+**Quand il se tait.** *(Le 25/09, #318 : aussi quand la séance comptait moins de séries que la consigne. Retiré le 26/09/2026 : la consigne couvre désormais les séries de la séance en cours, §9.13 — il n'y a plus de séries à aligner sur des rangs.)* Sous la visée ou à 1-2 reps de marge ; **après un refus** — la série proposée validée **à une charge inférieure à la charge proposée** (la borne basse ; le palier ou moins, quand le cran n'a pas de chiffre) ; égale ou supérieure, c'est une acceptation —, jusqu'à la fin du bloc : reproposer serait insister après un non ; en **Entretenir** (ECRAN-PROFIL §2.3), qui coupe le coach, propositions et encouragements compris ; quand le moteur se tait déjà (silence, mesure sans charge, règle de bord sans zone) ; ~~les jours de reprise~~ — **retiré le 27/09/2026 : la réaction reste active pendant une reprise** (`reprise_courte`, `reprise_longue`, §9.9). La consigne de reprise reste sans rep de plus ; mais une série faite à sa charge avec 3 reps comptées de marge ou plus montre que la prudence n'était pas nécessaire, et le coach le dit (mesure R1 : retour à 98 % en médiane). **En reprise longue sous le dernier palier, la proposition ramène d'abord au dernier palier** (« on retrouve ton palier ») ; à partir du palier, la proposition habituelle (le cran du dessus). Sur les cinq historiques, la vraie première série d'une reprise aurait déclenché une proposition 29 fois (15 sur le compte A, dont les exercices tournent : 383 reprises courtes). Le réglage Prudent, Normal ou Franc ne change rien en version 1.
 
 **Quand la série suivante est déjà un test — décidé le 26/09/2026.** Pas de proposition de charge : le test est déjà la montée. Une série au palier qui dépasse sa visée de 3 reps comptées ou plus, suivie d'une ligne de test, donne une phrase et rien d'autre : « 125 kg × 8, 3 de plus que prévu : ton test à 130 kg arrive dès la série 2, avec de la marge. » Ni la charge ni la visée du test ne changent, ni son pari. Même chose à 5 reps de marge : pas de seconde charge au-dessus d'un test. Appui : dans la pratique des coachs (autorégulation série par série, méthode APRE), quelques reps au-dessus de l'objectif ajoutent environ 2,5 à 5 kg à la série suivante — le test, déjà au cran du dessus, correspond à cet ajustement. *(Avant ce jour, la réaction posait sa proposition sur la série suivante sans regarder son rôle : le 26/09, 127,5 proposé sur une série prévue en test à 130 — une « montée » plus basse que le plan.)*
 
@@ -1216,7 +1216,7 @@ proposition, jusqu'à la fin du bloc. « Sa ligne » : la ligne du plan à laque
   d'élan le termine — les lignes d'élan non validées reviennent à leurs lignes du plan, et la série se compare à la ligne
   du plan que l'élan remplaçait (revenue à ta charge de travail : rien à dire ; plus légère encore : « plus léger »).
   *(Audit du 11/10 : sans cette règle, 84 puis un retour à 79 faisait dire « plus léger que prévu, la suite reste à
-  84 » à quelqu'un qui revenait simplement à son plan.)* *(Mesure du 11/10 sur aurel_br : 16 séries plus lourdes de soi-même en deux
+  84 » à quelqu'un qui revenait simplement à son plan.)* *(Mesure du 11/10 sur le compte A : 16 séries plus lourdes de soi-même en deux
   semaines, 15 tiennent ; la série suivante était la même 7 fois sur 9.)*
 - **La suggestion d'effort** : à la place de la phrase d'élan, **quand la série tient pile au bas de la zone** (reps
   faites = bas), **sans effort noté**, au plus **une fois par exercice** : « 84 kg × 10, pile au bas de ta fourchette.
@@ -1355,7 +1355,7 @@ l'est pas). Ces règles sont des étapes de la réaction, avec ses silences (§9
 
 **Arrondi** : à la dizaine sur une barre dont la charge de référence atteint 100 kg ; à 5 kg en dessous ; au cran existant sur les machines et les haltères ; à égalité, vers le bas. Jamais sous la barre vide, toujours au moins un cran sous la charge de référence. **Repos** : environ 1 minute entre deux chauffes, 2 minutes avant la première série de travail (le minuteur de la séance l'applique).
 
-**Exemples** (aurel_br, 29/09) : couché ou squat à 125 kg → **20 × 10 · 60 × 6 · 90 × 3 · 110 × 1** ; soulevé à 155 kg → **80 × 5 · 110 × 3 · 140 × 1** ; militaire à 57,5 kg → **20 × 10 · 50 × 2** ; squat avec pause à 100 kg après le soulevé → **60 × 5 · 90 × 2**.
+**Exemples** (29/09) : couché ou squat à 125 kg → **20 × 10 · 60 × 6 · 90 × 3 · 110 × 1** ; soulevé à 155 kg → **80 × 5 · 110 × 3 · 140 × 1** ; militaire à 57,5 kg → **20 × 10 · 50 × 2** ; squat avec pause à 100 kg après le soulevé → **60 × 5 · 90 × 2**.
 
 **Les chauffes de la routine** : quand l'exercice a des lignes de chauffe (routine ou saisie) **et qu'il n'est pas en Entretenir** (profil ou exercice : les lignes restent telles que la routine les donne, I13 ; précisé le 07/10/2026), **le coach remplit leurs charges d'office** selon la ligne de la table qui correspond (les reps restent celles de la routine). **Si la routine prévoit moins de lignes que la table**, le coach garde les marches les plus utiles : **une ligne → ~60 %** ; **deux → ~60 % puis ~88 %** ; **trois → ~50 %, ~70 % puis ~88 %** (la barre vide est la première marche à tomber). **Si elle en prévoit plus**, les lignes en trop ne sont pas remplies, et la feuille « Pourquoi » le dit. L'utilisateur peut taper une autre charge : sa saisie fait foi.
 
@@ -1379,7 +1379,7 @@ Quand l'exercice a une ligne **dégressive** (routine ou saisie) **et qu'il n'es
 
 **Une chauffe et une dégressive ne comptent jamais pour le coach** : ni couverture (§9.13), ni pari, ni réaction, ni stagnation. **Invariants** : **I16** les chauffes d'un exercice ont des charges croissantes et des reps décroissantes, toutes sous la charge de référence ; **I17** (réécrit le 14/10/2026, 94) une dégressive a une charge sous la dernière série de travail ; elle remplit toujours une ligne dégressive posée par la routine ou l'utilisateur — le coach n'en pose jamais, à la barre lourde comme ailleurs (la dégressive proposée du §14.8 se pose par le geste de l'utilisateur, « Ajouter une dégressive », 16/10/2026) ; à la barre, sa phrase dit quoi enlever (« Enlève 2 × … ») ; une ligne qu'il ne remplit pas a sa phrase et ses deux gestes. **I17 étendu (151, 23/10/2026)** : une seconde baisse a une charge strictement sous la première ; jamais remplie à la barre lourde, ni après une première validée sous 4 reps ; une troisième ligne dégressive n'a jamais de charge du coach (et sa phrase est dite). **I16** vaut aussi pour les chauffes de §9.15.5 : une chauffe de la routine n'est jamais vide en silence (en trop au-delà des marches, ou « Trop léger pour une chauffe de plus. »).
 
-**Mesure et confrontation.** *Chauffes* (cinq historiques, 6 518 séance-exercices) : notées à la barre dès 80 kg, premier exercice sur ses muscles, 59 fois sur 100 ; rampes notées sur barre lourde 50 → 73 % (deux chauffes), 43 → 67 → 83 % (trois), 20 → 53 → 75 → 88 % (quatre). La littérature trouve le meilleur effet quand la dernière chauffe atteint environ 80 % de la charge de travail (Ribeiro et al. 2020 : au squat, 80 % ; au couché, 40 puis 80 %) ; une ou deux chauffes à 40-60 % seules apportent peu ; les coachs montent en 3 ou 4 marches, reps décroissantes. *Dégressives* (aurel_br, 182 dégressives sur 31 exercices) : baisse médiane 38 %, 10 reps en médiane — plutôt une série plus légère de plus ; les méta-analyses (Sødal et al. 2023 ; 2026) trouvent la même hypertrophie et la même force qu'en séries classiques, en deux à trois fois moins de temps, avec des baisses de 20 à 25 %, sans repos, jusqu'à l'échec ; les coachs la placent sur la dernière série, sur machine ou poulie. **La science et la pratique des coachs passent avant l'habitude** (décidé par Aurélien le 29/09, qui remplace « l'habitude d'abord » du 26/09).
+**Mesure et confrontation.** *Chauffes* (cinq historiques, 6 518 séance-exercices) : notées à la barre dès 80 kg, premier exercice sur ses muscles, 59 fois sur 100 ; rampes notées sur barre lourde 50 → 73 % (deux chauffes), 43 → 67 → 83 % (trois), 20 → 53 → 75 → 88 % (quatre). La littérature trouve le meilleur effet quand la dernière chauffe atteint environ 80 % de la charge de travail (Ribeiro et al. 2020 : au squat, 80 % ; au couché, 40 puis 80 %) ; une ou deux chauffes à 40-60 % seules apportent peu ; les coachs montent en 3 ou 4 marches, reps décroissantes. *Dégressives* (Aurélien, 182 dégressives sur 31 exercices) : baisse médiane 38 %, 10 reps en médiane — plutôt une série plus légère de plus ; les méta-analyses (Sødal et al. 2023 ; 2026) trouvent la même hypertrophie et la même force qu'en séries classiques, en deux à trois fois moins de temps, avec des baisses de 20 à 25 %, sans repos, jusqu'à l'échec ; les coachs la placent sur la dernière série, sur machine ou poulie. **La science et la pratique des coachs passent avant l'habitude** (décidé par Aurélien le 29/09, qui remplace « l'habitude d'abord » du 26/09).
 
 #### 9.15.5 La chauffe ajoutée par l'utilisateur — décidé le 14/10/2026
 
@@ -1439,7 +1439,7 @@ Quand l'exercice a une ligne **dégressive** (routine ou saisie) **et qu'il n'es
 **Portée.** Les exercices mesurés en reps sans charge (`mesure = reps` : tractions, dips, extension du dos, pompes, relevés…), lestés (`charge = ajoutee`) et assistés (`charge = assistance`). **Hors V1** : la durée et la distance (CADRAGE §2 ter), la variante plus dure (CADRAGE §2 quinquies). *L'élastique (« pas une charge ») en est sorti le 21/10/2026 : noté par son nom, il se lit par l'ordre de Ma salle (§10 ter).*
 
 **Le poids du corps en reps.** La consigne est **celle des charges** (§9.1 à §9.16 : zone d'après l'habitude, niveau validé, progression, réaction, reprise, chute, compteur, escalier, phase), **la charge valant 0** (le poids du corps). En-tête : « Poids du corps × 8 ». **Un test sans cran** (test proposé, retest, retest d'un cran, sans charge au-dessus) devient :
-- **la carte du lest**, si les **deux dernières séances** ont un niveau au moins égal au haut de la zone **et à 8 reps** (précisé le 21/10/2026, chantier B, maquette validée le 17/10 : au poids du corps, la marche au-dessus n'arrive qu'à partir de 8 reps, comme le recommandent les coachs ; Léa est passée au lest d'elle-même à 8 tractions) et qu'elle n'a **pas de réponse** — une seule carte, posée **une fois**, sans point d'interrogation (§20.2) : « 8 reps sur toutes tes séries, deux séances de suite. » ; « Au haut de ta zone, un lest te fait continuer en force. Avec une ceinture ou un gilet, je te propose de commencer à 2,5 kg, en revenant à 6 reps. » ; boutons « **J'ai du lest** » / « **Pas de lest** » ; la réponse est datée au profil (`profiles.lest_reponse`, `lest_reponse_le`) ; on tient la ligne ;
+- **la carte du lest**, si les **deux dernières séances** ont un niveau au moins égal au haut de la zone **et à 8 reps** (précisé le 21/10/2026, chantier B, maquette validée le 17/10 : au poids du corps, la marche au-dessus n'arrive qu'à partir de 8 reps, comme le recommandent les coachs ; un compte est passé au lest de lui-même à 8 tractions) et qu'elle n'a **pas de réponse** — une seule carte, posée **une fois**, sans point d'interrogation (§20.2) : « 8 reps sur toutes tes séries, deux séances de suite. » ; « Au haut de ta zone, un lest te fait continuer en force. Avec une ceinture ou un gilet, je te propose de commencer à 2,5 kg, en revenant à 6 reps. » ; boutons « **J'ai du lest** » / « **Pas de lest** » ; la réponse est datée au profil (`profiles.lest_reponse`, `lest_reponse_le`) ; on tient la ligne ;
 - **l'étirement** sinon (« Pas de lest », une seule séance au haut, ou moins de 8 reps — en zone Lourd, à 5 tractions, le coach gratte des reps jusqu'à 8 avant la carte) : la ligne au niveau de la dernière séance + 1, **au-delà de la zone**, sans ligne haute (la règle des coachs quand on ne peut pas ajouter de poids : des reps).
 Pas de chauffe ni de dégressive au poids du corps. Pas de repli ni de changement de schéma (pas de charge) : à ces marches, le silence. Pas de frère cité entre une charge et des reps.
 
@@ -1486,7 +1486,7 @@ partagé). Six au 21/10/2026 :
 **La marche stricte** d'une échelle est l'exercice dont le slug porte le nom de l'échelle (`tractions`, `pompes`…).
 
 **La marche suivante** (`marche_suivante`, une seule fonction, lue par la carte et par la page d'exercice) :
-- depuis une **aide** (`charge = assistance`) : **la marche stricte** — « sans aide » (Léa est passée de l'élastique aux
+- depuis une **aide** (`charge = assistance`) : **la marche stricte** — « sans aide » (le compte C est passé de l'élastique aux
   strictes, sans négatives) ;
 - depuis **la marche stricte**, si sa version lestée est au rang au-dessus : **le lest** — la carte du lest du §9.17,
   inchangée sauf son seuil (8 reps) ;
@@ -1500,13 +1500,13 @@ Plusieurs exercices sur le rang au-dessus : le premier par l'ordre du slug, parm
   à 8 reps** (comme le lest, §9.17 : au poids du corps, la marche au-dessus n'arrive qu'à partir de 8 reps — maquette du
   17/10, écran 5 ; vérifié le 21/10 auprès des coachs : 3 × 8 à l'élastique léger avant les strictes), et, sur une aide,
   **à la même aide** ; la marche est proposable ; le coach est actif (ni « Juste un carnet », ni
-  l'exercice en Entretenir — I13, I31) ; **la marche proposée n'a pas été faite dans les 28 derniers jours** (Léa
+  l'exercice en Entretenir — I13, I31) ; **la marche proposée n'a pas été faite dans les 28 derniers jours** (un compte
   faisait déjà ses strictes : la carte n'avait rien à proposer).
 - **Une réponse, au profil** (`profiles.marche_reponses`, v2_099 : par exercice de départ, `{r, le, aide}`) :
   « Ajouter … » = `oui`, jamais reposée ; « Pas maintenant » = `non`. **Depuis une aide, « Pas maintenant » vaut pour
   cette aide** : la carte revient quand le haut de la zone tient deux séances à **une aide plus légère** (décision du
-  21/10/2026 : simulée sur Léa, la carte arrivait en février 2025 au Noir, −35 kg, un an avant ses premières strictes ;
-  reposée au Rouge, −25 kg, elle tombait la semaine où Léa les a ajoutées d'elle-même). Hors aide, « Pas maintenant »
+  21/10/2026 : simulée sur un compte, la carte arrivait au Noir (−35 kg) environ un an avant ses premières strictes ;
+  reposée au Rouge (−25 kg), elle tombait la semaine où il les a ajoutées de lui-même). Hors aide, « Pas maintenant »
   vaut une fois.
 - **Le texte** (voix du coach, sans point d'interrogation, §20.2) : « Aide 25 kg × 10 sur toutes tes séries, deux
   séances de suite. » (hors aide : « 16 reps sur toutes tes séries, deux séances de suite. ») ; « Une variante plus dure :
@@ -1601,7 +1601,7 @@ dernier max) ; I55 (ni pari, ni consigne, ni chauffe, ni dégressive, ni message
 - **« Ça varie »** (`varie`) : **pas de question avant « Démarrer »** (un geste de plus à chaque séance, qu'on finit par fermer sans lire) ; l'estimation s'écrit en couleur du coach à côté de « J'ai peu de temps », pour que le dépassement se voie.
 - **« C'est mon maximum »**, **« J'ai de la marge »** : rien en séance. Le programme construit (QUESTIONNAIRE-COACH-V2 §5 bis, 60-4) passe par cette fonction pour tenir la durée visée avec « C'est mon maximum », « Moins en ce moment » et « Ça varie » ; avec « J'ai de la marge », il n'est pas raccourci. **Les exercices d'une zone à ménager sont exemptés du raccourci** (précisé le 08/10/2026, 60-5, étendu en 60-6) : ni une série (étape 4), ni leur dégressive (étape 3), ni la ligne entière (étape 5) — sans quoi la presse, qui couvre les quadriceps du squat ménagé, aurait pu faire tomber le squat — ; le temps se prend sur les autres ; la cible est « inatteignable » dès que seuls les exemptés restent.
 
-**L'estimation** (une seule fonction, en secondes ; calée sur les séances chronométrées d'Aurélien) : par exercice, +30 (changement) ; cardio ou durée : durée × séries + repos × (séries − 1) ; chauffes : n × 60 + (n − 1) × 60 + 120 (les repos de chauffe de §9.15) ; séries de travail : séries × (60 + repos prévu ; 15 quand le repos est porté par l'autre exercice du superset) ; dégressive : 45. Affichée arrondie à la minute, toujours avec « (estimation) ». **Ces constantes sont des valeurs par défaut** — vérifiées sur les séances chronométrées d'Aurélien, pas réglées sur lui : la référence reste la fourchette personnelle (méta-règle du projet). Quand l'historique chronométré d'une personne le permettra, elles se liront sur ses propres séances, séparément pour chaque personne (noté, pas fait). Les cas de test figent les valeurs par défaut pour vérifier l'**algorithme**, pas pour dire combien de temps dure une série.
+**L'estimation** (une seule fonction, en secondes ; calée sur les séances chronométrées du compte A) : par exercice, +30 (changement) ; cardio ou durée : durée × séries + repos × (séries − 1) ; chauffes : n × 60 + (n − 1) × 60 + 120 (les repos de chauffe de §9.15) ; séries de travail : séries × (60 + repos prévu ; 15 quand le repos est porté par l'autre exercice du superset) ; dégressive : 45. Affichée arrondie à la minute, toujours avec « (estimation) ». **Ces constantes sont des valeurs par défaut** — vérifiées sur les séances chronométrées du compte A, pas réglées sur lui : la référence reste la fourchette personnelle (méta-règle du projet). Quand l'historique chronométré d'une personne le permettra, elles se liront sur ses propres séances, séparément pour chaque personne (noté, pas fait). Les cas de test figent les valeurs par défaut pour vérifier l'**algorithme**, pas pour dire combien de temps dure une série.
 
 **Raccourcir jusqu'à la cible**, dans cet ordre, en recalculant l'estimation à chaque pas et en s'arrêtant dès qu'elle tient :
 1. le **cardio de fin** (exercice sans muscle, après le premier rang) est mis à part ;
@@ -1634,7 +1634,7 @@ dernier max) ; I55 (ni pari, ni consigne, ni chauffe, ni dégressive, ni message
 - « **Plus tard** » — « Il passe après {exercice suivant}. Ta consigne ne change pas. » Le bloc de l'exercice passe **juste après le bloc suivant** ; un superset bouge en entier ; le geste se répète. **Absent** pour le dernier bloc, et dès qu'un exercice du bloc a une série de travail validée (on ne coupe pas un exercice commencé ; alors seul le frère reste).
 - « **Un frère** : {nom} » — sous chaque frère, son dernier chiffre, **par la même fonction que « Dernière séance » de la page d'exercice** (« Dernière fois : 80 kg × 10, le 12 sept. »), ou « Première fois ici ». **Ordre** : d'abord les frères qui ne sont pas déjà dans la séance ; parmi eux, ceux qui ont un historique, le plus récent d'abord, puis les autres — ce que le matériel du profil permet d'abord, le reste ensuite, chacun par nom (`rangerParMateriel` : rangé, jamais caché ; un exercice déjà fait n'est jamais rétrogradé ; précisé le 07/10/2026, #382) ; un frère déjà dans la séance reste proposé, à la fin (il serait une seconde occurrence, libre, §9.13 bis) ; un frère **écarté** par la personne (ECRAN-SAISIE §7 quindecies.9) reste proposé, tout à la fin, avec la mention « écarté » (précisé le 08/10/2026, 60-4). Choisir un frère est un **remplacement** (§9.13 bis : il reçoit les lignes restantes, avec sa propre consigne, sans rien hériter, §8.4). Sans frère au catalogue : « Pas de frère au catalogue pour cet exercice. » et le bouton habituel « **Remplacer l'exercice** », qui ouvre le catalogue (précisé le 05/10/2026, #365).
 
-**Le coach ne change rien d'autre.** « Plus tard » ne modifie ni la consigne, ni les paris, ni le compteur : la charge ne dépend pas de la position (mesuré chez Aurélien, 2 089 cas) et §12 bis interdit une règle d'ordre sans mesure. Les paris de l'exercice décalé gardent leur fondement ; un effet de la fatigue sur les reps se lira dans leurs observations.
+**Le coach ne change rien d'autre.** « Plus tard » ne modifie ni la consigne, ni les paris, ni le compteur : la charge ne dépend pas de la position (mesuré sur le compte A, 2 089 cas) et §12 bis interdit une règle d'ordre sans mesure. Les paris de l'exercice décalé gardent leur fondement ; un effet de la fatigue sur les reps se lira dans leurs observations.
 
 **Deux occurrences voisines d'un même exercice s'affichent en deux blocs** (précisé le 05/10/2026) : un bloc est une occurrence, jamais un regroupement par exercice.
 
@@ -1661,7 +1661,7 @@ La carte revient tant que la dernière séance porte la marque ; elle disparaît
 
 **Invariants.** **I113** (202) à 2 séances avec douleur ou plus, le premier choix de la carte n'est jamais « Comme avant » et la phrase du kiné est là, une seule fois, refaite de la règle (en dessous, elle n'y est pas) ; **I33** une occurrence marquée « douleur » : aucune ligne du coach, aucun pari, aucun message pour ses lignes restantes ; **I34** une consigne ne lit jamais une séance-exercice marquée pour sa charge (elle est neutre) ; **I35** la carte de reprise n'apparaît que si la dernière séance de l'exercice porte la marque, et n'a pas de point d'interrogation.
 
-**Référence** : `cas_douleur51.py` (`zone_plus_de_reps`, `carte_reprise`, la neutralité sur les séances d'Aurélien) ; cas `cas_douleur51.json`.
+**Référence** : `cas_douleur51.py` (`zone_plus_de_reps`, `carte_reprise`, la neutralité sur les séances du compte A) ; cas `cas_douleur51.json`.
 
 
 ### 9.21 La charge de départ — décidée le 05/10/2026 (chantier 52)
@@ -1744,7 +1744,7 @@ s'annule ; « Garder » le tait jusqu'au bloc suivant (`profiles.cartes_semaine.
 planifiée peut aider, la variation au hasard ou redondante peut nuire) ; Baz-Valle 2019 (8 semaines au hasard : pas mieux,
 plus motivant). **Réglages de l'app, dits comme tels** (pas une donnée de la science) : 8 semaines, 6 sans record
 (`VARIATION_SANS_RECORD_JOURS` = 42, strictement plus), 2 cartes par bloc. Faits : `faits.semainesDeSuite`,
-`faits.derniereHausseDuRecord` ; décision : `Generateur.variationsDuBloc`. Rejoué sur aurel_br (bloc du 02/11) : 16
+`faits.derniereHausseDuRecord` ; décision : `Generateur.variationsDuBloc`. Rejoué sur le compte A (bloc du 02/11) : 16
 accessoires à 8 semaines ou plus ; sans progrès sur 6 semaines, leg curl allongé (18) et élévation latérale poulie (14) —
 les deux cartes ; tirage vers le visage (10) attend le bloc suivant. **I145** : jamais une barre lourde, un exercice du bloc
 ou une priorité ; au plus un par muscle et `VARIATION_PAR_BLOC` au total ; la variante est un frère ou un cousin, de même
@@ -1820,7 +1820,7 @@ corrigée en Édition : type, charge, reps, durée ou distance) ; l'app réécri
 
 Une décision de la personne (décaler, répartir) ne s'efface jamais en silence : si elle modifie une routine ou un plan, c'est pour cette semaine seulement, et elle se lit dans la séance (« ajouté : vient de Jambes » ; d'origine « séance manquée de mardi », remplacé le 27/11).
 
-**Répartir, règle corrigée (Aurélien, 15/10/2026).** Elle remplace « ne recharge pas ce que la séance fatigue déjà » dans le cas où la séance d'accueil travaille les mêmes muscles. Dans une séance qui travaille déjà le muscle, le coach peut ajouter des séries de la routine manquée tant que ce muscle reste sous 10 séries dans la séance (séries pondérées comme le relevé), sans dépasser la durée habituelle ni la récupération en jours (J+2, J+3 pour un débutant). Il ne duplique pas un mouvement principal déjà présent : il prend d'abord les exercices de la routine manquée qui ne sont pas déjà dans la séance (exemple réel, programme Sèche d'aurel_br : Bas A manqué, vendredi Bas B reçoit Presse 3 + Extension Jambes 3 + Mollets 1, ~85 min sous 90 ; pas de squat ajouté, le squat avec pause y est déjà). Dans une séance d'un autre groupe, la règle actuelle s'applique (pas d'exercice dont les muscles primaires ou stabilisateurs chargent ce que la séance fatigue déjà). Plusieurs exercices par séance sont maintenant permis dans cette limite.
+**Répartir, règle corrigée (Aurélien, 15/10/2026).** Elle remplace « ne recharge pas ce que la séance fatigue déjà » dans le cas où la séance d'accueil travaille les mêmes muscles. Dans une séance qui travaille déjà le muscle, le coach peut ajouter des séries de la routine manquée tant que ce muscle reste sous 10 séries dans la séance (séries pondérées comme le relevé), sans dépasser la durée habituelle ni la récupération en jours (J+2, J+3 pour un débutant). Il ne duplique pas un mouvement principal déjà présent : il prend d'abord les exercices de la routine manquée qui ne sont pas déjà dans la séance (exemple réel, programme Sèche du compte A : Bas A manqué, vendredi Bas B reçoit Presse 3 + Extension Jambes 3 + Mollets 1, ~85 min sous 90 ; pas de squat ajouté, le squat avec pause y est déjà). Dans une séance d'un autre groupe, la règle actuelle s'applique (pas d'exercice dont les muscles primaires ou stabilisateurs chargent ce que la séance fatigue déjà). Plusieurs exercices par séance sont maintenant permis dans cette limite.
 
 **Un fil (Aurélien, 15/10/2026).** La référence de la carte et de la répartition est TOUJOURS le programme (les séries que prévoient ses routines), jamais l'historique. Le coach ne dit jamais « moins que d'habitude » et ne propose jamais plus que ce que prévoit la routine manquée. La « semaine » = les routines du programme qui ont un jour.
 
@@ -2104,7 +2104,7 @@ Même mécanique que §9.27 (`THEquilibres`, réglage habitude/cartes/silence, `
 
 **La charge d'un recul** (`reculDe`, `ecartDeRecul`, `cranLePlusProche`) : la **grosse série du jour** (la plus lourde série de travail de l'exercice dans la séance, faite sinon proposée) moins un **écart**, arrondie au cran le plus proche du matériel de la consigne (la salle déclarée, §10 bis), **vers le bas à égalité** (137,25 → 137,5 ; 138,75 → 137,5 ; 123,75 → 122,5) ; jamais la grosse série ni plus lourd. Sans grosse série : la ligne reste vide, avec la phrase « Pas de grosse série pour caler tes reculs. ».
 
-**L'écart se lit, il ne se replie pas sur 8 séances** : sur la dernière séance de l'exercice qui avait des reculs (`THSeance.precedentAReculs`), écart réel = 1 − (charge des reculs ÷ charge de la grosse série), arrondi au demi-point, **borné 5 à 20 %**, puis ±2,5 points selon les reps (au moins un recul sous la cible : on s'éloigne ; tous au moins 2 reps au-dessus : on se rapproche). La cible est celle de la routine de CETTE séance (`routine_id`) quand elle est chargée et porte encore des reculs ; sinon celle d'aujourd'hui — une **approximation**, dite dans le code (la routine a pu changer entre-temps). **Sans séance antérieure à reculs (266, décision d'Aurélien du 07/11/2026, « aucun réglage »)** : l'écart de départ se lit sur la table des reps (`PCT_MAX_PAR_REPS`, Tuchscherer, celle de 193-5) : 1 − pct(reps du recul, en gardant 2) ÷ pct(reps de la grosse série, sa marge), au demi-point, borné 5 à 20 % (`ecartDeDepartDeRecul`). 130 kg × 3 en gardant 1, reculs × 3 → 5 % (le plancher : la fatigue de la grosse série que la table ne voit pas, convention). Reps inconnues ou hors de la table : 10 % (convention des coachs). Les reculs à PLUS de reps restent sur 193-5 (le max du jour). La correction ±2,5 points ne change pas. Rejoué sur 21 séances d'aurel_br (grosse série suivie de séries plus légères, typées « travail ») : mêmes reps 6-10 %, +1-2 reps 9-13 %, +3-4 12-15 % — des tendances, pas des lois. I147.
+**L'écart se lit, il ne se replie pas sur 8 séances** : sur la dernière séance de l'exercice qui avait des reculs (`THSeance.precedentAReculs`), écart réel = 1 − (charge des reculs ÷ charge de la grosse série), arrondi au demi-point, **borné 5 à 20 %**, puis ±2,5 points selon les reps (au moins un recul sous la cible : on s'éloigne ; tous au moins 2 reps au-dessus : on se rapproche). La cible est celle de la routine de CETTE séance (`routine_id`) quand elle est chargée et porte encore des reculs ; sinon celle d'aujourd'hui — une **approximation**, dite dans le code (la routine a pu changer entre-temps). **Sans séance antérieure à reculs (266, décision d'Aurélien du 07/11/2026, « aucun réglage »)** : l'écart de départ se lit sur la table des reps (`PCT_MAX_PAR_REPS`, Tuchscherer, celle de 193-5) : 1 − pct(reps du recul, en gardant 2) ÷ pct(reps de la grosse série, sa marge), au demi-point, borné 5 à 20 % (`ecartDeDepartDeRecul`). 130 kg × 3 en gardant 1, reculs × 3 → 5 % (le plancher : la fatigue de la grosse série que la table ne voit pas, convention). Reps inconnues ou hors de la table : 10 % (convention des coachs). Les reculs à PLUS de reps restent sur 193-5 (le max du jour). La correction ±2,5 points ne change pas. Rejoué sur 21 séances du compte A (grosse série suivie de séries plus légères, typées « travail ») : mêmes reps 6-10 %, +1-2 reps 9-13 %, +3-4 12-15 % — des tendances, pas des lois. I147.
 
 **Pari.** Un pari par recul : module `moteur.consigne`, grandeur `reps`, valeur prédite = les reps visées de la ligne, `fondement.role = 'recul'`, `fondement.rang = 'r1'`, `'r2'`… (un **rang texte**, jamais un rang de la couverture ; `dejaNote` et `figeesDe` ne le croisent pas), sans compteur (la stagnation l'ignore). Identifiant dans l'espace de noms `recul|séance|exercice|rang|occurrence` (`idDeRecul`, sur le modèle d'`idDEscalier`). La table `predictions` reste immuable.
 
@@ -2375,7 +2375,7 @@ La 193-6b ne bornait que la réserve demandée de la dernière série « Au max 
 
 *Delta 20/11/2026 (capacité tenue, §9.26, I252).* Le cas M (pile sur la cible, réserve 0) et l'échec à garde 0 (`aFondSurLaCible`) se lisent par `Moteur.capaciteTenue` : M part seulement si la série ne tient pas la capacité de sa LIGNE (visée = la garde de la ligne : elle ne la tient qu'à garde 0, I232 inchangé) ; `aFondSurLaCible` est le cas garde 0 (reps visées = le bas de la zone). La porte ne se ferme pour « échec » que sous la visée : jamais sur une série qui tient sa capacité. En séance, rien ne change (aucune phrase nouvelle).
 
-*Delta daté du 04/11/2026 (« §9.37 » dans le prompt : ce numéro était déjà pris par l'hybride, la règle prend le suivant libre). Constat : la séance d'Alexis du 03/11 (tractions visé 8 : 7-7-6-6 ; incliné visé 11 : 11-9-9 ; il baisse seul le rowing 93 → 86 et les élévations 9 → 7,1) : le coach gardait ses cibles. Aucune colonne : les propositions et les réponses vont dans `sessions.gestes` (`Seance.noterGeste`, jamais ailleurs).*
+*Delta daté du 04/11/2026 (« §9.37 » dans le prompt : ce numéro était déjà pris par l'hybride, la règle prend le suivant libre). Constat : la séance réelle d'un compte du 03/11 (des tractions et un incliné sous leur visée ; la personne baisse seule la charge du rowing et des élévations) : le coach gardait ses cibles. Aucune colonne : les propositions et les réponses vont dans `sessions.gestes` (`Seance.noterGeste`, jamais ailleurs).*
 
 **Une fonction, un câblage.** `Moteur.reactionAuRate(contexte)` (pure, sous la garde) décide ; `planDeSeance` la LIT (`x.rate`, `plan.formeDuJour`, `x.parisRates`) ; l'écran dessine, ne calcule rien. Réutilise sans recopier : le max du jour (`maxDuJour`, 193-5), `peutRestPause` (196), la dégressive (§14.8), la marche d'en dessous (195), `reserveVisee`, la zone à ménager, la semaine de mesure, le calage, la décharge, Ma salle (`salle`), la sèche (198). `contexte.niveau` : `serie` (défaut), `exercice`, `seance`, `paris`.
 
@@ -2585,7 +2585,7 @@ reste. Ce qui change à l'écran : plus de bouton « Dégressive » après un ra
 
 > **Aux haltères, la charge notée est la PAIRE, les deux ensemble (05/11/2026, 245)** — ce que tous les comptes tapent depuis toujours. Aucune conversion en base ; aucun lecteur ne double ni ne divise (l'image de l'année écrit la charge notée, « 40 kg », depuis le 06/11/2026). Dégressive : voir §9.15.3. Une seule notion, `Modele.chargeEstLaPaire`.
 
-> **Delta 16/11/2026, décision d'Aurélien — À UN BRAS, la charge notée est L'HALTÈRE TENU, pas la paire.** Pour un exercice aux haltères fait à un bras, la charge est celle d'un seul haltère (Aurélien l'a confirmé : son rowing un bras à 56 kg = un seul haltère de 56 ; données réelles de Léa, 14 à 18 kg, et de Mélody, 4 à 20 kg, au rowing un bras : un seul haltère). Aucune conversion en base : les séries passées restent telles quelles. **Une seule notion**, `Modele.unSeulHaltere(exo)` : une liste NOMMÉE de slugs (`EXERCICES_A_UN_SEUL_HALTERE` — aucune colonne du catalogue ne porte « un bras », le côté est une variante du catalogue, §782 ; le nom n'est jamais lu) : `rowing_haltere` (« Rowing Un Bras »), `developpe_couche_un_bras_haltere`, `developpe_militaire_un_bras_haltere`, `elevation_laterale_un_bras_haltere`, `extension_triceps_dessus_tete_un_bras_haltere`, `rowing_kroc_haltere` (le Kroc, un bras par définition). Les exercices « Une Jambe » aux haltères gardent la paire (on y tient un ou deux haltères). `chargeEstLaPaire` devient `equipement = haltere` ET pas `unSeulHaltere`. **Lecteurs** : l'aide sous le champ de charge (« kg, l'haltère » au lieu de « kg, les deux haltères » ; `AIDE_DE_L_HALTERE`) ; le moteur reçoit un matériel EFFECTIF de plus, `haltere_seul` (`Moteur.equipementEffectif`, comme le lest), dont le pas du repli est la MOITIÉ de la paire — 1 kg jusqu'à 10 kg, puis 2 (`REPLI_MATERIEL.haltere_seul`, bascule à 10) : le cran au-dessus, l'arrondi au cran inférieur, la marche vers le bas, le calage de la première séance, les chauffes (`MATERIELS_DE_CHAUFFE`), la dégressive (la fenêtre −15 % à −30 % se lit sur les mêmes crans, §9.15.3), le plafond de saut et la baisse après un raté (`RATE_PAS_PAR_DEFAUT`) ; la phrase « vise l'haltère au-dessus » et « Ton haltère ne permet pas un plus petit cran » ; la question de la charge habituelle (« Ta charge habituelle, avec un haltère ? ») ; les seuils de vraisemblance de la saisie (2 kg au lieu de 4, la moitié de la paire). Quand l'historique donne le pas (rang 1), il prime, comme toujours (§10.2). *Ma salle* ne lit plus les haltères depuis le 24/10/2026 (163) : les charges proposables « 2 × l'haltère » de la salle déclarée (lignes ci-dessous) ne sont plus produites ; le cas ne se présente plus, et ne se présentera pas pour un bras si la salle haltères revient (il faudrait alors ne pas doubler). Le matériel `haltere` (deux bras) est inchangé.
+> **Delta 16/11/2026, décision d'Aurélien — À UN BRAS, la charge notée est L'HALTÈRE TENU, pas la paire.** Pour un exercice aux haltères fait à un bras, la charge est celle d'un seul haltère (un rowing un bras noté à 56 kg est un seul haltère de 56 ; les données réelles d'autres comptes, de quelques kg à une vingtaine de kg, vont dans le même sens : un seul haltère). Aucune conversion en base : les séries passées restent telles quelles. **Une seule notion**, `Modele.unSeulHaltere(exo)` : une liste NOMMÉE de slugs (`EXERCICES_A_UN_SEUL_HALTERE` — aucune colonne du catalogue ne porte « un bras », le côté est une variante du catalogue, §782 ; le nom n'est jamais lu) : `rowing_haltere` (« Rowing Un Bras »), `developpe_couche_un_bras_haltere`, `developpe_militaire_un_bras_haltere`, `elevation_laterale_un_bras_haltere`, `extension_triceps_dessus_tete_un_bras_haltere`, `rowing_kroc_haltere` (le Kroc, un bras par définition). Les exercices « Une Jambe » aux haltères gardent la paire (on y tient un ou deux haltères). `chargeEstLaPaire` devient `equipement = haltere` ET pas `unSeulHaltere`. **Lecteurs** : l'aide sous le champ de charge (« kg, l'haltère » au lieu de « kg, les deux haltères » ; `AIDE_DE_L_HALTERE`) ; le moteur reçoit un matériel EFFECTIF de plus, `haltere_seul` (`Moteur.equipementEffectif`, comme le lest), dont le pas du repli est la MOITIÉ de la paire — 1 kg jusqu'à 10 kg, puis 2 (`REPLI_MATERIEL.haltere_seul`, bascule à 10) : le cran au-dessus, l'arrondi au cran inférieur, la marche vers le bas, le calage de la première séance, les chauffes (`MATERIELS_DE_CHAUFFE`), la dégressive (la fenêtre −15 % à −30 % se lit sur les mêmes crans, §9.15.3), le plafond de saut et la baisse après un raté (`RATE_PAS_PAR_DEFAUT`) ; la phrase « vise l'haltère au-dessus » et « Ton haltère ne permet pas un plus petit cran » ; la question de la charge habituelle (« Ta charge habituelle, avec un haltère ? ») ; les seuils de vraisemblance de la saisie (2 kg au lieu de 4, la moitié de la paire). Quand l'historique donne le pas (rang 1), il prime, comme toujours (§10.2). *Ma salle* ne lit plus les haltères depuis le 24/10/2026 (163) : les charges proposables « 2 × l'haltère » de la salle déclarée (lignes ci-dessous) ne sont plus produites ; le cas ne se présente plus, et ne se présentera pas pour un bras si la salle haltères revient (il faudrait alors ne pas doubler). Le matériel `haltere` (deux bras) est inchangé.
 
 > **L'app ne demande jamais de combien monter. Elle déduit le pas de la salle depuis les charges déjà utilisées sur cet exercice.**
 
@@ -2751,7 +2751,7 @@ Un pari de Décharge (`predictions.fondement.allegee === true`, module `consigne
 
 ## 10 bis. Le matériel de la salle — décidé le 15/10/2026 (prompt 108) — **REMPLACÉ le 24/10/2026 (163) pour les barres fixes et les haltères**
 
-> **24/10/2026, décision d'Aurélien : « Ma salle » ne garde que les élastiques (§10 ter).** Les barres fixes, les haltères et la bascule « barre chargée » sont retirés : `salleDeLExercice` ne répond que pour les élastiques, `barre_charge_fixe` n'a plus d'effet, aucune migration (les colonnes restent, ignorées). L'état `salle_max`, I48 et `salleMax` restent pour les bouts de liste d'élastiques. L'ancienne « Ma salle » d'Aurélien n'est pas convertie. Ce qui suit décrit l'ancien mécanisme : **remplacé**, conservé pour l'historique des décisions.
+> **24/10/2026, décision d'Aurélien : « Ma salle » ne garde que les élastiques (§10 ter).** Les barres fixes, les haltères et la bascule « barre chargée » sont retirés : `salleDeLExercice` ne répond que pour les élastiques, `barre_charge_fixe` n'a plus d'effet, aucune migration (les colonnes restent, ignorées). L'état `salle_max`, I48 et `salleMax` restent pour les bouts de liste d'élastiques. L'ancienne « Ma salle » du compte A n'est pas convertie. Ce qui suit décrit l'ancien mécanisme : **remplacé**, conservé pour l'historique des décisions.
 
 
 Maquette validée par Aurélien le 15/10/2026 : `v2-atelier/maquettes/maquette-salle-objectif-v1.html`, écrans 1 et 2.
@@ -2774,8 +2774,8 @@ Maquette validée par Aurélien le 15/10/2026 : `v2-atelier/maquettes/maquette-s
 
   La carte : la même que la série de plus ou la dégressive, avec cette première phrase au plafond : « 30 kg × 15 depuis 4 séances, et ta salle n'a pas plus lourd. » suivie de la question de la marche (« Une série de plus ? », « Une dégressive après ta dernière série ? », « Passer au curl aux haltères ? »). Boutons du remplacement : « Changer d'exercice » / « Non merci ».
 - La dégressive à barre fixe : « Prends la barre de 20 kg. » au lieu de « Enlève … de chaque côté ».
-- Cas réel d'Aurélien (Basic-Fit) : curl EZ, barres de 10 à 30 kg de 5 en 5 ; au-dessus de 30 impossible.
-- *Demandé par Aurélien le 16/10/2026 (prompt 123, audit du 16/10, 03 #7), mot pour mot :* « Ok ma salle, par contre pour les petites haltères de 1 à 10 c'est de 1 en 1 » — sa salle : haltères de 1 en 1 jusqu'à 10 kg, puis de 2 en 2 jusqu'à 40 kg. **Les haltères se déclarent par tranches** (1 à 3) : « jusqu'à X kg, de Y en Y », puis « jusqu'à X' kg, de Y' en Y' ». Une tranche donne les multiples de son pas, de la fin de la précédente (exclue ; 0 pour la première) à son « jusqu'à » (inclus) : chez Aurélien 1, 2 … 10, puis 12, 14 … 40 — **11 kg n'existe pas : 10 ou 12**.
+- Cas réel d'une salle de grande enseigne : curl EZ, barres de 10 à 30 kg de 5 en 5 ; au-dessus de 30 impossible.
+- *Demandé par Aurélien le 16/10/2026 (prompt 123, audit du 16/10, 03 #7), mot pour mot :* « Ok ma salle, par contre pour les petites haltères de 1 à 10 c'est de 1 en 1 » — sa salle : haltères de 1 en 1 jusqu'à 10 kg, puis de 2 en 2 jusqu'à 40 kg. **Les haltères se déclarent par tranches** (1 à 3) : « jusqu'à X kg, de Y en Y », puis « jusqu'à X' kg, de Y' en Y' ». Une tranche donne les multiples de son pas, de la fin de la précédente (exclue ; 0 pour la première) à son « jusqu'à » (inclus) : sur le compte A 1, 2 … 10, puis 12, 14 … 40 — **11 kg n'existe pas : 10 ou 12**.
 
 **Ce que le code en a fait (108).**
 
@@ -2795,7 +2795,7 @@ Maquette validée par Aurélien le 15/10/2026 : `v2-atelier/maquettes/maquette-s
 
 **Ce que le code en a fait (123, 16/10/2026, audit du 16/10, 03 #7).** *Précisions d'implémentation (Claude Code, à relire par Claude.ai).*
 
-- **Les charges** (`THProfil.salleDeLExercice`, `chargesDesTranches`) : toutes tranches confondues, par haltère, puis en paire (§10.1) — chez Aurélien 2, 4 … 20, puis 24, 28 … 80. Le moteur ne change pas : il reçoit la liste (`salle.charges`), et tout ce qui la lit lit les tranches — l'arrondi au cran inférieur (2 × 11 d'une autre salle → 2 × 10), le cran au-dessus (après 2 × 10, 2 × 12 ; sous 10 kg, de 1 en 1 : après 2 × 7, 2 × 8), le plafond (**le plus lourd de la dernière tranche**, 2 × 40), I46, I47, le remplaçant plus chargeable, et l'objectif (règle du 122 : « Ta salle va jusqu'à 2 × 40 kg en haltères. » ; 2 × 11 n'est pas refusé, il s'atteint à 2 × 12).
+- **Les charges** (`THProfil.salleDeLExercice`, `chargesDesTranches`) : toutes tranches confondues, par haltère, puis en paire (§10.1) — sur le compte A 2, 4 … 20, puis 24, 28 … 80. Le moteur ne change pas : il reçoit la liste (`salle.charges`), et tout ce qui la lit lit les tranches — l'arrondi au cran inférieur (2 × 11 d'une autre salle → 2 × 10), le cran au-dessus (après 2 × 10, 2 × 12 ; sous 10 kg, de 1 en 1 : après 2 × 7, 2 × 8), le plafond (**le plus lourd de la dernière tranche**, 2 × 40), I46, I47, le remplaçant plus chargeable, et l'objectif (règle du 122 : « Ta salle va jusqu'à 2 × 40 kg en haltères. » ; 2 × 11 n'est pas refusé, il s'atteint à 2 × 12).
 - **La dégressive aux haltères** : la règle écrite (§9.15.3, ci-dessus « La dégressive ») ne change pas — −22,5 %, au cran inférieur **que la salle fait**, toutes tranches confondues. 2 × 24 = 48 → 37,2 → **2 × 18** (36 kg, −25 %) ; 2 × 20 (−17 %) est au-dessus de la cible. *Tranché le 05/11/2026 (245, C2) : le cran le plus proche dans la fenêtre — 2 × 10 → 2 × 8.* *(Noté le 16/10/2026)* : sous 10 kg, le cran inférieur peut tomber plus loin que la fenêtre de 20 à 25 % alors qu'un haltère y tombe juste au-dessus de la cible — 2 × 10 → 15,5 → 2 × 7 (−30 %) quand 2 × 8 serait à −20 % ; la barre, elle, prend le disque le plus proche de −22,5 % dans sa fenêtre (§9.15.3, 15/10/2026).
 - **Deux formes écrites** (`v2_095`) : une tranche → l'ancienne `{ max, pas }` (acceptée par `v2_088` comme par `v2_095`, lue par toutes les apps en circulation) ; deux ou trois → la liste `[{ jusqua, pas }, …]`. L'ancienne forme est lue comme une tranche unique, jamais réécrite sans geste. **Avant `v2_095`**, une salle à deux tranches est refusée par la base (23514) : la colonne sort de l'envoi, la salle d'avant est gardée et le Profil le dit (« Pas enregistré : Ma salle. », le mécanisme du prompt 116) — aucune tranche « équivalente » n'est écrite à la place de celle déclarée. Bornes (doublées dans `THProfil.salleValide`) : « jusqu'à » de 1 à 100 kg, pas de 0,5 à 10 kg, au demi-kilo ; des « jusqu'à » croissants ; chaque pas au plus la longueur de sa tranche (il y a toujours une charge dedans — `pas ≤ max` d'avant).
 
@@ -3154,11 +3154,11 @@ Effet de la correction, mesuré sur les cinq profils :
 
 | Profil | Durée médiane d'un épisode — charge seule | — charge ou reps |
 |---|---|---|
-| Aurélien | 5 séances | **2** |
-| Jordan | 5 | 2 |
-| Léa | 6 | 4 |
-| Alexis | 4 | 2 |
-| Mélodie | 3 | 1 |
+| compte A | 5 séances | **2** |
+| compte B | 5 | 2 |
+| compte C | 6 | 4 |
+| compte D | 4 | 2 |
+| compte E | 3 | 1 |
 
 Un vrai blocage dure **2 séances en médiane**, pas 5. L'ancien tableau du §12.1 (90 % des épisodes sous 3 séances) était en outre faussé dans l'autre sens : il comptait comme progrès toute montée de charge, **retours d'oscillation compris** — or une montée sur deux chez le profil assidu est un retour, pas un record (§9.1.3). Il voyait du progrès partout et concluait à des plateaux courts.
 
@@ -3170,7 +3170,7 @@ Le §12.2 a été écrit avant le moteur du chantier 48 : il compte la meilleure
 
 **Quelles séances comptent.** Seulement celles qui ont reçu une consigne **et** où elle a été suivie : les séries au palier proposé faites à la charge proposée, ou au-dessus. Une séance faite sous la charge proposée n'est **ni un progrès ni une stagnation** : le compteur se tait. Faire plus que demandé sans progresser, c'est avoir essayé ; faire moins, c'est une consigne non tentée, qui ne dit rien de la méthode. Cette frontière n'est pas celle de l'observation (§9.11), qui ne compte les reps qu'à la charge exacte : les deux répondent à deux questions différentes — « le pari du moteur a-t-il été vérifié ? » et « la personne a-t-elle au moins tenté la consigne ? ».
 
-**Par exercice et par zone**, pas par format. Le format n'a que trois cases : des séries de 11 et de 15 tombaient dans la même, et un 66 × 11 bloquait tout ce qui suivait à 15 reps (extension jambes d'Aurélien : 41 séances de stagnation fictive, 13 par zone). Un changement de zone est un bloc (§9.10) et remet le compteur à zéro. **La zone d'une séance se lit à sa fin** — une seule fonction pour le report (§9.10), le compteur et le repli de l'escalier : une zone changée pendant la séance est celle de cette séance (précisé le 06/10/2026, relevé 54-0 : le compteur et le repli la lisaient au début, le report à la fin). La zone **d'aujourd'hui**, pour la séance qui commence, reste la zone en vigueur maintenant. **Une séance sans heure de fin** (6 des 22 séances d'Aurélien en septembre 2026, importées de Hevy) **finit 3 h au plus après son début, et jamais après le début de la suivante** (précisé le 06/10/2026) : sans cette borne, une zone changée entre deux séances comptait pour la précédente.
+**Par exercice et par zone**, pas par format. Le format n'a que trois cases : des séries de 11 et de 15 tombaient dans la même, et un 66 × 11 bloquait tout ce qui suivait à 15 reps (extension jambes du compte A : 41 séances de stagnation fictive, 13 par zone). Un changement de zone est un bloc (§9.10) et remet le compteur à zéro. **La zone d'une séance se lit à sa fin** — une seule fonction pour le report (§9.10), le compteur et le repli de l'escalier : une zone changée pendant la séance est celle de cette séance (précisé le 06/10/2026, relevé 54-0 : le compteur et le repli la lisaient au début, le report à la fin). La zone **d'aujourd'hui**, pour la séance qui commence, reste la zone en vigueur maintenant. **Une séance sans heure de fin** (6 des 22 séances du compte A en septembre 2026, importées de Hevy) **finit 3 h au plus après son début, et jamais après le début de la suivante** (précisé le 06/10/2026) : sans cette borne, une zone changée entre deux séances comptait pour la précédente.
 
 **Remises à zéro** : une reprise après coupure (§9.9, la même règle que la consigne), un changement de zone.
 
@@ -3184,11 +3184,11 @@ Le §12.2 a été écrit avant le moteur du chantier 48 : il compte la meilleure
 
 | | 3 blocages sur 4 durent au plus | Exercices à 4 ou plus à l'ouverture |
 |---|---|---|
-| aurel_br | 3 séances | 7 sur 38 |
-| lea | 3 | 2 sur 32 |
-| alexis | 2 | 1 sur 38 |
-| jordan | 2 | 1 sur 11 |
-| melodie | 1 | 0 sur 17 |
+| compte A | 3 séances | 7 sur 38 |
+| compte C | 3 | 2 sur 32 |
+| compte D | 2 | 1 sur 38 |
+| compte B | 2 | 1 sur 11 |
+| compte E | 1 | 0 sur 17 |
 
 Ne compter que les séances suivies retire 28 % des déclenchements (177 → 128). **Réserve** : ces historiques n'ont jamais reçu de consigne. Une séance « suivie » y est une coïncidence de charge, pas une intention : les chiffres bornent ce que le coach aurait pu déclarer, les premières semaines réelles diront ce qu'il déclare.
 
@@ -3242,7 +3242,7 @@ La mesure charge seule montrait une remontée de la reprise spontanée autour de
 
 - **Le compteur ne compte que les séances qui ont reçu une consigne, et où elle a été suivie** (précisé le 25/09/2026, §12.2 bis). Un historique sans consigne ne dit pas si la personne a essayé ; une consigne non tentée non plus.
 - **Le seuil ne s'adapte pas, les mots si** (tranché le 25/09/2026). Le déclencheur reste 4 séances pour tout le monde (§12.4). Ce qui s'adapte, c'est la phrase : « plus long que d'habitude pour toi » ne se dit **que si c'est vrai pour cette personne** — au moins 3 de ses blocages sur 4, terminés sous consigne, ont été plus courts que le seuil. Sans assez de blocages sous consigne (moins de 8, choix produit), la phrase reste neutre : « 122,5 kg × 6 reste ta meilleure charge de travail depuis 4 séances. » (Le mot est précisé le 02/10/2026 : « ton meilleur » prêtait à confusion avec le « Record de charge » de la page d'exercice, qui est la série la plus lourde, essai compris ; le compteur parle de la **charge de travail**, l'expression de la voix du coach.) **Elle cite le meilleur (palier, niveau validé) depuis la dernière remise à zéro, jamais la charge du jour** (corrigé le 30/09/2026) : le compteur mesure le temps écoulé depuis ce meilleur, et la charge du jour peut osciller sous lui (au rejeu : « 88 kg ne bouge plus depuis 5 séances » alors que 88 kg n'avait été fait qu'une fois). Au rejeu, la phrase aurait été vraie chez les cinq profils (§12.2 bis) ; c'est un constat sur eux, pas une garantie.
-- **Pourquoi ne pas le calculer sur l'historique** : mesuré (banc M4), 8 exercices d'Aurélien dépasseraient déjà le seuil à l'ouverture (extension jambes 13 séances, presse 10, curls 10, tirage poitrine 7…).
+- **Pourquoi ne pas le calculer sur l'historique** : mesuré (banc M4), 8 exercices du compte A dépasseraient déjà le seuil à l'ouverture (extension jambes 13 séances, presse 10, curls 10, tirage poitrine 7…).
 
 ### 12.9 Le compteur dans l'app — câblé le 30/09/2026 (chantier 49)
 
@@ -3351,15 +3351,15 @@ Part des séance-exercices couvertes par un historique d'au moins 8 séances, se
 
 | Profil | Par exercice | Par famille | Exercices → familles |
 |---|---|---|---|
-| aurel_br | 97 % | 99 % | 151 → 57 |
-| jordan | 89 % | 95 % | 62 → 32 |
-| lea | 86 % | 95 % | 100 → 42 |
-| alexis | 84 % | **97 %** | 93 → 40 |
-| melodie | 75 % | **93 %** | 68 → 36 |
+| compte A | 97 % | 99 % | 151 → 57 |
+| compte B | 89 % | 95 % | 62 → 32 |
+| compte C | 86 % | 95 % | 100 → 42 |
+| compte D | 84 % | **97 %** | 93 → 40 |
+| compte E | 75 % | **93 %** | 68 → 36 |
 
 Le repli famille rattrape **jusqu'à 18 points** chez le profil le plus dispersé. Les 5 à 7 points restants sont les essais uniques — rien à rattraper, c'est le coût normal de l'exploration.
 
-**Piège de comptage à ne pas refaire.** En comptant des *exercices* plutôt que des *séances*, la dispersion paraît catastrophique : chez melodie, 21 exercices sur 68 n'ont été faits qu'une fois, et alexis ne réalise que 34 % de ses séances sur des exercices vus plus de 20 fois. En séances réelles, la couverture est de 75 à 97 % avant même le repli famille. **Un exercice essayé une fois pèse une séance, pas un tiers du catalogue.**
+**Piège de comptage à ne pas refaire.** En comptant des *exercices* plutôt que des *séances*, la dispersion paraît catastrophique : sur le compte E, 21 exercices sur 68 n'ont été faits qu'une fois, et le compte D ne réalise que 34 % de ses séances sur des exercices vus plus de 20 fois. En séances réelles, la couverture est de 75 à 97 % avant même le repli famille. **Un exercice essayé une fois pèse une séance, pas un tiers du catalogue.**
 
 ### 13.4 La rotation d'exercices n'a pas d'effet mesurable sur la progression
 
@@ -3369,17 +3369,17 @@ Progression annuelle de la charge, exercices d'au moins 6 séances sur au moins 
 
 | Profil | Piliers (>20 séances) | Accessoires (6-20) |
 |---|---|---|
-| aurel_br | +16,3 %/an | +16,0 % |
-| jordan | +46,0 % | +26,8 % |
-| lea | +36,6 % | +44,9 % |
-| alexis | +23,6 % | **+46,6 %** |
-| melodie | **+94,4 %** | +25,1 % |
+| compte A | +16,3 %/an | +16,0 % |
+| compte B | +46,0 % | +26,8 % |
+| compte C | +36,6 % | +44,9 % |
+| compte D | +23,6 % | **+46,6 %** |
+| compte E | **+94,4 %** | +25,1 % |
 
 Deux profils progressent mieux sur leurs piliers, deux sur leurs accessoires, un à l'identique. **Aucune direction commune.** Biais à signaler par ailleurs : un accessoire démarre souvent à charge basse, donc son pourcentage part d'un petit dénominateur et gonfle mécaniquement — le +94 % sur cinq exercices n'est pas interprétable.
 
 > **Rien à conseiller sur la sélection d'exercices.** La rotation existe et est massive (un exercice donné est absent de deux semaines actives sur trois), mais elle ne se paie pas en progression et ne prive pas le moteur de matière. Chantier fermé sans règle nouvelle.
 
-Ce que la mesure valide, en revanche : deux populations d'exercices existent bel et bien, séparées par leur durée de vie — **environ 200 jours pour un accessoire contre 720 pour un pilier chez aurel_br, 93 contre 304 chez jordan**, un facteur trois à quatre chez tous. Cette séparation justifie le repli famille du §13.3 ; elle ne justifie aucun conseil.
+Ce que la mesure valide, en revanche : deux populations d'exercices existent bel et bien, séparées par leur durée de vie — **environ 200 jours pour un accessoire contre 720 pour un pilier sur le compte A, 93 contre 304 sur le compte B**, un facteur trois à quatre chez tous. Cette séparation justifie le repli famille du §13.3 ; elle ne justifie aucun conseil.
 
 ### 13.6 Les frères dans l'app — câblés le 02/10/2026 (chantier 49)
 
@@ -3444,7 +3444,7 @@ Aucune source ne valide la démarche. La littérature dit « identifie tes point
 | Reps | la consigne | **2 de moins que la visée**, jamais moins d'une, loin de l'échec |
 | Test, montée en séance (§9.14) | oui | **non** : rien ne monte cette semaine |
 
-Le coach **dit** la consigne allégée (« 125 kg, vise 3 · 2 séries ») : sans elle, chacun baisse la charge à l'instinct — précisément ce qu'il ne faut pas faire. Appui : l'intensité est la variable clé pour garder force et muscle quand le volume baisse fortement (Spiering et al. 2021) ; les coachs réduisent le volume d'une décharge par moins de séries, de reps ou de séances (Bell et al. 2023, consensus Delphi) ; en sport de force, pour la décharge, une baisse de volume de 25 à 45 % (besoin faible), 40 à 60 % (moyen) ou 60 à 90 % (fort), intensité gardée, ou baisse de charge d'environ 10 % en gardant les reps, ou charge gardée avec plus de reps en réserve (Bell et al. 2025). **Le coach suggère, il ne demande pas pourquoi** (décidé par Aurélien le 25/09) : pas de question sur la semaine, le sommeil ou le stress ; une carte, deux réponses. **Fréquence mesurée** (`mesure_escalier49_generalise.py`, sur les 7 jours antérieurs, une proposition par épisode) : aurel_br 7 fois en 169 semaines (environ 2 par an), lea 3 en 145, alexis 1 en 69, jordan 1 en 50, melodie 0 — un filet rare, pas un rythme ; les décharges planifiées relèvent du chantier programmes.
+Le coach **dit** la consigne allégée (« 125 kg, vise 3 · 2 séries ») : sans elle, chacun baisse la charge à l'instinct — précisément ce qu'il ne faut pas faire. Appui : l'intensité est la variable clé pour garder force et muscle quand le volume baisse fortement (Spiering et al. 2021) ; les coachs réduisent le volume d'une décharge par moins de séries, de reps ou de séances (Bell et al. 2023, consensus Delphi) ; en sport de force, pour la décharge, une baisse de volume de 25 à 45 % (besoin faible), 40 à 60 % (moyen) ou 60 à 90 % (fort), intensité gardée, ou baisse de charge d'environ 10 % en gardant les reps, ou charge gardée avec plus de reps en réserve (Bell et al. 2025). **Le coach suggère, il ne demande pas pourquoi** (décidé par Aurélien le 25/09) : pas de question sur la semaine, le sommeil ou le stress ; une carte, deux réponses. **Fréquence mesurée** (`mesure_escalier49_generalise.py`, sur les 7 jours antérieurs, une proposition par épisode) : compte A 7 fois en 169 semaines (environ 2 par an), compte C 3 en 145, compte D 1 en 69, compte B 1 en 50, compte E 0 — un filet rare, pas un rythme ; les décharges planifiées relèvent du chantier programmes.
 
 **Blocage isolé → stimuler cet exercice, selon sa zone.**
 1. **Zones muscle** (hypertrophie, volume, séries longues) : **une série de plus** (environ +20 % sur l'exercice), si la règle de volume laisse de la place sur le muscle ; sinon, marche suivante. **« Laisse de la place »** : sur chaque muscle primaire, la moyenne des 3 dernières semaines actives ne dépasse pas les trois quarts de ses moyennes habituelles — symétrique du premier quart de REGLE-VOLUME, qui en sera la source (décidé le 25/09/2026). **La série de plus passe par la consigne** (*n* + 1 séries couvertes), jamais par le bouton « + Série », et **dure jusqu'au prochain progrès de l'exercice** : ensuite, la routine redevient celle de la personne (décidé le 25/09/2026). **Zones force** (lourd, mix) : **changer de schéma de reps** — la seule marche qui pose une question, parce qu'elle change ce que la personne entraîne ; plus de séries aide peu la force.
@@ -3465,7 +3465,7 @@ Le coach **dit** la consigne allégée (« 125 kg, vise 3 · 2 séries ») : san
 | Charge baissée | 25 sur 100 (8) | 62 sur 100 (8) |
 | Pause | 75 sur 100 (8) | 43 sur 100 (7) |
 
-*Rejoué le 25/09/2026 sur les 7 jours antérieurs (#319) ; la première version regardait 7 jours autour — la conclusion ne change pas.* Le blocage généralisé est le plus fréquent (65 sur 112 ; 48 sur 70 chez aurel_br). **Cases de 4 à 26 cas : des tendances, pas des lois** ; le changement de schéma (9 cas, 22 sur 100) n'est pas jugeable, la mesure est biaisée contre lui (le maximum estimé se calcule plus haut sur les séries longues). **Descriptif seulement** : personne ne change de méthode au hasard, et la mesure ne dit jamais « fais X parce que ça a marché ».
+*Rejoué le 25/09/2026 sur les 7 jours antérieurs (#319) ; la première version regardait 7 jours autour — la conclusion ne change pas.* Le blocage généralisé est le plus fréquent (65 sur 112 ; 48 sur 70 sur le compte A). **Cases de 4 à 26 cas : des tendances, pas des lois** ; le changement de schéma (9 cas, 22 sur 100) n'est pas jugeable, la mesure est biaisée contre lui (le maximum estimé se calcule plus haut sur les séries longues). **Descriptif seulement** : personne ne change de méthode au hasard, et la mesure ne dit jamais « fais X parce que ça a marché ».
 
 **Confrontation.** Coachs : décharger quand plusieurs exercices calent ensemble (échauffements lourds, articulations irritées, motivation en baisse), corriger l'exercice quand il cale seul ; un levier à la fois ; vérifier d'abord technique, sommeil, alimentation, stress ; une décharge réduit le volume de 30 à 50 % une semaine, mêmes exercices. Science : environ +20 % de volume par rapport à l'habitude a mieux fait grossir le muscle de pratiquants entraînés (Scarpelli et al. 2022), sans avantage à une hausse brutale (+120 %, 2026) ; pour la force, un groupe qui gardait son volume a le plus gagné au maximum — d'où « changer de schéma » plutôt que « une série de plus » en zone force. Décharges des pratiquants sérieux : environ 6 jours toutes les 5 à 6 semaines, aussi quand la performance cale (Rogerson et al. 2024).
 
@@ -3494,7 +3494,7 @@ Observation dans les données, à prendre pour ce qu'elle est — une seule comp
 
 ### 14.2 Le repli n'est pas un pourcentage — et il ne monte jamais
 
-Le « −10 % » est une convention de coach. Le repli utilise **le dernier palier validé en entier dans l'historique** — pour Aurélien au couché : 120 kg, validé le 28/07 sur `5-5-5-5`.
+Le « −10 % » est une convention de coach. Le repli utilise **le dernier palier validé en entier dans l'historique** — pour le compte A au couché : un palier validé en entier sur `5-5-5-5`.
 
 **Quatre garde-fous, sans lesquels la règle est fausse.** Rien dans sa formulation initiale n'obligeait le repli à descendre : après une blessure ou un long détour sur une autre variante, le dernier palier tenu en entier peut être **au-dessus** du palier où l'utilisateur bloque. Le repli lui proposerait alors de monter, au moment précis où il stagne.
 
@@ -4248,7 +4248,7 @@ L'erreur passe de 1,00 rep si on ne garde que les séries ≤ 8 reps à 2,00 si 
 
 | Point | État |
 |---|---|
-| Seuils calibrés sur un seul utilisateur | à revérifier avec Jordan, Léa, Alexis |
+| Seuils calibrés sur un seul utilisateur | à revérifier sur les autres comptes |
 | Seuils 35 / 60 % de la montée en charge (§5.2) | choix produit, à revoir sur données multi-utilisateurs |
 | Pesée à jour | dernière le 18/03/2026, tout le reste est un report |
 | Exercices en durée et cardio | colonnes différentes à prévoir |
@@ -4267,7 +4267,7 @@ L'erreur passe de 1,00 rep si on ne garde que les séries ≤ 8 reps à 2,00 si 
 | Calisthénie : les cinq leviers de progression | non traité, hors chantier 48 |
 | Top set suivi de séries allégées (banc M16) | 2 à 5 séances sur 100 ; le moteur y voit un test raté, sans effet — à surveiller |
 | Zones, fenêtre de 8 séances, seuils de reprise (3 et 12 semaines) | calés sur cinq profils d'un même entourage et sur la littérature ; à revérifier sur les premières données prescrites |
-| Couverture du palier chez Jordan (73,5 %) | pyramides fréquentes : à regarder avant de lui ouvrir le moteur (§7.3) |
+| Couverture du palier sur le compte B (73,5 %) | pyramides fréquentes : à regarder avant de lui ouvrir le moteur (§7.3) |
 
 ### 22.4 Revue externe du 24/08/2026 — ce qui a été retenu et ce qui ne l'a pas été
 

@@ -92,7 +92,7 @@ Plusieurs documents citent une volumétrie antérieure aux imports. L'état au
 | Document | Ce qu'il annonce |
 |---|---|
 | `REGLES-DE-COMPTAGE-V1.md` | 582 séances · 15 677 séries · 164 exercices — mesures datées du 23/08, présentées comme telles dans leur contexte |
-| `REFERENTIEL-BORNES-V1.md` | 891 séances · 557 pour aurel_br |
+| `REFERENTIEL-BORNES-V1.md` | 891 séances · 557 pour le compte A |
 | `REGLE-VOLUME-V2.md` §9.4 | 206 exercices au catalogue |
 | `ECRAN-SAISIE-V1.md` §9 | `v2_037` comme prochaine migration libre — `SCHEMA-REEL.md` dit **`v2_041`**. La section est datée d'une session antérieure et se lit comme telle |
 
@@ -130,5 +130,5 @@ posé les quatre vérifications d'avant-fusion dans `CLAUDE.md` §4 bis.
 - **« Rien n'est écrit en base »** — en-tête du même document, faux depuis le 28 août.
   Corrigé : muscles, `coef_pdc`, `masse_depart_kg` et `body_weight_log` existent tous.
 - **Supersets à 38 %** — `MODIFICATEURS-SERIE-V1.md` §4 portait un chiffre jamais
-  mesuré. Remesuré à **48,7 %** chez aurel_br, avec le détail par profil : la limite
+  mesuré. Remesuré à **48,7 %** sur le compte A, avec le détail par profil : la limite
   qu'il documente s'en trouve aggravée, pas atténuée.

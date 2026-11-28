@@ -524,7 +524,7 @@ La page d'exercice est la seule des trois qui vit vraiment : cinq portes d'entr�
 - **Une sauvegarde / un export des données. Aucun code d'export dans v2/js : grep -ni "export|sauvegard|telecharg|download|blob" ne rend que des messages d'erreur, des commentaires et des module.exports.**
   `CADRAGE-V2.md §2 nonies, tableau « Ce qui doit être fini AVANT » : « Une sauvegarde — ⚠️ le point le plus important. […] Sans export ou sauvegarde, une erreur devient définitive ».`
 - **Inscription, mot de passe oublié, premier compte. L'écran de connexion n'offre que e-mail + mot de passe ; auth.js déclare ces trois sujets hors périmètre.**
-  `v2/js/auth.js:2 (« Hors périmètre : inscription, mot de passe oublié, comptes anonymes ») contre CADRAGE-V2.md §2 nonies, qui planifie l'ouverture à Mélodie, « qui ne s'est jamais connectée ». À vérifier : la création du compte peut être prévue hors app (côté Claude.ai / Supabase) — rien dans les specs ne tranche.`
+  `v2/js/auth.js:2 (« Hors périmètre : inscription, mot de passe oublié, comptes anonymes ») contre CADRAGE-V2.md §2 nonies, qui planifie l'ouverture aux comptes iPhone. À vérifier : la création du compte peut être prévue hors app (côté Claude.ai / Supabase) — rien dans les specs ne tranche.`
 
 ### Ce qui apparaît sans raison — 16
 
@@ -592,7 +592,7 @@ L'audit du 14/09 a été largement dépilé : toute la gravité 1 est refermée 
   <br>*Preuve :* « la colonne `ressenti` est vide sur les **16 704 séries** » et « `ressenti` vide sur 16 704 séries », alors que README.md:67, SCHEMA-REEL.md:13 et ECRAN-SAISIE-V1.md:604 disent tous 28 103. Les parts citées comme preuve au §4-§5 portent donc sur ~60 % du corpus.
 - **C7 — le compte de `rpe` en base reste périmé dans deux specs**
   `v2/specs/SCHEMA-REEL.md:97 · v2/specs/ECRAN-SAISIE-V1.md:342`
-  <br>*Preuve :* SCHEMA-REEL : « `rpe` | numeric(3,1) | **136 renseignées sur 28 103** (0,5 %) ». ECRAN-SAISIE : « aurel_br l'a saisi sur **136 séries en trois ans** ». L'audit du 14/09 a mesuré 246, sur 2 utilisateurs. Aucune des deux lignes n'a bougé.
+  <br>*Preuve :* SCHEMA-REEL : « `rpe` | numeric(3,1) | **136 renseignées sur 28 103** (0,5 %) ». ECRAN-SAISIE : « le compte de référence l'a saisi sur **environ 1 % de ses séries en trois ans** ». L'audit du 14/09 a mesuré 246, sur 2 utilisateurs. Aucune des deux lignes n'a bougé.
 - **C8 — la numérotation des migrations est toujours déraillée dans les specs**
   `v2/specs/SCHEMA-REEL.md:4, 10-11, 189 · v2/specs/ECRAN-SAISIE-V1.md:2238`
   <br>*Preuve :* SCHEMA-REEL annonce « Dernière migration : `v2_040_temps_de_repos` · Prochain numéro libre : `v2_041` », ECRAN-SAISIE §9 annonce « Prochain numéro libre : `v2_037` » — pendant que le code cite `v2_042_routine_sets` (routines.js:41, SCHEMA-REEL.md:133) et que ECRAN-SAISIE:1518 consigne « Migration `v2_043` — appliquée le 17/09/2026 ».

@@ -36,8 +36,8 @@ même code. Pas de « mode superset », pas de conversion.
 
 **2.2** — `groupe_superset` existe déjà en base. Rien à migrer.
 
-**Mesure** — le superset n'est pas une pratique générale, c'est celle d'Aurélien
-(48,7 % de ses séries, contre 0,6 % chez Jordan). Taille des blocs chez Aurélien :
+**Mesure** — le superset n'est pas une pratique générale, c'est celle d'un seul compte
+(près de la moitié de ses séries, contre moins de 1 % sur un autre). Taille des blocs sur ce compte :
 2 exos 53,7 %, 3 exos 24,2 %, 4 exos 12,2 %, 5 exos 7,5 %, 6 exos 1,3 %. Chez les
 autres, 90 à 96 % à deux exercices. **Le layout gère N exercices, pas des paires.**
 
@@ -453,7 +453,7 @@ répétitions restantes affiché `−1`, `−2`, `−0`. **L'affichage suit ce q
 traduction.
 ⚠️ **Elle n'existe que sur `charge_reps` et `reps`** — voir §3 ter.2.
 
-> **Pourquoi pas le RPE seul :** aurel_br l'a saisi sur **136 séries en trois ans, soit 1 %**.
+> **Pourquoi pas le RPE seul :** le compte de référence l'a saisi sur **environ 1 % de ses séries en trois ans**.
 > Une colonne permanente pour une case presque toujours vide gaspille un dixième de la
 > largeur. « Il m'en restait une » se répond sans apprentissage, un 8,5 s'apprend.
 
@@ -591,8 +591,8 @@ mot stagnation** : la personne voit qu'elle avance, ou qu'elle n'avance plus,
 sans qu'un verdict soit prononcé.
 
 **Mesures** — la charge bouge d'une série à l'autre bien plus souvent que prévu
-(identique seulement 35,8 % du temps chez Jordan, 35,9 % chez Mélodie). Et les
-montées ne sont pas toutes de la rampe : chez Aurélien et Jordan, ~45 % des
+(identique seulement 35,8 % du temps sur le compte B, 35,9 % sur le compte E). Et les
+montées ne sont pas toutes de la rampe : sur le compte A et compte B, ~45 % des
 montées arrivent après la 3ᵉ série, ce qui exclut l'échauffement non tagué. Les
 deux mécanismes coexistent, en proportions différentes selon la personne.
 
@@ -635,7 +635,7 @@ Aucun rouge, aucun « échec » : « pas encore ».
 
 Le retour immédiat soutient la performance et la motivation (méta-analyse de Weakley et collègues, 2023).
 
-**Précisé le 20/09/2026 (48b-6b-2).** Quand la charge de test couvre plus de séries qu'à la séance d'avant, c'est l'étape de l'échelle qui réussit, pas un recul : au squat d'Aurélien, 125 × 5 puis 130 × 4 et 130 × 4 donnaient « Pas encore : 4-4 à 130 », le nouveau palier étant comparé à l'ancien. Le verdict dit désormais que la nouvelle charge tient, et sur combien de séries.
+**Précisé le 20/09/2026 (48b-6b-2).** Quand la charge de test couvre plus de séries qu'à la séance d'avant, c'est l'étape de l'échelle qui réussit, pas un recul : au squat du compte A, 125 × 5 puis 130 × 4 et 130 × 4 donnaient « Pas encore : 4-4 à 130 », le nouveau palier étant comparé à l'ancien. Le verdict dit désormais que la nouvelle charge tient, et sur combien de séries.
 
 **3.10** — **La feuille « Pourquoi ».** Toucher la consigne ouvre le calcul : la
 dernière séance ligne par ligne, avec le rôle de chaque série (chauffe, au palier,
@@ -1237,7 +1237,7 @@ et les records ne le sont pas. Elle vit dans la vue Volume.
 
 **Pourquoi** : un pratiquant assidu sans coach n'a personne pour lui dire où il en est. Hevy et Strong montrent des
 courbes par exercice ; **aucun ne sépare « tu recules » de « tu fais moins cet exercice »**, aucun ne dit ce qui a pris
-le relais, aucun ne juge un groupe de muscles. Le calcul est une règle fixe, testée sur les séances d'aurel_br : une IA
+le relais, aucun ne juge un groupe de muscles. Le calcul est une règle fixe, testée sur les séances du compte A : une IA
 rendrait un verdict différent d'un jour à l'autre sur les mêmes données (décidé le 11/10 ; l'assistant pourra le lire,
 jamais le décider).
 
@@ -1369,7 +1369,7 @@ Cinq vues de courbe, sélecteur en pastilles, trois périodes (3 mois · 1 an ·
 | Force estimée (le 1RM d'Epley ; « 1RM estimé » jusqu'au 16/10/2026) | courbe **pointillée** hors plage | voir ci-dessous ; une progression, jamais un record (D1, 16/10/2026) |
 
 > **Le 1RM estimé n'est pas la vue par défaut, et c'est un choix mesuré.** Il n'est fiable
-> qu'entre **3 et 10 reps à effort constant** ; la médiane d'aurel_br est à 10-12 reps et
+> qu'entre **3 et 10 reps à effort constant** ; la médiane du compte A est à 10-12 reps et
 > **57 exercices sont travaillés dans plusieurs formats** — ce que la littérature désigne
 > comme la première cause d'estimation fausse. Le banc l'avait déjà écarté comme prédicteur
 > (§9.5 du moteur). Il reste offert, avec sa réserve affichée.
@@ -1406,7 +1406,7 @@ Le meilleur poids **pour chaque nombre de répétitions**. Factuel, sans formule
 
 > **Table cumulée — « au moins n reps » — jamais brute.**
 
-Hevy affiche la table brute, donc trouée. Sur le soulevé hex d'aurel_br : 7 reps → 150 kg,
+Hevy affiche la table brute, donc trouée. Sur le soulevé hex du compte A : 7 reps → 150 kg,
 mais 6 reps → 120 et 5 reps → 100. **Elle paraît cassée** — or qui a fait 150 × 7 a
 forcément pu faire 150 × 5. Vérifié sur son couché : la table brute donne 42,5 kg à 14 reps
 alors qu'il a fait 80 × 15.
@@ -1507,14 +1507,14 @@ Décision du 11/09/2026, après vérification de ce que font les autres outils :
 repos figure dans toutes les structures de routine**, sans exception — nom et ordre de
 l'exercice, séries, reps, **et intervalle de repos**.
 
-Et ce n'est pas une donnée théorique : **Aurélien l'a saisie pendant trois ans dans Hevy.**
+Et ce n'est pas une donnée théorique : **Un compte l'a saisie pendant trois ans dans Hevy.**
 Elle est perdue à l'import, l'export CSV ne la porte pas.
 
 ### 7 ter.1 Pourquoi on ne le déduit pas
 
 L'écart entre deux validations contient le repos **plus le temps d'exécution**. Une série de 5
 au squat et une de 20 aux mollets n'ont pas la même durée. Et les supersets brouillent le
-calcul sur **48,7 %** des séries de travail d'aurel_br.
+calcul sur **48,7 %** des séries de travail du compte A.
 
 > **Le chronomètre part à la VALIDATION d'une série** et mesure jusqu'à la validation
 > suivante. ~~Le temps d'exécution n'entre pas dans la valeur : elle est juste **par
@@ -2077,7 +2077,7 @@ nombre de répétitions.
 Une ligne est **déduite** quand un meilleur résultat existe à plus de répétitions : qui a fait
 80 × 15 a forcément pu faire 80 × 14. Grisée, en italique, marquée « déduit ».
 
-Mesuré sur le développé couché d'aurel_br : **une seule ligne déduite sur quinze**, celle des
+Mesuré sur le développé couché du compte A : **une seule ligne déduite sur quinze**, celle des
 14 reps. Le brut y donnerait 42,5 kg de février 2024 alors qu'il a fait 80 × 15 en juillet
 2025.
 
@@ -2697,7 +2697,7 @@ ce qui garantit qu'ils ne divergeront plus.
 
 ### 7 unvicies.2 Et une seconde règle, mesurée
 
-**54 % des séance-exercices d'aurel_br portent une charge qui varie entre les séries**
+**54 % des séance-exercices du compte A portent une charge qui varie entre les séries**
 (2 021 sur 3 730) — typiquement `122,5 · 122,5 · 125`.
 
 Valider la première série écrasait donc la mémoire par rang **plus d'une fois sur deux** : la
@@ -3678,10 +3678,10 @@ chantier 49, et devenu franchement trompeur ici puisqu'il n'y a plus de grand no
   faut que le bloc suivant s'allume.
 - **Glissement tactile sur Android Chrome** en PWA — le geste le plus fragile de
   l'écran, en conflit avec le défilement vertical. Une liste repliée tient sans
-  défiler jusqu'à 8-9 blocs ; les séances d'Aurélien font 8,1 exercices. Pile à la
+  défiler jusqu'à 8-9 blocs ; les séances du compte de référence font de l'ordre de 8 exercices. Pile à la
   limite.
 - **Menu qui sort de l'écran** en bas de liste (il se pose sous les trois points).
-- **Largeur réelle** de l'écran d'Aurélien — maquettes faites à 380 px, l'appareil
+- **Largeur réelle** de l'écran du téléphone de référence — maquettes faites à 380 px, l'appareil
   est peut-être à 360. Noms longs = point de rupture. En cas de problème : noms sur
   deux lignes plutôt que troncature (237 entrées au catalogue, ambiguïtés réelles).
 
@@ -3944,7 +3944,7 @@ Sous l'exercice, une ligne repliée « Chauffe · N séries › » ; ouverte, el
 
 - **1. Un seul écran de fin.** L'écran de fin (la feuille « Terminer la séance », qui défile) montre dans l'ordre : le compte, les quatre chiffres, les records (une médaille par ligne, sa phrase), ce que le coach avait visé (la phrase et les paris RATÉS, « · visé N »), « Détail » replié, la ligne « Titre, salle, note » et « Modifier », la question de routine (§6.2, seulement s'il y a un écart), les cartes de fin de marche, « Terminer » (collé au bas de l'écran), « Abandonner et tout effacer » (à part, confirmé, 115). « Terminer » enregistre en un seul geste, retourne à la semaine et montre le toast « Séance enregistrée · Voir le récap » (30 s, il disparaît en quittant la semaine). Le récap complet — le jeu, « Partager », « Dans tes notes » (250) — s'ouvre depuis ce toast, il lit la séance écrite ; il vit en mémoire seulement (jamais rouvert après l'abandon, l'Édition, un rechargement). Le récap du groupe (91) suit « Terminer » comme il suivait « Fermer ». **Invariants** : le journal des records s'écrit à « Terminer » par la file (58-2) et nulle part ailleurs ; une séance vide s'abandonne (137, sa feuille ne change pas) ; les portes avant l'écriture restent (séries remplies non validées 115, séance trop longue 147) ; le rendu n'écrit rien (`faits.recapDeLaSeance` lit une séance en cours comme une séance finie ; `parisDeConsigneConnus(enCours)` y ajoute la séance courante).
 - **2. Un récap court.** Visible : l'en-tête, les quatre chiffres, le cardio, les records, « Point de départ » ou ce que le coach avait visé (la phrase et les paris ratés). Sous « Détail » (replié, dans le DOM, un toucher le rend mot pour mot) : la comparaison, les séries par muscle, les paris tenus, le jeu, la note. Un bloc sans matière n'apparaît pas ; pas de « Détail » s'il n'y a rien dessous. Moins de 800 caractères visibles sur l'exemple. Le texte de « Partager » ne change pas. Un seul dessin (`recapCorps`, `rendu.js`) pour l'écran de fin et le récap.
-- **3. Titre, salle et note sur une ligne.** « Haut du corps A · Basic-Fit Colmar » et « Modifier » (qui ouvre les trois champs, leurs limites inchangées, `SALLE_MAX` 60). **La salle proposée** est celle de la dernière séance TERMINÉE qui en a déclaré une (`faits.derniereSalleDeclaree`), **écrite en clair sur la ligne, jamais cachée** ; elle ne s'écrit qu'à « Terminer » (`Seance.avecSalleDeFin`, appelée par `terminerSeance`) ; la vider dans « Modifier » la fait disparaître, fermer l'écran sans terminer n'écrit rien. La salle reste une déclaration : rien n'est déduit du réseau ni d'une position (§7 septies.4).
+- **3. Titre, salle et note sur une ligne.** « Haut du corps A · Salle du centre » et « Modifier » (qui ouvre les trois champs, leurs limites inchangées, `SALLE_MAX` 60). **La salle proposée** est celle de la dernière séance TERMINÉE qui en a déclaré une (`faits.derniereSalleDeclaree`), **écrite en clair sur la ligne, jamais cachée** ; elle ne s'écrit qu'à « Terminer » (`Seance.avecSalleDeFin`, appelée par `terminerSeance`) ; la vider dans « Modifier » la fait disparaître, fermer l'écran sans terminer n'écrit rien. La salle reste une déclaration : rien n'est déduit du réseau ni d'une position (§7 septies.4).
 - **5. « Terminer » en bas de la liste des exercices**, sous « Ajouter un exercice » : la MÊME action que le bouton du haut (`terminerOuEnregistrer`, une fonction), jamais recouvert par la barre de repos (la réserve du bas, `--h-repos`, le compte).
 - **6. « Rafraîchir » quitte l'en-tête de Séances.** Il n'y a pas de « ⋯ » sur cet écran : le geste « tirer vers le bas » le remplace (`#vue-liste`, en haut de page, un retour visible « Mise à jour… » pendant la lecture), et appelle la même fonction (`rafraichir`) que l'ancien bouton. L'état de synchronisation dit toujours vrai : `Attente.deciderEtat` prime, rien n'y change.
 - **Vérifié par** `tests/unit/v2-lot3-salle-ligne.test.js`, `v2-lot3-recap-court.test.js`, `v2-lot3-fin-un-ecran.test.js` et les sections `7-septies`, `recap`, `jeu` du banc de séance.

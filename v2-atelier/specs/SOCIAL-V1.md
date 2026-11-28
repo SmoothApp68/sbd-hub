@@ -169,7 +169,7 @@ elle retire ses scores.
 - Jusqu'à 30 membres. Tout membre invite, mais seulement un de ses abonnés mutuels. Une guilde par personne.
 - Pas de chef affiché. Le créateur administre : nom, blason, retirer un membre, choisir le défi, transmettre l'administration. S'il part, l'administration passe au membre le plus ancien ; une guilde sans membre disparaît. Chacun part quand il veut, sans que les autres soient prévenus.
 - Nom : 3 à 24 caractères, unique (comparaison sans casse ni accents, sans unaccent : translate(lower(btrim(…)), …)). Blason : un des gabarits du jeu/social, couleur au choix ; aucune image envoyée.
-- Rangs choisis par chacun, sans aucun pouvoir, plusieurs membres peuvent avoir le même, modifiables à tout moment : Squatteur · Bencheur · Terreur · Pousseur · Tireur · Chargeur · Gymbro · Motiveur · Novice (par défaut). Affichage d'un membre : « jordan · Squatteur · <titre du jeu> ». Les rangs ne se gagnent jamais (seuls les titres du jeu se gagnent).
+- Rangs choisis par chacun, sans aucun pouvoir, plusieurs membres peuvent avoir le même, modifiables à tout moment : Squatteur · Bencheur · Terreur · Pousseur · Tireur · Chargeur · Gymbro · Motiveur · Novice (par défaut). Affichage d'un membre : « theo · Squatteur · <titre du jeu> ». Les rangs ne se gagnent jamais (seuls les titres du jeu se gagnent).
 - Onglets de la guilde : Semaine (défi + « La guilde cette semaine » : séances, records, tonnage), Fil (séances des membres, mêmes règles et mêmes fonctions que le fil de 87), Progression (classement du mois : part des exercices avec au moins un record sans dépasser la charge proposée par le coach ; un exercice compte s'il a au moins 2 séances dans le mois ; remise à zéro le 1er ; score seul, pas de vainqueur ni de rouge), Membres.
 - Défi : un à la fois, coopératif, choisi chaque lundi par l'administrateur parmi des défis sûrs : (1) chacun fait ses séances prévues ; (2) des records battus sans dépasser la charge proposée ; (3) variété : N exercices différents à tous. Sans choix, le défi (1) part seul. Jamais sur la charge ou le tonnage. Une jauge commune. *(16/10/2026, D3 : sans choix, c'est désormais le défi des séries de travail qui part — §6.4.)*
 - Jeu éteint : on reste membre avec son rang, sans XP.
@@ -200,8 +200,7 @@ elle retire ses scores.
   (MOTEUR §9.23) — plus aucune ligne `un_rm_estime` ne s'écrit, et celles d'avant sont ignorées aussi par le fil
   (`faits.medaillesDuSocial`) et le récap du groupe (`groupe_recap_de`, v2_093) : une série que seule l'estimation
   médaillait ne compte plus « 1 record » (audit 05 #2).
-- **2. Séances prévues** (défi 1) : `profiles.seances_par_semaine`. S'il est vide (3 profils sur 8 aujourd'hui : alexis,
-  jordan, lea), la médiane hebdomadaire de l'historique, avec la même fonction que faits.js:618 (`habitudes`), sans la
+- **2. Séances prévues** (défi 1) : `profiles.seances_par_semaine`. S'il est vide (3 profils sur 8 aujourd'hui), la médiane hebdomadaire de l'historique, avec la même fonction que faits.js:618 (`habitudes`), sans la
   recopier. Chaque membre est plafonné à ses séances prévues. Calcul sur l'appareil, puis publication du score déjà
   calculé, comme `scores_force`.
 
@@ -236,7 +235,7 @@ elle retire ses scores.
 - **Progression** : ordre par part décroissante, puis par nombre d'exercices ; « 5 sur 6 » ; sans exercice compté, « — »
   en bas. Numéros de ligne comme la maquette ; ni couronne, ni rouge, ni vainqueur.
 - **Blason** : le seul gabarit du social (`bouclier`), huit couleurs. Plus de gabarits : noté pour plus tard.
-- **Membres** : « toi · Terreur », « jordan · Squatteur · Athlète » ; le titre seulement s'il est publié (nul jeu éteint).
+- **Membres** : « toi · Terreur », « theo · Squatteur · Athlète » ; le titre seulement s'il est publié (nul jeu éteint).
   L'administrateur voit « Transmettre » et « Retirer » (deux touches), et « Modifier le nom et le blason ». « Quitter la
   guilde » demande « Oui, quitter ». Personne n'est prévenu d'un départ.
 - **Inviter** : `Social.invitables` — mes abonnés mutuels (je le suis, il me suit) qui ne sont pas membres. Les invitations
@@ -320,11 +319,11 @@ invitations, défis : des fonctions SECURITY DEFINER (`guilde_choisir_defi` refu
 
 - Mes amis = liste ; guilde = permanente ; groupe = éphémère, le temps d'une séance (comme dans Dofus), à distance ET à la salle.
 - Lancé depuis sa séance en cours ; on invite des abonnés mutuels. 2 à 6 personnes. Un groupe à la fois par personne. Rejoindre est possible tant que le groupe vit.
-- Rejoindre : « Suivre la séance de X » (la liste d'exercices de X copiée au moment où l'on rejoint ; les charges restent celles de SON coach ; si X ajoute un exercice ensuite, une ligne propose « jordan a ajouté Leg Curl · Ajouter ? ») / une de mes routines / séance vide / « Pas maintenant ». Chacun garde SA séance : aucune donnée de séance mélangée. La routine décide de la structure, le moteur décide de la charge.
+- Rejoindre : « Suivre la séance de X » (la liste d'exercices de X copiée au moment où l'on rejoint ; les charges restent celles de SON coach ; si X ajoute un exercice ensuite, une ligne propose « theo a ajouté Leg Curl · Ajouter ? ») / une de mes routines / séance vide / « Pas maintenant ». Chacun garde SA séance : aucune donnée de séance mélangée. La routine décide de la structure, le moteur décide de la charge.
 - Le direct (la dernière série validée de chacun : exercice, charge × reps, il y a N min) est réservé aux membres du groupe : ni abonnés ni guilde. Rafraîchi environ toutes les 20 s par une lecture (pas de temps réel). Le direct est une décoration, jamais une dépendance : hors réseau, la séance continue normalement ; le groupe se met à jour au retour du réseau, les messages partent alors.
 - Messages : rapides tout faits (« On y va ? », « Je commence », « Dernière série ! »), émojis, et texte libre ≤ 140 caractères ; membres seulement ; effacés à l'extinction du groupe ; une ligne discrète en haut de la séance, jamais un overlay ; bouton « Muet » ; le blocage s'applique (deux personnes qui se bloquent ne peuvent être dans le même groupe).
 - Fin : chacun voit d'abord le récap de SA séance, puis, quand toutes les séances du groupe sont terminées, le récap du « combat » : tout ce qui a été fait ensemble, score collectif (tonnage, séries, records — les records du journal des records, même règle que partout ; XP cumulée si le jeu est allumé), la part de chacun en faits, SANS classement ni vainqueur. Le récap compte TOUT ce que chacun a fait dans sa séance, même avant d'avoir rejoint (décision d'Aurélien). Le groupe s'éteint à la fermeture du récap de groupe. Un membre sans série validée depuis 45 min compte comme terminé (règle de la séance vivante : réutilise-la, ne la recopie pas).
-- La séance garde la trace « Faite en groupe avec jordan, lea » et le récap du groupe reste lisible depuis le détail de la séance (il faut donc garder un récap figé, pas les messages).
+- La séance garde la trace « Faite en groupe avec theo, clara » et le récap du groupe reste lisible depuis le détail de la séance (il faut donc garder un récap figé, pas les messages).
 - Le coach et les bilans ne lisent rien du groupe ; le plan de séance n'est jamais modifié par le groupe.
 
 ### 7.1 Ce que le code en a fait (91)
@@ -351,14 +350,14 @@ invitations, défis : des fonctions SECURITY DEFINER (`guilde_choisir_defi` refu
   début, dernière série validée) ; une séance pas encore arrivée en base vaut « commencée à l'entrée dans le groupe ».
 - **La fin** : à « Terminer », mon XP de la séance part au groupe (`Jeu.apport(...).xp`, nulle jeu éteint). À la
   fermeture de MON récap, si toutes les séances sont terminées, le récap du groupe s'ouvre ; sinon Séances dit « Groupe ·
-  jordan s'entraîne encore », puis « Le récap du groupe est prêt · Voir ».
+  theo s'entraîne encore », puis « Le récap du groupe est prêt · Voir ».
 - **Le récap du « combat »** : « Ensemble · mercredi 14 oct. », les pseudos dans l'ordre d'arrivée, tonnage
   (`Bilan.volumeKg`), séries de travail, records (une médaille par série médaillée du journal, la règle du fil et du
   récap), « +N XP ensemble » si mon jeu est allumé (la somme des XP publiées, celles des jeux éteints tues par la base),
   puis la part de chacun (« 1,8 t · 3 séries · 1 record »). Ni rang, ni vainqueur.
 - **« Fermer »** fige mon récap (`groupe_recaps`) et me sort ; le dernier qui ferme éteint le groupe (messages et
   invitations effacés). **Une séance abandonnée** quitte le groupe sans récap (`groupe_quitter`).
-- **Le détail de la séance** : « Faite en groupe avec jordan, lea » (en ligne), qui rouvre le récap figé.
+- **Le détail de la séance** : « Faite en groupe avec theo, clara » (en ligne), qui rouvre le récap figé.
 - **Bloquer en plein groupe** fait partir celui qui bloque, en silence (sa séance continue) — interprétation de « deux
   personnes qui se bloquent ne peuvent être dans le même groupe ».
   **v2_107 (22/10/2026, décision « personne ne part de la guilde »)** : (1) un membre dont la place est déjà fermée n'est pas
@@ -425,7 +424,7 @@ groupe ni sur sessions, sets, records ; aucune colonne interdite rendue.
 - **Libre pour un autre groupe** (`Social.libreDuGroupe`) : sans place dans un groupe ; ou une AUTRE séance en cours
   (une seule séance à la fois : celle du groupe est finie) ; ou, sans séance en cours, la règle de la séance vivante
   sur ma ligne (`membreTermine`). Libre, les invitations d'un autre groupe se montrent (Séances, Saisie, la séance),
-  même si le récap du groupe d'avant n'est pas encore prêt (« Groupe · jordan s'entraîne encore » reste à côté).
+  même si le récap du groupe d'avant n'est pas encore prêt (« Groupe · theo s'entraîne encore » reste à côté).
 - **Le groupe de CETTE séance** : la carte du direct, la liste publiée, l'XP de fin et la sortie d'une séance
   abandonnée ne concernent que la séance du groupe (ma ligne de `groupe_etat`, `session_id`). Une séance suivante n'en
   hérite rien : elle peut lancer (« S'entraîner ensemble ») ou rejoindre. Avant de lancer ou de rejoindre, la file
@@ -509,13 +508,13 @@ la file** : le groupe est du temps réel, fait réseau présent, et le direct es
 - **Refusé au retour** (bloqué entre-temps, guilde complète, nom pris…) : l'écran social ouvert le dit en une phrase
   (« « S'abonner à olga » n'a pas pu se faire. », ou les mots de la guilde), puis se relit et montre l'état réel. **Le
   compte devenu privé** n'est pas un refus de la base (l'abonnement arrive en demande) ; l'écran avait dit « tu le
-  suis », il le dit : « Le compte de melodie est devenu privé : ta demande attend son accord. »
+  suis », il le dit : « Le compte de nina est devenu privé : ta demande attend son accord. »
 
 ## Refonte « Vivant » — Amis / Groupe / Jeu (173, 25/10/2026)
 Seulement les jetons, aucune structure : les chiffres en Condensed, `--donnees` pour les graphiques (la courbe de l'autre, la jauge), `--record` pour les records (la médaille du fil, le récap de séance).
 
 ## 28/10/2026, décision d'Aurélien (177) — l'invitation se voit ; on peut quitter le groupe
-**Le défaut** : Aurélien invite Alexis ; 12 s plus tard Alexis, qui n'a jamais vu l'invitation, crée SON groupe et invite Aurélien : deux groupes d'une personne. Et la base refusait de rejoindre un autre groupe tant que sa propre séance était en cours, même seul.
+**Le défaut** : un compte en invite un autre ; 12 s plus tard le second, qui n'a jamais vu l'invitation, crée SON groupe et invite le premier : deux groupes d'une personne. Et la base refusait de rejoindre un autre groupe tant que sa propre séance était en cours, même seul.
 - **Côté base (v2_114)** : `groupe_liberer` laisse partir quelqu'un qui est **seul** dans son groupe, même séance en cours ; son groupe vide se fige et disparaît. Avec un autre membre actif, le refus `groupe_deja_dans_un` reste.
 - **L'invitation reçue se voit** : sur l'écran « S'entraîner ensemble » **avant** la création, dans un groupe où je suis seul (en tête de la carte du groupe), et pendant une séance (en haut de la séance, avec le relevé périodique existant : aucun second minuteur). Deux gestes : « Rejoindre » et « Non merci » (`groupe_repondre` sans rejoindre). Avec un autre membre actif, la carte n'est pas montrée (le refus serait certain).
 - **« Rejoindre » en séance** : ma séance rejoint, **même identifiant, mes séries restent** ; l'écran passe au groupe rejoint. Sans séance, « Rejoindre » ouvre le choix de ma séance (suivre, routine, vide).

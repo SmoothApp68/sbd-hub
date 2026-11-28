@@ -76,9 +76,9 @@ Chacun de 0 à 99, soit deux caractères par case dans l'écran.
 
 La résistance d'une bande n'est pas un nombre : elle est presque nulle en bas du mouvement et maximale au verrouillage. Un multiplicateur dirait « +30 % partout », faux là où la série casse. La version additive existe en powerlifting — « 100 kg de barre plus 30 kg au verrouillage » — mais elle dépend de l'ancrage, de la précontrainte et de la longueur, et personne à la salle ne la mesure.
 
-Et surtout : **Mélodie a laissé le champ d'assistance vide sur trois séries de tractions élastique, parce qu'elle ne savait pas combien la bande enlevait.** Un champ qu'on ne peut pas remplir produit un trou, pas une donnée. L'identité, elle, est toujours nommable.
+Et surtout : **un compte a laissé le champ d'assistance vide sur trois séries de tractions élastique, parce que la personne ne savait pas combien la bande enlevait.** Un champ qu'on ne peut pas remplir produit un trou, pas une donnée. L'identité, elle, est toujours nommable.
 
-**Ce que ça règle.** Changer d'élastique est aujourd'hui invisible : passer du vert au noir fait grimper la difficulté sans qu'aucun chiffre ne bouge. Même classe de problème que les changements de convention de Léa sur les haltères.
+**Ce que ça règle.** Changer d'élastique est aujourd'hui invisible : passer du vert au noir fait grimper la difficulté sans qu'aucun chiffre ne bouge. Même classe de problème que les changements de convention sur les haltères.
 
 **Saisie.** Texte libre **à la première utilisation sur cet exercice**, puis **liste de pastilles** construite à partir de ce que la personne a déjà nommé.
 
@@ -93,7 +93,7 @@ Et surtout : **Mélodie a laissé le champ d'assistance vide sur trois séries d
 
 Limite à 40 caractères, pour que le champ ne devienne pas une seconde note.
 
-**Portée.** Les deux sens. Assistance comme résistance — c'est le cas de Mélodie qui l'a imposé, pas celui de la résistance qui n'a encore aucune série.
+**Portée.** Les deux sens. Assistance comme résistance — c'est le cas d'un compte réel qui l'a imposé, pas celui de la résistance qui n'a encore aucune série.
 
 ---
 
@@ -175,7 +175,7 @@ Deux choses distinctes qui ne doivent jamais se mélanger :
 > l'historique d'exercice (ECRAN-SAISIE §7 quater.4) est retiré. Le temps de repos **voulu** n'est
 > pas concerné.
 
-**Piste notée pour plus tard, pas retenue en v1.** Le repos moyen d'un bloc est plus solide que les intervalles individuels : durée totale du bloc, moins le temps d'exécution estimé, divisé par le nombre d'intervalles. Même avec des horodatages chaotiques, si le bloc a duré quinze minutes pour quatre séries, l'ordre de grandeur est bon. **Limite connue :** les supersets brouillent le calcul, et ils représentent **48,7 % des séries de travail chez aurel_br** (19,8 % chez alexis, 16,2 % chez lea, 9,4 % chez melodie, 0,6 % chez jordan).
+**Piste notée pour plus tard, pas retenue en v1.** Le repos moyen d'un bloc est plus solide que les intervalles individuels : durée totale du bloc, moins le temps d'exécution estimé, divisé par le nombre d'intervalles. Même avec des horodatages chaotiques, si le bloc a duré quinze minutes pour quatre séries, l'ordre de grandeur est bon. **Limite connue :** les supersets brouillent le calcul, et ils représentent **48,7 % des séries de travail sur le compte A** (19,8 % sur le compte D, 16,2 % sur le compte C, 9,4 % sur le compte E, 0,6 % sur le compte B).
 
 > ⚠️ **Chiffre corrigé le 10/09/2026.** Ce paragraphe annonçait 38 %, chiffre qui traînait dans les notes sans avoir été mesuré. La mesure réelle donne 48,7 %, ce qui aggrave la limite au lieu de l'atténuer. Doctrine : **un chiffre qui traîne dans les notes doit être remesuré avant d'être utilisé.**
 

@@ -197,19 +197,18 @@ Et ça débloque le chantier **fatigue / repos**, qui attend des séances avec u
 
 ### L'ordre d'ouverture
 
-**1. Alexis d'abord, seul.** Sur Android comme aurel_br — la variable iPhone est éliminée du
-premier tour. Compte vérifié le 15/09 : authentification en place, e-mail confirmé, dernière
-connexion le 09/05, 138 séances et 3 045 séries importées.
+**1. Un premier compte Android, seul.** Sur Android comme le compte de référence — la variable iPhone est éliminée du
+premier tour. Compte vérifié le 15/09 : authentification en place, e-mail confirmé, séances et séries importées.
 
-> ⚠️ **Alexis a 0 routine.** Son premier écran sera donc la **création de routine** — celui
+> ⚠️ **Ce compte a 0 routine.** Son premier écran sera donc la **création de routine** — celui
 > qui a le plus de points ouverts (menu trois points, dossiers, suppression vs archivage).
 > À traiter avant, ou à accompagner.
 
-**2. Puis Jordan** (Android également).
+**2. Puis un second compte** (Android également).
 
-**3. Léa et Mélodie ensuite — iPhone.** ⚠️ **Tester l'installation PWA sur iOS soi-même
+**3. Deux comptes ensuite — iPhone.** ⚠️ **Tester l'installation PWA sur iOS soi-même
 avant d'envoyer le lien** : l'installation diffère et le service worker ne se comporte pas
-pareil. Mélodie ne s'est jamais connectée.
+pareil.
 
 ### Ce qu'il faut leur dire
 
@@ -424,7 +423,7 @@ qui s'éteint sur sa fonction principale.
 sait leur parler, c'est de la surcharge progressive. `coef_pdc` couvre déjà la calisthénie.
 
 **Yoga et pilates n'en sont pas** : ni charge, ni palier, ni progression à décrire. Traités
-comme des sorties (§2 ter). Léa en a dans son historique.
+comme des sorties (§2 ter). Des historiques réels en contiennent.
 
 **« Bien-être » n'est pas une discipline, c'est une intention.** D'où deux champs : *ce que tu
 fais*, et *pourquoi*.
@@ -494,7 +493,7 @@ compteur de stagnation — elle n'a pas de charge et fausserait tous les compteu
 
 Mesuré au 10/09/2026 : **64 séances sur 1 221** relèvent de ce cas, détectées par
 `exercises.charge = 'aucune'` et `mesure ∈ {temps, distance_temps}`. Une séance mixte
-(« Rando avec Léa + Pull ») reste une séance de musculation à part entière.
+(« Rando avec un ami + Pull ») reste une séance de musculation à part entière.
 
 ---
 
@@ -553,7 +552,7 @@ Cet ordre remplace celui du §6, dépassé par l'avancement.
 
 ### 3.1 Descriptif oui, prescriptif jamais (sur les données historiques)
 
-Question posée : peut-on tirer des 1 221 séances la logique d'entraînement idéale — « Aurélien a le mieux progressé en 5 séances/semaine avec tel split » ?
+Question posée : peut-on tirer des 1 221 séances la logique d'entraînement idéale — « tel utilisateur a le mieux progressé en 5 séances/semaine avec tel split » ?
 
 **Techniquement possible. Scientifiquement indéfendable.** Deux raisons :
 
@@ -563,7 +562,7 @@ Question posée : peut-on tirer des 1 221 séances la logique d'entraînement id
 **Ce qui est autorisé :**
 1. **Descriptif assumé** — ce qui a été fait, quand, combien, et comment les barres ont bougé pendant ces périodes. Aucune causalité affirmée. Déjà précieux, jamais vu par l'utilisateur.
 2. **Confrontation à la littérature** — la science ne valide pas le résultat, elle indique quel mécanisme est plausible. Exemple : Pelland 2025 montre que, **pour la masse** (hypertrophie), la fréquence n'a pas d'effet propre à volume égalisé (pour la force, un petit effet subsiste : Pelland et al., Sports Med 2026;56(2):481-505, REGLE-VOLUME §11.7, delta du 20/11/2026). Donc si 6 séances semblent battre 4, l'explication probable est *plus de volume total*, pas un nombre magique.
-3. **Convergence entre profils** — un même schéma chez Aurélien, Jordan et Léa, avec des vies et des corps différents, commence à ressembler à un signal.
+3. **Convergence entre profils** — un même schéma chez plusieurs profils, avec des vies et des corps différents, commence à ressembler à un signal.
 
 **Interdit :** « fais 5 séances parce que ça a marché pour toi ». C'est un mensonge à l'air scientifique — le pire type.
 
@@ -571,23 +570,23 @@ Question posée : peut-on tirer des 1 221 séances la logique d'entraînement id
 
 Le §3.1 interdit d'affirmer une causalité sur l'entraînement. **L'assiduité est un cas plus strict encore : le système n'en dit rien du tout.**
 
-**Ce qui a produit cette règle.** En examinant les douze premières semaines des cinq profils, un motif frappant est apparu : jordan avait démarré à 5,3 séances par semaine active, puis était retombé à 2,9. Conclusion tirée trop vite — « un démarrage intense ne dure pas, il ne faut pas le récompenser ». **La vraie cause était la perte de son permis et de son emploi.** Elle n'est pas dans la base et n'y sera jamais.
+**Ce qui a produit cette règle.** En examinant les douze premières semaines des cinq profils, un motif frappant est apparu : un compte avait démarré à plus de 5 séances par semaine active, puis était retombé sous 3. Conclusion tirée trop vite — « un démarrage intense ne dure pas, il ne faut pas le récompenser ». **La vraie cause était extérieure à l'entraînement, dans la vie de la personne.** Elle n'est pas dans la base et n'y sera jamais.
 
 C'est exactement l'argument du §2.1 du banc d'essai, transposé : un moteur qui interprète une baisse d'assiduité mesure la vie de la personne, pas son entraînement. Mais la portée est plus large que pour la charge, car sur l'assiduité les causes extérieures **dominent** — travail, transport, santé, famille — et l'app n'en voit aucune.
 
 > **Ce motif est précisément celui qu'un modèle apprendrait comme « surestimation initiale ». Il aurait tort, et il aurait tort silencieusement.**
 
-**Conséquence sur le démarrage.** Ce que les données montrent sans interprétation : ce qui distingue un début difficile n'est pas l'intensité mais **la part de semaines où l'on vient**. Quand ils viennent, alexis fait 3,0 séances par semaine au début et 3,2 ensuite ; lea 3,0 puis 3,1. Le volume par séance ne change pas.
+**Conséquence sur le démarrage.** Ce que les données montrent sans interprétation : ce qui distingue un début difficile n'est pas l'intensité mais **la part de semaines où l'on vient**. Quand ils viennent, deux autres comptes font environ 3 séances par semaine au début comme ensuite. Le volume par séance ne change pas.
 
 | Profil | Semaines actives sur les 12 premières | Séances / semaine active — début | après |
 |---|---|---|---|
-| jordan | 12 / 12 | 5,3 | 2,9 |
-| melodie | 10 / 12 | 2,6 | 2,0 |
-| alexis | 6 / 12 | 3,0 | 3,2 |
-| lea | 4 / 12 | 3,0 | 3,1 |
-| aurel_br | **2 / 12** | 2,5 | **4,4** |
+| compte B | presque toutes | ~5 | ~3 |
+| compte E | la plupart | ~3 | ~2 |
+| compte D | environ la moitié | ~3 | ~3 |
+| compte C | un tiers | ~3 | ~3 |
+| compte A | **très peu** | ~2-3 | **~4** |
 
-Et le contre-exemple décisif est aurel_br : **2 semaines actives sur ses 12 premières**, et le profil le plus assidu des cinq trois ans plus tard. Rien dans les données ne distingue, au moment où ça se joue, un démarrage lent d'un abandon.
+Et le contre-exemple décisif est le compte A : **très peu de semaines actives sur ses 12 premières**, et le profil le plus assidu des cinq trois ans plus tard. Rien dans les données ne distingue, au moment où ça se joue, un démarrage lent d'un abandon.
 
 **La forme retenue : une condition de silence, pas un module.**
 
@@ -599,7 +598,7 @@ Pendant cette période, l'utilisateur a le journal de bord : ses séances, ses c
 
 **Leçon de méthode, à garder.** Cinq profils suffisent à calibrer un seuil technique. Ils ne suffisent pas à interpréter un comportement. Sur les charges, la donnée peut corriger une hypothèse ; sur les vies, non.
 
-> **Delta du 20/11/2026 (décision du fondateur) — une exception unique, nommée.** *« Le coach ne juge, n'explique et ne compte jamais la personne ; il peut dire, une fois et sans reproche, l'écart entre les jours du programme et la semaine tenue, pour adapter le programme. »* Cette exception est **la carte « Jours » de « Ta semaine »** (MOTEUR §9.27 bis), et elle seule. Ce qui reste interdit pour toujours : une cause devinée, une durée d'absence, un compteur ou une série de séances, « manqué », « sauté », « oublié », une motivation, une notification, un bilan, une comparaison à autrui. Le **programme** est le sujet de la phrase (« Ton programme a 4 jours. La plupart de tes 8 dernières semaines d'entraînement en ont eu 3. ») ; le chiffre affiché est celui qui décide (la médiane, sans le mot) ; jamais « tu » sujet d'un écart, jamais une cause. La proposition adapte le programme dans les deux sens, jamais « viens plus ». **La carte ne vient pas contre le nombre déclaré** (`seances_par_semaine`) : elle compare au programme (les jours posés sur ses routines, ou le nombre de séances d'un programme du coach) ; **un compte dont les routines n'ont pas de jours posés et qui n'a pas de programme du coach n'a pas la carte.** Elle ne vient qu'après **3 semaines finies de suite** sous le programme (au moins 1 jour chacune) sur au moins 6 semaines d'habitude ; **une semaine à zéro remet le compte à zéro** (la carte est repoussée de 3 semaines : jamais pendant un creux de vie, le cas Jordan ci-dessus). Mesure du 20/11/2026 (4 comptes, 96 semaines) : 35 % des semaines sous la médiane remontent dès la suivante, 33 % encore après deux semaines : le délai réduit le nombre d'alertes, pas leur taux. La garde de lexique I211 vaut pour **toutes** les cartes de « Ta semaine ». Harkin 2016 (l'auto-surveillance) ne justifie pas la carte : il mesure le journal tenu par la personne, pas une remarque de l'app ; la carte se défend par l'autre argument, un programme faux se corrige (comme le font RP et Juggernaut, sans commentaire moral).
+> **Delta du 20/11/2026 (décision du fondateur) — une exception unique, nommée.** *« Le coach ne juge, n'explique et ne compte jamais la personne ; il peut dire, une fois et sans reproche, l'écart entre les jours du programme et la semaine tenue, pour adapter le programme. »* Cette exception est **la carte « Jours » de « Ta semaine »** (MOTEUR §9.27 bis), et elle seule. Ce qui reste interdit pour toujours : une cause devinée, une durée d'absence, un compteur ou une série de séances, « manqué », « sauté », « oublié », une motivation, une notification, un bilan, une comparaison à autrui. Le **programme** est le sujet de la phrase (« Ton programme a 4 jours. La plupart de tes 8 dernières semaines d'entraînement en ont eu 3. ») ; le chiffre affiché est celui qui décide (la médiane, sans le mot) ; jamais « tu » sujet d'un écart, jamais une cause. La proposition adapte le programme dans les deux sens, jamais « viens plus ». **La carte ne vient pas contre le nombre déclaré** (`seances_par_semaine`) : elle compare au programme (les jours posés sur ses routines, ou le nombre de séances d'un programme du coach) ; **un compte dont les routines n'ont pas de jours posés et qui n'a pas de programme du coach n'a pas la carte.** Elle ne vient qu'après **3 semaines finies de suite** sous le programme (au moins 1 jour chacune) sur au moins 6 semaines d'habitude ; **une semaine à zéro remet le compte à zéro** (la carte est repoussée de 3 semaines : jamais pendant un creux de vie, le cas compte B ci-dessus). Mesure du 20/11/2026 (4 comptes, 96 semaines) : 35 % des semaines sous la médiane remontent dès la suivante, 33 % encore après deux semaines : le délai réduit le nombre d'alertes, pas leur taux. La garde de lexique I211 vaut pour **toutes** les cartes de « Ta semaine ». Harkin 2016 (l'auto-surveillance) ne justifie pas la carte : il mesure le journal tenu par la personne, pas une remarque de l'app ; la carte se défend par l'autre argument, un programme faux se corrige (comme le font RP et Juggernaut, sans commentaire moral).
 
 ### 3.1 ter L'IA explique une décision du moteur, elle n'en prend jamais — 24/10/2026, décision d'Aurélien (160)
 

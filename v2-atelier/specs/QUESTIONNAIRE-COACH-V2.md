@@ -23,7 +23,7 @@ du coach ») ; recherche `RECHERCHE-QUESTIONNAIRE-2026-10-07.md` ; relevé du d�
 ## 2. Le déclencheur
 
 - Colonne `profiles.questionnaire_fait_le` (timestamptz, vide = jamais rempli). **Pas `onboarding_completed`**, qui
-  veut dire « profil vu » et vaut déjà « vrai » chez Alexis, Léa, Jordan et Aurélien (relevé 60-0).
+  veut dire « profil vu » et vaut déjà « vrai » sur quatre comptes réels (relevé 60-0).
 - La décision de l'ouvrir se prend **quand la ligne de profil est connue** (au premier démarrage comme aux suivants),
   pas sur le seul cache (relevé 60-0 : le compte neuf n'était routé qu'au second démarrage).
 - « Plus tard » : un bandeau discret sur Saisie (le composant du « brouillon oublié ») et une ligne en tête de Profil
@@ -46,7 +46,7 @@ peut-être s'entraîner 4 h » ; 120 min serait inventé. Sans minutes tapées, 
 | 5 | **Ton but** | objectif (Force · Muscle · Les deux · Forme et santé) ; phase (Prise de masse · Maintien ou recomposition · Sèche · Je ne sais pas = **phase vide**, que le coach compte comme maintien ; le récapitulatif dit « Maintien (par défaut) » — décidé le 08/10/2026 : un seul état pour une même réponse, et pas de rappel de phase à qui n'en a pas déclaré) | `profiles.objectif` (nouvelle) ; `phase`, `phase_depuis` (existantes) |
 | 6 | **Priorités** | jusqu'à 3 : exercices (squat, couché, soulevé, militaire, tractions) ou muscles (les 6 groupes du radar) · Pas de priorité. **En sèche**, le coach dit : « En sèche, je garde surtout tes charges : une priorité musculaire attendra ta prochaine prise de masse. Un exercice prioritaire, oui. » | `profiles.priorites` (text[], slugs d'exercice ou groupes de `ZONE_DE`, nouvelle) |
 | 7 | **Temps et matériel** | le temps est montré (« environ 75 min ») : C'est mon maximum · J'ai de la marge · Moins en ce moment (choisi, il fait apparaître juste dessous les durées 45 · 60 · 75 · 90 min, pré-cochée sur la durée visée si elle est déclarée et sous l'estimation ; sans durée choisie, « Continuer » reste actif mais rien n'est écrit pour la durée — décidé le 08/10/2026 : sans durée, la réponse n'a pas de lecteur) · Ça varie ; matériel : Salle complète · Salle basique · Maison équipée · Maison minimale · Poids du corps | `profiles.temps_reponse` (nouvelle) ; `duree_seance_min` (montrée, modifiable) ; `materiel` (existante) |
-| 8 | **Ton programme** | Garder ce que je fais · Je crée mes routines · Construis-le-moi | `profiles.programme_choix` (nouvelle) — **décidé le 08/10/2026 (60-3)** : l'écran n'apparaît **que si la personne n'a aucune routine** (qui a déjà ses routines les garde : lui proposer ses anciennes séances serait du bruit — la simulation retrouvait les routines d'avant le programme actuel d'Aurélien et d'Alexis). Trois choix : « **Garder ce que je fais** » (seulement avec au moins une séance en base ; ouvre l'écran 8a), « **Je crée mes routines moi-même** » et « **Construis-le-moi** » (ouvre l'écran 8b ; 60-4). Une question à un seul choix n'apprend rien (60-3b) : avec « Construis-le-moi », l'écran a toujours au moins deux choix, il apparaît donc pour toute personne sans routine, même sans séance (précisé le 08/10/2026, 60-4). Pas de carte pour qui a déjà rempli le questionnaire : le bouton de Routines (ECRAN-SAISIE §7 quindecies.7) sert à tout le monde |
+| 8 | **Ton programme** | Garder ce que je fais · Je crée mes routines · Construis-le-moi | `profiles.programme_choix` (nouvelle) — **décidé le 08/10/2026 (60-3)** : l'écran n'apparaît **que si la personne n'a aucune routine** (qui a déjà ses routines les garde : lui proposer ses anciennes séances serait du bruit — la simulation retrouvait les routines d'avant le programme actuel de deux comptes). Trois choix : « **Garder ce que je fais** » (seulement avec au moins une séance en base ; ouvre l'écran 8a), « **Je crée mes routines moi-même** » et « **Construis-le-moi** » (ouvre l'écran 8b ; 60-4). Une question à un seul choix n'apprend rien (60-3b) : avec « Construis-le-moi », l'écran a toujours au moins deux choix, il apparaît donc pour toute personne sans routine, même sans séance (précisé le 08/10/2026, 60-4). Pas de carte pour qui a déjà rempli le questionnaire : le bouton de Routines (ECRAN-SAISIE §7 quindecies.7) sert à tout le monde |
 | 8a | Programme déduit | les séances qui reviennent → routines proposées | routines (§5) |
 | 8b | Construis-le-moi | jours réalistes (2 à 6 ; pré-remplis par le rythme de 3a ou la réponse de 3b ; **audit du 16/10/2026, prompt 116** : une valeur déclarée hors 2-6 — le Profil permet 1 à 14 — est pré-cochée bornée, mais n'est **pas réécrite** tant que la personne ne touche pas les puces ; le programme se construit sur la valeur bornée) ; **une zone à ménager ?** (épaule · dos · genou · coude · hanche · aucune). **Les exercices aimés / jamais sont retirés** (décidé le 08/10/2026) : l'historique dit déjà ce qu'on fait le plus, et le refus se fait face à l'exercice, dans l'aperçu (« Je n'en veux pas », §5 bis) | `seances_par_semaine` ; `profiles.zones_a_menager` (text[], v2_065) ; le programme : §5 bis |
 | 9 | **Ton coach** | Me ménager · Normal · Me pousser · Juste un carnet | `rythme_progression` (prudent / normal / franc) ; « Juste un carnet » = `intention = 'entretien'` rendu silencieux (§4) |
@@ -110,7 +110,7 @@ fréquent du groupe, modifiable. Rien n'est écrit avant « En faire mes routine
   4. **Ordre d'affichage** : le plus de séances d'abord, puis la dernière séance la plus récente (à l'instant près).
   5. **Jours** : la fenêtre de 84 jours se compte en jours civils locaux (Europe/Paris), pas en 24 h glissantes.
   6. **Séance hors fenêtre de réaffectation** : une séance qui n'atteint pas le seuil reste dans son groupe d'origine.
-- Simulation (au 06/10) : Jordan 3 routines (2 cochées), Léa 4 (3), Mélodie 2 (1), Alexis 6 (5), aurel_br 5 (5).
+- Simulation (au 06/10) sur les cinq comptes réels : de 2 à 6 routines déduites par compte, presque toutes cochées.
 
 ## 5 bis. Le programme construit (8b) — décidé le 08/10/2026 (60-4)
 
@@ -327,7 +327,7 @@ séries et le ressenti. Hors de cette PR : 193-2b (les comptes avec historique),
 > **Pour qui a des routines, le générateur ne réécrit rien : il relit la semaine, dit ce qu'il voit, et propose. La
 > personne décide, proposition par proposition.**
 
-Référence `relire66.py` ; cas `cas-66-relire.json` (10 cas, dont Aurélien et Alexis au 10/10/2026). Maquette
+Référence `relire66.py` ; cas `cas-66-relire.json` (10 cas, dont deux comptes réels au 10/10/2026). Maquette
 `maquette-relire-semaine-v4.html` (l'ordre des barres de la spec prime sur la maquette : Squat, Couché, Soulevé,
 Militaire).
 
@@ -637,7 +637,7 @@ garde (ces membres ne sont pas `apte` ; `refus_paires` ou un membre retiré la d
 superset, comme tu les fais d'habitude. » / « Tu les as enchaînées 4 fois sur tes 7 dernières séances. », geste « Les
 séparer » (la clé de refus `paire:…` ; refusée, la ligne « {A} et {b} en séries classiques. » et « Remettre » la rendent).
 **V10** : un superset habituel = deux isolations sans principal commun, contiguës, `n ≥ 4` et `2n > m` ; V7 (« sans
-cible ») et V9 (antagonistes) ne s'appliquent pas à une paire habituelle. Rejoué sur aurel_br (84 jours) : curl barre EZ +
+cible ») et V9 (antagonistes) ne s'appliquent pas à une paire habituelle. Rejoué sur le compte A (84 jours) : curl barre EZ +
 extension triceps poulie haute (4/7) passe ; élévation latérale + face pull (4/9), abduction + adduction (3/4) et couché
 haltères + pull-over (polyarticulaire) ne passent pas.
 
@@ -662,7 +662,7 @@ l'écran (les valeurs restent en base, aucune n'est lue). Les quatre phrases qui
 | **66C** | le générateur v2, le complément (§5 quater.1-3) : `faits.habitudes`, `Generateur.completer` et ses invariants V1-V5, la colonne `habilete` lue — aucun écran | `v2_071` (appliquée le 10/10/2026) |
 | **66D** | la fin (§5 quater.4-5) : `ranger`, `associer` et V6-V9, les refus de `completer`, « Construis-le-moi » branché sur l'historique, l'aperçu qui dit chaque changement, les supersets jusqu'à la routine écrite | non |
 
-**Ouverture à Alexis : après 60-2b** (le questionnaire complet et branché, hors programme). 60-3 peut suivre.
+**Ouverture au premier compte : après 60-2b** (le questionnaire complet et branché, hors programme). 60-3 peut suivre.
 
 ## 8. Amendements — faits le 07/10/2026 (deltas 60-2a) et le 08/10/2026 (60-2b, MOTEUR §9.16)
 

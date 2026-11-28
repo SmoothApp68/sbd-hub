@@ -14,14 +14,14 @@ une seule fois.**
 
 C'est précisément la situation qui a produit les faux signaux du Coach v1 :
 des chiffres justes, une alarme sur-calibrée. La méta-règle du praticien
-assidu exige que toute borne soit testée sur le profil « Aurélien réel »
+assidu exige que toute borne soit testée sur le profil « praticien assidu de référence »
 avant validation. Le banc d'essai est l'outil qui rend cette phrase
 exécutable au lieu de la laisser à l'état d'intention.
 
 En Python et hors du dépôt, pour deux raisons : itérer sur les bornes en
 quelques secondes sans toucher au code de l'app, et faire tourner les cinq
-profils d'un coup. **Les règles calibrées sur Aurélien casseront sur Jordan,
-Léa, Alexis et Mélodie** — c'est le seul endroit où on peut le voir avant
+profils d'un coup. **Les règles calibrées sur le compte de référence casseront sur
+les quatre autres** — c'est le seul endroit où on peut le voir avant
 les utilisateurs.
 
 ---
@@ -239,8 +239,8 @@ Convergence rassurante : l'état du squat barre ressort à **74 % de montée sur
 indépendantes qui se rejoignent.
 
 Couverture : un palier est reconnu sur **93 à 98 %** des séance-exercices
-selon le profil (Jordan le plus bas). Aucune règle ne casse hors du profil
-d'Aurélien.
+selon le profil (compte B le plus bas). Aucune règle ne casse hors du profil
+du compte A.
 
 **Piège d'implémentation non documenté dans le moteur — circularité §4.1 / §7.**
 Le §4.1 définit la chauffe probable comme située « avant la première série au
@@ -250,23 +250,23 @@ provisoire sur les séries brutes sert uniquement à situer la frontière, puis 
 palier définitif se calcule après exclusions. Choix d'implémentation, à
 consigner dans le moteur — un autre développeur trancherait autrement.
 
-Point à surveiller : **601 séries d'exploration** chez Aurélien, près d'une
+Point à surveiller : **601 séries d'exploration** sur le compte A, près d'une
 séance-exercice sur six. Le §7.4 dit qu'elles ne valident rien — une part non
 négligeable des séries les plus lourdes ne fait donc jamais avancer le moteur.
 
-Mélodie n'a **aucun** exercice en état « ne monte pas » : la branche de
+Le compte E n'a **aucun** exercice en état « ne monte pas » : la branche de
 neutralisation du §5.5 ne s'exercera jamais sur son profil.
 
 ### 9.2 Étage 2 — la fenêtre de la cible
 
 Le §8.2 fonctionne : **57 exercices sur 116** sont travaillés dans plusieurs
-formats chez Aurélien. La séparation par format n'est pas théorique.
+formats sur le compte A. La séparation par format n'est pas théorique.
 
 Le §9.1 ne borne pas l'historique dont la cible est déduite — il prend donc
 tout, et se laisse dominer par du passé mort. Part des séances où la cible
 égale ce qui a réellement été fait, selon la profondeur de fenêtre :
 
-| Fenêtre | Aurélien | Jordan | Léa | Alexis | Mélodie |
+| Fenêtre | compte A | compte B | compte C | compte D | compte E |
 |---|---|---|---|---|---|
 | 3 séances | **65,2 %** | **61,6 %** | 82,2 % | **56,7 %** | 41,7 % |
 | 5 séances | 64,2 % | 58,2 % | 82,3 % | 55,1 % | **44,7 %** |
@@ -275,13 +275,13 @@ tout, et se laisse dominer par du passé mort. Part des séances où la cible
 
 > **Fenêtre retenue : 3 séances, glissante, par exercice ET par format.**
 
-Elle gagne partout, et le plus chez Aurélien (+10 points) — c'est lui qui a le
-plus de passé mort. Léa y est insensible (82 % quelle que soit la profondeur) :
+Elle gagne partout, et le plus sur le compte A (+10 points) — c'est lui qui a le
+plus de passé mort. Le compte C y est insensible (82 % quelle que soit la profondeur) :
 la fenêtre courte ne l'abîme pas, ce qui est la vraie condition pour l'adopter.
 
 ### 9.3 Pas de périodes stockées
 
-Les phases d'entraînement se voient dans les données — chez Aurélien, la part
+Les phases d'entraînement se voient dans les données — sur le compte A, la part
 de format force passe de 0 % à > 50 % à l'été 2024, retombe à ~0 % pendant un
 an, puis **oscille entre 7 et 33 %** depuis septembre 2025, signature du
 powerbuilding (un mélange qui se maintient, pas un bloc dédié).
@@ -307,13 +307,13 @@ séance précédente du même couple.
 
 | Profil | Charge inchangée | Charge changée | Part de séances où elle change |
 |---|---|---|---|
-| Aurélien | 72,6 % | **56,6 %** | 46 % |
-| Jordan | 70,5 % | **53,2 %** | 51 % |
-| Léa | 88,6 % | **73,3 %** | 42 % |
-| Alexis | 63,0 % | **51,0 %** | 53 % |
-| Mélodie | 46,8 % | 39,2 % | 67 % |
+| compte A | 72,6 % | **56,6 %** | 46 % |
+| compte B | 70,5 % | **53,2 %** | 51 % |
+| compte C | 88,6 % | **73,3 %** | 42 % |
+| compte D | 63,0 % | **51,0 %** | 53 % |
+| compte E | 46,8 % | 39,2 % | 67 % |
 
-Ventilé par période chez Aurélien, ce clivage explique entièrement la
+Ventilé par période sur le compte A, ce clivage explique entièrement la
 dégradation apparente : à charge inchangée la prévisibilité n'a pas bougé en
 deux ans (80,5 → 70,7 → 72,1 → 70,5 %), tandis qu'à charge changée elle
 s'effondre (70,4 → 58,1 → 63,1 → **45,7 %**) et que ce cas est devenu
@@ -322,13 +322,13 @@ majoritaire (41 % → 51 %).
 La conclusion semblait s'imposer : conditionner la cible au palier via le
 modèle charge/reps du §15. **Testée avant écriture, elle est catastrophique.**
 
-| Pente appliquée | Aurélien | Jordan | Léa | Alexis | Mélodie |
+| Pente appliquée | compte A | compte B | compte C | compte D | compte E |
 |---|---|---|---|---|---|
 | aucune (état actuel) | 57 % | 53 % | 73 % | 51 % | 39 % |
 | 1 rep par 5 % de charge | **8 %** | 15 % | 5 % | 6 % | 6 % |
 | 1 rep par 3 % | 4 % | 15 % | 2 % | 4 % | 3 % |
 
-La raison, mesurée sur les 1 544 changements de charge d'Aurélien : **la
+La raison, mesurée sur les 1 544 changements de charge du compte A : **la
 variation médiane du nombre de reps est zéro dans toutes les tranches**, y
 compris au-delà de +10 % de charge. Il ne compense pas. Passer de 100 à 130 kg
 et refaire le même compte de reps, ce sont deux séances de travail différentes,
@@ -342,11 +342,11 @@ Variation du nombre de reps entre deux séances du même couple :
 
 | Profil | Charge inchangée | Charge changée |
 |---|---|---|
-| Aurélien | médiane 0 · écart-type **1,50** | médiane 0 · écart-type **3,00** |
-| Jordan | 0 · 1,60 | 0 · 2,90 |
-| Léa | 0 · 1,69 | 0 · 2,65 |
-| Alexis | 0 · 1,80 | 0 · 2,69 |
-| Mélodie | 0 · 2,03 | 0 · **7,49** |
+| compte A | médiane 0 · écart-type **1,50** | médiane 0 · écart-type **3,00** |
+| compte B | 0 · 1,60 | 0 · 2,90 |
+| compte C | 0 · 1,69 | 0 · 2,65 |
+| compte D | 0 · 1,80 | 0 · 2,69 |
+| compte E | 0 · 2,03 | 0 · **7,49** |
 
 La médiane ne bouge pas, la dispersion double. Quand la charge change, la cible
 reste la meilleure estimation possible — elle est simplement moins souvent
@@ -386,7 +386,7 @@ jamais allée sur cet exercice avant de charger. À mesurer à l'étage 3.
 
 ### 10.4 Effet secondaire, conservé
 
-L'écart médian entre deux séances du même couple est passé chez Aurélien de
+L'écart médian entre deux séances du même couple est passé sur le compte A de
 **4 à 7 jours** en deux ans, le catalogue ayant doublé. La justesse décroît avec
 l'écart, tous profils confondus : 0-3 j 71,3 % · 4-7 j 68,4 % · 8-14 j 67,6 % ·
 15-30 j 54,7 % · 30+ j 49,4 %. Effet réel, subsistant à charge constante. Il ne
@@ -448,23 +448,23 @@ La première version de ce chapitre proposait de comparer la **fréquence** de d
 
 Une fréquence identique n'est pas un accord : le moteur peut parler aussi souvent que la personne tout en parlant à d'autres moments. Mesuré, l'écart est massif — la règle qui égalait le mieux la fréquence (26 % contre 27 %) n'avait qu'une précision de 32 % contre 26 % au hasard sur le profil assidu.
 
-Corrigé en mesurant la précision, un second problème apparaît, plus grave : **la cible était la décision passée de la personne.** Calibrer là-dessus produit un imitateur, pas un coach. La question posée à la journée entière était « quand Aurélien monte-t-il la charge ? », alors que la question utile est « quand *faudrait-il* monter ? ».
+Corrigé en mesurant la précision, un second problème apparaît, plus grave : **la cible était la décision passée de la personne.** Calibrer là-dessus produit un imitateur, pas un coach. La question posée à la journée entière était « quand compte A monte-t-il la charge ? », alors que la question utile est « quand *faudrait-il* monter ? ».
 
 Deux mesures ont tranché.
 
-**Une montée sur deux n'est pas une progression.** Part des montées de charge qui sont un retour à une charge déjà utilisée, non un record : Aurélien **51 %**, Jordan 44 %, Léa 39 %, Alexis 30 %, Mélodie 24 %. Le critère de concordance demandait donc au moteur de prédire, pour moitié, de l'oscillation.
+**Une montée sur deux n'est pas une progression.** Part des montées de charge qui sont un retour à une charge déjà utilisée, non un record : compte A **51 %**, compte B 44 %, compte C 39 %, compte D 30 %, compte E 24 %. Le critère de concordance demandait donc au moteur de prédire, pour moitié, de l'oscillation.
 
 **Osciller coûte de la progression.** Progression annuelle du record de charge, par exercice, tous profils, sur 192 couples :
 
 | Profil | Exercices peu oscillants | Exercices très oscillants |
 |---|---|---|
-| Aurélien | **+18,0 %/an** (38 % de retours) | +13,6 % (61 %) |
-| Jordan | +39,2 % (14 %) | +26,4 % (54 %) |
-| Léa | +26,0 % (33 %) | +29,5 % (50 %) |
-| Alexis | +22,6 % (21 %) | +18,6 % (71 %) |
-| Mélodie | +134,4 % (29 %) | +24,8 % (38 %) |
+| compte A | **+18,0 %/an** (38 % de retours) | +13,6 % (61 %) |
+| compte B | +39,2 % (14 %) | +26,4 % (54 %) |
+| compte C | +26,0 % (33 %) | +29,5 % (50 %) |
+| compte D | +22,6 % (21 %) | +18,6 % (71 %) |
+| compte E | +134,4 % (29 %) | +24,8 % (38 %) |
 
-Quatre profils sur cinq dans le même sens. **Réserve de causalité explicite** : un exercice qui progresse bien n'a pas besoin d'osciller, et un exercice bloqué pousse à revenir en arrière pour reprendre de l'élan. La mesure ne distingue pas les deux directions, et Léa va à contre-courant.
+Quatre profils sur cinq dans le même sens. **Réserve de causalité explicite** : un exercice qui progresse bien n'a pas besoin d'osciller, et un exercice bloqué pousse à revenir en arrière pour reprendre de l'élan. La mesure ne distingue pas les deux directions, et le compte C va à contre-courant.
 
 ### 12.4 Le critère retenu — la montée tient-elle
 
@@ -476,13 +476,13 @@ Résultat de la règle retenue (§9.1.3 du moteur) :
 
 | Profil | Montées proposées | Tiennent | Montées spontanées de la personne |
 |---|---|---|---|
-| Aurélien | 49 | **86 %** | 73 % |
-| Jordan | 13 | **92 %** | 77 % |
-| Léa | 2 | 100 % | 70 % |
-| Alexis | 10 | **80 %** | 72 % |
-| Mélodie | 12 | **83 %** | 70 % |
+| compte A | 49 | **86 %** | 73 % |
+| compte B | 13 | **92 %** | 77 % |
+| compte C | 2 | 100 % | 70 % |
+| compte D | 10 | **80 %** | 72 % |
+| compte E | 12 | **83 %** | 70 % |
 
-Et la mesure d'occasions manquées, qui est la seule à quantifier un gain de coaching : sur **210 séances** où la règle aurait parlé sans être suivie chez Aurélien, il est monté quand même **deux séances plus tard dans 72 cas**. Un tiers de ces séances n'étaient pas des faux positifs, mais du retard. Jordan 11 sur 21, Mélodie 6 sur 10.
+Et la mesure d'occasions manquées, qui est la seule à quantifier un gain de coaching : sur **210 séances** où la règle aurait parlé sans être suivie sur le compte A, il est monté quand même **deux séances plus tard dans 72 cas**. Un tiers de ces séances n'étaient pas des faux positifs, mais du retard. compte B 11 sur 21, compte E 6 sur 10.
 
 Deux séances de retard sur un exercice pratiqué tous les cinq jours font dix jours par palier. Sur un an, cela recoupe l'écart entre 18 % et 13,6 % mesuré au §12.3 — deux chemins indépendants vers le même ordre de grandeur.
 
@@ -494,11 +494,11 @@ Tentative de répondre à « aurait-on progressé plus vite ». La double progre
 
 | Profil | Exercices | Écart de charge finale |
 |---|---|---|
-| Aurélien | 73 | 0,0 % |
-| Jordan | 17 | −4,9 % |
-| Léa | 20 | 0,0 % |
-| Alexis | 15 | 0,0 % |
-| Mélodie | 7 | −22,2 % |
+| compte A | 73 | 0,0 % |
+| compte B | 17 | −4,9 % |
+| compte C | 20 | 0,0 % |
+| compte D | 15 | 0,0 % |
+| compte E | 7 | −22,2 % |
 
 **Ce résultat était mathématiquement contraint et ne mesure rien.** Le plafond de capacité est issu de l'entraînement réel, celui avec les oscillations ; la simulation ne peut donc pas créditer la force que la méthode aurait fait gagner. Elle établit un plancher — la méthode n'aurait pas fait régresser — et rien de plus.
 
@@ -527,7 +527,7 @@ Script : `banc_moteur48.py` (`python3 banc_moteur48.py <dossier des exports>` ; 
 | M1 | La rampe est-elle mal jugée ? | 14 à 25 % des séance-exercices selon le profil ; les paliers perdus sont tenus sur une seule série dans plus de 94 cas sur 100 | Rampe jugée contre le palier provisoire (MOTEUR §5.2) |
 | M2 | Recettes | Couché 15/09 = 125 ; squat 2 févr. = 125 ; hex 21/08 = 130 | Validées |
 | M3 | Les explorations à reps pleines tiennent-elles ? | 79 fois sur 100 (149), contre 74 pour le moteur (61) : pas de signal net | Tranché par la doctrine : règle du test |
-| M4 | Stagnation à l'ouverture | 8 exercices d'Aurélien au-dessus du seuil sur l'historique libre | Compteur sur séances prescrites (MOTEUR §12.8) |
+| M4 | Stagnation à l'ouverture | 8 exercices du compte A au-dessus du seuil sur l'historique libre | Compteur sur séances prescrites (MOTEUR §12.8) |
 | M5 | Que devient un test réussi ? | Sur 100 : gardé 35, abandonné 30, tout passe 22, étendu 12 (515 tests) | Règle du test (MOTEUR §9.7) |
 | M7 | Les zones couvrent-elles les habitudes ? | 97 habitudes sur 100 | Cinq zones (MOTEUR §9.1.2) |
 | M8 | Cloche contre zones | Consignes réelles (MOTEUR §9.7) | Zones |

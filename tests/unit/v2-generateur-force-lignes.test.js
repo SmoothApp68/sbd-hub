@@ -205,3 +205,21 @@ describe('193-2 (commit 4) — l’aperçu dit le programme de famille', () => {
     expect(G.pourquoi(cat, rs[1])).toMatch(/^Jambes 12 séries$/);
   });
 });
+
+describe('28/11/2026 — une place lourde prend une barre, même devant l’historique (L343)', () => {
+  const cat = catalogue();
+  const lourdes = (rs) => rs.reduce((a, rt) => a.concat(rt.exercices.filter((x) => x.lourd)), []);
+  test('« hack squat 12 séances, squat à la barre 2 » : la grosse place du squat reste à la barre', () => {
+    const e = entree({ objectif: 'force', jours: 4, faits: { hack_squat_machine: 12, squat_barre: 2 } });
+    const rs = G.generer(cat, clone(e));
+    const sq = lourdes(rs).filter((x) => x.motif === 'squat');
+    expect(sq.length).toBeGreaterThan(0);
+    sq.forEach((x) => { expect(x.exercise_slug).toBe(SQUAT); expect(x.zone).toBe('lourd'); });
+    lourdes(rs).forEach((x) => expect(cat[x.exercise_slug].equipement).toBe('barre'));
+  });
+  test('sans barre disponible (écartée), la place se replie comme avant : aucune place ne disparaît', () => {
+    const e = entree({ objectif: 'force', jours: 4, faits: { hack_squat_machine: 12 }, ecartes: [SQUAT] });
+    const rs = G.generer(cat, clone(e));
+    expect(rs.some((rt) => rt.exercices.some((x) => x.motif === 'squat' && x.exercise_slug !== SQUAT))).toBe(true);
+  });
+});

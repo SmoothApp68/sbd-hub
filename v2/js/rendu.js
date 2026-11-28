@@ -4693,7 +4693,7 @@
     if (t.consigne) n.appendChild(el('div', 'pc-detail test-consigne', t.consigne.texte));
     if (t.arret) n.appendChild(el('div', 'pc-detail test-arret', ARRETS_DU_TEST[t.arret] || 'On s’arrête là.'));
     if (t.mesure) n.appendChild(el('div', 'pc-detail test-mesure', 'Mesuré : ' + M().chargeFois(t.mesure.charge, t.mesure.reps) +
-      (t.mesure.vrai ? '' : ', max lu ' + M.kgTexte(Math.round(t.mesure.valeur))) + '.'));
+      (t.mesure.vrai ? '' : ', max lu ' + M().kgTexte(Math.round(t.mesure.valeur))) + '.'));
     if (t.pourquoi && t.etat === 'a_faire') n.appendChild(el('div', 'pc-detail test-pourquoi', t.pourquoi.texte));
     var gestes = el('div', 'pc-gestes pc-choix');
     var bouton = function (classe, texte, cle) {

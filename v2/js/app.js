@@ -1050,8 +1050,8 @@
     try { reponsesDeSaisie = (await Cache.lireMeta(CLE_REPONSES_SAISIE)) || {}; }
     catch (e) { reponsesDeSaisie = {}; }
     // 106 — les messages du groupe écrits hors ligne, gardés sur le téléphone : ils partiront au retour du réseau.
-    try { grp.file = Social.fileDeMessages(await Cache.lireBrouillon(CLE_FILE_GROUPE)); }
-    catch (e) { grp.file = []; }
+    try { grp.file = Social.fileDeMessages(await Cache.lireBrouillon(CLE_FILE_GROUPE)); grpFileLue = true; }
+    catch (e) { grp.file = []; grpFileLue = false; }
     // 121 (05 #5) — ce que l'appareil a déjà fait partir de mes nombres de guilde (comparé au démarrage).
     try { scoresGuildeConnus = (await Cache.lireMeta(CLE_SCORES_GUILDE)) || null; }
     catch (e) { scoresGuildeConnus = null; }
@@ -3749,8 +3749,11 @@
   }
   // 106 — LA FILE EST GARDÉE SUR LE TÉLÉPHONE (le brouillon du cache, comme la séance) : écrite AVANT le premier essai
   // d'envoi, réécrite à chaque départ. Un « Quitter » en vol n'y réécrit rien (la génération).
+  // D1 — une file du groupe non lue au démarrage ne s'écrase pas par une file vide.
+  var grpFileLue = true;
   function garderFileGroupe(g) {
     if (g !== undefined && !generationValide(g)) return Promise.resolve();
+    if (!grpFileLue && !grp.file.length) return Promise.resolve();
     return Cache.ecrireBrouillon(CLE_FILE_GROUPE, grp.file.length ? grp.file : null).catch(function (e) {
       console.warn('La file des messages du groupe n’a pas pu être gardée :', texteErreur(e));
     });
@@ -4507,6 +4510,12 @@
     if (suppressionDifferee) await solderSuppression();
     semerSeance();
     try {
+      // D1 — un brouillon non lu au démarrage ne s'écrase pas : on le relit, sinon on ne l'écrit pas.
+      if (!seanceLue && !(await reprendreLaLectureLocale()) && !seanceLue) {
+        var nonLue = new Error('Le brouillon de séance n\u2019a pas pu être lu : rien n\u2019est écrit par-dessus');
+        nonLue.code = 'SEANCE_NON_LUE';
+        throw nonLue;
+      }
       await Cache.ecrireBrouillon('seance', seance);
       demanderPersistance();
     } catch (e) {
@@ -4558,10 +4567,35 @@
     return res;
   }
 
+  // D1 — la lecture ratée au démarrage se reprend ICI, à la prochaine écriture (aucun minuteur) : si le disque répond
+  // enfin, la file relue se FOND avec ce qui a été posé entre-temps, et le brouillon relu n'est pris que si aucune autre
+  // séance n'est apparue. Sinon : on n'écrit rien, on le dit.
+  async function reprendreLaLectureLocale() {
+    if (fileLue && seanceLue) return true;
+    var r;
+    try { r = await Cache.lireLeLocal(Seance.marquerLeBrouillonDAvant); }
+    catch (e) { return false; }
+    if (!fileLue && r.fileLue) { attente = Attente.fusionnerLue(r.attente, attente); fileLue = true; }
+    if (!seanceLue && r.seanceLue) {
+      if (!r.seance) seanceLue = true;
+      else if (!seance) { seance = r.seance; seanceLue = true; }
+      else if (seance.id === r.seance.id) seanceLue = true;
+    }
+    return fileLue && seanceLue;
+  }
+  async function ecrireLaFile() {
+    if (!fileLue && !(await reprendreLaLectureLocale()) && !fileLue) {
+      var e = new Error('La file locale n\u2019a pas pu être lue : rien n\u2019est écrit par-dessus');
+      e.code = 'FILE_NON_LUE';
+      throw e;
+    }
+    return Cache.ecrireAttente(attente);
+  }
+
   async function poser(operation) {
     noterGesteEnVol(operation);
     attente = Attente.poser(attente, operation);
-    try { await Cache.ecrireAttente(attente); }
+    try { await ecrireLaFile(); }
     catch (e) { console.warn('File non persistée :', texteErreur(e)); direSauvegardeImpossible(); }
     rendreEtatSync();
     vidanger();   // volontairement PAS attendu : la saisie ne dépend pas du réseau
@@ -4687,7 +4721,7 @@
         // la marque : c'est elle que `issueSociale` lit (un PREMIER envoi n'est jamais « rejoué »).
         if (op.table === Attente.SOCIAL && !op.parti) {
           attente = Attente.marquerParti(attente, op.cle);
-          await Cache.ecrireAttente(attente).catch(function () {});
+          await ecrireLaFile().catch(function () {});
           if (!generationValide(g)) return;
         }
         var echec = await Attente.envoyer(op, executer, refermerSeancesSauf);
@@ -4705,7 +4739,7 @@
           // (`issueSociale`, `Social.issueDuGeste`).
           var issue = Attente.apresEchec(attente, op, echec, issueSociale);
           attente = issue.file;
-          await Cache.ecrireAttente(attente).catch(function () {});
+          await ecrireLaFile().catch(function () {});
           if (issue.suite === 'faite') { noterGesteSocial(op, null); continue; }
           if (issue.suite === 'refusee') {
             console.warn('Geste social refusé par la base (' + op.cle + ') :', texteErreur(echec));
@@ -4746,7 +4780,7 @@
         // Les observations qui attendaient repartent (`apresSucces`).
         attente = Attente.apresSucces(attente, op);
         if (op.table === Attente.SETS) envoisDeSeries++;
-        await Cache.ecrireAttente(attente).catch(function () {});
+        await ecrireLaFile().catch(function () {});
         if (op.table === Attente.OBSERVATIONS) await confirmerObservation(op);
         if (op.table === Attente.SOCIAL) noterGesteSocial(op, null);
       }
@@ -5096,7 +5130,7 @@
     var r = Attente.reparerIdentifiants(attente, uuid);
     if (!r.entrees) return;
     attente = r.file;
-    try { await Cache.ecrireAttente(attente); }
+    try { await ecrireLaFile(); }
     catch (e) { console.warn('File réparée non persistée :', texteErreur(e)); }
     console.warn('File réparée : ' + r.lignes + ' série(s) sans identifiant dans ' +
       r.entrees + ' envoi(s) — ' + 'déblocage et renvoi complet.');
@@ -5119,7 +5153,7 @@
     var r = Attente.reparerBornes(attente, Seance.bornerLigne);
     if (!r.entrees) return;
     attente = r.file;
-    try { await Cache.ecrireAttente(attente); }
+    try { await ecrireLaFile(); }
     catch (e) { console.warn('File réparée non persistée :', texteErreur(e)); }
     console.warn('File réparée : ' + r.entrees + ' envoi(s) hors bornes débloqué(s)' +
       (r.lignes ? ', ' + r.lignes + ' série(s) bornée(s)' : '') + '.');
@@ -5135,7 +5169,7 @@
     var r = Attente.reparerConflitsEnCours(attente);
     if (!r.entrees) return;
     attente = r.file;
-    try { await Cache.ecrireAttente(attente); }
+    try { await ecrireLaFile(); }
     catch (e) { console.warn('File réparée non persistée :', texteErreur(e)); }
     console.warn('File réparée : ' + r.entrees + ' séance(s) en conflit « une seule en cours » débloquée(s).');
   }
@@ -5146,7 +5180,7 @@
     var r = Attente.reparerSchema(attente);
     if (!r.entrees) return;
     attente = r.file;
-    try { await Cache.ecrireAttente(attente); }
+    try { await ecrireLaFile(); }
     catch (e) { console.warn('File réparée non persistée :', texteErreur(e)); }
     console.warn('File : ' + r.entrees + ' envoi(s) refusé(s) faute de colonne ou de table retenté(s).');
   }
@@ -5351,15 +5385,18 @@
   // Toujours résolue (jamais rejetée) : on l'attend sans jamais en dépendre.
   var verificationSeance = null;
 
+  // D1 — UNE LECTURE RATÉE N'EST JAMAIS UNE FILE VIDE. `Cache.lireLeLocal` lit le brouillon, sa passerelle et la file
+  // chacun pour soi. Ce qui n'a pas été lu reste marqué (`seanceLue`, `fileLue`) : tant que la file n'est pas lue, rien
+  // ne l'écrit (`ecrireLaFile`) — le disque garde ce qu'il porte, et la lecture est reprise à la prochaine écriture.
+  var seanceLue = true, fileLue = true;
   async function chargerSeanceLocale() {
-    try {
-      seance = await Cache.lireBrouillon('seance');
-      // 21/11/2026 (I253) — un brouillon d'une version d'avant la marque de la série de mesure : la passerelle, au brouillon seulement.
-      if (seance) seance = Seance.marquerLeBrouillonDAvant(seance);
-      attente = await Cache.lireAttente();
-    } catch (e) {
-      console.warn('Séance locale illisible :', texteErreur(e));
-      seance = null; attente = [];
+    var r = await Cache.lireLeLocal(Seance.marquerLeBrouillonDAvant);
+    seance = r.seance; attente = r.attente; seanceLue = r.seanceLue; fileLue = r.fileLue;
+    // 21/11/2026 (I253) — la passerelle d'un brouillon d'avant la marque de la série de mesure : si elle lève, le brouillon brut est gardé.
+    if (r.passerelleEnEchec) console.warn('Brouillon relu sans passerelle :', texteErreur(r.passerelleEnEchec));
+    if (!r.seanceLue || !r.fileLue) {
+      console.warn('Séance locale illisible, rien n\u2019est écrit par-dessus :', texteErreur(r.erreur));
+      direSauvegardeImpossible();
     }
     // §9.13 bis (49-U3) — les consignes figées de CETTE séance, relues avec
     // elle. Une lecture qui échoue ne coûte qu'un recalcul : on n'invente rien.
@@ -5406,7 +5443,7 @@
     if (!lignes || !lignes.length) {
       var avant = attente.length;
       attente = Attente.retirer(attente, Attente.cleDe(Attente.RECORDS, id));
-      if (attente.length !== avant) await Cache.ecrireAttente(attente).catch(function () {});
+      if (attente.length !== avant) await ecrireLaFile().catch(function () {});
       return;
     }
     var r = Sync.ajouterAuJournal(local.records, lignes);
@@ -17729,17 +17766,21 @@
   // ⚠️ LE CACHE D'ABORD, LE RÉSEAU ENSUITE, ET JAMAIS D'ATTENTE. Le profil
   // s'affiche hors ligne comme le reste : il tient dans le magasin `meta`, qui
   // existe depuis la version 1 du cache — aucune montée de version ici.
+  // D1 — une lecture ratée du profil à envoyer n'est pas « rien à envoyer » : on n'écrit pas `false` par-dessus.
+  var profilEnvoiLu = true;
   async function chargerProfilLocal() {
     try {
       var v = await Cache.lireMeta(CLE_PROFIL);
       if (v) profil = v;
       profilAEnvoyer = Profil.lireEnAttente(await Cache.lireMeta(CLE_PROFIL_ENVOI));
-    } catch (e) { /* cache indisponible : on repartira du réseau */ }
+      profilEnvoiLu = true;
+    } catch (e) { profilEnvoiLu = false; /* cache indisponible : on repartira du réseau */ }
   }
 
   async function sauverProfilLocal() {
     try {
       await Cache.ecrireMeta(CLE_PROFIL, profil);
+      if (!profilEnvoiLu && !profilAEnvoyer) return;
       await Cache.ecrireMeta(CLE_PROFIL_ENVOI, profilAEnvoyer);
     } catch (e) { /* rien à faire : la copie réseau reste la référence */ }
   }
@@ -20348,7 +20389,7 @@
   // séances, c'est 50 entrées, et `Cache.ecrireAttente` réécrit toute la file.
   async function poserPaquet(ops) {
     ops.forEach(function (op) { attente = Attente.poser(attente, op); });
-    try { await Cache.ecrireAttente(attente); }
+    try { await ecrireLaFile(); }
     catch (e) { console.warn('File non persistée :', texteErreur(e)); direSauvegardeImpossible(); }
     rendreEtatSync();
     vidanger();

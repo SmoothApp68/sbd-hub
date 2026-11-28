@@ -347,6 +347,19 @@
     return sortie;
   }
 
+  // D1 — la file du disque, enfin relue après une lecture ratée, rejoint ce qui a été posé en mémoire entre-temps.
+  // Le disque fait foi pour ce qu'il porte ; une entrée de la mémoire de même clé le remplace (elle est plus récente, à la place du disque),
+  // les autres s'y ajoutent à la suite. Rien de ce qui est sur le disque ne disparaît.
+  function fusionnerLue(disque, memoire) {
+    var liste = (disque || []).slice();
+    (memoire || []).forEach(function (e) {
+      var i = indexDe(liste, e.cle);
+      if (i >= 0) liste[i] = Object.assign({}, e, { seq: liste[i].seq });
+      else liste.push(Object.assign({}, e, { seq: prochainSeq(liste) }));
+    });
+    return liste;
+  }
+
   function indexDe(liste, cle) {
     for (var i = 0; i < liste.length; i++) if (liste[i].cle === cle) return i;
     return -1;
@@ -1010,6 +1023,7 @@
     CONTRAINTE_EN_COURS: CONTRAINTE_EN_COURS,
     reparerConflitsEnCours: reparerConflitsEnCours,
     poser: poser,
+    fusionnerLue: fusionnerLue,
     ordonnee: ordonnee,
     prochaine: prochaine,
     gardeDeVidange: gardeDeVidange,

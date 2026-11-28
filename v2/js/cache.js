@@ -460,10 +460,28 @@
   function lireAttente() { return lireTout('attente'); }
   function ecrireAttente(file) { return remplacerTout('attente', file || []); }
 
+  // ⚠️ D1 — UNE LECTURE RATÉE N'EST JAMAIS UNE FILE VIDE. Le brouillon, sa passerelle et la file se lisent chacun
+  // pour soi : l'échec de l'un ne vide pas l'autre. `seanceLue` / `fileLue` disent ce qui a VRAIMENT été lu ; tant
+  // que `fileLue` est faux, l'appelant n'écrit pas la file (il garde ce qui est sur le disque et relit plus tard).
+  // `passerelle` (`marquerLeBrouillonDAvant`) est du JS qui peut lever : alors le brouillon brut est gardé tel quel.
+  async function lireLeLocal(passerelle) {
+    var r = { seance: null, attente: [], seanceLue: false, fileLue: false, erreur: null, passerelleEnEchec: null };
+    try { r.seance = await lireBrouillon('seance'); r.seanceLue = true; }
+    catch (e) { r.erreur = e; }
+    if (r.seance && typeof passerelle === 'function') {
+      try { r.seance = passerelle(r.seance); }
+      catch (e) { r.passerelleEnEchec = e; }
+    }
+    try { r.attente = await lireAttente(); r.fileLue = true; }
+    catch (e) { r.erreur = r.erreur || e; }
+    return r;
+  }
+
   racine.THCache = {
     devenirEcrivain: devenirEcrivain,
     estEcrivain: estEcrivain,
     estLecteur: estLecteur,
+    lireLeLocal: lireLeLocal,
     ouvrir: ouvrir,
     lireBrouillon: lireBrouillon,
     ecrireBrouillon: ecrireBrouillon,

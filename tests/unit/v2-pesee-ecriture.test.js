@@ -179,11 +179,11 @@ describe('148 — la garde commune des gestes en vol (diagnostic 146)', () => {
 
   function bac() {
     const vus = [];
-    const ctx = { Attente, attente: [], gestesEnVol: {}, vus,
+    const ctx = { Attente, attente: [], gestesEnVol: {}, vus, fileLue: true,
       Cache: { ecrireAttente: () => { vus.push(JSON.stringify(ctx.gestesEnVol)); return Promise.resolve(); } },
       rendreEtatSync: () => {}, vidanger: () => {}, direSauvegardeImpossible: () => {}, texteErreur: String };
     vm.createContext(ctx);
-    ['noterGesteEnVol', 'protegeesEtEnVol', 'poser'].forEach((n) => vm.runInContext(extraire(n), ctx));
+    ['noterGesteEnVol', 'protegeesEtEnVol', 'ecrireLaFile', 'poser'].forEach((n) => vm.runInContext(extraire(n), ctx));
     return ctx;
   }
 

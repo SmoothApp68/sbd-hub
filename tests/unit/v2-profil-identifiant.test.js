@@ -386,7 +386,7 @@ describe('le pseudo saisi à l’inscription traverse l’entrée du compte jusq
       nouvelleGeneration: () => { ctx.generation++; journal.generations++; },
       userId: () => etat.memoire,
       Auth: { sessionCourante: () => Promise.resolve(session(etat.client, undefined, opt.metadonnees)) },
-      racine: { localStorage: stockageFactice() }, CLE_PSEUDO_PRIS,
+      racine: { localStorage: stockageFactice(), THFaits: { creer: () => ({ oublierDates: () => {} }) } }, CLE_PSEUDO_PRIS,
       entrer: () => {},
       Sync,
       Cache: {
@@ -407,6 +407,11 @@ describe('le pseudo saisi à l’inscription traverse l’entrée du compte jusq
       oublierSuppressionDifferee: () => {},
       // 118 — ce qui attend hors de la file (réponse de profil, messages du groupe) se garde avec la file.
       gardesDuCompte: () => [], preparerGardesDuCompte: (v) => v,
+      // P0 (28/11/2026) — l'état du compte se vide par `viderEtatDuCompte` : la mémoire est celle de B (le compte qui
+      // entre) ; ses réglages d'appareil, ses réveils, ses mémos, l'assistant sont hors du sujet ici.
+      compteEnMemoire: 'B', Quitter: { effacerReglagesDuCompte: () => [] }, stockageSur: () => null,
+      arreterMinuteur: () => {}, arreterDuree: () => {}, arreterMinuteurTenue: () => {},
+      lireDossiersReplies: () => ({}), lireAvisVus: () => ({}), Assistant: null,
       Donnees: {
         monProfil: (id) => Promise.resolve(id === etat.client ? (base.lignes[id] || null) : null),
         enregistrerProfil: (id, champs) => {
@@ -425,7 +430,7 @@ describe('le pseudo saisi à l’inscription traverse l’entrée du compte jusq
       texteErreur: (e) => String(e && e.message || e)
     };
     vm.createContext(ctx);
-    ['idDeSession', 'garantirProprietaire', 'identifiantDuProfil', 'metadonneesDuCompte', 'retenirPseudoPris', 'chargerProfil',
+    ['idDeSession', 'garantirProprietaire', 'viderEtatDuCompte', 'oublierLaMemoireDuCompte', 'localVide', 'identifiantDuProfil', 'metadonneesDuCompte', 'retenirPseudoPris', 'chargerProfil',
       'envoyerProfil', 'envoyerProfilMaintenant']
       .forEach((n) => vm.runInContext(extraire(n), ctx));
     return { ctx, base, journal, etat, stockage: ctx.racine.localStorage.cles,
@@ -529,7 +534,11 @@ describe('le pseudo saisi à l’inscription traverse l’entrée du compte jusq
   // ── Ce qui reste remis à zéro, et par qui ─────────────────────────────────
   test('GARDE — `garantirProprietaire` n’écrit plus le pseudo ; « Quitter » (`deconnecter`) le remet toujours à zéro', () => {
     expect(extraire('garantirProprietaire')).not.toMatch(/pseudoAInscrire\s*=/);
-    expect(extraire('deconnecter')).toMatch(/pseudoAInscrire = null/);
+    // P0 (28/11/2026) — « Quitter » vide l'état du compte par `viderEtatDuCompte('quitter')`, qui jette le pseudo ; le
+    // changement de compte (`'changement'`) le garde.
+    expect(extraire('deconnecter')).toMatch(/viderEtatDuCompte\('quitter'\)/);
+    expect(extraire('viderEtatDuCompte')).toMatch(/if \(pour === 'quitter'\) pseudoAInscrire = null;/);
+    expect(extraire('oublierLaMemoireDuCompte')).not.toMatch(/pseudoAInscrire\s*=/);
     // L'échec d'une inscription, et la lecture qui le pose dans la ligne, le remettent aussi à zéro.
     expect(extraire('soumettreEntree')).toMatch(/catch \(err\) \{\s*pseudoAInscrire = null;/);
     expect(extraire('chargerProfil')).toMatch(/pseudoAInscrire = null;/);
@@ -808,10 +817,10 @@ describe('121 — `oublierSocial` : « Quitter » et un autre compte qui entre r
     // Une lecture en vol pour A ne s'affiche jamais chez B (le jeton monte) ; l'horloge des gestes ne redescend pas.
     expect([s.jeton, s.horloge, b.ctx.jetonEntreAmis]).toEqual([8, 4, 6]);
   });
+  // P0 (28/11/2026) — par la seule fonction qui vide l'état du compte.
   test('« Quitter » (`deconnecter`) et l’entrée d’un autre compte (`garantirProprietaire`) l’appellent, après le groupe', () => {
-    ['deconnecter', 'garantirProprietaire'].forEach((n) => {
-      const corps = extraire(n);
-      expect(corps).toMatch(/oublierGroupe\(\);[\s\S]*?oublierSocial\(\);/);
-    });
+    ['deconnecter', 'garantirProprietaire'].forEach((n) => expect(extraire(n)).toMatch(/viderEtatDuCompte\('(?:quitter|changement)'/));
+    expect(extraire('viderEtatDuCompte')).toMatch(/oublierLaMemoireDuCompte\(\)/);
+    expect(extraire('oublierLaMemoireDuCompte')).toMatch(/oublierGroupe\(\);[\s\S]*?oublierSocial\(\);/);
   });
 });

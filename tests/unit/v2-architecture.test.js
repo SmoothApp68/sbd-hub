@@ -2443,6 +2443,17 @@ const NOTIONS = [
     parAilleurs: { 'app.js': ['effacerUnRetenu'] },
     raison: 'la carte, son « Garder », « Annuler » et « Ce que le coach a retenu » écrivent la même forme : une seule fonction rend ' +
       'la valeur de `cartes_semaine`.' },
+  // P0 (28/11/2026, synthèse de la vague 3 §1.1) — CHANGER DE COMPTE SUR LE MÊME TÉLÉPHONE NE LAISSE RIEN DU PRÉCÉDENT.
+  { notion: 'l’état du compte vidé (mémoire, réglages d’appareil, magasins du cache)', pr: 'correctif 28/11/2026',
+    module: 'app.js', fonction: 'viderEtatDuCompte', lecteurs: [],
+    par: ['garantirProprietaire', 'deconnecter', 'sessionTerminee', 'arreterLEntree'],
+    raison: 'quatre listes écrites à la main (« Quitter », un autre compte qui entre, la session finie seule, la génération), ' +
+      'aucune complète : les réglages de A pilotaient le coach de B, et un stockage muet lui montrait l’historique de A.' },
+  { notion: 'les clés de l’appareil qui appartiennent au compte (effacées quand un autre entre)', pr: 'correctif 28/11/2026',
+    module: 'quitter.js', fonction: 'effacerReglagesDuCompte', lecteurs: ['app.js'],
+    parAilleurs: { 'app.js': ['viderEtatDuCompte'] },
+    raison: 'l’effacement est le défaut (`cleDuCompte`) : seules les clés de l’appareil et celles qui portent l’identifiant du ' +
+      'compte restent ; une clé ajoutée demain sans y penser ne peut pas passer d’un compte au suivant.' },
 ];
 
 // ── 58-1 — UN FAIT NE SE DÉCLARE QUE DANS `faits.js` ─────────────────────────

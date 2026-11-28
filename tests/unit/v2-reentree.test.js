@@ -202,12 +202,14 @@ describe('ce qui reste une entrée complète', () => {
     DANGEREUSES.forEach((l) => expect(b.lectures).toContain(l));
   });
 
+  // P0 (28/11/2026) — par la seule fonction qui vide l'état du compte (« Quitter » et la session finie seule).
   test('`deconnecter` et le rappel sans session remettent bien la marque à zéro', () => {
-    const deco = extraire('deconnecter');
-    expect(deco).toMatch(/entreeFaitePour = null/);
+    expect(extraire('deconnecter')).toMatch(/viderEtatDuCompte\('quitter'\)/);
+    expect(extraire('sessionTerminee')).toMatch(/viderEtatDuCompte\('session'\)/);
+    expect(extraire('viderEtatDuCompte')).toMatch(/if \(pour === 'session' \|\| pour === 'quitter'\) \{[\s\S]*?entreeFaitePour = null/);
     // 70 — le rappel reçoit aussi l'événement (`PASSWORD_RECOVERY`).
     const rappel = APP.match(/Auth\.surChangement\(function \(session, evenement\) \{[\s\S]*?\n    \}\);/);
-    expect(rappel && rappel[0]).toMatch(/entreeFaitePour = null/);
+    expect(rappel && rappel[0]).toMatch(/if \(Auth\.sessionPersistee\(\)\) return;\s*sessionTerminee\(\);/);
   });
 
   test('deux entrées simultanées au démarrage partagent la même promesse (garde existante)', async () => {

@@ -225,8 +225,10 @@ describe('GARDES — le branchement', () => {
     expect(f).not.toMatch(/await envoyerProfil\(\)/);
   });
 
+  // P0 (28/11/2026) — par la seule fonction qui vide l'état du compte (`viderEtatDuCompte('quitter')`).
   test('« Quitter quand même » remet toujours le profil à zéro (`deconnecter`, inchangée)', () => {
-    const f = extraire('deconnecter');
+    expect(extraire('deconnecter')).toMatch(/viderEtatDuCompte\('quitter'\)/);
+    const f = extraire('oublierLaMemoireDuCompte');
     expect(f).toMatch(/profilAEnvoyer = false/);
     expect(f).toMatch(/fermerQuestionnaire\(\); envoiProfil = null/);
   });

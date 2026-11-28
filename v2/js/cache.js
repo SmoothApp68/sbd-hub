@@ -32,8 +32,9 @@
   //   cache d'avant s'ouvre, le magasin naît vide et se remplit à la
   //   synchronisation suivante.
   var VERSION = 8;
-  // ⚠️ C'EST CETTE LISTE QUE « QUITTER » VIDE (`viderTout`) : un magasin qui
-  // n'y est pas survit à la déconnexion et se relit sous le compte suivant.
+  // Les magasins que cette version CRÉE. Depuis P0 (28/11/2026), « Quitter » (`viderTout`) et le changement de
+  // compte (`changerDeCompte`) ne vident plus cette liste : ils PARCOURENT les magasins de la base
+  // (`nomsDesMagasins`), si bien qu'un magasin oublié ici serait vidé quand même. Elle reste la référence :
   // `records` (58-2) y est ; `predictions` y manquait (relevé de sécurité 59-0)
   // et y est depuis 59-2. Tout magasin créé plus bas doit y figurer — le test
   // `v2-cache-integrite` le vérifie, magasin par magasin.
@@ -178,12 +179,29 @@
     if (!err) return false;
     return err.name === 'InvalidStateError' || /Connection to Indexed Database server lost/i.test(String(err.message || ''));
   }
+  // P0 (28/11/2026, comptes étanches) — `magasins` à `TOUS` : la transaction porte sur TOUS les magasins que la base
+  // contient vraiment (`nomsDesMagasins`), parcourus et non listés à la main — un magasin ajouté demain (une montée
+  // de VERSION) est vidé au changement de compte et à « Quitter » sans que personne pense à l'inscrire. `travail`
+  // reçoit alors la liste en second argument.
+  var TOUS = null;
+  function nomsDesMagasins(db) {
+    var n = db && db.objectStoreNames;
+    if (n && typeof n.length === 'number') {
+      var noms = [];
+      for (var i = 0; i < n.length; i++) noms.push(n.item ? n.item(i) : n[i]);
+      // Les magasins connus d'abord (ils existent toujours après la montée), puis ceux que la liste ignore.
+      return MAGASINS.filter(function (m) { return noms.indexOf(m) >= 0; })
+        .concat(noms.filter(function (m) { return MAGASINS.indexOf(m) < 0; }));
+    }
+    return MAGASINS.slice();
+  }
   function operation(magasins, mode, travail) {
     var essai = function () {
       var connexion = null;
       return ouvrir().then(function (db) {
         connexion = db;
-        return travail(db.transaction(magasins, mode));
+        var noms = magasins === TOUS ? nomsDesMagasins(db) : magasins;
+        return travail(db.transaction(noms, mode), noms);
       }).catch(function (err) {
         if (connexion && connexionPerdue(err)) {
           if (_db === connexion) _db = null;
@@ -302,9 +320,10 @@
 
   // Purge totale. Appelée à la déconnexion et dès qu'un autre compte se
   // présente : le cloisonnement local doit valoir celui du RLS.
+  // P0 (28/11/2026) — tous les magasins de la base, parcourus (`TOUS`), pas seulement ceux de la liste.
   function viderTout() {
-    return operation(MAGASINS, 'readwrite', function (tx) {
-      MAGASINS.forEach(function (m) { tx.objectStore(m).clear(); });
+    return operation(TOUS, 'readwrite', function (tx, noms) {
+      noms.forEach(function (m) { tx.objectStore(m).clear(); });
       return finDe(tx);
     });
   }
@@ -322,8 +341,10 @@
   var CLE_FILES_GARDEES = 'files-gardees';
   var CLE_GARDES_AUTRES = 'gardes-du-compte';
   function changerDeCompte(ancienUid, nouveauUid, autres, preparer) {
-    var liste = (autres || []).filter(function (x) { return x && MAGASINS.indexOf(x.magasin) >= 0 && x.cle; });
-    return operation(MAGASINS, 'readwrite', function (tx) {
+    var demandes = (autres || []).filter(function (x) { return x && x.magasin && x.cle; });
+    // P0 (28/11/2026) — TOUS les magasins de la base, parcourus : un magasin qui manque à `MAGASINS` est vidé quand même.
+    return operation(TOUS, 'readwrite', function (tx, noms) {
+      var liste = demandes.filter(function (x) { return noms.indexOf(x.magasin) >= 0; });
       var issue = { rendue: [], gardees: {}, rendues: {} };
       var b = tx.objectStore('brouillon'), a = tx.objectStore('attente');
       var lu = b.get(CLE_FILES_GARDEES);
@@ -339,13 +360,13 @@
               var calc = racine.THAttente.changerDeCompte(gardees, ancienUid, file.result || [], nouveauUid);
               var aGarder = typeof preparer === 'function' ? preparer(valeurs) : valeurs;
               var calcAutres = racine.THAttente.changerDeCompteAutres(gardesAutres, ancienUid, aGarder, nouveauUid);
-              MAGASINS.forEach(function (m) { tx.objectStore(m).clear(); });
+              noms.forEach(function (m) { tx.objectStore(m).clear(); });
               if (Object.keys(calc.gardees).length) b.put({ cle: CLE_FILES_GARDEES, valeur: calc.gardees });
               if (Object.keys(calcAutres.gardes).length) b.put({ cle: CLE_GARDES_AUTRES, valeur: calcAutres.gardes });
               calc.rendue.forEach(function (e) { a.put(e); });
               Object.keys(calcAutres.rendues).forEach(function (k) {
                 var i = k.indexOf(':'), m = k.slice(0, i);
-                if (MAGASINS.indexOf(m) >= 0) tx.objectStore(m).put({ cle: k.slice(i + 1), valeur: calcAutres.rendues[k] });
+                if (noms.indexOf(m) >= 0) tx.objectStore(m).put({ cle: k.slice(i + 1), valeur: calcAutres.rendues[k] });
               });
               issue = { rendue: calc.rendue, gardees: calc.gardees, rendues: calcAutres.rendues };
             };
@@ -419,6 +440,7 @@
     lireFilesGardees: lireFilesGardees,
     lireGardesAutres: lireGardesAutres,
     estBloquee: estBloquee,
+    nomsDesMagasins: nomsDesMagasins,
     DELAI_BLOQUE_MS: DELAI_BLOQUE_MS
   };
 })(typeof self !== 'undefined' ? self : globalThis);

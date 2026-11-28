@@ -142,3 +142,33 @@ describe('b2 (6) — les pluriels : « pour les étirer » et le pari de program
     expect(pari(3, 3)).toBe('Le coach avait parié que tes 3 exercices progresseraient : 3 ont progressé.');
   });
 });
+
+describe('b2 (7) — decomposerCharge : un disque à 0 ne boucle jamais', () => {
+  // Sans la garde, la boucle ne finit pas : le test la joue dans un processus à part, avec un délai (un test synchrone ne peut pas s'interrompre lui-même).
+  const { spawnSync } = require('child_process');
+  const joue = (presents, charge) => {
+    const code = "global.self = global; var M = require(" + JSON.stringify(require.resolve('../../v2/js/moteur.js')) + ");" +
+      "console.log(JSON.stringify(M.decomposerCharge(" + (charge || 60) + ", 20, " + JSON.stringify(presents) + ")));";
+    const r = spawnSync(process.execPath, ['-e', code], { timeout: 8000, encoding: 'utf8', env: Object.assign({}, process.env, { TZ: 'Europe/Paris' }) });
+    return { fini: r.error === undefined, sortie: (r.stdout || '').trim() };
+  };
+  test('un disque à 0 parmi les disques présents, charge impossible : { ok: false }, sans boucle', () => {
+    const r = joue([10, 0], 62);
+    expect(r.fini).toBe(true);
+    expect(JSON.parse(r.sortie)).toEqual({ ok: false });
+  });
+  test('un disque à 0 parmi les disques présents, charge possible : rend, sans l\'utiliser', () => {
+    const r = joue([0, 10, 5]);
+    expect(r.fini).toBe(true);
+    expect(JSON.parse(r.sortie)).toEqual({ ok: true, parCote: [10, 10] });
+  });
+  test('que des disques à 0 (ou négatifs) : { ok: false }, sans boucle', () => {
+    const r = joue([0, -5]);
+    expect(r.fini).toBe(true);
+    expect(JSON.parse(r.sortie)).toEqual({ ok: false });
+  });
+  test('inchangé : les disques présents valides', () => {
+    expect(M.decomposerCharge(60, 20, [25, 20, 10, 5, 2.5, 1.25])).toEqual({ ok: true, parCote: [20] });
+    expect(M.decomposerCharge(65, 20, [25, 20, 10, 5, 2.5, 1.25])).toEqual({ ok: true, parCote: [20, 2.5] });
+  });
+});

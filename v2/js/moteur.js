@@ -1003,7 +1003,8 @@
     if (c === null || b === null || c < b - 1e-9) return { ok: false };
     var reste = Math.round((c - b) / 2 * 100);
     if (Math.abs((c - b) / 2 * 100 - reste) > 1e-6 * Math.max(1, reste)) return { ok: false };
-    var ds = (presents || []).map(function (k) { return Math.round(k * 100); }).sort(function (x, y) { return y - x; });
+    // b2 (7) — un disque à 0 (ou négatif, ou illisible) n'existe pas : `Math.floor(r / 0)` est infini et la boucle ne finissait jamais.
+    var ds = (presents || []).map(function (k) { return Math.round(k * 100); }).filter(function (k) { return k > 0; }).sort(function (x, y) { return y - x; });
     var echecs = {};
     function chercher(r, i) {
       if (r === 0) return [];

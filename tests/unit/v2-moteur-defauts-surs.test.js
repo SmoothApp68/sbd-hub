@@ -172,3 +172,28 @@ describe('b2 (7) — decomposerCharge : un disque à 0 ne boucle jamais', () => 
     expect(M.decomposerCharge(65, 20, [25, 20, 10, 5, 2.5, 1.25])).toEqual({ ok: true, parCote: [20, 2.5] });
   });
 });
+
+describe('b2 (8) — le mémo des plafonds et de la charge la plus lourde ne sert pas un résultat périmé quand une séance passée est corrigée EN PLACE', () => {
+  // Les corrections de la fiche d'un exercice modifient parfois le tableau de séries d'une séance passée sans le remplacer : même référence, même longueur.
+  // Le test tranche : la consigne rejouée sur l'historique corrigé en place est celle d'une copie neuve du même historique (verdict du 28/11/2026 : aucun défaut).
+  const jourH = (i) => new Date(Date.UTC(2026, 9, 1 + i * 4, 18)).toISOString();
+  const hist = (reps) => reps.map((r, i) => seance(i, r.map((x) => g(100, x))));
+  const run = (l) => JSON.stringify(M.consigneDExercice(l, undefined, new Date(Date.parse(jourH(9)) + 4 * 864e5).toISOString(), OPT));
+  const huit = () => hist(Array.from({ length: 10 }, () => [8, 8, 8]));
+  test('les reps de neuf séances passées corrigées en place : même consigne qu\'une copie neuve (et la consigne a bien changé)', () => {
+    const L = huit();
+    const avant = run(L);
+    L.slice(0, 9).forEach((se) => se.series.forEach((s) => { s.reps = 3; }));
+    const enPlace = run(L);
+    expect(enPlace).toBe(run(JSON.parse(JSON.stringify(L))));
+    expect(enPlace).not.toBe(avant);          // la fixture déclenche vraiment le chemin : la correction change la consigne
+  });
+  test('une charge passée corrigée en place (la plus lourde charge de la séance) : même consigne qu\'une copie neuve', () => {
+    const L = huit();
+    const avant = run(L);
+    L.slice(0, 9).forEach((se, i) => se.series.forEach((s) => { s.charge_kg = 60 + 7.5 * i; }));   // un plan de charges de 7,5 kg, écrit en place
+    const enPlace = run(L);
+    expect(enPlace).toBe(run(JSON.parse(JSON.stringify(L))));
+    expect(enPlace).not.toBe(avant);
+  });
+});

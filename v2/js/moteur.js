@@ -2135,6 +2135,16 @@
   function neutraliserLeZero(se) {
     return { debut: se.debut, palier: null, neutre: true, series: se.series || [], plafondZero: se.plafondZero, decharge: se.decharge };
   }
+  // b2 (1) — « ta grosse série » et « tes reculs » du jour sans : deux lectures DISTINCTES (elles étaient la même expression). Les reculs : des séries de recul restées à 0 rep.
+  // La grosse série : une série non-recul restée à 0 (travail ou manquée), dans une séance qui a des reculs (« ta grosse série » seulement en bloc à reculs, MOTEUR §9.42 bis).
+  function reculsDuZero(series) {
+    return (series || []).some(function (x) { return !!x && x.origine === 'recul' && nombre(x.reps) === 0; });
+  }
+  function grosseDuZero(series) {
+    var liste = series || [];
+    var grosse = liste.some(function (x) { return !!x && x.origine !== 'recul' && nombre(x.reps) === 0 && (x.role === 'palier' || x.role === 'travail' || x.origine === 'echec'); });
+    return grosse && liste.some(function (x) { return !!x && x.origine === 'recul'; });
+  }
   // La séance de zéro `triees[i]` ouvre-t-elle un jour sans ? `legeres` : les séances légères passées d'avant (neutres), `jeton` : un jour sans ouvert, pas encore clos.
   // Rend `{ palier, charge, niveau, zoneBas, tenue, grosse, reculs }` ou `null`.
   function jourSansOuvrable(triees, i, legeres, jeton, opt, protegee) {
@@ -2154,8 +2164,7 @@
     if (lues.length < JOUR_SANS_LUES) return null;
     var zone = zoneParCle(base.zone);
     return { palier: P, charge: Ch, niveau: nombre(base.niveau), zoneBas: zone === null ? null : zone.bas,
-             tenue: lues[lues.length - 1].debut, grosse: (Z.series || []).some(function (x) { return x && x.origine === 'recul'; }),
-             reculs: (Z.series || []).some(function (x) { return x && x.origine === 'recul'; }) };
+             tenue: lues[lues.length - 1].debut, grosse: grosseDuZero(Z.series), reculs: reculsDuZero(Z.series) };
   }
   // « Elle passe » : au moins une série couverte (palier ou travail), et aucune sous le bas de la zone de `base` (`rateSousLaZone`, la notion partagée).
   function legerePasse(se, zoneBas) {

@@ -348,7 +348,7 @@ describe('C3 : après un zéro rep, aucune garde de ligne', () => {
     let se = Seance.creer({ id: 'S', userId: 'u', idSerie: id }); se = Seance.ajouterExercice(se, 'x', id, { series: c.n || 3 });
     se = Seance.modifierSerie(se, 0, 0, { charge_kg: 70, reps: 11 }); se = Seance.definirEffort(se, 0, 0, { rpe: 10, ressenti: null });
     se = Seance.valider(se, 0, 0, new Date(Date.parse(avant) + 30 * 60000));
-    const e = { seance: { id: 'S', debut: avant, edition: false, exercices: se.exercices, gestes: [] }, consignes: { x: { consigne: c, contexte: { cran: 2.5, haut: null } } },
+    const e = { seance: { id: 'S', debut: avant, edition: false, exercices: se.exercices, gestes: [] }, consignes: { x: { consigne: c, pas: 2.5, contexte: { cran: 2.5, haut: null } } },   // le pas de la machine est celui que la fixture donne (sans lui, le repli de la machine : 5 kg, lot b2 n° 2)
       reglage: 'franc', paris: [], objectif: 'muscle', catalogue: { x: { nom: 'Presse', equipement: 'machine', polyarticulaire: true, muscles_primaires: ['quadriceps'] } } };
     const x = Plan.planDeSeance(e).exercices[0];
     expect(x.gardeDeLigne).toBeNull();
